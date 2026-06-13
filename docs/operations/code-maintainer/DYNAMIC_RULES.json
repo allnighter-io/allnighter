@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "suppressions": [],
+  "policies": [
+    {
+      "name": "no-barrel-only-splits",
+      "rule": "A Structure batch may not count a split as Reduction if the parent becomes only re-exports. Ownership movement is the outcome, not file count."
+    },
+    {
+      "name": "dirty-tree-scout-readonly",
+      "rule": "When git status is dirty and no explicit path is named, Structure scouting is readonly until the user names a scope."
+    }
+  ],
+  "promotion_candidates": []
+}
