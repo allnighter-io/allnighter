@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import AllnighterCore
+import AllnighterEngine
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
@@ -130,9 +131,16 @@ private struct RunResultsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     StatusStrip(run: run)
-                    ForEach(run.members) { member in
-                        MemberCard(member: member, worker: worker(for: member.workerId))
+                    MasterPlanCard(run: run)
+                    DisclosureGroup("Member answers (\(run.members.count))") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(run.members) { member in
+                                MemberCard(member: member, worker: worker(for: member.workerId))
+                            }
+                        }
+                        .padding(.top, 6)
                     }
+                    .font(.headline)
                 }
                 .padding()
             }
@@ -147,6 +155,69 @@ private struct RunResultsView: View {
 
     private func worker(for id: String) -> Worker? {
         model.workers.first { $0.id == id }
+    }
+}
+
+private struct MasterPlanCard: View {
+    @Environment(AppModel.self) private var model
+    let run: CouncilRun
+    @State private var pastedPlan: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Master Plan", systemImage: "doc.text.magnifyingglass").font(.title3.bold())
+                Spacer()
+                if run.synthesis?.status == .complete {
+                    Button { copy(RunMarkdown.masterPlan(run)) } label: {
+                        Label("Copy plan", systemImage: "doc.on.doc")
+                    }
+                    Button { copy(model.bundleMarkdown()) } label: {
+                        Label("Copy full bundle", systemImage: "tray.and.arrow.up")
+                    }
+                }
+            }
+            content
+            if let dir = model.lastSavedDirectory, run.synthesis?.status == .complete {
+                Text("Saved to \(dir.path)")
+                    .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            }
+        }
+        .padding()
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.accentColor.opacity(0.25)))
+    }
+
+    @ViewBuilder private var content: some View {
+        if run.synthesis?.status == .complete {
+            Text(RunMarkdown.masterPlan(run)).textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if run.status == .synthesizing {
+            HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Synthesizing the master plan…") }
+        } else if let manual = model.manualSynthesisPrompt {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your synthesizer is a manual worker. Run this prompt in its app, then paste the master plan:")
+                    .font(.callout).foregroundStyle(.secondary)
+                Button { copy(manual) } label: { Label("Copy synthesis prompt", systemImage: "doc.on.doc") }
+                TextEditor(text: $pastedPlan)
+                    .frame(minHeight: 80)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
+                Button("Use this master plan") { model.setManualSynthesis(pastedPlan) }
+                    .disabled(pastedPlan.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        } else if run.synthesis?.status == .failed || run.status == .partial {
+            Label("Synthesis did not produce a plan. The member answers below are still available.",
+                  systemImage: "exclamationmark.triangle")
+                .font(.callout).foregroundStyle(.orange)
+        } else if run.status == .answersIn {
+            Text("No synthesizer is enabled. Enable a worker that can synthesize (e.g. Opus 4.8) to get a master plan.")
+                .font(.callout).foregroundStyle(.secondary)
+        }
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 

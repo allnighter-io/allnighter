@@ -12,11 +12,17 @@ import AllnighterEngine
 final class AppModel {
     var workers: [Worker]
     var prompt: String = ""
+    var synthesisInstructions: String = SynthesisInstructions.defaultText
     private(set) var run: CouncilRun?
     private(set) var isRunning = false
     private(set) var health: [String: WorkerHealth] = [:]
+    /// Set when the chosen synthesizer is a manual-paste worker: the app shows
+    /// this assembled prompt for the user to run and paste back.
+    private(set) var manualSynthesisPrompt: String?
+    private(set) var lastSavedDirectory: URL?
 
     private let registry: DriverRegistry
+    private let store = RunStore()
     private var runTask: Task<Void, Never>?
 
     init() {
@@ -50,6 +56,8 @@ final class AppModel {
         guard !panel.isEmpty else { return }
 
         isRunning = true
+        manualSynthesisPrompt = nil
+        lastSavedDirectory = nil
         let runId = UUID().uuidString
         run = CouncilRun(
             id: runId,
@@ -74,12 +82,91 @@ final class AppModel {
             let settled = await coordinator.fanOut(prompt: trimmed, workers: panel, runId: runId)
             await consumer.value
             self.run = settled
+            await self.performSynthesis()
+            self.persist()
             self.isRunning = false
         }
     }
 
     func stop() {
         runTask?.cancel()
+    }
+
+    // MARK: - Synthesis
+
+    /// The worker that will write the master plan: first enabled worker whose
+    /// role can synthesize (default Opus 4.8).
+    var synthesizerWorker: Worker? {
+        enabledWorkers.first(where: \.canSynthesize)
+    }
+
+    private func performSynthesis() async {
+        guard var current = run, !current.answeredMembers.isEmpty else { return }
+        guard !Task.isCancelled else { return }
+        guard let synthesizer = synthesizerWorker,
+              let manifest = registry.manifest(for: synthesizer) else { return }
+
+        // Manual synthesizer: surface the assembled prompt for the user.
+        if manifest.kind == .manualPaste {
+            manualSynthesisPrompt = SynthesisPromptBuilder.build(
+                run: current, workers: workers, instructions: synthesisInstructions
+            )
+            current.synthesis = Synthesis(
+                synthesizerWorkerId: synthesizer.id,
+                instructions: SynthesisInstructions.defaultID,
+                status: .pending
+            )
+            run = current
+            return
+        }
+
+        transition(to: .synthesizing)
+        let synthesizerRunner = Synthesizer(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+        let synthesis = await synthesizerRunner.synthesize(
+            run: run ?? current,
+            synthesizer: synthesizer,
+            manifest: manifest,
+            workers: workers,
+            instructions: synthesisInstructions
+        )
+        guard var updated = run else { return }
+        updated.synthesis = synthesis
+        run = updated
+        transition(to: synthesis.status == .complete ? .complete : .partial)
+    }
+
+    func setManualSynthesis(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, var current = run, let synthesizer = synthesizerWorker else { return }
+        current.synthesis = Synthesis(
+            synthesizerWorkerId: synthesizer.id,
+            instructions: SynthesisInstructions.defaultID,
+            masterPlanMarkdown: trimmed,
+            status: .complete,
+            startedAt: Date(),
+            finishedAt: Date()
+        )
+        run = current
+        transition(to: .synthesizing)
+        transition(to: .complete)
+        manualSynthesisPrompt = nil
+        persist()
+    }
+
+    func bundleMarkdown() -> String {
+        guard let run else { return "" }
+        return RunMarkdown.bundle(run, workers: workers)
+    }
+
+    private func transition(to status: RunStatus) {
+        guard var current = run, current.canTransition(to: status) else { return }
+        current.status = status
+        run = current
+    }
+
+    private func persist() {
+        guard let run, run.synthesis?.status == .complete || run.status == .answersIn else { return }
+        lastSavedDirectory = try? store.save(run, workers: workers)
     }
 
     func setManualAnswer(workerId: String, text: String) {

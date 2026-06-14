@@ -36,6 +36,20 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(model.isRunning)
     }
 
+    func testSynthesizerIsAWorkerThatCanSynthesize() {
+        let model = AppModel()
+        // The default panel includes Opus (role .both); it should be the synthesizer.
+        if model.workers.contains(where: { $0.canSynthesize && $0.enabled }) {
+            XCTAssertNotNil(model.synthesizerWorker)
+            XCTAssertTrue(model.synthesizerWorker?.canSynthesize ?? false)
+        }
+    }
+
+    func testBundleMarkdownEmptyWithoutRun() {
+        let model = AppModel()
+        XCTAssertTrue(model.bundleMarkdown().isEmpty)
+    }
+
     func testManualAnswerMarksMemberDone() {
         let model = AppModel()
         // Seed a run with one skipped member via a real run shape.

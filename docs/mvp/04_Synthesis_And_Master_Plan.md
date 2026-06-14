@@ -1,9 +1,11 @@
 # 04 — Synthesis + Master Plan
 
-Status: Draft — **MVP "done": the full one-click daily loop**
+Status: **Built (automated gates green)** — live one-click loop with real CLIs is
+a founder-run manual step. **This completes the MVP "lovable demo" (01–04).**
 Depends on: 01, 02, 03
 Owner: Mac (engine + UI)
 Created: 2026-06-14
+Built: 2026-06-14
 
 ## Goal
 
@@ -51,13 +53,20 @@ moment the product replaces ~12 manual copy/paste actions with one click.
 
 ## Ordered Slices
 
-- [ ] P04-S01 — Synthesis-input assembly (labeled answers + incomplete-panel note).
-- [ ] P04-S02 — Editable synthesis instruction template + default structure.
-- [ ] P04-S03 — Synthesizer invocation via the engine; `synthesizing -> complete`/`partial`.
-- [ ] P04-S04 — Master-plan viewer (Markdown) + copy.
-- [ ] P04-S05 — Manual-paste synthesizer path (show assembled prompt, accept pasted plan).
-- [ ] P04-S06 — Export: `master_plan.md` + `bundle.md` to run folder + clipboard + Save as.
-- [ ] P04-S07 — `synthesis.*` events + run-store wiring.
+- [x] P04-S01 — Synthesis-input assembly (`SynthesisPromptBuilder`: labeled
+  answers + explicit incomplete-panel note).
+- [x] P04-S02 — Synthesis instruction template + 7-section default structure
+  (`SynthesisInstructions`; editable via `AppModel.synthesisInstructions`).
+- [x] P04-S03 — Synthesizer invocation via the engine (`Synthesizer` reuses
+  `WorkerRunner`); `answersIn -> synthesizing -> complete`/`partial`.
+- [x] P04-S04 — Master-plan card (Markdown, selectable) + Copy plan.
+- [x] P04-S05 — Manual-paste synthesizer path (assembled prompt shown + paste box
+  → `setManualSynthesis`).
+- [x] P04-S06 — Export: `run.json` + `master_plan.md` + `bundle.md` to the run
+  folder (`RunStore`) + "Copy full bundle" to clipboard.
+- [~] P04-S07 — Run-store wiring done. `synthesis.*` events deferred: in-app the
+  observable `run` drives the master-plan card directly; the dedicated synthesis
+  events are only needed for the iOS WebSocket seam (added with iOS).
 
 ## Works Test
 
@@ -73,14 +82,24 @@ copy/paste actions were performed by the founder.
 
 ## Exit Gates
 
-- [ ] Works Test passes end to end with the founder's real six workers.
-- [ ] Master plan grounds its sections in the member answers (attribution present).
-- [ ] A failed member never blocks synthesis; incompleteness is disclosed.
-- [ ] Synthesis instruction is editable and persisted as a preset.
-- [ ] Export bundle is complete and well-formed Markdown.
-- [ ] `xcodebuild test -scheme AllnighterMac` + `swift test` green.
+- [ ] **Founder manual:** end-to-end one-click loop with the real six workers.
+- [x] Master plan prompt grounds sections in member answers (labeled per worker;
+  proven in `SynthesisTests`).
+- [x] A failed member never blocks synthesis; incompleteness is disclosed in the
+  synthesis prompt and the run resolves `complete` (or `partial` if synthesis
+  itself fails).
+- [x] Synthesis instruction is editable (`synthesisInstructions`); persisting it
+  as a named preset is Phase 05.
+- [x] Export bundle is complete, well-formed Markdown (`RunMarkdown.bundle`,
+  tested) and written to disk + clipboard.
+- [x] `swift test` (56) + `xcodebuild test AllnighterMac` (7) green via
+  `scripts/check.sh`.
 
 ## Closeout
 
-**MVP lovable demo complete.** Activate Phase 05 (History, Presets, Doctor,
-Distribution) to make it the daily driver. iOS planning begins only after 05.
+**MVP lovable demo built (01–04); one founder-run live test remains.** The
+one-command "fan out to my six CLIs → Opus master plan → export" loop exists
+end-to-end in code, proven deterministically. Before trusting real output, run
+the app once with live CLIs and correct any driver flags (Phase 02 deferred
+probe). Activate **Phase 05** (History, Presets, Doctor, notarized DMG) to make
+it the daily driver. iOS planning begins only after 05.

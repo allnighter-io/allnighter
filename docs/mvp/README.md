@@ -137,12 +137,17 @@ contracts so no phase re-decides them.
 
 ```text
 00  MVP Architecture (stack, models, manifest, fan-out + synthesis contracts)  <- read first
-01  AllnighterCore (MVP subset): models, manifest schema, run state machine, fixtures, swift test
-02  Worker Drivers + Parallel Fan-Out Engine  <- the heart; reusable by the full factory later
-03  Mac App Shell + Run Loop (prompt, panel, live status, response viewer)
-04  Synthesis + Master Plan (Opus synthesizer; the full one-click daily loop)   <- MVP "done"
-05  History, Presets, Doctor + Notarized Distribution (make it the daily driver)
+01  AllnighterCore (MVP subset): models, manifest schema, run state machine, fixtures  [DONE]
+02  Worker Drivers + Parallel Fan-Out Engine  <- the heart                              [DONE]
+03  Mac App Shell + Run Loop (prompt, panel, live status, response viewer)              [BUILT*]
+04  Synthesis + Master Plan (Opus synthesizer; the full one-click daily loop)           [BUILT*]
+05  History, Presets, Doctor + Notarized Distribution (make it the daily driver)        [next]
 ```
+
+> `*` = code complete and automated gates green (`swift test` 56 + app suite via
+> `scripts/check.sh`); the live end-to-end test with the founder's real CLIs is
+> a manual step (spends subscription quota), pending one run on-device to also
+> confirm each driver's headless flags.
 
 **MVP "lovable demo" = phases 01–04.** Phase 05 makes it the founder's daily
 driver. iOS begins only after 01–05 are loved (see `00` § iOS-Later).
