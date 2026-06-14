@@ -1,0 +1,23 @@
+{
+  "id": "gemini",
+  "manifestVersion": 1,
+  "displayName": "Gemini / Antigravity CLI",
+  "kind": "headless_cli",
+  "detectCommand": "gemini --version",
+  "smokeTestCommand": "gemini -p \"Reply with the single token ALLNIGHTER_READY\"",
+  "smokeTestExpect": "ALLNIGHTER_READY",
+  "invoke": {
+    "command": "gemini",
+    "args": ["-p", "{{prompt}}", "--model", "{{model}}"],
+    "promptVia": "arg",
+    "env": {},
+    "workingDir": null,
+    "timeoutSeconds": 300
+  },
+  "output": {
+    "capture": "stdout",
+    "stripAnsi": true,
+    "doneSignal": "exit_code",
+    "sentinel": null
+  }
+}

@@ -26,6 +26,9 @@ xcuserdata/
 .swiftpm/
 Package.resolved
 
+# Generated Xcode projects (XcodeGen owns project.yml; .xcodeproj is generated)
+*.xcodeproj/
+
 # CocoaPods
 Pods/
 

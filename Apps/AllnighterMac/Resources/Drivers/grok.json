@@ -1,0 +1,23 @@
+{
+  "id": "grok",
+  "manifestVersion": 1,
+  "displayName": "Grok Build CLI",
+  "kind": "headless_cli",
+  "detectCommand": "grok --version",
+  "smokeTestCommand": "grok -p \"Reply with the single token ALLNIGHTER_READY\" --model {{model}}",
+  "smokeTestExpect": "ALLNIGHTER_READY",
+  "invoke": {
+    "command": "grok",
+    "args": ["-p", "{{prompt}}", "--model", "{{model}}"],
+    "promptVia": "arg",
+    "env": {},
+    "workingDir": null,
+    "timeoutSeconds": 300
+  },
+  "output": {
+    "capture": "stdout",
+    "stripAnsi": true,
+    "doneSignal": "exit_code",
+    "sentinel": null
+  }
+}

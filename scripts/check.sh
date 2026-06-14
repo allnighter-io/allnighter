@@ -11,11 +11,20 @@ if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   ran_any=true
 fi
 
-# Mac app scheme (added in MVP Phase 03).
-if xcodebuild -list -workspace "$ROOT/Allnighter.xcworkspace" >/dev/null 2>&1; then
+# Mac app (XcodeGen-generated project; regenerate so .xcodeproj need not be committed).
+MAC_APP="$ROOT/Apps/AllnighterMac"
+if [[ -f "$MAC_APP/project.yml" ]] && command -v xcodegen >/dev/null 2>&1; then
+  echo "==> xcodegen generate (AllnighterMac)"
+  ( cd "$MAC_APP" && xcodegen generate >/dev/null )
   echo "==> xcodebuild test AllnighterMac"
-  xcodebuild test -scheme AllnighterMac -destination 'platform=macOS' | tail -5
+  xcodebuild test \
+    -project "$MAC_APP/AllnighterMac.xcodeproj" \
+    -scheme AllnighterMac \
+    -destination 'platform=macOS' \
+    CODE_SIGNING_ALLOWED=NO | tail -3
   ran_any=true
+elif [[ -f "$MAC_APP/project.yml" ]]; then
+  echo "check: xcodegen not installed; skipping Mac app (run: brew install xcodegen)"
 fi
 
 if [[ "$ran_any" == false ]]; then

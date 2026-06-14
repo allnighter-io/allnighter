@@ -1,0 +1,8 @@
+[
+  { "id": "worker_chatgpt", "displayName": "ChatGPT 5.5", "modelLabel": "gpt-5.5", "driverId": "codex", "role": "member", "enabled": true },
+  { "id": "worker_opus", "displayName": "Opus 4.8", "modelLabel": "claude-opus-4.8", "driverId": "claude_code", "role": "both", "enabled": true },
+  { "id": "worker_sonnet", "displayName": "Sonnet 4.6", "modelLabel": "claude-sonnet-4.6", "driverId": "claude_code", "role": "member", "enabled": true },
+  { "id": "worker_composer", "displayName": "Composer 2.5", "modelLabel": "Grok Composer 2.5 Fast", "driverId": "grok", "role": "member", "enabled": true },
+  { "id": "worker_gemini", "displayName": "Gemini Flash", "modelLabel": "gemini-flash", "driverId": "gemini", "role": "member", "enabled": true },
+  { "id": "worker_grok", "displayName": "Grok Build", "modelLabel": "Grok Build", "driverId": "grok", "role": "member", "enabled": true }
+]

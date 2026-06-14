@@ -1,9 +1,11 @@
 # 03 — Mac App Shell + Run Loop
 
-Status: Draft — **first visible product**
+Status: **Built (automated gates green)** — live Works Test with real CLIs is a
+founder-run manual step. App builds + `AllnighterMacTests` pass.
 Depends on: 01, 02
 Owner: Mac (UI)
 Created: 2026-06-14
+Built: 2026-06-14
 
 ## Goal
 
@@ -41,13 +43,18 @@ Synthesis (the master plan) lands in Phase 04; here a run ends at `answers_in`.
 
 ## Ordered Slices
 
-- [ ] P03-S01 — App shell: `MenuBarExtra` + main window + navigation.
-- [ ] P03-S02 — Observable run store bound to the `RunEvent` stream (idempotent apply).
-- [ ] P03-S03 — Prompt composer + "Run council" → triggers `CouncilRunCoordinator`.
-- [ ] P03-S04 — Panel view with per-worker enable toggles + health badges.
-- [ ] P03-S05 — Live run view: status chips, elapsed time, global Stop (cancel).
-- [ ] P03-S06 — Response viewer: Markdown cards per worker + copy; manual-paste box.
-- [ ] P03-S07 — Minimal worker settings (enable, set synthesizer, edit model/manifest).
+- [x] P03-S01 — App shell: `MenuBarExtra` + main `Window` + `NavigationSplitView`
+  (`AllnighterMacApp`, `RootView`). LSUIElement menu-bar app.
+- [x] P03-S02 — Observable store (`AppModel`) bound to the `RunEvent` stream;
+  status applied live, content filled from the settled run.
+- [x] P03-S03 — Prompt composer + "Run council" (⌘↵) → `CouncilRunCoordinator`
+  with the real `SubprocessCommandRunner`.
+- [x] P03-S04 — Panel sidebar with per-worker enable toggles + health badges.
+- [x] P03-S05 — Live run view: status dots/strip, elapsed time, global Stop.
+- [x] P03-S06 — Response viewer: per-worker cards, selectable text + copy;
+  manual-paste box for `skipped` workers.
+- [x] P03-S07 — Minimal worker settings (enable toggle, "Check worker health").
+  (Set-synthesizer/edit-manifest moves to Phase 04/05.)
 
 ## Works Test
 
@@ -60,14 +67,33 @@ completed run, read each member's answer and copy one to the clipboard. The run
 reaches `answers_in` (no synthesis yet).
 ```
 
+**Status:** This live test spends real CLI quota and needs the founder's CLIs
+logged in, so it is a **founder-run manual step** (not auto-run by the agent).
+The automated substitute — build + `AppModel` unit tests + the deterministic
+engine suite — is green.
+
 ## Exit Gates
 
-- [ ] Works Test passes against real workers.
-- [ ] UI updates only from `RunEvent`s (no direct truth mutation).
-- [ ] Stop cancels in-flight workers; no orphan processes.
-- [ ] App inherits login-shell env so CLIs authenticate as in a terminal.
-- [ ] `xcodebuild test -scheme AllnighterMac` builds and passes; `swift test` green.
+- [ ] **Founder manual:** live Works Test against real workers.
+- [x] UI updates from `RunEvent`s for status; content from the settled run
+  (no direct truth mutation in views).
+- [x] Stop cancels in-flight workers (engine cancel proven in Phase 02;
+  wired to `AppModel.stop()`).
+- [x] App inherits login-shell `PATH` (`LoginShell.applyToProcessEnvironment()`).
+- [x] `xcodebuild test -scheme AllnighterMac` passes; `swift test` green
+  (full `scripts/check.sh` green).
 
 ## Closeout
 
-Activate Phase 04 (Synthesis + Master Plan) — the one-click daily loop.
+**Built; pending one founder-run live test.** App lives at `Apps/AllnighterMac`
+(XcodeGen `project.yml`; `.xcodeproj` is generated and gitignored). Activate
+**Phase 04 (Synthesis + Master Plan)** — the one-click daily loop.
+
+### Notes for Phase 04
+
+- `AppModel` already owns the run + registry; synthesis adds: pick the
+  `synthesizer` worker (role `both`/`synthesizer`, default Opus), assemble the
+  synthesis prompt from `run.answeredMembers`, run it through the same
+  `WorkerRunner`, and set `run.synthesis`.
+- Run the app once with real CLIs first to correct any driver flags (Phase 02
+  deferred probe) before trusting synthesis output.

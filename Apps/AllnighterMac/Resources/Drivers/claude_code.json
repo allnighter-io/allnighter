@@ -1,0 +1,23 @@
+{
+  "id": "claude_code",
+  "manifestVersion": 1,
+  "displayName": "Claude Code",
+  "kind": "headless_cli",
+  "detectCommand": "claude --version",
+  "smokeTestCommand": "claude -p \"Reply with the single token ALLNIGHTER_READY\" --model {{model}}",
+  "smokeTestExpect": "ALLNIGHTER_READY",
+  "invoke": {
+    "command": "claude",
+    "args": ["-p", "{{prompt}}", "--model", "{{model}}"],
+    "promptVia": "arg",
+    "env": {},
+    "workingDir": null,
+    "timeoutSeconds": 300
+  },
+  "output": {
+    "capture": "stdout",
+    "stripAnsi": true,
+    "doneSignal": "exit_code",
+    "sentinel": null
+  }
+}
