@@ -92,8 +92,8 @@ build, no warnings.
 ## Exit Gates
 
 - [x] Works Test passes with the MockDriver (CI) + real `/bin` tools.
-- [ ] **Deferred:** verified against the founder's real AI CLIs (separate
-  on-device probe — see below).
+- [x] **Verified against the founder's real AI CLIs** (on-device probe, 2026-06-14
+  — see below).
 - [x] Parallelism verified (3 concurrent ≈ slowest, not the sum).
 - [x] No shell injection path (prompt is a single argv element; proven with a
   `a; echo PWNED` payload that stays one line).
@@ -109,16 +109,27 @@ build, no warnings.
 `AllnighterCore` stays pure of I/O). Activate **Phase 03 (Mac App + Run Loop)**,
 which drives this engine from the UI.
 
-### Deferred: on-device CLI verification (do before/with Phase 03 real use)
+### On-device CLI verification — DONE (2026-06-14)
 
-Run each real CLI once to confirm the headless invocation + capture, then commit
-corrected bundled manifests:
+Probed the founder's machine and confirmed each headless invocation returns a
+clean answer; the bundled manifests in `Apps/AllnighterMac/Resources/Drivers/`
+now encode these exact commands:
 
-- `claude -p "..." --model claude-opus-4.8` / `--model claude-sonnet-4.6`
-- `grok` headless flag for `--model "Grok Build"` and `"Grok Composer 2.5 Fast"`
-  (verify `-p`/headless exists; else mark `manual_paste`)
-- ChatGPT 5.5 CLI (`codex`?) headless flag
-- Gemini Flash (Antigravity/Gemini CLI) headless flag
+| Worker | CLI | Verified command | Capture |
+| --- | --- | --- | --- |
+| Opus 4.8 / Sonnet 4.6 | `claude` 2.1.177 | `claude -p "<prompt>" --model opus`/`sonnet` | stdout |
+| Grok Build | `grok` 0.2.51 | `grok -p "<prompt>" -m grok-build --output-format plain` | stdout |
+| Composer 2.5 | `grok` (same CLI) | `grok -p "<prompt>" -m grok-composer-2.5-fast --output-format plain` | stdout |
+| ChatGPT 5.5 | `codex` 0.130.0 | `codex exec --skip-git-repo-check --color never -o <file> "<prompt>"` (default model **gpt-5.5**) | **file** |
+| Gemini Flash | (none installed) | → `manual_paste` (paste box) | — |
 
-The engine needs **no code change** for these — only manifest JSON. Anything not
-yet scriptable stays `manual_paste` and still appears in the panel.
+Two engine changes came out of the probe (both unit-tested):
+
+1. **stdin = `/dev/null`** when no input is piped — without it `claude -p` waits
+   3s and `codex exec` **hangs forever** reading stdin.
+2. **File capture** (`output.capture: "file"` + `{{outputFile}}` token) — codex's
+   stdout is noisy (preamble + token count); `-o <file>` yields just the answer.
+
+`grok models` is the source of truth for grok model ids. `grok` emits unrelated
+MCP-config errors on **stderr** that do not pollute the captured stdout answer.
+Anything not scriptable stays `manual_paste` and still appears in the panel.

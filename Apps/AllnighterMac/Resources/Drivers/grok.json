@@ -4,11 +4,11 @@
   "displayName": "Grok Build CLI",
   "kind": "headless_cli",
   "detectCommand": "grok --version",
-  "smokeTestCommand": "grok -p \"Reply with the single token ALLNIGHTER_READY\" --model {{model}}",
+  "smokeTestCommand": "grok -p \"Reply with the single token ALLNIGHTER_READY\" -m {{model}} --output-format plain",
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "grok",
-    "args": ["-p", "{{prompt}}", "--model", "{{model}}"],
+    "args": ["-p", "{{prompt}}", "-m", "{{model}}", "--output-format", "plain"],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,

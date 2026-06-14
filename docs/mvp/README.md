@@ -144,10 +144,10 @@ contracts so no phase re-decides them.
 05  History, Presets, Doctor + Notarized Distribution (make it the daily driver)        [next]
 ```
 
-> `*` = code complete and automated gates green (`swift test` 56 + app suite via
-> `scripts/check.sh`); the live end-to-end test with the founder's real CLIs is
-> a manual step (spends subscription quota), pending one run on-device to also
-> confirm each driver's headless flags.
+> `*` = code complete and automated gates green (`swift test` 57 + app suite via
+> `scripts/check.sh`). Driver headless flags are **verified on-device** (claude,
+> grok incl. Composer 2.5, codex=gpt-5.5; gemini→manual). The only thing left is
+> the founder clicking "Run council" once on a real prompt (spends quota).
 
 **MVP "lovable demo" = phases 01–04.** Phase 05 makes it the founder's daily
 driver. iOS begins only after 01–05 are loved (see `00` § iOS-Later).

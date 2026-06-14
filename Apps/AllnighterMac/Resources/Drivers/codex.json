@@ -1,21 +1,21 @@
 {
   "id": "codex",
   "manifestVersion": 1,
-  "displayName": "Codex / ChatGPT CLI",
+  "displayName": "Codex / ChatGPT 5.5",
   "kind": "headless_cli",
   "detectCommand": "codex --version",
-  "smokeTestCommand": "codex exec \"Reply with the single token ALLNIGHTER_READY\"",
+  "smokeTestCommand": "codex exec --skip-git-repo-check --color never \"Reply with the single token ALLNIGHTER_READY\"",
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "codex",
-    "args": ["exec", "{{prompt}}"],
+    "args": ["exec", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", "-o", "{{outputFile}}", "{{prompt}}"],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
     "timeoutSeconds": 300
   },
   "output": {
-    "capture": "stdout",
+    "capture": "file",
     "stripAnsi": true,
     "doneSignal": "exit_code",
     "sentinel": null

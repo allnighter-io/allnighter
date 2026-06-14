@@ -86,7 +86,9 @@ public struct SubprocessCommandRunner: CommandRunner {
         // Launch in a new process group so we can kill the whole tree.
         process.standardOutput = Pipe()
         process.standardError = Pipe()
-        if stdin != nil { process.standardInput = Pipe() }
+        // Always give the child a defined stdin: a pipe when we have input, else
+        // /dev/null so CLIs (e.g. `claude -p`) don't block waiting on a TTY.
+        process.standardInput = stdin != nil ? Pipe() : FileHandle.nullDevice
 
         let outBuffer = LockedBuffer()
         let errBuffer = LockedBuffer()

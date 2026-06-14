@@ -113,6 +113,8 @@ public extension DriverManifest {
         case prompt = "{{prompt}}"
         case model = "{{model}}"
         case workingDir = "{{workingDir}}"
+        /// A temp file the CLI should write its final answer to (file capture).
+        case outputFile = "{{outputFile}}"
     }
 
     /// Context for resolving template tokens.
@@ -120,11 +122,13 @@ public extension DriverManifest {
         public var prompt: String
         public var model: String
         public var workingDir: String?
+        public var outputFile: String?
 
-        public init(prompt: String, model: String, workingDir: String? = nil) {
+        public init(prompt: String, model: String, workingDir: String? = nil, outputFile: String? = nil) {
             self.prompt = prompt
             self.model = model
             self.workingDir = workingDir
+            self.outputFile = outputFile
         }
     }
 
@@ -160,6 +164,8 @@ public extension DriverManifest {
             return ctx.prompt
         case Token.workingDir.rawValue:
             return ctx.workingDir ?? ""
+        case Token.outputFile.rawValue:
+            return ctx.outputFile ?? ""
         default:
             return element.replacingOccurrences(of: Token.model.rawValue, with: ctx.model)
         }

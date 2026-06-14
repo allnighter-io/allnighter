@@ -71,6 +71,33 @@ final class WorkerRunnerTests: XCTestCase {
         XCTAssertEqual(response.errorKind, .missingCLI)
     }
 
+    func testFileCaptureReadsOutputFileNotStdout() async {
+        // A driver that writes its answer to {{outputFile}}; stdout is noisy.
+        var manifest = DriverManifest(
+            id: "codex",
+            displayName: "codex",
+            kind: .headlessCLI,
+            invoke: .init(
+                command: "/bin/sh",
+                args: ["-c", "echo noisy-log-line; printf 'clean answer' > \"$1\"", "sh", "{{outputFile}}"],
+                promptVia: .arg,
+                env: [:],
+                workingDir: nil,
+                timeoutSeconds: 5
+            ),
+            output: .init(capture: .file)
+        )
+        manifest.output = .init(capture: .file)
+
+        let worker = TestSupport.worker("w", driverId: "codex")
+        let run = WorkerRunner(commandRunner: SubprocessCommandRunner())
+        let response = await run.run(worker: worker, manifest: manifest, prompt: "hi")
+
+        XCTAssertEqual(response.status, .done)
+        XCTAssertEqual(response.output, "clean answer")
+        XCTAssertFalse(response.output?.contains("noisy-log-line") ?? true)
+    }
+
     func testManualPasteWorkerIsSkipped() async {
         let manifest = DriverManifest(id: "manual_paste", displayName: "Manual", kind: .manualPaste)
         let worker = TestSupport.worker("w", driverId: "manual_paste")

@@ -23,10 +23,19 @@ public struct WorkerRunner: Sendable {
             return MemberResponse(workerId: worker.id, status: .skipped)
         }
 
+        // File capture: hand the CLI a temp file to write its final answer to,
+        // then read that instead of stdout (keeps noisy CLIs like codex clean).
+        let capturesFile = manifest.output?.capture == .file
+        let outputFileURL: URL? = capturesFile
+            ? FileManager.default.temporaryDirectory.appendingPathComponent("allnighter-\(UUID().uuidString).txt")
+            : nil
+        defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
+
         let context = DriverManifest.ResolveContext(
             prompt: prompt,
             model: worker.modelLabel,
-            workingDir: invoke.workingDir
+            workingDir: invoke.workingDir,
+            outputFile: outputFileURL?.path
         )
         let args = manifest.resolvedArgs(context)
         let stdin = manifest.stdinPrompt(context)
@@ -78,7 +87,14 @@ public struct WorkerRunner: Sendable {
             return response
         }
 
-        let cleaned = output(from: result.stdout, manifest: manifest)
+        let rawOutput: String
+        if let outputFileURL, let fileText = try? String(contentsOf: outputFileURL, encoding: .utf8) {
+            rawOutput = fileText
+        } else {
+            rawOutput = result.stdout
+        }
+
+        let cleaned = output(from: rawOutput, manifest: manifest)
         if cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             response.status = .failed
             response.errorKind = .emptyOutput
