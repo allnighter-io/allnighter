@@ -1,5 +1,15 @@
 # Allnighter — Build Phases
 
+> **⏸ ON HOLD — superseded as the active plan by `docs/mvp/`.**
+> The full roadmap below (worktree factory, lanes, previews, landing,
+> scheduling, iOS) remains the intended long-term product, but we are **not**
+> building it first. The active execution truth is now **`docs/mvp/README.md`**:
+> the **Council** slice (one prompt → parallel subscription CLIs → Opus master
+> plan), text-only, zero marginal cost. The MVP is built on this same Swift
+> substrate and grows back into these phases without a rewrite — see
+> `docs/mvp/00_MVP_Architecture.md` § Growth Seams. The numbered phase docs for
+> this plan live in `docs/phases/ON HOLD/`.
+
 > **This folder is the single source of execution truth for Allnighter.**
 > It is self-contained. Everything needed to build the product — the strategy,
 > the entire tech stack, the data contracts, and the ordered build slices — lives

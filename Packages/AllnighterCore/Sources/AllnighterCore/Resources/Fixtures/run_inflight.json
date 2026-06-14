@@ -1,0 +1,50 @@
+{
+  "id": "run_inflight_0001",
+  "prompt": "Should we add team accounts before billing analytics?",
+  "status": "fanning_out",
+  "panel": [
+    "worker_chatgpt",
+    "worker_opus",
+    "worker_sonnet",
+    "worker_composer",
+    "worker_gemini",
+    "worker_grok"
+  ],
+  "members": [
+    {
+      "workerId": "worker_chatgpt",
+      "status": "running",
+      "startedAt": "2026-06-14T20:01:01Z"
+    },
+    {
+      "workerId": "worker_opus",
+      "status": "done",
+      "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.",
+      "startedAt": "2026-06-14T20:01:01Z",
+      "finishedAt": "2026-06-14T20:01:22Z",
+      "durationMs": 21450,
+      "exitCode": 0
+    },
+    {
+      "workerId": "worker_sonnet",
+      "status": "running",
+      "startedAt": "2026-06-14T20:01:01Z"
+    },
+    {
+      "workerId": "worker_composer",
+      "status": "queued"
+    },
+    {
+      "workerId": "worker_gemini",
+      "status": "running",
+      "startedAt": "2026-06-14T20:01:01Z"
+    },
+    {
+      "workerId": "worker_grok",
+      "status": "running",
+      "startedAt": "2026-06-14T20:01:01Z"
+    }
+  ],
+  "synthesis": null,
+  "createdAt": "2026-06-14T20:01:00Z"
+}
