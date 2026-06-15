@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Self-injecting scoped CSS (uses design tokens from styles.css)
 const inject = () => {
   if (typeof document === 'undefined' || document.getElementById('al-input-css')) return;
   const s = document.createElement('style'); s.id = 'al-input-css';
@@ -30,19 +29,13 @@ export function Input({ label, hint, error, required, prefixText, suffix, size =
     .filter(Boolean).join(' ');
   return (
     <div className={['al-field', className].filter(Boolean).join(' ')}>
-      {label && (
-        <label className="al-field__label" htmlFor={fid}>
-          {label}{required && <span className="al-field__req">*</span>}
-        </label>
-      )}
+      {label && <label className="al-field__label" htmlFor={fid}>{label}{required && <span className="al-field__req">*</span>}</label>}
       <div className={boxCls}>
         {prefixText && <span className="al-input__prefix">{prefixText}</span>}
         <input id={fid} {...rest} />
         {suffix && <span className="al-input__suffix">{suffix}</span>}
       </div>
-      {(error || hint) && (
-        <span className={'al-field__hint' + (error ? ' al-field__hint--error' : '')}>{error || hint}</span>
-      )}
+      {(error || hint) && <span className={'al-field__hint' + (error ? ' al-field__hint--error' : '')}>{error || hint}</span>}
     </div>
   );
 }

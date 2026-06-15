@@ -22,9 +22,8 @@ const inject = () => {
 
 export function Switch({ label, description, checked, defaultChecked, disabled, onChange, className, ...rest }) {
   inject();
-  const cls = ['al-switch', disabled && 'al-switch--disabled', className].filter(Boolean).join(' ');
   return (
-    <label className={cls}>
+    <label className={['al-switch', disabled && 'al-switch--disabled', className].filter(Boolean).join(' ')}>
       <input type="checkbox" checked={checked} defaultChecked={defaultChecked} disabled={disabled} onChange={onChange} {...rest} />
       <span className="al-switch__track"><span className="al-switch__thumb" /></span>
       {(label || description) && (

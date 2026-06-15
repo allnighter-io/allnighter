@@ -116,7 +116,50 @@
   .al-worker__check{width:18px;height:18px;border-radius:var(--radius-xs);border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;flex:none;transition:var(--transition-control)}
   .al-worker--selected .al-worker__check{background:var(--accent);border-color:var(--accent)}
   .al-worker__check svg{width:12px;height:12px;color:var(--text-on-amber);opacity:0}
-  .al-worker--selected .al-worker__check svg{opacity:1}`;
+  .al-worker--selected .al-worker__check svg{opacity:1}
+  .al-select{position:relative}
+  .al-select__trigger{display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 10px;background:var(--bg-input);border:1px solid var(--border-default);border-radius:var(--radius-sm);color:var(--text-primary);font-family:var(--font-sans);font-size:var(--text-body);cursor:pointer;transition:var(--transition-control);text-align:left}
+  .al-select__trigger:hover{border-color:var(--border-strong)}
+  .al-select__trigger.is-open,.al-select__trigger:focus-visible{outline:none;border-color:var(--accent-border);box-shadow:var(--focus-ring)}
+  .al-select__trigger--mono{font-family:var(--font-mono);font-size:var(--text-mono)}
+  .al-select__val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .al-select__ph{color:var(--text-faint)}
+  .al-select__chev{flex:none;color:var(--text-faint);transition:transform var(--duration-fast) var(--ease-out)}
+  .al-select__trigger.is-open .al-select__chev{transform:rotate(180deg)}
+  .al-select__menu{position:absolute;z-index:50;top:calc(100% + 5px);left:0;right:0;padding:5px;background:var(--bg-raised);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-md);max-height:240px;overflow:auto}
+  .al-select__opt{display:flex;align-items:center;gap:8px;width:100%;height:28px;padding:0 8px;border:none;background:transparent;border-radius:var(--radius-sm);color:var(--text-secondary);font-family:inherit;font-size:var(--text-body);cursor:pointer;text-align:left;transition:var(--transition-control)}
+  .al-select__opt:hover{background:var(--bg-hover);color:var(--text-primary)}
+  .al-select__opt.is-sel{color:var(--text-primary)}
+  .al-select__opt .al-select__lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .al-select__opt svg{flex:none;color:var(--accent-text)}
+  .al-menu{position:relative;display:inline-flex}.al-menu__trigger{display:inline-flex}
+  .al-menu__pop{position:absolute;z-index:60;top:calc(100% + 6px);min-width:184px;padding:5px;background:var(--bg-raised);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-md)}
+  .al-menu__pop--start{left:0}.al-menu__pop--end{right:0}
+  .al-menu__item{display:flex;align-items:center;gap:9px;width:100%;height:30px;padding:0 9px;border:none;background:transparent;border-radius:var(--radius-sm);color:var(--text-secondary);font-family:var(--font-sans);font-size:var(--text-body);cursor:pointer;text-align:left;transition:var(--transition-control)}
+  .al-menu__item:hover{background:var(--bg-hover);color:var(--text-primary)}
+  .al-menu__item.is-danger{color:var(--red-400)}.al-menu__item.is-danger:hover{background:var(--danger-surface)}
+  .al-menu__ic{display:inline-flex;flex:none;color:var(--text-faint)}.al-menu__item:hover .al-menu__ic{color:inherit}.al-menu__ic svg{width:15px;height:15px;display:block}
+  .al-menu__lbl{flex:1}.al-menu__kbd{font-family:var(--font-mono);font-size:10px;color:var(--text-faint)}
+  .al-menu__div{height:1px;background:var(--border-subtle);margin:5px 4px}
+  .al-dialog__scrim{position:fixed;inset:0;z-index:100;background:var(--bg-overlay);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px}
+  .al-dialog{width:100%;background:var(--bg-raised);border:1px solid var(--border-default);border-radius:var(--radius-2xl);box-shadow:var(--shadow-xl)}
+  .al-dialog--sm{max-width:380px}.al-dialog--md{max-width:480px}.al-dialog--lg{max-width:640px}
+  .al-dialog__head{display:flex;align-items:flex-start;gap:12px;padding:20px 20px 0}
+  .al-dialog__headic{width:34px;height:34px;border-radius:var(--radius-md);flex:none;display:flex;align-items:center;justify-content:center}
+  .al-dialog__htext{flex:1;min-width:0}
+  .al-dialog__title{font-family:var(--font-display);font-size:var(--text-h3);font-weight:700;color:var(--text-primary);letter-spacing:-.01em}
+  .al-dialog__desc{font-size:var(--text-body);color:var(--text-muted);margin-top:5px;line-height:1.5}
+  .al-dialog__close{margin-left:auto;flex:none}
+  .al-dialog__body{padding:16px 20px 0}
+  .al-dialog__foot{display:flex;justify-content:flex-end;gap:8px;padding:20px}
+  .al-toast{display:flex;align-items:flex-start;gap:11px;width:340px;max-width:100%;padding:13px 13px 13px 14px;background:var(--bg-raised);border:1px solid var(--border-default);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);font-family:var(--font-sans)}
+  .al-toast--accent{border-color:var(--accent-border);background:linear-gradient(180deg,rgba(255,166,48,.07),transparent 60%),var(--bg-raised)}
+  .al-toast--positive{border-color:rgba(63,209,139,.32)}.al-toast--danger{border-color:rgba(247,107,107,.32)}
+  .al-toast__ic{flex:none;width:24px;height:24px;display:flex;align-items:center;justify-content:center;margin-top:1px}.al-toast__ic svg{width:18px;height:18px}
+  .al-toast__body{flex:1;min-width:0}
+  .al-toast__title{font-size:var(--text-body);font-weight:600;color:var(--text-primary);line-height:1.35}
+  .al-toast__desc{font-size:var(--text-caption);color:var(--text-muted);margin-top:2px;line-height:1.45}
+  .al-toast__action{flex:none;align-self:center}.al-toast__close{flex:none;margin:-2px -2px 0 0}`;
   document.head.appendChild(s);
 })();
 
@@ -147,6 +190,14 @@ const ICONS = {
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
   history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  compare: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/>',
+  folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'circle-check': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  scale: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+  flask: '<path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/>',
+  list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
 };
 function Icon({ name, size = 20, stroke = 2, style, ...rest }) {
   return R.createElement('svg', {
@@ -235,3 +286,85 @@ function WorkerChip({ name, model, glyph, status, selectable = false, selected =
 }
 
 Object.assign(window, { Icon, BrandIcon, Button, IconButton, Badge, Card, Input, Textarea, Switch, Tabs, StatusPill, WorkerChip });
+
+/* ---------- Select ---------- */
+function Select({ label, options = [], value, defaultValue, onChange, placeholder = 'Select…', size = 'md', mono, leading, disabled, className, ...rest }) {
+  const [open, setOpen] = R.useState(false);
+  const [internal, setInternal] = R.useState(defaultValue);
+  const ref = R.useRef(null);
+  const val = value !== undefined ? value : internal;
+  R.useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+  const sel = options.find((o) => o.value === val);
+  const pick = (v) => { setInternal(v); onChange && onChange(v); setOpen(false); };
+  const chev = R.createElement('svg', { className: 'al-select__chev', width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="m6 9 6 6 6-6"/>' } });
+  return R.createElement('div', { className: cx('al-field', className) },
+    label && R.createElement('label', { className: 'al-field__label' }, label),
+    R.createElement('div', { className: 'al-select', ref },
+      R.createElement('button', { type: 'button', disabled, onClick: () => setOpen((o) => !o), className: cx('al-select__trigger', mono && 'al-select__trigger--mono', open && 'is-open'), ...rest },
+        leading, R.createElement('span', { className: 'al-select__val' + (sel ? '' : ' al-select__ph') }, sel ? sel.label : placeholder), chev),
+      open && R.createElement('div', { className: 'al-select__menu', role: 'listbox' },
+        options.map((o) => R.createElement('button', { key: o.value, type: 'button', role: 'option', 'aria-selected': o.value === val, className: 'al-select__opt' + (o.value === val ? ' is-sel' : ''), onClick: () => pick(o.value) },
+          R.createElement('span', { className: 'al-select__lbl' }, o.label),
+          o.value === val && R.createElement(Icon, { name: 'check', size: 14, stroke: 2.5 }))))));
+}
+
+/* ---------- Menu ---------- */
+function Menu({ trigger, items = [], align = 'start', className, ...rest }) {
+  const [open, setOpen] = R.useState(false);
+  const ref = R.useRef(null);
+  R.useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const k = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', h); document.addEventListener('keydown', k);
+    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
+  }, [open]);
+  return R.createElement('div', { className: cx('al-menu', className), ref, ...rest },
+    R.createElement('span', { className: 'al-menu__trigger', onClick: () => setOpen((o) => !o) }, trigger),
+    open && R.createElement('div', { className: 'al-menu__pop al-menu__pop--' + align, role: 'menu' },
+      items.map((it, i) => it.divider
+        ? R.createElement('div', { className: 'al-menu__div', key: i })
+        : R.createElement('button', { key: i, role: 'menuitem', className: 'al-menu__item' + (it.danger ? ' is-danger' : ''), onClick: () => { it.onClick && it.onClick(); setOpen(false); } },
+          it.icon && R.createElement('span', { className: 'al-menu__ic' }, it.icon),
+          R.createElement('span', { className: 'al-menu__lbl' }, it.label),
+          it.kbd && R.createElement('span', { className: 'al-menu__kbd' }, it.kbd)))));
+}
+
+/* ---------- Dialog ---------- */
+function Dialog({ open, onClose, title, description, icon, iconTone, size = 'md', footer, showClose = true, children }) {
+  R.useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (e.key === 'Escape') onClose && onClose(); };
+    document.addEventListener('keydown', h); return () => document.removeEventListener('keydown', h);
+  }, [open, onClose]);
+  if (!open) return null;
+  const bg = iconTone === 'danger' ? 'var(--danger-surface)' : iconTone === 'accent' ? 'var(--accent-surface)' : 'var(--bg-active)';
+  const fg = iconTone === 'danger' ? 'var(--red-400)' : iconTone === 'accent' ? 'var(--accent-text)' : 'var(--text-secondary)';
+  return R.createElement('div', { className: 'al-dialog__scrim', onMouseDown: (e) => { if (e.target === e.currentTarget) onClose && onClose(); } },
+    R.createElement('div', { className: 'al-dialog al-dialog--' + size, role: 'dialog', 'aria-modal': 'true' },
+      (title || icon || showClose) && R.createElement('div', { className: 'al-dialog__head' },
+        icon && R.createElement('span', { className: 'al-dialog__headic', style: { background: bg, color: fg } }, icon),
+        R.createElement('div', { className: 'al-dialog__htext' },
+          title && R.createElement('div', { className: 'al-dialog__title' }, title),
+          description && R.createElement('div', { className: 'al-dialog__desc' }, description)),
+        showClose && R.createElement(IconButton, { variant: 'ghost', size: 'sm', label: 'Close', className: 'al-dialog__close', onClick: onClose }, R.createElement(Icon, { name: 'x', size: 16 }))),
+      children && R.createElement('div', { className: 'al-dialog__body' }, children),
+      footer && R.createElement('div', { className: 'al-dialog__foot' }, footer)));
+}
+
+/* ---------- Toast ---------- */
+function Toast({ tone = 'default', title, description, icon, action, onClose, className, ...rest }) {
+  return R.createElement('div', { className: cx('al-toast', tone !== 'default' && 'al-toast--' + tone, className), role: 'status', ...rest },
+    icon && R.createElement('span', { className: 'al-toast__ic' }, icon),
+    R.createElement('div', { className: 'al-toast__body' },
+      title && R.createElement('div', { className: 'al-toast__title' }, title),
+      description && R.createElement('div', { className: 'al-toast__desc' }, description)),
+    action && R.createElement('div', { className: 'al-toast__action' }, action),
+    onClose && R.createElement(IconButton, { variant: 'ghost', size: 'sm', label: 'Dismiss', className: 'al-toast__close', onClick: onClose }, R.createElement(Icon, { name: 'x', size: 14 })));
+}
+
+Object.assign(window, { Select, Menu, Dialog, Toast });

@@ -1,0 +1,54 @@
+/* Ikiro — Typography tokens
+ * Geist for everything UI + display; JetBrains Mono for code,
+ * slugs, metrics and the occasional technical label. */
+
+:root {
+  /* Families */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Editorial serif — used by expressive published-page themes (display only),
+     never by the product UI chrome. */
+  --font-serif: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+  --font-display: var(--font-sans);
+
+  /* Weights */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-extra:    800;
+
+  /* Fluid display sizes (clamp: min, vw, max) */
+  --text-display-2xl: 4rem;     /* 64 */
+  --text-display-xl:  3.25rem;  /* 52 */
+  --text-display-lg:  2.5rem;   /* 40 */
+
+  /* Headings */
+  --text-h1: 2rem;      /* 32 */
+  --text-h2: 1.625rem;  /* 26 */
+  --text-h3: 1.3125rem; /* 21 */
+  --text-h4: 1.125rem;  /* 18 */
+
+  /* Body & UI */
+  --text-body-lg: 1.125rem;  /* 18 */
+  --text-body:    1rem;      /* 16 */
+  --text-body-sm: 0.875rem;  /* 14 */
+  --text-label:   0.875rem;  /* 14 */
+  --text-caption: 0.8125rem; /* 13 */
+  --text-overline:0.75rem;   /* 12 */
+
+  /* Line heights */
+  --leading-tight:   1.05;
+  --leading-snug:    1.18;
+  --leading-heading: 1.25;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.62;
+
+  /* Letter spacing */
+  --tracking-tighter: -0.03em;
+  --tracking-tight:   -0.018em;
+  --tracking-snug:    -0.01em;
+  --tracking-normal:  0em;
+  --tracking-wide:    0.02em;
+  --tracking-overline:0.08em;
+}

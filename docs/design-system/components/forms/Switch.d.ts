@@ -1,11 +1,9 @@
 import * as React from 'react';
 
-/** On/off toggle for settings and preferences. The thumb springs; the track turns amber when on. */
+/** Binary on/off toggle for settings — worker enabled, quiet hours, local-only. */
 export interface SwitchProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
-  /** Inline label beside the track. */
-  label?: React.ReactNode;
-  /** Secondary description under the label. */
-  description?: React.ReactNode;
+  label?: string;
+  description?: string;
 }
 
 export function Switch(props: SwitchProps): JSX.Element;

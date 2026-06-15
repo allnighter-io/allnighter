@@ -1,0 +1,20 @@
+/* Ikiro — Motion tokens
+ * Quick, confident, low-drama. Things fade and glide; they rarely bounce.
+ * A single restrained spring is reserved for "it's alive" moments
+ * (publish success, the live dot, drag pickup). */
+
+:root {
+  --dur-instant: 80ms;  /* @kind other */
+  --dur-fast:    140ms; /* @kind other */
+  --dur-base:    200ms; /* @kind other */
+  --dur-slow:    320ms; /* @kind other */
+  --dur-slower:  520ms; /* @kind other */
+
+  --ease-out:    cubic-bezier(0.22, 0.8, 0.28, 1);   /* @kind other */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);     /* @kind other */
+  --ease-in:     cubic-bezier(0.5, 0, 0.85, 0.4);    /* @kind other */
+  --ease-spring: cubic-bezier(0.34, 1.42, 0.62, 1);  /* @kind other */
+
+  /* Press feedback */
+  --press-scale: 0.97; /* @kind other */
+}

@@ -1,8 +1,6 @@
-On/off toggle for settings and preferences. The track turns amber when on and the thumb springs across — the one place a spring easing is used.
+Binary on/off toggle for settings — include a worker in the panel, quiet hours, local-only. Amber track when on; the thumb springs across.
 
 ```jsx
-<Switch label="Run on a schedule" description="Kick off the council nightly at 3am." defaultChecked />
-<Switch label="Local only" checked={local} onChange={e => setLocal(e.target.checked)} />
+<Switch label="Opus 4.8" description="via Claude Code" defaultChecked />
+<Switch label="Local only" />
 ```
-
-Pass `label` and optional `description` for a stacked text block, or use it bare as a standalone control. Honors `disabled`.

@@ -1,8 +1,8 @@
-Multi-line text field — the prompt composer and any long-form entry. Vertically resizable; carries label, hint, and an optional character counter.
+Multi-line input for prompts, descriptions, and notes. Optional live character counter. The Council's prompt composer is a `Textarea`.
 
 ```jsx
-<Textarea label="Ask the panel" rows={3} placeholder="Ask the panel one thing…" />
-<Textarea label="Notes" maxLength={280} showCount hint="Saved locally." />
+<Textarea label="Prompt" rows={6} placeholder="Ask the panel one thing…" />
+<Textarea label="Note" maxLength={280} showCount hint="Seasons the work order" />
 ```
 
-`showCount` + `maxLength` renders a mono `count/limit` readout in the corner. `mono` switches to the mono face. Focus shows the amber ring.
+`mono` switches to the mono face. Set `maxLength` + `showCount` for the counter.

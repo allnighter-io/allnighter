@@ -1,0 +1,9 @@
+/* Ikiro — Webfonts
+ * Primary: Geist (display + UI). Mono: JetBrains Mono.
+ * NOTE: Served from the Google Fonts CDN rather than self-hosted binaries.
+ * Geist is a clean, modern geometric grotesk; it keeps the wordmark's
+ * geometric character while reading sharper at UI sizes. If you have licensed
+ * brand binaries, swap the @import for local @font-face rules pointing at the
+ * .woff2 files. */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,18..72,400;0,18..72,500;0,18..72,600;1,18..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap');

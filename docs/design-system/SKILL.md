@@ -23,7 +23,10 @@ Core rules to honor:
 
 If creating visual artifacts (slides, mocks, throwaway prototypes), copy assets out
 and create static HTML files that link `styles.css`. If working on production code,
-copy assets and read the rules here to design as a brand expert.
+copy assets and read the rules here to design as a brand expert — and follow the
+binding app rules in `production.md` (token source of truth, status colors,
+component mapping). For *how to build* a UI surface (tiers, briefs, tests), the
+engineering-governance docs live in `docs/gui/` (start at `GUI_Workflow.md`).
 
 If the user invokes this skill without other guidance, ask what they want to build,
 ask a few focused questions, and act as an expert designer who outputs HTML artifacts

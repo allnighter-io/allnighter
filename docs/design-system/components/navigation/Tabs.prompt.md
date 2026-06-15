@@ -1,12 +1,12 @@
-Tab strip for switching between views. `segmented` reads as a compact control (e.g. Master plan / Member answers); `underline` reads as a section header. Controlled or uncontrolled.
+Switch between views or filter sets. `segmented` for compact in-panel switches, `underline` for page-level section nav.
 
 ```jsx
-<Tabs variant="segmented" defaultValue="plan" onChange={setTab}
-  items={[{ value: 'plan', label: 'Master plan' },
-          { value: 'answers', label: 'Member answers', count: 6 }]} />
-
-<Tabs variant="underline" value={view} onChange={setView}
-  items={[{ value: 'overview', label: 'Overview' }, { value: 'logs', label: 'Logs' }]} />
+<Tabs
+  variant="segmented"
+  items={[{value:'all',label:'All',count:6},{value:'run',label:'Running',count:3}]}
+  defaultValue="all"
+  onChange={setFilter}
+/>
 ```
 
-Each item takes `value`, `label`, and an optional mono `count`. The active tab is amber-underlined (underline) or filled (segmented).
+Controlled (`value`) or uncontrolled (`defaultValue`). Items can carry a mono `count`.

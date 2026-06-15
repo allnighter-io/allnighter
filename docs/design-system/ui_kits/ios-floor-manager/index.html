@@ -1,0 +1,34 @@
+<!-- @dsCard group="iOS · Floor manager" viewport="460x900" subtitle="Roadmap: the iPhone floor manager — Morning Pull, lanes, draft race" -->
+<!-- @startingPoint section="Roadmap" subtitle="iOS floor manager (parked roadmap)" viewport="460x900" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allnighter — iOS floor manager</title>
+<link rel="icon" href="../../assets/allnighter-icon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  html,body{height:100%;margin:0}
+  body{background:var(--bg-void);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="../../components/_preview.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel">
+const { IOSDevice, FloorApp } = window;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <IOSDevice dark>
+    <FloorApp />
+  </IOSDevice>
+);
+</script>
+</body>
+</html>

@@ -8,12 +8,9 @@ and built for a **native macOS app** (with an iPhone companion to follow). An
 automated compiler indexes the tokens and (later) bundles components into
 `_ds_bundle.js` — do not edit the generated `_ds_*` files.
 
-**What's in this system:** the visual foundations (color, type, spacing,
-elevation, motion), the brand (logo system, app icon, wordmark, iconography),
-the reusable React components (`components/`), and the **Council** macOS UI kit
-(`ui_kits/council/`) — an interactive recreation of the MVP built from those
-components. Specimen cards for every foundation render in the Design System tab.
-See *Next steps* at the bottom for what's deliberately parked.
+**Scope of this pass (per the brief):** colors, brand, type, logo, and icon —
+the visual foundations only. **No product mockups or UI kits yet** — those come
+once the foundation is approved. See *Next steps* at the bottom.
 
 ---
 
@@ -40,9 +37,8 @@ landing line** for solo builders who use AI as their primary dev workforce.
    manager. Same Swift substrate; the MVP grows into it without a rewrite.
 
 ### Sources provided
-- The Allnighter build-phases roadmap (the long game) and the MVP "Council"
-  execution plan (what ships now) — product specs supplied by the founder.
-- `ui_kits/council/README.md` — the Council UI kit's own build notes.
+- `uploads/README.md` — the full Allnighter build-phases roadmap (the long game).
+- `uploads/README-b6a6d478.md` — the MVP "Council" execution plan (what we ship now).
 - No codebase, Figma, logo, or existing brand was provided. This is a
   **net-new identity** created from the concept, the product copy, and the
   positioning. The founder asked for: dark-mode only; Cursor and popular
@@ -258,22 +254,28 @@ flat glyph (the app icon already carries its own depth).
   runtime mirror used by specimen cards + the UI kit.
 - `ui_kits/council/` — the **Council** macOS app (the MVP), built from the components.
 - `guidelines/` — foundation specimen cards (Colors, Type, Spacing, Brand),
-  shown in the Design System tab; `guidelines/explorations/` archives the
-  earlier logo directions (+ the design-canvas scaffold they use).
+  shown in the Design System tab.
 - `SKILL.md` — Agent-Skills wrapper so this system works inside Claude Code.
 - `readme.md` — this guide.
 
 **Components** (`window.<Namespace>.<Name>`)
 - `components/core/` — `Button`, `IconButton`, `Badge`, `Card`
-- `components/forms/` — `Input`, `Textarea`, `Switch`
+- `components/forms/` — `Input`, `Textarea`, `Switch`, `Select`
 - `components/navigation/` — `Tabs` (segmented · underline)
+- `components/overlay/` — `Menu` (contextual actions), `Dialog` (modal confirm)
+- `components/feedback/` — `Toast` (calm notifications)
 - `components/product/` — `StatusPill` (queued/running/done/failed/timed-out — running blinks),
   `WorkerChip` (a worker in the panel or live run grid)
 
 **UI kits**
-- `ui_kits/council/` — **Council**, the canvas of the MVP: window chrome, panel
-  sidebar, prompt composer, live run grid, synthesis bar, and the master-plan +
-  member-answers views. `index.html` is an interactive state machine. See its README.
+- `ui_kits/council/` — **Council**, the macOS MVP: window chrome, panel sidebar,
+  prompt composer, live run grid, synthesis bar, master-plan + member-answers.
+  `index.html` is an interactive state machine.
+- `ui_kits/ios-floor-manager/` — the **iPhone floor manager** (parked roadmap):
+  Morning Pull, Active Lanes, and the **Draft Race + picker-as-prompt** wedge.
+- `ui_kits/judgment/` — the **judgment / Review Board** surfaces (macOS): workflow
+  presets, stage primitives, and the return-review flow (see `docs/mvp/RB*`).
+- `ui_kits/judgment-ios/` — the iPhone companion for the judgment flow.
 
 **Tokens at a glance**
 - Color: `--ink-50…950` (midnight ramp), `--amber-300…800` (signature),
@@ -308,11 +310,9 @@ flat glyph (the app icon already carries its own depth).
 ---
 
 ## Next steps
-The foundations, core components, and the Council MVP kit are built. Natural
-follow-ons when you're ready:
-1. **Marketing one-pager / landing** using these foundations (hero with the live
-   mark, the panel, the master-plan proof).
-2. **More components** as the product grows: Select/Dropdown, Menu, Dialog,
-   Toast (the publish/"plan ready" toast), Tooltip, Stat tiles for analytics.
-3. **The full roadmap surfaces** (parked): the lane/worktree factory, races +
-   picker-as-prompt, and the **iOS floor manager** — all on these same tokens.
+The foundations, 14 components, the Council MVP kit, and the iOS floor-manager
+roadmap surface are built. Natural follow-ons:
+1. **Marketing one-pager / landing** using these foundations.
+2. **More roadmap surfaces** — the Mac comparison grid (race side-by-side), the
+   landing queue / risk tiers, Local Bench, Quota Harvester.
+3. **A few more primitives** as needed: Tooltip, Stat tiles, Segmented progress.

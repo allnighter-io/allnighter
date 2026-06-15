@@ -1,50 +1,82 @@
-# CLI Loci - Agent Workflow
+# Allnighter — Agent Workflow
 
-Applies to agents, humans, and CI. This file is the router. Put durable policy
-in routed docs; add links here, not long prose.
+Applies to Claude, Codex, Cursor, humans, and CI. **Router only** — durable
+policy lives in routed docs. Add paths here, not long prose. Target <=150 lines.
 
-## Default Loop
+## Expansion Rule
 
-```text
-Read route -> name slice + truth owner + proof -> edit narrowly -> focused proof
--> deslop -> code audit -> log durable lessons -> commit handoff when saving
-```
+This file routes; it does not hold ops detail. New operational policy goes in the
+routed doc (most often `docs/operations/Execution-Playbook.md`), then gets a link
+here. Never treat chat notes, scratch files, generated output, code comments, or
+experiments as more authoritative than the routed source docs.
 
-No silent WIP: if work stops mid-slice, leave a short status note naming scope,
-files touched, proof state, and next action.
+## Mission
+
+Allnighter turns the user's Mac into an overnight **AI-agent factory** and the
+user's iPhone into the **floor manager** for it. It coordinates the coding agents
+the user already pays for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor)
+plus local models — running tasks in parallel, generating competing options, and
+turning the user's pick into the work order.
+
+> You already pay for the team. Allnighter makes it show up to work.
+
+It is **not** a model provider, IDE, chat aggregator, cloud coding service, or
+terminal viewer. Dark-mode-only native macOS app; brand is "amber phosphor on
+midnight." Agents must preserve: parallel work isolated per lane (the user never
+hears "worktree"), option generation, pick-as-work-order, quota harvesting, and
+preference compounding.
+
+## Authoritative Sources
+
+Root docs are the source of truth. Read the relevant one before changing that area.
+
+- **Active build (what ships now):** `docs/mvp/README.md` — the **Council** slice
+  (one prompt → parallel CLIs → Opus master plan), plus `docs/mvp/00_MVP_Architecture.md`.
+- **Long-game roadmap (parked):** `docs/phases/README.md` (+ `docs/phases/ON HOLD/`).
+- **Active iOS work:** `docs/phases/ios/README.md` (Tailscale remote floor manager).
+- **Visual design SSOT** (brand, voice, tokens, components, logo, icon):
+  `docs/design-system/readme.md` + binding app rules in
+  `docs/design-system/production.md`. Skill: `allnighter-design`.
+- **GUI engineering governance** (how to build UI surfaces — *not* visual design):
+  `docs/gui/GUI_Workflow.md`.
+- **Founder input / feature planning:** `docs/workflows/SSOT_Founder_Input_Workflow.md`
+  + `docs/workflows/SSOT_Feature_Workflow.md`.
+- **Strategy & positioning:** `docs/strategy/Allnighter-Agent-Control-Loop-Strategy.md`.
+- **Stack & commands:** `docs/operations/TechStack.md`.
+- **Sprint execution:** `docs/operations/Execution-Playbook.md`.
+- **Repo map / conventions:** `docs/FOLDER_MAP.md` + `docs/operations/Contributing.md`.
 
 ## First Routing
 
 | Task type | Read first |
 | --- | --- |
-| Product scope, vision, MVP boundary, architecture | `CLILOCI.md` + `Docs/WORKING_RULES.md` + `Docs/FOLDER_MAP.md` |
-| Strategy, positioning, mentor feedback | `Docs/strategy/CLI-Loci-Vision.md` |
-| New feature, product idea, rough spec | `Docs/workflows/SSOT_Founder_Input_Workflow.md` + `Docs/workflows/SSOT_Feature_Workflow.md` |
-| Shared models, parsers, WebSocket protocol | `Docs/product/WebSocket_Protocol_Contract.md` + `Docs/product/Session_Model_Contract.md` + `Packages/CLILociCore/` |
-| Mac PTY/session orchestration, background agents | `Docs/product/Session_Orchestration_Contract.md` + `Docs/phases/02_Mac_PTY_And_Session_Spine.md` |
-| Agent bridge layer (Claude Code, Grok, Aider, etc.) | `Docs/product/Agent_Bridge_Contract.md` |
-| Mac app UI, menu bar, dashboard | `Apps/CLILociMac/` + `Docs/phases/` active Mac phase |
-| iOS companion, Live Activities, remote control | `Apps/CLILociIOS/` + `Docs/phases/` active iOS phase |
-| Tailscale pairing, device auth, local networking | `Docs/product/Pairing_And_Auth_Contract.md` |
-| Diff parsing, approval cards, output events | `Docs/product/Diff_And_Approval_Contract.md` |
-| Keychain, BYOK, API key storage | `Docs/product/Secrets_And_BYOK_Contract.md` |
-| Sprint or phase execution | `Docs/phases/README.md` + `Docs/operations/Execution-Playbook.md` |
-| Completed phase archive, stale phase docs | `Docs/operations/Execution-Playbook.md` § Phase Archive + `Docs/phases/README.md` + `Docs/archive/phases/README.md` |
-| Bug report or broken workflow | `Docs/operations/Debugger.md` |
-| Code cleanup, maintainability, file hygiene | `Docs/operations/code-maintainer/SKILL.md` |
-| Pre-closeout architecture review | `Docs/operations/Code_Audit.md` |
-| Hunk-level cleanup after product work | `Docs/operations/Deslop.md` |
-| Product vocabulary and durable truths | `Docs/product/SSOT.md` |
-| Stack, commands, Xcode setup | `Docs/operations/TechStack.md` |
-| Repo conventions | `Docs/operations/Contributing.md` |
-| Codex commit handoff queue or Cursor git automation | `Docs/operations/Execution-Playbook.md` § Codex commit handoff |
+| Product scope, MVP boundary, what ships now | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
+| Long-term roadmap, worktree factory, lanes, scheduling | `docs/phases/README.md` |
+| iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
+| **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
+| **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
+| Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
+| Mac app shell, run loop, orchestration | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
+| Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
+| New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
+| Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
+| Codex sprint closeout / commit blocked | `docs/operations/Execution-Playbook.md` § Codex commit handoff |
+| Deslop pass (slice slop cleanup) | `docs/operations/Deslop.md` |
+| Code Audit (structural verdict at closeout) | `docs/operations/Code_Audit.md` |
+| Bug report / fix a bug / broken workflow | `docs/operations/Debugger.md` (+ `docs/operations/debugger/`) |
+| Code cleanup, maintainability, file hygiene | `docs/operations/code-maintainer/` |
+| Stack, Xcode, Swift package, commands | `docs/operations/TechStack.md` |
+| Marketing, positioning, pricing copy | `docs/marketing/README.md` |
+| Strategy, control-loop thesis, A/B extension | `docs/strategy/` |
+
+This table is first routing only. Narrower docs named by the target phase doc,
+GUI brief, or design-system page still apply.
 
 ## Codex Commit Handoff
 
-Hookless agents (Codex) must not `git add` or `git commit` directly at slice
-close. When changed work should be saved, closeout is not complete until a
-handoff item is `done` or the save is explicitly waived. Enqueue explicit paths
-instead:
+Hookless agents (Codex) must not `git add`/`git commit` directly at slice close.
+When changed work should be saved, closeout is not complete until a handoff item
+is `done` or the save is explicitly waived. Enqueue explicit paths:
 
 ```text
 python3 scripts/commit_handoff_queue.py request \
@@ -53,24 +85,24 @@ python3 scripts/commit_handoff_queue.py request \
   --wait
 ```
 
-Cursor drains `.wmd/commit-queue.jsonl` via hooks installed by
-`bash scripts/install_commit_queue_watcher.sh`. Cursor stages only listed
-paths, commits once, and never pushes. See
-`Docs/operations/Execution-Playbook.md` § Codex commit handoff.
+One-time per clone: `bash scripts/install_commit_queue_watcher.sh`. Full rules:
+`docs/operations/Execution-Playbook.md` § Codex commit handoff.
 
 ## Project Laws
 
 - Founder/user input is intent, not final authority.
 - SwiftUI may render truth; it must not invent durable product truth.
 - Prompt prose may request work; it must not be the only owner of semantics.
-- Generated parser output is derived. Change the source contract, then regenerate.
-- Every feature slice needs one owner-visible Works Test or an explicit proof
-  waiver.
+- Generated output (parsers, design bundle) is derived. Change the source
+  contract, then regenerate — never hand-edit generated artifacts.
+- Every feature slice needs one owner-visible Works Test or an explicit waiver.
 - Every non-trivial bug fix names the truth owner, lie-prone layer, and missing
   proof before editing.
 - Maintenance preserves behavior unless the task is explicitly a bug fix.
 - Do not mix broad cleanup into a feature or bug fix.
 - Prefer deterministic checks over recurring agent judgment.
+- A failed worker is shown failed, never faked. Hide the plumbing (panel /
+  worker / council / master plan — not worktree / subprocess).
 - Mac app is unsandboxed by design; still minimize privilege surface and document
   every permission request.
 - iOS companion connects only to the user's own Mac over Tailscale/local network
@@ -87,16 +119,14 @@ Ask before proceeding when the change could affect:
 - Full Disk Access or other macOS permission posture;
 - destructive session kill, worktree deletion, or git operations;
 - App Store / notarization / distribution identity;
-- billing or entitlement behavior;
+- billing, entitlement, or quota-spend behavior;
 - production deploy or TestFlight release.
 
 ## Proof Wall (when code exists)
 
-Closeout runs the green wall:
-
 ```text
 swift test                    # shared package + unit tests
-xcodebuild test -scheme ...   # app targets (see TechStack.md)
+xcodebuild test -scheme ...   # app targets (see docs/operations/TechStack.md)
 ```
 
 Until Xcode targets exist, name the missing proof in closeout. Do not claim
