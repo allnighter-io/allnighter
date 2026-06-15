@@ -1,5 +1,11 @@
 # Allnighter — Build Phases
 
+> **▶ Active iOS work lives in [`docs/phases/ios/`](ios/README.md)** — the
+> Tailscale-based Remote Floor Manager spine (control your Mac from anywhere).
+> That folder supersedes the LAN-first `ON HOLD/08`/`09`/`20` below and is
+> finalized for implementation; the connection spine (`ios/01`) is buildable in
+> parallel with the Mac MVP.
+
 > **⏸ ON HOLD — superseded as the active plan by `docs/mvp/`.**
 > The full roadmap below (worktree factory, lanes, previews, landing,
 > scheduling, iOS) remains the intended long-term product, but we are **not**
