@@ -20,7 +20,7 @@ struct AllnighterCLI {
         case "presets": await runPresets(args, runtime)
         case "recall": await runRecall(args, runtime)
         case "doctor": await runDoctor(runtime)
-        case "detect": await runDoctor(runtime)
+        case "detect": await runDetect(runtime)
         case "mcp": await MCPServer(runtime: runtime).serve()
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
@@ -152,6 +152,7 @@ struct AllnighterCLI {
           history "<query>" | recall "<query>" [--json]             search prior team runs
           models [--json]                                           list bench models
           doctor                                                    check sources and models
+          detect                                                    first-run CLI detection, headless (real smoke probes)
           mcp                                                       run as an MCP stdio server
           install-cli | mcp-install                                 setup helpers
         """)
