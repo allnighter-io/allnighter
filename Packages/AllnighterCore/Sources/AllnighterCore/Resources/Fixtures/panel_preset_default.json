@@ -1,0 +1,15 @@
+{
+  "id" : "preset_six_default",
+  "displayName" : "Founder's Six",
+  "panelWorkerIds" : [
+    "worker_chatgpt",
+    "worker_opus",
+    "worker_sonnet",
+    "worker_composer",
+    "worker_gemini",
+    "worker_grok"
+  ],
+  "draftSynthesizerWorkerId" : "worker_opus",
+  "draftSynthesisInstructionPresetId" : "default_master_plan_v1",
+  "builtIn" : true
+}

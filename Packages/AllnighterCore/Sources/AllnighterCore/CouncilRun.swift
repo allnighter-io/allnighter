@@ -10,6 +10,11 @@ public struct CouncilRun: Codable, Sendable, Equatable, Identifiable {
     public var panel: [String]
     public var members: [MemberResponse]
     public var synthesis: Synthesis?
+    /// The `PanelPreset` this run was launched from, when one was active. Optional
+    /// and nil for ad-hoc runs and for runs saved before presets existed (old
+    /// `run.json` decodes unchanged). Forward-compatible with RB1's
+    /// `workflowPresetId`.
+    public var panelPresetId: String?
     public var createdAt: Date
 
     public init(
@@ -19,6 +24,7 @@ public struct CouncilRun: Codable, Sendable, Equatable, Identifiable {
         panel: [String] = [],
         members: [MemberResponse] = [],
         synthesis: Synthesis? = nil,
+        panelPresetId: String? = nil,
         createdAt: Date
     ) {
         self.id = id
@@ -27,6 +33,7 @@ public struct CouncilRun: Codable, Sendable, Equatable, Identifiable {
         self.panel = panel
         self.members = members
         self.synthesis = synthesis
+        self.panelPresetId = panelPresetId
         self.createdAt = createdAt
     }
 }

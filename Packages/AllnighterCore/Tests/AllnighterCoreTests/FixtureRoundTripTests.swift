@@ -49,6 +49,38 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertNotNil(run.synthesis?.masterPlanMarkdown)
     }
 
+    func testPresetFixturesRoundTrip() throws {
+        try assertRoundTrips(SynthesisInstructionPreset.self, .synthesisPresetDefault)
+        try assertRoundTrips(PanelPreset.self, .panelPresetDefault)
+
+        let instruction = try Fixtures.synthesisPreset()
+        XCTAssertEqual(instruction.id, "default_master_plan_v1")
+        XCTAssertTrue(instruction.builtIn)
+        XCTAssertTrue(instruction.template.contains("## The Plan"))
+
+        let preset = try Fixtures.panelPreset()
+        XCTAssertEqual(preset.panelWorkerIds.count, 6)
+        XCTAssertEqual(preset.draftSynthesizerWorkerId, "worker_opus")
+        XCTAssertEqual(preset.draftSynthesisInstructionPresetId, instruction.id)
+        XCTAssertTrue(preset.panelWorkerIds.contains(preset.draftSynthesizerWorkerId))
+    }
+
+    func testOldRunWithoutPanelPresetIdStillDecodes() throws {
+        // panelPresetId is additive + optional: a run.json written before presets
+        // existed (no key) must decode with panelPresetId == nil.
+        let run = try Fixtures.run(.runComplete)
+        XCTAssertNil(run.panelPresetId)
+    }
+
+    func testPanelPresetBuiltInDefaultDefaultsSynthesizerToOpus() throws {
+        let panel = try Fixtures.panel()
+        let preset = PanelPreset.builtInDefault(panel: panel, instructionPresetId: "default_master_plan_v1")
+        // Opus has role .both (canSynthesize); it is the configured default.
+        XCTAssertEqual(preset.draftSynthesizerWorkerId, "worker_opus")
+        XCTAssertEqual(preset.panelWorkerIds, panel.map(\.id))
+        XCTAssertTrue(preset.builtIn)
+    }
+
     func testPartialRunIsUsableDespiteFailures() throws {
         let run = try Fixtures.run(.runPartial)
         XCTAssertEqual(run.status, .partial)

@@ -22,6 +22,8 @@ public enum Fixtures {
         case runInflight = "run_inflight"
         case runComplete = "run_complete"
         case runPartial = "run_partial"
+        case synthesisPresetDefault = "synthesis_preset_default"
+        case panelPresetDefault = "panel_preset_default"
     }
 
     public static func data(_ name: Name) throws -> Data {
@@ -50,5 +52,13 @@ public enum Fixtures {
 
     public static func manifest(_ name: Name) throws -> DriverManifest {
         try decode(DriverManifest.self, name)
+    }
+
+    public static func synthesisPreset() throws -> SynthesisInstructionPreset {
+        try decode(SynthesisInstructionPreset.self, .synthesisPresetDefault)
+    }
+
+    public static func panelPreset() throws -> PanelPreset {
+        try decode(PanelPreset.self, .panelPresetDefault)
     }
 }
