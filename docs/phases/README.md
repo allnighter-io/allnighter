@@ -9,6 +9,13 @@ The MVP Council and Design Council have been built. Going forward,
 `docs/phases/` is the active home for post-MVP product slices, mentor-review
 notes, and implementation phase docs.
 
+> **▶ [`setup/`](setup/README.md) — First-Run Setup ("assemble your council").**
+> Specs finalized; design + build pending. **Phase 0 is a confirmed prerequisite
+> bug:** the bundled driver manifests don't ship as a `Drivers/` folder, so first
+> run shows a broken "0/1 healthy" council. Fix packaging first, then the
+> CLI-detection engine, then the Setup UX. See `setup/README.md` for the build
+> order.
+
 `docs/mvp/` remains the source of truth for what has already shipped and for the
 foundation it created: workers, drivers, fan-out, synthesis, design council, and
 the Mac app substrate. New forward work starts here unless a routed doc says
