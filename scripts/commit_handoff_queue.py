@@ -8,25 +8,63 @@ Cursor processes one pending item by staging only those files and committing.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 QUEUE_PATH = ROOT / ".wmd" / "commit-queue.jsonl"
+LOCK_PATH = ROOT / ".wmd" / "commit-queue.lock"
 ALLOWED_REPO = str(ROOT)
 GIT_LOCK_RETRY_ATTEMPTS = 3
 GIT_LOCK_RETRY_DELAY_SECONDS = 2
 
+# Queue plumbing should only change when the human explicitly asks for that
+# maintenance task. Ordinary commit handoffs must not rewrite their own guardrail.
+CONTROL_PLANE_PATHS = {
+    ".cursor/hooks.json",
+    "scripts/commit_handoff_queue.py",
+    "scripts/commit_queue_watcher.py",
+    "scripts/install_commit_queue_watcher.sh",
+}
+CONTROL_PLANE_PREFIXES = (
+    ".cursor/hooks/",
+    "scripts/commit-handoff-hooks/",
+)
+
 
 class HandoffError(Exception):
     pass
+
+
+class LockBusyError(Exception):
+    """Raised when another processor already holds the single-writer lock."""
+
+
+@contextlib.contextmanager
+def single_writer_lock() -> Iterator[None]:
+    """Serialize process-next so hooks/watchers never race on the git index."""
+    LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock_file = open(LOCK_PATH, "w", encoding="utf-8")
+    try:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise LockBusyError from exc
+        yield
+    finally:
+        with contextlib.suppress(OSError):
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        lock_file.close()
 
 
 def git_failure_detail(result: subprocess.CompletedProcess[str]) -> str:
@@ -166,7 +204,9 @@ def validate_patch_text(raw_patch: Any) -> str | None:
     return raw_patch
 
 
-def validate_pending_item(item: dict[str, Any]) -> tuple[str, list[str], str, str | None]:
+def validate_pending_item(
+    item: dict[str, Any],
+) -> tuple[str, list[str], str, str | None, bool]:
     if item.get("repo") != ALLOWED_REPO:
         raise HandoffError(f"repo must be {ALLOWED_REPO}")
     if item.get("status") != "pending":
@@ -177,7 +217,28 @@ def validate_pending_item(item: dict[str, Any]) -> tuple[str, list[str], str, st
     paths = validate_paths(item.get("paths"))
     message = validate_commit_message(item.get("commit_message"))
     patch = validate_patch_text(item.get("patch"))
-    return branch, paths, message, patch
+    allow_control_plane = bool(item.get("allow_control_plane"))
+    return branch, paths, message, patch, allow_control_plane
+
+
+def is_control_plane_path(path: str) -> bool:
+    posix = Path(path).as_posix()
+    if posix in CONTROL_PLANE_PATHS:
+        return True
+    return any(posix.startswith(prefix) for prefix in CONTROL_PLANE_PREFIXES)
+
+
+def assert_paths_allowed(paths: list[str], *, allow_control_plane: bool) -> None:
+    if allow_control_plane:
+        return
+    blocked = sorted(path for path in paths if is_control_plane_path(path))
+    if blocked:
+        raise HandoffError(
+            "refusing to modify the commit-handoff control plane: "
+            + ", ".join(blocked)
+            + " (resubmit with --allow-control-plane for an explicit, "
+            "human-named maintenance task)"
+        )
 
 
 def unstaged_tracked_paths() -> set[str]:
@@ -241,7 +302,7 @@ def run_green_wall(item_id: str, requested_paths: set[str]) -> None:
     stash_message = create_proof_isolation_stash(item_id, requested_paths)
     try:
         result = subprocess.run(
-            ["npm", "run", "check"],
+            ["bash", "scripts/check.sh"],
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,
@@ -251,7 +312,7 @@ def run_green_wall(item_id: str, requested_paths: set[str]) -> None:
         if result.returncode != 0:
             output = (result.stdout or "").strip()
             tail = output[-8000:] if len(output) > 8000 else output
-            raise HandoffError(f"npm run check failed before commit:\n{tail}")
+            raise HandoffError(f"bash scripts/check.sh failed before commit:\n{tail}")
     finally:
         if stash_message is not None:
             ensure_restore_worktree_is_quiet(stash_message, requested_paths)
@@ -299,16 +360,20 @@ def enqueue_item(
     patch: str | None,
     *,
     check_only: bool = False,
+    allow_control_plane: bool = False,
 ) -> str:
+    normalized_paths = validate_paths(paths)
+    assert_paths_allowed(normalized_paths, allow_control_plane=allow_control_plane)
     item_id = str(uuid.uuid4())
     item = {
         "id": item_id,
         "status": "pending",
         "branch": branch or current_branch(),
         "repo": ALLOWED_REPO,
-        "paths": validate_paths(paths),
+        "paths": normalized_paths,
         "commit_message": validate_commit_message(message),
         "patch": validate_patch_text(patch),
+        "allow_control_plane": allow_control_plane,
         "created_at": utc_now(),
         "completed_at": None,
         "commit_sha": None,
@@ -323,9 +388,20 @@ def enqueue_item(
 
 
 def enqueue(
-    paths: list[str], message: str, branch: str | None, patch: str | None = None
+    paths: list[str],
+    message: str,
+    branch: str | None,
+    patch: str | None = None,
+    *,
+    allow_control_plane: bool = False,
 ) -> str:
-    return enqueue_item(paths, message, branch, patch)
+    return enqueue_item(
+        paths,
+        message,
+        branch,
+        patch,
+        allow_control_plane=allow_control_plane,
+    )
 
 
 def enqueue_check(paths: list[str], branch: str | None) -> str:
@@ -358,6 +434,15 @@ def wait_for_item(item_id: str, timeout_seconds: int, interval_seconds: int) -> 
 
 
 def process_next() -> int:
+    try:
+        with single_writer_lock():
+            return _process_next_locked()
+    except LockBusyError:
+        print("another commit handoff is in progress; skipping")
+        return 0
+
+
+def _process_next_locked() -> int:
     items = read_queue()
     item = next((candidate for candidate in items if candidate.get("status") == "pending"), None)
     if item is None:
@@ -369,7 +454,8 @@ def process_next() -> int:
     try:
         if not item_id:
             raise HandoffError("id must be a non-empty string")
-        expected_branch, paths, message, patch = validate_pending_item(item)
+        expected_branch, paths, message, patch, allow_control_plane = validate_pending_item(item)
+        assert_paths_allowed(paths, allow_control_plane=allow_control_plane)
         actual_branch = current_branch()
         if actual_branch != expected_branch:
             raise HandoffError(f"branch mismatch: expected {expected_branch}, got {actual_branch}")
@@ -455,6 +541,14 @@ def parse_args() -> argparse.Namespace:
         dest="paths",
         help="explicit file path",
     )
+    request.add_argument(
+        "--allow-control-plane",
+        action="store_true",
+        help=(
+            "permit editing commit-handoff scripts, Cursor hooks, and queue "
+            "plumbing. Use only for an explicit, human-named maintenance task."
+        ),
+    )
     request.add_argument("--wait", action="store_true", help="wait for Cursor to process the item")
     request.add_argument("--timeout-seconds", type=int, default=600)
     request.add_argument("--interval-seconds", type=int, default=60)
@@ -509,6 +603,7 @@ def main() -> int:
                 args.message,
                 args.branch,
                 read_patch_file(args.patch_file),
+                allow_control_plane=args.allow_control_plane,
             )
             print(item_id)
             if args.wait:

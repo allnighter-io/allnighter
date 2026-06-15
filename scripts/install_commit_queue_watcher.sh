@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# websitemd.studio — Codex commit handoff processor (Cursor hooks + optional LaunchAgent)
+# Allnighter — Codex commit handoff processor (Cursor hooks + optional LaunchAgent)
 # =============================================================================
 #
 # COPY-PASTE — install (run from repo root)
 # -----------------------------------------------------------------------------
-#   cd /path/to/websitemd.studio
+#   cd /path/to/Allnighter
 #   bash scripts/install_commit_queue_watcher.sh
 #
 #   # Verify Cursor hooks (requires Cursor restart if hooks were new)
@@ -28,8 +28,8 @@
 #   python3 scripts/commit_handoff_queue.py process-next
 #
 # UNINSTALL LaunchAgent
-#   launchctl bootout gui/$(id -u)/com.websitemd.commit-queue-watcher
-#   rm ~/Library/LaunchAgents/com.websitemd.commit-queue-watcher.plist
+#   launchctl bootout gui/$(id -u)/com.allnighter.commit-queue-watcher
+#   rm ~/Library/LaunchAgents/com.allnighter.commit-queue-watcher.plist
 # =============================================================================
 
 set -euo pipefail
@@ -40,8 +40,8 @@ HOOKS_JSON="$REPO_ROOT/.cursor/hooks.json"
 HOOK_SRC="$REPO_ROOT/scripts/commit-handoff-hooks/process-pending.sh"
 HOOK_DEST="$HOOKS_DIR/process-commit-handoff.sh"
 HOOK_TEMPLATE="$REPO_ROOT/scripts/commit-handoff-hooks/cursor.hooks.json"
-PLIST_DEST="$HOME/Library/LaunchAgents/com.websitemd.commit-queue-watcher.plist"
-LABEL="com.websitemd.commit-queue-watcher"
+PLIST_DEST="$HOME/Library/LaunchAgents/com.allnighter.commit-queue-watcher.plist"
+LABEL="com.allnighter.commit-queue-watcher"
 LOG_DIR="$REPO_ROOT/.wmd"
 LOG_PATH="$LOG_DIR/commit-queue-watcher.log"
 WATCHER="$REPO_ROOT/scripts/commit_queue_watcher.py"
@@ -114,7 +114,7 @@ PY
 }
 
 launchagent_usable() {
-  local test_label="com.websitemd.commit-queue-selftest"
+  local test_label="com.allnighter.commit-queue-selftest"
   local test_log="$LOG_DIR/commit-queue-selftest.log"
   local test_plist="/tmp/${test_label}.plist"
 

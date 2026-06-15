@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/process-commit-handoff.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/process-commit-handoff.sh"
+      }
+    ]
+  }
+}

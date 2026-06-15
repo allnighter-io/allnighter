@@ -18,8 +18,8 @@ moment the product replaces ~12 manual copy/paste actions with one click.
 
 ## Non-Goals
 
-- Cross-critique / red-team round (full Council, Growth Seam `00` §10 — easy add
-  later). "Implement This" / execution lanes. Custom judge ML.
+- Post-draft advisory review board and final spec (`RB0`-`RB3`). "Implement
+  This" / execution lanes. Custom judge ML.
 
 ## Approach (per `00`)
 
@@ -98,8 +98,9 @@ copy/paste actions were performed by the founder.
 ## Closeout
 
 **MVP lovable demo built (01–04); one founder-run live test remains.** The
-one-command "fan out to my six CLIs → Opus master plan → export" loop exists
+one-command "fan out to my six CLIs -> master plan -> export" loop exists
 end-to-end in code, proven deterministically. Before trusting real output, run
 the app once with live CLIs and correct any driver flags (Phase 02 deferred
-probe). Activate **Phase 05** (History, Presets, Doctor, notarized DMG) to make
-it the daily driver. iOS planning begins only after 05.
+probe). Activate **Phase 05** (History, Presets, Doctor, configurable
+synthesizer, notarized DMG) to make it the daily driver. iOS or Review Board
+planning begins only after 05.

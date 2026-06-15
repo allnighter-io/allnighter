@@ -18,6 +18,9 @@ immediately if agent startup is slow).
 
 - Council (Phase 13), combine/remix (Phase 14). This phase is the single-output
   "Implement This" handoff for races and (later) council verdicts.
+- Direct executor dispatch (`docs/mvp/RB4`) is the MVP precursor: it invokes the
+  selected CLI as configured, without Allnighter-owned lane/worktree safety. This
+  phase adds managed execution.
 
 ## Approach (per source §11.4, §16.3, §16.4)
 
@@ -28,6 +31,9 @@ immediately if agent startup is slow).
   selected output, useful rejected outputs, user note, project memory (Phase 15),
   acceptance criteria, lane context if already built, source artifacts, standing
   orders, protected paths. The user never re-types the chosen answer.
+- **RB4 compatibility:** when the source is a review-board final spec, consume
+  the `ImplementationBrief` shape created by RB4 instead of inventing a second
+  execution contract.
 - **Latency:** create the lane record and show "preparing" instantly; the worker
   starts within 5 s.
 - Records a `preference.*` "implemented" event.

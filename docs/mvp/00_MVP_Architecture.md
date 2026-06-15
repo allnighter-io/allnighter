@@ -126,6 +126,9 @@ Synthesis       : { synthesizerWorkerId, instructions, masterPlanMarkdown, statu
 RunEvent        : append-only event envelope (id, seq, ts, kind, payload) — see §6
 ```
 
+Phase 05 makes the draft synthesizer and synthesis instruction explicit in
+presets. Opus 4.8 remains the built-in default, not a hardcoded semantic rule.
+
 Enums:
 
 ```text
@@ -270,7 +273,8 @@ served over WebSocket to iOS **without changing the event shapes**.
 
 Event kinds (extensible): `run.*`, `member.*`, `synthesis.*`. Clients dedupe by
 `id` and apply idempotently (upsert) — so a future reconnecting iOS client never
-double-counts.
+double-counts. Post-MVP workflow stages add generic `stage.*` events instead of
+one-off `review.*` / `finalize.*` event families.
 
 ---
 
@@ -353,9 +357,11 @@ capability has a named attach point in the MVP design:
 
 | Deferred capability | Attaches at | What changes (additive only) |
 | --- | --- | --- |
-| **Cross-critique round** (full Council, `ON HOLD/13`) | `CouncilRunCoordinator` | Insert a critique pass between `answers_in` and `synthesizing`; add `RunStatus.critiquing`; reuse the same fan-out. |
+| **Review Board + Final Spec** (`RB0`-`RB3`) | `CouncilRunCoordinator` + `RunStore` + prompt builders | After `master_plan.md`, run optional advisory review fanout, then a first-principles final reduce stage. Reuse fanout/reduce primitives; do not build a generic DAG. |
+| **Generic Council critique** (`ON HOLD/13`) | RB stage primitives | If revived, it becomes a workflow preset over `WorkflowStage`, not a separate cross-critique engine. The post-draft review board supersedes generic model-vs-model critique for implementation specs. |
 | **Execution lanes** (worktree factory, `ON HOLD/03–05`) | `DriverManifest.invoke.workingDir` (already nullable) + new `Lane` model + `DriverKind.protocol` | A worker run gets a real worktree cwd; member output becomes a built branch instead of text. Core invariant (no writes to active repo) turns on here. |
-| **"Implement This" / picker-as-prompt** (`ON HOLD/12`) | The master plan / a member answer | A "send this to execution" action creates a Task → Lane; reuses the same WorkerRunner. |
+| **Direct executor dispatch** (`RB4`) | The master plan / final spec + selected worker + configured working directory | Creates `implementation_brief.md` and `execution_prompt_<workerId>.md`, then invokes the selected healthy CLI. Allnighter does not create worktrees, branches, commits, landing, or revert rules. |
+| **Managed "Implement This" / picker-as-prompt** (`ON HOLD/12`) | `ImplementationBrief` + lane substrate | A managed "send this to execution" action creates a Task -> Lane; reuses the same work-order shape after lane safety exists. |
 | **Races** (`ON HOLD/11`) | The fan-out engine | A race is a fan-out where members are lanes on one pinned base commit instead of text members. |
 | **iOS floor manager** (`ON HOLD/08–09`) | The `RunEvent` stream + a Hummingbird server in the Mac app | Wrap the existing in-process event stream in a WebSocket; iOS subscribes with `?since=<seq>`. Event shapes already match. |
 | **Project/repo context** | `MemberPrompt` | Prompt builder gains optional repo/file context; member prompt stops being identical-text-only. |
@@ -387,10 +393,11 @@ emitting events), stop and take the forward-compatible path.
 
 | Date | Decision | Note |
 | --- | --- | --- |
-| 2026-06-14 | MVP scoped to the Council slice (text-only fan-out + Opus synthesis); full factory parked. | Cheapest, safest, proven-daily wedge; reuses constitution substrate. |
+| 2026-06-14 | MVP scoped first to the Council slice (text judgment + configurable synthesis); full managed factory parked. | Cheapest, safest, proven-daily wedge; reuses constitution substrate. Direct executor dispatch is the next MVP layer without Allnighter-owned git rules. |
 | 2026-06-14 | Swift 6 / SwiftUI for the MVP (Python rejected per founder). | Seed of the full product; no rewrite for iOS or factory. |
 | 2026-06-14 | Workers described by editable driver manifests; `manual_paste` fallback for un-scriptable CLIs. | Churn defense + complete panel on day one. |
 | 2026-06-14 | In-process `RunEvent` stream with constitution-matching envelope. | iOS attaches later via WebSocket with no event-shape change. |
+| 2026-06-14 | Post-MVP review board uses a fixed fanout/reduce stage chain, not a general workflow engine. | Phase 05 ships first; review feedback is advisory and final spec synthesis decides from first principles. |
 
 > Append a row whenever a phase changes a locked decision. Do not change the
 > stack silently inside a phase.

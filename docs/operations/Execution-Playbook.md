@@ -95,6 +95,11 @@ Binding rules:
 - Unrelated dirty files are normal and must not block handoff.
 - Pre-existing staged changes fail the handoff because `git commit` would sweep
   them in.
+- Commit-handoff control-plane files (`scripts/commit_handoff_queue.py`,
+  `scripts/commit_queue_watcher.py`, `scripts/install_commit_queue_watcher.sh`,
+  `.cursor/hooks*`, `scripts/commit-handoff-hooks/*`) are blocked unless the
+  human explicitly requested queue maintenance and the request uses
+  `--allow-control-plane`.
 - Codex polls the queue item by `id` until `done`, `failed`, or timeout.
 
 ## Closeout

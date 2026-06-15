@@ -14,15 +14,23 @@ each other, synthesize a **verdict + minority report + decision points**, and le
 the user accept, pick the dissent, ask another round, or **Implement This**. The
 council is not chat — it is parallel judgment that feeds execution.
 
+## 2026-06-14 Alignment Note
+
+The MVP review-board milestone (`docs/mvp/RB0`-`RB4`) supersedes this phase's
+generic model-vs-model critique for implementation-spec workflows. If this phase
+is revived, it must reuse the RB `WorkflowStage` / `PromptProfile` primitives and
+become a preset over fanout/reduce stages, not a separate critique engine.
+
 ## Non-Goals
 
 - Custom judge ML — synthesis is prompt-driven. Combine/remix is Phase 14.
 
 ## Approach (per source §11.3, §16)
 
-- **`POST /tasks/:id/council`** runs three rounds: (1) independent answers from N
-  workers; (2) critique round (each red-teams the others); (3) synthesis round
-  producing the `Council` verdict object (`00` §7): `recommendation`,
+- **`POST /tasks/:id/council`** runs stage-based rounds: (1) independent answers
+  from N workers; (2) an optional critique/review fanout expressed as
+  `WorkflowStage`; (3) synthesis round producing the `Council` verdict object
+  (`00` §7): `recommendation`,
   `consensus` score, `minority_report`, decision points, implementation
   implication.
 - The synthesis/summarizer role is a natural **local-worker** job later (Phase 19)
@@ -36,7 +44,7 @@ council is not chat — it is parallel judgment that feeds execution.
 ## Ordered Slices
 
 - [ ] P13-S01 — Council fan-out (N independent answers).
-- [ ] P13-S02 — Critique round (cross red-team).
+- [ ] P13-S02 — Critique/review round as a `WorkflowStage` preset.
 - [ ] P13-S03 — Synthesis round → `Council` verdict + minority report + decision points.
 - [ ] P13-S04 — iOS verdict card.
 - [ ] P13-S05 — Mac council view (full reasoning).
