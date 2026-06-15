@@ -1,8 +1,14 @@
 # Persistent Work Threads
 
-Status: Finalized for implementation
+Status: MLP BUILT (S01–S06) — PAUSED 2026-06-15; S07–S09 + fast-follows remain
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-15
+
+> **Resume pointer:** the MLP (chat → panel → work order → dispatch loop's chat
+> primitive) is built and green on branch `feat/design-chain`. Per-slice status,
+> file locations, and what remains live in
+> [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md) §
+> "Implementation Status". The fast-follow docs (02/03/04) are not started.
 
 ## Product Promise
 
@@ -40,24 +46,26 @@ core thread primitive.
 
 Build in this order:
 
-1. [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md)
-   - Persistent thread + turn models.
-   - One-worker async chat.
-   - Context packets.
-   - Minimal Mac thread surface alongside the existing council UI.
-   - Existing council/design/review/dispatch work attaches to threads as turns.
+1. [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md) — **MLP
+   BUILT (S01–S06); S07–S09 remain. See that doc's Implementation Status.**
+   - [x] Persistent thread + turn models.
+   - [x] One-worker async chat.
+   - [x] Context packets.
+   - [x] Minimal Mac thread surface alongside the existing council UI.
+   - [ ] Existing council/design/review/dispatch work attaches to threads as
+     turns (S07 — backend linkage exists; rich in-timeline cards pending).
 
-2. [`threads/02_Notifications.md`](threads/02_Notifications.md)
+2. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
    - Fast follow for Mac local notifications when work lands or needs attention.
    - OneSignal mobile push lands later, after the remote spine exists.
    - This is the walk-away loop: keep the bench useful without staring at the app.
 
-3. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md)
+3. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
    - Fast follow for live output where the driver/CLI can expose it.
    - May ship Mac-only first.
    - This is the stare-at-it loop: make long turns feel alive.
 
-4. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md)
+4. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
    - Fast follow for provider-reported usage only.
    - No estimates, no fake dollar math, no opaque quota percentages.
    - Duration stays first-class and already partially exists.
@@ -95,15 +103,19 @@ Existing truth owners:
   member cards. Scorecards already store `medianLatencyMs`, though the current
   Doctor scorecard UI does not surface it.
 
-Missing truth:
+Truth added by the MLP (S01–S06, built 2026-06-15):
 
-- No durable thread object.
-- No persisted chat turn model.
-- No backend contract for one-worker chat in a thread.
-- No context packet builder.
-- No streaming command path.
-- No observed usage model.
-- No thread/turn notification policy.
+- ✅ Durable thread object — `WorkThread` (AllnighterCore).
+- ✅ Persisted chat turn model — `ThreadTurn` + `ThreadStore` (folder-of-JSON).
+- ✅ Backend contract for one-worker chat — `WorkerChatCoordinator`.
+- ✅ Context packet builder — `ThreadContextBuilder` + persisted
+  `ThreadContextPacket`.
+
+Still missing (deferred):
+
+- No streaming command path (fast follow `03_Mac_Streaming.md`).
+- No observed usage model (fast follow `04_Observed_Usage.md`).
+- No thread/turn notification policy (fast follow `02_Notifications.md`).
 
 ## Architecture Rule
 

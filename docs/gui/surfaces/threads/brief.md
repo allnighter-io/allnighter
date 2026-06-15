@@ -1,5 +1,13 @@
 # Work Threads — Brief (ThreadList + ThreadTimeline)
 
+**Build status (2026-06-15, PAUSED):** functionally BUILT in PWT-S06 and green
+(`Apps/AllnighterMac/Sources/{ThreadsView,ThreadsViewModel,ThreadsPresenter}.swift`,
+reached via the Council↔Threads sidebar toggle in `RootView.swift`). It is
+**not yet re-skinned** to a final mockup — visuals are token-correct but
+provisional. Remaining: design re-skin once mockups land, plus S07 rich
+council/build turn cards (the `richRow` here is a placeholder). See
+`docs/phases/threads/01_Work_Threads_MLP.md` § Implementation Status.
+
 **Tier:** D (renders run/dispatch state, worker liveness, manual-paste)
 **Visual kit:** docs/design-system/ (tokens: `AllnighterTokens.swift`)
 **Behavioral owner:** docs/phases/Persistent_Work_Threads.md +

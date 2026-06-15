@@ -319,17 +319,73 @@ GUI prep:
 
 ## Ordered Slices
 
-- [ ] PWT-S01 - Core models, enums, fixtures, Codable round-trip tests.
-- [ ] PWT-S02 - `ThreadTurn.runId` linkage and store-level inverse index.
-- [ ] PWT-S03 - `ThreadStore` create/list/get/append/update/archive.
-- [ ] PWT-S04 - `ThreadContextBuilder` with caps and visible truncation.
-- [ ] PWT-S05 - `WorkerChatCoordinator` with optimistic turns and manual fallback.
-- [ ] PWT-S06 - Minimal Mac thread list + timeline + composer.
+- [x] PWT-S01 - Core models, enums, fixtures, Codable round-trip tests.
+- [x] PWT-S02 - `ThreadTurn.runId` linkage and store-level inverse index.
+- [x] PWT-S03 - `ThreadStore` create/list/get/append/update/archive.
+- [x] PWT-S04 - `ThreadContextBuilder` with caps and visible truncation.
+- [x] PWT-S05 - `WorkerChatCoordinator` with optimistic turns and manual fallback.
+- [x] PWT-S06 - Minimal Mac thread list + timeline + composer.
 - [ ] PWT-S07 - Attach council/review/dispatch as turns.
 - [ ] PWT-S08 - Home flips to thread list; legacy runs migrate lazily.
 - [ ] PWT-S09 - Export full thread transcript + linked run artifacts.
 
 MLP is S01-S06. S07-S09 complete the loop but must not block proving chat.
+
+## Implementation Status (paused 2026-06-15)
+
+**MLP is DONE and green** on branch `feat/design-chain`. `scripts/check.sh`
+passes: 179 Core/Engine `swift test` + 26 Mac tests. Each slice is its own
+commit (`git log --grep PWT-S`). The Council UI is untouched; Threads is reached
+by a new Council↔Threads sidebar toggle (Home does not flip until S08).
+
+### Done — where the code lives
+
+| Slice | Status | Source | Tests |
+| --- | --- | --- | --- |
+| S01 | ✅ | `AllnighterCore/{WorkThread,ThreadTurn,ThreadContextPacket}.swift`, fixtures `Resources/Fixtures/thread_*.json`, `Fixtures.swift` | `AllnighterCoreTests/WorkThreadTests.swift` |
+| S02 | ✅ | run→thread index in `AllnighterEngine/ThreadStore.swift` (`threadId(forRunId:)`, `runToThreadIndex()`); `runId` on `ThreadTurn` | `AllnighterEngineTests/ThreadStoreTests.swift` |
+| S03 | ✅ | `AllnighterEngine/ThreadStore.swift` (create/list/get/append/update/archive + `savePacket`/`packet`), `ThreadMarkdown.swift`, `AllnighterPaths.threads` | `ThreadStoreTests.swift` |
+| S04 | ✅ | `AllnighterEngine/ThreadContextBuilder.swift` | `AllnighterEngineTests/ThreadContextBuilderTests.swift` |
+| S05 | ✅ | `AllnighterEngine/WorkerChatCoordinator.swift` | `AllnighterEngineTests/WorkerChatCoordinatorTests.swift` (incl. engine Works Test) |
+| S06 | ✅ | Mac `Sources/{ThreadsPresenter,ThreadsViewModel,ThreadsView}.swift`, `RootView.swift` (WorkspaceSwitcher); brief `docs/gui/surfaces/threads/brief.md` | `AllnighterMacTests/ThreadsPresenterTests.swift` |
+
+Notable model decisions made during build (not in the original spec, keep on
+resume):
+- Liveness is fully derived (`WorkThread.isRunning/needsAttention/lastWorkerId/
+  preview/hasActiveHeavyTurn`); nothing stored.
+- `SystemEventKind` (`migration_imported`/`waiting`/`sign_in_required`/
+  `manual_paste`) discriminates `system_event` turns. A blocking note
+  (sign-in / manual-paste) is created `running` and raises `needsAttention`
+  only while non-terminal, then transitioned to `done` to clear attention.
+- `author` is a flat `.user/.worker/.system` enum; worker identity is the
+  separate `workerId` field (no associated-value Codable).
+- Context packets are persisted under `thread_<id>/context/<packetId>.json`;
+  `WorkerChatCoordinator.revealContext` reads them for the trust reveal.
+
+### Remaining — to resume
+
+- **S06 design re-skin (fast follow):** the Mac surface is functional but not
+  final-design. Re-skin `ThreadsView.swift` against mockups + the design system
+  once the founder supplies them; no backend change needed. The S06 completion
+  bar (triage, composer worker chip, running heartbeat, context reveal,
+  workingDir pill) is already met functionally.
+- **PWT-S07 — Attach council/review/dispatch as rich turns.** Backend linkage
+  exists (`ThreadTurn.runId`/`stageId`, `ArtifactRef`); `richRow` in
+  `ThreadsView.swift` is a placeholder card. Reuse the existing council/
+  master-plan/dispatch/return-review cards as compact expandable in-timeline
+  turns, and route "Ask panel / Turn into work order / Dispatch / Continue from
+  this" into thread turns. Recommended to land with the S06 re-skin so run-card
+  reuse is design-correct in one pass.
+- **PWT-S08 — Home flips to thread list; lazy run migration.** Make threads the
+  default (retire the Council↔Threads toggle or invert it); lazily wrap existing
+  `CouncilRun`s as auto-threads on list/access with one `council_run` turn + a
+  collapsed `migration_imported` system note (see Migration section). Add the
+  local title/preview/first-message/run-prompt filter.
+- **PWT-S09 — Export full thread transcript + linked run artifacts.** Extend
+  `ThreadMarkdown` (currently a viewing transcript) into a full export bundle
+  that pulls linked run artifacts by `runId`.
+- **Fast-follow docs (separate phases, not started):** `02_Notifications.md`,
+  `03_Mac_Streaming.md`, `04_Observed_Usage.md`.
 
 ## Works Test
 

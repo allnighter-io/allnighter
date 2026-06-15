@@ -25,7 +25,7 @@ otherwise.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Finalized for implementation | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
+| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Finalized for implementation | Admission control for selected workers, panels, queued turns, fallbacks, and floor visibility without quota accounting. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
 | [`ios/README.md`](ios/README.md) | Active iOS spine | Remote floor manager: sign in, pick your Mac, control runs. |
@@ -105,7 +105,7 @@ Open questions:
 | Work | Read first |
 | --- | --- |
 | Built MVP behavior, worker drivers, council/design council substrate | `docs/mvp/README.md` |
-| Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` |
+| Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** |
 | Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
