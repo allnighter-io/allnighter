@@ -36,7 +36,8 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         smokeTestExpect: String? = nil,
         invoke: Invoke? = nil,
         output: OutputSpec? = nil,
-        imageGen: ImageGen? = nil
+        imageGen: ImageGen? = nil,
+        readsImages: Bool? = nil
     ) {
         self.id = id
         self.manifestVersion = manifestVersion
@@ -48,10 +49,19 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         self.invoke = invoke
         self.output = output
         self.imageGen = imageGen
+        self.readsImages = readsImages
     }
 
     /// True when this worker can generate a design image headlessly (design seats).
     public var canGenerateImages: Bool { imageGen != nil }
+
+    /// Whether this worker's CLI can READ a local image file (the design build
+    /// implementer — Design2 — must see the chosen image). Additive; defaults to
+    /// false. The strong coding agents (Claude Code, Codex) set it true.
+    public var readsImages: Bool?
+
+    /// True when this worker can read an image headlessly (build-side, Design2).
+    public var canReadImages: Bool { readsImages == true }
 
     /// How a worker's CLI generates an image headlessly. Image gen is an agentic
     /// tool call triggered by the prompt (not an `--out` flag); the image always

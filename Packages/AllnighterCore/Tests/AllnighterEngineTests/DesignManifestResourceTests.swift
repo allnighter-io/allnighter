@@ -37,7 +37,10 @@ final class DesignManifestResourceTests: XCTestCase {
 
     func testTextAndBuildDriversAreNotImageCapable() throws {
         // Claude Code is the build-side implementer (reads images), not a design seat.
-        XCTAssertFalse(try manifest("claude_code.json").canGenerateImages)
+        let claude = try manifest("claude_code.json")
+        XCTAssertFalse(claude.canGenerateImages)
+        XCTAssertTrue(claude.canReadImages)                 // the default build implementer
+        XCTAssertTrue(try manifest("codex.json").canReadImages)
         XCTAssertFalse(try manifest("manual_paste.json").canGenerateImages)
     }
 

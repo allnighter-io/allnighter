@@ -714,4 +714,62 @@ extension AppModel {
         if aspect > 1.8 { return .desktop }
         return nil
     }
+
+    // MARK: - Build this (Design2)
+
+    /// Headless workers, image-readers (Claude Code, Codex) first — the build
+    /// implementer must see the chosen image.
+    var buildWorkers: [Worker] {
+        workers.filter { registry.manifest(for: $0)?.kind == .headlessCLI }
+            .sorted { (registry.manifest(for: $0)?.canReadImages == true ? 0 : 1)
+                    < (registry.manifest(for: $1)?.canReadImages == true ? 0 : 1) }
+    }
+
+    func canReadImages(_ workerId: String) -> Bool {
+        registry.manifest(for: workers.first { $0.id == workerId } ?? workers[0])?.canReadImages == true
+    }
+
+    var canBuildChosen: Bool {
+        board?.chosen != nil && !isDispatching &&
+        !dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !buildWorkers.isEmpty
+    }
+
+    /// "Build this": hand the chosen image + the redesign framing to a coding agent
+    /// (reuses RB4 dispatch). The agent restyles the existing code to match.
+    func buildChosen() {
+        guard canBuildChosen, let current = run, let chosen = board?.chosen else { return }
+        let dir = dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+        let workerId = dispatchWorkerId ?? buildWorkers.first?.id
+        guard let workerId, let worker = workers.first(where: { $0.id == workerId }),
+              let brief = DesignBriefBuilder.build(run: current, chosenSeatId: chosen.seatId,
+                                                   executionWorkerId: workerId, workingDirectory: dir,
+                                                   runFolder: runFolderURL(for: current)) else { return }
+
+        let manifest = registry.manifest(for: worker)
+        let index = current.stages.filter { $0.purpose == .dispatch }.count + 1
+        let revealOnly = dispatchRevealOnly
+        let snapshotRunId = current.id
+
+        isDispatching = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            var healthy = self.diagnosis(for: workerId)?.isHealthy ?? false
+            if self.diagnosis(for: workerId) == nil {
+                let d = await Doctor(commandRunner: SubprocessCommandRunner()).diagnose(worker, manifest: manifest)
+                self.diagnoses[workerId] = d
+                healthy = d.isHealthy
+            }
+            let artifactsDir = (try? self.store.runDirectory(forRunId: snapshotRunId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(snapshotRunId)")
+            let dispatcher = Dispatcher(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+            let stage = await dispatcher.dispatch(
+                brief: brief, worker: worker, manifest: manifest, healthy: healthy,
+                revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
+            )
+            guard var updated = self.run else { self.isDispatching = false; return }
+            updated.stages.append(stage)
+            self.run = updated
+            self.persist()
+            self.isDispatching = false
+        }
+    }
 }

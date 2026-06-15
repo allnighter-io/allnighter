@@ -6,19 +6,27 @@ import Foundation
 /// pressure-testing context instead of re-litigating it. Forward-compatible with
 /// managed lane execution (Phase 12) without changing its core shape.
 public struct ImplementationBrief: Codable, Sendable, Equatable {
-    public enum SourceArtifact: String, Codable, Sendable { case finalSpec = "final_spec", masterPlan = "master_plan" }
+    /// `designImage` (Design2) carries a chosen design image — the executor restyles
+    /// the existing code to match it (our ICP redesigns; it is not build-from-scratch).
+    public enum SourceArtifact: String, Codable, Sendable {
+        case finalSpec = "final_spec", masterPlan = "master_plan", designImage = "design_image"
+    }
 
     public var sourceRunId: String
     public var sourceArtifact: SourceArtifact
     public var executionWorkerId: String
     public var workingDirectory: String
     public var prompt: String
-    /// The final spec or master plan Markdown.
+    /// The final spec or master plan Markdown (the design intent for a design build).
     public var spec: String
     /// Consensus + resolved contradictions from the judge analysis.
     public var judgmentSummary: String
     /// Structured decisions, present only when built from a final spec.
     public var decisions: FinalSpecPayload?
+    /// Absolute path to the chosen design image the agent should match (Design2).
+    public var designImagePath: String?
+    /// Absolute path to the original "before" screenshot, when redesigning (Design2).
+    public var beforeScreenshotPath: String?
     public var boundaryLabel: String
 
     public init(
@@ -30,6 +38,8 @@ public struct ImplementationBrief: Codable, Sendable, Equatable {
         spec: String,
         judgmentSummary: String,
         decisions: FinalSpecPayload? = nil,
+        designImagePath: String? = nil,
+        beforeScreenshotPath: String? = nil,
         boundaryLabel: String = ImplementationBrief.defaultBoundary
     ) {
         self.sourceRunId = sourceRunId
@@ -40,11 +50,16 @@ public struct ImplementationBrief: Codable, Sendable, Equatable {
         self.spec = spec
         self.judgmentSummary = judgmentSummary
         self.decisions = decisions
+        self.designImagePath = designImagePath
+        self.beforeScreenshotPath = beforeScreenshotPath
         self.boundaryLabel = boundaryLabel
     }
 
     /// True when built from a master plan (no final spec) — less reviewed.
     public var isLessReviewed: Bool { sourceArtifact == .masterPlan }
+
+    /// True when this brief hands a chosen design image to a coding agent (Design2).
+    public var isDesignBuild: Bool { sourceArtifact == .designImage }
 
     public static let defaultBoundary = """
     Direct dispatch will run the selected worker in the chosen working directory. \

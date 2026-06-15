@@ -24,8 +24,39 @@ public enum BriefBuilder {
     }
 }
 
+/// Builds an `ImplementationBrief` from a chosen design option (Design2). The
+/// executor restyles the EXISTING code to match the chosen image — our ICP is
+/// redesign, not build-from-scratch. Carries the chosen image + the "before"
+/// screenshot as absolute paths the agent reads in place (RB4 context-exclusion).
+public enum DesignBriefBuilder {
+    public static func build(
+        run: CouncilRun,
+        chosenSeatId: String,
+        executionWorkerId: String,
+        workingDirectory: String,
+        runFolder: URL
+    ) -> ImplementationBrief? {
+        guard let board = run.latestStage(.board)?.payload?.board,
+              let option = board.options.first(where: { $0.seatId == chosenSeatId }),
+              option.hasImage, let imageRel = option.imagePath else { return nil }
+
+        let imageAbs = runFolder.appendingPathComponent(imageRel).path
+        let beforeAbs = board.screenshotPath.map { runFolder.appendingPathComponent($0).path }
+        let persona = DesignPersonaLibrary.displayName(for: option.persona)
+        let intent = "Adopt the \(persona) design direction shown in the chosen image. \(run.prompt)"
+
+        return ImplementationBrief(
+            sourceRunId: run.id, sourceArtifact: .designImage,
+            executionWorkerId: executionWorkerId, workingDirectory: workingDirectory,
+            prompt: run.prompt, spec: intent, judgmentSummary: "",
+            designImagePath: imageAbs, beforeScreenshotPath: beforeAbs
+        )
+    }
+}
+
 public enum BriefMarkdown {
     public static func brief(_ b: ImplementationBrief) -> String {
+        if b.isDesignBuild { return designBrief(b) }
         var lines = [
             "# Implementation Brief", "",
             "- Source run: \(b.sourceRunId)",
@@ -48,7 +79,8 @@ public enum BriefMarkdown {
     }
 
     public static func executionPrompt(_ b: ImplementationBrief) -> String {
-        """
+        if b.isDesignBuild { return designExecutionPrompt(b) }
+        return """
         You are implementing the following spec in the working directory \(b.workingDirectory).
 
         \(b.boundaryLabel)
@@ -60,6 +92,48 @@ public enum BriefMarkdown {
         \(b.spec)
 
         Implement it. Run the spec's proof commands / Works Test to verify. Report what you changed and the proof results.
+        """
+    }
+
+    // MARK: - Design build (Design2)
+
+    static func designBrief(_ b: ImplementationBrief) -> String {
+        var lines = [
+            "# Design Build Brief", "",
+            "- Source run: \(b.sourceRunId)",
+            "- Source: chosen design image",
+            "- Execution worker: \(b.executionWorkerId)",
+            "- Working directory: \(b.workingDirectory)",
+            "- Design image: \(b.designImagePath ?? "—")"
+        ]
+        if let before = b.beforeScreenshotPath { lines.append("- Before (original): \(before)") }
+        lines.append(contentsOf: ["", "## Intent", "", b.spec, "",
+                                  "## Direct-dispatch boundary", "", b.boundaryLabel, ""])
+        return lines.joined(separator: "\n")
+    }
+
+    /// The design execution prompt: restyle the EXISTING code to match the chosen
+    /// image (a look, not a spec). The agent reads the image by absolute path.
+    static func designExecutionPrompt(_ b: ImplementationBrief) -> String {
+        let before = b.beforeScreenshotPath.map {
+            "The current screen (the \"before\") is at: \($0)\n"
+        } ?? ""
+        return """
+        You are restyling an EXISTING screen in the working directory \(b.workingDirectory) to match a chosen design.
+
+        \(b.boundaryLabel)
+
+        # The design to match
+        Look at the design image at: \(b.designImagePath ?? "")
+        \(before)
+        # What to do
+        \(b.spec)
+
+        This is a redesign, not a build-from-scratch. Find the existing component(s) for this screen in the working
+        directory and MODIFY them to adopt the new look — reuse the existing components, data wiring, and the repo's
+        styling system (e.g. its Tailwind/theme tokens). Treat the image as the visual target, not a literal spec:
+        match the layout, hierarchy, spacing, and color direction; keep the screen's real content and behavior.
+        Report which files you changed.
         """
     }
 }

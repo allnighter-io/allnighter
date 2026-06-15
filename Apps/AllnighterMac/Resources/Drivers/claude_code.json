@@ -19,5 +19,6 @@
     "stripAnsi": true,
     "doneSignal": "exit_code",
     "sentinel": null
-  }
+  },
+  "readsImages": true
 }

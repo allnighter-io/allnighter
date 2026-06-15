@@ -27,5 +27,6 @@
     "arrival": "prompt_directed",
     "stdoutPathRegex": "(/[^\\s\"]+\\.(?:png|jpe?g))",
     "timeoutSeconds": 600
-  }
+  },
+  "readsImages": true
 }

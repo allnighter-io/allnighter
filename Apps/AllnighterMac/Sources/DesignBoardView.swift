@@ -167,10 +167,6 @@ struct DesignBoardView: View {
         if let run = model.displayRun, run.presetId == "design_board" {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    if let chosen = model.board?.chosen {
-                        Label("Picked \(DesignPersonaLibrary.displayName(for: chosen.persona)) — ready to build (Design2)", systemImage: "checkmark.seal.fill")
-                            .font(.callout).foregroundStyle(.green)
-                    }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: tileWidth), spacing: 14)], spacing: 14) {
                         ForEach(run.panel) { seat in
                             BoardTile(seat: seat, aspect: aspect,
@@ -179,6 +175,7 @@ struct DesignBoardView: View {
                                       onPick: { model.pickOption(seatId: seat.id) })
                         }
                     }
+                    if model.board?.chosen != nil { BuildSection() }
                 }
                 .padding()
             }
@@ -200,6 +197,64 @@ struct DesignBoardView: View {
 }
 
 private struct IdentifiedSeat: Identifiable { let id: String }
+
+/// "Build this": hand the chosen image to a coding agent that restyles the existing
+/// code to match (reuses RB4 dispatch). Image-readers (Claude Code, Codex) first.
+private struct BuildSection: View {
+    @Environment(AppModel.self) private var model
+    var body: some View {
+        @Bindable var model = model
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().padding(.vertical, 4)
+            Label("Build this — an agent restyles your existing code to match the pick", systemImage: "hammer")
+                .font(.headline)
+            HStack(spacing: 8) {
+                TextField("Working directory (your repo)", text: $model.dispatchWorkingDirectory)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose…", action: pickFolder)
+            }
+            HStack(spacing: 8) {
+                Picker("Implementer", selection: Binding(get: { model.dispatchWorkerId ?? model.buildWorkers.first?.id ?? "" },
+                                                         set: { model.dispatchWorkerId = $0 })) {
+                    ForEach(model.buildWorkers) { w in
+                        Text(model.canReadImages(w.id) ? "\(w.displayName) (reads images)" : w.displayName).tag(w.id)
+                    }
+                }
+                .fixedSize()
+                Toggle("Reveal only", isOn: $model.dispatchRevealOnly)
+                Spacer()
+                if model.isDispatching {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button { model.buildChosen() } label: { Label("Build this", systemImage: "play.fill") }
+                        .buttonStyle(.borderedProminent).disabled(!model.canBuildChosen)
+                }
+            }
+            if let dirWorker = model.dispatchWorkerId, !model.canReadImages(dirWorker) {
+                Label("This worker can't read the image — the build will be weaker (reveal-only recommended).", systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+            ForEach(model.dispatches) { stage in
+                if let ret = stage.payload?.executionReturn {
+                    HStack(spacing: 6) {
+                        Image(systemName: ret.status == .done ? "checkmark.circle.fill" : (ret.status == .reveal ? "doc.text" : "xmark.circle.fill"))
+                            .foregroundStyle(ret.status == .done ? .green : (ret.status == .reveal ? .secondary : .red))
+                        Text("Build #\(ret.dispatchIndex) · \(ret.status.rawValue)").font(.caption)
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+
+    private func pickFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url { model.dispatchWorkingDirectory = url.path }
+    }
+}
 
 private struct BoardTile: View {
     @Environment(AppModel.self) private var model
