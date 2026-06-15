@@ -27,7 +27,6 @@ otherwise.
 | --- | --- | --- |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Finalized for implementation | Admission control for selected workers, team runs, queued turns, fallbacks, and floor visibility without quota accounting. |
-| [`Team_First_Vocabulary_Cleanup.md`](Team_First_Vocabulary_Cleanup.md) | Immediate cleanup contract | Rip out public council/panel language now; Team is the product word before CLI/GUI/iOS calcify. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Draft v3 for mentor feedback | Make `alln` a first-class, agent-ready CLI/tool contract, replace RB6 public grammar, and align the Mac app around the same command/schema model. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | Draft implementation contract | Exact `alln` milestone-1 schemas, docs/doctor/error/event surfaces, generated artifacts, MCP projection rules, and proof gates. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
@@ -55,8 +54,9 @@ otherwise.
   inside the same thread.
 - The user-facing words are: model, skill, worker, team, team run, worker answer,
   plan, work order, thread, floor manager.
-- Do not add new public `council` / `panel` language. `Team_First_Vocabulary_Cleanup.md`
-  owns the no-compatibility cleanup.
+- Do not add new public `council` / `panel` language. `Work_Order_Team_Model.md`
+  owns the active vocabulary contract (cleanup slice complete — see
+  `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`).
 - Workers fail honestly. A failed worker is shown failed, never hidden or faked.
 - Effort is a user instruction, not an estimate.
 - Do not estimate future cost, quota burn, runtime, or task complexity.
@@ -116,10 +116,10 @@ Open questions:
 
 | Work | Read first |
 | --- | --- |
-| Public vocabulary cleanup, council/panel removal | `Team_First_Vocabulary_Cleanup.md` + `Work_Order_Team_Model.md` |
+| Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` (historical cleanup: `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
-| Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` + `Team_First_Vocabulary_Cleanup.md` |
+| Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |
 | Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** |

@@ -2,7 +2,8 @@
 
 > **Legacy visual reference.** The visual direction may still be useful, but the
 > vocabulary is superseded by `docs/phases/Work_Order_Team_Model.md` and
-> `docs/phases/Team_First_Vocabulary_Cleanup.md`. Do not copy public labels such
+> `docs/phases/Work_Order_Team_Model.md` (active vocabulary). Historical cleanup:
+> `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`. Do not copy public labels such
 > as Council, panel, synthesizer, member answer, or plan into new UI.
 
 ## Overview

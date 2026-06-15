@@ -1,8 +1,12 @@
 # Team-First Vocabulary Cleanup
 
-Status: Immediate cleanup contract
+Status: **Complete** (2026-06-15). Archived to `docs/archive/phases/`.
 Owner: Founder + Shared Core + Mac + CLI + iOS
 Updated: 2026-06-15
+
+Durable vocabulary owner going forward: `docs/phases/Work_Order_Team_Model.md`.
+Machine contract owner: `docs/phases/CLI_Product_Spine.md` +
+`docs/phases/CLI_Implementation_Contract.md`.
 
 ## Founder Intent
 

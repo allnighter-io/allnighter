@@ -8,7 +8,8 @@ Created: 2026-06-15
 Updated: 2026-06-15 (cloud-first pivot + hardening)
 Depends on: `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
 §4/§6/§9, `../../mvp/RB6_Council_As_Tool.md`, `../CLI_Product_Spine.md`,
-`../Team_First_Vocabulary_Cleanup.md`
+`../Work_Order_Team_Model.md` (vocabulary). Historical cleanup record:
+`../../archive/phases/Team_First_Vocabulary_Cleanup.md`.
 
 ## Architecture principle (carries the whole design)
 

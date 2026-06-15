@@ -7,7 +7,7 @@ Updated: 2026-06-15
 ## Authority
 
 This doc is subordinate to `CLI_Product_Spine.md`,
-`Team_First_Vocabulary_Cleanup.md`, and `Work_Order_Team_Model.md`.
+`Work_Order_Team_Model.md`, and `CLI_Implementation_Contract.md`.
 
 It owns the implementation detail those docs should not carry: schemas, command
 surface, generated artifacts, doctor checks, error codes, streaming events, and
