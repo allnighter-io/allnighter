@@ -153,7 +153,7 @@ contracts so no phase re-decides them.
 03  Mac App Shell + Run Loop (prompt, panel, live status, response viewer)              [BUILT*]
 04  Synthesis + Master Plan (default Opus; configurable in 05)                         [BUILT*]
 05  History, Presets, Doctor + Distribution (make it the daily driver)  [S01-S05 DONE; dist deferred]
-06  Fusion-Grade Synthesis + Evals (the correct council foundation)      [specced; build next]
+06  Fusion-Grade Synthesis + Evals (the correct council foundation)      [BUILT]
 ```
 
 > **06 is a deliberate foundation phase.** OpenRouter's Fusion result publicly
