@@ -1,6 +1,6 @@
 # Work Order Team Model
 
-Status: Draft language contract for post-MVP specs
+Status: Active language contract for post-MVP specs
 Owner: Founder + Shared Core + Mac
 Updated: 2026-06-15
 
@@ -12,13 +12,19 @@ into an expert team without making the composer feel like a form.
 It is designer-facing and implementation-facing. Use this vocabulary in new phase
 docs, GUI briefs, and copy.
 
+Old public words are not grandfathered. While Allnighter has no migration burden,
+new work must use this language and cleanup work must remove the old language
+rather than alias it.
+
 ## Canonical Model
 
 ```text
-Bench  = who the user has available
-Skill  = what hat/instruction a worker wears
-Seat   = one worker wearing one skill
-Team   = the seat lineup for a work order
+Source = how Allnighter reaches a model (internal / setup detail)
+Bench  = the models the user has available
+Model  = the AI identity users recognize: Opus, Sonnet, Grok, Gemini, etc.
+Skill  = what hat/instruction a model wears
+Worker = one model wearing one skill for this run
+Team   = the worker lineup for a work order
 Lane   = Build / Design / Copy
 Type   = subtype inside a lane
 Effort = how big/deep the team runs
@@ -29,14 +35,25 @@ Preset = saved type + effort + team defaults
 
 | Term | Meaning |
 | --- | --- |
-| **Bench** | The user's available workers: Claude/Opus, Grok, Sonnet, Codex, Gemini, image engines, etc. |
+| **Source** | How Allnighter reaches a model: Claude Code, Codex CLI, Gemini CLI, Grok, a local runtime. Mostly setup/internal language. |
+| **Bench** | The user's available models. |
+| **Model** | The AI identity users already recognize: Opus 4.8, Sonnet, Grok, Gemini, ChatGPT image, etc. A model sits on the Bench. |
 | **Skill** | A reusable prompt profile or hat: first-principles reviewer, minimal designer, offer strategist, proof skeptic. |
-| **Seat** | One `worker + skill` assignment. A worker may fill several seats with different skills. |
-| **Team** | The seat lineup for this work order. User-facing synonym: team. Internal docs may still say council/panel where existing contracts require it. |
+| **Worker** | One `model + skill` assignment for this run. A model can become multiple workers by wearing different skills. |
+| **Team** | The worker lineup for this work order. This is the user-facing word for the lineup that runs. |
 | **Lane** | The three peer creation lanes: Build, Design, Copy. |
 | **Type** | A subtype inside a lane, e.g. Copy -> Landing page, Email, Ads; Design -> Redesign, Greenfield; Build -> Feature, Bug fix. |
-| **Effort** | Quick / Standard / Deep. Controls seat count, review depth, patience, and later research. Never a forecast. |
+| **Effort** | Quick / Standard / Deep. Controls worker count, review depth, patience, and later research. Never a forecast. |
 | **Preset** | A saved default: lane + type + effort + team lineup + enabled review skills. |
+
+Shortcut:
+
+```text
+Model at rest. Worker at work.
+```
+
+The product promise is not "configure a lineup." It is "turn the models you
+already pay for into a working team."
 
 ## One Primitive, Many Old Names
 
@@ -62,16 +79,19 @@ Examples:
 | Design persona: `minimal` | Design skill: Minimal Designer |
 | Copy role: `objection hunter` | Copy skill: Objection Hunter |
 
-Implementation may keep type names such as `PromptProfile`, `PanelSeatSpec`, and
-`StageBinding` where already specified. Product and design docs should explain
-them through Skill and Seat.
+Product and design docs should explain implementation shapes through Skill,
+Model, Worker, and Team. Implementation names that expose old product language
+should be renamed before the next public surface depends on them. Temporary
+internal names are acceptable only inside a bounded cleanup slice; they are not a
+compatibility promise.
 
 ## Default Lineup vs Custom Team
 
 Both are true:
 
 - A lane/type ships with a **default team** so prompt-only runs work instantly.
-- Advanced users can customize the team: each row is `worker` wearing `skill`.
+- Advanced users can customize the team: each row is one worker, shown as
+  `skill + model`.
 
 The main composer must stay simple:
 
@@ -84,7 +104,7 @@ Team customization is one click deeper:
 ```text
 Customize team
 
-Skill                  Worker
+Skill                  Model
 Offer strategist       Claude Opus
 Objection hunter       Grok
 Direct-response        Sonnet
@@ -100,7 +120,7 @@ The skill library is global and lane-tagged, not physically siloed.
 Why:
 
 - Some skills cross lanes: Contrarian, Proof Skeptic, Clarity Editor, Brand Voice.
-- Built-in skills can be duplicated and edited without forking worker setup.
+- Built-in skills can be duplicated and edited without forking model setup.
 - A saved preset can reuse the same skill across lanes.
 
 Skill metadata:
@@ -121,17 +141,17 @@ version
 Build
   Type: Feature
   Effort: Deep
-  Team: Opus + First Principles, Sonnet + Skeptic, Codex + Maintainer
+  Team: First Principles on Opus, Skeptic on Sonnet, Maintainer on Codex
 
 Design
   Type: Redesign
   Effort: Standard
-  Team: Grok Imagine + Minimal Designer, ChatGPT image + Bold Designer
+  Team: Minimal Designer on Grok Imagine, Bold Designer on ChatGPT image
 
 Copy
   Type: Landing page
   Effort: Standard
-  Team: Opus + Offer Strategist, Grok + Objection Hunter, Sonnet + Direct Response
+  Team: Offer Strategist on Opus, Objection Hunter on Grok, Direct Response on Sonnet
 ```
 
 Copy does **not** have multiple lanes. It has multiple types/playbooks inside the
@@ -145,8 +165,13 @@ Copy lane.
   new lane.
 - A fourth peer lane requires a new substrate or output class. Otherwise it is a
   type, skill, preset, or thread turn inside Build / Design / Copy.
-- Worker availability filters the bench. Skill compatibility filters the skill
+- Model availability filters the bench. Skill compatibility filters the model
   dropdown.
+- Never call a model on the Bench a worker. Never call a team row a model. The
+  row is the worker; its visible attributes are Skill and Model.
+- Worker count and output count are different facts. A Copy team may have six
+  workers and produce four versions because some workers review instead of
+  generate.
 
 ## Designer Handoff
 
@@ -176,13 +201,13 @@ Advanced drawer:
 ```text
 Team
 
-Skill                  Worker
+Skill                  Model
 Offer strategist       Claude Opus
 Objection hunter       Grok
 Direct-response        Sonnet
 Proof skeptic          Gemini
 
-[ + Add seat ] [ Save as preset ]
+[ + Add worker ] [ Save as preset ]
 ```
 
 Settings/library:
@@ -195,4 +220,3 @@ Design
 Copy
 Shared
 ```
-
