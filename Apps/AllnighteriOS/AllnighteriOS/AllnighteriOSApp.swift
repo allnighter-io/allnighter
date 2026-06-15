@@ -1,15 +1,15 @@
 //
-//  AllnighterApp.swift
-//  Allnighter
+//  AllnighteriOSApp.swift
+//  AllnighteriOS
 //
-//  Created by Michael Reining on 2026-06-14.
+//  Created by Michael Reining on 2026-06-15.
 //
 
 import SwiftUI
 import SwiftData
 
 @main
-struct AllnighterApp: App {
+struct AllnighteriOSApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,

@@ -1,14 +1,14 @@
 //
-//  AllnighterTests.swift
-//  AllnighterTests
+//  AllnighteriOSTests.swift
+//  AllnighteriOSTests
 //
-//  Created by Michael Reining on 2026-06-14.
+//  Created by Michael Reining on 2026-06-15.
 //
 
 import Testing
-@testable import Allnighter
+@testable import AllnighteriOS
 
-struct AllnighterTests {
+struct AllnighteriOSTests {
 
     @Test func example() async throws {
         // Write your test here and use APIs like `#expect(...)` to check expected conditions.

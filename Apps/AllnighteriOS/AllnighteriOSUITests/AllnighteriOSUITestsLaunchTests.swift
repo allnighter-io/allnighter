@@ -1,13 +1,13 @@
 //
-//  AllnighterUITestsLaunchTests.swift
-//  AllnighterUITests
+//  AllnighteriOSUITestsLaunchTests.swift
+//  AllnighteriOSUITests
 //
-//  Created by Michael Reining on 2026-06-14.
+//  Created by Michael Reining on 2026-06-15.
 //
 
 import XCTest
 
-final class AllnighterUITestsLaunchTests: XCTestCase {
+final class AllnighteriOSUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

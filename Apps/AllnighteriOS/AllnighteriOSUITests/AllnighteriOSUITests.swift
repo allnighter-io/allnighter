@@ -1,13 +1,13 @@
 //
-//  AllnighterUITests.swift
-//  AllnighterUITests
+//  AllnighteriOSUITests.swift
+//  AllnighteriOSUITests
 //
-//  Created by Michael Reining on 2026-06-14.
+//  Created by Michael Reining on 2026-06-15.
 //
 
 import XCTest
 
-final class AllnighterUITests: XCTestCase {
+final class AllnighteriOSUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

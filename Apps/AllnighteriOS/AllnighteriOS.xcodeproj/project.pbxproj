@@ -7,62 +7,62 @@
 	objects = {
 
 /* Begin PBXContainerItemProxy section */
-		27D79E0D2FDFD92900EACB65 /* PBXContainerItemProxy */ = {
+		27905F7A2FE0833F006F9C60 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 27D79DF52FDFD92800EACB65 /* Project object */;
+			containerPortal = 27905F622FE0833E006F9C60 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 27D79DFC2FDFD92800EACB65;
-			remoteInfo = Allnighter;
+			remoteGlobalIDString = 27905F692FE0833E006F9C60;
+			remoteInfo = AllnighteriOS;
 		};
-		27D79E172FDFD92900EACB65 /* PBXContainerItemProxy */ = {
+		27905F842FE0833F006F9C60 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 27D79DF52FDFD92800EACB65 /* Project object */;
+			containerPortal = 27905F622FE0833E006F9C60 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 27D79DFC2FDFD92800EACB65;
-			remoteInfo = Allnighter;
+			remoteGlobalIDString = 27905F692FE0833E006F9C60;
+			remoteInfo = AllnighteriOS;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		27D79DFD2FDFD92800EACB65 /* Allnighter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Allnighter.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		27D79E0C2FDFD92900EACB65 /* AllnighterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AllnighterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		27D79E162FDFD92900EACB65 /* AllnighterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AllnighterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		27905F6A2FE0833E006F9C60 /* AllnighteriOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AllnighteriOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		27905F792FE0833F006F9C60 /* AllnighteriOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AllnighteriOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		27905F832FE0833F006F9C60 /* AllnighteriOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AllnighteriOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		27D79DFF2FDFD92800EACB65 /* Allnighter */ = {
+		27905F6C2FE0833E006F9C60 /* AllnighteriOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Allnighter;
+			path = AllnighteriOS;
 			sourceTree = "<group>";
 		};
-		27D79E0F2FDFD92900EACB65 /* AllnighterTests */ = {
+		27905F7C2FE0833F006F9C60 /* AllnighteriOSTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AllnighterTests;
+			path = AllnighteriOSTests;
 			sourceTree = "<group>";
 		};
-		27D79E192FDFD92900EACB65 /* AllnighterUITests */ = {
+		27905F862FE0833F006F9C60 /* AllnighteriOSUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AllnighterUITests;
+			path = AllnighteriOSUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		27D79DFA2FDFD92800EACB65 /* Frameworks */ = {
+		27905F672FE0833E006F9C60 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		27D79E092FDFD92900EACB65 /* Frameworks */ = {
+		27905F762FE0833F006F9C60 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		27D79E132FDFD92900EACB65 /* Frameworks */ = {
+		27905F802FE0833F006F9C60 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -72,22 +72,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		27D79DF42FDFD92800EACB65 = {
+		27905F612FE0833E006F9C60 = {
 			isa = PBXGroup;
 			children = (
-				27D79DFF2FDFD92800EACB65 /* Allnighter */,
-				27D79E0F2FDFD92900EACB65 /* AllnighterTests */,
-				27D79E192FDFD92900EACB65 /* AllnighterUITests */,
-				27D79DFE2FDFD92800EACB65 /* Products */,
+				27905F6C2FE0833E006F9C60 /* AllnighteriOS */,
+				27905F7C2FE0833F006F9C60 /* AllnighteriOSTests */,
+				27905F862FE0833F006F9C60 /* AllnighteriOSUITests */,
+				27905F6B2FE0833E006F9C60 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		27D79DFE2FDFD92800EACB65 /* Products */ = {
+		27905F6B2FE0833E006F9C60 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				27D79DFD2FDFD92800EACB65 /* Allnighter.app */,
-				27D79E0C2FDFD92900EACB65 /* AllnighterTests.xctest */,
-				27D79E162FDFD92900EACB65 /* AllnighterUITests.xctest */,
+				27905F6A2FE0833E006F9C60 /* AllnighteriOS.app */,
+				27905F792FE0833F006F9C60 /* AllnighteriOSTests.xctest */,
+				27905F832FE0833F006F9C60 /* AllnighteriOSUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,134 +95,134 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		27D79DFC2FDFD92800EACB65 /* Allnighter */ = {
+		27905F692FE0833E006F9C60 /* AllnighteriOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 27D79E202FDFD92900EACB65 /* Build configuration list for PBXNativeTarget "Allnighter" */;
+			buildConfigurationList = 27905F8D2FE0833F006F9C60 /* Build configuration list for PBXNativeTarget "AllnighteriOS" */;
 			buildPhases = (
-				27D79DF92FDFD92800EACB65 /* Sources */,
-				27D79DFA2FDFD92800EACB65 /* Frameworks */,
-				27D79DFB2FDFD92800EACB65 /* Resources */,
+				27905F662FE0833E006F9C60 /* Sources */,
+				27905F672FE0833E006F9C60 /* Frameworks */,
+				27905F682FE0833E006F9C60 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				27D79DFF2FDFD92800EACB65 /* Allnighter */,
+				27905F6C2FE0833E006F9C60 /* AllnighteriOS */,
 			);
-			name = Allnighter;
+			name = AllnighteriOS;
 			packageProductDependencies = (
 			);
-			productName = Allnighter;
-			productReference = 27D79DFD2FDFD92800EACB65 /* Allnighter.app */;
+			productName = AllnighteriOS;
+			productReference = 27905F6A2FE0833E006F9C60 /* AllnighteriOS.app */;
 			productType = "com.apple.product-type.application";
 		};
-		27D79E0B2FDFD92900EACB65 /* AllnighterTests */ = {
+		27905F782FE0833F006F9C60 /* AllnighteriOSTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 27D79E232FDFD92900EACB65 /* Build configuration list for PBXNativeTarget "AllnighterTests" */;
+			buildConfigurationList = 27905F902FE0833F006F9C60 /* Build configuration list for PBXNativeTarget "AllnighteriOSTests" */;
 			buildPhases = (
-				27D79E082FDFD92900EACB65 /* Sources */,
-				27D79E092FDFD92900EACB65 /* Frameworks */,
-				27D79E0A2FDFD92900EACB65 /* Resources */,
+				27905F752FE0833F006F9C60 /* Sources */,
+				27905F762FE0833F006F9C60 /* Frameworks */,
+				27905F772FE0833F006F9C60 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				27D79E0E2FDFD92900EACB65 /* PBXTargetDependency */,
+				27905F7B2FE0833F006F9C60 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				27D79E0F2FDFD92900EACB65 /* AllnighterTests */,
+				27905F7C2FE0833F006F9C60 /* AllnighteriOSTests */,
 			);
-			name = AllnighterTests;
+			name = AllnighteriOSTests;
 			packageProductDependencies = (
 			);
-			productName = AllnighterTests;
-			productReference = 27D79E0C2FDFD92900EACB65 /* AllnighterTests.xctest */;
+			productName = AllnighteriOSTests;
+			productReference = 27905F792FE0833F006F9C60 /* AllnighteriOSTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		27D79E152FDFD92900EACB65 /* AllnighterUITests */ = {
+		27905F822FE0833F006F9C60 /* AllnighteriOSUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 27D79E262FDFD92900EACB65 /* Build configuration list for PBXNativeTarget "AllnighterUITests" */;
+			buildConfigurationList = 27905F932FE0833F006F9C60 /* Build configuration list for PBXNativeTarget "AllnighteriOSUITests" */;
 			buildPhases = (
-				27D79E122FDFD92900EACB65 /* Sources */,
-				27D79E132FDFD92900EACB65 /* Frameworks */,
-				27D79E142FDFD92900EACB65 /* Resources */,
+				27905F7F2FE0833F006F9C60 /* Sources */,
+				27905F802FE0833F006F9C60 /* Frameworks */,
+				27905F812FE0833F006F9C60 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				27D79E182FDFD92900EACB65 /* PBXTargetDependency */,
+				27905F852FE0833F006F9C60 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				27D79E192FDFD92900EACB65 /* AllnighterUITests */,
+				27905F862FE0833F006F9C60 /* AllnighteriOSUITests */,
 			);
-			name = AllnighterUITests;
+			name = AllnighteriOSUITests;
 			packageProductDependencies = (
 			);
-			productName = AllnighterUITests;
-			productReference = 27D79E162FDFD92900EACB65 /* AllnighterUITests.xctest */;
+			productName = AllnighteriOSUITests;
+			productReference = 27905F832FE0833F006F9C60 /* AllnighteriOSUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		27D79DF52FDFD92800EACB65 /* Project object */ = {
+		27905F622FE0833E006F9C60 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
-					27D79DFC2FDFD92800EACB65 = {
+					27905F692FE0833E006F9C60 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
-					27D79E0B2FDFD92900EACB65 = {
+					27905F782FE0833F006F9C60 = {
 						CreatedOnToolsVersion = 26.0.1;
-						TestTargetID = 27D79DFC2FDFD92800EACB65;
+						TestTargetID = 27905F692FE0833E006F9C60;
 					};
-					27D79E152FDFD92900EACB65 = {
+					27905F822FE0833F006F9C60 = {
 						CreatedOnToolsVersion = 26.0.1;
-						TestTargetID = 27D79DFC2FDFD92800EACB65;
+						TestTargetID = 27905F692FE0833E006F9C60;
 					};
 				};
 			};
-			buildConfigurationList = 27D79DF82FDFD92800EACB65 /* Build configuration list for PBXProject "Allnighter" */;
+			buildConfigurationList = 27905F652FE0833E006F9C60 /* Build configuration list for PBXProject "AllnighteriOS" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 27D79DF42FDFD92800EACB65;
+			mainGroup = 27905F612FE0833E006F9C60;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 27D79DFE2FDFD92800EACB65 /* Products */;
+			productRefGroup = 27905F6B2FE0833E006F9C60 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				27D79DFC2FDFD92800EACB65 /* Allnighter */,
-				27D79E0B2FDFD92900EACB65 /* AllnighterTests */,
-				27D79E152FDFD92900EACB65 /* AllnighterUITests */,
+				27905F692FE0833E006F9C60 /* AllnighteriOS */,
+				27905F782FE0833F006F9C60 /* AllnighteriOSTests */,
+				27905F822FE0833F006F9C60 /* AllnighteriOSUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		27D79DFB2FDFD92800EACB65 /* Resources */ = {
+		27905F682FE0833E006F9C60 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		27D79E0A2FDFD92900EACB65 /* Resources */ = {
+		27905F772FE0833F006F9C60 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		27D79E142FDFD92900EACB65 /* Resources */ = {
+		27905F812FE0833F006F9C60 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -232,21 +232,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		27D79DF92FDFD92800EACB65 /* Sources */ = {
+		27905F662FE0833E006F9C60 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		27D79E082FDFD92900EACB65 /* Sources */ = {
+		27905F752FE0833F006F9C60 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		27D79E122FDFD92900EACB65 /* Sources */ = {
+		27905F7F2FE0833F006F9C60 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -256,20 +256,20 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		27D79E0E2FDFD92900EACB65 /* PBXTargetDependency */ = {
+		27905F7B2FE0833F006F9C60 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 27D79DFC2FDFD92800EACB65 /* Allnighter */;
-			targetProxy = 27D79E0D2FDFD92900EACB65 /* PBXContainerItemProxy */;
+			target = 27905F692FE0833E006F9C60 /* AllnighteriOS */;
+			targetProxy = 27905F7A2FE0833F006F9C60 /* PBXContainerItemProxy */;
 		};
-		27D79E182FDFD92900EACB65 /* PBXTargetDependency */ = {
+		27905F852FE0833F006F9C60 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 27D79DFC2FDFD92800EACB65 /* Allnighter */;
-			targetProxy = 27D79E172FDFD92900EACB65 /* PBXContainerItemProxy */;
+			target = 27905F692FE0833E006F9C60 /* AllnighteriOS */;
+			targetProxy = 27905F842FE0833F006F9C60 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		27D79E1E2FDFD92900EACB65 /* Debug */ = {
+		27905F8B2FE0833F006F9C60 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -333,7 +333,7 @@
 			};
 			name = Debug;
 		};
-		27D79E1F2FDFD92900EACB65 /* Release */ = {
+		27905F8C2FE0833F006F9C60 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -390,7 +390,7 @@
 			};
 			name = Release;
 		};
-		27D79E212FDFD92900EACB65 /* Debug */ = {
+		27905F8E2FE0833F006F9C60 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -410,7 +410,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.Allnighter;
+				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighteriOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -422,7 +422,7 @@
 			};
 			name = Debug;
 		};
-		27D79E222FDFD92900EACB65 /* Release */ = {
+		27905F8F2FE0833F006F9C60 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -442,7 +442,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.Allnighter;
+				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighteriOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -454,7 +454,7 @@
 			};
 			name = Release;
 		};
-		27D79E242FDFD92900EACB65 /* Debug */ = {
+		27905F912FE0833F006F9C60 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -464,7 +464,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighterTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighteriOSTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -472,11 +472,11 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Allnighter.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Allnighter";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AllnighteriOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AllnighteriOS";
 			};
 			name = Debug;
 		};
-		27D79E252FDFD92900EACB65 /* Release */ = {
+		27905F922FE0833F006F9C60 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -486,7 +486,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighterTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighteriOSTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -494,11 +494,11 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Allnighter.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Allnighter";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AllnighteriOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AllnighteriOS";
 			};
 			name = Release;
 		};
-		27D79E272FDFD92900EACB65 /* Debug */ = {
+		27905F942FE0833F006F9C60 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -506,7 +506,7 @@
 				DEVELOPMENT_TEAM = LP5YNK7A36;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighterUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighteriOSUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -514,11 +514,11 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = Allnighter;
+				TEST_TARGET_NAME = AllnighteriOS;
 			};
 			name = Debug;
 		};
-		27D79E282FDFD92900EACB65 /* Release */ = {
+		27905F952FE0833F006F9C60 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -526,7 +526,7 @@
 				DEVELOPMENT_TEAM = LP5YNK7A36;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighterUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.happymooseapps.AllnighteriOSUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -534,50 +534,50 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = Allnighter;
+				TEST_TARGET_NAME = AllnighteriOS;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		27D79DF82FDFD92800EACB65 /* Build configuration list for PBXProject "Allnighter" */ = {
+		27905F652FE0833E006F9C60 /* Build configuration list for PBXProject "AllnighteriOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				27D79E1E2FDFD92900EACB65 /* Debug */,
-				27D79E1F2FDFD92900EACB65 /* Release */,
+				27905F8B2FE0833F006F9C60 /* Debug */,
+				27905F8C2FE0833F006F9C60 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		27D79E202FDFD92900EACB65 /* Build configuration list for PBXNativeTarget "Allnighter" */ = {
+		27905F8D2FE0833F006F9C60 /* Build configuration list for PBXNativeTarget "AllnighteriOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				27D79E212FDFD92900EACB65 /* Debug */,
-				27D79E222FDFD92900EACB65 /* Release */,
+				27905F8E2FE0833F006F9C60 /* Debug */,
+				27905F8F2FE0833F006F9C60 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		27D79E232FDFD92900EACB65 /* Build configuration list for PBXNativeTarget "AllnighterTests" */ = {
+		27905F902FE0833F006F9C60 /* Build configuration list for PBXNativeTarget "AllnighteriOSTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				27D79E242FDFD92900EACB65 /* Debug */,
-				27D79E252FDFD92900EACB65 /* Release */,
+				27905F912FE0833F006F9C60 /* Debug */,
+				27905F922FE0833F006F9C60 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		27D79E262FDFD92900EACB65 /* Build configuration list for PBXNativeTarget "AllnighterUITests" */ = {
+		27905F932FE0833F006F9C60 /* Build configuration list for PBXNativeTarget "AllnighteriOSUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				27D79E272FDFD92900EACB65 /* Debug */,
-				27D79E282FDFD92900EACB65 /* Release */,
+				27905F942FE0833F006F9C60 /* Debug */,
+				27905F952FE0833F006F9C60 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 27D79DF52FDFD92800EACB65 /* Project object */;
+	rootObject = 27905F622FE0833E006F9C60 /* Project object */;
 }
