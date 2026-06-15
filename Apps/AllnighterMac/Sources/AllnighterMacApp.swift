@@ -34,6 +34,13 @@ private struct MenuBarContent: View {
             NSApplication.shared.activate(ignoringOtherApps: true)
             openWindow(id: "main")
         }
+        Button("Quick capture (paste prompt)") {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            openWindow(id: "main")
+            model.quickCapture(prefillClipboard: true)
+        }
+        Text("Global hotkey: ⌥⌘Space")
+            .font(.caption)
         if model.isRunning {
             Text("Council running…")
         }

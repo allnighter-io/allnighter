@@ -34,6 +34,16 @@ enum AppConfig {
             }
         return DriverRegistry(manifests)
     }
+
+    /// The built-in six-worker preset, derived from the live panel so its worker
+    /// ids always match. The synthesizer defaults to Opus *by configuration*
+    /// (first worker that can synthesize), not a hardcoded code path.
+    static func builtInPanelPreset(panel: [Worker]) -> PanelPreset {
+        PanelPreset.builtInDefault(
+            panel: panel,
+            instructionPresetId: SynthesisInstructions.defaultID
+        )
+    }
 }
 
 /// Bridges the user's login-shell `PATH` into this process so spawned CLIs
