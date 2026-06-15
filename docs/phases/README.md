@@ -1,10 +1,17 @@
 # Allnighter — Build Phases
 
 > **▶ Active iOS work lives in [`docs/phases/ios/`](ios/README.md)** — the
-> Tailscale-based Remote Floor Manager spine (control your Mac from anywhere).
-> That folder supersedes the LAN-first `ON HOLD/08`/`09`/`20` below and is
-> finalized for implementation; the connection spine (`ios/01`) is buildable in
+> **cloud-first** Remote Floor Manager spine (sign in → pick your Mac → go),
+> Supabase + Cloudflare R2, with Tailscale as an optional premium "Direct Mode."
+> Finalized for implementation; the connection spine (`ios/01`) is buildable in
 > parallel with the Mac MVP.
+
+> **⚠ The `ON HOLD/` roadmap docs have been removed.** Allnighter is **not** a
+> git/worktree/repo manager — that is not our core competency. The numbered
+> "Build Phases" roadmap below is **historical** (it described that removed
+> direction) and its `XX_*.md` links are dead. The live execution truth is
+> `docs/mvp/` (the council + design council) and `docs/phases/ios/` (the iOS app).
+> Kept here only for context; do not build from it.
 
 > **⏸ ON HOLD — superseded as the active plan by `docs/mvp/`.**
 > The full roadmap below (worktree factory, lanes, previews, landing,

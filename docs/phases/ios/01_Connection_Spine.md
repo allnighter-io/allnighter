@@ -1,366 +1,415 @@
-# 01 — Connection Spine (the reusable core)
+# 01 — Connection Spine (cloud-first; the reusable core)
 
-Status: Draft — **buildable in parallel with the Mac MVP** once its dependencies
-(below) land. This is foundation, not deferred GUI.
+Status: Draft — **finalized for implementation** (post round-4 review). Buildable in
+parallel with the Mac MVP. Foundation, not deferred GUI.
 Milestone: iOS (Remote Floor Manager)
-Depends on: `00_iOS_Transport_Decision.md`, `../../mvp/RB6_Council_As_Tool.md`
-(RB6-S08), `../../mvp/00_MVP_Architecture.md` §4/§6/§10
 Owner: Mac + Shared Core
 Created: 2026-06-15
+Updated: 2026-06-15 (cloud-first pivot + hardening)
+Depends on: `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
+§4/§6/§9, `../../mvp/RB6_Council_As_Tool.md`
 
-## Reality check (read before scoping — corrected after mentor review)
+## Architecture principle (carries the whole design)
 
-Earlier drafts said this phase "just binds the server RB6 already built." **That
-server does not exist yet.** Verified in-tree (2026-06-15): `AllnighterCLI` has
-`ask / presets / recall / doctor / mcp / install-cli / mcp-install` — **no
-`serve`, no HTTP listener, no WebSocket.** RB6-S08 (the loopback HTTP/WS server)
-was specced but never built; only the **stdio** MCP server exists. Two honest
-consequences:
+**The network is just a cable. The Mac is truth + the final authorizer. The cloud is
+a blind relay/cache — untrusted in both directions.** The Mac **dials out** to the
+control plane and **re-verifies everything** (`00` §3); a Supabase/R2 breach yields
+**minimized metadata + ciphertext — never control, never plaintext.** Swapping the
+carrier (cloud relay ↔ Tailscale Direct) never changes the trust model, the
+`RunEvent` contract, the registry, the command set, revocation, or audit.
 
-1. **The real work includes building the server**, not just binding it. See the
-   dependency chain below; `iOS01-S00.5` lands the loopback server first.
-2. **Events are not durably stored.** `RunEvent` is an in-process
-   `AsyncStream` (`00_MVP_Architecture` §6) and `RunStore` persists only
-   `run.json` + derived Markdown. A phone that was offline during a whole council,
-   or across a Mac restart, **cannot** be replayed from memory. Resume requires a
-   durable **event journal** (§ Event durability). This is the make-or-break of the
-   spine and is core foundation work.
+```text
+iPhone (Supabase-authed) ──┐                              ┌──► Anthropic/OpenAI/xAI/Gemini/…
+                          Supabase  (control plane)        │   (the AI actually runs here)
+Mac agent ──dials OUT──►  command inbox + events + auth ───┘
+   holds subscription CLI logins · VERIFIES every command · executes locally
+   · SIGNS events · SEALS sensitive content both directions
+                          Cloudflare R2 (media plane)
+                          encrypted transient blobs (presigned, TTL)
+```
 
-**Pre-req — freeze the event vocabulary.** `RunEvent.swift` still ships legacy
-`synthesis.*` constants alongside the generic `stage.*` family. Per
-`00_MVP_Architecture` §6 the wire vocabulary is `run.* / member.* / stage.*`. The
-`synthesis.*` constants must be **retired/mapped to `stage.*` before the iOS wire
-contract locks** — the phone decodes this vocabulary and we will not version it
-twice. (Mac/Core change, but it gates `iOS01-S00`.)
+## Reality check (verified in-tree, 2026-06-15)
+
+- **No agent/server exists yet.** `AllnighterCLI` has `ask/presets/recall/doctor/mcp/
+  install-cli/mcp-install` — no cloud agent, no `serve`. The **outbound Mac agent**
+  (cloud) and the **loopback HTTP/WS server** (RB6-S08, reused by Direct Mode) must
+  be built.
+- **Events are not durable.** `RunEvent` is in-process `AsyncStream`; `RunStore`
+  persists only `run.json` + Markdown. Resume needs a durable **event journal +
+  monotonic persisted `seq`** (the Mac journal is truth; the cloud mirror is
+  transient).
+- **Pre-req — freeze the event vocabulary.** Retire/map legacy `synthesis.*` →
+  `stage.*` (`00_MVP_Architecture` §6) **before the wire locks**; consider a Mac-side
+  emit shim during transition so iOS never sees a dual vocabulary.
 
 ## Goal
 
-Make the Mac's run state reachable from the phone over Tailscale with a
-**resumable, durably-backed event stream** and **app-level device authorization**
-— the spine every iOS screen sits on. Concretely: finish the loopback HTTP/WS
-server, add an event journal for replay, expose it on the tailnet (per `00` §2.5),
-and add pairing + per-request device assertions. Provable end-to-end with a
-`MockiOSClient` and **zero SwiftUI**.
+A phone, signed in, can securely **see and drive** its Mac's runs **from anywhere
+with no networking setup**, over the cloud relay by default. The Mac verifies and
+executes locally; all sensitive content (in **both** directions) stays end-to-end
+encrypted. Provable end-to-end with `MockiOSClient` and **zero SwiftUI**.
 
 ## Non-Goals
 
-- iOS UI / onboarding wizard (that is `02`). This doc is server + wire contract +
-  Core client + a mock client, all headless-testable.
-- Push notifications (deferred seam — `00` §5; seam defined below).
-- Any change to the `RunEvent` *envelope* or run model. The contract is fixed in
-  `00_MVP_Architecture` §4/§6 and stays byte-identical (the vocabulary *freeze*
-  above is removing dead constants, not reshaping the envelope).
+- iOS UI (`02`); pairing *experience* (`01a`).
+- Push (deferred seam — `00` §7).
+- A generic remote-shell / remote-MCP pathway — **forbidden** (`00` §3.1).
+- Any change to the `RunEvent` *envelope* (the vocabulary *freeze* removes dead
+  constants only). Becoming durable cloud storage — the cloud is a transient cache.
 
-## Dependency chain (what lands first)
+## Security & crypto contract (LOCKED — build this first, in `S00`)
+
+The pivot is only "cheap" if this contract is right. Prove it with round-trip test
+vectors in Core **before** any Supabase/R2 wiring.
+
+### Keys — two per device, two per Mac (do not conflate)
+
+Signing ≠ sealing. You cannot encrypt to an Ed25519 signing key.
 
 ```text
-freeze event vocabulary (synthesis.* -> stage.*)        [Core/Mac pre-req]
-  -> iOS01-S00   Core models + fixtures (no I/O)
-  -> iOS01-S00.5 RB6-S08: loopback HTTP/WS server (127.0.0.1, bearer) + event journal
-  -> iOS01-S01   expose on the tailnet (tailscale serve | interface bind)
-  -> pairing + device assertions + commands + resume
-  -> MockiOSClient Works Test over real Tailscale
+Per device (phone/iPad):  deviceSigningPubkey  = Curve25519.Signing  (Ed25519) — command auth
+                          deviceSealingPubkey  = Curve25519.KeyAgreement (X25519) — receive sealed content
+Per Mac agent:            agentSigningPubkey   = Ed25519 — signs outbound events/acks
+                          agentSealingPubkey   = X25519 — receives sealed inbound commands (e.g. startRun prompt)
 ```
 
-## The durable contract (extracted from `00`, envelope unchanged)
+Private keys: device keys in iOS Keychain; Mac keys in Mac Keychain. Both pubkeys are
+exchanged + pinned at pairing (`01a`). **`deviceId` is a hint**; the verifying key is
+resolved by the Mac from its **own** `TrustedRemoteStore` (never from the spoofable
+row).
 
-The phone is a resilient client; the **Mac is the source of truth**. State syncs
-via the append-only event stream — clients never mutate truth directly.
+### Sealing — HPKE (RFC 9180) via `CryptoKit.HPKE`
 
-- **Event envelope** (`00` §6): `{ id, seq, ts, kind, payload }`. Kinds: `run.*`,
-  `member.*` (keyed on `seatId`), `stage.*` (`started`/`output`/`completed`/
-  `failed`/`reused`, carrying `stageId` + `purpose`). Clients **dedupe by `id`**
-  and apply idempotently (upsert) — a reconnecting phone never double-counts.
-- **`seq` is monotonic and persisted** (§ Event durability) — it must survive a
-  Mac restart and a brand-new run started from the Mac GUI while the phone was
-  away. A reset seq is a correctness bug.
-- **Resumable stream**: `GET /events/stream?since=<seq>` (WebSocket) replays
-  events with `seq > since`, then streams live.
-- **Resume horizon (the "too stale" case — was undefined):** if `since` is older
-  than the oldest retained event (journal truncated, or unknown), the server does
-  **not** silently send a partial gap. It returns/over-the-WS signals
-  **`resyncRequired`** (HTTP `410` on the REST probe); the client falls back to a
-  full `/snapshot` cold-hydration, then resumes streaming from the snapshot's
-  `lastSeq`. This is an explicit Works-Test rung.
-- **Snapshot schema** (pin in Core as a `Codable` type, shared by mock + live):
-  `SnapshotEnvelope { runs: [CouncilRun], lastSeq, serverTime, protocolVersion }`;
-  `GET /runs/:id/snapshot` returns one `CouncilRun`. One fixture drives both the
-  mock client and the future UI.
-- **Commands** (phone → Mac, Mac executes): start a council run / work request,
-  stop a run, **global kill switch** (`/control/stop-all`), landing actions — all
-  device-bound. Commands return a transport ack; the real outcome arrives as
-  `run.*`/`stage.*` events. **Exception:** `/control/stop-all` returns a confirmed
-  `{ terminated: <count> }` — it is the safety feature; an anxious user on a walk
-  needs certainty, not just "ack."
-
-## Event durability (the journal — new, required for resume)
-
-Replay needs a durable, seq-ordered source. Add an append-only journal the server
-reads for history; live events still flow from the in-process stream.
-
-- **Shape:** `events.jsonl` (one `RunEvent` per line), append-only, seq-ordered.
-  Per-run under `Runs/run_<id>/` plus a small global index, **or** a single global
-  journal — pick one and document it; the server reads it for any `since` replay.
-- **Monotonic seq across runs + processes.** Lift seq from per-coordinator memory
-  to a durable counter (file + `flock(2)`, matching RB6's cross-process pattern)
-  so the Mac app and a headless `allnighter serve` agree and never reissue a seq.
-- **Truncation is allowed but bounded and honest:** when old events are evicted,
-  `?since=<evicted>` yields `resyncRequired` (above), never a silent gap.
-- **Reconstruction fallback:** if a full journal is too much for v1, the snapshot
-  path must still be correct — a reconnecting client with a stale/unknown `since`
-  always converges via `/snapshot`. The journal is the optimization; the snapshot
-  is the floor.
-
-## Server, binding, and the auth matrix
-
-One HTTP+WS server (SwiftNIO per the TechStack note; `00` §2 "boring deps" — if a
-dependency is added, record it in the `00` log) with **pluggable auth** by client
-class. Binding follows `00` §2.5 (`tailscale serve` preferred; tailnet-IP bind as
-fallback) — the server itself stays on `127.0.0.1`.
-
-| Client | Reaches via | Auth | Notes |
-| --- | --- | --- | --- |
-| Local agent (RB6 CLI/MCP) | `127.0.0.1` | RB6 **bearer token** + mandatory `ALLNIGHTER_COUNCIL_DEPTH` header | Unchanged from RB6; recursion guard intact |
-| iOS over tailnet | `tailscale serve` / tailnet IP | **Device assertion** (Ed25519, below) | Bearer not required on this path |
-| `/health` | both | none | Liveness + protocol version + tailnet hint |
-| pairing routes | both | short-lived **pairing token** | Issued by the Mac when pairing is armed |
-
-- **WebSocket auth:** the device assertion travels as an **HTTP header on the WS
-  upgrade request** (`URLSessionWebSocketTask` supports this); verify it survives
-  whatever `tailscale serve` proxies (a stated validation step, not a redesign).
-- Loopback and tailnet listeners must not both claim the tailnet surface; only one
-  process serves it (coordinate via the same `flock` pattern as `RunStore`).
-
-## Tailscale operations (foundation primitives — headless, testable)
-
-These are *using* Tailscale, never rebuilding it. All are headless and unit-test
-with injected command output; the GUI in `02` only presents them.
-
-- **`TailscaleStatus` (Mac):** parse `tailscale status --json` for `BackendState`,
-  `Self.DNSName`, `TailscaleIPs`, MagicDNS on/off, tailnet name, peer list. Fall
-  back to `getifaddrs` filtering `utun*` addresses in `100.64.0.0/10`. Exposes:
-  installed / running / logged-in / tailnet-IP / MagicDNS-ok / this-machine-name /
-  visible-peers. Drives both `/health` and the Mac preflight gate.
-- **Mac preflight gate (before a QR is ever shown):** installed → logged-in →
-  tailnet-IP assigned → MagicDNS resolves → server can bind → remote enabled. The
-  QR is only armed when all are green, so a pairing token is never wasted on a
-  dead connection. Each failed check carries one concrete next action (open
-  Tailscale via `open -a Tailscale`, download link, etc.).
-- **iOS connectivity is reachability-only** (`00` §2): there is no iOS Tailscale
-  CLI / URL scheme. The honest signal is **probing `/health`** (MagicDNS first,
-  then the tailnet IP from the QR); plus a `getifaddrs` `utun`/CGNAT hint. Use the
-  **App Store smart link** (`https://apps.apple.com/app/tailscale/id1475387142`)
-  to install/open — do **not** call `canOpenURL("tailscale://")` (it doesn't
-  exist).
-- **Diagnostic ladder** (the single biggest real-world friction killer — "it won't
-  connect and I don't know why"). An ordered probe with an exact next step at each
-  rung, returned by the Core client so `02` and `doctor` both consume it:
-  1. Tailscale present on this phone? → App Store smart link.
-  2. Tailscale running / logged in? → "open Tailscale, turn it on."
-  3. **Same tailnet as the Mac?** (the #1 silent failure) → "sign in with the same
-     Google/GitHub/Apple you used on your Mac." (Pairing payload carries the Mac's
-     tailnet name; the client compares.)
-  4. Mac reachable (`/health` 200, MagicDNS then IP)? → distinguish **Mac asleep**
-     / Tailscale-down-on-Mac / **server not running** as distinct states, never a
-     generic "offline."
-  5. Paired + approved? → run/approve pairing.
-
-## Caffeination (keep the Mac reachable)
-
-A sleeping Mac silently kills remote control. While the server has an active run
-(or a remote session is connected), hold a macOS power assertion
-(`IOPMAssertionCreateWithName`, `PreventUserIdleSystemSleep`) and release it when
-idle. Independently, the phone treats **"Mac asleep / unreachable"** as a
-first-class state showing *last seen / last seq / last active run* — never faked
-liveness (`00_MVP_Architecture` §9 honesty; README §4.5).
-
-## Pairing handshake (concrete)
+One primitive, both directions. Suite: **DHKEM(X25519) · HKDF-SHA256 · AES-GCM-256.**
+A single Core type:
 
 ```text
-Mac (preflight all-green) arms pairing and shows a QR/code encoding:
-  { magicDNSName, tailnetIP, port, serverPubkey, tailnetName,
-    protocolVersion, pairingToken, expiresAt }          // see "richer payload" below
-  phone -> POST /pair/begin   { pairingToken }           -> { challenge }
-  phone generates Ed25519 keypair via CryptoKit (Curve25519.Signing);
-        private key in iOS Keychain
-  phone verifies it is on the SAME tailnet (compare tailnetName) before continuing
-  phone -> POST /pair/complete{ pairingToken, devicePubkey, deviceName,
-                                signature(challenge) }
-  Mac: verify signature + token (unexpired); HUMAN APPROVES (see headless surface);
-       on approve, store TrustedDevice; return { deviceId }
-  thereafter every request carries:
-       X-Allnighter-Device: <deviceId>
-       X-Allnighter-Assert: signature(method | path | requestId | timestamp |
-                                       protocolMajor | sha256(body))
+SealedBlob : { ciphertext, encapsulatedKey, sealedForKeyId, suite, contentType }
 ```
 
-**Richer QR payload (mentor-converged) — why each field:**
-- `magicDNSName` — friendly primary address.
-- `tailnetIP` — fallback when **MagicDNS is disabled** on the tailnet (else the
-  name won't resolve and pairing dies confusingly). Client tries name, then IP.
-- `serverPubkey` — **pin the Mac's identity at first contact** so the phone knows
-  it's talking to the right Mac on a shared tailnet (must be in the QR, not only
-  returned from `/pair/begin`, which is too late to pin).
-- `tailnetName` — lets the phone detect the same-tailnet mismatch (ladder rung 3).
-- `protocolVersion`, `port`, `expiresAt` — version match, address, and a visible
-  countdown so users don't scan a stale code.
+Used for: inbound sealed command payloads (phone→Mac, sealed to `agentSealingPubkey`),
+outbound `media_keys`/`event sealedRef` (Mac→device, sealed to `deviceSealingPubkey`).
+**One crypto story, every direction, shared test vectors.**
 
-**Headless approval surface (so `01` is provable without the `02` GUI):**
-pairing's human-in-the-loop step must work from the terminal, because the GUI is
-deferred:
-- `allnighter pair begin` → arms pairing, prints the code/URL + an ASCII QR.
-- `allnighter pair list` → pending + trusted devices.
-- `allnighter pair approve <deviceId>` / `allnighter pair revoke <deviceId>`.
-- For a headless/closet Mac, also post a `UserNotifications` alert "Pairing
-  request from <name> — approve with `allnighter pair approve <id>`."
-The `02` GUI later becomes a thin presenter over this same flow, not the only way
-to approve. **Revocation** (lost phone) lives here too and is cross-referenced by
-the Mac settings UI in `02`.
+### Signing — both directions, bound to identity
 
-Keys: phone private key in iOS Keychain; trusted devices + `serverPubkey` identity
-in Mac Keychain (secret material in Keychain; the device list may live in
-`Config/` with strict perms). Secrets never leave the Mac.
+- **Phone → Mac (commands):** sign `deviceId | method | requestId | timestamp |
+  protocolMajor | kind | sha256(payload)`. **`deviceId` is in the signed string**
+  (defense in depth) but the Mac still resolves the key from its store.
+- **Mac → phone (events/acks):** the Mac **signs `event_envelopes`/`command_acks`**
+  with `agentSigningPubkey`; the phone verifies against the pinned key. So a Supabase
+  row-injection cannot fabricate run state (it can be dropped, not forged). May be
+  batched per journal segment for efficiency.
 
-## Device assertion + replay protection (hardened)
+### Replay, skew, versioning
 
-The assertion is **authorization** (Tailscale already encrypts the channel, `00`
-§4). Hardened per mentor feedback:
+- **Clock skew ±60s.** On reject, the error returns the Mac's **`serverTime`**; the
+  phone computes an offset and **signs relative to server time** thereafter
+  (`SnapshotEnvelope.serverTime` seeds this on first contact). `RemoteDoctor` adds a
+  "your phone's clock is off" rung. → the whole clock-skew failure class becomes a
+  non-event for non-developers.
+- **Dedupe window = skew window.** Reject anything older than ±60s on timestamp
+  alone; the `requestId` dedupe set therefore only needs to cover that window —
+  persisted, pruned on startup, hard-capped (e.g. 10k entries) against inbox flooding.
+- **Protocol version.** v1 = `protocolVersion: 1`. A major mismatch (either
+  direction) returns a distinct **`upgradeRequired`** error → plain-language "update
+  the app." (Seeds real negotiation later; not decorative.)
+- **Error taxonomy (distinct codes):** `clockSkew`, `revoked`, `expired`,
+  `unauthorizedKind`, `replayedRequestId`, `badSignature`, `upgradeRequired`.
 
-- **Sign the whole request:** `method | path | requestId | timestamp |
-  protocolMajor | sha256(body)` — not just method+path, so a captured signature
-  can't be replayed against a different body.
-- **`requestId` dedup store** (already specced for command idempotency) **also
-  rejects reused `requestId`s** — this is the real replay defense. It must be
-  **persisted and bounded** so a retried `stop-all` after a Mac restart is still
-  safe and the store can't grow unbounded.
-- **Clock-skew window: ±60s, explicit.** iOS clocks drift (Airplane Mode, DST).
-  Outside the window → a **distinct `clockSkew` error code** (not generic
-  `unauthorized`), which the app surfaces as "your device clock may be off," not a
-  mystery network failure.
-- Mac rejects: unknown/`revoked` deviceId, bad signature, reused `requestId`,
-  out-of-window timestamp, protocol-major mismatch.
+## Control plane — Supabase (default carrier)
 
-## New `AllnighterCore` models (contract-first; round-trip tested + fixtures)
-
-Pure `Codable`, no I/O — same discipline as the run model (`00` §4). The only new
-shapes the spine adds; the `RunEvent`/`CouncilRun` envelope is untouched.
+Auth + Postgres + RLS + Realtime. **RLS is defense-in-depth; the signature is the
+authority** — the Mac re-verifies every command regardless of what RLS passed.
 
 ```text
-PairingPayload  : { magicDNSName, tailnetIP, port, serverPubkey, tailnetName,
-                    protocolVersion, pairingToken, expiresAt }   (QR contents)
-PairingToken    : { token, expiresAt }                          (short-lived, Mac-issued)
-TrustedDevice   : { deviceId, deviceName, pubkey, approvedAt, lastSeenAt, revoked }
-DeviceAssertion : { deviceId, requestId, timestamp, protocolMajor, signature }
-ProtocolVersion : { major, minor }                             (negotiated at /health)
-SnapshotEnvelope: { runs:[CouncilRun], lastSeq, serverTime, protocolVersion }
-CommandRequest  : { requestId, kind, payload }                 (start|stop|stopAll|land)
-CommandAck      : { requestId, accepted, reason? }             (transport ack; outcome via events)
-StopAllResult   : { terminated }                               (authoritative kill-switch reply)
-ResyncRequired  : { reason, snapshotHint }                     (since-too-stale signal)
-ConnectionDiagnosis : ordered [ { rung, ok, nextAction? } ]    (the diagnostic ladder)
+accounts          Supabase Auth users (Apple primary, Google fallback)
+mac_agents        { id, accountId, displayName, agentSigningPubkey, agentSealingPubkey, lastSeenAt }
+trusted_devices   { deviceId, accountId, macAgentId, displayName,
+                    deviceSigningPubkey, deviceSealingPubkey,
+                    pairedAt, validUntil, revoked, revokedAt, lastSeenAt, capabilities }
+command_inbox     { requestId(PK), accountId, macAgentId, fromDeviceId, kind,
+                    payload(content-light OR SealedBlob), signature, createdAt, status }
+command_acks      { requestId, macAgentId, accepted, reason?, outcome, sig }
+event_envelopes   { id, seq, ts, macAgentId, runId, kind, lightPayload,
+                    sealedRef?, sig, createdAt(TTL) }
+media_refs        { ref, macAgentId, r2Key, contentType, expiresAt }            one row per blob
+media_keys        { ref, deviceId, sealedKey, PRIMARY KEY(ref, deviceId) }      one row per device (fan-out)
 ```
 
-`CommandRequest.kind` is a **closed enum** (exhaustive switch, like `StagePurpose`
-in `00` §4.1) so adding a command is a deliberate, compiler-guided change.
+- **Mac agent auth (the third leg).** The Mac signs into the **same account** and
+  registers itself as a `mac_agent` (storing both agent pubkeys); the agent
+  authenticates to Supabase with its account session + a per-agent credential held in
+  **Mac Keychain**. RLS scopes every table by `accountId`/`macAgentId`.
+- **Three-tier RLS** (else pairing can't bootstrap):
+  1. **Authed but unapproved** → may **read `mac_agents` display info** (for the "Your
+     Macs" picker) and **write a pair request** only.
+  2. **Approved + unrevoked** → full read of its Mac's `event_envelopes`/`acks`;
+     write to `command_inbox`.
+  3. **Revoked** → none.
+- **Content-light control plane.** Supabase carries **metadata only**; sensitive
+  content (prompts, outputs, master plans, board images) is **sealed by reference**
+  (`SealedBlob` inline for small, `media_ref` for blobs). Enforced at write sites.
+- **Filtered Realtime.** The Mac subscribes `command_inbox:macAgentId=eq.<id>`; the
+  phone subscribes `event_envelopes`/`command_acks` filtered to its Mac. (Postgres
+  changes is fine at v1 scale.)
 
-## `RemoteClient` in Core (shared by mock + live + the future UI)
+## The Mac agent (outbound — the new core component)
 
-Put the transport logic in Core so iOS never reinvents state interpretation and is
-testable without an app target:
+In the Mac app **and** a headless `allnighter serve --cloud`. For a closet Mac, a
+**launchd agent with `KeepAlive`** relaunches it across crash/reboot (a power
+assertion is not durability). The agent:
+1. **Dials out** to Supabase (authed as its `mac_agent`); heartbeat + exponential-
+   backoff reconnect.
+2. **On (re)connect: sync `trusted_devices` FIRST** (refresh the local
+   `TrustedRemoteStore`), **then** process the inbox — so a device revoked while
+   offline can't slip a queued command through.
+3. **Subscribes** to its inbox **and polls** for unacked commands (delivery is
+   **at-least-once**: poll + push; idempotent by `requestId`). Realtime is best-
+   effort — the poll is the guarantee, and it is what makes the **kill switch**
+   reliable.
+4. **Verifies independently of the cloud** (signature/key/freshness/capability/skew),
+   **unseals** any sealed payload, then executes via `CouncilService`/dispatch with a
+   remote `RunOrigin`.
+5. **Writes back** a signed `command_ack`, then signed content-light
+   `event_envelopes`; seals sensitive content and posts `media_refs` + per-device
+   `media_keys`.
+6. **Reachability posture (`00` §3.3):** honors the user's "Keep my Mac available for
+   remote work" setting — holds a power assertion (`IOPMAssertionCreateWithName`,
+   `PreventUserIdleSystemSleep`) while connected/running, with a ~10-min idle release
+   when nothing is in-flight; when sleep is allowed, commands queue and drain on next
+   wake (the poll). "Mac asleep / agent-off / signed-out" stay honest, distinct states.
+
+## Media plane — Cloudflare R2 (E2E, transient, multi-device)
+
+For design-board images (`Design0`) and large sealed artifacts. **R2 Standard** (not
+IA — short-lived):
+1. Mac creates a **per-blob content key**, encrypts the blob, and also generates a
+   **sealed thumbnail** (Mac-side, so the board is *truly* thumbnail-first on
+   cellular — the phone must never download full-res just to render a grid).
+2. Upload ciphertext to R2 via a **presigned PUT minted by a Supabase Edge Function**
+   authed as the `mac_agent` — **R2 credentials never live on the Mac** (blast-radius
+   containment). Lifecycle rule deletes after the TTL (v1: **72h**).
+3. Post one `media_ref` (the blob) + one `media_keys` row **per approved device**
+   (content key sealed to each `deviceSealingPubkey`). One ciphertext, N sealed keys.
+4. Phone unseals its `media_keys` row, downloads ciphertext (R2 **free egress**),
+   decrypts locally. **Direct Mode bypasses R2** (P2P).
+- **Later-paired / new device:** existing blobs are sealed only for older devices. On
+  first access a new device **requests a re-seal**; the Mac (truth) re-seals the
+  content key to the new `deviceSealingPubkey` and adds a `media_keys` row.
+- **Expired blob (offline past TTL):** the Mac journal still has the original; the
+  phone requests **re-upload + re-seal**; if unavailable, an honest **"content
+  expired — your Mac will refresh it"** state (never a broken image).
+
+## The durable contract (envelope unchanged) + resume
+
+- **Envelope** (`00_MVP_Architecture` §6): `{ id, seq, ts, kind, payload }`, kinds
+  `run.*/member.*/stage.*`; dedupe by `id`, apply idempotently. Wire payloads are
+  **content-light** (sealed refs for sensitive fields).
+- **`seq` is monotonic + persisted** (journal) — survives a Mac restart and a run
+  started from the Mac GUI while the phone was away.
+- **Resume:** reconnect with last `seq`; if older than the cloud mirror retains →
+  **`resyncRequired`** → fetch a `SnapshotEnvelope`, then resume live. **`seq = 0`
+  (fresh install) goes straight to snapshot**, skipping the delta. No silent gaps.
+- **Snapshot includes recently-completed runs** (bounded/paginated), not just
+  in-flight ones — the **Morning Pull** (overnight results, by then past event TTL)
+  is the headline moment and must be in the snapshot. `SnapshotEnvelope { runs:
+  [CouncilRunLight], lastSeq, serverTime, protocolVersion }`; sensitive fields are
+  sealed refs. One fixture drives mock + UI.
+- **Commands** return a signed `command_ack`; outcomes arrive as `run.*/stage.*`
+  events. **`stopAll` returns a confirmed `{ terminated: count }`** and is **never
+  capability-gated** — the kill switch is a safety floor available to any trusted,
+  unrevoked device.
+
+## Event durability (the journal — Mac-side, required)
+
+Append-only `events.jsonl` (one `RunEvent`/line), seq-ordered, per-run under
+`Runs/run_<id>/` + a small global index. The Mac journal is **truth**; the cloud
+mirror is transient (TTL'd). Monotonic seq across runs + processes (file + `flock(2)`,
+RB6 pattern) so the Mac app and the headless agent agree. Bounded replay/snapshot
+pagination. Snapshot is the convergence floor.
+
+## Trust model (transport-agnostic — see `00` §3)
+
+- **`TrustedRemoteStore`** — the registry; two pubkeys per device; `deviceId` a hint,
+  signature the truth; `capabilities` (v1 grants full set **except** `stopAll`, which
+  is ungated); `validUntil` (v1: **long-lived ~1 year, explicit re-approval on
+  expiry, surfaced in Settings** — never silent expiry that looks like a bug).
+- **`RemoteCommandRouter`** — closed enum `startRun/stopRun/stopAll` (v1) +
+  `approveRequest/rejectRequest/openOnMac/landPlane` (**modeled now, deferred**; see
+  `01a` — reserving `approveRequest` makes remote device-approval a v1.1 *wiring*
+  change, not a wire-contract bump). **No shell case, ever.** Capability check +
+  idempotent dedupe + per-device rate limits + size caps.
+- **Revocation = real teardown:** reject new → tear down that device's filtered
+  subscription (without touching others) → cancel its in-flight scopes → (later) clear
+  push token → metadata-only audit → purge cached refs. Honest running-job outcomes.
+  *Honesty: revocation stops future access; content a device already unsealed cannot
+  be recalled (inherent to E2E).*
+- **`RemoteAuditEvent`** `{ ts, deviceId, commandKind, requestId, targetSummary,
+  outcome }` — **metadata only**: a structural test fails the build on a
+  `body/raw/content/prompt/output` field **and** `targetSummary` is capped at **≤200
+  chars** (so the ban can't be evaded by stuffing content into a summary).
+
+## `RemoteClient` + `ConnectionMode` in Core
 
 ```text
-protocol RemoteClient {                       // MockiOSClient + live impl both conform
-  func connect(_ payload: PairingPayload) async throws
-  func snapshot(since: Seq?) async throws -> SnapshotEnvelope
-  func stream(since: Seq) -> AsyncStream<RunEvent>      // auto-resync on resyncRequired
-  func send(_ command: CommandRequest) async throws -> CommandAck
+enum ConnectionMode { cloudRelay (default), tailscaleDirect (premium), loopback }
+
+protocol RemoteClient {                       // MockiOSClient + live impls conform
+  func connect(account: Session, mode: ConnectionMode) async throws
+  func macs() async throws -> [MacAgentRef]                       // account-based discovery (tier-1 RLS)
+  func snapshot(macId, since: Seq?) async throws -> SnapshotEnvelope
+  func stream(macId, since: Seq) -> AsyncStream<RunEvent>         // verifies Mac sig; resync on resyncRequired
+  func send(_ command: RemoteCommand) async throws -> CommandAck  // device-signed; sealed payload if sensitive
+  func fetchSealed(_ ref: MediaRef) async throws -> Data          // R2 (cloud) or P2P (direct); re-seal fallback
   func diagnose() async -> ConnectionDiagnosis
 }
 ```
 
-Plus a **shared sync reducer** `apply(SnapshotEnvelope, [RunEvent]) -> ViewState`
-(dedupe by `id`, upsert) used by **both** Mac and iOS — today `AppModel.apply`
-only handles status changes, which is too thin for mobile. The reducer is pure and
-exhaustively unit-tested in Core. `02`'s "live client" slice then just swaps the
-fixture source for the live `RemoteClient` — it does **not** reimplement transport.
+Plus a shared, pure **`apply(SnapshotEnvelope, [RunEvent]) -> ViewState`** reducer
+(dedupe by `id`, upsert), used by both Mac and iOS, exhaustively unit-tested. `02`
+swaps the fixture source for the live `RemoteClient`; it reimplements nothing.
+**One verification path, two carriers:** `RemoteCommandRouter` is shared by the
+outbound Supabase agent and the Direct-Mode loopback server — they must not diverge.
 
-## `PushNotifier` seam (defined now, unimplemented in v1)
-
-Push is deferred (`00` §5) but its seam is defined so v1 builds around it:
+## New `AllnighterCore` models (contract-first; round-trip tested + fixtures)
 
 ```text
-protocol PushNotifier {            // Mac-side; v1 impl is a no-op
-  func register(device: TrustedDevice, pushToken: String) async
-  func notify(device: TrustedDevice, doorbell: Doorbell) async
-}
-Doorbell : { title, body, runId?, kind }   // content-light; no secrets — data fetched over Tailscale
+ConnectionMode  : cloudRelay | tailscaleDirect | loopback
+MacAgentRef     : { macAgentId, displayName, agentSigningPubkey, agentSealingPubkey, lastSeenAt }
+TrustedDevice   : { deviceId, displayName, deviceSigningPubkey, deviceSealingPubkey,
+                    accountId, macAgentId, pairedAt, validUntil, revoked, revokedAt,
+                    lastSeenAt, capabilities }
+SealedBlob      : { ciphertext, encapsulatedKey, sealedForKeyId, suite, contentType }
+DeviceAssertion : { deviceId, requestId, timestamp, protocolMajor, kind, signature }
+RemoteCommand   : { requestId, kind, payload(content-light or SealedBlob) }   // kind = closed enum; no shell
+CommandAck      : { requestId, accepted, reason?, outcome, sig }
+StopAllResult   : { terminated }
+RunEvent        : { id, seq, ts, kind, payload(content-light), sealedRef?, sig }
+MediaRef        : { ref, macAgentId, r2Key, contentType, expiresAt }
+SnapshotEnvelope: { runs:[CouncilRunLight], lastSeq, serverTime, protocolVersion }
+ResyncRequired  : { reason, snapshotHint }
+RemoteAuditEvent: { ts, deviceId, commandKind, requestId, targetSummary(<=200), outcome }
+ConnectionDiagnosis : ordered [ { rung, ok, nextAction? } ]
 ```
 
-Default impl likely **OneSignal**, but the protocol is the commitment; Ably/FCM
-drop in (`00` §5). v1 ships the no-op; the phone gets live updates over the open
-stream.
+`RemoteCommand.kind` is a **closed enum** (exhaustive switch) — no shell case.
+
+## Connectivity & diagnostics (`RemoteDoctor`, read-only)
+
+Account-centric rungs, each with one concrete fix:
+1. Signed in? → Sign in with Apple/Google.
+2. **Provider/account match?** If the phone is Apple and the Mac registered under
+   Google (two distinct Supabase users → the phone sees no Mac), **say so**: "You're
+   signed in with Apple here but your Mac used Google — sign in with the same one."
+   (This silent same-account-different-provider dead end is a top real-world drop-off.)
+3. Any Macs on this account? → "Open Allnighter on your Mac, same account."
+4. Target Mac reachable (agent seen recently)? → distinguish **asleep / agent-off /
+   signed-out** as distinct honest states.
+5. Clock in sync? (uses `serverTime`) → "your phone's clock is off."
+6. Device approved? → run/approve pairing (`01a`).
+
+## `PushNotifier` seam (defined now, no-op in v1)
+
+```text
+protocol PushNotifier { func register(device, pushToken) async
+                        func notify(device, doorbell: Doorbell) async }   // Mac-side; v1 no-op
+Doorbell : { title, body, runId?, kind }    // content-light; no secrets
+```
+Likely **OneSignal**, swappable; v1 ships no-op (live updates ride Supabase Realtime
+while the app is open). `00` §7.
+
+## Direct Mode (Tailscale) — premium carrier (fast-follow)
+
+The earlier Tailscale design **is** `tailscaleDirect` (`00` §2.5). The Mac runs the
+loopback HTTP/WS server (RB6-S08) exposed via an `ExposureProvider` (`tailscale serve`
+→ auto-HTTPS, server stays on `127.0.0.1`; `tailnetIpHttp` fallback). **Same
+`RemoteClient`, same trust spine, same `RunEvent` contract.** Notes:
+- `RemoteDoctor` (Mac) checks `tailscale cert` succeeds; if not, guides the user to
+  enable HTTPS in the Tailscale admin console.
+- iOS `Info.plist` ATS: HTTPS enforced for external domains, with explicit exceptions
+  for the tailnet/local ranges (`100.64.0.0/10`, RFC-1918) for the `tailnetIpHttp`
+  fallback.
+- **Switching a cloud-paired device to Direct Mode needs no second human approval** —
+  same `trusted_devices` row + same device keys; the `01a` QR ceremony only teaches
+  the phone the P2P endpoint + pins `serverPubkey`.
 
 ## Ordered Slices
 
-Built in three groups so the spine is proven before any iOS target exists.
+**Group A — Core + crypto + mock (no app target, `swift test`):**
+- [ ] (pre-req) Freeze event vocabulary (`synthesis.*` → `stage.*`).
+- [ ] iOS01-S00 — Core models above **+ the crypto contract** (two-key model, `SealedBlob`/HPKE,
+  signing string incl. `deviceId`, dedupe=skew, protocol version) with **round-trip
+  test vectors**; fixtures.
+- [ ] iOS01-S00b — `RemoteClient` + shared `apply()` reducer + `MockiOSClient`
+  (resume/dedupe/resync + signature verify both directions, tested).
 
-**Group A — Core + mock (no app target, all `swift test`):**
-- [ ] (pre-req) Freeze event vocabulary: retire `synthesis.*`, map to `stage.*`.
-- [ ] iOS01-S00 — Core models above + fixtures + round-trip tests.
-- [ ] iOS01-S00b — `RemoteClient` protocol + shared `apply()` reducer +
-  `MockiOSClient`; resume/dedupe/resync tested entirely in `swift test`.
+**Group B — cloud control plane + agent:**
+- [ ] iOS01-S01 — Supabase: schema + **three-tier RLS** + Auth (Apple/Google) + Mac
+  agent auth/registration (both agent pubkeys).
+- [ ] iOS01-S02 — **Mac agent:** dial out, sync-trusted-devices-then-inbox, **verify
+  independently**, unseal, execute, **sign** ack + events, post media; at-least-once
+  poll; reachability posture + launchd KeepAlive.
+- [ ] iOS01-S03 — Event journal + monotonic persisted `seq`; `resyncRequired` →
+  **snapshot incl. recently-completed runs**; `seq=0`→snapshot; bounded responses.
 
-**Group B — Mac server:**
-- [ ] iOS01-S00.5 — **Land RB6-S08:** loopback HTTP/WS server (`allnighter serve`),
-  `127.0.0.1`, bearer + depth header, `/health` + `/snapshot` + `RunEvent` WS.
-- [ ] iOS01-S00.6 — Event journal + monotonic persisted `seq`; `resyncRequired`
-  on stale `since`.
-- [ ] iOS01-S01 — Expose on the tailnet (`tailscale serve` default; tailnet-IP
-  bind fallback). Reachable from another tailnet device; **not** off-tailnet.
-- [ ] iOS01-S01b — `TailscaleStatus` + Mac preflight gate (QR only when green).
+**Group C — media + trust:**
+- [ ] iOS01-S04 — E2E media via R2: per-blob key + Mac-side thumbnail, Edge-Function
+  presign, `media_refs` + per-device `media_keys` fan-out, re-seal-on-new-device,
+  TTL + expired-recovery.
+- [ ] iOS01-S05 — `RemoteCommandRouter` (closed enum, capability check w/ ungated
+  `stopAll`, idempotent dedupe, rate limits, size caps); `stopAll` → terminated count.
+- [ ] iOS01-S06 — Revocation teardown (surgical per-device) + `RemoteAuditEvent`
+  (metadata-only, `targetSummary≤200`) + structural test.
 
-**Group C — pairing, auth, commands, resume:**
-- [ ] iOS01-S02 — Pairing handshake + richer QR payload + headless
-  `allnighter pair begin/list/approve/revoke` + trusted-device store (Keychain).
-- [ ] iOS01-S03 — Device assertion on every tailnet route (signed body, requestId
-  dedup, ±60s skew + `clockSkew` code); reject unpaired/unsigned/replayed.
-- [ ] iOS01-S04 — `/events/stream?since=` replay→live; auto-resync on stale since.
-- [ ] iOS01-S05 — `/snapshot?since=` + `/runs/:id/snapshot` (`SnapshotEnvelope`).
-- [ ] iOS01-S06 — Command routes (start/work-request, stop, `stop-all`→count, land).
-- [ ] iOS01-S07 — Caffeination (power assertion while serving an active run).
-- [ ] iOS01-S08 — `MockiOSClient` Works Test over **real Tailscale** between two
-  machines: no gaps, no dupes; auth/replay rejection; off-tailnet unreachable.
+**Group D — premium carrier (fast-follow):**
+- [ ] iOS01-S07 — Direct Mode: RB6-S08 loopback server + `ExposureProvider`; ATS +
+  `tailscale cert` check; identical `RemoteClient`.
+- [ ] iOS01-S08 — Works Test over **both** carriers.
 
 ## Works Test
 
 ```text
-A MockiOSClient on a second tailnet device (a second Mac, Linux box, or second
-account — CI uses unit/property tests for the logic) pairs with the Mac via the
-CLI approval flow, fetches a snapshot, streams live run/member/stage events, drops
-the connection, reconnects with its last seq, and receives exactly the missed
-events with no duplicates. Negative cases all hold:
-  - a device NOT on the tailnet cannot reach the server;
-  - a device on a DIFFERENT tailnet is caught at pairing (tailnet mismatch);
-  - an expired pairing token is rejected;
-  - a reused requestId / out-of-window timestamp is rejected (distinct codes);
-  - since older than the journal returns resyncRequired and the client converges
-    via /snapshot with no gap;
-  - /control/stop-all returns a confirmed terminated count and stops all work.
+A MockiOSClient signed into an account drives a Mac over the CLOUD relay:
+  - tier-1 discovery lists the Mac (unapproved); pairing (01a) approves the device;
+  - startRun's PROMPT travels as a SealedBlob (sealed to agentSealingPubkey) -> the
+    Supabase row carries ONLY ciphertext; the Mac unseals + runs the right preset;
+  - signed, content-light run/member/stage events stream; the phone VERIFIES the Mac
+    signature and rejects any event with a bad/absent agent signature;
+  - a design board's images arrive E2E (per-device media_keys + R2 ciphertext),
+    thumbnail-first, and decrypt; a SECOND paired device decrypts only its own key;
+  - drop + reconnect by seq -> exactly missed events, no dupes; seq=0 -> snapshot;
+    a snapshot after the event-TTL still shows the recently-COMPLETED overnight run;
+  - injected command_inbox row (valid account session, bad/missing signature OR
+    spoofed fromDeviceId) -> rejected by the Mac (not the cloud); audit metadata-only;
+  - reused requestId / out-of-window timestamp -> rejected (distinct codes); a phone
+    with a skewed clock recovers via serverTime and succeeds;
+  - revoke device A -> A's new commands rejected AND A's live subscription torn down;
+    device B unaffected; running-job outcomes honest;
+  - stopAll delivered even after a Realtime drop (poll backstop) -> confirmed
+    terminated count; stopAll works regardless of capabilities.
+Then the SAME MockiOSClient drives the SAME Mac over Direct Mode with identical results.
 ```
 
 ## Exit Gates
 
-- [ ] Works Test passes, including every negative case above.
-- [ ] Resume correct across a Mac restart (persisted seq + journal), not just a
-  brief drop.
-- [ ] Server reachable only over the tailnet (off-tailnet failure verified); auth
-  rejects unpaired/replayed; secrets never leave the Mac.
-- [ ] `RunEvent` envelope unchanged from `00` §6; `synthesis.*` retired.
-- [ ] `RemoteClient` + reducer covered by `swift test`; the proof needs no SwiftUI.
+- [ ] Works Test passes on **both** carriers, including every negative case.
+- [ ] **Crypto contract proven by round-trip vectors** (two-key sealing via HPKE,
+  both-direction signing, replay/skew, protocol version) before any cloud wiring.
+- [ ] **Cloud breach can't control or read:** injected rows rejected by the Mac;
+  no plaintext prompts/outputs/plans/images anywhere in Supabase or R2 (content-light
+  or sealed only); audit metadata-only (`targetSummary≤200`).
+- [ ] Resume correct across a **Mac restart**; snapshot includes recently-completed runs.
+- [ ] **No remote-shell pathway** (enum has none; test asserts the closed set).
+- [ ] `RunEvent` envelope unchanged; `synthesis.*` retired.
+- [ ] `RemoteClient` + reducer covered by `swift test`; proof needs no SwiftUI.
 - [ ] `swift test` + app build green via `scripts/check.sh`; Code Audit CLEAN.
 
 ## Closeout
 
-Activate `02` (the iOS app consumes this spine). The remote control loop now has a
-secure, resumable, durably-backed pipe with a tested Core client — the GUI is
-"just" wiring SwiftUI to an already-proven surface.
+Activate `02`. The remote loop now has a frictionless cloud-relay default, a proven
+two-key E2E crypto contract sealing content **both directions**, at-least-once
+delivery with a reliable kill switch, a transport-agnostic trust spine with surgical
+revocation and metadata-only audit, snapshots that carry overnight results, and
+Direct Mode as the premium carrier — the GUI is "just" wiring SwiftUI to an
+already-proven surface.
