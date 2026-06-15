@@ -1,14 +1,13 @@
 import SwiftUI
 
-// Allnighter signature SwiftUI components, built on the Theme tokens. These are
-// the Swift mirror of `docs/design-system/components/` — keep names + behavior
-// aligned with the spec. Visual SSOT: docs/design-system/. Governance: docs/gui/.
+// Allnighter signature SwiftUI components, built on AllnighterTokens (AL*).
+// Swift mirror of docs/design-system/components/ + the council handoff spec
+// (docs/gui/surfaces/council/handoff.md). Visual SSOT: docs/design-system/.
 
 // MARK: - StatusPill
 //
-// The Council's signature status indicator: a pill with a colored dot.
-// `running` blinks — the same heartbeat as the live mark.
-// Spec: docs/design-system/components/product/StatusPill.{jsx,prompt.md}
+// The signature run-status chip: dot + label. The `running` dot PULSES
+// (ALMotion.pulse). Spec: handoff §StatusPill, components/product/StatusPill.
 
 struct StatusPill: View {
     enum Kind: Sendable, CaseIterable { case queued, running, done, failed, timedOut }
@@ -17,16 +16,16 @@ struct StatusPill: View {
     var label: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dim = false
+    @State private var pulsing = false
 
     var body: some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(dotColor)
                 .frame(width: 7, height: 7)
-                .opacity(kind == .running && dim ? 0.3 : 1)
+                .opacity(kind == .running && pulsing ? 0.45 : 1)
             Text(label ?? defaultLabel)
-                .font(.alCaption.weight(.semibold))
+                .font(ALFont.caption.weight(.semibold))
         }
         .padding(.leading, 7)
         .padding(.trailing, 8)
@@ -35,7 +34,7 @@ struct StatusPill: View {
         .background(fillColor, in: Capsule())
         .onAppear {
             guard kind == .running, !reduceMotion else { return }
-            withAnimation(Theme.Motion.blink) { dim = true }
+            withAnimation(ALMotion.pulse) { pulsing = true }
         }
     }
 
@@ -50,43 +49,66 @@ struct StatusPill: View {
     }
     private var dotColor: Color {
         switch kind {
-        case .queued: .alInk400
-        case .running: .alBlue500
-        case .done: .alGreen500
-        case .failed: .alRed500
-        case .timedOut: .alYellow500
+        case .queued: ALColor.statusQueued
+        case .running: ALColor.statusRunning
+        case .done: ALColor.statusDone
+        case .failed: ALColor.statusFailed
+        case .timedOut: ALColor.statusTimeout
         }
     }
     private var fillColor: Color {
         switch kind {
-        case .queued: .alBgActive
-        case .running: .alInfoSurface
-        case .done: .alSuccessSurface
-        case .failed: .alDangerSurface
-        case .timedOut: .alWarningSurface
+        case .queued: ALColor.active
+        case .running: ALColor.infoSurface
+        case .done: ALColor.successSurface
+        case .failed: ALColor.dangerSurface
+        case .timedOut: ALColor.warningSurface
         }
     }
     private var textColor: Color {
         switch kind {
-        case .queued: .alTextMuted
-        case .running: .alBlue400
-        case .done: .alGreen400
-        case .failed: .alRed400
-        case .timedOut: .alYellow400
+        case .queued: ALColor.textMuted
+        case .running: ALPalette.blue400
+        case .done: ALPalette.green400
+        case .failed: ALPalette.red400
+        case .timedOut: ALPalette.yellow400
         }
+    }
+}
+
+// MARK: - WorkerGlyph
+//
+// A worker's brand glyph: a tinted square. Brand SVGs (Simple Icons) get
+// bundled later; for now SF Symbol fallbacks per handoff §Iconography.
+
+struct WorkerGlyph: View {
+    var systemImage: String = "cpu"
+    var tint: Color = ALColor.textSecondary
+    var size: CGFloat = 30
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: ALRadius.md)
+            .fill(ALColor.active)
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: systemImage)
+                    .font(.system(size: size * 0.5))
+                    .foregroundStyle(tint)
+            }
     }
 }
 
 // MARK: - WorkerChip
 //
-// A worker in the panel or the live run grid: glyph · name + model · trailing
-// meta / status / selection check.
-// Spec: docs/design-system/components/product/WorkerChip.jsx
+// Two modes: `selectable` (sidebar panel: glyph + name + model + checkbox) and
+// `status` (run grid: glyph + name + model + StatusPill + meta).
+// Spec: handoff §WorkerChip, components/product/WorkerChip.
 
 struct WorkerChip: View {
     let name: String
     var model: String? = nil
-    var systemImage: String? = nil
+    var systemImage: String = "cpu"
+    var glyphTint: Color = ALColor.textSecondary
     var status: StatusPill.Kind? = nil
     var meta: String? = nil
     var selectable: Bool = false
@@ -95,8 +117,7 @@ struct WorkerChip: View {
 
     var body: some View {
         if selectable {
-            Button { onToggle?() } label: { content }
-                .buttonStyle(.plain)
+            Button { onToggle?() } label: { content }.buttonStyle(.plain)
         } else {
             content
         }
@@ -104,88 +125,76 @@ struct WorkerChip: View {
 
     private var content: some View {
         HStack(spacing: 11) {
-            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(Color.alBgActive)
-                .frame(width: 30, height: 30)
-                .overlay {
-                    Image(systemName: systemImage ?? "cpu")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color.alTextSecondary)
-                }
+            WorkerGlyph(systemImage: systemImage, tint: glyphTint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
-                    .font(.alBody.weight(.semibold))
-                    .foregroundStyle(Color.alTextPrimary)
+                    .font(ALFont.body.weight(.semibold))
+                    .foregroundStyle(ALColor.textPrimary)
                     .lineLimit(1)
                 if let model {
                     Text(model)
-                        .font(.alMonoSm)
-                        .foregroundStyle(Color.alTextFaint)
+                        .font(ALFont.monoSm)
+                        .foregroundStyle(ALColor.textFaint)
                         .lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
             HStack(spacing: 10) {
                 if let meta {
-                    Text(meta).font(.alMonoSm).foregroundStyle(Color.alTextMuted)
+                    Text(meta).font(ALFont.monoSm).foregroundStyle(ALColor.textMuted)
                 }
-                if let status {
-                    StatusPill(kind: status)
-                }
-                if selectable {
-                    checkBox
-                }
+                if let status { StatusPill(kind: status) }
+                if selectable { checkBox }
             }
         }
         .padding(.vertical, 11)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(backgroundColor, in: RoundedRectangle(cornerRadius: Theme.Radius.md))
+        .background(backgroundColor, in: RoundedRectangle(cornerRadius: ALRadius.md))
         .overlay {
-            RoundedRectangle(cornerRadius: Theme.Radius.md)
-                .strokeBorder(borderColor, lineWidth: 1)
+            RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(borderColor, lineWidth: 1)
         }
         .contentShape(Rectangle())
     }
 
     private var checkBox: some View {
-        RoundedRectangle(cornerRadius: Theme.Radius.xs)
-            .fill(selected ? Color.alAccent : .clear)
+        RoundedRectangle(cornerRadius: ALRadius.xs)
+            .fill(selected ? ALColor.accent : .clear)
             .frame(width: 18, height: 18)
             .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.xs)
-                    .strokeBorder(selected ? Color.alAccent : Color.alBorderStrong, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: ALRadius.xs)
+                    .strokeBorder(selected ? ALColor.accent : ALColor.borderStrong, lineWidth: 1.5)
             }
             .overlay {
                 if selected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .heavy))
-                        .foregroundStyle(Color.alTextOnAmber)
+                        .foregroundStyle(ALColor.textOnAmber)
                 }
             }
     }
 
-    private var backgroundColor: Color { selected ? Color.alAccentSurface : Color.alBgRaised }
+    private var backgroundColor: Color { selected ? ALColor.accentSurface : ALColor.raised }
     private var borderColor: Color {
-        if selected { return .alAccentBorder }
-        if status == .running { return Color.alBlue500.opacity(0.30) }
-        return .alBorderSubtle
+        if selected { return ALColor.accentBorder }
+        if status == .running { return ALColor.statusRunning.opacity(0.30) }
+        return ALColor.borderSubtle
     }
 }
 
 // MARK: - Buttons
 //
-// Spec: docs/design-system/components/core/Button.jsx
-// primary (amber) · secondary · ghost · danger. Pressed scales; primary/danger
-// glow on hover.
+// primary (amber) · secondary · ghost · danger. Pressed scales; primary glows
+// on hover. Spec: handoff §Button, components/core/Button.
 
 enum ALButtonVariant: Sendable { case primary, secondary, ghost, danger }
 
 struct AllnighterButtonStyle: ButtonStyle {
     var variant: ALButtonVariant = .primary
+    var small: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
-        ALButtonSurface(variant: variant, isPressed: configuration.isPressed) {
+        ALButtonSurface(variant: variant, small: small, isPressed: configuration.isPressed) {
             configuration.label
         }
     }
@@ -196,10 +205,13 @@ extension ButtonStyle where Self == AllnighterButtonStyle {
     static var alSecondary: Self { .init(variant: .secondary) }
     static var alGhost: Self { .init(variant: .ghost) }
     static var alDanger: Self { .init(variant: .danger) }
+    static func alPrimary(small: Bool) -> Self { .init(variant: .primary, small: small) }
+    static func alSecondary(small: Bool) -> Self { .init(variant: .secondary, small: small) }
 }
 
 private struct ALButtonSurface<Label: View>: View {
     let variant: ALButtonVariant
+    var small: Bool = false
     let isPressed: Bool
     @ViewBuilder var label: Label
 
@@ -207,51 +219,133 @@ private struct ALButtonSurface<Label: View>: View {
 
     var body: some View {
         label
-            .font(.alBody.weight(.semibold))
+            .font((small ? ALFont.label : ALFont.body).weight(.semibold))
             .foregroundStyle(foreground)
-            .padding(.horizontal, 14)
-            .frame(height: Theme.Control.h)
-            .background(background, in: RoundedRectangle(cornerRadius: Theme.Radius.sm))
+            .padding(.horizontal, small ? 10 : 14)
+            .frame(height: small ? ALControl.heightSm : ALControl.height)
+            .background(background, in: RoundedRectangle(cornerRadius: ALRadius.sm))
             .overlay {
                 if let border = borderColor {
-                    RoundedRectangle(cornerRadius: Theme.Radius.sm).strokeBorder(border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(border, lineWidth: 1)
                 }
             }
-            .alGlowAmber(hover && variant == .primary)
+            .modifier(GlowIf(active: hover && variant == .primary))
             .scaleEffect(isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: Theme.Motion.fast), value: isPressed)
-            .animation(.easeOut(duration: Theme.Motion.fast), value: hover)
+            .animation(ALMotion.fast, value: isPressed)
+            .animation(ALMotion.fast, value: hover)
             .onHover { hover = $0 }
     }
 
     private var foreground: Color {
         switch variant {
-        case .primary: .alTextOnAmber
-        case .secondary: .alTextPrimary
-        case .ghost: hover ? .alTextPrimary : .alTextSecondary
+        case .primary: ALColor.textOnAmber
+        case .secondary: ALColor.textPrimary
+        case .ghost: hover ? ALColor.textPrimary : ALColor.textSecondary
         case .danger: Color(hex: 0x220707)
         }
     }
     private var background: Color {
         switch variant {
-        case .primary: hover ? .alAccentHover : .alAccent
-        case .secondary: hover ? .alBgHover : .alBgSurface
-        case .ghost: hover ? .alBgHover : .clear
-        case .danger: hover ? .alRed400 : .alRed500
+        case .primary: hover ? ALColor.accentHover : ALColor.accent
+        case .secondary: hover ? ALColor.hover : ALColor.surface
+        case .ghost: hover ? ALColor.hover : .clear
+        case .danger: hover ? ALPalette.red400 : ALPalette.red500
         }
     }
     private var borderColor: Color? {
         switch variant {
-        case .secondary: hover ? .alBorderStrong : .alBorderDefault
+        case .secondary: hover ? ALColor.borderStrong : ALColor.borderDefault
         default: nil
         }
     }
 }
 
-// MARK: - Card
+private struct GlowIf: ViewModifier {
+    let active: Bool
+    func body(content: Content) -> some View {
+        active ? AnyView(content.alGlowAmber()) : AnyView(content)
+    }
+}
+
+// MARK: - IconButton
+
+struct IconButton: View {
+    let systemImage: String
+    var accessibilityLabel: String
+    var small: Bool = false
+    var action: () -> Void
+
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: small ? 12 : 13))
+                .foregroundStyle(hover ? ALColor.textPrimary : ALColor.textSecondary)
+                .frame(width: small ? ALControl.heightSm : ALControl.height,
+                       height: small ? ALControl.heightSm : ALControl.height)
+                .background(hover ? ALColor.hover : .clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+// MARK: - Badge
 //
-// Spec: docs/design-system/components/core/Card.jsx
-// default (raised) · accent (amber tint) · flush (surface).
+// Pill, tinted surface + matching text, optional leading dot.
+// Spec: handoff §Badge.
+
+struct Badge: View {
+    enum Tone: Sendable { case positive, accent, neutral, warning, danger }
+
+    let text: String
+    var tone: Tone = .neutral
+    var dot: Bool = false
+    var mono: Bool = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if dot { Circle().fill(dotColor).frame(width: 6, height: 6) }
+            Text(text).font((mono ? ALFont.monoSm : ALFont.caption).weight(.semibold))
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 19)
+        .foregroundStyle(textColor)
+        .background(fill, in: Capsule())
+    }
+
+    private var fill: Color {
+        switch tone {
+        case .positive: ALColor.successSurface
+        case .accent: ALColor.accentSurface
+        case .neutral: ALColor.active
+        case .warning: ALColor.warningSurface
+        case .danger: ALColor.dangerSurface
+        }
+    }
+    private var textColor: Color {
+        switch tone {
+        case .positive: ALPalette.green400
+        case .accent: ALColor.accentText
+        case .neutral: ALColor.textMuted
+        case .warning: ALPalette.yellow400
+        case .danger: ALPalette.red400
+        }
+    }
+    private var dotColor: Color {
+        switch tone {
+        case .positive: ALColor.statusDone
+        case .accent: ALColor.accent
+        case .neutral: ALColor.textFaint
+        case .warning: ALColor.statusTimeout
+        case .danger: ALColor.statusFailed
+        }
+    }
+}
+
+// MARK: - Card
 
 enum ALCardVariant: Sendable { case `default`, accent, flush }
 
@@ -267,29 +361,70 @@ struct AllnighterCard: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(pad ? Theme.Space.s4 : 0)
+            .padding(pad ? ALSpace.s4 : 0)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(baseFill, in: RoundedRectangle(cornerRadius: Theme.Radius.lg))
+            .background(baseFill, in: RoundedRectangle(cornerRadius: ALRadius.lg))
             .background(
-                variant == .accent ? Color.alAccentSurface : .clear,
-                in: RoundedRectangle(cornerRadius: Theme.Radius.lg)
+                variant == .accent ? ALColor.accentSurface : .clear,
+                in: RoundedRectangle(cornerRadius: ALRadius.lg)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.lg).strokeBorder(borderColor, lineWidth: 1)
+                RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(borderColor, lineWidth: 1)
             }
-            .alShadowSm()
+            .modifier(ShadowIf(on: variant != .flush))
     }
 
-    private var baseFill: Color { variant == .flush ? .alBgSurface : .alBgRaised }
-    private var borderColor: Color { variant == .accent ? .alAccentBorder : .alBorderSubtle }
+    private var baseFill: Color { variant == .flush ? ALColor.surface : ALColor.raised }
+    private var borderColor: Color { variant == .accent ? ALColor.accentBorder : ALColor.borderSubtle }
+}
+
+private struct ShadowIf: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        on ? AnyView(content.alShadowSm()) : AnyView(content)
+    }
+}
+
+// MARK: - SegmentedTabs
+
+struct SegmentedTabs: View {
+    struct Item: Identifiable, Hashable { let id: String; let label: String; var count: Int? = nil }
+
+    let items: [Item]
+    @Binding var selection: String
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(items) { item in
+                let isSel = item.id == selection
+                Button { selection = item.id } label: {
+                    HStack(spacing: 5) {
+                        Text(item.label)
+                        if let c = item.count {
+                            Text("\(c)").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                        }
+                    }
+                    .font(ALFont.label.weight(.medium))
+                    .foregroundStyle(isSel ? ALColor.textPrimary : ALColor.textMuted)
+                    .padding(.horizontal, 12)
+                    .frame(height: 26)
+                    .background(isSel ? ALColor.raised : .clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
 }
 
 // MARK: - LiveMark
 //
-// The brand mark: a crescent + a cursor block. Solid amber = idle, blinking
-// amber = running, green = done — the logo IS the activity indicator.
-// NOTE: shape approximation of assets/allnighter-glyph-live.svg; replace with
-// the real brand glyph (asset catalog) in a later GUI polish pass.
+// The brand mark: an amber crescent + a cursor block. Only the block animates:
+// idle solid · running blinks · done turns green. Geometry per handoff
+// §"The live mark" (100×100 box). NOTE: native rebuild of the brand glyph;
+// swap for the bundled vector asset in a later polish pass.
 
 struct LiveMark: View {
     enum Phase: Sendable { case idle, running, done }
@@ -298,35 +433,44 @@ struct LiveMark: View {
     var size: CGFloat = 28
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dim = false
+    @State private var blinkOn = true
 
     var body: some View {
-        HStack(spacing: size * 0.14) {
+        ZStack(alignment: .topLeading) {
             Crescent()
-                .fill(markColor, style: FillStyle(eoFill: true))
-                .frame(width: size * 0.66, height: size)
-            RoundedRectangle(cornerRadius: 1)
-                .fill(markColor)
-                .frame(width: size * 0.17, height: size * 0.44)
-                .opacity(state == .running && dim ? 0.3 : 1)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: 0xFFD79E), Color(hex: 0xFFA630), Color(hex: 0xF0901C)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    style: FillStyle(eoFill: true)
+                )
+            RoundedRectangle(cornerRadius: size * 0.026)
+                .fill(blockColor)
+                .frame(width: size * 0.105, height: size * 0.17)
+                .offset(x: size * 0.595, y: size * 0.43)
+                .opacity(state == .running && !blinkOn ? 0 : 1)
         }
+        .frame(width: size, height: size)
         .onAppear {
             guard state == .running, !reduceMotion else { return }
-            withAnimation(Theme.Motion.blink) { dim = true }
+            withAnimation(ALMotion.blink) { blinkOn = false }
         }
     }
 
-    private var markColor: Color { state == .done ? .alGreen500 : .alAmber500 }
+    private var blockColor: Color { state == .done ? ALColor.statusDone : Color(hex: 0xFFE9C6) }
 }
 
 private struct Crescent: Shape {
+    // 100×100 design box: filled circle r32 @ (47,50) MINUS circle r28 @ (62,41).
     func path(in rect: CGRect) -> Path {
+        let s = min(rect.width, rect.height) / 100
+        func circle(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat) -> CGRect {
+            CGRect(x: (cx - r) * s, y: (cy - r) * s, width: 2 * r * s, height: 2 * r * s)
+        }
         var p = Path()
-        let d = min(rect.width, rect.height)
-        let outer = CGRect(x: rect.midX - d / 2, y: rect.midY - d / 2, width: d, height: d)
-        p.addEllipse(in: outer)
-        let inner = outer.offsetBy(dx: d * 0.32, dy: -d * 0.05).insetBy(dx: d * 0.10, dy: d * 0.10)
-        p.addEllipse(in: inner)
+        p.addEllipse(in: circle(47, 50, 32))
+        p.addEllipse(in: circle(62, 41, 28))
         return p
     }
 }
@@ -339,33 +483,32 @@ private struct Crescent: Shape {
             LiveMark(state: .idle)
             LiveMark(state: .running)
             LiveMark(state: .done)
-            Text("allnighter").font(.alH2).foregroundStyle(Color.alTextPrimary)
+            Text("allnighter").font(ALFont.h2).foregroundStyle(ALColor.textPrimary)
+            Badge(text: "5/5 healthy", tone: .positive, dot: true)
         }
-
         HStack(spacing: 8) {
             ForEach(StatusPill.Kind.allCases, id: \.self) { StatusPill(kind: $0) }
         }
-
         HStack(spacing: 10) {
             Button("Run council") {}.buttonStyle(.alPrimary)
-            Button("Secondary") {}.buttonStyle(.alSecondary)
-            Button("Ghost") {}.buttonStyle(.alGhost)
+            Button("Export Markdown") {}.buttonStyle(.alSecondary)
+            Button("Copy") {}.buttonStyle(.alGhost)
             Button("Stop") {}.buttonStyle(.alDanger)
+            IconButton(systemImage: "gearshape", accessibilityLabel: "Settings") {}
         }
-
+        SegmentedTabs(items: [.init(id: "plan", label: "Master plan"),
+                              .init(id: "members", label: "Member answers", count: 6)],
+                      selection: .constant("plan"))
         VStack(spacing: 8) {
-            WorkerChip(name: "Claude Code", model: "claude-opus-4-8", systemImage: "cpu",
-                       status: .running, meta: "2.4s", selectable: true, selected: true)
-            WorkerChip(name: "Codex", model: "gpt-5-codex", systemImage: "cpu",
-                       status: .done, meta: "1.1s", selectable: true, selected: false)
-            WorkerChip(name: "Grok", model: "grok-4", systemImage: "cpu", status: .failed)
+            WorkerChip(name: "Opus 4.8", model: "via claude-code", systemImage: "cpu",
+                       glyphTint: ALColor.accent, status: .running, meta: "00:04",
+                       selectable: true, selected: true)
+            WorkerChip(name: "Grok Build", model: "via grok-cli", systemImage: "terminal",
+                       status: .failed, meta: "auth expired")
         }
-
-        Text("Master plan ready")
-            .font(.alTitle).foregroundStyle(Color.alTextPrimary)
-            .alCard(.accent)
+        Text("Master plan ready").font(ALFont.title).foregroundStyle(ALColor.textPrimary).alCard(.accent)
     }
     .padding(24)
-    .frame(width: 460)
-    .background(Color.alBgBase)
+    .frame(width: 480)
+    .background(ALColor.base)
 }
