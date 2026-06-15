@@ -55,6 +55,31 @@ Model at rest. Worker at work.
 The product promise is not "configure a lineup." It is "turn the models you
 already pay for into a working team."
 
+## Multiple Workers Per Model
+
+One model may appear more than once in a team. That is not a special public
+concept; it is just multiple workers.
+
+Preferred cases:
+
+```text
+Opus as First Principles
+Opus as Skeptic
+Opus as Maintainer
+```
+
+Rare case:
+
+```text
+Opus as Skeptic
+Opus as Skeptic
+```
+
+When the same model runs the same skill more than once, use an internal
+`instanceIndex` and a display suffix such as `Opus / Skeptic A` and
+`Opus / Skeptic B`. Do not introduce another product noun for this. The row is
+still a worker.
+
 ## One Primitive, Many Old Names
 
 Old docs used several words for the same underlying idea:
@@ -172,6 +197,9 @@ Copy lane.
 - Worker count and output count are different facts. A Copy team may have six
   workers and produce four versions because some workers review instead of
   generate.
+- Public JSON and CLI output must follow the same model. Use `models`, `workers`,
+  `teamRun`, `workerAnswers`, and `plan`; do not leak legacy run words into new
+  machine-readable contracts.
 
 ## Designer Handoff
 

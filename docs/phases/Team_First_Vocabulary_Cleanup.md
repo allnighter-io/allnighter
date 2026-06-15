@@ -99,6 +99,43 @@ as `Skill + Model`.
 word is `Design Council`; use `Design team` for the lineup and `Design board`
 for the generated options.
 
+## Symbol Rename Map
+
+The biggest risk is not the product vocabulary. It is a half-migrated codebase
+where the same word means different things in different layers. Use this map for
+implementation slices and JSON/API reviews.
+
+| Today / legacy | New term | Notes |
+| --- | --- | --- |
+| `DriverManifest` / driver | Source | Mostly internal; setup may say CLI/tool to users. |
+| `Worker` meaning a bare callable model/tool | Model | Bench entry. |
+| `WorkerRegistry` if it stores bare callables | Model registry | Name by what it contains. |
+| `WorkerHealth` for install/auth/probe status | Source/model setup status | Exact split depends on implementation; do not call bare models workers. |
+| `PanelSeat` / `PanelSeatSpec` | Worker | Runtime assignment: model + skill + optional instance index. |
+| `stance` / persona / lens / role / hat | Skill | Reusable prompt profile. |
+| `PanelPreset` / panel preset | Team preset | Saved worker lineup. |
+| `CouncilRun` / `CouncilRequest` | TeamRun / TeamRequest | Durable run unit. |
+| `MemberResponse` | WorkerAnswer | One worker's output. |
+| `masterPlan` | plan | Synthesized result. |
+| `WorkerRole.synthesizer` | plan writer capability / skill | Context-dependent; do not expose as `synthesizer`. |
+| `panel_default.json` | `team_default.json` | Rename when fixtures move. |
+| `copy_option_<seatId>.md` | `copy_option_<workerId>.md` | Artifact naming follows runtime worker ids. |
+
+Thread turn names should follow the same contract:
+
+```text
+teamRun
+designBoard
+copyBoard
+workOrder
+dispatch
+returnReview
+```
+
+New JSON output from `alln team --json` must use the new names from day one.
+Do not ship machine-readable fields such as `panelSeats`, `memberResponses`, or
+`masterPlan` and expect the GUI to translate them away later.
+
 ## No Compatibility Window
 
 - Do not add public aliases such as `alln council` or `alln panel`.
@@ -148,11 +185,11 @@ This list is a starting inventory, not permission to keep the old words.
 ## Execution Order
 
 1. **Docs router first.** Update phase/router docs so new work starts from Team.
-2. **CLI contract next.** Ship the `alln` command grammar with `team` as the
-   primary verb/noun.
-3. **Core semantic rename.** Rename public/core surfaces before GUI wiring
-   deepens: old Worker-as-model becomes Model; old Seat becomes Worker. Keep
-   compatibility only inside private migration code needed to finish the rename.
+2. **Patch drift docs.** Copy, Setup, Threads, GUI briefs, iOS pairing, and
+   AGENTS must stop teaching the old entity model before implementation starts.
+3. **Core rename + CLI milestone together.** Do not build `alln team` on old
+   public JSON. Rename public/core surfaces as the CLI proof loop lands: old
+   Worker-as-model becomes Model; old Seat becomes Worker.
 4. **GUI language pass.** Replace labels, empty states, window titles,
    accessibility labels, and design briefs.
 5. **iOS language pass.** Pairing and remote control copy must say team/run, not
@@ -175,6 +212,15 @@ Every hit must be one of:
 - a false positive.
 
 No user-facing string may remain.
+
+Additional public API proof after the core rename starts:
+
+```bash
+rg -n "CouncilRun|PanelSeat|PanelPreset|MemberResponse|masterPlan|panelSeats|memberResponses" Packages Apps Tests
+```
+
+Every remaining hit must be explicitly legacy/internal and scheduled in the
+active rename checklist.
 
 ## Done When
 

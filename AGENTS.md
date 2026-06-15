@@ -30,8 +30,9 @@ preference compounding.
 
 Root docs are the source of truth. Read the relevant one before changing that area.
 
-- **Built MVP foundation:** `docs/mvp/README.md` — the **Council** slice
-  (one prompt → parallel CLIs → Opus master plan), plus `docs/mvp/00_MVP_Architecture.md`.
+- **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
+  (originally called Council: one prompt → parallel CLIs → plan), plus
+  `docs/mvp/00_MVP_Architecture.md`.
 - **Post-MVP phases:** `docs/phases/README.md` (active forward phase router).
 - **Active iOS work:** `docs/phases/ios/README.md` (Tailscale remote floor manager).
 - **Visual design SSOT** (brand, voice, tokens, components, logo, icon):
@@ -52,7 +53,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | --- | --- |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
-| Work-order vocabulary, bench/skill/seat/team model | `docs/phases/Work_Order_Team_Model.md` |
+| Work-order vocabulary, model/skill/worker/team model | `docs/phases/Work_Order_Team_Model.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
@@ -103,8 +104,8 @@ One-time per clone: `bash scripts/install_commit_queue_watcher.sh`. Full rules:
 - Maintenance preserves behavior unless the task is explicitly a bug fix.
 - Do not mix broad cleanup into a feature or bug fix.
 - Prefer deterministic checks over recurring agent judgment.
-- A failed worker is shown failed, never faked. Hide the plumbing (panel /
-  worker / council / master plan — not worktree / subprocess).
+- A failed worker is shown failed, never faked. Hide the plumbing (legacy panel /
+  council / master-plan words, worktree, subprocess).
 - Mac app is unsandboxed by design; still minimize privilege surface and document
   every permission request.
 - iOS companion connects only to the user's own Mac over Tailscale/local network
