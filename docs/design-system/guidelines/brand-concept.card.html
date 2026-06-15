@@ -1,0 +1,33 @@
+<!-- @dsCard group="Brand" viewport="700x300" name="Brand concept" subtitle="Amber phosphor on midnight" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;font-family:var(--font-sans)}
+  .hero{position:relative;overflow:hidden;background:radial-gradient(120% 90% at 22% 18%,#181D31 0%,#0B0E1A 52%,#05060C 100%);padding:40px 44px;min-height:300px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between}
+  .glow{position:absolute;left:-60px;top:-40px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(255,166,48,.22),transparent 62%);pointer-events:none}
+  .top{display:flex;align-items:center;gap:16px;position:relative}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+  h1{font-family:var(--font-display);font-size:34px;font-weight:800;letter-spacing:-.022em;line-height:1.08;color:var(--ink-50);max-width:560px;position:relative}
+  .sub{position:relative;color:var(--text-secondary);font-size:14px;max-width:520px;margin-top:12px}
+  .row{display:flex;gap:8px;position:relative}
+  .sw{width:38px;height:38px;border-radius:9px;border:1px solid var(--border-subtle)}
+</style></head>
+<body>
+  <div class="hero">
+    <div class="glow"></div>
+    <div class="top">
+      <img src="../assets/allnighter-glyph.svg" width="44" height="44">
+      <span class="eyebrow">Allnighter</span>
+    </div>
+    <div>
+      <h1>You already pay for the team.<br>Allnighter makes it show up to work.</h1>
+      <p class="sub">Deep midnight surfaces lit by a single warm signal — the light still on at 3am. One vivid amber against a calm, blue-tinted dark.</p>
+    </div>
+    <div class="row">
+      <div class="sw" style="background:#05060C"></div>
+      <div class="sw" style="background:#111420"></div>
+      <div class="sw" style="background:#151822"></div>
+      <div class="sw" style="background:#FFA630;box-shadow:var(--glow-amber)"></div>
+    </div>
+  </div>
+</body></html>

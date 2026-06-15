@@ -1,0 +1,53 @@
+<!-- @dsCard group="Components" viewport="700x300" name="StatusPill · WorkerChip" subtitle="the Council's signature components" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<style>
+  body{background:var(--bg-base);margin:0;padding:24px;font-family:var(--font-sans)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+  .lbl{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);width:100%;margin:0 0 6px}
+  .stack{display:flex;flex-direction:column;gap:8px;max-width:340px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+</style></head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { StatusPill, WorkerChip } = window.AllnighterDesignSystem_efa784;
+// Worker glyphs — Simple Icons via cdn.simpleicons.org (monochrome, recolorable); terminal is a Lucide mark.
+const BrandIcon = ({ slug, color = 'E1E5F0', size = 18 }) =>
+  <img src={`https://cdn.simpleicons.org/${slug}/${color}`} width={size} height={size} alt="" />;
+const Icon = ({ name, size = 16, style }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+    <path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>
+);
+ReactDOM.createRoot(document.getElementById('root')).render(<>
+  <div className="row">
+    <span className="lbl">StatusPill — running blinks</span>
+    <StatusPill status="queued"/><StatusPill status="running"/><StatusPill status="done"/>
+    <StatusPill status="failed"/><StatusPill status="timedout"/>
+  </div>
+  <div className="cols">
+    <div>
+      <div className="lbl">WorkerChip · panel (selectable)</div>
+      <div className="stack">
+        <WorkerChip name="Opus 4.8" model="via claude-code" selectable selected glyph={<BrandIcon slug="anthropic" color="FFA630"/>}/>
+        <WorkerChip name="ChatGPT 5.5" model="via codex-cli" selectable selected glyph={<Icon name="terminal" size={16} style={{color:'var(--text-secondary)'}}/>}/>
+        <WorkerChip name="Grok Build" model="via grok-cli" selectable glyph={<BrandIcon slug="x" color="E1E5F0"/>}/>
+      </div>
+    </div>
+    <div>
+      <div className="lbl">WorkerChip · live run</div>
+      <div className="stack">
+        <WorkerChip name="Opus 4.8" model="via claude-code" status="done" meta="1,284 · 00:42" glyph={<BrandIcon slug="anthropic" color="FFA630"/>}/>
+        <WorkerChip name="Gemini Flash" model="via gemini-cli" status="running" meta="842 · 00:21" glyph={<BrandIcon slug="googlegemini" color="E1E5F0"/>}/>
+        <WorkerChip name="Grok Build" model="via grok-cli" status="failed" meta="auth" glyph={<BrandIcon slug="x" color="E1E5F0"/>}/>
+      </div>
+    </div>
+  </div>
+</>);
+</script>
+</body></html>

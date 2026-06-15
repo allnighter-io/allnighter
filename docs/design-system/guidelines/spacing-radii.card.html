@@ -1,0 +1,18 @@
+<!-- @dsCard group="Spacing" viewport="700x180" name="Corner radii" subtitle="Tight & precise — controls 6, cards 10, panels 14" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg-base);padding:24px;font-family:var(--font-sans);display:flex;gap:18px;align-items:flex-end}
+  .u{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .box{width:78px;height:78px;background:var(--bg-raised);border:1px solid var(--border-default)}
+  .nm{font-size:11px;color:var(--text-secondary);font-weight:600}
+  .n{font-family:var(--font-mono);font-size:10px;color:var(--text-faint)}
+</style></head>
+<body>
+  <div class="u"><div class="box" style="border-radius:var(--radius-xs)"></div><div class="nm">xs</div><div class="n">4 · tag</div></div>
+  <div class="u"><div class="box" style="border-radius:var(--radius-sm)"></div><div class="nm">sm</div><div class="n">6 · control</div></div>
+  <div class="u"><div class="box" style="border-radius:var(--radius-lg)"></div><div class="nm">lg</div><div class="n">10 · card</div></div>
+  <div class="u"><div class="box" style="border-radius:var(--radius-xl)"></div><div class="nm">xl</div><div class="n">14 · panel</div></div>
+  <div class="u"><div class="box" style="border-radius:var(--radius-2xl)"></div><div class="nm">2xl</div><div class="n">18 · modal</div></div>
+  <div class="u"><div class="box" style="border-radius:var(--radius-pill)"></div><div class="nm">pill</div><div class="n">999 · status</div></div>
+</body></html>

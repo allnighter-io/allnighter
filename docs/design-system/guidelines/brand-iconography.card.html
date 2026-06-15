@@ -1,0 +1,36 @@
+<!-- @dsCard group="Brand" viewport="700x210" name="Iconography" subtitle="Lucide line icons (UI) + Simple Icons (worker glyphs)" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg-base);font-family:var(--font-sans);padding:24px}
+  .grp{margin-bottom:18px}
+  .lab{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:12px}
+  .ico{display:flex;gap:20px;align-items:center;color:var(--text-secondary)}
+  .ico svg{width:22px;height:22px;stroke-width:2}
+  .glyphs{display:flex;gap:14px;align-items:center}
+  .gchip{width:38px;height:38px;border-radius:9px;background:var(--bg-raised);border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center}
+  .gchip img{width:20px;height:20px}
+</style></head>
+<body>
+  <div class="grp">
+    <div class="lab">UI icons — Lucide · 2px stroke · rounded caps</div>
+    <div class="ico">
+      <i data-lucide="moon"></i><i data-lucide="play"></i><i data-lucide="layers"></i>
+      <i data-lucide="users"></i><i data-lucide="git-branch"></i><i data-lucide="zap"></i>
+      <i data-lucide="check-check"></i><i data-lucide="copy"></i><i data-lucide="settings-2"></i>
+      <i data-lucide="terminal"></i><i data-lucide="activity"></i><i data-lucide="clock"></i>
+    </div>
+  </div>
+  <div class="grp">
+    <div class="lab">Worker glyphs — Simple Icons (monochrome, recolorable)</div>
+    <div class="glyphs">
+      <div class="gchip"><img src="https://cdn.simpleicons.org/anthropic/FFA630" alt="Anthropic"></div>
+      <div class="gchip"><img src="https://cdn.simpleicons.org/googlegemini/E1E5F0" alt="Gemini"></div>
+      <div class="gchip"><img src="https://cdn.simpleicons.org/x/E1E5F0" alt="Grok / X"></div>
+      <div class="gchip"><img src="https://cdn.simpleicons.org/ollama/E1E5F0" alt="Ollama"></div>
+      <div class="gchip" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);width:auto;padding:0 12px">+ any CLI</div>
+    </div>
+  </div>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>lucide.createIcons();</script>
+</body></html>

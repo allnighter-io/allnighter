@@ -1,0 +1,62 @@
+<!-- @dsCard group="Brand" viewport="700x220" name="Logo system — static & live" subtitle="Static crescent everywhere; only the cursor block blinks (and signals status)" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg-base);font-family:var(--font-sans);padding:24px;
+       display:flex;gap:34px;align-items:center}
+  .group{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .mark{width:62px;height:62px}
+  .lab{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);text-align:center;line-height:1.5}
+  .divider{width:1px;align-self:stretch;background:var(--border-subtle);margin:6px 0}
+  .statuses{display:flex;gap:26px}
+  .sm{width:42px;height:42px}
+  /* block-only blink — the moon never moves */
+  @keyframes curblink{0%,52%{opacity:1}53%,100%{opacity:0}}
+  .blink .cur{animation:curblink 1.05s steps(1,end) infinite}
+  .cur{fill:#FFE9C6}
+  .done .cur{fill:#3FD18B}
+</style></head>
+<body>
+  <!-- shared defs -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="cg" x1="20" y1="24" x2="66" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD79E"/><stop offset=".5" stop-color="#FFA630"/><stop offset="1" stop-color="#F0901C"/></linearGradient>
+    <mask id="cm"><rect width="100" height="100" fill="black"/>
+      <circle cx="47" cy="50" r="32" fill="white"/><circle cx="62" cy="41" r="28" fill="black"/></mask>
+  </defs></svg>
+
+  <div class="group">
+    <svg class="mark" viewBox="0 0 100 100"><rect width="100" height="100" fill="url(#cg)" mask="url(#cm)"/></svg>
+    <div class="lab">mark · static<br>icon · favicon · menu-bar</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <svg class="mark blink" viewBox="0 0 100 100">
+      <rect width="100" height="100" fill="url(#cg)" mask="url(#cm)"/>
+      <rect class="cur" x="60" y="43" width="10.5" height="17" rx="2.6"/>
+    </svg>
+    <div class="lab">live · block blinks<br>website · loading · active</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <div class="statuses">
+      <div class="group">
+        <svg class="sm" viewBox="0 0 100 100"><rect width="100" height="100" fill="url(#cg)" mask="url(#cm)"/><rect class="cur" x="60" y="43" width="10.5" height="17" rx="2.6"/></svg>
+        <div class="lab">idle</div>
+      </div>
+      <div class="group">
+        <svg class="sm blink" viewBox="0 0 100 100"><rect width="100" height="100" fill="url(#cg)" mask="url(#cm)"/><rect class="cur" x="60" y="43" width="10.5" height="17" rx="2.6"/></svg>
+        <div class="lab">running</div>
+      </div>
+      <div class="group done">
+        <svg class="sm" viewBox="0 0 100 100"><rect width="100" height="100" fill="url(#cg)" mask="url(#cm)"/><rect class="cur" x="60" y="43" width="10.5" height="17" rx="2.6"/></svg>
+        <div class="lab">done</div>
+      </div>
+    </div>
+    <div class="lab" style="color:var(--text-muted)">the block is the activity light</div>
+  </div>
+</body></html>

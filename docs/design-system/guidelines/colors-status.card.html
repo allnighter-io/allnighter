@@ -1,0 +1,30 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Status" subtitle="Muted, calm signals beside the amber brand" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg-base);padding:22px;font-family:var(--font-sans)}
+  .row{display:flex;gap:14px}
+  .sw{flex:1;display:flex;flex-direction:column;gap:10px}
+  .box{height:56px;border-radius:var(--radius-md);border:1px solid var(--border-subtle)}
+  .nm{font-size:11px;font-weight:600;color:var(--text-secondary)}
+  .hx{font-family:var(--font-mono);font-size:10px;color:var(--text-faint)}
+  .pills{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:var(--radius-pill)}
+  .dot{width:7px;height:7px;border-radius:50%}
+</style></head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="box" style="background:var(--green-500)"></div><div class="nm">done</div><div class="hx">#3FD18B</div></div>
+    <div class="sw"><div class="box" style="background:var(--blue-500)"></div><div class="nm">running</div><div class="hx">#5B9DFF</div></div>
+    <div class="sw"><div class="box" style="background:var(--yellow-500)"></div><div class="nm">timed-out</div><div class="hx">#F5C84B</div></div>
+    <div class="sw"><div class="box" style="background:var(--red-500)"></div><div class="nm">failed</div><div class="hx">#F76B6B</div></div>
+    <div class="sw"><div class="box" style="background:var(--ink-400)"></div><div class="nm">queued</div><div class="hx">#555C74</div></div>
+  </div>
+  <div class="pills">
+    <span class="pill" style="background:var(--success-surface);color:var(--green-400)"><span class="dot" style="background:var(--green-500)"></span>done</span>
+    <span class="pill" style="background:var(--info-surface);color:var(--blue-400)"><span class="dot" style="background:var(--blue-500)"></span>running</span>
+    <span class="pill" style="background:var(--warning-surface);color:var(--yellow-400)"><span class="dot" style="background:var(--yellow-500)"></span>timed-out</span>
+    <span class="pill" style="background:var(--danger-surface);color:var(--red-400)"><span class="dot" style="background:var(--red-500)"></span>failed</span>
+    <span class="pill" style="background:var(--bg-active);color:var(--text-muted)"><span class="dot" style="background:var(--ink-400)"></span>queued</span>
+  </div>
+</body></html>

@@ -1,0 +1,16 @@
+<!-- @dsCard group="Spacing" viewport="700x200" name="Elevation & shadow" subtitle="Deep-black dark-mode depth + top-lit edge" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg-subtle);padding:30px 24px;font-family:var(--font-sans);display:flex;gap:22px;align-items:center;justify-content:space-between}
+  .u{display:flex;flex-direction:column;gap:12px;align-items:center}
+  .box{width:96px;height:64px;background:var(--bg-raised);border-radius:var(--radius-lg);border:1px solid var(--border-subtle)}
+  .nm{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+</style></head>
+<body>
+  <div class="u"><div class="box" style="box-shadow:var(--shadow-xs)"></div><div class="nm">xs</div></div>
+  <div class="u"><div class="box" style="box-shadow:var(--shadow-sm)"></div><div class="nm">sm</div></div>
+  <div class="u"><div class="box" style="box-shadow:var(--shadow-md)"></div><div class="nm">md · popover</div></div>
+  <div class="u"><div class="box" style="box-shadow:var(--shadow-lg)"></div><div class="nm">lg</div></div>
+  <div class="u"><div class="box" style="box-shadow:var(--shadow-xl)"></div><div class="nm">xl · modal</div></div>
+</body></html>

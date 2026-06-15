@@ -1,0 +1,96 @@
+<!-- @dsCard group="Council" viewport="1180x720" subtitle="MVP: one prompt → parallel panel → Opus master plan" -->
+<!-- @startingPoint section="Council" subtitle="The Council command center (macOS)" viewport="1180x720" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allnighter — Council</title>
+<link rel="icon" href="../../assets/allnighter-icon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  html,body{height:100%;margin:0}
+  body{background:var(--bg-void);display:flex;align-items:center;justify-content:center}
+  #root{width:100%;height:100%}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="../../components/_preview.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="chrome.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel">
+const { WindowChrome, Sidebar, Composer, RunView, PlanView } = window;
+const WORKERS = window.AL_WORKERS, RUN = window.AL_RUN;
+
+function fmt(ms) {
+  const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
+  return String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+function CouncilApp() {
+  const [selected, setSelected] = React.useState(new Set(WORKERS.map(w => w.id)));
+  const [prompt, setPrompt] = React.useState(window.AL_PROMPT);
+  const [view, setView] = React.useState('compose');   // compose | run | plan
+  const [states, setStates] = React.useState({});
+  const [elapsed, setElapsed] = React.useState('00:00');
+  const [synth, setSynth] = React.useState('waiting');  // waiting | synthesizing | ready
+  const timers = React.useRef([]);
+  const clock = React.useRef(null);
+
+  const clearAll = () => {
+    timers.current.forEach(clearTimeout); timers.current = [];
+    if (clock.current) { clearInterval(clock.current); clock.current = null; }
+  };
+  React.useEffect(() => clearAll, []);
+
+  const toggle = (id) => setSelected(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) { if (n.size > 1) n.delete(id); } else n.add(id);
+    return n;
+  });
+
+  const startRun = () => {
+    clearAll();
+    const sel = WORKERS.filter(w => selected.has(w.id));
+    const init = {}; sel.forEach(w => init[w.id] = { status: 'queued' });
+    setStates(init); setSynth('waiting'); setElapsed('00:00'); setView('run');
+    const t0 = Date.now();
+    clock.current = setInterval(() => setElapsed(fmt(Date.now() - t0)), 100);
+    let maxMs = 0;
+    sel.forEach((w, i) => {
+      const cfg = RUN[w.id]; maxMs = Math.max(maxMs, cfg.ms);
+      timers.current.push(setTimeout(() => setStates(s => ({ ...s, [w.id]: { status: 'running' } })), 150 + i * 170));
+      timers.current.push(setTimeout(() => setStates(s => ({
+        ...s, [w.id]: { status: cfg.fail ? 'failed' : 'done', meta: cfg.fail ? 'auth expired' : cfg.tok + ' · ' + fmt(cfg.ms) }
+      })), cfg.ms));
+    });
+    timers.current.push(setTimeout(() => setSynth('synthesizing'), maxMs + 450));
+    timers.current.push(setTimeout(() => { setSynth('ready'); if (clock.current) { clearInterval(clock.current); clock.current = null; } }, maxMs + 2700));
+  };
+
+  const stop = () => { clearAll(); setView('compose'); };
+  const reset = () => { clearAll(); setStates({}); setSynth('waiting'); setElapsed('00:00'); setView('compose'); };
+
+  const sel = WORKERS.filter(w => selected.has(w.id));
+  let main;
+  if (view === 'compose') main = <Composer value={prompt} onChange={setPrompt} onRun={startRun} count={selected.size} onExample={setPrompt} />;
+  else if (view === 'run') main = <RunView workers={sel} states={states} elapsed={elapsed} prompt={prompt} synth={synth} onStop={stop} onView={() => setView('plan')} />;
+  else main = <PlanView onNew={reset} />;
+
+  return (
+    <WindowChrome healthy={6} total={6}>
+      <Sidebar selected={selected} onToggle={toggle} disabled={view === 'run'} />
+      <main className="alk-main">{main}</main>
+    </WindowChrome>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<CouncilApp />);
+</script>
+</body>
+</html>

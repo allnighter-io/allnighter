@@ -1,0 +1,16 @@
+<!-- @dsCard group="Colors" viewport="700x170" name="Accent surfaces & borders" subtitle="Amber tint, hairline borders, focus ring" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg-base);padding:22px;font-family:var(--font-sans);display:flex;gap:14px;flex-wrap:wrap}
+  .tile{flex:1;min-width:120px;height:96px;border-radius:var(--radius-lg);display:flex;align-items:flex-end;padding:12px}
+  .l{font-size:11px;font-weight:600;color:var(--text-secondary)}
+  .mono{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);display:block;margin-top:2px}
+</style></head>
+<body>
+  <div class="tile" style="background:var(--accent-surface);border:1px solid var(--accent-border)"><div><div class="l" style="color:var(--accent-text)">accent surface</div><span class="mono">amber / 0.12</span></div></div>
+  <div class="tile" style="background:var(--bg-surface);border:1px solid var(--border-subtle)"><div><div class="l">border-subtle</div><span class="mono">white / 0.06</span></div></div>
+  <div class="tile" style="background:var(--bg-surface);border:1px solid var(--border-default)"><div><div class="l">border-default</div><span class="mono">white / 0.10</span></div></div>
+  <div class="tile" style="background:var(--bg-surface);border:1px solid var(--border-strong)"><div><div class="l">border-strong</div><span class="mono">white / 0.16</span></div></div>
+  <div class="tile" style="background:var(--bg-surface);box-shadow:var(--focus-ring)"><div><div class="l">focus ring</div><span class="mono">amber / 0.40</span></div></div>
+</body></html>
