@@ -18,10 +18,16 @@ public struct RunStore: Sendable {
 
         try CoreJSON.encode(run).write(to: directory.appendingPathComponent("run.json"))
 
+        // Derived artifacts (regenerated from run.json truth on each save).
         let bundle = RunMarkdown.bundle(run, workers: workers)
         try Data(bundle.utf8).write(to: directory.appendingPathComponent("bundle.md"))
 
-        if let plan = run.synthesis?.masterPlanMarkdown, !plan.isEmpty {
+        let analysis = RunMarkdown.analysis(run)
+        if !analysis.isEmpty {
+            try Data(analysis.utf8).write(to: directory.appendingPathComponent("analysis.md"))
+        }
+
+        if let plan = run.masterPlan, !plan.isEmpty {
             try Data(plan.utf8).write(to: directory.appendingPathComponent("master_plan.md"))
         }
         return directory

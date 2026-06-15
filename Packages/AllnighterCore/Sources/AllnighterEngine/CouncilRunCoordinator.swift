@@ -1,11 +1,11 @@
 import Foundation
 import AllnighterCore
 
-/// Owns one council run's fan-out lifecycle: builds member prompts, runs every
-/// enabled worker in parallel, updates the run, and emits `RunEvent`s. Phase 02
-/// stops at `answersIn` (a failed/missing worker never blocks the run);
-/// synthesis is added in Phase 04. The event stream is the single update
-/// channel — the same envelope an iOS client will later consume over WebSocket.
+/// Owns one council run's panel fan-out: builds per-seat prompts, runs every seat
+/// in parallel, updates the run, and emits `RunEvent`s keyed by `seatId`. Stops
+/// at `answersIn` (a failed/missing seat never blocks the run); synthesis (the
+/// analysis + plan reduces) is driven by `Synthesizer`. The event stream is the
+/// single update channel — the same envelope an iOS/tool client consumes.
 public actor CouncilRunCoordinator {
     private let workerRunner: WorkerRunner
     private let registry: DriverRegistry
@@ -31,24 +31,34 @@ public actor CouncilRunCoordinator {
         self.continuation = continuation
     }
 
-    /// Fans `prompt` out to the enabled workers and returns the settled run.
-    /// Honors task cancellation: a cancelled run terminates child processes and
-    /// resolves to `.cancelled`.
-    public func fanOut(prompt: String, workers: [Worker], runId: String? = nil) async -> CouncilRun {
-        let enabled = workers.filter(\.enabled)
+    /// Fans `prompt` out across `seats` (resolving each seat's worker from
+    /// `workers`) and returns the settled run. Honors cancellation: a cancelled
+    /// run terminates children and resolves to `.cancelled`.
+    public func fanOut(
+        prompt: String,
+        seats: [PanelSeat],
+        workers: [Worker],
+        origin: RunOrigin = .gui,
+        originAgent: String? = nil,
+        presetId: String? = nil,
+        runId: String? = nil
+    ) async -> CouncilRun {
+        let workerByID = Dictionary(workers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
 
         var run = CouncilRun(
             id: runId ?? idFactory(),
             prompt: prompt,
             status: .draft,
-            panel: enabled.map(\.id),
-            members: enabled.map { MemberResponse(workerId: $0.id, status: .queued) },
+            origin: origin,
+            originAgent: originAgent,
+            presetId: presetId,
+            panel: seats,
+            members: seats.map { MemberResponse(seatId: $0.id, workerId: $0.workerId, status: .queued) },
             createdAt: now()
         )
 
         run = transition(run, to: .fanningOut)
 
-        // Mark everyone running (manual-paste workers will resolve to skipped).
         for index in run.members.indices where run.members[index].status == .queued {
             run.members[index].status = .running
             run.members[index].startedAt = now()
@@ -57,35 +67,38 @@ public actor CouncilRunCoordinator {
 
         let runnerCopy = workerRunner
         let manifestByWorker = Dictionary(
-            uniqueKeysWithValues: enabled.map { ($0.id, registry.manifest(for: $0)) }
+            uniqueKeysWithValues: workers.map { ($0.id, registry.manifest(for: $0)) }
         )
 
         let results: [MemberResponse] = await withTaskGroup(of: MemberResponse.self) { group in
-            for worker in enabled {
-                let manifest = manifestByWorker[worker.id] ?? nil
+            for seat in seats {
+                let worker = workerByID[seat.workerId]
+                let manifest = worker.flatMap { manifestByWorker[$0.id] ?? nil }
+                let seatPrompt = StanceLibrary.assemblePrompt(stance: seat.stance, founderPrompt: prompt)
                 group.addTask {
-                    guard let manifest else {
+                    guard let worker else {
                         return MemberResponse(
-                            workerId: worker.id,
-                            status: .failed,
-                            errorKind: .missingCLI,
-                            errorReason: "no driver manifest for \(worker.driverId)"
+                            seatId: seat.id, workerId: seat.workerId, status: .failed,
+                            errorKind: .missingCLI, errorReason: "no worker for seat \(seat.id)"
                         )
                     }
-                    return await runnerCopy.run(worker: worker, manifest: manifest, prompt: prompt)
+                    guard let manifest else {
+                        return MemberResponse(
+                            seatId: seat.id, workerId: worker.id, status: .failed,
+                            errorKind: .missingCLI, errorReason: "no driver manifest for \(worker.driverId)"
+                        )
+                    }
+                    return await runnerCopy.run(seat: seat, worker: worker, manifest: manifest, prompt: seatPrompt)
                 }
             }
 
             var collected: [MemberResponse] = []
-            for await response in group {
-                collected.append(response)
-            }
+            for await response in group { collected.append(response) }
             return collected
         }
 
-        // Apply results back in panel order.
         for result in results {
-            if let index = run.members.firstIndex(where: { $0.workerId == result.workerId }) {
+            if let index = run.members.firstIndex(where: { $0.seatId == result.seatId }) {
                 let previous = run.members[index].status
                 run.members[index] = result
                 emitMember(result, runId: run.id, from: previous)
@@ -136,6 +149,7 @@ public actor CouncilRunCoordinator {
             kind: RunEventKind.memberStatusChanged,
             payload: [
                 "runId": .string(runId),
+                "seatId": .string(member.seatId),
                 "workerId": .string(member.workerId),
                 "from": .string(from.rawValue),
                 "to": .string(member.status.rawValue)

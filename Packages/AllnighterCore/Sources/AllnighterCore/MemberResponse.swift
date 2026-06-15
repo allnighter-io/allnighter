@@ -1,19 +1,24 @@
 import Foundation
 
-/// The exact prompt sent to one worker. MVP: identical text for every member.
-/// Growth seam: the prompt builder may later add per-worker repo/file context.
+/// The exact prompt sent to one seat. Identical text per seat in the MVP; the
+/// per-seat stance prefix (RB1) and optional bounded context (RB6) make it vary —
+/// the `MemberPrompt` "no longer identical-text-only" growth seam.
 public struct MemberPrompt: Codable, Sendable, Equatable {
+    public var seatId: String
     public var workerId: String
     public var text: String
 
-    public init(workerId: String, text: String) {
+    public init(seatId: String, workerId: String, text: String) {
+        self.seatId = seatId
         self.workerId = workerId
         self.text = text
     }
 }
 
-/// One worker's result for a council run.
+/// One seat's result for a council run. Keyed by `seatId` (so self-fusion seats
+/// never collide); `workerId` is provenance — which worker ran the seat.
 public struct MemberResponse: Codable, Sendable, Equatable, Identifiable {
+    public var seatId: String
     public var workerId: String
     public var status: MemberStatus
     public var output: String?
@@ -24,9 +29,12 @@ public struct MemberResponse: Codable, Sendable, Equatable, Identifiable {
     public var durationMs: Int?
     public var exitCode: Int?
 
-    public var id: String { workerId }
+    /// Identifiable identity is the seat id. Computed — not encoded (only
+    /// `seatId`/`workerId` are stored).
+    public var id: String { seatId }
 
     public init(
+        seatId: String,
         workerId: String,
         status: MemberStatus = .queued,
         output: String? = nil,
@@ -37,6 +45,7 @@ public struct MemberResponse: Codable, Sendable, Equatable, Identifiable {
         durationMs: Int? = nil,
         exitCode: Int? = nil
     ) {
+        self.seatId = seatId
         self.workerId = workerId
         self.status = status
         self.output = output

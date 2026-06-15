@@ -8,7 +8,8 @@ let package = Package(
     ],
     products: [
         .library(name: "AllnighterCore", targets: ["AllnighterCore"]),
-        .library(name: "AllnighterEngine", targets: ["AllnighterEngine"])
+        .library(name: "AllnighterEngine", targets: ["AllnighterEngine"]),
+        .executable(name: "prove-cli", targets: ["ProveCLI"])
     ],
     targets: [
         .target(
@@ -34,6 +35,14 @@ let package = Package(
         .testTarget(
             name: "AllnighterEngineTests",
             dependencies: ["AllnighterEngine", "AllnighterCore"]
+        ),
+        // Live CLI smoke proof — `swift run prove-cli` from repo root.
+        .executableTarget(
+            name: "ProveCLI",
+            dependencies: ["AllnighterEngine", "AllnighterCore"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
+            ]
         )
     ]
 )

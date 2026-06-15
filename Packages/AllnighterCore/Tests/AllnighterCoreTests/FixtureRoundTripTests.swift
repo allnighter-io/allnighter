@@ -16,7 +16,6 @@ final class FixtureRoundTripTests: XCTestCase {
         let panel = try Fixtures.panel()
         XCTAssertEqual(panel.count, 6)
         XCTAssertEqual(panel.first(where: { $0.id == "worker_opus" })?.role, .both)
-        // Composer 2.5 and Grok Build share the `grok` driver.
         let composer = panel.first { $0.id == "worker_composer" }
         let grok = panel.first { $0.id == "worker_grok" }
         XCTAssertEqual(composer?.driverId, "grok")
@@ -42,52 +41,62 @@ final class FixtureRoundTripTests: XCTestCase {
         try assertRoundTrips(CouncilRun.self, .runPartial)
     }
 
-    func testCompleteRunHasMasterPlan() throws {
+    func testCompleteRunHasSeatsAnalysisAndPlan() throws {
         let run = try Fixtures.run(.runComplete)
         XCTAssertEqual(run.status, .complete)
+        XCTAssertEqual(run.panel.count, 6)
         XCTAssertEqual(run.answeredMembers.count, 6)
-        XCTAssertNotNil(run.synthesis?.masterPlanMarkdown)
+        XCTAssertNotNil(run.analysis)
+        XCTAssertEqual(run.analysis?.consensus.count, 1)
+        XCTAssertNotNil(run.masterPlan)
+        XCTAssertEqual(run.origin, .gui)
+        XCTAssertEqual(run.presetId, "preset_six_default")
+        // seats are keyed independently
+        XCTAssertEqual(Set(run.members.map(\.seatId)).count, 6)
     }
 
     func testPresetFixturesRoundTrip() throws {
         try assertRoundTrips(SynthesisInstructionPreset.self, .synthesisPresetDefault)
         try assertRoundTrips(PanelPreset.self, .panelPresetDefault)
 
-        let instruction = try Fixtures.synthesisPreset()
-        XCTAssertEqual(instruction.id, "default_master_plan_v1")
-        XCTAssertTrue(instruction.builtIn)
-        XCTAssertTrue(instruction.template.contains("## The Plan"))
-
         let preset = try Fixtures.panelPreset()
-        XCTAssertEqual(preset.panelWorkerIds.count, 6)
-        XCTAssertEqual(preset.draftSynthesizerWorkerId, "worker_opus")
-        XCTAssertEqual(preset.draftSynthesisInstructionPresetId, instruction.id)
-        XCTAssertTrue(preset.panelWorkerIds.contains(preset.draftSynthesizerWorkerId))
+        XCTAssertEqual(preset.seats.count, 6)
+        XCTAssertEqual(preset.synthesis.judgeWorkerId, "worker_opus")
+        XCTAssertEqual(preset.synthesis.analysisDepth, .combined)
+        XCTAssertEqual(preset.workerIds.count, 6)
     }
 
-    func testOldRunWithoutPanelPresetIdStillDecodes() throws {
-        // panelPresetId is additive + optional: a run.json written before presets
-        // existed (no key) must decode with panelPresetId == nil.
-        let run = try Fixtures.run(.runComplete)
-        XCTAssertNil(run.panelPresetId)
-    }
-
-    func testPanelPresetBuiltInDefaultDefaultsSynthesizerToOpus() throws {
+    func testPanelPresetBuiltInDefaultDefaultsJudgeToOpus() throws {
         let panel = try Fixtures.panel()
-        let preset = PanelPreset.builtInDefault(panel: panel, instructionPresetId: "default_master_plan_v1")
-        // Opus has role .both (canSynthesize); it is the configured default.
-        XCTAssertEqual(preset.draftSynthesizerWorkerId, "worker_opus")
-        XCTAssertEqual(preset.panelWorkerIds, panel.map(\.id))
+        let preset = PanelPreset.builtInDefault(panel: panel, analysisProfileId: "judge_analysis_v1", planProfileId: "judge_plan_v1")
+        XCTAssertEqual(preset.synthesis.judgeWorkerId, "worker_opus")
+        XCTAssertEqual(preset.seats.map(\.workerId), panel.map(\.id))
         XCTAssertTrue(preset.builtIn)
+    }
+
+    func testSelfDoubleSeatExpansion() {
+        let seats = [PanelSeatSpec(workerId: "worker_opus", count: 3)].expandedSeats()
+        XCTAssertEqual(seats.map(\.id), ["worker_opus#0", "worker_opus#1", "worker_opus#2"])
+        XCTAssertEqual(Set(seats.map(\.id)).count, 3)
     }
 
     func testPartialRunIsUsableDespiteFailures() throws {
         let run = try Fixtures.run(.runPartial)
         XCTAssertEqual(run.status, .partial)
-        XCTAssertEqual(run.synthesis?.status, .failed)
-        XCTAssertNil(run.synthesis?.masterPlanMarkdown)
-        // Some members still answered; the run is readable.
+        XCTAssertNotNil(run.analysis)            // analysis succeeded
+        XCTAssertNil(run.masterPlan)             // plan failed
+        XCTAssertEqual(run.latestStage(.plan)?.status, .failed)
         XCTAssertGreaterThanOrEqual(run.answeredMembers.count, 3)
         XCTAssertEqual(run.failedMembers.count, 2)
+    }
+
+    func testStagePayloadRoundTrips() throws {
+        let analysis = StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(JudgeAnalysis(blindSpots: ["x"])))
+        let plan = StageOutput(id: "p", purpose: .plan, status: .done, payload: .plan(markdown: "# Plan"))
+        for stage in [analysis, plan] {
+            let data = try CoreJSON.encode(stage)
+            let back = try CoreJSON.decode(StageOutput.self, from: data)
+            XCTAssertEqual(stage, back)
+        }
     }
 }

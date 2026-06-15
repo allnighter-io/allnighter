@@ -1,50 +1,24 @@
 {
-  "id": "run_inflight_0001",
+  "id": "run_inflight_01",
   "prompt": "Should we add team accounts before billing analytics?",
   "status": "fanning_out",
+  "origin": "gui",
+  "createdAt": "2026-06-14T20:01:00Z",
   "panel": [
-    "worker_chatgpt",
-    "worker_opus",
-    "worker_sonnet",
-    "worker_composer",
-    "worker_gemini",
-    "worker_grok"
+    { "id": "worker_chatgpt#0", "workerId": "worker_chatgpt", "seatIndex": 0 },
+    { "id": "worker_opus#0", "workerId": "worker_opus", "seatIndex": 0 },
+    { "id": "worker_sonnet#0", "workerId": "worker_sonnet", "seatIndex": 0 },
+    { "id": "worker_composer#0", "workerId": "worker_composer", "seatIndex": 0 },
+    { "id": "worker_gemini#0", "workerId": "worker_gemini", "seatIndex": 0 },
+    { "id": "worker_grok#0", "workerId": "worker_grok", "seatIndex": 0 }
   ],
   "members": [
-    {
-      "workerId": "worker_chatgpt",
-      "status": "running",
-      "startedAt": "2026-06-14T20:01:01Z"
-    },
-    {
-      "workerId": "worker_opus",
-      "status": "done",
-      "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.",
-      "startedAt": "2026-06-14T20:01:01Z",
-      "finishedAt": "2026-06-14T20:01:22Z",
-      "durationMs": 21450,
-      "exitCode": 0
-    },
-    {
-      "workerId": "worker_sonnet",
-      "status": "running",
-      "startedAt": "2026-06-14T20:01:01Z"
-    },
-    {
-      "workerId": "worker_composer",
-      "status": "queued"
-    },
-    {
-      "workerId": "worker_gemini",
-      "status": "running",
-      "startedAt": "2026-06-14T20:01:01Z"
-    },
-    {
-      "workerId": "worker_grok",
-      "status": "running",
-      "startedAt": "2026-06-14T20:01:01Z"
-    }
+    { "seatId": "worker_chatgpt#0", "workerId": "worker_chatgpt", "status": "running", "startedAt": "2026-06-14T20:01:01Z" },
+    { "seatId": "worker_opus#0", "workerId": "worker_opus", "status": "done", "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:22Z", "durationMs": 21450, "exitCode": 0 },
+    { "seatId": "worker_sonnet#0", "workerId": "worker_sonnet", "status": "running", "startedAt": "2026-06-14T20:01:01Z" },
+    { "seatId": "worker_composer#0", "workerId": "worker_composer", "status": "queued" },
+    { "seatId": "worker_gemini#0", "workerId": "worker_gemini", "status": "running", "startedAt": "2026-06-14T20:01:01Z" },
+    { "seatId": "worker_grok#0", "workerId": "worker_grok", "status": "running", "startedAt": "2026-06-14T20:01:01Z" }
   ],
-  "synthesis": null,
-  "createdAt": "2026-06-14T20:01:00Z"
+  "stages": []
 }

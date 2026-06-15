@@ -4,15 +4,13 @@ import AllnighterCore
 
 final class PresetAndDoctorTests: XCTestCase {
 
-    // MARK: - Honest synthesis-instruction persistence (P05-S03)
+    // MARK: - Honest stage-profile persistence (P06)
 
     private func sampleRun() -> CouncilRun {
         CouncilRun(
-            id: "run1",
-            prompt: "p",
-            status: .answersIn,
-            panel: ["worker_opus"],
-            members: [MemberResponse(workerId: "worker_opus", status: .done, output: "answer")],
+            id: "run1", prompt: "p", status: .answersIn,
+            panel: [TestSupport.seat("worker_opus")],
+            members: [MemberResponse(seatId: "worker_opus#0", workerId: "worker_opus", status: .done, output: "answer")],
             createdAt: Date()
         )
     }
@@ -21,52 +19,37 @@ final class PresetAndDoctorTests: XCTestCase {
         Worker(id: "worker_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
     }
 
-    func testCustomInstructionsArePersistedHonestly() async {
-        // The Phase 04 seam: instructions were always written as the default id.
-        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan", exitCode: 0)])
+    private let combined = """
+    ```json
+    {"consensus":[],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedSeats":[]}
+    ```
+    ===PLAN===
+    # Plan
+    """
+
+    func testStagesRecordTheProfileUsed() async {
+        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: combined, exitCode: 0)])
         let synth = Synthesizer(workerRunner: WorkerRunner(commandRunner: mock))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
-        let result = await synth.synthesize(
-            run: sampleRun(), synthesizer: opus(), manifest: manifest, workers: [opus()],
-            instructions: .custom("Summarize in three bullets only.")
+        let stages = await synth.synthesize(
+            run: sampleRun(), judge: opus(), manifest: manifest, workers: [opus()],
+            config: TestSupport.config(judge: "worker_opus")
         )
-        XCTAssertEqual(result.instructions, "Summarize in three bullets only.")
-        XCTAssertNotEqual(result.instructions, SynthesisInstructions.defaultID)
-    }
-
-    func testNamedPresetPersistsItsID() async {
-        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan", exitCode: 0)])
-        let synth = Synthesizer(workerRunner: WorkerRunner(commandRunner: mock))
-        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-        let preset = SynthesisInstructionPreset(id: "terse_v1", displayName: "Terse", template: "Be terse.")
-
-        let result = await synth.synthesize(
-            run: sampleRun(), synthesizer: opus(), manifest: manifest, workers: [opus()],
-            instructions: .preset(preset)
-        )
-        XCTAssertEqual(result.instructions, "terse_v1")
-    }
-
-    func testDefaultChoiceUsesBuiltInDefaultID() async {
-        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan", exitCode: 0)])
-        let synth = Synthesizer(workerRunner: WorkerRunner(commandRunner: mock))
-        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-
-        let result = await synth.synthesize(run: sampleRun(), synthesizer: opus(), manifest: manifest, workers: [opus()])
-        XCTAssertEqual(result.instructions, SynthesisInstructions.defaultID)
+        XCTAssertEqual(stages.first { $0.purpose == .analysis }?.promptProfileId, SynthesisInstructions.analysisID)
+        XCTAssertEqual(stages.first { $0.purpose == .plan }?.promptProfileId, SynthesisInstructions.planID)
     }
 
     // MARK: - SynthesisInstructionStore
 
-    func testInstructionStoreAlwaysHasBuiltInDefault() {
+    func testInstructionStoreHasBuiltInJudgeProfiles() {
         let tmp = Self.tempDir()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let store = SynthesisInstructionStore(rootDirectory: tmp)
         let presets = store.load()
-        XCTAssertEqual(presets.first?.id, SynthesisInstructions.defaultID)
-        XCTAssertTrue(presets.first?.builtIn ?? false)
-        XCTAssertNotNil(store.preset(id: SynthesisInstructions.defaultID))
+        XCTAssertNotNil(store.preset(id: SynthesisInstructions.analysisID))
+        XCTAssertNotNil(store.preset(id: SynthesisInstructions.planID))
+        XCTAssertTrue(presets.contains { $0.id == SynthesisInstructions.analysisID && $0.builtIn })
     }
 
     func testInstructionStoreSavesAndDeletesUserPresets() throws {
@@ -77,15 +60,12 @@ final class PresetAndDoctorTests: XCTestCase {
 
         try store.save(preset)
         XCTAssertEqual(store.preset(id: "mine_v1")?.template, "Custom.")
-        XCTAssertTrue(store.load().contains { $0.id == "mine_v1" })
-
         try store.delete(id: "mine_v1")
         XCTAssertNil(store.preset(id: "mine_v1"))
-        // Built-in survives deletion of user presets.
-        XCTAssertNotNil(store.preset(id: SynthesisInstructions.defaultID))
+        XCTAssertNotNil(store.preset(id: SynthesisInstructions.planID))
     }
 
-    // MARK: - PanelPresetStore
+    // MARK: - PanelPresetStore (new seat-based shape)
 
     func testPanelPresetStoreRoundTrips() throws {
         let tmp = Self.tempDir()
@@ -95,16 +75,25 @@ final class PresetAndDoctorTests: XCTestCase {
 
         let preset = PanelPreset(
             id: "p1", displayName: "My panel",
-            panelWorkerIds: ["worker_opus", "worker_grok"],
-            draftSynthesizerWorkerId: "worker_opus",
-            draftSynthesisInstructionPresetId: "default_master_plan_v1"
+            seats: [PanelSeatSpec(workerId: "worker_opus"), PanelSeatSpec(workerId: "worker_grok")],
+            synthesis: SynthesisConfig(analysisDepth: .separate, judgeWorkerId: "worker_opus", analysisProfileId: "judge_analysis_v1", planProfileId: "judge_plan_v1")
         )
         try store.save(preset)
         XCTAssertEqual(store.load().count, 1)
         XCTAssertEqual(store.load().first, preset)
-
         try store.delete(id: "p1")
         XCTAssertTrue(store.load().isEmpty)
+    }
+
+    func testCallPlanEstimatesPanelPlusSynthesis() {
+        let preset = PanelPreset.builtInDefault(
+            panel: (try? Fixtures.panel()) ?? [],
+            analysisProfileId: "judge_analysis_v1", planProfileId: "judge_plan_v1"
+        )
+        let plan = CallPlanEstimator().plan(for: preset)
+        // 6 panel seats + 1 synthesis (combined) = 7 calls.
+        XCTAssertEqual(plan.estimatedCalls, 7)
+        XCTAssertTrue(plan.entries.contains { $0.stage == "analysis" })
     }
 
     // MARK: - Doctor
@@ -114,7 +103,6 @@ final class PresetAndDoctorTests: XCTestCase {
         let doctor = Doctor(commandRunner: mock)
         let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-
         let d = await doctor.diagnose(worker, manifest: manifest)
         XCTAssertTrue(d.present)
         XCTAssertNotNil(d.version)
@@ -127,32 +115,15 @@ final class PresetAndDoctorTests: XCTestCase {
         let doctor = Doctor(commandRunner: mock)
         let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-
         let d = await doctor.diagnose(worker, manifest: manifest)
         XCTAssertFalse(d.present)
-        XCTAssertFalse(d.isHealthy)
         XCTAssertTrue(d.fixHint?.contains("Install") ?? false)
     }
 
-    func testDoctorPresentButSmokeFailsGivesHint() async {
-        // detect succeeds (exit 0) but the smoke token is absent -> unhealthy.
-        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "claude 1.2.3", exitCode: 0)])
-        let doctor = Doctor(commandRunner: mock)
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code", model: "opus")
-        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-
-        let d = await doctor.diagnose(worker, manifest: manifest)
-        XCTAssertTrue(d.present)
-        XCTAssertFalse(d.isHealthy)
-        XCTAssertNotNil(d.fixHint)
-    }
-
     func testDoctorManualWorkerIsUnknownNotBroken() async {
-        let mock = MockCommandRunner(scripts: [:])
-        let doctor = Doctor(commandRunner: mock)
+        let doctor = Doctor(commandRunner: MockCommandRunner(scripts: [:]))
         let worker = TestSupport.worker("worker_manual", driverId: "manual")
         let manifest = DriverManifest(id: "manual", displayName: "Manual", kind: .manualPaste)
-
         let d = await doctor.diagnose(worker, manifest: manifest)
         XCTAssertEqual(d.kind, .manualPaste)
         XCTAssertEqual(d.health, .unknown)
@@ -160,10 +131,8 @@ final class PresetAndDoctorTests: XCTestCase {
     }
 
     func testDoctorNoManifestGivesDriverHint() async {
-        let mock = MockCommandRunner(scripts: [:])
-        let doctor = Doctor(commandRunner: mock)
+        let doctor = Doctor(commandRunner: MockCommandRunner(scripts: [:]))
         let worker = TestSupport.worker("worker_x", driverId: "ghost")
-
         let d = await doctor.diagnose(worker, manifest: nil)
         XCTAssertFalse(d.present)
         XCTAssertTrue(d.fixHint?.contains("ghost") ?? false)

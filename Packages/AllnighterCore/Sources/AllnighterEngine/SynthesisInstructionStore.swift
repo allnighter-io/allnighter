@@ -13,24 +13,39 @@ public struct SynthesisInstructionStore: Sendable {
             ?? AllnighterPaths.config.appendingPathComponent("InstructionPresets", isDirectory: true)
     }
 
-    /// The canonical built-in default, derived from `SynthesisInstructions` so
-    /// there is a single source of truth for the default master-plan prompt.
-    public static var builtInDefault: SynthesisInstructionPreset {
+    /// The built-in judge profiles: structured analysis, then the plan writer.
+    public static var builtInAnalysis: SynthesisInstructionPreset {
         SynthesisInstructionPreset(
-            id: SynthesisInstructions.defaultID,
-            displayName: "Master Plan (default)",
-            template: SynthesisInstructions.defaultText,
+            id: SynthesisInstructions.analysisID,
+            displayName: "Judge — Analysis",
+            template: SynthesisInstructions.analysisText,
             builtIn: true
         )
     }
 
-    /// All presets: the built-in default first, then user presets (newest by id
-    /// sort), with a user preset overriding the built-in if it reuses the id.
+    public static var builtInPlan: SynthesisInstructionPreset {
+        SynthesisInstructionPreset(
+            id: SynthesisInstructions.planID,
+            displayName: "Judge — Master Plan",
+            template: SynthesisInstructions.planText,
+            builtIn: true
+        )
+    }
+
+    /// The canonical built-in default (the plan profile), for callers that want one.
+    public static var builtInDefault: SynthesisInstructionPreset { builtInPlan }
+
+    public static var builtInProfiles: [SynthesisInstructionPreset] { [builtInAnalysis, builtInPlan] }
+
+    /// All profiles: the built-ins first, then user presets, with a user preset
+    /// overriding a built-in if it reuses the id.
     public func load() -> [SynthesisInstructionPreset] {
-        var byID: [String: SynthesisInstructionPreset] = [
-            Self.builtInDefault.id: Self.builtInDefault
-        ]
-        var order: [String] = [Self.builtInDefault.id]
+        var byID: [String: SynthesisInstructionPreset] = [:]
+        var order: [String] = []
+        for profile in Self.builtInProfiles {
+            byID[profile.id] = profile
+            order.append(profile.id)
+        }
         for preset in userPresets() {
             if byID[preset.id] == nil { order.append(preset.id) }
             byID[preset.id] = preset

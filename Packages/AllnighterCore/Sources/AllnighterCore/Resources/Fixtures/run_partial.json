@@ -1,72 +1,64 @@
 {
-  "id": "run_partial_0001",
+  "id": "run_partial_01",
   "prompt": "Should we add team accounts before billing analytics?",
   "status": "partial",
+  "origin": "gui",
+  "presetId": "preset_six_default",
+  "createdAt": "2026-06-14T20:01:00Z",
   "panel": [
-    "worker_chatgpt",
-    "worker_opus",
-    "worker_sonnet",
-    "worker_composer",
-    "worker_gemini",
-    "worker_grok"
+    { "id": "worker_chatgpt#0", "workerId": "worker_chatgpt", "seatIndex": 0 },
+    { "id": "worker_opus#0", "workerId": "worker_opus", "seatIndex": 0 },
+    { "id": "worker_sonnet#0", "workerId": "worker_sonnet", "seatIndex": 0 },
+    { "id": "worker_composer#0", "workerId": "worker_composer", "seatIndex": 0 },
+    { "id": "worker_gemini#0", "workerId": "worker_gemini", "seatIndex": 0 },
+    { "id": "worker_grok#0", "workerId": "worker_grok", "seatIndex": 0 }
   ],
   "members": [
-    {
-      "workerId": "worker_chatgpt",
-      "status": "done",
-      "output": "Lead with team accounts; analytics can wait one cycle.",
-      "startedAt": "2026-06-14T20:01:01Z",
-      "finishedAt": "2026-06-14T20:01:30Z",
-      "durationMs": 29010,
-      "exitCode": 0
-    },
-    {
-      "workerId": "worker_opus",
-      "status": "done",
-      "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.",
-      "startedAt": "2026-06-14T20:01:01Z",
-      "finishedAt": "2026-06-14T20:01:22Z",
-      "durationMs": 21450,
-      "exitCode": 0
-    },
-    {
-      "workerId": "worker_sonnet",
-      "status": "done",
-      "output": "Agree on team accounts first, but ship a thin analytics event schema now.",
-      "startedAt": "2026-06-14T20:01:01Z",
-      "finishedAt": "2026-06-14T20:01:25Z",
-      "durationMs": 24300,
-      "exitCode": 0
-    },
-    {
-      "workerId": "worker_composer",
-      "status": "skipped"
-    },
-    {
-      "workerId": "worker_gemini",
-      "status": "failed",
-      "errorKind": "auth_required",
-      "errorReason": "gemini CLI is not logged in (run: gemini auth login)",
-      "startedAt": "2026-06-14T20:01:01Z",
-      "finishedAt": "2026-06-14T20:01:03Z",
-      "exitCode": 1
-    },
-    {
-      "workerId": "worker_grok",
-      "status": "timed_out",
-      "errorKind": "timed_out",
-      "errorReason": "no output for 120s",
-      "startedAt": "2026-06-14T20:01:01Z",
-      "finishedAt": "2026-06-14T20:03:01Z"
-    }
+    { "seatId": "worker_chatgpt#0", "workerId": "worker_chatgpt", "status": "done", "output": "Lead with team accounts; analytics can wait one cycle.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:30Z", "durationMs": 29010, "exitCode": 0 },
+    { "seatId": "worker_opus#0", "workerId": "worker_opus", "status": "done", "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:22Z", "durationMs": 21450, "exitCode": 0 },
+    { "seatId": "worker_sonnet#0", "workerId": "worker_sonnet", "status": "done", "output": "Agree on team accounts first, but ship a thin analytics event schema now.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:25Z", "durationMs": 24300, "exitCode": 0 },
+    { "seatId": "worker_composer#0", "workerId": "worker_composer", "status": "skipped" },
+    { "seatId": "worker_gemini#0", "workerId": "worker_gemini", "status": "failed", "errorKind": "auth_required", "errorReason": "gemini CLI is not logged in (run: gemini auth login)", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:03Z", "exitCode": 1 },
+    { "seatId": "worker_grok#0", "workerId": "worker_grok", "status": "timed_out", "errorKind": "timed_out", "errorReason": "no output for 120s", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:03:01Z" }
   ],
-  "synthesis": {
-    "synthesizerWorkerId": "worker_opus",
-    "instructions": "default_master_plan_v1",
-    "masterPlanMarkdown": null,
-    "status": "failed",
-    "startedAt": "2026-06-14T20:03:02Z",
-    "finishedAt": "2026-06-14T20:03:05Z"
-  },
-  "createdAt": "2026-06-14T20:01:00Z"
+  "stages": [
+    {
+      "id": "stage_analysis_p1",
+      "purpose": "analysis",
+      "producedByWorkerId": "worker_opus",
+      "promptProfileId": "judge_analysis_v1",
+      "status": "done",
+      "payload": {
+        "kind": "analysis",
+        "analysis": {
+          "consensus": [
+            { "statement": "Team accounts come first.", "sourceSeatIds": ["worker_opus#0", "worker_chatgpt#0", "worker_sonnet#0"], "strength": "strong" }
+          ],
+          "contradictions": [
+            { "topic": "Analytics timing", "positions": [{ "seatId": "worker_chatgpt#0", "summary": "analytics can wait" }, { "seatId": "worker_sonnet#0", "summary": "ship a thin event schema now" }], "recommendedResolution": "Ship a minimal event schema now, full analytics later." }
+          ],
+          "partialCoverage": [],
+          "uniqueInsights": [],
+          "blindSpots": [],
+          "failedSeats": [
+            { "seatId": "worker_gemini#0", "reason": "auth_required" },
+            { "seatId": "worker_grok#0", "reason": "no output for 120s" }
+          ],
+          "confidenceNote": "Two seats failed; treat with care."
+        }
+      },
+      "startedAt": "2026-06-14T20:03:02Z",
+      "finishedAt": "2026-06-14T20:03:20Z"
+    },
+    {
+      "id": "stage_plan_p1",
+      "purpose": "plan",
+      "producedByWorkerId": "worker_opus",
+      "promptProfileId": "judge_plan_v1",
+      "status": "failed",
+      "errorReason": "judge produced no output",
+      "startedAt": "2026-06-14T20:03:20Z",
+      "finishedAt": "2026-06-14T20:03:25Z"
+    }
+  ]
 }

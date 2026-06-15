@@ -1,9 +1,24 @@
 import Foundation
 import AllnighterCore
 
-/// Runs one worker's CLI for one prompt and maps the raw command result into a
-/// normalized `MemberResponse`. Pure of orchestration concerns — the
-/// coordinator runs many of these in parallel.
+/// The neutral result of invoking one worker's CLI once — shared by panel seats
+/// (wrapped into a `MemberResponse`) and reduce stages (wrapped into a
+/// `StageOutput`). Pure of orchestration concerns.
+public struct WorkerRunOutcome: Sendable, Equatable {
+    public var status: MemberStatus
+    public var output: String?
+    public var errorKind: MemberErrorKind?
+    public var errorReason: String?
+    public var startedAt: Date?
+    public var finishedAt: Date?
+    public var durationMs: Int?
+    public var exitCode: Int?
+
+    public var hasOutput: Bool { status == .done && (output?.isEmpty == false) }
+}
+
+/// Runs one worker's CLI for one prompt and normalizes the raw command result.
+/// The coordinator runs many of these in parallel.
 public struct WorkerRunner: Sendable {
     private let commandRunner: CommandRunner
     private let now: @Sendable () -> Date
@@ -13,14 +28,15 @@ public struct WorkerRunner: Sendable {
         self.now = now
     }
 
-    public func run(
+    /// Invoke a worker's CLI once and return the neutral outcome.
+    public func invoke(
         worker: Worker,
         manifest: DriverManifest,
         prompt: String
-    ) async -> MemberResponse {
+    ) async -> WorkerRunOutcome {
         // Manual-paste workers do not run; they await a pasted answer.
         guard manifest.kind == .headlessCLI, let invoke = manifest.invoke else {
-            return MemberResponse(workerId: worker.id, status: .skipped)
+            return WorkerRunOutcome(status: .skipped)
         }
 
         // File capture: hand the CLI a temp file to write its final answer to,
@@ -52,8 +68,7 @@ public struct WorkerRunner: Sendable {
         let finishedAt = now()
         let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
 
-        var response = MemberResponse(
-            workerId: worker.id,
+        var outcome = WorkerRunOutcome(
             status: .running,
             startedAt: startedAt,
             finishedAt: finishedAt,
@@ -61,30 +76,30 @@ public struct WorkerRunner: Sendable {
         )
 
         if let launchError = result.launchError {
-            response.status = .failed
-            response.errorKind = .missingCLI
-            response.errorReason = launchError
-            return response
+            outcome.status = .failed
+            outcome.errorKind = .missingCLI
+            outcome.errorReason = launchError
+            return outcome
         }
         if result.cancelled {
-            response.status = .cancelled
-            response.errorKind = .cancelled
-            return response
+            outcome.status = .cancelled
+            outcome.errorKind = .cancelled
+            return outcome
         }
         if result.timedOut {
-            response.status = .timedOut
-            response.errorKind = .timedOut
-            response.errorReason = "no output for \(invoke.timeoutSeconds)s"
-            return response
+            outcome.status = .timedOut
+            outcome.errorKind = .timedOut
+            outcome.errorReason = "no output for \(invoke.timeoutSeconds)s"
+            return outcome
         }
 
-        response.exitCode = result.exitCode.map(Int.init)
+        outcome.exitCode = result.exitCode.map(Int.init)
 
         if let code = result.exitCode, code != 0 {
-            response.status = .failed
-            response.errorKind = .nonzeroExit
-            response.errorReason = errorReason(from: result, exitCode: code)
-            return response
+            outcome.status = .failed
+            outcome.errorKind = .nonzeroExit
+            outcome.errorReason = errorReason(from: result, exitCode: code)
+            return outcome
         }
 
         let rawOutput: String
@@ -96,15 +111,37 @@ public struct WorkerRunner: Sendable {
 
         let cleaned = output(from: rawOutput, manifest: manifest)
         if cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            response.status = .failed
-            response.errorKind = .emptyOutput
-            response.errorReason = "worker exited 0 but produced no output"
-            return response
+            outcome.status = .failed
+            outcome.errorKind = .emptyOutput
+            outcome.errorReason = "worker exited 0 but produced no output"
+            return outcome
         }
 
-        response.status = .done
-        response.output = cleaned
-        return response
+        outcome.status = .done
+        outcome.output = cleaned
+        return outcome
+    }
+
+    /// Run a panel seat and return its `MemberResponse` (keyed by `seatId`).
+    public func run(
+        seat: PanelSeat,
+        worker: Worker,
+        manifest: DriverManifest,
+        prompt: String
+    ) async -> MemberResponse {
+        let outcome = await invoke(worker: worker, manifest: manifest, prompt: prompt)
+        return MemberResponse(
+            seatId: seat.id,
+            workerId: worker.id,
+            status: outcome.status,
+            output: outcome.output,
+            errorKind: outcome.errorKind,
+            errorReason: outcome.errorReason,
+            startedAt: outcome.startedAt,
+            finishedAt: outcome.finishedAt,
+            durationMs: outcome.durationMs,
+            exitCode: outcome.exitCode
+        )
     }
 
     private func output(from stdout: String, manifest: DriverManifest) -> String {

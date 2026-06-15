@@ -1,15 +1,19 @@
 {
   "id" : "preset_six_default",
   "displayName" : "Founder's Six",
-  "panelWorkerIds" : [
-    "worker_chatgpt",
-    "worker_opus",
-    "worker_sonnet",
-    "worker_composer",
-    "worker_gemini",
-    "worker_grok"
+  "seats" : [
+    { "workerId" : "worker_chatgpt", "count" : 1 },
+    { "workerId" : "worker_opus", "count" : 1 },
+    { "workerId" : "worker_sonnet", "count" : 1 },
+    { "workerId" : "worker_composer", "count" : 1 },
+    { "workerId" : "worker_gemini", "count" : 1 },
+    { "workerId" : "worker_grok", "count" : 1 }
   ],
-  "draftSynthesizerWorkerId" : "worker_opus",
-  "draftSynthesisInstructionPresetId" : "default_master_plan_v1",
+  "synthesis" : {
+    "analysisDepth" : "combined",
+    "judgeWorkerId" : "worker_opus",
+    "analysisProfileId" : "judge_analysis_v1",
+    "planProfileId" : "judge_plan_v1"
+  },
   "builtIn" : true
 }
