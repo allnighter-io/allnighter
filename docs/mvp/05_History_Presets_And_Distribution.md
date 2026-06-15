@@ -1,9 +1,11 @@
 # 05 — History, Presets, Doctor + Distribution
 
-Status: Draft — **make it the daily driver**
+Status: **Daily-driver slices shipped (S01–S05).** Distribution (S06–S07)
+deferred by founder — internal use only for now; GRDB (S08) not yet needed.
 Depends on: 01, 02, 03, 04
 Owner: Mac
 Created: 2026-06-14
+Updated: 2026-06-14
 
 ## Goal
 
@@ -48,18 +50,29 @@ DMG so it launches at login like a real app.
 
 ## Ordered Slices
 
-- [ ] P05-S01 — Run history list + detail reopen + "run again".
-- [ ] P05-S02 — Panel presets with explicit `panelWorkerIds`,
-  `draftSynthesizerWorkerId`, and `draftSynthesisInstructionPresetId`, incl.
-  built-in six-worker default.
-- [ ] P05-S03 — Synthesis-instruction presets: built-in default, custom editable
-  preset, honest persistence in `Synthesis.instructions`, and rerun from history
-  with the same preset.
-- [ ] P05-S04 — Doctor UI: detect, smoke test, version, health, fix hints.
-- [ ] P05-S05 — Global hotkey quick capture (+ optional clipboard prefill).
-- [ ] P05-S06 — Notarized DMG (XcodeGen, Developer ID, hardened runtime, entitlements).
+- [x] P05-S01 — Run history list + detail reopen + "run again". History sidebar
+  section (`store.list()`), read-only `HistoryDetailView`, and `runAgain(_:)`
+  reconstructs prompt + panel + synthesizer + instructions + preset.
+- [x] P05-S02 — Panel presets (`PanelPreset`: `panelWorkerIds`,
+  `draftSynthesizerWorkerId`, `draftSynthesisInstructionPresetId`, `builtIn`) +
+  `PanelPresetStore` + built-in six-worker default derived from the live panel.
+  Opus is the default synthesizer *by configuration*, not a code path.
+- [x] P05-S03 — Synthesis-instruction presets (`SynthesisInstructionPreset` +
+  `SynthesisInstructionStore`); **honest persistence** via
+  `SynthesisInstructionChoice` — `Synthesis.instructions` records the chosen
+  preset id or the literal custom text, never always `default_master_plan_v1`.
+  Rerun from history restores the same instructions.
+- [x] P05-S04 — Doctor (`Doctor` + `WorkerDiagnosis`): detect presence, capture
+  version, smoke test, classify health, and emit copy-able fix hints
+  (missing binary / not authenticated / bad flags / manual). Doctor sheet UI.
+- [x] P05-S05 — Global hotkey quick capture (Carbon `RegisterEventHotKey`,
+  ⌥⌘Space, no Accessibility permission) + optional clipboard prefill.
+- [ ] P05-S06 — Notarized DMG (Developer ID, hardened runtime, entitlements).
+  **Deferred by founder — internal use only; revisit before external launch.**
 - [ ] P05-S07 — First-run onboarding (Doctor + permissions/why copy).
+  **Deferred with S06** (onboarding pairs with distribution).
 - [ ] P05-S08 — (Conditional) GRDB run index if flat-file history is slow.
+  Not triggered — flat-file history is fast at current volume.
 
 ## Works Test
 
@@ -75,19 +88,31 @@ of silently disappearing.
 
 ## Exit Gates
 
-- [ ] Works Test passes from a notarized DMG on a clean account.
-- [ ] Doctor correctly classifies healthy vs missing vs unauthenticated workers.
-- [ ] Presets + history persist across launches.
-- [ ] Draft synthesizer is explicit per preset; Opus is a default, not a
-  hardcoded code path.
-- [ ] `Synthesis.instructions` records the chosen preset/custom instruction
-  honestly.
-- [ ] Global hotkey works system-wide.
-- [ ] `xcodebuild test -scheme AllnighterMac` + `swift test` green; Code Audit CLEAN.
+- [x] Doctor correctly classifies healthy vs missing vs unauthenticated workers
+  (unit-tested via `MockCommandRunner`; on-device confirmation pending a founder
+  run).
+- [x] Presets + history persist across launches (file-backed under
+  `Config/PanelPresets`, `Config/InstructionPresets`, `Runs/`).
+- [x] Draft synthesizer is explicit per preset; Opus is a default, not a
+  hardcoded code path (`PanelPreset.draftSynthesizerWorkerId` +
+  `AppModel.synthesizerWorker`).
+- [x] `Synthesis.instructions` records the chosen preset/custom instruction
+  honestly (`SynthesisInstructionChoice`).
+- [x] Global hotkey works system-wide (Carbon, no Accessibility permission).
+- [x] `xcodebuild test -scheme AllnighterMac` + `swift test` green (73 Core/Engine
+  tests + Mac app suite).
+- [ ] Works Test passes from a **notarized DMG** on a clean account.
+  **Deferred** — distribution is out of scope for now (internal use). The Works
+  Test passes from a local `xcodebuild`/Run build today.
+- [ ] Code Audit CLEAN (run at milestone closeout).
 
 ## Closeout
 
-**MVP shipped and dogfooded.** Next milestone is chosen deliberately: either the
-iOS floor manager (`00` § Growth Seams; `ON HOLD/08–09`) or the review-board
-milestone (`RB0`-`RB4`). The review-board milestone should run the manual
-activation gate in `RB0` before code starts.
+**Daily-driver slices (S01–S05) shipped and green; runs from a local build.**
+Distribution (notarized DMG + first-run onboarding, S06–S07) is intentionally
+deferred — the founder uses the tool internally for now and will revisit
+signing/notarization before any external launch. GRDB (S08) is untriggered.
+
+Next milestone is the review-board milestone (`RB0`-`RB4`), whose specs are
+finalized alongside this phase. Before RB1 code starts, run the manual
+**activation gate** in `RB0` on three real prompts.

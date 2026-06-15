@@ -152,7 +152,7 @@ contracts so no phase re-decides them.
 02  Worker Drivers + Parallel Fan-Out Engine  <- the heart                              [DONE]
 03  Mac App Shell + Run Loop (prompt, panel, live status, response viewer)              [BUILT*]
 04  Synthesis + Master Plan (default Opus; configurable in 05)                         [BUILT*]
-05  History, Presets, Doctor + Notarized Distribution (make it the daily driver)        [next]
+05  History, Presets, Doctor + Distribution (make it the daily driver)  [S01-S05 DONE; dist deferred]
 ```
 
 > `*` = code complete and automated gates green (`swift test` 57 + app suite via
