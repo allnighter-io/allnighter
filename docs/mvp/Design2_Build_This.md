@@ -1,6 +1,6 @@
 # Design2 - Build This (the flywheel)
 
-Status: **Build-ready after Design1.**
+Status: **BUILT (2026-06-15) — Core+Engine+Mac green.** Reuses RB4 dispatch; chosen image + redesign framing → coding agent (Claude Code/Codex read images).
 Owner: Founder + Shared Core + Mac
 Created: 2026-06-15
 Updated: 2026-06-15

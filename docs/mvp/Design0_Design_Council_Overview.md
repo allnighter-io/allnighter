@@ -1,6 +1,6 @@
 # Design0 - Design Council Overview (Charter)
 
-Status: **Finalized — build-ready. Image-first. (Replaces the earlier HTML/render draft, which is dead — see below.)**
+Status: **BUILT (2026-06-15). Image-first.** Design1 (Image Council) + Design2 (Build This) implemented end-to-end; 135 swift test + Mac app green. Capability gate passed (3 image engines headless at $0). Deferred refinements: "more like this" img2img, repo token scan, taste-memory seat (verdicts logged). (Replaces the earlier HTML/render draft, which is dead — see below.)
 Owner: Founder + Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-15

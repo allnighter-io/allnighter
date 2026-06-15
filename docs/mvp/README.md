@@ -187,7 +187,7 @@ RB5  Return Review, Outcome Scoring, and Routing (close the control loop)
 RB6  Council-as-Tool (local CLI/MCP/HTTP; local Fusion any agent can call — the moat)
 ```
 
-> **The second spine — the Design Council (Design0–Design2), image-first.** Lane 1
+> **The second spine — the Design Council (Design0–Design2), image-first. BUILT 2026-06-15.** Lane 1
 > (RB) answers *technical* prompts ("make this correct"). At least half of real
 > prompts are *design* ("improve this screen", "give me a few mockups"). The design
 > path is deliberately small: attach a screenshot, fan out to the **image engines

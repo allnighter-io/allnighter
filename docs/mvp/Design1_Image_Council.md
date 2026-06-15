@@ -1,6 +1,6 @@
 # Design1 - The Image Council
 
-Status: **Build-ready — gated on the Design Activation Gate (Design0).**
+Status: **BUILT (2026-06-15) — Core+Engine+Mac green (135 swift test + Mac app).** Capability gate passed: 3 image engines confirmed headless at $0.
 Owner: Shared Core + Mac
 Created: 2026-06-15
 Updated: 2026-06-15
