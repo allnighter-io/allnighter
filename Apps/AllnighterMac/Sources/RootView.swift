@@ -32,9 +32,17 @@ private struct DetailPane: View {
             HistoryDetailView(run: history)
         } else {
             VStack(spacing: 0) {
-                PromptComposer()
+                ModePicker()
                 Divider()
-                RunResultsView()
+                if model.designMode {
+                    DesignComposer()
+                    Divider()
+                    DesignBoardView()
+                } else {
+                    PromptComposer()
+                    Divider()
+                    RunResultsView()
+                }
             }
         }
     }

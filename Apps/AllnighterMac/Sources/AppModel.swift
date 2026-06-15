@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AppKit
+import ImageIO
 import AllnighterCore
 import AllnighterEngine
 
@@ -46,6 +47,13 @@ final class AppModel {
 
     // Return review (RB5)
     private(set) var isReturnReviewing = false
+
+    // Design council (Lane 2): attach a screenshot, fan out to image engines.
+    var designMode = false
+    var designScreenshotURL: URL?
+    var designTargetShape: TargetShape = .desktop
+    var designPersonaIds: [String] = DesignPersonaLibrary.defaultPanelIDs
+    private(set) var isDesigning = false
 
     private let registry: DriverRegistry
     private let store = RunStore()
@@ -546,6 +554,11 @@ final class AppModel {
                let status = MemberStatus(rawValue: to),
                let index = current.members.firstIndex(where: { $0.seatId == seatId }) {
                 current.members[index].status = status
+                // Design runs ride the run-relative image path on the event so the
+                // board tile fills in progressively.
+                if let output = event.payload["output"]?.stringValue {
+                    current.members[index].output = output
+                }
             }
         default:
             break
@@ -555,5 +568,150 @@ final class AppModel {
 
     private static func fallbackPanel() -> [Worker] {
         [Worker(id: "worker_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both)]
+    }
+}
+
+// MARK: - Design council (Lane 2)
+
+extension AppModel {
+    /// Workers whose CLI can generate a design image headlessly (the design seats).
+    var imageWorkers: [Worker] {
+        workers.filter { registry.manifest(for: $0)?.canGenerateImages == true }
+    }
+
+    /// The current board (live from members during the run; persisted at settle).
+    var board: BoardPayload? { displayRun?.latestStage(.board)?.payload?.board }
+
+    var canRunDesign: Bool {
+        !isDesigning && !isRunning && !imageWorkers.isEmpty && !designPersonaIds.isEmpty &&
+        (!prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || designScreenshotURL != nil)
+    }
+
+    func attachScreenshot(_ url: URL) {
+        designScreenshotURL = url
+        designTargetShape = inferredTargetShape(from: url) ?? designTargetShape
+    }
+
+    func clearScreenshot() { designScreenshotURL = nil }
+
+    /// The run folder on disk (idempotent create).
+    func runFolderURL(for run: CouncilRun) -> URL {
+        (try? store.runDirectory(forRunId: run.id)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(run.id)")
+    }
+
+    /// Absolute URL of a seat's generated image, if it rendered.
+    func imageURL(forSeat seatId: String) -> URL? {
+        guard let run = displayRun, let member = run.member(seatId: seatId),
+              member.status == .done, let rel = member.output, !rel.isEmpty else { return nil }
+        return runFolderURL(for: run).appendingPathComponent(rel)
+    }
+
+    /// The "before" screenshot URL (persisted path at settle, else the attachment).
+    var screenshotURL: URL? {
+        if let run = displayRun, let rel = run.latestStage(.board)?.payload?.board?.screenshotPath {
+            return runFolderURL(for: run).appendingPathComponent(rel)
+        }
+        return designScreenshotURL
+    }
+
+    func designPersona(forSeat seatId: String) -> String {
+        displayRun?.panel.first { $0.id == seatId }?.stance ?? "minimal"
+    }
+
+    /// Build the design panel: each selected persona on an image worker
+    /// (round-robin; a worker may fill several persona seats — self-fusion).
+    private func designSeats() -> [PanelSeat] {
+        let imgs = imageWorkers
+        guard !imgs.isEmpty else { return [] }
+        var perWorker: [String: Int] = [:]
+        return designPersonaIds.enumerated().map { i, persona in
+            let worker = imgs[i % imgs.count]
+            let idx = perWorker[worker.id, default: 0]
+            perWorker[worker.id] = idx + 1
+            return PanelSeat(id: "\(worker.id)#\(idx)", workerId: worker.id, seatIndex: idx, stance: persona)
+        }
+    }
+
+    /// Attach a screenshot, fan out to the image engines × personas, reveal the
+    /// board. The board is the first truth surface — no AI verdict precedes it.
+    func runDesign() {
+        guard canRunDesign else { return }
+        let seats = designSeats()
+        guard !seats.isEmpty else { return }
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        isDesigning = true
+        historySelection = nil
+        lastSavedDirectory = nil
+        let runId = UUID().uuidString
+        let runDir = (try? store.runDirectory(forRunId: runId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(runId)")
+        try? FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
+
+        // Copy the attached screenshot into the run folder (run-relative truth).
+        var relScreenshot: String?
+        var absScreenshot: String?
+        if let src = designScreenshotURL {
+            let dest = runDir.appendingPathComponent("screenshot.png")
+            try? FileManager.default.removeItem(at: dest)
+            if (try? FileManager.default.copyItem(at: src, to: dest)) != nil {
+                relScreenshot = "screenshot.png"
+                absScreenshot = dest.path
+            }
+        }
+
+        let request = DesignRequest(prompt: trimmed, personaIds: designPersonaIds,
+                                    screenshotPath: relScreenshot, targetShape: designTargetShape)
+        run = CouncilRun(
+            id: runId, prompt: trimmed, status: .draft, origin: .gui, presetId: "design_board",
+            panel: seats, members: seats.map { MemberResponse(seatId: $0.id, workerId: $0.workerId, status: .queued) },
+            createdAt: Date()
+        )
+
+        let coordinator = DesignCoordinator(
+            imageRunner: DesignImageRunner(commandRunner: SubprocessCommandRunner()),
+            registry: registry
+        )
+        let stream = coordinator.events
+        let snapshotWorkers = workers
+
+        runTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let consumer = Task { @MainActor [weak self] in
+                for await event in stream { self?.apply(event) }
+            }
+            let settled = await coordinator.generate(
+                request: request, seats: seats, workers: snapshotWorkers,
+                runDir: runDir, screenshotAbsolutePath: absScreenshot, runId: runId
+            )
+            await consumer.value
+            self.run = settled
+            self.persist()
+            self.isDesigning = false
+        }
+    }
+
+    /// Record the human's pick onto the latest board stage (logged for taste memory).
+    func pickOption(seatId: String, rationale: String? = nil) {
+        guard var current = run,
+              let stageIndex = current.stages.lastIndex(where: { $0.purpose == .board }),
+              var board = current.stages[stageIndex].payload?.board,
+              let option = board.options.first(where: { $0.seatId == seatId }), option.hasImage else { return }
+        let rejected = board.options.filter { $0.seatId != seatId && $0.hasImage }.map(\.seatId)
+        board.chosen = ChosenOption(seatId: seatId, persona: option.persona, rationale: rationale,
+                                    rejectedSeatIds: rejected, chosenAt: Date())
+        current.stages[stageIndex].payload = .board(board)
+        run = current
+        persist()
+    }
+
+    private func inferredTargetShape(from url: URL) -> TargetShape? {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+              let w = props[kCGImagePropertyPixelWidth] as? Double,
+              let h = props[kCGImagePropertyPixelHeight] as? Double, h > 0 else { return nil }
+        let aspect = w / h
+        if aspect < 0.6 { return .mobile }
+        if aspect > 1.8 { return .desktop }
+        return nil
     }
 }

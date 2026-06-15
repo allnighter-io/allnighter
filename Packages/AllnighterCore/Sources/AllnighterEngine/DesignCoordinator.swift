@@ -72,7 +72,10 @@ public actor DesignCoordinator {
         let prompt = request.prompt
         let targetShape = request.targetShape
 
-        let options: [DesignOption] = await withTaskGroup(of: DesignOption.self) { group in
+        // Fan out; reflect each option onto its member AS IT COMPLETES so the board
+        // tile fills in progressively (the image path rides the event).
+        var options: [DesignOption] = []
+        await withTaskGroup(of: DesignOption.self) { group in
             for seat in seats {
                 let worker = workerByID[seat.workerId]
                 let manifest = worker.flatMap { manifestByWorker[$0.id] ?? nil }
@@ -96,26 +99,21 @@ public actor DesignCoordinator {
                     return await runner.run(seat: seat, worker: worker, manifest: manifest, request: seatRequest, runDir: runDir)
                 }
             }
-            var collected: [DesignOption] = []
-            for await option in group { collected.append(option) }
-            return collected
+            for await option in group {
+                options.append(option)
+                guard let index = run.members.firstIndex(where: { $0.seatId == option.seatId }) else { continue }
+                let previous = run.members[index].status
+                run.members[index].status = Self.memberStatus(for: option.status)
+                run.members[index].output = option.imagePath
+                run.members[index].errorReason = option.failureReason
+                run.members[index].finishedAt = now()
+                emitMember(run.members[index], runId: run.id, from: previous, imagePath: option.imagePath)
+            }
         }
 
-        // Restore panel order (TaskGroup completion order is nondeterministic).
+        // Restore panel order for the board (TaskGroup completion order varies).
         let orderBySeat = Dictionary(uniqueKeysWithValues: seats.enumerated().map { ($1.id, $0) })
         let ordered = options.sorted { (orderBySeat[$0.seatId] ?? 0) < (orderBySeat[$1.seatId] ?? 0) }
-
-        // Reflect each option onto its member (output = the run-relative image path)
-        // and emit the per-seat event so the board tile fills in.
-        for option in ordered {
-            guard let index = run.members.firstIndex(where: { $0.seatId == option.seatId }) else { continue }
-            let previous = run.members[index].status
-            run.members[index].status = Self.memberStatus(for: option.status)
-            run.members[index].output = option.imagePath
-            run.members[index].errorReason = option.failureReason
-            run.members[index].finishedAt = now()
-            emitMember(run.members[index], runId: run.id, from: previous)
-        }
 
         run = transition(run, to: .answersIn)
         if Task.isCancelled {
@@ -170,15 +168,14 @@ public actor DesignCoordinator {
         return updated
     }
 
-    private func emitMember(_ member: MemberResponse, runId: String, from: MemberStatus) {
-        continuation.yield(RunEvent(
-            id: idFactory(), seq: nextSeq(), ts: now(),
-            kind: RunEventKind.memberStatusChanged,
-            payload: [
-                "runId": .string(runId), "seatId": .string(member.seatId),
-                "workerId": .string(member.workerId), "from": .string(from.rawValue),
-                "to": .string(member.status.rawValue)
-            ]
-        ))
+    private func emitMember(_ member: MemberResponse, runId: String, from: MemberStatus, imagePath: String? = nil) {
+        var payload: [String: JSONValue] = [
+            "runId": .string(runId), "seatId": .string(member.seatId),
+            "workerId": .string(member.workerId), "from": .string(from.rawValue),
+            "to": .string(member.status.rawValue)
+        ]
+        if let imagePath { payload["output"] = .string(imagePath) }   // the run-relative image, for progressive board reveal
+        continuation.yield(RunEvent(id: idFactory(), seq: nextSeq(), ts: now(),
+                                    kind: RunEventKind.memberStatusChanged, payload: payload))
     }
 }
