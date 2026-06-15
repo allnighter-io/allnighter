@@ -242,7 +242,17 @@ automation, which is just the dead render-tail in a new costume).
 
 | Date | Image-capable CLI(s) + **exact invocation / how image arrives** | Greenfield (text→img)? | Board ≥2, picks <60s? | Build edits existing code from image? | Go / revise |
 | --- | --- | --- | --- | --- | --- |
-| 2026-06-15 | **3 engines confirmed + invocations pinned (below):** ✅ Grok (`grok -p … --yolo --output-format json`) · ✅ Gemini via **Antigravity CLI** (`agy --print … --dangerously-skip-permissions`) · ✅ ChatGPT (`codex exec -C <run> --skip-git-repo-check …`). ❌ **Claude Code** (no image gen → build-side `canReadImages` implementer only). | pending (text→img per engine) | pending — 3 engines → 4 seats via self-fusion | pending | **Capability + invocations PASSED — proceed.** Run board + build. |
+| 2026-06-15 | **3 engines confirmed + invocations pinned (below):** ✅ Grok (`grok -p … --yolo --output-format json`) · ✅ Gemini via **Antigravity CLI** (`agy --print … --dangerously-skip-permissions`) · ✅ ChatGPT (`codex exec -C <run> --skip-git-repo-check …`). ❌ **Claude Code** (no image gen → build-side `canReadImages` implementer only). | ✅ all 3 (forceful "raster PNG, not markdown" prompt needed for agy) | ✅ **proven live** via `prove-cli --design`: Grok 19KB, Antigravity 1.2MB, Codex 865KB real PNGs, both arrival modes | implemented (Design2) | **PASSED — built.** |
+
+**Live board-capability proof (2026-06-15, `swift run prove-cli --design <engine>`):** all
+three engines produced a **real, validated local PNG** through the actual manifest →
+`DesignImageRunner` → capture/normalize/magic-byte pipeline at $0 — both arrival modes
+(`prompt_directed`: Grok, Codex; `stdout_path`: Antigravity). **Gate finding:** in
+headless `--print`, agy first returned a *markdown design doc*, not an image; a forceful
+prompt ("create an actual raster PNG, not markdown/HTML; reply with ONLY the .png path")
+makes it fire its image tool reliably — now baked into the antigravity manifest template.
+Remaining gate items (UI board run with real images + a real build) are app-driven and
+spend quota — the founder validates those in-app; the engine pipeline itself is proven.
 
 **Capability finding (2026-06-15):** the bench sorted into the two roles cleanly —
 three image engines for the **design** seats, **Claude Code** as the **build**
