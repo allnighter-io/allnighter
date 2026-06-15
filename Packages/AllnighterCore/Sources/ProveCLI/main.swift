@@ -15,7 +15,7 @@ enum ProveCLI {
 
         let registry: DriverRegistry
         do {
-            let manifestFiles = ["claude_code.json", "grok.json"]
+            let manifestFiles = ["claude_code.json", "grok.json", "antigravity.json"]
             let manifests = try manifestFiles.map { name in
                 let url = driversDir.appendingPathComponent(name)
                 return try CoreJSON.decode(DriverManifest.self, from: Data(contentsOf: url))
@@ -31,6 +31,7 @@ enum ProveCLI {
         let cases: [(name: String, worker: Worker)] = [
             ("claude", Worker(id: "prove_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code")),
             ("grok", Worker(id: "prove_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok")),
+            ("agy", Worker(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "gemini-flash", driverId: "antigravity")),
         ]
 
         var anyFailed = false

@@ -1,0 +1,23 @@
+{
+  "id": "antigravity",
+  "manifestVersion": 1,
+  "displayName": "Gemini (Antigravity CLI)",
+  "kind": "headless_cli",
+  "detectCommand": "agy --version",
+  "smokeTestCommand": "agy --print \"Reply with the single token ALLNIGHTER_READY\" --dangerously-skip-permissions",
+  "smokeTestExpect": "ALLNIGHTER_READY",
+  "invoke": {
+    "command": "agy",
+    "args": ["--print", "{{prompt}}", "--dangerously-skip-permissions"],
+    "promptVia": "arg",
+    "env": {},
+    "workingDir": null,
+    "timeoutSeconds": 300
+  },
+  "output": {
+    "capture": "stdout",
+    "stripAnsi": true,
+    "doneSignal": "exit_code",
+    "sentinel": null
+  }
+}
