@@ -29,7 +29,11 @@ private struct DetailPane: View {
     @Environment(AppModel.self) private var model
     var body: some View {
         if let history = model.historySelection {
-            HistoryDetailView(run: history)
+            if history.presetId == "design_board" {
+                DesignBoardView()   // read-only board (pick/build gated on no history)
+            } else {
+                HistoryDetailView(run: history)
+            }
         } else {
             VStack(spacing: 0) {
                 ModePicker()

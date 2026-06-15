@@ -169,13 +169,20 @@ struct DesignBoardView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: tileWidth), spacing: 14)], spacing: 14) {
                         ForEach(run.panel) { seat in
-                            BoardTile(seat: seat, aspect: aspect,
+                            BoardTile(seat: seat, aspect: aspect, readOnly: readOnly,
                                       isChosen: model.board?.chosen?.seatId == seat.id,
                                       onOpen: { fullscreenSeat = seat.id },
                                       onPick: { model.pickOption(seatId: seat.id) })
                         }
                     }
-                    if model.board?.chosen != nil { BuildSection() }
+                    if let chosen = model.board?.chosen {
+                        if readOnly {
+                            Label("Picked \(DesignPersonaLibrary.displayName(for: chosen.persona))", systemImage: "checkmark.seal.fill")
+                                .font(.callout).foregroundStyle(.green)
+                        } else {
+                            BuildSection()
+                        }
+                    }
                 }
                 .padding()
             }
@@ -192,8 +199,10 @@ struct DesignBoardView: View {
         }
     }
 
-    private var aspect: CGFloat { model.designTargetShape == .mobile ? 0.6 : 1.5 }
-    private var tileWidth: CGFloat { model.designTargetShape == .mobile ? 170 : 260 }
+    private var readOnly: Bool { model.historySelection != nil }
+    private var shape: TargetShape { model.board?.targetShape ?? model.designTargetShape }
+    private var aspect: CGFloat { shape == .mobile ? 0.6 : 1.5 }
+    private var tileWidth: CGFloat { shape == .mobile ? 170 : 260 }
 }
 
 private struct IdentifiedSeat: Identifiable { let id: String }
@@ -260,6 +269,7 @@ private struct BoardTile: View {
     @Environment(AppModel.self) private var model
     let seat: PanelSeat
     let aspect: CGFloat
+    let readOnly: Bool
     let isChosen: Bool
     let onOpen: () -> Void
     let onPick: () -> Void
@@ -291,9 +301,11 @@ private struct BoardTile: View {
                     .font(.caption).bold()
                 Text(engineName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
-                if model.imageURL(forSeat: seat.id) != nil {
+                if model.imageURL(forSeat: seat.id) != nil && !readOnly {
                     Button(isChosen ? "Picked" : "Pick", action: onPick)
                         .font(.caption).buttonStyle(.borderless).disabled(isChosen)
+                } else if isChosen {
+                    Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
                 }
             }
         }
@@ -318,8 +330,10 @@ private struct FullscreenOption: View {
                 if model.screenshotURL != nil {
                     Toggle("Show original", isOn: $showingBefore).toggleStyle(.button)
                 }
-                Button("Pick this") { model.pickOption(seatId: seatId); dismiss() }
-                    .buttonStyle(.borderedProminent)
+                if model.historySelection == nil {
+                    Button("Pick this") { model.pickOption(seatId: seatId); dismiss() }
+                        .buttonStyle(.borderedProminent)
+                }
                 Button("Close") { dismiss() }
             }
             if let url = imageURL, let img = NSImage(contentsOf: url) {

@@ -482,7 +482,12 @@ final class AppModel {
     }
 
     private func persist() {
-        guard let run, run.status == .complete || run.status == .partial || run.status == .answersIn else { return }
+        guard let run else { return }
+        // Design runs are worth keeping even when every engine failed (the board of
+        // gray tiles + reasons, and the screenshot, should survive + show in History).
+        let hasBoard = run.latestStage(.board) != nil
+        guard run.status == .complete || run.status == .partial || run.status == .answersIn
+                || (hasBoard && run.status == .failed) else { return }
         lastSavedDirectory = try? store.save(run, workers: workers)
         reloadHistory()
     }
@@ -692,7 +697,7 @@ extension AppModel {
 
     /// Record the human's pick onto the latest board stage (logged for taste memory).
     func pickOption(seatId: String, rationale: String? = nil) {
-        guard var current = run,
+        guard historySelection == nil, var current = run,
               let stageIndex = current.stages.lastIndex(where: { $0.purpose == .board }),
               var board = current.stages[stageIndex].payload?.board,
               let option = board.options.first(where: { $0.seatId == seatId }), option.hasImage else { return }
@@ -726,7 +731,8 @@ extension AppModel {
     }
 
     func canReadImages(_ workerId: String) -> Bool {
-        registry.manifest(for: workers.first { $0.id == workerId } ?? workers[0])?.canReadImages == true
+        guard let w = workers.first(where: { $0.id == workerId }) else { return false }
+        return registry.manifest(for: w)?.canReadImages == true
     }
 
     var canBuildChosen: Bool {
@@ -737,7 +743,7 @@ extension AppModel {
     /// "Build this": hand the chosen image + the redesign framing to a coding agent
     /// (reuses RB4 dispatch). The agent restyles the existing code to match.
     func buildChosen() {
-        guard canBuildChosen, let current = run, let chosen = board?.chosen else { return }
+        guard historySelection == nil, canBuildChosen, let current = run, let chosen = board?.chosen else { return }
         let dir = dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
         let workerId = dispatchWorkerId ?? buildWorkers.first?.id
         guard let workerId, let worker = workers.first(where: { $0.id == workerId }),
