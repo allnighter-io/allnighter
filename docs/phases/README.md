@@ -27,6 +27,7 @@ otherwise.
 | --- | --- | --- |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Finalized for implementation | Admission control for selected workers, panels, queued turns, fallbacks, and floor visibility without quota accounting. |
+| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Draft language contract | Bench, skill, seat, team, lane, type, effort, and preset vocabulary for work-order specs. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
 | [`ios/README.md`](ios/README.md) | Active iOS spine | Remote floor manager: sign in, pick your Mac, control runs. |
 
@@ -63,6 +64,8 @@ otherwise.
 - Build, Design, and Copy are the peer creation lanes. A fourth lane requires a
   new substrate or output class; otherwise it is a type or preset inside the
   existing lanes.
+- A seat is one worker wearing one skill. Lanes ship default teams, but advanced
+  users can customize the worker-skill lineup one level below the main composer.
 
 ## Adding a Phase Doc
 
@@ -105,6 +108,7 @@ Open questions:
 | Work | Read first |
 | --- | --- |
 | Built MVP behavior, worker drivers, council/design council substrate | `docs/mvp/README.md` |
+| Work-order vocabulary, bench/skill/seat/team model | `Work_Order_Team_Model.md` |
 | Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** |
 | Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |

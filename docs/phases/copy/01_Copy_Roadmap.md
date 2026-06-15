@@ -18,9 +18,12 @@ Copy type and Effort route the team.
 Context is optional.
 ```
 
+Vocabulary follows `docs/phases/Work_Order_Team_Model.md`: a team is a lineup of
+seats, and each seat is one worker wearing one skill.
+
 ## Product Value
 
-Copy becomes great when the hidden team changes for the job:
+Copy becomes great when the skill suite changes for the job:
 
 - Landing page optimization is not an email funnel.
 - Email funnels are not paid ads.
@@ -28,8 +31,8 @@ Copy becomes great when the hidden team changes for the job:
 - UGC scripts are not lead magnets.
 - Newsletters are not app store pages.
 
-Each copy type should have its own expert seats, optional context chips, output
-shape, and quality rubric.
+Each copy type should have its own skill suite, default team, optional context
+chips, output shape, and quality rubric.
 
 The roadmap is gated by quality, not by how easy it is to add another prompt
 profile. A copy type does not become active until its board beats a strong
@@ -44,8 +47,9 @@ Each pack defines:
 - display name;
 - prompt examples that auto-route to it;
 - optional context chips;
-- generator seats;
-- review lenses;
+- generation skills;
+- review skills;
+- default team lineup;
 - effort mapping;
 - output sections;
 - Works Test.
@@ -353,7 +357,7 @@ This should remain an advanced work order, not the default first-run path.
 - [ ] C1 - Copy MVP: landing page board and copy pack (`00_Copy_MVP.md`).
 - [ ] C2 - Apply-to-site via Build (`02_Copy_Apply_To_Site.md`).
 - [ ] C3 - Copy type registry: internal model for packs, auto-route examples,
-  optional context chips, output schemas.
+  optional context chips, skill suites, default teams, output schemas.
 - [ ] C4 - Email funnel and ads packs.
 - [ ] C5 - Research source capture and source browser.
 - [ ] C6 - House voice and copy memory.
@@ -405,6 +409,7 @@ Expected: angle map, variants, CTA, creative notes, platform-risk notes.
 ## Done When
 
 - Copy type packs can be added without changing the composer surface.
+- Copy type packs define skills and default teams using the shared team model.
 - Each pack has a specific output shape and Works Test.
 - Effort stays Quick / Standard / Deep in the UI.
 - Optional context stays optional.

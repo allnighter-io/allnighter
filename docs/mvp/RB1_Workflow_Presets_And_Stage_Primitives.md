@@ -151,13 +151,15 @@ stage instead uses `StageBinding.workerId` — a fresh single-use worker invocat
 reserved strictly for the panel. So "a worker bound to a review lens" is a normal
 call with the lens prompt, never a reused panel seat.
 
-`PromptProfile` is the generalized version of synthesis instructions. A review
-lens is a prompt profile, not a second kind of worker role. **Custom inline
-instructions** persist via Phase 06's `StageOutput.customInstruction` (the
-`promptProfileId` is nil for that stage); a named profile sets `promptProfileId`
-and leaves `customInstruction` nil — exactly one, honest. The RB1-S02 regression
-test asserts this. All new Core types ship with **fixtures + round-trip tests**
-(`00` §8); there are no users, so types take their final shape — no old-run gates.
+`PromptProfile` is the generalized version of synthesis instructions. In
+post-MVP product language, a prompt profile is a **Skill**: the hat/instruction a
+worker wears in a seat. A review lens is a prompt profile, not a second kind of
+worker role. **Custom inline instructions** persist via Phase 06's
+`StageOutput.customInstruction` (the `promptProfileId` is nil for that stage); a
+named profile sets `promptProfileId` and leaves `customInstruction` nil — exactly
+one, honest. The RB1-S02 regression test asserts this. All new Core types ship
+with **fixtures + round-trip tests** (`00` §8); there are no users, so types take
+their final shape — no old-run gates.
 
 **Preset validation (Bug-proofing the save/run boundary).** `WorkflowPreset`
 validation runs at **two points**: (1) at **save** — reject an unknown stage

@@ -60,6 +60,8 @@ Run copy board
 
 - `docs/mvp/` owns the built council and design substrate: workers, panel seats,
   stage outputs, board-style option selection, and run artifacts.
+- `docs/phases/Work_Order_Team_Model.md` owns the product vocabulary for bench,
+  skill, seat, team, lane, type, effort, and preset.
 - `docs/phases/Utilization_Admission_Control.md` already defines Effort as a user
   instruction, not an estimate.
 - `Packages/AllnighterCore/Sources/AllnighterCore/WorkOrder.swift` already has a
@@ -73,6 +75,7 @@ Run copy board
 - work kind: build, design, copy;
 - effort: quick, standard, deep;
 - copy type: auto, landing_page, later channel types;
+- copy skill suite and default team lineup;
 - copy board payload and chosen copy;
 - generated artifact paths.
 
@@ -130,6 +133,9 @@ keeps `Auto` and uses the landing-page pack only after the user confirms.
 Do not show future types as active choices until their packs exist. If future
 chips are shown for product direction, they must be disabled or marked not ready.
 
+`Copy type` is not a sub-lane. It selects the Copy skill suite, output shape, and
+default team lineup.
+
 ### 4. Effort changes work shape
 
 UI labels:
@@ -163,7 +169,7 @@ Each option should show:
 - objection or proof focus.
 
 Four versions of the same strategy with different wording is a failed board. The
-MVP generator seats must create distinct positioning bets.
+MVP generation skills must create distinct positioning bets.
 
 ### 6. Pick creates the copy pack
 
@@ -222,12 +228,18 @@ run_<id>/
   bundle.md               # prompt + options + chosen copy pack
 ```
 
-## MVP Landing-Page Team
+## MVP Landing-Page Skill Suite
 
-The user does not configure these seats. They are the hidden team behind
-`Landing page`.
+The `Landing page` copy type ships with a default team so prompt-only runs work
+instantly. Advanced team customization uses the shared model:
 
-Generator seats:
+```text
+Seat = worker + skill
+```
+
+The main C0 composer does not require team configuration.
+
+Generation skills:
 
 - Offer strategist
 - Objection hunter
@@ -236,7 +248,7 @@ Generator seats:
 - Proof/claims skeptic
 - Contrarian angle finder
 
-Review lenses:
+Review skills:
 
 - Unsupported claims
 - Weak CTA hierarchy
@@ -245,8 +257,10 @@ Review lenses:
 - Wrong awareness stage
 - Missing objection coverage
 
-The exact worker assignments are routing decisions. The UI says what the user
-gets, not which internal lens is running.
+The default worker assignments are starting-lineup decisions. The UI says what the
+user gets in the main path (`4 versions - landing page experts`). A future
+`Customize team` control may expose the seat list as `skill + worker`, but that
+control stays one level below the primary composer.
 
 ## Implementation Impact
 
@@ -255,6 +269,7 @@ Core:
 - Add `WorkKind.copy` if the work-kind model exists, or introduce one.
 - Add `Effort` values with UI labels Quick / Standard / Deep.
 - Add `CopyType` with `auto` and `landing_page`.
+- Add/route Copy skills as lane-tagged prompt profiles.
 - Add `ThreadTurnKind.copyBoard` or equivalent thread family mapping.
 - Add copy payloads: request, option, board, chosen copy.
 - Add prediction-free copy summary helper, e.g. `4 versions - landing page`.
@@ -265,7 +280,7 @@ Engine:
 
 - Reuse text worker fan-out.
 - Reuse stage output/run artifact storage.
-- Add copy prompt profiles for landing-page generator seats and review lenses.
+- Add copy skills as prompt profiles for landing-page generation and review.
 - Render the copy pack deterministically from structured option fields. Do not add
   a second reduce stage in C0.
 
@@ -276,6 +291,8 @@ Mac:
 - Hotkeys: B, D, C for work kind; 1, 2, 3 for effort.
 - Copy composer shows prompt, copy type chips, effort, optional context chips,
   and a concrete run summary.
+- Team customization, if included in C0 UI, is an advanced drawer: each row is
+  `skill + worker`. It must not be in the required path.
 - Copy board shows versions, pick action, copy/export.
 
 iOS:
@@ -301,8 +318,8 @@ Auth/privacy/permissions:
   Codable fixtures, state-machine coverage.
 - [ ] C0-S02 - Composer routing: Build / Design / Copy chips, `/copy` commands,
   hotkeys, prompt-only run path.
-- [ ] C0-S03 - Landing-page copy pack: generator prompt profiles, review lenses,
-  effort map, fixtures.
+- [ ] C0-S03 - Landing-page skill suite: generation skills, review skills, default
+  team lineup, effort map, fixtures.
 - [ ] C0-S04 - Copy fan-out: reuse text worker runner, produce copy options and
   copy board payload.
 - [ ] C0-S05 - Copy board UI: versions side by side, pick, copy/export, failed
@@ -356,6 +373,7 @@ App proof follows `docs/operations/TechStack.md` once Mac UI code exists.
 - The user can start Copy from a prompt, `/copy`, or hotkey path.
 - `Prompt` is the only required field.
 - `Copy type` and `Effort` are visible and simple.
+- Landing page has a default team so the user does not need to configure seats.
 - Standard landing-page effort produces a usable copy board.
 - Picking a version creates a copy pack artifact.
 - The copy pack is rendered deterministically from structured option fields.
@@ -370,3 +388,5 @@ App proof follows `docs/operations/TechStack.md` once Mac UI code exists.
   deterministic copy pack is complete without a reduce stage?
 - Should the first dogfood prompt use Allnighter's own pricing/home page or a
   founder-provided external product?
+- Is team customization in C0 or the first follow-up? Either way, the language and
+  data model must be `seat = worker + skill`.
