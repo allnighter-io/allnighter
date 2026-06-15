@@ -2,7 +2,8 @@ import Foundation
 import AllnighterCore
 
 /// The default master-plan synthesis instruction and the section structure the
-/// synthesizer is asked to produce. Editable/overridable by the user (Phase 05).
+/// synthesizer is asked to produce. Editable/overridable by the user (Phase 05);
+/// the canonical built-in lives in `SynthesisInstructionStore.builtInDefault`.
 public enum SynthesisInstructions {
     public static let defaultID = "default_master_plan_v1"
 
@@ -23,6 +24,38 @@ public enum SynthesisInstructions {
     Ground every recommendation in the source answers (attribute when useful). \
     Be decisive and actionable. Output only the Master Plan in Markdown.
     """
+}
+
+/// What the synthesis actually used, recorded honestly in
+/// `Synthesis.instructions`. A named preset persists its **id** (so a later run
+/// can resolve the — possibly edited — template); custom inline text persists
+/// **the text itself**. This closes the Phase 04 seam where `instructions` was
+/// always written as `default_master_plan_v1` regardless of what ran.
+public struct SynthesisInstructionChoice: Sendable, Equatable {
+    /// The value stored in `Synthesis.instructions`: a preset id or literal text.
+    public let persistedValue: String
+    /// The instruction text handed to the synthesizer.
+    public let text: String
+
+    public init(persistedValue: String, text: String) {
+        self.persistedValue = persistedValue
+        self.text = text
+    }
+
+    /// Use a named preset: persist its id, send its template.
+    public static func preset(_ preset: SynthesisInstructionPreset) -> Self {
+        .init(persistedValue: preset.id, text: preset.template)
+    }
+
+    /// Use one-off custom instructions: persist and send the same text.
+    public static func custom(_ text: String) -> Self {
+        .init(persistedValue: text, text: text)
+    }
+
+    /// The built-in default, for callers that do not specify instructions.
+    public static var `default`: Self {
+        .preset(SynthesisInstructionStore.builtInDefault)
+    }
 }
 
 /// Builds the single prompt handed to the synthesizer: the instruction, the
@@ -67,15 +100,15 @@ public struct Synthesizer: Sendable {
         synthesizer: Worker,
         manifest: DriverManifest,
         workers: [Worker],
-        instructions: String = SynthesisInstructions.defaultText
+        instructions: SynthesisInstructionChoice = .default
     ) async -> Synthesis {
-        let prompt = SynthesisPromptBuilder.build(run: run, workers: workers, instructions: instructions)
+        let prompt = SynthesisPromptBuilder.build(run: run, workers: workers, instructions: instructions.text)
         let startedAt = Date()
         let response = await workerRunner.run(worker: synthesizer, manifest: manifest, prompt: prompt)
 
         var synthesis = Synthesis(
             synthesizerWorkerId: synthesizer.id,
-            instructions: SynthesisInstructions.defaultID,
+            instructions: instructions.persistedValue,
             status: .running,
             startedAt: startedAt,
             finishedAt: Date()

@@ -1,0 +1,23 @@
+import Foundation
+
+/// Canonical on-disk locations under Application Support (see `00` §7). All
+/// engine stores resolve their roots here so runs, presets, and config share one
+/// `Allnighter/` tree and tests can redirect by passing explicit roots.
+public enum AllnighterPaths {
+    /// `~/Library/Application Support/Allnighter/`
+    public static var support: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return base.appendingPathComponent("Allnighter", isDirectory: true)
+    }
+
+    /// `…/Allnighter/Runs/`
+    public static var runs: URL {
+        support.appendingPathComponent("Runs", isDirectory: true)
+    }
+
+    /// `…/Allnighter/Config/` — workers, manifests, presets.
+    public static var config: URL {
+        support.appendingPathComponent("Config", isDirectory: true)
+    }
+}

@@ -8,15 +8,7 @@ public struct RunStore: Sendable {
     public let rootDirectory: URL
 
     public init(rootDirectory: URL? = nil) {
-        if let rootDirectory {
-            self.rootDirectory = rootDirectory
-        } else {
-            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-                ?? URL(fileURLWithPath: NSTemporaryDirectory())
-            self.rootDirectory = base
-                .appendingPathComponent("Allnighter", isDirectory: true)
-                .appendingPathComponent("Runs", isDirectory: true)
-        }
+        self.rootDirectory = rootDirectory ?? AllnighterPaths.runs
     }
 
     @discardableResult

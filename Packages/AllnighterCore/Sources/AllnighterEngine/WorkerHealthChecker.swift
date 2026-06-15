@@ -34,11 +34,17 @@ public struct WorkerHealthChecker: Sendable {
 
     /// True if the CLI is present (detect command exits 0).
     public func detect(_ manifest: DriverManifest) async -> Bool {
+        await detectVersion(manifest).present
+    }
+
+    /// Runs the `detectCommand` and reports presence plus the version line it
+    /// printed (first non-empty stdout line), for Doctor's at-a-glance display.
+    public func detectVersion(_ manifest: DriverManifest) async -> (present: Bool, version: String?, launchError: String?) {
         guard manifest.kind == .headlessCLI, let detectCommand = manifest.detectCommand else {
-            return false
+            return (false, nil, nil)
         }
         let tokens = ShellWords.split(detectCommand)
-        guard let command = tokens.first else { return false }
+        guard let command = tokens.first else { return (false, nil, nil) }
         let result = await commandRunner.run(
             command: command,
             args: Array(tokens.dropFirst()),
@@ -47,7 +53,14 @@ public struct WorkerHealthChecker: Sendable {
             workingDirectory: nil,
             timeout: detectTimeout
         )
-        return result.launchError == nil && result.exitCode == 0
+        let present = result.launchError == nil && result.exitCode == 0
+        let version = present
+            ? result.stdout
+                .split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first(where: { !$0.isEmpty })
+            : nil
+        return (present, version, result.launchError)
     }
 
     /// Runs the smoke test for `model` and classifies health.
