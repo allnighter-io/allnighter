@@ -58,14 +58,14 @@ Run copy board
 
 ## Current State
 
-- `docs/mvp/` owns the built council and design substrate: workers, panel seats,
-  stage outputs, board-style option selection, and run artifacts.
+- `docs/mvp/` owns the built team-run and design-board substrate: legacy worker
+  calls, stage outputs, board-style option selection, and run artifacts.
 - `docs/phases/Work_Order_Team_Model.md` owns the product vocabulary for bench,
-  skill, seat, team, lane, type, effort, and preset.
+  model, skill, worker, team, lane, type, effort, and preset.
 - `docs/phases/Utilization_Admission_Control.md` already defines Effort as a user
   instruction, not an estimate.
 - `Packages/AllnighterCore/Sources/AllnighterCore/WorkOrder.swift` already has a
-  prediction-free work-order summary helper for panel and design shapes.
+  prediction-free work-order summary helper for team-run and design shapes.
 - `ThreadTurnKind` has `design_board`, but not yet `copy_board`.
 
 ## Truth Owner
@@ -221,8 +221,8 @@ Future research rules:
 ```text
 run_<id>/
   copy_request.json       # prompt, copy type, effort, optional context refs
-  copy_option_<seatId>.md # one generated direction per seat
-  copy_board.json         # ordered board: seatId, angle, worker, status
+  copy_option_<workerId>.md # one generated direction per generator worker
+  copy_board.json         # ordered board: workerId, angle, model, skill, status
   chosen_copy.json        # human pick + optional note
   copy_pack.md            # deterministic render of chosen version + variants/tables
   bundle.md               # prompt + options + chosen copy pack
@@ -234,7 +234,7 @@ The `Landing page` copy type ships with a default team so prompt-only runs work
 instantly. Advanced team customization uses the shared model:
 
 ```text
-Seat = worker + skill
+Worker = model + skill
 ```
 
 The main C0 composer does not require team configuration.
@@ -257,10 +257,10 @@ Review skills:
 - Wrong awareness stage
 - Missing objection coverage
 
-The default worker assignments are starting-lineup decisions. The UI says what the
-user gets in the main path (`4 versions - landing page experts`). A future
-`Customize team` control may expose the seat list as `skill + worker`, but that
-control stays one level below the primary composer.
+The default worker assignments are starting-lineup decisions. The UI says what
+the user gets in the main path (`4 versions - landing page experts`). A future
+`Customize team` control may expose rows as `Skill | Model`, but that control
+stays one level below the primary composer.
 
 ## Implementation Impact
 
@@ -273,8 +273,8 @@ Core:
 - Add `ThreadTurnKind.copyBoard` or equivalent thread family mapping.
 - Add copy payloads: request, option, board, chosen copy.
 - Add prediction-free copy summary helper, e.g. `4 versions - landing page`.
-- Keep `copyBoard` in the existing council family for MVP thread filters. Copy is
-  a routed team turn, not a separate thread system.
+- Keep `copyBoard` in the existing heavy-run family for MVP thread filters. Copy
+  is a routed team turn, not a separate thread system.
 
 Engine:
 
@@ -292,7 +292,7 @@ Mac:
 - Copy composer shows prompt, copy type chips, effort, optional context chips,
   and a concrete run summary.
 - Team customization, if included in C0 UI, is an advanced drawer: each row is
-  `skill + worker`. It must not be in the required path.
+  `Skill | Model`. It must not be in the required path.
 - Copy board shows versions, pick action, copy/export.
 
 iOS:
@@ -303,7 +303,8 @@ iOS:
 Driver/protocol:
 
 - No new driver capability required for MVP. Copy workers emit text.
-- If a worker cannot browse, it can still participate in non-research seats.
+- If a model/source cannot browse, it can still participate in non-research
+  workers.
 
 Auth/privacy/permissions:
 
@@ -373,7 +374,7 @@ App proof follows `docs/operations/TechStack.md` once Mac UI code exists.
 - The user can start Copy from a prompt, `/copy`, or hotkey path.
 - `Prompt` is the only required field.
 - `Copy type` and `Effort` are visible and simple.
-- Landing page has a default team so the user does not need to configure seats.
+- Landing page has a default team so the user does not need to configure workers.
 - Standard landing-page effort produces a usable copy board.
 - Picking a version creates a copy pack artifact.
 - The copy pack is rendered deterministically from structured option fields.
@@ -384,9 +385,9 @@ App proof follows `docs/operations/TechStack.md` once Mac UI code exists.
 
 ## Open Questions
 
-- Which exact structured fields are required for `copy_option_<seatId>.md` so the
+- Which exact structured fields are required for `copy_option_<workerId>.md` so the
   deterministic copy pack is complete without a reduce stage?
 - Should the first dogfood prompt use Allnighter's own pricing/home page or a
   founder-provided external product?
 - Is team customization in C0 or the first follow-up? Either way, the language and
-  data model must be `seat = worker + skill`.
+  data model must be `worker = model + skill`.

@@ -19,7 +19,7 @@ Context is optional.
 ```
 
 Vocabulary follows `docs/phases/Work_Order_Team_Model.md`: a team is a lineup of
-seats, and each seat is one worker wearing one skill.
+workers, and each worker is one model wearing one skill.
 
 ## Product Value
 
@@ -292,7 +292,7 @@ Rules:
 - Keep source snippets bounded.
 - Do not send private repo files, credentials, customer data, or unpublished
   context to public research unless the user selected it for this run.
-- A worker without browsing can still run writing or review seats.
+- A model/source without browsing can still run writing or review workers.
 
 Research is a future slice, not C0. Do not imply web research in the MVP summary
 until source capture and source viewing exist.

@@ -24,7 +24,7 @@ Admission control asks:
 
 ```text
 Can this worker accept this specific attempt now?
-If not, should Allnighter wait, use an explicit fallback, run a partial panel, or ask the user?
+If not, should Allnighter wait, use an explicit fallback, run a partial team, or ask the user?
 ```
 
 It does not ask:
@@ -50,7 +50,7 @@ When work waits, the user sees why.
 This pairs with persistent work threads:
 
 ```text
-thread -> worker chat -> panel -> work order -> dispatch -> return review
+thread -> worker chat -> team run -> work order -> dispatch -> return review
 ```
 
 Admission control is what lets that loop keep moving without lying about quota
@@ -92,7 +92,7 @@ Allowed:
 - Observed worker state.
 - Observed provider messages.
 - Observed reset/cooldown times when the provider or CLI reports them.
-- Exact selected work shape: worker, panel seats, stage, effort setting,
+- Exact selected work shape: model, worker lineup, stage, effort setting,
   fallback policy.
 - Actual outcomes after work runs.
 - Recommendations from explicit capabilities and observed local outcomes.
@@ -136,12 +136,13 @@ High quota risk
 Truth owner: `AllnighterCore`.
 
 ```text
-WorkerAdmission
-- workerId
+ModelAdmission
+- modelId
+- sourceId?
 - observedAt
 - state: available | coolingDown | exhausted | authRequired | degraded | unknown | busy | manualRequired
 - resetAt?
-- source: councilRun | workerChat | dispatch | doctor | usageStdout | usagePTY | smokeProbe | browserText | manual
+- source: teamRun | workerChat | dispatch | doctor | usageStdout | usagePTY | smokeProbe | browserText | manual
 - confidence: high | medium | low
 - reason
 - windows: [CapacityWindow]
@@ -160,7 +161,8 @@ CapacityWindow
 
 ```text
 CapacityEvent
-- workerId
+- modelId
+- sourceId?
 - observedAt
 - source
 - outcome: success | rateLimited | exhausted | authRequired | timeout | cancelled | degraded | parseFailed
@@ -174,10 +176,10 @@ AdmissionRequest
 - turnId?
 - runId?
 - stageId?
-- seatId?
-- workerId
-- modelLabel?
-- purpose: workerChat | panelSeat | reduceStage | dispatch | returnReview | probe
+- workerId?                 # runtime worker = model + skill, when applicable
+- modelId
+- sourceId?
+- purpose: workerChat | teamWorker | reduceStage | dispatch | returnReview | probe
 - attentionMode: present | away
 - mutationMode: nonMutating | mayWriteWorkingDir
 - policy: AdmissionPolicy
@@ -185,7 +187,7 @@ AdmissionRequest
 
 ```text
 AdmissionPolicy
-- selectedOnly | allowFallbacks | allowPartialPanel | requireFullPanel
+- selectedOnly | allowFallbacks | allowPartialTeam | requireFullTeam
 - fallbackWorkerIds: [Worker.ID]
 - allowDegraded: Bool
 - requireKnownAvailable: Bool
@@ -204,7 +206,7 @@ Notes:
 
 ## Window Aggregation
 
-`WorkerAdmission.state` is derived from relevant windows plus local process
+`ModelAdmission.state` is derived from relevant windows plus local process
 state. Implementers must not guess.
 
 Relevant window selection:
@@ -213,7 +215,8 @@ Relevant window selection:
 - Model-group windows apply when the request's model belongs to that group.
 - Model windows apply only to the matching model label.
 - Session/weekly windows apply when the provider message identifies that scope.
-- Unknown-scope windows apply to the worker until a narrower parser rule exists.
+- Unknown-scope windows apply to the model/source until a narrower parser rule
+  exists.
 
 Precedence:
 
@@ -262,7 +265,8 @@ Driver-specific parsers should emit a shared local observation:
 
 ```text
 ProviderObservation
-- workerId
+- modelId
+- sourceId?
 - modelLabel?
 - observedAt
 - admissionEvent?
@@ -319,7 +323,7 @@ Inputs:
 
 - queued work order or thread turn;
 - effort setting;
-- selected workers and panel seats;
+- selected workers and their models;
 - fallback policy;
 - worker admission state;
 - local concurrency slots;
@@ -376,12 +380,12 @@ command for later, or the user is not expected to answer immediately:
 - never use `Attempt anyway`;
 - never enter manual-paste flow;
 - never silently switch workers;
-- follow the stored fallback/partial-panel policy;
+- follow the stored fallback/partial-team policy;
 - if policy is ambiguous, hold and mark the thread/turn needs attention.
 
 Mutating dispatch safety:
 
-- Non-mutating turns (worker chat, council, review, planning, return review)
+- Non-mutating turns (worker chat, team run, review, planning, return review)
   may run away if admission passes.
 - Mutating dispatch may run away only when the user explicitly queued that work
   order for unattended dispatch and the current safety checks pass.
@@ -394,7 +398,7 @@ Effort is a user instruction, not an estimate.
 
 Effort may influence selected work shape:
 
-- number of panel seats;
+- number of team workers;
 - whether analysis and plan are separate;
 - whether review/final-spec stages are included;
 - requested reasoning level where the worker supports it;
@@ -410,21 +414,21 @@ Effort must not imply:
 Recommended defaults:
 
 ```text
-Fast / low effort       -> partial panel allowed when enough selected seats are available
+Fast / low effort       -> partial team allowed when enough selected workers are available
 Standard / medium       -> ask when present; away follows preset policy
-Quality / high effort   -> require selected panel unless the user configured fallback/partial policy
+Quality / high effort   -> require selected team unless the user configured fallback/partial policy
 Custom                  -> exact user policy
 ```
 
 These are defaults for work shape and patience only. They are not forecasts.
 
-## Panel and Stage Admission
+## Team and Stage Admission
 
 Admission is checked per dispatch attempt:
 
 ```text
 one worker chat turn
-one panel seat
+one team worker
 one reduce stage
 one dispatch
 one return review
@@ -432,42 +436,41 @@ one return review
 
 The run coordinator aggregates those checks before spawning work.
 
-Panel policies:
+Team policies:
 
 ```text
-requireFullPanel     -> hold until every selected required seat is admissible
-allowPartialPanel    -> run admissible seats when minSeats is met
+requireFullTeam      -> hold until every selected required worker is admissible
+allowPartialTeam     -> run admissible workers when minWorkers is met
 allowFallbacks       -> use configured fallback workers in order
 selectedOnly         -> no substitute workers
 ```
 
 Default behavior:
 
-- Named quality/high-effort presets should require the selected panel unless
+- Named quality/high-effort presets should require the selected team unless
   their preset explicitly allows partials or fallbacks.
-- Fast/good-enough presets may allow partial panels when the minimum seat count
+- Fast/good-enough presets may allow partial teams when the minimum worker count
   is met.
-- A present user may choose "run available panel now."
+- A present user may choose "run available team now."
 - Away mode follows the stored preset/work-order policy. If no policy is stored,
   hold instead of guessing.
 
-Missing members:
+Missing workers:
 
-- A skipped/unavailable panel seat becomes an explicit member result with
+- A skipped/unavailable worker becomes an explicit worker answer with
   status/reason.
-- The judge receives unavailable members as first-class absences.
-- The master plan or stage summary must surface that the panel was incomplete.
+- The plan writer receives unavailable workers as first-class absences.
+- The plan or stage summary must surface that the team was incomplete.
 - A failed worker is never hidden by synthesis.
 
 Mid-run changes:
 
-- If a panel member rate-limits mid-run, record the event and let policy decide
-  whether the panel can continue.
-- If a required reduce-stage worker cools down after the panel, pause that stage
+- If a worker rate-limits mid-run, record the event and let policy decide
+  whether the team can continue.
+- If a required reduce-stage worker cools down after the team run, pause that stage
   and resume when admission passes, or ask the present user to switch.
-- If the same worker fills multiple self-fusion seats and one seat observes a
-  rate limit, remaining pending seats for that worker inherit the updated
-  admission state.
+- If the same model appears in multiple workers and one observes a rate limit,
+  remaining pending workers for that model inherit the updated admission state.
 
 ## Fallback Bench
 
@@ -477,7 +480,7 @@ Allowed:
 
 ```text
 If Claude is cooling, try Codex, then Gemini.
-If Opus judge is unavailable, use Sonnet judge.
+If Opus plan writer is unavailable, use Sonnet as plan writer.
 If image reader is unavailable, hold and ask.
 ```
 
@@ -485,7 +488,7 @@ Banned:
 
 ```text
 Silently send Claude's turn to Codex.
-Silently replace the user's selected judge.
+Silently replace the user's selected plan writer.
 Silently change a quality preset into a fast preset.
 ```
 
@@ -517,7 +520,7 @@ Waiting for local slot - Codex is already running
 Grok paused - sign in required
 Gemini unknown - will check before dispatch
 Claude has been flaky - last 2 runs timed out
-Panel ran with 4 of 6 selected seats; 2 were cooling down
+Team ran with 4 of 6 selected workers; 2 were cooling down
 ```
 
 Avoid:
@@ -543,13 +546,13 @@ Example:
 ```text
 Since you last checked:
 - 4 turns completed
-- 1 panel ran with 4 of 6 selected seats
+- 1 team ran with 4 of 6 selected workers
 - 1 dispatch held - working directory changed
 - 1 worker needs sign-in
 
 Workers used:
 - Codex: 3 turns
-- Gemini: 1 panel seat
+- Gemini: 1 team worker
 - Claude: held until 2:14 AM, observed from Claude
 ```
 
@@ -635,14 +638,14 @@ PTY required.
 
 Scope:
 
-- `WorkerAdmission`, `CapacityWindow`, `CapacityEvent`,
+- `ModelAdmission`, `CapacityWindow`, `CapacityEvent`,
   `AdmissionRequest`, and `AdmissionPolicy`.
 - `ProviderObservation` parser seam shared with observed usage.
 - Rate-limit/auth/exhausted/timeout/degraded parser for `WorkerRunner` failures.
 - Local ledger persisted beside run/thread history.
 - Window aggregation and confidence precedence.
 - Thread/composer badges and present-mode decisions.
-- Single-worker and panel-level admission checks.
+- Single-worker and team-level admission checks.
 
 Works Test:
 
@@ -654,14 +657,14 @@ Fake clock reaches resetAt.
 Worker is tried once and dispatches if available.
 ```
 
-Panel Works Test:
+Team Works Test:
 
 ```text
-Create a 4-seat panel: 2 available, 2 coolingDown.
-With requireFullPanel, the run holds and explains which seats block it.
-With allowPartialPanel(minSeats: 2), the run starts 2 seats.
-The judge receives explicit unavailable-member records for the skipped seats.
-The final plan says the panel was incomplete.
+Create a 4-worker team: 2 available, 2 coolingDown.
+With requireFullTeam, the run holds and explains which workers block it.
+With allowPartialTeam(minWorkers: 2), the run starts 2 workers.
+The plan writer receives explicit unavailable-worker records for the skipped workers.
+The final plan says the team was incomplete.
 ```
 
 ### Utilization1 - Queue and Floor Policy
@@ -729,11 +732,11 @@ Probe timeout leaves no child process.
 - It can resume when an observed reset or later signal says the worker may run.
 - The user can see why work is waiting in thread, queue, Mac floor, and iOS
   floor views where implemented.
-- Present users can explicitly switch, fallback, run partial panels, or retry
+- Present users can explicitly switch, fallback, run partial teams, or retry
   stale states where policy permits.
 - Away-mode scheduling never silently switches workers or uses manual override.
-- Panel runs have deterministic full/partial/fallback behavior.
-- A skipped or unavailable panel member is visible to the judge and the user.
+- Team runs have deterministic full/partial/fallback behavior.
+- A skipped or unavailable worker is visible to the plan writer and the user.
 - Mutating away dispatch is gated by explicit queue intent and safety checks.
 - The local admission ledger can be reset.
 - No UI, scheduler, CLI, or MCP path estimates future cost, runtime, quota burn,
@@ -749,4 +752,3 @@ scripts/check.sh
 Parser tests must be deterministic and fixture-backed. UI claims about iOS
 visibility require the remote-spine Works Test before public copy says the phone
 can monitor admission state.
-

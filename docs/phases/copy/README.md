@@ -70,10 +70,11 @@ picked copy to Build so the user's site changes without copy/paste.
 Copy uses the shared work-order team model:
 
 ```text
-Bench  = who the user has
-Skill  = what hat they wear
-Seat   = worker + skill
-Team   = the lineup for this work order
+Bench  = the models the user has
+Model  = Opus, Sonnet, Grok, Gemini, etc.
+Skill  = what hat a model wears
+Worker = model + skill for this run
+Team   = the worker lineup for this work order
 Lane   = Copy
 Type   = Landing page, Email, Ads, UGC, ...
 Effort = Quick / Standard / Deep
@@ -87,7 +88,8 @@ Read `docs/phases/Work_Order_Team_Model.md` before designing Copy team controls.
 - **The user chooses the kind of work and the amount of effort. Allnighter chooses
   the default team.**
 - **Default team first; custom team second.** Prompt-only runs use the lane/type's
-  default lineup. Advanced users can customize seats one level deeper.
+  default lineup. Advanced users can customize workers one level deeper as
+  `Skill | Model` rows.
 - **Copy type is routing, not paperwork.** Ask only when the answer changes which
   expert setup runs.
 - **Effort is an instruction, not a forecast.** It may change how many versions,
@@ -115,7 +117,7 @@ MVP (`00`):
 - `/copy landing`;
 - prompt-only required input;
 - Quick / Standard / Deep effort;
-- default landing-page team, with later customization through shared seat controls;
+- default landing-page team, with later customization through shared team controls;
 - copy board with distinct landing-page strategies;
 - deterministic copy pack after pick;
 - local pick/reject logging;
@@ -183,8 +185,8 @@ Read in order:
 
 1. `docs/phases/copy/README.md`
 2. `docs/phases/copy/00_Copy_MVP.md`
-3. `docs/phases/Work_Order_Team_Model.md` - bench/skill/seat/team vocabulary
+3. `docs/phases/Work_Order_Team_Model.md` - model/skill/worker/team vocabulary
 4. `docs/phases/Utilization_Admission_Control.md` - Effort and admission rules
-5. `docs/mvp/README.md` - council/design substrate
+5. `docs/mvp/README.md` - built team-run/design-board substrate
 6. `docs/phases/copy/02_Copy_Apply_To_Site.md` for the fast-follow handoff
 7. `docs/phases/copy/01_Copy_Roadmap.md` for anything beyond the first slice

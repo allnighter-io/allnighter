@@ -63,7 +63,6 @@ alln team show                     # show current default team
 alln team edit                     # edit team lineup
 alln models                        # list ready/known models on the Bench
 alln models add                    # add/configure a model
-alln skills                        # list reusable skills
 alln doctor                        # check local CLIs and auth
 alln work [prompt]                 # create a work order
 alln work from latest              # promote a plan/result into a work order
@@ -76,6 +75,14 @@ alln pair approve <device-id>      # approve iOS/Mac pairing
 
 Do not use `alln prompt` as the primary work-order command. A prompt is the input
 object. The product object is a work order, so the command is `alln work`.
+
+`alln doctor` supersedes old detection commands. It should be the headless setup
+proof path: find sources, classify auth/readiness, list models, and explain the
+next fix.
+
+`alln skills` is real only when the skill library exists. Until then, skill
+names may appear inside `alln team show` and run output, but do not imply a
+standalone editable library.
 
 Lane shortcuts may exist later:
 
@@ -136,6 +143,18 @@ alln show latest --json
 ```
 
 JSON is for agents, GUI tests, and external tooling. Markdown is for humans.
+The first `alln team --json` output must use the new vocabulary:
+
+```text
+teamRun
+models
+workers
+workerAnswers
+plan
+```
+
+Do not ship new CLI JSON with legacy fields such as `panelSeats`,
+`memberResponses`, or `masterPlan`.
 
 ## App Shell Implication
 
@@ -211,21 +230,31 @@ URL scheme: allnighter:// for app links, with universal links where needed
 ```
 
 Do not ship public `alln council` or `alln panel` aliases.
+Do not ship a long-lived second grammar under `allnighter`. Internal scripts
+should move to `alln` during the rename.
+
+## Current Decisions
+
+| Question | Decision |
+| --- | --- |
+| Primary happy path | `alln team "prompt"`; help text can say "ask your team." |
+| `alln ask` | Defer. It is generic and splits the product primitive. |
+| GUI integration | Shared `AllnighterCore` command handlers first. Do not shell out just to prove parity. |
+| Resident mode | Defer until iOS, overnight, or resumable runs require it. |
+| Lane shortcuts | Defer `alln build/design/copy`; use `alln team --lane ...` first. |
+| Binary name | `alln`. |
+| Work-order command | `alln work`; help text spells out "work order." |
+| Detection command | `alln doctor`; no separate public `detect` command unless implementation needs a hidden/debug alias. |
 
 ## Mentor Feedback Needed
 
-1. Should `alln team "prompt"` be the primary command, or should `alln ask`
-   exist as the top-level happy path?
-2. Should the Mac app invoke shared command handlers directly, shell out to
-   `alln`, or talk to a resident coordinator from day one?
-3. Should resident mode ship in the first CLI milestone, or wait for iOS/overnight
-   workflows?
-4. Are lane shortcuts (`alln build`, `alln design`, `alln copy`) helpful, or do
-   they dilute the Team primitive too early?
-5. Is `alln` acceptable as the binary name despite being aesthetically rougher
-   than `nt` / `nite`?
-6. Is `alln work` the right command for creating/promoting work orders, or is a
-   longer `alln work-order` worth the clarity?
+1. Does the first `alln team --json` schema have enough structure for the Mac GUI
+   to render without translation?
+2. Should the skill library ship in the first CLI milestone, or should skills
+   remain preset-only until the team editor exists?
+3. Is the plan writer a team worker with a skill, a dedicated reduce stage, or
+   both depending on the preset? The user-facing output should still say "Plan
+   written by Opus."
 
 ## First Milestone
 
@@ -237,6 +266,7 @@ Build the CLI before more GUI wiring:
 4. `alln team "prompt"` using the current default team
 5. `alln show latest`
 6. `alln export latest --format md`
+7. `alln team --json "prompt"` with new field names
 
 Works Test:
 
@@ -245,6 +275,7 @@ alln doctor
 alln team "Give me three ways to simplify the Allnighter CLI."
 alln show latest
 alln export latest --format md
+alln team --json "Give me one small naming test."
 ```
 
 The same run must appear in the Mac app without translation or renamed fields.
