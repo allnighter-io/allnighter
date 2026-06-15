@@ -62,7 +62,7 @@ struct DesignComposer: View {
                     Label("No image-capable workers — run Doctor (Grok / Gemini-Antigravity / Codex).", systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(.orange)
                 } else {
-                    Text(callPlanText).font(.caption).foregroundStyle(.secondary)
+                    Text(shapeSummaryText).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if model.isDesigning {
@@ -77,10 +77,11 @@ struct DesignComposer: View {
         .padding()
     }
 
-    private var callPlanText: String {
-        let n = model.designPersonaIds.count
-        let engines = Set(model.imageWorkers.map(\.displayName)).sorted().joined(separator: ", ")
-        return "\(n) image generation\(n == 1 ? "" : "s") · \(engines) · uses your provider quota"
+    private var shapeSummaryText: String {
+        WorkOrder.designSummary(
+            outputCount: model.designPersonaIds.count,
+            engineNames: Array(Set(model.imageWorkers.map(\.displayName))).sorted()
+        )
     }
 }
 

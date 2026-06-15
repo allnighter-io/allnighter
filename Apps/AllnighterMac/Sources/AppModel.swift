@@ -62,7 +62,7 @@ final class AppModel {
     private var runTask: Task<Void, Never>?
 
     static let lightReviewLenses = ["security_privacy", "code_maintainer", "proof_qa"]
-    static let fullReviewLenses = ["security_privacy", "code_maintainer", "proof_qa", "ui_ux", "customer_advocate", "dissent_preserver", "cost_latency_quota", "coverage_audit"]
+    static let fullReviewLenses = ["security_privacy", "code_maintainer", "proof_qa", "ui_ux", "customer_advocate", "dissent_preserver", "scope_discipline", "coverage_audit"]
 
     init() {
         let panel = AppConfig.loadDefaultPanel()
@@ -168,25 +168,14 @@ final class AppModel {
         return seated.first(where: \.canSynthesize) ?? seated.first
     }
 
-    // MARK: - Call plan
+    // MARK: - Work shape
 
-    var callPlan: CallPlan {
-        let preset = PanelPreset(id: "current", displayName: "current", seats: currentSeats, synthesis: currentSynthesis)
-        return CallPlanEstimator().plan(for: preset, latencyByWorker: latencyByWorker())
-    }
-
-    private func latencyByWorker() -> [String: Int] {
-        var durations: [String: [Int]] = [:]
-        for run in history {
-            for m in run.members where m.durationMs != nil {
-                durations[m.workerId, default: []].append(m.durationMs! / 1000)
-            }
-        }
-        return durations.compactMapValues { samples in
-            guard !samples.isEmpty else { return nil }
-            let sorted = samples.sorted()
-            return sorted[sorted.count / 2]
-        }
+    var workOrderSummary: String {
+        WorkOrder.panelSummary(
+            seatCount: expandedSeats.count,
+            judgeLabel: judgeWorker?.displayName,
+            synthesis: currentSynthesis
+        )
     }
 
     // MARK: - Running a council

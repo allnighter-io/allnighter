@@ -130,10 +130,10 @@ assume.
   or fallback, never a silent failure.
 - **No silent mode switch.** Design mode is the Design chip (or a result-side
   confirm), never auto-flipped.
-- **Cost is never silent — including quota.** Image generations are $0 in *dollars*
-  but draw on your provider's **subscription quota** (images/day). The `CallPlan`
-  shows the generation count and, where the manifest exposes it, *"uses N image
-  generations from your &lt;provider&gt; quota"* — before you commit.
+- **Shape before commit.** Image generations are $0 in *dollars* but may hit provider
+  limits. The composer shows the requested **output count** and which engine each
+  seat routes to (`WorkOrder.designSummary`) — before you commit. No quota-risk
+  forecasts.
 
 ## Vocabulary
 
@@ -195,8 +195,7 @@ them in place (RB4 context-exclusion law).
 | `design_board` | screenshot + personas → image fan-out → board → pick | N image generations (1 per seat) |
 | `design_build` | + "Build this" handoff to a chosen CLI | + 1 executor dispatch (RB4) |
 
-The `CallPlan` shows the image-generation count and which engine each seat routes to
-before commit.
+`WorkOrder.designSummary` shows mockup count and engines before commit.
 
 ## Slice Map
 

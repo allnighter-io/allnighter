@@ -73,8 +73,9 @@ calling agent does the building.
 
 - **Recursion is impossible.** A council worker can never trigger a nested council
   (see Recursion Guard). Mirrors Fusion's recursion protection.
-- **Cost is never silent.** Every tool result reports `callsSpent`; a governor caps
-  concurrent councils; the CLI/MCP can preview a `CallPlan` before committing.
+- **Shape before commit.** Every tool result reports observed `invocations`; a governor caps
+  concurrent councils; the CLI/MCP lists preset **work shape** via `WorkOrder.summary`
+  before committing. No pre-run cost/time estimates.
 - **Localhost-only + authenticated.** HTTP binds `127.0.0.1` only and requires a
   per-session bearer token; MCP is a user-spawned stdio child (no socket).
 - **Injection-safe.** Tool input reaches workers as `argv`/stdin, never shell-
@@ -125,18 +126,16 @@ them as subcommands):
 
 | Operation | Purpose |
 | --- | --- |
-| `council_presets` | List exposed presets + each one's `CallPlan` estimate (calls, est. time, quota risk — labeled estimates). |
-| `council_ask` | Run a council and return the result. **Self-correcting sync:** if the preset's `CallPlan` estimate exceeds `waitSeconds`, it returns a `runId` + `estimatedSeconds` immediately instead of blocking into a client timeout. |
+| `council_presets` | List exposed presets + each one's work shape (`WorkOrder.summary`). |
+| `council_ask` | Run a council and return the result. Optional `waitSeconds` is a **client timeout** only — may return a `runId` to poll; never branches on a predicted duration. |
 | `council_start` | Kick off a council asynchronously; return a `runId` immediately. |
-| `council_status` | `{ runId } -> { status, seatsDone/total, stage, callsSpent }`. |
+| `council_status` | `{ runId } -> { status, seatsDone/total, stage, invocations }`. |
 | `council_result` | `{ runId } -> CouncilToolResult`. |
 | `council_recall` | **Read-only**, zero-cost: search prior councils and return past judgments (with dates). The council *remembers* — reuse a prior decision without spending a call. |
 
-Sync vs async is deliberate and **self-correcting**: `council_ask` compares the
-preset's `CallPlan` estimate to `waitSeconds` up front — short presets return
-inline; anything longer returns a `runId` + ETA so the agent uses
-`status`/`result` and keeps working rather than hitting its framework's tool
-timeout. (Fusion's "2–3× longer" kickoff, handled gracefully.)
+`council_ask` may honor `waitSeconds` as a pure client timeout (return `runId` to
+poll if the run is still in flight). It does **not** compare against a predicted
+duration or return an ETA.
 
 **`council_recall` semantics (v1, no index needed):** case-insensitive keyword/
 substring match over `CouncilRun.prompt` across `Runs/` (excluding the `Evals/`
@@ -161,8 +160,8 @@ CouncilToolResult
 - analysis: JudgeAnalysis # consensus/contradictions/uniqueInsights/blindSpots/failedSeats (06)
 - partials: [SeatFailure] # honest: which seats didn't answer
 - contextTruncated: Bool  # the caller's context snippet was clipped to contextByteLimit
-- callsSpent: Int        # cost transparency, every time
-- estimateNote: String   # labeled estimate language
+- invocations: Int        # observed worker/stage invocations after the run
+- note: String            # refusal/status reasons only (not estimates)
 ```
 
 MCP returns this as structured tool output (plus a Markdown rendering for display).
@@ -181,7 +180,7 @@ CouncilRequest                            # the normalized tool input
 - question: String
 - presetId: String?                       # default from ToolConfig; must be in exposedPresetIds
 - context: String?                        # optional bounded snippet the agent wants considered
-- waitSeconds: Int?                       # council_ask sync budget
+- waitSeconds: Int?                       # council_ask client timeout (poll if exceeded)
 
 CouncilToolResult                         # see "Result shape" above; finalSpec is nil until RB3 ships
 ToolConfig                                # Config/Tool/config.json
@@ -236,7 +235,7 @@ processes (CLI + MCP + app) using **`flock(2)` advisory locks** on slot files un
 crashed council never leaves a stale lock; a belt-and-suspenders TTL + PID-liveness
 sweep reclaims any orphan. Acquiring a slot is atomic. Beyond the cap, a request
 queues (async) or returns a clear "busy, N running" status (sync). Every result
-reports `callsSpent`; `council_presets` previews the `CallPlan`.
+reports `invocations`; `council_presets` lists work shape via `WorkOrder.summary`.
 
 ## Security & Honesty Posture
 
@@ -255,7 +254,7 @@ reports `callsSpent`; `council_presets` previews the `CallPlan`.
   modules). The exit-gate test asserts "no filesystem writes outside `AllnighterPaths`"
   during a tool run — not the overclaim "no file writes."
 - **Audit log.** Every invocation appends an honest line (time, origin, agent,
-  preset, callsSpent, outcome) to `Config/Tool/audit.log`; the run is visible in the
+  preset, invocations, outcome) to `Config/Tool/audit.log`; the run is visible in the
   Mac app. Nothing the agents ask is hidden from the human.
 
 ## Transports (detail)
@@ -298,7 +297,7 @@ reports `callsSpent`; `council_presets` previews the `CallPlan`.
   read the env, HTTP requires the depth header (missing ⇒ refused). Tests prove a
   worker cannot start a nested council on any transport.
 - [ ] RB6-S04 - `CouncilGovernor`: cross-process **`flock(2)`** slot semaphore
-  (crash-safe; TTL/PID sweep for orphans) + `callsSpent` accounting in every result.
+  (crash-safe; TTL/PID sweep for orphans) + observed `invocations` in every result.
 - [ ] RB6-S05 - `allnighter` CLI target (links Engine only, builds headlessly):
   `ask` (self-correcting sync), `presets`, `doctor`, `recall`; `install-cli` PATH
   setup. The universal shell surface.
@@ -324,7 +323,7 @@ reports `callsSpent`; `council_presets` previews the `CallPlan`.
 Register `allnighter mcp` in Claude Code's MCP config (via `allnighter mcp-install`,
 with consent). Mid-task, the agent calls council_ask("actor or serialized queue
 for the run store?") with the Fast Council preset. Allnighter runs the local panel
-(zero API cost), returns a master plan + structured JudgeAnalysis + callsSpent;
+(zero API cost), returns a master plan + structured JudgeAnalysis + `invocations`;
 the agent uses it and continues — no window switch, no clipboard.
 
 Prove the guards:
@@ -336,7 +335,7 @@ Prove the guards:
 - Two agents call simultaneously -> the governor caps concurrency cross-process.
 - From a bare shell (no MCP): `allnighter ask "..."` returns the same result.
 - `council_recall("run store")` returns the earlier judgment (with its date), 0 calls.
-- The Mac app history shows all of it, origin-tagged (mcp/cli), with callsSpent.
+- The Mac app history shows all of it, origin-tagged (mcp/cli), with observed invocations.
 - No git, no executor invocation, and no writes outside AllnighterPaths occurred.
 ```
 
@@ -350,8 +349,8 @@ Prove the guards:
   imports no UI); the MCP server validates against a real MCP client at a pinned
   protocol version; HTTP binds `127.0.0.1` only and requires token + depth header.
 - [ ] Zero API keys introduced; no network egress beyond localhost + the CLIs' own.
-- [ ] Every tool result reports `callsSpent`; `council_presets` previews a `CallPlan`;
-  `council_ask` auto-returns a runId when the estimate exceeds `waitSeconds`.
+- [ ] Every tool result reports observed `invocations`; `council_presets` lists work shape.
+  `council_ask` may return a `runId` when `waitSeconds` elapses (client timeout only).
 - [ ] Tool runs persist origin-tagged and appear in Mac app history + audit log.
 - [ ] **Capability boundary:** no writes outside `AllnighterPaths`; no git; no
   executor module linked (asserted by test).

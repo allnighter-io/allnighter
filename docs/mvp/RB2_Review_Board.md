@@ -13,8 +13,8 @@ review board is the cheap insurance: before any code is written, adversarial
 lenses (security, maintainer, proof/QA, cost, dissent…) attack the draft in
 parallel. The payoff is **trust to press go** — and it costs minutes of model
 time, not a day of debugging generated code. The board is opt-in per preset so
-the daily fast loop stays **one click** (a handful of calls — the `CallPlan` always
-shows the count; the daily loop is never literally "one call" after Phase 06).
+the daily fast loop stays **one click** (the composer shows the selected work shape;
+the daily loop is never literally "one call" after Phase 06).
 
 ## Goal
 
@@ -134,7 +134,7 @@ no-history fall back to a static per-driver tier hint, then to the first healthy
 worker by Doctor. (This is a cheap local-history lookup, *not* the RB5 scorecard
 system — it predates it and needs no new infrastructure.) Reserve the strong worker
 for the analysis/finalizer reduces. This keeps `full_review` fast and easy on quota
-while losing little review quality, and the `CallPlan` shows which worker each lens
+while losing little review quality, and the work-shape summary shows which worker each lens
 routed to.
 
 ## Ordered Slices
@@ -156,7 +156,7 @@ routed to.
 - [ ] RB2-S07 - Partial behavior: failed/timed-out reviews are surfaced and do not
   block the run; Doctor warns before binding a lens to an unhealthy worker.
 - [ ] RB2-S08 - `bundle.md` includes prompt, member answers, analysis, plan, and
-  all completed reviews. `CallPlan` counts the enabled lenses (and their routed
+  all completed reviews. The shape summary reflects enabled lenses (and their routed
   seats) before the run.
 
 ## Works Test
@@ -166,7 +166,7 @@ Run the light_review preset. After master_plan.md lands (reused if already
 present for this prompt), three reviewers run in parallel. The run folder
 contains review_security_privacy.md, review_code_maintainer.md, and
 review_proof_qa.md, each with a verdict header. Disable one lens and rerun: the
-CallPlan shows one fewer call and the panel/draft are reused. Force one reviewer
+Reuse shows in run state; the panel/draft are reused. Force one reviewer
 to time out; the other reviews remain visible, the failure is explicit, and the
 run is still usable.
 ```
@@ -177,7 +177,7 @@ run is still usable.
 - [ ] Reviews are marked advisory in structured run truth; never overwrite the
   draft plan.
 - [ ] Review Markdown files are derived from `run.json`; header degrades safely.
-- [ ] Per-lens enable/disable is reflected in the `CallPlan` before the run.
+- [ ] Per-lens enable/disable is reflected in the live work-shape summary before the run.
 - [ ] Reviews consume the draft plan as a reused input (no fresh panel fan-out).
 - [ ] One failed review does not erase successful reviews or block inspection.
 - [ ] Stage events are emitted via `stage.*`.

@@ -55,10 +55,15 @@ final class AppModelTests: XCTestCase {
         }
     }
 
-    func testCallPlanCountsSeatsPlusSynthesis() {
+    func testWorkOrderSummaryReflectsSeatsAndDepth() {
         let model = AppModel()
-        let plan = model.callPlan
-        XCTAssertEqual(plan.estimatedCalls, model.expandedSeats.count + (model.currentSynthesis.analysisDepth == .combined ? 1 : 2))
+        let summary = model.workOrderSummary
+        XCTAssertTrue(summary.contains("\(model.expandedSeats.count) seat"))
+        if model.currentSynthesis.analysisDepth == .combined {
+            XCTAssertTrue(summary.contains("combined judge"))
+        } else {
+            XCTAssertTrue(summary.contains("separate analysis + plan"))
+        }
     }
 
     func testRunRequiresPrompt() {

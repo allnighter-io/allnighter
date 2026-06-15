@@ -29,7 +29,7 @@ public enum DefaultConfig {
 
     public static var registry: DriverRegistry { DriverRegistry(manifests) }
 
-    /// The tiered built-in presets (Fast / Quality / Budget / Self-Double / Full +
+    /// The tiered built-in presets (Fast / Quality / Diverse Panel / Self-Double / Full +
     /// Founder's Six). Shared by the app and the CLI.
     public static func tieredPresets(panel: [Worker]) -> [PanelPreset] {
         let judge = panel.first(where: \.canSynthesize)?.id ?? panel.first?.id
@@ -42,14 +42,14 @@ public enum DefaultConfig {
 
         let six = panel
         let fastThree = Array(panel.prefix(3))
-        let budget = panel.filter { $0.id != judge }
+        let diversePanel = panel.filter { $0.id != judge }
         let strongest = panel.first(where: \.canSynthesize) ?? panel.first
 
         var presets: [PanelPreset] = [
             PanelPreset.builtInDefault(panel: six, analysisProfileId: analysisID, planProfileId: planID),
             PanelPreset(id: "preset_fast", displayName: "Fast Council", seats: specs(fastThree.isEmpty ? six : fastThree), synthesis: config(.combined), builtIn: true),
             PanelPreset(id: "preset_quality", displayName: "Quality Council", seats: specs(six), synthesis: config(.separate), builtIn: true),
-            PanelPreset(id: "preset_budget", displayName: "Budget / Diverse", seats: specs(budget.isEmpty ? six : budget), synthesis: config(.separate), builtIn: true),
+            PanelPreset(id: "preset_budget", displayName: "Diverse Panel", seats: specs(diversePanel.isEmpty ? six : diversePanel), synthesis: config(.separate), builtIn: true),
             PanelPreset(id: "preset_full", displayName: "Full Deliberation", seats: specs(six), synthesis: config(.separate), builtIn: true)
         ]
         if let strongest {

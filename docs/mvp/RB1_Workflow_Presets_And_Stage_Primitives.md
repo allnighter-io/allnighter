@@ -139,11 +139,8 @@ FinalizerPolicy
 - conflictResolution: first_principles
 - requiredSections: [String]
 
-CallPlan                              # previewed before a run commits
-- entries: [{ stageId, seatId?, workerId, lens?, willReuse: Bool }]   # seatId for panel/self-fusion
-- estimatedCalls: Int                 # fresh (non-reused) calls
-- estimatedSeconds: Int               # from history median durationMs
-- estimateNote: String                # labeled an estimate, never exact
+WorkOrder.summary                     # live composer / CLI / MCP shape string
+- seatCount, judge, analysisDepth, lensCount (structural facts only)
 ```
 
 **Panel vs reduce bindings (resolves the seat/worker conflation).** The *panel*
@@ -224,8 +221,8 @@ gets an exhaustive `canTransition` test (Phase 01 style).
 - [ ] RB1-S07 - Input assembly behind the `InputSelector` enum (incl.
   `judge_analysis`) + `reuseKey` compute/match (formula above) + the **rerun
   force-fresh** path that bypasses reuse and supersedes the prior stage output.
-- [ ] RB1-S08 - `CallPlan` builder (full workflow chain; entries keyed by `seatId`
-  where applicable) + live composer preview, updating as seats/depth/lenses toggle.
+- [ ] RB1-S08 - `WorkOrder.summary` renderer + live composer preview, updating as
+  seats/depth/lenses toggle. No pre-run call/time/quota estimates.
 - [ ] RB1-S09 - Optional per-seat `PanelSeatSpec.stance` (built-in stances) threaded
   into `MemberPrompt` (which gains `seatId`); assembly order founder prompt → stance
   → context; attribution preserved in `JudgeAnalysis`.
@@ -239,8 +236,8 @@ gets an exhaustive `canTransition` test (Phase 01 style).
 Run a synthesis-only WorkflowPreset. It produces the Phase 06 result: panel
 answers (by seat), a JudgeAnalysis, master_plan.md, bundle.md, complete run. The
 run.json records presetId, the analysis + plan StageOutputs, and the selected
-prompt profile (id or honest custom text). Re-run the same prompt: the CallPlan
-shows the panel REUSED (0 fresh panel calls) and only the synthesis re-runs.
+prompt profile (id or honest custom text). Re-run the same prompt: reuse shows in
+run state (panel stages reused; synthesis re-runs when inputs change).
 Add a stanced Self-Double preset (Opus × 3 stances): three distinct seats,
 attributed independently.
 ```
@@ -252,7 +249,7 @@ attributed independently.
 - [ ] Stage events are generic; no review-specific event shapes.
 - [ ] State-machine transition tests cover all new states and illegal edges.
 - [ ] `reuseKey` reuse demonstrably avoids re-running unchanged stages.
-- [ ] `CallPlan` shows an estimated call count before a run commits.
+- [ ] `WorkOrder.summary` shows the selected work shape before a run commits (no estimates).
 - [ ] New Core types have fixtures + round-trip tests (final shapes; no shims).
 - [ ] `swift test` + app test wall green.
 

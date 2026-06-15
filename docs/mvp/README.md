@@ -1,17 +1,15 @@
 # Allnighter MVP — The Council (parallel judgment, zero marginal cost)
 
-> **This folder is the single source of execution truth for the MVP.**
-> The full Allnighter roadmap (worktree factory, lanes, previews, landing,
-> scheduling, iOS floor manager) is real and intended — it is parked in
-> `docs/phases/` and `docs/phases/ON HOLD/`. We are **not** starting there.
+> **This folder is the source of truth for the built MVP foundation.**
+> New post-MVP work now starts in `docs/phases/`; this folder preserves the
+> Council and Design Council contracts that shipped.
 >
 > We are shipping the one loop the founder already runs by hand every single
 > day, and which already produces better results: **one prompt -> fan out to
 > several subscription CLIs in parallel -> a chosen synthesizer writes a master
 > plan.**
-> This is the **Council** slice from the roadmap (`ON HOLD/13_Council.md`),
-> distilled first to text-only judgment with no git/worktree machinery. Direct
-> CLI dispatch is the next MVP layer; managed execution safety comes later.
+> This is the **Council** slice: text-first parallel judgment over local
+> subscription CLIs, distilled without managed repo/lane machinery.
 
 Status: **Build-ready.** Mac first. iOS is a designed-for, deferred follow-on.
 Updated: 2026-06-14
@@ -70,14 +68,13 @@ literally this loop, end to end, with the founder's real six workers.
 - **It is the proven wedge.** The founder already knows the council pattern
   yields better answers. We are automating a daily, high-value habit — not
   betting on an unvalidated feature.
-- **It is the cheapest, safest slice.** Text in, text out. No git worktrees, no
+- **It is the smallest, safest slice.** Text in, text out. No git worktrees, no
   ports, no merge/land, no destructive operations. The riskiest engineering in
   the full roadmap is deferred until the daily driver is loved.
 - **It is the same substrate.** Built in Swift on the `AllnighterCore` + Mac app
-  shape the constitution (`ON HOLD/00_Architecture_And_Tech_Stack.md`) already
-  specifies. The fan-out engine, worker/driver model, and event-stream contract
-  are the *exact* primitives the full factory needs. We grow into the roadmap;
-  we do not rewrite away from the MVP.
+  shape that post-MVP phases continue to use. The fan-out engine,
+  worker/driver model, and event-stream contract are the primitives future
+  phases build on. We grow from the MVP; we do not rewrite away from it.
 
 See `00_MVP_Architecture.md` § Growth Seams for the precise attach points of
 every deferred capability (execution lanes, races, picker-as-prompt, iOS,
@@ -239,11 +236,10 @@ Design2  Build This (chosen image → pick the implementer CLI → the agent bui
    `AllnighterCore` with round-trip tests and fixtures, never only in view code.
 3. **Prove with the Works Test.** A phase is done when its Works Test passes and
    `swift test` (+ app build, where targets exist) is green.
-4. **Honor the constitution where it applies.** The MVP obeys
-   `ON HOLD/00_Architecture_And_Tech_Stack.md` for stack, event envelope, driver
-   manifest, and safety posture — it just builds a smaller slice of it.
+4. **Honor the built foundation where it applies.** The MVP fixed the stack,
+   event envelope, driver manifest, and safety posture for later phases.
 5. **Do not build into a box.** Before adding a shortcut that would block a
    deferred capability in § Growth Seams, stop and choose the forward-compatible
    path.
-6. **Honesty.** Quota/limit hints are labeled estimates; a worker that did not
+6. **Honesty.** Quota/limit hints are observed and sourced; a worker that did not
    answer is shown as failed, never faked.

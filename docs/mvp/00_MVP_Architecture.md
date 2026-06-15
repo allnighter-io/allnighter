@@ -8,9 +8,8 @@ Updated: 2026-06-14
 > the language, repo layout, data model, the driver-manifest schema, the
 > parallel fan-out contract, the synthesis contract, persistence, the safety
 > posture, and — critically — the **Growth Seams** that let this MVP expand into
-> the full Allnighter without a rewrite. It is a deliberate **subset** of
-> `docs/phases/ON HOLD/00_Architecture_And_Tech_Stack.md` (the full
-> constitution); where this doc is silent, the constitution governs.
+> post-MVP phases without a rewrite. Where this doc is silent, `docs/phases/`
+> phase docs govern forward work.
 
 ---
 
@@ -119,8 +118,8 @@ Ownership rules (carried from the constitution, scoped to MVP):
 
 ## 4. Data Model (owned by AllnighterCore)
 
-All `Codable`. JSON shapes are the fixtures (§8). Names are chosen to be
-forward-compatible with `ON HOLD/00` (`Worker`, `Council`, `Driver`).
+All `Codable`. JSON shapes are the fixtures (§8). Names are chosen to stay
+forward-compatible with post-MVP phases (`Worker`, `Council`, `Driver`).
 
 ```text
 Worker          : a configured model endpoint = { id, displayName, modelLabel, driverId, role, enabled }
@@ -271,8 +270,8 @@ master plan.
 ## 5. Driver Manifest Schema (the extensibility + churn-defense core)
 
 A worker's CLI is described by a thin, versioned JSON manifest + a tiny Swift
-adapter. This is a scoped subset of the constitution's manifest (`ON HOLD/00`
-§9.8), so MVP manifests stay valid as the factory grows.
+adapter. MVP manifests should remain valid as post-MVP phases grow the worker
+system.
 
 ```json
 {
@@ -340,8 +339,8 @@ editing its manifest only.
 
 The UI updates from an **append-only run-event stream**, not by mutating truth
 directly. In the MVP this is an in-process `AsyncStream<RunEvent>`; the envelope
-matches the constitution (`ON HOLD/00` §5) so the same events can later be
-served over WebSocket to iOS **without changing the event shapes**.
+is shaped so the same events can later be served over WebSocket to iOS **without
+changing the event shapes**.
 
 ```json
 { "id": "evt_...", "seq": 42, "ts": "2026-06-14T20:01:21Z",
@@ -430,8 +429,10 @@ do. The MVP's obligations:
   `timed_out` with a reason — never silently dropped or faked. The run can still
   complete as `partial`.
 - **Local only.** No upload, no relay in the MVP. (Relay is a far-future seam.)
-- **Quota honesty.** Any "near limit / reset soon" hints (post-MVP) are labeled
-  estimates, never stated as exact.
+- **Quota honesty (observed only).** Post-MVP capacity hints ("near limit", "reset
+  soon") may appear only when sourced from **observed** provider responses — never
+  as pre-run forecasts of cost, time, or token burn. See
+  `docs/archive/phases/Estimate_Cleanup_And_Effort_Dial.md`.
 
 Carried forward from the constitution but **not yet relevant** (because the MVP
 writes no code and touches no repo): the worktree core invariant, protected
@@ -451,16 +452,16 @@ capability has a named attach point in the MVP design:
 | **Review Board + Final Spec** (`RB0`-`RB4`) | `StageOutput` (from `06`) + `CouncilRunCoordinator` + prompt builders | After the plan stage, append optional advisory review `StageOutput`s, then a first-principles final-spec reduce. New `StagePurpose` cases only — reuse fanout/reduce; no generic DAG. |
 | **Return review + scorecards + routing** (`RB5`) | `StageOutput` + `MemberResponse` outcomes + the `06` eval harness | After dispatch, capture the executor return, score it against the final spec, aggregate worker scorecards from local history, and recommend rerun/remix/pick. Closes the control loop; still no managed git. |
 | **Council-as-Tool** (local CLI / MCP / HTTP) — **specced (`RB6`)** | `CouncilService` over the existing engine + the `RunEvent` stream + a loopback server (same seam as iOS) | Expose the panel→analysis→plan council as a tool any local terminal agent (Claude Code, Codex, Grok, Cursor) invokes mid-task — **local Fusion at zero marginal cost.** Recursion-guarded, governed, localhost-only, judgment-only (no git/execution). The strategic moat; needs only `06`. |
-| **Generic Council critique** (`ON HOLD/13`) | RB stage primitives | If revived, it becomes a workflow preset over `WorkflowStage`, not a separate cross-critique engine. The post-draft review board supersedes generic model-vs-model critique for implementation specs. |
-| **Execution lanes** (worktree factory, `ON HOLD/03–05`) | `DriverManifest.invoke.workingDir` (already nullable) + new `Lane` model + `DriverKind.protocol` | A worker run gets a real worktree cwd; member output becomes a built branch instead of text. Core invariant (no writes to active repo) turns on here. |
+| **Generic Council critique** | RB stage primitives | If revived, it becomes a workflow preset over `WorkflowStage`, not a separate cross-critique engine. The post-draft review board supersedes generic model-vs-model critique for implementation specs. |
+| **Managed execution lanes** | `DriverManifest.invoke.workingDir` (already nullable) + new execution owner model + `DriverKind.protocol` | A worker run gets a real isolated cwd; member output becomes built work instead of text. Isolation rules belong in the owning post-MVP phase doc. |
 | **Direct executor dispatch** (`RB4`) | The master plan / final spec + selected worker + configured working directory | Creates `implementation_brief.md` and `execution_prompt_<workerId>.md`, then invokes the selected healthy CLI. Allnighter does not create worktrees, branches, commits, landing, or revert rules. |
-| **Managed "Implement This" / picker-as-prompt** (`ON HOLD/12`) | `ImplementationBrief` + lane substrate | A managed "send this to execution" action creates a Task -> Lane; reuses the same work-order shape after lane safety exists. |
-| **Races** (`ON HOLD/11`) | The fan-out engine | A race is a fan-out where members are lanes on one pinned base commit instead of text members. RB5's multi-executor compare is the text-level precursor. |
-| **iOS floor manager** (`ON HOLD/08–09`) | The `RunEvent` stream + a Hummingbird server in the Mac app | Wrap the existing in-process event stream in a WebSocket; iOS subscribes with `?since=<seq>`. Event shapes already match. |
+| **Managed "Implement This" / picker-as-prompt** | `ImplementationBrief` + execution substrate | A managed "send this to execution" action creates a task from the chosen plan; reuses the same work-order shape after execution safety exists. |
+| **Races** | The fan-out engine | A race is a fan-out where members produce competing implementations or directions instead of text-only answers. RB5's multi-executor compare is the text-level precursor. |
+| **iOS floor manager** | The `RunEvent` stream + a Hummingbird server in the Mac app | Wrap the existing in-process event stream in a WebSocket; iOS subscribes with `?since=<seq>`. Event shapes already match. |
 | **Project/repo context** | `MemberPrompt` | Prompt builder gains optional repo/file context; member prompt stops being identical-text-only. |
-| **Scheduling / quota harvest** (`ON HOLD/17`) | `WorkerRunner` dispatch | A scheduler/governor sits in front of `TaskGroup` spawn; adds concurrency caps + reset-window logic. |
-| **Scorecards / routing** (`ON HOLD/16`) | `MemberResponse` (already has timing/outcome) | Aggregate response outcomes per worker over runs; drive routing. Implemented by `RB5`. |
-| **Preference ledger / taste** (`ON HOLD/15`) | A new `PreferenceEvent` on "I liked plan X / picked dissent Y" | Logged from the master-plan view; structured for future market-outcome extension. |
+| **Utilization / admission control** | `WorkerRunner` dispatch | A scheduler/governor sits in front of `TaskGroup` spawn; adds concurrency caps and observed worker-availability logic. No cost/time estimates. |
+| **Scorecards / routing** | `MemberResponse` (already has timing/outcome) | Aggregate response outcomes per worker over runs; drive routing. Implemented by `RB5`. |
+| **Preference ledger / taste** | A new `PreferenceEvent` on "I liked plan X / picked dissent Y" | Logged from the master-plan view; structured for future market-outcome extension. |
 | **Persistence at scale** | Run index | Flat files → GRDB; `run.json` stays the artifact. |
 
 Rule: if a phase wants a shortcut that would *remove* one of these seams (e.g.

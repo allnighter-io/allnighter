@@ -84,8 +84,16 @@ public actor CouncilService {
         self.now = now
     }
 
-    public func presetSummaries() -> [(id: String, name: String, callPlan: CallPlan)] {
-        exposedPresets().map { ($0.id, $0.displayName, CallPlanEstimator().plan(for: $0)) }
+    public func presetSummaries() -> [(id: String, name: String, shape: String)] {
+        exposedPresets().map { preset in
+            let judgeLabel = resolveJudge(preset: preset)?.displayName
+            let shape = WorkOrder.panelSummary(
+                seatCount: preset.seats.expandedSeats().count,
+                judgeLabel: judgeLabel,
+                synthesis: preset.synthesis
+            )
+            return (preset.id, preset.displayName, shape)
+        }
     }
 
     private func exposedPresets() -> [PanelPreset] {
@@ -141,13 +149,12 @@ public actor CouncilService {
 
         try? runStore.save(run, workers: workers)
 
-        let callsSpent = run.members.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
+        let invocations = run.members.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
         return CouncilToolResult(
             runId: run.id, origin: origin, preset: preset.id, status: run.status, createdAt: run.createdAt,
             masterPlan: run.masterPlan, analysis: run.analysis,
             partials: run.failedMembers.map { SeatFailure(seatId: $0.seatId, reason: $0.errorReason ?? $0.status.rawValue) },
-            contextTruncated: contextTruncated, callsSpent: callsSpent,
-            estimateNote: "preset \(preset.id); \(seats.count) seats; calls are best-effort counts."
+            contextTruncated: contextTruncated, invocations: invocations
         )
     }
 

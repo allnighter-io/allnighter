@@ -46,11 +46,11 @@ struct MCPServer {
             guard let q = args["question"] as? String else { return respondError(id: id, code: -32602, message: "question required") }
             let req = CouncilRequest(question: q, presetId: args["preset"] as? String, context: args["context"] as? String)
             let result = await service.run(req, origin: .mcp, originAgent: "mcp")
-            let text = (result.masterPlan ?? result.estimateNote) + "\n\n[council \(result.preset): \(result.callsSpent) calls]"
+            let text = (result.masterPlan ?? result.note) + "\n\n[council \(result.preset): \(result.invocations) invocations]"
             respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(result)))
         case "council_presets":
             let summaries = await service.presetSummaries()
-            let text = summaries.map { "\($0.id): \($0.name) (~\($0.callPlan.estimatedCalls) calls, \($0.callPlan.quotaRisk))" }.joined(separator: "\n")
+            let text = summaries.map { "\($0.id): \($0.name) (\($0.shape))" }.joined(separator: "\n")
             respond(id: id, result: toolText(text))
         case "council_recall":
             let q = args["query"] as? String ?? ""
@@ -68,11 +68,11 @@ struct MCPServer {
              "description": "Run a local multi-model council on a question and return a synthesized master plan + structured analysis. Zero API cost. Use for hard architecture/design decisions.",
              "inputSchema": ["type": "object", "properties": [
                 "question": ["type": "string"],
-                "preset": ["type": "string", "description": "fast|quality|budget|self_double (optional)"],
+                "preset": ["type": "string", "description": "fast|quality|diverse_panel|self_double (optional)"],
                 "context": ["type": "string", "description": "optional bounded snippet to consider"]
              ], "required": ["question"]]],
             ["name": "council_presets",
-             "description": "List available council presets with a rough call-count estimate.",
+             "description": "List available council presets with their work shape (seats, judge, stage layout).",
              "inputSchema": ["type": "object", "properties": [:]]],
             ["name": "council_recall",
              "description": "Search prior local councils and return past judgments (read-only, zero cost).",

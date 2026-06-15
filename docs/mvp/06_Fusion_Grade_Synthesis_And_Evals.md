@@ -49,8 +49,8 @@ version we fix later."
 - The synthesis path produces a structured `JudgeAnalysis` plus a master plan
   grounded in it.
 - **Self-fusion** works: one worker can occupy multiple independent panel seats.
-- **Tiered presets** name the real tradeoffs (Fast / Quality / Budget / Self-Double
-  / Full), each with a visible `CallPlan` estimate.
+- **Tiered presets** name the real tradeoffs (Fast / Quality / Diverse Panel / Self-Double
+  / Full), each with a live `WorkOrder.summary` shape string.
 - An **eval harness** scores judgment quality against hidden weighted rubrics
   (with negative criteria) so improvements are measurable.
 
@@ -244,23 +244,20 @@ Fixtures cover *perfect / analysis-only / plan-only / garbage* judge responses.
 
 ## Tiered built-in presets (name the tradeoffs)
 
-Shipped as `PanelPreset`s (Phase 05 substrate), each surfacing its `CallPlan`
-(seat count, est. wall time, quota risk — labeled an estimate per `00` §9):
+Shipped as `PanelPreset`s (Phase 05 substrate), each surfacing a live
+`WorkOrder.summary` (seat count, judge, analysis depth — structural facts only):
 
 | Preset | Panel | Synthesis | For |
 | --- | --- | --- | --- |
 | **Fast Council** | 3 fast seats | `combined` | the daily driver; snappy |
 | **Quality Council** | the six | `separate`, strong judge | important decisions |
-| **Budget / Diverse** | cheap/fast seats | `separate`, strong judge | frontier-ish quality, low quota burn (the Fusion budget result) |
+| **Diverse Panel** | diverse seats (judge excluded from panel) | `separate`, strong judge | breadth without repeating the judge on the panel |
 | **Self-Double** | 1 strong worker × 2–3 seats | same-model judge | one-subscription users; the self-fusion lift |
 | **Full Deliberation** | the six (+ later RB review board) | `separate` | architecture/product bets |
 
 Self-Double is `seats: [{ workerId: opus, count: 3 }]`; the other tiers are
-distinct seats. `CallPlan` updates live as the user toggles seats or depth — in
-Phase 06 it estimates **panel seats + synthesis calls** (RB1 extends it to the full
-workflow chain). Estimates use the median `durationMs` per worker from local run
-history (fallback: a static per-driver default), labeled an estimate. No silent
-fan-out.
+distinct seats. `WorkOrder.summary` updates live as the user toggles seats or
+depth. No pre-run time/quota/call forecasts.
 
 **Manual-paste per seat.** When a seat's worker is `manual_paste`, the app shows
 **one labeled paste box per seat** (`Opus (A)`, `Opus (B)`, …) — self-fusion seats
@@ -345,9 +342,8 @@ Render `JudgeAnalysis` as scannable judgment, not a wall of prose:
 - [ ] P06-S07 — Self-fusion: coordinator runs multiple seats per worker in parallel
   (keyed by `seatId`); per-seat manual-paste boxes + Doctor; analysis attributes by
   `seatId`. Member events carry `seatId`.
-- [ ] P06-S08 — Tiered built-in presets (Fast / Quality / Budget / Self-Double /
-  Full) via `seats` + `SynthesisConfig` + live `CallPlan` estimate (seats, est. time
-  from history median, quota risk, labeled). 06 CallPlan = panel + synthesis.
+- [ ] P06-S08 — Tiered built-in presets (Fast / Quality / Diverse Panel / Self-Double /
+  Full) via `seats` + `SynthesisConfig` + live `WorkOrder.summary`. No estimates.
 - [ ] P06-S09 — Council Analysis UI (verdict strip, analysis sections, seat
   back-links, "show judge reasoning").
 - [ ] P06-S10 — Eval harness: `EvalCase`/`Rubric`/`EvalScore`/`EvalConfig` models +
@@ -383,7 +379,7 @@ analysis + plan. Confirm:
   events carry `seatId`.
 - [ ] Each stage's `promptProfileId` **or** `customInstruction` records honestly
   what ran (exactly one set).
-- [ ] `CallPlan` shows a panel+synthesis estimate before any preset runs.
+- [ ] `WorkOrder.summary` shows the selected work shape before any preset runs.
 - [ ] Eval harness runs `Fixtures/Evals/` and reports a per-criterion mode
   comparison; the corpus is unreadable by the worker chain; the new synthesis does
   not regress it.

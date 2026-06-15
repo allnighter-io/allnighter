@@ -111,8 +111,7 @@ private struct PresetMenu: View {
             } label: {
                 Label(model.activePresetName, systemImage: "rectangle.3.group")
             }
-            let plan = model.callPlan
-            Text("\(model.expandedSeats.count) seats · judge: \(model.judgeWorker?.displayName ?? "none") · est. \(plan.estimatedCalls) calls (\(plan.quotaRisk))")
+            Text(model.workOrderSummary)
                 .font(.caption).foregroundStyle(.secondary)
         }
         .alert("Save panel preset", isPresented: $showSave) {

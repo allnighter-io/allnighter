@@ -36,10 +36,10 @@ Allnighter/
 - `AGENTS.md`: agent/human/CI router and project laws.
 - `ALLNIGHTER.md`: product spec index and platform summary.
 - `README.md`: human overview and doc index.
-- `docs/mvp/README.md`: active Council MVP execution truth.
-- `docs/phases/README.md`: full product phases and priority stack.
+- `docs/mvp/README.md`: built Council MVP execution truth.
+- `docs/phases/README.md`: active post-MVP phase router.
 - `docs/strategy/Allnighter-Agent-Control-Loop-Strategy.md`: agent control loop strategy.
-- `docs/phases/*.md`: live execution docs with ordered slices and exit gates.
+- `docs/phases/*.md`: active phase notes, specs, and execution docs.
 - `docs/archive/`: superseded docs; history only after closeout.
 - `docs/workflows/SSOT_*.md`: founder intake and feature packet shape.
 - `docs/operations/Execution-Playbook.md`: slice process and closeout checklist.

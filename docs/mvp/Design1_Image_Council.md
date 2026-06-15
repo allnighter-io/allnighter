@@ -4,7 +4,7 @@ Status: **BUILT (2026-06-15) — Core+Engine+Mac green (135 swift test + Mac app
 Owner: Shared Core + Mac
 Created: 2026-06-15
 Updated: 2026-06-15
-Depends on: 06 (`PanelSeat`, `StageOutput`), RB1 (`WorkflowPreset`, `CallPlan`, reuse), 05 (`Doctor`)
+Depends on: 06 (`PanelSeat`, `StageOutput`), RB1 (`WorkflowPreset`, `WorkOrder.summary`, reuse), 05 (`Doctor`)
 
 > **Dead and not coming back:** OCR and the HTML render pipeline. See Design0 §
 > "What is DEAD." The unit is a **generated image**, not rendered HTML. There is no
@@ -15,7 +15,7 @@ Depends on: 06 (`PanelSeat`, `StageOutput`), RB1 (`WorkflowPreset`, `CallPlan`, 
 The council shape already exists (RB): fan out one prompt to a panel, capture each
 worker's output, show it. Design1 changes exactly one thing — **the workers emit
 images instead of text, and the board shows images.** Everything else (panel
-selection, parallel fan-out, per-worker timeout/status, reuse, the `CallPlan`) is
+selection, parallel fan-out, per-worker timeout/status, reuse, `WorkOrder.designSummary`) is
 reused. The only genuinely new engineering is **capturing an image output from a CLI**
 and a **gallery board**.
 
@@ -41,7 +41,7 @@ side by side → the user picks → "more like this" iterates a seat.
   the legacy gemini-cli — use Antigravity), `codex` → ChatGPT image. **Claude Code does
   *not* generate images** — it is the build-side `canReadImages` implementer (Design2),
   not a design seat. A design seat binds only to an image-capable worker; the
-  `CallPlan` shows the routing and honestly omits workers that can't. **The image
+  `WorkOrder.designSummary` shows routing and honestly omits workers that can't. **The image
   probe is a separate, quota-aware check** (a tiny test generation, opt-in / "verify
   image gen" button) — it is **never folded into everyday text Doctor**, so normal
   health checks don't burn image quota.
@@ -175,7 +175,7 @@ Land these in `AllnighterCore` with Codable round-trip + fixtures before any UI.
   `StagePurpose.design_fanout`/`.board`; Codable round-trip + fixtures.
 - [ ] D1-S02 — Doctor `canGenerateImages` probe per worker: **separate, quota-aware,
   opt-in** (tiny test gen; validate magic bytes + non-zero size); surfaced in Doctor
-  UI + `CallPlan` routing. Not part of everyday text Doctor.
+  UI + work-shape routing. Not part of everyday text Doctor.
 - [ ] D1-S03 — Driver manifest `imageGen` capability (additive): agentic entry +
   auto-approve flag + **prompt-directed save** (`{{imageOut}}`) with **stdout-path
   parse + copy** fallback (Antigravity's opaque dir) → validated local
@@ -189,8 +189,8 @@ Land these in `AllnighterCore` with Codable round-trip + fixtures before any UI.
   `fileImporter`, image types only, thumbnail preview, remove) + the target-shape chip
   (aspect-ratio inference, editable, one quick choice for greenfield).
 - [ ] D1-S06 — `design_fanout` stage: parallel image fan-out over image-capable seats,
-  per-seat timeout/status, normalized image capture; `CallPlan` shows generation count
-  + per-seat engine + quota note.
+  per-seat timeout/status, normalized image capture; `WorkOrder.designSummary` shows mockup count
+  + per-seat engine.
 - [ ] D1-S07 — The board UI: progressive reveal, fixed-aspect identical-scale grid,
   persona/engine badges, fullscreen + A/B with before/after toggle, palette swatches,
   "pick this" (append `chosen_option.json`), "more like this" (img2img), failed tiles.
@@ -204,7 +204,7 @@ Pick the Design chip. Attach a screenshot of a cluttered profile page; type
 -> the target-shape chip reads "mobile" from the screenshot dimensions; one tap could
    flip it to desktop.
 -> 3-4 seats fan out across image-capable engines × personas (minimal / bold /
-   editorial / on_brand). The CallPlan showed "4 image generations · grok-imagine,
+   editorial / on_brand). The shape summary showed "4 mockups · grok-imagine,
    gemini" before commit.
 -> the board fills progressively; four finished design images sit side by side at the
    same scale, each badged with its engine + persona.
@@ -222,7 +222,7 @@ is gray with the reason; the other three remain fully usable.
 ## Exit Gates
 
 - [ ] Design seats bind only to `canGenerateImages` workers; routing is shown in the
-  `CallPlan`; non-capable workers are omitted honestly.
+  work-shape summary; non-capable workers are omitted honestly.
 - [ ] Workers emit **images**; the engine **normalizes** any output (file / URL /
   base64) to a validated local `option_<seatId>.png`. No HTML, no render step, no OCR
   anywhere.

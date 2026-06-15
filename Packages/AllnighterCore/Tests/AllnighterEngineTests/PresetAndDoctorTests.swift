@@ -85,15 +85,22 @@ final class PresetAndDoctorTests: XCTestCase {
         XCTAssertTrue(store.load().isEmpty)
     }
 
-    func testCallPlanEstimatesPanelPlusSynthesis() {
-        let preset = PanelPreset.builtInDefault(
-            panel: (try? Fixtures.panel()) ?? [],
-            analysisProfileId: "judge_analysis_v1", planProfileId: "judge_plan_v1"
+    func testWorkOrderPanelSummary() {
+        let synthesis = SynthesisConfig(
+            analysisDepth: .separate,
+            judgeWorkerId: "worker_opus",
+            analysisProfileId: "judge_analysis_v1",
+            planProfileId: "judge_plan_v1"
         )
-        let plan = CallPlanEstimator().plan(for: preset)
-        // 6 panel seats + 1 synthesis (combined) = 7 calls.
-        XCTAssertEqual(plan.estimatedCalls, 7)
-        XCTAssertTrue(plan.entries.contains { $0.stage == "analysis" })
+        let summary = WorkOrder.panelSummary(seatCount: 6, judgeLabel: "Opus", synthesis: synthesis, lensCount: 3)
+        XCTAssertEqual(summary, "6 seats · Opus judge · separate analysis + plan · 3 lenses")
+        XCTAssertFalse(summary.contains("est"))
+        XCTAssertFalse(summary.contains("quota"))
+    }
+
+    func testWorkOrderDesignSummary() {
+        let summary = WorkOrder.designSummary(outputCount: 4, engineNames: ["Grok", "Gemini"])
+        XCTAssertEqual(summary, "4 mockups · Grok, Gemini")
     }
 
     // MARK: - Doctor

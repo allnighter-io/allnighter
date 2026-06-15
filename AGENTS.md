@@ -30,9 +30,9 @@ preference compounding.
 
 Root docs are the source of truth. Read the relevant one before changing that area.
 
-- **Active build (what ships now):** `docs/mvp/README.md` — the **Council** slice
+- **Built MVP foundation:** `docs/mvp/README.md` — the **Council** slice
   (one prompt → parallel CLIs → Opus master plan), plus `docs/mvp/00_MVP_Architecture.md`.
-- **Long-game roadmap (parked):** `docs/phases/README.md` (+ `docs/phases/ON HOLD/`).
+- **Post-MVP phases:** `docs/phases/README.md` (active forward phase router).
 - **Active iOS work:** `docs/phases/ios/README.md` (Tailscale remote floor manager).
 - **Visual design SSOT** (brand, voice, tokens, components, logo, icon):
   `docs/design-system/readme.md` + binding app rules in
@@ -50,8 +50,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 
 | Task type | Read first |
 | --- | --- |
-| Product scope, MVP boundary, what ships now | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
-| Long-term roadmap, worktree factory, lanes, scheduling | `docs/phases/README.md` |
+| Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
+| Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |

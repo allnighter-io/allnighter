@@ -111,7 +111,7 @@ Phase 04. Phase 05 shipped presets + honesty; Phase 06 lays the final run model.
 | `StageOutput` | Structured run truth for one stage (Phase 06); Markdown files are derived views. RB adds new `StagePurpose` cases. |
 | `FinalizerPolicy` | Structured rule telling the final spec stage how to treat reviews. v1 ships `advisory` + `first_principles`. |
 | `ImplementationBrief` | Handoff artifact created from a final spec before dispatch. |
-| `CallPlan` | The previewed list of model calls a run will make (stage → seat → lens), with a rough quota/latency estimate, shown before the user commits. |
+| `WorkOrder.summary` | Prediction-free rendering of the selected work shape (seats, judge, stage layout, lenses) shown before commit. Implemented in `AllnighterCore`; see `docs/archive/phases/Estimate_Cleanup_And_Effort_Dial.md`. |
 
 Keep `WorkerRole` narrow. It remains the existing structural capability:
 `member`, `synthesizer`, or `both`. It is not a reviewer persona — a persona is a
@@ -130,9 +130,10 @@ Keep `WorkerRole` narrow. It remains the existing structural capability:
   the configured working directory.
 - Managed execution safety is out of scope: no Allnighter-owned worktrees,
   branch policy, commit rules, landing, revert, or protected-path enforcement.
-- **Cost is never silent.** A heavier preset can fan out a dozen+ model calls.
-  The composer must show the `CallPlan` (count + rough quota/latency estimate,
-  labeled an estimate per `00` §9) *before* the run commits. No surprise burn.
+- **Shape before commit.** A heavier preset fans out more seats and stages. The
+  composer must show the live work shape (`WorkOrder.summary` — seats, judge, stage
+  layout, enabled lenses) *before* the run commits. No pre-run cost/time/token
+  forecasts (see `docs/archive/phases/Estimate_Cleanup_And_Effort_Dial.md`).
 - **Reuse over re-run.** A stage's inputs are content-addressed: editing one
   review lens or re-running the finalizer must **not** re-run the panel or other
   unchanged stages. Panel answers are durable inputs, not throwaway.
@@ -141,7 +142,7 @@ Keep `WorkerRole` narrow. It remains the existing structural capability:
 
 ## Built-In Presets
 
-Phase 06 ships the **panel-tier** presets (Fast / Quality / Budget / Self-Double /
+Phase 06 ships the **panel-tier** presets (Fast / Quality / Diverse Panel / Self-Double /
 Full); the RB milestone adds the **workflow** presets that chain reviews + final
 spec on top. Each `analysis → plan` pair is two stage outputs regardless of
 call-count (06).
@@ -152,9 +153,9 @@ call-count (06).
 | `light_review` | Common implementation planning. | analysis + plan + 3 review fanout + 1 final reduce |
 | `full_review` | Architecture/product bets. | analysis + plan + full review fanout + 1 final reduce |
 
-The composer shows the live `CallPlan` before a run. Full review is a deliberate
+The composer shows the live work shape before a run. Full review is a deliberate
 heavier mode, not the default daily path. A worker may fill **multiple seats**
-(self-fusion) in any preset — the `CallPlan` counts seats, not workers.
+(self-fusion) in any preset — the summary counts seats, not workers.
 
 ## Built-In Review Lenses
 
@@ -168,7 +169,7 @@ Ship these as editable prompt profiles:
 | `ui_ux` | Pressure-test interaction model, empty/error states, and visual simplicity. |
 | `customer_advocate` | Ask whether a paying user cares and whether the workflow solves the real pain. |
 | `dissent_preserver` | Recover dissent or nuance the draft synthesis may have flattened. |
-| `cost_latency_quota` | Challenge cost, latency, quota burn, and unnecessary model calls. |
+| `scope_discipline` | Challenge unnecessary stages, duplicated review, vague work orders, and runaway workflow shape. |
 | `writer_editor` | Improve spec clarity, product language, and user-facing copy. |
 
 `light_review` starts with:
@@ -219,7 +220,7 @@ The milestone is done when this runs end to end with the founder's real workers:
 
 ```text
 type ONE prompt
--> pick the light_review preset (composer shows the CallPlan: ~10 calls, est. quota)
+-> pick the light_review preset (composer shows work shape: seats · judge · lenses)
 -> panel answers in parallel  (reused if already run for this prompt)
 -> structured JudgeAnalysis (verdict strip: consensus / conflicts / blind spots)
 -> draft master_plan.md grounded in the analysis
@@ -251,7 +252,7 @@ building machinery**:
 2. **Resolved a real conflict** between panel answers instead of averaging them.
 3. **More executable**: a coding agent could start from it with fewer questions.
 4. **Honest**: visibly adopted *and* rejected review items with reasons.
-5. **Worth the extra calls**: the quality gain justifies the added quota/latency.
+5. **Worth the depth**: the quality gain justifies the broader bench (more seats/lenses).
 6. **Synthesis lift (Fusion criterion)**: a two-step analysis → plan (Phase 06)
    beats one-step synthesis on the same panel output — and the structured
    `JudgeAnalysis` made the decision faster to act on.
@@ -285,7 +286,7 @@ judge profiles (`judge_analysis` / `judge_plan`) and re-run — do not start RB1
 | Slice | Doc | Purpose |
 | --- | --- | --- |
 | 06 | `06_Fusion_Grade_Synthesis_And_Evals.md` | **Prerequisite phase.** The foundation RB consumes: seats, structured `JudgeAnalysis`, `StageOutput`, evals. Built first. |
-| RB1 | `RB1_Workflow_Presets_And_Stage_Primitives.md` | Generalize presets + prompt profiles; add workflow stages over 06's `StageOutput`; `CallPlan`; reuse. |
+| RB1 | `RB1_Workflow_Presets_And_Stage_Primitives.md` | Generalize presets + prompt profiles; add workflow stages over 06's `StageOutput`; `WorkOrder.summary`; reuse. |
 | RB2 | `RB2_Review_Board.md` | Add optional advisory review fanout (lenses consume `JudgeAnalysis` + raw answers). |
 | RB3 | `RB3_Final_Spec.md` | First-principles final reduce; resolve contradictions, preserve/reject unique insights. |
 | RB4 | `RB4_Direct_Executor_Dispatch.md` | Send the final spec to a selected CLI without Allnighter-owned git rules. |

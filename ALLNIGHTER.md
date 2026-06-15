@@ -12,8 +12,8 @@ tools the user already pays for — not another model provider or chat aggregato
 
 | Doc | Role |
 | --- | --- |
-| `docs/mvp/README.md` | Active MVP execution truth (Council slice) |
-| `docs/phases/README.md` | Full build phases and priority stack |
+| `docs/mvp/README.md` | Built MVP foundation and Council slice truth |
+| `docs/phases/README.md` | Active post-MVP phase router |
 | `docs/strategy/Allnighter-Agent-Control-Loop-Strategy.md` | Agent control loop strategy |
 | `docs/WORKING_RULES.md` | MVP boundary, platform laws, agent isolation |
 | `docs/phases/ios/README.md` | iOS remote floor manager spine |
@@ -40,10 +40,10 @@ CLI tools, and protocol types reused by both apps.
 ## MVP Loop (v1)
 
 ```text
-enroll repo on Mac
--> run council (parallel subscription CLIs → master plan)
--> review output on Mac
--> grow into lanes, iOS remote, and full factory phases
+run council on Mac
+-> parallel subscription CLIs produce member answers
+-> judge produces master plan
+-> grow through post-MVP phase docs
 ```
 
 ## Communication

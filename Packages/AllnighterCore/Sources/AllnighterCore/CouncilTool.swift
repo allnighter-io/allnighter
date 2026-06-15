@@ -6,8 +6,9 @@ public struct CouncilRequest: Codable, Sendable, Equatable {
     public var presetId: String?
     /// Optional bounded snippet the calling agent wants considered.
     public var context: String?
-    /// `council_ask` sync budget; if the estimate exceeds it, the tool returns a
-    /// runId to poll instead of blocking.
+    /// `council_ask` client timeout (seconds). When set, the tool may return a
+    /// `runId` to poll if the run is still in flight — never branches on a
+    /// predicted duration.
     public var waitSeconds: Int?
 
     public init(question: String, presetId: String? = nil, context: String? = nil, waitSeconds: Int? = nil) {
@@ -19,7 +20,7 @@ public struct CouncilRequest: Codable, Sendable, Equatable {
 }
 
 /// The structured result returned to a calling agent (RB6). `finalSpec` stays nil
-/// until RB3 presets are exposed; `callsSpent` makes cost honest every time.
+/// until RB3 presets are exposed; `invocations` is observed after the run.
 public struct CouncilToolResult: Codable, Sendable, Equatable {
     public var runId: String
     public var origin: RunOrigin
@@ -31,13 +32,13 @@ public struct CouncilToolResult: Codable, Sendable, Equatable {
     public var analysis: JudgeAnalysis?
     public var partials: [SeatFailure]
     public var contextTruncated: Bool
-    public var callsSpent: Int
-    public var estimateNote: String
+    public var invocations: Int
+    public var note: String
 
     public init(
         runId: String, origin: RunOrigin, preset: String, status: RunStatus, createdAt: Date,
         masterPlan: String? = nil, finalSpec: String? = nil, analysis: JudgeAnalysis? = nil,
-        partials: [SeatFailure] = [], contextTruncated: Bool = false, callsSpent: Int = 0, estimateNote: String = ""
+        partials: [SeatFailure] = [], contextTruncated: Bool = false, invocations: Int = 0, note: String = ""
     ) {
         self.runId = runId
         self.origin = origin
@@ -49,13 +50,13 @@ public struct CouncilToolResult: Codable, Sendable, Equatable {
         self.analysis = analysis
         self.partials = partials
         self.contextTruncated = contextTruncated
-        self.callsSpent = callsSpent
-        self.estimateNote = estimateNote
+        self.invocations = invocations
+        self.note = note
     }
 
     /// A compact, honest error result (recursion refused, busy, no preset, …).
     public static func refused(reason: String, preset: String = "", now: Date) -> CouncilToolResult {
-        CouncilToolResult(runId: "", origin: .gui, preset: preset, status: .failed, createdAt: now, estimateNote: reason)
+        CouncilToolResult(runId: "", origin: .gui, preset: preset, status: .failed, createdAt: now, note: reason)
     }
 }
 

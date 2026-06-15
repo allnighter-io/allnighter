@@ -38,7 +38,7 @@ final class CouncilServiceTests: XCTestCase {
         XCTAssertNotNil(result.masterPlan)
         XCTAssertNotNil(result.analysis)
         XCTAssertEqual(result.origin, .cli)
-        XCTAssertGreaterThan(result.callsSpent, 0)
+        XCTAssertGreaterThan(result.invocations, 0)
     }
 
     func testRecursionGuardRefusesWhenInsideCouncil() async {
@@ -47,7 +47,7 @@ final class CouncilServiceTests: XCTestCase {
         let service = makeService(env: ["ALLNIGHTER_COUNCIL_DEPTH": "1"], store: RunStore(rootDirectory: tmp))
         let result = await service.run(CouncilRequest(question: "x"), origin: .mcp)
         XCTAssertEqual(result.status, .failed)
-        XCTAssertTrue(result.estimateNote.contains("nested councils"))
+        XCTAssertTrue(result.note.contains("nested councils"))
     }
 
     func testRecallFindsPriorRun() async {
@@ -72,12 +72,12 @@ final class CouncilServiceTests: XCTestCase {
         XCTAssertNil(b, "second acquire should be refused at capacity 1")
     }
 
-    func testPresetSummariesIncludeCallPlan() async {
+    func testPresetSummariesIncludeShape() async {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(store: RunStore(rootDirectory: tmp))
         let summaries = await service.presetSummaries()
         XCTAssertEqual(summaries.first?.id, "preset_fast")
-        XCTAssertGreaterThan(summaries.first?.callPlan.estimatedCalls ?? 0, 0)
+        XCTAssertTrue(summaries.first?.shape.contains("seat") ?? false)
     }
 }

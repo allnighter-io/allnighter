@@ -39,20 +39,20 @@ struct AllnighterCLI {
         if opts.flag("json") {
             print(jsonString(result))
         } else if result.status == .failed && result.runId.isEmpty {
-            FileHandle.standardError.write(Data((result.estimateNote + "\n").utf8)); exit(1)
+            FileHandle.standardError.write(Data((result.note + "\n").utf8)); exit(1)
         } else {
             print(result.masterPlan ?? "(no master plan — status \(result.status.rawValue))")
-            FileHandle.standardError.write(Data("\n[council \(result.preset): \(result.callsSpent) calls; run \(result.runId)]\n".utf8))
+            FileHandle.standardError.write(Data("\n[council \(result.preset): \(result.invocations) invocations; run \(result.runId)]\n".utf8))
         }
     }
 
     static func runPresets(_ args: [String], _ runtime: ToolRuntime) async {
         let summaries = await runtime.service().presetSummaries()
         if Options(args).flag("json") {
-            let arr = summaries.map { ["id": $0.id, "name": $0.name, "estimatedCalls": $0.callPlan.estimatedCalls, "quotaRisk": $0.callPlan.quotaRisk] as [String: Any] }
+            let arr = summaries.map { ["id": $0.id, "name": $0.name, "shape": $0.shape] as [String: Any] }
             print(String(decoding: (try? JSONSerialization.data(withJSONObject: arr, options: [.prettyPrinted])) ?? Data(), as: UTF8.self))
         } else {
-            for s in summaries { print("\(s.id)\t\(s.name)\t~\(s.callPlan.estimatedCalls) calls (\(s.callPlan.quotaRisk))") }
+            for s in summaries { print("\(s.id)\t\(s.name)\t\(s.shape)") }
         }
     }
 
@@ -103,7 +103,7 @@ struct AllnighterCLI {
         print("""
         allnighter — local Fusion council, callable by any agent (zero API cost)
           ask "<question>" [--preset id] [--context text] [--json]   run a council
-          presets [--json]                                           list presets + CallPlan
+          presets [--json]                                           list presets + work shape
           recall "<query>" [--json]                                  search prior councils (free)
           doctor                                                     check worker CLIs
           mcp                                                        run as an MCP stdio server

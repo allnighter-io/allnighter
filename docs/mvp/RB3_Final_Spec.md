@@ -107,7 +107,7 @@ insight in the `JudgeAnalysis`, and for every completed review — nothing silen
 dropped. **Bounding (token safety):** when the analysis is large (say >12
 contradictions or insights), the finalizer decides on the top items by
 `AnalysisPoint.strength` individually and **rolls up** the long tail into one
-grouped decision with a reason; the `CallPlan` notes the heavier token cost on
+grouped decision with a reason; heavier model bindings may apply on
 `full_review`. **Empty analysis:** zero contradictions/insights → the corresponding
 decision arrays are empty and the spec notes "no contradictions to resolve"
 (valid, not an error).
@@ -168,7 +168,7 @@ Run a light_review preset where one review includes a deliberately bad security
 suggestion. The final spec completes, explicitly REJECTS that suggestion with a
 reason, ADOPTS at least one useful review item, includes a runnable Works Test +
 proof commands, writes final_spec.md, and keeps master_plan.md unchanged.
-Re-running the finalizer alone reuses the panel + reviews (CallPlan shows 1 call).
+Re-running the finalizer alone reuses the panel + reviews (run state shows reuse).
 ```
 
 ## Exit Gates
