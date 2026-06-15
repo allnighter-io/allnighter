@@ -121,6 +121,19 @@ public enum JudgeOutputParser {
         return balancedObject(in: text)
     }
 
+    /// Extracts a JSON array `[ ... ]` (fenced block first, else first balanced span).
+    public static func extractJSONArray(from text: String) -> String? {
+        let inner: String
+        if let openRange = text.range(of: "```") {
+            var rest = String(text[openRange.upperBound...])
+            if rest.lowercased().hasPrefix("json") { rest = String(rest.dropFirst(4)) }
+            if let close = rest.range(of: "```") { inner = String(rest[..<close.lowerBound]) } else { inner = text }
+        } else {
+            inner = text
+        }
+        return balancedSpan(in: inner, open: "[", close: "]")
+    }
+
     private static func fencedBlock(in text: String) -> String? {
         // Look for ```json ... ``` (or ``` ... ```) containing an object.
         let scalars = Array(text)
@@ -134,7 +147,12 @@ public enum JudgeOutputParser {
     }
 
     private static func balancedObject(in text: String) -> String? {
-        guard let start = text.firstIndex(of: "{") else { return nil }
+        balancedSpan(in: text, open: "{", close: "}")
+    }
+
+    /// First balanced `open…close` span, respecting JSON string escaping.
+    static func balancedSpan(in text: String, open: Character, close: Character) -> String? {
+        guard let start = text.firstIndex(of: open) else { return nil }
         var depth = 0
         var inString = false
         var escaped = false
@@ -147,8 +165,8 @@ public enum JudgeOutputParser {
                 else if ch == "\"" { inString = false }
             } else {
                 if ch == "\"" { inString = true }
-                else if ch == "{" { depth += 1 }
-                else if ch == "}" {
+                else if ch == open { depth += 1 }
+                else if ch == close {
                     depth -= 1
                     if depth == 0 { return String(text[start...idx]) }
                 }

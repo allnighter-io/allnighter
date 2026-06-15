@@ -20,4 +20,10 @@ public enum AllnighterPaths {
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)
     }
+
+    /// `…/Allnighter/Evals/` — eval-harness runs, kept OUT of `Runs/` so history
+    /// and `council_recall` (RB6) never surface them (contamination guard).
+    public static var evals: URL {
+        support.appendingPathComponent("Evals", isDirectory: true)
+    }
 }
