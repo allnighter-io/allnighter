@@ -65,12 +65,20 @@ Killing HTML deletes the **entire** list above. The **image is the unit** — al
 a picture, already comparable, no render step, no fixture, no pHash, no gates.
 
 **The honest tradeoff (state it, don't hide it):** the design council's immediate
-output is an **image** — concept art, not shippable code. That's fine, because **code
-still happens** — at the **Build step**, when you pick an image and an agent
-implements it (Design2). Image engines design; coding agents build; nobody is forced
-to be what they're bad at. This is exactly your real workflow today (you get images
-from ChatGPT/Gemini and they're amazing) — plus **range** (a council, not one shot)
-and a **zero-paste path to real code**.
+output is an **image** — concept art, not shippable code. We traded **data-identical
+layout comparison** (the dead fixture/render machinery) for **speed to real design
+range** — a conscious choice, not an oversight. And **code still happens** — at the
+**Build step**, when you pick an image and an agent implements it (Design2). Image
+engines design; coding agents build; nobody is forced to be what they're bad at. This
+is exactly your real workflow today (you get images from ChatGPT/Gemini and they're
+amazing) — plus **range** (a council, not one shot) and a **zero-paste path to code**.
+
+**Why the image→code handoff isn't scary (the ICP point):** our user is **redesigning
+a screen whose code already exists.** Someone handing over a screenshot and saying
+"build this from nothing" is **not our ICP.** So the Build step is rarely "invent a
+component from a picture" — it's **"restyle this *existing* file to match this
+image,"** with the file's current source + the repo's tokens handed to the agent
+alongside the image. Constrained edit, not generative guesswork. (Design2.)
 
 ---
 
@@ -117,12 +125,15 @@ assume.
 - **Code comes from the build step.** The design council's output is images; "Build
   this" turns the chosen image into code via a CLI you select (RB4).
 - **Capabilities are verified, never assumed.** `canGenerateImages` (design seats)
-  and `canReadImages` (build/critique) are Doctor-checked; missing → honest skip or
-  fallback, never a silent failure.
+  and `canReadImages` (build/critique) are Doctor-checked — a **new verified
+  capability** exactly like headless-CLI vs. manual-paste was. Missing → honest skip
+  or fallback, never a silent failure.
 - **No silent mode switch.** Design mode is the Design chip (or a result-side
   confirm), never auto-flipped.
-- **Cost is never silent.** The `CallPlan` shows how many image generations a run
-  will request before you commit.
+- **Cost is never silent — including quota.** Image generations are $0 in *dollars*
+  but draw on your provider's **subscription quota** (images/day). The `CallPlan`
+  shows the generation count and, where the manifest exposes it, *"uses N image
+  generations from your &lt;provider&gt; quota"* — before you commit.
 
 ## Vocabulary
 
@@ -169,9 +180,13 @@ run_<id>/
   option_<seatId>.png     # the generated design image per seat (the unit)
   board.json              # ordered gallery: seatId, engine, persona, imagePath
   chosen_option.json      # the human pick + rationale (logged for taste memory)
-  build_brief.md          # the handoff to the implementer CLI (Design2)
+  design_build_brief.md   # DesignImplementationBrief: chosen image + existing target source + repo tokens (Design2)
   bundle.md               # composed view
 ```
+
+Generated images are always **normalized to local PNGs** in the run folder (even when
+a CLI returns a URL or base64). Images are referenced by path; the build context reads
+them in place (RB4 context-exclusion law).
 
 ## Built-In Presets
 
@@ -195,24 +210,71 @@ Two docs. That is the whole module.
 ## Design Activation Gate (run before trusting the machinery)
 
 The earlier gate evaluated render comparability — dead. The new gate is simpler and
-about the only things that matter now. Run **three real prompts** (a screenshot
-redesign, a greenfield screen, and a "make this not look like AI slop"):
+about the only things that matter now. **Run it against the founder's real driver
+manifests/CLIs before any Design1 code beyond the core models** (a throwaway image-
+capture spike is enough — don't build the polished board first). Use **three real
+prompts** (a screenshot redesign, a greenfield screen, and a "make this not look like
+AI slop"):
 
-1. **Capability** — at least one subscription CLI generates an image **headlessly,
-   at $0** (founder has seen Grok Imagine + Gemini do it; verify and record which).
-2. **A board you'd pick from** — 3–4 options come back, side by side, clearly
-   different enough that a non-designer picks a favorite in < 60s.
-3. **Build works** — "Build this" hands the chosen image to a coding CLI that
-   **reads the image** and produces plausible real code.
+1. **Capability (existential).** At least one subscription CLI generates an image
+   **headlessly, at $0**. Record the **exact invocation path and how the image
+   arrives** — a PNG written to a path, a URL in stdout that must be fetched+saved, or
+   base64 — not just the CLI name. "The model exists in the product somewhere" does
+   **not** count; "headless at $0" does. The image Doctor probe is a **separate,
+   quota-aware** check (a tiny test gen), never folded into everyday text Doctor.
+2. **Greenfield path.** Confirm whether image generation works **without an input
+   image** (text-to-image), since it may be a different flag/worker than redesign
+   (image-to-image). If not, v1 may require a screenshot — better than a broken
+   greenfield Works Test.
+3. **A board you'd pick from.** **≥2** options (target 4 when enough
+   `canGenerateImages` workers exist) come back side by side, different enough that a
+   non-designer picks a favorite in < 60s.
+4. **Build works.** "Build this" hands the chosen image **+ the existing target file's
+   source + repo tokens** to a coding CLI that **reads the image** and produces a
+   plausible *edit* of the existing code (Design2's redesign framing). A thin pass —
+   the executor received the image path and referenced it — is enough at the gate.
 
-If no CLI generates images headlessly, **stop** — the whole premise needs a
-different invocation path. Record the result and the per-worker capability flags.
+If no CLI generates images headlessly at $0, **stop** — the premise needs a different
+invocation path (the sanctioned later answer is **BYOK**, § Deferred — **not** browser
+automation, which is just the dead render-tail in a new costume).
 
 ### Activation Gate Decision Log
 
-| Date | Image-capable CLI(s) | Board picks in <60s? | Build reads image + codes? | Go / revise |
-| --- | --- | --- | --- | --- |
-| _pending_ | _e.g. grok→imagine, gemini→nano-banana_ | _pending_ | _pending_ | _pending_ |
+| Date | Image-capable CLI(s) + **exact invocation / how image arrives** | Greenfield (text→img)? | Board ≥2, picks <60s? | Build edits existing code from image? | Go / revise |
+| --- | --- | --- | --- | --- | --- |
+| 2026-06-15 | **3 engines confirmed + invocations pinned (below):** ✅ Grok (`grok -p … --yolo --output-format json`) · ✅ Gemini via **Antigravity CLI** (`agy --print … --dangerously-skip-permissions`) · ✅ ChatGPT (`codex exec -C <run> --skip-git-repo-check …`). ❌ **Claude Code** (no image gen → build-side `canReadImages` implementer only). | pending (text→img per engine) | pending — 3 engines → 4 seats via self-fusion | pending | **Capability + invocations PASSED — proceed.** Run board + build. |
+
+**Capability finding (2026-06-15):** the bench sorted into the two roles cleanly —
+three image engines for the **design** seats, **Claude Code** as the **build**
+implementer (strong coder + reads images; can't generate them). **Gemini's driver is
+Antigravity CLI** (`agy`), not the legacy gemini-cli (install:
+`curl -fsSL https://antigravity.google/cli/install.sh | bash`); this also promotes
+Gemini from `manual_paste` to a **real headless worker in the *text* lane** — a
+separate, ready-to-wire slice (`agy --print "{{prompt}}" --model "{{model}}"
+--dangerously-skip-permissions`), tracked outside the design module.
+
+**Pinned image-gen invocations (2026-06-15) — the common contract:** every engine
+runs image gen as an **agentic tool call** behind an **auto-approve** flag, **writes a
+local file** (PNG/JPEG — never base64/URL), and **reports the path in stdout**:
+
+```text
+Grok:        grok -p "<designPrompt>. Save the final image to <runDir>/option_<seat>.jpg
+                      and reply with the absolute path only." --yolo --output-format json --cwd <runDir>
+             → writes to ~/.grok/sessions/.../images/N.jpg; path in JSON .text (honors explicit save path)
+Antigravity: agy --print "<designPrompt>. Generate an image." --dangerously-skip-permissions --print-timeout 10m
+             → writes PNG to ~/.gemini/antigravity-cli/brain/<session>/<name>.png; path embedded in stdout markdown
+             → opaque dir: PARSE the path from stdout and copy into the run folder
+Codex:       codex exec -C <runDir> --skip-git-repo-check
+                  '<designPrompt>. Use the built-in image generation tool.
+                   Save the final PNG to <runDir>/option_<seat>.png and reply with the absolute file path only.'
+             → writes file (default ~/.codex/generated_images/... if no path); honors explicit save path
+```
+
+Grok & Codex **honor an explicit save path**; Antigravity writes to an opaque
+artifact dir, so for it we **parse + copy**. `--yolo` / `--dangerously-skip-permissions`
+/ `--skip-git-repo-check` are **required** for unattended runs (image_gen triggers a
+permission prompt otherwise). Capture each run's `sessionId` (Grok JSON / agy `-c` /
+codex resume) — it's the handle for "more like this" (image edit on resume).
 
 ## Moat
 
@@ -224,6 +286,11 @@ agents build, you decide, and you never leave Allnighter.
 
 ## Deferred (named, not built)
 
+- **BYOK / API image access** — if too few subscription CLIs generate images
+  headlessly, a later version may let the user bring their own image-API key for the
+  design lane. **Not in this version** (founder call); the gate decides whether the
+  subscription path alone is enough to ship v1. Browser-session automation is **not**
+  an option — it resurrects the dead render-tail.
 - **Lead-designer critique** beyond a single advisory pass (Design2 keeps it minimal).
 - **Taste memory** — `chosen_option.json` is logged from Design1 so a future
   `house_style` persona can learn the user's picks (parked `15_Preference_Ledger`).
