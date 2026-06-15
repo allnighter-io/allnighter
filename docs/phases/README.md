@@ -26,9 +26,11 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
-| [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Finalized for implementation | Admission control for selected workers, team runs, queued turns, fallbacks, and floor visibility without quota accounting. |
+| [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
+| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Night Shift drain, cooldown resume, and Morning Pull as the brand-fit utilization unlock. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Draft v3 for mentor feedback | Make `alln` a first-class, agent-ready CLI/tool contract, replace RB6 public grammar, and align the Mac app around the same command/schema model. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | Draft implementation contract | Exact `alln` milestone-1 schemas, docs/doctor/error/event surfaces, generated artifacts, MCP projection rules, and proof gates. |
+| [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
 | [`ios/README.md`](ios/README.md) | Active iOS spine | Remote floor manager: sign in, pick your Mac, control runs. |
@@ -63,6 +65,13 @@ otherwise.
 - Utilization is admission control: can this model accept work now, and what
   should Allnighter do next?
 - Capacity state is observed, sourced, timestamped, and local by default.
+- Pending separates user intent from worker availability; queueing is internal
+  scheduler machinery, and draining must obey admission, safety, and explicit
+  policy.
+- Pending is public CLI-first: `alln pending` plus `alln serve` must exist before
+  the GUI promises app-closed execution.
+- Forward Mac app work targets a standalone Dock app plus explicit background
+  coordinator. The menu bar is status/quick controls, not the primary shell.
 - iOS is a floor manager. The Mac remains the execution and run-truth owner.
 - Work-order creation stays prompt-first. Build/Design/Copy and Effort route the
   work; they must not become an intake form.
@@ -120,13 +129,15 @@ Open questions:
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
 | Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
+| Standalone Mac app, Dock presence, menu-bar role, background coordinator, resident lifecycle | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |
 | Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** |
 | Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
-| Utilization, admission control, worker availability, queued dispatch | `Utilization_Admission_Control.md` |
+| Utilization, admission control, worker availability, pending dispatch | `Utilization_Admission_Control.md` |
+| Pending, Night Shift, cooldown resume, Morning Pull, drain policy | `Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md` + `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Copy lane, `/copy`, copy type packs, copy board | `copy/README.md` |
 | iOS remote floor manager | `ios/README.md` |
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |

@@ -1,6 +1,6 @@
 # Utilization Admission Control
 
-Status: Finalized for implementation
+Status: Execution-ready for all slices
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-15
 
@@ -56,6 +56,30 @@ thread -> worker chat -> team run -> work order -> dispatch -> return review
 Admission control is what lets that loop keep moving without lying about quota
 or silently rerouting work.
 
+## Execution Sequence Decision
+
+Pending must be public CLI-first because it has to execute when the GUI is
+closed. Utilization therefore ships against the resident command path, not a
+SwiftUI-only queue.
+
+Execute in this order:
+
+```text
+1. CLI/resident prerequisite:
+   incremental run journal + alln serve + alln doctor coordinator checks
+2. Pending CLI contract:
+   alln pending add/list/show/cancel/run + PendingItemJSON
+3. Utilization0:
+   observed admission ledger + parser fixtures + single/team admission checks
+4. Utilization1:
+   serve-owned pending drain + fairness + away-mode safety + snapshots
+5. Utilization2:
+   optional PTY usage probes with timeouts, caching, fixtures, and opt-in
+```
+
+This does not require the polished Mac Pending UI first. The GUI should render
+the same Core/CLI truth after the command contract exists.
+
 ## Non-Goals
 
 - No quota dashboard.
@@ -75,6 +99,11 @@ Deferred elsewhere:
 - Context handoff / workspace bridge belongs to work threads and dispatch.
 - Agent-initiated design boards and deeper delegation fan-out deserve their own
   phase doc; this doc defines the availability policy they will consume.
+- Pending item semantics, Night Shift, cooldown resume packets, and Morning Pull
+  live in `Pending_Work_And_Drain.md`.
+- Process lifetime for app-closed execution lives in
+  `Mac_Standalone_App_And_Background_Coordinator.md` and is implemented through
+  `alln serve`.
 
 ## Product Law
 
@@ -99,6 +128,72 @@ Allowed:
 
 All admission state is local, sourced, timestamped, and honest.
 
+## Current State
+
+Existing truth owners:
+
+- `Pending_Work_And_Drain.md` owns user-visible Pending intent and drain surface.
+- `Mac_Standalone_App_And_Background_Coordinator.md` owns `alln serve` lifecycle
+  and single-writer resident behavior.
+- `CLI_Implementation_Contract.md` owns public command grammar, JSON/NDJSON,
+  generated docs, doctor checks, and proof gates.
+- `threads/01_Work_Threads_MLP.md` owns thread turns and context packets.
+- `threads/04_Observed_Usage.md` owns observed usage metadata; this doc consumes
+  only admission signals from the shared provider observation layer.
+
+Existing useful pieces:
+
+- Worker drivers already observe real run success/failure.
+- Thread turns and runs already have status vocabulary that can render held,
+  running, failed, and completed work.
+- The pending phase now requires `alln pending` and `alln serve` before GUI-only
+  execution promises.
+
+Missing implementation:
+
+- No persisted `ModelAdmission` ledger.
+- No shared provider observation parser seam for admission + usage.
+- No deterministic admission fixtures for provider cooldown/auth/exhaustion text.
+- No serve-owned scheduler bridge from Pending items to `AdmissionRequest`.
+- No PTY probe runner or manifest grammar.
+
+## SSOT
+
+Truth owner:
+
+```text
+AllnighterCore owns admission models, aggregation, and semantic rules.
+AllnighterEngine owns admission checks, scheduler decisions, and worker attempts.
+alln serve owns resident process lifetime and leases while draining Pending.
+Mac/iOS/GUI render snapshots; they do not invent admission truth.
+```
+
+Lie-prone layers:
+
+- GUI pills can imply capacity exists because an item is Pending.
+- Scheduler code can convert unknown reset windows into fake estimates.
+- Driver parsers can overfit one provider string and mark stale capacity high
+  confidence.
+- iOS can confuse Mac reachability with worker availability.
+- PTY probes can become unsafe keepalive loops if not cached and opt-in.
+
+New/changed semantic rules:
+
+- Pending means saved user intent; admission decides whether an attempt can run.
+- Waiting means a pending/queued attempt is blocked by sourced admission, safety,
+  local slot, or manual action.
+- Queue remains internal scheduler language.
+- `alln serve` is the drainer for app-closed Pending work.
+- PTY probes are optional admission signals, never the baseline truth source.
+
+Duplicate truth to delete or avoid:
+
+- Per-driver cooldown ledgers outside `ModelAdmission`.
+- GUI-local availability state.
+- Separate iOS admission stores.
+- Prompt-only retry/backoff rules.
+- Probe parsers that do not emit `ProviderObservation`.
+
 ## User-Visible Claim
 
 ```text
@@ -108,7 +203,7 @@ Allnighter keeps your AI bench moving and tells you when something needs you.
 Example floor copy:
 
 ```text
-3 turns waiting
+3 pending · 1 waiting
 Codex available
 Claude cooling down until 2:14 AM - observed from Claude
 Gemini unknown - will check before dispatch
@@ -321,7 +416,7 @@ The scheduler routes from observed admission state and explicit user intent.
 
 Inputs:
 
-- queued work order or thread turn;
+- Pending item, queued attempt, work order, or thread turn;
 - effort setting;
 - selected workers and their models;
 - fallback policy;
@@ -375,7 +470,8 @@ Attention mode changes defaults.
 - show source text for observed cooldown/auth/degraded state.
 
 `away` means the work is queued, the app is backgrounded, the phone sent a
-command for later, or the user is not expected to answer immediately:
+command for later, `alln serve` is draining Pending, or the user is not expected
+to answer immediately:
 
 - never use `Attempt anyway`;
 - never enter manual-paste flow;
@@ -387,8 +483,9 @@ Mutating dispatch safety:
 
 - Non-mutating turns (worker chat, team run, review, planning, return review)
   may run away if admission passes.
-- Mutating dispatch may run away only when the user explicitly queued that work
-  order for unattended dispatch and the current safety checks pass.
+- Mutating dispatch may run away only when the user explicitly added that work
+  order to Pending/Night Shift for unattended dispatch and the current safety
+  checks pass.
 - Without a managed-isolation phase, a dirty or changed working directory blocks
   unattended mutating dispatch and creates a needs-attention turn.
 
@@ -470,7 +567,8 @@ Mid-run changes:
 - If a required reduce-stage worker cools down after the team run, pause that stage
   and resume when admission passes, or ask the present user to switch.
 - If the same model appears in multiple workers and one observes a rate limit,
-  remaining pending workers for that model inherit the updated admission state.
+  remaining not-yet-started workers for that model inherit the updated admission
+  state.
 
 ## Fallback Bench
 
@@ -506,15 +604,24 @@ Recommendations may use:
 Recommendations may not use guessed prompt complexity, guessed burn, or fake
 remaining quota.
 
-## Queue UX
+## Pending And Waiting UX
 
-Capacity should appear where it changes behavior: on the queue, thread composer,
-worker picker, active floor, and iOS floor manager. It should not become a quota
-dashboard.
+Capacity should appear where it changes behavior: on Pending, the thread
+composer, worker picker, active floor, and iOS floor manager. It should not
+become a quota dashboard.
+
+Public words:
+
+```text
+Pending = saved user intent that has not completed yet.
+Waiting = an attempt is blocked by admission, local slot, safety, or manual action.
+Queue   = internal scheduler machinery; avoid in core GUI copy.
+```
 
 Useful copy:
 
 ```text
+3 pending
 Waiting for Claude - cooling down until 2:14 AM, observed from Claude
 Waiting for local slot - Codex is already running
 Grok paused - sign in required
@@ -571,10 +678,10 @@ Persistent work threads use admission state at the point of action:
   event unless it blocks a turn.
 - `authRequired` blocks and asks the user to sign in. Do not offer "attempt
   anyway" because the missing action is user authentication.
-- `busy` means local capacity is occupied; offer wait/queue or cancel the active
-  local work, not provider bypass.
+- `busy` means local capacity is occupied; offer add to Pending, wait, or cancel
+  active local work, not provider bypass.
 - `manualRequired` means the worker can still participate when the user is
-  present, but it is not useful for automatic queued dispatch.
+  present, but it is not useful for automatic Pending drain.
 - `unknown` should normally attempt the requested present work once rather than
   run a separate probe first; the real outcome becomes the admission signal.
 - `coolingDown`, `exhausted`, `degraded`, and `unknown` may expose explicit
@@ -603,10 +710,11 @@ iOS must be able to answer:
 
 ```text
 What is running?
-What is waiting?
+What is pending?
+What is waiting, and why?
 Which worker needs me?
 Can I stop it?
-Can I approve a queued action?
+Can I approve a pending action?
 ```
 
 Push payloads stay content-light. Sensitive content is fetched through the
@@ -630,11 +738,26 @@ Rules:
 
 ## Implementation Slices
 
+Global prerequisites:
+
+- `alln serve` exists and can own resident leases for app-closed Pending drain.
+- Run journal writes are incremental before resident/away work can be claimed
+  durable.
+- `alln doctor --json` can report coordinator, source auth, and parser-fixture
+  health.
+- `alln pending` can create/list/show/cancel/run `PendingItemJSON`.
+
 ### Utilization0 - Observed Admission Ledger
 
 Goal:
 Learn worker availability from real runs and source-labeled driver output. No
 PTY required.
+
+Depends on:
+
+- Existing worker driver execution path.
+- `CapacityEvent` fixtures checked into the Core test bundle.
+- Shared clock abstraction for fake reset-time tests.
 
 Scope:
 
@@ -646,13 +769,21 @@ Scope:
 - Window aggregation and confidence precedence.
 - Thread/composer badges and present-mode decisions.
 - Single-worker and team-level admission checks.
+- `alln doctor --json` admission summary: source, state, observedAt,
+  confidence, resetAt when observed, and parser health.
+
+Out of scope:
+
+- PTY probes.
+- Resident drain fairness.
+- GUI-only Pending controls.
 
 Works Test:
 
 ```text
 Fake worker returns rate-limit text with reset time.
 Allnighter records coolingDown/resetAt with source.
-Queued work does not dispatch to that worker.
+Pending work does not dispatch to that worker.
 Fake clock reaches resetAt.
 Worker is tried once and dispatches if available.
 ```
@@ -667,11 +798,26 @@ The plan writer receives explicit unavailable-worker records for the skipped wor
 The final plan says the team was incomplete.
 ```
 
-### Utilization1 - Queue and Floor Policy
+Proof commands:
+
+```text
+swift test --filter Admission
+swift test --filter ProviderObservation
+alln doctor --json
+```
+
+### Utilization1 - Pending Drain and Floor Policy
 
 Goal:
-Make queued turns move when selected or fallback workers become available, across
-normal workday, background, mobile, and away modes.
+Make Pending items move when selected or fallback workers become available,
+across normal workday, `alln serve`, mobile, and away modes.
+
+Depends on:
+
+- Utilization0.
+- `alln pending` public command contract.
+- `alln serve` resident coordinator with single-writer journal behavior.
+- Pending item leases that recover after coordinator restart.
 
 Scope:
 
@@ -684,11 +830,21 @@ Scope:
 - Present vs away behavior.
 - Activity summary of actual outcomes.
 - iOS-readable admission state snapshots/events.
+- Pending list rows that can show `pending`, `waiting`, `running`, `done`,
+  `failed`, `cancelled`, and `needs attention`.
+- `alln pending run <id>` behavior for present/manual attempts.
+- `alln serve` drain behavior for away/unattended attempts.
+
+Out of scope:
+
+- PTY probes.
+- Follow-up suggestion creation; that belongs to Pending.
+- Mutating dispatch beyond the explicit safety gate.
 
 Works Test:
 
 ```text
-Three queued turns, two workers cooling down, one available.
+Three Pending items, two workers cooling down, one available.
 Scheduler dispatches only admissible work.
 At observed reset time, one held worker is retried once.
 Summary reports actual completed/failed/held work, not estimates.
@@ -703,10 +859,37 @@ Allnighter holds the dispatch, creates a needs-attention turn, and does not run
 the worker.
 ```
 
+App-closed Works Test:
+
+```text
+Start alln serve.
+Create a Pending item with alln pending add --worker claude --when ready.
+Close the GUI.
+Fake clock reaches observed resetAt.
+alln serve leases and runs the item.
+Reopen the GUI.
+The same pending/run/thread journal renders without field translation.
+```
+
+Proof commands:
+
+```text
+swift test --filter PendingDrain
+swift test --filter AdmissionScheduler
+alln pending list --json
+alln doctor --json
+```
+
 ### Utilization2 - Optional PTY Usage Probes
 
 Goal:
 Use terminal-only slash commands as optional admission signals.
+
+Depends on:
+
+- Utilization0 parser seam and admission ledger.
+- Utilization1 cache/backoff policy, so probes do not become churn.
+- Per-source manifest entries that explicitly opt in to PTY probing.
 
 Scope:
 
@@ -715,6 +898,16 @@ Scope:
 - Fixtures for raw terminal buffers.
 - Timeout/kill/caching.
 - Per-worker setting to enable/disable PTY probing.
+- Probe audit event linked to `CapacityEvent`.
+- `alln doctor --json --full` probe status with last observed source, cache age,
+  timeout/error, and whether PTY probing is disabled.
+
+Out of scope:
+
+- Browser scraping.
+- Provider account-page automation.
+- Any probe loop that runs more often than cache/backoff policy allows.
+- Making PTY probes required for Pending drain.
 
 Works Test:
 
@@ -724,21 +917,43 @@ Malformed buffer parses to unknown.
 Probe timeout leaves no child process.
 ```
 
+Safety Works Test:
+
+```text
+Disable PTY probing for Claude.
+Run alln doctor --json --full.
+No PTY process starts for Claude.
+Enable a fake PTY probe with a 1s timeout.
+The child process tree is killed after timeout and admission remains unknown.
+```
+
+Proof commands:
+
+```text
+swift test --filter PTYProbe
+swift test --filter AdmissionProbeCache
+alln doctor --json --full
+```
+
 ## Done When
 
-- Allnighter can hold queued work because a selected worker is cooling down,
+- Allnighter can hold Pending work because a selected worker is cooling down,
   exhausted, auth-required, manual-required, degraded, busy, or unknown under a
   policy that requires known availability.
 - It can resume when an observed reset or later signal says the worker may run.
-- The user can see why work is waiting in thread, queue, Mac floor, and iOS
+- `alln serve` can drain admissible Pending while the app window is closed.
+- The user can see why work is pending/waiting in thread, Pending, Mac floor, and iOS
   floor views where implemented.
 - Present users can explicitly switch, fallback, run partial teams, or retry
   stale states where policy permits.
 - Away-mode scheduling never silently switches workers or uses manual override.
 - Team runs have deterministic full/partial/fallback behavior.
 - A skipped or unavailable worker is visible to the plan writer and the user.
-- Mutating away dispatch is gated by explicit queue intent and safety checks.
+- Mutating away dispatch is gated by explicit Pending/Night Shift intent and
+  safety checks.
 - The local admission ledger can be reset.
+- PTY probes, when enabled, are opt-in, cached, timeout-bound, fixture-tested,
+  and never required for the baseline Pending drain.
 - No UI, scheduler, CLI, or MCP path estimates future cost, runtime, quota burn,
   token burn, or task complexity.
 

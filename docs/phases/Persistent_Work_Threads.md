@@ -167,7 +167,8 @@ semantics and sequencing.
 5. **Quick capture default:** new thread by default; append-to-active can be a
    setting or explicit picker.
 6. **iOS compose:** iOS should send async chat turns in the first serious remote
-   cut. Dispatch still requires explicit confirmation.
+   cut. When Dispatch/Execute appears on iOS, it is a named send mode from an
+   editable work order, not a second-confirmation flow.
 7. **Search:** not MLP; add title + first-message + run-prompt search once Home
    flips to thread list.
 

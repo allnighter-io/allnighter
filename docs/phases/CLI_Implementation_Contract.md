@@ -6,8 +6,8 @@ Updated: 2026-06-15
 
 ## Authority
 
-This doc is subordinate to `CLI_Product_Spine.md`,
-`Work_Order_Team_Model.md`, and `CLI_Implementation_Contract.md`.
+This doc is subordinate to `CLI_Product_Spine.md` (product spine) and
+`Work_Order_Team_Model.md` (vocabulary contract).
 
 It owns the implementation detail those docs should not carry: schemas, command
 surface, generated artifacts, doctor checks, error codes, streaming events, and
@@ -27,8 +27,8 @@ invent behavior. No GUI field translation hides old vocabulary.
 
 ## Milestone Boundary
 
-Milestone 1 proves the CLI contract. It does not need resident mode, iOS,
-dispatch, skill-library CRUD, or MCP advertising.
+Milestone 1 proves the team-run CLI contract. It does not need resident mode,
+iOS, dispatch, skill-library CRUD, or MCP advertising.
 
 In scope:
 
@@ -47,6 +47,7 @@ Out of scope for milestone 1:
 
 - public MCP launch
 - `alln serve`
+- `alln pending`
 - iOS pairing
 - dispatch that edits/kills sessions
 - `alln work`
@@ -148,12 +149,26 @@ alln team result <run-id>
 alln team edit
 alln models add
 alln work
+alln pending add [prompt]
+alln pending list
+alln pending show <pending-id>
+alln pending cancel <pending-id>
+alln pending run <pending-id>
 alln dispatch
 alln pair
 alln mcp serve --stdio
 alln mcp install
 alln serve
 ```
+
+`alln pending` is deferred from team-run milestone 1, but it is not optional for
+the Pending/Utilization feature. It is the first public surface for Pending and
+must land before GUI Pending promises app-closed execution.
+
+Deferred `alln dispatch` inherits the send-mode rule from
+`CLI_Product_Spine.md`: running the command is the explicit action. Do not add an
+interactive second confirmation for normal dispatch/execute; expose reveal/dry-run
+flags for inspection instead.
 
 Parsing rules:
 
@@ -208,7 +223,7 @@ Required `teamRun` fields:
 | `completedAt` | string/null | ISO 8601 timestamp. |
 | `threadId` | string/null | Owning work thread, if linked. |
 | `teamPresetId` | string/null | Default/custom team preset id. |
-| `planWriterWorkerId` | string/null | Worker responsible for final plan. |
+| `planWriterWorkerId` | string/null | Worker responsible for final plan and default linked-thread reply target. |
 | `reproduceCommand` | string/null | Redacted exact `alln team ...` command when safe. |
 
 Model fields:
@@ -250,8 +265,13 @@ Plan writer rule:
 
 - The plan writer is a worker in the team snapshot.
 - `teamRun.planWriterWorkerId` and `plan.writerWorkerId` point to that worker.
+- When `plan.status == "done"`, both writer fields must be non-null and equal.
+- When this run is attached to a work thread, that worker is the default
+  follow-up reply target for the team result.
+- Answer workers are never inferred as user-facing reply targets. They remain
+  `workerAnswers` evidence unless the user explicitly chooses one for a new turn.
 - Human output may say `Plan written by Opus 4.8.`
-- Do not expose `plan writer`, `plan writer`, or `plan`.
+- Do not expose `synthesizer`, `judge`, or `masterPlan`.
 
 Usage rule:
 
@@ -263,11 +283,13 @@ Usage rule:
 Forbidden new public fields:
 
 ```text
-TeamRun
-workers
-workerAnswers
-plan
-team_ask
+CouncilRun
+panelSeats
+memberResponses
+masterPlan
+council_ask
+panel
+seat
 ```
 
 ## NDJSON Stream
@@ -446,6 +468,11 @@ team_ask
 team_start
 team_status
 team_result
+pending_add
+pending_list
+pending_show
+pending_cancel
+pending_run
 team_recall
 doctor
 ```
@@ -525,3 +552,126 @@ alln dev export-contracts --check
 8. Rename/remove legacy public grammar and fields.
 9. Wire GUI presenter tests to the same fixture.
 10. Project MCP from the registry only after the CLI contract is boring.
+
+Journal boundary: M1's foreground synchronous runs may keep the current
+one-shot-at-end journal write. Before any async `alln team start/status/result`
+or the Mac background coordinator, the run journal MUST be hardened to incremental
+writes (per worker answer / status change), with an orphaned run resolving to
+`interrupted` on read — never silently absent, never a false `running`. See the
+journal-durability note at the top of `CLI_Product_Spine.md` and the Lifecycle
+Rules in `Mac_Standalone_App_And_Background_Coordinator.md`.
+
+## Pending CLI Contract
+
+Authority:
+
+- `Pending_Work_And_Drain.md` owns Pending semantics.
+- `Utilization_Admission_Control.md` owns admission states and retry policy.
+- This doc owns CLI grammar, JSON projection, events, and proof gates.
+
+Grammar:
+
+```bash
+alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|tonight|manual] [--cwd <path>] [--may-write] [--json]
+alln pending list [--json]
+alln pending show <pending-id> [--json]
+alln pending cancel <pending-id> [--json]
+alln pending run <pending-id> [--json | --stream]
+```
+
+Rules:
+
+- `alln pending add` creates a `PendingItem`; it does not imply the worker is
+  available.
+- `--when ready` stores `drainMode: drainWhenReady`.
+- `--when tonight` stores `drainMode: drainOvernight`.
+- `--when manual` stores `drainMode: manualStart`.
+- `--may-write` is required for any pending dispatch that can mutate a working
+  directory; safety is rechecked at run time.
+- `alln pending run` attempts now when policy permits; if admission blocks, it
+  returns a held Pending item with sourced reasons instead of guessing.
+- JSON mode prints exactly one object to stdout. Stream mode prints only NDJSON
+  attempt events to stdout.
+- The GUI and iOS must be able to render Pending from `alln pending list --json`
+  without field translation.
+
+`PendingItemJSON` top-level fields:
+
+```text
+schemaVersion
+contractVersion
+pendingItem
+target
+policy
+safety
+admission
+attempts
+nextActions
+audit
+```
+
+Required `pendingItem` fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | string | Stable pending id. |
+| `status` | enum | `draft`, `ready`, `held`, `leased`, `running`, `done`, `failed`, `cancelled`, or `needsAttention`. |
+| `title` | string | User-visible row title. |
+| `kind` | enum | `workerChat`, `teamRun`, `workOrder`, `dispatch`, `returnReview`, or `followUp`. |
+| `origin` | enum | `cli`, `gui`, `ios`, `mcp`, `localApi`, `system`, or `preset`. |
+| `threadId` | string/null | Owning thread, if linked. |
+| `promptExcerpt` | string | Redacted/excerpted prompt for lists. |
+| `createdAt` | string | ISO 8601 timestamp. |
+| `updatedAt` | string | ISO 8601 timestamp. |
+| `nextWakeAt` | string/null | Observed reset or scheduled recheck time, never guessed. |
+| `heldReason` | string/null | Current sourced reason when held. |
+
+Admission projection:
+
+```text
+state: available | coolingDown | exhausted | authRequired | degraded | unknown | busy | manualRequired
+source
+observedAt
+resetAt?
+confidence
+reason
+```
+
+NDJSON event names:
+
+```text
+pendingAdded
+pendingHeld
+pendingLeased
+pendingStarted
+pendingAttemptEvent
+pendingCompleted
+pendingFailed
+pendingCancelled
+error
+```
+
+Pending completion gate:
+
+- `PendingItemJSON` fixture checked in.
+- Pending schema generated.
+- `alln pending list --json` contains no quota/cost/runtime/token estimates.
+- `alln pending run` returns held state when admission blocks.
+- `alln serve` drains eligible Pending while the GUI is closed.
+- Fake-clock test proves observed `resetAt` wakeup.
+- Dirty-working-directory test blocks unattended mutating dispatch.
+- `alln doctor --json` reports coordinator and admission-parser health.
+- `alln dev export-contracts --check` passes.
+- `swift test` passes or missing proof is explicitly waived.
+
+Pending Works Test:
+
+```bash
+alln serve
+alln pending add --worker claude --when ready --json "Review this patch when Claude is available."
+alln pending list --json
+alln pending show <pending-id> --json
+alln pending run <pending-id> --json
+alln doctor --json
+alln dev export-contracts --check
+```

@@ -60,7 +60,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
-| Mac app shell, run loop, orchestration | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
+| Forward Mac app shell, Dock app, background coordinator, resident mode | `docs/phases/Mac_Standalone_App_And_Background_Coordinator.md` |
+| Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
@@ -109,6 +110,8 @@ One-time per clone: `bash scripts/install_commit_queue_watcher.sh`. Full rules:
   council / master-plan words, worktree, subprocess).
 - CLI, GUI, MCP, and iOS must share the same team-run contract; do not invent
   parallel JSON around `TeamRunJSON`.
+- Forward Mac app work targets a standalone Dock app plus explicit background
+  coordinator. The menu bar is status/quick controls, not the product shell.
 - Mac app is unsandboxed by design; still minimize privilege surface and document
   every permission request.
 - iOS companion connects only to the user's own Mac over Tailscale/local network

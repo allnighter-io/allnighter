@@ -4,6 +4,22 @@ Status: Draft v3 for mentor feedback; product spine
 Owner: Founder + Shared Core + CLI + Mac
 Updated: 2026-06-15
 
+> **⚠ Known foundation gap — the run journal is one-shot-at-end and MUST be made
+> incremental.** Today `RunStore.save`
+> (`Packages/AllnighterCore/Sources/AllnighterEngine/RunStore.swift`) writes
+> `Runs/run_<id>/run.json` exactly once — from `TeamService.run` at completion
+> (`TeamService.swift:149`) and from `AppModel.persist()` only on a settled status
+> (`AppModel.swift`). RunEvents stream to the UI but are never persisted. So an
+> **interrupted run leaves no record on disk**: the result and partial worker
+> answers vanish if the process dies mid-run. This breaks the core promise that a
+> completed or overnight run survives the app/CLI closing.
+>
+> **Required fix:** write the journal *incrementally* (per worker answer / status
+> change), and resolve an orphaned run to `interrupted` on next read — never
+> silently absent, never a false `running`. Treat as a milestone-1 hardening item.
+> The lifecycle rules in `Mac_Standalone_App_And_Background_Coordinator.md` depend
+> on this being true.
+
 ## Founder Intent
 
 Allnighter should not be trapped inside a menu bar app. The product coordinates
@@ -111,8 +127,8 @@ Run/customize: alln team
 Work-order creation: alln work
 ```
 
-Do not ship public `alln team`, `alln team`, or `worker` language. The RB6
-upload that says `team_*` is superseded by this doc; the durable operation is
+Do not ship public `alln council`, `alln panel`, or `seat` language. The RB6
+upload that says `council_*` is superseded by this doc; the durable operation is
 `team_*`.
 
 ## RB6 Cutover
@@ -126,9 +142,9 @@ The existing RB6 surface must be replaced deliberately:
 | `detect` / narrow doctor output | `alln doctor` | Merge into Doctor; hidden debug commands are allowed only for local development. |
 | `presets` | `alln team show` now; team preset commands later | Do not ship a separate old preset grammar. |
 | `recall` | `alln history` / `alln show` | History and show own retrieval. |
-| `team_ask` / RB6 tool names | `team_ask` / `team_*` | Rename before advertising MCP again. |
-| `plan` JSON / copy | `plan` | Rename in persisted/public JSON at the same time as CLI output. |
-| `Worker` / `worker` | `worker` | Runtime assignment: model + skill. |
+| `council_ask` / RB6 tool names | `team_ask` / `team_*` | Rename before advertising MCP again. |
+| `masterPlan` JSON / copy | `plan` | Rename in persisted/public JSON at the same time as CLI output. |
+| `PanelSeat` / `seat` | `worker` | Runtime assignment: model + skill. |
 
 If local scripts need a temporary development bridge, keep it private and remove
 it before mentor-facing demos. Public docs, help text, MCP tool descriptors, and
@@ -167,11 +183,17 @@ alln docs --schema                 # generated JSON/NDJSON schemas
 alln docs --examples               # generated example recipes
 alln work [prompt]                 # create a work order
 alln work from latest              # promote a plan/result into a work order
+alln pending add [prompt]          # save work to run when admitted
+alln pending list                  # list pending work and held reasons
+alln pending show <pending-id>     # inspect one pending item
+alln pending cancel <pending-id>   # cancel pending work before it runs
+alln pending run <pending-id>      # attempt one pending item now
 alln history                       # list recent runs
 alln show latest                   # show one run
 alln export latest --format md     # export result bundle
 alln dispatch latest --to codex    # send a work order/spec to an execution target
 alln pair approve <device-id>      # approve iOS/Mac pairing
+alln serve                         # resident coordinator for pending/remote/long work
 ```
 
 Agent integration commands:
@@ -179,12 +201,16 @@ Agent integration commands:
 ```bash
 alln mcp serve --stdio             # run the MCP stdio server
 alln mcp install                   # write MCP config with user consent
-alln serve                         # resident Mac agent; deferred until needed
 ```
 
 `alln mcp` may remain a transport command family, but tool names must use the
-new surface (`team_ask`, not `team_ask`). `alln serve` is named here so iOS
-and overnight docs have a target, but it is not part of CLI milestone 1.
+new surface (`team_ask`, not `council_ask`).
+
+`alln pending` is the public command family for saved work that should run later
+or when selected workers become admissible. The GUI word is **Pending**; "queue"
+is internal scheduler language. Because Pending must execute while the app window
+is closed, `alln serve` is pulled forward from "someday resident mode" into the
+Pending milestone.
 
 Do not use `alln prompt` as the primary work-order command. A prompt is the input
 object. The product object is a work order, so the command is `alln work`.
@@ -196,6 +222,12 @@ probe where possible, and explain the next fix.
 `alln docs` is not generic help text. It is the generated, agent-facing command
 manual: commands, flags, schemas, examples, error codes, and recovery ladder.
 Human `--help` may stay terse; agents need the full contract.
+
+`alln dispatch` is explicit because it is the command the user or agent ran. Do
+not require a second "are you sure?" prompt for normal dispatch/execute. Offer
+`--reveal-only` / dry-run style flags for inspection, and reserve approvals for
+separate risks such as pairing, new local API clients, permission changes,
+session kills, or destructive cleanup.
 
 `alln skills` is real only when the skill library exists. Until then, skill
 names may appear inside `alln team show` and run output, but do not imply a
@@ -426,8 +458,8 @@ cancelled, skipped. Errors need stable `code`, human `message`, `agentAction`,
 `fixCommand`, `requiresManual`, `retryable`, and optional `sourceId` / `modelId`
 / `workerId`.
 
-Do not ship new CLI JSON with legacy fields such as `TeamRun`,
-`workers`, `workerAnswers`, `plan`, or `team_ask`.
+Do not ship new CLI JSON with legacy fields such as `CouncilRun`,
+`panelSeats`, `memberResponses`, `masterPlan`, or `council_ask`.
 
 The first schema artifact should be a checked-in `TeamRunJSON` fixture. Core
 types, CLI output, GUI presenter tests, MCP descriptors, and iOS snapshot
@@ -446,7 +478,20 @@ This gives the user-facing line:
 Plan written by Opus 4.8.
 ```
 
-without exposing `plan writer` or `plan writer`.
+without exposing `synthesizer` or `judge`.
+
+Thread reply rule:
+
+- After a team run lands in a work thread, the plan writer is the only worker
+  that messages the user about the fan-out result.
+- Thread follow-up replies default to `teamRun.planWriterWorkerId` /
+  `plan.writerWorkerId`; answer workers are expandable evidence, not reply
+  recipients.
+- Switching the reply worker away from that writer is allowed, but the Mac app
+  must warn at the switch moment that the new worker may not have the full
+  fan-out context.
+- The CLI does not show that modal. Its job is to expose the writer identity
+  deterministically so GUI, MCP, local API, and iOS projections do not infer it.
 
 Do not leave this context-dependent for milestone 1. Exotic post-run-only reduce
 stages can be introduced later if they still serialize through a clear worker or
@@ -490,6 +535,7 @@ handlers:
 | Async start | `alln team start --json "..."` | `team_start` |
 | Status | `alln team status <run-id> --json` | `team_status` |
 | Result | `alln team result <run-id> --json` | `team_result` |
+| Pending work | `alln pending add/list/show/cancel/run --json` | `pending_*` |
 | History/recall | `alln history --json` / `alln show <run-id>` | `team_recall` |
 | Doctor | `alln doctor --json` | `doctor` |
 
@@ -504,15 +550,21 @@ Safety rules:
 - Recursive calls are bounded. If an Allnighter worker tries to spawn another
   unbounded team run, return a structured `NESTED_TEAM_BLOCKED` or require an
   explicit depth budget.
-- External agents can request team analysis and work orders; dispatch that kills
-  sessions, edits files, or spends meaningful quota remains governed by the same
-  local permission and confirmation model as the CLI/GUI.
+- External agents can request team analysis, work orders, and dispatch through
+  the same explicit-send contract as the CLI/GUI. Normal Dispatch/Execute must
+  not grow a second confirmation step; separate approvals apply only to separate
+  risks such as new client trust, permission changes, session kills, or
+  destructive cleanup.
 - The product never hides failed workers. Tool results expose partials, failures,
   and warnings honestly.
 
 ## App Shell Implication
 
 The GUI should render and send the same typed instructions the CLI exposes.
+The Mac process/lifecycle contract lives in
+`Mac_Standalone_App_And_Background_Coordinator.md`: standalone Dock app plus
+explicit background coordinator, with the menu bar limited to status and quick
+controls.
 
 Preferred implementation shape:
 
@@ -529,6 +581,11 @@ AllnighterCore command/contract registry
 The Mac app should not invent GUI-only semantics. It should issue the same
 operations a CLI user could issue: ask team, customize team, stop run, show run,
 export, dispatch, pair, revoke.
+
+When rendering a team run inside a work thread, the GUI must use
+`planWriterWorkerId` / `plan.writerWorkerId` as the default reply worker. The
+worker-switch warning is GUI presentation, but the routing truth comes from the
+CLI/Core contract.
 
 Implementation detail to decide with mentors:
 
@@ -547,7 +604,10 @@ drawer. That is a trust and education feature, not the primary UI.
 
 ## Foreground vs Resident Mode
 
-Not every use requires a background process.
+Lifecycle behavior — when the coordinator starts, what survives a window close,
+quit semantics, offline reporting — is owned by
+`Mac_Standalone_App_And_Background_Coordinator.md`. This section covers only the
+CLI grammar.
 
 Foreground:
 
@@ -564,18 +624,10 @@ alln serve
 alln mcp serve --stdio
 ```
 
-or an app-installed login/background helper handles:
-
-- iOS remote commands;
-- long runs after GUI windows close;
-- overnight utilization;
-- notifications;
-- resumable event streams;
-- local MCP/HTTP tool calls.
-
-The product should not pretend the Mac can be controlled while Allnighter is not
-running. If resident mode is off, iOS says the Mac is offline. External agents
-can still use foreground CLI commands without resident mode.
+These expose the coordinator's transports (iOS, overnight runs, notifications,
+resumable event streams, local MCP/HTTP tool calls). Whether and when the
+coordinator is actually running is a lifecycle decision owned by the Mac
+standalone doc, not CLI grammar.
 
 ## Naming Decision Proposal
 
@@ -588,11 +640,11 @@ Primary command: alln team
 Bench command: alln models
 Work-order command: alln work
 Background service: defer public name; internal helper is fine
-MCP/local API: `team_*` operation names, not `team_*`
+MCP/local API: `team_*` operation names, not `council_*`
 URL scheme: allnighter:// for app links, with universal links where needed
 ```
 
-Do not ship public `alln team` or `alln team` aliases.
+Do not ship public `alln council` or `alln panel` aliases.
 Do not ship a long-lived second grammar under `allnighter`. Internal scripts
 should move to `alln` during the rename.
 
@@ -603,14 +655,15 @@ should move to `alln` during the rename.
 | Primary happy path | `alln team "prompt"`; help text can say "ask your team." |
 | `alln ask` | Defer. It is generic and splits the product primitive. |
 | GUI integration | Shared `AllnighterCore` command handlers first. Do not shell out just to prove parity. |
-| Resident mode | Defer until iOS, overnight, resumable runs, or MCP/local API require it. |
+| Resident mode | Pulled forward by Pending. `alln serve` is required before public Pending can promise app-closed execution. |
 | Lane shortcuts | Defer `alln build/design/copy`; use `alln team --lane ...` first. |
 | Binary name | `alln`. |
 | Work-order command | `alln work`; help text spells out "work order." |
+| Pending command | `alln pending`; public word is Pending, not queue. |
 | Detection command | `alln doctor`; no separate public `detect` command unless implementation needs a hidden/debug alias. |
 | AI-facing docs | `alln docs` generated from the command/contract registry. |
-| Agent tool operations | Use `team_*`, not `team_*`; CLI command handlers remain semantic owner. |
-| Plan writer | A designated worker with the Plan Writer skill; JSON uses `planWriterWorkerId`. |
+| Agent tool operations | Use `team_*`, not `council_*`; CLI command handlers remain semantic owner. |
+| Plan writer | A designated worker with the Plan Writer skill; JSON uses `planWriterWorkerId`; linked thread replies default to that worker. |
 | Skill library | Defer standalone `alln skills`; milestone 1 uses preset-embedded skills surfaced by `team show`. |
 | MCP cutover | Defer public MCP launch until CLI JSON/NDJSON, doctor, docs, and registry drift checks are boring. |
 | Implementation detail | `CLI_Implementation_Contract.md` owns exact schemas, events, doctor checks, errors, generated artifact paths, and proof gates. |
@@ -668,3 +721,43 @@ The same run must appear in the Mac app without translation or renamed fields.
 
 Explicitly out of milestone 1: full skill-library CRUD, lane shortcut commands,
 `alln work`, dispatch, iOS pairing, and resident `serve`.
+
+## Pending CLI Milestone
+
+Pending is the first feature that requires resident execution. Do not build a
+GUI-only Pending surface first.
+
+Prerequisites:
+
+1. Incremental run journal hardening: long/resident work must survive process
+   death as `interrupted`, never disappear or falsely remain `running`.
+2. `alln serve`: resident coordinator from
+   `Mac_Standalone_App_And_Background_Coordinator.md`.
+3. `alln doctor --json`: reports coordinator state, journal health, source auth,
+   and admission parser fixture status.
+
+Commands:
+
+```bash
+alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|tonight|manual] [--cwd <path>] [--may-write] [--json]
+alln pending list [--json]
+alln pending show <pending-id> [--json]
+alln pending cancel <pending-id> [--json]
+alln pending run <pending-id> [--json | --stream]
+alln serve
+```
+
+Works Test:
+
+```bash
+alln serve
+alln pending add --worker claude --when ready --json "Review this patch when Claude is available."
+alln pending list --json
+alln pending show <pending-id> --json
+alln pending run <pending-id> --json
+alln doctor --json
+```
+
+With the GUI closed, `alln serve` drains admissible Pending, holds blocked
+work with sourced admission reasons, and writes the same run/thread journal the
+GUI later renders.

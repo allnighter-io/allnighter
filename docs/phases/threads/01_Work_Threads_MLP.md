@@ -69,8 +69,10 @@ Derived, never stored:
 
 ```text
 WorkThread.isRunning       = any turn.status in { queued, running }
+WorkThread.hasPending      = linked PendingItem exists with status in { ready, held, leased }
 WorkThread.needsAttention  = failed/timedOut/manual-paste/sign-in turn exists
-WorkThread.lastWorkerId    = most recent worker-authored turn
+WorkThread.lastWorkerId    = most recent user-facing worker turn; for a team
+                              result this is the plan writer
 WorkThread.preview         = most recent message/reply excerpt
 ```
 
@@ -79,7 +81,7 @@ ThreadTurn
 - id
 - threadId
 - kind                   # storage enum
-- status                 # draft | queued | running | done | failed | timedOut | cancelled
+- status                 # draft | pending | queued | running | done | failed | timedOut | cancelled
 - createdAt
 - completedAt?
 - author                 # user | worker(workerId) | system
@@ -123,6 +125,9 @@ Ownership rule:
 - `ThreadTurn.runId` references `TeamRun` after the rename; current code still
   references legacy `TeamRun`.
 - The run object is not modified for chat.
+- A thread-level `teamRun` result is user-facing from the worker that wrote the
+  plan/result (`TeamRunJSON.teamRun.planWriterWorkerId` / `plan.writerWorkerId`).
+  Fan-out workers are evidence and expandable detail; they are not reply targets.
 - A store-level index may map run -> thread, but it is derived.
 
 ## Turn Families
@@ -159,7 +164,7 @@ Row content:
 - preview from the most recent meaningful turn;
 - last worker glyph/chip when present;
 - relative time;
-- derived state: running, waiting, failed, manual-paste, auth-required;
+- derived state: pending, running, waiting, failed, manual-paste, auth-required;
 - optional `workingDir` path chip when set.
 
 Minimum list affordances:
@@ -176,20 +181,39 @@ Minimum list affordances:
 Default worker resolution:
 
 ```text
-1. thread.defaultWorkerId, if set
-2. else thread.lastWorkerId
-3. else global daily-driver preference
-4. else first ready model with the default Chat skill
+1. result writer, when replying to or continuing from a team/review/result turn
+2. latest team result writer, when the composer is sitting after that result
+3. thread.defaultWorkerId, if set
+4. else thread.lastWorkerId
+5. else global daily-driver preference
+6. else first ready model with the default Chat skill
 ```
 
 The resolved worker must be visible as a composer chip:
 
 ```text
+Replying as Opus / Plan Writer - wrote this team answer
 Replying as Opus / Chat - last used in this thread
 ```
 
 Tapping the chip changes the worker for this turn; the user may optionally save
 that choice as the thread default.
+
+If the current reply target came from a team result writer, switching to any
+other worker shows a warning modal before the switch is applied. No
+warning appears when the user simply replies to the writer.
+
+Modal shape:
+
+```text
+Switch reply worker?
+
+Opus wrote this team answer and saw every worker response.
+Grok may only see the visible thread context Allnighter includes for this reply.
+
+Reply with Opus
+Switch to Grok
+```
 
 Vocabulary rule: a chat turn is one model wearing one skill. It is not a full
 team run, but product copy should still call the active turn target a worker, not
@@ -203,20 +227,27 @@ existing thread + Enter    -> worker_chat to resolved worker
 Shift+Enter                -> newline
 Ask team                   -> teamRun
 Turn into work order       -> work_order, editable, nothing runs
-Dispatch                   -> dispatch from work_order, confirmed
+Dispatch / Execute         -> dispatch from editable work_order
 Continue from result       -> worker_chat seeded from selected turn
 ```
 
 Guardrails:
 
 - Enter never builds.
-- Dispatch is named, confirmed, and tied to an editable work-order preview.
+- Dispatch/Execute is a named send mode tied to an editable work-order preview;
+  choosing it is the explicit user action. Do not add a second confirmation step.
+- The boundary label and context reveal are visible before dispatch, but they are
+  not approval gates.
 - "Continue from this" seeds the next input; it does not auto-send.
 - Casual chat does not auto-fan out or auto-reroute.
+- After a fan-out, the writer is the default reply worker because that is the
+  only worker that spoke to the user with full team context.
+- Warn only when the user switches away from that writer. Do not add persistent
+  limited-context badges to the happy path.
 - If the resolved worker is `authRequired`, `coolingDown`, `degraded`, `busy`, or
   `unknown`, the composer shows the observed reason and offers explicit choices:
-  wait/queue when allowed, switch worker, manual-paste, or attempt anyway where
-  admission policy permits. It never silently sends to a different worker.
+  add to Pending when allowed, switch worker, manual-paste, or attempt anyway
+  where admission policy permits. It never silently sends to a different worker.
 - One active heavy turn (`teamRun`, `dispatch`, `return_review`) is allowed
   per thread in v1. While one is active, new heavy actions are disabled with an
   explanation. Simple chat may continue only if the coordinator can safely attach
@@ -253,9 +284,14 @@ Rules:
 - Preserve author and worker provenance.
 - Apply a byte/character cap.
 - Show visible truncation metadata: "included last N turns; older omitted."
-- Provide a first-class context reveal before manual-paste, team run, and dispatch:
+- Provide a first-class context reveal for manual-paste, team run, and dispatch:
   "What the worker will see", included turn/file/artifact list, size, cap, and
-  one-click copy. This is product trust, not a debug drawer.
+  one-click copy. This is product trust, not a debug drawer or a required
+  confirmation step.
+- When the user switches a reply away from a team result writer, the warning
+  path must be backed by the same context reveal. Do not imply the alternate
+  worker saw raw fan-out answers unless those answers are actually included in
+  its context packet.
 - Do not include artifacts from outside the thread unless explicitly attached.
 - Attached files are resolved against `workingDir`, capped, and local.
 - Highlight included turns/files in the timeline only as a context-boundary aid.
@@ -290,6 +326,8 @@ AllnighterEngine:
 - Add `ThreadContextBuilder`.
 - Add `WorkerChatCoordinator` (legacy name; classify/rename during the
   Model/Worker cleanup).
+- When attaching a team result to a thread, set the result turn's user-facing
+  `workerId` from `TeamRunJSON.teamRun.planWriterWorkerId` / `plan.writerWorkerId`.
 - Reuse `WorkerRunner.invoke`, passing `workingDirectoryOverride`.
 - Add manual-paste fallback that reveals exact context and stores pasted reply.
 - Add thin turn-update mechanism for chat turns.
@@ -303,6 +341,8 @@ Mac app:
 - Add thread header with editable title, `workingDir` pill, and default worker.
 - Add "Ask team", "Turn into work order", "Dispatch", and "Continue from this"
   as semantic actions, even if the first UI is plain.
+- Default replies after a team result to the result writer. Show the warning
+  modal only if the user switches the composer chip away from that writer.
 - Add manual-paste turn UI: reveal/copy exact context, open/copy affordance, and
   inline paste box that completes the worker reply turn.
 - Reuse existing team-run/worker-answer/plan/dispatch/return-review cards as
@@ -331,7 +371,8 @@ GUI prep:
 - [x] PWT-S04 - `ThreadContextBuilder` with caps and visible truncation.
 - [x] PWT-S05 - `WorkerChatCoordinator` with optimistic turns and manual fallback.
 - [x] PWT-S06 - Minimal Mac thread list + timeline + composer.
-- [ ] PWT-S07 - Attach team/review/dispatch as turns.
+- [ ] PWT-S07 - Attach team/review/dispatch as turns, with team-result replies
+  defaulting to the writer and switch-away warning modal.
 - [ ] PWT-S08 - Home flips to thread list; legacy runs migrate lazily.
 - [ ] PWT-S09 - Export full thread transcript + linked run artifacts.
 
@@ -401,9 +442,13 @@ healthy worker. The user turn renders immediately. The worker turn shows running
 immediately with heartbeat and elapsed time. The reply is saved. Send a follow-up
 to a different worker; reveal context shows the earlier user turn and worker
 reply plus any truncation note. Ask the team from the same thread; the team
-run is saved as an expandable turn referencing the run. Turn the plan into
-an editable work order. Dispatch it in the thread workingDir. Return review lands
-as the next turn. Quit and reopen; the thread is intact and appears in the Home
+run is saved as an expandable turn referencing the run, and the composer defaults
+to the writer that produced the team result. Press Reply without changing the
+chip; the follow-up goes to that writer with no warning. Try switching the chip
+to another worker; a modal warns that the alternate worker may not have the full
+fan-out context and cancel keeps the writer selected. Turn the plan into an
+editable work order. Dispatch it in the thread workingDir. Return review lands as
+the next turn. Quit and reopen; the thread is intact and appears in the Home
 triage order.
 ```
 

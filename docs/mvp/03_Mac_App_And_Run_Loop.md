@@ -1,6 +1,11 @@
 > **Vocabulary (2026-06-15).** Current product language lives in
 > `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
 > terms only.
+>
+> **Forward shell direction (2026-06-15).** This MVP doc records the built
+> menu-bar-first shell. New Mac shell work executes against
+> `docs/phases/Mac_Standalone_App_And_Background_Coordinator.md`: standalone
+> Dock app, explicit background coordinator, menu bar as status/quick controls.
 
 # 03 — Mac App Shell + Run Loop
 

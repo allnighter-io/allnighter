@@ -115,6 +115,25 @@ language. The chip can display `Opus / Chat` or a friendlier equivalent. The
 implementation may keep legacy `WorkerChatCoordinator` until the rename slice,
 but the durable product truth is still model + skill -> worker.
 
+## Send Modes
+
+The product primitive is send. Chat, Ask Team, Work Order, Dispatch, and Execute
+are send modes with different payloads and workers.
+
+Rules:
+
+- Enter sends chat to the resolved worker. Enter never builds.
+- Dispatch/Execute is explicit because the user chooses that send mode from an
+  editable work order. Do not add a second confirmation ceremony.
+- Reveal-only is another send mode: write/show the exact handoff without
+  invoking the worker.
+- Safety belongs in prerequisites and honest labels: trusted device/client,
+  working directory, Doctor/admission state, permission posture, and visible
+  boundary copy.
+- Separate approvals are reserved for separate risks: pairing a new device,
+  enabling a new MCP/local API client, changing privacy/permission posture,
+  killing sessions, or destructive cleanup.
+
 ## One Primitive, Many Old Names
 
 Old docs used several words for the same underlying idea:
