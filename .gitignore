@@ -20,14 +20,31 @@ xcuserdata/
 *.moved-aside
 *.xcuserstate
 *.xcscmblueprint
+*.xcresult
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.app
+*.xcarchive
+*.profdata
+timeline.xctimeline
+playground.xcworkspace
+
+# iOS signing & provisioning (never commit credentials or profiles)
+*.mobileprovision
+*.provisionprofile
+*.cer
+*.certSigningRequest
 
 # Swift Package Manager
 .build/
 .swiftpm/
+SourcePackages/
 Package.resolved
 
 # Generated Xcode projects (XcodeGen owns project.yml; .xcodeproj is generated)
-*.xcodeproj/
+Apps/AllnighterMac/AllnighterMac.xcodeproj/
 
 # CocoaPods
 Pods/
