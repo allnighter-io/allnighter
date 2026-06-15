@@ -32,13 +32,13 @@
   "setup": {
     "bins": ["grok"],
     "knownPaths": ["~/.local/bin", "~/.grok/bin", "/opt/homebrew/bin"],
-    "installHint": "Install the Grok CLI from xAI (see docs).",
-    "docsURL": "https://docs.x.ai/docs/grok-cli",
+    "installHint": "curl -fsSL https://x.ai/cli/install.sh | bash",
+    "docsURL": "https://x.ai/cli",
     "loginFlow": {
-      "interactiveCommand": "grok",
-      "instructions": "Run `grok` and sign in, or set your xAI API key (GROK_API_KEY / XAI_API_KEY).",
-      "authErrorPatterns": ["not authenticated", "unauthorized", "api key", "sign in", "log in", "401"],
-      "docsURL": "https://docs.x.ai/docs/grok-cli"
+      "interactiveCommand": "grok login",
+      "instructions": "Run `grok login` (or just `grok`) once to sign in via browser with your SuperGrok or X Premium+ account. That caches a session token under ~/.grok/ that `grok -p` reuses — no API key needed.",
+      "authErrorPatterns": ["not authenticated", "authentication required", "unauthorized", "sign in", "log in", "login", "auth", "401"],
+      "docsURL": "https://docs.x.ai/build/overview"
     }
   }
 }

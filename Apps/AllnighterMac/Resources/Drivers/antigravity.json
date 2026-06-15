@@ -32,13 +32,13 @@
   "setup": {
     "bins": ["agy"],
     "knownPaths": ["~/.local/bin", "~/.antigravity/antigravity/bin", "/opt/homebrew/bin"],
-    "installHint": "Install Google Antigravity; the `agy` CLI ships with it.",
-    "docsURL": "https://antigravity.google",
+    "installHint": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    "docsURL": "https://antigravity.google/docs/cli-install",
     "loginFlow": {
       "interactiveCommand": "agy",
-      "instructions": "Run `agy` and sign in with your Google / Antigravity account.",
-      "authErrorPatterns": ["not authenticated", "unauthorized", "sign in", "log in", "login", "401"],
-      "docsURL": "https://antigravity.google"
+      "instructions": "Run `agy`. It tries silent auth via the Apple Keychain; if there's no token it opens a browser for Google / Google Cloud sign-in (SSH sessions use a paste-the-code flow). Sign out with `/logout` inside the TUI.",
+      "authErrorPatterns": ["sign in", "log in", "login", "auth", "oauth", "not authenticated", "authentication", "keyring", "401"],
+      "docsURL": "https://antigravity.google/docs/cli-install"
     }
   }
 }
