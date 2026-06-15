@@ -19,5 +19,13 @@
     "stripAnsi": true,
     "doneSignal": "exit_code",
     "sentinel": null
+  },
+  "imageGen": {
+    "args": ["exec", "-C", "{{runDir}}", "--skip-git-repo-check", "--color", "never", "{{prompt}}"],
+    "promptVia": "arg",
+    "promptTemplate": "{{designPrompt}} Use the built-in image generation tool. Save the final PNG to {{imageOut}} and reply with the absolute file path only.",
+    "arrival": "prompt_directed",
+    "stdoutPathRegex": "(/[^\\s\"]+\\.(?:png|jpe?g))",
+    "timeoutSeconds": 600
   }
 }

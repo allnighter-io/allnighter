@@ -19,5 +19,14 @@
     "stripAnsi": true,
     "doneSignal": "exit_code",
     "sentinel": null
+  },
+  "imageGen": {
+    "args": ["--print", "{{prompt}}", "--model", "{{model}}", "--dangerously-skip-permissions", "--print-timeout", "10m"],
+    "promptVia": "arg",
+    "promptTemplate": "Generate an image: {{designPrompt}}",
+    "arrival": "stdout_path",
+    "stdoutPathRegex": "(/[^\\s)]+\\.png)",
+    "sessionIdRegex": "brain/([0-9a-fA-F-]{8,})/",
+    "timeoutSeconds": 600
   }
 }
