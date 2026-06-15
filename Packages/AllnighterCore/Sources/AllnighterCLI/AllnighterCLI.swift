@@ -18,6 +18,7 @@ struct AllnighterCLI {
         case "presets": await runPresets(args, runtime)
         case "recall": await runRecall(args, runtime)
         case "doctor": await runDoctor(runtime)
+        case "detect": await runDetect(runtime)
         case "mcp": await MCPServer(runtime: runtime).serve()
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
@@ -77,6 +78,33 @@ struct AllnighterCLI {
             let status = d.isHealthy ? "healthy" : (d.health == .unknown ? "manual" : "UNHEALTHY")
             print("\(d.workerName)\t\(status)\t\(d.version ?? "")")
             if let hint = d.fixHint { print("  → \(hint)") }
+        }
+    }
+
+    /// First-run CLI detection, headless — proves the detector on a real machine
+    /// before any Setup UI (docs/phases/setup/01 §11, Phase 1). Runs real smoke
+    /// probes. Note: the CLI uses `DefaultConfig` (no `setup` blocks yet), so bins
+    /// fall back to `invoke.command` and loginFlow guidance comes from the app's
+    /// bundle registry, not here.
+    static func runDetect(_ runtime: ToolRuntime) async {
+        var models: [String: String] = [:]
+        for w in runtime.workers where models[w.driverId] == nil { models[w.driverId] = w.modelLabel }
+        let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
+            .probeAll(runtime.registry.all, models: models, now: Date())
+        for r in records.sorted(by: { $0.driverId < $1.driverId }) {
+            let path = r.invocation?.resolvedPath ?? "—"
+            switch r.status {
+            case .ready(let v):
+                print("\(r.driverId)\tREADY\t\(v)\t\(path)")
+            case .installedNotSignedIn(let f):
+                print("\(r.driverId)\tNEEDS SIGN-IN\t\(r.version ?? "")\n  → \(f.instructions)")
+            case .probeFailed(let reason):
+                print("\(r.driverId)\tPROBE FAILED\t\(r.version ?? "")\n  → \(reason)")
+            case .shimmedNeedsConfirm(let res):
+                print("\(r.driverId)\tNEEDS PATH\t\(res.rawCommandV)")
+            case .notInstalled:
+                print("\(r.driverId)\tNOT INSTALLED\t(no binary on PATH or known paths)")
+            }
         }
     }
 
