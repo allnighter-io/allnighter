@@ -24,6 +24,9 @@ public enum Fixtures {
         case runPartial = "run_partial"
         case synthesisPresetDefault = "synthesis_preset_default"
         case panelPresetDefault = "panel_preset_default"
+        case threadChat = "thread_chat"
+        case threadImported = "thread_imported"
+        case threadContextPacket = "thread_context_packet"
     }
 
     public static func data(_ name: Name) throws -> Data {
@@ -60,5 +63,13 @@ public enum Fixtures {
 
     public static func panelPreset() throws -> PanelPreset {
         try decode(PanelPreset.self, .panelPresetDefault)
+    }
+
+    public static func thread(_ name: Name = .threadChat) throws -> WorkThread {
+        try decode(WorkThread.self, name)
+    }
+
+    public static func contextPacket() throws -> ThreadContextPacket {
+        try decode(ThreadContextPacket.self, .threadContextPacket)
     }
 }

@@ -1,0 +1,32 @@
+{
+  "id": "thread_imported_01",
+  "title": "Imported council run",
+  "status": "active",
+  "createdAt": "2026-06-14T20:01:00Z",
+  "updatedAt": "2026-06-14T20:09:00Z",
+  "turns": [
+    {
+      "id": "turn_imp_sys",
+      "threadId": "thread_imported_01",
+      "kind": "system_event",
+      "status": "done",
+      "createdAt": "2026-06-14T20:01:00Z",
+      "completedAt": "2026-06-14T20:01:00Z",
+      "author": "system",
+      "text": "Imported council run — no prior chat.",
+      "systemEvent": "migration_imported",
+      "artifactRefs": []
+    },
+    {
+      "id": "turn_imp_run",
+      "threadId": "thread_imported_01",
+      "kind": "council_run",
+      "status": "done",
+      "createdAt": "2026-06-14T20:01:00Z",
+      "completedAt": "2026-06-14T20:09:00Z",
+      "author": "system",
+      "runId": "run_complete_01",
+      "artifactRefs": []
+    }
+  ]
+}

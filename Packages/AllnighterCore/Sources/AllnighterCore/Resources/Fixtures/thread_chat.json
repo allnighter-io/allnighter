@@ -1,0 +1,52 @@
+{
+  "id": "thread_chat_01",
+  "title": "Simplest approach for team accounts",
+  "status": "active",
+  "createdAt": "2026-06-15T09:00:00Z",
+  "updatedAt": "2026-06-15T09:04:00Z",
+  "workingDir": "/Users/mike/Code/acme",
+  "defaultWorkerId": "worker_opus",
+  "turns": [
+    {
+      "id": "turn_01",
+      "threadId": "thread_chat_01",
+      "kind": "user_message",
+      "status": "done",
+      "createdAt": "2026-06-15T09:00:00Z",
+      "completedAt": "2026-06-15T09:00:00Z",
+      "author": "user",
+      "text": "Before we build, brainstorm the simplest approach.",
+      "artifactRefs": []
+    },
+    {
+      "id": "turn_02",
+      "threadId": "thread_chat_01",
+      "kind": "worker_chat",
+      "status": "done",
+      "createdAt": "2026-06-15T09:00:01Z",
+      "completedAt": "2026-06-15T09:00:42Z",
+      "author": "worker",
+      "text": "Start with a single owner-scoped flag before per-seat roles.",
+      "workerId": "worker_opus",
+      "contextPacketId": "packet_01",
+      "artifactRefs": []
+    },
+    {
+      "id": "turn_03",
+      "threadId": "thread_chat_01",
+      "kind": "council_run",
+      "status": "done",
+      "createdAt": "2026-06-15T09:03:00Z",
+      "completedAt": "2026-06-15T09:04:00Z",
+      "author": "system",
+      "runId": "run_complete_01",
+      "artifactRefs": [
+        {
+          "kind": "master_plan",
+          "runId": "run_complete_01",
+          "excerpt": "Phase 1: owner-scoped flag. Phase 2: invite flow."
+        }
+      ]
+    }
+  ]
+}

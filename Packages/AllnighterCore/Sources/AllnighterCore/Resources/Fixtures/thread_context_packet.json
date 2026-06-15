@@ -1,0 +1,12 @@
+{
+  "id": "packet_01",
+  "threadId": "thread_chat_01",
+  "turnId": "turn_02",
+  "createdAt": "2026-06-15T09:00:01Z",
+  "strategy": "recent_turns",
+  "includedTurnIds": ["turn_01"],
+  "includedRunIds": [],
+  "includedFiles": ["/Users/mike/Code/acme/README.md"],
+  "text": "Thread: Simplest approach for team accounts (workingDir: /Users/mike/Code/acme)\n\nRecent turns:\n1. User: Before we build, brainstorm the simplest approach.\n\nLatest user message:\nBefore we build, brainstorm the simplest approach.",
+  "truncated": false
+}
