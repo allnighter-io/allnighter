@@ -22,12 +22,19 @@ struct RootView: View {
             openWindow(id: "main")
             model.quickCapture(prefillClipboard: true)
         }
+        .preferredColorScheme(.dark)
     }
 }
 
 private struct DetailPane: View {
     @Environment(AppModel.self) private var model
     var body: some View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ALColor.base)
+    }
+
+    @ViewBuilder private var content: some View {
         if let history = model.historySelection {
             if history.presetId == "design_board" {
                 DesignBoardView()   // read-only board (pick/build gated on no history)
@@ -75,6 +82,8 @@ private struct PanelSidebar: View {
             HistorySection()
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(ALColor.subtle)
     }
 }
 
@@ -119,36 +128,41 @@ private struct WorkerRow: View {
     let worker: Worker
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button { model.toggle(worker) } label: {
-                Image(systemName: model.isSeated(worker) ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(model.isSeated(worker) ? Color.accentColor : Color.secondary)
-            }
-            .buttonStyle(.plain)
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 4) {
-                    Text(worker.displayName).font(.body)
-                    if model.seatCount(for: worker) > 1 {
-                        Text("×\(model.seatCount(for: worker))").font(.caption2).foregroundStyle(.secondary)
-                    }
-                    if model.judgeWorker?.id == worker.id {
-                        Image(systemName: "gavel").font(.caption2).foregroundStyle(.secondary).help("Judge")
-                    }
-                }
-                Text(model.driverName(for: worker)).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            healthBadge
-        }
+        WorkerChip(
+            name: worker.displayName,
+            model: model.driverName(for: worker),
+            systemImage: healthSymbol,
+            glyphTint: healthTint,
+            meta: meta,
+            selectable: true,
+            selected: model.isSeated(worker),
+            onToggle: { model.toggle(worker) }
+        )
+        .listRowInsets(EdgeInsets(top: 3, leading: 4, bottom: 3, trailing: 4))
+        .listRowBackground(Color.clear)
     }
 
-    @ViewBuilder private var healthBadge: some View {
-        if let d = model.diagnosis(for: worker.id) {
-            switch d.health {
-            case .healthy: Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).help(d.version ?? "Healthy")
-            case .unhealthy(let reason): Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).help(d.fixHint ?? reason)
-            case .unknown: Image(systemName: "questionmark.circle").foregroundStyle(.secondary).help("Manual / unknown")
-            }
+    private var meta: String? {
+        var parts: [String] = []
+        if model.seatCount(for: worker) > 1 { parts.append("×\(model.seatCount(for: worker))") }
+        if model.judgeWorker?.id == worker.id { parts.append("judge") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    // Health still surfaces in Doctor; here it just tints the glyph so a broken
+    // CLI reads at a glance without faking a run status.
+    private var healthSymbol: String {
+        switch model.diagnosis(for: worker.id)?.health {
+        case .unhealthy: "exclamationmark.triangle.fill"
+        case .unknown: "hand.raised"
+        default: "cpu"
+        }
+    }
+    private var healthTint: Color {
+        switch model.diagnosis(for: worker.id)?.health {
+        case .healthy: ALColor.statusDone
+        case .unhealthy: ALColor.statusTimeout
+        default: ALColor.textSecondary
         }
     }
 }
