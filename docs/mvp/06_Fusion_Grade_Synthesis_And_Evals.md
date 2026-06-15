@@ -1,6 +1,6 @@
 # 06 — Fusion-Grade Synthesis + Evals (the correct council foundation)
 
-Status: **Specced — build next, after the Phase 05 daily driver is dogfooded.**
+Status: **BUILT (S01–S10) — Core+Engine+Mac green (80 + 13 tests). On-device founder run + activation gate pending.**
 Depends on: 00 (locked), 01–05
 Owner: Shared Core + Mac
 Created: 2026-06-14

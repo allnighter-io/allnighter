@@ -208,6 +208,8 @@ private struct HistoryDetailView: View {
                     }
                     Button { copy(RunMarkdown.bundle(run, workers: model.workers)) } label: { Label("Copy full bundle", systemImage: "tray.and.arrow.up") }
                 }
+                ReviewBoardCard()
+                FinalSpecCard()
                 MembersDisclosure(run: run)
             }
             .padding()
@@ -254,6 +256,9 @@ private struct RunResultsView: View {
                     VerdictStrip(run: run)
                     if run.analysis != nil { AnalysisCard(run: run) }
                     MasterPlanCard(run: run)
+                    ReviewActions(run: run)
+                    ReviewBoardCard()
+                    FinalSpecCard()
                     MembersDisclosure(run: run)
                 }
                 .padding()
@@ -376,6 +381,81 @@ private struct MasterPlanCard: View {
             Text("No judge is seated. Add a worker that can synthesize (e.g. Opus 4.8).")
                 .font(.callout).foregroundStyle(.secondary)
         }
+    }
+    private func copy(_ t: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(t, forType: .string) }
+}
+
+// MARK: - Review board + final spec (RB2/RB3)
+
+private struct ReviewActions: View {
+    @Environment(AppModel.self) private var model
+    let run: CouncilRun
+    var body: some View {
+        if run.masterPlan != nil && model.latestReviews.isEmpty && model.finalSpec == nil {
+            HStack(spacing: 8) {
+                if model.isReviewing {
+                    ProgressView().controlSize(.small)
+                    Text(run.status == .finalizing ? "Finalizing…" : "Running review board…").font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Text("Pressure-test this plan:").font(.callout).foregroundStyle(.secondary)
+                    Button { model.runReviewBoard(lensIds: AppModel.lightReviewLenses) } label: { Label("Light review", systemImage: "checklist") }
+                    Button { model.runReviewBoard(lensIds: AppModel.fullReviewLenses) } label: { Label("Full review", systemImage: "checklist.checked") }
+                }
+            }
+        }
+    }
+}
+
+private struct ReviewBoardCard: View {
+    @Environment(AppModel.self) private var model
+    var body: some View {
+        let reviews = model.latestReviews
+        if !reviews.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Review Board (\(reviews.count))", systemImage: "person.2.badge.gearshape").font(.title3.bold())
+                ForEach(reviews) { review in
+                    DisclosureGroup(review.payload?.review?.lensId ?? review.promptProfileId ?? review.id) {
+                        Text(review.payload?.markdown ?? review.errorReason ?? "")
+                            .font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
+                    }
+                }
+            }
+            .padding().background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+        }
+    }
+}
+
+private struct FinalSpecCard: View {
+    @Environment(AppModel.self) private var model
+    var body: some View {
+        if let final = model.finalSpec {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Final Spec", systemImage: "doc.badge.gearshape").font(.title3.bold())
+                    Spacer()
+                    Button { copy(final.markdown) } label: { Label("Copy", systemImage: "doc.on.doc") }
+                }
+                HStack(spacing: 6) {
+                    chip(final.hasProofCommands ? "Proof commands ✓" : "No proof commands", final.hasProofCommands ? .green : .orange)
+                    if !final.reviewBoardRan { chip("No review board", .secondary) }
+                    if !final.decisionsStructured { chip("Decisions unstructured", .orange) }
+                }
+                Text(final.markdown).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                if !final.reviewDecisions.isEmpty {
+                    Text("Review decisions").font(.subheadline.bold())
+                    ForEach(Array(final.reviewDecisions.enumerated()), id: \.offset) { _, d in
+                        Text("• \(d.lensId): \(d.decision.rawValue.uppercased()) — \(d.reason)").font(.caption)
+                    }
+                }
+            }
+            .padding()
+            .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.accentColor.opacity(0.25)))
+        }
+    }
+    private func chip(_ text: String, _ color: Color) -> some View {
+        Text(text).font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule()).foregroundStyle(color)
     }
     private func copy(_ t: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(t, forType: .string) }
 }

@@ -35,10 +35,17 @@ final class AppModel {
     private(set) var history: [CouncilRun] = []
     private(set) var historySelection: CouncilRun?
 
+    // Review board / final spec (RB2/RB3)
+    private(set) var isReviewing = false
+
     private let registry: DriverRegistry
     private let store = RunStore()
     private let presetStore = PanelPresetStore()
+    private let profileStore = PromptProfileStore()
     private var runTask: Task<Void, Never>?
+
+    static let lightReviewLenses = ["security_privacy", "code_maintainer", "proof_qa"]
+    static let fullReviewLenses = ["security_privacy", "code_maintainer", "proof_qa", "ui_ux", "customer_advocate", "dissent_preserver", "cost_latency_quota", "coverage_audit"]
 
     init() {
         let panel = AppConfig.loadDefaultPanel()
@@ -262,6 +269,73 @@ final class AppModel {
         current.members[index].output = trimmed
         current.members[index].finishedAt = Date()
         run = current
+    }
+
+    // MARK: - Review board + final spec (RB2/RB3)
+
+    /// Run advisory review lenses over the current completed run, then the
+    /// first-principles finalizer. Budget routing: lenses round-robin across
+    /// seated headless workers; the judge writes the final spec.
+    func runReviewBoard(lensIds: [String], thenFinalize: Bool = true) {
+        guard !isRunning, !isReviewing, var current = run, current.masterPlan != nil else { return }
+        let profiles = profileStore.load()
+        let profileByID = Dictionary(profiles.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+        // Workers eligible to run a lens: seated, headless, with a manifest.
+        let lensWorkers = workers.filter { w in
+            seatedWorkerIds.contains(w.id) && registry.manifest(for: w)?.kind == .headlessCLI
+        }
+        let pool = lensWorkers.isEmpty ? workers.filter { registry.manifest(for: $0)?.kind == .headlessCLI } : lensWorkers
+        guard !pool.isEmpty, let judge = judgeWorker, let judgeManifest = registry.manifest(for: judge) else { return }
+
+        var lenses: [ResolvedLens] = []
+        for (i, lensId) in lensIds.enumerated() {
+            guard let profile = profileByID[lensId], profile.purpose == .reviewLens else { continue }
+            let worker = pool[i % pool.count]
+            guard let manifest = registry.manifest(for: worker) else { continue }
+            lenses.append(ResolvedLens(lensId: lensId, profile: profile, worker: worker, manifest: manifest,
+                                       inputSelectors: ReviewCoordinator.defaultSelectors(forLens: lensId)))
+        }
+        guard !lenses.isEmpty else { return }
+
+        isReviewing = true
+        transition(to: .reviewing)
+        let snapshotWorkers = workers
+        let finalProfile = profileByID["final_spec_v1"] ?? BuiltInProfiles.finalSpec
+
+        runTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let reduceRunner = ReduceRunner(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+            let reviewStages = await ReviewCoordinator(reduceRunner: reduceRunner)
+                .review(run: current, workers: snapshotWorkers, lenses: lenses)
+            guard var updated = self.run else { self.isReviewing = false; return }
+            updated.stages.append(contentsOf: reviewStages)
+            self.run = updated
+            current = updated
+
+            if thenFinalize {
+                self.transition(to: .finalizing)
+                let finalizer = Finalizer(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+                let finalStage = await finalizer.finalize(run: current, finalizer: judge, manifest: judgeManifest, workers: snapshotWorkers, profile: finalProfile)
+                guard var withFinal = self.run else { self.isReviewing = false; return }
+                withFinal.stages.append(finalStage)
+                self.run = withFinal
+                self.transition(to: finalStage.status == .done ? .complete : .partial)
+            } else {
+                self.transition(to: .complete)
+            }
+            self.persist()
+            self.isReviewing = false
+        }
+    }
+
+    var latestReviews: [StageOutput] {
+        guard let run = displayRun else { return [] }
+        return RunMarkdown.latestReviews(run)
+    }
+
+    var finalSpec: FinalSpecPayload? {
+        displayRun?.latestStage(.finalSpec)?.payload?.finalSpec
     }
 
     // MARK: - Derived views

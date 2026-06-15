@@ -30,6 +30,18 @@ public struct RunStore: Sendable {
         if let plan = run.masterPlan, !plan.isEmpty {
             try Data(plan.utf8).write(to: directory.appendingPathComponent("master_plan.md"))
         }
+
+        // RB artifacts, all derived from run.json stages.
+        for review in RunMarkdown.latestReviews(run) where review.status == .done {
+            let lensId = review.payload?.review?.lensId ?? review.promptProfileId ?? review.id
+            if let md = review.payload?.markdown {
+                try Data(md.utf8).write(to: directory.appendingPathComponent("review_\(lensId).md"))
+            }
+        }
+        let finalSpec = RunMarkdown.finalSpec(run)
+        if !finalSpec.isEmpty {
+            try Data(finalSpec.utf8).write(to: directory.appendingPathComponent("final_spec.md"))
+        }
         return directory
     }
 

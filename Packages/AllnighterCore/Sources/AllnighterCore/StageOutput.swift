@@ -32,21 +32,32 @@ public enum StageStatus: String, Codable, Sendable, CaseIterable {
 public enum StagePayload: Sendable, Equatable {
     case analysis(JudgeAnalysis)
     case plan(markdown: String)
-    // RB milestones add: review / finalSpec / dispatch / returnReview / outcomeScore.
+    case review(ReviewResult)
+    case finalSpec(FinalSpecPayload)
+    case dispatch(ExecutionReturn)
+    case returnReview(ReturnReviewPayload)
+    case outcomeScore(EvalScore)
 
     public var purpose: StagePurpose {
         switch self {
         case .analysis: return .analysis
         case .plan: return .plan
+        case .review: return .review
+        case .finalSpec: return .finalSpec
+        case .dispatch: return .dispatch
+        case .returnReview: return .returnReview
+        case .outcomeScore: return .outcomeScore
         }
     }
 
-    /// The Markdown the stage carries, if any (plan/review/finalSpec); nil for
-    /// purely structured payloads like analysis (whose `.md` is rendered).
+    /// The Markdown the stage carries, if any; nil for purely structured payloads.
     public var markdown: String? {
         switch self {
-        case .analysis: return nil
+        case .analysis, .dispatch, .outcomeScore: return nil
         case .plan(let md): return md
+        case .review(let r): return r.markdown
+        case .finalSpec(let f): return f.markdown
+        case .returnReview(let r): return r.markdown
         }
     }
 
@@ -54,11 +65,31 @@ public enum StagePayload: Sendable, Equatable {
         if case .analysis(let a) = self { return a }
         return nil
     }
+    public var review: ReviewResult? {
+        if case .review(let r) = self { return r }
+        return nil
+    }
+    public var finalSpec: FinalSpecPayload? {
+        if case .finalSpec(let f) = self { return f }
+        return nil
+    }
+    public var executionReturn: ExecutionReturn? {
+        if case .dispatch(let e) = self { return e }
+        return nil
+    }
+    public var returnReview: ReturnReviewPayload? {
+        if case .returnReview(let r) = self { return r }
+        return nil
+    }
+    public var outcomeScore: EvalScore? {
+        if case .outcomeScore(let s) = self { return s }
+        return nil
+    }
 }
 
 extension StagePayload: Codable {
     private enum CodingKeys: String, CodingKey {
-        case kind, analysis, markdown
+        case kind, analysis, markdown, review, finalSpec, dispatch, returnReview, outcomeScore
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -67,6 +98,11 @@ extension StagePayload: Codable {
         switch self {
         case .analysis(let a): try c.encode(a, forKey: .analysis)
         case .plan(let md): try c.encode(md, forKey: .markdown)
+        case .review(let r): try c.encode(r, forKey: .review)
+        case .finalSpec(let f): try c.encode(f, forKey: .finalSpec)
+        case .dispatch(let e): try c.encode(e, forKey: .dispatch)
+        case .returnReview(let r): try c.encode(r, forKey: .returnReview)
+        case .outcomeScore(let s): try c.encode(s, forKey: .outcomeScore)
         }
     }
 
@@ -74,15 +110,13 @@ extension StagePayload: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try c.decode(StagePurpose.self, forKey: .kind)
         switch kind {
-        case .analysis:
-            self = .analysis(try c.decode(JudgeAnalysis.self, forKey: .analysis))
-        case .plan:
-            self = .plan(markdown: try c.decode(String.self, forKey: .markdown))
-        default:
-            throw DecodingError.dataCorruptedError(
-                forKey: .kind, in: c,
-                debugDescription: "Unsupported StagePayload kind '\(kind.rawValue)' for this build."
-            )
+        case .analysis: self = .analysis(try c.decode(JudgeAnalysis.self, forKey: .analysis))
+        case .plan: self = .plan(markdown: try c.decode(String.self, forKey: .markdown))
+        case .review: self = .review(try c.decode(ReviewResult.self, forKey: .review))
+        case .finalSpec: self = .finalSpec(try c.decode(FinalSpecPayload.self, forKey: .finalSpec))
+        case .dispatch: self = .dispatch(try c.decode(ExecutionReturn.self, forKey: .dispatch))
+        case .returnReview: self = .returnReview(try c.decode(ReturnReviewPayload.self, forKey: .returnReview))
+        case .outcomeScore: self = .outcomeScore(try c.decode(EvalScore.self, forKey: .outcomeScore))
         }
     }
 }

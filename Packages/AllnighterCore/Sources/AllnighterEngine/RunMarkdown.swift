@@ -94,6 +94,36 @@ public enum RunMarkdown {
             lines.append("")
         }
 
+        // Reviews (RB2), final spec (RB3), return review (RB5) — canonical order.
+        let reviews = run.stages.filter { $0.purpose == .review && $0.status == .done }
+        if !reviews.isEmpty {
+            lines.append(contentsOf: ["---", "", "## Reviews", ""])
+            for r in reviews {
+                lines.append("### \(r.payload?.review?.lensId ?? r.promptProfileId ?? r.id)")
+                lines.append(""); lines.append(r.payload?.markdown ?? ""); lines.append("")
+            }
+        }
+        if let final = run.latestStage(.finalSpec)?.payload?.markdown {
+            lines.append(contentsOf: ["---", "", "## Final Spec", "", final, ""])
+        }
+        if let ret = run.latestStage(.returnReview)?.payload?.markdown {
+            lines.append(contentsOf: ["---", "", "## Return Review", "", ret, ""])
+        }
+
         return lines.joined(separator: "\n")
+    }
+
+    /// Latest completed review per lens id (append-only stages → newest wins).
+    public static func latestReviews(_ run: CouncilRun) -> [StageOutput] {
+        var byLens: [String: StageOutput] = [:]
+        for stage in run.stages where stage.purpose == .review {
+            let lens = stage.payload?.review?.lensId ?? stage.promptProfileId ?? stage.id
+            byLens[lens] = stage
+        }
+        return byLens.values.sorted { ($0.promptProfileId ?? $0.id) < ($1.promptProfileId ?? $1.id) }
+    }
+
+    public static func finalSpec(_ run: CouncilRun) -> String {
+        run.latestStage(.finalSpec)?.payload?.markdown ?? ""
     }
 }

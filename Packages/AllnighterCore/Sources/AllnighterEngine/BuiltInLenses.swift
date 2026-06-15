@@ -51,6 +51,12 @@ public extension BuiltInProfiles {
             ## Risks and open questions
 
             Decide; do not average. The spec must be executable by a coding agent with few questions.
+
+            After the spec, output the exact sentinel \(Finalizer.decisionsDelimiter) on its own line, then a
+            single fenced ```json block with your structured decisions:
+            { "reviewDecisions": [{ "lensId": "...", "decision": "adopted|partial|rejected|deferred", "reason": "..." }],
+              "contradictionDecisions": [{ "topic": "...", "resolution": "...", "reason": "..." }],
+              "insightDecisions": [{ "insight": "...", "decision": "preserved|rejected", "reason": "..." }] }
             """,
             builtIn: true
         )
