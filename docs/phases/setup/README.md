@@ -29,4 +29,14 @@ not configuration.
   (Reinforces the AGENTS.md law and [[allnighter-working-prefs]].)
 - **Real detection, real auth, real versions.** No placeholder roster.
 
-Status: **Spec / design-pending.** Created 2026-06-15.
+## Prerequisite bug (found 2026-06-15)
+
+Doctor confirmed the immediate cause of "0/1 healthy" is **not** PATH or auth — it's
+a **packaging bug**: the `Resources/Drivers` manifests aren't shipped as a `Drivers/`
+folder in the app bundle, so the driver registry loads empty and the panel falls
+back to one hardcoded worker. Detection never even runs. Details + fix direction:
+`01_CLI_Detection_Auth_And_Panel.md` §Cause 0. Fix that first; the Setup experience
+layers on top.
+
+Status: **Spec / design-pending. No code yet** (mentor feedback first).
+Created 2026-06-15.

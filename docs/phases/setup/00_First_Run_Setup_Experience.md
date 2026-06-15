@@ -20,10 +20,15 @@ promise. If it feels like a config form, we've lost. If it feels like Allnighter
 win the user.
 
 ### The anti-spec (what we have today — never ship this again)
-- Cold open straight into an empty Council with a hardcoded 1-worker panel.
-- A red-ish **0/1 healthy** badge with no explanation and no path forward.
+- Cold open straight into an empty Council with a 1-worker panel.
+- A **0/1 healthy** badge with no explanation and no path forward.
 - The user has 4 CLIs installed; the app shows one, broken. Zero guidance.
 - Setup, auth, and discovery simply don't exist.
+
+> Note: today's single-worker / "no manifest" state is amplified by a **packaging
+> bug** — the bundled 6-worker panel and all driver manifests fail to load, so the
+> app falls back to one hardcoded worker. See `01_…` §Cause 0. That bug is a
+> prerequisite fix; this experience is what replaces the whole cold open.
 
 The bar: a new user should go from launch → "my whole team is ready" with **one
 click and zero typing** in the common case.

@@ -12,32 +12,68 @@ how that fixes today's **"works in my terminal, 0/1 healthy in the app"** bug.
 
 ## 1. Why "0/1 healthy" happens today (root cause)
 
-Two independent gaps:
+Four layered causes. **Cause 0 is the actual current blocker — confirmed from
+Doctor and the built bundle — and nothing else even runs until it's fixed.**
 
-**A. No discovery.** The panel is hardcoded. `AppConfig.loadDefaultPanel()`
-returns a fixed "Fast Council" (Opus/claude only). The app never scans for the
-other CLIs the user has, so grok/codex/agy never appear. → "1 of 1".
+### Cause 0 — Packaging bug: the driver manifests aren't in the bundle (CONFIRMED)
+Doctor reports **"No driver manifest 'claude_code' is installed."** Evidence:
+- `AppConfig.loadDefaultRegistry()` and `loadDefaultPanel()` look up resources via
+  `Bundle.main.url(…subdirectory: "Drivers")`.
+- The built app bundle has **no `Drivers/` subdirectory** —
+  `…/AllnighterMac.app/Contents/Resources/Drivers` does not exist. The XcodeGen
+  `resources: - path: Resources/Drivers` entry added the JSONs as a *group*, so
+  they were flattened (or dropped) instead of shipped as a `Drivers/` folder.
+- So `loadDefaultRegistry()` returns an **empty registry** → every worker fails
+  Doctor with "no manifest", and **detection/PATH/auth never run at all**.
+- `loadDefaultPanel()` also returns empty → `AppModel` falls back to
+  `fallbackPanel()`, a single hardcoded Opus worker. That is exactly the "1 of 1
+  · Opus 4.8 via claude-code" the user sees.
+- The bundled `panel_default.json` actually defines **6 workers** (claude_code,
+  codex, grok, antigravity). Fixing the bundling alone restores that full panel
+  **and** loads the manifests so health checks can finally execute.
 
-**B. The PATH / alias gap.** Health runs in `WorkerHealthChecker`:
+**Fix direction (not in this PR):** ship `Resources/Drivers` as a real folder
+reference so `Contents/Resources/Drivers/*.json` exists — in XcodeGen,
+`resources: - path: Resources/Drivers` with `type: folder` — *or* change the
+lookups to not depend on the subdirectory. Add a packaging test/Works-Test that
+asserts `loadDefaultRegistry().all` is non-empty from the built bundle (today's
+unit tests inject a registry directly, so they stay green while the real bundle
+is broken — that gap is why this shipped).
+
+### Cause 1 — No machine discovery (design gap)
+Even with the bundle fixed, the panel is a **static file** (`panel_default.json`),
+not what's actually installed on *this* machine. Real Setup scans the machine and
+builds the roster from what the user truly has (§2). Without it, the panel can
+list tools the user doesn't have and miss ones they do.
+
+### Cause 2 — The PATH / alias gap (surfaces once detection runs)
+Health runs in `WorkerHealthChecker`:
 - `detect`: run `claude --version`, expect exit 0.
 - `smoke`: run `claude -p "Reply with ALLNIGHTER_READY" --model …`, expect token.
 
 The app is GUI-launched (Finder/`open`), so it starts with launchd's **minimal
-PATH**. `LoginShell.applyToProcessEnvironment()` bridges this by running
-`zsh -lic 'printf %s "$PATH"'` and `setenv`-ing the result, and
+PATH**. `LoginShell.applyToProcessEnvironment()` bridges this
+(`zsh -lic 'printf %s "$PATH"'` → `setenv`) and
 `SubprocessCommandRunner.resolveExecutable` scans those PATH dirs for a binary.
 That still fails when:
 - the CLI is a **shell alias or function**, a **version-manager shim**
   (nvm/volta/asdf), or lives in an **app bundle** (`agy` inside Antigravity) —
   `resolveExecutable` only finds plain executables on PATH;
 - the login-shell PATH capture is **corrupted** because `.zshrc` prints to stdout
-  under `-i`;
-- the binary is found but **not signed in** → smoke fails → unhealthy with no
-  guidance.
+  under `-i`.
 
 `command -v claude` works in the user's terminal precisely because the shell
-resolves aliases/functions/shims — which the app's PATH scan does not. **That is
-the core thing to fix.**
+resolves aliases/functions/shims — which the app's PATH scan does not. The
+detection strategy in §2 closes this.
+
+### Cause 3 — Auth (the honest "not signed in" case)
+Once found, a CLI can be installed but **not signed in**; the smoke test then
+fails. Today that's an opaque "unhealthy"; Setup turns it into a guided fix (§4).
+
+> Order of operations: **fix Cause 0 first** (packaging) so manifests load and the
+> bundled 6-worker panel returns — then layer real discovery (1), shell-aware
+> detection (2), and guided auth (3) on top. The Setup experience covers 1–3; the
+> packaging fix is a prerequisite bug, tracked here so it isn't lost.
 
 ---
 
@@ -163,6 +199,7 @@ After detection:
 
 | Concern | Today | Change |
 | --- | --- | --- |
+| **Driver manifests (Cause 0)** | `Resources/Drivers` shipped as a group → no `Drivers/` subdir in the bundle → empty registry + fallback panel | ship as a folder reference (XcodeGen `type: folder`) or drop the subdir lookup; add a built-bundle Works-Test that `loadDefaultRegistry().all` is non-empty |
 | PATH bridge | `LoginShell.applyToProcessEnvironment()` (AppConfig.swift) | add hardened `command -v` resolver + sentinel capture |
 | Resolve exec | `SubprocessCommandRunner.resolveExecutable` (PATH scan) | accept cached absolute paths from detection; add login-shell wrapper for shims |
 | Health | `WorkerHealthChecker` (detect + smoke → 2-state) | feed a new `CLIDetector`; emit the 5-state `WorkerSetupStatus` |
