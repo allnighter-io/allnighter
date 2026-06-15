@@ -16,6 +16,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Runs", isDirectory: true)
     }
 
+    /// `…/Allnighter/Threads/` — persistent work threads (turns own chat; heavy
+    /// turns reference runs under `Runs/` by id).
+    public static var threads: URL {
+        support.appendingPathComponent("Threads", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)
