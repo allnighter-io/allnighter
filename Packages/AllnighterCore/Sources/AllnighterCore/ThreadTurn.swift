@@ -202,7 +202,9 @@ public extension ThreadTurn {
     }
 
     /// True when this turn should pull the thread into needs-attention triage:
-    /// a failed/timed-out turn, or a system note that blocks on the user.
+    /// a failed/timed-out turn, or a blocking system note that is still open.
+    /// A blocking note (sign-in / manual-paste) is created `running` and
+    /// transitioned to a terminal state once resolved, so attention clears.
     var requiresUserAttention: Bool {
         switch status {
         case .failed, .timedOut:
@@ -213,7 +215,7 @@ public extension ThreadTurn {
         if kind == .systemEvent {
             switch systemEvent {
             case .signInRequired, .manualPaste:
-                return true
+                return !status.isTerminal   // open and blocking
             case .migrationImported, .waiting, .none:
                 return false
             }

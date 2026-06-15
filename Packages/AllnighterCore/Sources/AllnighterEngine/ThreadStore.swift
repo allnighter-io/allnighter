@@ -64,6 +64,25 @@ public struct ThreadStore: Sendable {
 
     // MARK: - Write
 
+    /// Creates and persists a new thread. `id`/`now` are explicit so callers
+    /// stay deterministic (the coordinator injects its own factories).
+    @discardableResult
+    public func create(
+        id: String,
+        title: String,
+        now: Date,
+        workingDir: String? = nil,
+        projectLabel: String? = nil,
+        defaultWorkerId: String? = nil
+    ) throws -> WorkThread {
+        let thread = WorkThread(
+            id: id, title: title, status: .active, createdAt: now, updatedAt: now,
+            workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId
+        )
+        try save(thread)
+        return thread
+    }
+
     @discardableResult
     public func save(_ thread: WorkThread) throws -> URL {
         let directory = try threadDirectory(forThreadId: thread.id)
@@ -115,6 +134,28 @@ public struct ThreadStore: Sendable {
         thread.updatedAt = now
         try save(thread)
         return thread
+    }
+
+    // MARK: - Context packets
+
+    /// Persists the exact context a worker was given, under the thread folder,
+    /// so "what the worker saw" can be revealed later as truth.
+    @discardableResult
+    public func savePacket(_ packet: ThreadContextPacket) throws -> URL {
+        let directory = try threadDirectory(forThreadId: packet.threadId)
+            .appendingPathComponent("context", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("\(packet.id).json")
+        try CoreJSON.encode(packet).write(to: url)
+        return url
+    }
+
+    public func packet(threadId: String, packetId: String) -> ThreadContextPacket? {
+        let url = rootDirectory
+            .appendingPathComponent("thread_\(threadId)", isDirectory: true)
+            .appendingPathComponent("context", isDirectory: true)
+            .appendingPathComponent("\(packetId).json")
+        return try? CoreJSON.decode(ThreadContextPacket.self, from: Data(contentsOf: url))
     }
 
     // MARK: - Derived run -> thread index (PWT-S02)

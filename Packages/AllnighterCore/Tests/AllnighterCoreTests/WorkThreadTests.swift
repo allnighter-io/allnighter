@@ -62,11 +62,14 @@ final class WorkThreadTests: XCTestCase {
         // A benign migration note must NOT raise attention.
         thread.turns = [makeTurn(kind: .systemEvent, status: .done, author: .system, systemEvent: .migrationImported)]
         XCTAssertFalse(thread.needsAttention)
-        // Sign-in and manual-paste notes block on the user.
-        thread.turns = [makeTurn(kind: .systemEvent, status: .done, author: .system, systemEvent: .signInRequired)]
+        // An OPEN sign-in / manual-paste note blocks on the user.
+        thread.turns = [makeTurn(kind: .systemEvent, status: .running, author: .system, systemEvent: .signInRequired)]
         XCTAssertTrue(thread.needsAttention)
+        thread.turns = [makeTurn(kind: .systemEvent, status: .running, author: .system, systemEvent: .manualPaste)]
+        XCTAssertTrue(thread.needsAttention)
+        // Once resolved (terminal), the same note no longer nags.
         thread.turns = [makeTurn(kind: .systemEvent, status: .done, author: .system, systemEvent: .manualPaste)]
-        XCTAssertTrue(thread.needsAttention)
+        XCTAssertFalse(thread.needsAttention)
     }
 
     func testHasActiveHeavyTurn() {
