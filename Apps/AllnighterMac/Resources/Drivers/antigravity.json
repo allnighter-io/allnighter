@@ -4,11 +4,11 @@
   "displayName": "Gemini (Antigravity CLI)",
   "kind": "headless_cli",
   "detectCommand": "agy --version",
-  "smokeTestCommand": "agy --print \"Reply with the single token ALLNIGHTER_READY\" --dangerously-skip-permissions",
+  "smokeTestCommand": "agy --print \"Reply with the single token ALLNIGHTER_READY\" --model \"{{model}}\" --dangerously-skip-permissions",
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "agy",
-    "args": ["--print", "{{prompt}}", "--dangerously-skip-permissions"],
+    "args": ["--print", "{{prompt}}", "--model", "{{model}}", "--dangerously-skip-permissions"],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,

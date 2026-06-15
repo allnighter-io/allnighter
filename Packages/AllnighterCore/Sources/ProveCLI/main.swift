@@ -31,7 +31,7 @@ enum ProveCLI {
         let cases: [(name: String, worker: Worker)] = [
             ("claude", Worker(id: "prove_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code")),
             ("grok", Worker(id: "prove_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok")),
-            ("agy", Worker(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "gemini-flash", driverId: "antigravity")),
+            ("agy", Worker(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "Gemini 3.5 Flash (Medium)", driverId: "antigravity")),
         ]
 
         var anyFailed = false

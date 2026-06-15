@@ -121,18 +121,18 @@ now encode these exact commands:
 | Grok Build | `grok` 0.2.51 | `grok -p "<prompt>" -m grok-build --output-format plain` | stdout |
 | Composer 2.5 | `grok` (same CLI) | `grok -p "<prompt>" -m grok-composer-2.5-fast --output-format plain` | stdout |
 | ChatGPT 5.5 | `codex` 0.130.0 | `codex exec --skip-git-repo-check --color never -o <file> "<prompt>"` (default model **gpt-5.5**) | **file** |
-| Gemini (Antigravity) | `agy` (Antigravity CLI) | `agy --print "<prompt>" --dangerously-skip-permissions` | stdout |
+| Gemini (Antigravity) | `agy` 1.0.8 (Antigravity CLI) | `agy --print "<prompt>" --model "Gemini 3.5 Flash (Medium)" --dangerously-skip-permissions` | stdout |
 
-> **Gemini graduated from `manual_paste` → headless (2026-06-15).** Google's
-> **Antigravity CLI** (`agy`, successor to the legacy gemini-cli; install
-> `curl -fsSL https://antigravity.google/cli/install.sh | bash`) drives Gemini
-> headlessly via `--print` (`--dangerously-skip-permissions` for unattended runs).
-> Driver `antigravity` replaces the old `gemini` manual manifest (the generic
-> `manual_paste` driver remains for any other un-scriptable CLI). **On-device verify
-> before relying on it:** that `agy --version` is a valid detect probe and whether a
-> `--model` flag is needed/accepted (the confirmed headless syntax pins neither, so
-> the manifest currently lets `agy` use its configured default model). This `agy`
-> capability also powers the design lane's image gen (`docs/mvp/Design0`).
+> **Gemini graduated from `manual_paste` → headless (verified on-device 2026-06-15).**
+> Google's **Antigravity CLI** (`agy` 1.0.8, successor to the legacy gemini-cli;
+> install `curl -fsSL https://antigravity.google/cli/install.sh | bash`) drives
+> Gemini headlessly via `--print` + `--dangerously-skip-permissions` (auto-approves
+> tool permissions for unattended runs). `--model` takes the **display-name** form
+> from `agy models` (e.g. `"Gemini 3.5 Flash (Medium)"`) — confirmed by a live
+> `agy --print … --model …` call. `agy --version` is the detect probe. Driver
+> `antigravity` replaces the old `gemini` manual manifest (the generic `manual_paste`
+> driver remains for any other un-scriptable CLI). This `agy` capability also powers
+> the design lane's image gen (`docs/mvp/Design0`).
 
 Two engine changes came out of the probe (both unit-tested):
 
