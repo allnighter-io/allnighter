@@ -4,7 +4,7 @@ Status: MLP BUILT (S01–S06) — PAUSED 2026-06-15; S07–S09 + fast-follows re
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-15
 
-> **Resume pointer:** the MLP (chat → panel → work order → dispatch loop's chat
+> **Resume pointer:** the MLP (chat → team run → work order → dispatch loop's chat
 > primitive) is built and green on branch `feat/design-chain`. Per-slice status,
 > file locations, and what remains live in
 > [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md) §
@@ -13,13 +13,13 @@ Updated: 2026-06-15
 ## Product Promise
 
 ```text
-One thread for one goal: chat, panel, build, review, and keep going without
+One thread for one goal: chat, team run, build, review, and keep going without
 leaving Allnighter or re-explaining yourself.
 ```
 
-This phase fixes the missing product unit. Allnighter is not just a council-run
+This phase fixes the missing product unit. Allnighter is not just a team-run
 launcher and not a generic chat aggregator. It owns **local work threads** that
-can route each turn to one worker, escalate to the panel, turn an answer into a
+can route each turn to one worker, escalate to the team, turn an answer into a
 work order, dispatch a builder, and review the return.
 
 ## Decision
@@ -35,7 +35,7 @@ see it saved immediately
 see the selected worker running
 leave or continue elsewhere
 get the reply in the same thread
-escalate to panel / work order / dispatch when ready
+escalate to team run / work order / dispatch when ready
 ```
 
 Mac notifications, token streaming, and observed usage metadata are fast
@@ -51,8 +51,8 @@ Build in this order:
    - [x] Persistent thread + turn models.
    - [x] One-worker async chat.
    - [x] Context packets.
-   - [x] Minimal Mac thread surface alongside the existing council UI.
-   - [ ] Existing council/design/review/dispatch work attaches to threads as
+   - [x] Minimal Mac thread surface alongside the existing team-run UI.
+   - [ ] Existing team/design/review/dispatch work attaches to threads as
      turns (S07 — backend linkage exists; rich in-timeline cards pending).
 
 2. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
@@ -73,8 +73,8 @@ Build in this order:
 ## Non-Negotiable Product Rules
 
 - **Chat is the default turn.** The user can brainstorm with one worker before
-  any council, work order, or dispatch.
-- **Routing is per turn.** A thread may use Grok, then Claude, then the panel,
+  any team run, work order, or dispatch.
+- **Routing is per turn.** A thread may use Grok, then Claude, then the team,
   then Codex as builder.
 - **Enter never builds.** Hitting Enter sends a chat turn to the resolved default
   worker. Dispatch is always a named action from an editable work-order preview.
@@ -91,16 +91,17 @@ Build in this order:
 
 Existing truth owners:
 
-- `CouncilRun` is the durable unit for council/design/review/dispatch history.
+- Legacy `CouncilRun` is the current durable unit for team/design/review/dispatch
+  history until the vocabulary cleanup renames it to `TeamRun`.
 - `StageOutput` records analysis, plan, review, final spec, dispatch, return
   review, and outcome score stages.
 - `RunStore` persists runs as local folder-of-JSON plus derived Markdown.
-- `WorkerRunner.invoke` runs one worker CLI once and already accepts
+- `WorkerRunner.invoke` runs one legacy worker/model CLI once and already accepts
   `workingDirectoryOverride`.
 - `CommandRunner.run(...) async -> CommandResult` is request/response. There is
   no streaming path today.
-- Member duration is already captured through `durationMs` and displayed on
-  member cards. Scorecards already store `medianLatencyMs`, though the current
+- Worker-answer duration is already captured through `durationMs` and displayed
+  on answer cards. Scorecards already store `medianLatencyMs`, though the current
   Doctor scorecard UI does not surface it.
 
 Truth added by the MLP (S01–S06, built 2026-06-15):
@@ -123,14 +124,14 @@ Threads reference runs. Runs do not become chats.
 
 ```text
 WorkThread
-  -> ThreadTurn(kind: council_run, runId: ...)
+  -> ThreadTurn(kind: teamRun, runId: ...)
   -> ThreadTurn(kind: dispatch, runId: ..., stageId: ...)
 
-CouncilRun
-  -> keeps member responses + stage outputs as today
+TeamRun
+  -> keeps worker answers + stage outputs as today
 ```
 
-`CouncilRun` stays the run-truth owner. `ThreadTurn.runId` is the linkage.
+`TeamRun` stays the run-truth owner after the rename. `ThreadTurn.runId` is the linkage.
 Inverse lookup is a store index, not authoritative state.
 
 ## Designer Contract
@@ -141,9 +142,9 @@ The designer should spec surfaces from these backend truths:
 2. Thread detail is a timeline of turns.
 3. The composer is always visible.
 4. Default action is chat with the resolved worker.
-5. Ask panel, turn into work order, dispatch, and continue from result are
+5. Ask team, turn into work order, dispatch, and continue from result are
    escalation actions inside the thread.
-6. Council/build turns expand in place.
+6. Team/build turns expand in place.
 7. Running/failed/waiting are turn states, not separate inboxes.
 8. The thread header exposes title, working directory, and default worker.
 9. The thread list is a triage surface: needs-attention, running, pinned, then
@@ -155,10 +156,10 @@ semantics and sequencing.
 ## Resolved Open Questions
 
 1. **Native session continuity:** yes later, never MLP, never truth.
-2. **Multiple in-flight council runs per thread:** one active heavy turn per
+2. **Multiple in-flight team runs per thread:** one active heavy turn per
    thread in v1.
 3. **Thread scope:** encourage one thread per feature/goal, not forever threads.
-4. **Panel snapshot:** use current panel at escalation time; record exact seats
+4. **Team snapshot:** use current team at escalation time; record exact workers
    used on the turn/run.
 5. **Quick capture default:** new thread by default; append-to-active can be a
    setting or explicit picker.

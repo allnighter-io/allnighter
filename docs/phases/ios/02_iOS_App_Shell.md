@@ -92,7 +92,7 @@ Not part of the default first-run.
   top pending decisions, a **prominent always-visible kill switch**, quick "new work
   request."
 - **Active runs:** worker, prompt/task, plain-language status, elapsed time; tap →
-  detail (master plan / latest output + stop). Sensitive content is fetched **E2E**
+  detail (plan / latest output + stop). Sensitive content is fetched **E2E**
   (sealed key → decrypt locally, `01`), never read from the cloud in plaintext.
 - **Design board** (`Design0`): the gallery of generated option images at identical
   scale — *the* hero view for the design side. Images arrive **E2E** (per-device
@@ -103,7 +103,7 @@ Not part of the default first-run.
   re-seals/re-uploads, `01`), never a broken image. The user **picks** (taste decides),
   then "Build this" → a typed command (`RB4` dispatch). Makes the media-plane a v1
   surface, not future.
-- **Review:** read a finished run's master plan / final spec (E2E); landing actions
+- **Review:** read a finished run's plan / final spec (E2E); landing actions
   (land / ask-for-changes / open-on-Mac) as `01` commands.
 - **New work request:** preset + prompt → `startRun` on the Mac. The headline
   "send out more work while walking" flow — right after Home + Active.
@@ -117,8 +117,8 @@ Not part of the default first-run.
   plainly *"This phone can start and stop AI work on your Mac and review results — it
   can never run arbitrary commands"* (`00` §3.1). Honesty line on privacy: *"We can't
   read your work; we route minimized, auto-deleting metadata."*
-- Vocabulary: panel / run / worker / lane / landing / board (`../../mvp/README.md` §4,
-  `Design0`).
+- Vocabulary: model / skill / worker / team run / lane / landing / board
+  (`../Work_Order_Team_Model.md`, `Design0`).
 
 ## Deferred seam — Attention Queue (design now, build later)
 
@@ -130,7 +130,7 @@ runs, so the queue drops in without a rewrite (same posture as `PushNotifier`).
 
 ## Fixture → screen map
 
-`run_inflight.json` → Active; `run_complete.json` → Review (master plan); design
+`run_inflight.json` → Active; `run_complete.json` → Review (plan); design
 fixtures (board.json + option PNGs) → Design board. Previews bind these.
 
 ## Ordered Slices
@@ -149,7 +149,7 @@ fixtures (board.json + option PNGs) → Design board. Previews bind these.
 - [ ] iOS02-S05 — Active runs list + detail (status, latest output, stop).
 - [ ] iOS02-S06 — **Design board** (thumbnail-first E2E images, pick, "Build this").
 - [ ] iOS02-S07 — New work request (preset + prompt → `startRun`).
-- [ ] iOS02-S08 — Review a finished run (master plan / final spec) + landing.
+- [ ] iOS02-S08 — Review a finished run (plan / final spec) + landing.
 - [ ] iOS02-S09 — Settings → Trusted devices + revoke + **Direct Mode** toggle.
 - [ ] iOS02-S10 — Kill-switch polish (confirm, terminated-count feedback, haptics).
   *Functionality lands in S04; this is the hardening pass.*
@@ -165,7 +165,7 @@ On cellular (off the Mac's wifi), the phone signs in with Apple, sees its Mac, p
 (tap + approve on the Mac), shows the Mac online, lists live runs, opens a design run
 and the BOARD renders option images (decrypted E2E, thumbnail-first), the user picks
 one and "Build this" dispatches to the Mac, sends a new work request that starts a
-council, and the kill switch stops all work with a terminated count. Walking through a
+team run, and the kill switch stops all work with a terminated count. Walking through a
 dead zone (drop + restore) loses no events (resume via 01). With the Mac asleep the app
 shows "asleep, last seen <time>" and renders last-known state from cache. No plaintext
 sensitive content is ever read from the cloud. DEBUG fixtures never appear in a release

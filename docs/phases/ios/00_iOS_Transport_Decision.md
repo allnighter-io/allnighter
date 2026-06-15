@@ -163,7 +163,7 @@ Not just images: **every sensitive payload is sealed**, inbound and outbound, vi
 one primitive — **HPKE (RFC 9180) in `CryptoKit`** (DHKEM-X25519 · HKDF-SHA256 ·
 AES-GCM-256), sealed to the recipient's **sealing** (X25519) key.
 
-- **Outbound (Mac → phone):** outputs, master plans, board images, stage markdown are
+- **Outbound (Mac → phone):** outputs, plans, board images, stage markdown are
   sealed to each approved device's `deviceSealingPubkey`. Large blobs go to R2 as
   **ciphertext** (per-blob content key, presigned PUT, R2 Standard, TTL-deleted); the
   content key is sealed **per device** (one ciphertext, N sealed keys). The phone

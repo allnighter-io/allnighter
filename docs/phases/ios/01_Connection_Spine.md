@@ -148,7 +148,7 @@ media_keys        { ref, deviceId, sealedKey, PRIMARY KEY(ref, deviceId) }      
      write to `command_inbox`.
   3. **Revoked** → none.
 - **Content-light control plane.** Supabase carries **metadata only**; sensitive
-  content (prompts, outputs, master plans, board images) is **sealed by reference**
+  content (prompts, outputs, plans, board images) is **sealed by reference**
   (`SealedBlob` inline for small, `media_ref` for blobs). Enforced at write sites.
 - **Filtered Realtime.** The Mac subscribes `command_inbox:macAgentId=eq.<id>`; the
   phone subscribes `event_envelopes`/`command_acks` filtered to its Mac. (Postgres

@@ -14,7 +14,7 @@ Updated: 2026-06-15 (cloud-first pivot)
 
 ## 0. The product, in one line
 
-> **Control your Mac's councils and design boards from your phone — from anywhere,
+> **Control your Mac's team runs and design boards from your phone — from anywhere,
 > securely, with almost no setup.**
 
 A non-developer "vibe coder" on a walk should **sign in, pick their Mac, and go** —

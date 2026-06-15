@@ -10,7 +10,7 @@ Notify the user when work lands or needs attention, so they can keep the bench
 busy without staring at Allnighter.
 
 This is high value because Allnighter is a floor manager. The user should know
-when a worker replied, a council completed, a dispatch returned, or a lane is
+when a worker replied, a team run completed, a dispatch returned, or a lane is
 blocked.
 
 ## Product Claim
@@ -64,7 +64,7 @@ Default copy examples:
 
 ```text
 Claude replied in "Notifications strategy"
-Panel complete: "Should sync be push or pull?"
+Team run complete: "Should sync be push or pull?"
 Codex returned from dispatch
 Grok needs sign-in
 ```
@@ -109,7 +109,7 @@ seq
 
 - Global notifications on/off.
 - Per-thread mute.
-- Notify on: replies, council complete, dispatch returned, failures/blocked.
+- Notify on: replies, team run complete, dispatch returned, failures/blocked.
 - Quiet hours.
 - Mobile push on/off per paired device.
 - Reset notification permission guidance if macOS permission was denied.
@@ -139,7 +139,7 @@ thread suppresses both.
 Mobile:
 
 ```text
-With a paired phone and push enabled, a completed worker/council/dispatch event
+With a paired phone and push enabled, a completed worker/team/dispatch event
 sends a content-light OneSignal notification. Opening it fetches encrypted
 thread content through the remote spine. The push payload contains no prompt,
 reply, code, or artifact text.

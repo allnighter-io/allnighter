@@ -47,9 +47,9 @@ If usage is not reported, show "usage unavailable" or omit it. Do not infer.
 
 Already exists:
 
-- `MemberResponse.durationMs` for panel workers.
+- Legacy `MemberResponse.durationMs` for team workers.
 - `WorkerRunner` measures `startedAt`, `finishedAt`, and `durationMs`.
-- Member cards show per-member duration.
+- Worker-answer cards show per-worker duration.
 - `WorkerScorecard.medianLatencyMs` exists.
 
 Gaps:
@@ -78,7 +78,7 @@ ObservedUsage
 Attach where usage is observed:
 
 ```text
-MemberResponse.observedUsage?
+WorkerAnswer.observedUsage?
 StageOutput.observedUsage?
 ExecutionReturn.observedUsage?
 ThreadTurn.observedUsage?   # only for worker_chat turns
@@ -122,7 +122,7 @@ fake precision.
 - [ ] USG-S01 - Surface median latency already stored in `WorkerScorecard`.
 - [ ] USG-S02 - Add `ObservedUsage` model and Codable fixtures.
 - [ ] USG-S03 - Add one driver-specific parser from a real CLI output fixture.
-- [ ] USG-S04 - Attach observed usage to worker chat and panel member results.
+- [ ] USG-S04 - Attach observed usage to worker chat and worker answers.
 - [ ] USG-S05 - Add local scorecard aggregation for observed tokens when present.
 - [ ] USG-S06 - Add UI metadata display with source labels and unavailable state.
 - [ ] USG-S07 - Evaluate provider-reported billing data only as a separate law

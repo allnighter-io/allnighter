@@ -12,7 +12,7 @@ Ship the smallest lovable thread experience:
 create thread
 -> chat with one worker
 -> follow up with saved thread context
--> ask the panel from the same thread
+-> ask the team from the same thread
 -> turn an answer into a work order
 -> dispatch from the thread
 -> return review lands in the thread
@@ -25,7 +25,7 @@ full IDE chat replacement, and not mobile sync.
 
 ```text
 Allnighter keeps one local work thread per goal. You can think with one worker,
-ask the panel when it matters, and turn the result into work without copy/paste.
+ask the team when it matters, and turn the result into work without copy/paste.
 ```
 
 ## Non-Goals
@@ -45,7 +45,7 @@ ask the panel when it matters, and turn the result into work without copy/paste.
   included sources, and truncation in bytes/characters; token counts wait for
   source-labeled observed usage.
 - No design-board-first-class timeline polish; attaching design turns may wait
-  until after chat + council + dispatch are proven.
+  until after chat + team run + dispatch are proven.
 
 ## Core Models
 
@@ -85,7 +85,7 @@ ThreadTurn
 - author                 # user | worker(workerId) | system
 - text?
 - workerId?
-- runId?                 # references CouncilRun for council/design/review/dispatch
+- runId?                 # references TeamRun after rename; legacy CouncilRun today
 - stageId?
 - artifactRefs: [ArtifactRef]
 - contextPacketId?
@@ -101,7 +101,7 @@ ThreadContextPacket
 - createdAt
 - strategy               # recent_turns | explicit_selection
 - includedTurnIds: [ThreadTurn.ID]
-- includedRunIds: [CouncilRun.ID]
+- includedRunIds: [TeamRun.ID]
 - includedFiles: [String]
 - text
 - truncated: Bool
@@ -110,7 +110,7 @@ ThreadContextPacket
 
 ```text
 ArtifactRef
-- kind                   # masterPlan | finalSpec | designBoard | dispatchResult
+- kind                   # plan | finalSpec | designBoard | dispatchResult
                          # returnReview | screenshot | file | diff
 - runId?
 - stageId?
@@ -120,8 +120,9 @@ ArtifactRef
 
 Ownership rule:
 
-- `ThreadTurn.runId` references `CouncilRun`.
-- `CouncilRun` is not modified for chat.
+- `ThreadTurn.runId` references `TeamRun` after the rename; current code still
+  references legacy `CouncilRun`.
+- The run object is not modified for chat.
 - A store-level index may map run -> thread, but it is derived.
 
 ## Turn Families
@@ -132,7 +133,7 @@ Use granular storage kinds but simple UI families:
 | --- | --- | --- |
 | Message | `user_message`, `user_decision` | User text, notes, decisions |
 | Reply | `worker_chat` | One-worker response |
-| Council | `council_run`, `design_board`, `review_board` | Rich expandable run turn |
+| Team | `teamRun`, `designBoard`, `reviewBoard` | Rich expandable run turn |
 | Build | `work_order`, `dispatch`, `return_review` | Spec, execution, result |
 | System | `system_event` | Migration, waiting, sign-in, manual-paste notes |
 
@@ -167,8 +168,8 @@ Minimum list affordances:
 - Quick capture creates a new thread by default.
 - local text filter over title, preview, first message, and run prompt arrives
   with the Home flip if full search is not ready.
-- imported legacy run threads show a collapsed system note: "Imported council
-  run - no prior chat."
+- imported legacy run threads show a collapsed system note: "Imported team run -
+  no prior chat."
 
 ## Composer Contract
 
@@ -196,7 +197,7 @@ Composer state:
 empty thread + Enter       -> worker_chat to resolved worker
 existing thread + Enter    -> worker_chat to resolved worker
 Shift+Enter                -> newline
-Ask panel                  -> council_run
+Ask team                   -> teamRun
 Turn into work order       -> work_order, editable, nothing runs
 Dispatch                   -> dispatch from work_order, confirmed
 Continue from result       -> worker_chat seeded from selected turn
@@ -212,7 +213,7 @@ Guardrails:
   `unknown`, the composer shows the observed reason and offers explicit choices:
   wait/queue when allowed, switch worker, manual-paste, or attempt anyway where
   admission policy permits. It never silently sends to a different worker.
-- One active heavy turn (`council_run`, `dispatch`, `return_review`) is allowed
+- One active heavy turn (`teamRun`, `dispatch`, `return_review`) is allowed
   per thread in v1. While one is active, new heavy actions are disabled with an
   explanation. Simple chat may continue only if the coordinator can safely attach
   it as an independent `worker_chat` turn without mutating the active run.
@@ -248,7 +249,7 @@ Rules:
 - Preserve author and worker provenance.
 - Apply a byte/character cap.
 - Show visible truncation metadata: "included last N turns; older omitted."
-- Provide a first-class context reveal before manual-paste, panel, and dispatch:
+- Provide a first-class context reveal before manual-paste, team run, and dispatch:
   "What the worker will see", included turn/file/artifact list, size, cap, and
   one-click copy. This is product trust, not a debug drawer.
 - Do not include artifacts from outside the thread unless explicitly attached.
@@ -290,16 +291,16 @@ AllnighterEngine:
 
 Mac app:
 
-- Add thread list and thread detail timeline alongside current council UI.
+- Add thread list and thread detail timeline alongside current team-run UI.
 - Keep existing run history until the later ownership flip.
 - Add always-visible composer.
 - Add worker picker/default worker chip.
 - Add thread header with editable title, `workingDir` pill, and default worker.
-- Add "Ask panel", "Turn into work order", "Dispatch", and "Continue from this"
+- Add "Ask team", "Turn into work order", "Dispatch", and "Continue from this"
   as semantic actions, even if the first UI is plain.
 - Add manual-paste turn UI: reveal/copy exact context, open/copy affordance, and
   inline paste box that completes the worker reply turn.
-- Reuse existing council/member/master-plan/dispatch/return-review cards as
+- Reuse existing team-run/worker-answer/plan/dispatch/return-review cards as
   compact expandable rich turns instead of navigating away from the timeline.
 
 GUI prep:
@@ -311,8 +312,8 @@ GUI prep:
 
 ## Migration
 
-- Existing `CouncilRun`s become lazy auto-threads on access/list.
-- Each auto-thread has one `council_run` turn and one collapsed `system_event`
+- Existing legacy runs become lazy auto-threads on access/list.
+- Each auto-thread has one `teamRun` turn and one collapsed `system_event`
   noting imported run with no prior chat.
 - Do not synthesize missing user/worker chat turns.
 - `Run again` becomes "Continue in thread" or "Fork to new thread."
@@ -325,7 +326,7 @@ GUI prep:
 - [x] PWT-S04 - `ThreadContextBuilder` with caps and visible truncation.
 - [x] PWT-S05 - `WorkerChatCoordinator` with optimistic turns and manual fallback.
 - [x] PWT-S06 - Minimal Mac thread list + timeline + composer.
-- [ ] PWT-S07 - Attach council/review/dispatch as turns.
+- [ ] PWT-S07 - Attach team/review/dispatch as turns.
 - [ ] PWT-S08 - Home flips to thread list; legacy runs migrate lazily.
 - [ ] PWT-S09 - Export full thread transcript + linked run artifacts.
 
@@ -335,8 +336,8 @@ MLP is S01-S06. S07-S09 complete the loop but must not block proving chat.
 
 **MLP is DONE and green** on branch `feat/design-chain`. `scripts/check.sh`
 passes: 179 Core/Engine `swift test` + 26 Mac tests. Each slice is its own
-commit (`git log --grep PWT-S`). The Council UI is untouched; Threads is reached
-by a new Council↔Threads sidebar toggle (Home does not flip until S08).
+commit (`git log --grep PWT-S`). The legacy team-run UI is untouched; Threads is
+reached by a sidebar toggle (Home does not flip until S08).
 
 ### Done — where the code lives
 
@@ -369,16 +370,16 @@ resume):
   once the founder supplies them; no backend change needed. The S06 completion
   bar (triage, composer worker chip, running heartbeat, context reveal,
   workingDir pill) is already met functionally.
-- **PWT-S07 — Attach council/review/dispatch as rich turns.** Backend linkage
+- **PWT-S07 — Attach team/review/dispatch as rich turns.** Backend linkage
   exists (`ThreadTurn.runId`/`stageId`, `ArtifactRef`); `richRow` in
-  `ThreadsView.swift` is a placeholder card. Reuse the existing council/
-  master-plan/dispatch/return-review cards as compact expandable in-timeline
-  turns, and route "Ask panel / Turn into work order / Dispatch / Continue from
+  `ThreadsView.swift` is a placeholder card. Reuse the existing team-run/
+  plan/dispatch/return-review cards as compact expandable in-timeline
+  turns, and route "Ask team / Turn into work order / Dispatch / Continue from
   this" into thread turns. Recommended to land with the S06 re-skin so run-card
   reuse is design-correct in one pass.
 - **PWT-S08 — Home flips to thread list; lazy run migration.** Make threads the
-  default (retire the Council↔Threads toggle or invert it); lazily wrap existing
-  `CouncilRun`s as auto-threads on list/access with one `council_run` turn + a
+  default (retire the old toggle or invert it); lazily wrap existing
+  legacy runs as auto-threads on list/access with one `teamRun` turn + a
   collapsed `migration_imported` system note (see Migration section). Add the
   local title/preview/first-message/run-prompt filter.
 - **PWT-S09 — Export full thread transcript + linked run artifacts.** Extend
@@ -394,8 +395,8 @@ New thread. Send "before we build, brainstorm the simplest approach" to one
 healthy worker. The user turn renders immediately. The worker turn shows running
 immediately with heartbeat and elapsed time. The reply is saved. Send a follow-up
 to a different worker; reveal context shows the earlier user turn and worker
-reply plus any truncation note. Ask the panel from the same thread; the council
-run is saved as an expandable turn referencing the run. Turn the master plan into
+reply plus any truncation note. Ask the team from the same thread; the team
+run is saved as an expandable turn referencing the run. Turn the plan into
 an editable work order. Dispatch it in the thread workingDir. Return review lands
 as the next turn. Quit and reopen; the thread is intact and appears in the Home
 triage order.
