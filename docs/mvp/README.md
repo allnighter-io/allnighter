@@ -153,7 +153,16 @@ contracts so no phase re-decides them.
 03  Mac App Shell + Run Loop (prompt, panel, live status, response viewer)              [BUILT*]
 04  Synthesis + Master Plan (default Opus; configurable in 05)                         [BUILT*]
 05  History, Presets, Doctor + Distribution (make it the daily driver)  [S01-S05 DONE; dist deferred]
+06  Fusion-Grade Synthesis + Evals (the correct council foundation)      [specced; build next]
 ```
+
+> **06 is a deliberate foundation phase.** OpenRouter's Fusion result publicly
+> validated the panel→judge→plan pattern; Allnighter is the local, zero-marginal-
+> cost version. Phase 06 captures Fusion's lessons (structured `JudgeAnalysis`,
+> self-fusion via `PanelSeat`, budget-panel presets) and lays the correct final
+> run model (seats, structured analysis, `StageOutput` sequence) **before** any
+> review-board machinery — so RB0–RB5 add stage *kinds*, never a rewrite. No
+> OpenRouter, no API keys; zero marginal cost is preserved.
 
 > `*` = code complete and automated gates green (`swift test` 57 + app suite via
 > `scripts/check.sh`). Driver headless flags are **verified on-device** (claude,
@@ -161,18 +170,27 @@ contracts so no phase re-decides them.
 > the founder clicking "Run council" once on a real prompt (spends quota).
 
 **MVP "lovable demo" = phases 01–04.** Phase 05 makes it the founder's daily
-driver and makes the synthesizer configurable. iOS or Review Board begins only
-after 01–05 are loved (see `00` § Growth Seams and `RB0`).
+driver and makes the synthesizer configurable. Phase 06 makes the synthesis
+itself Fusion-grade and lays the correct council-run foundation. Review Board
+begins only after 06's foundation is in and the `RB0` activation gate passes.
 
-Next MVP-layer review-board and dispatch docs:
+Next: the Fusion-grade foundation, then the judgment workflow.
 
 ```text
-RB0  Judgment Workflow Overview
-RB1  Workflow Presets + Stage Primitives
-RB2  Review Board
-RB3  Final Spec
-RB4  Direct Executor Dispatch
+06   Fusion-Grade Synthesis + Evals (PanelSeat, JudgeAnalysis, StageOutput, evals)
+RB0  Judgment Workflow Overview (+ activation gate, now incl. synthesis-lift)
+RB1  Workflow Presets + Stage Primitives (consume 06's StageOutput / PromptProfile)
+RB2  Review Board (lenses consume JudgeAnalysis + raw answers)
+RB3  Final Spec (resolve contradictions; preserve/reject unique insights)
+RB4  Direct Executor Dispatch (brief carries the analysis decisions)
+RB5  Return Review, Outcome Scoring, and Routing (close the control loop)
+RB6  Council-as-Tool (local CLI/MCP/HTTP; local Fusion any agent can call — the moat)
 ```
+
+> **RB6 needs only Phase 06**, so it can ship early — delivering "local Fusion
+> any terminal agent can call, at zero marginal cost" as soon as the council
+> foundation exists. It is judgment-only (no git, no execution) and recursion-
+> guarded; it makes Allnighter the judgment layer the whole machine runs on.
 
 ---
 

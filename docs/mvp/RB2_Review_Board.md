@@ -13,7 +13,8 @@ review board is the cheap insurance: before any code is written, adversarial
 lenses (security, maintainer, proof/QA, cost, dissent…) attack the draft in
 parallel. The payoff is **trust to press go** — and it costs minutes of model
 time, not a day of debugging generated code. The board is opt-in per preset so
-the daily fast loop stays one call.
+the daily fast loop stays **one click** (a handful of calls — the `CallPlan` always
+shows the count; the daily loop is never literally "one call" after Phase 06).
 
 ## Goal
 
@@ -64,8 +65,21 @@ top_concerns:
 ```
 
 The header is a convenience, never authority: a missing/malformed header degrades
-to "treat the whole file as advisory prose." The finalizer must still read the
-body and decide from first principles (RB3).
+to "treat the whole file as advisory prose." The **`lensId` is never taken from
+the header** — it is known structurally from the `StageBinding`/stage output that
+produced the review (the filename `review_<lensId>.md` is derived from it). So RB3
+always has a `lensId` for every review decision even when the header is garbage;
+only `verdict`/`top_concerns` are lost on a bad header. The engine (not the
+finalizer) parses the header into the `ReviewResult` payload; the finalizer
+consumes the structured form and still reads the body to decide from first
+principles (RB3).
+
+**Per-lens rerun + output identity.** Each review is a `StageOutput`
+(`purpose: review`) tagged with its `lensId`. A "rerun this lens" is a force-fresh
+(RB1) that **appends** a new review output and supersedes the prior one for that
+`lensId` (outputs are append-only history; the latest per lens is active). So
+`run.json` may hold two `review_security_privacy` outputs; `review_security_privacy.md`
+renders the latest. This avoids the "rerun returns the cached result" trap.
 
 ## Inputs
 
@@ -73,46 +87,77 @@ Default review input:
 
 ```text
 founder prompt
+judge analysis (Phase 06 JudgeAnalysis: consensus/contradictions/unique/blind spots)
 draft master plan
 review lens instructions
 ```
 
-Lens-specific input selectors may add raw member answers when needed. The
-`dissent_preserver` lens should receive raw member answers by default so it can
-find what the draft synthesis flattened.
+Reviewers consume the **structured `JudgeAnalysis`** (`judge_analysis` input
+selector, RB1), not only `master_plan.md` — so a lens can challenge a specific
+contradiction or an unsupported consensus point directly. Lens-specific selectors
+add raw member answers when needed; the `dissent_preserver` lens receives raw
+member answers by default to find what the synthesis flattened.
+
+### Anti-echo: reviewers challenge, they do not agree
+
+Every built-in lens profile carries an explicit anti-echo instruction: "Do not
+restate or endorse the draft. Surface what is wrong, missing, or risky from your
+lens; if you find nothing, say so briefly." Diversity of *output* is the value
+(the Fusion self-fusion lesson); a reviewer that parrots the plan is wasted quota.
 
 ## Built-In Lenses
 
-Ship all built-ins from RB0 as prompt profiles. The initial UI should expose:
+Ship all built-ins from RB0 as prompt profiles, plus **`coverage_audit`** (new).
+Its job is **meta-coverage**, sharply distinct from `JudgeAnalysis.blindSpots` and
+from `dissent_preserver` (do not restate either): given the founder prompt + the
+draft plan, judge whether **the original question is actually, fully answered** and
+name domain risks/edge cases the whole exercise (panel *and* judge) could have
+missed — e.g. "no rollback path", "i18n unaddressed", "abuse/rate-limit not
+considered". `blindSpots` is what the panel missed; `coverage_audit` is whether the
+*plan answers the prompt* and what neither panel nor judge could know.
 
 ```text
 synthesis_only: no reviews
-light_review: security_privacy, code_maintainer, proof_qa
-full_review: all built-in lenses
+light_review:   security_privacy, code_maintainer, proof_qa
+full_review:    all built-in lenses + coverage_audit
 ```
 
 `writer_editor` is optional for non-user-facing implementation plans.
 
+### Budget routing (the Fusion budget-panel lesson)
+
+Review lenses are mostly structured checklist work, so they do not need a frontier
+worker. `StageBinding.preferFastWorker` (RB1), when set, resolves the lens to the
+**fastest healthy** worker. "Fastest" is **defined deterministically**: the lowest
+**median `durationMs`** for that worker across local run history (`Runs/`); ties and
+no-history fall back to a static per-driver tier hint, then to the first healthy
+worker by Doctor. (This is a cheap local-history lookup, *not* the RB5 scorecard
+system — it predates it and needs no new infrastructure.) Reserve the strong worker
+for the analysis/finalizer reduces. This keeps `full_review` fast and easy on quota
+while losing little review quality, and the `CallPlan` shows which worker each lens
+routed to.
+
 ## Ordered Slices
 
-- [ ] RB2-S01 - Bundled review-lens prompt profiles (all RB0 lenses) + fixtures
-  with round-trip tests.
-- [ ] RB2-S02 - Workflow preset review bindings: lens id, worker id, input
-  selectors, timeout, `enabled` (per-lens toggle so the user can trim the board
-  and the cost).
-- [ ] RB2-S03 - Review prompt builder with explicit advisory language and
-  lens-specific input selectors (`dissent_preserver` gets raw member answers).
-- [ ] RB2-S04 - Review fanout coordinator reusing the existing `WorkerRunner` +
-  `TaskGroup`; the draft plan is supplied as a **reused** input (no re-fan-out).
-- [ ] RB2-S05 - `StageOutput` persistence in `run.json` and derived
-  `review_<lensId>.md` artifacts with the optional machine-readable header.
-- [ ] RB2-S06 - UI review board panel: per-lens status, verdict chip, output,
-  copy, and a per-lens rerun that reuses the unchanged draft.
-- [ ] RB2-S07 - Partial behavior: failed/timed-out reviews are surfaced and do
-  not block the run; a healthy-worker check (Doctor) warns before binding a lens
-  to an unhealthy worker.
-- [ ] RB2-S08 - `bundle.md` includes prompt, member answers, master plan, and
-  all completed reviews. `CallPlan` counts the enabled lenses before the run.
+- [ ] RB2-S01 - Bundled review-lens prompt profiles (all RB0 lenses + new
+  `coverage_audit`) with the anti-echo instruction baked in. Fixtures + round-trip.
+- [ ] RB2-S02 - Workflow preset review bindings: lens id, seat/worker, input
+  selectors, timeout, `enabled` (per-lens toggle), `preferFastWorker` (budget
+  routing via Doctor).
+- [ ] RB2-S03 - Review prompt builder with explicit advisory + anti-echo language
+  and lens-specific input selectors (`judge_analysis` for all; raw member answers
+  for `dissent_preserver`; `JudgeAnalysis.blindSpots` for `coverage_audit`).
+- [ ] RB2-S04 - Review fanout coordinator reusing `WorkerRunner` + `TaskGroup`; the
+  `JudgeAnalysis` + draft plan are supplied as **reused** inputs (no re-fan-out).
+- [ ] RB2-S05 - Review `StageOutput`s (`purpose: review`) in `run.json` + derived
+  `review_<lensId>.md` with the optional machine-readable header.
+- [ ] RB2-S06 - UI review board: per-lens status, verdict chip, output, copy, and a
+  per-lens rerun that reuses the unchanged analysis/draft.
+- [ ] RB2-S07 - Partial behavior: failed/timed-out reviews are surfaced and do not
+  block the run; Doctor warns before binding a lens to an unhealthy worker.
+- [ ] RB2-S08 - `bundle.md` includes prompt, member answers, analysis, plan, and
+  all completed reviews. `CallPlan` counts the enabled lenses (and their routed
+  seats) before the run.
 
 ## Works Test
 

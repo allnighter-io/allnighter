@@ -1,10 +1,10 @@
 # RB0 - Judgment Workflow Overview
 
-Status: **Finalized — ready to activate after the RB0 activation gate passes.**
+Status: **Finalized — activate after Phase 06 lands and the RB0 gate passes.**
 Owner: Founder + Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: 05 (shipped: S01–S05)
+Depends on: 05 (shipped), 06 (the council foundation: `PanelSeat`, `JudgeAnalysis`, `StageOutput`)
 
 ## Who This Is For (the 10x thesis)
 
@@ -74,41 +74,48 @@ panel_fanout -> draft_synthesis -> optional_review_fanout
 Do not build a general DAG engine in v1. Configure the participants,
 instructions, review lenses, and worker bindings inside this shape.
 
-## What Phase 05 Already Shipped (build on, do not rebuild)
+## What 05 + 06 Already Lay Down (build on, do not rebuild)
 
-The review-board milestone is **not** starting from Phase 04. Phase 05 landed the
-preset and honesty substrate the RB chain extends:
+The review-board milestone starts from the **correct council foundation**, not
+Phase 04. Phase 05 shipped presets + honesty; Phase 06 lays the final run model.
 
-| Phase 05 artifact | RB milestone reuses it as |
-| --- | --- |
-| `SynthesisInstructionPreset` + `SynthesisInstructionStore` | The seed of `PromptProfile` (RB1 generalizes it; keep a compatibility shim). |
-| `SynthesisInstructionChoice` (honest `Synthesis.instructions`) | RB1-S02 is **already done** — `run.json` records the chosen preset id or literal custom text, never always `default_master_plan_v1`. RB1 verifies, not re-implements. |
-| `PanelPreset` (+ `PanelPresetStore`) | The seed of `WorkflowPreset` (RB1 extends it with `stages`). |
-| `CouncilRun.panelPresetId` (optional, decodes old runs) | The forward-compatible slot for `workflowPresetId`. |
-| `Doctor` / `WorkerDiagnosis` | RB4 gates dispatch on a healthy headless worker and reuses the fix-hint vocabulary. |
-| `AllnighterPaths` (`Runs/`, `Config/`) | RB stores land under the same tree; no new path scheme. |
-| `RunStore` / `RunMarkdown` artifact contract | RB adds sibling artifacts; `run.json` stays truth, `master_plan.md`/`bundle.md` stay backward-compatible. |
+| Artifact | From | RB milestone reuses it as |
+| --- | --- | --- |
+| `SynthesisInstructionPreset` + `SynthesisInstructionStore` | 05 | The seed of `PromptProfile`. Phase 06 already evolves it into the structured judge profile; RB1 adds `purpose`. |
+| honest `StageOutput.promptProfileId` (from `SynthesisInstructionChoice`) | 05→06 | RB1 keeps a regression test; the seam is already closed. |
+| `PanelPreset` (+ `PanelPresetStore`) | 05 | The seed of `WorkflowPreset` (RB1 extends with `stages`). 06 ships tiered presets on it. |
+| **`PanelSeat`** (panel is `[PanelSeat]`; self-fusion) | 06 | RB stages bind to seats; review/dispatch reference seat ids. |
+| **`JudgeAnalysis`** (structured consensus/contradictions/unique/blind spots/coverage/failed seats) | 06 | RB2 lenses and RB3 finalizer consume it directly, not raw Markdown. |
+| **`StageOutput` + `StagePurpose`** (the run is a stage sequence) | 06 | RB adds `StagePurpose` cases (`review`, `final_spec`, `dispatch`, `return_review`) — it does **not** restructure the run. |
+| `reuseKey` on `StageOutput` | 06 (field) | RB1 turns reuse on (edit one lens → don't re-run the panel). |
+| Eval harness (`Rubric`/`EvalScore`, negative criteria) | 06 | RB3 executability and RB5 outcome scoring reuse it. |
+| `Doctor` / `WorkerDiagnosis` | 05 | RB4 gates dispatch on a healthy headless worker; reuses fix-hint vocabulary. |
+| `AllnighterPaths`, `RunStore` / `RunMarkdown` | 05→06 | `run.json` is truth; RB adds derived sibling artifacts. |
 
-> Migration rule: `PromptProfile` **subsumes** `SynthesisInstructionPreset` and
-> `WorkflowPreset` **subsumes** `PanelPreset`. Prefer evolving these types (add
-> fields, keep decoding old files) over introducing parallel duplicates.
+> **No migration shims (pre-user).** There are no saved runs to preserve. RB
+> evolves these types to their correct shape directly. `PromptProfile` subsumes
+> `SynthesisInstructionPreset`; `WorkflowPreset` extends `PanelPreset`;
+> `CouncilRun.presetId` is the preset slot. Do not add "decode old runs" gates.
 
 ## Core Vocabulary
 
 | Term | Meaning |
 | --- | --- |
-| `Worker` | Existing executor endpoint: local CLI + model label + driver manifest. |
-| `PromptProfile` | Versioned, editable prompt template used by a stage. Review lenses and synthesis instructions are both prompt profiles. Generalizes Phase 05's `SynthesisInstructionPreset`. |
+| `Worker` | Executor endpoint: local CLI + model label + driver manifest. |
+| `PanelSeat` | One independent panel slot (`{ id, workerId, seatIndex, label? }`). A worker can fill several seats — *self-fusion*. (Phase 06.) |
+| `JudgeAnalysis` | Structured judge truth: consensus, contradictions, partial coverage, unique insights, blind spots, failed seats. Markdown is derived. (Phase 06.) |
+| `PromptProfile` | Versioned, editable prompt template used by a stage. Review lenses and synthesis/judge instructions are all prompt profiles. Generalizes `SynthesisInstructionPreset`. |
 | Review lens | User-facing name for a `PromptProfile` whose purpose is `review_lens`. |
-| `WorkflowPreset` | A named binding of stage shape, workers, prompt profiles, and defaults. Extends Phase 05's `PanelPreset` with `stages`. |
+| `WorkflowPreset` | A named binding of stage shape, seats, prompt profiles, and defaults. Extends `PanelPreset` with `stages`. |
 | `WorkflowStage` | One ordered fanout or reduce unit inside the fixed chain. |
-| `StageOutput` | Structured run truth for one stage output; Markdown files are derived views. |
+| `StageOutput` | Structured run truth for one stage (Phase 06); Markdown files are derived views. RB adds new `StagePurpose` cases. |
 | `FinalizerPolicy` | Structured rule telling the final spec stage how to treat reviews. v1 ships `advisory` + `first_principles`. |
-| `ImplementationBrief` | Handoff artifact created from a final spec or master plan before dispatch. |
-| `CallPlan` | The previewed list of model calls a run will make (stage → worker → lens), with a rough quota/latency estimate, shown before the user commits. |
+| `ImplementationBrief` | Handoff artifact created from a final spec before dispatch. |
+| `CallPlan` | The previewed list of model calls a run will make (stage → seat → lens), with a rough quota/latency estimate, shown before the user commits. |
 
 Keep `WorkerRole` narrow. It remains the existing structural capability:
-`member`, `synthesizer`, or `both`. It is not a reviewer persona.
+`member`, `synthesizer`, or `both`. It is not a reviewer persona — a persona is a
+`PromptProfile` (review lens) or an optional per-seat stance.
 
 ## Product Laws For This Milestone
 
@@ -134,14 +141,20 @@ Keep `WorkerRole` narrow. It remains the existing structural capability:
 
 ## Built-In Presets
 
+Phase 06 ships the **panel-tier** presets (Fast / Quality / Budget / Self-Double /
+Full); the RB milestone adds the **workflow** presets that chain reviews + final
+spec on top. Each `analysis → plan` pair is two stage outputs regardless of
+call-count (06).
+
 | Preset | Purpose | Calls after panel |
 | --- | --- | --- |
-| `synthesis_only` | Daily driver; current behavior with configurable synthesizer. | 1 reduce |
-| `light_review` | Common implementation planning. | 1 draft reduce + 3 review fanout + 1 final reduce |
-| `full_review` | Architecture/product bets. | 1 draft reduce + full review fanout + 1 final reduce |
+| `synthesis_only` | Daily driver; the Phase 06 tiered panel presets with configurable judge. | 1–2 reduce (analysis + plan) |
+| `light_review` | Common implementation planning. | analysis + plan + 3 review fanout + 1 final reduce |
+| `full_review` | Architecture/product bets. | analysis + plan + full review fanout + 1 final reduce |
 
-The composer should show the rough call count before a run. Full review is a
-deliberate heavier mode, not the default daily path.
+The composer shows the live `CallPlan` before a run. Full review is a deliberate
+heavier mode, not the default daily path. A worker may fill **multiple seats**
+(self-fusion) in any preset — the `CallPlan` counts seats, not workers.
 
 ## Built-In Review Lenses
 
@@ -171,34 +184,34 @@ worker; one worker may wear multiple lenses.
 
 ## Artifact Contract
 
-Current Phase 04 artifacts stay backward-compatible:
+All Markdown files are **derived from `run.json` stages** (Phase 06); `run.json`
+is the only truth. Phase 06 establishes:
 
 ```text
 run_<id>/
   run.json
-  master_plan.md
+  member_<seatId>.md     # by seatId, so self-fusion seats don't collide
+  analysis.md            # derived from the JudgeAnalysis stage
+  master_plan.md         # derived from the plan stage
   bundle.md
 ```
 
-Review-board runs add derived artifacts:
+Review-board runs (RB) add derived artifacts, all from new `StageOutput`s:
 
 ```text
 run_<id>/
-  prompt.md
-  member_<workerId>.md
-  master_plan.md
+  ... (above) ...
   review_<lensId>.md
   final_spec.md
   implementation_brief.md
   execution_prompt_<workerId>.md
-  bundle.md
-  run.json
+  return_review.md       # RB5
 ```
 
-`master_plan.md` remains the draft plan artifact for compatibility. Do not
-rename it to `master_plan_draft.md` without a migration.
-
-`bundle.md` is regenerated as the composed view of everything available so far.
+`master_plan.md` is the plan-stage artifact. `bundle.md` is regenerated as the
+composed view (prompt → members → analysis → plan → reviews → final spec → return)
+of everything available so far. Since there are no users, artifact names take
+their final form now — no rename migrations to worry about.
 
 ## North-Star Acceptance Demo
 
@@ -208,8 +221,9 @@ The milestone is done when this runs end to end with the founder's real workers:
 type ONE prompt
 -> pick the light_review preset (composer shows the CallPlan: ~10 calls, est. quota)
 -> panel answers in parallel  (reused if already run for this prompt)
--> draft master_plan.md
--> 3 review lenses fan out in parallel over the draft
+-> structured JudgeAnalysis (verdict strip: consensus / conflicts / blind spots)
+-> draft master_plan.md grounded in the analysis
+-> 3 review lenses fan out in parallel over the analysis + draft
 -> finalizer writes final_spec.md with a visible "Decisions on review feedback"
    section AND a runnable Works Test + proof commands
 -> click "Implement This" -> pick a healthy headless worker + working dir
@@ -238,16 +252,42 @@ building machinery**:
 3. **More executable**: a coding agent could start from it with fewer questions.
 4. **Honest**: visibly adopted *and* rejected review items with reasons.
 5. **Worth the extra calls**: the quality gain justifies the added quota/latency.
+6. **Synthesis lift (Fusion criterion)**: a two-step analysis → plan (Phase 06)
+   beats one-step synthesis on the same panel output — and the structured
+   `JudgeAnalysis` made the decision faster to act on.
 
-Record the verdict (and the winning/ losing prompts) in this doc's decision log
-before RB1. The machinery only earns its complexity if the manual run already
-produces materially better specs.
+**The gate has two parts, both required before RB1 code:**
+
+- **(a) Manual judgment** — the founder runs the three prompts and scores criteria
+  1–6 above by hand. This is the human taste check.
+- **(b) Automated eval** — the Phase 06 eval harness (`Fixtures/Evals/`) must show
+  `separate` analysis→plan ≥ `combined` ≥ `solo` and **no regression** on the
+  corpus. This requires Phase 06 (incl. P06-S10) shipped and the corpus authored.
+
+(a) and (b) are different activities: (a) is taste on three live prompts; (b) is
+the offline regression wall. Both must pass. Record the outcome below.
+
+### Activation Gate Decision Log
+
+| Date | Prompts (won / lost) | Manual verdict (1–6) | Eval result | Go / revise |
+| --- | --- | --- | --- | --- |
+| _pending_ | _e.g. arch bet ✓, feature ✓, refactor ✗_ | _filled at gate time_ | _eval scorecard ref_ | _pending_ |
+
+The machinery only earns its complexity if both parts pass. If not, revise the
+judge profiles (`judge_analysis` / `judge_plan`) and re-run — do not start RB1.
 
 ## Slice Map
 
+> Phase **06 is a build-order phase** (a prerequisite, like 01–05), not an RB
+> slice — RB work begins after 06 ships and the gate above passes. It is listed
+> first for dependency clarity.
+
 | Slice | Doc | Purpose |
 | --- | --- | --- |
-| RB1 | `RB1_Workflow_Presets_And_Stage_Primitives.md` | Generalize presets, prompt profiles, stage outputs, and events. |
-| RB2 | `RB2_Review_Board.md` | Add optional advisory review fanout. |
-| RB3 | `RB3_Final_Spec.md` | Add first-principles final reduce stage. |
+| 06 | `06_Fusion_Grade_Synthesis_And_Evals.md` | **Prerequisite phase.** The foundation RB consumes: seats, structured `JudgeAnalysis`, `StageOutput`, evals. Built first. |
+| RB1 | `RB1_Workflow_Presets_And_Stage_Primitives.md` | Generalize presets + prompt profiles; add workflow stages over 06's `StageOutput`; `CallPlan`; reuse. |
+| RB2 | `RB2_Review_Board.md` | Add optional advisory review fanout (lenses consume `JudgeAnalysis` + raw answers). |
+| RB3 | `RB3_Final_Spec.md` | First-principles final reduce; resolve contradictions, preserve/reject unique insights. |
 | RB4 | `RB4_Direct_Executor_Dispatch.md` | Send the final spec to a selected CLI without Allnighter-owned git rules. |
+| RB5 | `RB5_Return_Review_And_Routing.md` | Close the loop: capture the return, score it, build worker scorecards, recommend rerun/remix/pick. |
+| RB6 | `RB6_Council_As_Tool.md` | The moat: expose the council as a local tool (CLI/MCP/HTTP) any terminal agent can call — local Fusion at zero cost. Needs only `06`; judgment-only, recursion-guarded. |

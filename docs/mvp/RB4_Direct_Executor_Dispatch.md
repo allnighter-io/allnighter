@@ -4,7 +4,7 @@ Status: **Finalized — ready after RB3.**
 Owner: Mac + Shared Core
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: RB3
+Depends on: RB3 (final spec + analysis decisions). Followed by: RB5 (return review)
 
 ## The payoff (why the whole milestone exists)
 
@@ -64,6 +64,15 @@ the user's active repo. Git behavior is controlled by the selected CLI, its
 normal configuration, and the execution prompt. Allnighter v1 observes and
 captures what it can; it does not impose commit policy.
 
+**Context-exclusion (Fusion's contamination lesson, localized).** Allnighter's
+own run artifacts (`~/Library/Application Support/Allnighter/Runs/`) must **not**
+leak into the executor's context — a coding agent that scans the working directory
+and reads stale drafts/reviews/answers gets contaminated and confused. Because
+`Runs/` lives in Application Support (never inside the working dir), it is already
+out of repo scope; RB4 additionally never copies run artifacts into the working
+directory and the execution prompt points only to the brief. If a future option
+stages artifacts into the repo, it must add them to a local ignore.
+
 When lane/worktree safety lands, this same brief becomes the input to managed
 execution. No redesign should be required.
 
@@ -80,18 +89,27 @@ original prompt
 final spec
 acceptance criteria
 proof commands / Works Test          # copied from RB3's executability gate
+panel judgment summary               # JudgeAnalysis: key consensus + resolved contradictions
+analysis decisions                   # adopted / rejected / deferred contradictions + unique insights (RB3)
 known non-goals
 risks and open questions
 explicit direct-dispatch boundary
 ```
 
 The brief carries RB3's Works Test + proof commands verbatim so the executing
-agent knows the done-condition without re-deriving it. If the final spec lacked
-them (RB3 disclosed this), the brief surfaces that gap rather than implying the
-work is verifiable.
+agent knows the done-condition without re-deriving it, **plus the structured
+analysis decisions** (which contradictions were resolved how, which unique
+insights were adopted or rejected) so the executor inherits the pressure-testing
+context instead of re-litigating it. If the final spec lacked proof commands (RB3
+disclosed this), the brief surfaces that gap rather than implying the work is
+verifiable.
 
-If no final spec exists, the action may create a brief from `master_plan.md`, but
-the UI must label that as less reviewed.
+If no final spec exists, the action may create a brief from `master_plan.md`. In
+that path the **analysis-decision fields are absent** (there were no review
+decisions / contradiction resolutions to carry), the `JudgeAnalysis` summary is
+still included, and the UI + the brief header label it **"less reviewed — built
+from the master plan, not a final spec."** The execution-prompt builder omits the
+decision sections cleanly rather than emitting empty headers.
 
 ## Boundary Label
 
@@ -108,25 +126,40 @@ boundary.
 
 ## Ordered Slices
 
-- [ ] RB4-S01 - `ImplementationBrief` model and Markdown renderer.
+- [ ] RB4-S01 - `ImplementationBrief` model (incl. the panel judgment summary +
+  structured analysis decisions from RB3's `JudgeAnalysis`) and Markdown renderer.
 - [ ] RB4-S02 - Worker picker for handoff target; default comes from
   `WorkflowPreset.executionWorkerId` when present.
 - [ ] RB4-S03 - Execution working-directory picker/default. Store the path in
-  the run/brief; do not create a worktree.
+  the run/brief; do not create a worktree. Confirm `Runs/` stays out of the
+  executor's context (context-exclusion).
 - [ ] RB4-S04 - Execution prompt builder that assembles a self-contained prompt
-  for the selected worker and names the CLI/git boundary explicitly.
-- [ ] RB4-S05 - Write `implementation_brief.md` and
-  `execution_prompt_<workerId>.md` to the run folder before dispatch.
-- [ ] RB4-S06 - Direct dispatch: gate on a `Doctor` healthy check, then invoke
+  for the selected worker, includes the analysis decisions, and names the CLI/git
+  boundary explicitly.
+- [ ] RB4-S05 - Each dispatch is a `StageOutput(purpose: .dispatch)` with an
+  embedded `ExecutionReturn` (RB5 owns the type) — **the single source of truth**;
+  no loose duplicate state. The run stays `complete` (dispatch is post-judgment,
+  `00` §4). Multiple dispatches per run are supported (RB5 compares them).
+- [ ] RB4-S06 - Artifact naming versions per dispatch to avoid collision:
+  `implementation_brief.md` (shared) + `execution_prompt_<workerId>_<NN>.md` and a
+  `dispatch_<NN>/` transcript subfolder, `NN` = dispatch index. Validate the working
+  directory **exists + is writable** before dispatch.
+- [ ] RB4-S07 - Direct dispatch: gate on a `Doctor` healthy check, then invoke
   healthy `headless_cli` workers with the execution prompt in the configured
   working directory; capture stdout/stderr or output file per the driver manifest.
-- [ ] RB4-S07 - Manual + reveal-only fallback: for `manual_paste`, unhealthy
-  workers, or an explicit user choice, reveal/copy the exact prompt without
-  invoking and mark the dispatch as manual.
-- [ ] RB4-S08 - Dispatch status UI: queued/running/done/failed/timed out plus
-  transcript/output when available, written to the run folder.
-- [ ] RB4-S09 - Forward-compatibility note in Phase 12: managed lane execution
-  consumes `ImplementationBrief` unchanged.
+  Use a **separate `dispatchTimeoutSeconds`** (default 600, configurable) — NOT the
+  panel `invoke.timeoutSeconds` — plus a user **cancel**; on timeout, status
+  `timed_out` with the partial transcript kept.
+- [ ] RB4-S08 - Manual + reveal-only fallback: for `manual_paste`, unhealthy
+  workers, or an explicit user choice, reveal/copy the exact prompt without invoking
+  and mark the dispatch manual.
+- [ ] RB4-S09 - Transcript capture with a **size cap** (default: first N KB + last N
+  KB with a "[… truncated M bytes …]" marker) so a long coding session doesn't
+  bloat the run or RB5's return-review input; full transcript streamed to the
+  dispatch subfolder file.
+- [ ] RB4-S10 - Dispatch status UI: queued/running/done/failed/timed_out + live
+  transcript tail; forward-compat note: managed lane execution (Phase 12) consumes
+  `ImplementationBrief` unchanged.
 
 ## Works Test
 
@@ -151,13 +184,22 @@ worktree, branch, commit, landing, or revert rule is created in either case.
 - [ ] Reveal-only mode writes artifacts without invoking the CLI.
 - [ ] The boundary label is shown before any invocation.
 - [ ] Allnighter creates no worktree, branch, commit, landing, or revert rule.
-- [ ] Transcript/output is captured when the driver supports capture.
-- [ ] The brief can become managed Phase 12 input without changing its core
-  shape.
+- [ ] **Context-exclusion verified:** after a dispatch, **no Allnighter run
+  artifact appears in the execution working directory** (explicit test).
+- [ ] Each dispatch is a `StageOutput(purpose: .dispatch)`; multiple dispatches per
+  run don't collide (versioned artifact names).
+- [ ] Dispatch uses `dispatchTimeoutSeconds` (not the panel timeout) and is
+  cancelable; transcript is size-capped.
+- [ ] A brief built from `master_plan.md` (no final spec) omits the analysis-decision
+  sections and is labeled "less reviewed — no final spec."
+- [ ] The brief can become managed Phase 12 input without changing its core shape.
 - [ ] `swift test` + app test wall green.
 
 ## Closeout
 
 MVP execution is useful: Allnighter routes the final spec into the chosen CLI and
-saves the operator time. Future managed execution adds worktrees, branch policy,
-protected paths, landing, and revert on top of this brief/dispatch shape.
+saves the operator time. **RB5** then closes the loop — capturing the executor's
+return, scoring it against this brief's acceptance criteria + proof commands, and
+recommending the next move. Far-future managed execution adds worktrees, branch
+policy, protected paths, landing, and revert on top of this same brief/dispatch
+shape.

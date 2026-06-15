@@ -1,33 +1,33 @@
 # RB1 - Workflow Presets + Stage Primitives
 
-Status: **Finalized — ready after RB0 activation gate.**
+Status: **Finalized — ready after Phase 06 + the RB0 activation gate.**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: 05 (shipped: presets, honest persistence, `panelPresetId`)
+Depends on: 06 (the run model: `PanelSeat`, `JudgeAnalysis`, `StageOutput`, tiered presets)
 
 ## Goal
 
-Replace the hardcoded "panel then synthesis" orchestration with a fixed
-fanout/reduce stage model that can still run today's synthesis-only workflow
-unchanged. This is the foundation for review and final spec stages, not a
-general workflow engine.
+Generalize the hardcoded panel/synthesis presets into a fixed fanout/reduce
+**workflow** over Phase 06's `StageOutput` sequence — so the same machinery can
+chain reviews and a final spec. This is the preset + validation + reuse layer,
+**not** a new run model (Phase 06 already laid that down) and not a general DAG.
 
-## Phase 05 Baseline (start here, don't restart)
+## 05 + 06 Baseline (the foundation already exists)
 
-This slice **extends** shipped types rather than inventing parallels:
+RB1 is thin because Phase 06 did the heavy structural work:
 
-- `PromptProfile` generalizes `SynthesisInstructionPreset` (add a `purpose`
-  field; keep the old type as a typealias/shim and keep decoding old preset
-  files). `SynthesisInstructionStore` becomes the profile registry.
-- `WorkflowPreset` extends `PanelPreset` (add `stages`; a `PanelPreset` is a
-  one-reduce `WorkflowPreset`). `PanelPresetStore` migrates to the preset store.
-- **RB1-S02 is already implemented** in Phase 05 via `SynthesisInstructionChoice`:
-  `Synthesis.instructions` records the chosen preset id or literal custom text.
-  RB1 keeps a **regression test** for this and threads the same honesty through
-  `StageOutput.promptProfileId`; it does not re-do the fix.
-- `CouncilRun.panelPresetId` already exists and decodes old runs — reuse it as
-  the `workflowPresetId` slot (rename via a coding-key alias, not a new field).
+- **`StageOutput` already exists** (06) and the run is already a stage sequence.
+  RB1 does **not** restructure `CouncilRun`; it adds new `StagePurpose` cases
+  (`review`, `final_spec`, `dispatch`) and the preset machinery that schedules them.
+- `PromptProfile` generalizes `SynthesisInstructionPreset` (06 already evolved it
+  into the structured judge profile; RB1 adds the `purpose` field). There are **no
+  users** — change the type to its final shape; do not keep a compatibility shim.
+- `WorkflowPreset` extends `PanelPreset` with `stages`. 06's tiered panel presets
+  become one-/two-reduce `WorkflowPreset`s.
+- **Honest profile persistence already shipped** (`StageOutput.promptProfileId`,
+  from Phase 05's `SynthesisInstructionChoice`). RB1 keeps a regression test only.
+- `CouncilRun.presetId` (06) is the preset slot. No alias, no migration.
 
 ## Non-Goals
 
@@ -47,10 +47,11 @@ fanout: run many workers in parallel with stage-specific prompt profiles
 reduce: run one worker over assembled inputs with one prompt profile
 ```
 
-The only valid v1 stage order is:
+The only valid v1 stage order is (Phase 06 owns `panel_fanout` → `analysis` →
+`plan`; RB adds the rest):
 
 ```text
-panel_fanout -> draft_synthesis -> review_fanout? -> final_spec? -> handoff?
+panel_fanout -> analysis -> plan -> review_fanout? -> final_spec? -> handoff?
 ```
 
 `WorkflowPreset` stores a named configuration of that shape. Validation rejects
@@ -62,33 +63,55 @@ Every stage declares what it consumes via an `InputSelector` set, drawn from a
 **fixed enum** (no free-form graph):
 
 ```text
-InputSelector: founder_prompt | member_answers | draft_plan | reviews | final_spec
+InputSelector (closed enum, extended additively): founder_prompt | member_answers
+  | judge_analysis | draft_plan | reviews | final_spec
+  (RB5 adds: execution_return | outcome_score)
 ```
 
-Each stage output carries a `reuseKey` = hash of (promptProfileId + profileVersion
-+ resolved input bytes + workerId + modelLabel). Before running a stage the
-coordinator checks the current run (and an explicit "reuse last run for this
-prompt" option) for a matching `reuseKey`; on a hit it reuses the output instead
-of spending a call. This is what makes editing one lens cheap and re-running the
-finalizer free of a fresh panel fan-out (RB0 "Reuse over re-run" law).
+`judge_analysis` exposes Phase 06's structured `JudgeAnalysis` so reviewers and
+the finalizer consume consensus/contradictions/unique-insights directly, not by
+re-parsing prose. The enum is closed (exhaustive switches); RB5 adds cases as a
+deliberate, compiler-guided change.
+
+### reuseKey + the reuse matrix (precise so implementation isn't guesswork)
+
+`reuseKey = hash(promptProfileId | customInstruction, profileVersion, the resolved
+input bytes for this stage's `inputSelectors`, ordered seatId list + per-seat
+stance, modelLabel set)`. Before running a stage the coordinator looks for a
+matching `reuseKey` (in this run, or the most recent prior run for the **same
+normalized prompt** when "reuse last run" is on) and reuses on a hit
+(`status: .reused`). **`reuseKey` governs *automatic* reuse only.** An explicit
+**"rerun this stage"** action is a deliberate *force-fresh*: it bypasses the
+reuseKey check, spends the call, and **supersedes** the prior `StageOutput` (a new
+output is appended; the latest of a given purpose/lens is the active one — outputs
+are append-only history). This resolves the "rerun returns the cached answer"
+trap: reuse is for unchanged inputs; rerun means "I want a fresh take."
+
+| Change the user makes | panel | analysis | plan | reviews | final |
+| --- | --- | --- | --- | --- | --- |
+| Edit one review lens profile | reuse | reuse | reuse | rerun **that** lens | rerun |
+| Edit the founder prompt | rerun | rerun | rerun | rerun | rerun |
+| Toggle/add a panel seat | rerun changed seats | rerun | rerun | reuse | rerun |
+| Edit synthesis instructions | reuse | rerun | rerun | reuse | reuse |
+| Click "rerun" on a stage | — | force-fresh that stage + everything downstream | | | |
 
 ## Proposed Core Types
 
 ```text
-PromptProfile                         # generalizes SynthesisInstructionPreset
+PromptProfile                         # generalizes SynthesisInstructionPreset (06's judge profiles)
 - id
 - displayName
-- purpose: draft_synthesis | review_lens | final_spec | execution_dispatch
-- profileVersion
+- purpose: judge_analysis | judge_plan | review_lens | final_spec | execution_dispatch
+- profileVersion                      # bumped on built-in template change; user edits create a NEW profile id
 - template
 - builtIn
 
-WorkflowPreset                        # extends PanelPreset
+WorkflowPreset                        # extends PanelPreset (which already has seats: [PanelSeatSpec] + synthesis)
 - id
 - displayName
 - description
 - stages: [WorkflowStage]
-- executionWorkerId?                  # default RB4 dispatch target
+- executionWorkerId?                  # default RB4 dispatch target — validated at DISPATCH by Doctor, NOT at save
 - isDefault
 
 WorkflowStage
@@ -96,22 +119,20 @@ WorkflowStage
 - kind: fanout | reduce
 - displayName
 - inputSelectors: [InputSelector]
-- promptProfileBindings               # lensId/profileId -> binding
-- workerBindings                      # bindingId -> workerId
+- bindings: [StageBinding]            # one per profile/lens this stage runs
 - optional: Bool
-- timeoutSeconds
-- finalizerPolicy?
+- wallTimeoutSeconds?                 # optional cap for the whole fanout
 
-StageOutput
+StageBinding                          # a (profile -> worker) assignment with its own timeout
 - id
-- stageId
-- workerId?
 - promptProfileId
-- reuseKey                            # content address for reuse/resume
-- status: queued|running|done|failed|timed_out|skipped|reused
-- markdown
-- errorReason?
-- startedAt / finishedAt
+- workerId                            # the worker that runs this binding (reduces/reviews are NOT panel seats)
+- preferFastWorker: Bool = false      # RB2 budget routing: pick fastest healthy worker instead (see RB2)
+- timeoutSeconds                      # PER-binding, so a slow lens can't kill the others
+- finalizerPolicy?                    # only on the final_spec reduce binding
+
+# StageOutput + StagePayload + reuseKey are defined in Phase 06 (00 §4 / §4.1).
+# RB1 adds StagePurpose cases (review | final_spec | dispatch) and turns reuseKey matching ON.
 
 FinalizerPolicy
 - reviewWeight: advisory
@@ -119,15 +140,49 @@ FinalizerPolicy
 - requiredSections: [String]
 
 CallPlan                              # previewed before a run commits
-- entries: [{ stageId, workerId, lens?, willReuse: Bool }]
+- entries: [{ stageId, seatId?, workerId, lens?, willReuse: Bool }]   # seatId for panel/self-fusion
 - estimatedCalls: Int                 # fresh (non-reused) calls
+- estimatedSeconds: Int               # from history median durationMs
 - estimateNote: String                # labeled an estimate, never exact
 ```
 
+**Panel vs reduce bindings (resolves the seat/worker conflation).** The *panel*
+fanout stage uses the preset's `seats: [PanelSeatSpec]` (Phase 06), which expand
+into `CouncilRun.panel` (`PanelSeat`s) at run start. Every *reduce* and *review*
+stage instead uses `StageBinding.workerId` — a fresh single-use worker invocation,
+**not** a panel seat (recorded as `StageOutput.producedByWorkerId`). `PanelSeat` is
+reserved strictly for the panel. So "a worker bound to a review lens" is a normal
+call with the lens prompt, never a reused panel seat.
+
 `PromptProfile` is the generalized version of synthesis instructions. A review
-lens is a prompt profile, not a second kind of worker role. All new Core types
-ship with JSON **fixtures + round-trip tests** and an **old-run decode test**
-(contract-first, per `00` §7–8), exactly as Phase 05 did for `PanelPreset`.
+lens is a prompt profile, not a second kind of worker role. **Custom inline
+instructions** persist via Phase 06's `StageOutput.customInstruction` (the
+`promptProfileId` is nil for that stage); a named profile sets `promptProfileId`
+and leaves `customInstruction` nil — exactly one, honest. The RB1-S02 regression
+test asserts this. All new Core types ship with **fixtures + round-trip tests**
+(`00` §8); there are no users, so types take their final shape — no old-run gates.
+
+**Preset validation (Bug-proofing the save/run boundary).** `WorkflowPreset`
+validation runs at **two points**: (1) at **save** — reject an unknown stage
+order, or a review/final stage missing its required prior output, with an inline
+UI error (the preset cannot be saved invalid); (2) at **run start** — re-validate
+(profiles/workers may have changed since save) and refuse to start with a clear
+message. `executionWorkerId` is *not* validated at save (the worker's health is a
+dispatch-time concern); the UI may show a soft "dispatch target may be unhealthy"
+hint sourced from the last Doctor run.
+
+### Perspective diversity (optional per-seat `stanceModifier`)
+
+Phase 06 self-fusion gets diversity for free from independent sampling. RB1 adds an
+*optional* amplifier: a **per-seat** stance (it lives on `PanelSeatSpec.stance`,
+Phase 06's seat-spec — **not** on the stage, so three seats can carry three
+*different* stances). Built-in stances: `neutral`, `skeptic`, `first_principles`,
+`minimalist`, `user_advocate`. So Self-Double becomes
+`seats: [{opus, stance: neutral}, {opus, stance: skeptic}, {opus, stance: first_principles}]`
+→ three genuinely divergent seats the judge reconciles. The stance is a prefix on
+that seat's `MemberPrompt`; assembly order is **founder prompt → stance prefix →
+optional bounded context (RB6)**. Stances are visible in `JudgeAnalysis`
+attribution (`Opus (A) skeptic`).
 
 ## Run-State Extension (decide before code, per S06)
 
@@ -139,61 +194,66 @@ draft -> fanning_out -> answers_in -> synthesizing -> complete | partial
 reviewing/finalizing -> cancelled (user stop) ; any active -> failed
 ```
 
-`reviewing` and `finalizing` are entered only by presets that include those
-stages; synthesis-only runs use the unchanged path and terminal states. Every
-new legal and illegal edge gets an exhaustive `canTransition` test (Phase 01
-style). `partial` still means "usable despite a dead stage" — a finalizer that
-fails leaves the draft plan + reviews intact.
+`synthesizing` spans **both** Phase 06 reduces (analysis then plan): the run is in
+`synthesizing` from analysis start until the plan stage settles. Analysis-done /
+plan-failed → `partial` (the `JudgeAnalysis` is usable). `reviewing` and
+`finalizing` are entered only by presets that include those stages; synthesis-only
+runs use the unchanged path. Dispatch (RB4) + return review (RB5) are stages on a
+`complete` run, not new `RunStatus` values (`00` §4). Every new legal/illegal edge
+gets an exhaustive `canTransition` test (Phase 01 style).
 
 ## Ordered Slices
 
-- [ ] RB1-S01 - `PromptProfile` model + bundled registry by generalizing
-  `SynthesisInstructionPreset` (add `purpose`/`profileVersion`; keep the old type
-  as a shim and keep decoding existing preset files). Ship fixtures + round-trip
-  tests.
-- [ ] RB1-S02 - **Verify, don't rebuild:** add a regression test that
-  `Synthesis.instructions` / `StageOutput.promptProfileId` records the chosen
-  profile id or explicit custom text. (Honest roundtrip shipped in Phase 05 via
-  `SynthesisInstructionChoice`.)
-- [ ] RB1-S03 - `WorkflowPreset` by extending `PanelPreset` with `stages`; ship a
-  synthesis-only built-in preset and validation for the fixed v1 stage order
-  (reject unknown order or a stage missing its required prior output).
-- [ ] RB1-S04 - Extend `CouncilRun` with structured `StageOutput` storage and
-  reuse `panelPresetId` as `workflowPresetId` (coding-key alias), preserving old
-  run decode (explicit test).
-- [ ] RB1-S05 - Add generic `stage.*` events (`stage.started`, `stage.output`,
-  `stage.completed`, `stage.failed`, `stage.reused`) with `stageId` in payload.
-  No review-specific event family.
-- [ ] RB1-S06 - Land the run-state extension above (`reviewing`, `finalizing`)
-  with exhaustive legal/illegal transition tests.
-- [ ] RB1-S07 - Centralize input assembly behind the `InputSelector` enum and
-  compute each stage's `reuseKey`; the coordinator reuses a matching output
-  instead of spending a call.
-- [ ] RB1-S08 - `CallPlan` builder + composer preview (count + estimate, labeled)
-  so a run's cost is visible before it commits.
-- [ ] RB1-S09 - Update `RunStore` / `RunMarkdown` so `run.json` is truth and
-  derived artifacts remain backward-compatible (`master_plan.md`, `bundle.md`).
+- [ ] RB1-S01 - `PromptProfile` (add `purpose`/`profileVersion` to Phase 06's judge
+  profile type) + bundled registry over `SynthesisInstructionStore`. Fixtures +
+  round-trip tests. (No shim — change the type to its final shape.)
+- [ ] RB1-S02 - **Verify, don't rebuild:** regression test that
+  `StageOutput.promptProfileId` records the chosen profile id or explicit custom
+  text. (Honesty shipped in 05/06.)
+- [ ] RB1-S03 - `WorkflowPreset` (extend `PanelPreset` with `stages`) + validation
+  for the fixed v1 stage order (reject unknown order or a stage missing its
+  required prior output). 06's tiered presets become `WorkflowPreset`s.
+- [ ] RB1-S04 - Add `StagePurpose` cases `review`/`final_spec`/`dispatch` and the
+  `WorkflowStage` scheduler over Phase 06's `StageOutput`. (No `CouncilRun`
+  restructure — the container already exists.)
+- [ ] RB1-S05 - Generic `stage.*` events (`stage.started`, `stage.output`,
+  `stage.completed`, `stage.failed`, `stage.reused`) with `stageId`. No
+  review-specific event family.
+- [ ] RB1-S06 - Run-state extension (`reviewing`, `finalizing`) with exhaustive
+  legal/illegal transition tests.
+- [ ] RB1-S07 - Input assembly behind the `InputSelector` enum (incl.
+  `judge_analysis`) + `reuseKey` compute/match (formula above) + the **rerun
+  force-fresh** path that bypasses reuse and supersedes the prior stage output.
+- [ ] RB1-S08 - `CallPlan` builder (full workflow chain; entries keyed by `seatId`
+  where applicable) + live composer preview, updating as seats/depth/lenses toggle.
+- [ ] RB1-S09 - Optional per-seat `PanelSeatSpec.stance` (built-in stances) threaded
+  into `MemberPrompt` (which gains `seatId`); assembly order founder prompt → stance
+  → context; attribution preserved in `JudgeAnalysis`.
+- [ ] RB1-S10 - `StageBinding` (per-binding worker + timeout) + two-point
+  `WorkflowPreset` validation (save + run start). `executionWorkerId` validated at
+  dispatch, not save.
 
 ## Works Test
 
 ```text
-Run the current synthesis-only workflow through a WorkflowPreset. It produces the
-same visible result as Phase 04: panel answers, master_plan.md, bundle.md, and a
-complete run. The saved run.json records workflowPresetId, the draft synthesis
-StageOutput, and the selected prompt profile (id or honest custom text). Re-run
-the same prompt: the composer's CallPlan shows the panel will be REUSED (0 fresh
-panel calls) and only the synthesis re-runs. An old Phase 04 run still opens.
+Run a synthesis-only WorkflowPreset. It produces the Phase 06 result: panel
+answers (by seat), a JudgeAnalysis, master_plan.md, bundle.md, complete run. The
+run.json records presetId, the analysis + plan StageOutputs, and the selected
+prompt profile (id or honest custom text). Re-run the same prompt: the CallPlan
+shows the panel REUSED (0 fresh panel calls) and only the synthesis re-runs.
+Add a stanced Self-Double preset (Opus × 3 stances): three distinct seats,
+attributed independently.
 ```
 
 ## Exit Gates
 
-- [ ] Existing synthesis-only behavior is unchanged.
-- [ ] Custom synthesis instructions persist honestly (regression test green).
-- [ ] Stage events are generic and do not add review-specific event shapes.
+- [ ] Synthesis-only behavior matches Phase 06.
+- [ ] Custom instructions persist honestly (regression test green).
+- [ ] Stage events are generic; no review-specific event shapes.
 - [ ] State-machine transition tests cover all new states and illegal edges.
 - [ ] `reuseKey` reuse demonstrably avoids re-running unchanged stages.
 - [ ] `CallPlan` shows an estimated call count before a run commits.
-- [ ] New Core types have fixtures + round-trip tests; old saved runs decode.
+- [ ] New Core types have fixtures + round-trip tests (final shapes; no shims).
 - [ ] `swift test` + app test wall green.
 
 ## Closeout
