@@ -9,18 +9,35 @@ struct RootView: View {
     @State private var showDoctor = false
     @State private var didInitialDoctor = false
     @State private var showMissingDriversAlert = false
+    @State private var workspaceMode: WorkspaceMode = .council
+    @State private var threads = ThreadsViewModel()
 
     var body: some View {
         VStack(spacing: 0) {
             TitleBar(onDoctor: { model.runDoctor(); showDoctor = true })
             HStack(spacing: 0) {
-                SidebarView()
-                    .frame(width: ALControl.sidebarWidth)
+                VStack(spacing: 0) {
+                    WorkspaceSwitcher(mode: $workspaceMode)
+                    Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                    if workspaceMode == .threads {
+                        ThreadListView()
+                    } else {
+                        SidebarView()
+                    }
+                }
+                .frame(width: ALControl.sidebarWidth)
                 Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
-                DetailPane()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Group {
+                    if workspaceMode == .threads {
+                        ThreadDetailPane()
+                    } else {
+                        DetailPane()
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .environment(threads)
         .background(ALColor.base)
         .sheet(isPresented: $showDoctor) { DoctorView() }
         .onAppear {
@@ -1004,4 +1021,31 @@ private struct ComposeView: View {
         "rewrite our API error copy",
         "plan a migration to Swift 6",
     ]
+}
+
+// MARK: - Workspace switcher (Council ↔ Threads)
+
+enum WorkspaceMode: String, CaseIterable { case council, threads }
+
+private struct WorkspaceSwitcher: View {
+    @Binding var mode: WorkspaceMode
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(WorkspaceMode.allCases, id: \.self) { item in
+                Button { mode = item } label: {
+                    Text(item == .council ? "Council" : "Threads")
+                        .font(ALFont.label.weight(.semibold))
+                        .foregroundStyle(mode == item ? ALColor.textOnAmber : ALColor.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(mode == item ? ALColor.accent : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .background(ALColor.subtle)
+    }
 }
