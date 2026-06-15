@@ -187,6 +187,28 @@ RB5  Return Review, Outcome Scoring, and Routing (close the control loop)
 RB6  Council-as-Tool (local CLI/MCP/HTTP; local Fusion any agent can call — the moat)
 ```
 
+> **The second spine — the Design Council (Design0–Design3).** Lane 1 (RB) answers
+> *technical* prompts ("make this correct"). At least half of real prompts are
+> *design* ("give me 3–4 mockups", "redesign this") — and the RB chain scores 0/10
+> on them (wrong unit: prose about pixels; wrong axis: consensus, not taste). The
+> design path reuses the same spine (~90% of RB1–RB3) with two swaps: the unit
+> becomes a **rendered frame** (self-contained HTML → screenshot) and the verdict
+> becomes **human taste**. It is build-ready and gated on a Design Activation Gate.
+
+```text
+Design0  Design Council Overview (charter: beams, laws, measured win, moat, gate)  <- read first
+Design1  Render Contract + The Board (the gate: comparable + divergent frames; no judging)
+Design2  Design Lenses + Scorecard (RB2 lens-profile swap; contrast_a11y the one blocker)
+Design3  Verdict, Remix Brief + Build Flywheel (human picks; remix re-renders; -> build council)
+```
+
+> **Design needs RB1–RB3** (it reshapes their middle stages) and one genuinely new
+> beam: a **headless render harness** Allnighter owns. Comparability is the gate —
+> pinned viewport **and** a shared, deliberately-messy content fixture — and
+> divergence is enforced (local pHash reroll), because convergent slop is the 0/10
+> in a nicer costume. The deliverable is **code, not a PNG**; the design→build
+> handoff (zero copy/paste, same session) is the moat.
+
 > **RB6 needs only Phase 06**, so it can ship early — delivering "local Fusion
 > any terminal agent can call, at zero marginal cost" as soon as the council
 > foundation exists. It is judgment-only (no git, no execution) and recursion-
