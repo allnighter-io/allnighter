@@ -1,6 +1,6 @@
 # RB4 - Direct Executor Dispatch
 
-Status: **Finalized — ready after RB3.**
+Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
 Owner: Mac + Shared Core
 Created: 2026-06-14
 Updated: 2026-06-14

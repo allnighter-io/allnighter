@@ -1,6 +1,6 @@
 # RB5 - Return Review, Outcome Scoring, and Routing
 
-Status: **Specced — the last RB milestone; closes the control loop.**
+Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14

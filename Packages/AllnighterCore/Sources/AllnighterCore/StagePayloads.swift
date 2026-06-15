@@ -142,3 +142,26 @@ public struct ReturnReviewPayload: Codable, Sendable, Equatable {
         self.markdown = markdown; self.recommendation = recommendation
     }
 }
+
+/// Aggregated per-worker performance over local run history (RB5). On-demand,
+/// no upload. Rates from < 5 samples are flagged "insufficient data" by the UI.
+public struct WorkerScorecard: Codable, Sendable, Equatable, Identifiable {
+    public var workerId: String
+    public var sampleSize: Int
+    public var panelAnswerRate: Double
+    public var judgeSuccessRate: Double
+    public var executionSuccessRate: Double
+    public var medianLatencyMs: Int?
+
+    public var id: String { workerId }
+    public var hasEnoughData: Bool { sampleSize >= 5 }
+
+    public init(workerId: String, sampleSize: Int, panelAnswerRate: Double, judgeSuccessRate: Double, executionSuccessRate: Double, medianLatencyMs: Int?) {
+        self.workerId = workerId
+        self.sampleSize = sampleSize
+        self.panelAnswerRate = panelAnswerRate
+        self.judgeSuccessRate = judgeSuccessRate
+        self.executionSuccessRate = executionSuccessRate
+        self.medianLatencyMs = medianLatencyMs
+    }
+}

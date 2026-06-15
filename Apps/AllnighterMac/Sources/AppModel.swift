@@ -44,6 +44,9 @@ final class AppModel {
     var dispatchRevealOnly: Bool = false
     private(set) var isDispatching = false
 
+    // Return review (RB5)
+    private(set) var isReturnReviewing = false
+
     private let registry: DriverRegistry
     private let store = RunStore()
     private let presetStore = PanelPresetStore()
@@ -391,6 +394,55 @@ final class AppModel {
             self.run = updated
             self.persist()
             self.isDispatching = false
+        }
+    }
+
+    // MARK: - Return review + scoring + scorecards (RB5)
+
+    var returnReview: ReturnReviewPayload? {
+        displayRun?.latestStage(.returnReview)?.payload?.returnReview
+    }
+    var outcomeScore: EvalScore? {
+        displayRun?.latestStage(.outcomeScore)?.payload?.outcomeScore
+    }
+
+    /// Worker scorecards aggregated on demand from local run history.
+    var scorecards: [WorkerScorecard] { ScorecardBuilder.build(from: history) }
+
+    /// Evaluate the latest executor return: advisory return review + an outcome
+    /// score against the spec's acceptance criteria. Closes the control loop.
+    func runReturnReview() {
+        guard !isReturnReviewing, let current = run,
+              let dispatch = current.stages.last(where: { $0.purpose == .dispatch }),
+              let ret = dispatch.payload?.executionReturn, ret.status == .done,
+              let judge = judgeWorker, let manifest = registry.manifest(for: judge) else { return }
+        let spec = current.latestStage(.finalSpec)?.payload?.markdown ?? current.masterPlan ?? ""
+        let criteria = AcceptanceCriteria.extract(from: spec)
+
+        isReturnReviewing = true
+        let snapshotWorkers = workers
+        runTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let runner = WorkerRunner(commandRunner: SubprocessCommandRunner())
+            let reviewStage = await ReturnReviewer(workerRunner: runner)
+                .review(run: current, executionReturn: ret, reviewer: judge, manifest: manifest, profile: BuiltInProfiles.returnReview)
+            guard var updated = self.run else { self.isReturnReviewing = false; return }
+            updated.stages.append(reviewStage)
+
+            if !criteria.isEmpty {
+                let rubric = Rubric.fromAcceptanceCriteria(criteria)
+                let evalCase = EvalCase(id: current.id, prompt: current.prompt, rubric: rubric)
+                let score = await EvalHarness(workerRunner: runner).score(
+                    artifact: ret.transcriptExcerpt ?? "", mode: "execution",
+                    evalCase: evalCase, judge: judge, manifest: manifest,
+                    config: EvalConfig(judgeWorkerId: judge.id, passes: 1)
+                )
+                updated.stages.append(StageOutput(id: UUID().uuidString, purpose: .outcomeScore, producedByWorkerId: judge.id, status: .done, payload: .outcomeScore(score)))
+            }
+            self.run = updated
+            self.persist()
+            _ = snapshotWorkers
+            self.isReturnReviewing = false
         }
     }
 

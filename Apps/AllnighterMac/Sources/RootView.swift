@@ -503,6 +503,7 @@ private struct DispatchCard: View {
                         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 6))
                     }
                 }
+                ReturnReviewSection()
             }
             .padding().background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
         }
@@ -515,6 +516,38 @@ private struct DispatchCard: View {
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url {
             model.dispatchWorkingDirectory = url.path
+        }
+    }
+}
+
+private struct ReturnReviewSection: View {
+    @Environment(AppModel.self) private var model
+    var body: some View {
+        let hasDoneDispatch = model.dispatches.contains { $0.payload?.executionReturn?.status == .done }
+        if hasDoneDispatch {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Return review").font(.caption.bold())
+                    Spacer()
+                    if model.isReturnReviewing { ProgressView().controlSize(.small) }
+                    else if model.returnReview == nil {
+                        Button { model.runReturnReview() } label: { Label("Evaluate result", systemImage: "checkmark.circle") }
+                            .controlSize(.small)
+                    }
+                }
+                if let rr = model.returnReview {
+                    Text(rr.markdown).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(10)
+                    if let rec = rr.recommendation {
+                        Text("Recommendation: \(rec.action.rawValue.uppercased()) — \(rec.reasoning)").font(.caption.bold())
+                    }
+                }
+                if let score = model.outcomeScore {
+                    Text("Outcome score: \(String(format: "%.1f", score.totalWeighted)) (\(score.pass ? "pass" : "below bar")) · estimate")
+                        .font(.caption2).foregroundStyle(score.pass ? .green : .orange)
+                }
+            }
+            .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
         }
     }
 }
@@ -615,11 +648,21 @@ private struct DoctorView: View {
                     ForEach(model.workers) { worker in
                         DoctorRow(worker: worker, diagnosis: model.diagnosis(for: worker.id))
                     }
+                    if !model.scorecards.isEmpty {
+                        Divider().padding(.vertical, 4)
+                        Text("Worker scorecards (from local history — estimates)").font(.caption.bold()).frame(maxWidth: .infinity, alignment: .leading)
+                        ForEach(model.scorecards) { card in
+                            let name = model.workers.first { $0.id == card.workerId }?.displayName ?? card.workerId
+                            Text("\(name): answer \(pct(card.panelAnswerRate)), judge \(pct(card.judgeSuccessRate)), exec \(pct(card.executionSuccessRate))\(card.hasEnoughData ? "" : "  (insufficient data)")")
+                                .font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                 }
             }
         }
         .padding().frame(minWidth: 520, minHeight: 420)
     }
+    private func pct(_ v: Double) -> String { "\(Int(v * 100))%" }
 }
 
 private struct DoctorRow: View {
