@@ -174,7 +174,7 @@ struct WorkerChip: View {
             }
     }
 
-    private var backgroundColor: Color { selected ? ALColor.accentSurface : ALColor.raised }
+    private var backgroundColor: Color { ALColor.raised }
     private var borderColor: Color {
         if selected { return ALColor.accentBorder }
         if status == .running { return ALColor.statusRunning.opacity(0.30) }

@@ -14,9 +14,10 @@ struct AllnighterMacApp: App {
         Window("Allnighter", id: "main") {
             RootView()
                 .environment(model)
-                .frame(minWidth: 720, minHeight: 560)
+                .frame(minWidth: 1100, minHeight: 720)
         }
         .windowResizability(.contentMinSize)
+        .windowStyle(.hiddenTitleBar)
 
         MenuBarExtra("Allnighter", systemImage: "moon.stars.fill") {
             MenuBarContent()

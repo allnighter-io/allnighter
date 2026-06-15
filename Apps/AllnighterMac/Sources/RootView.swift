@@ -7,16 +7,25 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @State private var showDoctor = false
+    @State private var didInitialDoctor = false
 
     var body: some View {
-        NavigationSplitView {
-            PanelSidebar(showDoctor: $showDoctor)
-                .navigationSplitViewColumnWidth(min: 270, ideal: 290)
-        } detail: {
-            DetailPane()
+        VStack(spacing: 0) {
+            TitleBar(onDoctor: { model.runDoctor(); showDoctor = true })
+            HStack(spacing: 0) {
+                SidebarView()
+                    .frame(width: ALControl.sidebarWidth)
+                Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
+                DetailPane()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
+        .background(ALColor.base)
         .sheet(isPresented: $showDoctor) { DoctorView() }
-        .onAppear { GlobalHotKey.enable() }
+        .onAppear {
+            GlobalHotKey.enable()
+            if !didInitialDoctor { didInitialDoctor = true; model.runDoctor() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .allnighterQuickCapture)) { _ in
             NSApplication.shared.activate(ignoringOtherApps: true)
             openWindow(id: "main")
@@ -41,20 +50,11 @@ private struct DetailPane: View {
             } else {
                 HistoryDetailView(run: history)
             }
+        } else if model.run != nil {
+            // Run / master-plan content (restyle to RunView/PlanView is the next slice).
+            RunResultsView()
         } else {
-            VStack(spacing: 0) {
-                ModePicker()
-                Divider()
-                if model.designMode {
-                    DesignComposer()
-                    Divider()
-                    DesignBoardView()
-                } else {
-                    PromptComposer()
-                    Divider()
-                    RunResultsView()
-                }
-            }
+            ComposeView()
         }
     }
 }
@@ -725,4 +725,270 @@ private struct DoctorRow: View {
         case .none: ProgressView().controlSize(.small)
         }
     }
+}
+
+// MARK: - Title bar (chrome.jsx .alk-title)
+
+private struct TitleBar: View {
+    @Environment(AppModel.self) private var model
+    var onDoctor: () -> Void
+
+    var body: some View {
+        ZStack {
+            // Centered identity: live mark + allnighter · council
+            HStack(spacing: 8) {
+                LiveMark(state: model.isRunning ? .running : .idle, size: 16)
+                Text("allnighter").font(ALFont.label.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
+                Text("· council").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            }
+            // Right controls
+            HStack(spacing: 6) {
+                Spacer()
+                Button(action: onDoctor) { Badge(text: healthLabel, tone: healthTone, dot: true) }
+                    .buttonStyle(.plain)
+                    .help("Doctor — CLI health")
+                IconButton(systemImage: "clock.arrow.circlepath", accessibilityLabel: "History", small: true) {}
+                IconButton(systemImage: "gearshape", accessibilityLabel: "Settings", small: true) {}
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: ALControl.titleBarHeight)
+        .background(WindowDragArea())
+        .background(ALColor.surface)
+        .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+
+    private var checked: [WorkerDiagnosis] { model.workers.compactMap { model.diagnosis(for: $0.id) } }
+    private var healthyCount: Int {
+        checked.filter { if case .healthy = $0.health { return true } else { return false } }.count
+    }
+    private var healthLabel: String {
+        checked.isEmpty ? "checking…" : "\(healthyCount)/\(model.workers.count) healthy"
+    }
+    private var healthTone: Badge.Tone {
+        if checked.isEmpty { return .neutral }
+        return healthyCount == model.workers.count ? .positive : .warning
+    }
+}
+
+/// Makes an area drag the window (hidden title bar needs an explicit drag region).
+private struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+    final class DragView: NSView {
+        override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    }
+}
+
+// MARK: - Sidebar (chrome.jsx .alk-side)
+
+private struct SidebarView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // PANEL
+            VStack(alignment: .leading, spacing: 0) {
+                sectionHeader("Panel", trailing: "\(model.seatedWorkerIds.count) of \(model.workers.count)")
+                VStack(spacing: 6) {
+                    ForEach(model.workers) { worker in
+                        WorkerChip(
+                            name: worker.displayName,
+                            model: "via " + model.driverName(for: worker).replacingOccurrences(of: "_", with: "-"),
+                            systemImage: glyphSymbol(for: worker),
+                            glyphTint: glyphTint(for: worker),
+                            meta: model.seatCount(for: worker) > 1 ? "×\(model.seatCount(for: worker))" : nil,
+                            selectable: true,
+                            selected: model.isSeated(worker),
+                            onToggle: { model.toggle(worker) }
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 14).padding(.top, 16).padding(.bottom, 8)
+
+            // SYNTHESIZER
+            VStack(alignment: .leading, spacing: 0) {
+                sectionHeader("Synthesizer", trailing: nil)
+                synthRow
+            }
+            .padding(.horizontal, 14).padding(.bottom, 8)
+
+            Spacer(minLength: 0)
+
+            // RECENT (pinned bottom)
+            VStack(alignment: .leading, spacing: 0) {
+                sectionHeader("Recent", trailing: nil)
+                if model.history.isEmpty {
+                    Text("No runs yet").font(ALFont.caption).foregroundStyle(ALColor.textFaint)
+                        .padding(.vertical, 2)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(model.history.prefix(8)) { run in
+                            RecentRow(run: run) { model.openHistory(run) }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 16)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ALColor.subtle)
+    }
+
+    private var synthRow: some View {
+        HStack(spacing: 10) {
+            WorkerGlyph(systemImage: model.judgeWorker.map { glyphSymbol(for: $0) } ?? "cpu",
+                        tint: model.judgeWorker.map { glyphTint(for: $0) } ?? ALColor.accent, size: 26)
+            Text(model.judgeWorker?.displayName ?? "None")
+                .font(ALFont.body.weight(.semibold)).foregroundStyle(ALColor.textPrimary)
+            Spacer(minLength: 6)
+            Text("master").font(ALFont.monoSm).foregroundStyle(ALColor.accentText)
+            Image(systemName: "chevron.down").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 9)
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+
+    private func sectionHeader(_ title: String, trailing: String?) -> some View {
+        HStack {
+            Text(title.uppercased())
+                .font(ALFont.caption.weight(.bold)).tracking(ALTracking.caps)
+                .foregroundStyle(ALColor.textFaint)
+            Spacer()
+            if let trailing {
+                Text(trailing).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            }
+        }
+        .padding(.bottom, 10)
+    }
+
+    // Brand-glyph approximation via SF Symbols (real Simple Icons SVGs = follow-up).
+    private func glyphSymbol(for w: Worker) -> String {
+        let d = model.driverName(for: w).lowercased()
+        let n = w.displayName.lowercased()
+        if d.contains("gemini") { return "sparkle" }
+        if d.contains("codex") || n.contains("chatgpt") || n.contains("gpt") { return "terminal" }
+        if d.contains("cursor") || n.contains("composer") { return "squareshape" }
+        if d.contains("grok") || n.contains("grok") { return "bolt.fill" }
+        return "cpu" // claude / opus / sonnet / default
+    }
+    private func glyphTint(for w: Worker) -> Color {
+        if model.judgeWorker?.id == w.id { return ALColor.accent }
+        if case .unhealthy = model.diagnosis(for: w.id)?.health { return ALColor.statusTimeout }
+        return ALColor.textSecondary
+    }
+}
+
+private struct RecentRow: View {
+    let run: CouncilRun
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Circle().fill(dotColor).frame(width: 6, height: 6)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(run.prompt).font(ALFont.label).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+                    Text(metaText).font(.system(size: 9, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(hover ? ALColor.hover : .clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+    }
+
+    private var dotColor: Color {
+        switch run.status {
+        case .complete: ALColor.statusDone
+        case .partial, .failed: ALColor.statusTimeout
+        default: ALColor.textFaint
+        }
+    }
+    private var metaText: String {
+        let done = run.members.filter { $0.status == .done }.count
+        return "\(run.createdAt.formatted(.dateTime.hour().minute())) · \(done) done"
+    }
+}
+
+// MARK: - Compose (screens.jsx Composer)
+
+private struct ComposeView: View {
+    @Environment(AppModel.self) private var model
+    @FocusState private var promptFocused: Bool
+
+    var body: some View {
+        @Bindable var model = model
+        VStack(alignment: .leading, spacing: 0) {
+            Text("New council run")
+                .font(ALFont.caption.weight(.bold)).tracking(1.1).textCase(.uppercase)
+                .foregroundStyle(ALColor.accentText)
+                .padding(.bottom, 14)
+
+            // Prompt card
+            VStack(spacing: 0) {
+                TextEditor(text: $model.prompt)
+                    .focused($promptFocused)
+                    .font(.system(size: 18))
+                    .lineSpacing(6)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 92, maxHeight: 220)
+                    .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 12)
+                    .overlay(alignment: .topLeading) {
+                        if model.prompt.isEmpty {
+                            Text("Ask the panel one thing…")
+                                .font(.system(size: 18)).foregroundStyle(ALColor.textFaint)
+                                .padding(.leading, 23).padding(.top, 26)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                HStack {
+                    Text("\(model.expandedSeats.count) workers · local · $0 marginal")
+                        .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                    Spacer()
+                    Button { model.runCouncil() } label: { Label("Run council", systemImage: "play.fill") }
+                        .buttonStyle(.alPrimary)
+                        .disabled(model.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.expandedSeats.isEmpty)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+            }
+            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.xl))
+            .overlay {
+                RoundedRectangle(cornerRadius: ALRadius.xl)
+                    .strokeBorder(promptFocused ? ALColor.accentBorder : ALColor.borderDefault, lineWidth: 1)
+            }
+            .alShadowSm()
+
+            // Example chips
+            HStack(spacing: 8) {
+                ForEach(Self.examples, id: \.self) { ex in
+                    Button { model.prompt = ex } label: {
+                        Text(ex).font(ALFont.label).foregroundStyle(ALColor.textMuted)
+                            .padding(.horizontal, 12).padding(.vertical, 5)
+                            .background(ALColor.surface, in: Capsule())
+                            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 16)
+        }
+        .frame(maxWidth: 680)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .padding(.horizontal, 32)
+    }
+
+    private static let examples = [
+        "3 directions for a premium dashboard",
+        "rewrite our API error copy",
+        "plan a migration to Swift 6",
+    ]
 }
