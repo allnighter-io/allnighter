@@ -11,6 +11,14 @@ public struct RunStore: Sendable {
         self.rootDirectory = rootDirectory ?? AllnighterPaths.runs
     }
 
+    /// The run's folder (created if needed). Used for dispatch artifacts (RB4).
+    @discardableResult
+    public func runDirectory(forRunId runId: String) throws -> URL {
+        let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
     @discardableResult
     public func save(_ run: CouncilRun, workers: [Worker]) throws -> URL {
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)

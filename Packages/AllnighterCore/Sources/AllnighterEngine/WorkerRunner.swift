@@ -29,10 +29,14 @@ public struct WorkerRunner: Sendable {
     }
 
     /// Invoke a worker's CLI once and return the neutral outcome.
+    /// `workingDirectoryOverride`/`timeoutOverride` let dispatch (RB4) run in a
+    /// chosen directory with a longer budget than the panel timeout.
     public func invoke(
         worker: Worker,
         manifest: DriverManifest,
-        prompt: String
+        prompt: String,
+        workingDirectoryOverride: String? = nil,
+        timeoutOverride: Duration? = nil
     ) async -> WorkerRunOutcome {
         // Manual-paste workers do not run; they await a pasted answer.
         guard manifest.kind == .headlessCLI, let invoke = manifest.invoke else {
@@ -47,10 +51,11 @@ public struct WorkerRunner: Sendable {
             : nil
         defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
 
+        let workingDir = workingDirectoryOverride ?? invoke.workingDir
         let context = DriverManifest.ResolveContext(
             prompt: prompt,
             model: worker.modelLabel,
-            workingDir: invoke.workingDir,
+            workingDir: workingDir,
             outputFile: outputFileURL?.path
         )
         let args = manifest.resolvedArgs(context)
@@ -62,8 +67,8 @@ public struct WorkerRunner: Sendable {
             args: args,
             stdin: stdin,
             env: invoke.env,
-            workingDirectory: invoke.workingDir,
-            timeout: .seconds(invoke.timeoutSeconds)
+            workingDirectory: workingDir,
+            timeout: timeoutOverride ?? .seconds(invoke.timeoutSeconds)
         )
         let finishedAt = now()
         let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)

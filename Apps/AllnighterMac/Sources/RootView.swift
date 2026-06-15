@@ -259,6 +259,7 @@ private struct RunResultsView: View {
                     ReviewActions(run: run)
                     ReviewBoardCard()
                     FinalSpecCard()
+                    DispatchCard()
                     MembersDisclosure(run: run)
                 }
                 .padding()
@@ -458,6 +459,64 @@ private struct FinalSpecCard: View {
             .background(color.opacity(0.15), in: Capsule()).foregroundStyle(color)
     }
     private func copy(_ t: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(t, forType: .string) }
+}
+
+// MARK: - Direct dispatch (RB4)
+
+private struct DispatchCard: View {
+    @Environment(AppModel.self) private var model
+    var body: some View {
+        @Bindable var model = model
+        if model.canDispatch {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Implement This", systemImage: "paperplane").font(.title3.bold())
+                Text(ImplementationBrief.defaultBoundary).font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    TextField("Working directory", text: $model.dispatchWorkingDirectory)
+                        .textFieldStyle(.roundedBorder)
+                    Button { pickFolder() } label: { Image(systemName: "folder") }.help("Choose folder")
+                }
+                HStack {
+                    Picker("Worker", selection: Binding(get: { model.dispatchWorkerId ?? model.judgeWorker?.id ?? "" }, set: { model.dispatchWorkerId = $0 })) {
+                        ForEach(model.workers) { w in Text(w.displayName).tag(w.id) }
+                    }.frame(maxWidth: 220)
+                    Toggle("Reveal only", isOn: $model.dispatchRevealOnly)
+                    Spacer()
+                    if model.isDispatching {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button { model.dispatch() } label: { Label("Dispatch", systemImage: "play.fill") }
+                            .disabled(model.dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                ForEach(model.dispatches) { d in
+                    if let ret = d.payload?.executionReturn {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Dispatch \(ret.dispatchIndex) · \(ret.executionWorkerId) · \(ret.status.rawValue)")
+                                .font(.caption.bold())
+                            if let excerpt = ret.transcriptExcerpt, !excerpt.isEmpty {
+                                Text(excerpt).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                                    .lineLimit(6).textSelection(.enabled)
+                            }
+                        }
+                        .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+            .padding().background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
+    private func pickFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            model.dispatchWorkingDirectory = url.path
+        }
+    }
 }
 
 private struct MembersDisclosure: View {

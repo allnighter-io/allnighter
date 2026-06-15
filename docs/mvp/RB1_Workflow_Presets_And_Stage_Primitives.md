@@ -1,6 +1,6 @@
 # RB1 - Workflow Presets + Stage Primitives
 
-Status: **Finalized — ready after Phase 06 + the RB0 activation gate.**
+Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14

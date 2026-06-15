@@ -1,6 +1,6 @@
 # RB3 - Final Spec
 
-Status: **Finalized — ready after RB2.**
+Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14

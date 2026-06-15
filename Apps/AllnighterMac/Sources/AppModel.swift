@@ -38,6 +38,12 @@ final class AppModel {
     // Review board / final spec (RB2/RB3)
     private(set) var isReviewing = false
 
+    // Dispatch (RB4)
+    var dispatchWorkingDirectory: String = ""
+    var dispatchWorkerId: String?
+    var dispatchRevealOnly: Bool = false
+    private(set) var isDispatching = false
+
     private let registry: DriverRegistry
     private let store = RunStore()
     private let presetStore = PanelPresetStore()
@@ -336,6 +342,56 @@ final class AppModel {
 
     var finalSpec: FinalSpecPayload? {
         displayRun?.latestStage(.finalSpec)?.payload?.finalSpec
+    }
+
+    // MARK: - Direct dispatch (RB4)
+
+    var dispatches: [StageOutput] {
+        (displayRun?.stages ?? []).filter { $0.purpose == .dispatch }
+    }
+
+    /// Can we hand this run to an executor? (a plan or final spec exists)
+    var canDispatch: Bool { (displayRun?.masterPlan) != nil }
+
+    /// "Implement This": build the brief and dispatch to the chosen worker in the
+    /// chosen working directory. Doctor-gated; reveal-only writes artifacts without
+    /// invoking. Never creates worktrees/commits.
+    func dispatch() {
+        guard !isDispatching, let current = run, current.masterPlan != nil else { return }
+        let dir = dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !dir.isEmpty else { return }
+        let workerId = dispatchWorkerId ?? judgeWorker?.id
+        guard let workerId, let worker = workers.first(where: { $0.id == workerId }),
+              let brief = BriefBuilder.build(run: current, executionWorkerId: workerId, workingDirectory: dir) else { return }
+
+        let manifest = registry.manifest(for: worker)
+        let index = current.stages.filter { $0.purpose == .dispatch }.count + 1
+        let revealOnly = dispatchRevealOnly
+        let snapshotRunId = current.id
+
+        isDispatching = true
+        let registryCopy = registry
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // Doctor gate: use a cached healthy result, else diagnose now.
+            var healthy = self.diagnosis(for: workerId)?.isHealthy ?? false
+            if self.diagnosis(for: workerId) == nil {
+                let d = await Doctor(commandRunner: SubprocessCommandRunner()).diagnose(worker, manifest: manifest)
+                self.diagnoses[workerId] = d
+                healthy = d.isHealthy
+            }
+            let artifactsDir = (try? self.store.runDirectory(forRunId: snapshotRunId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(snapshotRunId)")
+            let dispatcher = Dispatcher(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+            let stage = await dispatcher.dispatch(
+                brief: brief, worker: worker, manifest: manifest, healthy: healthy,
+                revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
+            )
+            guard var updated = self.run else { self.isDispatching = false; return }
+            updated.stages.append(stage)
+            self.run = updated
+            self.persist()
+            self.isDispatching = false
+        }
     }
 
     // MARK: - Derived views
