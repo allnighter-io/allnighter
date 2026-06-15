@@ -1,5 +1,8 @@
 // ============================================================
 //  CouncilState.swift
+//  Legacy visual reference only. Product vocabulary is now
+//  Team/Model/Skill/Worker/Plan; do not copy Council/panel/
+//  synthesizer labels into new UI.
 //  The Council screen's state machine, as a SwiftUI-ready model.
 //  Mirrors the prototype in ui_kits/council/index.html (CouncilApp).
 //

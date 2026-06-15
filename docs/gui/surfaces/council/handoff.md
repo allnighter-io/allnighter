@@ -1,5 +1,10 @@
 # Handoff: Council command center — **native SwiftUI (macOS)**
 
+> **Legacy visual reference.** The visual direction may still be useful, but the
+> vocabulary is superseded by `docs/phases/Work_Order_Team_Model.md` and
+> `docs/phases/Team_First_Vocabulary_Cleanup.md`. Do not copy public labels such
+> as Council, panel, synthesizer, member answer, or master plan into new UI.
+
 ## Overview
 The **Council** is the Allnighter MVP's primary screen. One prompt fans out to a
 panel of subscription coding-CLIs in parallel; every answer streams back; then

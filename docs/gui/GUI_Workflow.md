@@ -41,7 +41,7 @@ Escalate to Tier D if the work touches:
 - quota harvesting, billing, or entitlement display;
 - secrets, API keys, or Keychain;
 - Tailscale pairing or device auth;
-- master-plan / synthesis output presented as truth;
+- plan / synthesis output presented as truth;
 - anything that destroys a lane, worktree, or session.
 
 ## 4. Non-Negotiables
@@ -52,12 +52,13 @@ Escalate to Tier D if the work touches:
 - **Dark mode only.** Build on the midnight surfaces
   (`--bg-base`/`-surface`/`-raised`); never a light background.
 - **One warm signal.** Amber (`--accent`, `#FFA630`) is reserved for the single
-  primary action, the live/"alive" state, the synthesizer/winner, and the mark.
+  primary action, the live/"alive" state, the plan writer/winner, and the mark.
   Status hues stay muted. Do not introduce new accent colors.
 - **Never fake state.** A failed worker is shown failed; a timeout is shown
   timed out. Numbers are concrete and mono. No fabricated progress.
-- **Hide the plumbing.** Speak panel / worker / council / master plan — never
-  worktree / subprocess / branch in user-facing copy.
+- **Hide the plumbing.** Speak model / skill / worker / team / plan — never
+  legacy panel/council/master-plan words, worktree, subprocess, or branch in
+  user-facing copy.
 - **Every critical surface has loading, empty, error, running, and done states.**
 - **Voice:** calm, plain-spoken, sentence case, verbs first, no emoji, no hype
   (see `docs/design-system/readme.md`).
