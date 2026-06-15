@@ -4,51 +4,39 @@ import AppKit
 import AllnighterCore
 import AllnighterEngine
 
-/// The Mac app's single observable truth. Owns the panel, presets, history and
-/// Doctor state; drives the `CouncilRunCoordinator`; applies the run-event
-/// stream live (status), then fills answers from the settled run. UI reads this;
-/// it never mutates run truth directly.
+/// The Mac app's single observable truth. Owns the panel (as seats), presets,
+/// history and Doctor state; drives the `CouncilRunCoordinator` then the
+/// `Synthesizer` (analysis → plan); applies the run-event stream live. UI reads
+/// this; it never mutates run truth directly.
 @MainActor
 @Observable
 final class AppModel {
-    // Panel
     var workers: [Worker]
     var prompt: String = ""
 
-    // Synthesis instructions (P05-S03)
-    private(set) var instructionPresets: [SynthesisInstructionPreset] = []
-    var selectedInstructionPresetId: String = SynthesisInstructions.defaultID
-    /// The effective instruction text. Equal to the selected preset's template
-    /// until the user edits it, at which point the run records custom text.
-    var instructionText: String = SynthesisInstructions.defaultText
-
-    // Panel presets (P05-S02)
-    private(set) var panelPresets: [PanelPreset] = []
+    // Presets (Phase 06 tiered) + current (possibly hand-edited) selection.
+    private(set) var presets: [PanelPreset] = []
     private(set) var activePresetId: String?
-    /// The explicit draft synthesizer (from the active preset). Falls back to the
-    /// first enabled worker that can synthesize when nil.
-    var synthesizerWorkerId: String?
-
-    // History (P05-S01)
-    private(set) var history: [CouncilRun] = []
-    /// When set, the detail pane shows this saved run read-only instead of the
-    /// live composer/run.
-    private(set) var historySelection: CouncilRun?
-
-    // Doctor (P05-S04)
-    private(set) var diagnoses: [String: WorkerDiagnosis] = [:]
-    private(set) var isDoctorRunning = false
+    private(set) var currentSeats: [PanelSeatSpec] = []
+    private(set) var currentSynthesis: SynthesisConfig
 
     private(set) var run: CouncilRun?
     private(set) var isRunning = false
-    /// Set when the chosen synthesizer is a manual-paste worker: the app shows
-    /// this assembled prompt for the user to run and paste back.
+    /// Set when the chosen judge is a manual-paste worker: the assembled combined
+    /// synthesis prompt for the user to run and paste back.
     private(set) var manualSynthesisPrompt: String?
     private(set) var lastSavedDirectory: URL?
 
+    // Doctor
+    private(set) var diagnoses: [String: WorkerDiagnosis] = [:]
+    private(set) var isDoctorRunning = false
+
+    // History
+    private(set) var history: [CouncilRun] = []
+    private(set) var historySelection: CouncilRun?
+
     private let registry: DriverRegistry
     private let store = RunStore()
-    private let instructionStore = SynthesisInstructionStore()
     private let presetStore = PanelPresetStore()
     private var runTask: Task<Void, Never>?
 
@@ -57,16 +45,43 @@ final class AppModel {
         let resolvedPanel = panel.isEmpty ? AppModel.fallbackPanel() : panel
         self.workers = resolvedPanel
         self.registry = AppConfig.loadDefaultRegistry()
-        reloadPresets(panel: resolvedPanel)
+        // Temporary default synthesis; replaced by the active preset below.
+        self.currentSynthesis = SynthesisConfig(
+            analysisProfileId: SynthesisInstructions.analysisID,
+            planProfileId: SynthesisInstructions.planID
+        )
+        reloadPresets()
+        if let first = presets.first { apply(first) }
         reloadHistory()
     }
 
-    var enabledWorkers: [Worker] { workers.filter(\.enabled) }
+    // MARK: - Panel / seats
 
+    /// Workers referenced by the current seats, in panel order.
+    var seatedWorkerIds: [String] {
+        var seen = Set<String>(); var ordered: [String] = []
+        for s in currentSeats where seen.insert(s.workerId).inserted { ordered.append(s.workerId) }
+        return ordered
+    }
+
+    var expandedSeats: [PanelSeat] { currentSeats.expandedSeats() }
+
+    func isSeated(_ worker: Worker) -> Bool {
+        currentSeats.contains { $0.workerId == worker.id }
+    }
+
+    func seatCount(for worker: Worker) -> Int {
+        currentSeats.first { $0.workerId == worker.id }?.count ?? 0
+    }
+
+    /// Toggle a worker in/out of the current (ad-hoc) panel. Marks the panel as
+    /// no longer matching a named preset.
     func toggle(_ worker: Worker) {
-        guard let index = workers.firstIndex(where: { $0.id == worker.id }) else { return }
-        workers[index].enabled.toggle()
-        // A hand edit to the panel means it no longer matches the active preset.
+        if let index = currentSeats.firstIndex(where: { $0.workerId == worker.id }) {
+            currentSeats.remove(at: index)
+        } else {
+            currentSeats.append(PanelSeatSpec(workerId: worker.id))
+        }
         activePresetId = nil
     }
 
@@ -78,61 +93,30 @@ final class AppModel {
         registry.manifest(for: worker)?.kind == .manualPaste
     }
 
-    // MARK: - Presets (P05-S02 / S03)
+    // MARK: - Presets
 
-    private func reloadPresets(panel: [Worker]) {
-        instructionPresets = instructionStore.load()
-        let builtIn = AppConfig.builtInPanelPreset(panel: panel)
-        panelPresets = [builtIn] + presetStore.load().filter { $0.id != builtIn.id }
-        selectInstructionPreset(id: selectedInstructionPresetId)
+    private func reloadPresets() {
+        presets = AppConfig.builtInPresets(panel: workers) + presetStore.load()
     }
 
-    var selectedInstructionPreset: SynthesisInstructionPreset? {
-        instructionPresets.first { $0.id == selectedInstructionPresetId }
-    }
-
-    /// The honest record of what synthesis used: a named preset (persist its id)
-    /// or custom inline text (persist the text). See `SynthesisInstructionChoice`.
-    var synthesisChoice: SynthesisInstructionChoice {
-        if let preset = selectedInstructionPreset, preset.template == instructionText {
-            return .preset(preset)
-        }
-        return .custom(instructionText)
-    }
-
-    func selectInstructionPreset(id: String) {
-        selectedInstructionPresetId = id
-        if let preset = instructionPresets.first(where: { $0.id == id }) {
-            instructionText = preset.template
-        }
-    }
-
-    /// Applies a saved panel preset: enables exactly its workers, sets the draft
-    /// synthesizer, and selects its synthesis-instruction preset.
-    func applyPreset(_ preset: PanelPreset) {
-        for index in workers.indices {
-            workers[index].enabled = preset.panelWorkerIds.contains(workers[index].id)
-        }
-        synthesizerWorkerId = preset.draftSynthesizerWorkerId
-        selectInstructionPreset(id: preset.draftSynthesisInstructionPresetId)
+    func apply(_ preset: PanelPreset) {
+        currentSeats = preset.seats
+        currentSynthesis = preset.synthesis
         activePresetId = preset.id
     }
 
-    /// Saves the current enabled panel + synthesizer + instruction preset as a
-    /// new named user preset and makes it active.
     @discardableResult
     func saveCurrentAsPreset(named name: String) -> PanelPreset? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !enabledWorkers.isEmpty else { return nil }
+        guard !trimmed.isEmpty, !currentSeats.isEmpty else { return nil }
         let preset = PanelPreset(
             id: "preset_\(UUID().uuidString.prefix(8))",
             displayName: trimmed,
-            panelWorkerIds: enabledWorkers.map(\.id),
-            draftSynthesizerWorkerId: (synthesizerWorker ?? enabledWorkers[0]).id,
-            draftSynthesisInstructionPresetId: selectedInstructionPresetId
+            seats: currentSeats,
+            synthesis: currentSynthesis
         )
         try? presetStore.save(preset)
-        reloadPresets(panel: workers)
+        reloadPresets()
         activePresetId = preset.id
         return preset
     }
@@ -141,68 +125,44 @@ final class AppModel {
         guard !preset.builtIn else { return }
         try? presetStore.delete(id: preset.id)
         if activePresetId == preset.id { activePresetId = nil }
-        reloadPresets(panel: workers)
+        reloadPresets()
     }
 
-    /// Saves the current instruction text as a new named instruction preset.
-    @discardableResult
-    func saveInstructionPreset(named name: String) -> SynthesisInstructionPreset? {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedText = instructionText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, !trimmedText.isEmpty else { return nil }
-        let preset = SynthesisInstructionPreset(
-            id: "instr_\(UUID().uuidString.prefix(8))",
-            displayName: trimmedName,
-            template: instructionText
-        )
-        try? instructionStore.save(preset)
-        instructionPresets = instructionStore.load()
-        selectInstructionPreset(id: preset.id)
-        return preset
+    var activePresetName: String {
+        presets.first { $0.id == activePresetId }?.displayName ?? "Custom panel"
     }
 
-    // MARK: - History (P05-S01)
+    // MARK: - Judge resolution
 
-    func reloadHistory() {
-        history = store.list()
-    }
-
-    func openHistory(_ run: CouncilRun) {
-        historySelection = run
-    }
-
-    func closeHistory() {
-        historySelection = nil
-    }
-
-    /// Reconstructs a past run's configuration (prompt, panel, synthesizer,
-    /// instructions, preset) and runs it again.
-    func runAgain(_ source: CouncilRun) {
-        prompt = source.prompt
-        for index in workers.indices {
-            workers[index].enabled = source.panel.contains(workers[index].id)
+    /// The worker that will judge (analysis + plan): the preset's explicit judge
+    /// when seated, else the first seated worker that can synthesize.
+    var judgeWorker: Worker? {
+        let seated = workers.filter { seatedWorkerIds.contains($0.id) }
+        if let id = currentSynthesis.judgeWorkerId, let chosen = seated.first(where: { $0.id == id }) {
+            return chosen
         }
-        synthesizerWorkerId = source.synthesis?.synthesizerWorkerId
-        if let instructions = source.synthesis?.instructions {
-            applyPersistedInstructions(instructions)
-        }
-        activePresetId = source.panelPresetId
-        historySelection = nil
-        runCouncil()
+        return seated.first(where: \.canSynthesize) ?? seated.first
     }
 
-    /// Restores instruction selection from a persisted value: a known preset id
-    /// re-selects that preset; anything else is treated as literal custom text.
-    private func applyPersistedInstructions(_ value: String) {
-        if let preset = instructionPresets.first(where: { $0.id == value }) {
-            selectInstructionPreset(id: preset.id)
-        } else {
-            instructionText = value
-        }
+    // MARK: - Call plan
+
+    var callPlan: CallPlan {
+        let preset = PanelPreset(id: "current", displayName: "current", seats: currentSeats, synthesis: currentSynthesis)
+        return CallPlanEstimator().plan(for: preset, latencyByWorker: latencyByWorker())
     }
 
-    func workerName(_ id: String) -> String {
-        workers.first { $0.id == id }?.displayName ?? id
+    private func latencyByWorker() -> [String: Int] {
+        var durations: [String: [Int]] = [:]
+        for run in history {
+            for m in run.members where m.durationMs != nil {
+                durations[m.workerId, default: []].append(m.durationMs! / 1000)
+            }
+        }
+        return durations.compactMapValues { samples in
+            guard !samples.isEmpty else { return nil }
+            let sorted = samples.sorted()
+            return sorted[sorted.count / 2]
+        }
     }
 
     // MARK: - Running a council
@@ -210,9 +170,8 @@ final class AppModel {
     func runCouncil() {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isRunning else { return }
-
-        let panel = enabledWorkers
-        guard !panel.isEmpty else { return }
+        let seats = expandedSeats
+        guard !seats.isEmpty else { return }
 
         isRunning = true
         manualSynthesisPrompt = nil
@@ -220,12 +179,10 @@ final class AppModel {
         historySelection = nil
         let runId = UUID().uuidString
         run = CouncilRun(
-            id: runId,
-            prompt: trimmed,
-            status: .draft,
-            panel: panel.map(\.id),
-            members: panel.map { MemberResponse(workerId: $0.id, status: .queued) },
-            panelPresetId: activePresetId,
+            id: runId, prompt: trimmed, status: .draft,
+            origin: .gui, presetId: activePresetId,
+            panel: seats,
+            members: seats.map { MemberResponse(seatId: $0.id, workerId: $0.workerId, status: .queued) },
             createdAt: Date()
         )
 
@@ -234,13 +191,15 @@ final class AppModel {
             registry: registry
         )
         let stream = coordinator.events
+        let snapshotWorkers = workers
+        let presetId = activePresetId
 
         runTask = Task { @MainActor [weak self] in
             guard let self else { return }
             let consumer = Task { @MainActor [weak self] in
                 for await event in stream { self?.apply(event) }
             }
-            let settled = await coordinator.fanOut(prompt: trimmed, workers: panel, runId: runId)
+            let settled = await coordinator.fanOut(prompt: trimmed, seats: seats, workers: snapshotWorkers, origin: .gui, presetId: presetId, runId: runId)
             await consumer.value
             self.run = settled
             await self.performSynthesis()
@@ -249,71 +208,45 @@ final class AppModel {
         }
     }
 
-    func stop() {
-        runTask?.cancel()
-    }
-
-    // MARK: - Synthesis
-
-    /// The worker that will write the master plan: the preset's explicit
-    /// synthesizer when enabled and able, else the first enabled worker that can
-    /// synthesize (default Opus 4.8 by configuration).
-    var synthesizerWorker: Worker? {
-        if let id = synthesizerWorkerId,
-           let chosen = enabledWorkers.first(where: { $0.id == id && $0.canSynthesize }) {
-            return chosen
-        }
-        return enabledWorkers.first(where: \.canSynthesize)
-    }
+    func stop() { runTask?.cancel() }
 
     private func performSynthesis() async {
-        guard var current = run, !current.answeredMembers.isEmpty else { return }
-        guard !Task.isCancelled else { return }
-        guard let synthesizer = synthesizerWorker,
-              let manifest = registry.manifest(for: synthesizer) else { return }
+        guard var current = run, !current.answeredMembers.isEmpty, !Task.isCancelled else { return }
+        guard let judge = judgeWorker, let manifest = registry.manifest(for: judge) else { return }
 
-        let choice = synthesisChoice
-
-        // Manual synthesizer: surface the assembled prompt for the user.
+        // Manual judge: reveal the combined synthesis prompt; user pastes the result.
         if manifest.kind == .manualPaste {
-            manualSynthesisPrompt = SynthesisPromptBuilder.build(
-                run: current, workers: workers, instructions: choice.text
-            )
-            current.synthesis = Synthesis(
-                synthesizerWorkerId: synthesizer.id,
-                instructions: choice.persistedValue,
-                status: .pending
+            manualSynthesisPrompt = SynthesisPromptBuilder.combinedPrompt(
+                run: current, workers: workers,
+                analysisInstructions: SynthesisInstructions.analysisText,
+                planInstructions: SynthesisInstructions.planText
             )
             run = current
             return
         }
 
         transition(to: .synthesizing)
-        let synthesizerRunner = Synthesizer(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
-        let synthesis = await synthesizerRunner.synthesize(
-            run: run ?? current,
-            synthesizer: synthesizer,
-            manifest: manifest,
-            workers: workers,
-            instructions: choice
+        let synthesizer = Synthesizer(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+        let stages = await synthesizer.synthesize(
+            run: run ?? current, judge: judge, manifest: manifest, workers: workers, config: currentSynthesis
         )
         guard var updated = run else { return }
-        updated.synthesis = synthesis
+        updated.stages.append(contentsOf: stages)
         run = updated
-        transition(to: synthesis.status == .complete ? .complete : .partial)
+        let planDone = stages.contains { $0.purpose == .plan && $0.status == .done }
+        transition(to: planDone ? .complete : .partial)
     }
 
     func setManualSynthesis(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, var current = run, let synthesizer = synthesizerWorker else { return }
-        current.synthesis = Synthesis(
-            synthesizerWorkerId: synthesizer.id,
-            instructions: synthesisChoice.persistedValue,
-            masterPlanMarkdown: trimmed,
-            status: .complete,
-            startedAt: Date(),
-            finishedAt: Date()
-        )
+        guard !trimmed.isEmpty, var current = run, let judge = judgeWorker else { return }
+        let parsed = JudgeOutputParser.parseCombined(trimmed)
+        let now = Date()
+        if let analysis = parsed.analysis {
+            current.stages.append(StageOutput(id: UUID().uuidString, purpose: .analysis, producedByWorkerId: judge.id, promptProfileId: currentSynthesis.analysisProfileId, status: .done, payload: .analysis(analysis), startedAt: now, finishedAt: now))
+        }
+        let planText = parsed.planMarkdown ?? trimmed
+        current.stages.append(StageOutput(id: UUID().uuidString, purpose: .plan, producedByWorkerId: judge.id, promptProfileId: currentSynthesis.planProfileId, status: .done, payload: .plan(markdown: planText), startedAt: now, finishedAt: now))
         run = current
         transition(to: .synthesizing)
         transition(to: .complete)
@@ -321,13 +254,36 @@ final class AppModel {
         persist()
     }
 
+    func setManualAnswer(seatId: String, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, var current = run,
+              let index = current.members.firstIndex(where: { $0.seatId == seatId }) else { return }
+        current.members[index].status = .done
+        current.members[index].output = trimmed
+        current.members[index].finishedAt = Date()
+        run = current
+    }
+
+    // MARK: - Derived views
+
+    var displayRun: CouncilRun? { historySelection ?? run }
+
     func bundleMarkdown() -> String {
         guard let run = displayRun else { return "" }
         return RunMarkdown.bundle(run, workers: workers)
     }
 
-    /// The run currently shown in the detail pane (history selection wins).
-    var displayRun: CouncilRun? { historySelection ?? run }
+    func masterPlanMarkdown() -> String {
+        guard let run = displayRun else { return "" }
+        return RunMarkdown.masterPlan(run)
+    }
+
+    func seatDisplayName(_ seatId: String, in run: CouncilRun) -> String {
+        guard let seat = run.panel.first(where: { $0.id == seatId }) else { return seatId }
+        let shares = run.panel.filter { $0.workerId == seat.workerId }.count > 1
+        let name = workers.first { $0.id == seat.workerId }?.displayName ?? seat.workerId
+        return seat.displayName(workerName: name, sharesWorker: shares)
+    }
 
     private func transition(to status: RunStatus) {
         guard var current = run, current.canTransition(to: status) else { return }
@@ -336,23 +292,12 @@ final class AppModel {
     }
 
     private func persist() {
-        guard let run, run.synthesis?.status == .complete || run.status == .answersIn else { return }
+        guard let run, run.status == .complete || run.status == .partial || run.status == .answersIn else { return }
         lastSavedDirectory = try? store.save(run, workers: workers)
         reloadHistory()
     }
 
-    func setManualAnswer(workerId: String, text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              var current = run,
-              let index = current.members.firstIndex(where: { $0.workerId == workerId }) else { return }
-        current.members[index].status = .done
-        current.members[index].output = trimmed
-        current.members[index].finishedAt = Date()
-        run = current
-    }
-
-    // MARK: - Doctor (P05-S04)
+    // MARK: - Doctor
 
     func runDoctor() {
         guard !isDoctorRunning else { return }
@@ -370,27 +315,41 @@ final class AppModel {
 
     func diagnosis(for workerId: String) -> WorkerDiagnosis? { diagnoses[workerId] }
 
-    var orderedDiagnoses: [WorkerDiagnosis] {
-        workers.compactMap { diagnoses[$0.id] }
+    // MARK: - History
+
+    func reloadHistory() { history = store.list() }
+    func openHistory(_ run: CouncilRun) { historySelection = run }
+    func closeHistory() { historySelection = nil }
+
+    func runAgain(_ source: CouncilRun) {
+        prompt = source.prompt
+        // Reconstruct seats from the source panel.
+        var specs: [PanelSeatSpec] = []
+        var counts: [String: Int] = [:]
+        for seat in source.panel { counts[seat.workerId, default: 0] += 1 }
+        var seen = Set<String>()
+        for seat in source.panel where seen.insert(seat.workerId).inserted {
+            specs.append(PanelSeatSpec(workerId: seat.workerId, count: counts[seat.workerId] ?? 1, stance: seat.stance))
+        }
+        currentSeats = specs
+        activePresetId = source.presetId
+        historySelection = nil
+        runCouncil()
     }
 
-    // MARK: - Quick capture (P05-S05)
+    // MARK: - Quick capture
 
-    /// Brings the composer forward for a fresh prompt. When the composer is empty
-    /// and `prefillClipboard` is set, seeds it from the clipboard so a copied
-    /// question becomes a one-keystroke council run.
     func quickCapture(prefillClipboard: Bool) {
         historySelection = nil
         if prefillClipboard,
            prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let clip = NSPasteboard.general.string(forType: .string)?
-               .trimmingCharacters(in: .whitespacesAndNewlines),
+           let clip = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
            !clip.isEmpty {
             prompt = clip
         }
     }
 
-    // MARK: - Event application
+    // MARK: - Events
 
     private func apply(_ event: RunEvent) {
         guard var current = run else { return }
@@ -400,10 +359,10 @@ final class AppModel {
                 current.status = status
             }
         case RunEventKind.memberStatusChanged:
-            if let workerId = event.payload["workerId"]?.stringValue,
+            if let seatId = event.payload["seatId"]?.stringValue,
                let to = event.payload["to"]?.stringValue,
                let status = MemberStatus(rawValue: to),
-               let index = current.members.firstIndex(where: { $0.workerId == workerId }) {
+               let index = current.members.firstIndex(where: { $0.seatId == seatId }) {
                 current.members[index].status = status
             }
         default:
@@ -413,6 +372,6 @@ final class AppModel {
     }
 
     private static func fallbackPanel() -> [Worker] {
-        [Worker(id: "worker_opus", displayName: "Opus 4.8", modelLabel: "claude-opus-4.8", driverId: "claude_code", role: .both)]
+        [Worker(id: "worker_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both)]
     }
 }

@@ -9,25 +9,56 @@ final class AppModelTests: XCTestCase {
 
     func testLoadsDefaultPanel() {
         let model = AppModel()
-        // Falls back to at least one worker even if the bundle resource is missing.
         XCTAssertFalse(model.workers.isEmpty)
     }
 
-    func testToggleFlipsEnabled() {
+    func testHasTieredPresets() {
         let model = AppModel()
-        guard let first = model.workers.first else { return XCTFail("no workers") }
-        let before = first.enabled
-        model.toggle(first)
-        XCTAssertEqual(model.workers.first?.enabled, !before)
+        XCTAssertTrue(model.presets.contains { $0.id == "preset_fast" })
+        XCTAssertTrue(model.presets.contains { $0.builtIn })
+        // A preset is active by default and seats the panel.
+        XCTAssertFalse(model.expandedSeats.isEmpty)
     }
 
-    func testEnabledWorkersExcludesDisabled() {
+    func testApplyPresetSetsSeatsSynthesisAndActiveId() {
         let model = AppModel()
-        let total = model.workers.count
-        if let first = model.workers.first, first.enabled {
-            model.toggle(first)
-            XCTAssertEqual(model.enabledWorkers.count, total - 1)
+        guard let quality = model.presets.first(where: { $0.id == "preset_quality" }) else { return XCTFail("no quality preset") }
+        model.apply(quality)
+        XCTAssertEqual(model.activePresetId, "preset_quality")
+        XCTAssertEqual(model.currentSynthesis.analysisDepth, .separate)
+        XCTAssertEqual(model.expandedSeats.count, quality.seats.expandedSeats().count)
+    }
+
+    func testSelfDoublePresetExpandsToMultipleSeats() {
+        let model = AppModel()
+        guard let selfDouble = model.presets.first(where: { $0.id == "preset_self_double" }) else { return }
+        model.apply(selfDouble)
+        XCTAssertEqual(model.expandedSeats.count, 3)
+        XCTAssertEqual(Set(model.expandedSeats.map(\.workerId)).count, 1)
+    }
+
+    func testToggleWorkerEditsSeatsAndClearsPreset() {
+        let model = AppModel()
+        guard let worker = model.workers.first else { return }
+        let wasSeated = model.isSeated(worker)
+        model.toggle(worker)
+        XCTAssertNotEqual(model.isSeated(worker), wasSeated)
+        XCTAssertNil(model.activePresetId)
+    }
+
+    func testJudgeResolvesToCanSynthesizeWorker() {
+        let model = AppModel()
+        // Default panel includes Opus (role .both).
+        if model.workers.contains(where: { $0.canSynthesize }) {
+            XCTAssertNotNil(model.judgeWorker)
+            XCTAssertTrue(model.judgeWorker?.canSynthesize ?? false)
         }
+    }
+
+    func testCallPlanCountsSeatsPlusSynthesis() {
+        let model = AppModel()
+        let plan = model.callPlan
+        XCTAssertEqual(plan.estimatedCalls, model.expandedSeats.count + (model.currentSynthesis.analysisDepth == .combined ? 1 : 2))
     }
 
     func testRunRequiresPrompt() {
@@ -38,75 +69,15 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(model.isRunning)
     }
 
-    func testSynthesizerIsAWorkerThatCanSynthesize() {
-        let model = AppModel()
-        // The default panel includes Opus (role .both); it should be the synthesizer.
-        if model.workers.contains(where: { $0.canSynthesize && $0.enabled }) {
-            XCTAssertNotNil(model.synthesizerWorker)
-            XCTAssertTrue(model.synthesizerWorker?.canSynthesize ?? false)
-        }
-    }
-
     func testBundleMarkdownEmptyWithoutRun() {
         let model = AppModel()
         XCTAssertTrue(model.bundleMarkdown().isEmpty)
     }
 
-    func testManualAnswerMarksMemberDone() {
+    func testManualAnswerNoOpWithoutRun() {
         let model = AppModel()
-        // Seed a run with one skipped member via a real run shape.
-        model.prompt = "x"
-        // No run yet; setManualAnswer should be a no-op without a run.
-        model.setManualAnswer(workerId: "worker_opus", text: "hi")
+        model.setManualAnswer(seatId: "worker_opus#0", text: "hi")
         XCTAssertNil(model.run)
-    }
-
-    // MARK: - Phase 05
-
-    func testBuiltInPanelPresetIsAvailable() {
-        let model = AppModel()
-        XCTAssertTrue(model.panelPresets.contains { $0.builtIn })
-    }
-
-    func testBuiltInInstructionPresetIsAvailable() {
-        let model = AppModel()
-        XCTAssertTrue(model.instructionPresets.contains { $0.id == SynthesisInstructions.defaultID })
-    }
-
-    func testApplyPresetSetsSynthesizerInstructionsAndPanel() {
-        let model = AppModel()
-        guard let preset = model.panelPresets.first(where: { $0.builtIn }) else { return XCTFail("no built-in preset") }
-        model.applyPreset(preset)
-        XCTAssertEqual(model.activePresetId, preset.id)
-        XCTAssertEqual(model.synthesizerWorkerId, preset.draftSynthesizerWorkerId)
-        XCTAssertEqual(model.selectedInstructionPresetId, preset.draftSynthesisInstructionPresetId)
-        let enabledIds = Set(model.enabledWorkers.map(\.id))
-        let expected = Set(preset.panelWorkerIds).intersection(Set(model.workers.map(\.id)))
-        XCTAssertEqual(enabledIds, expected)
-    }
-
-    func testDefaultInstructionChoicePersistsPresetID() {
-        let model = AppModel()
-        model.selectInstructionPreset(id: SynthesisInstructions.defaultID)
-        XCTAssertEqual(model.synthesisChoice.persistedValue, SynthesisInstructions.defaultID)
-    }
-
-    func testEditingInstructionsBecomesCustomChoice() {
-        let model = AppModel()
-        model.selectInstructionPreset(id: SynthesisInstructions.defaultID)
-        model.instructionText = "Totally custom instructions."
-        XCTAssertEqual(model.synthesisChoice.persistedValue, "Totally custom instructions.")
-        XCTAssertEqual(model.synthesisChoice.text, "Totally custom instructions.")
-    }
-
-    func testTogglingPanelClearsActivePreset() {
-        let model = AppModel()
-        guard let preset = model.panelPresets.first(where: { $0.builtIn }),
-              let worker = model.workers.first else { return }
-        model.applyPreset(preset)
-        XCTAssertNotNil(model.activePresetId)
-        model.toggle(worker)
-        XCTAssertNil(model.activePresetId)
     }
 
     func testQuickCapturePrefillsFromClipboardWhenEmpty() {

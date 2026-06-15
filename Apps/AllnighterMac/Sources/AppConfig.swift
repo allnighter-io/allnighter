@@ -35,14 +35,40 @@ enum AppConfig {
         return DriverRegistry(manifests)
     }
 
-    /// The built-in six-worker preset, derived from the live panel so its worker
-    /// ids always match. The synthesizer defaults to Opus *by configuration*
-    /// (first worker that can synthesize), not a hardcoded code path.
-    static func builtInPanelPreset(panel: [Worker]) -> PanelPreset {
-        PanelPreset.builtInDefault(
-            panel: panel,
-            instructionPresetId: SynthesisInstructions.defaultID
-        )
+    /// The tiered built-in presets (Phase 06), derived from the live panel so
+    /// worker ids always match. Each names a real tradeoff; the judge defaults to
+    /// the first worker that can synthesize (Opus) *by configuration*.
+    static func builtInPresets(panel: [Worker]) -> [PanelPreset] {
+        let judge = panel.first(where: \.canSynthesize)?.id ?? panel.first?.id
+        let analysisID = SynthesisInstructions.analysisID
+        let planID = SynthesisInstructions.planID
+
+        func config(_ depth: AnalysisDepth) -> SynthesisConfig {
+            SynthesisConfig(analysisDepth: depth, judgeWorkerId: judge, analysisProfileId: analysisID, planProfileId: planID)
+        }
+        func specs(_ workers: [Worker]) -> [PanelSeatSpec] { workers.map { PanelSeatSpec(workerId: $0.id) } }
+
+        let six = panel
+        let fastThree = Array(panel.prefix(3))
+        // Budget/diverse: workers that are not the judge (cheaper bench + strong judge).
+        let budget = panel.filter { $0.id != judge }
+        let strongest = panel.first(where: \.canSynthesize) ?? panel.first
+
+        var presets: [PanelPreset] = [
+            PanelPreset.builtInDefault(panel: six, analysisProfileId: analysisID, planProfileId: planID),
+            PanelPreset(id: "preset_fast", displayName: "Fast Council", seats: specs(fastThree.isEmpty ? six : fastThree), synthesis: config(.combined), builtIn: true),
+            PanelPreset(id: "preset_quality", displayName: "Quality Council", seats: specs(six), synthesis: config(.separate), builtIn: true),
+            PanelPreset(id: "preset_budget", displayName: "Budget / Diverse", seats: specs(budget.isEmpty ? six : budget), synthesis: config(.separate), builtIn: true),
+            PanelPreset(id: "preset_full", displayName: "Full Deliberation", seats: specs(six), synthesis: config(.separate), builtIn: true)
+        ]
+        if let strongest {
+            presets.append(PanelPreset(
+                id: "preset_self_double", displayName: "Self-Double",
+                seats: [PanelSeatSpec(workerId: strongest.id, count: 3)],
+                synthesis: config(.combined), builtIn: true
+            ))
+        }
+        return presets
     }
 }
 
