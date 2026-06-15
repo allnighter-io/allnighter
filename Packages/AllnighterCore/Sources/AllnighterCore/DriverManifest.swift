@@ -26,6 +26,11 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     /// absent on every existing manifest.
     public var imageGen: ImageGen?
 
+    /// First-run Setup metadata — how to find, install, sign in to, and display
+    /// this tool's CLI (`docs/phases/setup/01` §6). Additive; absent on legacy
+    /// manifests, in which case detection falls back to the bare `invoke.command`.
+    public var setup: SetupBlock?
+
     public init(
         id: String,
         manifestVersion: Int = 1,
@@ -37,8 +42,10 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         invoke: Invoke? = nil,
         output: OutputSpec? = nil,
         imageGen: ImageGen? = nil,
-        readsImages: Bool? = nil
+        readsImages: Bool? = nil,
+        setup: SetupBlock? = nil
     ) {
+        self.setup = setup
         self.id = id
         self.manifestVersion = manifestVersion
         self.displayName = displayName

@@ -28,5 +28,17 @@
     "stdoutPathRegex": "\"path\"\\s*:\\s*\"([^\"]+)\"",
     "sessionIdRegex": "\"sessionId\"\\s*:\\s*\"([^\"]+)\"",
     "timeoutSeconds": 600
+  },
+  "setup": {
+    "bins": ["grok"],
+    "knownPaths": ["~/.local/bin", "~/.grok/bin", "/opt/homebrew/bin"],
+    "installHint": "Install the Grok CLI from xAI (see docs).",
+    "docsURL": "https://docs.x.ai/docs/grok-cli",
+    "loginFlow": {
+      "interactiveCommand": "grok",
+      "instructions": "Run `grok` and sign in, or set your xAI API key (GROK_API_KEY / XAI_API_KEY).",
+      "authErrorPatterns": ["not authenticated", "unauthorized", "api key", "sign in", "log in", "401"],
+      "docsURL": "https://docs.x.ai/docs/grok-cli"
+    }
   }
 }

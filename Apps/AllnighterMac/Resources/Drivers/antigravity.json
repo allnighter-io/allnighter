@@ -28,5 +28,17 @@
     "stdoutPathRegex": "(/[^\\s)]+\\.png)",
     "sessionIdRegex": "brain/([0-9a-fA-F-]{8,})/",
     "timeoutSeconds": 600
+  },
+  "setup": {
+    "bins": ["agy"],
+    "knownPaths": ["~/.local/bin", "~/.antigravity/antigravity/bin", "/opt/homebrew/bin"],
+    "installHint": "Install Google Antigravity; the `agy` CLI ships with it.",
+    "docsURL": "https://antigravity.google",
+    "loginFlow": {
+      "interactiveCommand": "agy",
+      "instructions": "Run `agy` and sign in with your Google / Antigravity account.",
+      "authErrorPatterns": ["not authenticated", "unauthorized", "sign in", "log in", "login", "401"],
+      "docsURL": "https://antigravity.google"
+    }
   }
 }

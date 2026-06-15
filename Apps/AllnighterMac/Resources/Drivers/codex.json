@@ -28,5 +28,17 @@
     "stdoutPathRegex": "(/[^\\s\"]+\\.(?:png|jpe?g))",
     "timeoutSeconds": 600
   },
-  "readsImages": true
+  "readsImages": true,
+  "setup": {
+    "bins": ["codex"],
+    "knownPaths": ["/opt/homebrew/bin", "~/.local/bin", "/usr/local/bin"],
+    "installHint": "Install Codex: npm i -g @openai/codex  (or brew install codex)",
+    "docsURL": "https://developers.openai.com/codex/cli",
+    "loginFlow": {
+      "interactiveCommand": "codex",
+      "instructions": "Run `codex` and complete the sign-in prompt on first run.",
+      "authErrorPatterns": ["not signed in", "please sign in", "login", "unauthorized", "401", "authentication"],
+      "docsURL": "https://developers.openai.com/codex/cli"
+    }
+  }
 }
