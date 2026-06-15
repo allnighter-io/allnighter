@@ -39,21 +39,27 @@ Doctor confirmed the immediate cause of "0/1 healthy" is **not** PATH or auth �
 a **packaging bug**: the `Resources/Drivers` manifests aren't shipped as a `Drivers/`
 folder in the app bundle, so the driver registry loads empty and the panel falls
 back to one hardcoded worker. Detection never even runs. Details + fix direction:
-`01_CLI_Detection_Auth_And_Panel.md` §Cause 0. Fix that first; the Setup experience
-layers on top.
+`01_CLI_Detection_Auth_And_Panel.md` §Cause 0.
+
+**Phase 0 fix shipped (2026-06-15):** `AppConfig` loads manifests from the bundle
+resource root (subdir-free), falls back to embedded `DefaultConfig` (not a fake
+one-worker panel), and `BuiltBundleConfigTests` gates the built `.app`. Doctor now
+probes real CLIs — outcomes depend on what's installed/signed-in on the machine.
 
 ## Build order (no shortcuts, but sequenced)
 
 Prove detection on a real machine before building the WOW UI (full detail in
 `01_…` §11):
 
-0. **Packaging fix** + embedded `DefaultConfig` safety net + built-bundle test →
-   6 workers appear, Doctor shows real reasons (today's blocker).
-1. **Detection engine** — `CLIDetector` + hardened login-shell resolve + cached
-   invocation + 5-state status. Prove headless (`allnighter detect`) first.
-2. **Wire Doctor + health badge** to the detector → real "4/4 tools ready".
-3. **Setup UI** (Experience Scenes 1–6); Doctor becomes the compact roster.
-4. **Auto-build the panel** from ready tools.
+| Phase | Scope | Status |
+| --- | --- | --- |
+| **0** | Packaging fix + `DefaultConfig` safety net + built-bundle test → 6 workers, Doctor shows real reasons | **Done** (2026-06-15) |
+| **1** | Detection engine — `CLIDetector` + hardened login-shell resolve + cached invocation + 5-state status. Prove headless (`allnighter detect`) first. | Not started |
+| **2** | Wire Doctor + health badge to the detector → real "4/4 tools ready" | Not started |
+| **3** | Setup UI (Experience Scenes 1–6); Doctor becomes the compact roster | **Blocked on designer mocks** (`00_…`) |
+| **4** | Auto-build the panel from ready tools | Not started |
 
-Status: **Specs finalized (mentor review folded in). No code yet** — Phase 0
-(packaging) is the agreed first step when build starts. Created 2026-06-15.
+**Next:** Phase 1 (engine, headless-first). Do not build Setup UI until designer
+delivers mocks from `00_First_Run_Setup_Experience.md`.
+
+Created 2026-06-15 · Phase 0 implemented 2026-06-15.

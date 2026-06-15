@@ -56,6 +56,11 @@ final class AppModel {
     private(set) var isDesigning = false
 
     private let registry: DriverRegistry
+    private(set) var configurationSource: ConfigurationSource
+    private(set) var registrySource: ConfigurationSource
+    /// Blocking alert when bundle and embedded defaults both fail (§7 interim gate).
+    var isConfigurationBroken: Bool { bundledConfiguration.isBroken }
+    private let bundledConfiguration: BundledConfiguration
     private let store = RunStore()
     private let presetStore = PanelPresetStore()
     private let profileStore = PromptProfileStore()
@@ -65,10 +70,12 @@ final class AppModel {
     static let fullReviewLenses = ["security_privacy", "code_maintainer", "proof_qa", "ui_ux", "customer_advocate", "dissent_preserver", "scope_discipline", "coverage_audit"]
 
     init() {
-        let panel = AppConfig.loadDefaultPanel()
-        let resolvedPanel = panel.isEmpty ? AppModel.fallbackPanel() : panel
-        self.workers = resolvedPanel
-        self.registry = AppConfig.loadDefaultRegistry()
+        let config = AppConfig.loadConfiguration()
+        self.bundledConfiguration = config
+        self.workers = config.panel
+        self.registry = config.registry
+        self.configurationSource = config.panelSource
+        self.registrySource = config.registrySource
         // Temporary default synthesis; replaced by the active preset below.
         self.currentSynthesis = SynthesisConfig(
             analysisProfileId: SynthesisInstructions.analysisID,
@@ -560,9 +567,6 @@ final class AppModel {
         run = current
     }
 
-    private static func fallbackPanel() -> [Worker] {
-        [Worker(id: "worker_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both)]
-    }
 }
 
 // MARK: - Design council (Lane 2)

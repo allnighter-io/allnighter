@@ -9,7 +9,8 @@ final class AppModelTests: XCTestCase {
 
     func testLoadsDefaultPanel() {
         let model = AppModel()
-        XCTAssertFalse(model.workers.isEmpty)
+        XCTAssertEqual(model.workers.count, 6)
+        XCTAssertFalse(model.isConfigurationBroken)
     }
 
     func testHasTieredPresets() {

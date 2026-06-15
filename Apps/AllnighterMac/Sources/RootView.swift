@@ -8,6 +8,7 @@ struct RootView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var showDoctor = false
     @State private var didInitialDoctor = false
+    @State private var showMissingDriversAlert = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,7 +25,20 @@ struct RootView: View {
         .sheet(isPresented: $showDoctor) { DoctorView() }
         .onAppear {
             GlobalHotKey.enable()
-            if !didInitialDoctor { didInitialDoctor = true; model.runDoctor() }
+            if model.isConfigurationBroken {
+                showMissingDriversAlert = true
+            } else if !didInitialDoctor {
+                didInitialDoctor = true
+                model.runDoctor()
+            }
+        }
+        .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(
+                "Allnighter could not load driver manifests from the app bundle or embedded defaults. "
+                + "Reinstall from a fresh build — do not proceed with a hollow council."
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: .allnighterQuickCapture)) { _ in
             NSApplication.shared.activate(ignoringOtherApps: true)

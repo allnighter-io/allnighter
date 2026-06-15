@@ -87,12 +87,10 @@ Rules:
 
 Three parts, in priority:
 
-1. **Ship the manifests.** Either ship `Resources/Drivers` as a real **folder
-   reference** so `Contents/Resources/Drivers/*.json` exists (XcodeGen
-   `resources: - path: Resources/Drivers` with `type: folder` — verify exact
-   syntax for the pinned XcodeGen), **or** drop the `subdirectory: "Drivers"`
-   lookups and load all `*.json` from the bundle root (simpler, build-system
-   agnostic). Prefer the latter for robustness.
+1. **Ship the manifests.** Driver JSONs are copied into the app bundle via
+   XcodeGen `sources` with `buildPhase: resources` (the top-level `resources:`
+   key did not generate a copy phase). Lookups use subdir-free bundle-root paths
+   first, then `Drivers/` as a fallback.
 2. **Honest runtime safety net — never mask packaging failure.** If the bundle
    registry is empty, fall back to the **embedded real manifests**
    (`DefaultConfig.registry` / `DefaultConfig.workers`) — these are the *same real
@@ -103,9 +101,11 @@ Three parts, in priority:
    degraded 1-worker council.
 3. **Built-bundle Works-Test as the release gate.** A test that loads from the
    built `.app`'s `Bundle.main` and asserts `loadDefaultRegistry().all.count >= 4`
-   and the panel has 6 workers — plus a packaging CI step
-   (`test -d AllnighterMac.app/Contents/Resources/Drivers`). This is the test that
-   would have caught Cause 0; today's source-tree tests cannot.
+   and the panel has 6 workers — plus a packaging CI step asserting the built
+   bundle's **resource root** contains `claude_code.json`, `panel_default.json`,
+   and the other driver manifests (subdir-free lookup; no `Drivers/` folder
+   required). This is the test that would have caught Cause 0; today's source-tree
+   tests cannot.
 
 > **Dual-source caveat:** the default manifests/workers live in **both**
 > `Resources/Drivers/*.json` and `DefaultConfig.swift` (hardcoded strings). Any
@@ -327,12 +327,18 @@ Prove detection on a real machine **before** building the WOW UI.
 - **Phase 0 — Unblock (hours).** Packaging fix + `DefaultConfig` safety net +
   built-bundle Works-Test. Outcome: 6 workers appear; Doctor shows *real* reasons,
   not "no manifest." (0/10 → ~4/10.)
+  - **Done (2026-06-15):** subdir-free bundle lookup (`AppConfig` tries resource
+    root, then `Drivers/`); XcodeGen `buildPhase: resources` fix so JSONs ship
+    to `Contents/Resources/*.json`; `DefaultConfig` safety net replaces silent
+    `fallbackPanel()`; blocking alert when both sources fail; `BuiltBundleConfigTests`
+    + `DefaultConfigDriftTests`; interim Doctor runs against real manifests.
+  - **Not yet:** headless `CLIDetector` / `ShellResolver`; Setup UI; auto-panel.
 - **Phase 1 — Detection core (engine).** `ShellResolver` (sentinel/timeout/batch)
   + `CLIDetector` + known-paths fallback + `ResolvedInvocation` + 5-state status,
   persisted. **Prove headless first:** an `allnighter detect` CLI subcommand (or
   enhanced `doctor`) runnable from Terminal **before any UI**.
 - **Phase 2 — Wire existing UI.** Doctor + health badge consume the detector;
-  runtime uses cached invocations. User opens app → real "4/6 ready", no Setup yet.
+  runtime uses cached invocations. User opens app → real "4/4 tools ready", no Setup yet.
 - **Phase 3 — Setup UI (GUI Tier C).** Full-window Setup (Experience Scenes 1–6);
   Doctor sheet → compact roster.
 - **Phase 4 — Auto-panel.** Assemble + persist from ready tools; Scene 5 pre-select.
@@ -344,7 +350,7 @@ Prove detection on a real machine **before** building the WOW UI.
 | Test | Proves |
 | --- | --- |
 | **Built-bundle integration test** (release gate) | Cause 0 can't return: `Bundle.main` registry non-empty + 6-worker panel from the built `.app` |
-| Packaging CI step | `Drivers/*.json` present in the built bundle |
+| Packaging CI step | Driver `*.json` manifests present at the built bundle **resource root** (subdir-free; `BuiltBundleConfigTests`) |
 | `CLIDetector` unit tests (`MockShell` / `MockCommandRunner`) | sentinel parsing on noisy rc; alias/function → `loginShell`, path → `direct`, missing → `notInstalled`; auth classification (`installedNotSignedIn` vs `probeFailed`) |
 | Fixture matrix | launchd-minimal PATH; noisy `.zshrc`; Homebrew path; npm-global; volta/asdf shim; alias/function; app-bundle binary; signed-out stderr; wrong model; timeout |
 | Shimmed end-to-end | a `loginShell` tool actually completes a real run (health == runs) |
