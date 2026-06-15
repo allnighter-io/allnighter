@@ -32,6 +32,12 @@ final class AppModel {
     private(set) var diagnoses: [String: WorkerDiagnosis] = [:]
     private(set) var isDoctorRunning = false
 
+    // First-run CLI detection — canonical per-tool status shared by the health
+    // badge, Council health, and Setup (docs/phases/setup/01 §5).
+    private(set) var toolStatuses: [ToolProbeRecord] = []
+    private(set) var isDetecting = false
+    private let setupStore = SetupStore()
+
     // History
     private(set) var history: [CouncilRun] = []
     private(set) var historySelection: CouncilRun?
@@ -505,6 +511,34 @@ final class AppModel {
     }
 
     func diagnosis(for workerId: String) -> WorkerDiagnosis? { diagnoses[workerId] }
+
+    // MARK: - Detection (CLIDetector → canonical per-tool status)
+
+    var readyToolCount: Int { toolStatuses.filter { $0.status.isReady }.count }
+    var totalToolCount: Int { registry.all.filter { $0.kind == .headlessCLI }.count }
+    func toolStatus(for driverId: String) -> ToolProbeRecord? { toolStatuses.first { $0.driverId == driverId } }
+
+    /// Probe every CLI: show cached state instantly, then refresh from a live
+    /// resolve → version → smoke sweep. Drives the health badge + Council health.
+    func runDetection() {
+        guard !isDetecting else { return }
+        let cached = setupStore.load()
+        if !cached.records.isEmpty { toolStatuses = cached.records }
+        isDetecting = true
+        var models: [String: String] = [:]
+        for w in workers where models[w.driverId] == nil { models[w.driverId] = w.modelLabel }
+        let registryCopy = registry
+        let storeCopy = setupStore
+        let completedAt = cached.setupCompletedAt
+        Task { @MainActor [weak self] in
+            let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
+                .probeAll(registryCopy.all, models: models, now: Date())
+            guard let self else { return }
+            self.toolStatuses = records
+            try? storeCopy.save(.init(records: records, setupCompletedAt: completedAt))
+            self.isDetecting = false
+        }
+    }
 
     // MARK: - History
 

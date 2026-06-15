@@ -46,7 +46,7 @@ struct RootView: View {
                 showMissingDriversAlert = true
             } else if !didInitialDoctor {
                 didInitialDoctor = true
-                model.runDoctor()
+                model.runDetection()
             }
         }
         .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
@@ -788,16 +788,15 @@ private struct TitleBar: View {
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
-    private var checked: [WorkerDiagnosis] { model.workers.compactMap { model.diagnosis(for: $0.id) } }
-    private var healthyCount: Int {
-        checked.filter { if case .healthy = $0.health { return true } else { return false } }.count
-    }
+    // Tool-level health from the canonical detector status (handoff: "N ready").
     private var healthLabel: String {
-        checked.isEmpty ? "checking…" : "\(healthyCount)/\(model.workers.count) healthy"
+        guard !model.toolStatuses.isEmpty else { return "checking…" }
+        let ready = model.readyToolCount, total = model.totalToolCount
+        return ready == total ? "\(ready) ready" : "\(ready)/\(total) ready"
     }
     private var healthTone: Badge.Tone {
-        if checked.isEmpty { return .neutral }
-        return healthyCount == model.workers.count ? .positive : .warning
+        guard !model.toolStatuses.isEmpty else { return .neutral }
+        return model.readyToolCount == model.totalToolCount ? .positive : .warning
     }
 }
 
