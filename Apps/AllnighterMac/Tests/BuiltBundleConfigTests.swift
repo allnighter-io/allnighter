@@ -4,7 +4,7 @@ import AllnighterEngine
 @testable import AllnighterMac
 
 /// Release gate for Cause 0: the built `.app` must ship real driver manifests and
-/// the six-worker panel. Source-tree tests alone cannot catch flattened resources.
+/// the six-model bench. Source-tree tests alone cannot catch flattened resources.
 final class BuiltBundleConfigTests: XCTestCase {
 
     func testBuiltBundleShipsDriverManifestsAtResourceRoot() {
@@ -14,7 +14,7 @@ final class BuiltBundleConfigTests: XCTestCase {
             names.contains("claude_code"),
             "Expected claude_code.json at bundle resource root; found: \(names.sorted())"
         )
-        XCTAssertTrue(names.contains("panel_default"), "Expected panel_default.json at bundle resource root")
+        XCTAssertTrue(names.contains("team_default"), "Expected team_default.json at bundle resource root")
         XCTAssertGreaterThanOrEqual(names.count, 5, "Expected at least five JSON resources in the built bundle")
     }
 
@@ -28,21 +28,21 @@ final class BuiltBundleConfigTests: XCTestCase {
     }
 
     func testBuiltBundlePanelHasSixWorkers() {
-        let panel = AppConfig.loadDefaultPanel()
-        XCTAssertEqual(panel.count, 6, "panel_default defines six seats across four tools")
-        XCTAssertEqual(Set(panel.map(\.driverId)).count, 4, "Six seats on four distinct drivers")
+        let models = AppConfig.loadDefaultModels()
+        XCTAssertEqual(models.count, 6, "team_default defines six seats across four tools")
+        XCTAssertEqual(Set(models.map(\.driverId)).count, 4, "Six seats on four distinct drivers")
     }
 
     func testConfigurationLoadsFromBundleNotEmbeddedFallback() {
         let config = AppConfig.loadConfiguration()
-        XCTAssertEqual(config.panelSource, .bundleResources, "Panel should load from shipped JSON, not DefaultConfig fallback")
+        XCTAssertEqual(config.modelsSource, .bundleResources, "Models should load from shipped JSON, not DefaultConfig fallback")
         XCTAssertEqual(config.registrySource, .bundleResources, "Registry should load from shipped JSON, not DefaultConfig fallback")
     }
 
     func testConfigurationIsNotBrokenFromBuiltBundle() {
         let config = AppConfig.loadConfiguration()
         XCTAssertFalse(config.isBroken)
-        XCTAssertEqual(config.panel.count, 6)
+        XCTAssertEqual(config.models.count, 6)
         XCTAssertGreaterThanOrEqual(config.registry.all.filter { $0.kind == .headlessCLI }.count, 4)
     }
 }

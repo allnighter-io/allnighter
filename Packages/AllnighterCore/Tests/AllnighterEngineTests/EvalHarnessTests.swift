@@ -15,8 +15,8 @@ final class EvalHarnessTests: XCTestCase {
         )
     }
 
-    private func judge() -> Worker {
-        Worker(id: "worker_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
+    private func judge() -> Model {
+        Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
     }
 
     func testScoresArtifactAgainstRubric() async {
@@ -29,7 +29,7 @@ final class EvalHarnessTests: XCTestCase {
         let score = await harness.score(
             artifact: "A clean actor-based store.", mode: "combined",
             evalCase: evalCase(), judge: judge(), manifest: manifest,
-            config: EvalConfig(judgeWorkerId: "worker_opus", passes: 1)
+            config: EvalConfig(planWriterModelId: "model_opus", passes: 1)
         )
         XCTAssertEqual(score.totalWeighted, 2.0, accuracy: 0.001)
         XCTAssertTrue(score.pass)
@@ -41,7 +41,7 @@ final class EvalHarnessTests: XCTestCase {
         let score = EvalScore.compute(
             caseId: "case1", mode: "solo", rubric: evalCase().rubric,
             scores: [.init(criterionId: "correct", score: 0.5), .init(criterionId: "verbose", score: 1.0)],
-            judgeWorkerId: "worker_opus"
+            planWriterModelId: "model_opus"
         )
         XCTAssertEqual(score.totalWeighted, 0.0, accuracy: 0.001)
         XCTAssertFalse(score.pass)
@@ -56,7 +56,7 @@ final class EvalHarnessTests: XCTestCase {
         let scores = await harness.compareModes(
             artifactsByMode: ["solo": "a", "combined": "b", "separate": "c"],
             evalCase: evalCase(), judge: judge(), manifest: manifest,
-            config: EvalConfig(judgeWorkerId: "worker_opus", passes: 1)
+            config: EvalConfig(planWriterModelId: "model_opus", passes: 1)
         )
         XCTAssertEqual(Set(scores.map(\.mode)), ["solo", "combined", "separate"])
     }

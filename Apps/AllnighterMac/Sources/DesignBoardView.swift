@@ -12,7 +12,7 @@ struct ModePicker: View {
     var body: some View {
         @Bindable var model = model
         Picker("", selection: $model.designMode) {
-            Label("Council", systemImage: "person.3.sequence").tag(false)
+            Label("Team", systemImage: "person.3.sequence").tag(false)
             Label("Design", systemImage: "paintbrush").tag(true)
         }
         .pickerStyle(.segmented)
@@ -169,11 +169,11 @@ struct DesignBoardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: tileWidth), spacing: 14)], spacing: 14) {
-                        ForEach(run.panel) { seat in
+                        ForEach(run.workers) { seat in
                             BoardTile(seat: seat, aspect: aspect, readOnly: readOnly,
-                                      isChosen: model.board?.chosen?.seatId == seat.id,
-                                      onOpen: { fullscreenSeat = seat.id },
-                                      onPick: { model.pickOption(seatId: seat.id) })
+                                      isChosen: model.board?.chosen?.workerId == worker.id,
+                                      onOpen: { fullscreenSeat = worker.id },
+                                      onPick: { model.pickOption(workerId: worker.id) })
                         }
                     }
                     if let chosen = model.board?.chosen {
@@ -189,7 +189,7 @@ struct DesignBoardView: View {
             }
             .sheet(item: Binding(get: { fullscreenSeat.map { IdentifiedSeat(id: $0) } },
                                  set: { fullscreenSeat = $0?.id })) { ident in
-                FullscreenOption(seatId: ident.id)
+                FullscreenOption(workerId: ident.id)
             }
         } else {
             ContentUnavailableView(
@@ -268,7 +268,7 @@ private struct BuildSection: View {
 
 private struct BoardTile: View {
     @Environment(AppModel.self) private var model
-    let seat: PanelSeat
+    let seat: Worker
     let aspect: CGFloat
     let readOnly: Bool
     let isChosen: Bool
@@ -276,11 +276,11 @@ private struct BoardTile: View {
     let onPick: () -> Void
 
     var body: some View {
-        let member = model.displayRun?.member(seatId: seat.id)
+        let member = model.displayRun?.member(workerId: worker.id)
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .windowBackgroundColor))
-                if let url = model.imageURL(forSeat: seat.id), let img = NSImage(contentsOf: url) {
+                if let url = model.imageURL(forSeat: worker.id), let img = NSImage(contentsOf: url) {
                     Image(nsImage: img).resizable().scaledToFill()
                 } else if member?.status == .failed || member?.status == .timedOut {
                     VStack(spacing: 4) {
@@ -295,14 +295,14 @@ private struct BoardTile: View {
             .aspectRatio(aspect, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isChosen ? Color.green : Color.black.opacity(0.1), lineWidth: isChosen ? 3 : 1))
-            .onTapGesture { if model.imageURL(forSeat: seat.id) != nil { onOpen() } }
+            .onTapGesture { if model.imageURL(forSeat: worker.id) != nil { onOpen() } }
 
             HStack(spacing: 6) {
-                Text(DesignPersonaLibrary.displayName(for: seat.stance ?? ""))
+                Text(DesignPersonaLibrary.displayName(for: worker.skillId ?? ""))
                     .font(.caption).bold()
                 Text(engineName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
-                if model.imageURL(forSeat: seat.id) != nil && !readOnly {
+                if model.imageURL(forSeat: worker.id) != nil && !readOnly {
                     Button(isChosen ? "Picked" : "Pick", action: onPick)
                         .font(.caption).buttonStyle(.borderless).disabled(isChosen)
                 } else if isChosen {
@@ -313,26 +313,26 @@ private struct BoardTile: View {
     }
 
     private var engineName: String {
-        model.workers.first { $0.id == seat.workerId }?.displayName ?? seat.workerId
+        model.models.first { $0.id == worker.modelId }?.displayName ?? worker.modelId
     }
 }
 
 private struct FullscreenOption: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    let seatId: String
+    let workerId: String
     @State private var showingBefore = false
 
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Text(DesignPersonaLibrary.displayName(for: model.designPersona(forSeat: seatId))).font(.headline)
+                Text(DesignPersonaLibrary.displayName(for: model.designPersona(forSeat: workerId))).font(.headline)
                 Spacer()
                 if model.screenshotURL != nil {
                     Toggle("Show original", isOn: $showingBefore).toggleStyle(.button)
                 }
                 if model.historySelection == nil {
-                    Button("Pick this") { model.pickOption(seatId: seatId); dismiss() }
+                    Button("Pick this") { model.pickOption(workerId: workerId); dismiss() }
                         .buttonStyle(.borderedProminent)
                 }
                 Button("Close") { dismiss() }
@@ -350,6 +350,6 @@ private struct FullscreenOption: View {
     }
 
     private var imageURL: URL? {
-        showingBefore ? model.screenshotURL : model.imageURL(forSeat: seatId)
+        showingBefore ? model.screenshotURL : model.imageURL(forSeat: workerId)
     }
 }

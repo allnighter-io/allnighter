@@ -26,7 +26,7 @@ public struct SynthesisInstructionStore: Sendable {
     public static var builtInPlan: SynthesisInstructionPreset {
         SynthesisInstructionPreset(
             id: SynthesisInstructions.planID,
-            displayName: "Judge — Master Plan",
+            displayName: "Judge — Plan",
             template: SynthesisInstructions.planText,
             builtIn: true
         )

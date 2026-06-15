@@ -32,7 +32,7 @@ public enum StageStatus: String, Codable, Sendable, CaseIterable {
 /// views are derived from this; the payload is the only truth. New milestones add
 /// a case here, never a parallel struct or loose optional fields.
 public enum StagePayload: Sendable, Equatable {
-    case analysis(JudgeAnalysis)
+    case analysis(PlanAnalysis)
     case plan(markdown: String)
     case review(ReviewResult)
     case finalSpec(FinalSpecPayload)
@@ -65,7 +65,7 @@ public enum StagePayload: Sendable, Equatable {
         }
     }
 
-    public var analysis: JudgeAnalysis? {
+    public var analysis: PlanAnalysis? {
         if case .analysis(let a) = self { return a }
         return nil
     }
@@ -119,7 +119,7 @@ extension StagePayload: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try c.decode(StagePurpose.self, forKey: .kind)
         switch kind {
-        case .analysis: self = .analysis(try c.decode(JudgeAnalysis.self, forKey: .analysis))
+        case .analysis: self = .analysis(try c.decode(PlanAnalysis.self, forKey: .analysis))
         case .plan: self = .plan(markdown: try c.decode(String.self, forKey: .markdown))
         case .review: self = .review(try c.decode(ReviewResult.self, forKey: .review))
         case .finalSpec: self = .finalSpec(try c.decode(FinalSpecPayload.self, forKey: .finalSpec))
@@ -131,9 +131,9 @@ extension StagePayload: Codable {
     }
 }
 
-/// One post-panel stage in a council run. The panel fan-out produces `members`;
+/// One post-panel stage in a team run. The panel fan-out produces `members`;
 /// everything after is a `StageOutput`. A reduce is produced by a worker
-/// invocation that is **not** a panel seat, so `producedByWorkerId` is the
+/// invocation that is **not** a worker, so `producedByWorkerId` is the
 /// producer; `producedBySeatId` is set only on the rare seat-produced stage.
 public struct StageOutput: Codable, Sendable, Equatable, Identifiable {
     public var id: String

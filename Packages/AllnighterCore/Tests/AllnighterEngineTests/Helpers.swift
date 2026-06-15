@@ -23,19 +23,19 @@ enum TestSupport {
         )
     }
 
-    static func worker(_ id: String, driverId: String, model: String = "m", enabled: Bool = true, role: WorkerRole = .member) -> Worker {
-        Worker(id: id, displayName: id, modelLabel: model, driverId: driverId, role: role, enabled: enabled)
+    static func worker(_ id: String, driverId: String, model: String = "m", enabled: Bool = true, role: ModelRole = .member) -> Model {
+        Model(id: id, displayName: id, modelLabel: model, driverId: driverId, role: role, enabled: enabled)
     }
 
-    static func seat(_ workerId: String, index: Int = 0, stance: String? = nil) -> PanelSeat {
-        PanelSeat(id: PanelSeat.makeID(workerId: workerId, seatIndex: index), workerId: workerId, seatIndex: index, stance: stance)
+    static func seat(_ modelId: String, index: Int = 0, skillId: String? = nil) -> Worker {
+        Worker(id: Worker.makeID(modelId: modelId, instanceIndex: index), modelId: modelId, instanceIndex: index, skillId: skillId)
     }
 
-    static func seats(_ workerIds: [String]) -> [PanelSeat] {
+    static func workers(_ workerIds: [String]) -> [Worker] {
         workerIds.map { seat($0) }
     }
 
     static func config(judge: String, depth: AnalysisDepth = .combined) -> SynthesisConfig {
-        SynthesisConfig(analysisDepth: depth, judgeWorkerId: judge, analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID)
+        SynthesisConfig(analysisDepth: depth, planWriterModelId: judge, analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID)
     }
 }

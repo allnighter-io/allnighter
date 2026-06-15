@@ -9,7 +9,7 @@ public struct ImplementationBrief: Codable, Sendable, Equatable {
     /// `designImage` (Design2) carries a chosen design image — the executor restyles
     /// the existing code to match it (our ICP redesigns; it is not build-from-scratch).
     public enum SourceArtifact: String, Codable, Sendable {
-        case finalSpec = "final_spec", masterPlan = "master_plan", designImage = "design_image"
+        case finalSpec = "final_spec", plan = "master_plan", designImage = "design_image"
     }
 
     public var sourceRunId: String
@@ -17,7 +17,7 @@ public struct ImplementationBrief: Codable, Sendable, Equatable {
     public var executionWorkerId: String
     public var workingDirectory: String
     public var prompt: String
-    /// The final spec or master plan Markdown (the design intent for a design build).
+    /// The final spec or plan Markdown (the design intent for a design build).
     public var spec: String
     /// Consensus + resolved contradictions from the judge analysis.
     public var judgmentSummary: String
@@ -55,8 +55,8 @@ public struct ImplementationBrief: Codable, Sendable, Equatable {
         self.boundaryLabel = boundaryLabel
     }
 
-    /// True when built from a master plan (no final spec) — less reviewed.
-    public var isLessReviewed: Bool { sourceArtifact == .masterPlan }
+    /// True when built from a plan (no final spec) — less reviewed.
+    public var isLessReviewed: Bool { sourceArtifact == .plan }
 
     /// True when this brief hands a chosen design image to a coding agent (Design2).
     public var isDesignBuild: Bool { sourceArtifact == .designImage }

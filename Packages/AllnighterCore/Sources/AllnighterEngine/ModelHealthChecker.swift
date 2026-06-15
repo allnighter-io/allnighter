@@ -3,7 +3,7 @@ import AllnighterCore
 
 /// Health of one worker's CLI, surfaced in Doctor (Phase 05) so a churned or
 /// unauthenticated tool fails loudly instead of silently dropping out.
-public enum WorkerHealth: Sendable, Equatable {
+public enum ModelHealth: Sendable, Equatable {
     case healthy
     case unknown
     case unhealthy(reason: String)
@@ -17,7 +17,7 @@ public enum WorkerHealth: Sendable, Equatable {
 /// Runs a driver's `detectCommand` (presence) and `smokeTestCommand` (responds
 /// correctly). These manifest strings are author-controlled, so they are
 /// tokenized with `ShellWords`; user prompt content never flows through here.
-public struct WorkerHealthChecker: Sendable {
+public struct ModelHealthChecker: Sendable {
     private let commandRunner: CommandRunner
     private let detectTimeout: Duration
     private let smokeTimeout: Duration
@@ -64,7 +64,7 @@ public struct WorkerHealthChecker: Sendable {
     }
 
     /// Runs the smoke test for `model` and classifies health.
-    public func smokeTest(_ manifest: DriverManifest, model: String) async -> WorkerHealth {
+    public func smokeTest(_ manifest: DriverManifest, model: String) async -> ModelHealth {
         guard manifest.kind == .headlessCLI else {
             return .unknown  // manual-paste workers have no automated smoke test.
         }

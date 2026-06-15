@@ -45,7 +45,7 @@ window.JIOS_Final = function FinalSpecScreen({ back }) {
     <div>
       <Back onClick={back} label="Review board" />
       <div className="jio-h1" style={{ fontSize: 22 }}>final_spec.md</div>
-      <div className="jio-sub" style={{ marginBottom: 16 }}>Decision-grade · master plan unchanged</div>
+      <div className="jio-sub" style={{ marginBottom: 16 }}>Decision-grade · plan unchanged</div>
       <div className="ji2-banner"><Icon name="circle-check" size={16} /> Executable — Works Test + proof commands</div>
       <div className="ji2-sec"><div className="ji2-sec__h"><Icon name="list" size={13} /> Scope</div><p className="ji2-p">Token-bucket rate limiting keyed by user ID on all <code>/api/*</code> routes. 100 req/min, per-tier. Return <code>429</code> + <code>Retry-After</code>.</p></div>
       <div className="ji2-sec"><div className="ji2-sec__h"><Icon name="circle-check" size={13} /> Acceptance criteria</div>

@@ -4,7 +4,7 @@ Status: **BUILT (2026-06-15) — Core+Engine+Mac green (135 swift test + Mac app
 Owner: Shared Core + Mac
 Created: 2026-06-15
 Updated: 2026-06-15
-Depends on: 06 (`PanelSeat`, `StageOutput`), RB1 (`WorkflowPreset`, `WorkOrder.summary`, reuse), 05 (`Doctor`)
+Depends on: 06 (`Worker`, `StageOutput`), RB1 (`WorkflowPreset`, `WorkOrder.summary`, reuse), 05 (`Doctor`)
 
 > **Dead and not coming back:** OCR and the HTML render pipeline. See Design0 §
 > "What is DEAD." The unit is a **generated image**, not rendered HTML. There is no
@@ -89,7 +89,7 @@ reliable). **Antigravity writes to an opaque artifact dir**
 stdout — so we **parse the path and copy** into the run folder.
 
 **Normalization is mandatory:** whatever arrives (a file at our path, or a path parsed
-from stdout) is copied to a **validated local `option_<seatId>.png|jpg`** (PNG/JPEG
+from stdout) is copied to a **validated local `option_<workerId>.png|jpg`** (PNG/JPEG
 magic bytes + non-zero size) before it reaches `board.json`. No URLs, no base64 in
 practice. A capture that can't be normalized → **failed seat** (gray tile + reason),
 never a broken board. Keep this **thin and per-driver**; it is the only new contract.
@@ -122,7 +122,7 @@ two constraints.
 
 ### The board (the hero view)
 
-`board.json` = ordered options `{ seatId, engine, persona, imagePath }`. The board is
+`board.json` = ordered options `{ workerId, engine, persona, imagePath }`. The board is
 the **first truth surface** — no AI verdict precedes it.
 
 - **Progressive reveal:** placeholder tiles at identical size appear immediately; each
@@ -165,7 +165,7 @@ Additive only — do **not** overload RB's text stages:
   (local view stage).
 - New `StagePayload.board(BoardPayload)`; new `Doctor` flag `canGenerateImages`.
 - Design runs are a **parallel preset** with no Markdown member answers — the unit is
-  the image, not `JudgeAnalysis`.
+  the image, not `PlanAnalysis`.
 
 Land these in `AllnighterCore` with Codable round-trip + fixtures before any UI.
 
@@ -179,7 +179,7 @@ Land these in `AllnighterCore` with Codable round-trip + fixtures before any UI.
 - [ ] D1-S03 — Driver manifest `imageGen` capability (additive): agentic entry +
   auto-approve flag + **prompt-directed save** (`{{imageOut}}`) with **stdout-path
   parse + copy** fallback (Antigravity's opaque dir) → validated local
-  `option_<seatId>.png|jpg`; capture `sessionId` for "more like this". Ship the three
+  `option_<workerId>.png|jpg`; capture `sessionId` for "more like this". Ship the three
   confirmed manifests (grok / agy / codex) from the gate.
 - [ ] D1-S04 — Persona style-direction `PromptProfile`s (the four in Design0;
   editable) + the dumb design-prompt builder (screenshot file + "improve this" +
@@ -224,7 +224,7 @@ is gray with the reason; the other three remain fully usable.
 - [ ] Design seats bind only to `canGenerateImages` workers; routing is shown in the
   work-shape summary; non-capable workers are omitted honestly.
 - [ ] Workers emit **images**; the engine **normalizes** any output (file / URL /
-  base64) to a validated local `option_<seatId>.png`. No HTML, no render step, no OCR
+  base64) to a validated local `option_<workerId>.png`. No HTML, no render step, no OCR
   anywhere.
 - [ ] The board reveals progressively at identical (fixed-aspect) scale, supports
   fullscreen/A-B + before/after, palette swatches, "pick this", and "more like this"

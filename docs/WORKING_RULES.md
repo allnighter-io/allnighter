@@ -33,7 +33,7 @@ Out of product core (v1):
 
 Must ship for first testers (Council slice — see `docs/mvp/README.md`):
 
-- Mac: enroll repo, run council (parallel subscription CLIs → master plan).
+- Mac: enroll repo, run council (parallel subscription CLIs → plan).
 - Text-only output; zero marginal cost path.
 - Shared `AllnighterCore` engine and event envelope.
 - Mac menu-bar / dashboard shell.

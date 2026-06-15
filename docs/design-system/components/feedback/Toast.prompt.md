@@ -1,8 +1,8 @@
-Transient notification — "Master plan ready", "Published — live at…", "Landed · Revert". Springs in; pair with your own timeout/queue. Copy stays calm and factual.
+Transient notification — "Plan ready", "Published — live at…", "Landed · Revert". Springs in; pair with your own timeout/queue. Copy stays calm and factual.
 
 ```jsx
 <Toast tone="accent" icon={<Icon name="sparkles" />}
-  title="Master plan ready"
+  title="Plan ready"
   description="5 answers · 00:42 · $0.00 marginal"
   action={<Button size="sm" variant="ghost">View</Button>}
   onClose={dismiss} />

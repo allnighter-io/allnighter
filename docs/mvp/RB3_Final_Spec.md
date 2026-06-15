@@ -4,12 +4,12 @@ Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: RB2, 06 (`JudgeAnalysis`)
+Depends on: RB2, 06 (`PlanAnalysis`)
 
 ## Goal
 
 Produce a decisive implementation spec after the advisory review board. This is
-not another exploratory master plan. It is the artifact the founder can hand to
+not another exploratory plan. It is the artifact the founder can hand to
 an executor or future lane system.
 
 The final spec is the milestone's product: a **decision-grade, executable brief.**
@@ -32,14 +32,14 @@ spec a human still has to translate has failed its job.
 Final spec is a reduce stage:
 
 ```text
-input: founder prompt + raw member answers + JudgeAnalysis (06) + master_plan.md + labeled reviews
+input: founder prompt + raw member answers + PlanAnalysis (06) + master_plan.md + labeled reviews
 policy: advisory + first_principles
 worker: configured final synthesizer
 output: final_spec.md
 ```
 
 The finalizer must think from first principles. It consumes the structured
-**`JudgeAnalysis`** (Phase 06) directly, so it acts on the panel's actual
+**`PlanAnalysis`** (Phase 06) directly, so it acts on the panel's actual
 disagreements and unique signal rather than re-reading prose. It may adopt,
 partially adopt, reject, or defer review feedback, but it must explain material
 decisions — and it must **resolve every recorded contradiction** and rule on
@@ -61,8 +61,8 @@ requiredSections:
 - UX / user-facing behavior, when relevant
 - Acceptance criteria
 - Works Test and proof wall
-- Decisions on panel contradictions   # each JudgeAnalysis.contradictions item, resolved
-- Decisions on unique insights        # each JudgeAnalysis.uniqueInsights item, preserved or rejected
+- Decisions on panel contradictions   # each PlanAnalysis.contradictions item, resolved
+- Decisions on unique insights        # each PlanAnalysis.uniqueInsights item, preserved or rejected
 - Decisions on review feedback
 - Risks and open questions
 ```
@@ -95,15 +95,15 @@ later audit reads them without parsing prose:
 FinalSpecPayload
 - markdown: String                      # the human/agent final spec
 - reviewDecisions:       [{ lensId, decision: adopted|partial|rejected|deferred, reason }]
-- contradictionDecisions:[{ topic, resolution, reason }]          # one per JudgeAnalysis.contradiction
-- insightDecisions:      [{ insight, decision: preserved|rejected, reason }]  # one per JudgeAnalysis.uniqueInsight
+- contradictionDecisions:[{ topic, resolution, reason }]          # one per PlanAnalysis.contradiction
+- insightDecisions:      [{ insight, decision: preserved|rejected, reason }]  # one per PlanAnalysis.uniqueInsight
 - reviewBoardRan: Bool                  # false => "finalized without review board" (zero-review path)
 - decisionsStructured: Bool             # false => decisions couldn't be parsed; read the prose
 - hasProofCommands: Bool                # executability gate result (see below)
 ```
 
 Coverage: the finalizer must emit a decision for **every** contradiction and unique
-insight in the `JudgeAnalysis`, and for every completed review — nothing silently
+insight in the `PlanAnalysis`, and for every completed review — nothing silently
 dropped. **Bounding (token safety):** when the analysis is large (say >12
 contradictions or insights), the finalizer decides on the top items by
 `AnalysisPoint.strength` individually and **rolls up** the long tail into one
@@ -140,9 +140,9 @@ non-applicable sections "n/a" per the `FinalizerPolicy`).
 - [ ] RB3-S01 - Built-in final-spec prompt profile and `FinalizerPolicy` model
   (+ fixtures/round-trip tests).
 - [ ] RB3-S02 - Finalizer input builder (`InputSelector` set: prompt + raw member
-  answers + `judge_analysis` + draft plan + reviews) so dissent is not flattened
+  answers + `plan_analysis` + draft plan + reviews) so dissent is not flattened
   twice and every contradiction/insight is on the table.
-- [ ] RB3-S03 - Final reduce coordinator reusing the same `Synthesizer`/
+- [ ] RB3-S03 - Final reduce coordinator reusing the same `PlanWriter`/
   `WorkerRunner` path as draft synthesis; inputs are reused (no fresh panel).
 - [ ] RB3-S04 - Manual-paste finalizer path using Phase 06's manual-reduce pattern
   (reveal the assembled finalizer prompt → paste → settle the `final_spec`
@@ -154,7 +154,7 @@ non-applicable sections "n/a" per the `FinalizerPolicy`).
 - [ ] RB3-S06 - UI final spec panel with copy/export, adopt/reject decision chips,
   and an "Implement This" entry point (handed to RB4).
 - [ ] RB3-S07 - `bundle.md` canonical order: prompt → member answers → **analysis**
-  → master plan → reviews → final spec (matches `00` §7 / RB0; analysis is included).
+  → plan → reviews → final spec (matches `00` §7 / RB0; analysis is included).
 - [ ] RB3-S08 - Executability check sets `hasProofCommands`; UI flags a spec that
   lacks them. (Separate soft-warning check for other `requiredSections`.)
 - [ ] RB3-S09 - Zero-review path: finalizer runs and sets `reviewBoardRan = false`
@@ -176,11 +176,11 @@ Re-running the finalizer alone reuses the panel + reviews (run state shows reuse
 - [ ] Finalizer policy is stored structurally in `run.json`.
 - [ ] Review decisions are stored structurally (adopt/partial/reject/defer +
   reason), not only in prose.
-- [ ] Every `JudgeAnalysis` contradiction is resolved and every unique insight is
+- [ ] Every `PlanAnalysis` contradiction is resolved and every unique insight is
   preserved/rejected, with reasons, structurally — none silently dropped.
 - [ ] Final spec includes a Works Test + proof commands, or explicitly states it
   could not produce them.
-- [ ] Raw member answers + `JudgeAnalysis` are available to the finalizer by input
+- [ ] Raw member answers + `PlanAnalysis` are available to the finalizer by input
   selector.
 - [ ] Failed/zero reviews are disclosed and do not block finalization.
 - [ ] `master_plan.md` remains unchanged after finalization.

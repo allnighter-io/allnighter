@@ -9,7 +9,7 @@ final class AppModelTests: XCTestCase {
 
     func testLoadsDefaultPanel() {
         let model = AppModel()
-        XCTAssertEqual(model.workers.count, 6)
+        XCTAssertEqual(model.models.count, 6)
         XCTAssertFalse(model.isConfigurationBroken)
     }
 
@@ -18,7 +18,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.presets.contains { $0.id == "preset_fast" })
         XCTAssertTrue(model.presets.contains { $0.builtIn })
         // A preset is active by default and seats the panel.
-        XCTAssertFalse(model.expandedSeats.isEmpty)
+        XCTAssertFalse(model.expandedWorkers.isEmpty)
     }
 
     func testApplyPresetSetsSeatsSynthesisAndActiveId() {
@@ -27,41 +27,41 @@ final class AppModelTests: XCTestCase {
         model.apply(quality)
         XCTAssertEqual(model.activePresetId, "preset_quality")
         XCTAssertEqual(model.currentSynthesis.analysisDepth, .separate)
-        XCTAssertEqual(model.expandedSeats.count, quality.seats.expandedSeats().count)
+        XCTAssertEqual(model.expandedWorkers.count, quality.workerSpecs.expandedWorkers().count)
     }
 
     func testSelfDoublePresetExpandsToMultipleSeats() {
         let model = AppModel()
         guard let selfDouble = model.presets.first(where: { $0.id == "preset_self_double" }) else { return }
         model.apply(selfDouble)
-        XCTAssertEqual(model.expandedSeats.count, 3)
-        XCTAssertEqual(Set(model.expandedSeats.map(\.workerId)).count, 1)
+        XCTAssertEqual(model.expandedWorkers.count, 3)
+        XCTAssertEqual(Set(model.expandedWorkers.map(\.modelId)).count, 1)
     }
 
     func testToggleWorkerEditsSeatsAndClearsPreset() {
         let model = AppModel()
-        guard let worker = model.workers.first else { return }
+        guard let worker = model.models.first else { return }
         let wasSeated = model.isSeated(worker)
         model.toggle(worker)
         XCTAssertNotEqual(model.isSeated(worker), wasSeated)
         XCTAssertNil(model.activePresetId)
     }
 
-    func testJudgeResolvesToCanSynthesizeWorker() {
+    func testJudgeResolvesToCanSynthesizeModel() {
         let model = AppModel()
         // Default panel includes Opus (role .both).
-        if model.workers.contains(where: { $0.canSynthesize }) {
-            XCTAssertNotNil(model.judgeWorker)
-            XCTAssertTrue(model.judgeWorker?.canSynthesize ?? false)
+        if model.models.contains(where: { $0.canWritePlan }) {
+            XCTAssertNotNil(model.planWriterModel)
+            XCTAssertTrue(model.planWriterModel?.canWritePlan ?? false)
         }
     }
 
     func testWorkOrderSummaryReflectsSeatsAndDepth() {
         let model = AppModel()
         let summary = model.workOrderSummary
-        XCTAssertTrue(summary.contains("\(model.expandedSeats.count) seat"))
+        XCTAssertTrue(summary.contains("\(model.expandedWorkers.count) worker"))
         if model.currentSynthesis.analysisDepth == .combined {
-            XCTAssertTrue(summary.contains("combined judge"))
+            XCTAssertTrue(summary.contains("combined plan writer"))
         } else {
             XCTAssertTrue(summary.contains("separate analysis + plan"))
         }
@@ -70,7 +70,7 @@ final class AppModelTests: XCTestCase {
     func testRunRequiresPrompt() {
         let model = AppModel()
         model.prompt = "   "
-        model.runCouncil()
+        model.runTeam()
         XCTAssertNil(model.run)
         XCTAssertFalse(model.isRunning)
     }
@@ -82,7 +82,7 @@ final class AppModelTests: XCTestCase {
 
     func testManualAnswerNoOpWithoutRun() {
         let model = AppModel()
-        model.setManualAnswer(seatId: "worker_opus#0", text: "hi")
+        model.setManualAnswer(workerId: "model_opus#0", text: "hi")
         XCTAssertNil(model.run)
     }
 
@@ -106,7 +106,7 @@ final class AppModelTests: XCTestCase {
 
     func testHistorySelectionDrivesDisplayRun() {
         let model = AppModel()
-        let past = CouncilRun(id: "r1", prompt: "old prompt", status: .complete, createdAt: Date())
+        let past = TeamRun(id: "r1", prompt: "old prompt", status: .complete, createdAt: Date())
         model.openHistory(past)
         XCTAssertEqual(model.displayRun?.id, "r1")
         model.closeHistory()

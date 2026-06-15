@@ -4,10 +4,10 @@ import AllnighterCore
 /// Builds an `ImplementationBrief` from a run and renders the brief + a
 /// self-contained execution prompt.
 public enum BriefBuilder {
-    public static func build(run: CouncilRun, executionWorkerId: String, workingDirectory: String) -> ImplementationBrief? {
+    public static func build(run: TeamRun, executionWorkerId: String, workingDirectory: String) -> ImplementationBrief? {
         let finalSpec = run.latestStage(.finalSpec)?.payload?.finalSpec
-        let source: ImplementationBrief.SourceArtifact = finalSpec != nil ? .finalSpec : .masterPlan
-        guard let spec = finalSpec?.markdown ?? run.masterPlan else { return nil }
+        let source: ImplementationBrief.SourceArtifact = finalSpec != nil ? .finalSpec : .plan
+        guard let spec = finalSpec?.markdown ?? run.plan else { return nil }
 
         var summary = ""
         if let a = run.analysis {
@@ -30,14 +30,14 @@ public enum BriefBuilder {
 /// screenshot as absolute paths the agent reads in place (RB4 context-exclusion).
 public enum DesignBriefBuilder {
     public static func build(
-        run: CouncilRun,
+        run: TeamRun,
         chosenSeatId: String,
         executionWorkerId: String,
         workingDirectory: String,
         runFolder: URL
     ) -> ImplementationBrief? {
         guard let board = run.latestStage(.board)?.payload?.board,
-              let option = board.options.first(where: { $0.seatId == chosenSeatId }),
+              let option = board.options.first(where: { $0.workerId == chosenSeatId }),
               option.hasImage, let imageRel = option.imagePath else { return nil }
 
         let imageAbs = runFolder.appendingPathComponent(imageRel).path
@@ -60,7 +60,7 @@ public enum BriefMarkdown {
         var lines = [
             "# Implementation Brief", "",
             "- Source run: \(b.sourceRunId)",
-            "- Source artifact: \(b.sourceArtifact.rawValue)\(b.isLessReviewed ? " (less reviewed — built from the master plan, not a final spec)" : "")",
+            "- Source artifact: \(b.sourceArtifact.rawValue)\(b.isLessReviewed ? " (less reviewed — built from the plan, not a final spec)" : "")",
             "- Execution worker: \(b.executionWorkerId)",
             "- Working directory: \(b.workingDirectory)", "",
             "## Original prompt", "", b.prompt, ""
@@ -88,7 +88,7 @@ public enum BriefMarkdown {
         # Original request
         \(b.prompt)
 
-        # Specification\(b.isLessReviewed ? " (master plan — less reviewed)" : "")
+        # Specification\(b.isLessReviewed ? " (plan — less reviewed)" : "")
         \(b.spec)
 
         Implement it. Run the spec's proof commands / Works Test to verify. Report what you changed and the proof results.
@@ -165,7 +165,7 @@ public struct Dispatcher: Sendable {
     /// `StageOutput` with an embedded `ExecutionReturn`.
     public func dispatch(
         brief: ImplementationBrief,
-        worker: Worker,
+        worker: Model,
         manifest: DriverManifest?,
         healthy: Bool,
         revealOnly: Bool,
@@ -219,7 +219,7 @@ public struct Dispatcher: Sendable {
         return dispatchStage(ret, worker: worker)
     }
 
-    private func dispatchStage(_ ret: ExecutionReturn, worker: Worker) -> StageOutput {
+    private func dispatchStage(_ ret: ExecutionReturn, worker: Model) -> StageOutput {
         StageOutput(
             id: idFactory(), purpose: .dispatch, producedByWorkerId: worker.id,
             status: ret.status == .reveal ? .skipped : (ret.status == .done ? .done : (ret.status == .timedOut ? .timedOut : .failed)),

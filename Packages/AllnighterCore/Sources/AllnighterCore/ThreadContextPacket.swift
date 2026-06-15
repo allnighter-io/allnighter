@@ -63,7 +63,7 @@ public extension ThreadContextPacket {
 }
 
 /// A pointer from a turn into durable artifacts — a run stage, a file, a diff.
-/// `runId`/`stageId` keep `CouncilRun` as the source of truth; the ref carries
+/// `runId`/`stageId` keep `TeamRun` as the source of truth; the ref carries
 /// only an excerpt for inline display.
 public struct ArtifactRef: Codable, Sendable, Equatable {
     public var kind: ArtifactKind
@@ -88,7 +88,7 @@ public struct ArtifactRef: Codable, Sendable, Equatable {
 }
 
 public enum ArtifactKind: String, Codable, Sendable, CaseIterable {
-    case masterPlan = "master_plan"
+    case plan = "master_plan"
     case finalSpec = "final_spec"
     case designBoard = "design_board"
     case dispatchResult = "dispatch_result"

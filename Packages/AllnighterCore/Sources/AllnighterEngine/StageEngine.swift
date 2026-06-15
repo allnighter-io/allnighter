@@ -9,8 +9,8 @@ public enum StageInputBuilder {
     public static func assemble(
         instructions: String,
         selectors: [InputSelector],
-        run: CouncilRun,
-        workers: [Worker],
+        run: TeamRun,
+        models: [Model],
         extraReviews: [StageOutput] = []
     ) -> String {
         var sections: [String] = [instructions]
@@ -19,13 +19,13 @@ public enum StageInputBuilder {
             case .founderPrompt:
                 sections.append("# Original prompt\n\n\(run.prompt)")
             case .memberAnswers:
-                sections.append(SynthesisPromptBuilder.answersSection(run: run, workers: workers))
+                sections.append(SynthesisPromptBuilder.answersSection(run: run, models: models))
             case .judgeAnalysis:
                 if let analysis = run.analysis, let json = encode(analysis) {
                     sections.append("# Judge analysis (structured)\n\n```json\n\(json)\n```")
                 }
             case .draftPlan:
-                if let plan = run.masterPlan { sections.append("# Draft master plan\n\n\(plan)") }
+                if let plan = run.plan { sections.append("# Draft plan\n\n\(plan)") }
             case .reviews:
                 let reviews = run.stages.filter { $0.purpose == .review && $0.status == .done }
                 for r in reviews { if let md = r.payload?.markdown { sections.append("# Review: \(r.promptProfileId ?? r.id)\n\n\(md)") } }
@@ -94,7 +94,7 @@ public struct ReduceRunner: Sendable {
     /// `makePayload` maps the raw worker output into the typed `StagePayload`.
     public func runMarkdown(
         purpose: StagePurpose,
-        worker: Worker,
+        worker: Model,
         manifest: DriverManifest,
         prompt: String,
         promptProfileId: String,

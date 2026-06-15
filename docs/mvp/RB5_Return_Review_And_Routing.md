@@ -4,7 +4,7 @@ Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: RB4 (dispatch), 06 (JudgeAnalysis, StageOutput, eval harness)
+Depends on: RB4 (dispatch), 06 (PlanAnalysis, StageOutput, eval harness)
 
 ## Why this exists (close the loop)
 
@@ -26,14 +26,14 @@ tells the founder what to do next — without leaving the app.
 
 ## What RB5 reuses (no new substrate)
 
-- **06 `JudgeAnalysis` + eval harness** — the return is scored with the same
+- **06 `PlanAnalysis` + eval harness** — the return is scored with the same
   rubric machinery used to prove synthesis quality.
 - **06 `StageOutput`** — return review and scoring are new `StagePurpose` cases
   (`return_review`, `outcome_score`), appended to the same run.
 - **RB4 dispatch capture** — the executor's stdout/diff/exit is already captured.
 - **Fan-out engine** — multi-executor compare is a fan-out over text returns
   (still no worktrees; that is deferred managed execution).
-- **Phase 05 Doctor / `MemberResponse` timing+outcome** — feeds scorecards.
+- **Phase 05 Doctor / `WorkerAnswer` timing+outcome** — feeds scorecards.
 
 ## Non-Goals
 
@@ -103,9 +103,9 @@ adjust) to form a `Rubric`, then scores with the 06 `EvalScore` machinery — sa
 engine that proves synthesis quality, pointed at execution results. Scores are
 estimates and labeled.
 
-### 4. Worker scorecards (learning)
+### 4. Model scorecards (learning)
 
-Aggregate outcomes per worker/seat across runs (reusing `MemberResponse` timing +
+Aggregate outcomes per worker/seat across runs (reusing `WorkerAnswer` timing +
 status and `ExecutionReturn` outcomes):
 
 ```text
@@ -192,7 +192,7 @@ Dispatch a final spec to a healthy worker (RB4). After it returns, RB5 captures
 the transcript, runs the return review against the spec's acceptance criteria +
 proof commands (running the proofs with consent), produces an outcome score, and
 recommends rerun/remix/pick with reasoning. Dispatch the same brief to a second
-worker; the compare view scores both returns side by side. Worker scorecards
+worker; the compare view scores both returns side by side. Model scorecards
 update from local history. No worktree, branch, commit, landing, or revert rule
 is created.
 ```
@@ -203,7 +203,7 @@ is created.
 - [ ] Return review evaluates each acceptance criterion + proof command, advisory,
   never mutating the executor's output.
 - [ ] Outcome scores reuse the 06 eval harness and are labeled estimates.
-- [ ] Worker scorecards aggregate from local history only — no upload, no telemetry;
+- [ ] Model scorecards aggregate from local history only — no upload, no telemetry;
   rates from < 5 samples are labeled "insufficient data."
 - [ ] Proof commands default to manual reveal; auto-execution is allowlist + per-
   command approval only, and the review records executed-vs-reported.

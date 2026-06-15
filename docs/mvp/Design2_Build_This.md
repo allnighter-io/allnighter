@@ -75,7 +75,7 @@ critique is optional, off by default, and speaks **after** the pick (never befor
 A `DesignImplementationBrief` — an RB4 `ImplementationBrief` **variant**
 (`sourceKind: .designImage`) that **does not require `final_spec.md`**. Its inputs:
 
-- **Visual target:** the chosen `option_<seatId>.png` (the agent reads it), and the
+- **Visual target:** the chosen `option_<workerId>.png` (the agent reads it), and the
   **original screenshot** as the "before."
 - **Structural context (the de-risker):** the **current source of the target
   file(s)/component** the user is redesigning, plus the repo's **styling system**
@@ -107,7 +107,7 @@ cleaner, but the bold one's empty-state is the only one a new user won't bounce 
 Build is not one shot. After a build, the user returns to the board, picks another
 option (or a "more like this" variant, Design1), and builds again — run history is
 preserved. A design run may hold **multiple `dispatch` stages and no `final_spec.md`
-at all**; `CouncilRun` can complete with `design_fanout` + `board` + `dispatch` only.
+at all**; `TeamRun` can complete with `design_fanout` + `board` + `dispatch` only.
 The flywheel: **board → pick → build → (look in repo) → re-pick → build.**
 
 ## Ordered Slices

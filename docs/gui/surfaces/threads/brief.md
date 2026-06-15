@@ -91,7 +91,7 @@ worker turn) · done · failed · timed_out · manual-paste (awaiting paste).
 | Running heartbeat + elapsed | `turn.status==running` + `turn.createdAt` | ThreadTurn | running | ThreadsPresenterTests |
 | Reply text | `turn.text` | ThreadTurn | done | — |
 | Failure reason | `turn.text` (errorReason) | ThreadTurn | failed/timedOut | ThreadsPresenterTests |
-| Team/build card | `turn.runId` → `TeamRun` after rename; legacy `CouncilRun` today | RunStore | populated | (existing run cards) |
+| Team/build card | `turn.runId` → `TeamRun` after rename; legacy `TeamRun` today | RunStore | populated | (existing run cards) |
 | Artifact chip | `turn.artifactRefs[].{kind,excerpt}` | ArtifactRef | populated | ThreadsPresenterTests |
 | Context reveal body | `packet.text` | ThreadContextPacket | reveal | (ThreadContextBuilderTests) |
 | Context size | `packet.byteCount` | derived (bytes) | reveal | ThreadContextBuilderTests |

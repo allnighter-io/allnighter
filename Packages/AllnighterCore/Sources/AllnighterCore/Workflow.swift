@@ -5,8 +5,8 @@ import Foundation
 /// finalizer instruction are all prompt profiles distinguished by `purpose`.
 public struct PromptProfile: Codable, Sendable, Equatable, Identifiable {
     public enum Purpose: String, Codable, Sendable, CaseIterable {
-        case judgeAnalysis = "judge_analysis"
-        case judgePlan = "judge_plan"
+        case judgeAnalysis = "plan_analysis"
+        case judgePlan = "plan_writer"
         case reviewLens = "review_lens"
         case finalSpec = "final_spec"
         case executionDispatch = "execution_dispatch"
@@ -34,7 +34,7 @@ public struct PromptProfile: Codable, Sendable, Equatable, Identifiable {
 public enum InputSelector: String, Codable, Sendable, CaseIterable {
     case founderPrompt = "founder_prompt"
     case memberAnswers = "member_answers"
-    case judgeAnalysis = "judge_analysis"
+    case judgeAnalysis = "plan_analysis"
     case draftPlan = "draft_plan"
     case reviews
     case finalSpec = "final_spec"
@@ -71,7 +71,7 @@ public struct FinalizerPolicy: Codable, Sendable, Equatable {
 
 /// A (profile -> worker) assignment for one stage, with its own timeout so a slow
 /// lens can't kill the others. Reduces/reviews run a fresh worker invocation —
-/// not a panel seat.
+/// not a worker.
 public struct StageBinding: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var promptProfileId: String
@@ -124,15 +124,15 @@ public struct WorkflowStage: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// A named binding of panel seats, synthesis config, and the optional review/
-/// final-spec/dispatch stages. Extends `PanelPreset` (seats + synthesis) with
+/// A named binding of workers, synthesis config, and the optional review/
+/// final-spec/dispatch stages. Extends `TeamPreset` (seats + synthesis) with
 /// `stages`. The only valid v1 stage order:
 /// panel_fanout -> analysis -> plan -> review_fanout? -> final_spec? -> handoff?
 public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var displayName: String
     public var description: String
-    public var seats: [PanelSeatSpec]
+    public var workerSpecs: [WorkerSpec]
     public var synthesis: SynthesisConfig
     public var stages: [WorkflowStage]
     public var executionWorkerId: String?
@@ -141,14 +141,14 @@ public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
 
     public init(
         id: String, displayName: String, description: String = "",
-        seats: [PanelSeatSpec], synthesis: SynthesisConfig,
+        workerSpecs: [WorkerSpec], synthesis: SynthesisConfig,
         stages: [WorkflowStage] = [], executionWorkerId: String? = nil,
         isDefault: Bool = false, builtIn: Bool = false
     ) {
         self.id = id
         self.displayName = displayName
         self.description = description
-        self.seats = seats
+        self.workerSpecs = workerSpecs
         self.synthesis = synthesis
         self.stages = stages
         self.executionWorkerId = executionWorkerId
@@ -157,8 +157,8 @@ public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
     }
 
     /// The panel preset embedded in this workflow (seats + synthesis).
-    public var panelPreset: PanelPreset {
-        PanelPreset(id: id, displayName: displayName, seats: seats, synthesis: synthesis, builtIn: builtIn)
+    public var teamPreset: TeamPreset {
+        TeamPreset(id: id, displayName: displayName, workerSpecs: workerSpecs, synthesis: synthesis, builtIn: builtIn)
     }
 
     public enum ValidationError: Error, Equatable, CustomStringConvertible {

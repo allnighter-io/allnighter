@@ -47,7 +47,7 @@ If usage is not reported, show "usage unavailable" or omit it. Do not infer.
 
 Already exists:
 
-- Legacy `MemberResponse.durationMs` for team workers.
+- Legacy `WorkerAnswer.durationMs` for team workers.
 - `WorkerRunner` measures `startedAt`, `finishedAt`, and `durationMs`.
 - Worker-answer cards show per-worker duration.
 - `WorkerScorecard.medianLatencyMs` exists.

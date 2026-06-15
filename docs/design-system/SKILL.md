@@ -16,7 +16,7 @@ Core rules to honor:
 - **Type:** SF Pro (native macOS) → Inter on web; SF Mono → JetBrains Mono for
   slugs, counts, model IDs, timestamps and paths. 13px body density.
 - **Voice:** calm, plain-spoken, sentence case, verbs first, no emoji, no hype.
-  Hide the plumbing (panel/worker/council/master plan, not worktree/subprocess).
+  Hide the plumbing (panel/worker/council/plan, not worktree/subprocess).
   Numbers are concrete and mono; a worker that failed is shown failed, never faked.
 - **Tight, precise chrome** (Cursor/Linear/Raycast lineage): 6px controls, 10px
   cards, white-alpha hairline borders, deep-black shadows, amber glow for "alive".

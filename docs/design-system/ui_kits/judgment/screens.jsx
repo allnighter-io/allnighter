@@ -108,7 +108,7 @@ window.ComposerView = function ComposerView({ onRun }) {
               </div>
             ))}
 
-            <div className="jc-label">Synthesizer</div>
+            <div className="jc-label">PlanWriter</div>
             <div style={{ maxWidth: 280 }}>
               <Select mono leading={<span style={{ display: 'inline-flex', marginRight: 2 }}><BrandIcon slug="anthropic" color="FFA630" size={15} /></span>}
                 defaultValue="opus" options={[{ value: 'opus', label: 'Opus 4.8' }, { value: 'sonnet', label: 'Sonnet 4.6' }]} />

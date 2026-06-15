@@ -16,7 +16,7 @@ const { Input, Select, Textarea, Switch } = window;
 ReactDOM.createRoot(document.getElementById('root')).render(
   <div className="grid">
     <Input label="Run name" placeholder="dashboard refresh" defaultValue="premium dashboard" />
-    <Select label="Synthesizer" mono defaultValue="opus" options={[
+    <Select label="PlanWriter" mono defaultValue="opus" options={[
       {value:'opus',label:'opus-4.8'},{value:'sonnet',label:'sonnet-4.6'},{value:'gpt',label:'gpt-5.5'}]} />
     <Input label="Timeout" suffix="sec" defaultValue="120" />
     <Input label="Slug" error="Already taken" defaultValue="mara" />

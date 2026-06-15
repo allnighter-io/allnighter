@@ -20,14 +20,14 @@ public struct RunStore: Sendable {
     }
 
     @discardableResult
-    public func save(_ run: CouncilRun, workers: [Worker]) throws -> URL {
+    public func save(_ run: TeamRun, models: [Model]) throws -> URL {
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         try CoreJSON.encode(run).write(to: directory.appendingPathComponent("run.json"))
 
         // Derived artifacts (regenerated from run.json truth on each save).
-        let bundle = RunMarkdown.bundle(run, workers: workers)
+        let bundle = RunMarkdown.bundle(run, models: models)
         try Data(bundle.utf8).write(to: directory.appendingPathComponent("bundle.md"))
 
         let analysis = RunMarkdown.analysis(run)
@@ -35,7 +35,7 @@ public struct RunStore: Sendable {
             try Data(analysis.utf8).write(to: directory.appendingPathComponent("analysis.md"))
         }
 
-        if let plan = run.masterPlan, !plan.isEmpty {
+        if let plan = run.plan, !plan.isEmpty {
             try Data(plan.utf8).write(to: directory.appendingPathComponent("master_plan.md"))
         }
 
@@ -54,7 +54,7 @@ public struct RunStore: Sendable {
     }
 
     /// Lists saved runs, newest first.
-    public func list() -> [CouncilRun] {
+    public func list() -> [TeamRun] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: rootDirectory,
             includingPropertiesForKeys: nil
@@ -63,7 +63,7 @@ public struct RunStore: Sendable {
         }
         return entries
             .filter { $0.lastPathComponent.hasPrefix("run_") }
-            .compactMap { try? CoreJSON.decode(CouncilRun.self, from: Data(contentsOf: $0.appendingPathComponent("run.json"))) }
+            .compactMap { try? CoreJSON.decode(TeamRun.self, from: Data(contentsOf: $0.appendingPathComponent("run.json"))) }
             .sorted { $0.createdAt > $1.createdAt }
     }
 }

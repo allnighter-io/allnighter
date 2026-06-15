@@ -36,10 +36,10 @@ enum ProveCLI {
 
         let prompt = "Reply with exactly the two words: hello world"
         let runner = WorkerRunner(commandRunner: SubprocessCommandRunner())
-        let cases: [(name: String, worker: Worker)] = [
-            ("claude", Worker(id: "prove_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code")),
-            ("grok", Worker(id: "prove_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok")),
-            ("agy", Worker(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "Gemini 3.5 Flash (Medium)", driverId: "antigravity")),
+        let cases: [(name: String, worker: Model)] = [
+            ("claude", Model(id: "prove_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code")),
+            ("grok", Model(id: "prove_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok")),
+            ("agy", Model(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "Gemini 3.5 Flash (Medium)", driverId: "antigravity")),
         ]
 
         var anyFailed = false
@@ -78,10 +78,10 @@ enum ProveCLI {
                   manifest.canGenerateImages else {
                 fputs("[\(driverId)] SKIP — no imageGen manifest\n", stderr); continue
             }
-            let model = driverId == "antigravity" ? "Gemini 3.5 Flash (Medium)" : (driverId == "grok" ? "grok-build" : "gpt-5.5")
-            let worker = Worker(id: "prove_\(driverId)", displayName: driverId, modelLabel: model, driverId: driverId)
-            let seat = PanelSeat(id: "prove_\(driverId)#0", workerId: worker.id, seatIndex: 0, stance: "minimal")
-            let runDir = FileManager.default.temporaryDirectory.appendingPathComponent("allnighter-design-prove-\(driverId)")
+            let modelLabel = driverId == "antigravity" ? "Gemini 3.5 Flash (Medium)" : (driverId == "grok" ? "grok-build" : "gpt-5.5")
+            let worker = Model(id: "prove_\(driverId)", displayName: driverId, modelLabel: modelLabel, driverId: driverId)
+            let seat = Worker(id: "prove_\(driverId)#0", modelId: worker.id, instanceIndex: 0, skillId: "minimal")
+            let runDir = FileManager.default.temporaryDirectory.appendingPathComponent("alln-design-prove-\(driverId)")
             try? FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
             let request = DesignSeatRequest(
                 userPrompt: "a clean mobile login screen for a coffee app",

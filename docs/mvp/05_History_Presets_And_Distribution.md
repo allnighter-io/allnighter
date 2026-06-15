@@ -11,7 +11,7 @@ Updated: 2026-06-14
 
 Turn the working loop into something the founder reaches for every day and
 trusts: browse past runs, save panel + explicit synthesis presets, choose which
-worker writes the master plan, use a one-click global hotkey to capture a
+worker writes the plan, use a one-click global hotkey to capture a
 prompt, run a Doctor that detects/repairs CLI workers, and install a notarized
 DMG so it launches at login like a real app.
 
@@ -27,15 +27,15 @@ DMG so it launches at login like a real app.
 
 ## Approach (per `00`)
 
-- **Run history**: a list of past `CouncilRun`s (from the Runs folder, `00` §7),
-  reopen any to view members + master plan; re-run with the same prompt/panel.
+- **Run history**: a list of past `TeamRun`s (from the Runs folder, `00` §7),
+  reopen any to view members + plan; re-run with the same prompt/panel.
 - **Presets**: save named panels with explicit fields:
-  `panelWorkerIds`, `draftSynthesizerWorkerId`, and
+  `panelWorkerIds`, `draftPlanWriterWorkerId`, and
   `draftSynthesisInstructionPresetId`. Pick a preset before running. Ship the
   founder's six-worker default as a built-in preset, with Opus as the default
   synthesizer only by configuration.
 - **Synthesis instruction presets**: named, editable prompt templates for the
-  draft master plan. Fix the current roundtrip seam so `run.json` records the
+  draft plan. Fix the current roundtrip seam so `run.json` records the
   preset/custom instruction actually used, not always `default_master_plan_v1`.
 - **Doctor**: detect each CLI (`detectCommand`), run smoke tests, show version +
   health + the exact failing reason (missing binary, not logged in, bad flags)
@@ -53,9 +53,9 @@ DMG so it launches at login like a real app.
 - [x] P05-S01 — Run history list + detail reopen + "run again". History sidebar
   section (`store.list()`), read-only `HistoryDetailView`, and `runAgain(_:)`
   reconstructs prompt + panel + synthesizer + instructions + preset.
-- [x] P05-S02 — Panel presets (`PanelPreset`: `panelWorkerIds`,
-  `draftSynthesizerWorkerId`, `draftSynthesisInstructionPresetId`, `builtIn`) +
-  `PanelPresetStore` + built-in six-worker default derived from the live panel.
+- [x] P05-S02 — Panel presets (`TeamPreset`: `panelWorkerIds`,
+  `draftPlanWriterWorkerId`, `draftSynthesisInstructionPresetId`, `builtIn`) +
+  `TeamPresetStore` + built-in six-worker default derived from the live panel.
   Opus is the default synthesizer *by configuration*, not a code path.
 - [x] P05-S03 — Synthesis-instruction presets (`SynthesisInstructionPreset` +
   `SynthesisInstructionStore`); **honest persistence** via
@@ -80,7 +80,7 @@ DMG so it launches at login like a real app.
 Install the notarized DMG on a clean account. First run shows Doctor: each of
 the six workers reports detected/healthy or a clear reason. Save a panel preset
 that uses a non-Opus draft synthesizer plus a custom synthesis-instruction
-preset. Trigger the global hotkey, paste a prompt, run, get a master plan,
+preset. Trigger the global hotkey, paste a prompt, run, get a plan,
 export. Reopen the run later from history and re-run it with the same preset. A
 worker whose CLI was updated/broken shows red in Doctor with a fix hint instead
 of silently disappearing.
@@ -92,10 +92,10 @@ of silently disappearing.
   (unit-tested via `MockCommandRunner`; on-device confirmation pending a founder
   run).
 - [x] Presets + history persist across launches (file-backed under
-  `Config/PanelPresets`, `Config/InstructionPresets`, `Runs/`).
+  `Config/TeamPresets`, `Config/InstructionPresets`, `Runs/`).
 - [x] Draft synthesizer is explicit per preset; Opus is a default, not a
-  hardcoded code path (`PanelPreset.draftSynthesizerWorkerId` +
-  `AppModel.synthesizerWorker`).
+  hardcoded code path (`TeamPreset.draftPlanWriterWorkerId` +
+  `AppModel.planWriterWorker`).
 - [x] `Synthesis.instructions` records the chosen preset/custom instruction
   honestly (`SynthesisInstructionChoice`).
 - [x] Global hotkey works system-wide (Carbon, no Accessibility permission).

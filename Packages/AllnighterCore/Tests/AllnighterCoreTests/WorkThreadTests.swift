@@ -24,13 +24,13 @@ final class WorkThreadTests: XCTestCase {
         let thread = try Fixtures.thread(.threadChat)
         XCTAssertEqual(thread.status, .active)
         XCTAssertEqual(thread.turns.count, 3)
-        XCTAssertEqual(thread.defaultWorkerId, "worker_opus")
+        XCTAssertEqual(thread.defaultWorkerId, "model_opus")
         XCTAssertEqual(thread.workingDir, "/Users/mike/Code/acme")
-        // The council turn references a run and carries no inline chat text.
-        let council = thread.turns.first { $0.kind == .councilRun }
-        XCTAssertEqual(council?.runId, "run_complete_01")
-        XCTAssertNil(council?.text)
-        XCTAssertEqual(council?.artifactRefs.first?.kind, .masterPlan)
+        // The team turn references a run and carries no inline chat text.
+        let teamRun = thread.turns.first { $0.kind == .teamRun }
+        XCTAssertEqual(teamRun?.runId, "run_complete_01")
+        XCTAssertNil(teamRun?.text)
+        XCTAssertEqual(teamRun?.artifactRefs.first?.kind, .plan)
     }
 
     // MARK: - Derived liveness
@@ -39,7 +39,7 @@ final class WorkThreadTests: XCTestCase {
         let thread = try Fixtures.thread(.threadChat)
         XCTAssertFalse(thread.isRunning)         // all turns done
         XCTAssertFalse(thread.needsAttention)    // no failed/blocking turns
-        XCTAssertEqual(thread.lastWorkerId, "worker_opus")
+        XCTAssertEqual(thread.lastWorkerId, "model_opus")
         XCTAssertEqual(thread.preview, "Start with a single owner-scoped flag before per-seat roles.")
         XCTAssertFalse(thread.isPinned)
     }
@@ -74,9 +74,9 @@ final class WorkThreadTests: XCTestCase {
 
     func testHasActiveHeavyTurn() {
         var thread = makeEmptyThread()
-        thread.turns = [makeTurn(kind: .councilRun, status: .running, author: .system)]
+        thread.turns = [makeTurn(kind: .teamRun, status: .running, author: .system)]
         XCTAssertTrue(thread.hasActiveHeavyTurn)
-        thread.turns = [makeTurn(kind: .councilRun, status: .done, author: .system)]
+        thread.turns = [makeTurn(kind: .teamRun, status: .done, author: .system)]
         XCTAssertFalse(thread.hasActiveHeavyTurn)
     }
 
@@ -86,7 +86,7 @@ final class WorkThreadTests: XCTestCase {
         let expected: [ThreadTurnKind: TurnFamily] = [
             .userMessage: .message, .userDecision: .message,
             .workerChat: .reply,
-            .councilRun: .council, .designBoard: .council, .reviewBoard: .council,
+            .teamRun: .team, .designBoard: .team, .reviewBoard: .team,
             .workOrder: .build, .dispatch: .build, .returnReview: .build,
             .systemEvent: .system,
         ]
@@ -96,7 +96,7 @@ final class WorkThreadTests: XCTestCase {
     }
 
     func testHeavyKinds() {
-        let heavy: Set<ThreadTurnKind> = [.councilRun, .designBoard, .reviewBoard, .dispatch, .returnReview]
+        let heavy: Set<ThreadTurnKind> = [.teamRun, .designBoard, .reviewBoard, .dispatch, .returnReview]
         for kind in ThreadTurnKind.allCases {
             XCTAssertEqual(kind.isHeavy, heavy.contains(kind), "Wrong heavy flag for \(kind.rawValue)")
         }
@@ -149,7 +149,7 @@ final class WorkThreadTests: XCTestCase {
             createdAt: epoch,
             author: author,
             text: author == .worker ? "reply" : nil,
-            workerId: author == .worker ? "worker_opus" : nil,
+            workerId: author == .worker ? "model_opus" : nil,
             systemEvent: systemEvent
         )
     }

@@ -2,7 +2,7 @@
 
 A high-fidelity, click-through recreation of the **Judgment Workflow / Review
 Board** capability (specs `uploads/RB0–RB5`). It evolves the Council from "one
-prompt → master plan" into a full control loop:
+prompt → plan" into a full control loop:
 
 ```
 prompt → panel → judge analysis → draft plan → review board → final spec
@@ -35,7 +35,7 @@ review) show an "Up next" stub — they're the next mockup batches.
 - `index.html` — mounts `JudgmentApp` (rail nav + active view).
 - `shell.jsx` — `JShell` (window + pipeline rail), `JHeader`, `JLive`, `JUD_STAGES`.
 - `screens.jsx` — `ComposerView`, `ReviewBoardView`, `FinalSpecView`, `StubView`.
-- `screens2.jsx` — `RunPipelineView`, `JudgeAnalysisView`, `DispatchView`.
+- `screens2.jsx` — `RunPipelineView`, `PlanAnalysisView`, `DispatchView`.
 - `screens3.jsx` — `ReturnReviewView`, `RoutingView`, `CompareView`.
 - `screens4.jsx` — `JConfigShell` + `ScorecardsView`, `PresetEditorView`, `LensLibraryView`, `WorkersView` (reached via the title-bar settings icon).
 

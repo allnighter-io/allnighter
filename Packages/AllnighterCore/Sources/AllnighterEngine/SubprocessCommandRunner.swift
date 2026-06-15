@@ -78,9 +78,9 @@ public struct SubprocessCommandRunner: CommandRunner {
         var environment = ProcessInfo.processInfo.environment
         for (key, value) in env { environment[key] = value }
         // Recursion guard (RB6): every spawned worker carries depth+1, so a worker
-        // that invokes the council tool sees it is already inside one and refuses.
-        let currentDepth = Int(environment["ALLNIGHTER_COUNCIL_DEPTH"] ?? "0") ?? 0
-        environment["ALLNIGHTER_COUNCIL_DEPTH"] = String(currentDepth + 1)
+        // that invokes the team tool sees it is already inside one and refuses.
+        let currentDepth = Int(environment["ALLNIGHTER_TEAM_DEPTH"] ?? "0") ?? 0
+        environment["ALLNIGHTER_TEAM_DEPTH"] = String(currentDepth + 1)
         // Scrub the loopback tool token so a deep worker can't authenticate to the
         // running HTTP server.
         environment["ALLNIGHTER_TOOL_TOKEN"] = nil

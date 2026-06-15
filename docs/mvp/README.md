@@ -24,12 +24,12 @@ The founder runs a fixed, proven ritual for every non-trivial decision:
 2. Send it, unchanged, to a panel of models the founder **already pays for**:
    ChatGPT 5.5, Opus 4.8, Sonnet 4.6, Composer 2.5, Gemini Flash, Grok Build.
 3. Ask a configured synthesizer (built-in default: **Opus 4.8**) to synthesize
-   all the answers into a single **master plan**.
+   all the answers into a single **plan**.
 
 Today that is ~12 manual copy/paste actions per question. The founder is "a
 copy-paste buddy." The MVP deletes that labor:
 
-> **One prompt in. One master plan out. The bench answers in parallel.
+> **One prompt in. One plan out. The bench answers in parallel.
 > You never touch the clipboard.**
 
 Hard constraints that define this product:
@@ -55,7 +55,7 @@ type or paste ONE prompt
 -> each worker's answer is captured and shown
 -> the configured synthesizer reads the original prompt + all labeled answers
 -> the synthesizer produces a single MASTER PLAN in a fixed, editable structure
--> view + copy + save the bundle (master plan + every member answer) as Markdown
+-> view + copy + save the bundle (plan + every member answer) as Markdown
 ```
 
 That is the North-Star acceptance demo for the MVP. Phase 04's Works Test is
@@ -96,7 +96,7 @@ agents own execution; repos own git/process policy.
 - A **parallel fan-out engine** (Swift Concurrency): one prompt → N subprocesses,
   per-worker timeout, cancel, normalized status + captured output.
 - A **synthesis step**: one configured synthesizer call over the original prompt
-  + all answers, producing a master plan in a fixed, user-editable structure.
+  + all answers, producing a plan in a fixed, user-editable structure.
 - A **Mac app**: menu bar + window, prompt composer, panel selection, live run
   view, response viewer, master-plan viewer, copy/export to Markdown.
 - **Worker health** (smoke test / doctor) so a churned CLI fails loudly, not
@@ -125,8 +125,8 @@ agents own execution; repos own git/process policy.
 | **Worker** | One model reachable via a local subscription CLI (e.g. "Opus 4.8 via Claude Code"). |
 | **Council run** | One prompt fanned out to the panel + the synthesis that follows. |
 | **Member answer** | One worker's raw response to the prompt. |
-| **Synthesizer** | The configured worker (built-in default: Opus 4.8) that produces the master plan. |
-| **Master plan** | The single synthesized output: consensus, conflicts, gaps, and a decisive plan. |
+| **PlanWriter** | The configured worker (built-in default: Opus 4.8) that produces the plan. |
+| **Plan** | The single synthesized output: consensus, conflicts, gaps, and a decisive plan. |
 | **Driver manifest** | Thin, versioned config describing how to invoke a worker's CLI and read its output. |
 | **Doctor** | Health check that detects each CLI and runs its smoke test. |
 | **Review lens** | A configurable prompt profile that reviews a draft from one perspective. |
@@ -146,17 +146,17 @@ contracts so no phase re-decides them.
 ```text
 00  MVP Architecture (stack, models, manifest, fan-out + synthesis contracts)  <- read first
 01  AllnighterCore (MVP subset): models, manifest schema, run state machine, fixtures  [DONE]
-02  Worker Drivers + Parallel Fan-Out Engine  <- the heart                              [DONE]
+02  Model Drivers + Parallel Fan-Out Engine  <- the heart                              [DONE]
 03  Mac App Shell + Run Loop (prompt, panel, live status, response viewer)              [BUILT*]
-04  Synthesis + Master Plan (default Opus; configurable in 05)                         [BUILT*]
+04  Synthesis + Plan (default Opus; configurable in 05)                         [BUILT*]
 05  History, Presets, Doctor + Distribution (make it the daily driver)  [S01-S05 DONE; dist deferred]
 06  Fusion-Grade Synthesis + Evals (the correct council foundation)      [BUILT]
 ```
 
 > **06 is a deliberate foundation phase.** OpenRouter's Fusion result publicly
 > validated the panel→judge→plan pattern; Allnighter is the local, zero-marginal-
-> cost version. Phase 06 captures Fusion's lessons (structured `JudgeAnalysis`,
-> self-fusion via `PanelSeat`, budget-panel presets) and lays the correct final
+> cost version. Phase 06 captures Fusion's lessons (structured `PlanAnalysis`,
+> self-fusion via `Worker`, budget-panel presets) and lays the correct final
 > run model (seats, structured analysis, `StageOutput` sequence) **before** any
 > review-board machinery — so RB0–RB5 add stage *kinds*, never a rewrite. No
 > OpenRouter, no API keys; zero marginal cost is preserved.
@@ -174,10 +174,10 @@ begins only after 06's foundation is in and the `RB0` activation gate passes.
 Next: the Fusion-grade foundation, then the judgment workflow.
 
 ```text
-06   Fusion-Grade Synthesis + Evals (PanelSeat, JudgeAnalysis, StageOutput, evals)
+06   Fusion-Grade Synthesis + Evals (Worker, PlanAnalysis, StageOutput, evals)
 RB0  Judgment Workflow Overview (+ activation gate, now incl. synthesis-lift)
 RB1  Workflow Presets + Stage Primitives (consume 06's StageOutput / PromptProfile)
-RB2  Review Board (lenses consume JudgeAnalysis + raw answers)
+RB2  Review Board (lenses consume PlanAnalysis + raw answers)
 RB3  Final Spec (resolve contradictions; preserve/reject unique insights)
 RB4  Direct Executor Dispatch (brief carries the analysis decisions)
 RB5  Return Review, Outcome Scoring, and Routing (close the control loop)
@@ -221,9 +221,9 @@ Design2  Build This (chosen image → pick the implementer CLI → the agent bui
 | Signal | Target |
 | --- | --- |
 | Copy/paste actions per question | **0** (down from ~12) |
-| Clicks from prompt to master plan | **1** (after panel is configured) |
+| Clicks from prompt to plan | **1** (after panel is configured) |
 | Marginal cost per run | **$0** (subscription CLIs only) |
-| Worker churn handled | A broken/updated CLI surfaces in Doctor, never silently drops |
+| Model churn handled | A broken/updated CLI surfaces in Doctor, never silently drops |
 | Daily use | Founder uses it for real decisions instead of manual copy/paste |
 | Forward compatibility | Core types + engine reused (not rewritten) when execution lanes are added |
 

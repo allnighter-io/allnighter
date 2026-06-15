@@ -48,14 +48,14 @@ public struct DesignImageRunner: Sendable {
     /// `DesignOption` (rendered with a relative `imagePath`, or `.failed` with a
     /// reason — never throws; a failed seat is a gray tile, not a blocked board).
     public func run(
-        seat: PanelSeat,
-        worker: Worker,
+        seat: Worker,
+        worker: Model,
         manifest: DriverManifest,
         request: DesignSeatRequest,
         runDir: URL
     ) async -> DesignOption {
         func failed(_ reason: String) -> DesignOption {
-            DesignOption(seatId: seat.id, workerId: worker.id, persona: request.personaId,
+            DesignOption(workerId: seat.id, modelId: worker.id, persona: request.personaId,
                          status: .failed, failureReason: reason)
         }
 
@@ -87,7 +87,7 @@ public struct DesignImageRunner: Sendable {
         if let launchError = result.launchError { return failed(launchError) }
         if result.cancelled { return failed("image generation cancelled") }
         if result.timedOut {
-            return DesignOption(seatId: seat.id, workerId: worker.id, persona: request.personaId,
+            return DesignOption(workerId: seat.id, modelId: worker.id, persona: request.personaId,
                                 status: .timedOut, failureReason: "image generation timed out after \(imageGen.timeoutSeconds)s")
         }
         if let code = result.exitCode, code != 0 {
@@ -120,8 +120,8 @@ public struct DesignImageRunner: Sendable {
         }
 
         return DesignOption(
-            seatId: seat.id,
-            workerId: worker.id,
+            workerId: seat.id,
+            modelId: worker.id,
             persona: request.personaId,
             imagePath: relativeName,
             sessionId: sessionId,
@@ -162,8 +162,8 @@ public struct DesignImageRunner: Sendable {
 
     // MARK: - Capture helpers
 
-    static func sanitize(_ seatId: String) -> String {
-        seatId.replacingOccurrences(of: "#", with: "-")
+    static func sanitize(_ workerId: String) -> String {
+        workerId.replacingOccurrences(of: "#", with: "-")
     }
 
     /// First capture group of `pattern` in `text`, or the whole match if the

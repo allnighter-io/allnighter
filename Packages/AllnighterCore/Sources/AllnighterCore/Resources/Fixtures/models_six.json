@@ -1,6 +1,6 @@
 [
   {
-    "id": "worker_chatgpt",
+    "id": "model_chatgpt",
     "displayName": "ChatGPT 5.5",
     "modelLabel": "gpt-5.5",
     "driverId": "codex",
@@ -8,7 +8,7 @@
     "enabled": true
   },
   {
-    "id": "worker_opus",
+    "id": "model_opus",
     "displayName": "Opus 4.8",
     "modelLabel": "claude-opus-4.8",
     "driverId": "claude_code",
@@ -16,7 +16,7 @@
     "enabled": true
   },
   {
-    "id": "worker_sonnet",
+    "id": "model_sonnet",
     "displayName": "Sonnet 4.6",
     "modelLabel": "claude-sonnet-4.6",
     "driverId": "claude_code",
@@ -24,7 +24,7 @@
     "enabled": true
   },
   {
-    "id": "worker_composer",
+    "id": "model_composer",
     "displayName": "Composer 2.5",
     "modelLabel": "Grok Composer 2.5 Fast",
     "driverId": "grok",
@@ -32,7 +32,7 @@
     "enabled": true
   },
   {
-    "id": "worker_gemini",
+    "id": "model_gemini",
     "displayName": "Gemini Flash",
     "modelLabel": "gemini-flash",
     "driverId": "gemini",
@@ -40,7 +40,7 @@
     "enabled": true
   },
   {
-    "id": "worker_grok",
+    "id": "model_grok",
     "displayName": "Grok Build",
     "modelLabel": "Grok Build",
     "driverId": "grok",

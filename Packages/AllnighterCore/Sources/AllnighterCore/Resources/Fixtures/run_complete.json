@@ -5,42 +5,42 @@
   "origin": "gui",
   "presetId": "preset_six_default",
   "createdAt": "2026-06-14T20:01:00Z",
-  "panel": [
-    { "id": "worker_chatgpt#0", "workerId": "worker_chatgpt", "seatIndex": 0 },
-    { "id": "worker_opus#0", "workerId": "worker_opus", "seatIndex": 0 },
-    { "id": "worker_sonnet#0", "workerId": "worker_sonnet", "seatIndex": 0 },
-    { "id": "worker_composer#0", "workerId": "worker_composer", "seatIndex": 0 },
-    { "id": "worker_gemini#0", "workerId": "worker_gemini", "seatIndex": 0 },
-    { "id": "worker_grok#0", "workerId": "worker_grok", "seatIndex": 0 }
+  "workers": [
+    { "id": "model_chatgpt#0", "modelId": "model_chatgpt", "instanceIndex": 0 },
+    { "id": "model_opus#0", "modelId": "model_opus", "instanceIndex": 0 },
+    { "id": "model_sonnet#0", "modelId": "model_sonnet", "instanceIndex": 0 },
+    { "id": "model_composer#0", "modelId": "model_composer", "instanceIndex": 0 },
+    { "id": "model_gemini#0", "modelId": "model_gemini", "instanceIndex": 0 },
+    { "id": "model_grok#0", "modelId": "model_grok", "instanceIndex": 0 }
   ],
-  "members": [
-    { "seatId": "worker_chatgpt#0", "workerId": "worker_chatgpt", "status": "done", "output": "Accounts first.", "durationMs": 18800, "exitCode": 0 },
-    { "seatId": "worker_opus#0", "workerId": "worker_opus", "status": "done", "output": "Team accounts first.", "durationMs": 21450, "exitCode": 0 },
-    { "seatId": "worker_sonnet#0", "workerId": "worker_sonnet", "status": "done", "output": "Accounts unblock billing.", "durationMs": 17900, "exitCode": 0 },
-    { "seatId": "worker_composer#0", "workerId": "worker_composer", "status": "done", "output": "Accounts, then analytics.", "durationMs": 15300, "exitCode": 0 },
-    { "seatId": "worker_gemini#0", "workerId": "worker_gemini", "status": "done", "output": "Analytics can wait.", "durationMs": 12100, "exitCode": 0 },
-    { "seatId": "worker_grok#0", "workerId": "worker_grok", "status": "done", "output": "Accounts first, clearly.", "durationMs": 16700, "exitCode": 0 }
+  "workerAnswers": [
+    { "workerId": "model_chatgpt#0", "modelId": "model_chatgpt", "status": "done", "output": "Accounts first.", "durationMs": 18800, "exitCode": 0 },
+    { "workerId": "model_opus#0", "modelId": "model_opus", "status": "done", "output": "Team accounts first.", "durationMs": 21450, "exitCode": 0 },
+    { "workerId": "model_sonnet#0", "modelId": "model_sonnet", "status": "done", "output": "Accounts unblock billing.", "durationMs": 17900, "exitCode": 0 },
+    { "workerId": "model_composer#0", "modelId": "model_composer", "status": "done", "output": "Accounts, then analytics.", "durationMs": 15300, "exitCode": 0 },
+    { "workerId": "model_gemini#0", "modelId": "model_gemini", "status": "done", "output": "Analytics can wait.", "durationMs": 12100, "exitCode": 0 },
+    { "workerId": "model_grok#0", "modelId": "model_grok", "status": "done", "output": "Accounts first, clearly.", "durationMs": 16700, "exitCode": 0 }
   ],
   "stages": [
     {
       "id": "stage_analysis_01",
       "purpose": "analysis",
-      "producedByWorkerId": "worker_opus",
-      "promptProfileId": "judge_analysis_v1",
+      "producedByWorkerId": "model_opus",
+      "promptProfileId": "plan_analysis_v1",
       "status": "done",
       "payload": {
         "kind": "analysis",
         "analysis": {
           "consensus": [
-            { "statement": "Team accounts should come before billing analytics.", "sourceSeatIds": ["worker_opus#0", "worker_chatgpt#0", "worker_grok#0"], "strength": "strong" }
+            { "statement": "Team accounts should come before billing analytics.", "sourceWorkerIds": ["model_opus#0", "model_chatgpt#0", "model_grok#0"], "strength": "strong" }
           ],
           "contradictions": [],
           "partialCoverage": [],
           "uniqueInsights": [
-            { "statement": "Accounts unblock per-seat billing later.", "sourceSeatIds": ["worker_sonnet#0"], "strength": "moderate" }
+            { "statement": "Accounts unblock per-seat billing later.", "sourceWorkerIds": ["model_sonnet#0"], "strength": "moderate" }
           ],
           "blindSpots": ["No seat discussed migration of existing solo users."],
-          "failedSeats": [],
+          "failedWorkers": [],
           "confidenceNote": "High agreement across seats."
         }
       },
@@ -50,12 +50,12 @@
     {
       "id": "stage_plan_01",
       "purpose": "plan",
-      "producedByWorkerId": "worker_opus",
-      "promptProfileId": "judge_plan_v1",
+      "producedByWorkerId": "model_opus",
+      "promptProfileId": "plan_writer_v1",
       "status": "done",
       "payload": {
         "kind": "plan",
-        "markdown": "# Master Plan\n\n## The Plan\nShip team accounts first, then billing analytics."
+        "markdown": "# Plan\n\n## The Plan\nShip team accounts first, then billing analytics."
       },
       "startedAt": "2026-06-14T20:01:52Z",
       "finishedAt": "2026-06-14T20:02:20Z"

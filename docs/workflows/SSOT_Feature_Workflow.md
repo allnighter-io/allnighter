@@ -18,13 +18,13 @@ A slice is valuable only when it includes:
 Example shape:
 
 ```text
-enroll repo -> run council -> review master plan -> spawn lane work
+enroll repo -> run council -> review plan -> spawn lane work
 ```
 
 MVP loop from `ALLNIGHTER.md`:
 
 ```text
-enroll repo on Mac -> run council (parallel CLIs -> master plan) -> review on Mac
+enroll repo on Mac -> run council (parallel CLIs -> plan) -> review on Mac
 ```
 
 ## Non-Negotiable Rule

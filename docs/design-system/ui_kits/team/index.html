@@ -1,4 +1,4 @@
-<!-- @dsCard group="Council" viewport="1180x720" subtitle="MVP: one prompt → parallel panel → Opus master plan" -->
+<!-- @dsCard group="Council" viewport="1180x720" subtitle="MVP: one prompt → parallel panel → Opus plan" -->
 <!-- @startingPoint section="Council" subtitle="The Council command center (macOS)" viewport="1180x720" -->
 <!doctype html>
 <html lang="en">
@@ -39,7 +39,7 @@ function CouncilApp() {
   const [view, setView] = React.useState('compose');   // compose | run | plan
   const [states, setStates] = React.useState({});
   const [elapsed, setElapsed] = React.useState('00:00');
-  const [synth, setSynth] = React.useState('waiting');  // waiting | synthesizing | ready
+  const [synth, setSynth] = React.useState('waiting');  // waiting | planning | ready
   const timers = React.useRef([]);
   const clock = React.useRef(null);
 
@@ -70,7 +70,7 @@ function CouncilApp() {
         ...s, [w.id]: { status: cfg.fail ? 'failed' : 'done', meta: cfg.fail ? 'auth expired' : cfg.tok + ' · ' + fmt(cfg.ms) }
       })), cfg.ms));
     });
-    timers.current.push(setTimeout(() => setSynth('synthesizing'), maxMs + 450));
+    timers.current.push(setTimeout(() => setSynth('planning'), maxMs + 450));
     timers.current.push(setTimeout(() => { setSynth('ready'); if (clock.current) { clearInterval(clock.current); clock.current = null; } }, maxMs + 2700));
   };
 

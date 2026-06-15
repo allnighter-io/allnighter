@@ -20,7 +20,7 @@
     {
       "id": "turn_imp_run",
       "threadId": "thread_imported_01",
-      "kind": "council_run",
+      "kind": "team_run",
       "status": "done",
       "createdAt": "2026-06-14T20:01:00Z",
       "completedAt": "2026-06-14T20:09:00Z",

@@ -21,7 +21,7 @@ final class WorkerChatCoordinatorTests: XCTestCase {
     private func makeCoordinator(
         dir: URL,
         scripts: [String: MockCommandRunner.Script],
-        workers: [Worker],
+        models: [Model],
         manifests: [DriverManifest]
     ) -> (WorkerChatCoordinator, ThreadStore) {
         let store = ThreadStore(rootDirectory: dir)
@@ -32,7 +32,7 @@ final class WorkerChatCoordinatorTests: XCTestCase {
             store: store,
             runner: runner,
             registry: DriverRegistry(manifests),
-            workers: workers,
+            models: models,
             idFactory: { counter.next() },
             now: { fixedClock }
         )
@@ -52,13 +52,13 @@ final class WorkerChatCoordinatorTests: XCTestCase {
 
     func testSendCreatesUserAndWorkerTurnsAndLandsReply() async throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let (coord, store) = makeCoordinator(dir: dir,
             scripts: ["claude": .init(stdout: "Use a single owner-scoped flag.", exitCode: 0)],
-            workers: [worker], manifests: [manifest])
+            models: [worker], manifests: [manifest])
 
-        try store.create(id: "t1", title: "Team accounts", now: clock, defaultWorkerId: "worker_opus")
+        try store.create(id: "t1", title: "Team accounts", now: clock, defaultWorkerId: "model_opus")
         let result = try await coord.send(message: "brainstorm the simplest approach", toThreadId: "t1")
 
         XCTAssertFalse(result.awaitingManualPaste)
@@ -71,18 +71,18 @@ final class WorkerChatCoordinatorTests: XCTestCase {
         XCTAssertEqual(thread.turns[1].kind, .workerChat)
         XCTAssertEqual(thread.turns[1].status, .done)
         XCTAssertEqual(thread.turns[1].text, "Use a single owner-scoped flag.")
-        XCTAssertEqual(thread.turns[1].workerId, "worker_opus")
+        XCTAssertEqual(thread.turns[1].workerId, "model_opus")
         XCTAssertFalse(thread.isRunning)
         XCTAssertFalse(thread.needsAttention)
     }
 
     func testContextPacketIsPersistedAndRevealable() async throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let (coord, store) = makeCoordinator(dir: dir,
             scripts: ["claude": .init(stdout: "ok", exitCode: 0)],
-            workers: [worker], manifests: [manifest])
+            models: [worker], manifests: [manifest])
         try store.create(id: "t1", title: "T", now: clock)
 
         let r = try await coord.send(message: "first", toThreadId: "t1")
@@ -94,24 +94,24 @@ final class WorkerChatCoordinatorTests: XCTestCase {
 
     func testSecondTurnContextIncludesEarlierTurns() async throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let opus = TestSupport.worker("worker_opus", driverId: "claude_code")
-        let grok = TestSupport.worker("worker_grok", driverId: "grok")
+        let opus = TestSupport.worker("model_opus", driverId: "claude_code")
+        let grok = TestSupport.worker("model_grok", driverId: "grok")
         let claudeM = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let grokM = TestSupport.headlessManifest(id: "grok", command: "grok")
         let (coord, store) = makeCoordinator(dir: dir,
             scripts: ["claude": .init(stdout: "owner flag", exitCode: 0),
                       "grok": .init(stdout: "agreed", exitCode: 0)],
-            workers: [opus, grok], manifests: [claudeM, grokM])
-        try store.create(id: "t1", title: "T", now: clock, defaultWorkerId: "worker_opus")
+            models: [opus, grok], manifests: [claudeM, grokM])
+        try store.create(id: "t1", title: "T", now: clock, defaultWorkerId: "model_opus")
 
         _ = try await coord.send(message: "first question", toThreadId: "t1")
         // Route the follow-up to a different worker.
-        let r2 = try await coord.send(message: "follow up", toThreadId: "t1", requestedWorkerId: "worker_grok")
-        XCTAssertEqual(r2.workerId, "worker_grok")
+        let r2 = try await coord.send(message: "follow up", toThreadId: "t1", requestedWorkerId: "model_grok")
+        XCTAssertEqual(r2.workerId, "model_grok")
 
         let packet = await coord.revealContext(threadId: "t1", packetId: r2.contextPacketId)!
         XCTAssertTrue(packet.text.contains("User: first question"))
-        XCTAssertTrue(packet.text.contains("worker_opus: owner flag"))
+        XCTAssertTrue(packet.text.contains("model_opus: owner flag"))
         XCTAssertTrue(packet.includedTurnIds.contains { $0 != "" })
     }
 
@@ -119,11 +119,11 @@ final class WorkerChatCoordinatorTests: XCTestCase {
 
     func testNonzeroExitLeavesFailedTurnNeedingAttention() async throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let (coord, store) = makeCoordinator(dir: dir,
             scripts: ["claude": .init(stdout: "", stderr: "boom", exitCode: 2)],
-            workers: [worker], manifests: [manifest])
+            models: [worker], manifests: [manifest])
         try store.create(id: "t1", title: "T", now: clock)
 
         let r = try await coord.send(message: "go", toThreadId: "t1")
@@ -135,11 +135,11 @@ final class WorkerChatCoordinatorTests: XCTestCase {
 
     func testTimeoutLeavesTimedOutTurn() async throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let (coord, store) = makeCoordinator(dir: dir,
             scripts: ["claude": .init(stdout: "", exitCode: 0, forcesTimeout: true)],
-            workers: [worker], manifests: [manifest])
+            models: [worker], manifests: [manifest])
         try store.create(id: "t1", title: "T", now: clock)
 
         _ = try await coord.send(message: "go", toThreadId: "t1")
@@ -152,7 +152,7 @@ final class WorkerChatCoordinatorTests: XCTestCase {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
         let worker = TestSupport.worker("worker_manual", driverId: "manual")
         let (coord, store) = makeCoordinator(dir: dir, scripts: [:],
-            workers: [worker], manifests: [manualManifest(id: "manual")])
+            models: [worker], manifests: [manualManifest(id: "manual")])
         try store.create(id: "t1", title: "T", now: clock, defaultWorkerId: "worker_manual")
 
         let r = try await coord.send(message: "draft a plan", toThreadId: "t1")
@@ -181,32 +181,32 @@ final class WorkerChatCoordinatorTests: XCTestCase {
         XCTAssertFalse(thread.needsAttention)
     }
 
-    // MARK: - Worker resolution
+    // MARK: - Model resolution
 
     func testResolutionPrefersRequestedThenDefaultThenLast() async throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let opus = TestSupport.worker("worker_opus", driverId: "claude_code")
-        let grok = TestSupport.worker("worker_grok", driverId: "grok")
+        let opus = TestSupport.worker("model_opus", driverId: "claude_code")
+        let grok = TestSupport.worker("model_grok", driverId: "grok")
         let (coord, store) = makeCoordinator(dir: dir, scripts: [:],
-            workers: [opus, grok],
+            models: [opus, grok],
             manifests: [TestSupport.headlessManifest(id: "claude_code", command: "claude"),
                         TestSupport.headlessManifest(id: "grok", command: "grok")])
 
-        let withDefault = try store.create(id: "t1", title: "T", now: clock, defaultWorkerId: "worker_grok")
+        let withDefault = try store.create(id: "t1", title: "T", now: clock, defaultWorkerId: "model_grok")
         let resolvedDefault = await coord.resolveWorkerId(for: withDefault, requested: nil)
-        XCTAssertEqual(resolvedDefault, "worker_grok")
+        XCTAssertEqual(resolvedDefault, "model_grok")
 
-        let requested = await coord.resolveWorkerId(for: withDefault, requested: "worker_opus")
-        XCTAssertEqual(requested, "worker_opus")
+        let requested = await coord.resolveWorkerId(for: withDefault, requested: "model_opus")
+        XCTAssertEqual(requested, "model_opus")
 
         let noDefault = WorkThread(id: "t2", title: "T", createdAt: clock, updatedAt: clock)
         let firstHealthy = await coord.resolveWorkerId(for: noDefault, requested: nil)
-        XCTAssertEqual(firstHealthy, "worker_opus")   // first enabled headless CLI
+        XCTAssertEqual(firstHealthy, "model_opus")   // first enabled headless CLI
     }
 
     func testSendToMissingThreadThrows() async {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let (coord, _) = makeCoordinator(dir: dir, scripts: [:], workers: [], manifests: [])
+        let (coord, _) = makeCoordinator(dir: dir, scripts: [:], models: [], manifests: [])
         do {
             _ = try await coord.send(message: "x", toThreadId: "ghost")
             XCTFail("expected throw")

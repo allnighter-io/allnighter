@@ -20,7 +20,7 @@ final class ThreadsViewModel {
     /// The context packet being revealed, if the reveal sheet is open.
     private(set) var revealedPacket: ThreadContextPacket?
 
-    let workers: [Worker]
+    let models: [Model]
     private let store: ThreadStore
     private let coordinator: WorkerChatCoordinator
     private let registry: DriverRegistry
@@ -32,18 +32,18 @@ final class ThreadsViewModel {
         self.init(
             store: ThreadStore(),
             registry: config.registry,
-            workers: config.panel,
+            models: config.models,
             runner: WorkerRunner(commandRunner: SubprocessCommandRunner())
         )
     }
 
     /// Designated init — tests inject a temp store and a mock runner.
-    init(store: ThreadStore, registry: DriverRegistry, workers: [Worker], runner: WorkerRunner) {
+    init(store: ThreadStore, registry: DriverRegistry, models: [Model], runner: WorkerRunner) {
         self.store = store
         self.registry = registry
-        self.workers = workers
+        self.models = models
         self.coordinator = WorkerChatCoordinator(
-            store: store, runner: runner, registry: registry, workers: workers
+            store: store, runner: runner, registry: registry, models: models
         )
         reload()
     }
@@ -62,12 +62,12 @@ final class ThreadsViewModel {
     var resolvedComposerWorkerId: String? {
         guard let thread = selectedThread else { return requestedWorkerId }
         // Resolution is pure given workers/registry; mirror the coordinator rule.
-        if let requestedWorkerId, workers.contains(where: { $0.id == requestedWorkerId }) {
+        if let requestedWorkerId, models.contains(where: { $0.id == requestedWorkerId }) {
             return requestedWorkerId
         }
-        if let d = thread.defaultWorkerId, workers.contains(where: { $0.id == d }) { return d }
-        if let last = thread.lastWorkerId, workers.contains(where: { $0.id == last }) { return last }
-        return workers.first { $0.enabled && registry.manifest(for: $0)?.kind == .headlessCLI }?.id
+        if let d = thread.defaultWorkerId, models.contains(where: { $0.id == d }) { return d }
+        if let last = thread.lastWorkerId, models.contains(where: { $0.id == last }) { return last }
+        return models.first { $0.enabled && registry.manifest(for: $0)?.kind == .headlessCLI }?.id
     }
 
     var canSend: Bool {
@@ -76,8 +76,8 @@ final class ThreadsViewModel {
     }
 
     func driverName(for workerId: String) -> String {
-        guard let worker = workers.first(where: { $0.id == workerId }) else { return workerId }
-        return registry.manifest(for: worker)?.displayName ?? worker.driverId
+        guard let model = models.first(where: { $0.id == workerId }) else { return workerId }
+        return registry.manifest(for: model)?.displayName ?? model.driverId
     }
 
     // MARK: - List / selection

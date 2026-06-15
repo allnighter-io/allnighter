@@ -54,6 +54,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `docs/phases/Work_Order_Team_Model.md` |
+| CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` + `docs/phases/Team_First_Vocabulary_Cleanup.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
@@ -106,6 +107,8 @@ One-time per clone: `bash scripts/install_commit_queue_watcher.sh`. Full rules:
 - Prefer deterministic checks over recurring agent judgment.
 - A failed worker is shown failed, never faked. Hide the plumbing (legacy panel /
   council / master-plan words, worktree, subprocess).
+- CLI, GUI, MCP, and iOS must share the same team-run contract; do not invent
+  parallel JSON around `TeamRunJSON`.
 - Mac app is unsandboxed by design; still minimize privilege surface and document
   every permission request.
 - iOS companion connects only to the user's own Mac over Tailscale/local network

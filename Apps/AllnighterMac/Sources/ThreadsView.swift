@@ -190,7 +190,7 @@ private struct TurnRow: View {
         switch turn.family {
         case .message: messageRow
         case .reply: replyRow
-        case .council, .build: richRow
+        case .team, .build: richRow
         case .system: systemRow
         }
     }
@@ -207,7 +207,7 @@ private struct TurnRow: View {
         }
     }
 
-    // Worker reply — left-aligned, with status + heartbeat + reveal.
+    // Model reply — left-aligned, with status + heartbeat + reveal.
     private var replyRow: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
@@ -246,7 +246,7 @@ private struct TurnRow: View {
     private var richRow: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Image(systemName: turn.family == .council ? "person.3.fill" : "hammer.fill")
+                Image(systemName: turn.family == .team ? "person.3.fill" : "hammer.fill")
                     .foregroundStyle(ALColor.accentText)
                 Text(turn.kind.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)
                     .font(ALFont.label.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
@@ -364,7 +364,7 @@ private struct ThreadComposer: View {
 
     private var workerChip: some View {
         Menu {
-            ForEach(model.workers) { worker in
+            ForEach(model.models) { worker in
                 Button {
                     model.requestedWorkerId = worker.id
                 } label: {

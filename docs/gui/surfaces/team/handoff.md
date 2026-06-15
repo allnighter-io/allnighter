@@ -3,12 +3,12 @@
 > **Legacy visual reference.** The visual direction may still be useful, but the
 > vocabulary is superseded by `docs/phases/Work_Order_Team_Model.md` and
 > `docs/phases/Team_First_Vocabulary_Cleanup.md`. Do not copy public labels such
-> as Council, panel, synthesizer, member answer, or master plan into new UI.
+> as Council, panel, synthesizer, member answer, or plan into new UI.
 
 ## Overview
 The **Council** is the Allnighter MVP's primary screen. One prompt fans out to a
 panel of subscription coding-CLIs in parallel; every answer streams back; then
-**Opus 4.8 synthesizes one master plan**. Text-only, local, zero marginal cost.
+**Opus 4.8 synthesizes one plan**. Text-only, local, zero marginal cost.
 This pack documents that single window — its tokens, layout, states, and copy —
 for implementation as a **native SwiftUI macOS app**.
 
@@ -82,7 +82,7 @@ is static. Implement as a `Canvas`/`Shape` or a bundled SVG-derived `Path`:
 - Crescent = a filled circle (r≈32 at cx47,cy50 on a 100×100 box) minus a circle
   (r≈28 at cx62,cy41), filled with the amber gradient `#FFD79E → #FFA630 → #F0901C`.
 - Cursor block = rounded rect at x60,y43,w10.5,h17,r2.6, fill `#FFE9C6`.
-- **Idle:** block solid. **Running/synthesizing:** block blinks via
+- **Idle:** block solid. **Running/planning:** block blinks via
   `ALMotion.blink` (hard on/off, 1.05s). **Done:** block turns `ALColor.statusDone`.
   The block doubles as the activity light — never animate the whole mark.
 
@@ -92,7 +92,7 @@ Three sections, vertical:
    tracking `ALTracking.caps`, `textFaint`) + count `N of 6` (mono, `textFaint`,
    right). Below: the six **WorkerChip** rows (see component spec), each
    selectable with a checkbox affordance. At least one must stay selected.
-2. **Synthesizer** — label `Synthesizer`, then one `raised` row (radius `md`):
+2. **PlanWriter** — label `PlanWriter`, then one `raised` row (radius `md`):
    Opus glyph + `Opus 4.8` (`ALFont.body` 600) + `master` tag (mono, `accentText`)
    + a chevron. Tapping opens a picker (Opus / Sonnet).
 3. **Recent** — pinned to the bottom (`Spacer()` above). Label `Recent`, then
@@ -143,12 +143,12 @@ synthesize. Sidebar selection is **disabled** here.
     never hidden.** (Grok Build fails in the sample data.)
 - **Synthesis bar** (appears once all workers terminate): full-width, radius `lg`,
   a subtle top-down amber tint over `raised`, 1px `accentBorder`, padding 14×16,
-  12pt gap. Contains the **live mark** (26pt, blinking while synthesizing) + a
+  12pt gap. Contains the **live mark** (26pt, blinking while planning) + a
   two-line status, and—when ready—a primary **Button**:
-  - `synthesizing`: title `Opus is synthesizing the master plan…`, meta
+  - `planning`: title `Opus is planning the plan…`, meta
     `reading 5 answers · 1 failed`. Live mark blinks.
-  - `ready`: title `Master plan ready`, meta `5 answers · 00:42 · $0.00 marginal`,
-    + Button `View master plan` (`arrow-right`) → State 3.
+  - `ready`: title `Plan ready`, meta `5 answers · 00:42 · $0.00 marginal`,
+    + Button `View plan` (`arrow-right`) → State 3.
 
 **Timing (prototype values — replace with real CLI events):** workers start
 staggered ~170ms apart; sample durations Opus 4.2s, ChatGPT 2.6s, Sonnet 3.1s,
@@ -158,16 +158,16 @@ and freezes when synthesis is ready.
 
 ---
 
-## State 3 — **Master plan**
+## State 3 — **Plan**
 **Purpose:** read the synthesized plan; inspect every raw member answer.
 
 **Layout:** main padding 28×32pt.
-- **Header row:** a **segmented `Tabs`** — `Master plan` | `Member answers`
+- **Header row:** a **segmented `Tabs`** — `Plan` | `Member answers`
   (count 6) — on the left; on the right three buttons: ghost `Copy` (`copy`),
   secondary `Export Markdown` (`download`), primary `New run` (`plus` → reset to
   Compose).
 
-### Tab A — Master plan
+### Tab A — Plan
 - **Prompt recap card:** `accent` variant (amber-tinted surface), the prompt in
   quotes (`ALFont.body`, `textSecondary`) + an `Opus 4.8` mono `Badge`; meta line
   `synthesized from 5 answers · 00:42 · $0.00 marginal · local`.

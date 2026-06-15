@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Offline discipline gate: scores an artifact (a master plan / final spec) against
+/// Offline discipline gate: scores an artifact (a plan / final spec) against
 /// a hidden weighted rubric using a judge worker, and compares modes
 /// (solo / combined / separate / review_board) so a synthesis change is **proven**
 /// before it becomes a default. A dev/founder tool — never auto-grades a user run.
@@ -22,7 +22,7 @@ public struct EvalHarness: Sendable {
         artifact: String,
         mode: String,
         evalCase: EvalCase,
-        judge: Worker,
+        judge: Model,
         manifest: DriverManifest,
         config: EvalConfig
     ) async -> EvalScore {
@@ -39,14 +39,14 @@ public struct EvalHarness: Sendable {
             let avg = samples.isEmpty ? 0 : samples.reduce(0, +) / Double(samples.count)
             return EvalScore.CriterionScore(criterionId: crit.id, score: avg)
         }
-        return EvalScore.compute(caseId: evalCase.id, mode: mode, rubric: evalCase.rubric, scores: perCriterion, judgeWorkerId: judge.id)
+        return EvalScore.compute(caseId: evalCase.id, mode: mode, rubric: evalCase.rubric, scores: perCriterion, planWriterModelId: judge.id)
     }
 
     /// Score the same case's artifacts across modes for a side-by-side comparison.
     public func compareModes(
         artifactsByMode: [String: String],
         evalCase: EvalCase,
-        judge: Worker,
+        judge: Model,
         manifest: DriverManifest,
         config: EvalConfig
     ) async -> [EvalScore] {
@@ -75,7 +75,7 @@ public struct EvalHarness: Sendable {
     }
 
     func parseScores(_ raw: String) -> [EvalScore.CriterionScore]? {
-        guard let json = JudgeOutputParser.extractJSONArray(from: raw) else { return nil }
+        guard let json = PlanOutputParser.extractJSONArray(from: raw) else { return nil }
         return try? CoreJSON.decode([EvalScore.CriterionScore].self, from: Data(json.utf8))
     }
 }

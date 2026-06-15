@@ -2,10 +2,7 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// A minimal MCP stdio server (JSON-RPC 2.0, Content-Length framing) exposing the
-/// council as tools any MCP-aware agent (Claude Code, …) can call. Pinned to a
-/// named protocol version; unknown majors are reported clearly. Boring deps: a
-/// hand-rolled framer, no MCP library.
+/// A minimal MCP stdio server exposing the team as tools any MCP-aware agent can call.
 struct MCPServer {
     let runtime: ToolRuntime
     static let protocolVersion = "2024-11-05"
@@ -22,7 +19,7 @@ struct MCPServer {
             case "initialize":
                 respond(id: id, result: [
                     "protocolVersion": Self.protocolVersion,
-                    "serverInfo": ["name": "allnighter", "version": "0.6"],
+                    "serverInfo": ["name": "alln", "version": "0.6"],
                     "capabilities": ["tools": [:]]
                 ])
             case "tools/list":
@@ -42,20 +39,20 @@ struct MCPServer {
         let args = params["arguments"] as? [String: Any] ?? [:]
         let service = runtime.service()
         switch name {
-        case "council_ask":
+        case "team_ask":
             guard let q = args["question"] as? String else { return respondError(id: id, code: -32602, message: "question required") }
-            let req = CouncilRequest(question: q, presetId: args["preset"] as? String, context: args["context"] as? String)
+            let req = TeamRequest(question: q, presetId: args["preset"] as? String, context: args["context"] as? String)
             let result = await service.run(req, origin: .mcp, originAgent: "mcp")
-            let text = (result.masterPlan ?? result.note) + "\n\n[council \(result.preset): \(result.invocations) invocations]"
+            let text = (result.plan ?? result.note) + "\n\n[team \(result.preset): \(result.invocations) invocations]"
             respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(result)))
-        case "council_presets":
+        case "team_presets":
             let summaries = await service.presetSummaries()
             let text = summaries.map { "\($0.id): \($0.name) (\($0.shape))" }.joined(separator: "\n")
             respond(id: id, result: toolText(text))
-        case "council_recall":
+        case "team_recall":
             let q = args["query"] as? String ?? ""
             let hits = await service.recall(query: q)
-            let text = hits.isEmpty ? "(no prior councils match)" : hits.map { "\($0.createdAt) \($0.prompt)" }.joined(separator: "\n")
+            let text = hits.isEmpty ? "(no prior team runs match)" : hits.map { "\($0.createdAt) \($0.prompt)" }.joined(separator: "\n")
             respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(hits)))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
@@ -64,18 +61,18 @@ struct MCPServer {
 
     private func toolDefinitions() -> [[String: Any]] {
         [
-            ["name": "council_ask",
-             "description": "Run a local multi-model council on a question and return a synthesized master plan + structured analysis. Zero API cost. Use for hard architecture/design decisions.",
+            ["name": "team_ask",
+             "description": "Run a local multi-model team on a question and return a synthesized plan + structured analysis. Zero API cost. Use for hard architecture/design decisions.",
              "inputSchema": ["type": "object", "properties": [
                 "question": ["type": "string"],
                 "preset": ["type": "string", "description": "fast|quality|diverse_panel|self_double (optional)"],
                 "context": ["type": "string", "description": "optional bounded snippet to consider"]
              ], "required": ["question"]]],
-            ["name": "council_presets",
-             "description": "List available council presets with their work shape (seats, judge, stage layout).",
+            ["name": "team_presets",
+             "description": "List available team presets with their work shape (workers, plan writer, stage layout).",
              "inputSchema": ["type": "object", "properties": [:]]],
-            ["name": "council_recall",
-             "description": "Search prior local councils and return past judgments (read-only, zero cost).",
+            ["name": "team_recall",
+             "description": "Search prior local team runs and return past results (read-only, zero cost).",
              "inputSchema": ["type": "object", "properties": ["query": ["type": "string"]], "required": ["query"]]]
         ]
     }

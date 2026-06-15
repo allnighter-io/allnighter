@@ -9,7 +9,7 @@ struct RootView: View {
     @State private var showDoctor = false
     @State private var didInitialDoctor = false
     @State private var showMissingDriversAlert = false
-    @State private var workspaceMode: WorkspaceMode = .council
+    @State private var workspaceMode: WorkspaceMode = .team
     @State private var threads = ThreadsViewModel()
 
     var body: some View {
@@ -54,10 +54,10 @@ struct RootView: View {
         } message: {
             Text(
                 "Allnighter could not load driver manifests from the app bundle or embedded defaults. "
-                + "Reinstall from a fresh build — do not proceed with a hollow council."
+                + "Reinstall from a fresh build — do not proceed with a hollow team."
             )
         }
-        .onReceive(NotificationCenter.default.publisher(for: .allnighterQuickCapture)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .allnQuickCapture)) { _ in
             NSApplication.shared.activate(ignoringOtherApps: true)
             openWindow(id: "main")
             model.quickCapture(prefillClipboard: true)
@@ -92,15 +92,15 @@ private struct DetailPane: View {
 
 // MARK: - Sidebar
 
-private struct PanelSidebar: View {
+private struct TeamSidebar: View {
     @Environment(AppModel.self) private var model
     @Binding var showDoctor: Bool
 
     var body: some View {
         List {
             Section { PresetMenu() }
-            Section("Panel") {
-                ForEach(model.workers) { worker in WorkerRow(worker: worker) }
+            Section("Team") {
+                ForEach(model.models) { worker in WorkerRow(worker: worker) }
             }
             Section {
                 Button {
@@ -135,7 +135,7 @@ private struct PresetMenu: View {
                     }
                 }
                 Divider()
-                Button("Save current panel as preset…") { showSave = true }
+                Button("Save current team as preset…") { showSave = true }
                 if let active = model.presets.first(where: { $0.id == model.activePresetId }), !active.builtIn {
                     Button("Delete “\(active.displayName)”", role: .destructive) { model.deletePreset(active) }
                 }
@@ -145,7 +145,7 @@ private struct PresetMenu: View {
             Text(model.workOrderSummary)
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .alert("Save panel preset", isPresented: $showSave) {
+        .alert("Save team preset", isPresented: $showSave) {
             TextField("Preset name", text: $name)
             Button("Save") { model.saveCurrentAsPreset(named: name); name = "" }
             Button("Cancel", role: .cancel) { name = "" }
@@ -155,7 +155,7 @@ private struct PresetMenu: View {
 
 private struct WorkerRow: View {
     @Environment(AppModel.self) private var model
-    let worker: Worker
+    let worker: Model
 
     var body: some View {
         WorkerChip(
@@ -175,7 +175,7 @@ private struct WorkerRow: View {
     private var meta: String? {
         var parts: [String] = []
         if model.seatCount(for: worker) > 1 { parts.append("×\(model.seatCount(for: worker))") }
-        if model.judgeWorker?.id == worker.id { parts.append("judge") }
+        if model.planWriterModel?.id == worker.id { parts.append("judge") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -217,7 +217,7 @@ private struct HistorySection: View {
 }
 
 private struct HistoryRow: View {
-    let run: CouncilRun
+    let run: TeamRun
     let selected: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -241,7 +241,7 @@ private struct HistoryRow: View {
 
 private struct HistoryDetailView: View {
     @Environment(AppModel.self) private var model
-    let run: CouncilRun
+    let run: TeamRun
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -258,11 +258,11 @@ private struct HistoryDetailView: View {
                     Text(run.prompt).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if run.analysis != nil { AnalysisCard(run: run) }
-                if let plan = run.masterPlan, !plan.isEmpty {
-                    GroupBox("Master Plan") {
+                if let plan = run.plan, !plan.isEmpty {
+                    GroupBox("Plan") {
                         Text(plan).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    Button { copy(RunMarkdown.bundle(run, workers: model.workers)) } label: { Label("Copy full bundle", systemImage: "tray.and.arrow.up") }
+                    Button { copy(RunMarkdown.bundle(run, models: model.models)) } label: { Label("Copy full bundle", systemImage: "tray.and.arrow.up") }
                 }
                 ReviewBoardCard()
                 FinalSpecCard()
@@ -286,14 +286,14 @@ private struct PromptComposer: View {
                 .font(.body).frame(minHeight: 90, maxHeight: 160)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
             HStack {
-                Text("\(model.expandedSeats.count) seats selected").font(.caption).foregroundStyle(.secondary)
+                Text("\(model.expandedWorkers.count) workers selected").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if model.isRunning {
                     Button(role: .destructive) { model.stop() } label: { Label("Stop", systemImage: "stop.fill") }
                 } else {
-                    Button { model.runCouncil() } label: { Label("Run council", systemImage: "play.fill") }
+                    Button { model.runTeam() } label: { Label("Run team", systemImage: "play.fill") }
                         .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(model.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.expandedSeats.isEmpty)
+                        .disabled(model.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.expandedWorkers.isEmpty)
                 }
             }
         }
@@ -322,29 +322,29 @@ private struct RunResultsView: View {
             }
         } else {
             ContentUnavailableView(
-                "No council yet",
+                "No team run yet",
                 systemImage: "person.3.sequence",
-                description: Text("Type a prompt and run the council. Every seat answers in parallel.")
+                description: Text("Type a prompt and run the team. Every worker answers in parallel.")
             )
         }
     }
 }
 
 private struct VerdictStrip: View {
-    let run: CouncilRun
+    let run: TeamRun
     var body: some View {
-        let answered = run.members.filter(\.hasAnswer).count
+        let answered = run.workerAnswers.filter(\.hasAnswer).count
         HStack(spacing: 8) {
-            ForEach(run.members) { member in
+            ForEach(run.workerAnswers) { member in
                 HStack(spacing: 4) {
                     StatusDot(status: member.status)
-                    Text(member.seatId.replacingOccurrences(of: "worker_", with: "")).font(.caption)
+                    Text(member.workerId.replacingOccurrences(of: "worker_", with: "")).font(.caption)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4).background(.quaternary, in: Capsule())
             }
             Spacer()
             if let a = run.analysis {
-                Text("\(answered)/\(run.members.count) · \(a.consensus.count) consensus · \(a.contradictions.count) conflicts · \(a.blindSpots.count) gaps")
+                Text("\(answered)/\(run.workerAnswers.count) · \(a.consensus.count) consensus · \(a.contradictions.count) conflicts · \(a.blindSpots.count) gaps")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -353,7 +353,7 @@ private struct VerdictStrip: View {
 
 private struct AnalysisCard: View {
     @Environment(AppModel.self) private var model
-    let run: CouncilRun
+    let run: TeamRun
     @State private var expanded = true
     var body: some View {
         if let a = run.analysis {
@@ -368,8 +368,8 @@ private struct AnalysisCard: View {
                     }
                     section("Unique insights", a.uniqueInsights.map(\.statement))
                     section("Blind spots & gaps", a.blindSpots)
-                    if !a.failedSeats.isEmpty {
-                        Text("Did not answer: " + a.failedSeats.map { model.seatDisplayName($0.seatId, in: run) }.joined(separator: ", "))
+                    if !a.failedWorkers.isEmpty {
+                        Text("Did not answer: " + a.failedWorkers.map { model.seatDisplayName($0.workerId, in: run) }.joined(separator: ", "))
                             .font(.caption).foregroundStyle(.orange)
                     }
                 }.padding(.top, 4)
@@ -394,21 +394,21 @@ private struct AnalysisCard: View {
 
 private struct MasterPlanCard: View {
     @Environment(AppModel.self) private var model
-    let run: CouncilRun
+    let run: TeamRun
     @State private var pastedPlan = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("Master Plan", systemImage: "doc.text.magnifyingglass").font(.title3.bold())
+                Label("Plan", systemImage: "doc.text.magnifyingglass").font(.title3.bold())
                 Spacer()
-                if run.masterPlan != nil {
-                    Button { copy(model.masterPlanMarkdown()) } label: { Label("Copy plan", systemImage: "doc.on.doc") }
+                if run.plan != nil {
+                    Button { copy(model.planMarkdown()) } label: { Label("Copy plan", systemImage: "doc.on.doc") }
                     Button { copy(model.bundleMarkdown()) } label: { Label("Copy full bundle", systemImage: "tray.and.arrow.up") }
                 }
             }
             content
-            if let dir = model.lastSavedDirectory, run.masterPlan != nil {
+            if let dir = model.lastSavedDirectory, run.plan != nil {
                 Text("Saved to \(dir.path)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
             }
         }
@@ -418,9 +418,9 @@ private struct MasterPlanCard: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let plan = run.masterPlan, !plan.isEmpty {
+        if let plan = run.plan, !plan.isEmpty {
             Text(plan).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-        } else if run.status == .synthesizing {
+        } else if run.status == .planning {
             HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Synthesizing (analysis → plan)…") }
         } else if let manual = model.manualSynthesisPrompt {
             VStack(alignment: .leading, spacing: 6) {
@@ -432,10 +432,10 @@ private struct MasterPlanCard: View {
                     .disabled(pastedPlan.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         } else if run.status == .partial {
-            Label("Synthesis did not produce a plan. The analysis and member answers are still available.", systemImage: "exclamationmark.triangle")
+            Label("Synthesis did not produce a plan. The analysis and worker answers are still available.", systemImage: "exclamationmark.triangle")
                 .font(.callout).foregroundStyle(.orange)
         } else if run.status == .answersIn {
-            Text("No judge is seated. Add a worker that can synthesize (e.g. Opus 4.8).")
+            Text("No plan writer is on the team. Add a model that can write the plan (e.g. Opus 4.8).")
                 .font(.callout).foregroundStyle(.secondary)
         }
     }
@@ -446,9 +446,9 @@ private struct MasterPlanCard: View {
 
 private struct ReviewActions: View {
     @Environment(AppModel.self) private var model
-    let run: CouncilRun
+    let run: TeamRun
     var body: some View {
-        if run.masterPlan != nil && model.latestReviews.isEmpty && model.finalSpec == nil {
+        if run.plan != nil && model.latestReviews.isEmpty && model.finalSpec == nil {
             HStack(spacing: 8) {
                 if model.isReviewing {
                     ProgressView().controlSize(.small)
@@ -533,8 +533,8 @@ private struct DispatchCard: View {
                     Button { pickFolder() } label: { Image(systemName: "folder") }.help("Choose folder")
                 }
                 HStack {
-                    Picker("Worker", selection: Binding(get: { model.dispatchWorkerId ?? model.judgeWorker?.id ?? "" }, set: { model.dispatchWorkerId = $0 })) {
-                        ForEach(model.workers) { w in Text(w.displayName).tag(w.id) }
+                    Picker("Worker", selection: Binding(get: { model.dispatchWorkerId ?? model.planWriterModel?.id ?? "" }, set: { model.dispatchWorkerId = $0 })) {
+                        ForEach(model.models) { w in Text(w.displayName).tag(w.id) }
                     }.frame(maxWidth: 220)
                     Toggle("Reveal only", isOn: $model.dispatchRevealOnly)
                     Spacer()
@@ -610,12 +610,12 @@ private struct ReturnReviewSection: View {
 
 private struct MembersDisclosure: View {
     @Environment(AppModel.self) private var model
-    let run: CouncilRun
+    let run: TeamRun
     var body: some View {
-        DisclosureGroup("Member answers (\(run.members.count))") {
+        DisclosureGroup("Worker answers (\(run.workerAnswers.count))") {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(run.members) { member in
-                    MemberCard(member: member, name: model.seatDisplayName(member.seatId, in: run))
+                ForEach(run.workerAnswers) { member in
+                    MemberCard(member: member, name: model.seatDisplayName(member.workerId, in: run))
                 }
             }.padding(.top, 6)
         }.font(.headline)
@@ -623,7 +623,7 @@ private struct MembersDisclosure: View {
 }
 
 private struct StatusDot: View {
-    let status: MemberStatus
+    let status: WorkerAnswerStatus
     var body: some View { Circle().fill(color).frame(width: 8, height: 8) }
     private var color: Color {
         switch status {
@@ -639,7 +639,7 @@ private struct StatusDot: View {
 
 private struct MemberCard: View {
     @Environment(AppModel.self) private var model
-    let member: MemberResponse
+    let member: WorkerAnswer
     let name: String
     @State private var pasted = ""
 
@@ -677,7 +677,7 @@ private struct MemberCard: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Manual worker — run this prompt in its app and paste the answer:").font(.caption).foregroundStyle(.secondary)
             TextEditor(text: $pasted).frame(minHeight: 60).overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
-            Button("Use this answer") { model.setManualAnswer(seatId: member.seatId, text: pasted) }
+            Button("Use this answer") { model.setManualAnswer(workerId: member.workerId, text: pasted) }
                 .disabled(pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
@@ -697,18 +697,18 @@ private struct DoctorView: View {
                 Button { model.runDoctor() } label: { Label(model.isDoctorRunning ? "Checking…" : "Re-run", systemImage: "arrow.clockwise") }.disabled(model.isDoctorRunning)
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
-            Text("Detects each worker's CLI, checks the version, and runs a smoke test. A broken or updated CLI fails loudly here with a fix — it never silently drops from the panel.")
+            Text("Detects each model's CLI, checks the version, and runs a smoke test. A broken or updated CLI fails loudly here with a fix — it never silently drops from the bench.")
                 .font(.caption).foregroundStyle(.secondary)
             ScrollView {
                 VStack(spacing: 8) {
-                    ForEach(model.workers) { worker in
+                    ForEach(model.models) { worker in
                         DoctorRow(worker: worker, diagnosis: model.diagnosis(for: worker.id))
                     }
                     if !model.scorecards.isEmpty {
                         Divider().padding(.vertical, 4)
                         Text("Worker scorecards (from local history — estimates)").font(.caption.bold()).frame(maxWidth: .infinity, alignment: .leading)
                         ForEach(model.scorecards) { card in
-                            let name = model.workers.first { $0.id == card.workerId }?.displayName ?? card.workerId
+                            let name = model.models.first { $0.id == card.workerId }?.displayName ?? card.workerId
                             Text("\(name): answer \(pct(card.panelAnswerRate)), judge \(pct(card.judgeSuccessRate)), exec \(pct(card.executionSuccessRate))\(card.hasEnoughData ? "" : "  (insufficient data)")")
                                 .font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -722,8 +722,8 @@ private struct DoctorView: View {
 }
 
 private struct DoctorRow: View {
-    let worker: Worker
-    let diagnosis: WorkerDiagnosis?
+    let worker: Model
+    let diagnosis: ModelDiagnosis?
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
@@ -765,11 +765,11 @@ private struct TitleBar: View {
 
     var body: some View {
         ZStack {
-            // Centered identity: live mark + allnighter · council
+            // Centered identity: live mark + alln · team
             HStack(spacing: 8) {
                 LiveMark(state: model.isRunning ? .running : .idle, size: 16)
-                Text("allnighter").font(ALFont.label.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
-                Text("· council").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                Text("alln").font(ALFont.label.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
+                Text("· team").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             // Right controls
             HStack(spacing: 6) {
@@ -818,9 +818,9 @@ private struct SidebarView: View {
         VStack(spacing: 0) {
             // PANEL
             VStack(alignment: .leading, spacing: 0) {
-                sectionHeader("Panel", trailing: "\(model.seatedWorkerIds.count) of \(model.workers.count)")
+                sectionHeader("Team", trailing: "\(model.rosterModelIds.count) of \(model.models.count)")
                 VStack(spacing: 6) {
-                    ForEach(model.workers) { worker in
+                    ForEach(model.models) { worker in
                         WorkerChip(
                             name: worker.displayName,
                             model: "via " + model.driverName(for: worker).replacingOccurrences(of: "_", with: "-"),
@@ -838,7 +838,7 @@ private struct SidebarView: View {
 
             // SYNTHESIZER
             VStack(alignment: .leading, spacing: 0) {
-                sectionHeader("Synthesizer", trailing: nil)
+                sectionHeader("PlanWriter", trailing: nil)
                 synthRow
             }
             .padding(.horizontal, 14).padding(.bottom, 8)
@@ -867,9 +867,9 @@ private struct SidebarView: View {
 
     private var synthRow: some View {
         HStack(spacing: 10) {
-            WorkerGlyph(systemImage: model.judgeWorker.map { glyphSymbol(for: $0) } ?? "cpu",
-                        tint: model.judgeWorker.map { glyphTint(for: $0) } ?? ALColor.accent, size: 26)
-            Text(model.judgeWorker?.displayName ?? "None")
+            WorkerGlyph(systemImage: model.planWriterModel.map { glyphSymbol(for: $0) } ?? "cpu",
+                        tint: model.planWriterModel.map { glyphTint(for: $0) } ?? ALColor.accent, size: 26)
+            Text(model.planWriterModel?.displayName ?? "None")
                 .font(ALFont.body.weight(.semibold)).foregroundStyle(ALColor.textPrimary)
             Spacer(minLength: 6)
             Text("master").font(ALFont.monoSm).foregroundStyle(ALColor.accentText)
@@ -894,7 +894,7 @@ private struct SidebarView: View {
     }
 
     // Brand-glyph approximation via SF Symbols (real Simple Icons SVGs = follow-up).
-    private func glyphSymbol(for w: Worker) -> String {
+    private func glyphSymbol(for w: Model) -> String {
         let d = model.driverName(for: w).lowercased()
         let n = w.displayName.lowercased()
         if d.contains("gemini") { return "sparkle" }
@@ -903,15 +903,15 @@ private struct SidebarView: View {
         if d.contains("grok") || n.contains("grok") { return "bolt.fill" }
         return "cpu" // claude / opus / sonnet / default
     }
-    private func glyphTint(for w: Worker) -> Color {
-        if model.judgeWorker?.id == w.id { return ALColor.accent }
+    private func glyphTint(for w: Model) -> Color {
+        if model.planWriterModel?.id == w.id { return ALColor.accent }
         if case .unhealthy = model.diagnosis(for: w.id)?.health { return ALColor.statusTimeout }
         return ALColor.textSecondary
     }
 }
 
 private struct RecentRow: View {
-    let run: CouncilRun
+    let run: TeamRun
     let action: () -> Void
     @State private var hover = false
 
@@ -942,7 +942,7 @@ private struct RecentRow: View {
         }
     }
     private var metaText: String {
-        let done = run.members.filter { $0.status == .done }.count
+        let done = run.workerAnswers.filter { $0.status == .done }.count
         return "\(run.createdAt.formatted(.dateTime.hour().minute())) · \(done) done"
     }
 }
@@ -956,7 +956,7 @@ private struct ComposeView: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 0) {
-            Text("New council run")
+            Text("New team run")
                 .font(ALFont.caption.weight(.bold)).tracking(1.1).textCase(.uppercase)
                 .foregroundStyle(ALColor.accentText)
                 .padding(.bottom, 14)
@@ -972,19 +972,19 @@ private struct ComposeView: View {
                     .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 12)
                     .overlay(alignment: .topLeading) {
                         if model.prompt.isEmpty {
-                            Text("Ask the panel one thing…")
+                            Text("Ask the team one thing…")
                                 .font(.system(size: 18)).foregroundStyle(ALColor.textFaint)
                                 .padding(.leading, 23).padding(.top, 26)
                                 .allowsHitTesting(false)
                         }
                     }
                 HStack {
-                    Text("\(model.expandedSeats.count) workers · local · $0 marginal")
+                    Text("\(model.expandedWorkers.count) workers · local · $0 marginal")
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                     Spacer()
-                    Button { model.runCouncil() } label: { Label("Run council", systemImage: "play.fill") }
+                    Button { model.runTeam() } label: { Label("Run team", systemImage: "play.fill") }
                         .buttonStyle(.alPrimary)
-                        .disabled(model.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.expandedSeats.isEmpty)
+                        .disabled(model.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.expandedWorkers.isEmpty)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 12)
                 .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
@@ -1024,7 +1024,7 @@ private struct ComposeView: View {
 
 // MARK: - Workspace switcher (Council ↔ Threads)
 
-enum WorkspaceMode: String, CaseIterable { case council, threads }
+enum WorkspaceMode: String, CaseIterable { case team, threads }
 
 private struct WorkspaceSwitcher: View {
     @Binding var mode: WorkspaceMode
@@ -1033,7 +1033,7 @@ private struct WorkspaceSwitcher: View {
         HStack(spacing: 4) {
             ForEach(WorkspaceMode.allCases, id: \.self) { item in
                 Button { mode = item } label: {
-                    Text(item == .council ? "Council" : "Threads")
+                    Text(item == .team ? "Team" : "Threads")
                         .font(ALFont.label.weight(.semibold))
                         .foregroundStyle(mode == item ? ALColor.textOnAmber : ALColor.textSecondary)
                         .frame(maxWidth: .infinity)

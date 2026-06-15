@@ -2,7 +2,7 @@ The base surface for grouping content — panels, list rows, stat tiles, upsell 
 
 ```jsx
 <Card>
-  <h3>Master plan</h3>
+  <h3>Plan</h3>
   <p>Consensus, conflicts, and a decisive plan.</p>
 </Card>
 <Card variant="accent" interactive>Upgrade for deep analytics</Card>

@@ -6,11 +6,11 @@ import AllnighterCore
 public struct ResolvedLens: Sendable {
     public let lensId: String
     public let profile: PromptProfile
-    public let worker: Worker
+    public let worker: Model
     public let manifest: DriverManifest
     public let inputSelectors: [InputSelector]
 
-    public init(lensId: String, profile: PromptProfile, worker: Worker, manifest: DriverManifest, inputSelectors: [InputSelector]) {
+    public init(lensId: String, profile: PromptProfile, worker: Model, manifest: DriverManifest, inputSelectors: [InputSelector]) {
         self.lensId = lensId
         self.profile = profile
         self.worker = worker
@@ -41,14 +41,14 @@ public struct ReviewCoordinator: Sendable {
         return selectors
     }
 
-    public func review(run: CouncilRun, workers: [Worker], lenses: [ResolvedLens]) async -> [StageOutput] {
+    public func review(run: TeamRun, models: [Model], lenses: [ResolvedLens]) async -> [StageOutput] {
         let runner = reduceRunner
         let results = await withTaskGroup(of: (Int, StageOutput).self) { group in
             for (index, lens) in lenses.enumerated() {
                 group.addTask {
                     let prompt = StageInputBuilder.assemble(
                         instructions: lens.profile.template, selectors: lens.inputSelectors,
-                        run: run, workers: workers
+                        run: run, models: models
                     )
                     let stage = await runner.runMarkdown(
                         purpose: .review, worker: lens.worker, manifest: lens.manifest,

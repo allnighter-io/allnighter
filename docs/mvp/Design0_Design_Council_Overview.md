@@ -177,8 +177,8 @@ fork a persona. If options come back too similar, the user clicks **"more / re-r
 run_<id>/
   design_request.json     # prompt + persona set + attached screenshot ref + target shape (mobile/desktop)
   screenshot.png          # the attached "before" (if any); shown, never OCR'd
-  option_<seatId>.png     # the generated design image per seat (the unit)
-  board.json              # ordered gallery: seatId, engine, persona, imagePath
+  option_<workerId>.png     # the generated design image per seat (the unit)
+  board.json              # ordered gallery: workerId, engine, persona, imagePath
   chosen_option.json      # the human pick + rationale (logged for taste memory)
   design_build_brief.md   # DesignImplementationBrief: chosen image + existing target source + repo tokens (Design2)
   bundle.md               # composed view

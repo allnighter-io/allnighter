@@ -47,10 +47,10 @@ public struct EvalCase: Codable, Sendable, Equatable, Identifiable {
 
 /// Who grades and how many passes to average.
 public struct EvalConfig: Codable, Sendable, Equatable {
-    public var judgeWorkerId: String
+    public var planWriterModelId: String
     public var passes: Int
-    public init(judgeWorkerId: String, passes: Int = 3) {
-        self.judgeWorkerId = judgeWorkerId
+    public init(planWriterModelId: String, passes: Int = 3) {
+        self.planWriterModelId = planWriterModelId
         self.passes = max(1, passes)
     }
 }
@@ -73,22 +73,22 @@ public struct EvalScore: Codable, Sendable, Equatable {
     public var mode: String
     public var totalWeighted: Double
     public var perCriterion: [CriterionScore]
-    public var judgeWorkerId: String
+    public var planWriterModelId: String
     public var pass: Bool
 
-    public init(caseId: String, mode: String, totalWeighted: Double, perCriterion: [CriterionScore], judgeWorkerId: String, pass: Bool) {
+    public init(caseId: String, mode: String, totalWeighted: Double, perCriterion: [CriterionScore], planWriterModelId: String, pass: Bool) {
         self.caseId = caseId
         self.mode = mode
         self.totalWeighted = totalWeighted
         self.perCriterion = perCriterion
-        self.judgeWorkerId = judgeWorkerId
+        self.planWriterModelId = planWriterModelId
         self.pass = pass
     }
 
     /// Computes the weighted total + pass from per-criterion 0…1 scores.
-    public static func compute(caseId: String, mode: String, rubric: Rubric, scores: [CriterionScore], judgeWorkerId: String) -> EvalScore {
+    public static func compute(caseId: String, mode: String, rubric: Rubric, scores: [CriterionScore], planWriterModelId: String) -> EvalScore {
         let weightByID = Dictionary(rubric.criteria.map { ($0.id, $0.weight) }, uniquingKeysWith: { a, _ in a })
         let total = scores.reduce(0.0) { acc, s in acc + s.score * (weightByID[s.criterionId] ?? 0) }
-        return EvalScore(caseId: caseId, mode: mode, totalWeighted: total, perCriterion: scores, judgeWorkerId: judgeWorkerId, pass: total >= rubric.passMark)
+        return EvalScore(caseId: caseId, mode: mode, totalWeighted: total, perCriterion: scores, planWriterModelId: planWriterModelId, pass: total >= rubric.passMark)
     }
 }

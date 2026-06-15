@@ -2,8 +2,8 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// `allnighter` — Council-as-Tool (RB6). The universal shell surface any terminal
-/// agent can call, plus an MCP stdio server. Judgment only: links the council
+/// `alln` — Team-as-Tool (RB6). The universal shell surface any terminal
+/// agent can call, plus an MCP stdio server. Judgment only: links the team
 /// engine, never dispatch/executor code. Local Fusion at zero marginal cost.
 @main
 struct AllnighterCLI {
@@ -14,11 +14,13 @@ struct AllnighterCLI {
 
         let runtime = ToolRuntime()
         switch command {
-        case "ask": await runAsk(args, runtime)
+        case "team": await runTeam(args, runtime)
+        case "models": await runModels(args, runtime)
+        case "history": await runHistory(args, runtime)
         case "presets": await runPresets(args, runtime)
         case "recall": await runRecall(args, runtime)
         case "doctor": await runDoctor(runtime)
-        case "detect": await runDetect(runtime)
+        case "detect": await runDoctor(runtime)
         case "mcp": await MCPServer(runtime: runtime).serve()
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
@@ -30,20 +32,20 @@ struct AllnighterCLI {
 
     // MARK: - Subcommands
 
-    static func runAsk(_ args: [String], _ runtime: ToolRuntime) async {
+    static func runTeam(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let question = opts.positional.first ?? opts.value("question") else {
-            FileHandle.standardError.write(Data("usage: allnighter ask \"<question>\" [--preset id] [--context text] [--json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--preset id] [--context text] [--json]\n".utf8)); exit(2)
         }
-        let request = CouncilRequest(question: question, presetId: opts.value("preset"), context: opts.value("context"))
+        let request = TeamRequest(question: question, presetId: opts.value("preset"), context: opts.value("context"))
         let result = await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"))
         if opts.flag("json") {
             print(jsonString(result))
         } else if result.status == .failed && result.runId.isEmpty {
             FileHandle.standardError.write(Data((result.note + "\n").utf8)); exit(1)
         } else {
-            print(result.masterPlan ?? "(no master plan — status \(result.status.rawValue))")
-            FileHandle.standardError.write(Data("\n[council \(result.preset): \(result.invocations) invocations; run \(result.runId)]\n".utf8))
+            print(result.plan ?? "(no plan — status \(result.status.rawValue))")
+            FileHandle.standardError.write(Data("\n[team \(result.preset): \(result.invocations) invocations; run \(result.runId)]\n".utf8))
         }
     }
 
@@ -57,26 +59,41 @@ struct AllnighterCLI {
         }
     }
 
+    static func runHistory(_ args: [String], _ runtime: ToolRuntime) async {
+        await runRecall(args, runtime)
+    }
+
+    static func runModels(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        if opts.flag("json") {
+            print(jsonString(runtime.models))
+        } else {
+            for m in runtime.models {
+                print("\(m.id)\t\(m.displayName)\t\(m.driverId)\t\(m.enabled ? "on" : "off")")
+            }
+        }
+    }
+
     static func runRecall(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let query = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: allnighter recall \"<query>\"\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln recall \"<query>\"\n".utf8)); exit(2)
         }
         let hits = await runtime.service().recall(query: query)
         if opts.flag("json") {
             print(jsonString(hits))
         } else if hits.isEmpty {
-            print("(no prior councils match)")
+            print("(no prior team runs match)")
         } else {
-            for h in hits { print("\(h.createdAt) · \(h.runId)\n  \(h.prompt)\n  \(h.masterPlanExcerpt.replacingOccurrences(of: "\n", with: " ").prefix(160))\n") }
+            for h in hits { print("\(h.createdAt) · \(h.runId)\n  \(h.prompt)\n  \(h.planExcerpt.replacingOccurrences(of: "\n", with: " ").prefix(160))\n") }
         }
     }
 
     static func runDoctor(_ runtime: ToolRuntime) async {
-        let diagnoses = await Doctor(commandRunner: SubprocessCommandRunner()).diagnoseAll(workers: runtime.workers, registry: runtime.registry)
+        let diagnoses = await Doctor(commandRunner: SubprocessCommandRunner()).diagnoseAll(models: runtime.models, registry: runtime.registry)
         for d in diagnoses {
             let status = d.isHealthy ? "healthy" : (d.health == .unknown ? "manual" : "UNHEALTHY")
-            print("\(d.workerName)\t\(status)\t\(d.version ?? "")")
+            print("\(d.modelName)\t\(status)\t\(d.version ?? "")")
             if let hint = d.fixHint { print("  → \(hint)") }
         }
     }
@@ -88,7 +105,7 @@ struct AllnighterCLI {
     /// bundle registry, not here.
     static func runDetect(_ runtime: ToolRuntime) async {
         var models: [String: String] = [:]
-        for w in runtime.workers where models[w.driverId] == nil { models[w.driverId] = w.modelLabel }
+        for w in runtime.models where models[w.driverId] == nil { models[w.driverId] = w.modelLabel }
         let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
             .probeAll(runtime.registry.all, models: models, now: Date())
         for r in records.sorted(by: { $0.driverId < $1.driverId }) {
@@ -109,33 +126,34 @@ struct AllnighterCLI {
     }
 
     static func printInstallCLI() {
-        let path = CommandLine.arguments.first ?? "allnighter"
+        let path = CommandLine.arguments.first ?? "alln"
         print("""
-        To call `allnighter` from any shell/agent, symlink it onto your PATH:
-          ln -sf "\(path)" /usr/local/bin/allnighter
+        To call `alln` from any shell/agent, symlink it onto your PATH:
+          ln -sf "\(path)" /usr/local/bin/alln
         (Distribution is deferred; this is the dev-build path.)
         """)
     }
 
     static func printMCPInstall() {
-        let path = CommandLine.arguments.first ?? "/path/to/allnighter"
+        let path = CommandLine.arguments.first ?? "/path/to/alln"
         print("""
         Add this MCP server to your agent's config (Claude Code / Codex / Cursor),
         then restart the agent. Example (Claude Code ~/.claude/mcp or settings):
-          { "mcpServers": { "allnighter": { "command": "\(path)", "args": ["mcp"] } } }
-        Reachability check: `allnighter presets` should list the council presets.
+          { "mcpServers": { "alln": { "command": "\(path)", "args": ["mcp"] } } }
+        Reachability check: `alln presets` should list the team presets.
         """)
     }
 
     static func printHelp() {
         print("""
-        allnighter — local Fusion council, callable by any agent (zero API cost)
-          ask "<question>" [--preset id] [--context text] [--json]   run a council
-          presets [--json]                                           list presets + work shape
-          recall "<query>" [--json]                                  search prior councils (free)
-          doctor                                                     check worker CLIs
-          mcp                                                        run as an MCP stdio server
-          install-cli | mcp-install                                  setup helpers
+        alln — local team run, callable by any agent (zero API cost)
+          team "<question>" [--preset id] [--context text] [--json]   run a team
+          team show / presets [--json]                              list presets + work shape
+          history "<query>" | recall "<query>" [--json]             search prior team runs
+          models [--json]                                           list bench models
+          doctor                                                    check sources and models
+          mcp                                                       run as an MCP stdio server
+          install-cli | mcp-install                                 setup helpers
         """)
     }
 
@@ -145,25 +163,25 @@ struct AllnighterCLI {
     }
 }
 
-/// Loads tool config + builds a `CouncilService` from `DefaultConfig` (+ `Config/`
+/// Loads tool config + builds a `TeamService` from `DefaultConfig` (+ `Config/`
 /// overrides when present).
 struct ToolRuntime {
-    let workers: [Worker]
+    let models: [Model]
     let registry: DriverRegistry
-    let presets: [PanelPreset]
+    let presets: [TeamPreset]
     let config: ToolConfig
 
     init() {
         // Bridge the login-shell PATH so spawned CLIs resolve as in a terminal.
         ToolRuntime.applyLoginPath()
-        self.workers = DefaultConfig.workers
+        self.models = DefaultConfig.models
         self.registry = DefaultConfig.registry
-        self.presets = DefaultConfig.tieredPresets(panel: DefaultConfig.workers)
+        self.presets = DefaultConfig.tieredPresets(models: DefaultConfig.models)
         self.config = ToolRuntime.loadConfig()
     }
 
-    func service() -> CouncilService {
-        CouncilService(workers: workers, registry: registry, presets: presets, config: config)
+    func service() -> TeamService {
+        TeamService(models: models, registry: registry, presets: presets, config: config)
     }
 
     private static func loadConfig() -> ToolConfig {

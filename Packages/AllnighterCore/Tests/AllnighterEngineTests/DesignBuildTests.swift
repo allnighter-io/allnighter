@@ -6,20 +6,20 @@ import XCTest
 /// code (our ICP is redesign, not build-from-scratch).
 final class DesignBuildTests: XCTestCase {
 
-    private func designRun(chosen: Bool) -> (CouncilRun, URL) {
+    private func designRun(chosen: Bool) -> (TeamRun, URL) {
         let runFolder = FileManager.default.temporaryDirectory.appendingPathComponent("dbt-\(UUID().uuidString)")
         var board = BoardPayload(
             targetShape: .mobile,
             screenshotPath: "screenshot.png",
             options: [
-                DesignOption(seatId: "w1#0", workerId: "w1", persona: "minimal", imagePath: "option_w1-0.png", status: .done),
-                DesignOption(seatId: "w2#0", workerId: "w2", persona: "bold", status: .failed, failureReason: "x")
+                DesignOption(workerId: "w1#0", modelId: "w1", persona: "minimal", imagePath: "option_w1-0.png", status: .done),
+                DesignOption(workerId: "w2#0", modelId: "w2", persona: "bold", status: .failed, failureReason: "x")
             ]
         )
-        if chosen { board.chosen = ChosenOption(seatId: "w1#0", persona: "minimal", rejectedSeatIds: []) }
-        let run = CouncilRun(
+        if chosen { board.chosen = ChosenOption(workerId: "w1#0", persona: "minimal", rejectedWorkerIds: []) }
+        let run = TeamRun(
             id: "run-d", prompt: "make the profile premium", status: .complete, presetId: "design_board",
-            panel: [PanelSeat(id: "w1#0", workerId: "w1", seatIndex: 0, stance: "minimal")],
+            workers: [Worker(id: "w1#0", modelId: "w1", instanceIndex: 0, skillId: "minimal")],
             stages: [StageOutput(id: "b", purpose: .board, status: .done, payload: .board(board))],
             createdAt: Date(timeIntervalSince1970: 0)
         )
@@ -29,7 +29,7 @@ final class DesignBuildTests: XCTestCase {
     func testBuildsDesignBriefFromChosenOption() throws {
         let (run, folder) = designRun(chosen: true)
         let brief = try XCTUnwrap(DesignBriefBuilder.build(
-            run: run, chosenSeatId: "w1#0", executionWorkerId: "worker_opus",
+            run: run, chosenSeatId: "w1#0", executionWorkerId: "model_opus",
             workingDirectory: "/repo", runFolder: folder))
 
         XCTAssertEqual(brief.sourceArtifact, .designImage)

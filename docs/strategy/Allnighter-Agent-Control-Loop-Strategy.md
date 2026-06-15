@@ -4,7 +4,7 @@
 **Owner:** Founder + CTO  
 **Created:** 2026-06-14  
 **Purpose:** Preserve the product boundary so Allnighter stays focused on the
-highest-value wedge: orchestrating, synthesizing, dispatching, and evaluating AI
+highest-value wedge: orchestrating, planning, dispatching, and evaluating AI
 agent work across the user's existing CLIs.
 
 ---

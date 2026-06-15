@@ -42,7 +42,7 @@ CLI tools, and protocol types reused by both apps.
 ```text
 run council on Mac
 -> parallel subscription CLIs produce member answers
--> judge produces master plan
+-> judge produces plan
 -> grow through post-MVP phase docs
 ```
 

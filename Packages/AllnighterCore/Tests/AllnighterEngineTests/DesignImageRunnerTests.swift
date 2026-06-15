@@ -8,7 +8,7 @@ final class DesignImageRunnerTests: XCTestCase {
 
     private func tempDir() -> URL {
         let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("allnighter-design-test-\(UUID().uuidString)")
+            .appendingPathComponent("alln-design-test-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
@@ -18,8 +18,8 @@ final class DesignImageRunnerTests: XCTestCase {
         try? Data(bytes).write(to: url)
     }
 
-    private func seat() -> PanelSeat { PanelSeat(id: "worker_grok#0", workerId: "worker_grok", seatIndex: 0, stance: "bold") }
-    private func worker() -> Worker { Worker(id: "worker_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok") }
+    private func seat() -> Worker { Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: "bold") }
+    private func worker() -> Model { Model(id: "model_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok") }
 
     private func imageManifest(arrival: DriverManifest.ImageGen.Arrival) -> DriverManifest {
         DriverManifest(
@@ -64,7 +64,7 @@ final class DesignImageRunnerTests: XCTestCase {
             .run(seat: seat(), worker: worker(), manifest: imageManifest(arrival: .promptDirected), request: req(), runDir: dir)
 
         XCTAssertEqual(option.status, .done)
-        XCTAssertEqual(option.imagePath, "option_worker_grok-0.png")
+        XCTAssertEqual(option.imagePath, "option_model_grok-0.png")
         XCTAssertEqual(option.persona, "bold")
         XCTAssertEqual(option.sessionId, "sess-9")
         XCTAssertTrue(option.hasImage)
@@ -79,7 +79,7 @@ final class DesignImageRunnerTests: XCTestCase {
             .run(seat: seat(), worker: worker(), manifest: imageManifest(arrival: .promptDirected), request: req(), runDir: dir)
 
         XCTAssertEqual(option.status, .done)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("option_worker_grok-0.png").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("option_model_grok-0.png").path))
     }
 
     func testStdoutPathArrivalParsesAndCopies() async {
@@ -92,7 +92,7 @@ final class DesignImageRunnerTests: XCTestCase {
             .run(seat: seat(), worker: worker(), manifest: imageManifest(arrival: .stdoutPath), request: req(), runDir: dir)
 
         XCTAssertEqual(option.status, .done)
-        XCTAssertEqual(option.imagePath, "option_worker_grok-0.png")
+        XCTAssertEqual(option.imagePath, "option_model_grok-0.png")
         XCTAssertEqual(option.sessionId, "s1")
     }
 

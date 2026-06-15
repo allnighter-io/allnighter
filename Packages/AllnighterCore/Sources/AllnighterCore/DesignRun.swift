@@ -1,8 +1,8 @@
 import Foundation
 
-/// The design council (Lane 2). A design run reuses the council spine: the panel
+/// The design council (Lane 2). A design run reuses the team spine: the panel
 /// fans out (one image worker × one design persona per seat) and each seat's
-/// `MemberResponse.output` carries the **local path of a generated image** instead
+/// `WorkerAnswer.output` carries the **local path of a generated image** instead
 /// of prose. A `board` stage (`BoardPayload`) then organizes those images into the
 /// gallery the human picks from. Image engines design; coding agents build
 /// (`ImplementationBrief` carries the chosen image, Design2). See `docs/mvp/Design0`.
@@ -19,7 +19,7 @@ public enum TargetShape: String, Codable, Sendable, CaseIterable {
 }
 
 /// The reproducible input of a design run, persisted as `design_request.json`
-/// alongside `run.json`. The personas also live on the panel seats' `stance`; this
+/// alongside `run.json`. The personas also live on the workers' `stance`; this
 /// is the honest, self-contained record of what was asked.
 public struct DesignRequest: Codable, Sendable, Equatable {
     /// The user's instruction ("make this feel premium and clean").
@@ -50,29 +50,29 @@ public struct DesignRequest: Codable, Sendable, Equatable {
 /// failed (a gray tile + reason). `sessionId` is the engine's session handle, used
 /// by "more like this" (resume + image edit).
 public struct DesignOption: Codable, Sendable, Equatable, Identifiable {
-    public var seatId: String
     public var workerId: String
-    /// The persona id this seat wore (e.g. `bold`).
+    public var modelId: String
+    /// The design skill this worker wore (e.g. `bold`).
     public var persona: String
     public var imagePath: String?
     public var sessionId: String?
     public var status: StageStatus
     public var failureReason: String?
 
-    public var id: String { seatId }
+    public var id: String { workerId }
     public var hasImage: Bool { status == .done && (imagePath?.isEmpty == false) }
 
     public init(
-        seatId: String,
         workerId: String,
+        modelId: String,
         persona: String,
         imagePath: String? = nil,
         sessionId: String? = nil,
         status: StageStatus,
         failureReason: String? = nil
     ) {
-        self.seatId = seatId
         self.workerId = workerId
+        self.modelId = modelId
         self.persona = persona
         self.imagePath = imagePath
         self.sessionId = sessionId
@@ -85,25 +85,25 @@ public struct DesignOption: Codable, Sendable, Equatable, Identifiable {
 /// logged for future taste memory. Persisted inside the latest `board` stage and as
 /// `chosen_option.json`.
 public struct ChosenOption: Codable, Sendable, Equatable {
-    public var seatId: String
+    public var workerId: String
     public var persona: String
     /// User-authored ("why I picked this"); the best taste-ledger signal.
     public var rationale: String?
     /// Seats the user passed over (provenance for taste memory).
-    public var rejectedSeatIds: [String]
+    public var rejectedWorkerIds: [String]
     public var chosenAt: Date?
 
     public init(
-        seatId: String,
+        workerId: String,
         persona: String,
         rationale: String? = nil,
-        rejectedSeatIds: [String] = [],
+        rejectedWorkerIds: [String] = [],
         chosenAt: Date? = nil
     ) {
-        self.seatId = seatId
+        self.workerId = workerId
         self.persona = persona
         self.rationale = rationale
-        self.rejectedSeatIds = rejectedSeatIds
+        self.rejectedWorkerIds = rejectedWorkerIds
         self.chosenAt = chosenAt
     }
 }

@@ -2,29 +2,29 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-final class CouncilServiceTests: XCTestCase {
+final class TeamServiceTests: XCTestCase {
 
     private let combined = """
     ```json
-    {"consensus":[{"statement":"actor","sourceSeatIds":["worker_opus#0"]}],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedSeats":[]}
+    {"consensus":[{"statement":"actor","sourceWorkerIds":["model_opus#0"]}],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedWorkers":[]}
     ```
     ===PLAN===
-    # Master Plan
+    # Plan
     Use an actor.
     """
 
-    private func makeService(env: [String: String] = [:], capacity: Int = 2, store: RunStore) -> CouncilService {
-        let opus = Worker(id: "worker_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
+    private func makeService(env: [String: String] = [:], capacity: Int = 2, store: RunStore) -> TeamService {
+        let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
-        let preset = PanelPreset(id: "preset_fast", displayName: "Fast", seats: [PanelSeatSpec(workerId: "worker_opus")],
-                                 synthesis: SynthesisConfig(judgeWorkerId: "worker_opus", analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID))
+        let preset = TeamPreset(id: "preset_fast", displayName: "Fast", workerSpecs: [WorkerSpec(modelId: "model_opus")],
+                                 synthesis: SynthesisConfig(planWriterModelId: "model_opus", analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID))
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: combined, exitCode: 0)])
         let governorDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("gov-\(UUID().uuidString)")
-        return CouncilService(
-            workers: [opus], registry: registry, presets: [preset],
-            config: ToolConfig(exposedPresetIds: ["preset_fast"], defaultPresetId: "preset_fast", maxConcurrentCouncils: capacity, maxCouncilDepth: 1),
+        return TeamService(
+            models: [opus], registry: registry, presets: [preset],
+            config: ToolConfig(exposedPresetIds: ["preset_fast"], defaultPresetId: "preset_fast", maxConcurrentTeamRuns: capacity, maxTeamRunDepth: 1),
             runStore: store, commandRunner: mock,
-            governor: CouncilGovernor(directory: governorDir, capacity: capacity),
+            governor: TeamGovernor(directory: governorDir, capacity: capacity),
             environment: env
         )
     }
@@ -33,9 +33,9 @@ final class CouncilServiceTests: XCTestCase {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(store: RunStore(rootDirectory: tmp))
-        let result = await service.run(CouncilRequest(question: "actor or queue?"), origin: .cli)
+        let result = await service.run(TeamRequest(question: "actor or queue?"), origin: .cli)
         XCTAssertEqual(result.status, .complete)
-        XCTAssertNotNil(result.masterPlan)
+        XCTAssertNotNil(result.plan)
         XCTAssertNotNil(result.analysis)
         XCTAssertEqual(result.origin, .cli)
         XCTAssertGreaterThan(result.invocations, 0)
@@ -44,8 +44,8 @@ final class CouncilServiceTests: XCTestCase {
     func testRecursionGuardRefusesWhenInsideCouncil() async {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let service = makeService(env: ["ALLNIGHTER_COUNCIL_DEPTH": "1"], store: RunStore(rootDirectory: tmp))
-        let result = await service.run(CouncilRequest(question: "x"), origin: .mcp)
+        let service = makeService(env: ["ALLNIGHTER_TEAM_DEPTH": "1"], store: RunStore(rootDirectory: tmp))
+        let result = await service.run(TeamRequest(question: "x"), origin: .mcp)
         XCTAssertEqual(result.status, .failed)
         XCTAssertTrue(result.note.contains("nested councils"))
     }
@@ -55,17 +55,17 @@ final class CouncilServiceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
         let store = RunStore(rootDirectory: tmp)
         let service = makeService(store: store)
-        _ = await service.run(CouncilRequest(question: "should the run store be an actor?"), origin: .cli)
+        _ = await service.run(TeamRequest(question: "should the run store be an actor?"), origin: .cli)
         let hits = await service.recall(query: "run store")
         XCTAssertEqual(hits.count, 1)
         XCTAssertTrue(hits.first?.prompt.contains("run store") ?? false)
-        XCTAssertFalse(hits.first?.masterPlanExcerpt.isEmpty ?? true)
+        XCTAssertFalse(hits.first?.planExcerpt.isEmpty ?? true)
     }
 
     func testGovernorCapsConcurrency() {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("gov-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
-        let gov = CouncilGovernor(directory: dir, capacity: 1)
+        let gov = TeamGovernor(directory: dir, capacity: 1)
         let a = gov.acquire()
         XCTAssertNotNil(a)
         let b = gov.acquire()
@@ -78,6 +78,6 @@ final class CouncilServiceTests: XCTestCase {
         let service = makeService(store: RunStore(rootDirectory: tmp))
         let summaries = await service.presetSummaries()
         XCTAssertEqual(summaries.first?.id, "preset_fast")
-        XCTAssertTrue(summaries.first?.shape.contains("seat") ?? false)
+        XCTAssertTrue(summaries.first?.shape.contains("worker") ?? false)
     }
 }

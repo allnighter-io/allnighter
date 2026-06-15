@@ -28,8 +28,8 @@ final class DesignCoordinatorTests: XCTestCase {
         }
     }
 
-    private func imageWorker(_ id: String) -> Worker {
-        Worker(id: id, displayName: id, modelLabel: "m", driverId: "img")
+    private func imageModel(_ id: String) -> Model {
+        Model(id: id, displayName: id, modelLabel: "m", driverId: "img")
     }
 
     private func registry() -> DriverRegistry {
@@ -42,10 +42,10 @@ final class DesignCoordinatorTests: XCTestCase {
         )])
     }
 
-    private func seats() -> [PanelSeat] {
-        [PanelSeat(id: "w1#0", workerId: "w1", seatIndex: 0, stance: "minimal"),
-         PanelSeat(id: "w2#0", workerId: "w2", seatIndex: 0, stance: "bold"),
-         PanelSeat(id: "w3#0", workerId: "w3", seatIndex: 0, stance: "editorial")]
+    private func workers() -> [Worker] {
+        [Worker(id: "w1#0", modelId: "w1", instanceIndex: 0, skillId: "minimal"),
+         Worker(id: "w2#0", modelId: "w2", instanceIndex: 0, skillId: "bold"),
+         Worker(id: "w3#0", modelId: "w3", instanceIndex: 0, skillId: "editorial")]
     }
 
     func testAllSeatsRenderCompleteBoardInPanelOrder() async {
@@ -54,8 +54,8 @@ final class DesignCoordinatorTests: XCTestCase {
         let coordinator = DesignCoordinator(imageRunner: runner, registry: registry(), idFactory: { UUID().uuidString }, now: { Date(timeIntervalSince1970: 0) })
         let request = DesignRequest(prompt: "make it premium", personaIds: ["minimal", "bold", "editorial"], targetShape: .mobile)
 
-        let run = await coordinator.generate(request: request, seats: seats(),
-                                             workers: [imageWorker("w1"), imageWorker("w2"), imageWorker("w3")], runDir: dir)
+        let run = await coordinator.generate(request: request, teamWorkers: workers(),
+                                             models: [imageModel("w1"), imageModel("w2"), imageModel("w3")], runDir: dir)
 
         XCTAssertEqual(run.status, .complete)
         let board = run.latestStage(.board)?.payload?.board
@@ -63,7 +63,7 @@ final class DesignCoordinatorTests: XCTestCase {
         XCTAssertEqual(board?.options.map(\.persona), ["minimal", "bold", "editorial"])  // panel order
         XCTAssertEqual(board?.rendered.count, 3)
         XCTAssertEqual(board?.options.first?.sessionId, "s-minimal")
-        XCTAssertTrue(run.members.allSatisfy { $0.status == .done })
+        XCTAssertTrue(run.workerAnswers.allSatisfy { $0.status == .done })
     }
 
     func testPartialBoardWhenSomeSeatsFail() async {
@@ -72,14 +72,14 @@ final class DesignCoordinatorTests: XCTestCase {
         let coordinator = DesignCoordinator(imageRunner: runner, registry: registry())
         let request = DesignRequest(prompt: "x", personaIds: ["minimal", "bold", "editorial"], targetShape: .desktop)
 
-        let run = await coordinator.generate(request: request, seats: seats(),
-                                             workers: [imageWorker("w1"), imageWorker("w2"), imageWorker("w3")], runDir: dir)
+        let run = await coordinator.generate(request: request, teamWorkers: workers(),
+                                             models: [imageModel("w1"), imageModel("w2"), imageModel("w3")], runDir: dir)
 
         XCTAssertEqual(run.status, .partial)               // board still usable
         let board = run.latestStage(.board)?.payload?.board
         XCTAssertEqual(board?.rendered.count, 1)
         XCTAssertEqual(board?.options.filter { $0.status == .failed }.count, 2)
-        XCTAssertEqual(run.members.filter { $0.status == .failed }.count, 2)
+        XCTAssertEqual(run.workerAnswers.filter { $0.status == .failed }.count, 2)
     }
 
     func testNoSeatRendersIsFailedRun() async {
@@ -88,8 +88,8 @@ final class DesignCoordinatorTests: XCTestCase {
         let coordinator = DesignCoordinator(imageRunner: runner, registry: registry())
         let request = DesignRequest(prompt: "x", personaIds: ["minimal", "bold"], targetShape: .mobile)
         let run = await coordinator.generate(request: request,
-                                             seats: Array(seats().prefix(2)),
-                                             workers: [imageWorker("w1"), imageWorker("w2")], runDir: dir)
+                                             teamWorkers: Array(workers().prefix(2)),
+                                             models: [imageModel("w1"), imageModel("w2")], runDir: dir)
         XCTAssertEqual(run.status, .failed)
         XCTAssertEqual(run.latestStage(.board)?.payload?.board?.rendered.count, 0)
     }
@@ -100,10 +100,10 @@ final class DesignCoordinatorTests: XCTestCase {
         let coordinator = DesignCoordinator(imageRunner: runner, registry: registry())
         // Hoist into Sendable locals so the concurrent task captures no `self`.
         let request = DesignRequest(prompt: "x", personaIds: ["minimal"], targetShape: .mobile)
-        let s = seats()
-        let ws = [imageWorker("w1"), imageWorker("w2"), imageWorker("w3")]
+        let s = workers()
+        let ws = [imageModel("w1"), imageModel("w2"), imageModel("w3")]
 
-        async let runTask = coordinator.generate(request: request, seats: s, workers: ws, runDir: dir)
+        async let runTask = coordinator.generate(request: request, teamWorkers: s, models: ws, runDir: dir)
         var kinds: [String] = []
         for await event in coordinator.events { kinds.append(event.kind) }
         _ = await runTask

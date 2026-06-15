@@ -14,7 +14,7 @@ public struct DriverRegistry: Sendable {
         manifests[id]
     }
 
-    public func manifest(for worker: Worker) -> DriverManifest? {
+    public func manifest(for worker: Model) -> DriverManifest? {
         manifests[worker.driverId]
     }
 

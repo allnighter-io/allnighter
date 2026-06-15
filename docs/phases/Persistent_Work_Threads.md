@@ -73,7 +73,8 @@ Build in this order:
 ## Non-Negotiable Product Rules
 
 - **Chat is the default turn.** The user can brainstorm with one worker before
-  any team run, work order, or dispatch.
+  any team run, work order, or dispatch. That worker is still `model + skill`:
+  usually a selected model wearing the default Chat skill.
 - **Routing is per turn.** A thread may use Grok, then Claude, then the team,
   then Codex as builder.
 - **Enter never builds.** Hitting Enter sends a chat turn to the resolved default
@@ -91,7 +92,7 @@ Build in this order:
 
 Existing truth owners:
 
-- Legacy `CouncilRun` is the current durable unit for team/design/review/dispatch
+- Legacy `TeamRun` is the current durable unit for team/design/review/dispatch
   history until the vocabulary cleanup renames it to `TeamRun`.
 - `StageOutput` records analysis, plan, review, final spec, dispatch, return
   review, and outcome score stages.
@@ -108,7 +109,8 @@ Truth added by the MLP (S01–S06, built 2026-06-15):
 
 - ✅ Durable thread object — `WorkThread` (AllnighterCore).
 - ✅ Persisted chat turn model — `ThreadTurn` + `ThreadStore` (folder-of-JSON).
-- ✅ Backend contract for one-worker chat — `WorkerChatCoordinator`.
+- ✅ Backend contract for one-worker chat — legacy `WorkerChatCoordinator`
+  (rename/classify during the Model/Worker cleanup).
 - ✅ Context packet builder — `ThreadContextBuilder` + persisted
   `ThreadContextPacket`.
 
@@ -146,7 +148,8 @@ The designer should spec surfaces from these backend truths:
    escalation actions inside the thread.
 6. Team/build turns expand in place.
 7. Running/failed/waiting are turn states, not separate inboxes.
-8. The thread header exposes title, working directory, and default worker.
+8. The thread header exposes title, working directory, and default worker
+   (`model + chat skill`), not a bare model.
 9. The thread list is a triage surface: needs-attention, running, pinned, then
    recent.
 

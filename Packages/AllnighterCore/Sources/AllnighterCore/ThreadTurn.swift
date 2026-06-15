@@ -1,9 +1,9 @@
 import Foundation
 
 /// One entry in a `WorkThread` timeline: a user message, a one-worker reply, a
-/// rich council/build turn that references a `CouncilRun`, or a system note.
+/// rich council/build turn that references a `TeamRun`, or a system note.
 ///
-/// Heavy turns never copy run data — they point at `CouncilRun` via `runId`
+/// Heavy turns never copy run data — they point at `TeamRun` via `runId`
 /// (and `stageId` for a specific stage). Chat turns own their `text` directly.
 public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
     public var id: String
@@ -18,7 +18,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
     public var text: String?
     /// The worker that authored (or is running) this turn, when applicable.
     public var workerId: String?
-    /// References a `CouncilRun` for council/design/review/dispatch turns.
+    /// References a `TeamRun` for council/design/review/dispatch turns.
     public var runId: String?
     /// A specific `StageOutput` within the referenced run, when applicable.
     public var stageId: String?
@@ -81,7 +81,7 @@ public enum ThreadTurnKind: String, Codable, Sendable, CaseIterable {
     // Reply family
     case workerChat = "worker_chat"
     // Council family
-    case councilRun = "council_run"
+    case teamRun = "team_run"
     case designBoard = "design_board"
     case reviewBoard = "review_board"
     // Build family
@@ -96,7 +96,7 @@ public enum ThreadTurnKind: String, Codable, Sendable, CaseIterable {
 public enum TurnFamily: String, Codable, Sendable, CaseIterable {
     case message
     case reply
-    case council
+    case team
     case build
     case system
 }
@@ -108,8 +108,8 @@ public extension ThreadTurnKind {
             return .message
         case .workerChat:
             return .reply
-        case .councilRun, .designBoard, .reviewBoard:
-            return .council
+        case .teamRun, .designBoard, .reviewBoard:
+            return .team
         case .workOrder, .dispatch, .returnReview:
             return .build
         case .systemEvent:
@@ -121,17 +121,17 @@ public extension ThreadTurnKind {
     /// per thread in v1 (`council_run`, `dispatch`, `return_review`).
     var isHeavy: Bool {
         switch self {
-        case .councilRun, .designBoard, .reviewBoard, .dispatch, .returnReview:
+        case .teamRun, .designBoard, .reviewBoard, .dispatch, .returnReview:
             return true
         case .userMessage, .userDecision, .workerChat, .workOrder, .systemEvent:
             return false
         }
     }
 
-    /// A heavy turn that references a `CouncilRun` for its truth.
+    /// A heavy turn that references a `TeamRun` for its truth.
     var referencesRun: Bool {
         switch self {
-        case .councilRun, .designBoard, .reviewBoard, .dispatch, .returnReview:
+        case .teamRun, .designBoard, .reviewBoard, .dispatch, .returnReview:
             return true
         case .userMessage, .userDecision, .workerChat, .workOrder, .systemEvent:
             return false
@@ -140,7 +140,7 @@ public extension ThreadTurnKind {
 }
 
 /// Lifecycle of a single turn. `draft` is a composed-but-unsent work order or
-/// message; the heavy run/build status lives on the referenced `CouncilRun`.
+/// message; the heavy run/build status lives on the referenced `TeamRun`.
 public enum ThreadTurnStatus: String, Codable, Sendable, CaseIterable {
     case draft
     case queued

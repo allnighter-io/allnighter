@@ -1,15 +1,15 @@
 import Foundation
 import AllnighterCore
 
-/// Renders a council run to Markdown for viewing and export. `run.json` is the
+/// Renders a team run to Markdown for viewing and export. `run.json` is the
 /// only truth; every `.md` here is derived from it (regenerated on stage change).
 public enum RunMarkdown {
-    public static func masterPlan(_ run: CouncilRun) -> String {
-        run.masterPlan ?? ""
+    public static func plan(_ run: TeamRun) -> String {
+        run.plan ?? ""
     }
 
-    /// A human-readable view of the structured `JudgeAnalysis`.
-    public static func analysis(_ run: CouncilRun) -> String {
+    /// A human-readable view of the structured `PlanAnalysis`.
+    public static func analysis(_ run: TeamRun) -> String {
         guard let a = run.analysis else { return "" }
         var lines: [String] = ["# Council Analysis", ""]
 
@@ -17,7 +17,7 @@ public enum RunMarkdown {
             guard !items.isEmpty else { return }
             lines.append("## \(title)")
             for p in items {
-                let attrib = p.sourceSeatIds.isEmpty ? "" : " _(\(p.sourceSeatIds.joined(separator: ", ")))_"
+                let attrib = p.sourceWorkerIds.isEmpty ? "" : " _(\(p.sourceWorkerIds.joined(separator: ", ")))_"
                 lines.append("- \(p.statement)\(attrib)")
             }
             lines.append("")
@@ -29,7 +29,7 @@ public enum RunMarkdown {
             lines.append("## Conflicts")
             for c in a.contradictions {
                 lines.append("- **\(c.topic)**")
-                for pos in c.positions { lines.append("  - \(pos.seatId): \(pos.summary)") }
+                for pos in c.positions { lines.append("  - \(pos.workerId): \(pos.summary)") }
                 lines.append("  - → \(c.recommendedResolution)")
             }
             lines.append("")
@@ -43,9 +43,9 @@ public enum RunMarkdown {
             lines.append("")
         }
 
-        if !a.failedSeats.isEmpty {
+        if !a.failedWorkers.isEmpty {
             lines.append("## Seats that did not answer")
-            for f in a.failedSeats { lines.append("- \(f.seatId): \(f.reason)") }
+            for f in a.failedWorkers { lines.append("- \(f.workerId): \(f.reason)") }
             lines.append("")
         }
 
@@ -59,14 +59,14 @@ public enum RunMarkdown {
 
     /// The full export bundle, canonical order: prompt → members → analysis →
     /// plan (RB appends reviews → final spec → return).
-    public static func bundle(_ run: CouncilRun, workers: [Worker]) -> String {
-        let workerByID = Dictionary(workers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        func sharesWorker(_ seat: PanelSeat) -> Bool {
-            run.panel.filter { $0.workerId == seat.workerId }.count > 1
+    public static func bundle(_ run: TeamRun, models: [Model]) -> String {
+        let workerByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        func sharesModel(_ seat: Worker) -> Bool {
+            run.workers.filter { $0.modelId == seat.modelId }.count > 1
         }
-        func seatName(_ seat: PanelSeat) -> String {
-            let workerName = workerByID[seat.workerId]?.displayName ?? seat.workerId
-            return seat.displayName(workerName: workerName, sharesWorker: sharesWorker(seat))
+        func seatName(_ seat: Worker) -> String {
+            let modelName = workerByID[seat.modelId]?.displayName ?? seat.modelId
+            return seat.displayName(modelName: modelName, sharesModel: sharesModel(seat))
         }
 
         var lines: [String] = ["# Council Run", "", "## Prompt", "", run.prompt, ""]
@@ -76,13 +76,13 @@ public enum RunMarkdown {
             lines.append(contentsOf: ["---", "", analysisText, ""])
         }
 
-        if let plan = run.masterPlan, !plan.isEmpty {
+        if let plan = run.plan, !plan.isEmpty {
             lines.append(contentsOf: ["---", "", plan, ""])
         }
 
-        lines.append(contentsOf: ["---", "", "## Member answers", ""])
-        for seat in run.panel {
-            let member = run.member(seatId: seat.id)
+        lines.append(contentsOf: ["---", "", "## Worker answers", ""])
+        for seat in run.workers {
+            let member = run.workerAnswer(workerId: seat.id)
             lines.append("### \(seatName(seat))")
             lines.append("")
             if let member, member.hasAnswer {
@@ -114,7 +114,7 @@ public enum RunMarkdown {
     }
 
     /// Latest completed review per lens id (append-only stages → newest wins).
-    public static func latestReviews(_ run: CouncilRun) -> [StageOutput] {
+    public static func latestReviews(_ run: TeamRun) -> [StageOutput] {
         var byLens: [String: StageOutput] = [:]
         for stage in run.stages where stage.purpose == .review {
             let lens = stage.payload?.review?.lensId ?? stage.promptProfileId ?? stage.id
@@ -123,7 +123,7 @@ public enum RunMarkdown {
         return byLens.values.sorted { ($0.promptProfileId ?? $0.id) < ($1.promptProfileId ?? $1.id) }
     }
 
-    public static func finalSpec(_ run: CouncilRun) -> String {
+    public static func finalSpec(_ run: TeamRun) -> String {
         run.latestStage(.finalSpec)?.payload?.markdown ?? ""
     }
 }

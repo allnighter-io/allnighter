@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 
 /// RB3: the first-principles finalizer. A reduce over the prompt + raw seat
-/// answers + structured `JudgeAnalysis` + draft plan + advisory reviews,
+/// answers + structured `PlanAnalysis` + draft plan + advisory reviews,
 /// producing a decisive, executable `final_spec` with structured decisions
 /// (adopt/partial/reject/defer; contradiction resolutions; insight rulings).
 /// Runs even with zero reviews (`reviewBoardRan = false`). Reviews are advisory:
@@ -31,15 +31,15 @@ public struct Finalizer: Sendable {
     }
 
     public func finalize(
-        run: CouncilRun,
-        finalizer: Worker,
+        run: TeamRun,
+        finalizer: Model,
         manifest: DriverManifest,
-        workers: [Worker],
+        models: [Model],
         profile: PromptProfile,
         selectors: [InputSelector] = [.founderPrompt, .memberAnswers, .judgeAnalysis, .draftPlan, .reviews]
     ) async -> StageOutput {
         let reviewBoardRan = run.stages.contains { $0.purpose == .review && $0.status == .done }
-        let prompt = StageInputBuilder.assemble(instructions: profile.template, selectors: selectors, run: run, workers: workers)
+        let prompt = StageInputBuilder.assemble(instructions: profile.template, selectors: selectors, run: run, models: models)
         let started = now()
         let outcome = await workerRunner.invoke(worker: finalizer, manifest: manifest, prompt: prompt)
         let finished = now()
@@ -75,7 +75,7 @@ public struct Finalizer: Sendable {
         }
         let spec = String(raw[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
         let tail = String(raw[range.upperBound...])
-        guard let json = JudgeOutputParser.extractJSONObject(from: tail),
+        guard let json = PlanOutputParser.extractJSONObject(from: tail),
               let decisions = try? CoreJSON.decode(Decisions.self, from: Data(json.utf8)) else {
             return (spec, nil, false)
         }

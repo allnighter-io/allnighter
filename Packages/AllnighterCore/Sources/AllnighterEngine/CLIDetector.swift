@@ -3,7 +3,7 @@ import AllnighterCore
 
 // First-run CLI detection (docs/phases/setup/01 §4). Resolves each tool the way
 // the user's terminal does (login-shell `command -v`), version-checks it, smoke-
-// tests it, and classifies it into the canonical `WorkerSetupStatus`. The same
+// tests it, and classifies it into the canonical `ModelSetupStatus`. The same
 // resolved `ToolInvocation` is reused for runs so health == runs.
 
 // MARK: - ShellResolver
@@ -138,7 +138,7 @@ public struct CLIDetector: Sendable {
 
     // MARK: helpers
 
-    private func record(_ m: DriverManifest, _ status: WorkerSetupStatus, _ inv: ToolInvocation?, _ version: String?, _ now: Date) -> ToolProbeRecord {
+    private func record(_ m: DriverManifest, _ status: ModelSetupStatus, _ inv: ToolInvocation?, _ version: String?, _ now: Date) -> ToolProbeRecord {
         ToolProbeRecord(driverId: m.id, status: status, invocation: inv, version: version, lastProbeAt: now)
     }
 
@@ -170,7 +170,7 @@ public struct CLIDetector: Sendable {
             .first(where: { !$0.isEmpty })
     }
 
-    private func smokeClassify(_ manifest: DriverManifest, model: String, invocation: ToolInvocation, version: String) async -> WorkerSetupStatus {
+    private func smokeClassify(_ manifest: DriverManifest, model: String, invocation: ToolInvocation, version: String) async -> ModelSetupStatus {
         guard let raw = manifest.resolvedCommandString(manifest.smokeTestCommand, model: model) else {
             return .ready(version: version) // no smoke contract → presence is all we can assert
         }

@@ -27,9 +27,9 @@ landing line** for solo builders who use AI as their primary dev workforce.
 ### What's being built (two horizons)
 1. **The MVP — "The Council"** (active build, `uploads/README-b6a6d478.md`).
    One prompt → fan out, unchanged, to a panel of subscription CLIs in parallel
-   → **Opus 4.8 synthesizes one master plan**. Text-only, local, private,
+   → **Opus 4.8 synthesizes one plan**. Text-only, local, private,
    **zero marginal cost** (subscription CLIs only — no API keys). The promise:
-   *"One prompt in. One master plan out. The bench answers in parallel. You
+   *"One prompt in. One plan out. The bench answers in parallel. You
    never touch the clipboard."* This is the surface the brand must serve first.
 2. **The full roadmap** (parked, `uploads/README.md`). The worktree "factory":
    hidden lanes, parallel **races**, **picker-as-prompt** ("Implement This"),
@@ -56,13 +56,13 @@ The hidden engineering is impressive; the copy stays quiet about it.
 - **Person:** address the user as **you** ("your bench", "you never touch the
   clipboard"). The product is **Allnighter**, rarely "we".
 - **Casing:** **sentence case** everywhere — buttons, labels, headings
-  (`Run council`, `Choose the panel`, `Copy master plan`). Not Title Case.
+  (`Run council`, `Choose the panel`, `Copy plan`). Not Title Case.
 - **Verbs first, tight:** actions are imperative — `Run council`, `Add worker`,
   `Synthesize`, `Copy`, `Export Markdown`, `Stop`.
 - **Hide the plumbing.** Say **panel, worker, council run, member answer,
-  synthesizer, master plan, lane, draft, landing, preview**. Never expose
+  synthesizer, plan, lane, draft, landing, preview**. Never expose
   *worktree, rebase, detached HEAD, port collision, subprocess* in core UX.
-- **Lead with the outcome, not the model.** "One master plan out", not "LLM
+- **Lead with the outcome, not the model.** "One plan out", not "LLM
   orchestration." Never lead with "AI". The AI is a docked tool, never the hero.
 - **Ownership & utilization language.** *You already pay for it · zero marginal
   cost · local · private · you own it · export.* This is the differentiator —
@@ -80,8 +80,8 @@ The hidden engineering is impressive; the copy stays quiet about it.
 - Hero: *"Put your Mac on the night shift."*
 - One-liner: *"You already pay for the team. Allnighter makes it show up to work."*
 - Empty state: *"Type one prompt. The bench answers in parallel."*
-- Run status: *"6 done · 0 failed · synthesizing master plan…"*
-- Done toast: *"Master plan ready — $0.00 marginal."* (calm, factual, not salesy.)
+- Run status: *"6 done · 0 failed · planning plan…"*
+- Done toast: *"Plan ready — $0.00 marginal."* (calm, factual, not salesy.)
 
 ---
 

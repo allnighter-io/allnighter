@@ -4,13 +4,13 @@ import AllnighterCore
 
 final class FinalizerTests: XCTestCase {
 
-    private func run(withReview: Bool) -> CouncilRun {
-        var run = CouncilRun(id: "r", prompt: "Build X", status: .complete,
-                             panel: [TestSupport.seat("worker_opus")],
-                             members: [MemberResponse(seatId: "worker_opus#0", workerId: "worker_opus", status: .done, output: "Use an actor.")],
+    private func run(withReview: Bool) -> TeamRun {
+        var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
+                             workers: [TestSupport.seat("model_opus")],
+                             workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "Use an actor.")],
                              createdAt: Date())
         run.stages = [
-            StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(JudgeAnalysis(contradictions: [Contradiction(topic: "store", positions: [], recommendedResolution: "actor")]))),
+            StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(PlanAnalysis(contradictions: [Contradiction(topic: "store", positions: [], recommendedResolution: "actor")]))),
             StageOutput(id: "p", purpose: .plan, status: .done, payload: .plan(markdown: "# Plan\nActor."))
         ]
         if withReview {
@@ -19,7 +19,7 @@ final class FinalizerTests: XCTestCase {
         return run
     }
 
-    private func finalizerWorker() -> Worker { TestSupport.worker("worker_opus", driverId: "claude_code", role: .both) }
+    private func finalizerModel() -> Model { TestSupport.worker("model_opus", driverId: "claude_code", role: .both) }
     private var profile: PromptProfile { BuiltInProfiles.finalSpec }
 
     private let goodOutput = """
@@ -42,7 +42,7 @@ final class FinalizerTests: XCTestCase {
         let fin = Finalizer(workerRunner: WorkerRunner(commandRunner: mock))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
-        let stage = await fin.finalize(run: run(withReview: true), finalizer: finalizerWorker(), manifest: manifest, workers: [finalizerWorker()], profile: profile)
+        let stage = await fin.finalize(run: run(withReview: true), finalizer: finalizerModel(), manifest: manifest, models: [finalizerModel()], profile: profile)
         XCTAssertEqual(stage.purpose, .finalSpec)
         XCTAssertEqual(stage.status, .done)
         let payload = stage.payload?.finalSpec
@@ -59,7 +59,7 @@ final class FinalizerTests: XCTestCase {
         let fin = Finalizer(workerRunner: WorkerRunner(commandRunner: mock))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
-        let stage = await fin.finalize(run: run(withReview: false), finalizer: finalizerWorker(), manifest: manifest, workers: [finalizerWorker()], profile: profile)
+        let stage = await fin.finalize(run: run(withReview: false), finalizer: finalizerModel(), manifest: manifest, models: [finalizerModel()], profile: profile)
         XCTAssertEqual(stage.status, .done)               // never fail a usable spec
         XCTAssertFalse(stage.payload?.finalSpec?.decisionsStructured ?? true)
         XCTAssertFalse(stage.payload?.finalSpec?.reviewBoardRan ?? true)  // zero-review path

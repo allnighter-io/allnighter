@@ -1,10 +1,10 @@
 import Foundation
 import AllnighterCore
 
-/// Owns one design run's image fan-out (Lane 2). Mirrors `CouncilRunCoordinator`:
+/// Owns one design run's image fan-out (Lane 2). Mirrors `TeamRunCoordinator`:
 /// builds per-seat image requests (one image worker × one design persona), runs
 /// every seat in parallel via `DesignImageRunner`, writes each image into the run
-/// folder, and emits `RunEvent`s keyed by `seatId` so the board reveals
+/// folder, and emits `RunEvent`s keyed by `workerId` so the board reveals
 /// progressively. The board (`BoardPayload`) is the first truth surface — no AI
 /// verdict precedes it. The unit is a generated image; OCR and HTML rendering are
 /// dead. See `docs/mvp/Design1`.
@@ -33,7 +33,7 @@ public actor DesignCoordinator {
         self.continuation = continuation
     }
 
-    /// Fans the design request out across `seats`, writing images into `runDir`,
+    /// Fans the design request out across `teamWorkers`, writing images into `runDir`,
     /// and returns the settled run carrying the `board` stage. A failed seat is a
     /// gray tile, never a blocked board: the run is `complete` if every seat
     /// rendered, `partial` if some failed but ≥1 rendered, `failed` if none did.
@@ -41,31 +41,31 @@ public actor DesignCoordinator {
     /// stores the run-relative `request.screenshotPath` for the before/after toggle.
     public func generate(
         request: DesignRequest,
-        seats: [PanelSeat],
-        workers: [Worker],
+        teamWorkers: [Worker],
+        models: [Model],
         runDir: URL,
         screenshotAbsolutePath: String? = nil,
         runId: String? = nil
-    ) async -> CouncilRun {
-        let workerByID = Dictionary(workers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let manifestByWorker = Dictionary(uniqueKeysWithValues: workers.map { ($0.id, registry.manifest(for: $0)) })
+    ) async -> TeamRun {
+        let modelByID = Dictionary(uniqueKeysWithValues: models.map { ($0.id, $0) })
+        let manifestByModel = Dictionary(uniqueKeysWithValues: models.map { ($0.id, registry.manifest(for: $0)) })
 
-        var run = CouncilRun(
+        var run = TeamRun(
             id: runId ?? idFactory(),
             prompt: request.prompt,
             status: .draft,
             origin: .gui,
             presetId: "design_board",
-            panel: seats,
-            members: seats.map { MemberResponse(seatId: $0.id, workerId: $0.workerId, status: .queued) },
+            workers: teamWorkers,
+            workerAnswers: teamWorkers.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
             createdAt: now()
         )
 
         run = transition(run, to: .fanningOut)
-        for index in run.members.indices where run.members[index].status == .queued {
-            run.members[index].status = .running
-            run.members[index].startedAt = now()
-            emitMember(run.members[index], runId: run.id, from: .queued)
+        for index in run.workerAnswers.indices where run.workerAnswers[index].status == .queued {
+            run.workerAnswers[index].status = .running
+            run.workerAnswers[index].startedAt = now()
+            emitMember(run.workerAnswers[index], runId: run.id, from: .queued)
         }
 
         let runner = imageRunner
@@ -76,10 +76,10 @@ public actor DesignCoordinator {
         // tile fills in progressively (the image path rides the event).
         var options: [DesignOption] = []
         await withTaskGroup(of: DesignOption.self) { group in
-            for seat in seats {
-                let worker = workerByID[seat.workerId]
-                let manifest = worker.flatMap { manifestByWorker[$0.id] ?? nil }
-                let personaId = seat.stance ?? "minimal"
+            for assignment in teamWorkers {
+                let model = modelByID[assignment.modelId]
+                let manifest = model.flatMap { manifestByModel[$0.id] ?? nil }
+                let personaId = assignment.skillId ?? "minimal"
                 let seatRequest = DesignSeatRequest(
                     userPrompt: prompt,
                     personaId: personaId,
@@ -88,32 +88,39 @@ public actor DesignCoordinator {
                     screenshotPath: screenshotAbsolutePath
                 )
                 group.addTask {
-                    guard let worker else {
-                        return DesignOption(seatId: seat.id, workerId: seat.workerId, persona: personaId,
-                                            status: .failed, failureReason: "no worker for seat \(seat.id)")
+                    guard let model else {
+                        return DesignOption(
+                            workerId: assignment.id, modelId: assignment.modelId, persona: personaId,
+                            status: .failed, failureReason: "no model for worker \(assignment.id)"
+                        )
                     }
                     guard let manifest else {
-                        return DesignOption(seatId: seat.id, workerId: worker.id, persona: personaId,
-                                            status: .failed, failureReason: "no driver manifest for \(worker.driverId)")
+                        return DesignOption(
+                            workerId: assignment.id, modelId: model.id, persona: personaId,
+                            status: .failed, failureReason: "no driver manifest for \(model.driverId)"
+                        )
                     }
-                    return await runner.run(seat: seat, worker: worker, manifest: manifest, request: seatRequest, runDir: runDir)
+                    return await runner.run(
+                        seat: assignment, worker: model, manifest: manifest,
+                        request: seatRequest, runDir: runDir
+                    )
                 }
             }
             for await option in group {
                 options.append(option)
-                guard let index = run.members.firstIndex(where: { $0.seatId == option.seatId }) else { continue }
-                let previous = run.members[index].status
-                run.members[index].status = Self.memberStatus(for: option.status)
-                run.members[index].output = option.imagePath
-                run.members[index].errorReason = option.failureReason
-                run.members[index].finishedAt = now()
-                emitMember(run.members[index], runId: run.id, from: previous, imagePath: option.imagePath)
+                guard let index = run.workerAnswers.firstIndex(where: { $0.workerId == option.workerId }) else { continue }
+                let previous = run.workerAnswers[index].status
+                run.workerAnswers[index].status = Self.memberStatus(for: option.status)
+                run.workerAnswers[index].output = option.imagePath
+                run.workerAnswers[index].errorReason = option.failureReason
+                run.workerAnswers[index].finishedAt = now()
+                emitMember(run.workerAnswers[index], runId: run.id, from: previous, imagePath: option.imagePath)
             }
         }
 
         // Restore panel order for the board (TaskGroup completion order varies).
-        let orderBySeat = Dictionary(uniqueKeysWithValues: seats.enumerated().map { ($1.id, $0) })
-        let ordered = options.sorted { (orderBySeat[$0.seatId] ?? 0) < (orderBySeat[$1.seatId] ?? 0) }
+        let orderBySeat = Dictionary(uniqueKeysWithValues: teamWorkers.enumerated().map { ($1.id, $0) })
+        let ordered = options.sorted { (orderBySeat[$0.workerId] ?? 0) < (orderBySeat[$1.workerId] ?? 0) }
 
         run = transition(run, to: .answersIn)
         if Task.isCancelled {
@@ -121,7 +128,7 @@ public actor DesignCoordinator {
         }
 
         // Assemble the board (board assembly is the design run's "synthesis").
-        run = transition(run, to: .synthesizing)
+        run = transition(run, to: .planning)
         let board = BoardPayload(
             targetShape: request.targetShape,
             screenshotPath: request.screenshotPath,
@@ -143,7 +150,7 @@ public actor DesignCoordinator {
         return run
     }
 
-    static func memberStatus(for status: StageStatus) -> MemberStatus {
+    static func memberStatus(for status: StageStatus) -> WorkerAnswerStatus {
         switch status {
         case .done: return .done
         case .timedOut: return .timedOut
@@ -151,11 +158,11 @@ public actor DesignCoordinator {
         }
     }
 
-    // MARK: - Event helpers (mirror CouncilRunCoordinator)
+    // MARK: - Event helpers (mirror TeamRunCoordinator)
 
     private func nextSeq() -> Int64 { seq += 1; return seq }
 
-    private func transition(_ run: CouncilRun, to next: RunStatus) -> CouncilRun {
+    private func transition(_ run: TeamRun, to next: RunStatus) -> TeamRun {
         guard run.canTransition(to: next) else { return run }
         var updated = run
         let from = updated.status
@@ -168,10 +175,10 @@ public actor DesignCoordinator {
         return updated
     }
 
-    private func emitMember(_ member: MemberResponse, runId: String, from: MemberStatus, imagePath: String? = nil) {
+    private func emitMember(_ member: WorkerAnswer, runId: String, from: WorkerAnswerStatus, imagePath: String? = nil) {
         var payload: [String: JSONValue] = [
-            "runId": .string(runId), "seatId": .string(member.seatId),
-            "workerId": .string(member.workerId), "from": .string(from.rawValue),
+            "runId": .string(runId), "workerId": .string(member.workerId),
+            "modelId": .string(member.modelId), "from": .string(from.rawValue),
             "to": .string(member.status.rawValue)
         ]
         if let imagePath { payload["output"] = .string(imagePath) }   // the run-relative image, for progressive board reveal

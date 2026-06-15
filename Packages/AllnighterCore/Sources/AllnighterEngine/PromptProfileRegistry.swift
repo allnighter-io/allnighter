@@ -10,7 +10,7 @@ public enum BuiltInProfiles {
                       purpose: .judgeAnalysis, template: SynthesisInstructions.analysisText, builtIn: true)
     }
     public static var judgePlan: PromptProfile {
-        PromptProfile(id: SynthesisInstructions.planID, displayName: "Judge — Master Plan",
+        PromptProfile(id: SynthesisInstructions.planID, displayName: "Judge — Plan",
                       purpose: .judgePlan, template: SynthesisInstructions.planText, builtIn: true)
     }
 

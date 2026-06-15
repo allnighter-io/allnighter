@@ -39,7 +39,8 @@ spine can carry them safely.
 - No requirement that every driver stream.
 - No mobile streaming requirement.
 - No parsing provider usage from stream text in this phase.
-- No changing `CouncilRun`/`ThreadTurn` ownership.
+- No changing `TeamRun`/`ThreadTurn` ownership. Current code may still say
+  `TeamRun` until the vocabulary cleanup lands.
 - No token-per-second charts or fake telemetry unless the driver reports exact
   values as structured events.
 - No inline discard/reset of workspace changes after cancellation.

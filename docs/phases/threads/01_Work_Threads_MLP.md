@@ -85,7 +85,7 @@ ThreadTurn
 - author                 # user | worker(workerId) | system
 - text?
 - workerId?
-- runId?                 # references TeamRun after rename; legacy CouncilRun today
+- runId?                 # references TeamRun after rename; legacy TeamRun today
 - stageId?
 - artifactRefs: [ArtifactRef]
 - contextPacketId?
@@ -121,7 +121,7 @@ ArtifactRef
 Ownership rule:
 
 - `ThreadTurn.runId` references `TeamRun` after the rename; current code still
-  references legacy `CouncilRun`.
+  references legacy `TeamRun`.
 - The run object is not modified for chat.
 - A store-level index may map run -> thread, but it is derived.
 
@@ -179,17 +179,21 @@ Default worker resolution:
 1. thread.defaultWorkerId, if set
 2. else thread.lastWorkerId
 3. else global daily-driver preference
-4. else first healthy headless-CLI worker
+4. else first ready model with the default Chat skill
 ```
 
 The resolved worker must be visible as a composer chip:
 
 ```text
-Replying as Claude - last used in this thread
+Replying as Opus / Chat - last used in this thread
 ```
 
 Tapping the chip changes the worker for this turn; the user may optionally save
 that choice as the thread default.
+
+Vocabulary rule: a chat turn is one model wearing one skill. It is not a full
+team run, but product copy should still call the active turn target a worker, not
+a bare model.
 
 Composer state:
 
@@ -237,7 +241,7 @@ Attached files:
 - <path>: <capped contents>
 
 Relevant artifacts:
-- Master plan from run <id>: <excerpt>
+- Plan from run <id>: <excerpt>
 
 Latest user message:
 <message>
@@ -284,7 +288,8 @@ AllnighterEngine:
 
 - Add `ThreadStore` beside `RunStore`.
 - Add `ThreadContextBuilder`.
-- Add `WorkerChatCoordinator`.
+- Add `WorkerChatCoordinator` (legacy name; classify/rename during the
+  Model/Worker cleanup).
 - Reuse `WorkerRunner.invoke`, passing `workingDirectoryOverride`.
 - Add manual-paste fallback that reveals exact context and stores pasted reply.
 - Add thin turn-update mechanism for chat turns.

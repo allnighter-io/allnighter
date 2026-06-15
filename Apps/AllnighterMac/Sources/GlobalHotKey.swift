@@ -4,13 +4,13 @@ import Carbon.HIToolbox
 extension Notification.Name {
     /// Posted when the global quick-capture hotkey fires. The app's root view
     /// observes it on the main actor and brings the composer forward.
-    static let allnighterQuickCapture = Notification.Name("AllnighterQuickCapture")
+    static let allnQuickCapture = Notification.Name("AllnighterQuickCapture")
 }
 
 /// A system-wide hotkey via Carbon `RegisterEventHotKey`. Carbon is the reliable
 /// no-entitlement path for a global shortcut in an unsandboxed Mac app: unlike
 /// `NSEvent` global monitors it needs no Accessibility permission. On fire it
-/// posts `.allnighterQuickCapture` rather than calling UI directly, so no
+/// posts `.allnQuickCapture` rather than calling UI directly, so no
 /// main-actor state is captured into the C callback. (Carbon delivers hotkey
 /// events on the main run loop.)
 enum GlobalHotKey {
@@ -52,7 +52,7 @@ enum GlobalHotKey {
                     nil, MemoryLayout<EventHotKeyID>.size, nil, &hkID
                 )
                 if hkID.signature == GlobalHotKey.signature {
-                    NotificationCenter.default.post(name: .allnighterQuickCapture, object: nil)
+                    NotificationCenter.default.post(name: .allnQuickCapture, object: nil)
                 }
                 return noErr
             },

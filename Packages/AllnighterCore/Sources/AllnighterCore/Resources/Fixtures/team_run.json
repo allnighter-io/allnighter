@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "1.0.0",
+  "teamRun": {
+    "id": "run_20260615_2214",
+    "status": "complete",
+    "origin": "cli",
+    "lane": "build",
+    "type": "feature",
+    "effort": "deep",
+    "prompt": "Pressure-test this launch plan.",
+    "createdAt": "2026-06-15T22:14:00Z",
+    "completedAt": "2026-06-15T22:16:08Z",
+    "threadId": null,
+    "teamPresetId": "preset_quality",
+    "planWriterWorkerId": "model_opus#0"
+  },
+  "models": [
+    {
+      "id": "model_opus",
+      "displayName": "Opus 4.8",
+      "sourceId": "claude_code",
+      "status": "ready"
+    },
+    {
+      "id": "model_sonnet",
+      "displayName": "Sonnet 4.6",
+      "sourceId": "claude_code",
+      "status": "ready"
+    }
+  ],
+  "workers": [
+    {
+      "id": "model_opus#0",
+      "skillId": "first_principles",
+      "skillName": "First Principles",
+      "modelId": "model_opus",
+      "modelName": "Opus 4.8",
+      "sourceId": "claude_code",
+      "purpose": "answer",
+      "instanceIndex": 0
+    },
+    {
+      "id": "model_sonnet#0",
+      "skillId": "skeptic",
+      "skillName": "Skeptic",
+      "modelId": "model_sonnet",
+      "modelName": "Sonnet 4.6",
+      "sourceId": "claude_code",
+      "purpose": "answer",
+      "instanceIndex": 0
+    }
+  ],
+  "workerAnswers": [
+    {
+      "workerId": "model_opus#0",
+      "modelId": "model_opus",
+      "status": "done",
+      "durationMs": 102000,
+      "output": "The launch plan underestimates onboarding friction."
+    },
+    {
+      "workerId": "model_sonnet#0",
+      "modelId": "model_sonnet",
+      "status": "done",
+      "durationMs": 70000,
+      "output": "Messaging is strong but proof is thin."
+    }
+  ],
+  "stages": [
+    {
+      "id": "stage_analysis_01",
+      "purpose": "analysis",
+      "producedByWorkerId": "model_opus",
+      "promptProfileId": "plan_analysis_v1",
+      "status": "done"
+    },
+    {
+      "id": "stage_plan_01",
+      "purpose": "plan",
+      "producedByWorkerId": "model_opus",
+      "promptProfileId": "plan_writer_v1",
+      "status": "done"
+    }
+  ],
+  "plan": "# Plan\n\n## The Plan\nTighten proof before launch and add a guided first-run.",
+  "warnings": [],
+  "errors": [],
+  "nextActions": [
+    { "command": "alln show run_20260615_2214", "label": "Show run" },
+    { "command": "alln export run_20260615_2214 --format md", "label": "Export markdown" }
+  ]
+}

@@ -33,10 +33,10 @@ final class DefaultConfigDriftTests: XCTestCase {
     }
 
     func testEmbeddedWorkersMatchPanelDefaultJSON() throws {
-        let url = driversDir().appendingPathComponent("panel_default.json")
-        let bundled = try CoreJSON.decode([Worker].self, from: Data(contentsOf: url))
-        XCTAssertEqual(bundled.map(\.id), DefaultConfig.workers.map(\.id))
-        XCTAssertEqual(bundled.map(\.driverId), DefaultConfig.workers.map(\.driverId))
-        XCTAssertEqual(bundled.map(\.modelLabel), DefaultConfig.workers.map(\.modelLabel))
+        let url = driversDir().appendingPathComponent("team_default.json")
+        let bundled = try CoreJSON.decode([Model].self, from: Data(contentsOf: url))
+        XCTAssertEqual(bundled.map(\.id), DefaultConfig.models.map(\.id))
+        XCTAssertEqual(bundled.map(\.driverId), DefaultConfig.models.map(\.driverId))
+        XCTAssertEqual(bundled.map(\.modelLabel), DefaultConfig.models.map(\.modelLabel))
     }
 }

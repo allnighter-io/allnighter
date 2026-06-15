@@ -81,11 +81,11 @@ window.RunView = function RunView({ workers, states, elapsed, prompt, synth, onS
         });
       })),
     synth !== 'waiting' && R.createElement('div', { className: 'alc-synthbar' },
-      R.createElement(LiveMark, { size: 26, run: synth === 'synthesizing' }),
+      R.createElement(LiveMark, { size: 26, run: synth === 'planning' }),
       R.createElement('div', { className: 'st' },
-        R.createElement('div', { className: 't' }, synth === 'synthesizing' ? 'Opus is synthesizing the master plan…' : 'Master plan ready'),
-        R.createElement('div', { className: 'm' }, synth === 'synthesizing' ? 'reading 5 answers · 1 failed' : '5 answers · 00:42 · $0.00 marginal')),
-      synth === 'ready' && R.createElement(Button, { variant: 'primary', iconLeft: R.createElement(Icon, { name: 'arrow-right', size: 15 }), onClick: onView }, 'View master plan')));
+        R.createElement('div', { className: 't' }, synth === 'planning' ? 'Opus is planning the plan…' : 'Plan ready'),
+        R.createElement('div', { className: 'm' }, synth === 'planning' ? 'reading 5 answers · 1 failed' : '5 answers · 00:42 · $0.00 marginal')),
+      synth === 'ready' && R.createElement(Button, { variant: 'primary', iconLeft: R.createElement(Icon, { name: 'arrow-right', size: 15 }), onClick: onView }, 'View plan')));
 };
 
 /* ---------- PlanView ---------- */
@@ -106,7 +106,7 @@ window.PlanView = function PlanView({ onNew }) {
   return R.createElement('div', { className: 'alc-pad' },
     R.createElement('div', { className: 'alc-planhead' },
       R.createElement(Tabs, { variant: 'segmented', value: tab, onChange: setTab, items: [
-        { value: 'plan', label: 'Master plan' }, { value: 'answers', label: 'Member answers', count: 6 }] }),
+        { value: 'plan', label: 'Plan' }, { value: 'answers', label: 'Member answers', count: 6 }] }),
       R.createElement('div', { style: { display: 'flex', gap: 8 } },
         R.createElement(Button, { variant: 'ghost', size: 'sm', iconLeft: R.createElement(Icon, { name: 'copy', size: 14 }) }, 'Copy'),
         R.createElement(Button, { variant: 'secondary', size: 'sm', iconLeft: R.createElement(Icon, { name: 'download', size: 14 }) }, 'Export Markdown'),

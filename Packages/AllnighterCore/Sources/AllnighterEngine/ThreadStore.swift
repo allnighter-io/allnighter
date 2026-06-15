@@ -22,7 +22,7 @@ public enum ThreadStoreError: Error, Equatable, CustomStringConvertible {
 ///
 /// The run→thread inverse index (PWT-S02) is **derived** by scanning thread
 /// turns, never an authoritative stored mapping, so it cannot drift from turn
-/// truth. `CouncilRun` is never modified for chat.
+/// truth. `TeamRun` is never modified for chat.
 public struct ThreadStore: Sendable {
     public let rootDirectory: URL
 

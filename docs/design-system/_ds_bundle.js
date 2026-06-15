@@ -2228,7 +2228,7 @@ window.Sidebar = function Sidebar({
     style: {
       marginBottom: 10
     }
-  }, 'Synthesizer'), R.createElement('div', {
+  }, 'PlanWriter'), R.createElement('div', {
     className: 'alk-synth'
   }, R.createElement(Glyph, {
     worker: workers[0]
@@ -2550,21 +2550,21 @@ window.RunView = function RunView({
     className: 'alc-synthbar'
   }, R.createElement(LiveMark, {
     size: 26,
-    run: synth === 'synthesizing'
+    run: synth === 'planning'
   }), R.createElement('div', {
     className: 'st'
   }, R.createElement('div', {
     className: 't'
-  }, synth === 'synthesizing' ? 'Opus is synthesizing the master plan…' : 'Master plan ready'), R.createElement('div', {
+  }, synth === 'planning' ? 'Opus is planning the plan…' : 'Plan ready'), R.createElement('div', {
     className: 'm'
-  }, synth === 'synthesizing' ? 'reading 5 answers · 1 failed' : '5 answers · 00:42 · $0.00 marginal')), synth === 'ready' && R.createElement(Button, {
+  }, synth === 'planning' ? 'reading 5 answers · 1 failed' : '5 answers · 00:42 · $0.00 marginal')), synth === 'ready' && R.createElement(Button, {
     variant: 'primary',
     iconLeft: R.createElement(Icon, {
       name: 'arrow-right',
       size: 15
     }),
     onClick: onView
-  }, 'View master plan')));
+  }, 'View plan')));
 };
 
 /* ---------- PlanView ---------- */
@@ -2625,7 +2625,7 @@ window.PlanView = function PlanView({
     onChange: setTab,
     items: [{
       value: 'plan',
-      label: 'Master plan'
+      label: 'Plan'
     }, {
       value: 'answers',
       label: 'Member answers',

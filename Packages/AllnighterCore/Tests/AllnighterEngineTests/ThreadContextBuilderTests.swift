@@ -18,20 +18,20 @@ final class ThreadContextBuilderTests: XCTestCase {
                    createdAt: now, author: .user, text: text)
     }
 
-    private func reply(_ id: String, _ text: String, worker: String = "worker_opus") -> ThreadTurn {
+    private func reply(_ id: String, _ text: String, worker: String = "model_opus") -> ThreadTurn {
         ThreadTurn(id: id, threadId: "t1", kind: .workerChat, status: .done,
                    createdAt: now, author: .worker, text: text, workerId: worker)
     }
 
     func testRecentTurnsPreserveProvenance() {
         let builder = ThreadContextBuilder()
-        let t = thread([user("u1", "first question"), reply("r1", "first answer", worker: "worker_grok")])
+        let t = thread([user("u1", "first question"), reply("r1", "first answer", worker: "model_grok")])
         let packet = builder.build(thread: t, latestMessage: "follow up", turnId: "u2",
                                    packetId: "p1", now: now)
         XCTAssertEqual(packet.strategy, .recentTurns)
         XCTAssertTrue(packet.text.contains("Thread: Team accounts"))
         XCTAssertTrue(packet.text.contains("User: first question"))
-        XCTAssertTrue(packet.text.contains("worker_grok: first answer"))
+        XCTAssertTrue(packet.text.contains("model_grok: first answer"))
         XCTAssertTrue(packet.text.contains("Latest user message:\nfollow up"))
         XCTAssertEqual(packet.includedTurnIds, ["u1", "r1"])
         XCTAssertFalse(packet.truncated)
@@ -99,10 +99,10 @@ final class ThreadContextBuilderTests: XCTestCase {
 
     func testInThreadArtifactsIncludedWithRunIds() {
         let builder = ThreadContextBuilder()
-        var council = ThreadTurn(id: "c1", threadId: "t1", kind: .councilRun, status: .done,
+        var teamRun = ThreadTurn(id: "c1", threadId: "t1", kind: .teamRun, status: .done,
                                  createdAt: now, author: .system, runId: "run_9")
-        council.artifactRefs = [ArtifactRef(kind: .masterPlan, runId: "run_9", excerpt: "Phase 1")]
-        let packet = builder.build(thread: thread([user("u1", "hi"), council]),
+        teamRun.artifactRefs = [ArtifactRef(kind: .plan, runId: "run_9", excerpt: "Phase 1")]
+        let packet = builder.build(thread: thread([user("u1", "hi"), teamRun]),
                                    latestMessage: "go", turnId: "x", packetId: "p1", now: now)
         XCTAssertTrue(packet.text.contains("Relevant artifacts:"))
         XCTAssertTrue(packet.text.contains("master_plan — from run run_9 — “Phase 1”"))

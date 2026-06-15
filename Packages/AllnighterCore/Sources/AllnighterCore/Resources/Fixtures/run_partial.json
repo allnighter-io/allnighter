@@ -5,44 +5,44 @@
   "origin": "gui",
   "presetId": "preset_six_default",
   "createdAt": "2026-06-14T20:01:00Z",
-  "panel": [
-    { "id": "worker_chatgpt#0", "workerId": "worker_chatgpt", "seatIndex": 0 },
-    { "id": "worker_opus#0", "workerId": "worker_opus", "seatIndex": 0 },
-    { "id": "worker_sonnet#0", "workerId": "worker_sonnet", "seatIndex": 0 },
-    { "id": "worker_composer#0", "workerId": "worker_composer", "seatIndex": 0 },
-    { "id": "worker_gemini#0", "workerId": "worker_gemini", "seatIndex": 0 },
-    { "id": "worker_grok#0", "workerId": "worker_grok", "seatIndex": 0 }
+  "workers": [
+    { "id": "model_chatgpt#0", "modelId": "model_chatgpt", "instanceIndex": 0 },
+    { "id": "model_opus#0", "modelId": "model_opus", "instanceIndex": 0 },
+    { "id": "model_sonnet#0", "modelId": "model_sonnet", "instanceIndex": 0 },
+    { "id": "model_composer#0", "modelId": "model_composer", "instanceIndex": 0 },
+    { "id": "model_gemini#0", "modelId": "model_gemini", "instanceIndex": 0 },
+    { "id": "model_grok#0", "modelId": "model_grok", "instanceIndex": 0 }
   ],
-  "members": [
-    { "seatId": "worker_chatgpt#0", "workerId": "worker_chatgpt", "status": "done", "output": "Lead with team accounts; analytics can wait one cycle.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:30Z", "durationMs": 29010, "exitCode": 0 },
-    { "seatId": "worker_opus#0", "workerId": "worker_opus", "status": "done", "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:22Z", "durationMs": 21450, "exitCode": 0 },
-    { "seatId": "worker_sonnet#0", "workerId": "worker_sonnet", "status": "done", "output": "Agree on team accounts first, but ship a thin analytics event schema now.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:25Z", "durationMs": 24300, "exitCode": 0 },
-    { "seatId": "worker_composer#0", "workerId": "worker_composer", "status": "skipped" },
-    { "seatId": "worker_gemini#0", "workerId": "worker_gemini", "status": "failed", "errorKind": "auth_required", "errorReason": "gemini CLI is not logged in (run: gemini auth login)", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:03Z", "exitCode": 1 },
-    { "seatId": "worker_grok#0", "workerId": "worker_grok", "status": "timed_out", "errorKind": "timed_out", "errorReason": "no output for 120s", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:03:01Z" }
+  "workerAnswers": [
+    { "workerId": "model_chatgpt#0", "modelId": "model_chatgpt", "status": "done", "output": "Lead with team accounts; analytics can wait one cycle.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:30Z", "durationMs": 29010, "exitCode": 0 },
+    { "workerId": "model_opus#0", "modelId": "model_opus", "status": "done", "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:22Z", "durationMs": 21450, "exitCode": 0 },
+    { "workerId": "model_sonnet#0", "modelId": "model_sonnet", "status": "done", "output": "Agree on team accounts first, but ship a thin analytics event schema now.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:25Z", "durationMs": 24300, "exitCode": 0 },
+    { "workerId": "model_composer#0", "modelId": "model_composer", "status": "skipped" },
+    { "workerId": "model_gemini#0", "modelId": "model_gemini", "status": "failed", "errorKind": "auth_required", "errorReason": "gemini CLI is not logged in (run: gemini auth login)", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:03Z", "exitCode": 1 },
+    { "workerId": "model_grok#0", "modelId": "model_grok", "status": "timed_out", "errorKind": "timed_out", "errorReason": "no output for 120s", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:03:01Z" }
   ],
   "stages": [
     {
       "id": "stage_analysis_p1",
       "purpose": "analysis",
-      "producedByWorkerId": "worker_opus",
-      "promptProfileId": "judge_analysis_v1",
+      "producedByWorkerId": "model_opus",
+      "promptProfileId": "plan_analysis_v1",
       "status": "done",
       "payload": {
         "kind": "analysis",
         "analysis": {
           "consensus": [
-            { "statement": "Team accounts come first.", "sourceSeatIds": ["worker_opus#0", "worker_chatgpt#0", "worker_sonnet#0"], "strength": "strong" }
+            { "statement": "Team accounts come first.", "sourceWorkerIds": ["model_opus#0", "model_chatgpt#0", "model_sonnet#0"], "strength": "strong" }
           ],
           "contradictions": [
-            { "topic": "Analytics timing", "positions": [{ "seatId": "worker_chatgpt#0", "summary": "analytics can wait" }, { "seatId": "worker_sonnet#0", "summary": "ship a thin event schema now" }], "recommendedResolution": "Ship a minimal event schema now, full analytics later." }
+            { "topic": "Analytics timing", "positions": [{ "workerId": "model_chatgpt#0", "summary": "analytics can wait" }, { "workerId": "model_sonnet#0", "summary": "ship a thin event schema now" }], "recommendedResolution": "Ship a minimal event schema now, full analytics later." }
           ],
           "partialCoverage": [],
           "uniqueInsights": [],
           "blindSpots": [],
-          "failedSeats": [
-            { "seatId": "worker_gemini#0", "reason": "auth_required" },
-            { "seatId": "worker_grok#0", "reason": "no output for 120s" }
+          "failedWorkers": [
+            { "workerId": "model_gemini#0", "reason": "auth_required" },
+            { "workerId": "model_grok#0", "reason": "no output for 120s" }
           ],
           "confidenceNote": "Two seats failed; treat with care."
         }
@@ -53,8 +53,8 @@
     {
       "id": "stage_plan_p1",
       "purpose": "plan",
-      "producedByWorkerId": "worker_opus",
-      "promptProfileId": "judge_plan_v1",
+      "producedByWorkerId": "model_opus",
+      "promptProfileId": "plan_writer_v1",
       "status": "failed",
       "errorReason": "judge produced no output",
       "startedAt": "2026-06-14T20:03:20Z",

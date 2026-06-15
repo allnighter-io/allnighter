@@ -1,37 +1,83 @@
 import Foundation
 
-/// A configured model endpoint: a specific model reached through a specific
-/// driver (CLI). Two workers can share one driver and differ only by
-/// `modelLabel` — e.g. Opus/Sonnet both use `claude_code`, and Grok Build /
-/// Composer 2.5 both use the `grok` driver.
+/// One runtime worker assignment: a model wearing a skill for this team run.
+/// The same model may appear multiple times with different skills or instance
+/// indices (self-fusion).
 public struct Worker: Codable, Sendable, Equatable, Identifiable {
+    /// Stable worker id, e.g. `model_opus#0`, `model_opus#1`.
     public var id: String
-    public var displayName: String
-    /// The model identifier passed to the driver's `{{model}}` token.
-    public var modelLabel: String
-    /// `DriverManifest.id` this worker is invoked through.
-    public var driverId: String
-    public var role: WorkerRole
-    public var enabled: Bool
+    /// Bench model that runs this worker.
+    public var modelId: String
+    /// 0-based index among workers sharing a `modelId`.
+    public var instanceIndex: Int
+    /// Optional skill id. Drives a prompt prefix.
+    public var skillId: String?
+    /// Display override, e.g. `Opus (A)`.
+    public var label: String?
 
     public init(
         id: String,
-        displayName: String,
-        modelLabel: String,
-        driverId: String,
-        role: WorkerRole = .member,
-        enabled: Bool = true
+        modelId: String,
+        instanceIndex: Int,
+        skillId: String? = nil,
+        label: String? = nil
     ) {
         self.id = id
-        self.displayName = displayName
-        self.modelLabel = modelLabel
-        self.driverId = driverId
-        self.role = role
-        self.enabled = enabled
+        self.modelId = modelId
+        self.instanceIndex = instanceIndex
+        self.skillId = skillId
+        self.label = label
     }
 
-    /// Can this worker produce the master plan?
-    public var canSynthesize: Bool {
-        role == .synthesizer || role == .both
+    /// Canonical worker id for a model + instance index.
+    public static func makeID(modelId: String, instanceIndex: Int) -> String {
+        "\(modelId)#\(instanceIndex)"
+    }
+
+    /// Display name: explicit label, else model name + A/B/C when duplicated.
+    public func displayName(modelName: String, sharesModel: Bool) -> String {
+        if let label { return label }
+        guard sharesModel else { return modelName }
+        let suffix = String(UnicodeScalar(65 + (instanceIndex % 26))!)
+        return "\(modelName) (\(suffix))"
+    }
+}
+
+/// A preset's request for workers. Expanded into concrete `Worker`s at run start.
+public struct WorkerSpec: Codable, Sendable, Equatable {
+    public var modelId: String
+    public var count: Int
+    public var skillId: String?
+
+    public init(modelId: String, count: Int = 1, skillId: String? = nil) {
+        self.modelId = modelId
+        self.count = count
+        self.skillId = skillId
+    }
+
+    public func expand(startingIndex start: Int) -> [Worker] {
+        (0..<max(1, count)).map { offset in
+            let index = start + offset
+            return Worker(
+                id: Worker.makeID(modelId: modelId, instanceIndex: index),
+                modelId: modelId,
+                instanceIndex: index,
+                skillId: skillId
+            )
+        }
+    }
+}
+
+public extension Array where Element == WorkerSpec {
+    func expandedWorkers() -> [Worker] {
+        var nextIndex: [String: Int] = [:]
+        var workers: [Worker] = []
+        for spec in self {
+            let start = nextIndex[spec.modelId, default: 0]
+            let expanded = spec.expand(startingIndex: start)
+            workers.append(contentsOf: expanded)
+            nextIndex[spec.modelId] = start + expanded.count
+        }
+        return workers
     }
 }

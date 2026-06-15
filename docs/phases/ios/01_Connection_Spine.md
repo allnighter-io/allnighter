@@ -7,7 +7,8 @@ Owner: Mac + Shared Core
 Created: 2026-06-15
 Updated: 2026-06-15 (cloud-first pivot + hardening)
 Depends on: `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
-§4/§6/§9, `../../mvp/RB6_Council_As_Tool.md`
+§4/§6/§9, `../../mvp/RB6_Council_As_Tool.md`, `../CLI_Product_Spine.md`,
+`../Team_First_Vocabulary_Cleanup.md`
 
 ## Architecture principle (carries the whole design)
 
@@ -30,17 +31,20 @@ Mac agent ──dials OUT──►  command inbox + events + auth ───┘
 
 ## Reality check (verified in-tree, 2026-06-15)
 
-- **No agent/server exists yet.** `AllnighterCLI` has `ask/presets/recall/doctor/mcp/
-  install-cli/mcp-install` — no cloud agent, no `serve`. The **outbound Mac agent**
-  (cloud) and the **loopback HTTP/WS server** (RB6-S08, reused by Direct Mode) must
-  be built.
+- **No agent/server exists yet.** `AllnighterCLI` currently has legacy
+  `ask/presets/recall/doctor/mcp/install-cli/mcp-install` — no cloud agent, no
+  `serve`. That legacy CLI grammar is superseded by `alln team`, `alln models`,
+  and `alln doctor`. The **outbound Mac agent** (cloud) and the **loopback
+  HTTP/WS server** (RB6-S08, reused by Direct Mode) must be built.
 - **Events are not durable.** `RunEvent` is in-process `AsyncStream`; `RunStore`
   persists only `run.json` + Markdown. Resume needs a durable **event journal +
   monotonic persisted `seq`** (the Mac journal is truth; the cloud mirror is
   transient).
-- **Pre-req — freeze the event vocabulary.** Retire/map legacy `synthesis.*` →
-  `stage.*` (`00_MVP_Architecture` §6) **before the wire locks**; consider a Mac-side
-  emit shim during transition so iOS never sees a dual vocabulary.
+- **Pre-req — freeze the event/run vocabulary.** Retire/map legacy
+  `synthesis.*` -> `stage.*` (`00_MVP_Architecture` §6) and
+  `TeamRun`/`memberResponses`/`plan` -> `TeamRun`/`workerAnswers`/`plan`
+  **before the wire locks**. iOS should consume the same `TeamRunJSON` shape as
+  `alln team --json`; it should never see a dual vocabulary.
 
 ## Goal
 
@@ -169,8 +173,9 @@ assertion is not durability). The agent:
    effort — the poll is the guarantee, and it is what makes the **kill switch**
    reliable.
 4. **Verifies independently of the cloud** (signature/key/freshness/capability/skew),
-   **unseals** any sealed payload, then executes via `CouncilService`/dispatch with a
-   remote `RunOrigin`.
+   **unseals** any sealed payload, then executes via the team-run service
+   (legacy code currently says `TeamService`) / dispatch with a remote
+   `RunOrigin`.
 5. **Writes back** a signed `command_ack`, then signed content-light
    `event_envelopes`; seals sensitive content and posts `media_refs` + per-device
    `media_keys`.
@@ -214,8 +219,9 @@ IA — short-lived):
 - **Snapshot includes recently-completed runs** (bounded/paginated), not just
   in-flight ones — the **Morning Pull** (overnight results, by then past event TTL)
   is the headline moment and must be in the snapshot. `SnapshotEnvelope { runs:
-  [CouncilRunLight], lastSeq, serverTime, protocolVersion }`; sensitive fields are
-  sealed refs. One fixture drives mock + UI.
+  [TeamRunLight], lastSeq, serverTime, protocolVersion }`; sensitive fields are
+  sealed refs. One fixture drives mock + UI and should derive from the same
+  `TeamRunJSON` contract as the CLI.
 - **Commands** return a signed `command_ack`; outcomes arrive as `run.*/stage.*`
   events. **`stopAll` returns a confirmed `{ terminated: count }`** and is **never
   capability-gated** — the kill switch is a safety floor available to any trusted,
@@ -287,7 +293,7 @@ CommandAck      : { requestId, accepted, reason?, outcome, sig }
 StopAllResult   : { terminated }
 RunEvent        : { id, seq, ts, kind, payload(content-light), sealedRef?, sig }
 MediaRef        : { ref, macAgentId, r2Key, contentType, expiresAt }
-SnapshotEnvelope: { runs:[CouncilRunLight], lastSeq, serverTime, protocolVersion }
+SnapshotEnvelope: { runs:[TeamRunLight], lastSeq, serverTime, protocolVersion }
 ResyncRequired  : { reason, snapshotHint }
 RemoteAuditEvent: { ts, deviceId, commandKind, requestId, targetSummary(<=200), outcome }
 ConnectionDiagnosis : ordered [ { rung, ok, nextAction? } ]
@@ -337,7 +343,8 @@ loopback HTTP/WS server (RB6-S08) exposed via an `ExposureProvider` (`tailscale 
 ## Ordered Slices
 
 **Group A — Core + crypto + mock (no app target, `swift test`):**
-- [ ] (pre-req) Freeze event vocabulary (`synthesis.*` → `stage.*`).
+- [ ] (pre-req) Freeze event/run vocabulary (`synthesis.*` -> `stage.*`,
+  `TeamRun` -> `TeamRun`, `plan` -> `plan`) against the CLI schema.
 - [ ] iOS01-S00 — Core models above **+ the crypto contract** (two-key model, `SealedBlob`/HPKE,
   signing string incl. `deviceId`, dedupe=skew, protocol version) with **round-trip
   test vectors**; fixtures.

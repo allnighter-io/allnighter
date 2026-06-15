@@ -1,11 +1,11 @@
 import Foundation
 
-/// What a worker is allowed to do in a council run.
-/// A worker may answer (`member`), synthesize the master plan (`synthesizer`),
-/// or both (e.g. Opus 4.8 answers the prompt *and* writes the master plan).
-public enum WorkerRole: String, Codable, Sendable, CaseIterable {
+/// What a worker is allowed to do in a team run.
+/// A worker may answer (`member`), synthesize the plan (`plan writer`),
+/// or both (e.g. Opus 4.8 answers the prompt *and* writes the plan).
+public enum ModelRole: String, Codable, Sendable, CaseIterable {
     case member
-    case synthesizer
+    case planWriter
     case both
 }
 
@@ -17,13 +17,13 @@ public enum DriverKind: String, Codable, Sendable, CaseIterable {
     case manualPaste = "manual_paste"
 }
 
-/// Lifecycle of one council run. See `CouncilRun.canTransition(to:)`.
+/// Lifecycle of one team run. See `TeamRun.canTransition(to:)`.
 public enum RunStatus: String, Codable, Sendable, CaseIterable {
     case draft
     case fanningOut = "fanning_out"
     case answersIn = "answers_in"
     /// Spans the analysis + plan reduces (Phase 06).
-    case synthesizing
+    case planning
     /// Review-board presets only (RB2).
     case reviewing
     /// Final-spec reduce (RB3).
@@ -36,7 +36,7 @@ public enum RunStatus: String, Codable, Sendable, CaseIterable {
 }
 
 /// Lifecycle of one member (one worker answering the prompt).
-public enum MemberStatus: String, Codable, Sendable, CaseIterable {
+public enum WorkerAnswerStatus: String, Codable, Sendable, CaseIterable {
     case queued
     case running
     case done
@@ -49,7 +49,7 @@ public enum MemberStatus: String, Codable, Sendable, CaseIterable {
 
 /// Why a member did not produce a usable answer. Surfaced to the user verbatim
 /// so a churned/unauthenticated CLI fails loudly rather than silently.
-public enum MemberErrorKind: String, Codable, Sendable, CaseIterable {
+public enum WorkerAnswerErrorKind: String, Codable, Sendable, CaseIterable {
     case missingCLI = "missing_cli"
     case authRequired = "auth_required"
     case timedOut = "timed_out"
@@ -58,7 +58,7 @@ public enum MemberErrorKind: String, Codable, Sendable, CaseIterable {
     case cancelled
 }
 
-/// How a council run was started. The tool surface (RB6) sets cli/mcp/http;
+/// How a team run was started. The tool surface (RB6) sets cli/mcp/http;
 /// the GUI sets gui (the default).
 public enum RunOrigin: String, Codable, Sendable, CaseIterable {
     case gui

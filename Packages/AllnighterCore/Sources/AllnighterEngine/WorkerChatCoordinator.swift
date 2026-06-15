@@ -8,7 +8,7 @@ import AllnighterCore
 /// runnable manifest) it falls back to a manual-paste flow that reveals the
 /// exact context and stores the pasted reply as the worker turn.
 ///
-/// `CouncilRun` is never touched here; chat turns own their text.
+/// `TeamRun` is never touched here; chat turns own their text.
 public actor WorkerChatCoordinator {
     public enum ChatError: Error, Equatable, CustomStringConvertible {
         case threadNotFound(String)
@@ -43,7 +43,7 @@ public actor WorkerChatCoordinator {
     private let runner: WorkerRunner
     private let registry: DriverRegistry
     private let contextBuilder: ThreadContextBuilder
-    private let workers: [Worker]
+    private let models: [Model]
     /// Global daily-driver fallback when the thread has no default/last worker.
     private let defaultDriverWorkerId: String?
     private let idFactory: @Sendable () -> String
@@ -53,7 +53,7 @@ public actor WorkerChatCoordinator {
         store: ThreadStore,
         runner: WorkerRunner,
         registry: DriverRegistry,
-        workers: [Worker],
+        models: [Model],
         defaultDriverWorkerId: String? = nil,
         contextBuilder: ThreadContextBuilder = ThreadContextBuilder(),
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
@@ -62,14 +62,14 @@ public actor WorkerChatCoordinator {
         self.store = store
         self.runner = runner
         self.registry = registry
-        self.workers = workers
+        self.models = models
         self.defaultDriverWorkerId = defaultDriverWorkerId
         self.contextBuilder = contextBuilder
         self.idFactory = idFactory
         self.now = now
     }
 
-    // MARK: - Worker resolution (Composer Contract)
+    // MARK: - Model resolution (Composer Contract)
 
     /// Resolve the worker for a turn: explicit choice → thread default →
     /// thread's last worker → global daily driver → first healthy headless CLI.
@@ -78,13 +78,13 @@ public actor WorkerChatCoordinator {
         if let d = thread.defaultWorkerId, hasRunnableOrManual(d) { return d }
         if let last = thread.lastWorkerId, hasRunnableOrManual(last) { return last }
         if let global = defaultDriverWorkerId, hasRunnableOrManual(global) { return global }
-        return workers.first { worker in
-            worker.enabled && registry.manifest(for: worker)?.kind == .headlessCLI
+        return models.first { model in
+            model.enabled && registry.manifest(for: model)?.kind == .headlessCLI
         }?.id
     }
 
     private func hasRunnableOrManual(_ workerId: String) -> Bool {
-        workers.contains { $0.id == workerId }
+        models.contains { $0.id == workerId }
     }
 
     // MARK: - Send
@@ -132,11 +132,11 @@ public actor WorkerChatCoordinator {
         )
         try store.append(workerTurn, toThreadId: threadId, now: now())
 
-        let worker = workers.first { $0.id == workerId }
-        let manifest = worker.flatMap { registry.manifest(for: $0) }
+        let model = models.first { $0.id == workerId }
+        let manifest = model.flatMap { registry.manifest(for: $0) }
 
         // Manual-paste path: no runnable manifest, or an explicit manual driver.
-        guard let worker, let manifest, manifest.kind == .headlessCLI else {
+        guard let model, let manifest, manifest.kind == .headlessCLI else {
             return try enterManualPaste(
                 threadId: threadId, workerId: workerId,
                 userTurnId: userTurnId, workerTurnId: workerTurnId, packetId: packetId
@@ -144,7 +144,7 @@ public actor WorkerChatCoordinator {
         }
 
         // Headless path: invoke and settle the worker turn.
-        let outcome = await runner.invoke(worker: worker, manifest: manifest, prompt: packet.text)
+        let outcome = await runner.invoke(worker: model, manifest: manifest, prompt: packet.text)
         let thread = try settle(workerTurn: workerTurn, with: outcome, inThreadId: threadId)
         return ChatResult(
             thread: thread, workerId: workerId, userTurnId: userTurnId,
@@ -168,7 +168,7 @@ public actor WorkerChatCoordinator {
         return try store.update(settled, inThreadId: threadId, now: now())
     }
 
-    private func chatStatus(for member: MemberStatus) -> ThreadTurnStatus {
+    private func chatStatus(for member: WorkerAnswerStatus) -> ThreadTurnStatus {
         switch member {
         case .done: return .done
         case .failed: return .failed

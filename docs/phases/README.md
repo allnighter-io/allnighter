@@ -28,7 +28,8 @@ otherwise.
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Finalized for implementation | Admission control for selected workers, team runs, queued turns, fallbacks, and floor visibility without quota accounting. |
 | [`Team_First_Vocabulary_Cleanup.md`](Team_First_Vocabulary_Cleanup.md) | Immediate cleanup contract | Rip out public council/panel language now; Team is the product word before CLI/GUI/iOS calcify. |
-| [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Draft for mentor feedback | Make `alln` a first-class CLI and align the Mac app around the same command model. |
+| [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Draft v3 for mentor feedback | Make `alln` a first-class, agent-ready CLI/tool contract, replace RB6 public grammar, and align the Mac app around the same command/schema model. |
+| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | Draft implementation contract | Exact `alln` milestone-1 schemas, docs/doctor/error/event surfaces, generated artifacts, MCP projection rules, and proof gates. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
 | [`ios/README.md`](ios/README.md) | Active iOS spine | Remote floor manager: sign in, pick your Mac, control runs. |
@@ -71,6 +72,9 @@ otherwise.
 - A worker is one model wearing one skill. Lanes ship default teams, but advanced
   users can customize the worker lineup as `Skill | Model` one level below the
   main composer.
+- The first new team-run machine contract is `TeamRunJSON`: `teamRun`, `models`,
+  `workers`, `workerAnswers`, `stages`, and `plan`. GUI, MCP, and iOS must not
+  invent parallel run schemas.
 
 ## Adding a Phase Doc
 
@@ -113,7 +117,9 @@ Open questions:
 | Work | Read first |
 | --- | --- |
 | Public vocabulary cleanup, council/panel removal | `Team_First_Vocabulary_Cleanup.md` + `Work_Order_Team_Model.md` |
-| CLI-first product spine, `alln`, command grammar | `CLI_Product_Spine.md` |
+| CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
+| CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
+| Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` + `Team_First_Vocabulary_Cleanup.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |
 | Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** |

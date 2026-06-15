@@ -1,6 +1,6 @@
 {
   "id" : "default_master_plan_v1",
-  "displayName" : "Master Plan (default)",
-  "template" : "You are the master synthesizer. Below is one prompt and the independent answers several different AI models gave to that exact prompt. Analyze them for consensus, contradictions, unique insights, blind spots, and gaps. Then produce a single comprehensive Master Plan using EXACTLY these sections:\n\n## Consensus\n## Conflicts\n## Unique insights\n## Blind spots & gaps\n## Risks & unknowns\n## The Plan\n## Open questions\n\nGround every recommendation in the source answers (attribute when useful). Be decisive and actionable. Output only the Master Plan in Markdown.",
+  "displayName" : "Plan (default)",
+  "template" : "You are the master synthesizer. Below is one prompt and the independent answers several different AI models gave to that exact prompt. Analyze them for consensus, contradictions, unique insights, blind spots, and gaps. Then produce a single comprehensive Plan using EXACTLY these sections:\n\n## Consensus\n## Conflicts\n## Unique insights\n## Blind spots & gaps\n## Risks & unknowns\n## The Plan\n## Open questions\n\nGround every recommendation in the source answers (attribute when useful). Be decisive and actionable. Output only the Plan in Markdown.",
   "builtIn" : true
 }

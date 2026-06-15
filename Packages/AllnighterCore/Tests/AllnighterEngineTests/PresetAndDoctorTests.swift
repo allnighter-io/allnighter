@@ -6,22 +6,22 @@ final class PresetAndDoctorTests: XCTestCase {
 
     // MARK: - Honest stage-profile persistence (P06)
 
-    private func sampleRun() -> CouncilRun {
-        CouncilRun(
+    private func sampleRun() -> TeamRun {
+        TeamRun(
             id: "run1", prompt: "p", status: .answersIn,
-            panel: [TestSupport.seat("worker_opus")],
-            members: [MemberResponse(seatId: "worker_opus#0", workerId: "worker_opus", status: .done, output: "answer")],
+            workers: [TestSupport.seat("model_opus")],
+            workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "answer")],
             createdAt: Date()
         )
     }
 
-    private func opus() -> Worker {
-        Worker(id: "worker_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
+    private func opus() -> Model {
+        Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
     }
 
     private let combined = """
     ```json
-    {"consensus":[],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedSeats":[]}
+    {"consensus":[],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedWorkers":[]}
     ```
     ===PLAN===
     # Plan
@@ -29,12 +29,12 @@ final class PresetAndDoctorTests: XCTestCase {
 
     func testStagesRecordTheProfileUsed() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: combined, exitCode: 0)])
-        let synth = Synthesizer(workerRunner: WorkerRunner(commandRunner: mock))
+        let synth = PlanWriter(workerRunner: WorkerRunner(commandRunner: mock))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
-            run: sampleRun(), judge: opus(), manifest: manifest, workers: [opus()],
-            config: TestSupport.config(judge: "worker_opus")
+            run: sampleRun(), judge: opus(), manifest: manifest, models: [opus()],
+            config: TestSupport.config(judge: "model_opus")
         )
         XCTAssertEqual(stages.first { $0.purpose == .analysis }?.promptProfileId, SynthesisInstructions.analysisID)
         XCTAssertEqual(stages.first { $0.purpose == .plan }?.promptProfileId, SynthesisInstructions.planID)
@@ -65,18 +65,18 @@ final class PresetAndDoctorTests: XCTestCase {
         XCTAssertNotNil(store.preset(id: SynthesisInstructions.planID))
     }
 
-    // MARK: - PanelPresetStore (new seat-based shape)
+    // MARK: - TeamPresetStore (new seat-based shape)
 
-    func testPanelPresetStoreRoundTrips() throws {
+    func testTeamPresetStoreRoundTrips() throws {
         let tmp = Self.tempDir()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let store = PanelPresetStore(rootDirectory: tmp)
+        let store = TeamPresetStore(rootDirectory: tmp)
         XCTAssertTrue(store.load().isEmpty)
 
-        let preset = PanelPreset(
+        let preset = TeamPreset(
             id: "p1", displayName: "My panel",
-            seats: [PanelSeatSpec(workerId: "worker_opus"), PanelSeatSpec(workerId: "worker_grok")],
-            synthesis: SynthesisConfig(analysisDepth: .separate, judgeWorkerId: "worker_opus", analysisProfileId: "judge_analysis_v1", planProfileId: "judge_plan_v1")
+            workerSpecs: [WorkerSpec(modelId: "model_opus"), WorkerSpec(modelId: "model_grok")],
+            synthesis: SynthesisConfig(analysisDepth: .separate, planWriterModelId: "model_opus", analysisProfileId: "plan_analysis_v1", planProfileId: "plan_writer_v1")
         )
         try store.save(preset)
         XCTAssertEqual(store.load().count, 1)
@@ -88,12 +88,12 @@ final class PresetAndDoctorTests: XCTestCase {
     func testWorkOrderPanelSummary() {
         let synthesis = SynthesisConfig(
             analysisDepth: .separate,
-            judgeWorkerId: "worker_opus",
-            analysisProfileId: "judge_analysis_v1",
-            planProfileId: "judge_plan_v1"
+            planWriterModelId: "model_opus",
+            analysisProfileId: "plan_analysis_v1",
+            planProfileId: "plan_writer_v1"
         )
-        let summary = WorkOrder.panelSummary(seatCount: 6, judgeLabel: "Opus", synthesis: synthesis, lensCount: 3)
-        XCTAssertEqual(summary, "6 seats · Opus judge · separate analysis + plan · 3 lenses")
+        let summary = WorkOrder.teamSummary(workerCount: 6, judgeLabel: "Opus", synthesis: synthesis, lensCount: 3)
+        XCTAssertEqual(summary, "6 workers · Opus plan writer · separate analysis + plan · 3 lenses")
         XCTAssertFalse(summary.contains("est"))
         XCTAssertFalse(summary.contains("quota"))
     }
@@ -105,10 +105,10 @@ final class PresetAndDoctorTests: XCTestCase {
 
     // MARK: - Doctor
 
-    func testDoctorHealthyWorker() async {
+    func testDoctorHealthyModel() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "claude 1.2.3 READY", exitCode: 0)])
         let doctor = Doctor(commandRunner: mock)
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let d = await doctor.diagnose(worker, manifest: manifest)
         XCTAssertTrue(d.present)
@@ -120,7 +120,7 @@ final class PresetAndDoctorTests: XCTestCase {
     func testDoctorMissingCLIGivesInstallHint() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(launchError: "command not found")])
         let doctor = Doctor(commandRunner: mock)
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let d = await doctor.diagnose(worker, manifest: manifest)
         XCTAssertFalse(d.present)
@@ -146,28 +146,28 @@ final class PresetAndDoctorTests: XCTestCase {
     }
 
     func testDoctorAuthReasonMapsToAuthenticateHint() {
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-        let hint = Doctor.fixHint(for: .unhealthy(reason: "Error: please log in to continue"), worker: worker, manifest: manifest)
-        XCTAssertTrue(hint?.lowercased().contains("authenticat") ?? false)
-        XCTAssertTrue(hint?.contains("claude login") ?? false)
+        let hint = Doctor.fixHint(for: .unhealthy(reason: "Error: please log in to continue"), model: worker, manifest: manifest)
+        XCTAssertTrue(hint?.contains("authenticated") ?? false)
+        XCTAssertTrue(hint?.contains("Log in") ?? false)
     }
 
     func testDoctorAllPreservesPanelOrder() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "READY", exitCode: 0)])
         let doctor = Doctor(commandRunner: mock)
-        let workers = [
+        let models = [
             TestSupport.worker("a", driverId: "claude_code"),
             TestSupport.worker("b", driverId: "claude_code"),
             TestSupport.worker("c", driverId: "claude_code")
         ]
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
-        let diagnoses = await doctor.diagnoseAll(workers: workers, registry: registry)
-        XCTAssertEqual(diagnoses.map(\.workerId), ["a", "b", "c"])
+        let diagnoses = await doctor.diagnoseAll(models: models, registry: registry)
+        XCTAssertEqual(diagnoses.map(\.modelId), ["a", "b", "c"])
     }
 
     private static func tempDir() -> URL {
         URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("allnighter-test-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("alln-test-\(UUID().uuidString)", isDirectory: true)
     }
 }

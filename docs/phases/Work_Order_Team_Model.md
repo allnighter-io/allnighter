@@ -49,7 +49,7 @@ Preset = saved type + effort + team defaults
 Shortcut:
 
 ```text
-Model at rest. Worker at work.
+Model at rest. Model at work.
 ```
 
 The product promise is not "configure a lineup." It is "turn the models you
@@ -80,6 +80,41 @@ When the same model runs the same skill more than once, use an internal
 `Opus / Skeptic B`. Do not introduce another product noun for this. The row is
 still a worker.
 
+## Plan Writer
+
+For v1, the plan writer is a designated worker in the team snapshot:
+
+```text
+Model: Opus 4.8
+Skill: Plan Writer
+Worker: Opus 4.8 as Plan Writer
+```
+
+The plan stage may run after the parallel answers, but the product still shows a
+worker doing the job. JSON uses `planWriterWorkerId`; UI copy may say "Plan
+written by Opus 4.8." Do not expose `synthesizer` or `judge` as product nouns.
+
+This keeps the rule simple:
+
+```text
+Models sit on the Bench. Workers do jobs.
+```
+
+## One-Worker Chat
+
+Thread chat uses the same vocabulary. A chat turn resolves to one **worker**:
+the chosen model wearing the default Chat skill or a lane/preset skill.
+
+```text
+Claude Opus on the Bench
+-> Opus as Chat Partner for this turn
+```
+
+It is not a full team run, but it is also not a bare model invocation in product
+language. The chip can display `Opus / Chat` or a friendlier equivalent. The
+implementation may keep legacy `WorkerChatCoordinator` until the rename slice,
+but the durable product truth is still model + skill -> worker.
+
 ## One Primitive, Many Old Names
 
 Old docs used several words for the same underlying idea:
@@ -99,13 +134,13 @@ Examples:
 
 | Old wording | New product framing |
 | --- | --- |
-| Build stance: `skeptic` | Build skill: Skeptic |
+| Build skillId: `skeptic` | Build skill: Skeptic |
 | Review lens: `security_privacy` | Build/review skill: Security & Privacy Reviewer |
 | Design persona: `minimal` | Design skill: Minimal Designer |
 | Copy role: `objection hunter` | Copy skill: Objection Hunter |
 
 Product and design docs should explain implementation shapes through Skill,
-Model, Worker, and Team. Implementation names that expose old product language
+Model, Model, and Team. Implementation names that expose old product language
 should be renamed before the next public surface depends on them. Temporary
 internal names are acceptable only inside a bounded cleanup slice; they are not a
 compatibility promise.
@@ -160,6 +195,10 @@ builtIn
 version
 ```
 
+Milestone 1 does not need standalone skill-library CRUD. Built-in and preset
+embedded skills are enough if `team show`, `team --json`, and the GUI snapshot
+resolve every worker row to `Skill | Model`.
+
 ## Lane / Type Examples
 
 ```text
@@ -194,12 +233,14 @@ Copy lane.
   dropdown.
 - Never call a model on the Bench a worker. Never call a team row a model. The
   row is the worker; its visible attributes are Skill and Model.
-- Worker count and output count are different facts. A Copy team may have six
+- Model count and output count are different facts. A Copy team may have six
   workers and produce four versions because some workers review instead of
   generate.
 - Public JSON and CLI output must follow the same model. Use `models`, `workers`,
-  `teamRun`, `workerAnswers`, and `plan`; do not leak legacy run words into new
-  machine-readable contracts.
+  `teamRun`, `workerAnswers`, `stages`, and `plan`; do not leak legacy run words
+  into new machine-readable contracts.
+- Work-order CLI commands (`alln work`, later `alln work from latest`) create or
+  link thread turns. They must not introduce a parallel work-order store.
 
 ## Designer Handoff
 

@@ -112,14 +112,14 @@ window.RunPipelineView = function RunPipelineView({ onNav }) {
 
 /* ============ Judge analysis ============ */
 const JA_SEATS = [
-  { w: { brand: 'anthropic', color: 'FFA630' }, n: 'Opus 4.8', stance: 'first principles', status: 'done' },
-  { w: { icon: 'terminal' }, n: 'ChatGPT 5.5', stance: 'skeptic', status: 'done' },
-  { w: { brand: 'anthropic', color: 'AEB5C9' }, n: 'Sonnet 4.6', stance: 'neutral', status: 'done' },
-  { w: { icon: 'square' }, n: 'Composer 2.5', stance: 'neutral', status: 'done' },
-  { w: { brand: 'googlegemini', color: 'E1E5F0' }, n: 'Gemini Flash', stance: 'neutral', status: 'failed' },
+  { w: { brand: 'anthropic', color: 'FFA630' }, n: 'Opus 4.8', skillId: 'first principles', status: 'done' },
+  { w: { icon: 'terminal' }, n: 'ChatGPT 5.5', skillId: 'skeptic', status: 'done' },
+  { w: { brand: 'anthropic', color: 'AEB5C9' }, n: 'Sonnet 4.6', skillId: 'neutral', status: 'done' },
+  { w: { icon: 'square' }, n: 'Composer 2.5', skillId: 'neutral', status: 'done' },
+  { w: { brand: 'googlegemini', color: 'E1E5F0' }, n: 'Gemini Flash', skillId: 'neutral', status: 'failed' },
 ];
 function SeatGly({ w }) { return w.brand ? <BrandIcon slug={w.brand} color={w.color} size={13} /> : <Icon name={w.icon} size={12} style={{ color: 'var(--text-secondary)' }} />; }
-window.JudgeAnalysisView = function JudgeAnalysisView() {
+window.PlanAnalysisView = function PlanAnalysisView() {
   return (
     <div>
       <JHeader eyebrow="Judge analysis · structured" title="analysis.md"

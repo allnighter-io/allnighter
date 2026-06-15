@@ -74,6 +74,6 @@ A failed worker renders failed; never recolor a failure as success.
 ## 6. Voice (UI copy)
 
 Calm, plain-spoken, sentence case, verbs first. No emoji, no hype. Hide the
-plumbing (panel / worker / council / master plan — not worktree / subprocess).
+plumbing (panel / worker / council / plan — not worktree / subprocess).
 Numbers are concrete and mono; a worker that failed is shown failed, never faked.
 Full voice guidance: `readme.md`.

@@ -21,7 +21,7 @@ model, paste everything into a final judge, repeat.
 Allnighter does that loop for you.
 
 One prompt in. Your local CLIs answer in parallel. A judge model reads the
-answers, preserves disagreement, finds blind spots, and gives you a master plan.
+answers, preserves disagreement, finds blind spots, and gives you a plan.
 Mac runs the workers. iPhone steers the floor.
 
 ## The Category
@@ -158,7 +158,7 @@ OpenRouter proof point:
 ```text
 OpenRouter showed that panel-and-judge Fusion can outperform individual frontier
 models on deep research tasks. Allnighter brings the same shape to local developer
-workflows: panel, structured analysis, master plan.
+workflows: panel, structured analysis, plan.
 ```
 
 Stats we can cite, attributed to OpenRouter:
@@ -179,7 +179,7 @@ Translated into marketing:
 
 ```text
 OpenRouter's Fusion benchmark found a 6.7-point lift from running Opus against
-itself and synthesizing the two answers.
+itself and planning the two answers.
 
 That is the Allnighter thesis in one number:
 the win is not only "more models."
@@ -220,7 +220,7 @@ You already pay for the AI team.
 Subhead
 Allnighter makes it show up to work. Run Claude Code, Grok, Codex, Gemini, Aider,
 and local workers in parallel from your Mac. Compare the answers. Fuse them into
-one master plan. Keep steering from your iPhone.
+one plan. Keep steering from your iPhone.
 
 CTA
 Download free
@@ -256,7 +256,7 @@ One prompt. Many workers. One decision.
 2. Choose your panel.
 3. Allnighter fans out to healthy workers in parallel.
 4. A synthesizer reads every answer.
-5. You get consensus, conflicts, unique insights, blind spots, and a master plan.
+5. You get consensus, conflicts, unique insights, blind spots, and a plan.
 
 Section
 Built for builders who already pay for serious AI.
@@ -294,7 +294,7 @@ Still copy/pasting one prompt into four AI tools?
 Allnighter runs them in parallel from your Mac.
 Claude. Grok. Codex. Gemini. Local workers.
 
-One prompt in. One master plan out.
+One prompt in. One plan out.
 ```
 
 ### Ad 3: Local Fusion
@@ -339,7 +339,7 @@ AI team. You are being its clipboard.
 Allnighter fixes that.
 
 Type one prompt. Pick your panel. Your local CLIs answer in parallel. A
-synthesizer reads the responses and writes a master plan with consensus,
+synthesizer reads the responses and writes a plan with consensus,
 conflicts, unique insights, and blind spots.
 
 Mac runs the floor.
@@ -408,7 +408,7 @@ synthesis, history, presets, and mobile control.
 ## Taglines
 
 - You already pay for the team. Make it show up to work.
-- One prompt in. One master plan out.
+- One prompt in. One plan out.
 - Local Fusion for AI builders.
 - Stop being the clipboard for your agents.
 - Your Mac is the floor. Your iPhone is the manager.

@@ -13,11 +13,11 @@ Wrap the engine in a native Mac app: a menu-bar item + a window where the
 founder types one prompt, sees the panel, runs it, watches live per-worker
 status, and reads each member's answer. After this phase the founder can fan out
 to the bench with one click and read every answer in one place — no clipboard.
-Synthesis (the master plan) lands in Phase 04; here a run ends at `answers_in`.
+Synthesis (the plan) lands in Phase 04; here a run ends at `answers_in`.
 
 ## Non-Goals
 
-- Synthesis/master plan (Phase 04). Run history browser + presets + Doctor UI
+- Synthesis/plan (Phase 04). Run history browser + presets + Doctor UI
   (Phase 05). iOS (Growth Seam).
 
 ## Approach (per `00`)
@@ -47,7 +47,7 @@ Synthesis (the master plan) lands in Phase 04; here a run ends at `answers_in`.
   (`AllnighterMacApp`, `RootView`). LSUIElement menu-bar app.
 - [x] P03-S02 — Observable store (`AppModel`) bound to the `RunEvent` stream;
   status applied live, content filled from the settled run.
-- [x] P03-S03 — Prompt composer + "Run council" (⌘↵) → `CouncilRunCoordinator`
+- [x] P03-S03 — Prompt composer + "Run council" (⌘↵) → `TeamRunCoordinator`
   with the real `SubprocessCommandRunner`.
 - [x] P03-S04 — Panel sidebar with per-worker enable toggles + health badges.
 - [x] P03-S05 — Live run view: status dots/strip, elapsed time, global Stop.
@@ -87,13 +87,13 @@ engine suite — is green.
 
 **Built; pending one founder-run live test.** App lives at `Apps/AllnighterMac`
 (XcodeGen `project.yml`; `.xcodeproj` is generated and gitignored). Activate
-**Phase 04 (Synthesis + Master Plan)** — the one-click daily loop.
+**Phase 04 (Synthesis + Plan)** — the one-click daily loop.
 
 ### Notes for Phase 04
 
 - `AppModel` already owns the run + registry; synthesis adds: pick the
   `synthesizer` worker (role `both`/`synthesizer`, default Opus), assemble the
-  synthesis prompt from `run.answeredMembers`, run it through the same
+  synthesis prompt from `run.answeredWorkers`, run it through the same
   `WorkerRunner`, and set `run.synthesis`.
 - Run the app once with real CLIs first to correct any driver flags (Phase 02
   deferred probe) before trusting synthesis output.

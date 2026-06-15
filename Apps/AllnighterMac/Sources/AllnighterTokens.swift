@@ -134,9 +134,9 @@ enum ALFont {
     // Named ramp (size, weight, tracking-pts, lineSpacing-extra)
     static let display = sans(40, .heavy)     // tracking -0.88,  marketing only
     static let h1      = sans(28, .bold)      // tracking -0.39
-    static let h2      = sans(22, .bold)      // tracking -0.31 — "Council run" title
+    static let h2      = sans(22, .bold)      // tracking -0.31 — "Team run" title
     static let h3      = sans(17, .semibold)
-    static let title   = sans(15, .semibold)  // section titles, sidebar synthesizer
+    static let title   = sans(15, .semibold)  // section titles, sidebar plan writer
     static let bodyLg  = sans(15, .regular)   // comfortable reading body
     static let body    = sans(13, .regular)   // macOS body — DEFAULT
     static let label   = sans(12, .medium)    // control labels, history rows

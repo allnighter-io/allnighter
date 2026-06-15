@@ -4,7 +4,7 @@ Status: **Finalized — activate after Phase 06 lands and the RB0 gate passes.**
 Owner: Founder + Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: 05 (shipped), 06 (the council foundation: `PanelSeat`, `JudgeAnalysis`, `StageOutput`)
+Depends on: 05 (shipped), 06 (the council foundation: `Worker`, `PlanAnalysis`, `StageOutput`)
 
 ## Who This Is For (the 10x thesis)
 
@@ -50,7 +50,7 @@ workflow presets for higher-stakes decisions. The win is measured, not asserted:
 | Signal | Synthesis-only (today) | Review-board target |
 | --- | --- | --- |
 | Copy/paste actions | 0 | 0 |
-| Clicks: prompt → executable spec | 1 (master plan) | 1 (final spec) |
+| Clicks: prompt → executable spec | 1 (plan) | 1 (final spec) |
 | Decision confidence | "one model's read" | "survived N lenses; decisions visible" |
 | Spec is executable | Sometimes | Always (carries Works Test + proof commands) |
 | Hidden product truth | None | None (advisory ≠ binding; synthesizer explicit) |
@@ -83,9 +83,9 @@ Phase 04. Phase 05 shipped presets + honesty; Phase 06 lays the final run model.
 | --- | --- | --- |
 | `SynthesisInstructionPreset` + `SynthesisInstructionStore` | 05 | The seed of `PromptProfile`. Phase 06 already evolves it into the structured judge profile; RB1 adds `purpose`. |
 | honest `StageOutput.promptProfileId` (from `SynthesisInstructionChoice`) | 05→06 | RB1 keeps a regression test; the seam is already closed. |
-| `PanelPreset` (+ `PanelPresetStore`) | 05 | The seed of `WorkflowPreset` (RB1 extends with `stages`). 06 ships tiered presets on it. |
-| **`PanelSeat`** (panel is `[PanelSeat]`; self-fusion) | 06 | RB stages bind to seats; review/dispatch reference seat ids. |
-| **`JudgeAnalysis`** (structured consensus/contradictions/unique/blind spots/coverage/failed seats) | 06 | RB2 lenses and RB3 finalizer consume it directly, not raw Markdown. |
+| `TeamPreset` (+ `TeamPresetStore`) | 05 | The seed of `WorkflowPreset` (RB1 extends with `stages`). 06 ships tiered presets on it. |
+| **`Worker`** (panel is `[Worker]`; self-fusion) | 06 | RB stages bind to seats; review/dispatch reference seat ids. |
+| **`PlanAnalysis`** (structured consensus/contradictions/unique/blind spots/coverage/failed seats) | 06 | RB2 lenses and RB3 finalizer consume it directly, not raw Markdown. |
 | **`StageOutput` + `StagePurpose`** (the run is a stage sequence) | 06 | RB adds `StagePurpose` cases (`review`, `final_spec`, `dispatch`, `return_review`) — it does **not** restructure the run. |
 | `reuseKey` on `StageOutput` | 06 (field) | RB1 turns reuse on (edit one lens → don't re-run the panel). |
 | Eval harness (`Rubric`/`EvalScore`, negative criteria) | 06 | RB3 executability and RB5 outcome scoring reuse it. |
@@ -94,26 +94,26 @@ Phase 04. Phase 05 shipped presets + honesty; Phase 06 lays the final run model.
 
 > **No migration shims (pre-user).** There are no saved runs to preserve. RB
 > evolves these types to their correct shape directly. `PromptProfile` subsumes
-> `SynthesisInstructionPreset`; `WorkflowPreset` extends `PanelPreset`;
-> `CouncilRun.presetId` is the preset slot. Do not add "decode old runs" gates.
+> `SynthesisInstructionPreset`; `WorkflowPreset` extends `TeamPreset`;
+> `TeamRun.presetId` is the preset slot. Do not add "decode old runs" gates.
 
 ## Core Vocabulary
 
 | Term | Meaning |
 | --- | --- |
 | `Worker` | Executor endpoint: local CLI + model label + driver manifest. |
-| `PanelSeat` | One independent panel slot (`{ id, workerId, seatIndex, label? }`). A worker can fill several seats — *self-fusion*. (Phase 06.) |
-| `JudgeAnalysis` | Structured judge truth: consensus, contradictions, partial coverage, unique insights, blind spots, failed seats. Markdown is derived. (Phase 06.) |
+| `Worker` | One independent panel slot (`{ id, workerId, instanceIndex, label? }`). A worker can fill several seats — *self-fusion*. (Phase 06.) |
+| `PlanAnalysis` | Structured judge truth: consensus, contradictions, partial coverage, unique insights, blind spots, failed seats. Markdown is derived. (Phase 06.) |
 | `PromptProfile` | Versioned, editable prompt template used by a stage. Review lenses and synthesis/judge instructions are all prompt profiles. Generalizes `SynthesisInstructionPreset`. |
 | Review lens | User-facing name for a `PromptProfile` whose purpose is `review_lens`. |
-| `WorkflowPreset` | A named binding of stage shape, seats, prompt profiles, and defaults. Extends `PanelPreset` with `stages`. |
+| `WorkflowPreset` | A named binding of stage shape, seats, prompt profiles, and defaults. Extends `TeamPreset` with `stages`. |
 | `WorkflowStage` | One ordered fanout or reduce unit inside the fixed chain. |
 | `StageOutput` | Structured run truth for one stage (Phase 06); Markdown files are derived views. RB adds new `StagePurpose` cases. |
 | `FinalizerPolicy` | Structured rule telling the final spec stage how to treat reviews. v1 ships `advisory` + `first_principles`. |
 | `ImplementationBrief` | Handoff artifact created from a final spec before dispatch. |
 | `WorkOrder.summary` | Prediction-free rendering of the selected work shape (seats, judge, stage layout, lenses) shown before commit. Implemented in `AllnighterCore`; see `docs/archive/phases/Estimate_Cleanup_And_Effort_Dial.md`. |
 
-Keep `WorkerRole` narrow. It remains the existing structural capability:
+Keep `ModelRole` narrow. It remains the existing structural capability:
 `member`, `synthesizer`, or `both`. It is not a reviewer persona — a persona is a
 `PromptProfile` (review lens) or an optional per-seat stance.
 
@@ -142,7 +142,7 @@ Keep `WorkerRole` narrow. It remains the existing structural capability:
 
 ## Built-In Presets
 
-Phase 06 ships the **panel-tier** presets (Fast / Quality / Diverse Panel / Self-Double /
+Phase 06 ships the **panel-tier** presets (Fast / Quality / Diverse Team / Self-Double /
 Full); the RB milestone adds the **workflow** presets that chain reviews + final
 spec on top. Each `analysis → plan` pair is two stage outputs regardless of
 call-count (06).
@@ -191,8 +191,8 @@ is the only truth. Phase 06 establishes:
 ```text
 run_<id>/
   run.json
-  member_<seatId>.md     # by seatId, so self-fusion seats don't collide
-  analysis.md            # derived from the JudgeAnalysis stage
+  member_<workerId>.md     # by workerId, so self-fusion seats don't collide
+  analysis.md            # derived from the PlanAnalysis stage
   master_plan.md         # derived from the plan stage
   bundle.md
 ```
@@ -222,7 +222,7 @@ The milestone is done when this runs end to end with the founder's real workers:
 type ONE prompt
 -> pick the light_review preset (composer shows work shape: seats · judge · lenses)
 -> panel answers in parallel  (reused if already run for this prompt)
--> structured JudgeAnalysis (verdict strip: consensus / conflicts / blind spots)
+-> structured PlanAnalysis (verdict strip: consensus / conflicts / blind spots)
 -> draft master_plan.md grounded in the analysis
 -> 3 review lenses fan out in parallel over the analysis + draft
 -> finalizer writes final_spec.md with a visible "Decisions on review feedback"
@@ -240,8 +240,8 @@ different prompts (e.g. one architecture bet, one feature plan, one refactor):
 
 ```text
 existing panel -> master_plan.md
-manual light review prompts over the master plan (security, maintainer, proof/QA)
-manual finalizer prompt over prompt + raw answers + master plan + reviews
+manual light review prompts over the plan (security, maintainer, proof/QA)
+manual finalizer prompt over prompt + raw answers + plan + reviews
 ```
 
 Judge each with this rubric — the final spec must win on a majority, on a
@@ -255,7 +255,7 @@ building machinery**:
 5. **Worth the depth**: the quality gain justifies the broader bench (more seats/lenses).
 6. **Synthesis lift (Fusion criterion)**: a two-step analysis → plan (Phase 06)
    beats one-step synthesis on the same panel output — and the structured
-   `JudgeAnalysis` made the decision faster to act on.
+   `PlanAnalysis` made the decision faster to act on.
 
 **The gate has two parts, both required before RB1 code:**
 
@@ -275,7 +275,7 @@ the offline regression wall. Both must pass. Record the outcome below.
 | _pending_ | _e.g. arch bet ✓, feature ✓, refactor ✗_ | _filled at gate time_ | _eval scorecard ref_ | _pending_ |
 
 The machinery only earns its complexity if both parts pass. If not, revise the
-judge profiles (`judge_analysis` / `judge_plan`) and re-run — do not start RB1.
+judge profiles (`plan_analysis` / `plan_writer`) and re-run — do not start RB1.
 
 ## Slice Map
 
@@ -285,9 +285,9 @@ judge profiles (`judge_analysis` / `judge_plan`) and re-run — do not start RB1
 
 | Slice | Doc | Purpose |
 | --- | --- | --- |
-| 06 | `06_Fusion_Grade_Synthesis_And_Evals.md` | **Prerequisite phase.** The foundation RB consumes: seats, structured `JudgeAnalysis`, `StageOutput`, evals. Built first. |
+| 06 | `06_Fusion_Grade_Synthesis_And_Evals.md` | **Prerequisite phase.** The foundation RB consumes: seats, structured `PlanAnalysis`, `StageOutput`, evals. Built first. |
 | RB1 | `RB1_Workflow_Presets_And_Stage_Primitives.md` | Generalize presets + prompt profiles; add workflow stages over 06's `StageOutput`; `WorkOrder.summary`; reuse. |
-| RB2 | `RB2_Review_Board.md` | Add optional advisory review fanout (lenses consume `JudgeAnalysis` + raw answers). |
+| RB2 | `RB2_Review_Board.md` | Add optional advisory review fanout (lenses consume `PlanAnalysis` + raw answers). |
 | RB3 | `RB3_Final_Spec.md` | First-principles final reduce; resolve contradictions, preserve/reject unique insights. |
 | RB4 | `RB4_Direct_Executor_Dispatch.md` | Send the final spec to a selected CLI without Allnighter-owned git rules. |
 | RB5 | `RB5_Return_Review_And_Routing.md` | Close the loop: capture the return, score it, build worker scorecards, recommend rerun/remix/pick. |

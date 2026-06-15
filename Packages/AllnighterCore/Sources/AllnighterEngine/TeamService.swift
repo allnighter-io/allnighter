@@ -1,12 +1,12 @@
 import Foundation
 import AllnighterCore
 
-/// Reads the council-recursion depth from the environment. Worker subprocesses
-/// are spawned with `ALLNIGHTER_COUNCIL_DEPTH` = parent + 1, so any council tool
-/// invoked from inside a council sees depth >= 1 and refuses to fan out.
+/// Reads the team-recursion depth from the environment. Model subprocesses
+/// are spawned with `ALLNIGHTER_TEAM_DEPTH` = parent + 1, so any council tool
+/// invoked from inside a team sees depth >= 1 and refuses to fan out.
 public enum RecursionGuard {
     public static func currentDepth(environment: [String: String] = ProcessInfo.processInfo.environment) -> Int {
-        Int(environment["ALLNIGHTER_COUNCIL_DEPTH"] ?? "0") ?? 0
+        Int(environment["ALLNIGHTER_TEAM_DEPTH"] ?? "0") ?? 0
     }
     public static func atOrOverCeiling(_ ceiling: Int, environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
         currentDepth(environment: environment) >= ceiling
@@ -17,7 +17,7 @@ public enum RecursionGuard {
 /// `flock` is released automatically when the holding process dies/closes the fd,
 /// so a crashed council never leaves a stale lock. `acquire` is non-blocking
 /// (`LOCK_NB`): it grabs the first free slot or returns nil when at the cap.
-public final class CouncilGovernor: @unchecked Sendable {
+public final class TeamGovernor: @unchecked Sendable {
     public final class Slot {
         let fd: Int32
         init(fd: Int32) { self.fd = fd }
@@ -47,48 +47,48 @@ public final class CouncilGovernor: @unchecked Sendable {
     }
 }
 
-/// RB6: the single normalized entry for running a council from a tool request
+/// RB6: the single normalized entry for running a team from a tool request
 /// (CLI / MCP / HTTP). Reuses the Phase 06 engine; recursion-guarded and governed;
 /// origin-tagged; persisted to the shared `Runs/` store. Judgment only — it links
 /// no dispatch/executor code and writes only under `AllnighterPaths`.
-public actor CouncilService {
-    private let workers: [Worker]
+public actor TeamService {
+    private let models: [Model]
     private let registry: DriverRegistry
-    private let presets: [PanelPreset]
+    private let presets: [TeamPreset]
     private let config: ToolConfig
     private let runStore: RunStore
     private let commandRunner: CommandRunner
-    private let governor: CouncilGovernor
+    private let governor: TeamGovernor
     private let now: @Sendable () -> Date
     private let environment: [String: String]
 
     public init(
-        workers: [Worker],
+        models: [Model],
         registry: DriverRegistry,
-        presets: [PanelPreset],
+        presets: [TeamPreset],
         config: ToolConfig = ToolConfig(),
         runStore: RunStore = RunStore(),
         commandRunner: CommandRunner = SubprocessCommandRunner(),
-        governor: CouncilGovernor? = nil,
+        governor: TeamGovernor? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
-        self.workers = workers
+        self.models = models
         self.registry = registry
         self.presets = presets
         self.config = config
         self.runStore = runStore
         self.commandRunner = commandRunner
-        self.governor = governor ?? CouncilGovernor(capacity: config.maxConcurrentCouncils)
+        self.governor = governor ?? TeamGovernor(capacity: config.maxConcurrentTeamRuns)
         self.environment = environment
         self.now = now
     }
 
     public func presetSummaries() -> [(id: String, name: String, shape: String)] {
         exposedPresets().map { preset in
-            let judgeLabel = resolveJudge(preset: preset)?.displayName
-            let shape = WorkOrder.panelSummary(
-                seatCount: preset.seats.expandedSeats().count,
+            let judgeLabel = resolvePlanWriter(preset: preset)?.displayName
+            let shape = WorkOrder.teamSummary(
+                workerCount: preset.workerSpecs.expandedWorkers().count,
                 judgeLabel: judgeLabel,
                 synthesis: preset.synthesis
             )
@@ -96,18 +96,18 @@ public actor CouncilService {
         }
     }
 
-    private func exposedPresets() -> [PanelPreset] {
+    private func exposedPresets() -> [TeamPreset] {
         let allowed = Set(config.exposedPresetIds)
         let exposed = presets.filter { allowed.contains($0.id) }
         return exposed.isEmpty ? presets : exposed
     }
 
-    /// Run a council from a tool request. `origin` tags the run; depth is read from
+    /// Run a team from a tool request. `origin` tags the run; depth is read from
     /// the environment (recursion guard).
-    public func run(_ request: CouncilRequest, origin: RunOrigin, originAgent: String? = nil) async -> CouncilToolResult {
+    public func run(_ request: TeamRequest, origin: RunOrigin, originAgent: String? = nil) async -> TeamToolResult {
         // Recursion guard (fail closed).
-        if RecursionGuard.atOrOverCeiling(config.maxCouncilDepth, environment: environment) {
-            return .refused(reason: "already inside a council; nested councils are disabled", now: now())
+        if RecursionGuard.atOrOverCeiling(config.maxTeamRunDepth, environment: environment) {
+            return .refused(reason: "already inside a team; nested councils are disabled", now: now())
         }
 
         // Resolve preset.
@@ -118,7 +118,7 @@ public actor CouncilService {
 
         // Governor (concurrency cap).
         guard let slot = governor.acquire() else {
-            return .refused(reason: "busy: \(config.maxConcurrentCouncils) councils already running", preset: preset.id, now: now())
+            return .refused(reason: "busy: \(config.maxConcurrentTeamRuns) councils already running", preset: preset.id, now: now())
         }
         defer { _ = slot } // released on scope exit (deinit unlocks).
 
@@ -131,29 +131,28 @@ public actor CouncilService {
             prompt += "\n\n# Context\n\(clipped)"
         }
 
-        // Panel fan-out.
-        let seats = preset.seats.expandedSeats()
-        let coordinator = CouncilRunCoordinator(workerRunner: WorkerRunner(commandRunner: commandRunner), registry: registry)
-        var run = await coordinator.fanOut(prompt: prompt, seats: seats, workers: workers, origin: origin, originAgent: originAgent, presetId: preset.id)
+        let teamWorkers = preset.workerSpecs.expandedWorkers()
+        let coordinator = TeamRunCoordinator(workerRunner: WorkerRunner(commandRunner: commandRunner), registry: registry)
+        var run = await coordinator.fanOut(prompt: prompt, teamWorkers: teamWorkers, models: models, origin: origin, originAgent: originAgent, presetId: preset.id)
 
-        // Synthesis (analysis + plan), if a judge is available.
-        if !run.answeredMembers.isEmpty,
-           let judge = resolveJudge(preset: preset), let manifest = registry.manifest(for: judge), manifest.kind == .headlessCLI {
-            let stages = await Synthesizer(workerRunner: WorkerRunner(commandRunner: commandRunner))
-                .synthesize(run: run, judge: judge, manifest: manifest, workers: workers, config: preset.synthesis)
+        // Plan writing (analysis + plan), if a plan writer model is available.
+        if !run.answeredWorkers.isEmpty,
+           let planWriter = resolvePlanWriter(preset: preset), let manifest = registry.manifest(for: planWriter), manifest.kind == .headlessCLI {
+            let stages = await PlanWriter(workerRunner: WorkerRunner(commandRunner: commandRunner))
+                .synthesize(run: run, judge: planWriter, manifest: manifest, models: models, config: preset.synthesis)
             run.stages.append(contentsOf: stages)
             run.status = stages.contains { $0.purpose == .plan && $0.status == .done } ? .complete : .partial
         } else {
             run.status = .partial
         }
 
-        try? runStore.save(run, workers: workers)
+        try? runStore.save(run, models: models)
 
-        let invocations = run.members.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
-        return CouncilToolResult(
+        let invocations = run.workerAnswers.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
+        return TeamToolResult(
             runId: run.id, origin: origin, preset: preset.id, status: run.status, createdAt: run.createdAt,
-            masterPlan: run.masterPlan, analysis: run.analysis,
-            partials: run.failedMembers.map { SeatFailure(seatId: $0.seatId, reason: $0.errorReason ?? $0.status.rawValue) },
+            plan: run.plan, analysis: run.analysis,
+            partials: run.failedWorkerAnswers.map { WorkerFailure(workerId: $0.workerId, reason: $0.errorReason ?? $0.status.rawValue) },
             contextTruncated: contextTruncated, invocations: invocations
         )
     }
@@ -165,16 +164,16 @@ public actor CouncilService {
             .filter { $0.status == .complete && $0.prompt.lowercased().contains(q) }
             .prefix(limit)
             .map { run in
-                let plan = run.masterPlan ?? ""
+                let plan = run.plan ?? ""
                 return RecallResult(runId: run.id, prompt: run.prompt, createdAt: run.createdAt,
-                                    masterPlanExcerpt: String(plan.prefix(400)))
+                                    planExcerpt: String(plan.prefix(400)))
             }
     }
 
-    private func resolveJudge(preset: PanelPreset) -> Worker? {
-        let seated = workers.filter { preset.workerIds.contains($0.id) }
-        if let id = preset.synthesis.judgeWorkerId, let w = seated.first(where: { $0.id == id }) { return w }
-        return seated.first(where: \.canSynthesize) ?? seated.first
+    private func resolvePlanWriter(preset: TeamPreset) -> Model? {
+        let roster = models.filter { preset.workerIds.contains($0.id) }
+        if let id = preset.synthesis.planWriterModelId, let m = roster.first(where: { $0.id == id }) { return m }
+        return roster.first(where: \.canWritePlan) ?? roster.first
     }
 
     private func clip(_ text: String, limit: Int) -> (String, Bool) {

@@ -87,12 +87,12 @@ Default review input:
 
 ```text
 founder prompt
-judge analysis (Phase 06 JudgeAnalysis: consensus/contradictions/unique/blind spots)
-draft master plan
+judge analysis (Phase 06 PlanAnalysis: consensus/contradictions/unique/blind spots)
+draft plan
 review lens instructions
 ```
 
-Reviewers consume the **structured `JudgeAnalysis`** (`judge_analysis` input
+Reviewers consume the **structured `PlanAnalysis`** (`plan_analysis` input
 selector, RB1), not only `master_plan.md` — so a lens can challenge a specific
 contradiction or an unsupported consensus point directly. Lens-specific selectors
 add raw member answers when needed; the `dissent_preserver` lens receives raw
@@ -108,7 +108,7 @@ lens; if you find nothing, say so briefly." Diversity of *output* is the value
 ## Built-In Lenses
 
 Ship all built-ins from RB0 as prompt profiles, plus **`coverage_audit`** (new).
-Its job is **meta-coverage**, sharply distinct from `JudgeAnalysis.blindSpots` and
+Its job is **meta-coverage**, sharply distinct from `PlanAnalysis.blindSpots` and
 from `dissent_preserver` (do not restate either): given the founder prompt + the
 draft plan, judge whether **the original question is actually, fully answered** and
 name domain risks/edge cases the whole exercise (panel *and* judge) could have
@@ -145,10 +145,10 @@ routed to.
   selectors, timeout, `enabled` (per-lens toggle), `preferFastWorker` (budget
   routing via Doctor).
 - [ ] RB2-S03 - Review prompt builder with explicit advisory + anti-echo language
-  and lens-specific input selectors (`judge_analysis` for all; raw member answers
-  for `dissent_preserver`; `JudgeAnalysis.blindSpots` for `coverage_audit`).
+  and lens-specific input selectors (`plan_analysis` for all; raw member answers
+  for `dissent_preserver`; `PlanAnalysis.blindSpots` for `coverage_audit`).
 - [ ] RB2-S04 - Review fanout coordinator reusing `WorkerRunner` + `TaskGroup`; the
-  `JudgeAnalysis` + draft plan are supplied as **reused** inputs (no re-fan-out).
+  `PlanAnalysis` + draft plan are supplied as **reused** inputs (no re-fan-out).
 - [ ] RB2-S05 - Review `StageOutput`s (`purpose: review`) in `run.json` + derived
   `review_<lensId>.md` with the optional machine-readable header.
 - [ ] RB2-S06 - UI review board: per-lens status, verdict chip, output, copy, and a

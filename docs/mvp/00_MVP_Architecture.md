@@ -48,7 +48,7 @@ Aligns with the constitution's layout; only the pieces the MVP needs exist now.
 ├── Apps/
 │   └── AllnighterMac/               # macOS menu-bar app + window (the MVP)
 │       └── Drivers/                 # bundled default driver manifests (*.json)
-├── Fixtures/                        # shared JSON fixtures (panels, runs, master plans)
+├── Fixtures/                        # shared JSON fixtures (panels, runs, plans)
 ├── scripts/                         # check.sh, doctor
 └── docs/mvp/                        # these docs (MVP execution truth)
 
@@ -83,7 +83,7 @@ Aligns with the constitution's layout; only the pieces the MVP needs exist now.
                  +------------------+------------------+
                                     |
                  +------------------v------------------+
-                 |  CouncilRunCoordinator (actor)      |  owns one run's lifecycle
+                 |  TeamRunCoordinator (actor)      |  owns one run's lifecycle
                  |  - builds member prompts            |
                  |  - fan-out via TaskGroup            |
                  |  - collects answers + status        |
@@ -99,7 +99,7 @@ Aligns with the constitution's layout; only the pieces the MVP needs exist now.
                  |                  |                  |
         +--------v------------------v------------------v--------+
         |        AllnighterCore (pure types, no I/O)            |
-        |  Worker · DriverManifest · CouncilRun · MemberResponse |
+        |  Model · DriverManifest · TeamRun · WorkerAnswer |
         |  · Synthesis · RunStatus · RunEvent envelope · fixtures |
         +-------------------------------------------------------+
 ```
@@ -124,13 +124,13 @@ forward-compatible with post-MVP phases (`Worker`, `Council`, `Driver`).
 ```text
 Worker          : a configured model endpoint = { id, displayName, modelLabel, driverId, role, enabled }
 DriverManifest  : how to invoke + read a CLI (see §5)
-PanelSeatSpec   : a preset's seat request = { workerId, count=1, stance? }   (expands to PanelSeats at run start; Phase 06)
-PanelSeat       : one independent panel slot = { id, workerId, seatIndex, stance?, label? }   (Phase 06)
-CouncilRun      : { id, prompt, status, origin, originAgent?, presetId?, panel:[PanelSeat], members:[MemberResponse], stages:[StageOutput], createdAt }
-MemberPrompt    : the exact prompt sent to one seat = { seatId, workerId, text }   (text varies per seat once stance/context land — §10 seam)
-MemberResponse  : { seatId, workerId, status, output, errorKind?, errorReason?, startedAt, finishedAt, durationMs, exitCode? }
-                  Identifiable via `id { seatId }` (computed; not encoded). seatId is the stored identity; workerId is provenance.
-JudgeAnalysis   : structured judge truth = { consensus, contradictions, partialCoverage, uniqueInsights, blindSpots, failedSeats, confidenceNote? }   (Phase 06)
+WorkerSpec   : a preset's seat request = { workerId, count=1, stance? }   (expands to Workers at run start; Phase 06)
+Worker       : one independent panel slot = { id, workerId, instanceIndex, stance?, label? }   (Phase 06)
+TeamRun      : { id, prompt, status, origin, originAgent?, presetId?, panel:[Worker], workerAnswers:[WorkerAnswer], stages:[StageOutput], createdAt }
+WorkerPrompt    : the exact prompt sent to one seat = { workerId, workerId, text }   (text varies per seat once stance/context land — §10 seam)
+WorkerAnswer  : { workerId, workerId, status, output, errorKind?, errorReason?, startedAt, finishedAt, durationMs, exitCode? }
+                  Identifiable via `id { workerId }` (computed; not encoded). workerId is the stored identity; workerId is provenance.
+PlanAnalysis   : structured judge truth = { consensus, contradictions, partialCoverage, uniqueInsights, blindSpots, failedWorkers, confidenceNote? }   (Phase 06)
 StageOutput     : one post-panel stage = { id, purpose, producedByWorkerId?, producedBySeatId?, promptProfileId?, customInstruction?,
                   status, payload?, reuseKey?, errorReason?, startedAt, finishedAt }   (Phase 06)
 StagePayload    : typed structured truth, one case per purpose (see §4.1)   (Phase 06)
@@ -141,11 +141,11 @@ RunEvent        : append-only event envelope (id, seq, ts, kind, payload) — se
 Phase 05 makes the draft synthesizer and synthesis instruction explicit in
 presets (Opus 4.8 is the built-in default by configuration, not a hardcoded
 semantic rule). **Phase 06 lays the correct final run model:** the panel is a list
-of `PanelSeat`s (so one worker can fill several seats — *self-fusion*), the
-synthesizer's analysis is the structured `JudgeAnalysis` (Markdown is derived),
-and everything after the panel is a `StageOutput` in `CouncilRun.stages` (the
+of `Worker`s (so one worker can fill several seats — *self-fusion*), the
+synthesizer's analysis is the structured `PlanAnalysis` (Markdown is derived),
+and everything after the panel is a `StageOutput` in `TeamRun.stages` (the
 Phase 04/05 `Synthesis` struct is **removed**, replaced by `analysis` + `plan`
-stage outputs). **Phase 05's `CouncilRun.panelPresetId` is deleted and replaced by
+stage outputs). **Phase 05's `TeamRun.panelPresetId` is deleted and replaced by
 `presetId`.** Since there are no users yet, Phase 06 corrects these shapes
 directly — fixtures and call sites are rewritten and the dev `Runs/` folder is
 wiped at the 06 cutover; **no compatibility shims, no alias, no decode-old-runs.**
@@ -165,7 +165,7 @@ of what ran (the Phase 05 `SynthesisInstructionChoice` honesty, generalized).
 
 ```text
 StagePayload =
-  | analysis(JudgeAnalysis)                 // purpose: analysis        (06)
+  | analysis(PlanAnalysis)                 // purpose: analysis        (06)
   | plan(markdown: String)                  // purpose: plan            (06)
   | review(ReviewResult)                    // purpose: review          (RB2)
   | finalSpec(FinalSpecPayload)             // purpose: final_spec      (RB3) markdown + structured decisions + flags
@@ -185,11 +185,11 @@ keyed by purpose) so new cases touch few sites.
 Enums:
 
 ```text
-WorkerRole   : member | synthesizer | both
-RunStatus    : draft -> fanning_out -> answers_in -> synthesizing -> complete | partial
+ModelRole   : member | synthesizer | both
+RunStatus    : draft -> fanning_out -> answers_in -> planning -> complete | partial
                (review presets) answers_in -> reviewing -> finalizing -> complete | partial
                any active -> cancelled (user stop) ; any -> failed (unrecoverable)
-MemberStatus : queued -> running -> done | failed | timed_out | cancelled | skipped
+WorkerAnswerStatus : queued -> running -> done | failed | timed_out | cancelled | skipped
                                           (skipped = manual worker not yet pasted)
 StagePurpose : analysis | plan          (RB extends: review | final_spec | dispatch | return_review | outcome_score)
 StageStatus  : queued -> running -> done | failed | timed_out | skipped | reused
@@ -197,10 +197,10 @@ RunOrigin    : gui | cli | mcp | http          (default gui; how the run was sta
 DriverKind   : headless_cli | manual_paste     (Growth: protocol, ide_handoff, local_model — see §10)
 ```
 
-**`RunStatus` is the *judgment* lifecycle only.** `synthesizing` spans **both** the
-analysis and plan reduces (Phase 06): a run enters `synthesizing` at analysis
+**`RunStatus` is the *judgment* lifecycle only.** `planning` spans **both** the
+analysis and plan reduces (Phase 06): a run enters `planning` at analysis
 start and leaves it when the plan stage settles. If analysis succeeds but the plan
-reduce fails, the run is `partial` (the `JudgeAnalysis` is still usable). **Dispatch
+reduce fails, the run is `partial` (the `PlanAnalysis` is still usable). **Dispatch
 (RB4) and return review (RB5) are post-judgment `StageOutput`s on a `complete`
 run** — they have their own `StageStatus`; they do **not** add `RunStatus` values.
 This keeps the run state machine small and stable as later milestones land. Every
@@ -210,9 +210,9 @@ legal/illegal edge (incl. mid-review and mid-synthesis stops) gets an exhaustive
 Canonical examples (full shapes live in `Fixtures/`):
 
 ```json
-// Worker
+// Model
 {
-  "id": "worker_opus",
+  "id": "model_opus",
   "displayName": "Opus 4.8",
   "modelLabel": "claude-opus-4.8",
   "driverId": "claude_code",
@@ -222,30 +222,30 @@ Canonical examples (full shapes live in `Fixtures/`):
 ```
 
 ```json
-// CouncilRun (completed, Phase 06 shape)
+// TeamRun (completed, Phase 06 shape)
 {
   "id": "run_01J...",
   "prompt": "Should we add team accounts before billing analytics?",
   "status": "complete",
   "presetId": "preset_six_default",
   "panel": [
-    { "id": "worker_opus#0", "workerId": "worker_opus", "seatIndex": 0 },
-    { "id": "worker_grok#0", "workerId": "worker_grok", "seatIndex": 0 }
+    { "id": "model_opus#0", "workerId": "model_opus", "instanceIndex": 0 },
+    { "id": "model_grok#0", "workerId": "model_grok", "instanceIndex": 0 }
   ],
   "members": [
-    { "seatId": "worker_opus#0", "workerId": "worker_opus", "status": "done", "output": "...", "durationMs": 21450, "exitCode": 0 },
-    { "seatId": "worker_grok#0", "workerId": "worker_grok", "status": "timed_out", "errorReason": "no output for 120s" }
+    { "workerId": "model_opus#0", "workerId": "model_opus", "status": "done", "output": "...", "durationMs": 21450, "exitCode": 0 },
+    { "workerId": "model_grok#0", "workerId": "model_grok", "status": "timed_out", "errorReason": "no output for 120s" }
   ],
   "stages": [
     {
-      "id": "stage_analysis", "purpose": "analysis", "producedBySeatId": "worker_opus#0",
+      "id": "stage_analysis", "purpose": "analysis", "producedBySeatId": "model_opus#0",
       "promptProfileId": "default_master_plan_v1", "status": "done",
-      "analysis": { "consensus": [], "contradictions": [], "blindSpots": [], "failedSeats": [{ "seatId": "worker_grok#0", "reason": "no output for 120s" }] }
+      "analysis": { "consensus": [], "contradictions": [], "blindSpots": [], "failedWorkers": [{ "workerId": "model_grok#0", "reason": "no output for 120s" }] }
     },
     {
-      "id": "stage_plan", "purpose": "plan", "producedBySeatId": "worker_opus#0",
+      "id": "stage_plan", "purpose": "plan", "producedBySeatId": "model_opus#0",
       "promptProfileId": "default_master_plan_v1", "status": "done",
-      "markdown": "# Master Plan\n..."
+      "markdown": "# Plan\n..."
     }
   ],
   "createdAt": "2026-06-14T20:01:00Z"
@@ -255,15 +255,15 @@ Canonical examples (full shapes live in `Fixtures/`):
 ### Run state machine (single source of truth; tested in Phase 01)
 
 ```text
-draft -> fanning_out -> answers_in -> synthesizing -> complete
+draft -> fanning_out -> answers_in -> planning -> complete
                                     -> (synthesis fails) -> partial
-fanning_out/answers_in/synthesizing -> cancelled        (user stop)
+fanning_out/answers_in/planning -> cancelled        (user stop)
 any -> failed                                          (unrecoverable)
 ```
 
-`CouncilRun.canTransition(to:)` is validated in Core with unit tests for every
+`TeamRun.canTransition(to:)` is validated in Core with unit tests for every
 legal and illegal edge. `partial` exists so one dead worker never blocks a
-master plan.
+plan.
 
 ---
 
@@ -313,9 +313,9 @@ editing its manifest only.
 
 **Bundled default manifests (best-effort, all editable in Settings):**
 
-| Worker | Likely driver | Notes |
+| Model | Likely driver | Notes |
 | --- | --- | --- |
-| Opus 4.8 | `claude_code` (`claude -p --model`) | Synthesizer by default. |
+| Opus 4.8 | `claude_code` (`claude -p --model`) | PlanWriter by default. |
 | Sonnet 4.6 | `claude_code` (`claude -p --model`) | Same CLI, different `modelLabel`. |
 | ChatGPT 5.5 | `codex` / OpenAI CLI headless (`-p`-style) | Confirm flags during Phase 02; `manual_paste` fallback. |
 | Gemini Flash | Antigravity / Gemini CLI headless prompt | Confirm flags; `manual_paste` fallback. |
@@ -345,10 +345,10 @@ changing the event shapes**.
 ```json
 { "id": "evt_...", "seq": 42, "ts": "2026-06-14T20:01:21Z",
   "kind": "member.status_changed",
-  "payload": { "runId": "run_01J...", "seatId": "worker_grok#0", "workerId": "worker_grok", "from": "running", "to": "timed_out" } }
+  "payload": { "runId": "run_01J...", "workerId": "model_grok#0", "workerId": "model_grok", "from": "running", "to": "timed_out" } }
 ```
 
-Member events key on **`seatId`** (Phase 06; `workerId` included for convenience),
+Member events key on **`workerId`** (Phase 06; `workerId` included for convenience),
 so self-fusion seats never collide. Event kinds (extensible): `run.*`, `member.*`,
 and the generic **`stage.*`** family (`stage.started`, `stage.output`,
 `stage.completed`, `stage.failed`, `stage.reused`) carrying `stageId` + `purpose` —
@@ -366,9 +366,9 @@ Start simple, stay migratable:
 
 ```text
 run_<id>/
-  run.json                  # CouncilRun (truth)
-  member_<seatId>.md        # each seat's raw answer (seatId, so self-fusion seats don't collide)
-  analysis.md               # derived view of the JudgeAnalysis (Phase 06)
+  run.json                  # TeamRun (truth)
+  member_<workerId>.md        # each seat's raw answer (workerId, so self-fusion seats don't collide)
+  analysis.md               # derived view of the PlanAnalysis (Phase 06)
   master_plan.md            # the plan stage output (purpose: plan)
   bundle.md                 # export: prompt + all members + analysis + plan, one file
   # RB adds (derived from run.json stages): review_<lensId>.md, final_spec.md,
@@ -377,7 +377,7 @@ run_<id>/
 
 - Workers + manifests + presets live under
   `~/Library/Application Support/Allnighter/Config/`. Eval runs live under a
-  **separate `Evals/`** tree (never `Runs/`), so history and `council_recall` (RB6)
+  **separate `Evals/`** tree (never `Runs/`), so history and `team_recall` (RB6)
   never surface them.
 - **`run.json` is the only truth; every `.md` is derived.** All Markdown artifacts
   (`analysis.md`, `master_plan.md`, `review_*.md`, `final_spec.md`, `bundle.md`, …)
@@ -399,10 +399,10 @@ own (which the user already authorized via their subscriptions).
 data:
 
 ```text
-panel_six.json            # the founder's six workers
+models_six.json            # the founder's six workers
 run_inflight.json         # a run mid fan-out (some running, some done)
-run_complete.json         # a finished run with master plan
-run_partial.json          # one worker timed out; master plan still produced
+run_complete.json         # a finished run with plan
+run_partial.json          # one worker timed out; plan still produced
 manifest_claude.json      # a headless_cli manifest
 manifest_manual.json      # a manual_paste manifest
 ```
@@ -448,19 +448,19 @@ capability has a named attach point in the MVP design:
 
 | Deferred capability | Attaches at | What changes (additive only) |
 | --- | --- | --- |
-| **Fusion-grade synthesis + evals** (`06`) | `CouncilRun` model + `Synthesizer` + `RunStore` | The correct council foundation: `PanelSeat` (self-fusion), structured `JudgeAnalysis`, `StageOutput` sequence, two-stage analysis→plan, tiered presets, and an offline eval harness. **Built before RB** so RB never restructures the run model. |
-| **Review Board + Final Spec** (`RB0`-`RB4`) | `StageOutput` (from `06`) + `CouncilRunCoordinator` + prompt builders | After the plan stage, append optional advisory review `StageOutput`s, then a first-principles final-spec reduce. New `StagePurpose` cases only — reuse fanout/reduce; no generic DAG. |
-| **Return review + scorecards + routing** (`RB5`) | `StageOutput` + `MemberResponse` outcomes + the `06` eval harness | After dispatch, capture the executor return, score it against the final spec, aggregate worker scorecards from local history, and recommend rerun/remix/pick. Closes the control loop; still no managed git. |
-| **Council-as-Tool** (local CLI / MCP / HTTP) — **specced (`RB6`)** | `CouncilService` over the existing engine + the `RunEvent` stream + a loopback server (same seam as iOS) | Expose the panel→analysis→plan council as a tool any local terminal agent (Claude Code, Codex, Grok, Cursor) invokes mid-task — **local Fusion at zero marginal cost.** Recursion-guarded, governed, localhost-only, judgment-only (no git/execution). The strategic moat; needs only `06`. |
+| **Fusion-grade synthesis + evals** (`06`) | `TeamRun` model + `PlanWriter` + `RunStore` | The correct council foundation: `Worker` (self-fusion), structured `PlanAnalysis`, `StageOutput` sequence, two-stage analysis→plan, tiered presets, and an offline eval harness. **Built before RB** so RB never restructures the run model. |
+| **Review Board + Final Spec** (`RB0`-`RB4`) | `StageOutput` (from `06`) + `TeamRunCoordinator` + prompt builders | After the plan stage, append optional advisory review `StageOutput`s, then a first-principles final-spec reduce. New `StagePurpose` cases only — reuse fanout/reduce; no generic DAG. |
+| **Return review + scorecards + routing** (`RB5`) | `StageOutput` + `WorkerAnswer` outcomes + the `06` eval harness | After dispatch, capture the executor return, score it against the final spec, aggregate worker scorecards from local history, and recommend rerun/remix/pick. Closes the control loop; still no managed git. |
+| **Council-as-Tool** (local CLI / MCP / HTTP) — **specced (`RB6`)** | `TeamService` over the existing engine + the `RunEvent` stream + a loopback server (same seam as iOS) | Expose the panel→analysis→plan council as a tool any local terminal agent (Claude Code, Codex, Grok, Cursor) invokes mid-task — **local Fusion at zero marginal cost.** Recursion-guarded, governed, localhost-only, judgment-only (no git/execution). The strategic moat; needs only `06`. |
 | **Generic Council critique** | RB stage primitives | If revived, it becomes a workflow preset over `WorkflowStage`, not a separate cross-critique engine. The post-draft review board supersedes generic model-vs-model critique for implementation specs. |
 | **Managed execution lanes** | `DriverManifest.invoke.workingDir` (already nullable) + new execution owner model + `DriverKind.protocol` | A worker run gets a real isolated cwd; member output becomes built work instead of text. Isolation rules belong in the owning post-MVP phase doc. |
-| **Direct executor dispatch** (`RB4`) | The master plan / final spec + selected worker + configured working directory | Creates `implementation_brief.md` and `execution_prompt_<workerId>.md`, then invokes the selected healthy CLI. Allnighter does not create worktrees, branches, commits, landing, or revert rules. |
+| **Direct executor dispatch** (`RB4`) | The plan / final spec + selected worker + configured working directory | Creates `implementation_brief.md` and `execution_prompt_<workerId>.md`, then invokes the selected healthy CLI. Allnighter does not create worktrees, branches, commits, landing, or revert rules. |
 | **Managed "Implement This" / picker-as-prompt** | `ImplementationBrief` + execution substrate | A managed "send this to execution" action creates a task from the chosen plan; reuses the same work-order shape after execution safety exists. |
 | **Races** | The fan-out engine | A race is a fan-out where members produce competing implementations or directions instead of text-only answers. RB5's multi-executor compare is the text-level precursor. |
 | **iOS floor manager** | The `RunEvent` stream + a Hummingbird server in the Mac app | Wrap the existing in-process event stream in a WebSocket; iOS subscribes with `?since=<seq>`. Event shapes already match. |
-| **Project/repo context** | `MemberPrompt` | Prompt builder gains optional repo/file context; member prompt stops being identical-text-only. |
+| **Project/repo context** | `WorkerPrompt` | Prompt builder gains optional repo/file context; member prompt stops being identical-text-only. |
 | **Utilization / admission control** | `WorkerRunner` dispatch | A scheduler/governor sits in front of `TaskGroup` spawn; adds concurrency caps and observed worker-availability logic. No cost/time estimates. |
-| **Scorecards / routing** | `MemberResponse` (already has timing/outcome) | Aggregate response outcomes per worker over runs; drive routing. Implemented by `RB5`. |
+| **Scorecards / routing** | `WorkerAnswer` (already has timing/outcome) | Aggregate response outcomes per worker over runs; drive routing. Implemented by `RB5`. |
 | **Preference ledger / taste** | A new `PreferenceEvent` on "I liked plan X / picked dissent Y" | Logged from the master-plan view; structured for future market-outcome extension. |
 | **Persistence at scale** | Run index | Flat files → GRDB; `run.json` stays the artifact. |
 
@@ -493,13 +493,13 @@ emitting events), stop and take the forward-compatible path.
 | 2026-06-14 | In-process `RunEvent` stream with constitution-matching envelope. | iOS attaches later via WebSocket with no event-shape change. |
 | 2026-06-14 | Post-MVP review board uses a fixed fanout/reduce stage chain, not a general workflow engine. | Phase 05 ships first; review feedback is advisory and final spec synthesis decides from first principles. |
 | 2026-06-14 | OpenRouter's **Fusion** result is validation, not a pivot — Allnighter is the local, zero-marginal-cost version. No OpenRouter/API/keys; the fixed chain stays. | Fusion's lesson (structured judge analysis + self-fusion + budget-panel quality) is captured locally in Phase 06. |
-| 2026-06-14 | **Phase 06 lays the correct final council-run model before RB:** `PanelSeat` (self-fusion), structured `JudgeAnalysis`, `StageOutput` sequence; the `Synthesis` struct is removed. | Founder directive: build the right foundation now (no users → no migration). Fixtures + call sites rewritten; no compatibility shims. RB adds `StagePurpose` cases only. |
-| 2026-06-14 | Synthesis is two stages (analysis → plan); `JudgeAnalysis` is always structured truth. "combined vs separate" is a per-preset **call-count** choice, never a data-shape shortcut. | Daily speed comes from preset choice (fewer seats, fast judge), not from skipping the analysis. |
+| 2026-06-14 | **Phase 06 lays the correct final council-run model before RB:** `Worker` (self-fusion), structured `PlanAnalysis`, `StageOutput` sequence; the `Synthesis` struct is removed. | Founder directive: build the right foundation now (no users → no migration). Fixtures + call sites rewritten; no compatibility shims. RB adds `StagePurpose` cases only. |
+| 2026-06-14 | Synthesis is two stages (analysis → plan); `PlanAnalysis` is always structured truth. "combined vs separate" is a per-preset **call-count** choice, never a data-shape shortcut. | Daily speed comes from preset choice (fewer seats, fast judge), not from skipping the analysis. |
 | 2026-06-14 | An offline **eval harness** (hidden weighted + negative rubrics) is the discipline gate for judgment changes; **RB5** closes the control loop (return review → scorecards → routing). | A synthesis/profile change ships as default only if it does not regress the corpus. |
 | 2026-06-14 | **Council-as-Tool** (`RB6`): expose the council as a local tool (CLI / MCP / loopback HTTP) any terminal agent can call — local Fusion at zero marginal cost. Recursion-guarded, governed, judgment-only (no git/execution). Needs only `06`, so sequenceable early. | The moat. Founder confirmed it is in scope; the deferred "no git complexity" caveat refers to worktree/landing machinery, which RB6 explicitly excludes. |
 | 2026-06-14 | **Hardening pass (post-review).** `StageOutput` carries a typed `StagePayload` union (one case per purpose) + `producedByWorkerId` (not seat-only); `StagePurpose` is a closed enum (exhaustive switches are a feature). | Two independent doc reviews; close contract gaps before code. Reduces are produced by workers, not panel seats. |
 | 2026-06-14 | **`AllnighterEngine` imports no UI** (no SwiftUI/AppKit/`@Observable`); UI state lives only in the Mac app (`AppModel`). The `allnighter` RB6 binary links Engine and must build headlessly. | Enforced by a test/lint. Prevents the RB6 CLI from needing a display server. |
-| 2026-06-14 | **HTTP recursion guard fails closed:** the loopback server requires a mandatory depth header; all Allnighter clients forward `ALLNIGHTER_COUNCIL_DEPTH`; the session token is scrubbed from worker subprocess env. Cross-process concurrency uses `flock(2)` (auto-released on death). | Env-var alone can't protect an already-running server. Fail-closed + governor backstop; residual adversarial self-recursion is bounded by the governor + quota and documented. |
+| 2026-06-14 | **HTTP recursion guard fails closed:** the loopback server requires a mandatory depth header; all Allnighter clients forward `ALLNIGHTER_TEAM_DEPTH`; the session token is scrubbed from worker subprocess env. Cross-process concurrency uses `flock(2)` (auto-released on death). | Env-var alone can't protect an already-running server. Fail-closed + governor backstop; residual adversarial self-recursion is bounded by the governor + quota and documented. |
 | 2026-06-14 | **RB5 proof commands default to manual/reveal;** auto-execution is opt-in behind a user allowlist + per-command approval, timeout, in the execution dir, logged. Multi-executor compare is **sequential** by default; parallel only with distinct working dirs (never one shared CWD). | Running model-authored commands is high-risk; concurrent agents in one repo corrupt each other. |
 
 > Append a row whenever a phase changes a locked decision. Do not change the

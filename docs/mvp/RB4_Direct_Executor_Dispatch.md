@@ -89,7 +89,7 @@ original prompt
 final spec
 acceptance criteria
 proof commands / Works Test          # copied from RB3's executability gate
-panel judgment summary               # JudgeAnalysis: key consensus + resolved contradictions
+panel judgment summary               # PlanAnalysis: key consensus + resolved contradictions
 analysis decisions                   # adopted / rejected / deferred contradictions + unique insights (RB3)
 known non-goals
 risks and open questions
@@ -106,9 +106,9 @@ verifiable.
 
 If no final spec exists, the action may create a brief from `master_plan.md`. In
 that path the **analysis-decision fields are absent** (there were no review
-decisions / contradiction resolutions to carry), the `JudgeAnalysis` summary is
+decisions / contradiction resolutions to carry), the `PlanAnalysis` summary is
 still included, and the UI + the brief header label it **"less reviewed — built
-from the master plan, not a final spec."** The execution-prompt builder omits the
+from the plan, not a final spec."** The execution-prompt builder omits the
 decision sections cleanly rather than emitting empty headers.
 
 ## Boundary Label
@@ -127,8 +127,8 @@ boundary.
 ## Ordered Slices
 
 - [ ] RB4-S01 - `ImplementationBrief` model (incl. the panel judgment summary +
-  structured analysis decisions from RB3's `JudgeAnalysis`) and Markdown renderer.
-- [ ] RB4-S02 - Worker picker for handoff target; default comes from
+  structured analysis decisions from RB3's `PlanAnalysis`) and Markdown renderer.
+- [ ] RB4-S02 - Model picker for handoff target; default comes from
   `WorkflowPreset.executionWorkerId` when present.
 - [ ] RB4-S03 - Execution working-directory picker/default. Store the path in
   the run/brief; do not create a worktree. Confirm `Runs/` stays out of the

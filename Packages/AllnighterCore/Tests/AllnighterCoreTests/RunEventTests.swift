@@ -11,7 +11,7 @@ final class RunEventTests: XCTestCase {
             kind: RunEventKind.memberStatusChanged,
             payload: [
                 "runId": .string("run_complete_0001"),
-                "workerId": .string("worker_grok"),
+                "workerId": .string("model_grok"),
                 "from": .string("running"),
                 "to": .string("timed_out"),
                 "attempt": .int(1),

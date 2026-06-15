@@ -1,0 +1,19 @@
+{
+  "id" : "preset_six_default",
+  "displayName" : "Founder's Six",
+  "workerSpecs" : [
+    { "modelId" : "model_chatgpt", "count" : 1 },
+    { "modelId" : "model_opus", "count" : 1 },
+    { "modelId" : "model_sonnet", "count" : 1 },
+    { "modelId" : "model_composer", "count" : 1 },
+    { "modelId" : "model_gemini", "count" : 1 },
+    { "modelId" : "model_grok", "count" : 1 }
+  ],
+  "synthesis" : {
+    "analysisDepth" : "combined",
+    "planWriterModelId" : "model_opus",
+    "analysisProfileId" : "plan_analysis_v1",
+    "planProfileId" : "plan_writer_v1"
+  },
+  "builtIn" : true
+}

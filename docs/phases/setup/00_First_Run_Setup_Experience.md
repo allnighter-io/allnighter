@@ -133,9 +133,9 @@ green — that *is* the reward loop.
 - "Set your team." Workers from ready models are **pre-selected**; the user can
   toggle. At least one must stay. This is **confirm, not configure** — no model
   editing here (that's Settings).
-- **Plan writer** picker, defaulted to the best available model (Opus 4.8 if
-  present). One line on what the plan writer does: "one model reads every answer
-  and writes the plan."
+- **Plan writer** picker, defaulted to the best eligible worker (Opus 4.8
+  wearing the Plan Writer skill if present). One line on what the plan writer
+  does: "one worker reads every answer and writes the plan."
 - A quiet cost/scale reassurance: "N workers · local · $0 marginal."
 
 ### Scene 6 — Launch
@@ -167,7 +167,7 @@ install," each a one-liner.
 ## 5. Visual direction (for the mock)
 
 - **Tokens/components:** `docs/design-system/` — midnight surfaces, amber as the
-  single warm signal, `StatusPill`, model/worker chips, `Badge`, `Button`,
+  single warm signal, `StatusPill`, model chips, worker chips, `Badge`, `Button`,
   `LiveMark`. Mono (`--font-mono`) for versions, paths, commands.
 - **The live mark is the protagonist** — large in the hero, blinking during
   scan, a single glow-pulse on success. Never animate the whole mark, only the

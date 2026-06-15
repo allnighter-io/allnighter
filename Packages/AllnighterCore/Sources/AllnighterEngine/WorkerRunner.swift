@@ -1,13 +1,13 @@
 import Foundation
 import AllnighterCore
 
-/// The neutral result of invoking one worker's CLI once — shared by panel seats
-/// (wrapped into a `MemberResponse`) and reduce stages (wrapped into a
+/// The neutral result of invoking one worker's CLI once — shared by workers
+/// (wrapped into a `WorkerAnswer`) and reduce stages (wrapped into a
 /// `StageOutput`). Pure of orchestration concerns.
 public struct WorkerRunOutcome: Sendable, Equatable {
-    public var status: MemberStatus
+    public var status: WorkerAnswerStatus
     public var output: String?
-    public var errorKind: MemberErrorKind?
+    public var errorKind: WorkerAnswerErrorKind?
     public var errorReason: String?
     public var startedAt: Date?
     public var finishedAt: Date?
@@ -32,7 +32,7 @@ public struct WorkerRunner: Sendable {
     /// `workingDirectoryOverride`/`timeoutOverride` let dispatch (RB4) run in a
     /// chosen directory with a longer budget than the panel timeout.
     public func invoke(
-        worker: Worker,
+        worker: Model,
         manifest: DriverManifest,
         prompt: String,
         workingDirectoryOverride: String? = nil,
@@ -47,7 +47,7 @@ public struct WorkerRunner: Sendable {
         // then read that instead of stdout (keeps noisy CLIs like codex clean).
         let capturesFile = manifest.output?.capture == .file
         let outputFileURL: URL? = capturesFile
-            ? FileManager.default.temporaryDirectory.appendingPathComponent("allnighter-\(UUID().uuidString).txt")
+            ? FileManager.default.temporaryDirectory.appendingPathComponent("alln-\(UUID().uuidString).txt")
             : nil
         defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
 
@@ -127,17 +127,17 @@ public struct WorkerRunner: Sendable {
         return outcome
     }
 
-    /// Run a panel seat and return its `MemberResponse` (keyed by `seatId`).
+    /// Run a worker and return its `WorkerAnswer` (keyed by `workerId`).
     public func run(
-        seat: PanelSeat,
-        worker: Worker,
+        assignment: Worker,
+        model: Model,
         manifest: DriverManifest,
         prompt: String
-    ) async -> MemberResponse {
-        let outcome = await invoke(worker: worker, manifest: manifest, prompt: prompt)
-        return MemberResponse(
-            seatId: seat.id,
-            workerId: worker.id,
+    ) async -> WorkerAnswer {
+        let outcome = await invoke(worker: model, manifest: manifest, prompt: prompt)
+        return WorkerAnswer(
+            workerId: assignment.id,
+            modelId: model.id,
             status: outcome.status,
             output: outcome.output,
             errorKind: outcome.errorKind,

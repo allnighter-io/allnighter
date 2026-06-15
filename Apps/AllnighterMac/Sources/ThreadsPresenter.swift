@@ -90,7 +90,7 @@ enum ThreadsPresenter {
 
     // MARK: - Composer
 
-    /// The composer chip copy, e.g. "Replying as worker_opus".
+    /// The composer chip copy, e.g. "Replying as model_opus".
     static func replyingAs(workerId: String?) -> String {
         guard let workerId else { return "No worker available" }
         return "Replying as \(workerId)"

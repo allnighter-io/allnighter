@@ -41,13 +41,13 @@ public struct ReturnReviewer: Sendable {
     private struct Parsed: Decodable { var action: String?; var reasoning: String? }
 
     public func review(
-        run: CouncilRun,
+        run: TeamRun,
         executionReturn: ExecutionReturn,
-        reviewer: Worker,
+        reviewer: Model,
         manifest: DriverManifest,
         profile: PromptProfile
     ) async -> StageOutput {
-        let spec = run.latestStage(.finalSpec)?.payload?.markdown ?? run.masterPlan ?? ""
+        let spec = run.latestStage(.finalSpec)?.payload?.markdown ?? run.plan ?? ""
         let prompt = """
         \(profile.template)
 
@@ -85,7 +85,7 @@ public struct ReturnReviewer: Sendable {
         }
         let body = String(raw[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
         let tail = String(raw[range.upperBound...])
-        guard let json = JudgeOutputParser.extractJSONObject(from: tail),
+        guard let json = PlanOutputParser.extractJSONObject(from: tail),
               let parsed = try? CoreJSON.decode(Parsed.self, from: Data(json.utf8)),
               let actionRaw = parsed.action, let action = RoutingAction(rawValue: actionRaw) else {
             return (body, fallbackFailed ? RoutingRecommendation(action: .rerun, reasoning: "Execution did not complete cleanly.") : nil)
@@ -97,16 +97,16 @@ public struct ReturnReviewer: Sendable {
 /// RB5: aggregates per-worker performance over local run history. On-demand; no
 /// upload, no persisted snapshot.
 public enum ScorecardBuilder {
-    public static func build(from runs: [CouncilRun]) -> [WorkerScorecard] {
+    public static func build(from runs: [TeamRun]) -> [WorkerScorecard] {
         struct Acc { var runs = Set<String>(); var answered = 0; var seated = 0; var judged = 0; var judgeUsable = 0; var dispatched = 0; var dispatchOK = 0; var latencies: [Int] = [] }
         var acc: [String: Acc] = [:]
 
         for run in runs {
-            for member in run.members {
-                acc[member.workerId, default: Acc()].runs.insert(run.id)
-                acc[member.workerId, default: Acc()].seated += 1
-                if member.hasAnswer { acc[member.workerId, default: Acc()].answered += 1 }
-                if let ms = member.durationMs { acc[member.workerId, default: Acc()].latencies.append(ms) }
+            for member in run.workerAnswers {
+                acc[member.modelId, default: Acc()].runs.insert(run.id)
+                acc[member.modelId, default: Acc()].seated += 1
+                if member.hasAnswer { acc[member.modelId, default: Acc()].answered += 1 }
+                if let ms = member.durationMs { acc[member.modelId, default: Acc()].latencies.append(ms) }
             }
             for stage in run.stages where stage.purpose == .plan {
                 if let w = stage.producedByWorkerId {

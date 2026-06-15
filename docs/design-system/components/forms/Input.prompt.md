@@ -2,7 +2,7 @@ Labelled text input with hint, error, and affix slots. Used everywhere data is e
 
 ```jsx
 <Input label="Run name" placeholder="dashboard refresh" required />
-<Input label="Synthesizer" prefixText="model:" mono placeholder="opus-4.8" />
+<Input label="PlanWriter" prefixText="model:" mono placeholder="opus-4.8" />
 <Input label="Timeout" suffix="sec" defaultValue="120" />
 ```
 

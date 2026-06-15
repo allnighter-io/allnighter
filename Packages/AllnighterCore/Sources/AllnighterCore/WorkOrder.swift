@@ -4,18 +4,18 @@ import Foundation
 /// only — no seconds, quota, calls-as-estimate, or "est." prefix.
 public enum WorkOrder {
     /// Panel / council composer shape: seats, judge, analysis depth, optional lenses.
-    public static func panelSummary(
-        seatCount: Int,
+    public static func teamSummary(
+        workerCount: Int,
         judgeLabel: String?,
         synthesis: SynthesisConfig,
         lensCount: Int = 0
     ) -> String {
-        var parts: [String] = ["\(seatCount) seat\(seatCount == 1 ? "" : "s")"]
+        var parts: [String] = ["\(workerCount) worker\(workerCount == 1 ? "" : "s")"]
         if let judgeLabel, !judgeLabel.isEmpty {
-            parts.append("\(judgeLabel) judge")
+            parts.append("\(judgeLabel) plan writer")
         }
         let stageShape = synthesis.analysisDepth == .combined
-            ? "combined judge"
+            ? "combined analysis + plan"
             : "separate analysis + plan"
         parts.append(stageShape)
         if lensCount > 0 {

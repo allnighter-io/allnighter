@@ -93,7 +93,7 @@ window.Sidebar = function Sidebar({ selected, onToggle, disabled }) {
           onToggle: () => onToggle(w.id), glyph: R.createElement(Glyph, { worker: w }),
         })))),
     R.createElement('div', { className: 'alk-side__sec' },
-      R.createElement('div', { className: 'alk-side__t', style: { marginBottom: 10 } }, 'Synthesizer'),
+      R.createElement('div', { className: 'alk-side__t', style: { marginBottom: 10 } }, 'PlanWriter'),
       R.createElement('div', { className: 'alk-synth' },
         R.createElement(Glyph, { worker: workers[0] }),
         R.createElement('span', { className: 'lbl' }, 'Opus 4.8'),

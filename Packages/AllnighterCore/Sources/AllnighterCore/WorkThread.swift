@@ -5,7 +5,7 @@ import Foundation
 ///
 /// A thread is an ordered list of `ThreadTurn`s. It owns chat turns directly;
 /// heavy work (council/design/review/dispatch) is referenced by `runId` on a
-/// turn — `CouncilRun` stays the run-truth owner (see `Persistent_Work_Threads`).
+/// turn — `TeamRun` stays the run-truth owner (see `Persistent_Work_Threads`).
 ///
 /// Liveness (running/needs-attention/last-worker/preview) is **derived** from
 /// turns, never stored, so thread state cannot drift from turn truth.

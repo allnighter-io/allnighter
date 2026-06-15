@@ -28,5 +28,5 @@ team gets here.
 - Composes the design-system components via `components/_preview.jsx`
   (`StatusPill`, `Badge`, `Icon`, `BrandIcon`). Mobile uses larger type and ≥44px
   touch targets — denser macOS sizes are not reused verbatim.
-- All content is **representative sample data**. Worker glyphs via Simple Icons
+- All content is **representative sample data**. Model glyphs via Simple Icons
   (ChatGPT falls back to a Lucide mark).

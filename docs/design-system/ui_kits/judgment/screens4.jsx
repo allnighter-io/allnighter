@@ -81,7 +81,7 @@ window.JConfigShell = function JConfigShell({ active, onNav, children }) {
   );
 };
 
-/* ============ ⑩ Worker scorecards ============ */
+/* ============ ⑩ Model scorecards ============ */
 const SCORES = [
   { w: { brand: 'anthropic', color: 'FFA630' }, n: 'Opus 4.8', runs: 42, panel: 92, synth: 88, exec: 88, lat: '1.9s' },
   { w: { brand: 'anthropic', color: 'AEB5C9' }, n: 'Sonnet 4.6', runs: 38, panel: 95, synth: 71, exec: 81, lat: '1.4s' },
@@ -206,7 +206,7 @@ window.LensLibraryView = function LensLibraryView() {
               <Badge tone="accent">review_lens</Badge><Badge tone="neutral" mono>v3</Badge><Badge tone="neutral">built-in · read-only</Badge>
             </div>
             <div className="jpe-label" style={{ marginTop: 0 }}>Template</div>
-            <Textarea mono rows={11} defaultValue={"You are a security & privacy reviewer on an advisory board.\n\nInput: the founder prompt, the JudgeAnalysis (consensus / contradictions /\nblind spots), and the draft master plan.\n\nDo NOT restate or endorse the draft. Surface what is wrong, missing, or\nrisky from a security, privacy, permission, and data-leak lens. Challenge a\nspecific contradiction or an unsupported consensus point directly.\n\nIf you find nothing, say so briefly. Emit a verdict header:\n  verdict: ok | concerns | blocker\n  top_concerns: [ ... ]\nthen the full advisory review in Markdown."} />
+            <Textarea mono rows={11} defaultValue={"You are a security & privacy reviewer on an advisory board.\n\nInput: the founder prompt, the PlanAnalysis (consensus / contradictions /\nblind spots), and the draft plan.\n\nDo NOT restate or endorse the draft. Surface what is wrong, missing, or\nrisky from a security, privacy, permission, and data-leak lens. Challenge a\nspecific contradiction or an unsupported consensus point directly.\n\nIf you find nothing, say so briefly. Emit a verdict header:\n  verdict: ok | concerns | blocker\n  top_concerns: [ ... ]\nthen the full advisory review in Markdown."} />
           </div>
         </div>
       </div>

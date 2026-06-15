@@ -1,4 +1,4 @@
-# 02 — Worker Drivers + Parallel Fan-Out Engine
+# 02 — Model Drivers + Parallel Fan-Out Engine
 
 Status: **Complete (engine + MockDriver)** — real-CLI verification deferred to a
 separate on-device probe (founder chose mock-first). `swift test`: 51 passing.
@@ -12,14 +12,14 @@ Completed: 2026-06-14
 Build the engine that turns one prompt into N parallel CLI invocations and
 collects normalized results: a subprocess `WorkerRunner`, a manifest-driven
 driver layer, worker detection + smoke tests (Doctor data), and the
-`CouncilRunCoordinator` that fans out via a `TaskGroup`, enforces per-worker
+`TeamRunCoordinator` that fans out via a `TaskGroup`, enforces per-worker
 timeouts, supports cancellation, and emits the `RunEvent` stream. No synthesis
 yet, no UI — this is the reusable execution substrate (it is what the full
 factory's agent runtime grows from).
 
 ## Non-Goals
 
-- Synthesis / master plan (Phase 04). UI (Phase 03). Persistence beyond what a
+- Synthesis / plan (Phase 04). UI (Phase 03). Persistence beyond what a
   test harness needs. Lanes/worktrees (Growth Seam).
 
 ## Approach (per `00`)
@@ -28,7 +28,7 @@ factory's agent runtime grows from).
   prompt + model, spawns the CLI via `Foundation.Process` in **its own process
   group**, passes the prompt as a single `argv` element or via stdin (never
   shell-concatenated, `00` §9), captures stdout/stderr, strips ANSI, enforces
-  `timeoutSeconds`, and returns a `MemberResponse`. Completion via `doneSignal`
+  `timeoutSeconds`, and returns a `WorkerAnswer`. Completion via `doneSignal`
   (exit_code first; idle_timeout backstop).
 - **Driver layer**: a manifest loader (bundled defaults in
   `Apps/AllnighterMac/Drivers/*.json` + user overrides in Config), template
@@ -38,9 +38,9 @@ factory's agent runtime grows from).
   `smokeTestCommand` (expects `smokeTestExpect`) to mark each worker
   healthy/unhealthy with a reason. This is the churn defense and feeds Doctor
   (Phase 05).
-- **`CouncilRunCoordinator`** (`actor`): builds `MemberPrompt`s (MVP: identical
+- **`TeamRunCoordinator`** (`actor`): builds `WorkerPrompt`s (MVP: identical
   text for all), fans out enabled members concurrently with a `TaskGroup`,
-  updates `CouncilRun`/`MemberResponse`, emits `RunEvent`s, and resolves the run
+  updates `TeamRun`/`WorkerAnswer`, emits `RunEvent`s, and resolves the run
   to `answers_in` / `partial` (when some failed). A global **cancel** tears down
   all child process groups.
 - **Manual-paste workers**: `manual_paste` members are emitted as `skipped` with
@@ -56,10 +56,10 @@ factory's agent runtime grows from).
   (`setpgid` + negative-pid `SIGTERM`; cancel honored via task cancellation).
 - [x] P02-S03 — Manifest store + user override (`DriverRegistry`) + injection-safe
   template substitution (reused from Core) + `MockCommandRunner`.
-- [x] P02-S04 — Worker detection + smoke test → health + reason
-  (`WorkerHealthChecker`; `ShellWords` tokenizes trusted manifest commands).
-- [x] P02-S05 — `CouncilRunCoordinator` fan-out via `TaskGroup`; identical
-  member prompts; collect `MemberResponse`s; resolve `answers_in`.
+- [x] P02-S04 — Model detection + smoke test → health + reason
+  (`ModelHealthChecker`; `ShellWords` tokenizes trusted manifest commands).
+- [x] P02-S05 — `TeamRunCoordinator` fan-out via `TaskGroup`; identical
+  member prompts; collect `WorkerAnswer`s; resolve `answers_in`.
 - [x] P02-S06 — `RunEvent` emission (`run.*`, `member.*`) as an `AsyncStream`
   with monotonic, gap-free `seq`.
 - [x] P02-S07 — Global cancel (cancel the fan-out task → children terminated) +
@@ -67,9 +67,9 @@ factory's agent runtime grows from).
 
 > **State-model clarification:** the Phase 02 run resolves to **`answers_in`**
 > (or `cancelled`), never `partial`. A failed/missing/timed-out member does
-> **not** block the run — it simply lands in `failedMembers` while the run still
+> **not** block the run — it simply lands in `failedWorkerAnswers` while the run still
 > reaches `answers_in`. `partial` is a *synthesis-stage* terminal (Phase 04:
-> members readable but no master plan), per the Core state machine which is the
+> members readable but no plan), per the Core state machine which is the
 > truth owner.
 
 ## Works Test
@@ -79,7 +79,7 @@ Deterministic CI (no cost): MockCommandRunner + real /bin tools.
 - Fan out one prompt to 3 workers; all run IN PARALLEL (3x 400ms ≈ <1s, not 1.2s)
   and resolve `done`; run reaches `answers_in`.
 - One worker scripted to exit 1 and one to time out: run still reaches
-  `answers_in` with answeredMembers=1, failedMembers=2 (no blocking).
+  `answers_in` with answeredWorkers=1, failedWorkerAnswers=2 (no blocking).
 - Cancel the fan-out task mid-run: run resolves `cancelled`.
 - RunEvents emitted for run + member transitions with gap-free seq.
 SubprocessCommandRunner proven against /bin/echo (capture), /bin/cat (stdin),
@@ -115,7 +115,7 @@ Probed the founder's machine and confirmed each headless invocation returns a
 clean answer; the bundled manifests in `Apps/AllnighterMac/Resources/Drivers/`
 now encode these exact commands:
 
-| Worker | CLI | Verified command | Capture |
+| Model | CLI | Verified command | Capture |
 | --- | --- | --- | --- |
 | Opus 4.8 / Sonnet 4.6 | `claude` 2.1.177 | `claude -p "<prompt>" --model opus`/`sonnet` | stdout |
 | Grok Build | `grok` 0.2.51 | `grok -p "<prompt>" -m grok-build --output-format plain` | stdout |

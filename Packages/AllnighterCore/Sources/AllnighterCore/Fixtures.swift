@@ -15,7 +15,7 @@ public enum Fixtures {
 
     /// Names of the bundled fixtures (without `.json`).
     public enum Name: String, CaseIterable {
-        case panelSix = "panel_six"
+        case modelsSix = "models_six"
         case manifestClaude = "manifest_claude"
         case manifestGrok = "manifest_grok"
         case manifestManual = "manifest_manual"
@@ -23,10 +23,11 @@ public enum Fixtures {
         case runComplete = "run_complete"
         case runPartial = "run_partial"
         case synthesisPresetDefault = "synthesis_preset_default"
-        case panelPresetDefault = "panel_preset_default"
+        case teamPresetDefault = "team_preset_default"
         case threadChat = "thread_chat"
         case threadImported = "thread_imported"
         case threadContextPacket = "thread_context_packet"
+        case teamRunJSON = "team_run"
     }
 
     public static func data(_ name: Name) throws -> Data {
@@ -45,12 +46,12 @@ public enum Fixtures {
     }
 
     // Convenience typed accessors.
-    public static func panel() throws -> [Worker] {
-        try decode([Worker].self, .panelSix)
+    public static func models() throws -> [Model] {
+        try decode([Model].self, .modelsSix)
     }
 
-    public static func run(_ name: Name) throws -> CouncilRun {
-        try decode(CouncilRun.self, name)
+    public static func run(_ name: Name) throws -> TeamRun {
+        try decode(TeamRun.self, name)
     }
 
     public static func manifest(_ name: Name) throws -> DriverManifest {
@@ -61,12 +62,16 @@ public enum Fixtures {
         try decode(SynthesisInstructionPreset.self, .synthesisPresetDefault)
     }
 
-    public static func panelPreset() throws -> PanelPreset {
-        try decode(PanelPreset.self, .panelPresetDefault)
+    public static func teamPreset() throws -> TeamPreset {
+        try decode(TeamPreset.self, .teamPresetDefault)
     }
 
     public static func thread(_ name: Name = .threadChat) throws -> WorkThread {
         try decode(WorkThread.self, name)
+    }
+
+    public static func teamRunJSON() throws -> Data {
+        try data(.teamRunJSON)
     }
 
     public static func contextPacket() throws -> ThreadContextPacket {

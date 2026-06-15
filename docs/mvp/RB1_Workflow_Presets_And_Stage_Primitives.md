@@ -4,7 +4,7 @@ Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: 06 (the run model: `PanelSeat`, `JudgeAnalysis`, `StageOutput`, tiered presets)
+Depends on: 06 (the run model: `Worker`, `PlanAnalysis`, `StageOutput`, tiered presets)
 
 ## Goal
 
@@ -18,16 +18,16 @@ chain reviews and a final spec. This is the preset + validation + reuse layer,
 RB1 is thin because Phase 06 did the heavy structural work:
 
 - **`StageOutput` already exists** (06) and the run is already a stage sequence.
-  RB1 does **not** restructure `CouncilRun`; it adds new `StagePurpose` cases
+  RB1 does **not** restructure `TeamRun`; it adds new `StagePurpose` cases
   (`review`, `final_spec`, `dispatch`) and the preset machinery that schedules them.
 - `PromptProfile` generalizes `SynthesisInstructionPreset` (06 already evolved it
   into the structured judge profile; RB1 adds the `purpose` field). There are **no
   users** — change the type to its final shape; do not keep a compatibility shim.
-- `WorkflowPreset` extends `PanelPreset` with `stages`. 06's tiered panel presets
+- `WorkflowPreset` extends `TeamPreset` with `stages`. 06's tiered panel presets
   become one-/two-reduce `WorkflowPreset`s.
 - **Honest profile persistence already shipped** (`StageOutput.promptProfileId`,
   from Phase 05's `SynthesisInstructionChoice`). RB1 keeps a regression test only.
-- `CouncilRun.presetId` (06) is the preset slot. No alias, no migration.
+- `TeamRun.presetId` (06) is the preset slot. No alias, no migration.
 
 ## Non-Goals
 
@@ -64,11 +64,11 @@ Every stage declares what it consumes via an `InputSelector` set, drawn from a
 
 ```text
 InputSelector (closed enum, extended additively): founder_prompt | member_answers
-  | judge_analysis | draft_plan | reviews | final_spec
+  | plan_analysis | draft_plan | reviews | final_spec
   (RB5 adds: execution_return | outcome_score)
 ```
 
-`judge_analysis` exposes Phase 06's structured `JudgeAnalysis` so reviewers and
+`plan_analysis` exposes Phase 06's structured `PlanAnalysis` so reviewers and
 the finalizer consume consensus/contradictions/unique-insights directly, not by
 re-parsing prose. The enum is closed (exhaustive switches); RB5 adds cases as a
 deliberate, compiler-guided change.
@@ -76,7 +76,7 @@ deliberate, compiler-guided change.
 ### reuseKey + the reuse matrix (precise so implementation isn't guesswork)
 
 `reuseKey = hash(promptProfileId | customInstruction, profileVersion, the resolved
-input bytes for this stage's `inputSelectors`, ordered seatId list + per-seat
+input bytes for this stage's `inputSelectors`, ordered workerId list + per-seat
 stance, modelLabel set)`. Before running a stage the coordinator looks for a
 matching `reuseKey` (in this run, or the most recent prior run for the **same
 normalized prompt** when "reuse last run" is on) and reuses on a hit
@@ -101,12 +101,12 @@ trap: reuse is for unchanged inputs; rerun means "I want a fresh take."
 PromptProfile                         # generalizes SynthesisInstructionPreset (06's judge profiles)
 - id
 - displayName
-- purpose: judge_analysis | judge_plan | review_lens | final_spec | execution_dispatch
+- purpose: plan_analysis | plan_writer | review_lens | final_spec | execution_dispatch
 - profileVersion                      # bumped on built-in template change; user edits create a NEW profile id
 - template
 - builtIn
 
-WorkflowPreset                        # extends PanelPreset (which already has seats: [PanelSeatSpec] + synthesis)
+WorkflowPreset                        # extends TeamPreset (which already has seats: [WorkerSpec] + synthesis)
 - id
 - displayName
 - description
@@ -144,10 +144,10 @@ WorkOrder.summary                     # live composer / CLI / MCP shape string
 ```
 
 **Panel vs reduce bindings (resolves the seat/worker conflation).** The *panel*
-fanout stage uses the preset's `seats: [PanelSeatSpec]` (Phase 06), which expand
-into `CouncilRun.panel` (`PanelSeat`s) at run start. Every *reduce* and *review*
+fanout stage uses the preset's `seats: [WorkerSpec]` (Phase 06), which expand
+into `TeamRun.panel` (`Worker`s) at run start. Every *reduce* and *review*
 stage instead uses `StageBinding.workerId` — a fresh single-use worker invocation,
-**not** a panel seat (recorded as `StageOutput.producedByWorkerId`). `PanelSeat` is
+**not** a panel seat (recorded as `StageOutput.producedByWorkerId`). `Worker` is
 reserved strictly for the panel. So "a worker bound to a review lens" is a normal
 call with the lens prompt, never a reused panel seat.
 
@@ -173,14 +173,14 @@ hint sourced from the last Doctor run.
 ### Perspective diversity (optional per-seat `stanceModifier`)
 
 Phase 06 self-fusion gets diversity for free from independent sampling. RB1 adds an
-*optional* amplifier: a **per-seat** stance (it lives on `PanelSeatSpec.stance`,
+*optional* amplifier: a **per-seat** stance (it lives on `WorkerSpec.stance`,
 Phase 06's seat-spec — **not** on the stage, so three seats can carry three
 *different* stances). Built-in stances: `neutral`, `skeptic`, `first_principles`,
 `minimalist`, `user_advocate`. So Self-Double becomes
-`seats: [{opus, stance: neutral}, {opus, stance: skeptic}, {opus, stance: first_principles}]`
+`seats: [{opus, skillId: neutral}, {opus, skillId: skeptic}, {opus, skillId: first_principles}]`
 → three genuinely divergent seats the judge reconciles. The stance is a prefix on
-that seat's `MemberPrompt`; assembly order is **founder prompt → stance prefix →
-optional bounded context (RB6)**. Stances are visible in `JudgeAnalysis`
+that seat's `WorkerPrompt`; assembly order is **founder prompt → stance prefix →
+optional bounded context (RB6)**. Stances are visible in `PlanAnalysis`
 attribution (`Opus (A) skeptic`).
 
 ## Run-State Extension (decide before code, per S06)
@@ -188,14 +188,14 @@ attribution (`Opus (A) skeptic`).
 Keep the existing machine (`00` §4). Add only two high-level states, slotted as:
 
 ```text
-draft -> fanning_out -> answers_in -> synthesizing -> complete | partial
+draft -> fanning_out -> answers_in -> planning -> complete | partial
                                                     \-> reviewing -> finalizing -> complete | partial
 reviewing/finalizing -> cancelled (user stop) ; any active -> failed
 ```
 
-`synthesizing` spans **both** Phase 06 reduces (analysis then plan): the run is in
-`synthesizing` from analysis start until the plan stage settles. Analysis-done /
-plan-failed → `partial` (the `JudgeAnalysis` is usable). `reviewing` and
+`planning` spans **both** Phase 06 reduces (analysis then plan): the run is in
+`planning` from analysis start until the plan stage settles. Analysis-done /
+plan-failed → `partial` (the `PlanAnalysis` is usable). `reviewing` and
 `finalizing` are entered only by presets that include those stages; synthesis-only
 runs use the unchanged path. Dispatch (RB4) + return review (RB5) are stages on a
 `complete` run, not new `RunStatus` values (`00` §4). Every new legal/illegal edge
@@ -209,11 +209,11 @@ gets an exhaustive `canTransition` test (Phase 01 style).
 - [ ] RB1-S02 - **Verify, don't rebuild:** regression test that
   `StageOutput.promptProfileId` records the chosen profile id or explicit custom
   text. (Honesty shipped in 05/06.)
-- [ ] RB1-S03 - `WorkflowPreset` (extend `PanelPreset` with `stages`) + validation
+- [ ] RB1-S03 - `WorkflowPreset` (extend `TeamPreset` with `stages`) + validation
   for the fixed v1 stage order (reject unknown order or a stage missing its
   required prior output). 06's tiered presets become `WorkflowPreset`s.
 - [ ] RB1-S04 - Add `StagePurpose` cases `review`/`final_spec`/`dispatch` and the
-  `WorkflowStage` scheduler over Phase 06's `StageOutput`. (No `CouncilRun`
+  `WorkflowStage` scheduler over Phase 06's `StageOutput`. (No `TeamRun`
   restructure — the container already exists.)
 - [ ] RB1-S05 - Generic `stage.*` events (`stage.started`, `stage.output`,
   `stage.completed`, `stage.failed`, `stage.reused`) with `stageId`. No
@@ -221,13 +221,13 @@ gets an exhaustive `canTransition` test (Phase 01 style).
 - [ ] RB1-S06 - Run-state extension (`reviewing`, `finalizing`) with exhaustive
   legal/illegal transition tests.
 - [ ] RB1-S07 - Input assembly behind the `InputSelector` enum (incl.
-  `judge_analysis`) + `reuseKey` compute/match (formula above) + the **rerun
+  `plan_analysis`) + `reuseKey` compute/match (formula above) + the **rerun
   force-fresh** path that bypasses reuse and supersedes the prior stage output.
 - [ ] RB1-S08 - `WorkOrder.summary` renderer + live composer preview, updating as
   seats/depth/lenses toggle. No pre-run call/time/quota estimates.
-- [ ] RB1-S09 - Optional per-seat `PanelSeatSpec.stance` (built-in stances) threaded
-  into `MemberPrompt` (which gains `seatId`); assembly order founder prompt → stance
-  → context; attribution preserved in `JudgeAnalysis`.
+- [ ] RB1-S09 - Optional per-seat `WorkerSpec.stance` (built-in stances) threaded
+  into `WorkerPrompt` (which gains `workerId`); assembly order founder prompt → stance
+  → context; attribution preserved in `PlanAnalysis`.
 - [ ] RB1-S10 - `StageBinding` (per-binding worker + timeout) + two-point
   `WorkflowPreset` validation (save + run start). `executionWorkerId` validated at
   dispatch, not save.
@@ -236,7 +236,7 @@ gets an exhaustive `canTransition` test (Phase 01 style).
 
 ```text
 Run a synthesis-only WorkflowPreset. It produces the Phase 06 result: panel
-answers (by seat), a JudgeAnalysis, master_plan.md, bundle.md, complete run. The
+answers (by seat), a PlanAnalysis, master_plan.md, bundle.md, complete run. The
 run.json records presetId, the analysis + plan StageOutputs, and the selected
 prompt profile (id or honest custom text). Re-run the same prompt: reuse shows in
 run state (panel stages reused; synthesis re-runs when inputs change).

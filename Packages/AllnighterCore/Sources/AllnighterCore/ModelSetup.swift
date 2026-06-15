@@ -102,7 +102,7 @@ public struct ToolResolution: Codable, Sendable, Equatable {
 /// The single classification a tool can be in. `ready` is the ONLY status that
 /// lets a worker run, set only when the smoke probe returned the token. Transient
 /// UI phases (queued/detecting/re-probing) live in the view layer, not here.
-public enum WorkerSetupStatus: Sendable, Equatable {
+public enum ModelSetupStatus: Sendable, Equatable {
     /// No bin resolved anywhere.
     case notInstalled
     /// Found, but as an ambiguous alias/function — needs a one-click confirm.
@@ -138,7 +138,7 @@ public enum WorkerSetupStatus: Sendable, Equatable {
 
 // MARK: - Codable (flat representation for the persisted probe cache)
 
-extension WorkerSetupStatus: Codable {
+extension ModelSetupStatus: Codable {
     private enum CodingKeys: String, CodingKey {
         case kind, version, reason, resolution, loginFlow
     }
@@ -174,7 +174,7 @@ extension WorkerSetupStatus: Codable {
 /// runs can reuse the resolved invocation. (`01` §9)
 public struct ToolProbeRecord: Codable, Sendable, Equatable, Identifiable {
     public var driverId: String
-    public var status: WorkerSetupStatus
+    public var status: ModelSetupStatus
     public var invocation: ToolInvocation?
     public var version: String?
     public var lastProbeAt: Date
@@ -183,7 +183,7 @@ public struct ToolProbeRecord: Codable, Sendable, Equatable, Identifiable {
 
     public init(
         driverId: String,
-        status: WorkerSetupStatus,
+        status: ModelSetupStatus,
         invocation: ToolInvocation? = nil,
         version: String? = nil,
         lastProbeAt: Date

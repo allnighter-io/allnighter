@@ -10,7 +10,7 @@ let package = Package(
         .library(name: "AllnighterCore", targets: ["AllnighterCore"]),
         .library(name: "AllnighterEngine", targets: ["AllnighterEngine"]),
         .executable(name: "prove-cli", targets: ["ProveCLI"]),
-        .executable(name: "allnighter", targets: ["AllnighterCLI"])
+        .executable(name: "alln", targets: ["AllnighterCLI"])
     ],
     targets: [
         .target(
@@ -45,8 +45,8 @@ let package = Package(
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Council-as-Tool (RB6): the `allnighter` CLI / MCP stdio surface. Links
-        // only the council engine — no dispatch/executor modules (judgment only).
+        // Team-as-Tool (RB6): the `alln` CLI / MCP stdio surface. Links
+        // only the team engine — no dispatch/executor modules (judgment only).
         .executableTarget(
             name: "AllnighterCLI",
             dependencies: ["AllnighterEngine", "AllnighterCore"],

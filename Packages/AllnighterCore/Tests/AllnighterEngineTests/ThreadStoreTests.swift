@@ -75,7 +75,7 @@ final class ThreadStoreTests: XCTestCase {
 
         try store.save(thread("a", updatedAt: t0))
         let running = ThreadTurn(id: "w1", threadId: "a", kind: .workerChat, status: .running,
-                                 createdAt: t0, author: .worker, workerId: "worker_opus")
+                                 createdAt: t0, author: .worker, workerId: "model_opus")
         try store.append(running, toThreadId: "a", now: t0)
 
         var done = running
@@ -92,7 +92,7 @@ final class ThreadStoreTests: XCTestCase {
 
         try store.save(thread("a", updatedAt: t0))
         let done = ThreadTurn(id: "w1", threadId: "a", kind: .workerChat, status: .done,
-                              createdAt: t0, author: .worker, text: "x", workerId: "worker_opus")
+                              createdAt: t0, author: .worker, text: "x", workerId: "model_opus")
         try store.append(done, toThreadId: "a", now: t0)
 
         var revived = done
@@ -140,7 +140,7 @@ final class ThreadStoreTests: XCTestCase {
         var t = thread("a", updatedAt: t0)
         t.turns = [
             userTurn("u1", threadId: "a"),
-            ThreadTurn(id: "c1", threadId: "a", kind: .councilRun, status: .done,
+            ThreadTurn(id: "c1", threadId: "a", kind: .teamRun, status: .done,
                        createdAt: t0, author: .system, runId: "run_42"),
         ]
         try store.save(t)

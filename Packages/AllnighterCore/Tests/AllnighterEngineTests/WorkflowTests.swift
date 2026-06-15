@@ -12,7 +12,7 @@ final class WorkflowTests: XCTestCase {
         WorkflowStage(
             id: "review", kind: .fanout, displayName: "Review", purpose: .review,
             inputSelectors: [.founderPrompt, .judgeAnalysis, .draftPlan],
-            bindings: [StageBinding(id: "b1", promptProfileId: "security_privacy", workerId: "worker_opus")]
+            bindings: [StageBinding(id: "b1", promptProfileId: "security_privacy", workerId: "model_opus")]
         )
     }
 
@@ -20,30 +20,30 @@ final class WorkflowTests: XCTestCase {
         WorkflowStage(
             id: "final", kind: .reduce, displayName: "Final", purpose: .finalSpec,
             inputSelectors: [.founderPrompt, .memberAnswers, .judgeAnalysis, .draftPlan, .reviews],
-            bindings: [StageBinding(id: "b2", promptProfileId: "final_spec_v1", workerId: "worker_opus")]
+            bindings: [StageBinding(id: "b2", promptProfileId: "final_spec_v1", workerId: "model_opus")]
         )
     }
 
     // MARK: - Validation
 
     func testValidPresetOrderPasses() throws {
-        let preset = WorkflowPreset(id: "p", displayName: "p", seats: [PanelSeatSpec(workerId: "worker_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
+        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
         XCTAssertNoThrow(try preset.validate())
     }
 
     func testReviewAfterFinalIsRejected() {
-        let preset = WorkflowPreset(id: "p", displayName: "p", seats: [PanelSeatSpec(workerId: "worker_opus")], synthesis: config(), stages: [finalStage(), reviewStage()])
+        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [finalStage(), reviewStage()])
         XCTAssertThrowsError(try preset.validate())
     }
 
     func testMultipleFinalStagesRejected() {
-        let preset = WorkflowPreset(id: "p", displayName: "p", seats: [PanelSeatSpec(workerId: "worker_opus")], synthesis: config(), stages: [finalStage(), finalStage()])
+        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [finalStage(), finalStage()])
         XCTAssertThrowsError(try preset.validate())
     }
 
     func testAnalysisStageNotConfigurable() {
         let bad = WorkflowStage(id: "x", kind: .reduce, displayName: "x", purpose: .analysis, inputSelectors: [], bindings: [])
-        let preset = WorkflowPreset(id: "p", displayName: "p", seats: [], synthesis: config(), stages: [bad])
+        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [], synthesis: config(), stages: [bad])
         XCTAssertThrowsError(try preset.validate())
     }
 
@@ -65,23 +65,23 @@ final class WorkflowTests: XCTestCase {
     // MARK: - Stage input assembly
 
     func testInputBuilderAssemblesSelectedSections() {
-        var run = CouncilRun(id: "r", prompt: "Build X", status: .complete,
-                             panel: [TestSupport.seat("worker_opus")],
-                             members: [MemberResponse(seatId: "worker_opus#0", workerId: "worker_opus", status: .done, output: "Use an actor.")],
+        var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
+                             workers: [TestSupport.seat("model_opus")],
+                             workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "Use an actor.")],
                              createdAt: Date())
         run.stages = [
-            StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(JudgeAnalysis(consensus: [AnalysisPoint(statement: "actor")]))),
+            StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(PlanAnalysis(consensus: [AnalysisPoint(statement: "actor")]))),
             StageOutput(id: "p", purpose: .plan, status: .done, payload: .plan(markdown: "# Plan\nDo it."))
         ]
-        let workers = [Worker(id: "worker_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)]
+        let models = [Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)]
         let prompt = StageInputBuilder.assemble(
             instructions: "REVIEW THIS", selectors: [.founderPrompt, .judgeAnalysis, .draftPlan, .memberAnswers],
-            run: run, workers: workers
+            run: run, models: models
         )
         XCTAssertTrue(prompt.contains("REVIEW THIS"))
         XCTAssertTrue(prompt.contains("Build X"))
         XCTAssertTrue(prompt.contains("Judge analysis"))
-        XCTAssertTrue(prompt.contains("Draft master plan"))
+        XCTAssertTrue(prompt.contains("Draft plan"))
         XCTAssertTrue(prompt.contains("Use an actor."))
     }
 
@@ -101,7 +101,7 @@ final class WorkflowTests: XCTestCase {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "Concern: tokens in plaintext.", exitCode: 0)])
         let runner = ReduceRunner(workerRunner: WorkerRunner(commandRunner: mock))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-        let worker = TestSupport.worker("worker_opus", driverId: "claude_code")
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
 
         let stage = await runner.runMarkdown(
             purpose: .review, worker: worker, manifest: manifest,
@@ -109,17 +109,17 @@ final class WorkflowTests: XCTestCase {
         ) { .plan(markdown: $0) }
         XCTAssertEqual(stage.purpose, .review)
         XCTAssertEqual(stage.status, .done)
-        XCTAssertEqual(stage.producedByWorkerId, "worker_opus")
+        XCTAssertEqual(stage.producedByWorkerId, "model_opus")
     }
 
     func testWorkflowPresetStoreValidatesOnSave() throws {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wp-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let store = WorkflowPresetStore(rootDirectory: tmp)
-        let good = WorkflowPreset(id: "g", displayName: "g", seats: [PanelSeatSpec(workerId: "worker_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
+        let good = WorkflowPreset(id: "g", displayName: "g", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
         XCTAssertNoThrow(try store.save(good))
         XCTAssertEqual(store.load().count, 1)
-        let bad = WorkflowPreset(id: "b", displayName: "b", seats: [], synthesis: config(), stages: [finalStage(), reviewStage()])
+        let bad = WorkflowPreset(id: "b", displayName: "b", workerSpecs: [], synthesis: config(), stages: [finalStage(), reviewStage()])
         XCTAssertThrowsError(try store.save(bad))
     }
 }

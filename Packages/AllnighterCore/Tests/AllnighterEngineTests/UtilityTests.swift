@@ -36,13 +36,13 @@ final class UtilityTests: XCTestCase {
 
     func testHealthChecker() async {
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
-        let healthy = WorkerHealthChecker(commandRunner: MockCommandRunner(scripts: [
+        let healthy = ModelHealthChecker(commandRunner: MockCommandRunner(scripts: [
             "claude": .init(stdout: "READY", exitCode: 0)
         ]))
         let health = await healthy.smokeTest(manifest, model: "opus")
         XCTAssertEqual(health, .healthy)
 
-        let unauthed = WorkerHealthChecker(commandRunner: MockCommandRunner(scripts: [
+        let unauthed = ModelHealthChecker(commandRunner: MockCommandRunner(scripts: [
             "claude": .init(stderr: "please login", exitCode: 1)
         ]))
         let bad = await unauthed.smokeTest(manifest, model: "opus")
@@ -51,7 +51,7 @@ final class UtilityTests: XCTestCase {
 
     func testHealthCheckerManualPasteIsUnknown() async {
         let manual = DriverManifest(id: "manual_paste", displayName: "Manual", kind: .manualPaste)
-        let checker = WorkerHealthChecker(commandRunner: MockCommandRunner(scripts: [:]))
+        let checker = ModelHealthChecker(commandRunner: MockCommandRunner(scripts: [:]))
         let health = await checker.smokeTest(manual, model: "m")
         XCTAssertEqual(health, .unknown)
     }

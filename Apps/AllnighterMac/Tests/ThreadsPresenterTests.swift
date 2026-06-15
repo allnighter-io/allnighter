@@ -17,7 +17,7 @@ final class ThreadsPresenterTests: XCTestCase {
 
     private func turn(_ kind: ThreadTurnKind, _ status: ThreadTurnStatus, systemEvent: SystemEventKind? = nil) -> ThreadTurn {
         ThreadTurn(id: "\(kind.rawValue)-\(status.rawValue)", threadId: "x", kind: kind, status: status,
-                   createdAt: t0, author: kind == .workerChat ? .worker : .system, workerId: "worker_opus",
+                   createdAt: t0, author: kind == .workerChat ? .worker : .system, workerId: "model_opus",
                    systemEvent: systemEvent)
     }
 
@@ -81,7 +81,7 @@ final class ThreadsPresenterTests: XCTestCase {
     }
 
     func testAuthorLabel() {
-        XCTAssertEqual(ThreadsPresenter.authorLabel(turn(.workerChat, .done)), "worker_opus")
+        XCTAssertEqual(ThreadsPresenter.authorLabel(turn(.workerChat, .done)), "model_opus")
         var user = turn(.userMessage, .done); user.author = .user
         XCTAssertEqual(ThreadsPresenter.authorLabel(user), "You")
     }

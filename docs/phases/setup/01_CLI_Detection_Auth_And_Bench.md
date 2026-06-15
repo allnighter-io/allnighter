@@ -28,8 +28,9 @@ Doctor reports **"No driver manifest 'claude_code' is installed."** Evidence:
   `loadDefaultPanel()` returns empty → `AppModel` uses `fallbackPanel()`, a single
   hardcoded Opus worker (= the "1 of 1" the user sees). These are legacy symbol
   names until the vocabulary cleanup lands.
-- The bundled `panel_default.json` actually defines the default team: **6 workers
-  across 4 drivers**.
+- The legacy bundled `team_default.json` currently defines the default team:
+  **6 workers across 4 drivers**. The vocabulary cleanup renames this seed to
+  `team_default.json`.
 - Unit tests stayed green because they read manifests from the **source tree**
   (`DesignManifestResourceTests`) or inject a registry — the *built-bundle*
   contract was never asserted.
@@ -43,7 +44,7 @@ on *this* machine. Real Setup scans and builds the roster from what the user
 actually has (§4).
 
 ### Cause 2 — The PATH / alias gap (surfaces once detection runs)
-`WorkerHealthChecker` runs `detect` (`claude --version`) and `smoke`
+`ModelHealthChecker` runs `detect` (`claude --version`) and `smoke`
 (`claude -p … --model …`). GUI-launched (Finder/`open`), the app starts with
 launchd's **minimal PATH**. `LoginShell.applyToProcessEnvironment()` bridges PATH
 (`zsh -lic 'printf %s "$PATH"'` → `setenv`) and
@@ -72,8 +73,8 @@ docs/UI must not conflate them.
 - **Model** = a model available through a source (Opus and Sonnet are two models
   on the one `claude_code` source).
 - **Worker** = a runtime assignment for a team run: `model + skill`.
-- Legacy `panel_default.json` currently seeds the default Team: **6 workers on 4
-  sources**.
+- Legacy `team_default.json` currently seeds the default Team: **6 workers on 4
+  sources**. Target fixture name after the cleanup is `team_default.json`.
 
 Rules:
 - The roll-call roster shows **one card per source**, not per model or worker.
@@ -86,6 +87,12 @@ Rules:
   duplicate it on the source/registry.
 - Scene 5 expands each ready source into default workers from the configured team
   filtered to ready `driverId`s.
+
+CLI/Doctor rule:
+
+- `alln doctor --json` reports `sources[]` and `models[]`. It must not report
+  Bench models as workers. `workers[]` appears only in team/team-run output after
+  a model has been paired with a skill.
 
 ---
 
@@ -108,7 +115,7 @@ Three parts, in priority:
 3. **Built-bundle Works-Test as the release gate.** A test that loads from the
    built `.app`'s `Bundle.main` and asserts `loadDefaultRegistry().all.count >= 4`
    and the default team has 6 workers — plus a packaging CI step asserting the built
-   bundle's **resource root** contains `claude_code.json`, `panel_default.json`,
+   bundle's **resource root** contains `claude_code.json`, `team_default.json`,
    and the other driver manifests (subdir-free lookup; no `Drivers/` folder
    required). This is the test that would have caught Cause 0; today's source-tree
    tests cannot.
@@ -265,7 +272,7 @@ Today nothing gates Compose on setup; `RootView` drops into Compose and runs
 Doctor in the background — so a polished Setup would be invisible to most users.
 
 - **`SetupStore.setupCompletedAt`** in Application Support (alongside
-  `PanelPresetStore` / `AllnighterPaths.config`).
+  `TeamPresetStore` / `AllnighterPaths.config`).
 - First launch **or** never-completed **or** registry-was-empty-last-run →
   full-window **Setup** (Experience Scenes 1–6), not silent Doctor behind Compose.
 - **Menu-bar app (`LSUIElement`)**: first launch must **auto-open the main window
@@ -287,12 +294,12 @@ After detection settles:
   "I have 4 CLIs, the app shows 1."
 - Default active team preset: **"All ready"** when ready workers ≥3, else
   **"Fast Team."** Tiered presets layer on top of the assembled team.
-- **Plan writer** default = first ready eligible model/worker (prefer Opus 4.8);
-  user can change it in Scene 5.
+- **Plan writer** default = first ready eligible worker from the assembled team
+  (prefer Opus 4.8 wearing the Plan Writer skill); user can change it in Scene 5.
 - **Scene 5 is confirm, not configure** — toggles only. **No model editing in
   Setup** (that stays in Settings).
 - Persist the assembled set (a `DiscoveredModels` / `LastTeam` store) so later
-  launches don't re-ask. Legacy `panel_default.json` + `DefaultConfig.workers`
+  launches don't re-ask. Legacy `team_default.json` + `DefaultConfig.workers`
   remain the seed/fallback until the fixture rename.
 
 ---
@@ -318,7 +325,7 @@ After detection settles:
 | Shell resolve | `LoginShell.resolvedPath()` (no sentinel/timeout) | hardened sentinel + timeout + batch + shell diversity (shared `ShellResolver` in Engine) |
 | Resolve exec | `SubprocessCommandRunner.resolveExecutable` (PATH scan only) | consume cached `Invocation`; add `loginShell` wrapper for aliases/functions |
 | Invocation | `WorkerRunner` execs `invoke.command` directly | both runner + health use the detector's `ResolvedInvocation` (health == runs) |
-| Health/status | `WorkerHealthChecker` → `WorkerHealth` (2-state) | `CLIDetector` emits canonical `SourceSetupStatus` (5-state); Doctor + badge map from it |
+| Health/status | `ModelHealthChecker` → `WorkerHealth` (2-state) | `CLIDetector` emits canonical `SourceSetupStatus` (5-state); Doctor + badge map from it |
 | Manifests | `Resources/Drivers/*.json` **and** `DefaultConfig.swift` strings | add additive `setup` block; de-duplicate the two sources |
 | Default team | `AppConfig.loadDefaultPanel()` legacy static / fallback | first run assembles from ready sources/models; persisted |
 | Gate | none (`RootView` → Compose + bg Doctor) | `SetupStore` first-run gate; full-window Setup; badge opens compact roster |
