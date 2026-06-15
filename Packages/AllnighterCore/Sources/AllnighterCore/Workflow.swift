@@ -181,7 +181,7 @@ public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
         var seenReview = false, seenFinal = false, seenDispatch = false
         for stage in stages {
             switch stage.purpose {
-            case .analysis, .plan, .returnReview, .outcomeScore:
+            case .analysis, .plan, .returnReview, .outcomeScore, .board:
                 throw ValidationError.unknownStageOrder("\(stage.purpose.rawValue) is not a configurable workflow stage")
             case .review:
                 if seenFinal || seenDispatch { throw ValidationError.unknownStageOrder("review after final/dispatch") }

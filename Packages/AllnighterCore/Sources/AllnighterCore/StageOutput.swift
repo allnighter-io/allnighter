@@ -12,6 +12,8 @@ public enum StagePurpose: String, Codable, Sendable, CaseIterable {
     case dispatch
     case returnReview = "return_review"
     case outcomeScore = "outcome_score"
+    // Design council (Lane 2) adds the gallery board.
+    case board
 }
 
 /// Lifecycle of one stage. `reused` = a content-addressed prior output was reused
@@ -37,6 +39,7 @@ public enum StagePayload: Sendable, Equatable {
     case dispatch(ExecutionReturn)
     case returnReview(ReturnReviewPayload)
     case outcomeScore(EvalScore)
+    case board(BoardPayload)
 
     public var purpose: StagePurpose {
         switch self {
@@ -47,13 +50,14 @@ public enum StagePayload: Sendable, Equatable {
         case .dispatch: return .dispatch
         case .returnReview: return .returnReview
         case .outcomeScore: return .outcomeScore
+        case .board: return .board
         }
     }
 
     /// The Markdown the stage carries, if any; nil for purely structured payloads.
     public var markdown: String? {
         switch self {
-        case .analysis, .dispatch, .outcomeScore: return nil
+        case .analysis, .dispatch, .outcomeScore, .board: return nil
         case .plan(let md): return md
         case .review(let r): return r.markdown
         case .finalSpec(let f): return f.markdown
@@ -85,11 +89,15 @@ public enum StagePayload: Sendable, Equatable {
         if case .outcomeScore(let s) = self { return s }
         return nil
     }
+    public var board: BoardPayload? {
+        if case .board(let b) = self { return b }
+        return nil
+    }
 }
 
 extension StagePayload: Codable {
     private enum CodingKeys: String, CodingKey {
-        case kind, analysis, markdown, review, finalSpec, dispatch, returnReview, outcomeScore
+        case kind, analysis, markdown, review, finalSpec, dispatch, returnReview, outcomeScore, board
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -103,6 +111,7 @@ extension StagePayload: Codable {
         case .dispatch(let e): try c.encode(e, forKey: .dispatch)
         case .returnReview(let r): try c.encode(r, forKey: .returnReview)
         case .outcomeScore(let s): try c.encode(s, forKey: .outcomeScore)
+        case .board(let b): try c.encode(b, forKey: .board)
         }
     }
 
@@ -117,6 +126,7 @@ extension StagePayload: Codable {
         case .dispatch: self = .dispatch(try c.decode(ExecutionReturn.self, forKey: .dispatch))
         case .returnReview: self = .returnReview(try c.decode(ReturnReviewPayload.self, forKey: .returnReview))
         case .outcomeScore: self = .outcomeScore(try c.decode(EvalScore.self, forKey: .outcomeScore))
+        case .board: self = .board(try c.decode(BoardPayload.self, forKey: .board))
         }
     }
 }

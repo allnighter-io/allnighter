@@ -20,6 +20,12 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     public var invoke: Invoke?
     public var output: OutputSpec?
 
+    /// Headless image generation (design council, Lane 2). Present only on workers
+    /// whose CLI can generate an image at $0 (Grok Imagine, Gemini via Antigravity,
+    /// ChatGPT via codex). `nil` on text-only and build-only workers. Additive —
+    /// absent on every existing manifest.
+    public var imageGen: ImageGen?
+
     public init(
         id: String,
         manifestVersion: Int = 1,
@@ -29,7 +35,8 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         smokeTestCommand: String? = nil,
         smokeTestExpect: String? = nil,
         invoke: Invoke? = nil,
-        output: OutputSpec? = nil
+        output: OutputSpec? = nil,
+        imageGen: ImageGen? = nil
     ) {
         self.id = id
         self.manifestVersion = manifestVersion
@@ -40,6 +47,62 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         self.smokeTestExpect = smokeTestExpect
         self.invoke = invoke
         self.output = output
+        self.imageGen = imageGen
+    }
+
+    /// True when this worker can generate a design image headlessly (design seats).
+    public var canGenerateImages: Bool { imageGen != nil }
+
+    /// How a worker's CLI generates an image headlessly. Image gen is an agentic
+    /// tool call triggered by the prompt (not an `--out` flag); the image always
+    /// arrives as a **local file** (PNG/JPEG, never base64/URL), with the path
+    /// reported in stdout. The manifest controls the destination via the prompt,
+    /// with a stdout-path-parse fallback. See `docs/mvp/Design1`.
+    public struct ImageGen: Codable, Sendable, Equatable {
+        /// How the model returns the image.
+        public enum Arrival: String, Codable, Sendable {
+            /// The model honored an explicit save path we put in the prompt
+            /// (`{{imageOut}}`) — Grok, Codex.
+            case promptDirected = "prompt_directed"
+            /// The model wrote to an opaque artifact dir and reported the path in
+            /// stdout — we parse it and copy (Antigravity).
+            case stdoutPath = "stdout_path"
+        }
+
+        /// argv for the headless agentic call (tokens: `{{prompt}}`, `{{model}}`,
+        /// `{{runDir}}`). `{{prompt}}` is the wrapped image instruction.
+        public var args: [String]
+        public var promptVia: PromptVia
+        /// Wraps the design prompt into an image instruction. Must contain
+        /// `{{designPrompt}}`; for `promptDirected`, also `{{imageOut}}` (the absolute
+        /// path the model should save to).
+        public var promptTemplate: String
+        public var arrival: Arrival
+        /// Extracts an absolute image path from stdout (required for `stdoutPath`,
+        /// optional fallback for `promptDirected`).
+        public var stdoutPathRegex: String?
+        /// Captures the engine session id from stdout, for "more like this"
+        /// (resume + image edit).
+        public var sessionIdRegex: String?
+        public var timeoutSeconds: Int
+
+        public init(
+            args: [String],
+            promptVia: PromptVia = .arg,
+            promptTemplate: String,
+            arrival: Arrival,
+            stdoutPathRegex: String? = nil,
+            sessionIdRegex: String? = nil,
+            timeoutSeconds: Int = 600
+        ) {
+            self.args = args
+            self.promptVia = promptVia
+            self.promptTemplate = promptTemplate
+            self.arrival = arrival
+            self.stdoutPathRegex = stdoutPathRegex
+            self.sessionIdRegex = sessionIdRegex
+            self.timeoutSeconds = timeoutSeconds
+        }
     }
 
     /// How the prompt reaches the CLI.
