@@ -25,6 +25,7 @@ otherwise.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Finalized for implementation | Missing chat/thread layer: durable work conversations with chat, council, design, work order, dispatch, and return-review turns. Chat is the default surface; council/build are one-click escalations. MLP = S01–S06. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Draft for mentor review | Queue and dispatch work from observed worker availability, not quota accounting. |
 | [`ios/README.md`](ios/README.md) | Active iOS spine | Remote floor manager: sign in, pick your Mac, control runs. |
 
@@ -44,8 +45,11 @@ otherwise.
 
 - Allnighter coordinates workers the user already pays for. It is not a model
   provider, IDE, chat aggregator, cloud coding service, or terminal viewer.
+- A work thread is the durable product unit. Chat is the default turn; council,
+  design, work order, dispatch, and return review are stronger turn types inside
+  the same thread.
 - The user-facing words remain: worker, panel, council run, member answer,
-  judge, master plan, work order, floor manager.
+  judge, master plan, work order, thread, floor manager.
 - Workers fail honestly. A failed worker is shown failed, never hidden or faked.
 - Effort is a user instruction, not an estimate.
 - Do not estimate future cost, quota burn, runtime, or task complexity.
@@ -95,6 +99,7 @@ Open questions:
 | Work | Read first |
 | --- | --- |
 | Built MVP behavior, worker drivers, council/design council substrate | `docs/mvp/README.md` |
+| Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` |
 | Utilization, admission control, worker availability, queued dispatch | `Utilization_Admission_Control.md` |
 | iOS remote floor manager | `ios/README.md` |
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |
@@ -106,4 +111,3 @@ Open questions:
 The old numbered roadmap docs that previously lived here were removed. Do not
 infer active product truth from missing `XX_*.md` phase links or archived
 worktree-era plans. New forward phases are added explicitly to this folder.
-
