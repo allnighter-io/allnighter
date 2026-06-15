@@ -34,8 +34,8 @@ it never proves global completion. The loop has batches and epochs, not an end.
 
 | # | Lens | Question | Primary signal |
 | --- | --- | --- | --- |
-| 1 | Structure | Does this file do one job? Is it navigable? | File size, type count, mixed concerns (judgment until scanner ships) |
-| 2 | Duplication | What logic exists in 2+ places? | Judgment + `rg` for repeated patterns |
+| 1 | Structure | Does this file do one job? Is it navigable? | File size, type count, mixed concerns (review until scanner ships) |
+| 2 | Duplication | What logic exists in 2+ places? | Review + `rg` for repeated patterns |
 | 3 | Dead weight | What is exported/kept but never used? | `swift build` warnings, unused symbol search |
 | 4 | Doc truth | Do routed docs still tell the truth? | Contract vs code walk |
 | 5 | Contract conformance | Is each contract law enforced by a test? | Contract-doc walk with file:line output |
@@ -48,7 +48,7 @@ it never proves global completion. The loop has batches and epochs, not an end.
 - Every regular RUNLOG entry records `Lens: <name> (index k)` and the next
   regular batch runs index `(k + 1) % 8` by default.
 - Lookback batches record `Lens: lookback` and do not advance the pointer.
-- Missing detectors: run in judgment mode or skip with a RUNLOG note.
+- Missing detectors: run in review mode or skip with a RUNLOG note.
 - Anti-starvation: an epoch closes only after every available lens has run at
   least once since the previous epoch boundary.
 

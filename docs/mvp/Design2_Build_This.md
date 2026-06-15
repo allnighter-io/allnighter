@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # Design2 - Build This (the flywheel)
 
 Status: **BUILT (2026-06-15) — Core+Engine+Mac green.** Reuses RB4 dispatch; chosen image + redesign framing → coding agent (Claude Code/Codex read images).
@@ -27,7 +31,7 @@ single most important thing in Design2 — it's why the handoff works.
 
 ## Why the rest is mostly RB4
 
-The design council produces images; **code comes from this step.** It is Lane 1's
+The design team produces images; **code comes from this step.** It is Lane 1's
 executor dispatch (RB4) with two deltas: the brief carries the **chosen image** *and*
 the **existing target file + repo tokens** (double context), and the execution prompt
 must get the image to the CLI. Picker, working dir, dispatch, status, transcript,
@@ -37,7 +41,7 @@ boundary law — all reused.
 
 From a chosen option: assemble a build brief carrying the chosen image **plus the
 existing target file's source + repo styling tokens**, let the user **pick which CLI
-implements it** (just like the build council), and dispatch — the coding agent reads
+implements it** (just like the build team), and dispatch — the coding agent reads
 the image and **modifies the existing code** to match. An advisory **lead-designer**
 critique is optional, off by default, and speaks **after** the pick (never before).
 
@@ -58,11 +62,11 @@ critique is optional, off by default, and speaks **after** the pick (never befor
 
 - The board's **"Build this"** on a chosen option opens RB4's executor picker: a
   **coding CLI** (Claude Code / Codex / Grok / …) + a **working directory** — the same
-  UI and dispatch the build council uses.
+  UI and dispatch the build team uses.
 - **Capability gate (`canReadImages`).** The implementer must read an image headlessly
   (Doctor flag, Design1 §). `canReadImages` workers are offered first — **Claude Code
   is the default** (confirmed on-device: strong coder, reads images; it can't *generate*
-  images, which is exactly why it lives on the build side, not the design seats). Two
+  images, which is exactly why it lives on the build side, not the design workers). Two
   fallbacks,
   in order: (1) if the CLI reads files but has no image flag, the runner passes the
   image as a **base64 data URI** inside the prompt; (2) if it can't take an image at
@@ -79,7 +83,7 @@ A `DesignImplementationBrief` — an RB4 `ImplementationBrief` **variant**
   **original screenshot** as the "before."
 - **Structural context (the de-risker):** the **current source of the target
   file(s)/component** the user is redesigning, plus the repo's **styling system**
-  (Tailwind config / theme tokens / CSS vars — the same repo scan the panel can use).
+  (Tailwind config / theme tokens / CSS vars — the same repo scan the team can use).
 - **Integration constraints (required, not prose):** target file(s), framework +
   styling system, **what to reuse vs. create**, and **what to ignore in the mockup**
   (a mockup is a *look*, not a spec). Prefilled from the repo scan + the picked target;
@@ -171,7 +175,7 @@ a visible "weaker build — reveal only" warning, and dispatch still runs.
 
 ## Closeout
 
-The design council is a flywheel and it's small: **screenshot → board of real options
+The design team is a flywheel and it's small: **screenshot → board of real options
 → your pick → an agent restyles your existing code to match.** Image engines design,
 coding agents build, you decide. The next compounding step is **taste memory** (parked
 `15_Preference_Ledger`): the logged picks train a `house_style` persona that joins the

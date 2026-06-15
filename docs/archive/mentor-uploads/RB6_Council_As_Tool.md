@@ -1,35 +1,35 @@
-# RB6 - Council-as-Tool (local MCP / CLI / HTTP)
+# RB6 - Team-as-Tool (local MCP / CLI / HTTP)
 
 Status: **Specced — the moat. Sequenceable right after Phase 06.**
 Owner: Shared Core + Engine + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: 06 (the council foundation: `PanelSeat`, `JudgeAnalysis`, `StageOutput`,
+Depends on: 06 (the team foundation: `Worker`, `PlanAnalysis`, `StageOutput`,
 the headless engine). Exposes richer presets as RB1–RB3 land, but needs only 06.
 
 ## The moat (why this is huge)
 
 OpenRouter's Fusion is a **cloud API you pay per token for**, invoked as a server
 tool the base model calls on hard questions. Allnighter already runs the same
-panel→judge→plan pattern **locally, on the user's machine, through CLIs they
+team→plan writer→plan pattern **locally, on the user's machine, through CLIs they
 already pay a flat rate for — zero marginal cost.**
 
-RB6 turns that into the unfair advantage: **expose Allnighter's council as a local
+RB6 turns that into the unfair advantage: **expose Allnighter's team as a local
 tool that *any* terminal coding agent can call mid-task.** A vibe coder is deep in
 Claude Code (or Codex, or Grok) building a feature, hits a real architectural fork,
 and the agent itself calls:
 
 ```text
-council_ask("Should the run store be an actor or a serialized queue here?")
+team_ask("Should the run store be an actor or a serialized queue here?")
 ```
 
-Allnighter fans the question out to the local panel, runs the structured judge,
+Allnighter fans the question out to the local team, runs the structured plan writer,
 and hands back a decision-grade answer with consensus/contradictions/blind spots —
 in seconds, for **$0 of additional API cost**. The agent uses it and keeps
 building. The human never switched windows.
 
 > **Local Fusion, callable by every agent on the machine, at zero marginal cost.**
-> Fusion is a feature you rent. Allnighter becomes the judgment layer the whole
+> Fusion is a feature you rent. Allnighter becomes the review layer the whole
 > machine runs on, that the user already owns.
 
 This is what makes Allnighter impossible to remove: it stops being "a thing you
@@ -37,32 +37,32 @@ open before coding" and becomes **infrastructure every agent quietly leans on.**
 
 ## Goal
 
-Expose the council as a tool any local agent can invoke, over three transports
+Expose the team as a tool any local agent can invoke, over three transports
 that share **one engine** (no logic duplicated):
 
-1. **CLI** — `allnighter ask "<question>"`: universal. Every coding agent has a
+1. **CLI** — `alln team "<question>"`: universal. Every coding agent has a
    shell tool, so this works with *anything*, no integration required.
 2. **MCP server** — `allnighter mcp`: first-class structured tool for MCP-aware
    agents (Claude Code, and the growing MCP ecosystem). Returns structured
-   `JudgeAnalysis`, not just text.
+   `PlanAnalysis`, not just text.
 3. **Local HTTP/WebSocket** — `allnighter serve` (or hosted by the Mac app):
    programmatic access and the same transport seam iOS will use (`00` §10).
 
-Judgment in, spec out. The tool **never writes code, runs git, or dispatches an
+Review in, spec out. The tool **never writes code, runs git, or dispatches an
 executor** — it answers, analyzes, and (with deeper presets) produces a spec. The
 calling agent does the building.
 
 ## Non-Goals (hard boundaries)
 
 - **No git, worktrees, branches, commits, landing, or code execution.** RB6 is
-  *judgment only.* Direct executor dispatch stays the separate, explicit, GUI-gated
+  *review only.* Direct executor dispatch stays the separate, explicit, GUI-gated
   action (`RB4`). (Founder directive: the entire git-management surface stays out.)
 - **No API keys, no cloud, no token cost.** The tool only invokes the user's
   already-authenticated CLIs — the zero-marginal-cost law (`00` §9) is absolute.
 - **No network egress** beyond `localhost` and the CLIs' own auth. No remote/
   internet exposure, no multi-user. (iOS-over-Tailscale is a separate existing
   seam, not this.)
-- **No general RPC / no DAG.** A fixed council tool surface, mirroring the rest of
+- **No general RPC / no DAG.** A fixed team tool surface, mirroring the rest of
   the milestone's "no general workflow engine" discipline.
 - **No auto-registration.** Allnighter never wires itself into another agent's tool
   config without explicit user consent.
@@ -71,20 +71,20 @@ calling agent does the building.
 
 ## Product Laws (carried forward + new for the tool)
 
-- **Recursion is impossible.** A council worker can never trigger a nested council
+- **Recursion is impossible.** A team worker can never trigger a nested team
   (see Recursion Guard). Mirrors Fusion's recursion protection.
 - **Cost is never silent.** Every tool result reports `callsSpent`; a governor caps
-  concurrent councils; the CLI/MCP can preview a `CallPlan` before committing.
+  concurrent teams; the CLI/MCP can preview a `CallPlan` before committing.
 - **Localhost-only + authenticated.** HTTP binds `127.0.0.1` only and requires a
   per-session bearer token; MCP is a user-spawned stdio child (no socket).
 - **Injection-safe.** Tool input reaches workers as `argv`/stdin, never shell-
   concatenated (`00` §9), exactly like GUI prompts.
-- **Honest + visible.** Tool-invoked runs are first-class `CouncilRun`s, origin-
+- **Honest + visible.** Tool-invoked runs are first-class `TeamRun`s, origin-
   tagged, persisted to the same `Runs/` store, and surfaced in the Mac app's
   history so the user sees exactly what their agents asked and got.
-- **Judgment only.** The tool has no capability to write files, run git, or invoke
+- **Review only.** The tool has no capability to write files, run git, or invoke
   the executor. Capability boundary enforced in code, not just convention.
-- **Graceful degradation.** Partial panels and unhealthy workers are reported
+- **Graceful degradation.** Partial teams and unhealthy workers are reported
   (Doctor), never silently downgraded.
 
 ## Architecture (one engine, thin transports)
@@ -92,18 +92,18 @@ calling agent does the building.
 ```text
    terminal agent (Claude Code / Codex / Grok / Cursor / any shell)
         |                      |                         |
-   shell: `allnighter ask`   MCP stdio (JSON-RPC)   HTTP/WS (127.0.0.1 + token)
+   shell: `alln team`   MCP stdio (JSON-RPC)   HTTP/WS (127.0.0.1 + token)
         |                      |                         |
         +----------+-----------+------------+------------+
                                 |
                    +------------v-------------+
-                   |   CouncilService (actor) |   one entry: request -> CouncilRun
+                   |   TeamService (actor) |   one entry: request -> TeamRun
                    |   - recursion guard       |
-                   |   - CouncilGovernor cap   |
+                   |   - TeamGovernor cap   |
                    |   - origin tagging        |
                    +------------+-------------+
                                 |
-            existing engine: CouncilRunCoordinator + Synthesizer (06)
+            existing engine: TeamRunCoordinator + Plan writer (06)
                                 |
               Runs/  (shared store, single source of truth)  +  RunEvent stream
                                 |
@@ -116,7 +116,7 @@ app to be running — a terminal-first user gets the tool with the GUI closed. W
 the Mac app *is* open, it observes the shared `Runs/` folder (and/or the local
 server's event stream) and shows tool runs live. Cross-process concurrency is
 governed by a file-based semaphore (below), so caps hold whether the CLI, MCP
-server, and app run councils together or apart.
+server, and app run teams together or apart.
 
 ## The Tool Surface (operations)
 
@@ -125,24 +125,24 @@ them as subcommands):
 
 | Operation | Purpose |
 | --- | --- |
-| `council_presets` | List exposed presets + each one's `CallPlan` estimate (calls, est. time, quota risk — labeled estimates). |
-| `council_ask` | Run a council and return the result. **Self-correcting sync:** if the preset's `CallPlan` estimate exceeds `waitSeconds`, it returns a `runId` + `estimatedSeconds` immediately instead of blocking into a client timeout. |
-| `council_start` | Kick off a council asynchronously; return a `runId` immediately. |
-| `council_status` | `{ runId } -> { status, seatsDone/total, stage, callsSpent }`. |
-| `council_result` | `{ runId } -> CouncilToolResult`. |
-| `council_recall` | **Read-only**, zero-cost: search prior councils and return past judgments (with dates). The council *remembers* — reuse a prior decision without spending a call. |
+| `team_presets` | List exposed presets + each one's `CallPlan` estimate (calls, est. time, quota risk — labeled estimates). |
+| `team_ask` | Run a team and return the result. **Self-correcting sync:** if the preset's `CallPlan` estimate exceeds `waitSeconds`, it returns a `runId` + `estimatedSeconds` immediately instead of blocking into a client timeout. |
+| `team_start` | Kick off a team asynchronously; return a `runId` immediately. |
+| `team_status` | `{ runId } -> { status, workersDone/total, stage, callsSpent }`. |
+| `team_result` | `{ runId } -> TeamToolResult`. |
+| `team_recall` | **Read-only**, zero-cost: search prior teams and return past reviews (with dates). The team *remembers* — reuse a prior decision without spending a call. |
 
-Sync vs async is deliberate and **self-correcting**: `council_ask` compares the
+Sync vs async is deliberate and **self-correcting**: `team_ask` compares the
 preset's `CallPlan` estimate to `waitSeconds` up front — short presets return
 inline; anything longer returns a `runId` + ETA so the agent uses
 `status`/`result` and keeps working rather than hitting its framework's tool
 timeout. (Fusion's "2–3× longer" kickoff, handled gracefully.)
 
-**`council_recall` semantics (v1, no index needed):** case-insensitive keyword/
-substring match over `CouncilRun.prompt` across `Runs/` (excluding the `Evals/`
+**`team_recall` semantics (v1, no index needed):** case-insensitive keyword/
+substring match over `TeamRun.prompt` across `Runs/` (excluding the `Evals/`
 corpus), ranked **most-recent-first**, returning the top *K* (default 5) **complete**
-runs as compact `{ runId, prompt, createdAt, masterPlan-excerpt }`. **Each result
-carries `createdAt`** so the agent can judge staleness (acting on a 6-month-old
+runs as compact `{ runId, prompt, createdAt, plan-excerpt }`. **Each result
+carries `createdAt`** so the agent can plan writer staleness (acting on a 6-month-old
 decision unknowingly is a silent correctness bug). "No match" returns an empty list,
 not an error. Pure local read — no engine spin-up, zero calls. (A semantic index is
 a later, optional upgrade; the substring v1 is honest and sufficient.)
@@ -156,10 +156,10 @@ CouncilToolResult
 - preset
 - status                 # complete | partial | failed
 - createdAt              # so a recalled/old result's age is visible
-- masterPlan: String?    # the plan
+- plan: String?    # the plan
 - finalSpec: String?     # nil until RB3 ships (review/final-spec presets)
-- analysis: JudgeAnalysis # consensus/contradictions/uniqueInsights/blindSpots/failedSeats (06)
-- partials: [SeatFailure] # honest: which seats didn't answer
+- analysis: PlanAnalysis # consensus/contradictions/uniqueInsights/blindSpots/failedWorkers (06)
+- partials: [WorkerFailure] # honest: which workers didn't answer
 - contextTruncated: Bool  # the caller's context snippet was clipped to contextByteLimit
 - callsSpent: Int        # cost transparency, every time
 - estimateNote: String   # labeled estimate language
@@ -174,19 +174,19 @@ Each ships a fixture + round-trip test (`00` §8). Foundation-first: final shape
 no shims.
 
 ```text
-RunOrigin : gui | cli | mcp | http        # DEFINED IN PHASE 06 (06 owns the type + CouncilRun.origin)
+RunOrigin : gui | cli | mcp | http        # DEFINED IN PHASE 06 (06 owns the type + TeamRun.origin)
                                             # RB6 only SETS origin = cli|mcp|http; it adds no field.
 
 CouncilRequest                            # the normalized tool input
 - question: String
 - presetId: String?                       # default from ToolConfig; must be in exposedPresetIds
 - context: String?                        # optional bounded snippet the agent wants considered
-- waitSeconds: Int?                       # council_ask sync budget
+- waitSeconds: Int?                       # team_ask sync budget
 
 CouncilToolResult                         # see "Result shape" above; finalSpec is nil until RB3 ships
 ToolConfig                                # Config/Tool/config.json
 - enabledTransports: { cli, mcp, http }
-- exposedPresetIds: [String]              # default = the Phase 06 panel presets ONLY (no review/final until RB1-3)
+- exposedPresetIds: [String]              # default = the Phase 06 team presets ONLY (no review/final until RB1-3)
 - defaultPresetId: String
 - maxConcurrentCouncils: Int              # governor cap (default small, e.g. 2)
 - maxCouncilDepth: Int                    # recursion ceiling (default 1)
@@ -199,24 +199,24 @@ ToolConfig                                # Config/Tool/config.json
 `context` selector is the `MemberPrompt` "no longer identical-text-only" growth
 seam (`00` §10): truncated to `contextByteLimit` as **head + tail** with an
 explicit `[… truncated N bytes …]` marker, and the result tells the caller it was
-truncated. Until RB1–RB3 land, `exposedPresetIds` defaults to the Phase 06 panel
+truncated. Until RB1–RB3 land, `exposedPresetIds` defaults to the Phase 06 team
 presets only and `CouncilToolResult.finalSpec` is always nil (review/final-spec
 presets light up as those milestones ship).
 
 ## Recursion Guard (non-negotiable, fail-closed)
 
-A council's own member/judge CLIs (e.g. `claude`) may have the Allnighter tool
-registered globally. Without a guard, a worker calls the council → spawns workers →
-call the council — infinite recursion and quota detonation. The guard must hold for
+A team's own worker/plan writer CLIs (e.g. `claude`) may have the Allnighter tool
+registered globally. Without a guard, a worker calls the team → spawns workers →
+call the team — infinite recursion and quota detonation. The guard must hold for
 **spawned** clients (CLI/MCP children) *and* an **already-running** HTTP server
 (which doesn't inherit a caller's env).
 
 - **Env, for spawned clients.** Every worker subprocess is spawned with
   `ALLNIGHTER_COUNCIL_DEPTH = depth + 1`. The CLI and MCP entrypoints read it on
   startup; depth `>= maxCouncilDepth` (default 1) → refuse to fan out (or, if
-  `allowSinglePassthroughAtDepth`, return one direct answer). Never a nested panel.
+  `allowSinglePassthroughAtDepth`, return one direct answer). Never a nested team.
 - **HTTP fails closed.** The loopback server cannot read a caller's env, so every
-  council-start request **must** carry an `X-Allnighter-Council-Depth` header; all
+  team-start request **must** carry an `X-Allnighter-Team-Depth` header; all
   Allnighter clients forward their env depth into it. A request with a **missing or
   unparseable** header is treated as **at the ceiling** and refused (fail-closed).
   Additionally, the **session token is scrubbed from every worker subprocess's
@@ -229,14 +229,14 @@ It is the first thing RB6 builds and the first thing its tests prove.
 
 ## Concurrency Governance (cost defense, crash-safe)
 
-`CouncilGovernor` caps concurrent councils at `maxConcurrentCouncils` across
+`CouncilGovernor` caps concurrent teams at `maxConcurrentCouncils` across
 processes (CLI + MCP + app) using **`flock(2)` advisory locks** on slot files under
 `Config/Tool/slots/` — not a hand-rolled counter file (which has a TOCTOU race).
 `flock` is **auto-released when the holding process dies or closes the fd**, so a
-crashed council never leaves a stale lock; a belt-and-suspenders TTL + PID-liveness
+crashed team never leaves a stale lock; a belt-and-suspenders TTL + PID-liveness
 sweep reclaims any orphan. Acquiring a slot is atomic. Beyond the cap, a request
 queues (async) or returns a clear "busy, N running" status (sync). Every result
-reports `callsSpent`; `council_presets` previews the `CallPlan`.
+reports `callsSpent`; `team_presets` previews the `CallPlan`.
 
 ## Security & Honesty Posture
 
@@ -251,7 +251,7 @@ reports `callsSpent`; `council_presets` previews the `CallPlan`.
 - **Capability boundary = no writes outside `AllnighterPaths`.** The tool legitimately
   writes `Runs/`, `Config/Tool/` (token, audit log, slots) — these are expected. The
   boundary it must **not** cross: **no writes to any repo/CWD, no git, no executor
-  dispatch.** The tool target links the council engine only (no dispatch/executor
+  dispatch.** The tool target links the team engine only (no dispatch/executor
   modules). The exit-gate test asserts "no filesystem writes outside `AllnighterPaths`"
   during a tool run — not the overclaim "no file writes."
 - **Audit log.** Every invocation appends an honest line (time, origin, agent,
@@ -283,20 +283,20 @@ reports `callsSpent`; `council_presets` previews the `CallPlan`.
 - **Install helper** — `allnighter mcp-install` detects supported agents
   (Claude Code / Codex / Cursor) and, **with explicit consent**, writes the MCP
   server entry into their config (or prints the exact snippet). A reachability check
-  (`council_presets`) confirms the tool answers.
+  (`team_presets`) confirms the tool answers.
 
 ## Ordered Slices
 
 - [ ] RB6-S01 - `CouncilRequest`, `CouncilToolResult`, `ToolConfig` models + fixtures
-  + round-trip tests. (`RunOrigin` + `CouncilRun.origin` come from Phase 06; RB6
+  + round-trip tests. (`RunOrigin` + `TeamRun.origin` come from Phase 06; RB6
   only sets `origin`/`originAgent` on tool runs.)
 - [ ] RB6-S02 - `CouncilService` actor: one normalized entry (`CouncilRequest` →
-  `CouncilRun`), origin tagging, persistence to the shared `Runs/` store. Reuses
+  `TeamRun`), origin tagging, persistence to the shared `Runs/` store. Reuses
   the 06 engine unchanged.
 - [ ] RB6-S03 - **Recursion guard (fail-closed):** inject `ALLNIGHTER_COUNCIL_DEPTH`
   into every worker subprocess + scrub the session token from worker env; CLI/MCP
   read the env, HTTP requires the depth header (missing ⇒ refused). Tests prove a
-  worker cannot start a nested council on any transport.
+  worker cannot start a nested team on any transport.
 - [ ] RB6-S04 - `CouncilGovernor`: cross-process **`flock(2)`** slot semaphore
   (crash-safe; TTL/PID sweep for orphans) + `callsSpent` accounting in every result.
 - [ ] RB6-S05 - `allnighter` CLI target (links Engine only, builds headlessly):
@@ -322,48 +322,48 @@ reports `callsSpent`; `council_presets` previews the `CallPlan`.
 
 ```text
 Register `allnighter mcp` in Claude Code's MCP config (via `allnighter mcp-install`,
-with consent). Mid-task, the agent calls council_ask("actor or serialized queue
-for the run store?") with the Fast Council preset. Allnighter runs the local panel
-(zero API cost), returns a master plan + structured JudgeAnalysis + callsSpent;
+with consent). Mid-task, the agent calls team_ask("actor or serialized queue
+for the run store?") with the Fast Team preset. Allnighter runs the local team
+(zero API cost), returns a plan + structured PlanAnalysis + callsSpent;
 the agent uses it and continues — no window switch, no clipboard.
 
 Prove the guards:
-- The council's own `claude` worker, with the tool registered, attempts a nested
-  council_ask on each transport -> refused (env depth for CLI/MCP; fail-closed
-  depth header for HTTP). No second panel, no quota burn.
-- A crashed CLI mid-council leaves no stale lock (flock auto-release); the next
-  council proceeds.
+- The team's own `claude` worker, with the tool registered, attempts a nested
+  team_ask on each transport -> refused (env depth for CLI/MCP; fail-closed
+  depth header for HTTP). No second team, no quota burn.
+- A crashed CLI mid-team leaves no stale lock (flock auto-release); the next
+  team proceeds.
 - Two agents call simultaneously -> the governor caps concurrency cross-process.
-- From a bare shell (no MCP): `allnighter ask "..."` returns the same result.
-- `council_recall("run store")` returns the earlier judgment (with its date), 0 calls.
+- From a bare shell (no MCP): `alln team "..."` returns the same result.
+- `team_recall("run store")` returns the earlier review (with its date), 0 calls.
 - The Mac app history shows all of it, origin-tagged (mcp/cli), with callsSpent.
 - No git, no executor invocation, and no writes outside AllnighterPaths occurred.
 ```
 
 ## Exit Gates
 
-- [ ] A council worker cannot start a nested council on **any** transport
+- [ ] A team worker cannot start a nested team on **any** transport
   (env guard for CLI/MCP; fail-closed depth header for HTTP).
 - [ ] Concurrency cap holds across CLI + MCP + app via `flock(2)`; a crashed holder
   leaves no stale lock.
-- [ ] `allnighter ask` works from a bare shell (binary builds headlessly — Engine
+- [ ] `alln team` works from a bare shell (binary builds headlessly — Engine
   imports no UI); the MCP server validates against a real MCP client at a pinned
   protocol version; HTTP binds `127.0.0.1` only and requires token + depth header.
 - [ ] Zero API keys introduced; no network egress beyond localhost + the CLIs' own.
-- [ ] Every tool result reports `callsSpent`; `council_presets` previews a `CallPlan`;
-  `council_ask` auto-returns a runId when the estimate exceeds `waitSeconds`.
+- [ ] Every tool result reports `callsSpent`; `team_presets` previews a `CallPlan`;
+  `team_ask` auto-returns a runId when the estimate exceeds `waitSeconds`.
 - [ ] Tool runs persist origin-tagged and appear in Mac app history + audit log.
 - [ ] **Capability boundary:** no writes outside `AllnighterPaths`; no git; no
   executor module linked (asserted by test).
 - [ ] Prompts/context reach workers as argv/stdin only; context truncates head+tail
   with a marker and `contextTruncated` is reported.
-- [ ] `council_recall` is read-only, returns dates, and spends no calls.
+- [ ] `team_recall` is read-only, returns dates, and spends no calls.
 - [ ] `swift test` + `xcodebuild test -scheme AllnighterMac` green; Code Audit CLEAN.
 
 ## Closeout
 
-Allnighter is now the **local judgment layer for the whole machine**: any agent the
-user runs can summon a zero-cost, Fusion-grade council mid-task and inherit the
+Allnighter is now the **local review layer for the whole machine**: any agent the
+user runs can summon a zero-cost, Fusion-grade team mid-task and inherit the
 structured analysis, while every call stays honest, bounded, recursion-safe, and
 visible. This is the moat — the capability OpenRouter sells as a paid cloud API,
 delivered locally on tools the user already owns, callable from everywhere, owning

@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-/** The base surface for grouping content — panels, list rows, stat tiles, upsell blocks. */
+/** The base surface for grouping content — teams, list rows, stat tiles, upsell blocks. */
 export interface CardProps extends React.HTMLAttributes<HTMLElement> {
   variant?: 'default' | 'flush' | 'accent';
   /** Apply default 16px padding. */

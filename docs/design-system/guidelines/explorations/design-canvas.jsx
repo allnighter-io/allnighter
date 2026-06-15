@@ -95,7 +95,7 @@ if (typeof document !== 'undefined' && !document.getElementById('dc-styles')) {
     // Chrome (titles / labels / buttons) counter-scales against the viewport
     // zoom so it stays a constant on-screen size. --dc-inv-zoom is set by
     // DCViewport on every transform update and inherits to all descendants —
-    // any overlay inside the world (e.g. a TweaksPanel on an artboard) can use
+    // any overlay inside the world (e.g. a TweaksTeam on an artboard) can use
     // it the same way.
     //
     // The header uses transform:scale (out-of-flow, so layout impact doesn't

@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- Judgment batch 4: config shell + Scorecards, Preset editor, Lens library, Workers/Doctor.
+// @ds-adherence-ignore -- Review batch 4: config shell + Scorecards, Preset editor, Lens library, Workers/Doctor.
 const { Button, IconButton, Icon, Badge, Card, Select, Switch, StatusPill, BrandIcon, Textarea, JHeader, JLive } = window;
 
 (function () {
@@ -83,11 +83,11 @@ window.JConfigShell = function JConfigShell({ active, onNav, children }) {
 
 /* ============ ⑩ Model scorecards ============ */
 const SCORES = [
-  { w: { brand: 'anthropic', color: 'FFA630' }, n: 'Opus 4.8', runs: 42, panel: 92, synth: 88, exec: 88, lat: '1.9s' },
-  { w: { brand: 'anthropic', color: 'AEB5C9' }, n: 'Sonnet 4.6', runs: 38, panel: 95, synth: 71, exec: 81, lat: '1.4s' },
-  { w: { icon: 'terminal' }, n: 'ChatGPT 5.5', runs: 40, panel: 90, synth: 64, exec: 79, lat: '2.2s' },
-  { w: { icon: 'square' }, n: 'Composer 2.5', runs: 18, panel: 72, synth: null, exec: 83, lat: 'manual' },
-  { w: { brand: 'googlegemini', color: 'E1E5F0' }, n: 'Gemini Flash', runs: 31, panel: 78, synth: 55, exec: 62, lat: '0.9s' },
+  { w: { brand: 'anthropic', color: 'FFA630' }, n: 'Opus 4.8', runs: 42, team: 92, synth: 88, exec: 88, lat: '1.9s' },
+  { w: { brand: 'anthropic', color: 'AEB5C9' }, n: 'Sonnet 4.6', runs: 38, team: 95, synth: 71, exec: 81, lat: '1.4s' },
+  { w: { icon: 'terminal' }, n: 'ChatGPT 5.5', runs: 40, team: 90, synth: 64, exec: 79, lat: '2.2s' },
+  { w: { icon: 'square' }, n: 'Composer 2.5', runs: 18, team: 72, synth: null, exec: 83, lat: 'manual' },
+  { w: { brand: 'googlegemini', color: 'E1E5F0' }, n: 'Gemini Flash', runs: 31, team: 78, synth: 55, exec: 62, lat: '0.9s' },
 ];
 const barColor = (v) => v >= 85 ? 'var(--green-500)' : v >= 70 ? 'var(--accent)' : 'var(--yellow-500)';
 function SG({ w }) { return w.brand ? <BrandIcon slug={w.brand} color={w.color} size={19} /> : <Icon name={w.icon} size={17} style={{ color: 'var(--text-secondary)' }} />; }
@@ -99,14 +99,14 @@ window.ScorecardsView = function ScorecardsView() {
         actions={<Badge tone="neutral" mono>local · estimate</Badge>} />
       <div className="jud-content" style={{ maxWidth: 820 }}>
         <div style={{ display: 'flex', gap: 18, padding: '0 0 10px', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-faint)' }}>
-          <span style={{ width: 173 }}></span><span style={{ flex: 1 }}>panel answer · synthesis selected · execution success</span><span>median</span>
+          <span style={{ width: 173 }}></span><span style={{ flex: 1 }}>worker answer · synthesis selected · execution success</span><span>median</span>
         </div>
         {SCORES.map((s, i) => (
           <div className="jsc-row" key={i}>
             <span className="jsc-g"><SG w={s.w} /></span>
             <span className="jsc-nm"><span className="n">{s.n}</span><span className="r">{s.runs} runs</span></span>
             <span className="jsc-m">
-              {[['panel', s.panel], ['synth', s.synth], ['exec', s.exec]].map((m, j) => (
+              {[['team', s.team], ['synth', s.synth], ['exec', s.exec]].map((m, j) => (
                 <div key={j} style={{ marginBottom: 4 }}>
                   <div className="v"><span style={{ color: 'var(--text-faint)' }}>{m[0]}</span><span>{m[1] == null ? '—' : m[1] + '%'}</span></div>
                   <div className="jsc-bar"><i style={{ width: (m[1] || 0) + '%', background: barColor(m[1] || 0) }}></i></div>
@@ -132,7 +132,7 @@ window.PresetEditorView = function PresetEditorView() {
   return (
     <div>
       <JHeader eyebrow="Configuration" title="Workflow presets"
-        sub="Bind the fixed fanout/reduce chain — seats, lenses, profiles. The UI edits presets; it never invents workflow."
+        sub="Bind the fixed fanout/reduce chain — workers, lenses, profiles. The UI edits presets; it never invents workflow."
         actions={<Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={14} />}>New preset</Button>} />
       <div className="jud-content">
         <div className="jpe-grid">
@@ -146,7 +146,7 @@ window.PresetEditorView = function PresetEditorView() {
           </div>
           <div>
             <div className="jpe-label" style={{ marginTop: 0 }}>Stage chain</div>
-            {[['users', 'Panel · fanout', '5 seats · stances on'], ['scale', 'Judge analysis · reduce', 'Opus 4.8'], ['file-text', 'Draft plan · reduce', 'Opus 4.8'], ['shield', 'Review board · fanout', '3 lenses'], ['circle-check', 'Final spec · reduce', 'first-principles · advisory']].map((s, i) => (
+            {[['users', 'Team · fanout', '5 workers · stances on'], ['scale', 'Plan writer analysis · reduce', 'Opus 4.8'], ['file-text', 'Draft plan · reduce', 'Opus 4.8'], ['shield', 'Review board · fanout', '3 lenses'], ['circle-check', 'Final spec · reduce', 'first-principles · advisory']].map((s, i) => (
               <div className="jpe-stage" key={i}>
                 <span className="jpe-stage__i"><Icon name={s[0]} size={14} /></span>
                 <span className="jpe-stage__m"><span className="jpe-stage__t">{s[1]}</span><span className="jpe-stage__s">{s[2]}</span></span>
@@ -174,7 +174,7 @@ window.PresetEditorView = function PresetEditorView() {
 
 /* ============ ⑫ Prompt profile / lens library ============ */
 const PROFILES = [
-  { g: 'Draft synthesis', items: [['Judge default', 'v4', true]] },
+  { g: 'Draft synthesis', items: [['Plan writer default', 'v4', true]] },
   { g: 'Review lenses', items: [['Security & privacy', 'v3', true], ['Code maintainer', 'v3', true], ['Proof / QA', 'v3', true], ['Cost · latency · quota', 'v2', true], ['Dissent preserver', 'v2', true], ['Coverage audit', 'v1', true], ['UI / UX', 'v2', true]] },
   { g: 'Final spec', items: [['Finalizer · first principles', 'v4', true]] },
 ];

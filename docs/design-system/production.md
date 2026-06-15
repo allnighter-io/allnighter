@@ -31,7 +31,7 @@ constants) — and views consume *named tokens*, never raw hex.
   `--bg-surface` → `--bg-raised` → `--bg-hover`/`--bg-active`. Never a light
   background, never a system-default window chrome that breaks the midnight field.
 - **One warm signal — amber.** `--accent` (`#FFA630`) is reserved for: the single
-  primary action on a surface, the live/"alive" state, the synthesizer/winner,
+  primary action on a surface, the live/"alive" state, the plan writer/winner,
   and the mark. Everything else is ink + muted status. Do not introduce new
   accent colors or use amber for decoration.
 - **Borders & elevation:** white-alpha hairlines (`--border-subtle`/`-default`/
@@ -66,7 +66,7 @@ A failed worker renders failed; never recolor a failure as success.
   `Tabs`, `Menu`, `Dialog`, `Toast`, and the product pieces `StatusPill` +
   `WorkerChip`.
 - Use the product components for their job: `StatusPill` for run/worker status,
-  `WorkerChip` for a worker in the panel or live grid. Do not build one-off
+  `WorkerChip` for a worker in the team or live grid. Do not build one-off
   status chips that drift from the spec.
 - Cards frame repeated items, answers, and modals — do not nest cards in cards.
 - `Toast` is the calm "plan ready"/notification surface; keep it quiet.
@@ -74,6 +74,6 @@ A failed worker renders failed; never recolor a failure as success.
 ## 6. Voice (UI copy)
 
 Calm, plain-spoken, sentence case, verbs first. No emoji, no hype. Hide the
-plumbing (panel / worker / council / plan — not worktree / subprocess).
+plumbing (team / worker / team / plan — not worktree / subprocess).
 Numbers are concrete and mono; a worker that failed is shown failed, never faked.
 Full voice guidance: `readme.md`.

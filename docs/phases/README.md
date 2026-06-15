@@ -54,7 +54,7 @@ otherwise.
   inside the same thread.
 - The user-facing words are: model, skill, worker, team, team run, worker answer,
   plan, work order, thread, floor manager.
-- Do not add new public `council` / `panel` language. `Work_Order_Team_Model.md`
+- Do not add new public `team` language. `Work_Order_Team_Model.md`
   owns the active vocabulary contract (cleanup slice complete — see
   `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`).
 - Workers fail honestly. A failed worker is shown failed, never hidden or faked.

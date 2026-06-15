@@ -1,5 +1,5 @@
 // @ds-adherence-ignore -- runtime mirror of the bundled components for live
-// rendering in specimen cards + the Council UI kit (the generated _ds_bundle.js
+// rendering in specimen cards + the Team UI kit (the generated _ds_bundle.js
 // is the source of truth for real consumers). Window globals, no exports.
 
 (function () {

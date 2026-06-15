@@ -7,7 +7,7 @@ export interface TabItem {
   count?: number;
 }
 
-/** Switch between views or filter sets. `segmented` for compact in-panel switches, `underline` for page-level section nav. */
+/** Switch between views or filter sets. `segmented` for compact in-team switches, `underline` for page-level section nav. */
 export interface TabsProps {
   variant?: 'segmented' | 'underline';
   items: TabItem[];

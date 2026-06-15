@@ -25,7 +25,7 @@ is transitional.
 
 ```txt
 Packages/AllnighterCore/     # models, engine, CLI tools
-Apps/AllnighterMac/          # macOS menu-bar app + council UI
+Apps/AllnighterMac/          # macOS menu-bar app + team UI
 Allnighter/                  # transitional iOS Xcode scaffold
 ```
 

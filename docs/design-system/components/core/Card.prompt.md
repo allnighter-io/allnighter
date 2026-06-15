@@ -1,4 +1,4 @@
-The base surface for grouping content — panels, list rows, stat tiles, upsell blocks. Hairline border + small shadow on a raised midnight surface.
+The base surface for grouping content — teams, list rows, stat tiles, upsell blocks. Hairline border + small shadow on a raised midnight surface.
 
 ```jsx
 <Card>
@@ -8,4 +8,4 @@ The base surface for grouping content — panels, list rows, stat tiles, upsell 
 <Card variant="accent" interactive>Upgrade for deep analytics</Card>
 ```
 
-Variants: `default` (raised), `flush` (sits on panel surface), `accent` (amber-tinted). `interactive` adds the hover-lift; `pad` toggles the default padding.
+Variants: `default` (raised), `flush` (sits on team surface), `accent` (amber-tinted). `interactive` adds the hover-lift; `pad` toggles the default padding.

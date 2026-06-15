@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # 05 — History, Presets, Doctor + Distribution
 
 Status: **Daily-driver slices shipped (S01–S05).** Distribution (S06–S07)
@@ -10,7 +14,7 @@ Updated: 2026-06-14
 ## Goal
 
 Turn the working loop into something the founder reaches for every day and
-trusts: browse past runs, save panel + explicit synthesis presets, choose which
+trusts: browse past runs, save team + explicit synthesis presets, choose which
 worker writes the plan, use a one-click global hotkey to capture a
 prompt, run a Doctor that detects/repairs CLI workers, and install a notarized
 DMG so it launches at login like a real app.
@@ -28,12 +32,12 @@ DMG so it launches at login like a real app.
 ## Approach (per `00`)
 
 - **Run history**: a list of past `TeamRun`s (from the Runs folder, `00` §7),
-  reopen any to view members + plan; re-run with the same prompt/panel.
-- **Presets**: save named panels with explicit fields:
+  reopen any to view members + plan; re-run with the same prompt/team.
+- **Presets**: save named teams with explicit fields:
   `panelWorkerIds`, `draftPlanWriterWorkerId`, and
   `draftSynthesisInstructionPresetId`. Pick a preset before running. Ship the
-  founder's six-worker default as a built-in preset, with Opus as the default
-  synthesizer only by configuration.
+  Founder's Six-worker default as a built-in preset, with Opus as the default
+  plan writer only by configuration.
 - **Synthesis instruction presets**: named, editable prompt templates for the
   draft plan. Fix the current roundtrip seam so `run.json` records the
   preset/custom instruction actually used, not always `default_master_plan_v1`.
@@ -52,11 +56,11 @@ DMG so it launches at login like a real app.
 
 - [x] P05-S01 — Run history list + detail reopen + "run again". History sidebar
   section (`store.list()`), read-only `HistoryDetailView`, and `runAgain(_:)`
-  reconstructs prompt + panel + synthesizer + instructions + preset.
-- [x] P05-S02 — Panel presets (`TeamPreset`: `panelWorkerIds`,
+  reconstructs prompt + team + plan writer + instructions + preset.
+- [x] P05-S02 — Team presets (`TeamPreset`: `panelWorkerIds`,
   `draftPlanWriterWorkerId`, `draftSynthesisInstructionPresetId`, `builtIn`) +
-  `TeamPresetStore` + built-in six-worker default derived from the live panel.
-  Opus is the default synthesizer *by configuration*, not a code path.
+  `TeamPresetStore` + built-in six-worker default derived from the live team.
+  Opus is the default plan writer *by configuration*, not a code path.
 - [x] P05-S03 — Synthesis-instruction presets (`SynthesisInstructionPreset` +
   `SynthesisInstructionStore`); **honest persistence** via
   `SynthesisInstructionChoice` — `Synthesis.instructions` records the chosen
@@ -78,8 +82,8 @@ DMG so it launches at login like a real app.
 
 ```text
 Install the notarized DMG on a clean account. First run shows Doctor: each of
-the six workers reports detected/healthy or a clear reason. Save a panel preset
-that uses a non-Opus draft synthesizer plus a custom synthesis-instruction
+the six workers reports detected/healthy or a clear reason. Save a team preset
+that uses a non-Opus draft plan writer plus a custom synthesis-instruction
 preset. Trigger the global hotkey, paste a prompt, run, get a plan,
 export. Reopen the run later from history and re-run it with the same preset. A
 worker whose CLI was updated/broken shows red in Doctor with a fix hint instead
@@ -93,7 +97,7 @@ of silently disappearing.
   run).
 - [x] Presets + history persist across launches (file-backed under
   `Config/TeamPresets`, `Config/InstructionPresets`, `Runs/`).
-- [x] Draft synthesizer is explicit per preset; Opus is a default, not a
+- [x] Draft plan writer is explicit per preset; Opus is a default, not a
   hardcoded code path (`TeamPreset.draftPlanWriterWorkerId` +
   `AppModel.planWriterWorker`).
 - [x] `Synthesis.instructions` records the chosen preset/custom instruction

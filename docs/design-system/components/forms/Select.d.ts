@@ -2,7 +2,7 @@ import * as React from 'react';
 
 export interface SelectOption { value: string; label: React.ReactNode; }
 
-/** Dropdown select — choose the synthesizer, a preset, a risk tier. Trigger + popover list. */
+/** Dropdown select — choose the plan writer, a preset, a risk tier. Trigger + popover list. */
 export interface SelectProps {
   label?: string;
   options: SelectOption[];

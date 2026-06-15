@@ -28,7 +28,7 @@ The wedge:
 
 > Your Mac Studio, Mac mini, or spare workstation becomes another worker in the
 > bench: private, always available, cheap to run, and perfect for background
-> judgment, QA, summarization, planning, indexing, and low-risk implementation.
+> review, QA, summarization, planning, indexing, and low-risk implementation.
 
 The stronger long-term thesis:
 
@@ -37,7 +37,7 @@ The stronger long-term thesis:
 
 When intelligence is expensive, quota is a bottleneck. When intelligence gets
 cheap, local, and effectively unlimited, human attention becomes the bottleneck.
-Allnighter's core loops -- races, councils, disagreement routing, picker as
+Allnighter's core loops -- races, teams, disagreement routing, picker as
 prompt, taste memory, and landing queues -- are all ways to spend less human
 attention per unit of shipped work.
 
@@ -93,9 +93,9 @@ all cases. Do build the architecture as if they eventually can.
 
 Start with work where they are immediately valuable:
 
-### 3.1 Council Participant
+### 3.1 Team Participant
 
-Local model gives an additional independent take in strategy/planning councils.
+Local model gives an additional independent take in strategy/planning teams.
 
 Good for:
 
@@ -104,7 +104,7 @@ Good for:
 - "Argue against the consensus."
 - "Summarize the tradeoff."
 
-### 3.2 Judge and Summarizer
+### 3.2 Plan writer and Summarizer
 
 Local model reads outputs from multiple agents and prepares the phone-friendly
 verdict.
@@ -139,7 +139,7 @@ Local model scans safe local sources:
 
 It creates draft work orders, not code changes, until trust is established.
 
-### 3.5 Preference Memory Synthesizer
+### 3.5 Preference Memory Plan writer
 
 Local model periodically turns picks/rejections/reverts into project memory.
 
@@ -179,7 +179,7 @@ User-facing line:
 Supporting lines:
 
 - "Run private background workers from your own hardware."
-- "Use local models for judgment, summaries, QA, and low-risk tasks."
+- "Use local models for review, summaries, QA, and low-risk tasks."
 - "Save frontier quota for the jobs that need frontier models."
 - "Your spare Mac mini becomes part of the bench."
 
@@ -209,7 +209,7 @@ Allnighter answers:
 
 ```text
 What should this local model do while I sleep, and how does its work feed into
-the same queue, race, council, landing, and memory system as every other agent?
+the same queue, race, team, landing, and memory system as every other agent?
 ```
 
 That is the gap.
@@ -231,7 +231,7 @@ Allnighter belongs in the operating layer.
 
 The real long-term threat is another product that understands the same thing:
 when intelligence commoditizes, the lasting assets are execution substrate and
-per-user taste/judgment data.
+per-user taste/review data.
 
 ---
 
@@ -314,14 +314,14 @@ Use local models gently:
 
 - summarization;
 - preference memory;
-- small councils;
+- small teams;
 - no heavy overnight work on battery.
 
 ### 7.2 Mac Mini Worker
 
 The always-on home worker:
 
-- local council participant;
+- local team participant;
 - backlog miner;
 - QA summarizer;
 - small implementation lanes;
@@ -414,7 +414,7 @@ Show local workers as part of the same bench:
 ```text
 Claude - busy
 Codex - idle
-Mac Studio Local - summarizing council
+Mac Studio Local - summarizing team
 Mac mini Local - mining TODOs
 ```
 
@@ -458,11 +458,11 @@ Detect Ollama or LM Studio
 -> list available local models
 -> run smoke prompt
 -> add local model as read-only worker
--> use it to summarize a three-agent council
+-> use it to summarize a three-agent team
 -> show "Local/private" badge in Mac and iOS worker roster
 ```
 
-Do not start with local code-writing. Start with summarization and judgment.
+Do not start with local code-writing. Start with summarization and review.
 
 Works Test:
 
@@ -474,9 +474,9 @@ lists models,
 runs a smoke prompt,
 and marks one local model available as a private read-only worker.
 
-When a council finishes,
+When a team finishes,
 then the local worker produces a phone-friendly summary and minority report
-without sending the council transcript to a cloud model.
+without sending the team transcript to a cloud model.
 ```
 
 ---
@@ -492,7 +492,7 @@ without sending the council transcript to a cloud model.
 7. Mac Studio overnight mode.
 8. Model recommendation based on installed hardware.
 9. Local embedding/index store per repo.
-10. Local-first councils where cloud agents are used only for final judgment.
+10. Local-first teams where cloud agents are used only for final review.
 
 ---
 

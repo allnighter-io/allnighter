@@ -28,7 +28,7 @@ sequencing under `docs/design-system/`.
 | --- | --- | --- |
 | A | Tiny paint change, copy tweak, icon swap | `docs/design-system/production.md` + the target view |
 | B | Component or layout change inside an existing surface | `docs/gui/0.GUI-Tech-Stack.md`, `docs/design-system/production.md` (+ `readme.md` for brand questions), `docs/gui/1.GUI-Invariants.md`, the surface brief if present |
-| C | New or materially changed surface (window, panel, sheet, view) | Tier B + `docs/gui/2.GUI-Surface-Architecture.md` + a surface brief (`docs/gui/surfaces/`) |
+| C | New or materially changed surface (window, team, sheet, view) | Tier B + `docs/gui/2.GUI-Surface-Architecture.md` + a surface brief (`docs/gui/surfaces/`) |
 | D | UI touching run/dispatch state, quota/billing, secrets/Keychain, or pairing | Tier C + `docs/workflows/SSOT_Feature_Workflow.md` + the owning `docs/mvp/` or `RB*` contract |
 
 When unsure, choose the higher tier.
@@ -57,7 +57,7 @@ Escalate to Tier D if the work touches:
 - **Never fake state.** A failed worker is shown failed; a timeout is shown
   timed out. Numbers are concrete and mono. No fabricated progress.
 - **Hide the plumbing.** Speak model / skill / worker / team / plan — never
-  legacy panel/council/master-plan words, worktree, subprocess, or branch in
+  legacy team lineup/team/master-plan words, worktree, subprocess, or branch in
   user-facing copy.
 - **Every critical surface has loading, empty, error, running, and done states.**
 - **Voice:** calm, plain-spoken, sentence case, verbs first, no emoji, no hype

@@ -1,7 +1,7 @@
-A worker in the panel or the live run grid: brand glyph, name, model ID, and run status. Selectable in the panel; read-only with status/meta in the run view.
+A worker in the team or the live run grid: brand glyph, name, model ID, and run status. Selectable in the team; read-only with status/meta in the run view.
 
 ```jsx
-// Panel — pick which workers answer
+// Team — pick which workers answer
 <WorkerChip name="Opus 4.8" model="via claude-code"
   glyph={<img src="https://cdn.simpleicons.org/anthropic/E1E5F0" />}
   selectable selected onToggle={toggle} />

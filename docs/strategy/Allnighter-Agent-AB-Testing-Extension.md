@@ -5,7 +5,7 @@ June 12, 2026
 
 > Status: Future extension, not MVP. This document maps the opportunity in full
 > so the idea is preserved, but it should not expand the first Allnighter build
-> scope. The core product still starts with lanes, races, councils, picker as
+> scope. The core product still starts with lanes, races, teams, picker as
 > prompt, previews, landing, and preference memory.
 
 ---
@@ -18,7 +18,7 @@ Allnighter begins by learning from the founder's picks:
 Agents generate options
 -> founder selects the best direction
 -> selection becomes preference data
--> Allnighter learns the founder's taste and judgment
+-> Allnighter learns the founder's taste and review
 ```
 
 The A/B testing extension completes the loop by learning from the market's
@@ -176,7 +176,7 @@ Not:
 
 ```text
 Prompt
--> agent race/council
+-> agent race/team
 -> variants
 -> implementation lanes
 -> QA
@@ -219,7 +219,7 @@ What does this market reward, and which worker reliably produces it?
 
 - receives product/growth goal;
 - creates work orders;
-- runs councils/races;
+- runs teams/races;
 - creates implementation lanes;
 - captures artifacts;
 - runs QA;
@@ -260,7 +260,7 @@ What does this market reward, and which worker reliably produces it?
 User goal
   |
   v
-Allnighter Council/Race
+Allnighter Team/Race
   |
   v
 Variant Work Orders
@@ -339,7 +339,7 @@ Allnighter turns it into:
 }
 ```
 
-### 8.2 Hypothesis Council
+### 8.2 Hypothesis Team
 
 Agents propose hypotheses:
 
@@ -349,7 +349,7 @@ Agents propose hypotheses:
 - add magic-link copy;
 - create shorter onboarding path.
 
-Council output:
+Team output:
 
 - consensus opportunities;
 - strongest dissent;
@@ -666,7 +666,7 @@ Best for:
 
 ### 12.2 Agent-Recommended Experiment
 
-Council recommends variants and the user approves.
+Team recommends variants and the user approves.
 
 Best for:
 

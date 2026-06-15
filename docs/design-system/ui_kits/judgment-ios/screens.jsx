@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- iOS judgment: Inbox, Compose+CallPlan, Review board.
+// @ds-adherence-ignore -- iOS review: Inbox, Compose+CallPlan, Review board.
 const { Button, Icon, Badge, StatusPill, BrandIcon } = window;
 
 (function () {
@@ -61,7 +61,7 @@ const JLM = ({ size = 22, run }) => React.createElement('svg', { width: size, he
 const INBOX = [
   { id: 'r1', t: 'Rate limiting API', m: 'light_review · final spec ready', icon: 'circle-check', bg: 'var(--accent-surface)', fg: 'var(--accent-text)', tag: ['accent', 'implement'], accent: true, go: 'review' },
   { id: 'r2', t: 'Onboarding redesign', m: 'review board · 1 blocker · 2 concerns', icon: 'shield', bg: 'var(--danger-surface)', fg: 'var(--red-400)', tag: ['danger', '1 blocker'], go: 'review' },
-  { id: 'r3', t: 'Email parser refactor', m: 'Opus returned · score 0.86', icon: 'rotate-cw', bg: 'var(--info-surface)', fg: 'var(--blue-400)', tag: ['info', 'judge it'], go: 'review' },
+  { id: 'r3', t: 'Email parser refactor', m: 'Opus returned · score 0.86', icon: 'rotate-cw', bg: 'var(--info-surface)', fg: 'var(--blue-400)', tag: ['info', 'review it'], go: 'review' },
 ];
 function InboxScreen({ open }) {
   return (
@@ -109,7 +109,7 @@ function ComposeScreen() {
       ))}
       <div className="jio-sect">Call plan</div>
       <div className="jio-plan">
-        <div className="jio-planr"><span style={{ color: 'var(--text-faint)' }}>panel · 5 seats</span><span><Badge tone="positive" mono>reused</Badge></span></div>
+        <div className="jio-planr"><span style={{ color: 'var(--text-faint)' }}>team · 5 workers</span><span><Badge tone="positive" mono>reused</Badge></span></div>
         <div className="jio-planr"><span style={{ color: 'var(--text-faint)' }}>fresh model calls</span><span style={{ color: 'var(--accent-text)', fontWeight: 600 }}>~{calls}</span></div>
         <div className="jio-planr" style={{ color: 'var(--text-faint)', fontSize: 11 }}><span>est. 3–5 min · $0 marginal · local</span><span>estimate</span></div>
       </div>
@@ -123,7 +123,7 @@ const LENSES = [
   { n: 'Code maintainer', w: 'Sonnet 4.6', v: 'concerns', vt: 'warning', bg: 'var(--warning-surface)', fg: 'var(--yellow-400)', c: ['Two sources of truth for the window — collapse to one.'] },
   { n: 'Proof / QA', w: 'ChatGPT 5.5 · fast', v: 'concerns', vt: 'warning', bg: 'var(--warning-surface)', fg: 'var(--yellow-400)', c: ['No Works Test for the 429 path or reset boundary.'] },
 ];
-const PIPS = [['Panel', 'done'], ['Analysis', 'done'], ['Plan', 'done'], ['Review', 'run'], ['Final', 'idle']];
+const PIPS = [['Team', 'done'], ['Analysis', 'done'], ['Plan', 'done'], ['Review', 'run'], ['Final', 'idle']];
 const PIPC = { done: 'var(--green-500)', run: 'var(--blue-500)', idle: 'var(--ink-500)' };
 function ReviewScreen({ back, onAnalysis }) {
   return (
@@ -133,7 +133,7 @@ function ReviewScreen({ back, onAnalysis }) {
       <div className="jio-strip" style={{ marginTop: 12 }}>
         {PIPS.map((p, i) => (<React.Fragment key={i}><span className="jio-pip"><span className="d" style={{ background: PIPC[p[1]] }}></span>{p[0]}</span>{i < PIPS.length - 1 && <span style={{ color: 'var(--text-faint)' }}>›</span>}</React.Fragment>))}
       </div>
-      {onAnalysis && <button className="jio-back" style={{ marginTop: 4, color: 'var(--accent-text)' }} onClick={onAnalysis}><Icon name="scale" size={15} /> View judge analysis</button>}
+      {onAnalysis && <button className="jio-back" style={{ marginTop: 4, color: 'var(--accent-text)' }} onClick={onAnalysis}><Icon name="scale" size={15} /> View plan writer analysis</button>}
       <div className="jio-row" style={{ marginBottom: 14 }}>
         <span style={{ flex: 1, fontSize: 13, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Review board</span>
         <Badge tone="danger" dot>1 blocker</Badge><Badge tone="warning" dot>2 concerns</Badge>

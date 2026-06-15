@@ -5,7 +5,7 @@ Milestone: iOS (Remote Floor Manager)
 Owner: Founder
 Created: 2026-06-15
 Updated: 2026-06-15 (cloud-first pivot)
-Depends on: `../../mvp/00_MVP_Architecture.md` §4/§6/§9, `../../mvp/RB6_Council_As_Tool.md`
+Depends on: `../../mvp/00_MVP_Architecture.md` §4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`
 
 > This fixes *how* the phone reaches the Mac and *how trust works*, so no later iOS
 > phase re-decides it. **Major revision:** the default path is now a **cloud relay

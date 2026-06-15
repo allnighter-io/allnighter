@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # RB4 - Direct Executor Dispatch
 
 Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
@@ -10,7 +14,7 @@ Depends on: RB3 (final spec + analysis decisions). Followed by: RB5 (return revi
 
 This is where the vibe coder's loop closes: **one prompt became a pressure-tested
 spec, and one click hands that spec to the agent that builds it.** No clipboard,
-no re-explaining context, no "let me paste the plan into Cursor." The judgment
+no re-explaining context, no "let me paste the plan into Cursor." The review
 work Allnighter just did is exactly the context the executor needs, so dispatch
 is a self-contained handoff, not a fresh conversation.
 
@@ -45,7 +49,7 @@ execution_prompt_<workerId>.md
 ```
 
 If the worker has a healthy `headless_cli` driver, Allnighter invokes it through
-the same runner substrate used for panel members. If the worker is `manual_paste`
+the same runner substrate used for workers. If the worker is `manual_paste`
 or unhealthy, Allnighter falls back to copy/reveal artifacts.
 
 **Health gate (reuse Phase 05 Doctor).** Before auto-invoking, dispatch runs the
@@ -89,7 +93,7 @@ original prompt
 final spec
 acceptance criteria
 proof commands / Works Test          # copied from RB3's executability gate
-panel judgment summary               # PlanAnalysis: key consensus + resolved contradictions
+team review summary               # PlanAnalysis: key consensus + resolved contradictions
 analysis decisions                   # adopted / rejected / deferred contradictions + unique insights (RB3)
 known non-goals
 risks and open questions
@@ -126,7 +130,7 @@ boundary.
 
 ## Ordered Slices
 
-- [ ] RB4-S01 - `ImplementationBrief` model (incl. the panel judgment summary +
+- [ ] RB4-S01 - `ImplementationBrief` model (incl. the team review summary +
   structured analysis decisions from RB3's `PlanAnalysis`) and Markdown renderer.
 - [ ] RB4-S02 - Model picker for handoff target; default comes from
   `WorkflowPreset.executionWorkerId` when present.
@@ -138,7 +142,7 @@ boundary.
   boundary explicitly.
 - [ ] RB4-S05 - Each dispatch is a `StageOutput(purpose: .dispatch)` with an
   embedded `ExecutionReturn` (RB5 owns the type) — **the single source of truth**;
-  no loose duplicate state. The run stays `complete` (dispatch is post-judgment,
+  no loose duplicate state. The run stays `complete` (dispatch is post-review,
   `00` §4). Multiple dispatches per run are supported (RB5 compares them).
 - [ ] RB4-S06 - Artifact naming versions per dispatch to avoid collision:
   `implementation_brief.md` (shared) + `execution_prompt_<workerId>_<NN>.md` and a
@@ -148,7 +152,7 @@ boundary.
   healthy `headless_cli` workers with the execution prompt in the configured
   working directory; capture stdout/stderr or output file per the driver manifest.
   Use a **separate `dispatchTimeoutSeconds`** (default 600, configurable) — NOT the
-  panel `invoke.timeoutSeconds` — plus a user **cancel**; on timeout, status
+  team `invoke.timeoutSeconds` — plus a user **cancel**; on timeout, status
   `timed_out` with the partial transcript kept.
 - [ ] RB4-S08 - Manual + reveal-only fallback: for `manual_paste`, unhealthy
   workers, or an explicit user choice, reveal/copy the exact prompt without invoking
@@ -188,7 +192,7 @@ worktree, branch, commit, landing, or revert rule is created in either case.
   artifact appears in the execution working directory** (explicit test).
 - [ ] Each dispatch is a `StageOutput(purpose: .dispatch)`; multiple dispatches per
   run don't collide (versioned artifact names).
-- [ ] Dispatch uses `dispatchTimeoutSeconds` (not the panel timeout) and is
+- [ ] Dispatch uses `dispatchTimeoutSeconds` (not the team timeout) and is
   cancelable; transcript is size-capped.
 - [ ] A brief built from `master_plan.md` (no final spec) omits the analysis-decision
   sections and is labeled "less reviewed — no final spec."

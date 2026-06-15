@@ -1,4 +1,4 @@
-Switch between views or filter sets. `segmented` for compact in-panel switches, `underline` for page-level section nav.
+Switch between views or filter sets. `segmented` for compact in-team switches, `underline` for page-level section nav.
 
 ```jsx
 <Tabs

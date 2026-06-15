@@ -1,4 +1,4 @@
-# Allnighter MVP — The Council (parallel judgment, zero marginal cost)
+# Allnighter MVP — The team (parallel review, zero marginal cost)
 
 > **This folder is the single source of execution truth for the MVP.**
 > The full Allnighter roadmap (worktree factory, lanes, previews, landing,
@@ -7,8 +7,8 @@
 >
 > We are shipping the one loop the founder already runs by hand every single
 > day, and which already produces better results: **one prompt → fan out to
-> several subscription CLIs in parallel → Opus synthesizes a master plan.**
-> This is the **Council** slice from the roadmap (`ON HOLD/13_Council.md`),
+> several subscription CLIs in parallel → Opus synthesizes a plan.**
+> This is the **Team** slice from the roadmap (`ON HOLD/13_Team.md`),
 > distilled to text-only with no git, no worktrees, no execution risk.
 
 Status: **Build-ready.** Mac first. iOS is a designed-for, deferred follow-on.
@@ -21,14 +21,14 @@ Updated: 2026-06-14
 The founder runs a fixed, proven ritual for every non-trivial decision:
 
 1. Take **one prompt**.
-2. Send it, unchanged, to a panel of models the founder **already pays for**:
+2. Send it, unchanged, to a team of models the founder **already pays for**:
    ChatGPT 5.5, Opus 4.8, Sonnet 4.6, Composer 2.5, Gemini Flash, Grok Build.
-3. Ask **Opus 4.8** to synthesize all the answers into a single **master plan**.
+3. Ask **Opus 4.8** to synthesize all the answers into a single **plan**.
 
 Today that is ~12 manual copy/paste actions per question. The founder is "a
 copy-paste buddy." The MVP deletes that labor:
 
-> **One prompt in. One master plan out. The bench answers in parallel.
+> **One prompt in. One plan out. The bench answers in parallel.
 > You never touch the clipboard.**
 
 Hard constraints that define this product:
@@ -39,7 +39,7 @@ Hard constraints that define this product:
 - **One command / one click.** The whole fan-out + synthesis is a single action.
 
 This is **not** a model provider, a chat aggregator with its own keys, an IDE,
-or a coding agent. It is a **panel orchestrator + synthesizer** sitting on top
+or a coding agent. It is a **team orchestrator + plan writer** sitting on top
 of CLIs the user installed.
 
 ---
@@ -48,13 +48,13 @@ of CLIs the user installed.
 
 ```text
 type or paste ONE prompt
--> choose the panel (which workers; default = all healthy)
+-> choose the team (which workers; default = all healthy)
 -> Allnighter fans out the same prompt to every worker IN PARALLEL (headless CLI)
 -> live per-worker status: queued / running / done / failed / timed-out
 -> each worker's answer is captured and shown
--> Opus 4.8 (the synthesizer) reads the original prompt + all labeled answers
+-> Opus 4.8 (the plan writer) reads the original prompt + all labeled answers
 -> Opus produces a single MASTER PLAN in a fixed, editable structure
--> view + copy + save the bundle (master plan + every member answer) as Markdown
+-> view + copy + save the bundle (plan + every worker answer) as Markdown
 ```
 
 That is the North-Star acceptance demo for the MVP. Phase 04's Works Test is
@@ -64,7 +64,7 @@ literally this loop, end to end, with the founder's real six workers.
 
 ## 2. Why this order (and why it does not box us in)
 
-- **It is the proven wedge.** The founder already knows the council pattern
+- **It is the proven wedge.** The founder already knows the team pattern
   yields better answers. We are automating a daily, high-value habit — not
   betting on an unvalidated feature.
 - **It is the cheapest, safest slice.** Text in, text out. No git worktrees, no
@@ -86,25 +86,25 @@ scheduling, preference ledger).
 
 **In scope (build this):**
 
-- A configurable **panel of workers**, each backed by a thin **driver manifest**
+- A configurable **team of workers**, each backed by a thin **driver manifest**
   (how to invoke its CLI headlessly + how to read its output).
 - A **parallel fan-out engine** (Swift Concurrency): one prompt → N subprocesses,
   per-worker timeout, cancel, normalized status + captured output.
 - A **synthesis step**: one Opus call over the original prompt + all answers,
-  producing a master plan in a fixed, user-editable structure.
-- A **Mac app**: menu bar + window, prompt composer, panel selection, live run
+  producing a plan in a fixed, user-editable structure.
+- A **Mac app**: menu bar + window, prompt composer, team selection, live run
   view, response viewer, master-plan viewer, copy/export to Markdown.
 - **Worker health** (smoke test / doctor) so a churned CLI fails loudly, not
   silently — and a **manual-paste fallback** for any CLI that cannot yet be
   driven headlessly (e.g. an IDE-bound Composer).
-- **Run history + panel presets** so the daily ritual is one click.
+- **Run history + team presets** so the daily ritual is one click.
 
 **Deferred (intentionally, not forgotten):**
 
 - Git worktrees, lanes, the "no agent writes to the active repo" execution
   factory, previews/screenshots, landing/merge/revert.
 - "Implement This" / picker-as-prompt, races, combine & remix.
-- Cross-critique ("red-team") round before synthesis (the full Council).
+- Cross-critique ("red-team") round before synthesis (the full Team).
 - iOS companion, pairing, relay/push, Live Activities.
 - Scheduling, quota harvesting, scorecards/routing, preference ledger/taste.
 - Project/repo context injection into prompts.
@@ -115,16 +115,16 @@ scheduling, preference ledger).
 
 | Term | Meaning |
 | --- | --- |
-| **Panel** | The set of workers a prompt is sent to (user-facing word for the bench). |
+| **Team** | The set of workers a prompt is sent to (user-facing word for the bench). |
 | **Worker** | One model reachable via a local subscription CLI (e.g. "Opus 4.8 via Claude Code"). |
-| **Council run** | One prompt fanned out to the panel + the synthesis that follows. |
-| **Member answer** | One worker's raw response to the prompt. |
-| **Synthesizer** | The worker (default Opus 4.8) that produces the master plan. |
-| **Master plan** | The single synthesized output: consensus, conflicts, gaps, and a decisive plan. |
+| **Team run** | One prompt fanned out to the team + the synthesis that follows. |
+| **Worker answer** | One worker's raw response to the prompt. |
+| **Plan writer** | The worker (default Opus 4.8) that produces the plan. |
+| **Plan** | The single synthesized output: consensus, conflicts, gaps, and a decisive plan. |
 | **Driver manifest** | Thin, versioned config describing how to invoke a worker's CLI and read its output. |
 | **Doctor** | Health check that detects each CLI and runs its smoke test. |
 
-Internal code may reuse the roadmap's `Council` / `Worker` / `Driver` names so
+Internal code may reuse the roadmap's `Team` / `Worker` / `Driver` names so
 the MVP types are forward-compatible with the full product.
 
 ---
@@ -139,8 +139,8 @@ contracts so no phase re-decides them.
 00  MVP Architecture (stack, models, manifest, fan-out + synthesis contracts)  <- read first
 01  AllnighterCore (MVP subset): models, manifest schema, run state machine, fixtures, swift test
 02  Worker Drivers + Parallel Fan-Out Engine  <- the heart; reusable by the full factory later
-03  Mac App Shell + Run Loop (prompt, panel, live status, response viewer)
-04  Synthesis + Master Plan (Opus synthesizer; the full one-click daily loop)   <- MVP "done"
+03  Mac App Shell + Run Loop (prompt, team, live status, response viewer)
+04  Synthesis + Plan (Opus plan writer; the full one-click daily loop)   <- MVP "done"
 05  History, Presets, Doctor + Notarized Distribution (make it the daily driver)
 ```
 
@@ -154,7 +154,7 @@ driver. iOS begins only after 01–05 are loved (see `00` § iOS-Later).
 | Signal | Target |
 | --- | --- |
 | Copy/paste actions per question | **0** (down from ~12) |
-| Clicks from prompt to master plan | **1** (after panel is configured) |
+| Clicks from prompt to plan | **1** (after team is configured) |
 | Marginal cost per run | **$0** (subscription CLIs only) |
 | Worker churn handled | A broken/updated CLI surfaces in Doctor, never silently drops |
 | Daily use | Founder uses it for real decisions instead of manual copy/paste |

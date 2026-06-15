@@ -1,10 +1,10 @@
 // ============================================================
-//  CouncilState.swift
+//  TeamState.swift
 //  Legacy visual reference only. Product vocabulary is now
-//  Team/Model/Skill/Worker/Plan; do not copy Council/panel/
+//  Team/Model/Skill/Worker/Plan; do not copy Team/team/
 //  plan writer labels into new UI.
-//  The Council screen's state machine, as a SwiftUI-ready model.
-//  Mirrors the prototype in ui_kits/council/index.html (CouncilApp).
+//  The team screen's state machine, as a SwiftUI-ready model.
+//  Mirrors the prototype in ui_kits/team/index.html (TeamApp).
 //
 //  This is a SKELETON to implement against — wire the timers to real
 //  CLI subprocess events, not the simulated delays from the prototype.
@@ -35,12 +35,12 @@ struct WorkerRun {
 }
 
 /// The three top-level screens, plus the plan writer sub-state of `.run`.
-enum CouncilView: Equatable { case compose, run, plan }
+enum TeamView: Equatable { case compose, run, plan }
 enum SynthPhase: Equatable { case waiting, planning, ready }
 
-// MARK: - The founder's six-worker panel (MVP)
+// MARK: - The Founder's Six-worker team (MVP)
 
-enum CouncilData {
+enum TeamData {
     static let models: [Model] = [
         Model(id: "opus",     name: "Opus 4.8",     model: "via claude-code", brandSlug: "anthropic",    glyphHex: 0xFFA630, isPlanWriter: true),
         Model(id: "gpt",      name: "ChatGPT 5.5",  model: "via codex-cli",   brandSlug: nil,            glyphHex: nil),   // SF Symbol "terminal"
@@ -54,18 +54,18 @@ enum CouncilData {
 // MARK: - Observable view model
 
 @Observable
-final class CouncilModel {
+final class TeamModel {
     var prompt: String = "Give me three different directions for making this dashboard feel premium."
-    var selected: Set<String> = Set(CouncilData.workers.map(\.id))
-    var view: CouncilView = .compose
+    var selected: Set<String> = Set(TeamData.workers.map(\.id))
+    var view: TeamView = .compose
     var states: [String: WorkerRun] = [:]
     var elapsed: String = "00:00"
     var synth: SynthPhase = .waiting
 
-    var selectedWorkers: [Model] { CouncilData.workers.filter { selected.contains($0.id) } }
+    var selectedWorkers: [Model] { TeamData.workers.filter { selected.contains($0.id) } }
     var canRun: Bool { !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !selected.isEmpty }
 
-    // Panel selection — never allow zero (keep at least one seat).
+    // Team selection — never allow zero (keep at least one worker).
     func toggle(_ id: String) {
         if selected.contains(id) {
             if selected.count > 1 { selected.remove(id) }
@@ -96,7 +96,7 @@ final class CouncilModel {
  STATE TRANSITION TABLE
  ──────────────────────────────────────────────────────────────────────
  from .compose
-   Run team (canRun)         → .run, synth .waiting, all seats .queued
+   Run team (canRun)         → .run, synth .waiting, all workers .queued
  within .run
    per worker (stagger ~170ms)  → .running           (live dot pulses)
    per worker (on CLI exit)     → .done | .failed | .timedOut (+ meta)

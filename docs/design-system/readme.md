@@ -25,20 +25,20 @@ service. It is an **asynchronous project manager, scheduler, option factory, and
 landing line** for solo builders who use AI as their primary dev workforce.
 
 ### What's being built (two horizons)
-1. **The MVP — "The Council"** (active build, `uploads/README-b6a6d478.md`).
-   One prompt → fan out, unchanged, to a panel of subscription CLIs in parallel
+1. **The MVP — "The team"** (active build, `archive/mentor-uploads/README-b6a6d478.md`).
+   One prompt → fan out, unchanged, to a team of subscription CLIs in parallel
    → **Opus 4.8 synthesizes one plan**. Text-only, local, private,
    **zero marginal cost** (subscription CLIs only — no API keys). The promise:
    *"One prompt in. One plan out. The bench answers in parallel. You
    never touch the clipboard."* This is the surface the brand must serve first.
-2. **The full roadmap** (parked, `uploads/README.md`). The worktree "factory":
+2. **The full roadmap** (parked, `archive/mentor-uploads/README.md`). The worktree "factory":
    hidden lanes, parallel **races**, **picker-as-prompt** ("Implement This"),
    previews, landing/merge, quota harvesting, preference/taste, iOS floor
    manager. Same Swift substrate; the MVP grows into it without a rewrite.
 
 ### Sources provided
-- `uploads/README.md` — the full Allnighter build-phases roadmap (the long game).
-- `uploads/README-b6a6d478.md` — the MVP "Council" execution plan (what we ship now).
+- `archive/mentor-uploads/README.md` — the full Allnighter build-phases roadmap (the long game).
+- `archive/mentor-uploads/README-b6a6d478.md` — the MVP team execution plan (what we ship now).
 - No codebase, Figma, logo, or existing brand was provided. This is a
   **net-new identity** created from the concept, the product copy, and the
   positioning. The founder asked for: dark-mode only; Cursor and popular
@@ -56,11 +56,11 @@ The hidden engineering is impressive; the copy stays quiet about it.
 - **Person:** address the user as **you** ("your bench", "you never touch the
   clipboard"). The product is **Allnighter**, rarely "we".
 - **Casing:** **sentence case** everywhere — buttons, labels, headings
-  (`Run council`, `Choose the panel`, `Copy plan`). Not Title Case.
-- **Verbs first, tight:** actions are imperative — `Run council`, `Add worker`,
+  (`Run team`, `Choose the team`, `Copy plan`). Not Title Case.
+- **Verbs first, tight:** actions are imperative — `Run team`, `Add worker`,
   `Synthesize`, `Copy`, `Export Markdown`, `Stop`.
-- **Hide the plumbing.** Say **panel, worker, council run, member answer,
-  synthesizer, plan, lane, draft, landing, preview**. Never expose
+- **Hide the plumbing.** Say **team, worker, team run, worker answer,
+  plan writer, plan, lane, draft, landing, preview**. Never expose
   *worktree, rebase, detached HEAD, port collision, subprocess* in core UX.
 - **Lead with the outcome, not the model.** "One plan out", not "LLM
   orchestration." Never lead with "AI". The AI is a docked tool, never the hero.
@@ -98,7 +98,7 @@ Zed · VS Code Dark — but warm where they're cool.
   `--ink-950 → --ink-50`), **amber** (`#FFA630`, the one saturated brand color),
   and **paper** (`--ink-50 #F2F4FA`, the lightest text — never pure white).
   Amber is reserved for the single primary action on a surface, the live/"alive"
-  state, the synthesizer/winner, and the mark. Status hues (green/blue/red/
+  state, the plan writer/winner, and the mark. Status hues (green/blue/red/
   yellow) are **muted** so they sit quietly beside amber. Backgrounds climb from
   `void → base → surface → raised` by getting *lighter*, never by stacking heavy
   shadows. See `tokens/colors.css`.
@@ -114,7 +114,7 @@ Zed · VS Code Dark — but warm where they're cool.
   Whitespace is controlled, not lavish. macOS-native control heights (30px
   default). See `tokens/spacing.css`.
 - **Corners** — tighter than consumer-soft: controls/inputs **6px**, cards
-  **10px**, panels/popovers **14px**, modals **18px**, the app window **12px**,
+  **10px**, teams/popovers **14px**, modals **18px**, the app window **12px**,
   status pills fully round. Never bubbly. See `tokens/spacing.css`.
 - **Borders** — **1px white-alpha hairlines** (`--border-subtle` 6%, `-default`
   10%, `-strong` 16%) so a line reads correctly over any surface. An opaque ink
@@ -125,7 +125,7 @@ Zed · VS Code Dark — but warm where they're cool.
   drop shadow.
 - **Glow** — the signature lighting move: a soft **amber glow**
   (`--glow-amber*`) appears under the primary button on hover, around the
-  synthesizer, and on "alive" elements (a running worker, the live dot). Status
+  plan writer, and on "alive" elements (a running worker, the live dot). Status
   glows (green/blue/red) exist for emphatic states. Glow is how the system says
   *this is working right now*.
 - **Backgrounds** — solid midnight, **never gradient washes**. The only
@@ -168,7 +168,7 @@ Colors, Type, Spacing, Brand).
   `copy`, `settings-2`. *(Substitution: no house icon set was provided — swap if
   the team adopts one.)*
 - **Worker / brand glyphs — [Simple Icons](https://simpleicons.org) via
-  `cdn.simpleicons.org`.** Authentic monochrome logos for the panel of workers
+  `cdn.simpleicons.org`.** Authentic monochrome logos for the team of workers
   and service detection (Anthropic, Google Gemini, Grok/X, Ollama, …). Render as
   `<img src="https://cdn.simpleicons.org/<slug>/<hex>">`; recolor to `--ink-100`
   on the midnight chrome, or to brand hex for detection chips. **Note:** Simple
@@ -197,7 +197,7 @@ The identity is a **two-part system**:
    legible and quiet: macOS app icon, favicon, menu-bar, and the wordmark
    lockup. It never animates.
 2. **The live mark — crescent + a cursor block, where *only the block blinks*.**
-   Used on the website, loading states, and "council running" moments. The moon
+   Used on the website, loading states, and "team running" moments. The moon
    stays rock-solid; the amber terminal-cursor block beside it is the single
    element that pulses — the brand's heartbeat. The block doubles as a **status
    light**: solid amber = idle, blinking amber = workers running, green
@@ -252,7 +252,7 @@ flat glyph (the app icon already carries its own depth).
   `allnighter-glyph-mono.svg`, `allnighter-glyph-live.svg`, `allnighter-wordmark.svg`.
 - `components/` — reusable React primitives (see below); `_preview.jsx` is the
   runtime mirror used by specimen cards + the UI kit.
-- `ui_kits/council/` — the **Council** macOS app (the MVP), built from the components.
+- `ui_kits/team/` — the **Team** macOS app (the MVP), built from the components.
 - `guidelines/` — foundation specimen cards (Colors, Type, Spacing, Brand),
   shown in the Design System tab.
 - `SKILL.md` — Agent-Skills wrapper so this system works inside Claude Code.
@@ -265,17 +265,17 @@ flat glyph (the app icon already carries its own depth).
 - `components/overlay/` — `Menu` (contextual actions), `Dialog` (modal confirm)
 - `components/feedback/` — `Toast` (calm notifications)
 - `components/product/` — `StatusPill` (queued/running/done/failed/timed-out — running blinks),
-  `WorkerChip` (a worker in the panel or live run grid)
+  `WorkerChip` (a worker in the team or live run grid)
 
 **UI kits**
-- `ui_kits/council/` — **Council**, the macOS MVP: window chrome, panel sidebar,
+- `ui_kits/team/` — **Team**, the macOS MVP: window chrome, team sidebar,
   prompt composer, live run grid, synthesis bar, master-plan + member-answers.
   `index.html` is an interactive state machine.
 - `ui_kits/ios-floor-manager/` — the **iPhone floor manager** (parked roadmap):
   Morning Pull, Active Lanes, and the **Draft Race + picker-as-prompt** wedge.
-- `ui_kits/judgment/` — the **judgment / Review Board** surfaces (macOS): workflow
+- `ui_kits/review/` — the **review / Review Board** surfaces (macOS): workflow
   presets, stage primitives, and the return-review flow (see `docs/mvp/RB*`).
-- `ui_kits/judgment-ios/` — the iPhone companion for the judgment flow.
+- `ui_kits/review-ios/` — the iPhone companion for the review flow.
 
 **Tokens at a glance**
 - Color: `--ink-50…950` (midnight ramp), `--amber-300…800` (signature),
@@ -310,7 +310,7 @@ flat glyph (the app icon already carries its own depth).
 ---
 
 ## Next steps
-The foundations, 14 components, the Council MVP kit, and the iOS floor-manager
+The foundations, 14 components, the Team MVP kit, and the iOS floor-manager
 roadmap surface are built. Natural follow-ons:
 1. **Marketing one-pager / landing** using these foundations.
 2. **More roadmap surfaces** — the Mac comparison grid (race side-by-side), the

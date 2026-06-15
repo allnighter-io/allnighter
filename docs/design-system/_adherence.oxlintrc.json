@@ -21,7 +21,7 @@
               "components/navigation/**",
               "components/product/**",
               "guidelines/explorations/**",
-              "ui_kits/council/**"
+              "ui_kits/team/**"
             ],
             "message": "Import design-system components from 'index.js', not component internals."
           }

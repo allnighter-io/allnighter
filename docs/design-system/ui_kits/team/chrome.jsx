@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- Council window chrome + sidebar. Window globals.
+// @ds-adherence-ignore -- Team window chrome + sidebar. Window globals.
 const R = window.React;
 
 (function () {
@@ -71,7 +71,7 @@ window.WindowChrome = function WindowChrome({ healthy = 6, total = 6, children }
       R.createElement('div', { className: 'alk-titlecenter' },
         R.createElement(LiveMark, { size: 16 }),
         R.createElement('span', { className: 'nm' }, 'allnighter'),
-        R.createElement('span', { className: 'sub' }, '· council')),
+        R.createElement('span', { className: 'sub' }, '· team')),
       R.createElement('div', { className: 'alk-titleright' },
         R.createElement(Badge, { tone: 'positive', dot: true }, healthy + '/' + total + ' healthy'),
         R.createElement(IconButton, { variant: 'ghost', size: 'sm', label: 'History' }, R.createElement(Icon, { name: 'history' })),
@@ -85,7 +85,7 @@ window.Sidebar = function Sidebar({ selected, onToggle, disabled }) {
   return R.createElement('aside', { className: 'alk-side' },
     R.createElement('div', { className: 'alk-side__sec' },
       R.createElement('div', { className: 'alk-side__h' },
-        R.createElement('span', { className: 'alk-side__t' }, 'Panel'),
+        R.createElement('span', { className: 'alk-side__t' }, 'Team'),
         R.createElement('span', { style: { fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'nowrap' } }, selected.size + ' of ' + workers.length)),
       R.createElement('div', { className: 'alk-side__list' },
         workers.map((w) => R.createElement(WorkerChip, {

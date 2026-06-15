@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- Judgment screens: Composer, Review board, Final spec.
+// @ds-adherence-ignore -- Review screens: Composer, Review board, Final spec.
 const { Button, IconButton, Icon, Badge, Card, Tabs, Switch, Select, Menu, StatusPill, BrandIcon, JHeader, JLive } = window;
 
 (function () {
@@ -11,12 +11,12 @@ const { Button, IconButton, Icon, Badge, Card, Tabs, Switch, Select, Menu, Statu
   .jc-prompt{background:var(--bg-raised);border:1px solid var(--border-default);border-radius:var(--radius-lg);overflow:hidden}
   .jc-prompt textarea{display:block;width:100%;box-sizing:border-box;background:transparent;border:none;outline:none;resize:none;
     color:var(--text-primary);font-family:var(--font-sans);font-size:16px;line-height:1.5;padding:16px}
-  .jc-seat{display:flex;align-items:center;gap:11px;padding:9px 11px;background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-md);margin-bottom:7px}
+  .jc-worker{display:flex;align-items:center;gap:11px;padding:9px 11px;background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-md);margin-bottom:7px}
   .jc-glyph{width:28px;height:28px;border-radius:7px;background:var(--bg-active);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
   .jc-glyph img{width:17px;height:17px}
-  .jc-seat__main{flex:1;min-width:0}
-  .jc-seat__n{font-size:13px;font-weight:600}
-  .jc-seat__m{font-family:var(--font-mono);font-size:10px;color:var(--text-faint)}
+  .jc-worker__main{flex:1;min-width:0}
+  .jc-worker__n{font-size:13px;font-weight:600}
+  .jc-worker__m{font-family:var(--font-mono);font-size:10px;color:var(--text-faint)}
   .jc-plan{position:sticky;top:0}
   .jc-planrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle);font-size:13px}
   .jc-planrow:last-child{border-bottom:none}
@@ -70,16 +70,16 @@ const STANCES = [
 
 /* ============ Composer ============ */
 const PLAN = {
-  synthesis_only: { calls: 2, rows: [['Panel · 5 seats', 'reused · 0', true], ['Judge analysis', '1'], ['Draft plan', '1']] },
-  light_review: { calls: 6, rows: [['Panel · 5 seats', 'reused · 0', true], ['Judge analysis', '1'], ['Draft plan', '1'], ['Review · 3 lenses', '3'], ['Final spec', '1']] },
-  full_review: { calls: 12, rows: [['Panel · 5 seats', 'reused · 0', true], ['Judge analysis', '1'], ['Draft plan', '1'], ['Review · 9 lenses', '9'], ['Final spec', '1']] },
+  synthesis_only: { calls: 2, rows: [['Team · 5 workers', 'reused · 0', true], ['Plan writer analysis', '1'], ['Draft plan', '1']] },
+  light_review: { calls: 6, rows: [['Team · 5 workers', 'reused · 0', true], ['Plan writer analysis', '1'], ['Draft plan', '1'], ['Review · 3 lenses', '3'], ['Final spec', '1']] },
+  full_review: { calls: 12, rows: [['Team · 5 workers', 'reused · 0', true], ['Plan writer analysis', '1'], ['Draft plan', '1'], ['Review · 9 lenses', '9'], ['Final spec', '1']] },
 };
 window.ComposerView = function ComposerView({ onRun }) {
   const [preset, setPreset] = React.useState('light_review');
   const p = PLAN[preset];
   return (
     <div>
-      <JHeader eyebrow="Judgment run" title="Compose" sub="One prompt → a panel, a board of review lenses, and a pressure-tested spec." />
+      <JHeader eyebrow="Review run" title="Compose" sub="One prompt → a team, a board of review lenses, and a pressure-tested spec." />
       <div className="jud-content">
         <div className="jc-grid">
           <div>
@@ -94,13 +94,13 @@ window.ComposerView = function ComposerView({ onRun }) {
               { value: 'light_review', label: 'Light review' },
               { value: 'full_review', label: 'Full review' }]} />
 
-            <div className="jc-label">Panel · seats <span style={{ color: 'var(--text-muted)', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>· one worker can fill several (self-fusion)</span></div>
+            <div className="jc-label">Team · workers <span style={{ color: 'var(--text-muted)', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>· one worker can fill several (self-fusion)</span></div>
             {[WK.opus, WK.gpt, WK.sonnet, WK.composer, WK.gemini].map((w, i) => (
-              <div className="jc-seat" key={i}>
+              <div className="jc-worker" key={i}>
                 <span className="jc-glyph"><Gly w={w} /></span>
-                <span className="jc-seat__main">
-                  <span className="jc-seat__n">{w.name}</span>
-                  <span className="jc-seat__m">{w.model}</span>
+                <span className="jc-worker__main">
+                  <span className="jc-worker__n">{w.name}</span>
+                  <span className="jc-worker__m">{w.model}</span>
                 </span>
                 <div style={{ width: 150 }}>
                   <Select mono defaultValue={i === 0 ? 'first_principles' : i === 1 ? 'skeptic' : 'neutral'} options={STANCES} />
@@ -244,7 +244,7 @@ window.FinalSpecView = function FinalSpecView({ onImplement }) {
           <div className="js-decrow"><span className="who">Proof / QA</span><Dec k="adopted" /><span>Added the 429 + reset-boundary tests above. Clock-skew deferred (single Redis clock).</span></div>
         </div>
         <div className="js-sec">
-          <div className="js-sec__h"><Icon name="scale" size={13} /> Decisions on panel contradictions</div>
+          <div className="js-sec__h"><Icon name="scale" size={13} /> Decisions on team contradictions</div>
           <div className="js-decrow"><span className="who">Storage</span><Dec k="rejected" /><span>In-memory map (Composer) rejected — loses limits on restart. Redis chosen.</span></div>
           <div className="js-decrow"><span className="who">Window algorithm</span><Dec k="partial" /><span>Sliding-window (Opus) vs fixed (GPT): token bucket adopted as the simpler middle.</span></div>
         </div>

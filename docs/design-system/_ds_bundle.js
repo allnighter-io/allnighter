@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":3,"namespace":"AllnighterDesignSystem_efa784","components":[{"name":"Badge","sourcePath":"components/core/Badge.jsx"},{"name":"Button","sourcePath":"components/core/Button.jsx"},{"name":"Card","sourcePath":"components/core/Card.jsx"},{"name":"IconButton","sourcePath":"components/core/IconButton.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Switch","sourcePath":"components/forms/Switch.jsx"},{"name":"Textarea","sourcePath":"components/forms/Textarea.jsx"},{"name":"Tabs","sourcePath":"components/navigation/Tabs.jsx"},{"name":"StatusPill","sourcePath":"components/product/StatusPill.jsx"},{"name":"WorkerChip","sourcePath":"components/product/WorkerChip.jsx"}],"sourceHashes":{"components/core/Badge.jsx":"7b4d44d6b518","components/core/Button.jsx":"7d962aa47106","components/core/Card.jsx":"4c976703162f","components/core/IconButton.jsx":"48d1bfa043aa","components/forms/Input.jsx":"310f87107715","components/forms/Switch.jsx":"2224132f9458","components/forms/Textarea.jsx":"c7529a7aaeb5","components/navigation/Tabs.jsx":"d116c3c9b60c","components/product/StatusPill.jsx":"f52eba46364c","components/product/WorkerChip.jsx":"fdce5325325d","guidelines/explorations/design-canvas.jsx":"bd8746af6e58","ui_kits/council/chrome.jsx":"f58bc627b508","ui_kits/council/data.jsx":"71f8fc3bb152","ui_kits/council/screens.jsx":"396aa50f1f3d"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":3,"namespace":"AllnighterDesignSystem_efa784","components":[{"name":"Badge","sourcePath":"components/core/Badge.jsx"},{"name":"Button","sourcePath":"components/core/Button.jsx"},{"name":"Card","sourcePath":"components/core/Card.jsx"},{"name":"IconButton","sourcePath":"components/core/IconButton.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Switch","sourcePath":"components/forms/Switch.jsx"},{"name":"Textarea","sourcePath":"components/forms/Textarea.jsx"},{"name":"Tabs","sourcePath":"components/navigation/Tabs.jsx"},{"name":"StatusPill","sourcePath":"components/product/StatusPill.jsx"},{"name":"WorkerChip","sourcePath":"components/product/WorkerChip.jsx"}],"sourceHashes":{"components/core/Badge.jsx":"7b4d44d6b518","components/core/Button.jsx":"7d962aa47106","components/core/Card.jsx":"4c976703162f","components/core/IconButton.jsx":"48d1bfa043aa","components/forms/Input.jsx":"310f87107715","components/forms/Switch.jsx":"2224132f9458","components/forms/Textarea.jsx":"c7529a7aaeb5","components/navigation/Tabs.jsx":"d116c3c9b60c","components/product/StatusPill.jsx":"f52eba46364c","components/product/WorkerChip.jsx":"fdce5325325d","guidelines/explorations/design-canvas.jsx":"bd8746af6e58","ui_kits/team/chrome.jsx":"f58bc627b508","ui_kits/team/data.jsx":"71f8fc3bb152","ui_kits/team/screens.jsx":"396aa50f1f3d"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -658,7 +658,7 @@ if (typeof document !== 'undefined' && !document.getElementById('dc-styles')) {
   // Chrome (titles / labels / buttons) counter-scales against the viewport
   // zoom so it stays a constant on-screen size. --dc-inv-zoom is set by
   // DCViewport on every transform update and inherits to all descendants —
-  // any overlay inside the world (e.g. a TweaksPanel on an artboard) can use
+  // any overlay inside the world (e.g. a TweaksTeam on an artboard) can use
   // it the same way.
   //
   // The header uses transform:scale (out-of-flow, so layout impact doesn't
@@ -2056,9 +2056,9 @@ Object.assign(window, {
 });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "guidelines/explorations/design-canvas.jsx", error: String((e && e.message) || e) }); }
 
-// ui_kits/council/chrome.jsx
+// ui_kits/team/chrome.jsx
 try { (() => {
-// @ds-adherence-ignore -- Council window chrome + sidebar. Window globals.
+// @ds-adherence-ignore -- Team window chrome + sidebar. Window globals.
 const R = window.React;
 (function () {
   if (document.getElementById('al-kit-css')) return;
@@ -2162,7 +2162,7 @@ window.WindowChrome = function WindowChrome({
     className: 'nm'
   }, 'allnighter'), R.createElement('span', {
     className: 'sub'
-  }, '· council')), R.createElement('div', {
+  }, '· team')), R.createElement('div', {
     className: 'alk-titleright'
   }, R.createElement(Badge, {
     tone: 'positive',
@@ -2202,7 +2202,7 @@ window.Sidebar = function Sidebar({
     className: 'alk-side__h'
   }, R.createElement('span', {
     className: 'alk-side__t'
-  }, 'Panel'), R.createElement('span', {
+  }, 'Team'), R.createElement('span', {
     style: {
       fontFamily: 'var(--font-mono)',
       fontSize: 10,
@@ -2268,14 +2268,14 @@ window.Sidebar = function Sidebar({
     className: 'h-m'
   }, h[1]))))));
 };
-})(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/council/chrome.jsx", error: String((e && e.message) || e) }); }
+})(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/team/chrome.jsx", error: String((e && e.message) || e) }); }
 
-// ui_kits/council/data.jsx
+// ui_kits/team/data.jsx
 try { (() => {
 // @ds-adherence-ignore -- UI-kit data + a Glyph helper. Window globals.
 const R = window.React;
 
-// The founder's real six-worker panel (MVP README §0).
+// The founder's real six-worker team (MVP README §0).
 window.AL_WORKERS = [{
   id: 'opus',
   name: 'Opus 4.8',
@@ -2384,11 +2384,11 @@ window.Glyph = function Glyph({
     }
   });
 };
-})(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/council/data.jsx", error: String((e && e.message) || e) }); }
+})(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/team/data.jsx", error: String((e && e.message) || e) }); }
 
-// ui_kits/council/screens.jsx
+// ui_kits/team/screens.jsx
 try { (() => {
-// @ds-adherence-ignore -- Council screens: Composer, RunView, PlanView.
+// @ds-adherence-ignore -- Team screens: Composer, RunView, PlanView.
 const R = window.React;
 (function () {
   if (document.getElementById('al-screens-css')) return;
@@ -2459,11 +2459,11 @@ window.Composer = function Composer({
     className: 'alc-compose'
   }, R.createElement('div', {
     className: 'alc-eyebrow'
-  }, 'New council run'), R.createElement('div', {
+  }, 'New team run'), R.createElement('div', {
     className: 'alc-prompt'
   }, R.createElement('textarea', {
     rows: 3,
-    placeholder: 'Ask the panel one thing…',
+    placeholder: 'Ask the team one thing…',
     value,
     onChange: e => onChange(e.target.value)
   }), R.createElement('div', {
@@ -2478,7 +2478,7 @@ window.Composer = function Composer({
     }),
     onClick: onRun,
     disabled: !value.trim() || count === 0
-  }, 'Run council'))), R.createElement('div', {
+  }, 'Run team'))), R.createElement('div', {
     className: 'alc-examples'
   }, ['3 directions for a premium dashboard', 'rewrite our API error copy', 'plan a migration to Swift 6'].map((ex, i) => R.createElement('button', {
     className: 'alc-ex',
@@ -2510,7 +2510,7 @@ window.RunView = function RunView({
     className: 'alc-runhead'
   }, R.createElement('div', null, R.createElement('div', {
     className: 'alc-runtitle'
-  }, 'Council run'), R.createElement('div', {
+  }, 'Team run'), R.createElement('div', {
     className: 'alc-runprompt'
   }, prompt)), R.createElement('div', {
     style: {
@@ -2628,7 +2628,7 @@ window.PlanView = function PlanView({
       label: 'Plan'
     }, {
       value: 'answers',
-      label: 'Member answers',
+      label: 'Worker answers',
       count: 6
     }]
   }), R.createElement('div', {
@@ -2784,7 +2784,7 @@ window.PlanView = function PlanView({
     }
   }, 'No answer — CLI auth expired. Surfaced in Doctor, never faked.')))));
 };
-})(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/council/screens.jsx", error: String((e && e.message) || e) }); }
+})(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/team/screens.jsx", error: String((e && e.message) || e) }); }
 
 __ds_ns.Badge = __ds_scope.Badge;
 

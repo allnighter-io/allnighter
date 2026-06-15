@@ -18,13 +18,13 @@ A slice is valuable only when it includes:
 Example shape:
 
 ```text
-enroll repo -> run council -> review plan -> spawn lane work
+enroll repo -> run team -> review plan -> spawn lane work
 ```
 
 MVP loop from `ALLNIGHTER.md`:
 
 ```text
-enroll repo on Mac -> run council (parallel CLIs -> plan) -> review on Mac
+enroll repo on Mac -> run team (parallel CLIs -> plan) -> review on Mac
 ```
 
 ## Non-Negotiable Rule
@@ -46,8 +46,8 @@ readiness rule may begin life only in:
 Recurring correctness questions should become deterministic checks: Swift types,
 Codable schemas, parser tests, lint, fixture replay, XCTest, script, or CI gate.
 
-Use agents for judgment-heavy work. Do not leave repeatable checks to model
-judgment once the rule is known.
+Use agents for review-heavy work. Do not leave repeatable checks to model
+review once the rule is known.
 
 ## Planning Order
 

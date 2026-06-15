@@ -4,7 +4,7 @@ Status: **Specced — the last RB milestone; closes the control loop.**
 Owner: Shared Core + Mac
 Created: 2026-06-14
 Updated: 2026-06-14
-Depends on: RB4 (dispatch), 06 (JudgeAnalysis, StageOutput, eval harness)
+Depends on: RB4 (dispatch), 06 (PlanAnalysis, StageOutput, eval harness)
 
 ## Why this exists (close the loop)
 
@@ -20,20 +20,20 @@ the vibe coder is back to reading transcripts by hand. The strategy doc
    -> worker scorecards -> recommended next action (rerun | remix | pick)
 ```
 
-This is the difference between a planning tool and a **control loop**: the council
-that judged the plan also judges the result, learns which workers deliver, and
+This is the difference between a planning tool and a **control loop**: the team
+that plan writerd the plan also plan writers the result, learns which workers deliver, and
 tells the founder what to do next — without leaving the app.
 
 ## What RB5 reuses (no new substrate)
 
-- **06 `JudgeAnalysis` + eval harness** — the return is scored with the same
+- **06 `PlanAnalysis` + eval harness** — the return is scored with the same
   rubric machinery used to prove synthesis quality.
 - **06 `StageOutput`** — return review and scoring are new `StagePurpose` cases
   (`return_review`, `outcome_score`), appended to the same run.
 - **RB4 dispatch capture** — the executor's stdout/diff/exit is already captured.
 - **Fan-out engine** — multi-executor compare is a fan-out over text returns
   (still no worktrees; that is deferred managed execution).
-- **Phase 05 Doctor / `MemberResponse` timing+outcome** — feeds scorecards.
+- **Phase 05 Doctor / `WorkerAnswer` timing+outcome** — feeds scorecards.
 
 ## Non-Goals
 
@@ -71,7 +71,7 @@ RB4's size cap; reveal-only dispatches have a user-pasted return.)
 ### 2. Return review (reduce, advisory)
 
 A reduce stage — run by a **configurable worker** (`returnReviewWorkerId`, default
-the run's judge/synthesizer) — that reads the final spec (acceptance criteria +
+the run's plan writer/plan writer) — that reads the final spec (acceptance criteria +
 Works Test + proof commands) and the `ExecutionReturn`, then writes
 `return_review.md`:
 
@@ -105,23 +105,23 @@ estimates and labeled.
 
 ### 4. Worker scorecards (learning)
 
-Aggregate outcomes per worker/seat across runs (reusing `MemberResponse` timing +
+Aggregate outcomes per worker across runs (reusing `WorkerAnswer` timing +
 status and `ExecutionReturn` outcomes):
 
 ```text
 WorkerScorecard
 - workerId
 - sampleSize             // runs this worker participated in (drives confidence)
-- panelAnswerRate        // answered vs failed/timed-out as a panel seat
-- judgeSuccessRate       // when this worker was the judge, it produced a usable plan/spec
+- teamAnswerRate        // answered vs failed/timed-out as a worker
+- plan writerSuccessRate       // when this worker was the plan writer, it produced a usable plan/spec
 - executionSuccessRate   // dispatched returns that met acceptance criteria
 - medianLatencyMs
 - updatedAt
 ```
 
-(`judgeSuccessRate` replaces the earlier "synthesisSelectedRate" — the judge is
+(`planWriterSuccessRate` replaces the earlier "synthesisSelectedRate" — the plan writer is
 chosen by the preset, not selected from candidates, so "selected rate" was
-meaningless; "did it succeed when it judged" is the informative metric.)
+meaningless; "did it succeed when it plan writerd" is the informative metric.)
 
 Scorecards are **aggregates over the local run history** (`Runs/`, excluding the
 `Evals/` corpus), computed **on demand** — no new telemetry, no upload, no persisted
@@ -135,7 +135,7 @@ than a confident-but-empty rate. They seed the deferred scorecards/routing roadm
 From the return review + outcome score + scorecards, recommend one next action:
 
 - **Rerun** — re-dispatch the same brief to a different (healthier / historically
-  stronger) worker; or re-run the council at higher depth if the spec itself was
+  stronger) worker; or re-run the team at higher depth if the spec itself was
   weak.
 - **Remix** — when multiple executors ran (§6), a **reduce over the N returns**:
   input = the final spec + each return's transcript/diff summary + outcome scores;
@@ -145,7 +145,7 @@ From the return review + outcome score + scorecards, recommend one next action:
 
 Routing is a labeled suggestion with its reasoning, never an automatic action.
 **One-tap setup** hands the chosen action straight into a configured run: Rerun
-pre-fills the prior preset + working dir (reusing `reuseKey` so the council isn't
+pre-fills the prior preset + working dir (reusing `reuseKey` so the team isn't
 re-run when the spec is unchanged); Remix opens the remix brief; Pick just marks
 the winner.
 
@@ -162,7 +162,7 @@ working directory — they would corrupt each other (no worktrees here). So:
   the user assigns each executor a **separate working directory** (e.g. distinct
   clones). Allnighter never shares one CWD across concurrent executors and never
   creates the dirs itself.
-- **Pure-judgment briefs** (text-out, no file writes) may always run parallel.
+- **Pure-review briefs** (text-out, no file writes) may always run parallel.
 
 This is the text-level precursor to the deferred "races" capability (`00` §10).
 
@@ -171,7 +171,7 @@ This is the text-level precursor to the deferred "races" capability (`00` §10).
 - [ ] RB5-S01 - `ExecutionReturn` model + capture into the run folder; transcript
   persisted; `diffSummary` parsed when a git repo is detected. Fixtures + tests.
 - [ ] RB5-S02 - Return-review reduce (worker = `returnReviewWorkerId`, default the
-  judge) + `return_review.md`; **manual proof reveal by default**, opt-in allowlist
+  plan writer) + `return_review.md`; **manual proof reveal by default**, opt-in allowlist
   execution with per-command approval + timeout + logging.
 - [ ] RB5-S03 - Acceptance criteria → `Rubric` mapping (from RB3's structured
   criteria) + outcome scoring via the 06 `EvalScore` machinery; persisted.
@@ -214,9 +214,9 @@ is created.
 
 ## Closeout
 
-The control loop is closed: judge → plan → review → final spec → dispatch →
+The control loop is closed: plan writer → plan → review → final spec → dispatch →
 **evaluate → route**. Allnighter now learns which workers deliver and tells the
 founder what to do next. This is the substrate the deferred roadmap (managed lanes,
-races, preference ledger) builds on — and it composes with the **Council-as-Tool**
-surface (`RB6`, specced) — none of which requires reworking the council run model
+races, preference ledger) builds on — and it composes with the **Team-as-Tool**
+surface (`RB6`, specced) — none of which requires reworking the team run model
 established in Phase 06.

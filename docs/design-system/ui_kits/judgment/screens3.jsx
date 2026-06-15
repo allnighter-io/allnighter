@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- Judgment batch 3: Return review, Routing, Compare.
+// @ds-adherence-ignore -- Review batch 3: Return review, Routing, Compare.
 const { Button, IconButton, Icon, Badge, Card, StatusPill, BrandIcon, JHeader } = window;
 
 (function () {
@@ -66,7 +66,7 @@ window.ReturnReviewView = function ReturnReviewView({ onNav }) {
   return (
     <div>
       <JHeader eyebrow="Return review · RB5 · advisory" title="return_review.md"
-        sub="The council that judged the plan now judges the result. Advisory — it never edits the agent’s output."
+        sub="The team that plan writerd the plan now plan writers the result. Advisory — it never edits the agent’s output."
         actions={<><Badge tone="positive" dot>exit 0</Badge><Button variant="ghost" size="sm" iconLeft={<Icon name="copy" size={14} />}>Copy</Button></>} />
       <div className="jud-content" style={{ maxWidth: 780 }}>
         <div className="jt-strip">
@@ -100,7 +100,7 @@ window.ReturnReviewView = function ReturnReviewView({ onNav }) {
 
         <div className="jt-label">Missing / risky</div>
         <Card variant="flush" style={{ marginBottom: 20 }}>
-          <div className="jt-crit" style={{ borderBottom: 'none' }}><span className="jt-mark" style={{ background: 'var(--bg-active)', color: 'var(--text-muted)' }}><Icon name="zap" size={13} /></span><div className="jt-crit__m"><div className="jt-crit__t">Fail-open implemented but undocumented</div><div className="jt-crit__n">the blind spot the panel flagged is now code — add it to the spec.</div></div></div>
+          <div className="jt-crit" style={{ borderBottom: 'none' }}><span className="jt-mark" style={{ background: 'var(--bg-active)', color: 'var(--text-muted)' }}><Icon name="zap" size={13} /></span><div className="jt-crit__m"><div className="jt-crit__t">Fail-open implemented but undocumented</div><div className="jt-crit__n">the blind spot the team flagged is now code — add it to the spec.</div></div></div>
         </Card>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
@@ -134,8 +134,8 @@ window.RoutingView = function RoutingView({ onNav }) {
           <span className="jg-opt__ic"><Icon name="rotate-cw" size={20} /></span>
           <div className="jg-opt__m">
             <div className="jg-opt__h"><span className="jg-opt__t">Rerun</span></div>
-            <div className="jg-opt__d">Re-dispatch the same brief to a different worker, or re-run the council at higher depth if the spec itself was weak.</div>
-            <div className="jg-opt__r"><Icon name="zap" size={13} />Composer 2.5 scores +0.07 on refactor-style tasks historically; reuse keeps the panel + spec free.</div>
+            <div className="jg-opt__d">Re-dispatch the same brief to a different worker, or re-run the team at higher depth if the spec itself was weak.</div>
+            <div className="jg-opt__r"><Icon name="zap" size={13} />Composer 2.5 scores +0.07 on refactor-style tasks historically; reuse keeps the team + spec free.</div>
           </div>
           <Button variant="secondary" size="sm">Set up rerun</Button>
         </div>
@@ -152,7 +152,7 @@ window.RoutingView = function RoutingView({ onNav }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 16, padding: '11px 13px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--text-muted)' }}>
           <Icon name="gauge" size={15} style={{ color: 'var(--accent-text)' }} />
-          Reasoning uses the Opus 4.8 scorecard — 92% panel answer · 88% exec success · 1.9s median latency.
+          Reasoning uses the Opus 4.8 scorecard — 92% team answer · 88% exec success · 1.9s median latency.
           <span style={{ flex: 1 }}></span>
           <Button variant="ghost" size="sm">View scorecards</Button>
         </div>

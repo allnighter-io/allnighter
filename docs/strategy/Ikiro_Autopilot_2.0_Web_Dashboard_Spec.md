@@ -280,7 +280,7 @@ dark-pattern urgency, no fake precision.
 - Goal + denominator stated explicitly ("booking calls ÷ homepage visitors").
 - Metric trend over time — but **trend ≠ winner**; label directional data as
   directional until the state earns the claim.
-- Guardrail panel: the metrics that must *not* drop (e.g. bounce, page speed).
+- Guardrail team: the metrics that must *not* drop (e.g. bounce, page speed).
   Auto-rollback threshold shown.
 - Actions vary by dial rung: on Rung 1, "Stop test"; results route to a Proposal.
   On Rung 3, "Pause" + "I applied this automatically — here's why."
@@ -430,7 +430,7 @@ so the owner always knows the bounds of "full auto."
 
 1. **Teammate, not dashboard.** First person, calm, specific. "Here's what I've
    been working on," not "Experiment #4821 — status: ACTIVE." Never a settings
-   panel cosplaying as a colleague.
+   team cosplaying as a colleague.
 2. **Artifacts over numbers.** Lead with rendered before/after; numbers support,
    never headline alone. The moat is *visible* — show real source-safe renders.
 3. **Honesty as aesthetic.** Inconclusive and losing results get first-class,

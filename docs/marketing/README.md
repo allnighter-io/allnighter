@@ -34,8 +34,8 @@ Use these claims:
 - "Claude Max 5x currently includes a $100/month Agent SDK credit."
 - "Grok publicly markets higher limits and multi-agent on paid plans; exact
   limits can change."
-- "Allnighter applies the panel + judge pattern locally, inspired by the Fusion
-  result that model panels can beat solo frontier calls."
+- "Allnighter applies the team + plan writer pattern locally, inspired by the Fusion
+  result that model teams can beat solo frontier calls."
 - "OpenRouter reported specific DRACO deep-research benchmark lifts for Fusion;
   cite those numbers only as OpenRouter's benchmark, not as Allnighter's result."
 

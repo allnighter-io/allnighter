@@ -24,7 +24,7 @@
   --ink-700: #1A1E2A;  /* hover surface */
   --ink-750: #15182212;
   --ink-750s:#151822;  /* raised: card / popover */
-  --ink-800: #111420;  /* surface: panel */
+  --ink-800: #111420;  /* surface: team */
   --ink-850: #0D101A;  /* subtle background */
   --ink-900: #090B13;  /* app background base */
   --ink-950: #05060C;  /* deepest void, behind everything */
@@ -59,7 +59,7 @@
   --bg-void:    var(--ink-950);   /* outside the window */
   --bg-base:    var(--ink-900);   /* app background */
   --bg-subtle:  var(--ink-850);   /* sunken / sidebar */
-  --bg-surface: var(--ink-800);   /* panels, toolbars */
+  --bg-surface: var(--ink-800);   /* teams, toolbars */
   --bg-raised:  var(--ink-750s);  /* cards, popovers, menus */
   --bg-hover:   var(--ink-700);   /* row / control hover */
   --bg-active:  var(--ink-650);   /* pressed / selected */

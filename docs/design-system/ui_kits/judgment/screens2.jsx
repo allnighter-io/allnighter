@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- Judgment batch 2: Run overview, Judge analysis, Dispatch.
+// @ds-adherence-ignore -- Review batch 2: Run overview, Plan writer analysis, Dispatch.
 const { Button, IconButton, Icon, Badge, Card, Select, Switch, StatusPill, BrandIcon, JHeader, JLive } = window;
 
 (function () {
@@ -21,11 +21,11 @@ const { Button, IconButton, Icon, Badge, Card, Select, Switch, StatusPill, Brand
   .jo-step__r{display:flex;align-items:center;gap:10px;flex:none}
   .jo-dur{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
   /* analysis */
-  .ja-seats{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px}
-  .ja-seat{display:flex;align-items:center;gap:7px;padding:6px 10px 6px 7px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-pill)}
-  .ja-seat__g{width:20px;height:20px;border-radius:5px;background:var(--bg-active);display:flex;align-items:center;justify-content:center;overflow:hidden}
-  .ja-seat__g img{width:13px;height:13px}
-  .ja-seat__n{font-size:12px;font-weight:600}
+  .ja-workers{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px}
+  .ja-worker{display:flex;align-items:center;gap:7px;padding:6px 10px 6px 7px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-pill)}
+  .ja-worker__g{width:20px;height:20px;border-radius:5px;background:var(--bg-active);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .ja-worker__g img{width:13px;height:13px}
+  .ja-worker__n{font-size:12px;font-weight:600}
   .ja-sec{margin-bottom:14px}
   .ja-sec__h{display:flex;align-items:center;gap:8px;margin-bottom:11px}
   .ja-ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
@@ -58,8 +58,8 @@ const J2STATUS = { done: ['var(--success-surface)', 'var(--green-400)'], running
 
 /* ============ Run pipeline overview ============ */
 const OV_STAGES = [
-  { icon: 'users', t: 'Panel · 5 seats', s: 'member_<seat>.md · reused from run 7f2', dur: '0s', status: 'done', reuse: true },
-  { icon: 'scale', t: 'Judge analysis', s: 'analysis.md · 2 contradictions, 3 insights', dur: '11s', status: 'done', nav: 'analysis' },
+  { icon: 'users', t: 'Team · 5 workers', s: 'member_<worker>.md · reused from run 7f2', dur: '0s', status: 'done', reuse: true },
+  { icon: 'scale', t: 'Plan writer analysis', s: 'analysis.md · 2 contradictions, 3 insights', dur: '11s', status: 'done', nav: 'analysis' },
   { icon: 'file-text', t: 'Draft plan', s: 'master_plan.md', dur: '14s', status: 'done' },
   { icon: 'shield', t: 'Review board · 3 lenses', s: 'review_*.md · 1 blocker · 2 concerns', dur: '9s', status: 'done', nav: 'review' },
   { icon: 'circle-check', t: 'Final spec', s: 'final_spec.md · executable ✓', dur: '18s', status: 'done', nav: 'final' },
@@ -110,27 +110,27 @@ window.RunPipelineView = function RunPipelineView({ onNav }) {
   );
 };
 
-/* ============ Judge analysis ============ */
-const JA_SEATS = [
+/* ============ Plan writer analysis ============ */
+const JA_WORKERS = [
   { w: { brand: 'anthropic', color: 'FFA630' }, n: 'Opus 4.8', skillId: 'first principles', status: 'done' },
   { w: { icon: 'terminal' }, n: 'ChatGPT 5.5', skillId: 'skeptic', status: 'done' },
   { w: { brand: 'anthropic', color: 'AEB5C9' }, n: 'Sonnet 4.6', skillId: 'neutral', status: 'done' },
   { w: { icon: 'square' }, n: 'Composer 2.5', skillId: 'neutral', status: 'done' },
   { w: { brand: 'googlegemini', color: 'E1E5F0' }, n: 'Gemini Flash', skillId: 'neutral', status: 'failed' },
 ];
-function SeatGly({ w }) { return w.brand ? <BrandIcon slug={w.brand} color={w.color} size={13} /> : <Icon name={w.icon} size={12} style={{ color: 'var(--text-secondary)' }} />; }
+function WorkerGly({ w }) { return w.brand ? <BrandIcon slug={w.brand} color={w.color} size={13} /> : <Icon name={w.icon} size={12} style={{ color: 'var(--text-secondary)' }} />; }
 window.PlanAnalysisView = function PlanAnalysisView() {
   return (
     <div>
-      <JHeader eyebrow="Judge analysis · structured" title="analysis.md"
-        sub="The structured panel truth the reviewers and finalizer consume directly — not re-parsed prose."
+      <JHeader eyebrow="Plan writer analysis · structured" title="analysis.md"
+        sub="The structured team truth the reviewers and finalizer consume directly — not re-parsed prose."
         actions={<><Badge tone="neutral" mono>4 of 5 answered</Badge><Button variant="ghost" size="sm" iconLeft={<Icon name="copy" size={14} />}>Copy</Button></>} />
       <div className="jud-content" style={{ maxWidth: 780 }}>
-        <div className="ja-seats">
-          {JA_SEATS.map((s, i) => (
-            <div className="ja-seat" key={i} style={s.status === 'failed' ? { opacity: .6 } : null}>
-              <span className="ja-seat__g"><SeatGly w={s.w} /></span>
-              <span className="ja-seat__n">{s.n}</span>
+        <div className="ja-workers">
+          {JA_WORKERS.map((s, i) => (
+            <div className="ja-worker" key={i} style={s.status === 'failed' ? { opacity: .6 } : null}>
+              <span className="ja-worker__g"><WorkerGly w={s.w} /></span>
+              <span className="ja-worker__n">{s.n}</span>
               <Badge tone="accent" mono>{s.stance}</Badge>
               {s.status === 'failed' && <Badge tone="danger" dot>failed</Badge>}
             </div>
@@ -164,14 +164,14 @@ window.PlanAnalysisView = function PlanAnalysisView() {
         </Card>
 
         <Card className="ja-sec">
-          <div className="ja-sec__h"><span className="ja-ic" style={{ background: 'var(--info-surface)', color: 'var(--blue-400)' }}><Icon name="search" size={15} /></span><span className="ja-sec__t">Blind spots · no seat covered</span></div>
+          <div className="ja-sec__h"><span className="ja-ic" style={{ background: 'var(--info-surface)', color: 'var(--blue-400)' }}><Icon name="search" size={15} /></span><span className="ja-sec__t">Blind spots · no worker covered</span></div>
           <div className="ja-li"><span className="dot" style={{ background: 'var(--blue-500)' }}></span>Fail-open vs fail-closed when the limiter backend is down.</div>
           <div className="ja-li"><span className="dot" style={{ background: 'var(--blue-500)' }}></span>Multi-instance clock skew could let limits diverge.</div>
         </Card>
 
         <Card className="ja-sec" style={{ borderColor: 'rgba(247,107,107,.3)' }}>
-          <div className="ja-sec__h"><span className="ja-ic" style={{ background: 'var(--danger-surface)', color: 'var(--red-400)' }}><Icon name="x" size={15} /></span><span className="ja-sec__t">Failed seat · 1</span></div>
-          <div className="ja-li" style={{ color: 'var(--text-muted)' }}><span className="dot" style={{ background: 'var(--red-500)' }}></span>Gemini Flash timed out at 60s — surfaced, never faked. Analysis proceeded on 4 seats.</div>
+          <div className="ja-sec__h"><span className="ja-ic" style={{ background: 'var(--danger-surface)', color: 'var(--red-400)' }}><Icon name="x" size={15} /></span><span className="ja-sec__t">Failed worker · 1</span></div>
+          <div className="ja-li" style={{ color: 'var(--text-muted)' }}><span className="dot" style={{ background: 'var(--red-500)' }}></span>Gemini Flash timed out at 60s — surfaced, never faked. Analysis proceeded on 4 workers.</div>
         </Card>
       </div>
     </div>

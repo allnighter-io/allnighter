@@ -251,7 +251,7 @@ Plan writer rule:
 - The plan writer is a worker in the team snapshot.
 - `teamRun.planWriterWorkerId` and `plan.writerWorkerId` point to that worker.
 - Human output may say `Plan written by Opus 4.8.`
-- Do not expose `synthesizer`, `judge`, or `masterPlan`.
+- Do not expose `plan writer`, `plan writer`, or `plan`.
 
 Usage rule:
 
@@ -263,13 +263,11 @@ Usage rule:
 Forbidden new public fields:
 
 ```text
-CouncilRun
-panelSeats
-memberResponses
-masterPlan
-council_ask
-panel
-seat
+TeamRun
+workers
+workerAnswers
+plan
+team_ask
 ```
 
 ## NDJSON Stream

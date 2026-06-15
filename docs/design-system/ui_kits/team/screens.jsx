@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- Council screens: Composer, RunView, PlanView.
+// @ds-adherence-ignore -- Team screens: Composer, RunView, PlanView.
 const R = window.React;
 
 (function () {
@@ -50,12 +50,12 @@ window.Composer = function Composer({ value, onChange, onRun, count, onExample }
   const { Button, Icon } = window;
   return R.createElement('div', { className: 'alc-pad', style: { display: 'flex', flexDirection: 'column', justifyContent: 'center', flex: 1 } },
     R.createElement('div', { className: 'alc-compose' },
-      R.createElement('div', { className: 'alc-eyebrow' }, 'New council run'),
+      R.createElement('div', { className: 'alc-eyebrow' }, 'New team run'),
       R.createElement('div', { className: 'alc-prompt' },
-        R.createElement('textarea', { rows: 3, placeholder: 'Ask the panel one thing…', value, onChange: (e) => onChange(e.target.value) }),
+        R.createElement('textarea', { rows: 3, placeholder: 'Ask the team one thing…', value, onChange: (e) => onChange(e.target.value) }),
         R.createElement('div', { className: 'alc-promptbar' },
           R.createElement('span', { className: 'alc-meta' }, count + ' workers · local · $0 marginal'),
-          R.createElement(Button, { variant: 'primary', iconLeft: R.createElement(Icon, { name: 'play', size: 15 }), onClick: onRun, disabled: !value.trim() || count === 0 }, 'Run council'))),
+          R.createElement(Button, { variant: 'primary', iconLeft: R.createElement(Icon, { name: 'play', size: 15 }), onClick: onRun, disabled: !value.trim() || count === 0 }, 'Run team'))),
       R.createElement('div', { className: 'alc-examples' },
         ['3 directions for a premium dashboard', 'rewrite our API error copy', 'plan a migration to Swift 6'].map((ex, i) =>
           R.createElement('button', { className: 'alc-ex', key: i, onClick: () => onExample(ex) }, ex)))));
@@ -67,7 +67,7 @@ window.RunView = function RunView({ workers, states, elapsed, prompt, synth, onS
   return R.createElement('div', { className: 'alc-pad' },
     R.createElement('div', { className: 'alc-runhead' },
       R.createElement('div', null,
-        R.createElement('div', { className: 'alc-runtitle' }, 'Council run'),
+        R.createElement('div', { className: 'alc-runtitle' }, 'Team run'),
         R.createElement('div', { className: 'alc-runprompt' }, prompt)),
       R.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 'none' } },
         R.createElement('span', { className: 'alc-meta', style: { fontSize: 13 } }, elapsed),
@@ -106,7 +106,7 @@ window.PlanView = function PlanView({ onNew }) {
   return R.createElement('div', { className: 'alc-pad' },
     R.createElement('div', { className: 'alc-planhead' },
       R.createElement(Tabs, { variant: 'segmented', value: tab, onChange: setTab, items: [
-        { value: 'plan', label: 'Plan' }, { value: 'answers', label: 'Member answers', count: 6 }] }),
+        { value: 'plan', label: 'Plan' }, { value: 'answers', label: 'Worker answers', count: 6 }] }),
       R.createElement('div', { style: { display: 'flex', gap: 8 } },
         R.createElement(Button, { variant: 'ghost', size: 'sm', iconLeft: R.createElement(Icon, { name: 'copy', size: 14 }) }, 'Copy'),
         R.createElement(Button, { variant: 'secondary', size: 'sm', iconLeft: R.createElement(Icon, { name: 'download', size: 14 }) }, 'Export Markdown'),

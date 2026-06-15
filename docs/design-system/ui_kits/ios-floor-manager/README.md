@@ -1,7 +1,7 @@
 # iOS Floor Manager — Allnighter (parked roadmap)
 
 A high-fidelity recreation of the **iPhone floor manager** from the full
-Allnighter roadmap (`uploads/README.md` — Milestone C/D, post-MVP). *"The iPhone
+Allnighter roadmap (`archive/mentor-uploads/README.md` — Milestone C/D, post-MVP). *"The iPhone
 creates the habit; the Mac creates the power."* This is a **roadmap surface**,
 not the MVP — built on the same tokens and components so it's ready when the
 team gets here.

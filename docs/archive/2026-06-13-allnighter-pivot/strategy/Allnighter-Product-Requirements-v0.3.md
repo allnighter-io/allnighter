@@ -44,7 +44,7 @@ The product has five compounding loops:
    product problem.
 5. **Preference compounding:** every pick, split verdict, rejection, revert,
    and "implement this" tap becomes structured preference data. Over time,
-   Allnighter learns the user's product judgment, taste, risk tolerance, and
+   Allnighter learns the user's product review, taste, risk tolerance, and
    preferred execution style.
 
 The hidden technical thesis:
@@ -63,7 +63,7 @@ It gives one builder the operating model of a small AI product team:
 - a backlog;
 - a roster of agents;
 - parallel lanes of work;
-- strategy councils;
+- strategy teams;
 - draft races;
 - previews and artifacts;
 - QA passes;
@@ -281,9 +281,9 @@ The moat begins with hard local infrastructure:
 This is not a weekend chat wrapper. The simple UI is powered by a local
 concurrency factory.
 
-### T4 - Parallel Judgment Before Execution
+### T4 - Parallel Review Before Execution
 
-The biggest unlock is not only parallel coding. It is parallel judgment:
+The biggest unlock is not only parallel coding. It is parallel review:
 
 - three product strategies;
 - three implementation plans;
@@ -303,7 +303,7 @@ That button is the bridge from thinking to doing.
 ### T5 - Selection Data Compounds
 
 The user thinks they are choosing drafts. They are actually training a personal
-judgment model.
+review model.
 
 Early product:
 
@@ -472,7 +472,7 @@ Responsibilities:
 
 - capture ideas by text, voice, screenshots, share sheet, and Siri/App Intents;
 - show backlog and active lanes;
-- compare races and council outputs;
+- compare races and team outputs;
 - let the user pick, combine, challenge, remix, or implement;
 - host the landing queue;
 - present Morning Pull;
@@ -510,7 +510,7 @@ Owns:
 - lane model;
 - agent model;
 - race model;
-- council model;
+- team model;
 - artifact model;
 - landing model;
 - preference event model;
@@ -550,7 +550,7 @@ The contract between teams is `AllnighterCore`:
 
 The Mac team can build against fixture commands from `AllnighterCore` before
 the iOS app is ready. The iOS team can build against fixture projects, lanes,
-races, councils, and landing cards before the Mac runner is fully operational.
+races, teams, and landing cards before the Mac runner is fully operational.
 
 Minimum shared fixtures:
 
@@ -558,7 +558,7 @@ Minimum shared fixtures:
 Fixture A: one project, no lanes, three available workers.
 Fixture B: one active single-agent lane.
 Fixture C: one three-way race with screenshots.
-Fixture D: one council verdict with dissent.
+Fixture D: one team verdict with dissent.
 Fixture E: one green landing card.
 Fixture F: one assisted landing card.
 Fixture G: one Morning Pull digest.
@@ -571,7 +571,7 @@ API surfaces should be contract-first:
 - `POST /projects/:id/tasks`
 - `POST /tasks/:id/dispatch`
 - `POST /tasks/:id/race`
-- `POST /tasks/:id/council`
+- `POST /tasks/:id/team`
 - `POST /races/:id/pick`
 - `POST /outputs/:id/implement`
 - `POST /lanes/:id/stop`
@@ -883,11 +883,11 @@ Local workers matter in two time horizons.
 
 Near term:
 
-- council participant;
-- judge and summarizer;
+- team participant;
+- plan writer and summarizer;
 - QA interpreter;
 - backlog miner;
-- preference-memory synthesizer;
+- preference-memory plan writer;
 - low-risk draft worker.
 
 Long term:
@@ -920,7 +920,7 @@ Example local worker config:
   "model": "qwen-coder-local",
   "capability_level": "local_model",
   "privacy": "local_only",
-  "default_roles": ["council", "summarizer", "qa", "memory"],
+  "default_roles": ["team", "summarizer", "qa", "memory"],
   "implementation_enabled": false,
   "power_policy": "only_when_idle_or_plugged_in"
 }
@@ -931,7 +931,7 @@ Important distinction:
 ```text
 The runtime runs one model.
 Allnighter decides what work should be done, compares outputs, records picks,
-lands results, and learns the user's judgment.
+lands results, and learns the user's review.
 ```
 
 ---
@@ -951,7 +951,7 @@ A work order is the normalized instruction packet sent to a worker.
 - failed test;
 - Sentry issue;
 - App Store review;
-- council verdict;
+- team verdict;
 - race winner;
 - standing order;
 - speculative build suggestion.
@@ -1008,7 +1008,7 @@ Buttons:
 
 - Dispatch;
 - Edit;
-- Ask council first;
+- Ask team first;
 - Save to backlog.
 
 ---
@@ -1070,7 +1070,7 @@ Important:
 - for a mockup: implement the mockup in a lane;
 - for a partial plan: ask a worker to complete it.
 
-### 11.3 Loop C: Council Before Build
+### 11.3 Loop C: Team Before Build
 
 Use case:
 
@@ -1079,7 +1079,7 @@ The user has an ambiguous product, architecture, pricing, or feature question.
 Flow:
 
 1. User asks: "Should we add team accounts before billing analytics?"
-2. Council fans out to several models.
+2. Team fans out to several models.
 3. Each model answers independently.
 4. Critique round: models red-team the other answers.
 5. Synthesis round produces:
@@ -1093,7 +1093,7 @@ Flow:
    - Ask another round;
    - Implement this.
 
-The council is not just chat. It is pre-execution judgment.
+The team is not just chat. It is pre-execution review.
 
 ### 11.4 Loop D: Picker as Prompt
 
@@ -1144,7 +1144,7 @@ Morning Pull includes:
 - landed work summary;
 - ready-to-land drafts;
 - races needing a winner;
-- council disagreements;
+- team disagreements;
 - failed lanes needing a decision;
 - speculative builds;
 - quota harvested;
@@ -1212,7 +1212,7 @@ Tabs:
 2. Backlog
 3. Active Lanes
 4. Races
-5. Councils
+5. Teams
 6. Landing Queue
 7. Workers
 8. Preferences
@@ -1293,7 +1293,7 @@ Advanced view:
 | MAC-8 | Allocate unique ports per lane. |
 | MAC-9 | Expose local API for iOS and relay. |
 | MAC-10 | Show race comparisons natively on Mac. |
-| MAC-11 | Support "Implement This" from Mac-side council or race outputs. |
+| MAC-11 | Support "Implement This" from Mac-side team or race outputs. |
 | MAC-12 | Support landing queue and one-tap revert. |
 | MAC-13 | Support global pause/kill switch. |
 | MAC-14 | Maintain worker scorecards. |
@@ -1349,7 +1349,7 @@ User asks:
 "What is the best onboarding change to reduce drop-off?"
 
 Allnighter:
-- runs a council;
+- runs a team;
 - returns verdict plus dissent;
 - user clicks Implement This;
 - chosen direction becomes a work order;
@@ -1420,7 +1420,7 @@ Actions:
 
 - dispatch;
 - race;
-- council;
+- team;
 - schedule overnight;
 - pin worker;
 - delete.
@@ -1459,7 +1459,7 @@ Actions:
 - More Like This;
 - Discard All.
 
-#### Council Verdict
+#### Team Verdict
 
 Shows:
 
@@ -1497,7 +1497,7 @@ Daily digest:
 - agent-hours worked;
 - finished drafts;
 - races awaiting verdict;
-- councils resolved;
+- teams resolved;
 - speculative suggestions;
 - idle capacity warning;
 - one-tap next actions.
@@ -1625,11 +1625,11 @@ and shows that selected implementation continuing in the active lane list.
 }
 ```
 
-### 14.6 Council Session
+### 14.6 Team Session
 
 ```json
 {
-  "id": "council_pricing_v1",
+  "id": "team_pricing_v1",
   "prompt": "Should we charge per connected agent or flat monthly?",
   "participants": ["claude_code", "codex_cli", "grok_build"],
   "status": "verdict_ready",
@@ -1716,7 +1716,7 @@ delete user work.
 
 ---
 
-## 16. Council, Races, and "Implement This"
+## 16. Team, Races, and "Implement This"
 
 ### 16.1 Output Types
 
@@ -1775,7 +1775,7 @@ shows "preparing."
 
 ---
 
-## 17. Taste and Judgment Model
+## 17. Taste and Review Model
 
 The first version is not a custom ML model. It is a preference ledger plus
 memory synthesis.
@@ -1812,7 +1812,7 @@ For KansoBooks, the user prefers:
 Preference memory influences:
 
 - prompt seasoning;
-- council judge weighting;
+- team plan writer weighting;
 - race participant selection;
 - route planning;
 - speculative task ranking;
@@ -1970,7 +1970,7 @@ Owner: Shared Core team.
 
 Slices:
 
-1. Define Codable models for Project, Task, Lane, Agent, Race, Council,
+1. Define Codable models for Project, Task, Lane, Agent, Race, Team,
    Artifact, Landing, PreferenceEvent.
 2. Define lane state machine.
 3. Define API envelope and event stream.
@@ -2159,19 +2159,19 @@ Works Test:
 Pick a strategy or draft and tap "Implement This"; a lane begins within 5
 seconds.
 
-### Phase 12 - Council MVP
+### Phase 12 - Team MVP
 
 Owner: Mac + Shared Core + iOS.
 
 Slices:
 
-1. Council prompt fan-out.
+1. Team prompt fan-out.
 2. Critique round.
 3. Synthesis round.
 4. Verdict model.
 5. Minority report.
 6. iOS verdict card.
-7. Mac council view.
+7. Mac team view.
 
 Works Test:
 
@@ -2333,7 +2333,7 @@ Slices:
 5. Run smoke prompt.
 6. Add Local/private badge in Mac Workers.
 7. Show local workers in iOS roster.
-8. Use local worker for council summary or preference-memory synthesis.
+8. Use local worker for team summary or preference-memory synthesis.
 9. Keep implementation disabled by default.
 
 Works Test:
@@ -2346,7 +2346,7 @@ lists available models,
 runs a smoke prompt,
 and marks one model available as a private read-only worker.
 
-When a council finishes,
+When a team finishes,
 then the local worker summarizes the verdict and dissent without sending that
 summary job to a cloud model.
 ```
@@ -2464,12 +2464,12 @@ This proves:
 
 1. Is the wedge "three options, pick one, implement it" stronger than the
    broader "agent operations" story for launch?
-2. Should the first demo focus on UI draft races, strategy councils, or a mix?
+2. Should the first demo focus on UI draft races, strategy teams, or a mix?
 3. Is worktree multiplexing enough of a technical wedge, or is preview/artifact
    capture the real differentiator?
 4. How much should the product lead with quota harvesting vs creative
    parallelism?
-5. Is Allnighter a strong name for daytime council/race use, or too
+5. Is Allnighter a strong name for daytime team/race use, or too
    night-specific?
 6. What is the highest-risk part: vendor ToS, merge trust, driver churn, or
    onboarding?
@@ -2490,7 +2490,7 @@ This proves:
 | --- | --- |
 | Agent | A locally installed AI coding tool Allnighter can dispatch or hand off to |
 | Agent-hours | Time spent by workers on lane execution |
-| Council | Multi-agent reasoning session with critique, synthesis, verdict, and dissent |
+| Team | Multi-agent reasoning session with critique, synthesis, verdict, and dissent |
 | Draft | A candidate answer, plan, mockup, or implementation |
 | Lane | Hidden isolated workspace for one task attempt |
 | Landing | Bringing a completed lane back to the target branch or PR flow |

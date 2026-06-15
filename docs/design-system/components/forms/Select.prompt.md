@@ -1,4 +1,4 @@
-Dropdown select — choose the synthesizer, a panel preset, a risk tier. Closes on pick or outside-click.
+Dropdown select — choose the plan writer, a team preset, a risk tier. Closes on pick or outside-click.
 
 ```jsx
 <Select label="PlanWriter" defaultValue="opus" onChange={setSynth}

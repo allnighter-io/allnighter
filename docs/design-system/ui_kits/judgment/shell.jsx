@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- Judgment workflow shell (window + pipeline rail). Window globals.
+// @ds-adherence-ignore -- Review workflow shell (window + pipeline rail). Window globals.
 const R = window.React;
 
 (function () {
@@ -60,8 +60,8 @@ const STATUS = {
 
 window.JUD_STAGES = [
   { id: 'prompt', label: 'Prompt', icon: 'terminal', sub: 'light_review', status: 'done' },
-  { id: 'panel', label: 'Panel', icon: 'users', sub: '5 seats · reused', status: 'done', reuse: true },
-  { id: 'analysis', label: 'Judge analysis', icon: 'scale', sub: '2 contradictions', status: 'done' },
+  { id: 'team', label: 'Team', icon: 'users', sub: '5 workers · reused', status: 'done', reuse: true },
+  { id: 'analysis', label: 'Plan writer analysis', icon: 'scale', sub: '2 contradictions', status: 'done' },
   { id: 'plan', label: 'Draft plan', icon: 'file-text', sub: 'master_plan.md', status: 'done' },
   { id: 'review', label: 'Review board', icon: 'shield', sub: '3 lenses · 1 blocker', status: 'done' },
   { id: 'final', label: 'Final spec', icon: 'circle-check', sub: 'executable ✓', status: 'done' },
@@ -77,7 +77,7 @@ window.JShell = function JShell({ active, onNav, children }) {
       R.createElement('div', { className: 'jud-lights' },
         R.createElement('i', { style: { background: '#FF5F57' } }), R.createElement('i', { style: { background: '#FEBC2E' } }), R.createElement('i', { style: { background: '#28C840' } })),
       R.createElement('div', { className: 'jud-tc' },
-        R.createElement(window.JLive, { size: 16 }), R.createElement('span', { className: 'nm' }, 'allnighter'), R.createElement('span', { className: 'sub' }, '· judgment')),
+        R.createElement(window.JLive, { size: 16 }), R.createElement('span', { className: 'nm' }, 'allnighter'), R.createElement('span', { className: 'sub' }, '· review')),
       R.createElement('div', { className: 'jud-tr' },
         R.createElement(Badge, { tone: 'positive', dot: true }, '5/5 healthy'),
         R.createElement(IconButton, { variant: 'ghost', size: 'sm', label: 'History' }, R.createElement(Icon, { name: 'history' })),

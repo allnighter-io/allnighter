@@ -1,11 +1,11 @@
-<!-- @dsCard group="Judgment (macOS)" viewport="1180x720" subtitle="RB workflow: prompt → review board → pressure-tested final spec" -->
-<!-- @startingPoint section="Judgment" subtitle="The judgment workflow (macOS)" viewport="1180x720" -->
+<!-- @dsCard group="Review (macOS)" viewport="1180x720" subtitle="RB workflow: prompt → review board → pressure-tested final spec" -->
+<!-- @startingPoint section="Review" subtitle="The review workflow (macOS)" viewport="1180x720" -->
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Allnighter — Judgment workflow</title>
+<title>Allnighter — Review workflow</title>
 <link rel="icon" href="../../assets/allnighter-icon.svg">
 <link rel="stylesheet" href="../../styles.css">
 <style>
@@ -27,9 +27,9 @@
 <script type="text/babel" src="screens4.jsx"></script>
 <script type="text/babel">
 const { JShell, JConfigShell, ComposerView, ReviewBoardView, FinalSpecView, RunPipelineView, PlanAnalysisView, DispatchView, ReturnReviewView, RoutingView, CompareView, ScorecardsView, PresetEditorView, LensLibraryView, WorkersView, StubView } = window;
-const LABELS = { panel: 'Panel answers', plan: 'Draft plan' };
+const LABELS = { team: 'Team answers', plan: 'Draft plan' };
 
-function JudgmentApp() {
+function ReviewApp() {
   const [active, setActive] = React.useState('prompt');
   if (active.indexOf('cfg_') === 0) {
     let cv;
@@ -52,7 +52,7 @@ function JudgmentApp() {
   else view = <StubView stage={LABELS[active] || active} />;
   return <JShell active={active} onNav={setActive}>{view}</JShell>;
 }
-ReactDOM.createRoot(document.getElementById('root')).render(<JudgmentApp />);
+ReactDOM.createRoot(document.getElementById('root')).render(<ReviewApp />);
 </script>
 </body>
 </html>

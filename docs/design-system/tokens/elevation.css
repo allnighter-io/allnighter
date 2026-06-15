@@ -17,7 +17,7 @@
   --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --edge-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 
-  /* Amber glow — primary buttons (hover), the synthesizer, live state */
+  /* Amber glow — primary buttons (hover), the plan writer, live state */
   --glow-amber-sm: 0 0 0 1px rgba(255, 166, 48, 0.35), 0 2px 12px rgba(255, 166, 48, 0.28);
   --glow-amber:    0 0 24px rgba(255, 166, 48, 0.35);
   --glow-amber-lg: 0 0 48px rgba(255, 166, 48, 0.45);

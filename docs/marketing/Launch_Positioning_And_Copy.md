@@ -7,7 +7,7 @@ Created: 2026-06-15
 ## One-Sentence Positioning
 
 Allnighter turns the AI coding subscriptions you already pay for into a local
-panel of parallel workers, then fuses their answers into one decision.
+team of parallel workers, then fuses their answers into one decision.
 
 ## Direct-Response Hook
 
@@ -16,11 +16,11 @@ Stop being the copy-paste monkey for your AI tools.
 You already pay for Claude. Maybe Grok. Maybe Codex, Gemini, Aider, Cursor, or
 local models. But every serious question still turns into the same dumb ritual:
 paste prompt, wait, paste again, compare tabs, lose the best dissent, ask one more
-model, paste everything into a final judge, repeat.
+model, paste everything into a final plan writer, repeat.
 
 Allnighter does that loop for you.
 
-One prompt in. Your local CLIs answer in parallel. A judge model reads the
+One prompt in. Your local CLIs answer in parallel. A plan writer model reads the
 answers, preserves disagreement, finds blind spots, and gives you a plan.
 Mac runs the workers. iPhone steers the floor.
 
@@ -29,7 +29,7 @@ Mac runs the workers. iPhone steers the floor.
 Local Fusion for AI builders.
 
 OpenRouter's Fusion launch demonstrated the pattern: send the same hard question
-to a panel, then have a judge synthesize consensus, contradictions, unique
+to a team, then have a plan writer synthesize consensus, contradictions, unique
 insights, partial coverage, and blind spots. Allnighter brings that pattern to
 the tools a developer already installed locally.
 
@@ -59,7 +59,7 @@ CTA:
 
 ```text
 Download free
-Run your first council
+Run your first team
 ```
 
 Proof strip:
@@ -88,7 +88,7 @@ Sharper:
 
 ```text
 Claude Max 5x includes a $100/month Agent SDK credit. Allnighter turns that into
-parallel council runs through your own `claude -p` setup.
+parallel team runs through your own `claude -p` setup.
 ```
 
 Compliance-safe:
@@ -121,7 +121,7 @@ term.
 Good:
 
 ```text
-Add Grok as another worker in the panel.
+Add Grok as another worker in the team.
 ```
 
 Good:
@@ -149,16 +149,16 @@ real decisions instead of one-off chats.
 Public thesis:
 
 ```text
-A single model gives you one path. A council gives you disagreement, blind spots,
+A single model gives you one path. A team gives you disagreement, blind spots,
 and a better final decision.
 ```
 
 OpenRouter proof point:
 
 ```text
-OpenRouter showed that panel-and-judge Fusion can outperform individual frontier
+OpenRouter showed that team-and-plan-writer Fusion can outperform individual frontier
 models on deep research tasks. Allnighter brings the same shape to local developer
-workflows: panel, structured analysis, plan.
+workflows: team, structured analysis, plan.
 ```
 
 Stats we can cite, attributed to OpenRouter:
@@ -171,7 +171,7 @@ On OpenRouter's DRACO deep-research benchmark:
 - Solo GPT-5.5 scored 60.0%.
 - Solo Claude Opus 4.8 scored 58.8%.
 - Opus 4.8 + Opus 4.8, synthesized by Opus 4.8, scored 65.5%.
-- A budget panel scored 64.7%, beating solo GPT-5.5 and solo Opus 4.8 and
+- A budget team scored 64.7%, beating solo GPT-5.5 and solo Opus 4.8 and
   coming within 1 point of solo Fable 5 in that benchmark.
 ```
 
@@ -189,16 +189,16 @@ The win is independent attempts + structured synthesis.
 More aggressive, still attributed:
 
 ```text
-In OpenRouter's Fusion benchmark, a panel of models plus a judge beat every solo
+In OpenRouter's Fusion benchmark, a team of models plus a plan writer beat every solo
 model they tested on DRACO deep-research tasks. Allnighter brings that
-panel-and-judge workflow to the AI tools already on your Mac.
+team-and-plan-writer workflow to the AI tools already on your Mac.
 ```
 
 Caveat for public copy:
 
 ```text
 Do not present these as Allnighter evals. Say "OpenRouter found..." and keep the
-domain clear: DRACO deep-research tasks. For coding, position Council runs around
+domain clear: DRACO deep-research tasks. For coding, position Team runs around
 architecture, specs, product decisions, reviews, and hard questions where multiple
 perspectives are valuable.
 ```
@@ -226,7 +226,7 @@ CTA
 Download free
 
 Secondary CTA
-See how the council works
+See how the team works
 
 Section
 Stop operating your agents by hand.
@@ -236,7 +236,7 @@ Every serious prompt turns into a tiny unpaid job:
 - paste into Grok
 - paste into Codex
 - wait for all of them
-- copy the answers into a judge
+- copy the answers into a plan writer
 - ask for the final plan
 - repeat when something is missing
 
@@ -253,9 +253,9 @@ Section
 One prompt. Many workers. One decision.
 
 1. Type the question.
-2. Choose your panel.
+2. Choose your team.
 3. Allnighter fans out to healthy workers in parallel.
-4. A synthesizer reads every answer.
+4. A plan writer reads every answer.
 5. You get consensus, conflicts, unique insights, blind spots, and a plan.
 
 Section
@@ -266,7 +266,7 @@ your problem is no longer access to intelligence. Your problem is coordination.
 Allnighter is the coordination layer.
 
 Pricing block
-Free to download. Run your first councils free.
+Free to download. Run your first teams free.
 Then $9.95/month for Mac plus iPhone.
 Bring your own AI subscriptions.
 ```
@@ -283,7 +283,7 @@ Stop leaving it idle.
 Allnighter runs your own Claude Code setup through local `claude -p`, adds Grok
 and other workers, and fuses the answers into one plan.
 
-Free download. $9.95/month after your first councils.
+Free download. $9.95/month after your first teams.
 ```
 
 ### Ad 2: Copy-Paste Monkey
@@ -301,7 +301,7 @@ One prompt in. One plan out.
 
 ```text
 Fusion demonstrated the pattern:
-many models + one judge > one model alone.
+many models + one plan writer > one model alone.
 
 Allnighter brings that pattern to your own local AI tools.
 
@@ -338,14 +338,14 @@ AI team. You are being its clipboard.
 
 Allnighter fixes that.
 
-Type one prompt. Pick your panel. Your local CLIs answer in parallel. A
-synthesizer reads the responses and writes a plan with consensus,
+Type one prompt. Pick your team. Your local CLIs answer in parallel. A
+plan writer reads the responses and writes a plan with consensus,
 conflicts, unique insights, and blind spots.
 
 Mac runs the floor.
 iPhone comes included.
 
-Download free. Run your first councils free. Then $9.95/month.
+Download free. Run your first teams free. Then $9.95/month.
 ```
 
 ## Objection Handling
@@ -415,8 +415,8 @@ synthesis, history, presets, and mobile control.
 - The AI is cheap. Your attention is not.
 - Claude, Grok, Codex, Gemini: one bench, one run.
 - Turn idle AI capacity into decisions.
-- Ask the council before you bet the sprint.
-- The best model is a managed panel.
+- Ask the team before you bet the sprint.
+- The best model is a managed team.
 
 ## Strongest Current Campaign
 

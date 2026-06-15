@@ -1473,11 +1473,11 @@ Object.assign(window, {
 
 // ui_kits/studio/ContentPanel.jsx
 try { (() => {
-/* ContentPanel — the page's structure / outline. This is what the rail's
+/* ContentTeam — the page's structure / outline. This is what the rail's
    "Content" now opens (it used to do nothing). It lists every block in page
    order and is the home for STRUCTURE operations: drag a compact row to
    reorder, toggle visibility, delete, and "Add block". Clicking a row selects
-   that block, which swaps this panel for the role-dispatched inspector.
+   that block, which swaps this team for the role-dispatched inspector.
 
    The dedicated outline/section-tree was a Phase-20 non-goal "until taller,
    richer templates need it" — gallery + form blocks are exactly that trigger. */
@@ -2064,17 +2064,17 @@ function ResultStage({
   }, /*#__PURE__*/React.createElement(LinkHubPage, {
     data: hub
   }))), /*#__PURE__*/React.createElement("div", {
-    className: "imp-panel"
+    className: "imp-surface"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "imp-panel__badge"
+    className: "imp-surface__badge"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "check",
     size: 13,
     stroke: 3
   }), " Rebuilt & owned"), /*#__PURE__*/React.createElement("h2", {
-    className: "imp-panel__h"
+    className: "imp-surface__h"
   }, "Your page, rebuilt as a Default Link Hub."), /*#__PURE__*/React.createElement("p", {
-    className: "imp-panel__sub"
+    className: "imp-surface__sub"
   }, rows.length, " links read, ", rows.filter(r => r.matched).length, " services recognized \u2014 and mapped to the right block, automatically. Nothing to copy-paste."), /*#__PURE__*/React.createElement("div", {
     className: "imp-map"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2231,12 +2231,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 
 // ui_kits/studio/Inspector.jsx
 try { (() => {
-/* Inspector — the role-dispatched contextual panel. Mounted only when a block
+/* Inspector — the role-dispatched contextual team. Mounted only when a block
    (or a link item) is selected; it renders a different editor per role
    (profile / socials / lead / links section / gallery / form / link item).
    This is the anti-pattern fix: no persistent form wall — controls appear for
    exactly what you picked, and a "back" affordance returns to the Content
-   outline. Block-level Hide / Delete live here too, mirroring the panel. */
+   outline. Block-level Hide / Delete live here too, mirroring the team. */
 
 const IN_SVC = window.SERVICES;
 function Field({
@@ -3164,7 +3164,7 @@ try { (() => {
 /* StudioApp — the reimagined Ikiro Studio editor.
    Thesis: the page IS the editor. Editing is direct (hover actions on canvas),
    contextual (the role-dispatched inspector appears on selection), structural
-   (the Content panel lists/reorders/adds blocks), or composed (Add modals).
+   (the Content team lists/reorders/adds blocks), or composed (Add modals).
    The page is an ordered BLOCK LIST; reorder / hide / delete / add are all
    deterministic operations over `data.blocks`. AI is docked and optional. */
 
@@ -3593,7 +3593,7 @@ function StudioApp() {
   }, /*#__PURE__*/React.createElement("nav", {
     className: "rail"
   }, /*#__PURE__*/React.createElement(RailItem, {
-    icon: "layout-panel-left",
+    icon: "layout-sidebar",
     label: "Content",
     active: view === "content",
     onClick: () => {
@@ -3756,7 +3756,7 @@ if (typeof document !== 'undefined' && !document.getElementById('dc-styles')) {
   // Chrome (titles / labels / buttons) counter-scales against the viewport
   // zoom so it stays a constant on-screen size. --dc-inv-zoom is set by
   // DCViewport on every transform update and inherits to all descendants —
-  // any overlay inside the world (e.g. a TweaksPanel on an artboard) can use
+  // any overlay inside the world (e.g. a TweaksTeam on an artboard) can use
   // it the same way.
   //
   // The header uses transform:scale (out-of-flow, so layout impact doesn't

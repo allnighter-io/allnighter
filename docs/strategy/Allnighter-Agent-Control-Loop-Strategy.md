@@ -84,7 +84,7 @@ one prompt
 ```
 
 This is especially valuable for vibe coding because the human is not trying to
-manually operate four terminals. The human is steering judgment:
+manually operate four terminals. The human is steering review:
 
 - Which agent had the best idea?
 - Which implementation is simplest?
@@ -200,10 +200,10 @@ four agents return
 -> Allnighter captures outputs/transcripts
 -> evaluator summarizes each result
 -> design/security/maintainer lenses review the results
--> final synthesizer recommends pick, remix, reject, or rerun
+-> final plan writer recommends pick, remix, reject, or rerun
 ```
 
-This keeps Allnighter focused on judgment and iteration, where the differentiation
+This keeps Allnighter focused on review and iteration, where the differentiation
 is strongest.
 
 ### Level 5 - Managed Execution Safety
@@ -220,7 +220,7 @@ Mobile becomes obvious when Allnighter owns the control loop:
 
 ```text
 from phone:
-ask the council
+ask the team
 read synthesis
 dispatch implementation
 watch agents return
@@ -229,7 +229,7 @@ send another round
 ```
 
 The mobile app is not just a remote terminal. It is a command surface for agent
-judgment and dispatch.
+review and dispatch.
 
 The magic is that the user does not need to sit at the Mac babysitting CLIs. The
 Mac owns execution; the phone steers the loop.
@@ -243,7 +243,7 @@ Allnighter should avoid competing with every agent and IDE on repo automation.
 The durable wedge is:
 
 ```text
-the best way to coordinate, judge, dispatch, and evaluate a bench of agents
+the best way to coordinate, plan writer, dispatch, and evaluate a bench of agents
 you already use
 ```
 
@@ -253,7 +253,7 @@ useful as the control layer above them.
 The product should stay opinionated:
 
 - Use the tools users already trust.
-- Make parallel judgment cheap.
+- Make parallel review cheap.
 - Make direct dispatch immediate.
 - Make returned outputs easy to understand.
 - Make another round effortless.

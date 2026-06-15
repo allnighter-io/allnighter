@@ -23,7 +23,7 @@ proof, CTA hierarchy, and conversion clarity.
 
 The user-facing claim is **not** "this will convert." Allnighter cannot prove that
 before the market responds. The claim is: landing-page options are expert-shaped,
-objection-aware, proof-checked, and ready for a founder to judge.
+objection-aware, proof-checked, and ready for a founder to plan writer.
 
 ## Trusted Workflow Slice
 

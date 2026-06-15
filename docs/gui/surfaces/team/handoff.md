@@ -1,14 +1,14 @@
-# Handoff: Council command center — **native SwiftUI (macOS)**
+# Handoff: Team command center — **native SwiftUI (macOS)**
 
 > **Legacy visual reference.** The visual direction may still be useful, but the
 > vocabulary is superseded by `docs/phases/Work_Order_Team_Model.md` and
 > `docs/phases/Work_Order_Team_Model.md` (active vocabulary). Historical cleanup:
 > `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`. Do not copy public labels such
-> as Council, panel, synthesizer, member answer, or plan into new UI.
+> as Team, team, plan writer, worker answer, or plan into new UI.
 
 ## Overview
-The **Council** is the Allnighter MVP's primary screen. One prompt fans out to a
-panel of subscription coding-CLIs in parallel; every answer streams back; then
+The **Team** is the Allnighter MVP's primary screen. One prompt fans out to a
+team of subscription coding-CLIs in parallel; every answer streams back; then
 **Opus 4.8 synthesizes one plan**. Text-only, local, zero marginal cost.
 This pack documents that single window — its tokens, layout, states, and copy —
 for implementation as a **native SwiftUI macOS app**.
@@ -37,8 +37,8 @@ theme; do not add one.
   `ALFont`, `ALSpace`, `ALRadius`, `ALControl`, `ALMotion`, shadow/glow view
   modifiers, and a `Color(hex:)` helper). **This is the source of truth for all
   values** — the tables below reference it.
-- **`CouncilState.swift`** — the `@Observable` view model, the `Worker`/`RunStatus`
-  domain types, the six-worker panel data, and the full state-transition table.
+- **`TeamState.swift`** — the `@Observable` view model, the `Worker`/`RunStatus`
+  domain types, the six-worker team data, and the full state-transition table.
 - **`reference/`** — the HTML/React prototype (`index.html`, `chrome.jsx`,
   `screens.jsx`, `data.jsx`) and the design-system `styles.css` + `tokens/`.
 
@@ -52,7 +52,7 @@ A single resizable window, min ~**1180×720**, `ALRadius.window` (12pt) corners,
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  TITLE BAR  44pt · ALColor.surface · 1px borderSubtle base  │
-│  ◉◉◉      ☾ allnighter · council        [5/5 healthy] ⟲ ⚙  │
+│  ◉◉◉      ☾ allnighter · team        [5/5 healthy] ⟲ ⚙  │
 ├───────────────┬────────────────────────────────────────────┤
 │  SIDEBAR      │  MAIN  (ALColor.base, scrolls)              │
 │  264pt        │                                             │
@@ -72,7 +72,7 @@ toolbar.
 - **Left:** system traffic lights (don't redraw them; the mock's colored dots
   `#FF5F57 / #FEBC2E / #28C840` are placeholders for the real ones).
 - **Center:** the **live mark** (16pt) + `allnighter` in `ALFont.label`
-  `textSecondary` + `· council` in `ALFont.monoSm` `textFaint`.
+  `textSecondary` + `· team` in `ALFont.monoSm` `textFaint`.
 - **Right:** a `Badge` (tone positive, dot) reading `5/5 healthy` (Doctor health),
   then two ghost `IconButton`s — `history`, `settings-2` (SF Symbols
   `clock.arrow.circlepath`, `gearshape`).
@@ -89,7 +89,7 @@ is static. Implement as a `Canvas`/`Shape` or a bundled SVG-derived `Path`:
 
 ### Sidebar (264pt) — present in compose & run (selection disabled during run)
 Three sections, vertical:
-1. **Panel** — header row: `Panel` (`ALFont.caption` 700, uppercase,
+1. **Team** — header row: `Team` (`ALFont.caption` 700, uppercase,
    tracking `ALTracking.caps`, `textFaint`) + count `N of 6` (mono, `textFaint`,
    right). Below: the six **WorkerChip** rows (see component spec), each
    selectable with a checkbox affordance. At least one must stay selected.
@@ -103,7 +103,7 @@ Three sections, vertical:
 ---
 
 ## State 1 — **Compose**
-**Purpose:** pick the panel, write one prompt, launch the run.
+**Purpose:** pick the team, write one prompt, launch the run.
 
 **Layout:** sidebar + a main area that **centers a 680pt column** vertically and
 horizontally (`ALControl.readingMax`), padding 28×32pt.
@@ -113,10 +113,10 @@ horizontally (`ALControl.readingMax`), padding 28×32pt.
 - **Prompt card:** `raised` fill, 1px `borderDefault`, radius `xl` (14pt),
   `alShadowSm()`. Focus → border becomes `accentBorder`.
   - `TextEditor` inside: transparent, 18pt `ALFont.sans`, line-height 1.5,
-    padding 22/22/12, placeholder `Ask the panel one thing…` in `textFaint`.
+    padding 22/22/12, placeholder `Ask the team one thing…` in `textFaint`.
   - Bottom bar (1px `borderSubtle` top, 12×14 padding): left meta
     `6 workers · local · $0 marginal` (`ALFont.monoSm`, `textFaint`); right a
-    **primary Button** `Run council` with a `play` icon. Disabled until the
+    **primary Button** `Run team` with a `play` icon. Disabled until the
     prompt is non-empty and ≥1 worker selected.
 - **Example chips** (16pt below): pill buttons (`surface` fill, 1px
   `borderSubtle`, radius `pill`, `ALFont.label`, `textMuted`) — tapping fills the
@@ -125,12 +125,12 @@ horizontally (`ALControl.readingMax`), padding 28×32pt.
 
 ---
 
-## State 2 — **Run** (live) + synthesizer sub-states
+## State 2 — **Run** (live) + plan writer sub-states
 **Purpose:** watch every selected worker answer in parallel, then watch Opus
 synthesize. Sidebar selection is **disabled** here.
 
 **Layout:** main padding 28×32pt.
-- **Run header:** title `Council run` (`ALFont.h2` 700, tracking heading) with
+- **Run header:** title `Team run` (`ALFont.h2` 700, tracking heading) with
   the prompt beneath it (`ALFont.body`, `textMuted`, max 560pt). Right: the
   `elapsed` clock (`ALFont.monoSm`, 13pt, `textFaint`) + a small secondary
   **Button** `Stop` with a `square` icon.
@@ -160,10 +160,10 @@ and freezes when synthesis is ready.
 ---
 
 ## State 3 — **Plan**
-**Purpose:** read the synthesized plan; inspect every raw member answer.
+**Purpose:** read the synthesized plan; inspect every raw worker answer.
 
 **Layout:** main padding 28×32pt.
-- **Header row:** a **segmented `Tabs`** — `Plan` | `Member answers`
+- **Header row:** a **segmented `Tabs`** — `Plan` | `Worker answers`
   (count 6) — on the left; on the right three buttons: ghost `Copy` (`copy`),
   secondary `Export Markdown` (`download`), primary `New run` (`plus` → reset to
   Compose).
@@ -186,7 +186,7 @@ and freezes when synthesis is ready.
     Numbered chip = 20pt circle, `accentSurface` bg, `accentText`, 11pt mono 600.
   - Exact copy for all five sections lives in `reference/data.jsx` (`AL_PLAN`).
 
-### Tab B — Member answers
+### Tab B — Worker answers
 - A vertical stack (12pt gap) of `flush` Cards, one per worker:
   - Header: 26pt glyph chip (`active` bg, radius `md`) + name (600) + model
     (mono 11, `textFaint`, right) + a `StatusPill` (`done`/`failed`).
@@ -243,7 +243,7 @@ These appear across states — build them as SwiftUI views, styled from the toke
 ---
 
 ## Voice & copy rules (match exactly)
-Sentence case everywhere; verbs first (`Run council`, `Stop`, `New run`). Numbers
+Sentence case everywhere; verbs first (`Run team`, `Stop`, `New run`). Numbers
 are concrete and mono (`5 answers · 00:42 · $0.00 marginal`). Never lead with
 "AI." A failed worker is shown **failed with its real reason**, never faked —
 this honesty is the product. No emoji; `·` separates metadata.
@@ -256,7 +256,7 @@ All values are in **`AllnighterTokens.swift`** (`ALColor`, `ALFont`, `ALSpace`,
 `#E1E5F0`. Dark-mode only.
 
 ## State management
-See `CouncilState.swift` — `CouncilModel` (`@Observable`) holds `prompt`,
+See `TeamState.swift` — `CouncilModel` (`@Observable`) holds `prompt`,
 `selected`, `view`, `states`, `elapsed`, `synth`; the file ends with the full
 transition table. Swap the simulated scheduling in `startRun()` for real CLI
 subprocess tasks (one per selected worker), updating `states[id]` on start/exit
@@ -270,9 +270,9 @@ and advancing `synth` when all terminate.
 
 ## Files
 - `AllnighterTokens.swift` — token→SwiftUI mapping (start here).
-- `CouncilState.swift` — model + state machine.
+- `TeamState.swift` — model + state machine.
 - `reference/index.html` — the runnable prototype (open in a browser to click through all states).
 - `reference/chrome.jsx` — window chrome + sidebar + live mark.
 - `reference/screens.jsx` — Composer / RunView / PlanView layouts.
-- `reference/data.jsx` — the six-worker panel, sample timings, plan + answers copy.
+- `reference/data.jsx` — the six-worker team, sample timings, plan + answers copy.
 - `reference/styles.css` + `reference/tokens/` — the source design tokens.

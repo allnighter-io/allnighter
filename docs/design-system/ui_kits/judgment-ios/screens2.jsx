@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- iOS judgment batch 2: Final spec, Dispatch, Return.
+// @ds-adherence-ignore -- iOS review batch 2: Final spec, Dispatch, Return.
 const { Button, Icon, Badge, StatusPill, BrandIcon } = window;
 
 (function () {
@@ -99,7 +99,7 @@ window.JIOS_Return = function ReturnScreen({ back }) {
     <div>
       <Back onClick={back} label="Dispatch" />
       <div className="jio-h1" style={{ fontSize: 22 }}>Return review</div>
-      <div className="jio-sub" style={{ marginBottom: 16 }}>Advisory — judged against the spec</div>
+      <div className="jio-sub" style={{ marginBottom: 16 }}>Advisory — plan writerd against the spec</div>
       <div className="ji2-score"><span className="big">0.86</span><div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 600 }}>Met 3 of 3 criteria</div><div className="ji2-bar"><i style={{ width: '86%' }}></i></div><div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-faint)', marginTop: 6 }}>outcome score · estimate</div></div></div>
       <div className="ji2-sec__h" style={{ marginBottom: 4 }}><Icon name="circle-check" size={13} /> Acceptance criteria</div>
       {[['pass', '101st request → 429', 'hit 429 at request 101'], ['pass', 'per-user isolation', 'two-user test independent'], ['partial', 'reset rejects unauth', 'returns 403, spec said 401']].map((c, i) => (

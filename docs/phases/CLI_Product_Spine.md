@@ -111,8 +111,8 @@ Run/customize: alln team
 Work-order creation: alln work
 ```
 
-Do not ship public `alln council`, `alln panel`, or `seat` language. The RB6
-upload that says `council_*` is superseded by this doc; the durable operation is
+Do not ship public `alln team`, `alln team`, or `worker` language. The RB6
+upload that says `team_*` is superseded by this doc; the durable operation is
 `team_*`.
 
 ## RB6 Cutover
@@ -126,9 +126,9 @@ The existing RB6 surface must be replaced deliberately:
 | `detect` / narrow doctor output | `alln doctor` | Merge into Doctor; hidden debug commands are allowed only for local development. |
 | `presets` | `alln team show` now; team preset commands later | Do not ship a separate old preset grammar. |
 | `recall` | `alln history` / `alln show` | History and show own retrieval. |
-| `council_ask` / RB6 tool names | `team_ask` / `team_*` | Rename before advertising MCP again. |
-| `masterPlan` JSON / copy | `plan` | Rename in persisted/public JSON at the same time as CLI output. |
-| `PanelSeat` / `seat` | `worker` | Runtime assignment: model + skill. |
+| `team_ask` / RB6 tool names | `team_ask` / `team_*` | Rename before advertising MCP again. |
+| `plan` JSON / copy | `plan` | Rename in persisted/public JSON at the same time as CLI output. |
+| `Worker` / `worker` | `worker` | Runtime assignment: model + skill. |
 
 If local scripts need a temporary development bridge, keep it private and remove
 it before mentor-facing demos. Public docs, help text, MCP tool descriptors, and
@@ -183,7 +183,7 @@ alln serve                         # resident Mac agent; deferred until needed
 ```
 
 `alln mcp` may remain a transport command family, but tool names must use the
-new surface (`team_ask`, not `council_ask`). `alln serve` is named here so iOS
+new surface (`team_ask`, not `team_ask`). `alln serve` is named here so iOS
 and overnight docs have a target, but it is not part of CLI milestone 1.
 
 Do not use `alln prompt` as the primary work-order command. A prompt is the input
@@ -426,8 +426,8 @@ cancelled, skipped. Errors need stable `code`, human `message`, `agentAction`,
 `fixCommand`, `requiresManual`, `retryable`, and optional `sourceId` / `modelId`
 / `workerId`.
 
-Do not ship new CLI JSON with legacy fields such as `CouncilRun`,
-`panelSeats`, `memberResponses`, `masterPlan`, or `council_ask`.
+Do not ship new CLI JSON with legacy fields such as `TeamRun`,
+`workers`, `workerAnswers`, `plan`, or `team_ask`.
 
 The first schema artifact should be a checked-in `TeamRunJSON` fixture. Core
 types, CLI output, GUI presenter tests, MCP descriptors, and iOS snapshot
@@ -446,7 +446,7 @@ This gives the user-facing line:
 Plan written by Opus 4.8.
 ```
 
-without exposing `synthesizer` or `judge`.
+without exposing `plan writer` or `plan writer`.
 
 Do not leave this context-dependent for milestone 1. Exotic post-run-only reduce
 stages can be introduced later if they still serialize through a clear worker or
@@ -588,11 +588,11 @@ Primary command: alln team
 Bench command: alln models
 Work-order command: alln work
 Background service: defer public name; internal helper is fine
-MCP/local API: `team_*` operation names, not `council_*`
+MCP/local API: `team_*` operation names, not `team_*`
 URL scheme: allnighter:// for app links, with universal links where needed
 ```
 
-Do not ship public `alln council` or `alln panel` aliases.
+Do not ship public `alln team` or `alln team` aliases.
 Do not ship a long-lived second grammar under `allnighter`. Internal scripts
 should move to `alln` during the rename.
 
@@ -609,7 +609,7 @@ should move to `alln` during the rename.
 | Work-order command | `alln work`; help text spells out "work order." |
 | Detection command | `alln doctor`; no separate public `detect` command unless implementation needs a hidden/debug alias. |
 | AI-facing docs | `alln docs` generated from the command/contract registry. |
-| Agent tool operations | Use `team_*`, not `council_*`; CLI command handlers remain semantic owner. |
+| Agent tool operations | Use `team_*`, not `team_*`; CLI command handlers remain semantic owner. |
 | Plan writer | A designated worker with the Plan Writer skill; JSON uses `planWriterWorkerId`. |
 | Skill library | Defer standalone `alln skills`; milestone 1 uses preset-embedded skills surfaced by `team show`. |
 | MCP cutover | Defer public MCP launch until CLI JSON/NDJSON, doctor, docs, and registry drift checks are boring. |

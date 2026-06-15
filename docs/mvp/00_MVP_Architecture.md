@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # 00 — MVP Architecture (read first)
 
 Status: **Locked for the MVP.** Every MVP phase obeys this doc.
@@ -59,10 +63,10 @@ Aligns with the constitution's layout; only the pieces the MVP needs exist now.
 # └── (Lane Manager, Preview/Artifact, Scheduler) inside AllnighterMac
 ```
 
-> **RB6** adds an `allnighter` SPM executable product (Council-as-Tool: CLI + MCP
-> stdio + loopback HTTP/WS), linking `AllnighterEngine`. It runs the council
+> **RB6** adds an `allnighter` SPM executable product (Team-as-Tool: CLI + MCP
+> stdio + loopback HTTP/WS), linking `AllnighterEngine`. It runs the team
 > headlessly, shares `Config/` and `Runs/` with the Mac app, and needs no GUI
-> running. See `docs/mvp/RB6_Council_As_Tool.md`.
+> running. See `docs/mvp/RB6_Team_As_Tool.md`.
 
 - **Project generation: XcodeGen** (`project.yml` per app), so `.xcodeproj` is
   generated and diffable. `AllnighterCore` is **pure SPM** (`swift test` runs
@@ -119,41 +123,41 @@ Ownership rules (carried from the constitution, scoped to MVP):
 ## 4. Data Model (owned by AllnighterCore)
 
 All `Codable`. JSON shapes are the fixtures (§8). Names are chosen to stay
-forward-compatible with post-MVP phases (`Worker`, `Council`, `Driver`).
+forward-compatible with post-MVP phases (`Worker`, `Team`, `Driver`).
 
 ```text
 Worker          : a configured model endpoint = { id, displayName, modelLabel, driverId, role, enabled }
 DriverManifest  : how to invoke + read a CLI (see §5)
-WorkerSpec   : a preset's seat request = { workerId, count=1, stance? }   (expands to Workers at run start; Phase 06)
-Worker       : one independent panel slot = { id, workerId, instanceIndex, stance?, label? }   (Phase 06)
-TeamRun      : { id, prompt, status, origin, originAgent?, presetId?, panel:[Worker], workerAnswers:[WorkerAnswer], stages:[StageOutput], createdAt }
-WorkerPrompt    : the exact prompt sent to one seat = { workerId, workerId, text }   (text varies per seat once stance/context land — §10 seam)
+WorkerSpec   : a preset's worker request = { workerId, count=1, stance? }   (expands to Workers at run start; Phase 06)
+Worker       : one independent team slot = { id, workerId, instanceIndex, stance?, label? }   (Phase 06)
+TeamRun      : { id, prompt, status, origin, originAgent?, presetId?, team:[Worker], workerAnswers:[WorkerAnswer], stages:[StageOutput], createdAt }
+WorkerPrompt    : the exact prompt sent to one worker = { workerId, workerId, text }   (text varies per worker once stance/context land — §10 seam)
 WorkerAnswer  : { workerId, workerId, status, output, errorKind?, errorReason?, startedAt, finishedAt, durationMs, exitCode? }
                   Identifiable via `id { workerId }` (computed; not encoded). workerId is the stored identity; workerId is provenance.
-PlanAnalysis   : structured judge truth = { consensus, contradictions, partialCoverage, uniqueInsights, blindSpots, failedWorkers, confidenceNote? }   (Phase 06)
-StageOutput     : one post-panel stage = { id, purpose, producedByWorkerId?, producedBySeatId?, promptProfileId?, customInstruction?,
+PlanAnalysis   : structured plan writer truth = { consensus, contradictions, partialCoverage, uniqueInsights, blindSpots, failedWorkers, confidenceNote? }   (Phase 06)
+StageOutput     : one post-team stage = { id, purpose, producedByWorkerId?, producedByWorkerId?, promptProfileId?, customInstruction?,
                   status, payload?, reuseKey?, errorReason?, startedAt, finishedAt }   (Phase 06)
 StagePayload    : typed structured truth, one case per purpose (see §4.1)   (Phase 06)
 RunOrigin       : how a run was started = gui | cli | mcp | http   (default gui; Phase 06)
 RunEvent        : append-only event envelope (id, seq, ts, kind, payload) — see §6
 ```
 
-Phase 05 makes the draft synthesizer and synthesis instruction explicit in
+Phase 05 makes the draft plan writer and synthesis instruction explicit in
 presets (Opus 4.8 is the built-in default by configuration, not a hardcoded
-semantic rule). **Phase 06 lays the correct final run model:** the panel is a list
-of `Worker`s (so one worker can fill several seats — *self-fusion*), the
-synthesizer's analysis is the structured `PlanAnalysis` (Markdown is derived),
-and everything after the panel is a `StageOutput` in `TeamRun.stages` (the
+semantic rule). **Phase 06 lays the correct final run model:** the team is a list
+of `Worker`s (so one worker can fill several workers — *self-fusion*), the
+plan writer's analysis is the structured `PlanAnalysis` (Markdown is derived),
+and everything after the team is a `StageOutput` in `TeamRun.stages` (the
 Phase 04/05 `Synthesis` struct is **removed**, replaced by `analysis` + `plan`
-stage outputs). **Phase 05's `TeamRun.panelPresetId` is deleted and replaced by
+stage outputs). **Phase 05's `TeamRun.workersPresetId` is deleted and replaced by
 `presetId`.** Since there are no users yet, Phase 06 corrects these shapes
 directly — fixtures and call sites are rewritten and the dev `Runs/` folder is
 wiped at the 06 cutover; **no compatibility shims, no alias, no decode-old-runs.**
 
 A reduce stage (analysis, plan, review, final spec, return review) is produced by
-a **worker invocation that is not a panel seat**, so `StageOutput` records
-`producedByWorkerId`; `producedBySeatId` is set only on the rare stage produced by
-a panel seat. A stage uses a named profile (`promptProfileId`) **or** one-off
+a **worker invocation that is not a worker**, so `StageOutput` records
+`producedByWorkerId`; `producedByWorkerId` is set only on the rare stage produced by
+a worker. A stage uses a named profile (`promptProfileId`) **or** one-off
 custom text (`customInstruction`) — exactly one is set, which is the honest record
 of what ran (the Phase 05 `SynthesisInstructionChoice` honesty, generalized).
 
@@ -185,7 +189,7 @@ keyed by purpose) so new cases touch few sites.
 Enums:
 
 ```text
-ModelRole   : member | synthesizer | both
+ModelRole   : member | plan writer | both
 RunStatus    : draft -> fanning_out -> answers_in -> planning -> complete | partial
                (review presets) answers_in -> reviewing -> finalizing -> complete | partial
                any active -> cancelled (user stop) ; any -> failed (unrecoverable)
@@ -197,11 +201,11 @@ RunOrigin    : gui | cli | mcp | http          (default gui; how the run was sta
 DriverKind   : headless_cli | manual_paste     (Growth: protocol, ide_handoff, local_model — see §10)
 ```
 
-**`RunStatus` is the *judgment* lifecycle only.** `planning` spans **both** the
+**`RunStatus` is the *review* lifecycle only.** `planning` spans **both** the
 analysis and plan reduces (Phase 06): a run enters `planning` at analysis
 start and leaves it when the plan stage settles. If analysis succeeds but the plan
 reduce fails, the run is `partial` (the `PlanAnalysis` is still usable). **Dispatch
-(RB4) and return review (RB5) are post-judgment `StageOutput`s on a `complete`
+(RB4) and return review (RB5) are post-review `StageOutput`s on a `complete`
 run** — they have their own `StageStatus`; they do **not** add `RunStatus` values.
 This keeps the run state machine small and stable as later milestones land. Every
 legal/illegal edge (incl. mid-review and mid-synthesis stops) gets an exhaustive
@@ -216,7 +220,7 @@ Canonical examples (full shapes live in `Fixtures/`):
   "displayName": "Opus 4.8",
   "modelLabel": "claude-opus-4.8",
   "driverId": "claude_code",
-  "role": "synthesizer",
+  "role": "plan writer",
   "enabled": true
 }
 ```
@@ -228,7 +232,7 @@ Canonical examples (full shapes live in `Fixtures/`):
   "prompt": "Should we add team accounts before billing analytics?",
   "status": "complete",
   "presetId": "preset_six_default",
-  "panel": [
+  "workers": [
     { "id": "model_opus#0", "workerId": "model_opus", "instanceIndex": 0 },
     { "id": "model_grok#0", "workerId": "model_grok", "instanceIndex": 0 }
   ],
@@ -238,12 +242,12 @@ Canonical examples (full shapes live in `Fixtures/`):
   ],
   "stages": [
     {
-      "id": "stage_analysis", "purpose": "analysis", "producedBySeatId": "model_opus#0",
+      "id": "stage_analysis", "purpose": "analysis", "producedByWorkerId": "model_opus#0",
       "promptProfileId": "default_master_plan_v1", "status": "done",
       "analysis": { "consensus": [], "contradictions": [], "blindSpots": [], "failedWorkers": [{ "workerId": "model_grok#0", "reason": "no output for 120s" }] }
     },
     {
-      "id": "stage_plan", "purpose": "plan", "producedBySeatId": "model_opus#0",
+      "id": "stage_plan", "purpose": "plan", "producedByWorkerId": "model_opus#0",
       "promptProfileId": "default_master_plan_v1", "status": "done",
       "markdown": "# Plan\n..."
     }
@@ -307,7 +311,7 @@ concatenation**, so prompt content cannot inject commands.
 **`manual_paste` kind** (no `invoke`): for any model whose CLI cannot yet be
 driven headlessly (e.g. an IDE-bound Composer, or a tool behind an interactive
 login). The app shows the prompt with a copy button and a paste box; the member
-stays `skipped` until the user pastes the answer. This keeps the panel
+stays `skipped` until the user pastes the answer. This keeps the team
 *complete* on day one and lets each CLI graduate to `headless_cli` later by
 editing its manifest only.
 
@@ -349,7 +353,7 @@ changing the event shapes**.
 ```
 
 Member events key on **`workerId`** (Phase 06; `workerId` included for convenience),
-so self-fusion seats never collide. Event kinds (extensible): `run.*`, `member.*`,
+so self-fusion workers never collide. Event kinds (extensible): `run.*`, `member.*`,
 and the generic **`stage.*`** family (`stage.started`, `stage.output`,
 `stage.completed`, `stage.failed`, `stage.reused`) carrying `stageId` + `purpose` —
 RB adds no per-stage-kind event families. Clients dedupe by `id` and apply
@@ -367,7 +371,7 @@ Start simple, stay migratable:
 ```text
 run_<id>/
   run.json                  # TeamRun (truth)
-  member_<workerId>.md        # each seat's raw answer (workerId, so self-fusion seats don't collide)
+  member_<workerId>.md        # each worker's raw answer (workerId, so self-fusion workers don't collide)
   analysis.md               # derived view of the PlanAnalysis (Phase 06)
   master_plan.md            # the plan stage output (purpose: plan)
   bundle.md                 # export: prompt + all members + analysis + plan, one file
@@ -399,7 +403,7 @@ own (which the user already authorized via their subscriptions).
 data:
 
 ```text
-models_six.json            # the founder's six workers
+models_six.json            # the Founder's Six workers
 run_inflight.json         # a run mid fan-out (some running, some done)
 run_complete.json         # a finished run with plan
 run_partial.json          # one worker timed out; plan still produced
@@ -448,11 +452,11 @@ capability has a named attach point in the MVP design:
 
 | Deferred capability | Attaches at | What changes (additive only) |
 | --- | --- | --- |
-| **Fusion-grade synthesis + evals** (`06`) | `TeamRun` model + `PlanWriter` + `RunStore` | The correct council foundation: `Worker` (self-fusion), structured `PlanAnalysis`, `StageOutput` sequence, two-stage analysis→plan, tiered presets, and an offline eval harness. **Built before RB** so RB never restructures the run model. |
+| **Fusion-grade synthesis + evals** (`06`) | `TeamRun` model + `PlanWriter` + `RunStore` | The correct team foundation: `Worker` (self-fusion), structured `PlanAnalysis`, `StageOutput` sequence, two-stage analysis→plan, tiered presets, and an offline eval harness. **Built before RB** so RB never restructures the run model. |
 | **Review Board + Final Spec** (`RB0`-`RB4`) | `StageOutput` (from `06`) + `TeamRunCoordinator` + prompt builders | After the plan stage, append optional advisory review `StageOutput`s, then a first-principles final-spec reduce. New `StagePurpose` cases only — reuse fanout/reduce; no generic DAG. |
 | **Return review + scorecards + routing** (`RB5`) | `StageOutput` + `WorkerAnswer` outcomes + the `06` eval harness | After dispatch, capture the executor return, score it against the final spec, aggregate worker scorecards from local history, and recommend rerun/remix/pick. Closes the control loop; still no managed git. |
-| **Council-as-Tool** (local CLI / MCP / HTTP) — **specced (`RB6`)** | `TeamService` over the existing engine + the `RunEvent` stream + a loopback server (same seam as iOS) | Expose the panel→analysis→plan council as a tool any local terminal agent (Claude Code, Codex, Grok, Cursor) invokes mid-task — **local Fusion at zero marginal cost.** Recursion-guarded, governed, localhost-only, judgment-only (no git/execution). The strategic moat; needs only `06`. |
-| **Generic Council critique** | RB stage primitives | If revived, it becomes a workflow preset over `WorkflowStage`, not a separate cross-critique engine. The post-draft review board supersedes generic model-vs-model critique for implementation specs. |
+| **Team-as-Tool** (local CLI / MCP / HTTP) — **specced (`RB6`)** | `TeamService` over the existing engine + the `RunEvent` stream + a loopback server (same seam as iOS) | Expose the team→analysis→plan team as a tool any local terminal agent (Claude Code, Codex, Grok, Cursor) invokes mid-task — **local Fusion at zero marginal cost.** Recursion-guarded, governed, localhost-only, review-only (no git/execution). The strategic moat; needs only `06`. |
+| **Generic Team critique** | RB stage primitives | If revived, it becomes a workflow preset over `WorkflowStage`, not a separate cross-critique engine. The post-draft review board supersedes generic model-vs-model critique for implementation specs. |
 | **Managed execution lanes** | `DriverManifest.invoke.workingDir` (already nullable) + new execution owner model + `DriverKind.protocol` | A worker run gets a real isolated cwd; member output becomes built work instead of text. Isolation rules belong in the owning post-MVP phase doc. |
 | **Direct executor dispatch** (`RB4`) | The plan / final spec + selected worker + configured working directory | Creates `implementation_brief.md` and `execution_prompt_<workerId>.md`, then invokes the selected healthy CLI. Allnighter does not create worktrees, branches, commits, landing, or revert rules. |
 | **Managed "Implement This" / picker-as-prompt** | `ImplementationBrief` + execution substrate | A managed "send this to execution" action creates a task from the chosen plan; reuses the same work-order shape after execution safety exists. |
@@ -465,7 +469,7 @@ capability has a named attach point in the MVP design:
 | **Persistence at scale** | Run index | Flat files → GRDB; `run.json` stays the artifact. |
 
 Rule: if a phase wants a shortcut that would *remove* one of these seams (e.g.
-hardcoding the panel, shell-concatenating prompts, mutating UI truth instead of
+hardcoding the team, shell-concatenating prompts, mutating UI truth instead of
 emitting events), stop and take the forward-compatible path.
 
 ---
@@ -487,17 +491,17 @@ emitting events), stop and take the forward-compatible path.
 
 | Date | Decision | Note |
 | --- | --- | --- |
-| 2026-06-14 | MVP scoped first to the Council slice (text judgment + configurable synthesis); full managed factory parked. | Cheapest, safest, proven-daily wedge; reuses constitution substrate. Direct executor dispatch is the next MVP layer without Allnighter-owned git rules. |
+| 2026-06-14 | MVP scoped first to the Team slice (text review + configurable synthesis); full managed factory parked. | Cheapest, safest, proven-daily wedge; reuses constitution substrate. Direct executor dispatch is the next MVP layer without Allnighter-owned git rules. |
 | 2026-06-14 | Swift 6 / SwiftUI for the MVP (Python rejected per founder). | Seed of the full product; no rewrite for iOS or factory. |
-| 2026-06-14 | Workers described by editable driver manifests; `manual_paste` fallback for un-scriptable CLIs. | Churn defense + complete panel on day one. |
+| 2026-06-14 | Workers described by editable driver manifests; `manual_paste` fallback for un-scriptable CLIs. | Churn defense + complete team on day one. |
 | 2026-06-14 | In-process `RunEvent` stream with constitution-matching envelope. | iOS attaches later via WebSocket with no event-shape change. |
 | 2026-06-14 | Post-MVP review board uses a fixed fanout/reduce stage chain, not a general workflow engine. | Phase 05 ships first; review feedback is advisory and final spec synthesis decides from first principles. |
-| 2026-06-14 | OpenRouter's **Fusion** result is validation, not a pivot — Allnighter is the local, zero-marginal-cost version. No OpenRouter/API/keys; the fixed chain stays. | Fusion's lesson (structured judge analysis + self-fusion + budget-panel quality) is captured locally in Phase 06. |
-| 2026-06-14 | **Phase 06 lays the correct final council-run model before RB:** `Worker` (self-fusion), structured `PlanAnalysis`, `StageOutput` sequence; the `Synthesis` struct is removed. | Founder directive: build the right foundation now (no users → no migration). Fixtures + call sites rewritten; no compatibility shims. RB adds `StagePurpose` cases only. |
-| 2026-06-14 | Synthesis is two stages (analysis → plan); `PlanAnalysis` is always structured truth. "combined vs separate" is a per-preset **call-count** choice, never a data-shape shortcut. | Daily speed comes from preset choice (fewer seats, fast judge), not from skipping the analysis. |
-| 2026-06-14 | An offline **eval harness** (hidden weighted + negative rubrics) is the discipline gate for judgment changes; **RB5** closes the control loop (return review → scorecards → routing). | A synthesis/profile change ships as default only if it does not regress the corpus. |
-| 2026-06-14 | **Council-as-Tool** (`RB6`): expose the council as a local tool (CLI / MCP / loopback HTTP) any terminal agent can call — local Fusion at zero marginal cost. Recursion-guarded, governed, judgment-only (no git/execution). Needs only `06`, so sequenceable early. | The moat. Founder confirmed it is in scope; the deferred "no git complexity" caveat refers to worktree/landing machinery, which RB6 explicitly excludes. |
-| 2026-06-14 | **Hardening pass (post-review).** `StageOutput` carries a typed `StagePayload` union (one case per purpose) + `producedByWorkerId` (not seat-only); `StagePurpose` is a closed enum (exhaustive switches are a feature). | Two independent doc reviews; close contract gaps before code. Reduces are produced by workers, not panel seats. |
+| 2026-06-14 | OpenRouter's **Fusion** result is validation, not a pivot — Allnighter is the local, zero-marginal-cost version. No OpenRouter/API/keys; the fixed chain stays. | Fusion's lesson (structured plan writer analysis + self-fusion + budget-team quality) is captured locally in Phase 06. |
+| 2026-06-14 | **Phase 06 lays the correct final team-run model before RB:** `Worker` (self-fusion), structured `PlanAnalysis`, `StageOutput` sequence; the `Synthesis` struct is removed. | Founder directive: build the right foundation now (no users → no migration). Fixtures + call sites rewritten; no compatibility shims. RB adds `StagePurpose` cases only. |
+| 2026-06-14 | Synthesis is two stages (analysis → plan); `PlanAnalysis` is always structured truth. "combined vs separate" is a per-preset **call-count** choice, never a data-shape shortcut. | Daily speed comes from preset choice (fewer workers, fast plan writer), not from skipping the analysis. |
+| 2026-06-14 | An offline **eval harness** (hidden weighted + negative rubrics) is the discipline gate for review changes; **RB5** closes the control loop (return review → scorecards → routing). | A synthesis/profile change ships as default only if it does not regress the corpus. |
+| 2026-06-14 | **Team-as-Tool** (`RB6`): expose the team as a local tool (CLI / MCP / loopback HTTP) any terminal agent can call — local Fusion at zero marginal cost. Recursion-guarded, governed, review-only (no git/execution). Needs only `06`, so sequenceable early. | The moat. Founder confirmed it is in scope; the deferred "no git complexity" caveat refers to worktree/landing machinery, which RB6 explicitly excludes. |
+| 2026-06-14 | **Hardening pass (post-review).** `StageOutput` carries a typed `StagePayload` union (one case per purpose) + `producedByWorkerId` (not worker-only); `StagePurpose` is a closed enum (exhaustive switches are a feature). | Two independent doc reviews; close contract gaps before code. Reduces are produced by workers, not workers. |
 | 2026-06-14 | **`AllnighterEngine` imports no UI** (no SwiftUI/AppKit/`@Observable`); UI state lives only in the Mac app (`AppModel`). The `allnighter` RB6 binary links Engine and must build headlessly. | Enforced by a test/lint. Prevents the RB6 CLI from needing a display server. |
 | 2026-06-14 | **HTTP recursion guard fails closed:** the loopback server requires a mandatory depth header; all Allnighter clients forward `ALLNIGHTER_TEAM_DEPTH`; the session token is scrubbed from worker subprocess env. Cross-process concurrency uses `flock(2)` (auto-released on death). | Env-var alone can't protect an already-running server. Fail-closed + governor backstop; residual adversarial self-recursion is bounded by the governor + quota and documented. |
 | 2026-06-14 | **RB5 proof commands default to manual/reveal;** auto-execution is opt-in behind a user allowlist + per-command approval, timeout, in the execution dir, logged. Multi-executor compare is **sequential** by default; parallel only with distinct working dirs (never one shared CWD). | Running model-authored commands is high-risk; concurrent agents in one repo corrupt each other. |

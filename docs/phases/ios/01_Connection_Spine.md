@@ -7,7 +7,7 @@ Owner: Mac + Shared Core
 Created: 2026-06-15
 Updated: 2026-06-15 (cloud-first pivot + hardening)
 Depends on: `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
-§4/§6/§9, `../../mvp/RB6_Council_As_Tool.md`, `../CLI_Product_Spine.md`,
+§4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`, `../CLI_Product_Spine.md`,
 `../Work_Order_Team_Model.md` (vocabulary). Historical cleanup record:
 `../../archive/phases/Team_First_Vocabulary_Cleanup.md`.
 
@@ -43,7 +43,7 @@ Mac agent ──dials OUT──►  command inbox + events + auth ───┘
   transient).
 - **Pre-req — freeze the event/run vocabulary.** Retire/map legacy
   `synthesis.*` -> `stage.*` (`00_MVP_Architecture` §6) and
-  `TeamRun`/`memberResponses`/`plan` -> `TeamRun`/`workerAnswers`/`plan`
+  `TeamRun`/`workerAnswers`/`plan` -> `TeamRun`/`workerAnswers`/`plan`
   **before the wire locks**. iOS should consume the same `TeamRunJSON` shape as
   `alln team --json`; it should never see a dual vocabulary.
 

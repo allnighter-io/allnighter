@@ -25,12 +25,12 @@
   --space-24: 96px;
 
   /* Corner radii — tighter than consumer-soft. Cursor/Linear-grade.
-     macOS controls ~6, cards ~10, panels ~14, window ~12. */
+     macOS controls ~6, cards ~10, teams ~14, window ~12. */
   --radius-xs:   4px;   /* tags, chips, kbd */
   --radius-sm:   6px;   /* buttons, inputs, controls */
   --radius-md:   8px;   /* small cards, menu items */
   --radius-lg:   10px;  /* cards */
-  --radius-xl:   14px;  /* panels, popovers */
+  --radius-xl:   14px;  /* teams, popovers */
   --radius-2xl:  18px;  /* modals, hero surfaces */
   --radius-window: 12px;/* app window corner */
   --radius-pill: 999px; /* status pills, avatars-as-pills */

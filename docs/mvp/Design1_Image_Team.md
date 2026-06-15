@@ -1,4 +1,8 @@
-# Design1 - The Image Council
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
+# Design1 - The Image team
 
 Status: **BUILT (2026-06-15) — Core+Engine+Mac green (135 swift test + Mac app).** Capability gate passed: 3 image engines confirmed headless at $0.
 Owner: Shared Core + Mac
@@ -12,9 +16,9 @@ Depends on: 06 (`Worker`, `StageOutput`), RB1 (`WorkflowPreset`, `WorkOrder.summ
 
 ## Why this is small
 
-The council shape already exists (RB): fan out one prompt to a panel, capture each
+The team shape already exists (RB): fan out one prompt to a team, capture each
 worker's output, show it. Design1 changes exactly one thing — **the workers emit
-images instead of text, and the board shows images.** Everything else (panel
+images instead of text, and the board shows images.** Everything else (team
 selection, parallel fan-out, per-worker timeout/status, reuse, `WorkOrder.designSummary`) is
 reused. The only genuinely new engineering is **capturing an image output from a CLI**
 and a **gallery board**.
@@ -23,7 +27,7 @@ and a **gallery board**.
 
 Design chip + an attached screenshot ("improve this") → fan out to image-capable
 workers × design personas → each returns a finished design image → a board of options
-side by side → the user picks → "more like this" iterates a seat.
+side by side → the user picks → "more like this" iterates a worker.
 
 ## Non-Goals
 
@@ -33,21 +37,21 @@ side by side → the user picks → "more like this" iterates a seat.
 
 ## Design
 
-### Panel: image-capable workers × personas
+### Team: image-capable workers × personas
 
 - **Capability gate (`canGenerateImages`).** Doctor learns, per worker, whether its
   CLI can generate an image headlessly at $0. **Confirmed on-device (2026-06-15):**
   `grok` → Grok Imagine, **Antigravity CLI** → Gemini/Nano Banana (the successor to
   the legacy gemini-cli — use Antigravity), `codex` → ChatGPT image. **Claude Code does
   *not* generate images** — it is the build-side `canReadImages` implementer (Design2),
-  not a design seat. A design seat binds only to an image-capable worker; the
+  not a design worker. A design worker binds only to an image-capable worker; the
   `WorkOrder.designSummary` shows routing and honestly omits workers that can't. **The image
   probe is a separate, quota-aware check** (a tiny test generation, opt-in / "verify
   image gen" button) — it is **never folded into everyday text Doctor**, so normal
   health checks don't burn image quota.
 - **Personas** are short editable style directions (Design0): `minimal`, `bold`,
-  `editorial`, `on_brand`. A design panel is **seats = (image worker × persona)**,
-  spread for range. Default 3–4 seats. A worker may fill several seats (different
+  `editorial`, `on_brand`. A design team is **seats = (image worker × persona)**,
+  spread for range. Default 3–4 workers. A worker may fill several workers (different
   personas) — self-fusion, exactly like RB.
 - **Range** comes from engines × personas. No automated divergence measurement; if
   options look too alike, the user hits **"more / re-roll."**
@@ -91,18 +95,18 @@ stdout — so we **parse the path and copy** into the run folder.
 **Normalization is mandatory:** whatever arrives (a file at our path, or a path parsed
 from stdout) is copied to a **validated local `option_<workerId>.png|jpg`** (PNG/JPEG
 magic bytes + non-zero size) before it reaches `board.json`. No URLs, no base64 in
-practice. A capture that can't be normalized → **failed seat** (gray tile + reason),
+practice. A capture that can't be normalized → **failed worker** (gray tile + reason),
 never a broken board. Keep this **thin and per-driver**; it is the only new contract.
 
 ### The design prompt (kept dumb)
 
-Each seat is dispatched the **attached screenshot** (as a file the model reads) +
+Each worker is dispatched the **attached screenshot** (as a file the model reads) +
 **"improve this"** + the **persona direction** + the **target shape**. Two short,
 honest constraints earn their place (no fixture, no structural cage):
 
 - **Preserve the screen.** "Same screen and same information architecture — keep the
   sections, nav items, and content; change **visual style only**." One line that stops
-  seats from drifting into *different screens* (worst for greenfield), so the board
+  workers from drifting into *different screens* (worst for greenfield), so the board
   compares **taste**, not content.
 - **Pin the shape.** Append an explicit aspect/shape directive ("vertical mobile
   layout" / "wide desktop layout") so engines don't return random aspect ratios that
@@ -126,11 +130,11 @@ two constraints.
 the **first truth surface** — no AI verdict precedes it.
 
 - **Progressive reveal:** placeholder tiles at identical size appear immediately; each
-  swaps to its image as the seat finishes (like RB's streaming panel). Tiles use
+  swaps to its image as the worker finishes (like RB's streaming team). Tiles use
   **fixed aspect-ratio containers** (from the target shape) with `object-fit: cover`,
   so a stray engine aspect ratio can't make the grid reflow.
 - **Identical scale; persona + engine badge** on each tile (and a "same engine,
-  different persona" hint when one worker fills several seats — so the user reads
+  different persona" hint when one worker fills several workers — so the user reads
   *where the range comes from*). Fullscreen loads the full-res original PNG.
 - **Fullscreen** (←/→ to flip) and **A/B** (two side by side). For redesigns, A/B and
   fullscreen offer a **before/after toggle** against the attached `screenshot.png` —
@@ -140,22 +144,22 @@ the **first truth surface** — no AI verdict precedes it.
   system at a glance. (Cheap delight; pixel stats, not OCR.)
 - **Pick this** → a **UI action that appends `chosen_option.json` to `run.json`** (one
   truth path; logged for future taste memory).
-- **"More like this"** on any tile → **resume that seat's session and ask for a
+- **"More like this"** on any tile → **resume that worker's session and ask for a
   variant** (Grok `--resume <sessionId>` → `image_edit`; Antigravity `-c`; Codex
   resume) with a tightened push ("same direction, bolder" / "more whitespace"), so the
-  result is a real *variation*, not a fresh random layout. The seat's `sessionId`
+  result is a real *variation*, not a fresh random layout. The worker's `sessionId`
   (captured from its gen run) is the handle. If resume isn't available, fall back to a
   text re-prompt that references the prior image. RB1 `reuseKey`; other tiles untouched.
-- **Failed seat** (engine error / un-normalizable output) → a gray tile with the
+- **Failed worker** (engine error / un-normalizable output) → a gray tile with the
   reason; the board is usable with N−1 options (partial beats blocked, RB law).
 
 ### Reuse / resume
 
-- **"More like this"** and persona edits re-run **one** seat. Changing the screenshot
+- **"More like this"** and persona edits re-run **one** worker. Changing the screenshot
   or the base prompt invalidates the board (content-addressed `reuseKey` over
   `{screenshot, prompt, persona, targetShape}`).
 - A run stopped mid-fan-out keeps completed options; re-running continues from the
-  first incomplete seat.
+  first incomplete worker.
 
 ### Engine/spine wiring (contract-first)
 
@@ -164,7 +168,7 @@ Additive only — do **not** overload RB's text stages:
 - New `StagePurpose` cases: `design_fanout` (fanout that captures images), `board`
   (local view stage).
 - New `StagePayload.board(BoardPayload)`; new `Doctor` flag `canGenerateImages`.
-- Design runs are a **parallel preset** with no Markdown member answers — the unit is
+- Design runs are a **parallel preset** with no Markdown worker answers — the unit is
   the image, not `PlanAnalysis`.
 
 Land these in `AllnighterCore` with Codable round-trip + fixtures before any UI.
@@ -188,9 +192,9 @@ Land these in `AllnighterCore` with Codable round-trip + fixtures before any UI.
 - [ ] D1-S05 — Screenshot attach in the composer (drag/drop + `NSOpenPanel`/
   `fileImporter`, image types only, thumbnail preview, remove) + the target-shape chip
   (aspect-ratio inference, editable, one quick choice for greenfield).
-- [ ] D1-S06 — `design_fanout` stage: parallel image fan-out over image-capable seats,
-  per-seat timeout/status, normalized image capture; `WorkOrder.designSummary` shows mockup count
-  + per-seat engine.
+- [ ] D1-S06 — `design_fanout` stage: parallel image fan-out over image-capable workers,
+  per-worker timeout/status, normalized image capture; `WorkOrder.designSummary` shows mockup count
+  + per-worker engine.
 - [ ] D1-S07 — The board UI: progressive reveal, fixed-aspect identical-scale grid,
   persona/engine badges, fullscreen + A/B with before/after toggle, palette swatches,
   "pick this" (append `chosen_option.json`), "more like this" (img2img), failed tiles.
@@ -203,7 +207,7 @@ Pick the Design chip. Attach a screenshot of a cluttered profile page; type
 "make this feel premium and clean."
 -> the target-shape chip reads "mobile" from the screenshot dimensions; one tap could
    flip it to desktop.
--> 3-4 seats fan out across image-capable engines × personas (minimal / bold /
+-> 3-4 workers fan out across image-capable engines × personas (minimal / bold /
    editorial / on_brand). The shape summary showed "4 mockups · grok-imagine,
    gemini" before commit.
 -> the board fills progressively; four finished design images sit side by side at the
@@ -211,7 +215,7 @@ Pick the Design chip. Attach a screenshot of a cluttered profile page; type
 -> open the bold option fullscreen, flip ←/→ through the others; toggle before/after
    against the original screenshot; A/B the two you like; palette swatches show each
    one's color system.
--> click "more like this" on the minimal option: that one seat regenerates via
+-> click "more like this" on the minimal option: that one worker regenerates via
    image-to-image (its own image as reference, "bolder") into a real variant; the other
    three tiles are untouched.
 -> pick the minimal variant; chosen_option.json is appended to run.json.
@@ -221,17 +225,17 @@ is gray with the reason; the other three remain fully usable.
 
 ## Exit Gates
 
-- [ ] Design seats bind only to `canGenerateImages` workers; routing is shown in the
+- [ ] Design workers bind only to `canGenerateImages` workers; routing is shown in the
   work-shape summary; non-capable workers are omitted honestly.
 - [ ] Workers emit **images**; the engine **normalizes** any output (file / URL /
   base64) to a validated local `option_<workerId>.png`. No HTML, no render step, no OCR
   anywhere.
 - [ ] The board reveals progressively at identical (fixed-aspect) scale, supports
   fullscreen/A-B + before/after, palette swatches, "pick this", and "more like this"
-  (img2img one-seat reuse), and degrades on a failed/un-normalizable seat.
+  (img2img one-worker reuse), and degrades on a failed/un-normalizable worker.
 - [ ] No AI verdict precedes the board; `chosen_option.json` is appended to `run.json`
   on pick.
-- [ ] `run.json` is truth; artifacts derived; reuse re-runs one seat, screenshot/prompt
+- [ ] `run.json` is truth; artifacts derived; reuse re-runs one worker, screenshot/prompt
   change invalidates the board.
 - [ ] Activation Gate passed and image-capable CLIs recorded.
 - [ ] `swift test` + app suite green via `scripts/check.sh`.

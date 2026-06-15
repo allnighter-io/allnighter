@@ -103,7 +103,7 @@ worker turn) · done · failed · timed_out · manual-paste (awaiting paste).
 - Never fake state: failed shows failed, timeout shows timed out, manual-paste
   shows awaiting paste — all from `turn.status` / `systemEvent`.
 - Hide the plumbing: copy says model / skill / worker / team / plan, never
-  subprocess / worktree / branch or legacy panel/council/master-plan words.
+  subprocess / worktree / branch or legacy team lineup/team/master-plan words.
 - One active heavy turn per thread (v1): heavy actions disabled when
   `thread.hasActiveHeavyTurn`.
 

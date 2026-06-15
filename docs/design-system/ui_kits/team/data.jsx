@@ -1,7 +1,7 @@
 // @ds-adherence-ignore -- UI-kit data + a Glyph helper. Window globals.
 const R = window.React;
 
-// The founder's real six-worker panel (MVP README §0).
+// The founder's real six-worker team (MVP README §0).
 window.AL_WORKERS = [
   { id: 'opus',     name: 'Opus 4.8',     model: 'via claude-code', brand: 'anthropic',    color: 'FFA630', synth: true },
   { id: 'gpt',      name: 'ChatGPT 5.5',  model: 'via codex-cli',   icon: 'terminal' },

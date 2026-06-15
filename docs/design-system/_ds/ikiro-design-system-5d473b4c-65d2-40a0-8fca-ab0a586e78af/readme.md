@@ -53,7 +53,7 @@ The one-liner lineage:
 - **Verbs first, short:** buttons and actions are imperative and tight — `Publish`, `Add link`, `Upgrade`, `Export Website.md`.
 - **Outcome over feature:** "Measure clicks and improve the page", not "Analytics dashboard with charts."
 - **Ownership language:** *own, yours, export, portable, you keep it.* This is the differentiator — say it plainly.
-- **Numbers are concrete and tabular:** `1,284 clicks`, `3 seats left`, `ikiro.pro/mara`. Use the mono face for slugs, counts and the `Website.md` filename.
+- **Numbers are concrete and tabular:** `1,284 clicks`, `3 workers left`, `ikiro.pro/mara`. Use the mono face for slugs, counts and the `Website.md` filename.
 - **No emoji** in product UI or marketing. The teal dot and Lucide icons carry the warmth.
 - **Punctuation:** middle dot `·` separates metadata (`42 new prints · ikiro.pro/notes`). Em dashes for asides, sparingly.
 
@@ -71,8 +71,8 @@ The system is built on three colors: **ink** `#030619`, **teal** `#12BDBC`, and 
 
 - **Color** — Ink is the near-black navy of the wordmark; it tints every neutral (slate ramp `--ink-25 → --ink-950`) and every shadow. Teal is the only saturated brand color — reserve it for primary actions, the live/accent state, and the mark's dot. Status hues (green/amber/red/blue) are muted so they sit quietly beside teal. Teal `#12BDBC` fails text contrast on white, so `--accent-text` resolves to `--teal-700` for type. See `tokens/colors.css`.
 - **Type** — **Geist** (a clean, modern geometric grotesk) for all product UI, **JetBrains Mono** for slugs, counts and `Website.md`, and **Newsreader** (`--font-serif`) as an editorial serif used *only* for expressive published-page identity (e.g. the Remi Solène name) — never in the product chrome. Display is extrabold (800) with tight tracking; body is 400/450 at 1.5–1.6 line-height. Headings balance-wrap, body pretty-wraps. See `tokens/typography.css`.
-- **Spacing** — 4px base grid. Whitespace is a brand value: panels breathe, the published site centers in a calm ~560px column. See `tokens/spacing.css`.
-- **Corners** — soft, never bubbly, echoing the arch of the mark. Controls 12px, cards 16px, panels/modals 22px, hero surfaces 28px, pills fully round. See `tokens/elevation.css`.
+- **Spacing** — 4px base grid. Whitespace is a brand value: teams breathe, the published site centers in a calm ~560px column. See `tokens/spacing.css`.
+- **Corners** — soft, never bubbly, echoing the arch of the mark. Controls 12px, cards 16px, teams/modals 22px, hero surfaces 28px, pills fully round. See `tokens/elevation.css`.
 - **Shadows** — soft and navy-tinted (`rgba(3,6,25,…)`), low opacity, generous blur. Five steps (`xs → xl`). A dedicated teal glow (`--shadow-accent`) appears under primary buttons on hover and under "alive" elements. Cards are a **hairline border + small shadow**, not heavy drop shadows.
 - **Backgrounds** — paper or app-grey, never gradient washes. Imagery is the color: real photography (warm, natural light) in covers, feature tiles and thumbnails. The only gradients used are (a) the cover→page scrim and (b) the subtle teal tint on `accent`/upsell surfaces.
 - **Borders** — 1px hairlines in ink-tinted greys (`--border-subtle/-default/-strong`). On dark themes, borders become low-alpha white.

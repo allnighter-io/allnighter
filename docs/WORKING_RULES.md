@@ -3,7 +3,7 @@
 ## Positioning
 
 Allnighter is a **local-first agent factory and floor manager** for terminal-based
-AI coding tools. Lead with parallel safe lanes, council-driven planning, and
+AI coding tools. Lead with parallel safe lanes, team-driven planning, and
 native Mac + iOS delight — not with model/provider choice.
 
 ## Product Boundary
@@ -13,7 +13,7 @@ does **not** own the agents themselves, model APIs, or agent reasoning.
 
 In scope:
 
-- spawn/manage CLI agent sessions and council runs;
+- spawn/manage CLI agent sessions and team runs;
 - lane/worktree isolation for parallel work;
 - Mac command center + iOS remote over Tailscale;
 - BYOK key storage on Mac;
@@ -31,9 +31,9 @@ Out of product core (v1):
 
 ## MVP Boundary (v1)
 
-Must ship for first testers (Council slice — see `docs/mvp/README.md`):
+Must ship for first testers (Team slice — see `docs/mvp/README.md`):
 
-- Mac: enroll repo, run council (parallel subscription CLIs → plan).
+- Mac: enroll repo, run team (parallel subscription CLIs → plan).
 - Text-only output; zero marginal cost path.
 - Shared `AllnighterCore` engine and event envelope.
 - Mac menu-bar / dashboard shell.
@@ -73,7 +73,7 @@ Each supported CLI agent has a driver config describing:
 - executable and args;
 - spawn environment;
 - output parsing hooks;
-- panel/seat expectations for council runs.
+- team/worker expectations for team runs.
 
 Drivers are configuration + adapters, not alternate run stores. Run state
 lives in the orchestration layer.

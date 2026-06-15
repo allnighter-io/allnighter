@@ -92,7 +92,7 @@ Worker: Opus 4.8 as Plan Writer
 
 The plan stage may run after the parallel answers, but the product still shows a
 worker doing the job. JSON uses `planWriterWorkerId`; UI copy may say "Plan
-written by Opus 4.8." Do not expose `synthesizer` or `judge` as product nouns.
+written by Opus 4.8." Do not expose `plan writer` or `plan writer` as product nouns.
 
 This keeps the rule simple:
 

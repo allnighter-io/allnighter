@@ -100,7 +100,7 @@ function HomeScreen({ go }) {
       R.createElement('div', { className: 'ios-row' },
         R.createElement('span', { className: 'ios-glyph', style: { background: 'var(--accent-surface)' } }, R.createElement(Icon, { name: 'users', size: 18, style: { color: 'var(--accent-text)' } })),
         R.createElement('span', { className: 'ios-main' },
-          R.createElement('span', { className: 'ios-t' }, 'A race is ready to judge'),
+          R.createElement('span', { className: 'ios-t' }, 'A race is ready to plan writer'),
           R.createElement('span', { className: 'ios-m' }, '3 directions · premium dashboard')),
         R.createElement(Icon, { name: 'chevron-right', size: 18, style: { color: 'var(--text-faint)' } }))),
     R.createElement('div', { className: 'ios-sectit' }, 'Landed overnight'),

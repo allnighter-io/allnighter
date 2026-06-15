@@ -1,7 +1,7 @@
-Primary action control — use for any click target that performs an action; `primary` (amber) for the single most important action on a surface (Run council, Synthesize), `secondary` for supporting actions, `ghost` for low-emphasis/toolbar actions, `danger` for destructive ones.
+Primary action control — use for any click target that performs an action; `primary` (amber) for the single most important action on a surface (Run team, Synthesize), `secondary` for supporting actions, `ghost` for low-emphasis/toolbar actions, `danger` for destructive ones.
 
 ```jsx
-<Button variant="primary" iconLeft={<Icon name="Play" />}>Run council</Button>
+<Button variant="primary" iconLeft={<Icon name="Play" />}>Run team</Button>
 <Button variant="secondary">Add worker</Button>
 <Button variant="ghost" size="sm">Cancel</Button>
 ```

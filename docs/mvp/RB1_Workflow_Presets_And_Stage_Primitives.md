@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # RB1 - Workflow Presets + Stage Primitives
 
 Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
@@ -8,7 +12,7 @@ Depends on: 06 (the run model: `Worker`, `PlanAnalysis`, `StageOutput`, tiered p
 
 ## Goal
 
-Generalize the hardcoded panel/synthesis presets into a fixed fanout/reduce
+Generalize the hardcoded team/synthesis presets into a fixed fanout/reduce
 **workflow** over Phase 06's `StageOutput` sequence — so the same machinery can
 chain reviews and a final spec. This is the preset + validation + reuse layer,
 **not** a new run model (Phase 06 already laid that down) and not a general DAG.
@@ -21,9 +25,9 @@ RB1 is thin because Phase 06 did the heavy structural work:
   RB1 does **not** restructure `TeamRun`; it adds new `StagePurpose` cases
   (`review`, `final_spec`, `dispatch`) and the preset machinery that schedules them.
 - `PromptProfile` generalizes `SynthesisInstructionPreset` (06 already evolved it
-  into the structured judge profile; RB1 adds the `purpose` field). There are **no
+  into the structured plan writer profile; RB1 adds the `purpose` field). There are **no
   users** — change the type to its final shape; do not keep a compatibility shim.
-- `WorkflowPreset` extends `TeamPreset` with `stages`. 06's tiered panel presets
+- `WorkflowPreset` extends `TeamPreset` with `stages`. 06's tiered team presets
   become one-/two-reduce `WorkflowPreset`s.
 - **Honest profile persistence already shipped** (`StageOutput.promptProfileId`,
   from Phase 05's `SynthesisInstructionChoice`). RB1 keeps a regression test only.
@@ -47,11 +51,11 @@ fanout: run many workers in parallel with stage-specific prompt profiles
 reduce: run one worker over assembled inputs with one prompt profile
 ```
 
-The only valid v1 stage order is (Phase 06 owns `panel_fanout` → `analysis` →
+The only valid v1 stage order is (Phase 06 owns `team_fanout` → `analysis` →
 `plan`; RB adds the rest):
 
 ```text
-panel_fanout -> analysis -> plan -> review_fanout? -> final_spec? -> handoff?
+team_fanout -> analysis -> plan -> review_fanout? -> final_spec? -> handoff?
 ```
 
 `WorkflowPreset` stores a named configuration of that shape. Validation rejects
@@ -76,7 +80,7 @@ deliberate, compiler-guided change.
 ### reuseKey + the reuse matrix (precise so implementation isn't guesswork)
 
 `reuseKey = hash(promptProfileId | customInstruction, profileVersion, the resolved
-input bytes for this stage's `inputSelectors`, ordered workerId list + per-seat
+input bytes for this stage's `inputSelectors`, ordered workerId list + per-worker
 stance, modelLabel set)`. Before running a stage the coordinator looks for a
 matching `reuseKey` (in this run, or the most recent prior run for the **same
 normalized prompt** when "reuse last run" is on) and reuses on a hit
@@ -87,18 +91,18 @@ output is appended; the latest of a given purpose/lens is the active one — out
 are append-only history). This resolves the "rerun returns the cached answer"
 trap: reuse is for unchanged inputs; rerun means "I want a fresh take."
 
-| Change the user makes | panel | analysis | plan | reviews | final |
+| Change the user makes | team | analysis | plan | reviews | final |
 | --- | --- | --- | --- | --- | --- |
 | Edit one review lens profile | reuse | reuse | reuse | rerun **that** lens | rerun |
 | Edit the founder prompt | rerun | rerun | rerun | rerun | rerun |
-| Toggle/add a panel seat | rerun changed seats | rerun | rerun | reuse | rerun |
+| Toggle/add a worker | rerun changed workers | rerun | rerun | reuse | rerun |
 | Edit synthesis instructions | reuse | rerun | rerun | reuse | reuse |
 | Click "rerun" on a stage | — | force-fresh that stage + everything downstream | | | |
 
 ## Proposed Core Types
 
 ```text
-PromptProfile                         # generalizes SynthesisInstructionPreset (06's judge profiles)
+PromptProfile                         # generalizes SynthesisInstructionPreset (06's plan writer profiles)
 - id
 - displayName
 - purpose: plan_analysis | plan_writer | review_lens | final_spec | execution_dispatch
@@ -106,7 +110,7 @@ PromptProfile                         # generalizes SynthesisInstructionPreset (
 - template
 - builtIn
 
-WorkflowPreset                        # extends TeamPreset (which already has seats: [WorkerSpec] + synthesis)
+WorkflowPreset                        # extends TeamPreset (which already has workers: [WorkerSpec] + synthesis)
 - id
 - displayName
 - description
@@ -126,7 +130,7 @@ WorkflowStage
 StageBinding                          # a (profile -> worker) assignment with its own timeout
 - id
 - promptProfileId
-- workerId                            # the worker that runs this binding (reduces/reviews are NOT panel seats)
+- workerId                            # the worker that runs this binding (reduces/reviews are NOT workers)
 - preferFastWorker: Bool = false      # RB2 budget routing: pick fastest healthy worker instead (see RB2)
 - timeoutSeconds                      # PER-binding, so a slow lens can't kill the others
 - finalizerPolicy?                    # only on the final_spec reduce binding
@@ -140,20 +144,20 @@ FinalizerPolicy
 - requiredSections: [String]
 
 WorkOrder.summary                     # live composer / CLI / MCP shape string
-- seatCount, judge, analysisDepth, lensCount (structural facts only)
+- workerCount, plan writer, analysisDepth, lensCount (structural facts only)
 ```
 
-**Panel vs reduce bindings (resolves the seat/worker conflation).** The *panel*
+**Team vs reduce bindings (resolves the worker/worker conflation).** The *team*
 fanout stage uses the preset's `seats: [WorkerSpec]` (Phase 06), which expand
-into `TeamRun.panel` (`Worker`s) at run start. Every *reduce* and *review*
+into `TeamRun.workers` (`Worker`s) at run start. Every *reduce* and *review*
 stage instead uses `StageBinding.workerId` — a fresh single-use worker invocation,
-**not** a panel seat (recorded as `StageOutput.producedByWorkerId`). `Worker` is
-reserved strictly for the panel. So "a worker bound to a review lens" is a normal
-call with the lens prompt, never a reused panel seat.
+**not** a worker (recorded as `StageOutput.producedByWorkerId`). `Worker` is
+reserved strictly for the team. So "a worker bound to a review lens" is a normal
+call with the lens prompt, never a reused worker.
 
 `PromptProfile` is the generalized version of synthesis instructions. In
 post-MVP product language, a prompt profile is a **Skill**: the hat/instruction a
-worker wears in a seat. A review lens is a prompt profile, not a second kind of
+worker wears in a worker. A review lens is a prompt profile, not a second kind of
 worker role. **Custom inline instructions** persist via Phase 06's
 `StageOutput.customInstruction` (the `promptProfileId` is nil for that stage); a
 named profile sets `promptProfileId` and leaves `customInstruction` nil — exactly
@@ -170,16 +174,16 @@ message. `executionWorkerId` is *not* validated at save (the worker's health is 
 dispatch-time concern); the UI may show a soft "dispatch target may be unhealthy"
 hint sourced from the last Doctor run.
 
-### Perspective diversity (optional per-seat `stanceModifier`)
+### Perspective diversity (optional per-worker `stanceModifier`)
 
 Phase 06 self-fusion gets diversity for free from independent sampling. RB1 adds an
-*optional* amplifier: a **per-seat** stance (it lives on `WorkerSpec.stance`,
-Phase 06's seat-spec — **not** on the stage, so three seats can carry three
+*optional* amplifier: a **per-worker** stance (it lives on `WorkerSpec.stance`,
+Phase 06's worker-spec — **not** on the stage, so three workers can carry three
 *different* stances). Built-in stances: `neutral`, `skeptic`, `first_principles`,
 `minimalist`, `user_advocate`. So Self-Double becomes
 `seats: [{opus, skillId: neutral}, {opus, skillId: skeptic}, {opus, skillId: first_principles}]`
-→ three genuinely divergent seats the judge reconciles. The stance is a prefix on
-that seat's `WorkerPrompt`; assembly order is **founder prompt → stance prefix →
+→ three genuinely divergent workers the plan writer reconciles. The stance is a prefix on
+that worker's `WorkerPrompt`; assembly order is **founder prompt → stance prefix →
 optional bounded context (RB6)**. Stances are visible in `PlanAnalysis`
 attribution (`Opus (A) skeptic`).
 
@@ -203,7 +207,7 @@ gets an exhaustive `canTransition` test (Phase 01 style).
 
 ## Ordered Slices
 
-- [ ] RB1-S01 - `PromptProfile` (add `purpose`/`profileVersion` to Phase 06's judge
+- [ ] RB1-S01 - `PromptProfile` (add `purpose`/`profileVersion` to Phase 06's plan writer
   profile type) + bundled registry over `SynthesisInstructionStore`. Fixtures +
   round-trip tests. (No shim — change the type to its final shape.)
 - [ ] RB1-S02 - **Verify, don't rebuild:** regression test that
@@ -224,8 +228,8 @@ gets an exhaustive `canTransition` test (Phase 01 style).
   `plan_analysis`) + `reuseKey` compute/match (formula above) + the **rerun
   force-fresh** path that bypasses reuse and supersedes the prior stage output.
 - [ ] RB1-S08 - `WorkOrder.summary` renderer + live composer preview, updating as
-  seats/depth/lenses toggle. No pre-run call/time/quota estimates.
-- [ ] RB1-S09 - Optional per-seat `WorkerSpec.stance` (built-in stances) threaded
+  workers/depth/lenses toggle. No pre-run call/time/quota estimates.
+- [ ] RB1-S09 - Optional per-worker `WorkerSpec.stance` (built-in stances) threaded
   into `WorkerPrompt` (which gains `workerId`); assembly order founder prompt → stance
   → context; attribution preserved in `PlanAnalysis`.
 - [ ] RB1-S10 - `StageBinding` (per-binding worker + timeout) + two-point
@@ -235,12 +239,12 @@ gets an exhaustive `canTransition` test (Phase 01 style).
 ## Works Test
 
 ```text
-Run a synthesis-only WorkflowPreset. It produces the Phase 06 result: panel
-answers (by seat), a PlanAnalysis, master_plan.md, bundle.md, complete run. The
+Run a synthesis-only WorkflowPreset. It produces the Phase 06 result: team
+answers (by worker), a PlanAnalysis, master_plan.md, bundle.md, complete run. The
 run.json records presetId, the analysis + plan StageOutputs, and the selected
 prompt profile (id or honest custom text). Re-run the same prompt: reuse shows in
-run state (panel stages reused; synthesis re-runs when inputs change).
-Add a stanced Self-Double preset (Opus × 3 stances): three distinct seats,
+run state (team stages reused; synthesis re-runs when inputs change).
+Add a stanced Self-Double preset (Opus × 3 stances): three distinct workers,
 attributed independently.
 ```
 

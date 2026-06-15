@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # 01 — AllnighterCore (MVP subset)
 
 Status: **Complete** — foundation built and proven (`swift test`: 24 passing)
@@ -55,7 +59,7 @@ and every illegal one is rejected; the manual_paste manifest decodes with a nil
 ```
 
 **Result (2026-06-14):** `swift test` → 24 tests, 0 failures. Round-trips cover
-the panel, all three manifests, and all three run fixtures; state-machine tests
+the team, all three manifests, and all three run fixtures; state-machine tests
 cover every legal/illegal/terminal edge for both `RunStatus` and `WorkerAnswerStatus`;
 template tests prove the prompt is passed as a single argv element (injection
 safe).
@@ -65,7 +69,7 @@ safe).
 - [x] Works Test passes; `swift test` green (24 passing).
 - [x] No I/O in Core (pure types; only `Bundle.module` reads bundled fixtures).
 - [x] Model names/fields match `00` §4–§6 (forward-compatible with `ON HOLD/00`).
-- [x] Fixtures cover the founder's six-worker panel (incl. Composer 2.5 + Grok
+- [x] Fixtures cover the Founder's Six-worker team (incl. Composer 2.5 + Grok
   Build sharing the `grok` driver).
 
 ## Closeout

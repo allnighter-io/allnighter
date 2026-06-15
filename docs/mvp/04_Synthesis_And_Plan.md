@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # 04 — Synthesis + Plan
 
 Status: **Built (automated gates green)** — live one-click loop with real CLIs is
@@ -9,8 +13,8 @@ Built: 2026-06-14
 
 ## Goal
 
-Close the loop the founder runs every day: after the panel answers, hand the
-original prompt + all labeled answers to the **synthesizer** (Opus 4.8 by
+Close the loop the founder runs every day: after the team answers, hand the
+original prompt + all labeled answers to the **plan writer** (Opus 4.8 by
 default) with a strong master-plan instruction, and produce a single, decisive
 **plan**. Render it, and export the whole bundle (prompt + every member
 answer + plan) as one Markdown file and to the clipboard. This is the
@@ -19,18 +23,18 @@ moment the product replaces ~12 manual copy/paste actions with one click.
 ## Non-Goals
 
 - Post-draft advisory review board and final spec (`RB0`-`RB3`). "Implement
-  This" / execution lanes. Custom judge ML.
+  This" / execution lanes. Custom plan writer ML.
 
 ## Approach (per `00`)
 
 - **Synthesis input assembly**: build one prompt containing the original prompt
   and each member's answer **clearly labeled by worker** (only `done` members;
-  failed/timed-out members are noted as "no answer" so the synthesizer knows the
-  panel was incomplete).
+  failed/timed-out members are noted as "no answer" so the plan writer knows the
+  team was incomplete).
 - **PlanWriter invocation**: reuse the Phase 02 `WorkerRunner` with the worker
-  whose `role` is `synthesizer` (default Opus 4.8 via `claude_code`). The
+  whose `role` is `plan writer` (default Opus 4.8 via `claude_code`). The
   synthesis instruction is a stored, **editable** template (preset
-  `default_master_plan_v1`). If the synthesizer worker is `manual_paste`, show
+  `default_master_plan_v1`). If the plan writer worker is `manual_paste`, show
   the assembled synthesis prompt for the user to run and paste back.
 - **Plan structure** (default sections, user-editable):
 
@@ -54,13 +58,13 @@ moment the product replaces ~12 manual copy/paste actions with one click.
 ## Ordered Slices
 
 - [x] P04-S01 — Synthesis-input assembly (`SynthesisPromptBuilder`: labeled
-  answers + explicit incomplete-panel note).
+  answers + explicit incomplete-team note).
 - [x] P04-S02 — Synthesis instruction template + 7-section default structure
   (`SynthesisInstructions`; editable via `AppModel.synthesisInstructions`).
 - [x] P04-S03 — PlanWriter invocation via the engine (`PlanWriter` reuses
   `WorkerRunner`); `answersIn -> planning -> complete`/`partial`.
 - [x] P04-S04 — Master-plan card (Markdown, selectable) + Copy plan.
-- [x] P04-S05 — Manual-paste synthesizer path (assembled prompt shown + paste box
+- [x] P04-S05 — Manual-paste plan writer path (assembled prompt shown + paste box
   → `setManualSynthesis`).
 - [x] P04-S06 — Export: `run.json` + `master_plan.md` + `bundle.md` to the run
   folder (`RunStore`) + "Copy full bundle" to clipboard.
@@ -71,19 +75,19 @@ moment the product replaces ~12 manual copy/paste actions with one click.
 ## Works Test
 
 ```text
-The full daily loop, one click: type one real prompt, run the six-worker panel,
-let it fan out in parallel; when answers are in, the synthesizer (Opus 4.8)
+The full daily loop, one click: type one real prompt, run the six-worker team,
+let it fan out in parallel; when answers are in, the plan writer (Opus 4.8)
 produces a plan in the seven default sections. If a worker failed, the
 plan still appears and notes the missing source (run = `partial`/
 `complete`). Click export and get one Markdown bundle containing the prompt,
-every member answer, and the plan — on the clipboard and on disk. Zero
+every worker answer, and the plan — on the clipboard and on disk. Zero
 copy/paste actions were performed by the founder.
 ```
 
 ## Exit Gates
 
 - [ ] **Founder manual:** end-to-end one-click loop with the real six workers.
-- [x] Plan prompt grounds sections in member answers (labeled per worker;
+- [x] Plan prompt grounds sections in worker answers (labeled per worker;
   proven in `SynthesisTests`).
 - [x] A failed member never blocks synthesis; incompleteness is disclosed in the
   synthesis prompt and the run resolves `complete` (or `partial` if synthesis
@@ -102,5 +106,5 @@ one-command "fan out to my six CLIs -> plan -> export" loop exists
 end-to-end in code, proven deterministically. Before trusting real output, run
 the app once with live CLIs and correct any driver flags (Phase 02 deferred
 probe). Activate **Phase 05** (History, Presets, Doctor, configurable
-synthesizer, notarized DMG) to make it the daily driver. iOS or Review Board
+plan writer, notarized DMG) to make it the daily driver. iOS or Review Board
 planning begins only after 05.

@@ -4,7 +4,7 @@
 > The full roadmap below (worktree factory, lanes, previews, landing,
 > scheduling, iOS) remains the intended long-term product, but we are **not**
 > building it first. The active execution truth is now **`docs/mvp/README.md`**:
-> the **Council** slice (one prompt → parallel subscription CLIs → Opus master
+> the **Team** slice (one prompt → parallel subscription CLIs → Opus master
 > plan), text-only, zero marginal cost. The MVP is built on this same Swift
 > substrate and grows back into these phases without a rewrite — see
 > `docs/mvp/00_MVP_Architecture.md` § Growth Seams. The numbered phase docs for
@@ -109,12 +109,12 @@ this week."
   infrastructure: hidden worktrees, branch management, port brokering, preview
   capture, process supervision, agent drivers, artifact storage, landing queues.
   This is not a chat wrapper. **Build the factory before the UI.**
-- **T4 — Parallel judgment before execution.** The unlock is not just parallel
-  coding; it is parallel *judgment* — three strategies, three plans, three UI
+- **T4 — Parallel review before execution.** The unlock is not just parallel
+  coding; it is parallel *review* — three strategies, three plans, three UI
   directions — then "pick this one and implement it." That button is the bridge
   from thinking to doing.
 - **T5 — Selection data compounds.** Users think they are choosing drafts. They
-  are training a personal judgment model.
+  are training a personal review model.
 - **T6 — Intelligence commoditizes, orchestration endures.** If local models
   become frontier-class on consumer hardware, that is the *strongest* version of
   Allnighter's future, not a threat. As intelligence gets cheap and unlimited,
@@ -251,13 +251,13 @@ constitution every phase obeys.
 | [09 — iOS App MVP](09_iOS_App_MVP.md) | iOS shell, pairing, Home, Active Lanes, global kill switch, landing actions. |
 | [10 — Capture → Work Order](10_Capture_To_Work_Order.md) | Text/voice/screenshot capture → editable interpretation → backlog → dispatch. |
 
-### Milestone D — Parallel judgment (the wedge)
+### Milestone D — Parallel review (the wedge)
 
 | Phase | Purpose |
 | --- | --- |
 | [11 — Draft Race + Comparison](11_Draft_Race_And_Comparison.md) | One task → 2–3 lanes on one base commit; Mac comparison grid; iOS swipeable cards. |
 | [12 — Picker-as-Prompt](12_Picker_As_Prompt.md) | "Implement This": selection becomes a work order; lane starts within 5 s. |
-| [13 — Council](13_Council.md) | Fan-out → critique → synthesis → verdict + minority report; implement the chosen direction. |
+| [13 — Team](13_Team.md) | Fan-out → critique → synthesis → verdict + minority report; implement the chosen direction. |
 | [14 — Combine & Remix](14_Combine_And_Remix.md) | Synthesize parts of multiple drafts; spawn variations from a winner. |
 
 ### Milestone E — Intelligence layer
@@ -295,7 +295,7 @@ constitution every phase obeys.
 10  Capture -> Work Order
 11  Draft Race              <- the wedge / launch story
 12  Picker-as-Prompt
-13  Council
+13  Team
 14  Combine & Remix
 15  Preference / Taste
 16  Scorecards & Routing
@@ -363,7 +363,7 @@ on deepens the product.
 | **Lane** | A hidden, isolated workspace for one task attempt. Maps 1:1 to a git worktree + branch. |
 | **Draft** | A candidate answer, plan, mockup, or running implementation produced in a lane. |
 | **Race** | One task dispatched to multiple lanes/workers from the same base commit. |
-| **Council** | Multi-agent reasoning session with critique, synthesis, verdict, and dissent. |
+| **Team** | Multi-agent reasoning session with critique, synthesis, verdict, and dissent. |
 | **Landing** | Bringing a completed lane back to the target branch (merge) or PR flow. |
 | **Picker-as-prompt** | The selection gesture that becomes the implementation work order — no copy/paste, no re-explaining. |
 | **Preference event** | Structured record of a pick/reject/split/revert/remix. |

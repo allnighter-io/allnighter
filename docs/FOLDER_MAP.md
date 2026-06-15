@@ -21,7 +21,7 @@ Allnighter/
   Packages/
     AllnighterCore/               # shared models, engine, CLI tools
   Apps/
-    AllnighterMac/                # macOS menu-bar + council UI
+    AllnighterMac/                # macOS menu-bar + team UI
   Allnighter/                     # transitional iOS Xcode scaffold (replace with Apps/AllnighteriOS/)
   scripts/
     commit_handoff_queue.py
@@ -36,7 +36,7 @@ Allnighter/
 - `AGENTS.md`: agent/human/CI router and project laws.
 - `ALLNIGHTER.md`: product spec index and platform summary.
 - `README.md`: human overview and doc index.
-- `docs/mvp/README.md`: built Council MVP execution truth.
+- `docs/mvp/README.md`: built Team MVP execution truth.
 - `docs/phases/README.md`: active post-MVP phase router.
 - `docs/strategy/Allnighter-Agent-Control-Loop-Strategy.md`: agent control loop strategy.
 - `docs/phases/*.md`: active phase notes, specs, and execution docs.
@@ -52,7 +52,7 @@ Allnighter/
 | Layer | Location |
 | --- | --- |
 | Run/event models | `Packages/AllnighterCore/Sources/` + `docs/mvp/00_MVP_Architecture.md` |
-| Council/worker orchestration | `Packages/AllnighterCore/Sources/AllnighterEngine/` |
+| Team/worker orchestration | `Packages/AllnighterCore/Sources/AllnighterEngine/` |
 | Mac app shell + UI | `Apps/AllnighterMac/` |
 | iOS remote UI state | `docs/phases/ios/` + `Allnighter/` or `Apps/AllnighteriOS/` (presenters only; state from Mac) |
 | Product semantics | `docs/mvp/` and `docs/phases/` before code diverges |

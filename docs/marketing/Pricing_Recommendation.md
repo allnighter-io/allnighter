@@ -10,7 +10,7 @@ Launch with:
 
 ```text
 Free download
-3 free Council runs
+3 free Team runs
 $9.95/month after that
 Mac app + iPhone app included
 Bring your own AI subscriptions
@@ -27,7 +27,7 @@ Allnighter Founding Builder
 Offer copy:
 
 ```text
-Free to download. Run your first councils free. Then $9.95/month for Mac plus
+Free to download. Run your first teams free. Then $9.95/month for Mac plus
 iPhone. Bring your own Claude, Grok, Codex, Gemini, Aider, Cursor, or local
 workers.
 ```
@@ -52,11 +52,11 @@ At $9.95/month:
 
 ## Why Not Usage-Based
 
-Do not charge per Council run in v1.
+Do not charge per Team run in v1.
 
 Per-run pricing fights the behavior we want. The product promise is: use the
-capacity you already paid for, ask the council more often, and stop rationing
-judgment. A meter makes users think twice right before the magic moment.
+capacity you already paid for, ask the team more often, and stop rationing
+review. A meter makes users think twice right before the magic moment.
 
 Usage-based pricing also confuses responsibility:
 
@@ -90,7 +90,7 @@ Move later:
 ```text
 Founding Builder: $9.95/month, grandfathered
 Builder: $19.95/month after public launch or iOS floor manager
-Team: later, priced per seat
+Team: later, priced per worker
 ```
 
 ## Free Trial Mechanics
@@ -98,13 +98,13 @@ Team: later, priced per seat
 Recommended trial:
 
 ```text
-3 free Council runs
+3 free Team runs
 ```
 
 Definition:
 
 ```text
-A Council run counts when Allnighter successfully dispatches to 2+ automated
+A Team run counts when Allnighter successfully dispatches to 2+ automated
 workers or completes a synthesis step.
 ```
 
@@ -127,7 +127,7 @@ Why 3:
 Trial copy:
 
 ```text
-Your first 3 councils are free. They use your own connected AI subscriptions, not
+Your first 3 teams are free. They use your own connected AI subscriptions, not
 Allnighter-provided model credits.
 ```
 
@@ -164,7 +164,7 @@ Grok should be in the value stack, but not as a hard unlimited claim.
 Copy:
 
 ```text
-Add Grok as another worker in the council. If your Grok plan gives you generous
+Add Grok as another worker in the team. If your Grok plan gives you generous
 limits, Allnighter helps turn that capacity into useful second opinions and
 synthesis inputs.
 ```
@@ -173,7 +173,7 @@ Internal product note:
 
 ```text
 If Grok remains effectively high-limit in practice, it becomes one of the best
-default panel workers. Product should track observed failures/rate-limit errors
+default team workers. Product should track observed failures/rate-limit errors
 and surface them honestly in Doctor and run history.
 ```
 
@@ -186,7 +186,7 @@ $0
 Download Mac app
 Connect local CLIs
 Run Doctor
-3 Council runs
+3 Team runs
 Manual-paste fallback
 View/export run history from trial
 ```
@@ -200,7 +200,7 @@ Unlimited Allnighter orchestration within your own provider limits
 Mac app
 iPhone app included when available
 Run history
-Panel presets
+Team presets
 Synthesis presets
 Doctor
 Markdown export
@@ -215,7 +215,7 @@ review lenses
 direct dispatch
 return review
 quota harvester
-Council-as-tool CLI/MCP
+Team-as-tool CLI/MCP
 advanced history/search
 ```
 
@@ -225,7 +225,7 @@ advanced history/search
 Not now.
 ```
 
-Team pricing introduces seats, admin, policy, support, shared configs, and
+Team pricing introduces workers, admin, policy, support, shared configs, and
 compliance questions. It is a separate product motion.
 
 ## The Single Best Price
@@ -261,9 +261,9 @@ Annual is nice to have, not the headline. Monthly is the conversion engine.
 ```text
 Free
 $0
-Try the council.
+Try the team.
 
-- 3 Council runs
+- 3 Team runs
 - Connect your own CLIs
 - Doctor checks
 - Manual-paste fallback
@@ -277,7 +277,7 @@ Make your AI team show up.
 - Mac command center
 - iPhone floor manager included
 - Claude Code, Grok, Codex, Gemini, Aider, and local workers
-- Panel presets
+- Team presets
 - Synthesis presets
 - Run history
 - Markdown export

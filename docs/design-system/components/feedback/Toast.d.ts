@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-/** Transient notification — "Master plan ready", "Published", "Landed · revert". Calm, factual, never salesy. */
+/** Transient notification — "Plan ready", "Published", "Landed · revert". Calm, factual, never salesy. */
 export interface ToastProps extends React.HTMLAttributes<HTMLDivElement> {
   tone?: 'default' | 'accent' | 'positive' | 'danger';
   title?: React.ReactNode;

@@ -11,12 +11,12 @@ Core rules to honor:
 - **Dark mode only.** Build on the midnight surfaces (`--bg-base/-surface/-raised`);
   never a light background.
 - **One warm signal.** Amber (`--accent`, `#FFA630`) is reserved for the single
-  primary action, the live/"alive" state, the synthesizer/winner, and the mark.
+  primary action, the live/"alive" state, the plan writer/winner, and the mark.
   Status hues stay muted. Don't introduce new accent colors.
 - **Type:** SF Pro (native macOS) → Inter on web; SF Mono → JetBrains Mono for
   slugs, counts, model IDs, timestamps and paths. 13px body density.
 - **Voice:** calm, plain-spoken, sentence case, verbs first, no emoji, no hype.
-  Hide the plumbing (panel/worker/council/plan, not worktree/subprocess).
+  Hide the plumbing (team/worker/team/plan, not worktree/subprocess).
   Numbers are concrete and mono; a worker that failed is shown failed, never faked.
 - **Tight, precise chrome** (Cursor/Linear/Raycast lineage): 6px controls, 10px
   cards, white-alpha hairline borders, deep-black shadows, amber glow for "alive".

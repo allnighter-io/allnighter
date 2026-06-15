@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 /**
- * The Council's signature status indicator — a pill with a colored dot. `running` blinks (the brand heartbeat).
+ * The team's signature status indicator — a pill with a colored dot. `running` blinks (the brand heartbeat).
  * @startingPoint section="Product" subtitle="Worker run status pill" viewport="700x150"
  */
 export interface StatusPillProps extends React.HTMLAttributes<HTMLSpanElement> {

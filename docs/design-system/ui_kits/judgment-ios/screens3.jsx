@@ -1,4 +1,4 @@
-// @ds-adherence-ignore -- iOS judgment batch 3+4: Routing, Live run, Judge analysis, Scorecards.
+// @ds-adherence-ignore -- iOS review batch 3+4: Routing, Live run, Plan writer analysis, Scorecards.
 const { Button, Icon, Badge, StatusPill, BrandIcon } = window;
 
 (function () {
@@ -24,11 +24,11 @@ const { Button, Icon, Badge, StatusPill, BrandIcon } = window;
   .ji3-lr__t{font-size:14px;font-weight:600}
   .ji3-lr__s{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);margin-top:2px}
   /* analysis */
-  .ji3-seats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
-  .ji3-seat{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 6px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:999px}
-  .ji3-seat__g{width:18px;height:18px;border-radius:5px;background:var(--bg-active);display:flex;align-items:center;justify-content:center;overflow:hidden}
-  .ji3-seat__g img{width:12px;height:12px}
-  .ji3-seat__n{font-size:11px;font-weight:600}
+  .ji3-workers{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+  .ji3-worker{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 6px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:999px}
+  .ji3-worker__g{width:18px;height:18px;border-radius:5px;background:var(--bg-active);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .ji3-worker__g img{width:12px;height:12px}
+  .ji3-worker__n{font-size:11px;font-weight:600}
   .ji3-asec{margin-bottom:13px}
   .ji3-asec__h{display:flex;align-items:center;gap:8px;margin-bottom:9px}
   .ji3-aic{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
@@ -81,7 +81,7 @@ window.JIOS_Routing = function RoutingScreen({ back, onCompare, onScores }) {
         <div className="ji3-opt__m">
           <div className="ji3-opt__h"><span className="ji3-opt__t">Rerun</span></div>
           <div className="ji3-opt__d">Re-dispatch the brief to a different worker.</div>
-          <div className="ji3-opt__r"><Icon name="zap" size={13} />Composer 2.5 is +0.07 on refactors; reuse keeps panel + spec free.</div>
+          <div className="ji3-opt__r"><Icon name="zap" size={13} />Composer 2.5 is +0.07 on refactors; reuse keeps team + spec free.</div>
         </div>
       </div>
       <div className="ji3-opt">
@@ -99,8 +99,8 @@ window.JIOS_Routing = function RoutingScreen({ back, onCompare, onScores }) {
 
 /* ===== Live run ===== */
 const LR_STAGES = [
-  { t: 'Panel · 5 seats', s: 'reused · 0 fresh', st: 'done' },
-  { t: 'Judge analysis', s: 'analysis.md · 2 contradictions', st: 'done' },
+  { t: 'Team · 5 workers', s: 'reused · 0 fresh', st: 'done' },
+  { t: 'Plan writer analysis', s: 'analysis.md · 2 contradictions', st: 'done' },
   { t: 'Draft plan', s: 'master_plan.md', st: 'done' },
   { t: 'Review board · 9 lenses', s: '6 of 9 returned', st: 'run' },
   { t: 'Final spec', s: 'waiting', st: 'idle' },
@@ -130,23 +130,23 @@ window.JIOS_LiveRun = function LiveRunScreen({ back }) {
   );
 };
 
-/* ===== Judge analysis ===== */
-const A_SEATS = [
+/* ===== Plan writer analysis ===== */
+const A_WORKERS = [
   { b: 'anthropic', col: 'FFA630', n: 'Opus', st: 'first principles' },
   { ic: 'terminal', n: 'ChatGPT', st: 'skeptic' },
   { b: 'anthropic', col: 'AEB5C9', n: 'Sonnet', st: 'neutral' },
   { ic: 'square', n: 'Composer', st: 'neutral' },
 ];
-function ASeatG({ s }) { return s.b ? <BrandIcon slug={s.b} color={s.col} size={12} /> : <Icon name={s.ic} size={11} style={{ color: 'var(--text-secondary)' }} />; }
+function AWorkerG({ s }) { return s.b ? <BrandIcon slug={s.b} color={s.col} size={12} /> : <Icon name={s.ic} size={11} style={{ color: 'var(--text-secondary)' }} />; }
 window.JIOS_Analysis = function AnalysisScreen({ back }) {
   return (
     <div>
       <Back3 onClick={back} label="Review board" />
       <div className="jio-h1" style={{ fontSize: 22 }}>analysis.md</div>
-      <div className="jio-sub" style={{ marginBottom: 16 }}>Structured panel truth · 4 of 5 answered</div>
-      <div className="ji3-seats">
-        {A_SEATS.map((s, i) => (<span className="ji3-seat" key={i}><span className="ji3-seat__g"><ASeatG s={s} /></span><span className="ji3-seat__n">{s.n}</span><Badge tone="accent" mono>{s.st}</Badge></span>))}
-        <span className="ji3-seat" style={{ opacity: .6 }}><span className="ji3-seat__g"><BrandIcon slug="googlegemini" color="E1E5F0" size={12} /></span><span className="ji3-seat__n">Gemini</span><Badge tone="danger" dot>failed</Badge></span>
+      <div className="jio-sub" style={{ marginBottom: 16 }}>Structured team truth · 4 of 5 answered</div>
+      <div className="ji3-workers">
+        {A_WORKERS.map((s, i) => (<span className="ji3-worker" key={i}><span className="ji3-worker__g"><AWorkerG s={s} /></span><span className="ji3-worker__n">{s.n}</span><Badge tone="accent" mono>{s.st}</Badge></span>))}
+        <span className="ji3-worker" style={{ opacity: .6 }}><span className="ji3-worker__g"><BrandIcon slug="googlegemini" color="E1E5F0" size={12} /></span><span className="ji3-worker__n">Gemini</span><Badge tone="danger" dot>failed</Badge></span>
       </div>
 
       <div className="ji3-asec">
@@ -186,7 +186,7 @@ window.JIOS_Scorecards = function ScorecardsScreen({ back }) {
       <Back3 onClick={back} label="Next action" />
       <div className="jio-h1" style={{ fontSize: 22 }}>Worker scorecards</div>
       <div className="jio-sub" style={{ marginBottom: 18 }}>From local history · estimate · nothing uploaded</div>
-      <div className="ji3-sclegend"><span style={{ color: 'var(--green-400)' }}>● panel</span><span style={{ color: 'var(--accent-text)' }}>● synthesis</span><span style={{ color: 'var(--blue-400)' }}>● exec</span></div>
+      <div className="ji3-sclegend"><span style={{ color: 'var(--green-400)' }}>● team</span><span style={{ color: 'var(--accent-text)' }}>● synthesis</span><span style={{ color: 'var(--blue-400)' }}>● exec</span></div>
       {SC.map((w, i) => (
         <div className="ji3-sc" key={i}>
           <span className="ji3-sc__g">{w.b ? <BrandIcon slug={w.b} color={w.col} size={18} /> : <Icon name={w.ic} size={16} style={{ color: 'var(--text-secondary)' }} />}</span>

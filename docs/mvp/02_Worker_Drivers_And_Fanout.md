@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # 02 — Model Drivers + Parallel Fan-Out Engine
 
 Status: **Complete (engine + MockDriver)** — real-CLI verification deferred to a
@@ -143,4 +147,4 @@ Two engine changes came out of the probe (both unit-tested):
 
 `grok models` is the source of truth for grok model ids. `grok` emits unrelated
 MCP-config errors on **stderr** that do not pollute the captured stdout answer.
-Anything not scriptable stays `manual_paste` and still appears in the panel.
+Anything not scriptable stays `manual_paste` and still appears in the team.

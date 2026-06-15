@@ -1,3 +1,7 @@
+> **Vocabulary (2026-06-15).** Current product language lives in
+> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> terms only.
+
 # RB2 - Review Board
 
 Status: **BUILT — Core+Engine+Mac green. (orchestration run)**
@@ -28,7 +32,7 @@ derived Markdown file. The founder can read the reviews even before RB3 exists.
 - No generic model-vs-model cross-critique.
 - No auto execution.
 - No requirement that every reviewer succeed.
-- No re-running the panel: review consumes the existing draft plan as a reused
+- No re-running the team: review consumes the existing draft plan as a reused
   input (RB1 `reuseKey`), it never triggers a fresh fan-out.
 
 ## Design
@@ -87,7 +91,7 @@ Default review input:
 
 ```text
 founder prompt
-judge analysis (Phase 06 PlanAnalysis: consensus/contradictions/unique/blind spots)
+plan analysis (Phase 06 PlanAnalysis: consensus/contradictions/unique/blind spots)
 draft plan
 review lens instructions
 ```
@@ -95,8 +99,8 @@ review lens instructions
 Reviewers consume the **structured `PlanAnalysis`** (`plan_analysis` input
 selector, RB1), not only `master_plan.md` — so a lens can challenge a specific
 contradiction or an unsupported consensus point directly. Lens-specific selectors
-add raw member answers when needed; the `dissent_preserver` lens receives raw
-member answers by default to find what the synthesis flattened.
+add raw worker answers when needed; the `dissent_preserver` lens receives raw
+worker answers by default to find what the synthesis flattened.
 
 ### Anti-echo: reviewers challenge, they do not agree
 
@@ -110,11 +114,11 @@ lens; if you find nothing, say so briefly." Diversity of *output* is the value
 Ship all built-ins from RB0 as prompt profiles, plus **`coverage_audit`** (new).
 Its job is **meta-coverage**, sharply distinct from `PlanAnalysis.blindSpots` and
 from `dissent_preserver` (do not restate either): given the founder prompt + the
-draft plan, judge whether **the original question is actually, fully answered** and
-name domain risks/edge cases the whole exercise (panel *and* judge) could have
+draft plan, plan writer whether **the original question is actually, fully answered** and
+name domain risks/edge cases the whole exercise (team *and* plan writer) could have
 missed — e.g. "no rollback path", "i18n unaddressed", "abuse/rate-limit not
-considered". `blindSpots` is what the panel missed; `coverage_audit` is whether the
-*plan answers the prompt* and what neither panel nor judge could know.
+considered". `blindSpots` is what the team missed; `coverage_audit` is whether the
+*plan answers the prompt* and what neither team nor plan writer could know.
 
 ```text
 synthesis_only: no reviews
@@ -124,7 +128,7 @@ full_review:    all built-in lenses + coverage_audit
 
 `writer_editor` is optional for non-user-facing implementation plans.
 
-### Budget routing (the Fusion budget-panel lesson)
+### Budget routing (the Fusion budget-team lesson)
 
 Review lenses are mostly structured checklist work, so they do not need a frontier
 worker. `StageBinding.preferFastWorker` (RB1), when set, resolves the lens to the
@@ -141,11 +145,11 @@ routed to.
 
 - [ ] RB2-S01 - Bundled review-lens prompt profiles (all RB0 lenses + new
   `coverage_audit`) with the anti-echo instruction baked in. Fixtures + round-trip.
-- [ ] RB2-S02 - Workflow preset review bindings: lens id, seat/worker, input
+- [ ] RB2-S02 - Workflow preset review bindings: lens id, worker/worker, input
   selectors, timeout, `enabled` (per-lens toggle), `preferFastWorker` (budget
   routing via Doctor).
 - [ ] RB2-S03 - Review prompt builder with explicit advisory + anti-echo language
-  and lens-specific input selectors (`plan_analysis` for all; raw member answers
+  and lens-specific input selectors (`plan_analysis` for all; raw worker answers
   for `dissent_preserver`; `PlanAnalysis.blindSpots` for `coverage_audit`).
 - [ ] RB2-S04 - Review fanout coordinator reusing `WorkerRunner` + `TaskGroup`; the
   `PlanAnalysis` + draft plan are supplied as **reused** inputs (no re-fan-out).
@@ -155,9 +159,9 @@ routed to.
   per-lens rerun that reuses the unchanged analysis/draft.
 - [ ] RB2-S07 - Partial behavior: failed/timed-out reviews are surfaced and do not
   block the run; Doctor warns before binding a lens to an unhealthy worker.
-- [ ] RB2-S08 - `bundle.md` includes prompt, member answers, analysis, plan, and
+- [ ] RB2-S08 - `bundle.md` includes prompt, worker answers, analysis, plan, and
   all completed reviews. The shape summary reflects enabled lenses (and their routed
-  seats) before the run.
+  workers) before the run.
 
 ## Works Test
 
@@ -166,7 +170,7 @@ Run the light_review preset. After master_plan.md lands (reused if already
 present for this prompt), three reviewers run in parallel. The run folder
 contains review_security_privacy.md, review_code_maintainer.md, and
 review_proof_qa.md, each with a verdict header. Disable one lens and rerun: the
-Reuse shows in run state; the panel/draft are reused. Force one reviewer
+Reuse shows in run state; the team/draft are reused. Force one reviewer
 to time out; the other reviews remain visible, the failure is explicit, and the
 run is still usable.
 ```
@@ -178,7 +182,7 @@ run is still usable.
   draft plan.
 - [ ] Review Markdown files are derived from `run.json`; header degrades safely.
 - [ ] Per-lens enable/disable is reflected in the live work-shape summary before the run.
-- [ ] Reviews consume the draft plan as a reused input (no fresh panel fan-out).
+- [ ] Reviews consume the draft plan as a reused input (no fresh team fan-out).
 - [ ] One failed review does not erase successful reviews or block inspection.
 - [ ] Stage events are emitted via `stage.*`.
 - [ ] `swift test` + app test wall green.
