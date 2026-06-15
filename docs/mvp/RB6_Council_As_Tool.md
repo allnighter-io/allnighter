@@ -1,6 +1,6 @@
 # RB6 - Council-as-Tool (local MCP / CLI / HTTP)
 
-Status: **Specced — the moat. Sequenceable right after Phase 06.**
+Status: **BUILT (engine + CLI + MCP) — Core+Engine green; HTTP/WS loopback stubbed. (orchestration run)**
 Owner: Shared Core + Engine + Mac
 Created: 2026-06-14
 Updated: 2026-06-14

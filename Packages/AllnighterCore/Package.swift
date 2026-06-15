@@ -9,7 +9,8 @@ let package = Package(
     products: [
         .library(name: "AllnighterCore", targets: ["AllnighterCore"]),
         .library(name: "AllnighterEngine", targets: ["AllnighterEngine"]),
-        .executable(name: "prove-cli", targets: ["ProveCLI"])
+        .executable(name: "prove-cli", targets: ["ProveCLI"]),
+        .executable(name: "allnighter", targets: ["AllnighterCLI"])
     ],
     targets: [
         .target(
@@ -39,6 +40,15 @@ let package = Package(
         // Live CLI smoke proof — `swift run prove-cli` from repo root.
         .executableTarget(
             name: "ProveCLI",
+            dependencies: ["AllnighterEngine", "AllnighterCore"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
+            ]
+        ),
+        // Council-as-Tool (RB6): the `allnighter` CLI / MCP stdio surface. Links
+        // only the council engine — no dispatch/executor modules (judgment only).
+        .executableTarget(
+            name: "AllnighterCLI",
             dependencies: ["AllnighterEngine", "AllnighterCore"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
