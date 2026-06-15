@@ -25,8 +25,9 @@ otherwise.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Finalized for implementation | Missing chat/thread layer: durable work conversations with chat, council, design, work order, dispatch, and return-review turns. Chat is the default surface; council/build are one-click escalations. MLP = S01–S06. |
-| [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Draft for mentor review | Queue and dispatch work from observed worker availability, not quota accounting. |
+| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Finalized for implementation | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
+| [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Finalized for implementation | Admission control for selected workers, panels, queued turns, fallbacks, and floor visibility without quota accounting. |
+| [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
 | [`ios/README.md`](ios/README.md) | Active iOS spine | Remote floor manager: sign in, pick your Mac, control runs. |
 
 ## Operating Rules
@@ -57,6 +58,11 @@ otherwise.
   should Allnighter do next?
 - Capacity state is observed, sourced, timestamped, and local by default.
 - iOS is a floor manager. The Mac remains the execution and run-truth owner.
+- Work-order creation stays prompt-first. Build/Design/Copy and Effort route the
+  work; they must not become an intake form.
+- Build, Design, and Copy are the peer creation lanes. A fourth lane requires a
+  new substrate or output class; otherwise it is a type or preset inside the
+  existing lanes.
 
 ## Adding a Phase Doc
 
@@ -99,8 +105,12 @@ Open questions:
 | Work | Read first |
 | --- | --- |
 | Built MVP behavior, worker drivers, council/design council substrate | `docs/mvp/README.md` |
-| Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` |
+| Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` |
+| Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
+| Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
+| Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
 | Utilization, admission control, worker availability, queued dispatch | `Utilization_Admission_Control.md` |
+| Copy lane, `/copy`, copy type packs, copy board | `copy/README.md` |
 | iOS remote floor manager | `ios/README.md` |
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |
 | Sprint execution and closeout | `docs/operations/Execution-Playbook.md` |

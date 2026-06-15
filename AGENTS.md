@@ -52,6 +52,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | --- | --- |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
+| Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
