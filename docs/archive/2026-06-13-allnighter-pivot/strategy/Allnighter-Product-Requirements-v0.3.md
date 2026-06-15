@@ -6,9 +6,8 @@
 Version 0.3 - Build-Ready Draft  
 June 12, 2026
 
-> Status: Pivot packet for mentor review and implementation planning. This
-> document intentionally sits beside the current CLI Loci docs until the
-> founder decides whether Allnighter replaces or branches from CLI Loci.
+> Status: Pivot packet for mentor review and implementation planning. Superseded
+> by `docs/phases/` and `docs/mvp/`; kept in archive for history only.
 
 ---
 
@@ -1957,7 +1956,7 @@ Define Allnighter as separate product direction.
 
 Slices:
 
-1. Decide whether Allnighter replaces CLI Loci or becomes a branch.
+1. Product identity: **Allnighter** is the product name (pivot complete).
 2. Rename product vocabulary in SSOT if pivot is accepted.
 3. Create build folders:
    - `Packages/AllnighterCore/`
@@ -2445,7 +2444,7 @@ This proves:
 
 ## 24. Open Decisions
 
-1. Product identity: does Allnighter replace CLI Loci or become a new product?
+1. Product identity: **Allnighter** is the product name (resolved).
 2. First worker pair: Claude + Codex, Claude + Grok, or Claude only plus shell
    driver?
 3. First app type for demos: web app repo, SwiftUI app, or both?

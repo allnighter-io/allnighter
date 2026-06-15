@@ -23,8 +23,7 @@
 >
 > The former `Allnighter-Product-Requirements-v0.3.md` PRD and the
 > `Allnighter-Local-AI-Worker-Opportunity.md` note have been fully absorbed into
-> these docs and archived. The old `docs/phases/*` (CLI Loci) and `docs/product/*`
-> contracts are superseded and archived under `docs/archive/`. Do not build from
+> these docs and archived. Superseded contracts live under `docs/archive/`. Do not build from
 > them.
 >
 > **Kept, but explicitly post-v1:** `docs/strategy/Allnighter-Agent-AB-Testing-Extension.md`
@@ -208,7 +207,7 @@ changed without code rework.
 
 | # | Decision | Resolution for v1 |
 | --- | --- | --- |
-| 1 | Identity | **Allnighter replaces CLI Loci.** Clean pivot. |
+| 1 | Identity | **Allnighter** is the product name. Clean pivot complete. |
 | 2 | First worker set | **Claude Code + shell driver first**, then Codex CLI, then a third (Grok/Gemini/local). |
 | 3 | First demo app type | **A bundled sample web app** (Vite + React) for deterministic previews/screenshots. Native-app targets are post-v1. |
 | 4 | Relay timing | **Local-first MVP.** Relay/push land in Milestone F (Phase 20). |

@@ -2,22 +2,22 @@
 
 ## Positioning
 
-CLI Loci is a **local-first, multi-agent mission control** for terminal-based AI
-coding tools. Lead with universality, parallel walk-away execution, and native
-Mac + iOS delight — not with model/provider choice.
+Allnighter is a **local-first agent factory and floor manager** for terminal-based
+AI coding tools. Lead with parallel safe lanes, council-driven planning, and
+native Mac + iOS delight — not with model/provider choice.
 
 ## Product Boundary
 
-CLI Loci owns orchestration, remote control, and unified UX. It does **not**
-own the agents themselves, model APIs, or agent reasoning.
+Allnighter owns orchestration, scheduling, remote control, and unified UX. It
+does **not** own the agents themselves, model APIs, or agent reasoning.
 
 In scope:
 
-- spawn/manage CLI agent PTY sessions;
-- parse output into structured events and diffs;
-- Mac dashboard + iOS remote over private network;
+- spawn/manage CLI agent sessions and council runs;
+- lane/worktree isolation for parallel work;
+- Mac command center + iOS remote over Tailscale;
 - BYOK key storage on Mac;
-- pairing, session persistence, approvals.
+- pairing, run persistence, review and kill-switch controls.
 
 Out of product core (v1):
 
@@ -31,65 +31,58 @@ Out of product core (v1):
 
 ## MVP Boundary (v1)
 
-Must ship for first testers (4–8 weeks focused work):
+Must ship for first testers (Council slice — see `docs/mvp/README.md`):
 
-- Tailscale-first onboarding + device pairing.
-- Three agents: Claude Code, Grok Build, Aider (extensible bridge layer).
-- Mac: dashboard (machines + sessions), launch/attach session, streaming output,
-  basic approvals.
-- iOS: connect, dashboard, one rich session view with streaming + basic approvals.
-- Simple parsed diff cards (approve/reject).
-- Context-aware haptics on key events.
-- BYOK flow (Keychain on Mac).
-- Background session persistence (tmux or native PTY management).
+- Mac: enroll repo, run council (parallel subscription CLIs → master plan).
+- Text-only output; zero marginal cost path.
+- Shared `AllnighterCore` engine and event envelope.
+- Mac menu-bar / dashboard shell.
 
-Phase 2 (wow release) — not v1:
+Deferred from v1 (documented in `docs/phases/`):
 
-- true parallel headless spawning from phone/Mac;
-- swipeable diff cards + rich haptics;
-- Live Activities + Dynamic Island;
-- multi-machine support;
-- voice + Shortcuts deep integration;
-- cost tracking;
-- session history + searchable diffs.
+- full lane factory and worktree automation;
+- iOS remote floor manager (`docs/phases/ios/`);
+- push notifications and Live Activities;
+- preference ledger and taste memory;
+- local model workers.
 
 ## Platform Boundary
 
 **macOS app**
 
-- Unsandboxed by design for PTY/process control.
+- Unsandboxed by design for process control and git/worktree operations.
 - Distributed via notarized DMG/PKG (Developer ID).
 - Menu-bar / status-item first; dashboard window optional.
-- Local WebSocket server (SwiftNIO) is the API truth surface for iOS.
+- Local HTTP/WebSocket server is the API truth surface for iOS.
 
 **iOS app**
 
 - Sandbox App Store app.
-- Connects only to user's Mac app (Tailscale preferred).
-- No durable session truth on device; Mac is source of record.
+- Connects only to user's Mac app over Tailscale.
+- No durable run truth on device; Mac is source of record.
 
 **Shared package**
 
-- All cross-platform models and protocol types live in `CLILociCore`.
-- Parsers and diff logic are shared; UI is platform-specific.
+- All cross-platform models and engine types live in `AllnighterCore`.
+- Orchestration logic is shared; UI is platform-specific.
 
 ## Agent Bridge Boundary
 
-Each supported CLI agent has a bridge config describing:
+Each supported CLI agent has a driver config describing:
 
 - executable and args;
 - spawn environment;
 - output parsing hooks;
-- approval/diff extraction expectations.
+- panel/seat expectations for council runs.
 
-Bridges are configuration + adapters, not alternate session stores. Session state
+Drivers are configuration + adapters, not alternate run stores. Run state
 lives in the orchestration layer.
 
 ## Security Boundary
 
 - API keys never leave the Mac Keychain for iOS use; iOS sends commands, Mac executes.
 - Pairing tokens are short-lived; device identity is explicit.
-- Tailscale P2P is the preferred transport; document fallback behavior.
+- Tailscale private tailnet is the preferred transport; document fallback behavior.
 - Full Disk Access and other permissions require first-run wizard copy explaining why.
 
 ## Validation Boundary

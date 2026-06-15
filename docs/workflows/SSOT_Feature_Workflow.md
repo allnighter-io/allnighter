@@ -1,11 +1,11 @@
 # SSOT Feature Workflow
 
-Use before planning any CLI Loci feature, workflow, schema, WebSocket message,
-agent bridge, auth path, or UI state that carries product meaning.
+Use before planning any Allnighter feature, workflow, schema, WebSocket message,
+agent driver, auth path, or UI state that carries product meaning.
 
 ## Product Unit
 
-CLI Loci ships trusted workflow slices.
+Allnighter ships trusted workflow slices.
 
 A slice is valuable only when it includes:
 
@@ -18,21 +18,20 @@ A slice is valuable only when it includes:
 Example shape:
 
 ```text
-pair devices -> launch agent session -> stream output -> approve diff -> session persists
+enroll repo -> run council -> review master plan -> spawn lane work
 ```
 
-MVP loop from `CLILOCI.md`:
+MVP loop from `ALLNIGHTER.md`:
 
 ```text
-pair Mac + iPhone -> paste BYOK keys -> launch session -> stream + approve
--> background persistence
+enroll repo on Mac -> run council (parallel CLIs -> master plan) -> review on Mac
 ```
 
 ## Non-Negotiable Rule
 
 Every semantic rule starts in an owning source of truth.
 
-No durable product, permission, pairing, session, agent-bridge, privacy, or
+No durable product, permission, pairing, run, agent-driver, privacy, or
 readiness rule may begin life only in:
 
 - SwiftUI view code;
@@ -52,12 +51,12 @@ judgment once the rule is known.
 
 ## Planning Order
 
-1. Read `CLILOCI.md`, `Docs/strategy/CLI-Loci-Vision.md`, and `Docs/WORKING_RULES.md`.
+1. Read `ALLNIGHTER.md`, `docs/mvp/README.md`, and `docs/WORKING_RULES.md`.
 2. Translate founder/user input into a Feature Packet.
 3. Identify the trusted workflow slice.
 4. Name the truth owner.
 5. Name affected models, WebSocket messages, Mac/iOS surfaces, parsers, and
-   agent bridge configs.
+   agent driver configs.
 6. Define the user-visible claim.
 7. Define the Works Test: setup, gesture, owner path, output, assertion.
 8. Name supporting checks.
@@ -69,7 +68,7 @@ If the rule cannot be assigned to an owner, stop and fix the design.
 ## Feature Packet
 
 ```text
-CLI Loci Feature Packet
+Allnighter Feature Packet
 
 Status: Draft | Blocked | Ready for Implementation
 
@@ -97,7 +96,7 @@ Implementation
 - Mac app impact:
 - iOS app impact:
 - WebSocket/protocol impact:
-- Agent bridge impact:
+- Agent driver impact:
 - Auth/privacy/permissions impact:
 
 Proof

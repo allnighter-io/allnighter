@@ -1,30 +1,28 @@
-# CLI Loci
+# Allnighter
 
-Native macOS mission control + iOS remote for terminal-based AI coding agents.
+Native macOS agent factory + iOS remote floor manager for terminal-based AI
+coding agents.
 
-**CLI Loci** turns a developer's Mac into an always-on multi-agent orchestration
-hub and their iPhone into a remote control surface — for Claude Code, Grok Build,
-Aider, Codex CLI, and future CLI agents.
+**Allnighter** turns a developer's Mac into an overnight agent factory and their
+iPhone into the floor manager for that factory — coordinating Claude Code, Codex
+CLI, Grok, and other subscription CLIs the user already pays for.
 
-Core promise: one native Mac app, one delightful iOS companion, real parallel
-execution, radical privacy, zero mandatory cloud.
+Core promise: parallel safe lanes, council-driven planning, radical privacy,
+zero mandatory cloud.
 
 Process entry point: `AGENTS.md`.
 
 Core operating docs:
 
-- `CLILOCI.md` — product spec and runbook index
-- `Docs/strategy/CLI-Loci-Vision.md` — vision, architecture, MVP scope
-- `Docs/FOLDER_MAP.md`
-- `Docs/WORKING_RULES.md`
-- `Docs/workflows/SSOT_Feature_Workflow.md`
-- `Docs/operations/Execution-Playbook.md`
-- `Docs/operations/Debugger.md`
-- `Docs/operations/code-maintainer/SKILL.md`
-- `Docs/product/SSOT.md`
+- `ALLNIGHTER.md` — product spec and runbook index
+- `docs/mvp/README.md` — active MVP execution truth
+- `docs/phases/README.md` — full build phases
+- `docs/FOLDER_MAP.md`
+- `docs/WORKING_RULES.md`
+- `docs/workflows/SSOT_Feature_Workflow.md`
+- `docs/operations/Execution-Playbook.md`
+- `docs/operations/Debugger.md`
+- `docs/operations/code-maintainer/SKILL.md`
 
-Current phase: **Phase 00** Repo OS Bootstrap
-(`Docs/phases/00_Repo_OS_Bootstrap.md`). Next: **Phase 01** Shared Models And
-WebSocket Protocol (`Docs/phases/01_Shared_Models_And_WebSocket_Protocol.md`).
-
-Phase index: `Docs/phases/README.md`.
+Current execution: **MVP Council slice** (`docs/mvp/README.md`). iOS remote
+spine: `docs/phases/ios/README.md`.

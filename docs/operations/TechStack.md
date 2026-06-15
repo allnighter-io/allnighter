@@ -1,45 +1,48 @@
 # Tech Stack
 
-Status: bootstrap — docs and process only; Swift targets land in Phase 01+.
+Status: MVP in progress — `AllnighterCore` and `AllnighterMac` exist; iOS scaffold
+is transitional.
 
-## Planned Stack
+## Stack
 
 | Layer | Choice |
 | --- | --- |
 | Language | Swift 6 |
 | UI | SwiftUI (+ targeted AppKit on macOS) |
-| Shared code | Swift Package `CLILociCore` |
-| Mac networking | SwiftNIO + NIOWebSocket |
-| iOS networking | `URLSessionWebSocketTask` |
-| Session/process | Foundation.Process + PTY (tmux-backed option for v1 reliability) |
+| Shared code | Swift Package `AllnighterCore` |
+| Mac app | XcodeGen project at `Apps/AllnighterMac/` |
+| iOS app | `Allnighter/` (transitional) → `Apps/AllnighteriOS/` |
+| Mac networking | Tailscale serve + loopback HTTP/WebSocket (see `docs/phases/ios/01`) |
+| iOS networking | `URLSessionWebSocketTask` over Tailscale |
+| Session/process | Foundation.Process + git worktrees (lanes) |
 | Secrets | Keychain (macOS) |
-| Remote transport | Tailscale P2P (preferred), local network fallback |
+| Remote transport | Tailscale private tailnet |
 | Mac distribution | Notarized DMG/PKG, Sparkle updates |
 | iOS distribution | TestFlight → App Store |
 | CI | GitHub Actions macOS runner + `xcodebuild test` |
 
-## Repo Targets (planned)
+## Repo Targets
 
 ```txt
-Packages/CLILociCore/     # models, parsers, protocol Codable types
-Apps/CLILociMac/          # macOS menu-bar app + WebSocket server
-Apps/CLILociIOS/          # iOS companion
+Packages/AllnighterCore/     # models, engine, CLI tools
+Apps/AllnighterMac/          # macOS menu-bar app + council UI
+Allnighter/                  # transitional iOS Xcode scaffold
 ```
 
-## Commands (when targets exist)
+## Commands
 
 ```text
 # Shared package
-swift test --package-path Packages/CLILociCore
+swift test --package-path Packages/AllnighterCore
 
 # Green wall
 bash scripts/check.sh
 
 # Mac app
-xcodebuild test -scheme CLILociMac -destination 'platform=macOS'
+xcodebuild test -scheme AllnighterMac -destination 'platform=macOS'
 
-# iOS app (simulator)
-xcodebuild test -scheme CLILociIOS -destination 'platform=iOS Simulator,name=iPhone 16'
+# iOS app (simulator) — when AllnighteriOS target exists
+xcodebuild test -scheme Allnighter -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
 ## Agent Tooling
@@ -50,10 +53,10 @@ xcodebuild test -scheme CLILociIOS -destination 'platform=iOS Simulator,name=iPh
 
 ## Open Technical Decisions
 
-Track durable decisions in `Docs/product/SSOT.md` § Open Decisions.
+Track durable decisions in phase docs and `docs/mvp/00_MVP_Architecture.md`.
 
 | Topic | Options | Phase owner |
 | --- | --- | --- |
-| PTY strategy | tmux-backed vs native PTY management | Phase 02 |
-| Workspace layout | SPM-only vs Xcode workspace with apps | Phase 01 |
-| Push notifications | none vs optional self-hosted ntfy relay | Phase 2+ |
+| iOS project layout | root `Allnighter/` vs `Apps/AllnighteriOS/` via XcodeGen | `docs/phases/ios/02` |
+| Push notifications | none vs optional self-hosted relay | Phase 20+ |
+| Event vocabulary freeze | `synthesis.*` → `stage.*` | `docs/phases/ios/01` |

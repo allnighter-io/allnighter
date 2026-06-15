@@ -1,6 +1,6 @@
 ---
 name: code-maintainer
-description: Behavior-preserving file/module/doc hygiene for CLI Loci.
+description: Behavior-preserving file/module/doc hygiene for Allnighter.
 ---
 
 # Code Maintainer

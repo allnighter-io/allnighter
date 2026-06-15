@@ -26,12 +26,9 @@ is the source of truth"; (2) it is a hand-managed `.xcodeproj` at the repo root,
 not XcodeGen under `Apps/`, unlike `AllnighterMac`. First slice deletes it and
 stands up `Apps/AllnighteriOS/` via XcodeGen depending on `AllnighterCore`.
 
-> Naming-drift note (broader, flagged not fixed here): `AGENTS.md` / `FOLDER_MAP.md`
-> still describe "CLI Loci" (`CLILociCore`, `Apps/CLILociIOS/`, capital `Docs/`,
-> Aider/PTY). The real repo is **Allnighter** (`AllnighterCore`, `docs/`, the
-> council/run model). An executing agent following `AGENTS.md` will misroute. This
-> needs a separate reconciliation pass; until then, **trust this folder + `docs/mvp/`,
-> not `AGENTS.md`,** for iOS paths.
+> Pre-req note: `docs/FOLDER_MAP.md` routes to Allnighter paths (`AllnighterCore`,
+> `Apps/AllnighterMac/`, `docs/`). `AGENTS.md` is owned separately — trust this
+> folder + `docs/mvp/` for iOS-specific execution truth.
 
 ## Non-Goals
 

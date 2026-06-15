@@ -11,11 +11,11 @@
 
 ## Swift Conventions
 
-- Shared models and protocol types belong in `Packages/CLILociCore/`.
-- Mac-only process/PTY code stays in `Apps/CLILociMac/`.
-- iOS UI and remote transport stay in `Apps/CLILociIOS/`.
-- SwiftUI views render truth; they do not own durable session semantics.
-- Prefer `async`/`await` and structured concurrency for WebSocket and PTY I/O.
+- Shared models and engine types belong in `Packages/AllnighterCore/`.
+- Mac-only app shell and UI stay in `Apps/AllnighterMac/`.
+- iOS UI and remote transport stay in `Allnighter/` or `Apps/AllnighteriOS/`.
+- SwiftUI views render truth; they do not own durable run semantics.
+- Prefer `async`/`await` and structured concurrency for WebSocket and process I/O.
 
 ## Proof Rules
 
@@ -32,5 +32,5 @@
 - Do not sweep unrelated dirty files into commits.
 - Mention unrun proof and residual risk in closeout.
 - Codex agents enqueue commits through `scripts/commit_handoff_queue.py`; Cursor
-  processes the queue. See `Docs/operations/Execution-Playbook.md` § Codex
+  processes the queue. See `docs/operations/Execution-Playbook.md` § Codex
   commit handoff.

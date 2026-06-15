@@ -52,9 +52,9 @@ bash scripts/check.sh
 Or individually:
 
 ```text
-swift test                           # CLILociCore package
-xcodebuild test -scheme CLILociMac   # Mac app (see TechStack.md)
-xcodebuild test -scheme CLILociIOS   # iOS app (see TechStack.md)
+swift test --package-path Packages/AllnighterCore
+xcodebuild test -scheme AllnighterMac   # Mac app (see TechStack.md)
+xcodebuild test -scheme Allnighter      # iOS app (see TechStack.md)
 ```
 
 Until targets exist, closeout names missing proof explicitly.

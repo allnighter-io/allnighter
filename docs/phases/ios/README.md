@@ -64,9 +64,6 @@ folder — see `00_iOS_Transport_Decision.md` for exactly what is deleted.
 3. **Freeze the event vocabulary** (`synthesis.*` → `stage.*`) before the wire locks.
 4. **Delete the SwiftData template** at `Allnighter/Allnighter.xcodeproj`; stand up
    `Apps/AllnighteriOS/` via XcodeGen (`02` pre-req).
-5. **Repo naming drift:** `AGENTS.md` / `FOLDER_MAP.md` still say "CLI Loci" and
-   will misroute agents. Trust this folder + `docs/mvp/`, not `AGENTS.md`, for iOS
-   paths until a reconciliation pass fixes them.
 
 ---
 
