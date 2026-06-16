@@ -72,7 +72,17 @@ struct ModelBenchGlyph: View {
     }
 }
 
-// MARK: - Team control (pill + attached dropdown)
+// MARK: - Team pill frame (positions the dropdown flush under the pill)
+
+struct TeamPillFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+// MARK: - Team control (pill trigger; panel anchored in RootView)
 
 struct TeamControlView: View {
     @Environment(AppModel.self) private var appModel
@@ -86,12 +96,18 @@ struct TeamControlView: View {
     private var readyCount: Int { rows.filter(\.isReady).count }
     private var stackModels: [Model] { Array(rows.prefix(4).map(\.model)) }
 
-    // Only the pill lives in the title bar. The dropdown panel is presented by
-    // RootView as a top-level overlay BELOW the title bar (the proven `showDoctor`
-    // pattern), because the title bar's centered ZStack + an intrinsically-tall
-    // panel made the open dropdown overflow past the window's top edge.
+    // Pill only in the title bar. RootView anchors the dropdown flush beneath it
+    // via TeamPillAnchorKey so the panel never clips or floats detached.
     var body: some View {
         pillButton
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: TeamPillFrameKey.self,
+                        value: geo.frame(in: .global)
+                    )
+                }
+            }
             .fixedSize(horizontal: true, vertical: true)
     }
 
@@ -112,7 +128,17 @@ struct TeamControlView: View {
             .frame(height: 28)
             .background(pillBackground)
             .clipShape(pillShape)
-            .overlay { pillShape.stroke(pillBorder, lineWidth: 1) }
+            .overlay {
+                if isOpen {
+                    // Attached panel carries the shared edge; omit the pill bottom stroke.
+                    pillShape.stroke(pillBorder, lineWidth: 1)
+                        .mask(alignment: .top) {
+                            Rectangle().frame(height: 28)
+                        }
+                } else {
+                    pillShape.stroke(pillBorder, lineWidth: 1)
+                }
+            }
         }
         .buttonStyle(TeamPillButtonStyle(isOpen: isOpen))
         .onHover { pillHover = $0 }
@@ -253,6 +279,31 @@ struct BenchDropdownPanel: View {
             .disabled(appModel.isDetecting)
             .help("Launches your local CLIs to verify which models are ready. May take a moment and use quota.")
 
+            // Tier-2 discovery: once one agent is ready, let it hunt down the
+            // tools the plain probe missed — each found path is verified locally
+            // before it counts (health == runs). Hidden until an agent is ready,
+            // because the census needs a working agent to run it.
+            if appModel.canRunCensus || appModel.isRunningCensus {
+                Button {
+                    appModel.runCensusDiscovery()
+                } label: {
+                    Label(appModel.isRunningCensus
+                            ? "Finding your tools…"
+                            : "Find the rest with \(appModel.censusAgent?.displayName ?? "an agent")",
+                          systemImage: appModel.isRunningCensus ? "hourglass" : "wand.and.stars")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.alSecondary(small: true))
+                .disabled(!appModel.canRunCensus)
+                .help("Uses a ready agent to locate the CLIs that weren't found, then verifies each before marking it ready.")
+            }
+            if let summary = appModel.lastCensusSummary {
+                Text(summary)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(ALColor.textFaint)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             HStack(spacing: 9) {
                 Button {
                     isOpen = false
@@ -307,7 +358,10 @@ private struct BenchDropdownRowView: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(-1)
             trailingAction
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
         }
         .padding(.horizontal, 9).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -321,6 +375,7 @@ private struct BenchDropdownRowView: View {
         } else if let label = row.issueLabel {
             HStack(spacing: 8) {
                 Badge(text: label, tone: row.issueTone)
+                    .fixedSize(horizontal: true, vertical: false)
                 Button(action: onRepair) {
                     Text("Repair")
                         .font(.system(size: 12, weight: .medium))
