@@ -63,13 +63,13 @@ Prove detection on a real machine before building the WOW UI (full detail in
 | **0** | Packaging fix + `DefaultConfig` safety net + built-bundle test → default models/team load, Doctor shows real reasons | **Done** (2026-06-15) |
 | **1** | Detection engine — `CLIDetector` + hardened login-shell resolve (`ShellResolver`) + cached invocation (`ToolInvocation`) + 5-state status (`ModelSetupStatus`) + persistence (`SetupStore`). Prove headless first. | **Built** (2026-06-15) — engine + persistence + `CLIDetectorTests`; reachable headless via `alln detect`. Live founder smoke run still pending. |
 | **2** | Wire Doctor + health badge to the detector → real "4/4 tools ready" | **Built** (2026-06-15) — `AppModel` runs `CLIDetector.probeAll` + caches; **health == runs proven**: `WorkerRunner` spawns through the cached `ToolInvocation` (direct/shim/loginShell), threaded `TeamService(invocations:)` ← `ToolRuntime` from `SetupStore`. (Mac run-path adopting the cached invocation is app integration.) |
-| **3** | Setup UI (Experience Scenes 1–6); Doctor becomes the compact roster | **Blocked on designer mocks** (`00_…`) |
+| **3** | First-run setup UI; Doctor becomes the compact roster | **Built (lean)** (2026-06-16) — cinematic scenes CUT (see `00_…` Direction change). Shipped: `TeamReadinessView` (CLI setup page), `BenchRepairPanel` (contextual fix + re-probe-in-place), `BenchHealthPopover`/`Badge` (compact roster), state-driven team dropdown, first-run gating (`AppModel.hasCompletedSetup`/`markSetupCompleted`), non-trapping. Visual proof: `docs/qa/gui/setup/`. |
 | **4** | Auto-build the Bench/default Team from ready sources/models | **Built** (2026-06-15) — `TeamAssembler` (pure) assembles Bench/team + truthful plan writer from ready sources; persisted in `SetupStore.assembledTeam`; `alln detect` now detects → assembles → persists. |
 
-**Next:** app/UI integration — Setup UI (Phase 3, blocked on mocks) **or** the
-standalone Dock app shell. The engine truth layer (detect → assemble → persist,
-health == runs) is complete and headless; the Mac run-path can adopt the cached
-invocation as part of app integration.
+**Next:** detection robustness has landed (interactive `-lic` at explicit setup,
+common-bin-dirs + Spotlight fallback, gap detector — Track 0; see `01_…` and
+`Launch_Authority_TCC_Hotfix.md` rule 8). Remaining: live founder smoke on a real
+machine, and any per-tool repair polish surfaced in use.
 
 Created 2026-06-15 · Phase 0 implemented 2026-06-15 · Phases 1–2 reconciled to
 code 2026-06-15.

@@ -1,227 +1,194 @@
-# First-Run Setup — The Experience ("Assemble your team")
+# First-Run Setup — The Experience ("Find your team")
 
-**Status:** Spec for design + build. Designers mock from this doc.
-**Surface:** A full-window, first-launch flow on macOS (the same window the
-team runs in). Re-runnable later from Settings.
+**Status:** BUILT (lean). Designers/agents follow this doc — it is the spec.
+**Surface:** A full-window, first-launch page on macOS (the same window the team
+runs in). Re-runnable later from the team dropdown / health badge.
 **Owner:** Founder / GUI
-**Created:** 2026-06-15
+**Created:** 2026-06-15 · **Lean rewrite:** 2026-06-16
 **Visual SSOT:** `docs/design-system/` · **Build governance:** `docs/gui/GUI_Workflow.md`
+
+---
+
+## Direction change (2026-06-16) — the cinematic flow is cut
+
+The original version of this doc specified a 6-scene cinematic flow: a breathing
+hero, a staggered "roll-call" reveal where tools light up one by one, a
+celebration glow-pulse, and separate "confirm your team" + "launch" scenes.
+**That choreography is deleted.** Founder call: it is bloat — it adds build and
+maintenance cost, more GUI-proof surface, and it *slows down* first run
+(auto-advancing scenes = waiting) for zero functional gain.
+
+**The wow was never motion.** It is **recognition** ("it found everything I
+already have"), **speed** (scan → fix the reds → working, under a minute), and
+**trust** (nothing is ever faked). A solo builder opened the app to *work* —
+give them the team on the floor, not a show.
+
+What replaces it is the lean onboarding below: a single honest **CLI setup page**
+that shows what we support vs. what we found, fixes the gaps in place, and lets
+the user into the app. It is built.
 
 ---
 
 ## 1. Why this exists (the moment to win)
 
-A solo builder already pays for Claude Code, Codex, Grok, Gemini/Antigravity,
-Cursor, Aider… The product's whole thesis is **"you already pay for the team —
-Allnighter makes it show up to work."** First-run Setup is where the team
-literally shows up. It is the first 60 seconds and the first proof of the
-promise. If it feels like a config form, we've lost. If it feels like Allnighter
-*reached into the machine and assembled a team that's ready to work tonight*, we
-win the user.
+A solo builder already pays for Claude Code, Codex, Grok, Gemini/Antigravity…
+The thesis is **"you already pay for the team — Allnighter makes it show up to
+work."** First-run is where the team shows up. It is the first proof of the
+promise.
 
-### The anti-spec (what we have today — never ship this again)
-- Cold open straight into an empty run surface with a 1-worker team.
-- A **0/1 healthy** badge with no explanation and no path forward.
-- The user has 4 CLIs installed; the app shows one, broken. Zero guidance.
-- Setup, auth, and discovery simply don't exist.
+### The anti-spec (never ship this again)
+- Cold open into an empty run surface with a 1-worker team.
+- A `0/1 healthy` badge with no explanation and no path forward.
+- The user has 4 CLIs installed; the app shows one, broken, with zero guidance.
 
-> Note: today's single-worker / "no manifest" state is amplified by a **packaging
-> bug** — the bundled default team and all driver manifests fail to load, so the
-> app falls back to one hardcoded worker. See `01_…` §Cause 0. That bug is a
-> prerequisite fix; this experience is what replaces the whole cold open.
+The bar: launch → "my whole team is ready" with **one scan and zero typing** in
+the common case.
 
-The bar: a new user should go from launch → "my whole team is ready" with **one
-click and zero typing** in the common case.
+> **Source vs model vs worker:** the roster is **one card per CLI/tool source**
+> (Claude Code, Codex, Grok, Antigravity), not one per model. Detection is per
+> source; ready sources populate the bench with models (Opus, Sonnet…). Tallies
+> and the health badge are source-level. See `01_…` §2.
 
 ---
 
-## 2. The feeling
+## 2. The feeling (values, not choreography)
 
-Cinematic, calm, confident. The brand is "amber phosphor on midnight," and the
-**live mark is the hero** — the lamp that's on all night. Setup is a **roll
-call**: Allnighter sweeps the machine and the team reports for duty one by one,
-each lighting up as it's found and verified. Restraint, not confetti. The wow is
-*recognition* ("it found everything I have, and it's ready"), not animation for
-its own sake.
+Calm, honest, fast. Dark, amber-on-midnight. The values survive the cut:
 
-Voice: sentence case, verbs first, no hype, no emoji. Numbers concrete and mono.
-"Found Claude Code 1.2.4." "Grok needs a login." Never "AI-powered."
+- **Recognition over animation.** The reward is seeing your real tools found and
+  ready — not a reveal sequence. No staggered ignite, no celebration pulse.
+- **Honest always.** A card is `ready` only when its probe actually passed.
+  Missing / unauthed / broken show the real reason and the fix. Never faked.
+- **Speed is the wow.** Fewer steps, no gated scenes, no auto-advance. The fastest
+  path from launch to a working team wins.
 
----
+Voice: sentence case, verbs first, no hype, no emoji. Versions/paths/commands in
+mono. "Found Claude Code 1.2.4." "Grok needs a login." Never "AI-powered."
 
-## 3. The flow (scene by scene)
-
-Six scenes, one continuous window (implementation may merge the scan + reveal —
-Scenes 2–3 — into one). The user can always proceed with whoever is ready —
-nothing here is a hard gate except "at least one tool ready."
-
-> **Source vs model vs worker (critical):** the roster is **one card per CLI/tool
-> source** (Claude Code, Codex, Grok, Antigravity), not one per model. Detection
-> is per source; ready sources populate the Bench with models (Opus, Sonnet…),
-> and Scene 5 builds workers from those models. Tallies and the health badge are
-> source-level. See `01_…` §2.
-
-### Scene 1 — Cold open / hero (≈2s, auto-advances)
-- Full midnight canvas (`--bg-base`). The **live mark breathes** (idle → the
-  block blinks) center-stage at a large size (~64pt).
-- One promise line, display type: **"Let's assemble your team."**
-- Subline, muted: "Allnighter runs the AI coding tools you already pay for —
-  in parallel, overnight. First, let's find them."
-- Single primary button **"Scan my machine"** — OR auto-start the scan after a
-  beat (designer to choose; recommend auto-start with a barely-visible "scanning…"
-  so there's no dead click). A faint "What gets scanned?" ghost link opens a
-  popover explaining we only look for known CLI tools, locally, read-only.
-
-### Scene 2 — The scan (the magic moment)
-This is the scene that has to sing.
-- The live mark moves up into a slim header ("Assembling your team ·
-  scanning…", live mark blinking).
-- A **roster** materializes as a column of **tool cards — one per known CLI**,
-  each a dim, ghosted slot that **resolves in real time** as detection completes,
-  in roll-call order:
-  - ghost → **"found"** (glyph ignites to full color, name + version snap in,
-    mono version line) → **"checking…"** (a quiet pulse) → terminal state:
-    - **Ready** — green `StatusPill`, version shown, a soft amber/green settle.
-    - **Needs login** — amber, "found, not signed in" + an inline fix (Scene 4).
-    - **Not installed** — muted/ghosted, an "Add" affordance (Scene 4).
-- Cards animate in **staggered** (~120–160ms apart) so it reads as a team
-  arriving, not a table rendering. Reduce-motion: no stagger, states just set.
-- A live tally updates at the **tool** level: **"4 of 4 tools ready."**
-  Progressive reveal rewards each true step — **found → `claude 1.2.4` → signed
-  in → 2 models** — so cards ignite long before smoke finishes (probe order is
-  fastest-first; see `01_…` §4.1).
-- Honesty: a card never flips to Ready unless its probe passed. A failed probe
-  shows the real reason in mono ("not signed in", "command not found").
-
-### Scene 3 — Roster reveal
-When the sweep settles:
-- Header: **"Your team is taking shape — 4 of 4 tools ready."** Live mark
-  steady. Ready **tools** sort to the top; their models are used in Scene 5.
-- The roster, now sorted: **Ready** on top, **Needs a step** next, **Available
-  to add** last. Each card:
-  - brand glyph (Anthropic / Gemini / X / Cursor logos; ChatGPT/Codex uses a
-    neutral terminal chip — Simple Icons removed OpenAI; see `01_…` §6), name, the
-    route (`via claude-code`), a mono version, and a status chip.
-  - Ready cards have a subtle plan-writer marker when a model from that source
-    can write the plan (e.g., Opus).
-- Primary CTA appears once ≥1 is ready: **"Continue"** (to Scene 5) — but the
-  user is invited to fix the amber ones first.
-
-### Scene 4 — Fix-its (inline, never a dead end)
-Each non-ready card carries the *exact* next step, resolved live without leaving
-Setup. Three cases:
-- **Found but not signed in.** Calm card: "Claude Code is installed but not
-  signed in." Show the tool's real **sign-in flow** (e.g. *run `claude`, then
-  `/login`*; Codex prompts on first `codex`; Gemini OAuth) — copyable mono — **and**
-  a primary **"Open Terminal & sign in"** that launches Terminal to it. Copy is
-  honest: **"Sign in in Terminal — we'll detect when you're done."** The card
-  shows "waiting for sign-in…" and **polls** (a cheap re-check, then one smoke),
-  flipping to **Ready** the moment it passes — no app restart, no manual refresh.
-  (Stretch: an embedded sign-in console so it never leaves the window.)
-- **Not installed.** "You don't have Grok yet." Show the one-line install
-  (`brew install …` / `npm i -g …`) with copy + "Open install page" link. After
-  install, a "Re-scan" chip picks it up. (Installing is the user's choice; we
-  never auto-install.)
-- **Found as an alias / shim / non-PATH binary.** "We found `agy` as a shell
-  function, not a plain command." Offer "Use it anyway" (run through the login
-  shell wrapper) or "Locate the binary…" (file picker). See detection doc §4.
-
-Every fix re-probes in place and updates the tally. The user watches amber turn
-green — that *is* the reward loop.
-
-### Scene 5 — Team & plan writer (light confirm)
-- "Set your team." Workers from ready models are **pre-selected**; the user can
-  toggle. At least one must stay. This is **confirm, not configure** — no model
-  editing here (that's Settings).
-- **Plan writer** picker, defaulted to the best eligible worker (Opus 4.8
-  wearing the Plan Writer skill if present). One line on what the plan writer
-  does: "one worker reads every answer and writes the plan."
-- A quiet cost/scale reassurance: "N workers · local · $0 marginal."
-
-### Scene 6 — Launch
-- "Your team is ready." Live mark gives one confident amber glow-pulse.
-- Recap chip: **"6 workers · plan writer: Opus 4.8 · $0 marginal."**
-- Primary **"Ask your team"** → dissolves into the Compose screen
-  with the team populated and the prompt focused. Show an example prompt **muted
-  in the placeholder**, never pre-filled — typing breaks zero-typing for a user
-  who already has a task in mind.
+The **one** motion worth keeping: **re-probe-in-place** — a card flips to green
+the moment a fix passes. That is not engineered animation; it is honest state
+catching up to reality, and it is the real reward loop.
 
 ---
 
-## 4. States to design (every card, every scene)
+## 3. The flow (lean — what's built)
 
-For each source card, the designer needs all of:
-`ghost/queued` · `detecting` · `ready (version)` · `needs-login` ·
+One page, no scenes.
+
+1. **First-run gate.** On launch, if setup was never completed
+   (`AppModel.hasCompletedSetup == false`), the app opens the **CLI setup page**
+   automatically. It is **process-quiet** (Launch Authority TCC hotfix): it
+   renders cached/unknown state and spawns nothing until the user acts.
+2. **The roster (`TeamReadinessView`).** All supported CLIs in three groups:
+   - **Ready** — green, version shown; the models that source powers.
+   - **Needs a step** — found but not signed in / alias-or-path ambiguous /
+     probe-failed; each carries its exact fix.
+   - **Add a CLI** — supported but not installed; install hint + docs.
+   A header tally states it plainly: *we support N, found M*.
+3. **Scan / re-check.** A single **"Re-check all"** runs the live probe
+   (interactive `-lic` so the user's real PATH is seen; one-time TCC prompt is
+   acceptable here — explicit intent). Detection also auto-resolves common
+   install dirs + Spotlight, so most tools resolve with no further action.
+4. **Fix in place.** The sticky repair panel (`BenchRepairPanel`) gives the
+   contextual action per state — open sign-in in Terminal, locate the binary,
+   use-anyway, re-try, open install page — and the card **re-probes and flips
+   green in place** when it passes. No restart, no app refocus.
+5. **Agent fallback (last resort, opt-in).** Only when a supported CLI is still
+   not found AND a working agent exists: a framed "Search my machine" card runs
+   a read-only agent census (~30–60s, honest about the time, verifies every path
+   before trusting it). Onboarding only — never the dropdown.
+6. **Into the app.** Closing the page marks setup seen (`markSetupCompleted`) and
+   drops the user into the normal compose surface with the bench already seated
+   from ready models. The team-confirm + plan-writer choices live in the normal
+   compose UI, **not** a separate gated scene.
+
+**Non-trapping (founder call, 2026-06-16):** the user can leave setup at any time,
+even with 0 ready. We never wall a user out of their own app. If gaps remain, the
+team dropdown shows an **"Open CLI setup"** entry to return, and the title-bar
+health badge stays honest. We do **not** hard-gate the app behind "≥1 ready."
+
+---
+
+## 4. States to design (every card, every scene removed — states remain)
+
+Each source card still needs all of:
+`unknown/not-checked` · `detecting` · `ready (version)` · `needs-login` ·
 `not-installed` · `alias/needs-path` · `probe-failed (reason)` · `re-probing`.
 
-For the flow: `scanning` · `partial (some ready)` · `all-ready` ·
-`none-found (empty state with guidance)` · `offline/edge` (a CLI hung — show
-"taking a while…", never spin forever).
+Page-level: `cold/unprobed (cache only)` · `partial (some ready)` · `all-ready` ·
+`none-found` · `a CLI hung` ("taking a while…", never spin forever).
 
-The **none-found** state matters: a brand-new machine with zero CLIs should still
-feel hopeful — "Let's get your first tool connected. Here are the three fastest to
-install," each a one-liner.
+The **none-found** state matters: a machine with zero CLIs should still feel
+hopeful — "here are the fastest to install," each a one-liner, plus the agent
+"Search my machine" fallback.
 
 ---
 
-## 5. Visual direction (for the mock)
+## 5. Visual direction
 
 - **Tokens/components:** `docs/design-system/` — midnight surfaces, amber as the
-  single warm signal, `StatusPill`, model chips, worker chips, `Badge`, `Button`,
-  `LiveMark`. Mono (`--font-mono`) for versions, paths, commands.
-- **The live mark is the protagonist** — large in the hero, blinking during
-  scan, a single glow-pulse on success. Never animate the whole mark, only the
-  block (per brand).
-- **Roll-call motion:** staggered card resolves; a source "igniting" = its glyph
-  going from `--text-faint` monochrome to full brand color. Calm easing
-  (`--ease-out`), 140–200ms. Respect reduced-motion.
-- **Real brand glyphs** — Simple Icons `anthropic`, `googlegemini`, `x`,
-  `cursor`. Simple Icons **removed OpenAI** (trademark), so ChatGPT/Codex uses a
-  **neutral terminal chip / SF Symbol** (per `docs/design-system/readme.md`).
-  Glyph tint = brand; Opus/plan-writer carries the amber.
-- Density and chrome match the team-run window so Setup feels like the same
-  product, not a separate installer.
+  single warm signal, `StatusPill`, model/worker chips, `Badge`, `Button`. Mono
+  for versions, paths, commands.
+- **Real brand glyphs** — `anthropic`, `googlegemini`, `x`; ChatGPT/Codex uses a
+  neutral terminal chip (Simple Icons removed OpenAI). Shared via
+  `DriverBrandGlyph`.
+- **No roll-call motion, no glyph ignite, no celebration pulse.** The only state
+  transition is a card re-probing to green in place. Respect reduced-motion.
+- Density and chrome match the team-run window so setup feels like the same
+  product, not an installer.
 
 ---
 
 ## 6. Re-entry & relationship to Doctor
 
-- Setup is **re-runnable** from Settings ("Re-configure team"). Doctor (today's
-  health sheet) becomes the *recheck* surface and ultimately folds into this
-  language: the title-bar health badge ("4/4 tools ready") opens a compact
-  version of the roster with the same fix-its.
-- The health badge must always reflect **real** probe state — Setup and Doctor
-  share one source of truth (see detection doc).
+Setup is re-runnable. The title-bar **health badge** opens a compact roster
+(`BenchHealthPopover`) with the same groups + an **"Open CLI setup"** footer to
+the full page. The team dropdown shows **"Open CLI setup"** only when something
+is not ready. Setup, the popover, and the badge all read one source of truth
+(`AppModel.toolStatuses`); see `01_…`.
 
 ---
 
-## 7. Success criteria (how we know it WOWs)
+## 7. Success criteria
 
-- **One-click, zero-typing** in the common case (CLIs installed + already signed
-  in) → team assembled.
-- **% of installed CLIs auto-detected** approaches 100% — including aliases,
-  shims, and version-manager installs (the thing that's broken today).
-- A user with an unauthed CLI can fix it **without restarting the app** — sign-in
-  completes in Terminal, the card re-probes and flips green in place.
-- Time from first launch → first team run is under a minute.
-- Emotional read in user testing: "it found my whole team" / "that was magic."
+- **One scan, zero typing** in the common case (CLIs installed + signed in) →
+  team ready.
+- **% of installed CLIs auto-detected approaches 100%** — including `.zshrc`-PATH,
+  aliases, shims, and version-manager installs (interactive resolve + common
+  dirs + Spotlight; agent census only for the genuine long tail).
+- An unauthed CLI is fixed **without restarting the app** — sign-in completes in
+  Terminal, the card re-probes and flips green in place.
+- Time from launch → first team run under a minute.
+- Emotional read: "it found my whole team," not "nice animation."
 
 ---
 
-## 8. Design decisions (defaults — designer may push back with reason)
+## 8. Design decisions (current)
 
-Resolved from mentor review so build isn't blocked; each is a default, not a law.
-
-1. **Auto-start the scan** after a ~1s hero beat, with a subtle "scanning…" — no
-   dead click in the common case. Keep the "What gets scanned?" link for the
-   cautious. (Zero-click is the bar.)
-2. **Single-column roll-call** for the scan (reads as a team arriving). A grid is
-   fine later for a settled roster once there are >6 tools.
-3. **Quiet success:** one live-mark amber glow-pulse + the tally line. No confetti
-   — the green cards are the celebration.
-4. **"Add a tool you don't have"** lives **inline** on `not-installed` cards only.
-   No separate "browse tools" step in v1.
-5. **Never skippable to a 0-ready team on first launch.** Require ≥1 ready tool;
-   the none-found state (§4) is the empty path.
+1. **No cinematic scenes.** No hero cold-open, no roll-call, no celebration, no
+   separate confirm/launch scenes. First-run = land on the CLI setup page.
+2. **No auto-scan on the auto-opened page.** Process-quiet: render cache; the
+   probe runs only on the explicit "Re-check all" click (one-time TCC prompt OK).
+3. **Non-trapping.** Never block the app behind setup; always offer a way back in.
+4. **"Add a tool you don't have"** lives inline on `not-installed` cards. No
+   separate "browse tools" step.
+5. **Agent census is onboarding-only**, gated on a real gap + a working agent,
+   framed with its cost; never in the dropdown.
 6. **Roster = shipped drivers only** (Claude Code, Codex, Grok, Antigravity). No
-   ghost cards for tools without a manifest (Cursor/Aider/Gemini-CLI are phase-2).
+   ghost cards for tools without a manifest.
+
+---
+
+## 9. Built surfaces & proof
+
+- `TeamReadinessView` (full CLI setup page), `BenchRepairPanel` (contextual fix),
+  `BenchHealthPopover` / `BenchHealthBadge` (compact roster), `BenchDropdownPanel`
+  (team dropdown footer state-driven to "Open CLI setup").
+- First-run gating: `AppModel.hasCompletedSetup` / `markSetupCompleted`
+  (persisted via `SetupStore`); launch opens the page when unset.
+- Detection: `CLIDetector` interactive `-lic` at explicit setup, common-bin-dirs
+  + Spotlight fallback, gap detector `AppModel.unresolvedSupported`. See `01_…`
+  and `Launch_Authority_TCC_Hotfix.md` (rule 8).
+- Dev review: the DEBUG **GUI routes** sheet has a **First-run onboarding** route
+  plus CLI-setup page/popover and mixed-health scenarios.
+- Visual proof packets under `docs/qa/gui/setup/` (layout-watcher PASS).
