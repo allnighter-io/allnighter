@@ -23,6 +23,12 @@ allapp test     # full green wall (swift + xcodebuild tests)
 allapp clean    # drop the cached build, then build + launch fresh
 ```
 
-Build is cached under `.build/mac/` (gitignored), so repeat runs are fast.
+Build output lives under `~/Library/Developer/Allnighter/Build/` — deliberately
+OUTSIDE the repo. The checkout is under `~/Documents`, and macOS attributes a
+child process's TCC prompts to the `.app`'s location, so launching from
+`~/Documents` raised a Documents permission dialog on cold launch (Launch
+Authority TCC hotfix, H4). `~/Library` is not TCC-protected and persists across
+reboots. Override the location with `ALLNIGHTER_BUILD_DIR`.
+
 The built bundle is `Allnighter.app` (`PRODUCT_NAME` in `Apps/AllnighterMac/project.yml`).
 On a build failure it prints the `error:` lines and the log path.

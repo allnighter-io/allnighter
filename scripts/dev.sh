@@ -12,7 +12,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MAC_APP="$ROOT/Apps/AllnighterMac"
-DERIVED="$ROOT/.build/mac"            # gitignored; deterministic .app path + cache
+# Build/launch OUT of the repo. The checkout lives under ~/Documents, and macOS
+# attributes a child's TCC prompts to the .app's location — launching from
+# ~/Documents made cold launch raise a Documents permission dialog. ~/Library is
+# not a TCC-protected folder, persists across reboots, and keeps logs findable.
+# (Launch Authority TCC hotfix, slice H4. Override with ALLNIGHTER_BUILD_DIR.)
+DERIVED="${ALLNIGHTER_BUILD_DIR:-$HOME/Library/Developer/Allnighter/Build}"
 SCHEME="AllnighterMac"
 APP="$DERIVED/Build/Products/Debug/Allnighter.app"
 LOG="$DERIVED/last-build.log"
