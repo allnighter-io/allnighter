@@ -213,7 +213,7 @@ final class AppModel {
         )
 
         let coordinator = TeamRunCoordinator(
-            workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()),
+            workerRunner: makeWorkerRunner(),
             registry: registry
         )
         let stream = coordinator.events
@@ -252,7 +252,7 @@ final class AppModel {
         }
 
         transition(to: .planning)
-        let writer = PlanWriter(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+        let writer = PlanWriter(workerRunner: makeWorkerRunner())
         let stages = await writer.synthesize(
             run: run ?? current, judge: planWriter, manifest: manifest, models: models, config: currentSynthesis
         )
@@ -324,7 +324,7 @@ final class AppModel {
 
         runTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let reduceRunner = ReduceRunner(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+            let reduceRunner = ReduceRunner(workerRunner: makeWorkerRunner())
             let reviewStages = await ReviewCoordinator(reduceRunner: reduceRunner)
                 .review(run: current, models: snapshotModels, lenses: lenses)
             guard var updated = self.run else { self.isReviewing = false; return }
@@ -334,7 +334,7 @@ final class AppModel {
 
             if thenFinalize {
                 self.transition(to: .finalizing)
-                let finalizer = Finalizer(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+                let finalizer = Finalizer(workerRunner: makeWorkerRunner())
                 let finalStage = await finalizer.finalize(run: current, finalizer: planWriter, manifest: judgeManifest, models: snapshotModels, profile: finalProfile)
                 guard var withFinal = self.run else { self.isReviewing = false; return }
                 withFinal.stages.append(finalStage)
@@ -394,7 +394,7 @@ final class AppModel {
                 healthy = d.isHealthy
             }
             let artifactsDir = (try? self.store.runDirectory(forRunId: snapshotRunId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(snapshotRunId)")
-            let dispatcher = Dispatcher(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+            let dispatcher = Dispatcher(workerRunner: makeWorkerRunner())
             let stage = await dispatcher.dispatch(
                 brief: brief, worker: model, manifest: manifest, healthy: healthy,
                 revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
@@ -432,7 +432,7 @@ final class AppModel {
         isReturnReviewing = true
         runTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let runner = WorkerRunner(commandRunner: SubprocessCommandRunner())
+            let runner = makeWorkerRunner()
             let reviewStage = await ReturnReviewer(workerRunner: runner)
                 .review(run: current, executionReturn: ret, reviewer: planWriter, manifest: manifest, profile: BuiltInProfiles.returnReview)
             guard var updated = self.run else { self.isReturnReviewing = false; return }
@@ -515,6 +515,20 @@ final class AppModel {
     var readyToolCount: Int { toolStatuses.filter { $0.status.isReady }.count }
     var totalToolCount: Int { registry.all.filter { $0.kind == .headlessCLI }.count }
     func toolStatus(for driverId: String) -> ToolProbeRecord? { toolStatuses.first { $0.driverId == driverId } }
+
+    /// Per-driver invocations resolved by detection — so GUI runs spawn through the
+    /// SAME plan that passed the health probe (health == runs; docs/phases/setup/01 §10).
+    private var runnerInvocations: [String: ToolInvocation] {
+        var map: [String: ToolInvocation] = [:]
+        for record in toolStatuses { if let inv = record.invocation { map[record.driverId] = inv } }
+        return map
+    }
+
+    /// Every WorkerRunner the app spawns goes through this so runs reuse the
+    /// detected invocation rather than the bare command on the ambient PATH.
+    private func makeWorkerRunner() -> WorkerRunner {
+        WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: runnerInvocations)
+    }
 
     /// Probe every CLI: show cached state instantly, then refresh from a live
     /// resolve → version → smoke sweep. Drives the health badge + Council health.
@@ -791,7 +805,7 @@ extension AppModel {
                 healthy = d.isHealthy
             }
             let artifactsDir = (try? self.store.runDirectory(forRunId: snapshotRunId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(snapshotRunId)")
-            let dispatcher = Dispatcher(workerRunner: WorkerRunner(commandRunner: SubprocessCommandRunner()))
+            let dispatcher = Dispatcher(workerRunner: makeWorkerRunner())
             let stage = await dispatcher.dispatch(
                 brief: brief, worker: model, manifest: manifest, healthy: healthy,
                 revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir

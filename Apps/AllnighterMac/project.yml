@@ -32,8 +32,11 @@ targets:
     info:
       path: Sources/Info.plist
       properties:
-        # Standalone Dock app (Mac_Standalone slice 2): a regular app with Dock
-        # presence and a main window on launch — no longer LSUIElement-only.
+        # Standalone Dock app (Mac_Standalone slice 2). The bundle launches as an
+        # accessory (LSUIElement) so the hosted unit-test runner can connect; for
+        # real launches AppDelegate promotes to a regular Dock app
+        # (setActivationPolicy(.regular)) with a visible icon + main window.
+        LSUIElement: true
         CFBundleDisplayName: Allnighter
         CFBundleName: Allnighter
     settings:

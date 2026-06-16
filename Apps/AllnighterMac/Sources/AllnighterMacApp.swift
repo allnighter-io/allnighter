@@ -1,7 +1,26 @@
 import SwiftUI
+import AppKit
+
+/// The bundle launches as an accessory (`LSUIElement` in Info.plist) so the
+/// hosted unit-test runner can connect without hanging. For a real launch we
+/// promote to a regular Dock app: visible Dock icon, activated, main window.
+/// (Mac_Standalone slice 2 — a standalone Dock app, not menu-bar-only.)
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    static var isTesting: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !Self.isTesting else { return }   // stay accessory under XCTest
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
 
 @main
 struct AllnighterMacApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: AppModel
 
     init() {
