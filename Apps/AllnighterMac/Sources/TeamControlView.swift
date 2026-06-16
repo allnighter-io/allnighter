@@ -26,49 +26,12 @@ struct ModelBenchGlyph: View {
     var iconSize: CGFloat = 15
 
     var body: some View {
-        RoundedRectangle(cornerRadius: boxSize > 20 ? 7 : 5)
-            .fill(ALColor.active)
-            .frame(width: boxSize, height: boxSize)
-            .overlay { mark.opacity(muted ? 0.5 : 1) }
-    }
-
-    private var muted: Bool { false }
-
-    @ViewBuilder private var mark: some View {
-        switch asset {
-        case .brand(let name, let tint):
-            Image(name).renderingMode(.template).resizable().scaledToFit()
-                .frame(width: iconSize, height: iconSize)
-                .foregroundStyle(tint)
-        case .symbol(let system):
-            Image(systemName: system).font(.system(size: iconSize * 0.85))
-                .foregroundStyle(ALColor.textSecondary)
-        }
-    }
-
-    private enum Asset { case brand(String, Color); case symbol(String) }
-
-    private var asset: Asset {
-        let driver = model.driverId
-        let name = model.displayName.lowercased()
-        switch driver {
-        case "claude_code":
-            let tint: Color = name.contains("sonnet") ? ALColor.textSecondary : ALColor.accent
-            return .brand("anthropic", tint)
-        case "antigravity": return .brand("googlegemini", ALColor.textPrimary)
-        case "grok": return .brand("x", ALColor.textPrimary)
-        default: return .symbol(glyphSymbol)
-        }
-    }
-
-    private var glyphSymbol: String {
-        let d = model.driverId.lowercased()
-        let n = model.displayName.lowercased()
-        if d.contains("gemini") || d.contains("antigravity") { return "sparkle" }
-        if d.contains("codex") || n.contains("chatgpt") || n.contains("gpt") { return "terminal" }
-        if d.contains("cursor") || n.contains("composer") { return "squareshape" }
-        if d.contains("grok") || n.contains("grok") { return "bolt.fill" }
-        return "cpu"
+        DriverBrandGlyph(
+            driverId: model.driverId,
+            boxSize: boxSize,
+            iconSize: iconSize,
+            cornerRadius: boxSize > 20 ? 7 : 5
+        )
     }
 }
 

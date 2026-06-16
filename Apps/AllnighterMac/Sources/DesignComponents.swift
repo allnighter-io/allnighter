@@ -82,19 +82,24 @@ struct StatusPill: View {
 // bundled later; for now SF Symbol fallbacks per handoff §Iconography.
 
 struct WorkerGlyph: View {
+    var driverId: String? = nil
     var systemImage: String = "cpu"
     var tint: Color = ALColor.textSecondary
     var size: CGFloat = 30
 
     var body: some View {
-        RoundedRectangle(cornerRadius: ALRadius.md)
-            .fill(ALColor.active)
-            .frame(width: size, height: size)
-            .overlay {
-                Image(systemName: systemImage)
-                    .font(.system(size: size * 0.5))
-                    .foregroundStyle(tint)
-            }
+        if let driverId, DriverBrandAsset.imageName(for: driverId) != nil {
+            DriverBrandGlyph(driverId: driverId, boxSize: size, cornerRadius: ALRadius.md)
+        } else {
+            RoundedRectangle(cornerRadius: ALRadius.md)
+                .fill(ALColor.active)
+                .frame(width: size, height: size)
+                .overlay {
+                    Image(systemName: systemImage)
+                        .font(.system(size: size * 0.5))
+                        .foregroundStyle(tint)
+                }
+        }
     }
 }
 
@@ -107,6 +112,7 @@ struct WorkerGlyph: View {
 struct WorkerChip: View {
     let name: String
     var model: String? = nil
+    var driverId: String? = nil
     var systemImage: String = "cpu"
     var glyphTint: Color = ALColor.textSecondary
     var status: StatusPill.Kind? = nil
@@ -125,7 +131,7 @@ struct WorkerChip: View {
 
     private var content: some View {
         HStack(spacing: 11) {
-            WorkerGlyph(systemImage: systemImage, tint: glyphTint)
+            WorkerGlyph(driverId: driverId, systemImage: systemImage, tint: glyphTint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(ALFont.body.weight(.semibold))
@@ -500,10 +506,10 @@ private struct Crescent: Shape {
                               .init(id: "members", label: "Worker answers", count: 6)],
                       selection: .constant("plan"))
         VStack(spacing: 8) {
-            WorkerChip(name: "Opus 4.8", model: "via claude-code", systemImage: "cpu",
-                       glyphTint: ALColor.accent, status: .running, meta: "00:04",
+            WorkerChip(name: "Opus 4.8", model: "via claude-code", driverId: "claude_code",
+                       status: .running, meta: "00:04",
                        selectable: true, selected: true)
-            WorkerChip(name: "Grok Build", model: "via grok-cli", systemImage: "terminal",
+            WorkerChip(name: "Grok Build", model: "via grok-cli", driverId: "grok",
                        status: .failed, meta: "auth expired")
         }
         Text("Plan ready").font(ALFont.title).foregroundStyle(ALColor.textPrimary).alCard(.accent)
