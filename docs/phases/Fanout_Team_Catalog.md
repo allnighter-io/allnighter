@@ -1,6 +1,11 @@
 # Fanout Team Catalog
 
-Status: Draft feature packet, ready for implementation planning
+Status: Backend BUILT — S00–S05 shipped (2026-06-16, branch `feat/design-chain`).
+Core lane-scoped `TeamPreset` + `SkillCatalog`/`ModelCatalog`/`TeamResolver`/
+`TeamRequestResolver`/`BuiltInTeams` (12 teams) + Engine `CatalogRunCoordinator`
+(answer→review→output staging) + CLI `--team`/`--lane`/`--effort`/`--type` +
+`team teams` + `TeamRunJSON` upgrades. 278 Core/Engine tests + Mac build green;
+contracts regenerated. GUI composer/team-library (S05/S06) + iOS (S07) NOT built.
 Owner: Founder + Shared Core + Mac + iOS
 Updated: 2026-06-16
 

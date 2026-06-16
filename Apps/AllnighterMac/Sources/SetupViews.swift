@@ -428,7 +428,7 @@ struct TeamHealthPopover: View {
     private var cards: [SetupCardModel] { model.setupCards }
     private var ready: [SetupCardModel] { cards.filter { $0.state == .ready } }
     private var add: [SetupCardModel] { cards.filter { $0.state == .notInstalled } }
-    private var step: [SetupCardModel] { cards.filter { !ready.contains(where: { c in c.id == $0.id }) && $0.state != .notInstalled } }
+    private var step: [SetupCardModel] { cards.filter { $0.state != .ready && $0.state != .notInstalled } }
 
     @ViewBuilder private func group(_ title: String, cards: [SetupCardModel], compact: Bool) -> some View {
         if !cards.isEmpty {

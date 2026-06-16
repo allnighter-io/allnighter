@@ -1,6 +1,15 @@
 # Agent-First MCP and Messaging Workflows
 
-Status: Draft feature packet, hardened after mentor review
+Status: PARTIAL — bootstrap/preflight/discovery + retrieval BUILT (2026-06-16,
+branch `feat/design-chain`). Shipped: Core `AgentReadiness` (mcp_hello readiness),
+`TeamPreflight` (pure, no run/quota), `SpecRetrieval`; MCP tools `mcp_hello`,
+`teams_list`, `team_preflight`, `team_ask` (+lane/team/effort/type), `team_show`,
+`error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
+hello|preflight|teams`, `alln spec`). 278 tests + Mac build green. DEFERRED (need
+resident `alln serve` coordinator + Pending phase): async A0 team_start/status/
+result/cancel, A1 Pending-over-MCP, doctor schema-v2 remedy tiers/humanActions, A3
+install artifacts, A4 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
+(Agents can run work today synchronously via `team_ask` → full TeamRunJSON.)
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-16
 
