@@ -586,6 +586,13 @@ final class AppModel {
         if !cached.records.isEmpty { toolStatuses = cached.records }
     }
 
+    #if DEBUG
+    /// DEBUG dev panel — seed mixed-health bench state (never persisted).
+    func applyDevBenchScenario(_ scenario: String) {
+        toolStatuses = GUIFixture.seededToolStatuses(for: models, now: Date(), scenario: scenario)
+    }
+    #endif
+
     /// HOTFIX (Launch Authority TCC): the explicit full-probe path. Spawns real
     /// provider CLIs (resolve → version → smoke), can spend quota, and captures
     /// login-shell PATH — so it MUST be user-initiated (Re-check, Re-scan, full

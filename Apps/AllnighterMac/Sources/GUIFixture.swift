@@ -24,9 +24,32 @@ enum GUIFixture {
 
     static var isActive: Bool { active != nil }
 
-    /// Deep-link: open the Team dropdown for `team-*` fixtures so the popover —
-    /// where the worst layout bugs live — is captured without a scripted gesture.
+    /// Deep-link: open the Team dropdown for `team-*` fixtures.
     static var opensTeamDropdown: Bool { (active ?? "").hasPrefix("team-") }
+
+    /// Deep-link: open Bench health for `doctor-*` fixtures.
+    static var opensDoctorPopover: Bool { (active ?? "").hasPrefix("doctor-") }
+
+    /// Deep-link: open Team readiness for `readiness-*` fixtures.
+    static var opensReadiness: Bool { (active ?? "").hasPrefix("readiness-") }
+
+    /// Which source the repair panel focuses on for readiness fixtures.
+    static var readinessFocusDriverId: String? { readinessFocusDriverId(for: active) }
+
+    static func readinessFocusDriverId(for scenario: String?) -> String? {
+        switch scenario {
+        case "readiness-mixed": return "codex"
+        default: return nil
+        }
+    }
+
+    /// Named bench-health scenarios (GUI proof fixtures + dev panel).
+    static let benchScenarios: [(id: String, label: String)] = [
+        ("team-open-ready", "All CLIs ready"),
+        ("team-open-mixed", "Mixed — team dropdown"),
+        ("doctor-open-mixed", "Mixed — CLI setup popover"),
+        ("readiness-mixed", "Mixed — CLI setup page"),
+    ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
     /// always renders to the same frame.
@@ -38,14 +61,19 @@ enum GUIFixture {
     /// bench dropdown produces real rows in a known state. This is the only
     /// place fabricated health is allowed, and only when a fixture is active.
     static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] {
+        seededToolStatuses(for: models, now: now, scenario: active ?? "")
+    }
+
+    /// Seed probe records for a named scenario (env fixtures + DEBUG dev panel only).
+    static func seededToolStatuses(for models: [Model], now: Date, scenario: String) -> [ToolProbeRecord] {
         let drivers = orderedDrivers(in: models)
-        let name = active ?? ""
+        let name = scenario
         return drivers.enumerated().map { index, driver in
-            let status = status(for: name, index: index)
+            let status = status(for: name, index: index, driverId: driver)
             return ToolProbeRecord(
                 driverId: driver,
                 status: status,
-                version: status.isReady ? "1.0.0" : nil,
+                version: versionString(for: status, fixture: name, driverId: driver),
                 lastProbeAt: now
             )
         }
@@ -58,7 +86,19 @@ enum GUIFixture {
         return out
     }
 
-    private static func status(for fixture: String, index: Int) -> ModelSetupStatus {
+    private static func versionString(for status: ModelSetupStatus, fixture: String, driverId: String) -> String? {
+        if case .ready(let v) = status { return v }
+        if fixture == "readiness-mixed" {
+            switch driverId {
+            case "codex": return "codex 0.9.1"
+            case "antigravity": return "agy"
+            default: break
+            }
+        }
+        return nil
+    }
+
+    private static func status(for fixture: String, index: Int, driverId: String) -> ModelSetupStatus {
         switch fixture {
         case "team-open-ready":
             return .ready(version: "1.0.0")
@@ -75,6 +115,28 @@ enum GUIFixture {
                 return .probeFailed(reason: "exited 1")
             default:
                 return .ready(version: "1.0.0")
+            }
+        case "doctor-open-mixed":
+            // Mirrors home/doctor.jsx: 1 ready, 2 need a step, 1 to add.
+            switch driverId {
+            case "claude_code": return .ready(version: "claude 1.2.4")
+            case "codex": return .installedNotSignedIn(LoginFlow(
+                interactiveCommand: "codex", instructions: "Run `codex login`."))
+            case "antigravity": return .shimmedNeedsConfirm(ToolResolution(
+                invocation: .loginShell(commandName: "antigravity"),
+                rawCommandV: "agy () { … }",
+                isAmbiguous: true))
+            case "grok": return .notInstalled
+            default: return .ready(version: "1.0.0")
+            }
+        case "readiness-mixed":
+            // bench-views.jsx: claude + agy ready, codex probeFailed, grok not installed.
+            switch driverId {
+            case "claude_code": return .ready(version: "claude 1.2.4")
+            case "antigravity": return .ready(version: "agy")
+            case "codex": return .probeFailed(reason: "error: unknown flag --model (exit 2)")
+            case "grok": return .notInstalled
+            default: return .ready(version: "1.0.0")
             }
         default:
             return .ready(version: "1.0.0")

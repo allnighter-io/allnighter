@@ -33,6 +33,24 @@ struct SetupCardModel: Identifiable {
         let name: String
         let modelLabel: String
         let isPlanWriter: Bool
+
+        /// Model name on CLI setup surfaces (roster chips, detail panel).
+        var setupChipLabel: String {
+            let slug = modelLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !slug.isEmpty else { return name }
+            if slug.contains(" ") {
+                let base = slug.split(separator: "(", maxSplits: 1).first.map(String.init) ?? slug
+                return base.trimmingCharacters(in: .whitespaces)
+            }
+            return name
+        }
+
+        /// Short CLI model slug for detail mono line (opus, gpt-5.5), when useful.
+        var setupDetailSlug: String? {
+            let slug = modelLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !slug.isEmpty, !slug.contains(" ") else { return nil }
+            return slug
+        }
     }
 }
 
@@ -43,32 +61,7 @@ struct BrandGlyph: View {
     var muted: Bool = false
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 10)
-            .fill(ALColor.active)
-            .frame(width: 40, height: 40)
-            .overlay { glyph.opacity(muted ? 0.5 : 1) }
-    }
-
-    @ViewBuilder private var glyph: some View {
-        switch asset {
-        case .brand(let name, let tint):
-            Image(name).renderingMode(.template).resizable().scaledToFit()
-                .frame(width: 23, height: 23)
-                .foregroundStyle(muted ? Color(hex: 0x6B7180) : tint)
-        case .symbol(let system):
-            Image(systemName: system).font(.system(size: 21))
-                .foregroundStyle(muted ? ALColor.textFaint : ALColor.textSecondary)
-        }
-    }
-
-    private enum Asset { case brand(String, Color); case symbol(String) }
-    private var asset: Asset {
-        switch driverId {
-        case "claude_code": .brand("anthropic", ALColor.accent)
-        case "antigravity": .brand("googlegemini", ALColor.textPrimary)
-        case "grok": .brand("x", ALColor.textPrimary)
-        default: .symbol("terminal") // codex / others — Simple Icons removed OpenAI
-        }
+        DriverBrandGlyph(driverId: driverId, boxSize: 40, iconSize: 23, cornerRadius: 10, muted: muted)
     }
 }
 
@@ -168,16 +161,27 @@ struct SetupGroupLabel: View {
 
 // MARK: - The card (su-card)
 
+/// `.roster` — list row: CLI name, model chips, status pill (detail lives in repair panel).
+/// `.full` — expanded card with meta + inline fix-it (first-run setup, previews).
+enum SetupCardLayout { case roster, full }
+
 struct SetupCardView: View {
     let card: SetupCardModel
+    var layout: SetupCardLayout = .full
     var compact: Bool = false
+    /// When false, suppress inline fix-it body (legacy; roster layout never shows fix-it).
+    var showFixIt: Bool = true
     var onAction: (SetupAction) -> Void = { _ in }
 
     enum SetupAction { case openTerminal(String), copy(String), openURL(String), rescan, locate, useAnyway }
 
     var body: some View {
         VStack(spacing: 0) {
-            head
+            if layout == .roster {
+                rosterHead
+            } else {
+                fullHead
+            }
             bodyView
         }
         .background(fill, in: RoundedRectangle(cornerRadius: ALRadius.lg))
@@ -185,34 +189,64 @@ struct SetupCardView: View {
             RoundedRectangle(cornerRadius: ALRadius.lg)
                 .strokeBorder(borderColor, style: StrokeStyle(lineWidth: 1, dash: dashed ? [4, 3] : []))
         }
-        .modifier(ShadowIfCard(on: !dashed))
+        .modifier(ShadowIfCard(on: layout == .full && !dashed))
     }
 
-    private var head: some View {
+    // MARK: Roster row (CLI setup list + doctor compact list)
+
+    private var rosterHead: some View {
+        HStack(alignment: .top, spacing: 13) {
+            BrandGlyph(driverId: card.driverId, muted: muted)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center, spacing: 8) {
+                    Text(card.name).font(.system(size: 14.5, weight: .bold)).tracking(-0.14)
+                        .foregroundStyle(muted ? ALColor.textMuted : ALColor.textPrimary)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    pill.fixedSize(horizontal: true, vertical: false)
+                }
+                if !card.workers.isEmpty {
+                    SetupModelChips(workers: card.workers)
+                }
+            }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 13).padding(.horizontal, 15)
+    }
+
+    // MARK: Full card head (setup flow — meta + pill)
+
+    private var fullHead: some View {
         HStack(spacing: 13) {
             BrandGlyph(driverId: card.driverId, muted: muted)
             VStack(alignment: .leading, spacing: 4) {
                 Text(card.name).font(.system(size: 14.5, weight: .bold)).tracking(-0.14)
                     .foregroundStyle(muted ? ALColor.textMuted : ALColor.textPrimary)
+                    .lineLimit(2)
                 meta
             }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
             Spacer(minLength: 8)
             pill
+                .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.vertical, 13).padding(.horizontal, 15)
     }
 
-    // meta row — mono items separated by a faded ·
+    // meta — one flowing mono line; status lives in the pill only (no redundant "signed in").
     private var meta: some View {
-        let items = metaItems
-        return HStack(spacing: 7) {
-            ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
-                if idx > 0 { Text("·").foregroundStyle(ALColor.textFaint.opacity(0.45)) }
-                Text(item.text).foregroundStyle(item.color)
-            }
-        }
-        .font(.system(size: 11, design: .monospaced))
-        .foregroundStyle(ALColor.textFaint)
+        Text(metaLine)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(ALColor.textMuted)
+            .lineLimit(2)
+            .truncationMode(.tail)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var metaLine: String {
+        metaItems.map(\.text).filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     private struct MetaItem { let text: String; let color: Color }
@@ -221,8 +255,7 @@ struct SetupCardView: View {
         let version = MetaItem(text: card.version ?? "", color: ALColor.textMuted)
         switch card.state {
         case .ready:
-            return [route, version, MetaItem(text: "\(card.workers.count) workers", color: ALColor.textFaint),
-                    MetaItem(text: "signed in", color: ALPalette.green400)]
+            return [route, version]
         case .needsLogin, .waiting:
             return [route, version, MetaItem(text: "found, not signed in", color: ALColor.textFaint)]
         case .needsPath:
@@ -259,6 +292,14 @@ struct SetupCardView: View {
 
     // body / fix-it
     @ViewBuilder private var bodyView: some View {
+        if layout == .roster || !showFixIt {
+            EmptyView()
+        } else {
+            fixItContent
+        }
+    }
+
+    @ViewBuilder private var fixItContent: some View {
         switch card.state {
         case .ready where !compact:
             seatsBody
@@ -382,11 +423,27 @@ struct SetupCardView: View {
         }
     }
     private var borderColor: Color {
-        switch card.state {
-        case .ready: Color(hex: 0x3FB96D).opacity(0.26)
-        case .probeFailed: Color(hex: 0xF05A5A).opacity(0.28)
-        case .notInstalled, .queued, .detecting, .installedNotProbed: ALColor.borderDefault
-        default: ALColor.borderDefault
+        ALColor.borderDefault
+    }
+}
+
+// MARK: - Model chips (roster rows)
+
+struct SetupModelChips: View {
+    let workers: [SetupCardModel.WorkerSeat]
+
+    var body: some View {
+        let columns = [GridItem(.adaptive(minimum: 76, maximum: 160), spacing: 6)]
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
+            ForEach(workers) { seat in
+                Text(seat.setupChipLabel)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ALColor.textSecondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(ALColor.active, in: Capsule())
+                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+            }
         }
     }
 }
@@ -398,43 +455,66 @@ private struct ShadowIfCard: ViewModifier {
     }
 }
 
-// MARK: - Team health popover (doctor.jsx)
+// MARK: - Bench health popover (home/doctor.jsx)
 
-struct TeamHealthPopover: View {
+struct BenchHealthPopover: View {
     @Environment(AppModel.self) private var model
     var onClose: () -> Void
     var onOpenFull: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            header
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    group("Ready", cards: ready, compact: true)
-                    group("Needs a step", cards: step, compact: false)
-                    group("Available to add", cards: add, compact: false)
-                }
-                .padding(.top, 4).padding(.horizontal, 13).padding(.bottom, 12)
-            }
-            footer
-        }
-        .frame(width: 404)
-        .frame(maxHeight: 620)
-        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.xl))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.xl).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
-        .shadow(color: .black.opacity(0.66), radius: 30, y: 24)
-    }
+    /// Cap scroll body so the panel stays on-screen below the title-bar anchor.
+    var maxBodyHeight: CGFloat = 420
 
     private var cards: [SetupCardModel] { model.setupCards }
     private var ready: [SetupCardModel] { cards.filter { $0.state == .ready } }
     private var add: [SetupCardModel] { cards.filter { $0.state == .notInstalled } }
     private var step: [SetupCardModel] { cards.filter { $0.state != .ready && $0.state != .notInstalled } }
 
-    @ViewBuilder private func group(_ title: String, cards: [SetupCardModel], compact: Bool) -> some View {
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    group("Ready", cards: ready)
+                    group("Needs a step", cards: step)
+                    group("Add a CLI", cards: add)
+                }
+                .padding(.top, 4).padding(.horizontal, 13).padding(.bottom, 12)
+            }
+            .scrollIndicators(.visible)
+            .frame(height: bodyHeight)
+            footer
+        }
+        .frame(width: 404)
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.xl))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.xl).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        .shadow(color: .black.opacity(0.66), radius: 30, y: 24)
+    }
+
+    /// Roster rows: title + optional chip row + pill.
+    private func rosterCardHeight(_ card: SetupCardModel) -> CGFloat {
+        66 + (card.workers.isEmpty ? 0 : 28)
+    }
+
+    private var measuredContentHeight: CGFloat {
+        var h: CGFloat = 16
+        if !ready.isEmpty { h += 28 + ready.reduce(0) { $0 + rosterCardHeight($1) } }
+        if !step.isEmpty { h += 28 + step.reduce(0) { $0 + rosterCardHeight($1) } }
+        if !add.isEmpty { h += 28 + add.reduce(0) { $0 + rosterCardHeight($1) } }
+        return h
+    }
+
+    /// ScrollView needs an explicit height — same collapse class as the Team dropdown.
+    private var bodyHeight: CGFloat {
+        let content = measuredContentHeight
+        guard content > 0 else { return 0 }
+        return min(max(content, 80), maxBodyHeight)
+    }
+
+    @ViewBuilder private func group(_ title: String, cards: [SetupCardModel]) -> some View {
         if !cards.isEmpty {
             SetupGroupLabel(title: title, count: cards.count)
             ForEach(cards) { card in
-                SetupCardView(card: card, compact: compact) { handle($0) }
+                SetupCardView(card: card, layout: .roster) { handle($0) }
             }
         }
     }
@@ -444,20 +524,18 @@ struct TeamHealthPopover: View {
             HStack(spacing: 9) {
                 RoundedRectangle(cornerRadius: 8).fill(ALColor.active).frame(width: 26, height: 26)
                     .overlay { Image(systemName: "shield").font(.system(size: 15)).foregroundStyle(ALColor.accentText) }
-                Text("Team health").font(.system(size: 14, weight: .bold)).tracking(-0.14)
+                Text("CLI setup").font(.system(size: 14, weight: .bold)).tracking(-0.14)
                     .foregroundStyle(ALColor.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                Button { model.runFullSetupProbe(userInitiated: true) } label: { Label("Re-check", systemImage: "arrow.clockwise") }
-                    .buttonStyle(.alGhost)
                 IconButton(systemImage: "xmark", accessibilityLabel: "Close", small: true) { onClose() }
             }
             HStack(spacing: 8) {
                 (Text("\(model.readyToolCount)").font(.system(size: 12.5, weight: .bold, design: .monospaced))
                     + Text(" of ").font(.system(size: 12.5, weight: .bold))
                     + Text("\(model.totalToolCount)").font(.system(size: 12.5, weight: .bold, design: .monospaced))
-                    + Text(" tools ready").font(.system(size: 12.5, weight: .bold)))
+                    + Text(" CLIs ready").font(.system(size: 12.5, weight: .bold)))
                     .foregroundStyle(ALColor.textPrimary)
-                Text("· \(model.readyWorkerCount) workers").font(.system(size: 11, design: .monospaced))
+                Text("· \(model.readyWorkerCount) models").font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(ALColor.textFaint)
                 Spacer()
                 HStack(spacing: 5) {
@@ -475,7 +553,7 @@ struct TeamHealthPopover: View {
         Button(action: onOpenFull) {
             HStack(spacing: 7) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 12))
-                Text("Open full setup").font(.system(size: 12, weight: .medium))
+                Text("Open CLI setup").font(.system(size: 12, weight: .medium))
             }
             .foregroundStyle(ALColor.textMuted)
             .padding(.horizontal, 8).padding(.vertical, 4)
@@ -507,6 +585,59 @@ struct TeamHealthPopover: View {
     }
 }
 
+/// Legacy name — use `BenchHealthPopover`.
+typealias TeamHealthPopover = BenchHealthPopover
+
+// MARK: - Title-bar health badge (opens Bench health)
+
+struct BenchHealthFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+struct BenchHealthBadge: View {
+    @Environment(AppModel.self) private var model
+    @Binding var isOpen: Bool
+    @State private var hover = false
+
+    var body: some View {
+        Button {
+            isOpen.toggle()
+        } label: {
+            Badge(text: label, tone: tone, dot: true, mono: true)
+        }
+        .buttonStyle(.plain)
+        .help("CLI setup — which command-line tools are ready")
+        .background {
+            GeometryReader { geo in
+                Color.clear.preference(key: BenchHealthFrameKey.self, value: geo.frame(in: .global))
+            }
+        }
+        .overlay {
+            if isOpen {
+                RoundedRectangle(cornerRadius: ALRadius.pill)
+                    .strokeBorder(ALColor.accentBorder, lineWidth: 1)
+                    .shadow(color: ALColor.accent.opacity(0.35), radius: 6)
+            }
+        }
+        .onHover { hover = $0 }
+    }
+
+    private var label: String {
+        guard model.totalToolCount > 0 else { return "checking…" }
+        let ready = model.readyToolCount, total = model.totalToolCount
+        return ready == total ? "\(ready) ready" : "\(ready)/\(total) ready"
+    }
+
+    private var tone: Badge.Tone {
+        guard model.totalToolCount > 0, !model.isDetecting else { return .neutral }
+        return model.readyToolCount == model.totalToolCount ? .positive : .warning
+    }
+}
+
 // MARK: - Shared actions
 
 enum SetupActions {
@@ -529,7 +660,7 @@ private func copy(_ text: String) {
 
 // MARK: - Preview — every card state (the handoff spec sheet)
 
-#Preview("Team health — every card state") {
+#Preview("Bench health — every card state") {
     func m(_ id: String, _ name: String, _ state: SetupCardState, version: String? = nil,
            workers: [SetupCardModel.WorkerSeat] = [], shim: String? = nil, reason: String? = nil) -> SetupCardModel {
         SetupCardModel(driverId: id, name: name, route: "via \(id.replacingOccurrences(of: "_", with: "-"))",

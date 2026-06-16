@@ -77,6 +77,7 @@ enum ALColor {
     static let active   = ALPalette.ink650   // pressed / selected
     static let input    = Color(hex: 0x13161F)
     static let overlay  = ALPalette.ink950.opacity(0.66) // modal scrim
+    static let scrimSubtle = ALPalette.ink950.opacity(0.28) // dropdown dismiss — content only
 
     // Borders — white-alpha so they read on any surface
     static let borderSubtle  = Color.white.opacity(0.06)

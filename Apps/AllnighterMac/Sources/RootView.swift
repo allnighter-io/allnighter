@@ -8,14 +8,27 @@ struct RootView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var showDoctor = false
     @State private var showTeamDropdown = false
+    @State private var showReadiness = false
+    @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .team
     @State private var threads = ThreadsViewModel()
+    #if DEBUG
+    @State private var showDevSettings = false
+    @State private var devBenchScenario: String?
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
-            TitleBar(showTeamDropdown: $showTeamDropdown)
+            TitleBar(
+                showTeamDropdown: $showTeamDropdown,
+                showDoctor: $showDoctor,
+                onRepair: openReadiness(focus:),
+                onManageTeam: { showTeamDropdown = false },
+                devSimActive: devSimLabel,
+                onSettings: openSettings
+            )
                 .zIndex(10)
             ZStack {
                 HStack(spacing: 0) {
@@ -31,13 +44,26 @@ struct RootView: View {
                     .frame(width: ALControl.sidebarWidth)
                     Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
                     Group {
-                        if workspaceMode == .threads {
+                        if showReadiness {
+                            TeamReadinessView(
+                                focusDriverId: readinessFocus,
+                                onClose: { showReadiness = false },
+                                onAddSource: { showReadiness = false }
+                            )
+                        } else if workspaceMode == .threads {
                             ThreadDetailPane()
                         } else {
                             DetailPane()
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                if showTeamDropdown || showDoctor {
+                    ALColor.scrimSubtle
+                        .onTapGesture {
+                            showTeamDropdown = false
+                            showDoctor = false
+                        }
                 }
             }
         }
@@ -47,33 +73,51 @@ struct RootView: View {
         .ignoresSafeArea(.container, edges: .top)
         .environment(threads)
         .background(ALColor.base)
-        .overlay {
-            if showDoctor {
-                ZStack(alignment: .topTrailing) {
-                    Rectangle().fill(ALColor.overlay).ignoresSafeArea()
-                        .onTapGesture { showDoctor = false }
-                    TeamHealthPopover(onClose: { showDoctor = false }, onOpenFull: { showDoctor = false })
-                        .padding(.top, 44).padding(.trailing, 13)
-                }
-            }
-        }
-        .overlay {
-            // Team dropdown: a top-level overlay below the title bar (same proven
-            // pattern as showDoctor), so the panel can never be clipped by the
-            // title bar's centered ZStack or overflow the window's top edge.
-            if showTeamDropdown {
-                ZStack(alignment: .topTrailing) {
-                    Rectangle().fill(ALColor.overlay).ignoresSafeArea()
-                        .onTapGesture { showTeamDropdown = false }
+        .overlayPreferenceValue(TeamPillFrameKey.self) { pillFrame in
+            GeometryReader { geo in
+                if showTeamDropdown, pillFrame != .zero {
+                    let origin = geo.frame(in: .global).origin
                     BenchDropdownPanel(
                         isOpen: $showTeamDropdown,
-                        attached: false,
-                        onRepair: { _ in showTeamDropdown = false },
+                        attached: true,
+                        onRepair: openReadiness(focus:),
                         onManageTeam: { showTeamDropdown = false }
                     )
-                    .padding(.top, ALControl.titleBarHeight + 6).padding(.trailing, 13)
+                    .offset(
+                        x: pillFrame.maxX - origin.x - 306,
+                        y: pillFrame.maxY - origin.y - 1
+                    )
+                    .zIndex(20)
                 }
             }
+            .allowsHitTesting(showTeamDropdown)
+        }
+        .overlayPreferenceValue(BenchHealthFrameKey.self) { badgeFrame in
+            GeometryReader { geo in
+                if showDoctor, badgeFrame != .zero {
+                    let origin = geo.frame(in: .global).origin
+                    let top = badgeFrame.maxY - origin.y - 1
+                    // home/doctor.jsx: popover trailing edge inset 13px from window.
+                    let maxBody = max(160, geo.size.height - top - 150)
+                    BenchHealthPopover(
+                        onClose: { showDoctor = false },
+                        onOpenFull: { openReadiness() },
+                        maxBodyHeight: maxBody
+                    )
+                    .offset(
+                        x: geo.size.width - 404 - 13,
+                        y: top
+                    )
+                    .zIndex(20)
+                }
+            }
+            .allowsHitTesting(showDoctor)
+        }
+        .onChange(of: showTeamDropdown) { _, open in
+            if open { showDoctor = false }
+        }
+        .onChange(of: showDoctor) { _, open in
+            if open { showTeamDropdown = false }
         }
         .onAppear {
             GlobalHotKey.enable()
@@ -82,6 +126,11 @@ struct RootView: View {
                 // no cached load), then self-capture + exit if a PNG was asked
                 // for. Designer-mock only — env-gated, inert on real launches.
                 if GUIFixture.opensTeamDropdown { showTeamDropdown = true }
+                if GUIFixture.opensDoctorPopover { showDoctor = true }
+                if GUIFixture.opensReadiness {
+                    showReadiness = true
+                    readinessFocus = GUIFixture.readinessFocusDriverId
+                }
                 GUIFixture.captureAndExitIfRequested()
             } else if model.isConfigurationBroken {
                 showMissingDriversAlert = true
@@ -108,6 +157,70 @@ struct RootView: View {
             model.quickCapture(prefillClipboard: true)
         }
         .preferredColorScheme(.dark)
+        #if DEBUG
+        .sheet(isPresented: $showDevSettings) {
+            DevSettingsSheet(
+                activeScenario: devBenchScenario,
+                onUseLiveProbes: useLiveBenchProbes,
+                onNavigate: devNavigate(to:scenario:)
+            )
+        }
+        #endif
+    }
+
+    #if DEBUG
+    private var devSimLabel: String? { devBenchScenario == nil ? nil : "sim" }
+
+    private func openSettings() {
+        showDevSettings = true
+    }
+
+    private func useLiveBenchProbes() {
+        devBenchScenario = nil
+        model.loadCachedSetupState()
+    }
+
+    private func applyDevScenario(_ scenario: String) {
+        devBenchScenario = scenario
+        model.applyDevBenchScenario(scenario)
+    }
+
+    private func devNavigate(to screen: DevGUIScreen, scenario: String?) {
+        showDevSettings = false
+        if let scenario { applyDevScenario(scenario) }
+        switch screen {
+        case .compose:
+            showReadiness = false
+            showDoctor = false
+            showTeamDropdown = false
+        case .teamDropdown:
+            showReadiness = false
+            showDoctor = false
+            showTeamDropdown = true
+        case .cliSetupPopover:
+            showReadiness = false
+            showTeamDropdown = false
+            showDoctor = true
+        case .cliSetupPage:
+            showTeamDropdown = false
+            showDoctor = false
+            readinessFocus = GUIFixture.readinessFocusDriverId(for: scenario ?? devBenchScenario)
+            showReadiness = true
+        }
+    }
+    #else
+    private var devSimLabel: String? { nil }
+
+    private func openSettings() {}
+    #endif
+
+    private func openReadiness(focus: String? = nil) {
+        showTeamDropdown = false
+        showDoctor = false
+        readinessFocus = focus ?? model.setupCards.first {
+            $0.state != .ready && $0.state != .notInstalled
+        }?.driverId ?? model.setupCards.first { $0.state != .ready }?.driverId
+        showReadiness = true
     }
 }
 
@@ -206,6 +319,7 @@ private struct WorkerRow: View {
         WorkerChip(
             name: worker.displayName,
             model: model.driverName(for: worker),
+            driverId: worker.driverId,
             systemImage: healthSymbol,
             glyphTint: healthTint,
             meta: meta,
@@ -806,6 +920,11 @@ private struct DoctorRow: View {
 
 private struct TitleBar: View {
     @Binding var showTeamDropdown: Bool
+    @Binding var showDoctor: Bool
+    var onRepair: (String) -> Void
+    var onManageTeam: () -> Void
+    var devSimActive: String?
+    var onSettings: () -> Void
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -815,17 +934,21 @@ private struct TitleBar: View {
                 LiveMark(state: model.isRunning ? .running : .idle, size: 16)
                 Text("alln").font(ALFont.label.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
                 Text("· team").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                if let devSimActive {
+                    Badge(text: devSimActive, tone: .warning, dot: true, mono: true)
+                }
             }
             // Right controls
             HStack(spacing: 6) {
                 Spacer()
+                BenchHealthBadge(isOpen: $showDoctor)
                 TeamControlView(
                     isOpen: $showTeamDropdown,
-                    onRepair: { _ in showTeamDropdown = false },
-                    onManageTeam: { showTeamDropdown = false }
+                    onRepair: onRepair,
+                    onManageTeam: onManageTeam
                 )
                 IconButton(systemImage: "clock.arrow.circlepath", accessibilityLabel: "History", small: true) {}
-                IconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Settings", small: true) {}
+                IconButton(systemImage: "slider.horizontal.3", accessibilityLabel: settingsLabel, small: true, action: onSettings)
             }
         }
         .padding(.horizontal, 14)
@@ -833,6 +956,14 @@ private struct TitleBar: View {
         .background(WindowDragArea())
         .background(ALColor.surface)
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+
+    private var settingsLabel: String {
+        #if DEBUG
+        return "Developer — GUI routes"
+        #else
+        return "Settings"
+        #endif
     }
 }
 
@@ -860,6 +991,7 @@ private struct SidebarView: View {
                         WorkerChip(
                             name: worker.displayName,
                             model: "via " + model.driverName(for: worker).replacingOccurrences(of: "_", with: "-"),
+                            driverId: worker.driverId,
                             systemImage: glyphSymbol(for: worker),
                             glyphTint: glyphTint(for: worker),
                             meta: model.seatCount(for: worker) > 1 ? "×\(model.seatCount(for: worker))" : nil,
@@ -903,8 +1035,10 @@ private struct SidebarView: View {
 
     private var synthRow: some View {
         HStack(spacing: 10) {
-            WorkerGlyph(systemImage: model.planWriterModel.map { glyphSymbol(for: $0) } ?? "cpu",
-                        tint: model.planWriterModel.map { glyphTint(for: $0) } ?? ALColor.accent, size: 26)
+            WorkerGlyph(driverId: model.planWriterModel?.driverId,
+                        systemImage: model.planWriterModel.map { glyphSymbol(for: $0) } ?? "cpu",
+                        tint: model.planWriterModel.map { glyphTint(for: $0) } ?? ALColor.textSecondary,
+                        size: 26)
             Text(model.planWriterModel?.displayName ?? "None")
                 .font(ALFont.body.weight(.semibold)).foregroundStyle(ALColor.textPrimary)
             Spacer(minLength: 6)
