@@ -36,7 +36,7 @@ final class AppModel {
     // badge, Council health, and Setup (docs/phases/setup/01 §5).
     private(set) var toolStatuses: [ToolProbeRecord] = []
     private(set) var isDetecting = false
-    private let setupStore = SetupStore()
+    private let setupStore: SetupStore
 
     // Agent-powered tool discovery (the "census", tier 2): once ≥1 tool is ready,
     // a healthy agent can hunt down the tools the plain probe missed.
@@ -80,7 +80,8 @@ final class AppModel {
     static let lightReviewLenses = ["security_privacy", "code_maintainer", "proof_qa"]
     static let fullReviewLenses = ["security_privacy", "code_maintainer", "proof_qa", "ui_ux", "customer_advocate", "dissent_preserver", "scope_discipline", "coverage_audit"]
 
-    init() {
+    init(setupStore: SetupStore = SetupStore()) {
+        self.setupStore = setupStore
         let config = AppConfig.loadConfiguration()
         self.bundledConfiguration = config
         self.models = config.models
@@ -587,6 +588,20 @@ final class AppModel {
     func loadCachedSetupState() {
         let cached = setupStore.load()
         if !cached.records.isEmpty { toolStatuses = cached.records }
+    }
+
+    /// First-run gating (Track A): true once the user has been through setup at
+    /// least once. Drives whether launch opens the CLI-setup page automatically.
+    /// Reads persisted truth, so it survives relaunches.
+    var hasCompletedSetup: Bool { setupStore.load().setupCompletedAt != nil }
+
+    /// Mark first-run setup as seen so launch stops auto-opening the setup page.
+    /// Idempotent; preserves probe records + the assembled team.
+    func markSetupCompleted() {
+        var state = setupStore.load()
+        guard state.setupCompletedAt == nil else { return }
+        state.setupCompletedAt = Date()
+        try? setupStore.save(state)
     }
 
     #if DEBUG

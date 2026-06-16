@@ -190,6 +190,23 @@ final class AppModelTests: XCTestCase {
                       "no gaps when every supported tool is ready")
     }
 
+    // MARK: - First-run gating (Track A)
+
+    func testFirstRunGatingMarksCompletedOnceAndPersists() {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("setup-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let store = SetupStore(fileURL: tmp)
+
+        let model = AppModel(setupStore: store)
+        XCTAssertFalse(model.hasCompletedSetup, "a fresh install has not completed setup → launch opens setup")
+        model.markSetupCompleted()
+        XCTAssertTrue(model.hasCompletedSetup, "completion persists → launch stops auto-opening setup")
+        model.markSetupCompleted() // idempotent
+
+        // A new model reading the same store sees the persisted completion.
+        XCTAssertTrue(AppModel(setupStore: store).hasCompletedSetup, "completion survives relaunch")
+    }
+
     func testHistorySelectionDrivesDisplayRun() {
         let model = AppModel()
         let past = TeamRun(id: "r1", prompt: "old prompt", status: .complete, createdAt: Date())

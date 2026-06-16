@@ -154,6 +154,7 @@ struct TeamReadinessView: View {
                 rosterGroup("Ready", cards: ready)
                 rosterGroup("Needs a step", cards: step)
                 rosterGroup("Add a CLI", cards: add)
+                censusFallback
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
@@ -177,6 +178,39 @@ struct TeamReadinessView: View {
                 .buttonStyle(.plain)
                 .overlay { selectionRing(selected: card.driverId == selectedId) }
             }
+        }
+    }
+
+    /// Agent fallback (onboarding only, never the dropdown): when a CLI we
+    /// support isn't found AND a working agent exists, offer to search the
+    /// machine for installs in non-standard spots. The quick scan + Spotlight
+    /// (Track 0) already cover most cases, so this is a deliberate, framed last
+    /// resort — honest about the time it takes and that it's read-only.
+    @ViewBuilder private var censusFallback: some View {
+        if model.canRunCensus || model.isRunningCensus {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Don't see one you installed?")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(ALColor.textPrimary)
+                Text("Our quick scan checks the usual spots. If you installed a CLI somewhere custom, an installed agent can search your machine and verify it.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(ALColor.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button { model.runCensusDiscovery() } label: {
+                    Label(model.isRunningCensus ? "Searching your machine…" : "Search my machine",
+                          systemImage: model.isRunningCensus ? "hourglass" : "magnifyingglass")
+                }
+                .buttonStyle(.alSecondary(small: true))
+                .disabled(!model.canRunCensus)
+                Text(model.lastCensusSummary ?? "Read-only · ~30–60s · changes nothing")
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(ALColor.textFaint)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, style: StrokeStyle(lineWidth: 1, dash: [4, 3])) }
+            .padding(.top, 6)
         }
     }
 

@@ -47,8 +47,8 @@ struct RootView: View {
                         if showReadiness {
                             TeamReadinessView(
                                 focusDriverId: readinessFocus,
-                                onClose: { showReadiness = false },
-                                onAddSource: { showReadiness = false }
+                                onClose: { model.markSetupCompleted(); showReadiness = false },
+                                onAddSource: { model.markSetupCompleted(); showReadiness = false }
                             )
                         } else if workspaceMode == .threads {
                             ThreadDetailPane()
@@ -142,6 +142,13 @@ struct RootView: View {
                 // resolve/version/smoke sweep here. Live probes require explicit
                 // setup/recheck/run intent.
                 model.loadCachedSetupState()
+                // First-run gating (Track A): a brand-new user lands ON the CLI
+                // setup page so they see which CLIs we support vs. found. Still
+                // process-quiet — the page renders cached/unknown state; the scan
+                // runs only when they click "Re-check all" (explicit intent).
+                if !model.hasCompletedSetup {
+                    openReadiness()
+                }
             }
         }
         .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
