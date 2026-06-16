@@ -800,6 +800,15 @@ Auth/privacy/permissions impact:
 
 ## Implementation Slices
 
+Implementation order note:
+
+- `Pending0`/`Pending1` may build local Draft/Pending storage and CLI CRUD before
+  drain exists.
+- Do not claim app-closed execution, Away Mode drain, or "when Claude wakes up it
+  starts" until `Serve0` plus `Pending2` are built.
+- MCP Pending (`A1`) comes after the CLI/model semantics are real; MCP must not
+  invent a separate Pending store or friendlier-but-different lifecycle.
+
 ### Pending0 - Public CLI Contract
 
 Goal:

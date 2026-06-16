@@ -122,11 +122,10 @@ struct AllnighterCLI {
         return parts.joined(separator: " ")
     }
 
-    /// Loads a persisted run for projection to `TeamRunJSON`.
+    /// Loads a persisted run for projection to `TeamRunJSON`, applying orphan
+    /// recovery (a crashed non-terminal run reads back as `interrupted`).
     static func loadRun(_ runId: String) -> TeamRun? {
-        guard let url = try? RunStore().runDirectory(forRunId: runId).appendingPathComponent("run.json"),
-              let data = try? Data(contentsOf: url) else { return nil }
-        return try? CoreJSON.decode(TeamRun.self, from: data)
+        RunStore().load(runId: runId)
     }
 
     /// Emits the shared machine failure envelope (one JSON object on stdout).

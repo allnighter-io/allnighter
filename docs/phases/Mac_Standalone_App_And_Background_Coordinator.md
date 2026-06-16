@@ -243,6 +243,59 @@ a possible future consolidation, not a requirement of this phase.
 8. **Start at login:** add opt-in login item/LaunchAgent after coordinator MLP is
    proven.
 
+### Serve0 - Coordinator Skeleton
+
+Goal:
+Create the smallest resident coordinator seam that later async runs, Pending,
+iOS, and local API work can share.
+
+Scope:
+
+- Add `alln serve` as a foreground resident command that can start, report health,
+  and exit cleanly.
+- Add `alln serve --health --json` or an equivalent read-only health command.
+- Report coordinator identity, pid, startedAt, contractVersion, binaryVersion,
+  journal health (`incrementalDurable`, `orphanRecovery`), loopback listener state,
+  and active obligation count.
+- Bind any health/local surface to loopback only.
+- Add `alln doctor --json` coordinator fields that distinguish `unavailable`,
+  `available`, and `foregroundOnly`.
+- Preserve foreground `alln team "..."` behavior with resident mode off.
+
+Out of scope:
+
+- No LaunchAgent or start-at-login.
+- No GUI start/stop control.
+- No iOS pairing.
+- No remote-network listener.
+- No Pending drain.
+- No async `team_start` tool yet.
+- No automatic background launch from ordinary foreground commands.
+
+Works Test:
+
+```text
+Run alln serve --health --json before the coordinator is running.
+It reports foregroundOnly/unavailable without implying failure.
+Start alln serve in a foreground terminal.
+Run the health command again.
+It reports the running coordinator, pid, startedAt, journal health, loopback state,
+and zero active obligations.
+Run alln team --json "foreground sanity check" without using resident mode.
+The foreground run still completes and writes the same journal contract.
+Stop alln serve.
+Doctor/health reports unavailable, not a fake running coordinator.
+```
+
+Proof commands:
+
+```bash
+alln serve --health --json
+alln doctor --json
+alln team --json "foreground sanity check"
+swift test --filter Coordinator
+```
+
 ## Works Test
 
 ```text

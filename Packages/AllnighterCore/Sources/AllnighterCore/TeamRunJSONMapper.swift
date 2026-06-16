@@ -114,6 +114,7 @@ public enum TeamRunJSONMapper {
         case .complete, .partial: return .done
         case .cancelled: return .cancelled
         case .failed: return .failed
+        case .interrupted: return .interrupted
         }
     }
 

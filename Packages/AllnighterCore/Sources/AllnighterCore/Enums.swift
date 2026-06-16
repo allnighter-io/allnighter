@@ -33,6 +33,9 @@ public enum RunStatus: String, Codable, Sendable, CaseIterable {
     case partial
     case cancelled
     case failed
+    /// The owning process stopped before the run reached a terminal state — an
+    /// orphaned/crashed run, resolved on read (never left falsely `running`).
+    case interrupted
 }
 
 /// Lifecycle of one member (one worker answering the prompt).

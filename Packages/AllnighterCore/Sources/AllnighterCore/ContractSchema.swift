@@ -25,10 +25,11 @@ public enum ContractSchema {
     private static func nullable(_ type: String) -> [String: Any] { ["type": [type, "null"]] }
     private static func nullableRef(_ name: String) -> [String: Any] { ["oneOf": [ref(name), ["type": "null"]]] }
 
-    private static var runStatus: [String: Any] { enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled", "skipped"]) }
+    private static var runStatus: [String: Any] { enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled", "skipped", "interrupted"]) }
     /// Run-level status never includes `skipped` — only a worker/stage can be
-    /// skipped (a manual-paste worker awaiting input).
-    private static var teamRunStatus: [String: Any] { enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled"]) }
+    /// skipped (a manual-paste worker awaiting input). `interrupted` is a terminal
+    /// orphan-recovery state (the owning process stopped before completion).
+    private static var teamRunStatus: [String: Any] { enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled", "interrupted"]) }
 
     // MARK: - TeamRunJSON
 

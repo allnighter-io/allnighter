@@ -114,7 +114,7 @@ public extension TeamRun {
 public extension RunStatus {
     var isTerminal: Bool {
         switch self {
-        case .complete, .partial, .cancelled, .failed:
+        case .complete, .partial, .cancelled, .failed, .interrupted:
             return true
         case .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing:
             return false
@@ -129,18 +129,18 @@ public extension RunStatus {
     func allowedTransitions() -> Set<RunStatus> {
         switch self {
         case .draft:
-            return [.fanningOut, .cancelled, .failed]
+            return [.fanningOut, .cancelled, .failed, .interrupted]
         case .fanningOut:
-            return [.answersIn, .cancelled, .failed]
+            return [.answersIn, .cancelled, .failed, .interrupted]
         case .answersIn:
-            return [.planning, .reviewing, .cancelled, .failed]
+            return [.planning, .reviewing, .cancelled, .failed, .interrupted]
         case .planning:
-            return [.complete, .partial, .reviewing, .cancelled, .failed]
+            return [.complete, .partial, .reviewing, .cancelled, .failed, .interrupted]
         case .reviewing:
-            return [.finalizing, .complete, .partial, .cancelled, .failed]
+            return [.finalizing, .complete, .partial, .cancelled, .failed, .interrupted]
         case .finalizing:
-            return [.complete, .partial, .cancelled, .failed]
-        case .complete, .partial, .cancelled, .failed:
+            return [.complete, .partial, .cancelled, .failed, .interrupted]
+        case .complete, .partial, .cancelled, .failed, .interrupted:
             return []
         }
     }

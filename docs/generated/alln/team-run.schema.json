@@ -39,7 +39,8 @@
             "failed",
             "timedOut",
             "cancelled",
-            "skipped"
+            "skipped",
+            "interrupted"
           ],
           "type" : "string"
         },
@@ -223,7 +224,8 @@
             "failed",
             "timedOut",
             "cancelled",
-            "skipped"
+            "skipped",
+            "interrupted"
           ],
           "type" : "string"
         },
@@ -344,7 +346,8 @@
             "done",
             "failed",
             "timedOut",
-            "cancelled"
+            "cancelled",
+            "interrupted"
           ],
           "type" : "string"
         },
@@ -417,7 +420,8 @@
             "failed",
             "timedOut",
             "cancelled",
-            "skipped"
+            "skipped",
+            "interrupted"
           ],
           "type" : "string"
         }

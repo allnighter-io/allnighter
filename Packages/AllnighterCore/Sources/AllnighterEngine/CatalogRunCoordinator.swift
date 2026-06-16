@@ -31,14 +31,18 @@ public actor CatalogRunCoordinator {
     }
 
     /// Run the staged team. `prompt` is the already-assembled founder prompt
-    /// (question + bounded context). Returns the settled `TeamRun`.
+    /// (question + bounded context). `persist` is invoked with the run at every
+    /// status/stage transition — durable BEFORE workers start, and again as
+    /// answers/reviews/plan settle (Journal0 incremental durability). Returns the
+    /// settled `TeamRun`.
     public func run(
         resolved: ResolvedTeamRun,
         prompt: String,
         models: [Model],
         origin: RunOrigin = .cli,
         originAgent: String? = nil,
-        runId: String? = nil
+        runId: String? = nil,
+        persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> TeamRun {
         let modelByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let answerAndReview = resolved.answerWorkers + resolved.reviewWorkers
@@ -55,16 +59,19 @@ public actor CatalogRunCoordinator {
             createdAt: now()
         )
         run = transition(run, to: .fanningOut)
+        persist?(run) // durable state before any worker executes
 
         // Stage 1 — answer workers, blind and parallel.
         let answers = await runWorkers(resolved.answerWorkers, prompt: prompt, modelByID: modelByID, runId: run.id)
         merge(answers, into: &run)
+        persist?(run)
 
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
             let reviewPrompt = prompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
             let reviews = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, modelByID: modelByID, runId: run.id)
             merge(reviews, into: &run)
+            persist?(run)
         }
 
         run = transition(run, to: .answersIn)
@@ -73,6 +80,7 @@ public actor CatalogRunCoordinator {
         // Runs when a writer resolved and at least one worker produced output.
         if let writer = resolved.planWriter, !run.answeredWorkers.isEmpty {
             run = transition(run, to: .planning)
+            persist?(run)
             let stage = await runWriter(writer, resolved: resolved, run: run, modelByID: modelByID)
             run.stages.append(stage)
             run = transition(run, to: stage.status == .done ? .complete : .partial)
@@ -80,6 +88,7 @@ public actor CatalogRunCoordinator {
             run = transition(run, to: .planning)
             run = transition(run, to: .partial)
         }
+        persist?(run) // terminal — clears the liveness marker
 
         continuation.finish()
         return run

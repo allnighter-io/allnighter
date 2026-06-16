@@ -155,26 +155,34 @@ public actor TeamService {
             prompt += "\n\n# Context\n\(clipped)"
         }
 
-        // Fixed answer -> review -> output staging.
+        // Fixed answer -> review -> output staging. The persist closure stamps the
+        // catalog facts and writes the journal incrementally (durable before the
+        // first worker runs, then on each transition — Journal0).
+        let store = runStore
+        let allModels = models
+        let lane = resolvedRequest.lane, type = resolvedRequest.type, effort = resolvedRequest.effort
+        let teamName = resolved.teamDisplayName, outputKind = resolved.outputKind, warnings = resolved.warnings
+        @Sendable func stamped(_ run: TeamRun) -> TeamRun {
+            var r = run
+            r.lane = lane; r.type = type; r.effort = effort
+            r.teamDisplayName = teamName; r.outputKind = outputKind; r.warnings = warnings
+            return r
+        }
+        let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }
+
         let coordinator = CatalogRunCoordinator(
             workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations), registry: registry
         )
         let forwarder: Task<Void, Never>? = events.map { sink in
             Task { for await event in coordinator.events { sink.yield(event) } }
         }
-        var run = await coordinator.run(resolved: resolved, prompt: prompt, models: models, origin: origin, originAgent: originAgent)
+        // Coordinator persists each transition (incl. terminal) via `persist`.
+        var run = await coordinator.run(resolved: resolved, prompt: prompt, models: models, origin: origin, originAgent: originAgent, persist: persist)
         await forwarder?.value
         events?.finish()
 
-        // Stamp catalog facts + warnings so the persisted run is self-describing.
-        run.lane = resolvedRequest.lane
-        run.type = resolvedRequest.type
-        run.effort = resolvedRequest.effort
-        run.teamDisplayName = resolved.teamDisplayName
-        run.outputKind = resolved.outputKind
-        run.warnings = resolved.warnings
-
-        try? runStore.save(run, models: models)
+        // Stamp the returned run too (disk already has it via the terminal persist).
+        run = stamped(run)
 
         let invocations = run.workerAnswers.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
         return TeamToolResult(

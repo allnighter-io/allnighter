@@ -60,7 +60,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// Closed run/worker/stage status set (contract: "status enums must be closed
     /// and shared"). Note the public word is `done`, not the internal `complete`.
     public enum Status: String, Codable, Sendable {
-        case queued, running, done, failed, timedOut, cancelled, skipped
+        case queued, running, done, failed, timedOut, cancelled, skipped, interrupted
     }
 
     /// Where the run originated. Every transport stamps its own origin.

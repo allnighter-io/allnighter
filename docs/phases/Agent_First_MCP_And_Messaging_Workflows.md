@@ -6,9 +6,10 @@ branch `feat/design-chain`). Shipped: Core `AgentReadiness` (mcp_hello readiness
 `teams_list`, `team_preflight`, `team_ask` (+lane/team/effort/type), `team_show`,
 `error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
 hello|preflight|teams`, `alln spec`). 278 tests + Mac build green. DEFERRED (need
-resident `alln serve` coordinator + Pending phase): async A0 team_start/status/
-result/cancel, A1 Pending-over-MCP, doctor schema-v2 remedy tiers/humanActions, A3
-install artifacts, A4 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
+`Journal0` + resident `alln serve` coordinator): async A0 team_start/status/
+result/cancel. DEFERRED (need Pending0/Pending1/Pending2): A1 Pending-over-MCP.
+Still deferred: doctor schema-v2 remedy tiers/humanActions, A3 install artifacts,
+A4 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
 (Agents can run work today synchronously via `team_ask` → full TeamRunJSON.)
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-16
@@ -1374,6 +1375,15 @@ Completion gate:
 
 ### A0 - Agent-facing MCP async team loop
 
+Prerequisites:
+
+- `Journal0` is complete: worker/status/stage transitions persist
+  incrementally, and orphaned nonterminal runs resolve to `interrupted`.
+- `Serve0` is complete: `alln serve` has a foreground coordinator skeleton and
+  doctor-visible health. No Pending store is required for A0.
+- `team_preflight` remains pure and catches preflight-detectable blockers before
+  any accepted run id is returned.
+
 - Add `team_preflight`, `team_start`, `team_status`, `team_result`,
   `team_cancel`.
 - Project descriptors from the command registry.
@@ -1395,6 +1405,13 @@ Completion gate:
 - `team_status` needs no invented client-side polling policy.
 
 ### A1 - Pending over MCP
+
+Prerequisites:
+
+- Pending0/Pending1 are complete: local Pending model and CLI CRUD/list/show are
+  real.
+- Pending2 is complete when `pending_run` or drain behavior is exposed: `alln
+  serve` owns leases and attempts, with admission-sourced blocked reasons.
 
 - Add `pending_add`, `pending_submit`, `pending_edit`, `pending_reorder`,
   `pending_list`, `pending_show`, `pending_cancel`, `pending_run`,

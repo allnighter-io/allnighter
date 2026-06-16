@@ -823,6 +823,28 @@ writes (per worker answer / status change), with an orphaned run resolving to
 journal-durability note at the top of `CLI_Product_Spine.md` and the Lifecycle
 Rules in `Mac_Standalone_App_And_Background_Coordinator.md`.
 
+### Post-Journal Implementation Bridge
+
+Once `Journal0` is green, implementation resumes in this order. Do not skip ahead
+to Pending or GUI work before the owning prerequisite is real.
+
+| Order | Slice | Owner doc | Done when |
+| --- | --- | --- | --- |
+| 1 | `Serve0` coordinator skeleton | `Mac_Standalone_App_And_Background_Coordinator.md` | `alln serve --health --json` reports coordinator identity, pid, start time, journal health, and loopback state without starting work. |
+| 2 | `A0` async team loop | `Agent_First_MCP_And_Messaging_Workflows.md` | `team_start/status/result/cancel` return an immediate run id, poll from journal/coordinator truth, and retrieve `TeamRunJSON`. |
+| 3 | `Pending0`/`Pending1` | `Pending_Work_And_Drain.md` | `alln pending` can create/list/show/submit/edit/cancel local Draft/Pending items; no drain promise yet. |
+| 4 | `Pending2` | `Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md` | `alln serve` leases and drains admissible non-mutating Pending with sourced blocked reasons. |
+| 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | MCP exposes Pending without raw scheduler language and preserves CLI semantics. |
+
+`Serve0` must stay deliberately small: no LaunchAgent, no start-at-login, no GUI
+handoff, no iOS pairing, no remote listener beyond explicit loopback health, no
+Pending drain. Its job is to create the resident-process seam and doctor-visible
+health shape that A0 can depend on.
+
+`A0` may use the existing synchronous team runner internally, but the public
+contract is async: accepted run id first, status/result later, idempotency before
+duplicate work, and orphan recovery from the incremental journal.
+
 ## Pending CLI Contract
 
 Authority:
