@@ -9,6 +9,7 @@ struct RootView: View {
     @State private var showDoctor = false
     @State private var showTeamDropdown = false
     @State private var showReadiness = false
+    @State private var showComposeSpecimen = false
     @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
     @State private var showMissingDriversAlert = false
@@ -44,7 +45,9 @@ struct RootView: View {
                     .frame(width: ALControl.sidebarWidth)
                     Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
                     Group {
-                        if showReadiness {
+                        if showComposeSpecimen {
+                            ComposeSpecimen(openModeMenu: GUIFixture.composeMenuOpen)
+                        } else if showReadiness {
                             TeamReadinessView(
                                 focusDriverId: readinessFocus,
                                 onClose: { model.markSetupCompleted(); showReadiness = false },
@@ -132,6 +135,7 @@ struct RootView: View {
                     showReadiness = true
                     readinessFocus = GUIFixture.readinessFocusDriverId
                 }
+                if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
                 GUIFixture.captureAndExitIfRequested()
             } else if model.isConfigurationBroken {
                 showMissingDriversAlert = true
@@ -195,12 +199,18 @@ struct RootView: View {
 
     private func devNavigate(to screen: DevGUIScreen, scenario: String?) {
         showDevSettings = false
+        showComposeSpecimen = false
         if let scenario { applyDevScenario(scenario) }
         switch screen {
         case .compose:
             showReadiness = false
             showDoctor = false
             showTeamDropdown = false
+        case .routingComposer:
+            showReadiness = false
+            showDoctor = false
+            showTeamDropdown = false
+            showComposeSpecimen = true
         case .teamDropdown:
             showReadiness = false
             showDoctor = false

@@ -33,6 +33,11 @@ enum GUIFixture {
     /// Deep-link: open Team readiness for `readiness-*` fixtures.
     static var opensReadiness: Bool { (active ?? "").hasPrefix("readiness-") }
 
+    /// Deep-link: show the routing-composer specimen for `compose-*` fixtures.
+    static var opensComposeSpecimen: Bool { (active ?? "").hasPrefix("compose-") }
+    /// `compose-mode-menu` seeds the mode menu open for the proof capture.
+    static var composeMenuOpen: Bool { active == "compose-mode-menu" }
+
     /// Which source the repair panel focuses on for readiness fixtures.
     static var readinessFocusDriverId: String? { readinessFocusDriverId(for: active) }
 

@@ -9,6 +9,7 @@ enum DevGUIScreen: String, CaseIterable, Identifiable {
     case cliSetupPopover
     case cliSetupPage
     case firstRunOnboarding
+    case routingComposer
 
     var id: String { rawValue }
 
@@ -19,6 +20,7 @@ enum DevGUIScreen: String, CaseIterable, Identifiable {
         case .cliSetupPopover: return "CLI setup popover"
         case .cliSetupPage: return "CLI setup page"
         case .firstRunOnboarding: return "First-run onboarding"
+        case .routingComposer: return "Routing composer (specimen)"
         }
     }
 }

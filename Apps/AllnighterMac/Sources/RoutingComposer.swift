@@ -1,0 +1,267 @@
+import SwiftUI
+import AppKit
+
+// Compose Routing composer (docs/phases/wiring/design_handoff_compose_routing).
+// The composer reads as a sentence: [verb] → [who] → [effort].
+//   - Mode pill (Chat / Fan out / Execute) with ⌘1/⌘2/⌘3, opening the mode menu.
+//   - Adaptive target chip carrying who + effort (model for chat/exec, lane team
+//     for fan out).
+//   - Send button whose label reflects the armed verb.
+// CR1: the bar + mode menu. Target popovers + effort row = CR2; real-model
+// wiring = CR3; thread integration = CR4. Until then it runs on local prototype
+// data that mirrors reference/app.jsx, so the surface is provable in isolation.
+
+enum ComposeMode: String, CaseIterable { case chat, fanout, exec }
+enum ComposeEffort: String, CaseIterable { case low, med, high }
+enum ComposeLane: String, CaseIterable { case build, design, copy }
+
+/// A bench model as the composer sees it (CR3 maps this from AppModel).
+struct ComposeBenchModel: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let driverId: String      // for DriverBrandGlyph
+    let sub: String
+    let ready: Bool
+    var notReadyReason: String?
+}
+
+/// A saved team for a lane (CR3 maps this from presets).
+struct ComposeTeam: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let summary: String
+    let isDefault: Bool
+}
+
+enum ComposeRoutingData {
+    static let bench: [ComposeBenchModel] = [
+        .init(id: "claude", name: "Claude Code", driverId: "claude_code", sub: "Anthropic · Opus 4.8", ready: true),
+        .init(id: "sonnet", name: "Sonnet", driverId: "claude_code", sub: "Anthropic · claude-cli", ready: true),
+        .init(id: "grok", name: "Grok", driverId: "grok", sub: "xAI · grok-4", ready: true),
+        .init(id: "gemini", name: "Gemini", driverId: "antigravity", sub: "Google · gemini-3-pro", ready: true),
+        .init(id: "gpt", name: "ChatGPT", driverId: "codex", sub: "OpenAI · Codex CLI", ready: false, notReadyReason: "Not signed in"),
+        .init(id: "composer", name: "Composer", driverId: "grok", sub: "Cursor · composer-1", ready: false, notReadyReason: "Not detected"),
+    ]
+    static let execIds: Set<String> = ["claude", "gpt", "grok", "composer"]
+    static let teams: [ComposeLane: [ComposeTeam]] = [
+        .build: [.init(id: "bd-light", name: "Light review", summary: "3 workers", isDefault: true),
+                 .init(id: "bd-full", name: "Full review", summary: "6 workers", isDefault: false),
+                 .init(id: "bd-sec", name: "Security pass", summary: "3 workers · custom", isDefault: false)],
+        .design: [.init(id: "ds-std", name: "Standard board", summary: "4 mockups", isDefault: true),
+                  .init(id: "ds-brand", name: "Brand pass", summary: "2 mockups · custom", isDefault: false)],
+        .copy: [.init(id: "cp-land", name: "Landing page", summary: "4 versions", isDefault: true),
+                .init(id: "cp-launch", name: "Aggressive launch", summary: "6 versions · custom", isDefault: false)],
+    ]
+    static func defaultTeam(_ lane: ComposeLane) -> String {
+        let list = teams[lane] ?? []
+        return (list.first { $0.isDefault } ?? list.first)?.id ?? ""
+    }
+    static func model(_ id: String) -> ComposeBenchModel? { bench.first { $0.id == id } }
+}
+
+extension ComposeMode {
+    var label: String { switch self { case .chat: "Chat"; case .fanout: "Fan out"; case .exec: "Execute" } }
+    var icon: String { switch self { case .chat: "message"; case .fanout: "rectangle.stack"; case .exec: "hammer" } }
+    var kbd: String { switch self { case .chat: "⌘1"; case .fanout: "⌘2"; case .exec: "⌘3" } }
+    var desc: String {
+        switch self {
+        case .chat: "One model answers — route the turn to anyone."
+        case .fanout: "A team answers in parallel → a board to compare and pick."
+        case .exec: "An agent runs it in your repo and the result returns here."
+        }
+    }
+}
+
+extension ComposeEffort { var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() } }
+extension ComposeLane {
+    var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
+    var icon: String { switch self { case .build: "hammer"; case .design: "photo"; case .copy: "doc.text" } }
+}
+
+/// Proof/specimen container — shows the composer on the dark canvas, anchored
+/// like the thread pane, for the GUI proof gate + the dev GUI-routes sheet.
+/// Real placement in the thread workspace lands in CR4.
+struct ComposeSpecimen: View {
+    var openModeMenu: Bool = false
+    var body: some View {
+        VStack {
+            Spacer()
+            RoutingComposer(openModeMenu: openModeMenu)
+                .frame(maxWidth: 680)
+                .padding(20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(ALColor.base)
+    }
+}
+
+struct RoutingComposer: View {
+    enum Popover { case mode, target }
+
+    @State var mode: ComposeMode
+    @State var to: String
+    @State var effort: ComposeEffort
+    @State var lane: ComposeLane
+    @State var team: String
+    @State private var text: String = ""
+    @State private var pop: Popover?
+
+    var placeholder: String = "Reply, or start the next turn…"
+
+    init(mode: ComposeMode = .chat, openModeMenu: Bool = false) {
+        _mode = State(initialValue: mode)
+        _to = State(initialValue: "claude")
+        _effort = State(initialValue: .med)
+        _lane = State(initialValue: .design)
+        _team = State(initialValue: ComposeRoutingData.defaultTeam(.design))
+        _pop = State(initialValue: openModeMenu ? .mode : nil)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            box
+            hint
+        }
+        .overlay(alignment: .bottomLeading) { popoverLayer }
+    }
+
+    // MARK: composer box
+
+    private var box: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text(placeholder).font(.system(size: 13)).foregroundStyle(ALColor.textFaint)
+                        .padding(.horizontal, 14).padding(.top, 12).allowsHitTesting(false)
+                }
+                TextEditor(text: $text)
+                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal, 10).padding(.top, 6)
+                    .frame(minHeight: 52, maxHeight: 120)
+            }
+            bar
+        }
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+    }
+
+    private var bar: some View {
+        HStack(spacing: 9) {
+            modePill
+            if mode != .fanout {
+                Text("to").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            }
+            targetChip
+            Spacer(minLength: 8)
+            IconButton(systemImage: "photo", accessibilityLabel: "Attach image", small: true) {}
+            sendButton
+        }
+        .padding(.horizontal, 11).padding(.vertical, 10)
+    }
+
+    private var modePill: some View {
+        Button { pop = (pop == .mode ? nil : .mode) } label: {
+            HStack(spacing: 7) {
+                Image(systemName: mode.icon).font(.system(size: 13)).foregroundStyle(ALColor.accentText)
+                Text(mode.label).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                Image(systemName: "chevron.down").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 11).frame(height: 31)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    private var targetChip: some View {
+        Button { pop = (pop == .target ? nil : .target) } label: {
+            HStack(spacing: 7) {
+                switch mode {
+                case .chat, .exec:
+                    if let m = ComposeRoutingData.model(to) {
+                        DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5)
+                        Text(m.name).font(ALFont.mono).foregroundStyle(ALColor.textPrimary)
+                    }
+                case .fanout:
+                    Image(systemName: lane.icon).font(.system(size: 12)).foregroundStyle(ALColor.accentText)
+                    Text("\(lane.label) team").font(ALFont.mono).foregroundStyle(ALColor.textPrimary)
+                }
+                Text("· \(effort.label)").font(ALFont.mono).foregroundStyle(ALColor.textMuted)
+                Image(systemName: "chevron.down").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 10).frame(height: 31)
+            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    private var sendButton: some View {
+        Button {} label: {
+            Image(systemName: "arrow.right").font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(ALColor.textOnAmber)
+                .frame(width: 34, height: 34)
+                .background(ALColor.accent, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Send — \(mode.label)")
+    }
+
+    private var hint: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.turn.down.right").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+            Text(mode.desc).font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+        }
+        .padding(.leading, 2)
+    }
+
+    // MARK: popovers (CR1: mode menu only; target = CR2)
+
+    @ViewBuilder private var popoverLayer: some View {
+        if pop == .mode {
+            modeMenu
+                .offset(y: -8)
+                .transition(.opacity)
+        }
+    }
+
+    private var modeMenu: some View {
+        VStack(spacing: 2) {
+            ForEach(ComposeMode.allCases, id: \.self) { m in
+                Button { mode = m; pop = nil } label: { modeRow(m) }
+                    .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .frame(width: 300)
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        .alShadowXl()
+        .offset(y: -130)
+    }
+
+    private func modeRow(_ m: ComposeMode) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: m.icon).font(.system(size: 15)).foregroundStyle(ALColor.accentText).frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(m.label).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                    if m == mode { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.accentText) }
+                    Spacer(minLength: 8)
+                    Text(m.kbd).font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.xs))
+                        .overlay { RoundedRectangle(cornerRadius: ALRadius.xs).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                }
+                Text(m.desc).font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(m == mode ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+    }
+}
