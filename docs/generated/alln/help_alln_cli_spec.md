@@ -117,6 +117,16 @@ Output schema: `markdown`.
 
 Examples: `export_md`.
 
+### `alln history`
+
+Search prior team runs (read-only).
+
+Arguments:
+- `query` (required) — Search text.
+
+Flags:
+- `--json` — Structured results.
+
 ### `alln dev export-contracts`
 
 Regenerate or verify generated artifacts.

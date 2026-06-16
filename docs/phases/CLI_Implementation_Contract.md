@@ -40,12 +40,17 @@ In scope:
 - `alln team --json "prompt"`
 - `alln team --stream "prompt"`
 - `alln show latest --json`
+- `alln history "<query>" --json`
 - `alln export latest --format md`
 - `alln dev export-contracts --check`
+- `alln mcp serve --stdio` (descriptors projected from the registry)
 
 Out of scope for milestone 1:
 
-- public MCP launch
+- public MCP advertising / auto-install (`alln mcp serve --stdio` is built and
+  projects descriptors from the registry; `alln mcp install` stays consent-gated —
+  it prints config, never edits client files)
+- async MCP tools (`team_start`/`team_status`/`team_result`) — need async runs first
 - `alln serve`
 - `alln pending`
 - iOS pairing
@@ -473,26 +478,26 @@ alln mcp serve --stdio
 alln mcp install
 ```
 
-Tool names:
+Tool names (M1, derived from the registry now):
 
 ```text
-team_show
-team_ask
-team_start
-team_status
-team_result
-pending_add
-pending_submit
-pending_edit
-pending_reorder
-pending_list
-pending_show
-pending_cancel
-pending_run
-pending_stop
-team_recall
-doctor
+team_ask      # alln team
+team_show     # alln team show
+history       # alln history (retrieval)
+show          # alln show <run-id|latest>
+doctor        # alln doctor --json
 ```
+
+Deferred tool names (named, not yet derived — they need async/Pending first):
+
+```text
+team_start / team_status / team_result        # async run lifecycle
+pending_add / pending_submit / pending_edit / pending_reorder /
+pending_list / pending_show / pending_cancel / pending_run / pending_stop
+```
+
+`team_recall` is **retired** — Step 8 retired the `recall` grammar; MCP retrieval
+is `history`/`show`. Do not reintroduce `team_recall` or `team_presets`.
 
 Rules:
 

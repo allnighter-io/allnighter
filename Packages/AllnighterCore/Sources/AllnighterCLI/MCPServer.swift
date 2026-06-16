@@ -37,44 +37,62 @@ struct MCPServer {
     private func handleCall(id: Any?, params: [String: Any]) async {
         let name = params["name"] as? String ?? ""
         let args = params["arguments"] as? [String: Any] ?? [:]
+        let agent = (args["originAgent"] as? String) ?? "mcp"
         let service = runtime.service()
         switch name {
         case "team_ask":
-            guard let q = args["question"] as? String else { return respondError(id: id, code: -32602, message: "question required") }
+            guard let q = args["question"] as? String else { return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "question required") }
             let req = TeamRequest(question: q, presetId: args["preset"] as? String, context: args["context"] as? String)
-            let result = await service.run(req, origin: .mcp, originAgent: "mcp")
-            let text = (result.plan ?? result.note) + "\n\n[team \(result.preset): \(result.invocations) invocations]"
-            respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(result)))
-        case "team_presets":
-            let summaries = await service.presetSummaries()
-            let text = summaries.map { "\($0.id): \($0.name) (\($0.shape))" }.joined(separator: "\n")
-            respond(id: id, result: toolText(text))
-        case "team_recall":
-            let q = args["query"] as? String ?? ""
-            let hits = await service.recall(query: q)
+            let result = await service.run(req, origin: .mcp, originAgent: agent)
+            guard !result.runId.isEmpty, let run = AllnighterCLI.loadRun(result.runId) else {
+                return respondToolError(id: id, code: "RUN_NOT_FOUND", message: result.note.isEmpty ? "team run did not persist" : result.note)
+            }
+            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: AllnighterCLI.defaultRunContext(run))
+            respond(id: id, result: toolText(run.plan ?? "(no plan — status \(run.status.rawValue))", structured: AllnighterCLI.jsonString(trj)))
+        case "team_show":
+            respond(id: id, result: toolText("Current default team", structured: AllnighterCLI.teamShowJSONString(runtime)))
+        case "history":
+            let hits = await service.recall(query: args["query"] as? String ?? "")
             let text = hits.isEmpty ? "(no prior team runs match)" : hits.map { "\($0.createdAt) \($0.prompt)" }.joined(separator: "\n")
             respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(hits)))
+        case "show":
+            let ref = (args["run"] as? String) ?? "latest"
+            guard let run = AllnighterCLI.resolveRun(ref) else {
+                return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+            }
+            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: AllnighterCLI.defaultRunContext(run))
+            respond(id: id, result: toolText("Run \(run.id) · \(run.status.rawValue)", structured: AllnighterCLI.jsonString(trj)))
+        case "doctor":
+            let doc = await AllnighterCLI.doctorResult(runtime, full: (args["full"] as? Bool) ?? false)
+            respond(id: id, result: toolText("doctor: \(doc.status.rawValue)", structured: AllnighterCLI.jsonString(doc)))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
         }
     }
 
+    /// Tool descriptors derive from the contract registry — no MCP-only schemas.
     private func toolDefinitions() -> [[String: Any]] {
-        [
-            ["name": "team_ask",
-             "description": "Run a local multi-model team on a question and return a synthesized plan + structured analysis. Zero API cost. Use for hard architecture/design decisions.",
-             "inputSchema": ["type": "object", "properties": [
-                "question": ["type": "string"],
-                "preset": ["type": "string", "description": "fast|quality|diverse_panel|self_double (optional)"],
-                "context": ["type": "string", "description": "optional bounded snippet to consider"]
-             ], "required": ["question"]]],
-            ["name": "team_presets",
-             "description": "List available team presets with their work shape (workers, plan writer, stage layout).",
-             "inputSchema": ["type": "object", "properties": [:]]],
-            ["name": "team_recall",
-             "description": "Search prior local team runs and return past results (read-only, zero cost).",
-             "inputSchema": ["type": "object", "properties": ["query": ["type": "string"]], "required": ["query"]]]
-        ]
+        ContractRegistry.milestone1.mcpTools.map { tool in
+            var properties: [String: Any] = [:]
+            var required: [String] = []
+            for p in tool.params {
+                properties[p.name] = ["type": p.type, "description": p.summary]
+                if p.required { required.append(p.name) }
+            }
+            var schema: [String: Any] = ["type": "object", "properties": properties]
+            if !required.isEmpty { schema["required"] = required }
+            return ["name": tool.name, "description": tool.summary, "inputSchema": schema]
+        }
+    }
+
+    /// A tool-level failure carrying the shared `ErrorEnvelope` (no MCP-only error shape).
+    private func respondToolError(id: Any?, code: String, message: String) {
+        let envelope = ErrorEnvelope(code: code, message: message, requiresManual: code == "RUN_NOT_FOUND", retryable: false)
+        respond(id: id, result: [
+            "content": [["type": "text", "text": "\(code): \(message)"]],
+            "isError": true,
+            "structuredContent": ["error": AllnighterCLI.jsonString(envelope)],
+        ])
     }
 
     private func toolText(_ text: String, structured: String? = nil) -> [String: Any] {

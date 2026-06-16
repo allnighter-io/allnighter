@@ -20,6 +20,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
     public var events: [EventSpec]
     public var nextActionKinds: [NextActionKindSpec]
     public var examples: [ExampleRecipe]
+    public var mcpTools: [MCPToolSpec]
 
     public init(
         schemaVersion: Int = 1,
@@ -29,7 +30,8 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         doctorChecks: [DoctorCheckSpec],
         events: [EventSpec],
         nextActionKinds: [NextActionKindSpec],
-        examples: [ExampleRecipe]
+        examples: [ExampleRecipe],
+        mcpTools: [MCPToolSpec] = []
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -39,6 +41,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         self.events = events
         self.nextActionKinds = nextActionKinds
         self.examples = examples
+        self.mcpTools = mcpTools
     }
 
     public enum Milestone: String, Codable, Sendable { case m1, deferred }
@@ -123,5 +126,28 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var title: String
         public var command: String
         public init(_ id: String, title: String, command: String) { self.id = id; self.title = title; self.command = command }
+    }
+
+    /// An MCP tool — a thin projection of an `alln` command. MCP descriptors and
+    /// behavior derive from these; no MCP-only schemas (contract §MCP Projection).
+    public struct MCPToolSpec: Codable, Sendable, Equatable {
+        public var name: String            // MCP tool name, e.g. "team_ask"
+        public var command: String         // the alln command it projects, e.g. "team"
+        public var summary: String
+        public var params: [Param]
+        public var outputSchema: OutputSchema
+        public struct Param: Codable, Sendable, Equatable {
+            public var name: String
+            public var type: String        // "string" | "boolean"
+            public var required: Bool
+            public var summary: String
+            public init(_ name: String, type: String = "string", required: Bool = false, summary: String) {
+                self.name = name; self.type = type; self.required = required; self.summary = summary
+            }
+        }
+        public init(_ name: String, command: String, summary: String, params: [Param] = [], outputSchema: OutputSchema = .none) {
+            self.name = name; self.command = command; self.summary = summary
+            self.params = params; self.outputSchema = outputSchema
+        }
     }
 }

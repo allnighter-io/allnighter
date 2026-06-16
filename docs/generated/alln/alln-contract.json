@@ -265,6 +265,32 @@
     },
     {
       "args" : [
+        {
+          "name" : "query",
+          "required" : true,
+          "summary" : "Search text."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured results.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "history",
+      "outputSchema" : "none",
+      "summary" : "Search prior team runs (read-only)."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [
@@ -986,6 +1012,85 @@
       "command" : "alln dev export-contracts --check",
       "id" : "export_contracts_check",
       "title" : "Verify no contract drift"
+    }
+  ],
+  "mcpTools" : [
+    {
+      "command" : "team",
+      "name" : "team_ask",
+      "outputSchema" : "teamRunJSON",
+      "params" : [
+        {
+          "name" : "question",
+          "required" : true,
+          "summary" : "The prompt to ask the team.",
+          "type" : "string"
+        },
+        {
+          "name" : "preset",
+          "required" : false,
+          "summary" : "Team preset id (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "context",
+          "required" : false,
+          "summary" : "Bounded context snippet to consider (optional).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Run the default team on a prompt; returns a synthesized plan + structured run."
+    },
+    {
+      "command" : "team show",
+      "name" : "team_show",
+      "outputSchema" : "none",
+      "params" : [
+
+      ],
+      "summary" : "Show the current default team lineup."
+    },
+    {
+      "command" : "history",
+      "name" : "history",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "query",
+          "required" : true,
+          "summary" : "Search text.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Search prior local team runs (read-only, zero cost)."
+    },
+    {
+      "command" : "show",
+      "name" : "show",
+      "outputSchema" : "teamRunJSON",
+      "params" : [
+        {
+          "name" : "run",
+          "required" : true,
+          "summary" : "A run id or `latest`.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Show one run as TeamRunJSON."
+    },
+    {
+      "command" : "doctor",
+      "name" : "doctor",
+      "outputSchema" : "doctorResult",
+      "params" : [
+        {
+          "name" : "full",
+          "required" : false,
+          "summary" : "Run smoke probes (spends quota).",
+          "type" : "boolean"
+        }
+      ],
+      "summary" : "Diagnostics report; quota-free unless `full` is set."
     }
   ],
   "nextActionKinds" : [

@@ -26,8 +26,20 @@ final class ContractRegistryTests: XCTestCase {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         XCTAssertEqual(m1, [
             "docs", "doctor", "doctor explain", "models", "team show",
-            "team", "show", "export", "dev export-contracts",
+            "team", "show", "history", "export", "dev export-contracts",
         ])
+    }
+
+    /// MCP tools are a clean projection of M1 commands — no retired vocabulary.
+    func testMCPToolsAreCleanAndDeriveFromCommands() {
+        let names = reg.mcpTools.map(\.name)
+        XCTAssertEqual(Set(names), ["team_ask", "team_show", "history", "show", "doctor"])
+        XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
+        XCTAssertFalse(names.contains("team_presets"))
+        let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
+        for tool in reg.mcpTools {
+            XCTAssertTrue(m1.contains(tool.command), "MCP tool \(tool.name) maps to non-M1 command \(tool.command)")
+        }
     }
 
     func testCommandNamesAreUnique() {

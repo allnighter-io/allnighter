@@ -15,8 +15,28 @@ public extension ContractRegistry {
         doctorChecks: m1DoctorChecks,
         events: m1Events,
         nextActionKinds: m1NextActionKinds,
-        examples: m1Examples
+        examples: m1Examples,
+        mcpTools: m1MCPTools
     )
+
+    /// MCP tools (M1) — thin projections of `alln` commands. No `team_recall`
+    /// (retired in step 8); retrieval is `history`/`show`.
+    static let m1MCPTools: [MCPToolSpec] = [
+        MCPToolSpec("team_ask", command: "team", summary: "Run the default team on a prompt; returns a synthesized plan + structured run.",
+                    params: [.init("question", required: true, summary: "The prompt to ask the team."),
+                             .init("preset", summary: "Team preset id (optional)."),
+                             .init("context", summary: "Bounded context snippet to consider (optional).")],
+                    outputSchema: .teamRunJSON),
+        MCPToolSpec("team_show", command: "team show", summary: "Show the current default team lineup."),
+        MCPToolSpec("history", command: "history", summary: "Search prior local team runs (read-only, zero cost).",
+                    params: [.init("query", required: true, summary: "Search text.")]),
+        MCPToolSpec("show", command: "show", summary: "Show one run as TeamRunJSON.",
+                    params: [.init("run", required: true, summary: "A run id or `latest`.")],
+                    outputSchema: .teamRunJSON),
+        MCPToolSpec("doctor", command: "doctor", summary: "Diagnostics report; quota-free unless `full` is set.",
+                    params: [.init("full", type: "boolean", summary: "Run smoke probes (spends quota).")],
+                    outputSchema: .doctorResult),
+    ]
 
     // MARK: - Commands (in scope)
 
@@ -83,6 +103,11 @@ public extension ContractRegistry {
             args: [ArgSpec("run-id|latest", required: true, summary: "A run id or `latest`.")],
             flags: [FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "md", summary: "Export format (md).")],
             outputSchema: .markdown, exampleIds: ["export_md"]
+        ),
+        CommandSpec(
+            "history", summary: "Search prior team runs (read-only).", milestone: .m1,
+            args: [ArgSpec("query", required: true, summary: "Search text.")],
+            flags: [FlagSpec("json", summary: "Structured results.")]
         ),
         CommandSpec(
             "dev export-contracts", summary: "Regenerate or verify generated artifacts.", milestone: .m1,

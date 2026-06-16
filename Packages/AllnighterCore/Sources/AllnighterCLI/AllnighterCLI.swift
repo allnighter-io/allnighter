@@ -25,7 +25,8 @@ struct AllnighterCLI {
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "dev": runDev(args)
-        case "mcp": await MCPServer(runtime: runtime).serve()
+        case "mcp" where args.first == "install": printMCPInstall()   // consent-gated: prints config, never edits it
+        case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
         case "help", "--help", "-h": printHelp()
@@ -90,7 +91,7 @@ struct AllnighterCLI {
     }
 
     /// Loads a persisted run for projection to `TeamRunJSON`.
-    private static func loadRun(_ runId: String) -> TeamRun? {
+    static func loadRun(_ runId: String) -> TeamRun? {
         guard let url = try? RunStore().runDirectory(forRunId: runId).appendingPathComponent("run.json"),
               let data = try? Data(contentsOf: url) else { return nil }
         return try? CoreJSON.decode(TeamRun.self, from: data)
@@ -139,12 +140,21 @@ struct AllnighterCLI {
     static func runDoctor(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         let full = opts.flag("full")
+        let result = await doctorResult(runtime, full: full)
+        if opts.flag("json") {
+            print(jsonString(result))   // exactly one JSON object, no prose
+        } else {
+            printDoctorHuman(result, full: full)
+        }
+    }
 
+    /// Builds a `DoctorResult` — shared by `alln doctor` and the MCP `doctor` tool
+    /// so both project the same contract.
+    static func doctorResult(_ runtime: ToolRuntime, full: Bool) async -> DoctorResult {
         var modelLabels: [String: String] = [:]
         for m in runtime.models where modelLabels[m.driverId] == nil { modelLabels[m.driverId] = m.modelLabel }
         let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
             .probeAll(runtime.registry.all, models: modelLabels, now: Date(), smoke: full)
-
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
@@ -153,13 +163,7 @@ struct AllnighterCLI {
             runsDirWritable: ensureWritable(AllnighterPaths.runs),
             full: full
         )
-        let result = DoctorReport.build(models: runtime.models, manifests: runtime.registry.all, records: records, inputs: inputs)
-
-        if opts.flag("json") {
-            print(jsonString(result))   // exactly one JSON object, no prose
-        } else {
-            printDoctorHuman(result, full: full)
-        }
+        return DoctorReport.build(models: runtime.models, manifests: runtime.registry.all, records: records, inputs: inputs)
     }
 
     private static func ensureWritable(_ url: URL) -> Bool {
@@ -268,28 +272,33 @@ struct AllnighterCLI {
 
     /// `alln team show [--json]` — the current default team lineup. Does NOT run.
     static func runTeamShow(_ args: [String], _ runtime: ToolRuntime) {
-        let opts = Options(args)
+        if Options(args).flag("json") { print(teamShowJSONString(runtime)); return }
         let preset = runtime.presets.first { $0.id == runtime.config.defaultPresetId } ?? runtime.presets.first
         let modelById = Dictionary(runtime.models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let workers = preset?.workerSpecs.expandedWorkers() ?? []
-        if opts.flag("json") {
-            struct WorkerView: Encodable { let id, modelId, modelName: String; let skillId: String?; let instanceIndex: Int }
-            struct TeamView: Encodable {
-                let schemaVersion = 1
-                let contractVersion: String
-                let teamPresetId: String?
-                let planWriterModelId: String?
-                let workers: [WorkerView]
-            }
-            let views = workers.map { w in
-                WorkerView(id: w.id, modelId: w.modelId, modelName: modelById[w.modelId]?.displayName ?? w.modelId, skillId: w.skillId, instanceIndex: w.instanceIndex)
-            }
-            print(jsonString(TeamView(contractVersion: ContractRegistry.contractVersion, teamPresetId: preset?.id, planWriterModelId: preset?.synthesis.planWriterModelId, workers: views)))
-        } else {
-            print("Team: \(preset?.displayName ?? "default") · \(workers.count) workers")
-            for w in workers { print("  \(modelById[w.modelId]?.displayName ?? w.modelId)\t\(w.skillId ?? "—")") }
-            if let id = preset?.synthesis.planWriterModelId, let m = modelById[id] { print("Plan writer: \(m.displayName)") }
+        print("Team: \(preset?.displayName ?? "default") · \(workers.count) workers")
+        for w in workers { print("  \(modelById[w.modelId]?.displayName ?? w.modelId)\t\(w.skillId ?? "—")") }
+        if let id = preset?.synthesis.planWriterModelId, let m = modelById[id] { print("Plan writer: \(m.displayName)") }
+    }
+
+    /// The current-team snapshot JSON — shared by `alln team show --json` and the
+    /// MCP `team_show` tool.
+    static func teamShowJSONString(_ runtime: ToolRuntime) -> String {
+        let preset = runtime.presets.first { $0.id == runtime.config.defaultPresetId } ?? runtime.presets.first
+        let modelById = Dictionary(runtime.models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let workers = preset?.workerSpecs.expandedWorkers() ?? []
+        struct WorkerView: Encodable { let id, modelId, modelName: String; let skillId: String?; let instanceIndex: Int }
+        struct TeamView: Encodable {
+            let schemaVersion = 1
+            let contractVersion: String
+            let teamPresetId: String?
+            let planWriterModelId: String?
+            let workers: [WorkerView]
         }
+        let views = workers.map { w in
+            WorkerView(id: w.id, modelId: w.modelId, modelName: modelById[w.modelId]?.displayName ?? w.modelId, skillId: w.skillId, instanceIndex: w.instanceIndex)
+        }
+        return jsonString(TeamView(contractVersion: ContractRegistry.contractVersion, teamPresetId: preset?.id, planWriterModelId: preset?.synthesis.planWriterModelId, workers: views))
     }
 
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
@@ -330,9 +339,17 @@ struct AllnighterCLI {
         print(ContractDocs.markdown(reg))
     }
 
-    private static func resolveRun(_ ref: String) -> TeamRun? {
+    /// Resolves a run reference (`latest` or an id). Shared by `alln show` and the
+    /// MCP `show` tool.
+    static func resolveRun(_ ref: String) -> TeamRun? {
         if ref == "latest" { return RunStore().list().max(by: { $0.createdAt < $1.createdAt }) }
         return loadRun(ref)
+    }
+
+    /// Default projection context for a persisted run (run-journal path only).
+    static func defaultRunContext(_ run: TeamRun) -> TeamRunJSONMapper.Context {
+        let path = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path ?? ""
+        return .init(runJournalPath: path)
     }
 
     /// `alln show <run-id|latest> [--json]` — show one run.
@@ -345,8 +362,7 @@ struct AllnighterCLI {
             emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
         }
         if opts.flag("json") {
-            let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path ?? ""
-            print(jsonString(TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: .init(runJournalPath: journalPath))))
+            print(jsonString(TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: defaultRunContext(run))))
         } else {
             print("Run \(run.id) · \(run.status.rawValue)")
             print(run.prompt)
