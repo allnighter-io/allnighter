@@ -76,7 +76,9 @@ First lovable slice:
 
 ```text
 user sends a voice-to-text brain dump to OpenClaw/Hermes
--> agent calls Allnighter MCP `team_start`
+-> agent calls Allnighter MCP `mcp_hello`
+-> agent calls `team_preflight`
+-> agent calls `team_start`
 -> Allnighter starts Build / Bug Hunt / High
 -> agent receives run id immediately
 -> agent polls or subscribes to status
@@ -88,7 +90,8 @@ Second slice:
 
 ```text
 user says "put this on Claude's desk when it wakes up"
--> agent calls Allnighter MCP `pending_add`
+-> agent calls Allnighter MCP `mcp_hello`
+-> agent calls `pending_add`
 -> Allnighter stores a Pending item with worker/team policy
 -> agent can list/show/cancel the Pending item
 -> alln serve drains it when admission allows
@@ -262,7 +265,7 @@ Output:
     {"name": "doctor", "schemaRef": "tool://doctor.schema.json"}
   ],
   "quickstart": {
-    "recommendedFirstTool": "doctor",
+    "recommendedAfterHello": "team_preflight when canStartTeamRun is true; doctor when false",
     "whenToUseTeamStart": "Use for review, fanout, bug hunt, design, copy, or long work.",
     "whenToUsePending": "Use when the user wants work later or admission blocks.",
     "whenToUseSpecGet": "Use when the user asks for the full packet/spec."
@@ -765,7 +768,7 @@ Preflight rules:
 ```json
 {
   "runId": "run_...",
-  "status": "queued|running",
+  "status": "accepted|running",
   "lane": "build",
   "teamPresetId": "build_bug_hunt",
   "teamDisplayName": "Bug Hunt",
@@ -798,7 +801,7 @@ Preflight rules:
 ```json
 {
   "runId": "run_...",
-  "status": "queued|running|synthesizing|completed|failed|cancelled|interrupted",
+  "status": "accepted|running|synthesizing|completed|failed|cancelled|interrupted",
   "lane": "build",
   "teamPresetId": "build_bug_hunt",
   "effort": "high",
@@ -807,7 +810,7 @@ Preflight rules:
     {
       "workerId": "w_claude_bug_lens",
       "displayName": "Bug Hunter",
-      "status": "queued|running|completed|failed|timedOut|cancelled",
+      "status": "waiting|running|completed|failed|timedOut|cancelled",
       "startedAt": "2026-06-16T08:00:01Z",
       "finishedAt": null,
       "warning": null
@@ -861,6 +864,8 @@ The tool names use Pending, not queue:
 ```text
 pending_add
 pending_submit
+pending_edit
+pending_reorder
 pending_list
 pending_show
 pending_cancel
@@ -1552,7 +1557,7 @@ Assertions:
 Gesture:
 
 ```text
-Client polls team_status through queued, running, synthesizing, and terminal
+Client polls team_status through accepted, running, synthesizing, and terminal
 states.
 ```
 
