@@ -36,10 +36,25 @@ struct AllnighterCLI {
     static func runTeam(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let question = opts.positional.first ?? opts.value("question") else {
-            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--preset id] [--context text] [--json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--preset id] [--lane l] [--type t] [--effort e] [--json | --stream]\n".utf8)); exit(2)
+        }
+        // --json and --stream are mutually exclusive (checked before spending quota).
+        if opts.flag("json") && opts.flag("stream") {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
+            exit(2)
         }
         let request = TeamRequest(question: question, presetId: opts.value("preset"), context: opts.value("context"))
         let result = await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"))
+
+        if opts.flag("stream") {
+            // NDJSON only on stdout; one event object per line, terminal event last.
+            guard !result.runId.isEmpty, let run = loadRun(result.runId) else {
+                emitFailure(code: "RUN_NOT_FOUND", message: result.note.isEmpty ? "team run did not persist" : result.note)
+                exit(1)
+            }
+            for line in NDJSONStreamProjector.lines(for: run) { print(line) }
+            return
+        }
 
         if opts.flag("json") {
             // M1 step 5 (breaking): emit TeamRunJSON projected from the persisted
@@ -279,7 +294,7 @@ struct AllnighterCLI {
     static func printHelp() {
         print("""
         alln — local team run, callable by any agent (zero API cost)
-          team "<question>" [--preset id] [--context text] [--json]   run a team
+          team "<question>" [--preset id] [--json | --stream]        run a team (--json: TeamRunJSON; --stream: NDJSON)
           team show / presets [--json]                              list presets + work shape
           history "<query>" | recall "<query>" [--json]             search prior team runs
           models [--json]                                           list bench models
@@ -337,6 +352,11 @@ struct ToolRuntime {
 
 /// Tiny argv parser: positionals + `--key value` + `--flag`.
 struct Options {
+    /// Boolean flags never consume the next token as a value, so
+    /// `alln team --json "prompt"` keeps "prompt" as the positional.
+    static let booleanFlags: Set<String> = [
+        "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix",
+    ]
     var positional: [String] = []
     var values: [String: String] = [:]
     var flags: Set<String> = []
@@ -346,8 +366,13 @@ struct Options {
             let a = args[i]
             if a.hasPrefix("--") {
                 let key = String(a.dropFirst(2))
-                if i + 1 < args.count && !args[i + 1].hasPrefix("--") { values[key] = args[i + 1]; i += 2 }
-                else { flags.insert(key); i += 1 }
+                if Self.booleanFlags.contains(key) {
+                    flags.insert(key); i += 1
+                } else if i + 1 < args.count && !args[i + 1].hasPrefix("--") {
+                    values[key] = args[i + 1]; i += 2
+                } else {
+                    flags.insert(key); i += 1
+                }
             } else { positional.append(a); i += 1 }
         }
     }

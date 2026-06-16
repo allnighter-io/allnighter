@@ -80,6 +80,14 @@
     "ruleId" : "team.run.timeout"
   },
   {
+    "agentAction" : "Inspect failed workers and stages; retry or adjust the team.",
+    "code" : "TEAM_RUN_FAILED",
+    "explain" : "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers\/stages in the run, then retry or change the team.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "team.run.failed"
+  },
+  {
     "agentAction" : "Do not recursively spawn teams without explicit depth budget.",
     "code" : "NESTED_TEAM_BLOCKED",
     "explain" : "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended.",

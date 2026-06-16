@@ -163,6 +163,7 @@ Examples: `export_contracts_check`.
 | `WORKER_FAILED` | no | yes | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | no | yes | Retry with lower effort or fewer workers. |
+| `TEAM_RUN_FAILED` | no | yes | Inspect failed workers and stages; retry or adjust the team. |
 | `NESTED_TEAM_BLOCKED` | yes | no | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | no | yes | Wait or retry after current team run completes. |
 | `PENDING_MUTATION_DEFERRED` | yes | no | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
