@@ -1,5 +1,15 @@
 import Foundation
 
+/// The stage a resolved worker runs in. Answer workers run blind in parallel;
+/// review workers run after answers and may see them; `plan` is the synthetic
+/// plan/output writer that runs last. (Catalog rows are only answer/review;
+/// `plan` exists only for the synthetic writer.)
+public enum WorkerStage: String, Codable, Sendable, CaseIterable {
+    case answer
+    case review
+    case plan
+}
+
 /// One runtime worker assignment: a model wearing a skill for this team run.
 /// The same model may appear multiple times with different skills or instance
 /// indices (self-fusion).
@@ -19,7 +29,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     public var skillVersion: Int?
     /// Stage this worker runs in: answer (blind), review (after answers), or plan
     /// (the synthetic output writer). `nil` on legacy runs → treated as answer.
-    public var purpose: TeamWorkerPurpose?
+    public var purpose: WorkerStage?
     /// Display override, e.g. `Opus (A)`.
     public var label: String?
 
@@ -30,7 +40,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         skillId: String? = nil,
         skillName: String? = nil,
         skillVersion: Int? = nil,
-        purpose: TeamWorkerPurpose? = nil,
+        purpose: WorkerStage? = nil,
         label: String? = nil
     ) {
         self.id = id
