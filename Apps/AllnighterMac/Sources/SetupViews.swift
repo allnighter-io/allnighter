@@ -178,7 +178,7 @@ struct SetupCardView: View {
     var body: some View {
         VStack(spacing: 0) {
             head
-            if let body = bodyView { body }
+            bodyView
         }
         .background(fill, in: RoundedRectangle(cornerRadius: ALRadius.lg))
         .overlay {
