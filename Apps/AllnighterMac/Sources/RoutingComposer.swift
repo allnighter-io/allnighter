@@ -20,6 +20,7 @@ struct ComposeBenchModel: Identifiable, Equatable {
     let id: String
     let name: String
     let driverId: String      // for DriverBrandGlyph
+    let cli: String           // slug shown on the bench chip (e.g. "claude-code")
     let sub: String
     let ready: Bool
     var notReadyReason: String?
@@ -35,12 +36,12 @@ struct ComposeTeam: Identifiable, Equatable {
 
 enum ComposeRoutingData {
     static let bench: [ComposeBenchModel] = [
-        .init(id: "claude", name: "Claude Code", driverId: "claude_code", sub: "Anthropic · Opus 4.8", ready: true),
-        .init(id: "sonnet", name: "Sonnet", driverId: "claude_code", sub: "Anthropic · claude-cli", ready: true),
-        .init(id: "grok", name: "Grok", driverId: "grok", sub: "xAI · grok-4", ready: true),
-        .init(id: "gemini", name: "Gemini", driverId: "antigravity", sub: "Google · gemini-3-pro", ready: true),
-        .init(id: "gpt", name: "ChatGPT", driverId: "codex", sub: "OpenAI · Codex CLI", ready: false, notReadyReason: "Not signed in"),
-        .init(id: "composer", name: "Composer", driverId: "grok", sub: "Cursor · composer-1", ready: false, notReadyReason: "Not detected"),
+        .init(id: "claude", name: "Claude Code", driverId: "claude_code", cli: "claude-code", sub: "Anthropic · Opus 4.8", ready: true),
+        .init(id: "gpt", name: "ChatGPT", driverId: "codex", cli: "codex", sub: "OpenAI · Codex CLI", ready: true),
+        .init(id: "grok", name: "Grok", driverId: "grok", cli: "grok", sub: "xAI · grok-4", ready: true),
+        .init(id: "gemini", name: "Gemini", driverId: "antigravity", cli: "antigravity", sub: "Google · gemini-3-pro", ready: true),
+        .init(id: "composer", name: "Composer", driverId: "grok", cli: "cursor", sub: "Cursor · composer-1", ready: true),
+        .init(id: "sonnet", name: "Sonnet 4.6", driverId: "claude_code", cli: "claude-code", sub: "Anthropic · claude-cli", ready: true),
     ]
     static let execIds: Set<String> = ["claude", "gpt", "grok", "composer"]
     static let teams: [ComposeLane: [ComposeTeam]] = [
@@ -106,15 +107,20 @@ struct RoutingComposer: View {
     @State private var text: String = ""
     @State private var pop: Popover?
 
-    var placeholder: String = "Reply, or start the next turn…"
+    let placeholder: String
+    private let big: Bool
 
-    init(mode: ComposeMode = .chat, openModeMenu: Bool = false) {
+    init(mode: ComposeMode = .chat, openModeMenu: Bool = false, big: Bool = false) {
         _mode = State(initialValue: mode)
         _to = State(initialValue: "claude")
         _effort = State(initialValue: .med)
         _lane = State(initialValue: .design)
         _team = State(initialValue: ComposeRoutingData.defaultTeam(.design))
         _pop = State(initialValue: openModeMenu ? .mode : nil)
+        self.big = big
+        self.placeholder = big
+            ? "Describe the work — a question, a screen to redesign, a change to ship…"
+            : "Reply, or start the next turn…"
     }
 
     var body: some View {
@@ -138,7 +144,7 @@ struct RoutingComposer: View {
                     .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 10).padding(.top, 6)
-                    .frame(minHeight: 52, maxHeight: 120)
+                    .frame(minHeight: big ? 76 : 52, maxHeight: 140)
             }
             bar
         }

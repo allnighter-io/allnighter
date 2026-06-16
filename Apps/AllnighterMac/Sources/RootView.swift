@@ -32,35 +32,25 @@ struct RootView: View {
             )
                 .zIndex(10)
             ZStack {
-                HStack(spacing: 0) {
-                    VStack(spacing: 0) {
-                        WorkspaceSwitcher(mode: $workspaceMode)
-                        Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
-                        if workspaceMode == .threads {
-                            ThreadListView()
-                        } else {
-                            SidebarView()
-                        }
+                // The app launches into the clean conversation home. Setup (CLI
+                // readiness) and the composer specimen open OVER it on intent;
+                // they never hijack launch (founder: no broken/setup garbage on
+                // open). Old Team/Threads workspace panes are superseded by the
+                // home + routing composer (CR3/CR4 wire conversations live).
+                Group {
+                    if showReadiness {
+                        TeamReadinessView(
+                            focusDriverId: readinessFocus,
+                            onClose: { model.markSetupCompleted(); showReadiness = false },
+                            onAddSource: { model.markSetupCompleted(); showReadiness = false }
+                        )
+                    } else if showComposeSpecimen {
+                        ComposeSpecimen(openModeMenu: GUIFixture.composeMenuOpen)
+                    } else {
+                        HomeView()
                     }
-                    .frame(width: ALControl.sidebarWidth)
-                    Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
-                    Group {
-                        if showComposeSpecimen {
-                            ComposeSpecimen(openModeMenu: GUIFixture.composeMenuOpen)
-                        } else if showReadiness {
-                            TeamReadinessView(
-                                focusDriverId: readinessFocus,
-                                onClose: { model.markSetupCompleted(); showReadiness = false },
-                                onAddSource: { model.markSetupCompleted(); showReadiness = false }
-                            )
-                        } else if workspaceMode == .threads {
-                            ThreadDetailPane()
-                        } else {
-                            DetailPane()
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if showTeamDropdown || showDoctor {
                     ALColor.scrimSubtle
                         .onTapGesture {
@@ -146,13 +136,10 @@ struct RootView: View {
                 // resolve/version/smoke sweep here. Live probes require explicit
                 // setup/recheck/run intent.
                 model.loadCachedSetupState()
-                // First-run gating (Track A): a brand-new user lands ON the CLI
-                // setup page so they see which CLIs we support vs. found. Still
-                // process-quiet — the page renders cached/unknown state; the scan
-                // runs only when they click "Re-check all" (explicit intent).
-                if !model.hasCompletedSetup {
-                    openReadiness()
-                }
+                // The app launches into the clean home (founder: never open into
+                // the setup page). Setup is reachable on intent via the Team
+                // dropdown's "Open CLI setup" + the health badge. First-run
+                // auto-open is intentionally NOT done here.
             }
         }
         .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
