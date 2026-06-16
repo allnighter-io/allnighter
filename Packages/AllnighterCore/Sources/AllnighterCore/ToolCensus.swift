@@ -91,6 +91,49 @@ public struct ToolCensus: Sendable, Equatable {
         }
     }
 
+    /// The read-only build order a healthy worker runs to discover the user's
+    /// tools. Scoped to exactly the bins we support (not "every AI CLI") and
+    /// explicit about returning the STABLE launcher path, because the naive
+    /// `realpath`/`readlink -f` answer chases symlinks into version-pinned blobs
+    /// (`~/.grok/downloads/…`, `/versions/2.1.178`, `/Caskroom/<v>/…`) that break
+    /// on the next `tool upgrade`. Output is strict JSON we feed to `parse`.
+    public static func discoveryBuildOrder(for manifests: [DriverManifest]) -> String {
+        let bins = supportedBins(in: manifests)
+        let binList = bins.joined(separator: ", ")
+        let schema = "{ " + bins.map { "\"\($0)\": { \"absolute_path\": \"…\", \"version\": \"…\" }" }.joined(separator: ", ") + " }"
+        return """
+        Find these command-line tools on this machine and report where each one lives.
+        Tools to find (by command name): \(binList)
+
+        For each tool you find:
+        - Report the STABLE launcher path — the entry point the tool's installer or
+          version manager maintains and updates in place (e.g. ~/.local/bin/<tool>,
+          ~/.grok/bin/<tool>, /opt/homebrew/bin/<tool>, /usr/local/bin/<tool>).
+        - Do NOT run realpath/readlink -f to chase symlinks down to a versioned
+          payload. Paths under .../downloads/, .../versions/<n>/, /Caskroom/<n>/,
+          or /Cellar/<n>/ are upgrade-fragile and WRONG — they 404 after an upgrade.
+          If `which <tool>` is a symlink into such a dir, report the symlink itself,
+          not its target.
+        - Capture the tool's reported version (run `<tool> --version` or `version`).
+        - Omit any tool you cannot find. Do not guess.
+
+        Return ONLY this JSON object and nothing else — no prose, no code fences:
+        \(schema)
+        """
+    }
+
+    /// The deduped, sorted set of bin names across all headless-CLI drivers.
+    public static func supportedBins(in manifests: [DriverManifest]) -> [String] {
+        var seen = Set<String>()
+        var ordered: [String] = []
+        for manifest in manifests where manifest.kind == .headlessCLI {
+            for bin in manifest.setup?.bins ?? [] where seen.insert(bin).inserted {
+                ordered.append(bin)
+            }
+        }
+        return ordered.sorted()
+    }
+
     /// Extract the outermost `{ … }` so JSON wrapped in prose still parses.
     private static func extractJSONObject(from raw: String) -> String? {
         guard let start = raw.firstIndex(of: "{"),

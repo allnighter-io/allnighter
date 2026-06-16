@@ -84,4 +84,21 @@ final class ToolCensusTests: XCTestCase {
     func testRejectsNonJSON() {
         XCTAssertThrowsError(try ToolCensus.parse("no json here at all"))
     }
+
+    func testDiscoveryPromptIsScopedAndStabilityAware() {
+        let prompt = ToolCensus.discoveryBuildOrder(for: registry)
+        // Scoped to our supported bins only — not "every AI CLI on the machine".
+        for bin in ["claude", "codex", "grok", "agy"] {
+            XCTAssertTrue(prompt.contains(bin), "prompt should name the \(bin) bin")
+        }
+        // Stability guidance and strict-JSON framing.
+        XCTAssertTrue(prompt.contains("STABLE launcher"))
+        XCTAssertTrue(prompt.lowercased().contains("realpath"))
+        XCTAssertTrue(prompt.contains("absolute_path"))
+        XCTAssertTrue(prompt.contains("ONLY this JSON"))
+    }
+
+    func testSupportedBinsAreDedupedAndSorted() {
+        XCTAssertEqual(ToolCensus.supportedBins(in: registry), ["agy", "claude", "codex", "grok"])
+    }
 }
