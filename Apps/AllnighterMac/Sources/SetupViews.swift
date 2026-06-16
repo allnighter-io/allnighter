@@ -447,7 +447,7 @@ struct TeamHealthPopover: View {
                 Text("Team health").font(.system(size: 14, weight: .bold)).tracking(-0.14)
                     .foregroundStyle(ALColor.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                Button { model.runDetection() } label: { Label("Re-check", systemImage: "arrow.clockwise") }
+                Button { model.runFullSetupProbe(userInitiated: true) } label: { Label("Re-check", systemImage: "arrow.clockwise") }
                     .buttonStyle(.alGhost)
                 IconButton(systemImage: "xmark", accessibilityLabel: "Close", small: true) { onClose() }
             }
@@ -501,7 +501,7 @@ struct TeamHealthPopover: View {
         case .openTerminal(let cmd): SetupActions.openTerminal(cmd)
         case .copy(let text): copy(text)
         case .openURL(let url): if let u = URL(string: url) { NSWorkspace.shared.open(u) }
-        case .rescan, .useAnyway: model.runDetection()
+        case .rescan, .useAnyway: model.runFullSetupProbe(userInitiated: true)
         case .locate: SetupActions.locateBinary()
         }
     }

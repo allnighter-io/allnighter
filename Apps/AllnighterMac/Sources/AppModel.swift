@@ -575,10 +575,24 @@ final class AppModel {
         if !cached.records.isEmpty { toolStatuses = cached.records }
     }
 
-    /// Probe every CLI: show cached state instantly, then refresh from a live
-    /// resolve → version → smoke sweep. Drives the health badge + Council health.
-    func runDetection() {
+    /// HOTFIX (Launch Authority TCC): the explicit full-probe path. Spawns real
+    /// provider CLIs (resolve → version → smoke), can spend quota, and captures
+    /// login-shell PATH — so it MUST be user-initiated (Re-check, Re-scan, full
+    /// Setup). Never call this from launch/onAppear; use `loadCachedSetupState()`.
+    ///
+    /// NOTE: a process-quiet `runLightSetupRefresh(userInitiated:)` (no smoke)
+    /// is intentionally NOT added yet — see Open Question 1 in the hotfix doc.
+    /// Until the full Setup UI lands, launch is strictly cache-only and live
+    /// checks go through this explicit full probe.
+    func runFullSetupProbe(userInitiated: Bool) {
+        // Authority gate: a full probe is real, quota-bearing work. If this was
+        // not an explicit user act, fall back to the process-quiet cache load.
+        guard userInitiated else { loadCachedSetupState(); return }
         guard !isDetecting else { return }
+        // Explicit intent makes it safe to capture login-shell PATH so tool
+        // resolution sees the same PATH a terminal would (version managers,
+        // mount helpers, etc.). This is the only place that spawn is allowed.
+        LoginShell.applyToProcessEnvironment()
         let cached = setupStore.load()
         if !cached.records.isEmpty { toolStatuses = cached.records }
         isDetecting = true
@@ -589,7 +603,7 @@ final class AppModel {
         let completedAt = cached.setupCompletedAt
         Task { @MainActor [weak self] in
             let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
-                .probeAll(registryCopy.all, models: modelLabels, now: Date())
+                .probeAll(registryCopy.all, models: modelLabels, now: Date(), smoke: true)
             guard let self else { return }
             self.toolStatuses = records
             try? storeCopy.save(.init(records: records, setupCompletedAt: completedAt))
