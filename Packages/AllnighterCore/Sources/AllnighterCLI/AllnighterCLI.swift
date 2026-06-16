@@ -472,7 +472,7 @@ struct AllnighterCLI {
 struct ToolRuntime {
     let models: [Model]
     let registry: DriverRegistry
-    let presets: [TeamPreset]
+    let presets: [PanelPreset]
     let config: ToolConfig
     /// Cached per-driver invocations from the last detection (health == runs).
     let invocations: [String: ToolInvocation]

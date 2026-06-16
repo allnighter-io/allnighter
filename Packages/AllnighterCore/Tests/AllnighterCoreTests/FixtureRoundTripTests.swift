@@ -57,18 +57,18 @@ final class FixtureRoundTripTests: XCTestCase {
 
     func testPresetFixturesRoundTrip() throws {
         try assertRoundTrips(SynthesisInstructionPreset.self, .synthesisPresetDefault)
-        try assertRoundTrips(TeamPreset.self, .teamPresetDefault)
+        try assertRoundTrips(PanelPreset.self, .teamPresetDefault)
 
-        let preset = try Fixtures.teamPreset()
+        let preset = try Fixtures.panelPreset()
         XCTAssertEqual(preset.workerSpecs.count, 6)
         XCTAssertEqual(preset.synthesis.planWriterModelId, "model_opus")
         XCTAssertEqual(preset.synthesis.analysisDepth, .combined)
         XCTAssertEqual(preset.workerIds.count, 6)
     }
 
-    func testTeamPresetBuiltInDefaultDefaultsJudgeToOpus() throws {
+    func testPanelPresetBuiltInDefaultDefaultsPlanWriterToOpus() throws {
         let models = try Fixtures.models()
-        let preset = TeamPreset.builtInDefault(models: models, analysisProfileId: "plan_analysis_v1", planProfileId: "plan_writer_v1")
+        let preset = PanelPreset.builtInDefault(models: models, analysisProfileId: "plan_analysis_v1", planProfileId: "plan_writer_v1")
         XCTAssertEqual(preset.synthesis.planWriterModelId, "model_opus")
         XCTAssertEqual(preset.workerSpecs.map(\.modelId), models.map(\.id))
         XCTAssertTrue(preset.builtIn)

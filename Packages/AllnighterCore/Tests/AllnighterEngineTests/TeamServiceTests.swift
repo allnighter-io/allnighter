@@ -16,7 +16,7 @@ final class TeamServiceTests: XCTestCase {
     private func makeService(env: [String: String] = [:], capacity: Int = 2, store: RunStore) -> TeamService {
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
-        let preset = TeamPreset(id: "preset_fast", displayName: "Fast", workerSpecs: [WorkerSpec(modelId: "model_opus")],
+        let preset = PanelPreset(id: "preset_fast", displayName: "Fast", workerSpecs: [WorkerSpec(modelId: "model_opus")],
                                  synthesis: SynthesisConfig(planWriterModelId: "model_opus", analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID))
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: combined, exitCode: 0)])
         let governorDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("gov-\(UUID().uuidString)")
@@ -41,13 +41,13 @@ final class TeamServiceTests: XCTestCase {
         XCTAssertGreaterThan(result.invocations, 0)
     }
 
-    func testRecursionGuardRefusesWhenInsideCouncil() async {
+    func testRecursionGuardRefusesWhenInsideTeam() async {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(env: ["ALLNIGHTER_TEAM_DEPTH": "1"], store: RunStore(rootDirectory: tmp))
         let result = await service.run(TeamRequest(question: "x"), origin: .mcp)
         XCTAssertEqual(result.status, .failed)
-        XCTAssertTrue(result.note.contains("nested councils"))
+        XCTAssertTrue(result.note.contains("nested teams"))
     }
 
     func testRecallFindsPriorRun() async {

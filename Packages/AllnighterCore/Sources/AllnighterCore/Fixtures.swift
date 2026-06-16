@@ -64,8 +64,8 @@ public enum Fixtures {
         try decode(SynthesisInstructionPreset.self, .synthesisPresetDefault)
     }
 
-    public static func teamPreset() throws -> TeamPreset {
-        try decode(TeamPreset.self, .teamPresetDefault)
+    public static func panelPreset() throws -> PanelPreset {
+        try decode(PanelPreset.self, .teamPresetDefault)
     }
 
     public static func thread(_ name: Name = .threadChat) throws -> WorkThread {

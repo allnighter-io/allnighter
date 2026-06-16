@@ -29,31 +29,31 @@ public enum DefaultConfig {
 
     public static var registry: DriverRegistry { DriverRegistry(manifests) }
 
-    /// The tiered built-in presets (Fast / Quality / Diverse Team / Self-Double / Full +
-    /// Founder's Six). Shared by the app and the CLI.
-    public static func tieredPresets(models: [Model]) -> [TeamPreset] {
-        let judge = models.first(where: \.canWritePlan)?.id ?? models.first?.id
+    /// The tiered built-in panel presets (Fast / Quality / Diverse Team /
+    /// Self-Double / Full + Founder's Six). Used by the legacy workflow engine.
+    public static func tieredPresets(models: [Model]) -> [PanelPreset] {
+        let planWriter = models.first(where: \.canWritePlan)?.id ?? models.first?.id
         let analysisID = SynthesisInstructions.analysisID
         let planID = SynthesisInstructions.planID
         func config(_ depth: AnalysisDepth) -> SynthesisConfig {
-            SynthesisConfig(analysisDepth: depth, planWriterModelId: judge, analysisProfileId: analysisID, planProfileId: planID)
+            SynthesisConfig(analysisDepth: depth, planWriterModelId: planWriter, analysisProfileId: analysisID, planProfileId: planID)
         }
         func specs(_ ws: [Model]) -> [WorkerSpec] { ws.map { WorkerSpec(modelId: $0.id) } }
 
         let six = models
         let fastThree = Array(models.prefix(3))
-        let diverseTeam = models.filter { $0.id != judge }
+        let diverseTeam = models.filter { $0.id != planWriter }
         let strongest = models.first(where: \.canWritePlan) ?? models.first
 
-        var presets: [TeamPreset] = [
-            TeamPreset.builtInDefault(models: six, analysisProfileId: analysisID, planProfileId: planID),
-            TeamPreset(id: "preset_fast", displayName: "Fast Team", workerSpecs: specs(fastThree.isEmpty ? six : fastThree), synthesis: config(.combined), builtIn: true),
-            TeamPreset(id: "preset_quality", displayName: "Quality Team", workerSpecs: specs(six), synthesis: config(.separate), builtIn: true),
-            TeamPreset(id: "preset_budget", displayName: "Diverse Team", workerSpecs: specs(diverseTeam.isEmpty ? six : diverseTeam), synthesis: config(.separate), builtIn: true),
-            TeamPreset(id: "preset_full", displayName: "Full Deliberation", workerSpecs: specs(six), synthesis: config(.separate), builtIn: true)
+        var presets: [PanelPreset] = [
+            PanelPreset.builtInDefault(models: six, analysisProfileId: analysisID, planProfileId: planID),
+            PanelPreset(id: "preset_fast", displayName: "Fast Team", workerSpecs: specs(fastThree.isEmpty ? six : fastThree), synthesis: config(.combined), builtIn: true),
+            PanelPreset(id: "preset_quality", displayName: "Quality Team", workerSpecs: specs(six), synthesis: config(.separate), builtIn: true),
+            PanelPreset(id: "preset_budget", displayName: "Diverse Team", workerSpecs: specs(diverseTeam.isEmpty ? six : diverseTeam), synthesis: config(.separate), builtIn: true),
+            PanelPreset(id: "preset_full", displayName: "Full Deliberation", workerSpecs: specs(six), synthesis: config(.separate), builtIn: true)
         ]
         if let strongest {
-            presets.append(TeamPreset(id: "preset_self_double", displayName: "Self-Double", workerSpecs: [WorkerSpec(modelId: strongest.id, count: 3)], synthesis: config(.combined), builtIn: true))
+            presets.append(PanelPreset(id: "preset_self_double", displayName: "Self-Double", workerSpecs: [WorkerSpec(modelId: strongest.id, count: 3)], synthesis: config(.combined), builtIn: true))
         }
         return presets
     }

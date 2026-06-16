@@ -157,8 +157,8 @@ public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
     }
 
     /// The panel preset embedded in this workflow (seats + synthesis).
-    public var teamPreset: TeamPreset {
-        TeamPreset(id: id, displayName: displayName, workerSpecs: workerSpecs, synthesis: synthesis, builtIn: builtIn)
+    public var panelPreset: PanelPreset {
+        PanelPreset(id: id, displayName: displayName, workerSpecs: workerSpecs, synthesis: synthesis, builtIn: builtIn)
     }
 
     public enum ValidationError: Error, Equatable, CustomStringConvertible {

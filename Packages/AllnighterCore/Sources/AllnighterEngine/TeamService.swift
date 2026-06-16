@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 
 /// Reads the team-recursion depth from the environment. Model subprocesses
-/// are spawned with `ALLNIGHTER_TEAM_DEPTH` = parent + 1, so any council tool
+/// are spawned with `ALLNIGHTER_TEAM_DEPTH` = parent + 1, so any team tool
 /// invoked from inside a team sees depth >= 1 and refuses to fan out.
 public enum RecursionGuard {
     public static func currentDepth(environment: [String: String] = ProcessInfo.processInfo.environment) -> Int {
@@ -15,7 +15,7 @@ public enum RecursionGuard {
 
 /// Cross-process concurrency cap using `flock(2)` advisory locks on slot files.
 /// `flock` is released automatically when the holding process dies/closes the fd,
-/// so a crashed council never leaves a stale lock. `acquire` is non-blocking
+/// so a crashed team run never leaves a stale lock. `acquire` is non-blocking
 /// (`LOCK_NB`): it grabs the first free slot or returns nil when at the cap.
 public final class TeamGovernor: @unchecked Sendable {
     public final class Slot {
@@ -54,7 +54,7 @@ public final class TeamGovernor: @unchecked Sendable {
 public actor TeamService {
     private let models: [Model]
     private let registry: DriverRegistry
-    private let presets: [TeamPreset]
+    private let presets: [PanelPreset]
     private let config: ToolConfig
     private let runStore: RunStore
     private let commandRunner: CommandRunner
@@ -67,7 +67,7 @@ public actor TeamService {
     public init(
         models: [Model],
         registry: DriverRegistry,
-        presets: [TeamPreset],
+        presets: [PanelPreset],
         config: ToolConfig = ToolConfig(),
         runStore: RunStore = RunStore(),
         commandRunner: CommandRunner = SubprocessCommandRunner(),
@@ -100,7 +100,7 @@ public actor TeamService {
         }
     }
 
-    private func exposedPresets() -> [TeamPreset] {
+    private func exposedPresets() -> [PanelPreset] {
         let allowed = Set(config.exposedPresetIds)
         let exposed = presets.filter { allowed.contains($0.id) }
         return exposed.isEmpty ? presets : exposed
@@ -124,7 +124,7 @@ public actor TeamService {
         // Recursion guard (fail closed).
         if RecursionGuard.atOrOverCeiling(config.maxTeamRunDepth, environment: environment) {
             finishStream(failed: "already inside a team; nested teams are disabled")
-            return .refused(reason: "already inside a team; nested councils are disabled", now: now())
+            return .refused(reason: "already inside a team; nested teams are disabled", now: now())
         }
 
         // Resolve preset.
@@ -137,7 +137,7 @@ public actor TeamService {
         // Governor (concurrency cap).
         guard let slot = governor.acquire() else {
             finishStream(failed: "busy: \(config.maxConcurrentTeamRuns) team runs already running")
-            return .refused(reason: "busy: \(config.maxConcurrentTeamRuns) councils already running", preset: preset.id, now: now())
+            return .refused(reason: "busy: \(config.maxConcurrentTeamRuns) team runs already running", preset: preset.id, now: now())
         }
         defer { _ = slot } // released on scope exit (deinit unlocks).
 
@@ -224,7 +224,7 @@ public actor TeamService {
         return RunEvent(id: UUID().uuidString, seq: 0, ts: now(), kind: kind, payload: payload)
     }
 
-    private func resolvePlanWriter(preset: TeamPreset) -> Model? {
+    private func resolvePlanWriter(preset: PanelPreset) -> Model? {
         let roster = models.filter { preset.workerIds.contains($0.id) }
         if let id = preset.synthesis.planWriterModelId, let m = roster.first(where: { $0.id == id }) { return m }
         return roster.first(where: \.canWritePlan) ?? roster.first

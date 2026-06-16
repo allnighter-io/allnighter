@@ -65,15 +65,15 @@ final class PresetAndDoctorTests: XCTestCase {
         XCTAssertNotNil(store.preset(id: SynthesisInstructions.planID))
     }
 
-    // MARK: - TeamPresetStore (new seat-based shape)
+    // MARK: - PanelPresetStore (legacy council/workflow panel shape)
 
-    func testTeamPresetStoreRoundTrips() throws {
+    func testPanelPresetStoreRoundTrips() throws {
         let tmp = Self.tempDir()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let store = TeamPresetStore(rootDirectory: tmp)
+        let store = PanelPresetStore(rootDirectory: tmp)
         XCTAssertTrue(store.load().isEmpty)
 
-        let preset = TeamPreset(
+        let preset = PanelPreset(
             id: "p1", displayName: "My panel",
             workerSpecs: [WorkerSpec(modelId: "model_opus"), WorkerSpec(modelId: "model_grok")],
             synthesis: SynthesisConfig(analysisDepth: .separate, planWriterModelId: "model_opus", analysisProfileId: "plan_analysis_v1", planProfileId: "plan_writer_v1")
