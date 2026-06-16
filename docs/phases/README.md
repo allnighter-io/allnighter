@@ -1,7 +1,7 @@
 # Allnighter - Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-06-15
+Updated: 2026-06-16
 
 ## Purpose
 
@@ -9,6 +9,10 @@ The MVP team-run substrate has been built. Going forward,
 `docs/phases/` is the active home for post-MVP product slices, mentor-review
 notes, and implementation phase docs.
 
+> **HOTFIX FIRST: [`Launch_Authority_TCC_Hotfix.md`](Launch_Authority_TCC_Hotfix.md).**
+> Ordinary app launch must be process-quiet before setup/recheck/run. This
+> supersedes setup-phase background smoke language until closed.
+>
 > **▶ [`setup/`](setup/README.md) — First-Run Setup ("assemble your team").**
 > Phase 0 (packaging) and Phase 1 (detection engine: `CLIDetector` +
 > `ShellResolver` + `SetupStore`, reachable headless via `alln detect`) are
@@ -25,6 +29,8 @@ otherwise.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Launch_Authority_TCC_Hotfix.md`](Launch_Authority_TCC_Hotfix.md) | **HOTFIX execution-ready** (2026-06-16) | Critical TCC launch-authority fix: cold launch renders cached/unknown state only; no shell, CLI, smoke, quota, or protected-folder probing before explicit user intent. |
+| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | Founder packet / execution-ready policy phase | Stops blind GUI "fixed" claims: browser-visible spec proof, native SwiftUI render proof, structure assertions, and proof packets before GUI closeout. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
@@ -142,6 +148,8 @@ Open questions:
 
 | Work | Read first |
 | --- | --- |
+| Mac launch TCC prompts, startup shell/CLI probes, process-quiet launch | `Launch_Authority_TCC_Hotfix.md` |
+| GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` (historical cleanup: `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |

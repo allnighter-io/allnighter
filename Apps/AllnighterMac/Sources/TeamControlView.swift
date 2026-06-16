@@ -86,19 +86,13 @@ struct TeamControlView: View {
     private var readyCount: Int { rows.filter(\.isReady).count }
     private var stackModels: [Model] { Array(rows.prefix(4).map(\.model)) }
 
+    // Only the pill lives in the title bar. The dropdown panel is presented by
+    // RootView as a top-level overlay BELOW the title bar (the proven `showDoctor`
+    // pattern), because the title bar's centered ZStack + an intrinsically-tall
+    // panel made the open dropdown overflow past the window's top edge.
     var body: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            pillButton
-            if isOpen {
-                BenchDropdownPanel(
-                    isOpen: $isOpen,
-                    attached: true,
-                    onRepair: onRepair,
-                    onManageTeam: onManageTeam
-                )
-            }
-        }
-        .fixedSize(horizontal: true, vertical: true)
+        pillButton
+            .fixedSize(horizontal: true, vertical: true)
     }
 
     private var pillButton: some View {

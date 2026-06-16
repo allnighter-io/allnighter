@@ -78,3 +78,6 @@ fastlane/test_output
 
 # Design mockups (local reference artifacts)
 docs/phases/mockups/
+
+# GUI Visual Proof Gate — transient fixture captures (overwritten each run)
+docs/qa/gui/_captures/

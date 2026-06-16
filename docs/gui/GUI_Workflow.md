@@ -81,7 +81,18 @@ Use the lightest test that protects the behavior:
 Do not substitute screenshots for behavioral tests on run-state, dispatch,
 secrets, or billing.
 
-## 7. Related Docs
+## 7. Visual Proof Gate
+
+Visible GUI work does not close from code/build confidence. Tier B-D work that
+changes layout, copy hierarchy, component state, popovers/sheets, navigation, or
+user-facing workflow must follow `docs/phases/GUI_Visual_Proof_Gate.md`.
+
+Closeout must include a proof packet under `docs/qa/gui/` with browser-visible
+spec proof, native SwiftUI render proof, structure/accessibility assertions,
+proof commands, and known deltas. If the agent cannot render or inspect the
+changed surface, closeout says visually unverified or blocked, never fixed.
+
+## 8. Related Docs
 
 - Stack: `docs/gui/0.GUI-Tech-Stack.md`
 - Invariants: `docs/gui/1.GUI-Invariants.md`
@@ -89,4 +100,5 @@ secrets, or billing.
 - Surface briefs: `docs/gui/surfaces/README.md`
 - Design system (brand, tokens, components): `docs/design-system/readme.md`
 - Design system production rules: `docs/design-system/production.md`
+- Visual proof gate: `docs/phases/GUI_Visual_Proof_Gate.md`
 - Feature workflow: `docs/workflows/SSOT_Feature_Workflow.md`

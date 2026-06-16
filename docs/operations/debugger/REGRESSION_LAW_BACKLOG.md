@@ -4,7 +4,7 @@ DEBUGLOG entries without a wall-reachable regression law are tracked here until
 each pattern has a gate or test. Expired rows should fail the green wall once
 meta-gates exist.
 
-- `GUI-visible work is not fixed until rendered proof exists`: owner GUI workflow/Mac app proof harness, reason repeated blind SwiftUI closeouts need browser proof, native screenshot proof, and structure assertions, expiry 2026-06-23
+- `GUI-visible work is not fixed until a layout-watcher passes a real render`: owner GUI workflow/Mac app proof harness, status PROCESS-ENFORCED (Debugger + GUI_Workflow + shipped harness: `GUIFixture.swift` + `scripts/gui_proof.sh` + `.claude/agents/layout-watcher.md`); remaining wall-gate is `scripts/check_gui_proof.sh` (S05) flagging a `Sources/*.swift` diff with no watcher PASS/waiver, expiry 2026-06-23
 
 ## Closed
 

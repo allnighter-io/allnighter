@@ -39,10 +39,6 @@ struct RootView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                if showTeamDropdown {
-                    Rectangle().fill(ALColor.overlay)
-                        .onTapGesture { showTeamDropdown = false }
-                }
             }
         }
         // Pull the custom TitleBar up into the window's titlebar band so the team
@@ -61,9 +57,33 @@ struct RootView: View {
                 }
             }
         }
+        .overlay {
+            // Team dropdown: a top-level overlay below the title bar (same proven
+            // pattern as showDoctor), so the panel can never be clipped by the
+            // title bar's centered ZStack or overflow the window's top edge.
+            if showTeamDropdown {
+                ZStack(alignment: .topTrailing) {
+                    Rectangle().fill(ALColor.overlay).ignoresSafeArea()
+                        .onTapGesture { showTeamDropdown = false }
+                    BenchDropdownPanel(
+                        isOpen: $showTeamDropdown,
+                        attached: false,
+                        onRepair: { _ in showTeamDropdown = false },
+                        onManageTeam: { showTeamDropdown = false }
+                    )
+                    .padding(.top, ALControl.titleBarHeight + 6).padding(.trailing, 13)
+                }
+            }
+        }
         .onAppear {
             GlobalHotKey.enable()
-            if model.isConfigurationBroken {
+            if GUIFixture.isActive {
+                // GUI Visual Proof Gate: deep-link the captured state (no probes,
+                // no cached load), then self-capture + exit if a PNG was asked
+                // for. Designer-mock only — env-gated, inert on real launches.
+                if GUIFixture.opensTeamDropdown { showTeamDropdown = true }
+                GUIFixture.captureAndExitIfRequested()
+            } else if model.isConfigurationBroken {
                 showMissingDriversAlert = true
             } else if !didLoadCachedSetup {
                 didLoadCachedSetup = true

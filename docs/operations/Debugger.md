@@ -56,6 +56,22 @@ Disprove SSOT drift with positive evidence from the owner: Swift model, contract
 WebSocket message, persisted reload, parser fixture, or focused test. A view
 read is not enough.
 
+## GUI-Visible Bugs — Layout Gate
+
+If the bug is a visible layout failure (clipped, collapsed, overlapping,
+off-screen, scrim/z-order, detached, or missing UI), it is not fixed from build
+or code confidence. Before closeout:
+
+1. Render the changed surface: `bash scripts/gui_proof.sh <fixture>` (fixtures in
+   `Apps/AllnighterMac/Sources/GUIFixture.swift`).
+2. Spawn the **layout-watcher** (`.claude/agents/layout-watcher.md`) — a separate
+   agent, never the one that wrote the fix — on the render.
+3. `fixed` requires a watcher PASS (no P1). A broken render/harness is `blocked`,
+   not `fixed`.
+
+The watcher is the eyes the building agent lacks. See
+`docs/phases/GUI_Visual_Proof_Gate.md`.
+
 ## Debug Packet
 
 ```text
@@ -74,7 +90,10 @@ Proof command / founder test:
 
 - Patch SwiftUI because a semantic value looks wrong before naming the owner.
 - Add silent fallbacks around required semantic fields.
-- Treat connection `connected`, screenshots, or render success as durable proof.
+- Treat connection `connected`, build success, or "it compiled" as durable proof.
+- Close a GUI-visible bug without a layout-watcher PASS on a rendered fixture
+  (a screenshot the building agent merely produced is not proof; a separate
+  watcher looking at it is).
 - Combine unrelated cleanup with a bug fix.
 - Hide a repeated bug without adding or naming regression proof.
 
@@ -100,7 +119,9 @@ Definition of done:
 4. Founder-found or repeated bug: DEBUGLOG `Proof:` names a wall-reachable test.
 5. `T2`/`T3` or repeated: regression law with wall command, or expiring blocker
    in `QUARANTINE.md`.
-6. Founder test = confirmation of feel, never proof of correctness.
+6. GUI-visible bug: layout-watcher PASS on a rendered fixture (see GUI-Visible
+   Bugs above); name the fixture + verdict in the closeout.
+7. Founder test = confirmation of feel, never proof of correctness.
 
 Append to `Docs/operations/debugger/DEBUGLOG.md` for every repeated bug and
 every `T3`.
