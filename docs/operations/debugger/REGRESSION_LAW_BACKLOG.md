@@ -4,9 +4,15 @@ DEBUGLOG entries without a wall-reachable regression law are tracked here until
 each pattern has a gate or test. Expired rows should fail the green wall once
 meta-gates exist.
 
-- `GUI-visible work is not fixed until a layout-watcher passes a real render`: owner GUI workflow/Mac app proof harness, status PROCESS-ENFORCED (Debugger + GUI_Workflow + shipped harness: `GUIFixture.swift` + `scripts/gui_proof.sh` + `.claude/agents/layout-watcher.md`); remaining wall-gate is `scripts/check_gui_proof.sh` (S05) flagging a `Sources/*.swift` diff with no watcher PASS/waiver, expiry 2026-06-23
-
 ## Closed
+
+- `GUI-visible work is not fixed until a layout-watcher passes a real render`:
+  CLOSED 2026-06-16 by the GUI Visual Proof Gate. Harness: `GUIFixture.swift`
+  (env-gated self-capture) + `scripts/gui_proof.sh` + `.claude/agents/layout-watcher.md`.
+  Wall-reachable gate: `scripts/check_gui_proof.sh` (in `scripts/check.sh`) fails
+  when a visible SwiftUI surface changed with no proof packet or waiver, scoped
+  by `scripts/.gui_proof_baseline`. Process binding: `docs/operations/Debugger.md`
+  (GUI-Visible Bugs + Forbidden Moves + DoD). Proof: `bash scripts/check.sh`.
 
 - `Mac app launch is process-quiet before explicit setup/recheck/run`: CLOSED
   2026-06-16 by the Launch Authority TCC hotfix (H0–H6). Wall-reachable gates:

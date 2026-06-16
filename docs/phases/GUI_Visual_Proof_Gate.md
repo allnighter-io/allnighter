@@ -289,18 +289,27 @@ with real cost (threshold tuning, retina noise) and are explicitly out of scope
 until the watcher misses a layout regression the founder then finds. Content and
 accessibility assertions are NOT planned here at all — CLI/Core tests own truth.
 
-### S05 - Meta-Gate (remaining)
+### S05 - Meta-Gate
 
-Status: Not built — the one open piece.
+Status: Done 2026-06-16
 
-Goal: stop a future agent from skipping the gate. Add `scripts/check_gui_proof.sh`
-that flags a diff touching `Apps/AllnighterMac/Sources/*.swift` with no
-corresponding dated proof packet or waiver in the closeout, and wire it into
-`bash scripts/check.sh`. Until then the gate is process-enforced (Debugger +
-GUI_Workflow), not wall-enforced.
+`scripts/check_gui_proof.sh` (wired into `scripts/check.sh`) fails the wall when a
+visible SwiftUI surface changed without a proof packet or an explicit waiver:
 
-Exit gate: a visible GUI change committed without a watcher PASS or waiver fails
-the wall.
+- Visible = a changed `Sources/*.swift` declaring a `View`/`App`/Preview; pure
+  logic/model/presenter files are not gated.
+- Grandfathered to `scripts/.gui_proof_baseline` (the gate commit) so it does not
+  retroactively flag pre-gate GUI work — only changes after the baseline count.
+- Detects untracked packets, so the commit-first workflow can't slip past.
+- Resolutions: a packet under `docs/qa/gui/<surface>/...`, a `GUI-proof-waiver:`
+  commit trailer, or one-shot `ALLNIGHTER_GUI_PROOF_WAIVER="reason"` (CI can't use
+  it). CI may set `ALLNIGHTER_GUI_PROOF_BASE=origin/main` for full-PR scope.
+
+It enforces that the evidence ritual happened — not that pixels are correct. The
+layout-watcher PASS remains the real check; this makes producing one mandatory.
+
+Exit gate (met): a visible GUI change without a packet or waiver fails
+`bash scripts/check.sh`.
 
 ## Tauri Revisit Trigger
 
@@ -384,10 +393,10 @@ harness`, never `fixed`.
 - [x] Layout-watcher agent exists (`.claude/agents/layout-watcher.md`).
 - [x] Team dropdown pilot rendered, caught (FAIL), fixed, and re-verified (PASS).
 - [x] Debugger binds GUI-visible bugs to the layout gate.
-- [ ] GUI proof meta-gate (`scripts/check_gui_proof.sh`) is wired into
-  `bash scripts/check.sh` (S05 — the one open piece).
+- [x] GUI proof meta-gate (`scripts/check_gui_proof.sh`) is wired into
+  `bash scripts/check.sh` (S05).
 
 ## Open Questions
 
-None blocking. The only open build item is S05 (wall-enforcing the gate). Golden
-pixel diffs stay deferred until a watcher miss proves they are needed.
+None blocking. All build items (S00-S05) are done. Golden pixel diffs stay
+deferred until a watcher miss proves they are needed.
