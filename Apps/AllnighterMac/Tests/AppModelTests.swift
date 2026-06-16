@@ -61,7 +61,7 @@ final class AppModelTests: XCTestCase {
         let summary = model.workOrderSummary
         XCTAssertTrue(summary.contains("\(model.expandedWorkers.count) worker"))
         if model.currentSynthesis.analysisDepth == .combined {
-            XCTAssertTrue(summary.contains("combined plan writer"))
+            XCTAssertTrue(summary.contains("combined analysis + plan"))
         } else {
             XCTAssertTrue(summary.contains("separate analysis + plan"))
         }

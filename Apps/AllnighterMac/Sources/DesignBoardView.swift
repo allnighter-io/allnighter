@@ -169,8 +169,8 @@ struct DesignBoardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: tileWidth), spacing: 14)], spacing: 14) {
-                        ForEach(run.workers) { seat in
-                            BoardTile(seat: seat, aspect: aspect, readOnly: readOnly,
+                        ForEach(run.workers) { worker in
+                            BoardTile(worker: worker, aspect: aspect, readOnly: readOnly,
                                       isChosen: model.board?.chosen?.workerId == worker.id,
                                       onOpen: { fullscreenSeat = worker.id },
                                       onPick: { model.pickOption(workerId: worker.id) })
@@ -268,7 +268,7 @@ private struct BuildSection: View {
 
 private struct BoardTile: View {
     @Environment(AppModel.self) private var model
-    let seat: Worker
+    let worker: Worker
     let aspect: CGFloat
     let readOnly: Bool
     let isChosen: Bool
@@ -276,7 +276,7 @@ private struct BoardTile: View {
     let onPick: () -> Void
 
     var body: some View {
-        let member = model.displayRun?.member(workerId: worker.id)
+        let member = model.displayRun?.workerAnswer(workerId: worker.id)
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .windowBackgroundColor))
