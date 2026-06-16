@@ -35,8 +35,13 @@ final class RunStoreConcurrencyTests: XCTestCase {
             }
             group.addTask {
                 for _ in 0..<300 {
-                    XCTAssertNotNil(store.load(runId: "concurrent-1"),
-                                    "load saw a torn/partial run.json — save must be atomic")
+                    let loaded = store.load(runId: "concurrent-1")
+                    XCTAssertNotNil(loaded, "load saw a torn/partial run.json — save must be atomic")
+                    // Orphan recovery must not misfire: this process owns the run
+                    // and is alive, so a concurrent owner.pid write must never read
+                    // as absent/torn and flip the live run to .interrupted.
+                    XCTAssertNotEqual(loaded?.status, .interrupted,
+                                      "live run misread as orphaned — owner.pid write must be atomic + ordered before run.json")
                 }
             }
         }

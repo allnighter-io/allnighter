@@ -24,21 +24,24 @@ public struct RunStore: Sendable {
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        // Atomic write (temp + rename): a background coordinator can be saving
-        // progress while another caller (e.g. cancel/status) reads run.json. A
-        // plain write truncates-then-writes, so a concurrent read could see an
-        // empty/partial file and fail to decode. Atomic makes readers see only
-        // the complete old or complete new file.
-        try CoreJSON.encode(run).write(to: directory.appendingPathComponent("run.json"), options: .atomic)
-
-        // Liveness marker: while a run is non-terminal, record the owning pid so a
-        // reader can tell a genuinely-running run from an orphaned/crashed one.
-        // Removed on terminal save so a clean run leaves no stale marker.
+        // Concurrency: a background coordinator saves progress while another
+        // caller (cancel/status) reads. All state files are written ATOMICALLY
+        // (temp + rename) so a reader never sees a torn/partial file, and the
+        // liveness marker + run.json are ordered so a reader can never see a live
+        // run.json without its owner.pid (which would misfire orphan recovery and
+        // flip a running run to `.interrupted`).
+        let runURL = directory.appendingPathComponent("run.json")
         let ownerURL = directory.appendingPathComponent("owner.pid")
         if run.status.isTerminal {
+            // Terminal: publish the terminal state, then drop the marker. Readers
+            // see a terminal run and skip the orphan check entirely.
+            try CoreJSON.encode(run).write(to: runURL, options: .atomic)
             try? FileManager.default.removeItem(at: ownerURL)
         } else {
-            try? Data("\(RunStore.currentPID)".utf8).write(to: ownerURL)
+            // Non-terminal: write the marker FIRST so that once this run.json is
+            // visible, a complete owner.pid is guaranteed already present.
+            try Data("\(RunStore.currentPID)".utf8).write(to: ownerURL, options: .atomic)
+            try CoreJSON.encode(run).write(to: runURL, options: .atomic)
         }
 
         // Derived artifacts (regenerated from run.json truth on each save).
