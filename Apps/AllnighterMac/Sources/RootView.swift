@@ -37,6 +37,10 @@ struct RootView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        // Pull the custom TitleBar up into the window's titlebar band so the team
+        // identity + controls sit on the SAME row as the traffic-light dots
+        // (the dots overlay its empty left region), not in a separate band below.
+        .ignoresSafeArea(.container, edges: .top)
         .environment(threads)
         .background(ALColor.base)
         .sheet(isPresented: $showDoctor) { DoctorView() }

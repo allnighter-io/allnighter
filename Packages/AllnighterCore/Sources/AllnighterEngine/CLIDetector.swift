@@ -39,8 +39,13 @@ public struct ShellResolver: Sendable {
         // One login shell; sentinel-wrapped `command -v` per bin.
         let list = bins.joined(separator: " ")
         let script = "for b in \(list); do printf '<<<ALR:%s|%s>>>\\n' \"$b\" \"$(command -v \"$b\" 2>/dev/null)\"; done"
+        // Non-interactive login shell (`-lc`, not `-lic`): resolves PATH binaries
+        // from login profiles without sourcing the interactive `.zshrc`, whose dev
+        // tools touch Downloads/Photos and make macOS raise TCC prompts attributed
+        // to the GUI app. Tools not on the login PATH fall back to `knownPaths`.
+        // (Shell-only aliases no longer auto-resolve — locate manually if needed.)
         let result = await commandRunner.run(
-            command: shellPath, args: ["-lic", script],
+            command: shellPath, args: ["-lc", script],
             stdin: nil, env: [:], workingDirectory: nil, timeout: timeout
         )
 

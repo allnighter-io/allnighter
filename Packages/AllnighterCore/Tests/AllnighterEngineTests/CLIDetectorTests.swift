@@ -44,7 +44,7 @@ final class CLIDetectorTests: XCTestCase {
 
     func testReadyWhenSmokeReturnsToken() async {
         let det = kDetector { command, args in
-            if args.first == "-lic" { return kResolved(kToolPath) }
+            if args.first == "-lc" { return kResolved(kToolPath) }
             if command == kToolPath {
                 return args.contains("--version")
                     ? CommandResult(stdout: "claude 9.9.9", exitCode: 0)
@@ -60,7 +60,7 @@ final class CLIDetectorTests: XCTestCase {
 
     func testNotSignedInWhenSmokeHitsAuthPattern() async {
         let det = kDetector { command, args in
-            if args.first == "-lic" { return kResolved(kToolPath) }
+            if args.first == "-lc" { return kResolved(kToolPath) }
             if command == kToolPath {
                 return args.contains("--version")
                     ? CommandResult(stdout: "claude 9.9.9", exitCode: 0)
@@ -75,7 +75,7 @@ final class CLIDetectorTests: XCTestCase {
 
     func testProbeFailedWhenSmokeErrorIsNotAuth() async {
         let det = kDetector { command, args in
-            if args.first == "-lic" { return kResolved(kToolPath) }
+            if args.first == "-lc" { return kResolved(kToolPath) }
             if command == kToolPath {
                 return args.contains("--version")
                     ? CommandResult(stdout: "claude 9.9.9", exitCode: 0)
@@ -89,7 +89,7 @@ final class CLIDetectorTests: XCTestCase {
 
     func testNotInstalledWhenUnresolved() async {
         let det = kDetector { _, args in
-            if args.first == "-lic" { return kResolved(nil) }
+            if args.first == "-lc" { return kResolved(nil) }
             return CommandResult(launchError: "should not run")
         }
         let r = await det.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0))
@@ -98,7 +98,7 @@ final class CLIDetectorTests: XCTestCase {
 
     func testShimmedWhenResolvedToAlias() async {
         let det = kDetector { _, args in
-            if args.first == "-lic" {
+            if args.first == "-lc" {
                 return CommandResult(stdout: "<<<ALR:claude|claude: aliased to claude --foo>>>\n", exitCode: 0)
             }
             return CommandResult(launchError: "should not run an ambiguous alias")
