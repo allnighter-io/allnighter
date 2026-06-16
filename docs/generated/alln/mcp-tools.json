@@ -1,5 +1,65 @@
 [
   {
+    "command" : "team teams",
+    "name" : "mcp_hello",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "agent",
+        "required" : false,
+        "summary" : "Calling agent id for provenance (advisory only).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Agent bootstrap: whether a team can start now, which teams are ready, and the next action. Cheap, non-mutating, no quota."
+  },
+  {
+    "command" : "team teams",
+    "name" : "teams_list",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "lane",
+        "required" : false,
+        "summary" : "Filter to one lane: build|design|copy (optional).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Lane-scoped team catalog summary (no prompt templates)."
+  },
+  {
+    "command" : "team preflight",
+    "name" : "team_preflight",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "lane",
+        "required" : false,
+        "summary" : "build|design|copy.",
+        "type" : "string"
+      },
+      {
+        "name" : "team",
+        "required" : false,
+        "summary" : "Team id (e.g. build_bug_hunt).",
+        "type" : "string"
+      },
+      {
+        "name" : "effort",
+        "required" : false,
+        "summary" : "low|med|high (optional; default is the team's).",
+        "type" : "string"
+      },
+      {
+        "name" : "type",
+        "required" : false,
+        "summary" : "Copy-only routing sugar (optional).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Validate lane\/team\/effort against the ready bench WITHOUT running or spending quota; shows resolved\/blocked workers and self-fusion."
+  },
+  {
     "command" : "team",
     "name" : "team_ask",
     "outputSchema" : "teamRunJSON",
@@ -11,9 +71,27 @@
         "type" : "string"
       },
       {
-        "name" : "preset",
+        "name" : "lane",
         "required" : false,
-        "summary" : "Team preset id (optional).",
+        "summary" : "build|design|copy (explicit; never inferred).",
+        "type" : "string"
+      },
+      {
+        "name" : "team",
+        "required" : false,
+        "summary" : "Team id; `--preset` is a hidden alias.",
+        "type" : "string"
+      },
+      {
+        "name" : "effort",
+        "required" : false,
+        "summary" : "low|med|high (optional).",
+        "type" : "string"
+      },
+      {
+        "name" : "type",
+        "required" : false,
+        "summary" : "Copy-only routing sugar (optional).",
         "type" : "string"
       },
       {
@@ -23,7 +101,7 @@
         "type" : "string"
       }
     ],
-    "summary" : "Run the default team on a prompt; returns a synthesized plan + structured run."
+    "summary" : "Run a lane team on a prompt; returns a synthesized result + structured run."
   },
   {
     "command" : "team show",
@@ -32,7 +110,7 @@
     "params" : [
 
     ],
-    "summary" : "Show the current default team lineup."
+    "summary" : "Show the default team for each lane."
   },
   {
     "command" : "history",

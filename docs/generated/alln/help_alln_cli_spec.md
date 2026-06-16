@@ -60,16 +60,41 @@ Examples: `models_json`.
 
 ### `alln team show`
 
-Show the current default team.
+Show the default team for each lane.
 
 Flags:
+- `--lane <lane>` — Limit to one lane.
 - `--json` — Structured team snapshot.
 
 Examples: `team_show_json`.
 
+### `alln team teams`
+
+List the lane-scoped team catalog.
+
+Flags:
+- `--lane <lane>` — Filter to one lane.
+- `--json` — Structured catalog summary.
+
+Examples: `teams_build_json`.
+
+### `alln team hello`
+
+Agent bootstrap: readiness + ready teams + next action (quota-free).
+
+### `alln team preflight`
+
+Validate lane/team/effort against the ready bench without running.
+
+Flags:
+- `--lane <lane>` — build | design | copy.
+- `--team <id>` — Team id.
+- `--effort <effort>` — low | med | high.
+- `--type <type>` — Copy-only routing sugar.
+
 ### `alln team`
 
-Ask the default team, foreground.
+Run a lane team on a prompt, foreground.
 
 Arguments:
 - `prompt` (optional) — The prompt (or use --file).
@@ -77,9 +102,10 @@ Arguments:
 Flags:
 - `--file <path>` — Read the prompt from a file.
 - `--lane <lane>` — build | design | copy.
-- `--type <type>` — Lane subtype.
-- `--effort <effort>` — quick | standard | deep.
-- `--preset <id>` — Team preset id.
+- `--team <id>` — Team id (the public Fan out selector).
+- `--type <type>` — Copy-only routing sugar.
+- `--effort <effort>` — low | med | high.
+- `--preset <id>` — Deprecated alias for --team.
 - `--json` — Emit one TeamRunJSON object.
 - `--stream` — Emit NDJSON events.
 
@@ -211,7 +237,9 @@ Examples: `export_contracts_check`.
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
 - `models_json` — List bench models: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
-- `team_basic` — Ask the team: `alln team "Pressure-test this launch plan."`
+- `teams_build_json` — List Build teams: `alln team teams --lane build --json`
+- `team_preflight` — Preflight a team: `alln team preflight --lane build --team build_bug_hunt --effort high`
+- `team_basic` — Ask the team: `alln team --lane build --team build_bug_hunt "Why does run history disappear?"`
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
 - `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
 - `show_latest_json` — Show the latest run: `alln show latest --json`

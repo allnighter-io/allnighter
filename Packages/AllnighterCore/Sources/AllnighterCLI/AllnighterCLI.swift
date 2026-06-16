@@ -16,6 +16,8 @@ struct AllnighterCLI {
         switch command {
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team" where args.first == "teams": runTeamCatalog(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
+        case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
         case "team": await runTeam(args, runtime)
         case "models": await runModels(args, runtime)
         case "history": await runHistory(args, runtime)
@@ -359,6 +361,20 @@ struct AllnighterCLI {
         if let raw = opts.value("lane"), lane == nil {
             emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use build|design|copy)"); exit(2)
         }
+        if opts.flag("json") {
+            print(teamsCatalogJSONString(runtime, lane: lane))
+        } else {
+            let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
+            for t in teams {
+                let c = t.workerCountByEffort()
+                print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\tL/M/H \(c[.low] ?? 0)/\(c[.med] ?? 0)/\(c[.high] ?? 0)\(t.isDefaultForLane ? "\t(default)" : "")")
+            }
+        }
+    }
+
+    /// The lane-scoped catalog summary JSON — shared by `alln team teams --json`
+    /// and the MCP `teams_list` tool.
+    static func teamsCatalogJSONString(_ runtime: ToolRuntime, lane: WorkLane?) -> String {
         let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
         struct TeamSummary: Encodable {
             let id, displayName, lane, outputKind, defaultEffort: String
@@ -380,14 +396,57 @@ struct AllnighterCLI {
                                workerCountByEffort: ["low": c[.low] ?? 0, "med": c[.med] ?? 0, "high": c[.high] ?? 0],
                                disabledReason: nil)
         }
-        if opts.flag("json") {
-            print(jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, teams: summaries)))
-        } else {
-            for t in summaries {
-                let c = t.workerCountByEffort
-                print("\(t.id)\t\(t.displayName)\t\(t.lane)/\(t.outputKind)\tdefault \(t.defaultEffort)\tL/M/H \(c["low"] ?? 0)/\(c["med"] ?? 0)/\(c["high"] ?? 0)\(t.isDefaultForLane ? "\t(default)" : "")")
-            }
+        return jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, teams: summaries))
+    }
+
+    /// The agent bootstrap snapshot JSON — shared by `alln team hello` and the MCP
+    /// `mcp_hello` tool. Cheap, non-mutating, quota-free (cached readiness).
+    static func mcpHelloJSONString(_ runtime: ToolRuntime) -> String {
+        let verdict = AgentReadiness.evaluate(teams: runtime.teams, readyModels: runtime.readyModels)
+        struct ToolRef: Encodable { let name: String; let schemaRef: String }
+        struct Quickstart: Encodable {
+            let recommendedAfterHello = "team_preflight when canStartTeamRun is true; doctor when false"
+            let whenToUseTeamStart = "Use for review, fanout, bug hunt, design, copy, or long work."
+            let whenToUsePending = "Use when the user wants work later or admission blocks."
+            let whenToUseSpecGet = "Use when the user asks for the full packet/spec."
         }
+        struct Hello: Encodable {
+            let schemaVersion = 1
+            let contractVersion: String
+            let binaryVersion: String
+            let docsVersionMatchesBinary = true
+            let canStartTeamRun: Bool
+            let readyTeams: [ReadyTeam]
+            let blockedReason: String?
+            let nextAction: AgentNextAction
+            let tools: [ToolRef]
+            let quickstart = Quickstart()
+        }
+        let tools = ContractRegistry.milestone1.mcpTools.map { ToolRef(name: $0.name, schemaRef: "tool://\($0.name).schema.json") }
+        return jsonString(Hello(
+            contractVersion: ContractRegistry.contractVersion, binaryVersion: binaryVersion,
+            canStartTeamRun: verdict.canStartTeamRun, readyTeams: verdict.readyTeams,
+            blockedReason: verdict.blockedReason, nextAction: verdict.nextAction, tools: tools))
+    }
+
+    /// `alln team preflight [--lane l] [--team id] [--effort e] [--type t]` — resolve
+    /// against the ready bench without running. Always prints JSON.
+    static func runTeamPreflight(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        var dict: [String: Any] = [:]
+        for k in ["lane", "team", "effort", "type"] { if let v = opts.value(k) { dict[k] = v } }
+        print(jsonString(preflight(runtime, args: dict)))
+    }
+
+    /// Run preflight from CLI/MCP args (lane/team/type/effort) against the ready bench.
+    static func preflight(_ runtime: ToolRuntime, args: [String: Any]) -> TeamPreflight.Result {
+        TeamPreflight.preflight(
+            teams: runtime.teams,
+            lane: (args["lane"] as? String).flatMap(WorkLane.init(rawValue:)),
+            teamId: args["team"] as? String,
+            type: args["type"] as? String,
+            effort: (args["effort"] as? String).flatMap(EffortLevel.init(rawValue:)),
+            readyModels: runtime.readyModels)
     }
 
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
@@ -568,6 +627,16 @@ struct ToolRuntime {
 
     func service() -> TeamService {
         TeamService(models: models, registry: registry, teams: teams, config: config, invocations: invocations)
+    }
+
+    /// The ready bench from cached detection (no quota): enabled models whose
+    /// source was detected ready. Falls back to all enabled models when no
+    /// detection cache exists yet (fresh dev environment — optimistic, not a lie:
+    /// a per-worker failure still surfaces honestly at run time).
+    var readyModels: [Model] {
+        let readyDrivers = TeamAssembler.readyDriverIds(from: SetupStore().load().records)
+        guard !readyDrivers.isEmpty else { return models.filter(\.enabled) }
+        return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }
     }
 
     private static func loadConfig() -> ToolConfig {

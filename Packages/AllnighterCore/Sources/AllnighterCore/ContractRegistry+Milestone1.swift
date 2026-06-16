@@ -22,12 +22,24 @@ public extension ContractRegistry {
     /// MCP tools (M1) — thin projections of `alln` commands. No `team_recall`
     /// (retired in step 8); retrieval is `history`/`show`.
     static let m1MCPTools: [MCPToolSpec] = [
-        MCPToolSpec("team_ask", command: "team", summary: "Run the default team on a prompt; returns a synthesized plan + structured run.",
+        MCPToolSpec("mcp_hello", command: "team teams", summary: "Agent bootstrap: whether a team can start now, which teams are ready, and the next action. Cheap, non-mutating, no quota.",
+                    params: [.init("agent", summary: "Calling agent id for provenance (advisory only).")]),
+        MCPToolSpec("teams_list", command: "team teams", summary: "Lane-scoped team catalog summary (no prompt templates).",
+                    params: [.init("lane", summary: "Filter to one lane: build|design|copy (optional).")]),
+        MCPToolSpec("team_preflight", command: "team preflight", summary: "Validate lane/team/effort against the ready bench WITHOUT running or spending quota; shows resolved/blocked workers and self-fusion.",
+                    params: [.init("lane", summary: "build|design|copy."),
+                             .init("team", summary: "Team id (e.g. build_bug_hunt)."),
+                             .init("effort", summary: "low|med|high (optional; default is the team's)."),
+                             .init("type", summary: "Copy-only routing sugar (optional).")]),
+        MCPToolSpec("team_ask", command: "team", summary: "Run a lane team on a prompt; returns a synthesized result + structured run.",
                     params: [.init("question", required: true, summary: "The prompt to ask the team."),
-                             .init("preset", summary: "Team preset id (optional)."),
+                             .init("lane", summary: "build|design|copy (explicit; never inferred)."),
+                             .init("team", summary: "Team id; `--preset` is a hidden alias."),
+                             .init("effort", summary: "low|med|high (optional)."),
+                             .init("type", summary: "Copy-only routing sugar (optional)."),
                              .init("context", summary: "Bounded context snippet to consider (optional).")],
                     outputSchema: .teamRunJSON),
-        MCPToolSpec("team_show", command: "team show", summary: "Show the current default team lineup."),
+        MCPToolSpec("team_show", command: "team show", summary: "Show the default team for each lane."),
         MCPToolSpec("history", command: "history", summary: "Search prior local team runs (read-only, zero cost).",
                     params: [.init("query", required: true, summary: "Search text.")]),
         MCPToolSpec("show", command: "show", summary: "Show one run as TeamRunJSON.",
@@ -73,19 +85,40 @@ public extension ContractRegistry {
             exampleIds: ["models_json"]
         ),
         CommandSpec(
-            "team show", summary: "Show the current default team.", milestone: .m1,
-            flags: [FlagSpec("json", summary: "Structured team snapshot.")],
+            "team show", summary: "Show the default team for each lane.", milestone: .m1,
+            flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Limit to one lane."),
+                    FlagSpec("json", summary: "Structured team snapshot.")],
             exampleIds: ["team_show_json"]
         ),
         CommandSpec(
-            "team", summary: "Ask the default team, foreground.", milestone: .m1,
+            "team teams", summary: "List the lane-scoped team catalog.", milestone: .m1,
+            flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
+                    FlagSpec("json", summary: "Structured catalog summary.")],
+            exampleIds: ["teams_build_json"]
+        ),
+        CommandSpec(
+            "team hello", summary: "Agent bootstrap: readiness + ready teams + next action (quota-free).", milestone: .m1,
+            outputSchema: .none
+        ),
+        CommandSpec(
+            "team preflight", summary: "Validate lane/team/effort against the ready bench without running.", milestone: .m1,
+            flags: [
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
+                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
+                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
+                FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
+            ]
+        ),
+        CommandSpec(
+            "team", summary: "Run a lane team on a prompt, foreground.", milestone: .m1,
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the prompt from a file."),
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
-                FlagSpec("type", takesValue: true, valueType: "type", summary: "Lane subtype."),
-                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "quick | standard | deep."),
-                FlagSpec("preset", takesValue: true, valueType: "id", summary: "Team preset id."),
+                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id (the public Fan out selector)."),
+                FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
+                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
+                FlagSpec("preset", takesValue: true, valueType: "id", summary: "Deprecated alias for --team."),
                 FlagSpec("json", summary: "Emit one TeamRunJSON object."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
@@ -214,7 +247,9 @@ public extension ContractRegistry {
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
         ExampleRecipe("models_json", title: "List bench models", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
-        ExampleRecipe("team_basic", title: "Ask the team", command: "alln team \"Pressure-test this launch plan.\""),
+        ExampleRecipe("teams_build_json", title: "List Build teams", command: "alln team teams --lane build --json"),
+        ExampleRecipe("team_preflight", title: "Preflight a team", command: "alln team preflight --lane build --team build_bug_hunt --effort high"),
+        ExampleRecipe("team_basic", title: "Ask the team", command: "alln team --lane build --team build_bug_hunt \"Why does run history disappear?\""),
         ExampleRecipe("team_json", title: "Machine team run", command: "alln team --json \"Give me one small naming test.\""),
         ExampleRecipe("team_stream", title: "Streamed team run", command: "alln team --stream \"Give me one tiny event-stream test.\""),
         ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),

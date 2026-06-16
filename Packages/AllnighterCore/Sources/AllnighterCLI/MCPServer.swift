@@ -40,6 +40,21 @@ struct MCPServer {
         let agent = (args["originAgent"] as? String) ?? "mcp"
         let service = runtime.service()
         switch name {
+        case "mcp_hello":
+            let verdict = AgentReadiness.evaluate(teams: runtime.teams, readyModels: runtime.readyModels)
+            let text = verdict.canStartTeamRun
+                ? "Ready. \(verdict.readyTeams.count) team(s) can start."
+                : "Not ready: \(verdict.blockedReason ?? "see doctor")."
+            respond(id: id, result: toolText(text, structured: AllnighterCLI.mcpHelloJSONString(runtime)))
+        case "teams_list":
+            let lane = (args["lane"] as? String).flatMap(WorkLane.init(rawValue:))
+            respond(id: id, result: toolText("Team catalog", structured: AllnighterCLI.teamsCatalogJSONString(runtime, lane: lane)))
+        case "team_preflight":
+            let result = AllnighterCLI.preflight(runtime, args: args)
+            let text = result.canStart
+                ? "Preflight OK: \(result.teamDisplayName ?? result.teamPresetId ?? "team") / \(result.effort ?? "?"). \(result.readyWorkers.count) workers."
+                : "Preflight blocked: \(result.blockedReason ?? "unknown")."
+            respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(result)))
         case "team_ask":
             guard let q = args["question"] as? String else { return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "question required") }
             let req = TeamRequest(

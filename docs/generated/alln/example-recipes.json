@@ -25,7 +25,17 @@
     "title" : "Show the current team"
   },
   {
-    "command" : "alln team \"Pressure-test this launch plan.\"",
+    "command" : "alln team teams --lane build --json",
+    "id" : "teams_build_json",
+    "title" : "List Build teams"
+  },
+  {
+    "command" : "alln team preflight --lane build --team build_bug_hunt --effort high",
+    "id" : "team_preflight",
+    "title" : "Preflight a team"
+  },
+  {
+    "command" : "alln team --lane build --team build_bug_hunt \"Why does run history disappear?\"",
     "id" : "team_basic",
     "title" : "Ask the team"
   },
