@@ -7,34 +7,42 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @State private var showDoctor = false
-    @State private var didInitialDoctor = false
+    @State private var showTeamDropdown = false
+    @State private var didLoadCachedSetup = false
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .team
     @State private var threads = ThreadsViewModel()
 
     var body: some View {
         VStack(spacing: 0) {
-            TitleBar(onDoctor: { showDoctor = true })
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    WorkspaceSwitcher(mode: $workspaceMode)
-                    Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
-                    if workspaceMode == .threads {
-                        ThreadListView()
-                    } else {
-                        SidebarView()
+            TitleBar(showTeamDropdown: $showTeamDropdown)
+                .zIndex(10)
+            ZStack {
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        WorkspaceSwitcher(mode: $workspaceMode)
+                        Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                        if workspaceMode == .threads {
+                            ThreadListView()
+                        } else {
+                            SidebarView()
+                        }
                     }
-                }
-                .frame(width: ALControl.sidebarWidth)
-                Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
-                Group {
-                    if workspaceMode == .threads {
-                        ThreadDetailPane()
-                    } else {
-                        DetailPane()
+                    .frame(width: ALControl.sidebarWidth)
+                    Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
+                    Group {
+                        if workspaceMode == .threads {
+                            ThreadDetailPane()
+                        } else {
+                            DetailPane()
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if showTeamDropdown {
+                    Rectangle().fill(ALColor.overlay)
+                        .onTapGesture { showTeamDropdown = false }
+                }
             }
         }
         // Pull the custom TitleBar up into the window's titlebar band so the team
@@ -57,9 +65,13 @@ struct RootView: View {
             GlobalHotKey.enable()
             if model.isConfigurationBroken {
                 showMissingDriversAlert = true
-            } else if !didInitialDoctor {
-                didInitialDoctor = true
-                model.runDetection()
+            } else if !didLoadCachedSetup {
+                didLoadCachedSetup = true
+                // HOTFIX (Launch Authority TCC): cold launch is process-quiet.
+                // Render cached/unknown tool state only — never spawn a live
+                // resolve/version/smoke sweep here. Live probes require explicit
+                // setup/recheck/run intent.
+                model.loadCachedSetupState()
             }
         }
         .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
@@ -773,8 +785,8 @@ private struct DoctorRow: View {
 // MARK: - Title bar (chrome.jsx .alk-title)
 
 private struct TitleBar: View {
+    @Binding var showTeamDropdown: Bool
     @Environment(AppModel.self) private var model
-    var onDoctor: () -> Void
 
     var body: some View {
         ZStack {
@@ -787,29 +799,20 @@ private struct TitleBar: View {
             // Right controls
             HStack(spacing: 6) {
                 Spacer()
-                Button(action: onDoctor) { Badge(text: healthLabel, tone: healthTone, dot: true) }
-                    .buttonStyle(.plain)
-                    .help("Doctor — CLI health")
+                TeamControlView(
+                    isOpen: $showTeamDropdown,
+                    onRepair: { _ in showTeamDropdown = false },
+                    onManageTeam: { showTeamDropdown = false }
+                )
                 IconButton(systemImage: "clock.arrow.circlepath", accessibilityLabel: "History", small: true) {}
-                IconButton(systemImage: "gearshape", accessibilityLabel: "Settings", small: true) {}
+                IconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Settings", small: true) {}
             }
         }
         .padding(.horizontal, 14)
-        .frame(height: ALControl.titleBarHeight)
+        .frame(minHeight: ALControl.titleBarHeight, alignment: .top)
         .background(WindowDragArea())
         .background(ALColor.surface)
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
-    }
-
-    // Tool-level health from the canonical detector status (handoff: "N ready").
-    private var healthLabel: String {
-        guard !model.toolStatuses.isEmpty else { return "checking…" }
-        let ready = model.readyToolCount, total = model.totalToolCount
-        return ready == total ? "\(ready) ready" : "\(ready)/\(total) ready"
-    }
-    private var healthTone: Badge.Tone {
-        guard !model.toolStatuses.isEmpty else { return .neutral }
-        return model.readyToolCount == model.totalToolCount ? .positive : .warning
     }
 }
 

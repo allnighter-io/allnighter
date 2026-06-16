@@ -565,6 +565,16 @@ final class AppModel {
         WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: runnerInvocations)
     }
 
+    /// HOTFIX (Launch Authority TCC): the cache-only launch path. Loads the
+    /// last persisted probe records into `toolStatuses` and spawns NOTHING — no
+    /// shell, no `command -v`, no `--version`, no smoke. Cold launch calls this
+    /// so the first screen renders cached/unknown state without TCC prompts.
+    /// Live probing happens only on explicit setup/recheck/run intent.
+    func loadCachedSetupState() {
+        let cached = setupStore.load()
+        if !cached.records.isEmpty { toolStatuses = cached.records }
+    }
+
     /// Probe every CLI: show cached state instantly, then refresh from a live
     /// resolve → version → smoke sweep. Drives the health badge + Council health.
     func runDetection() {

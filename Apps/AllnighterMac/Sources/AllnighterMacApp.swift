@@ -24,8 +24,13 @@ struct AllnighterMacApp: App {
     @State private var model: AppModel
 
     init() {
-        // Make spawned CLIs resolve/authenticate as in a terminal.
-        LoginShell.applyToProcessEnvironment()
+        // HOTFIX (Launch Authority TCC): cold launch must be process-quiet.
+        // Do NOT capture login-shell PATH here — spawning a login shell before
+        // first paint reads login profiles/version-manager hooks and triggers
+        // TCC prompts attributed to this GUI app. PATH capture is now explicit
+        // user intent only (full setup/recheck). Runs reuse cached absolute
+        // ToolInvocations from detection (health == runs), so launch needs no
+        // ambient PATH mutation.
         _model = State(initialValue: AppModel())
     }
 
