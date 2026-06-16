@@ -99,4 +99,30 @@ final class FixtureRoundTripTests: XCTestCase {
             XCTAssertEqual(stage, back)
         }
     }
+
+    /// Keystone: the public `TeamRunJSON` contract decodes from the bundled
+    /// fixture, round-trips, and honors the contract invariants
+    /// (docs/phases/CLI_Implementation_Contract.md §TeamRunJSON).
+    func testTeamRunJSONContractRoundTrips() throws {
+        try assertRoundTrips(TeamRunJSON.self, .teamRunJSON)
+
+        let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
+        XCTAssertEqual(trj.schemaVersion, 1)
+        XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
+        XCTAssertEqual(trj.teamRun.origin, .cli)
+        XCTAssertEqual(trj.models.count, 2)
+        XCTAssertEqual(trj.workers.count, 2)
+        XCTAssertEqual(trj.workerAnswers.count, 2)
+        XCTAssertTrue(trj.workerAnswers.allSatisfy { $0.markdown != nil })
+
+        // Plan-writer rule: when the plan is done, both writer fields are non-null and equal.
+        XCTAssertEqual(trj.plan?.status, .done)
+        XCTAssertNotNil(trj.plan?.writerWorkerId)
+        XCTAssertEqual(trj.plan?.writerWorkerId, trj.teamRun.planWriterWorkerId)
+
+        // Required top-level contract objects are present.
+        XCTAssertEqual(trj.usage.cliCalls, 3)
+        XCTAssertFalse(trj.audit.traceId.isEmpty)
+        XCTAssertFalse(trj.audit.runJournalPath.isEmpty)
+    }
 }
