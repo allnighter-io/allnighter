@@ -17,8 +17,6 @@ struct AllnighterCLI {
         case "team": await runTeam(args, runtime)
         case "models": await runModels(args, runtime)
         case "history": await runHistory(args, runtime)
-        case "presets": await runPresets(args, runtime)
-        case "recall": await runRecall(args, runtime)
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "dev": runDev(args)
@@ -97,20 +95,6 @@ struct AllnighterCLI {
         print(jsonString(Failure(error: env)))
     }
 
-    static func runPresets(_ args: [String], _ runtime: ToolRuntime) async {
-        let summaries = await runtime.service().presetSummaries()
-        if Options(args).flag("json") {
-            let arr = summaries.map { ["id": $0.id, "name": $0.name, "shape": $0.shape] as [String: Any] }
-            print(String(decoding: (try? JSONSerialization.data(withJSONObject: arr, options: [.prettyPrinted])) ?? Data(), as: UTF8.self))
-        } else {
-            for s in summaries { print("\(s.id)\t\(s.name)\t\(s.shape)") }
-        }
-    }
-
-    static func runHistory(_ args: [String], _ runtime: ToolRuntime) async {
-        await runRecall(args, runtime)
-    }
-
     static func runModels(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         if opts.flag("json") {
@@ -122,10 +106,10 @@ struct AllnighterCLI {
         }
     }
 
-    static func runRecall(_ args: [String], _ runtime: ToolRuntime) async {
+    static func runHistory(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let query = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln recall \"<query>\"\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln history \"<query>\"\n".utf8)); exit(2)
         }
         let hits = await runtime.service().recall(query: query)
         if opts.flag("json") {
@@ -287,7 +271,7 @@ struct AllnighterCLI {
         Add this MCP server to your agent's config (Claude Code / Codex / Cursor),
         then restart the agent. Example (Claude Code ~/.claude/mcp or settings):
           { "mcpServers": { "alln": { "command": "\(path)", "args": ["mcp"] } } }
-        Reachability check: `alln presets` should list the team presets.
+        Reachability check: `alln models` should list the Bench models.
         """)
     }
 
@@ -295,8 +279,7 @@ struct AllnighterCLI {
         print("""
         alln — local team run, callable by any agent (zero API cost)
           team "<question>" [--preset id] [--json | --stream]        run a team (--json: TeamRunJSON; --stream: NDJSON)
-          team show / presets [--json]                              list presets + work shape
-          history "<query>" | recall "<query>" [--json]             search prior team runs
+          history "<query>" [--json]                                search prior team runs
           models [--json]                                           list bench models
           doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
           detect                                                    first-run CLI detection, headless (real smoke probes)

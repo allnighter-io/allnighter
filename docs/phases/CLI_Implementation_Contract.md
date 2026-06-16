@@ -332,6 +332,13 @@ Rules:
 - NDJSON `error.error` uses the same error envelope as JSON mode.
 - Human progress is never mixed into stdout in stream mode.
 
+> **M1 boundary (follow-up):** `--stream` currently emits a *faithful event log
+> projected from the settled run* (real `seq`/timestamps, terminal event last),
+> not a live incremental feed. True live/incremental streaming requires exposing
+> the coordinator's `RunEvent` stream (and the post-fan-out plan-stage events)
+> through `TeamService`; that is a later engine follow-up. Generated docs/help
+> must not describe `--stream` as live until that exists.
+
 ## Error Envelope
 
 Machine command failure shape:

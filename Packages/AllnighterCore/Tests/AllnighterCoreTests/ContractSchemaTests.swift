@@ -58,4 +58,23 @@ final class ContractSchemaTests: XCTestCase {
         // No estimate language leaks into the generated reference.
         XCTAssertFalse(md.lowercased().contains("estimated cost"))
     }
+
+    /// CLI M1 step 8: the public contract (generated docs + registry) must teach
+    /// only the new grammar — no legacy RB6/council vocabulary.
+    func testNoLegacyPublicGrammar() {
+        let md = ContractDocs.markdown().lowercased()
+        for legacy in ["masterplan", "council", "panelseat", "alln ask", "alln presets", "alln recall"] {
+            XCTAssertFalse(md.contains(legacy), "generated docs still teach legacy grammar: \(legacy)")
+        }
+        let names = Set(ContractRegistry.milestone1.commands.map(\.name))
+        for legacy in ["ask", "presets", "recall"] {
+            XCTAssertFalse(names.contains(legacy), "registry still has legacy command: \(legacy)")
+        }
+        // Public error codes use the new vocabulary, not council/panel/seat.
+        for e in ContractRegistry.milestone1.errors {
+            let blob = (e.code + e.ruleId + e.agentAction).lowercased()
+            XCTAssertFalse(blob.contains("council") || blob.contains("panel") || blob.contains("masterplan"),
+                           "error \(e.code) carries legacy vocabulary")
+        }
+    }
 }
