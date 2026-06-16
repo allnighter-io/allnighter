@@ -16,11 +16,20 @@ public struct ShellResolver: Sendable {
     private let commandRunner: CommandRunner
     private let shellPath: String
     private let timeout: Duration
+    /// Neutral CWD for the resolve shell so it never inherits the repo/Documents
+    /// working dir (Launch Authority TCC hotfix, slice H3).
+    private let workingDirectory: String?
 
-    public init(commandRunner: CommandRunner, shellPath: String? = nil, timeout: Duration = .seconds(5)) {
+    public init(
+        commandRunner: CommandRunner,
+        shellPath: String? = nil,
+        timeout: Duration = .seconds(5),
+        workingDirectory: String? = AllnighterPaths.ensuredProbeScratchPath()
+    ) {
         self.commandRunner = commandRunner
         self.shellPath = shellPath ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         self.timeout = timeout
+        self.workingDirectory = workingDirectory
     }
 
     public struct Resolution: Sendable, Equatable {
@@ -46,7 +55,7 @@ public struct ShellResolver: Sendable {
         // (Shell-only aliases no longer auto-resolve — locate manually if needed.)
         let result = await commandRunner.run(
             command: shellPath, args: ["-lc", script],
-            stdin: nil, env: [:], workingDirectory: nil, timeout: timeout
+            stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: timeout
         )
 
         guard let regex = try? NSRegularExpression(pattern: #"<<<ALR:([^|]*)\|(.*?)>>>"#) else { return out }
@@ -70,6 +79,9 @@ public struct CLIDetector: Sendable {
     private let home: String
     private let detectTimeout: Duration
     private let smokeTimeout: Duration
+    /// Neutral CWD for every detect/version/smoke child process so they never
+    /// inherit the repo/Documents working dir (Launch Authority TCC hotfix, H3).
+    private let workingDirectory: String?
 
     public init(
         commandRunner: CommandRunner,
@@ -77,15 +89,17 @@ public struct CLIDetector: Sendable {
         shellPath: String? = nil,
         home: String? = nil,
         detectTimeout: Duration = .seconds(8),
-        smokeTimeout: Duration = .seconds(60)
+        smokeTimeout: Duration = .seconds(60),
+        workingDirectory: String? = AllnighterPaths.ensuredProbeScratchPath()
     ) {
         self.commandRunner = commandRunner
         let sh = shellPath ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         self.shellPath = sh
-        self.resolver = resolver ?? ShellResolver(commandRunner: commandRunner, shellPath: sh)
+        self.resolver = resolver ?? ShellResolver(commandRunner: commandRunner, shellPath: sh, workingDirectory: workingDirectory)
         self.home = home ?? NSHomeDirectory()
         self.detectTimeout = detectTimeout
         self.smokeTimeout = smokeTimeout
+        self.workingDirectory = workingDirectory
     }
 
     /// Probe every headless-CLI tool (one resolve batch, then per-tool detect+smoke).
@@ -222,10 +236,10 @@ public struct CLIDetector: Sendable {
         let args = Array(tokens.dropFirst())
         switch invocation {
         case .direct(let path), .shim(let path):
-            return await commandRunner.run(command: path, args: args, stdin: nil, env: [:], workingDirectory: nil, timeout: timeout)
+            return await commandRunner.run(command: path, args: args, stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: timeout)
         case .loginShell:
             _ = bin
-            return await commandRunner.run(command: shellPath, args: ["-lic", raw], stdin: nil, env: [:], workingDirectory: nil, timeout: timeout)
+            return await commandRunner.run(command: shellPath, args: ["-lic", raw], stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: timeout)
         }
     }
 }

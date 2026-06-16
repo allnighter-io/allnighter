@@ -37,4 +37,27 @@ public enum AllnighterPaths {
     public static var evals: URL {
         support.appendingPathComponent("Evals", isDirectory: true)
     }
+
+    /// `…/Allnighter/ProbeScratch/` — neutral CWD for setup/health probe child
+    /// processes. Setup/health probes must NOT inherit the repo or app-bundle
+    /// CWD: in dev that is the checkout under `~/Documents`, so a child CLI that
+    /// reads its working dir trips a TCC prompt attributed to the GUI app.
+    /// (Launch Authority TCC hotfix, slice H3.) Worker/dispatch runs keep their
+    /// own explicit working dirs; this is only for setup/health probes.
+    public static var probeScratch: URL {
+        support.appendingPathComponent("ProbeScratch", isDirectory: true)
+    }
+
+    /// Ensures `probeScratch` exists and returns its path, or `nil` if it could
+    /// not be created (callers then fall back to the OS-default CWD rather than
+    /// failing the probe outright).
+    public static func ensuredProbeScratchPath() -> String? {
+        let dir = probeScratch
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir.path
+        } catch {
+            return nil
+        }
+    }
 }

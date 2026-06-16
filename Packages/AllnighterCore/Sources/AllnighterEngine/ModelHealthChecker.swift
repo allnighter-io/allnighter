@@ -21,15 +21,20 @@ public struct ModelHealthChecker: Sendable {
     private let commandRunner: CommandRunner
     private let detectTimeout: Duration
     private let smokeTimeout: Duration
+    /// Neutral CWD for detect/smoke child processes so they never inherit the
+    /// repo/Documents working dir (Launch Authority TCC hotfix, slice H3).
+    private let workingDirectory: String?
 
     public init(
         commandRunner: CommandRunner,
         detectTimeout: Duration = .seconds(10),
-        smokeTimeout: Duration = .seconds(60)
+        smokeTimeout: Duration = .seconds(60),
+        workingDirectory: String? = AllnighterPaths.ensuredProbeScratchPath()
     ) {
         self.commandRunner = commandRunner
         self.detectTimeout = detectTimeout
         self.smokeTimeout = smokeTimeout
+        self.workingDirectory = workingDirectory
     }
 
     /// True if the CLI is present (detect command exits 0).
@@ -50,7 +55,7 @@ public struct ModelHealthChecker: Sendable {
             args: Array(tokens.dropFirst()),
             stdin: nil,
             env: [:],
-            workingDirectory: nil,
+            workingDirectory: workingDirectory,
             timeout: detectTimeout
         )
         let present = result.launchError == nil && result.exitCode == 0
@@ -80,7 +85,7 @@ public struct ModelHealthChecker: Sendable {
             args: Array(tokens.dropFirst()),
             stdin: nil,
             env: [:],
-            workingDirectory: nil,
+            workingDirectory: workingDirectory,
             timeout: smokeTimeout
         )
 
