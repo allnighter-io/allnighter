@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "status": "degraded",
+  "binaryVersion": "0.1.0",
+  "contractVersion": "1.0.0",
+  "docsVersionMatchesBinary": true,
+  "checks": [
+    {
+      "name": "binaryVersion",
+      "status": "ok",
+      "detail": "alln 0.1.0",
+      "requiresManual": false
+    },
+    {
+      "name": "source.claude_code.installed",
+      "status": "ok",
+      "detail": "Claude Code found and resolved",
+      "requiresManual": false
+    },
+    {
+      "name": "source.claude_code.auth",
+      "status": "degraded",
+      "detail": "Claude Code authentication expired.",
+      "fixCommand": "claude auth login",
+      "requiresManual": true
+    },
+    {
+      "name": "benchReadyCount",
+      "status": "ok",
+      "detail": "1 model ready",
+      "requiresManual": false
+    }
+  ],
+  "fixes": [
+    {
+      "code": "SOURCE_AUTH_EXPIRED",
+      "ruleId": "source.auth.expired",
+      "message": "Claude Code authentication expired.",
+      "agentAction": "Re-authenticate the Claude Code source.",
+      "fixCommand": "claude auth login",
+      "requiresManual": true,
+      "retryable": false,
+      "traceId": null,
+      "runId": null,
+      "sourceId": "claude_code",
+      "modelId": null,
+      "workerId": null
+    }
+  ],
+  "models": [
+    {
+      "id": "model_opus",
+      "displayName": "Opus 4.8",
+      "sourceId": "claude_code",
+      "sourceName": "Claude Code",
+      "status": "ready"
+    }
+  ],
+  "coordinator": {
+    "available": false,
+    "detail": "foreground CLI only"
+  }
+}

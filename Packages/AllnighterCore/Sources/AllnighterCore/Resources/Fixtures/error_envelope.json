@@ -1,0 +1,14 @@
+{
+  "code": "SOURCE_AUTH_EXPIRED",
+  "ruleId": "source.auth.expired",
+  "message": "Claude Code authentication expired.",
+  "agentAction": "Run `alln doctor --json`, then follow the Claude Code fix.",
+  "fixCommand": "claude auth login",
+  "requiresManual": true,
+  "retryable": false,
+  "traceId": "trace_20260615_2214",
+  "runId": null,
+  "sourceId": "claude_code",
+  "modelId": null,
+  "workerId": null
+}

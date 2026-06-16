@@ -28,6 +28,8 @@ public enum Fixtures {
         case threadImported = "thread_imported"
         case threadContextPacket = "thread_context_packet"
         case teamRunJSON = "team_run"
+        case doctorResult = "doctor_result"
+        case errorEnvelope = "error_envelope"
     }
 
     public static func data(_ name: Name) throws -> Data {

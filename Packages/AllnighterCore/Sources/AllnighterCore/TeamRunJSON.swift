@@ -215,36 +215,21 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public init(code: String? = nil, message: String) { self.code = code; self.message = message }
     }
 
-    /// Shared structured-error envelope (contract §Error Envelope). Reused by JSON
-    /// mode, NDJSON `error.error`, and worker-answer failures.
-    public struct ErrorEnvelope: Codable, Equatable, Sendable {
-        public var code: String
-        public var ruleId: String?
-        public var message: String
-        public var agentAction: String?
-        public var fixCommand: String?
-        public var requiresManual: Bool
-        public var retryable: Bool
-        public var traceId: String?
-        public var runId: String?
-        public var sourceId: String?
-        public var modelId: String?
-        public var workerId: String?
-        public init(code: String, ruleId: String? = nil, message: String, agentAction: String? = nil, fixCommand: String? = nil, requiresManual: Bool, retryable: Bool, traceId: String? = nil, runId: String? = nil, sourceId: String? = nil, modelId: String? = nil, workerId: String? = nil) {
-            self.code = code; self.ruleId = ruleId; self.message = message
-            self.agentAction = agentAction; self.fixCommand = fixCommand
-            self.requiresManual = requiresManual; self.retryable = retryable
-            self.traceId = traceId; self.runId = runId; self.sourceId = sourceId
-            self.modelId = modelId; self.workerId = workerId
-        }
-    }
+    // `ErrorEnvelope` is the shared top-level type in `ErrorEnvelope.swift` —
+    // reused by JSON `errors`, `workerAnswers[].error`, NDJSON `error.error`, and
+    // `DoctorResult`. It is intentionally not nested here.
 
-    /// A typed follow-up action plus the exact command to run it.
+    /// A typed follow-up action plus the exact command to run it. `kind` is a
+    /// closed set; the contract registry (CLI M1 step 2) becomes its owner and
+    /// catalog. Add new kinds there, then regenerate — do not widen ad hoc.
     public struct NextAction: Codable, Equatable, Sendable {
-        public var kind: String
+        public enum Kind: String, Codable, Sendable {
+            case showRun, export, showHistory
+        }
+        public var kind: Kind
         public var command: String
         public var label: String?
-        public init(kind: String, command: String, label: String? = nil) {
+        public init(kind: Kind, command: String, label: String? = nil) {
             self.kind = kind; self.command = command; self.label = label
         }
     }

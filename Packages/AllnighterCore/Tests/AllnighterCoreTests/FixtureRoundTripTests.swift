@@ -124,5 +124,32 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(trj.usage.cliCalls, 3)
         XCTAssertFalse(trj.audit.traceId.isEmpty)
         XCTAssertFalse(trj.audit.runJournalPath.isEmpty)
+
+        // nextActions.kind is a closed enum (registry-owned at step 2).
+        XCTAssertEqual(trj.nextActions.map(\.kind), [.showRun, .export])
+    }
+
+    /// The shared error envelope decodes from its fixture and round-trips
+    /// (docs/phases/CLI_Implementation_Contract.md §Error Envelope).
+    func testErrorEnvelopeRoundTrips() throws {
+        try assertRoundTrips(ErrorEnvelope.self, .errorEnvelope)
+        let err = try Fixtures.decode(ErrorEnvelope.self, .errorEnvelope)
+        XCTAssertEqual(err.code, "SOURCE_AUTH_EXPIRED")
+        XCTAssertTrue(err.requiresManual)
+        XCTAssertFalse(err.retryable)
+        XCTAssertEqual(err.fixCommand, "claude auth login")
+    }
+
+    /// `DoctorResult` decodes from its fixture, round-trips, and reuses the shared
+    /// `ErrorEnvelope` for fixes (docs/phases/CLI_Implementation_Contract.md
+    /// §Doctor Contract).
+    func testDoctorResultRoundTrips() throws {
+        try assertRoundTrips(DoctorResult.self, .doctorResult)
+        let doc = try Fixtures.decode(DoctorResult.self, .doctorResult)
+        XCTAssertEqual(doc.status, .degraded)
+        XCTAssertFalse(doc.coordinator.available)               // M1 foreground only — reported, not faked
+        XCTAssertTrue(doc.checks.contains { $0.name == "source.claude_code.auth" && $0.status == .degraded })
+        XCTAssertEqual(doc.fixes.first?.code, "SOURCE_AUTH_EXPIRED")
+        XCTAssertEqual(doc.models.first?.sourceName, "Claude Code")
     }
 }
