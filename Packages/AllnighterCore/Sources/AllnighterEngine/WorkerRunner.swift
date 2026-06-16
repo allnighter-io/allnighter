@@ -22,9 +22,21 @@ public struct WorkerRunOutcome: Sendable, Equatable {
 public struct WorkerRunner: Sendable {
     private let commandRunner: CommandRunner
     private let now: @Sendable () -> Date
+    /// Per-driver invocation resolved by detection (docs/phases/setup/01 §4.3).
+    /// When present, the worker spawns through the SAME plan that passed the
+    /// health probe — so health == runs. Empty → bare `invoke.command` (legacy).
+    private let invocations: [String: ToolInvocation]
+    private let shellPath: String
 
-    public init(commandRunner: CommandRunner, now: @escaping @Sendable () -> Date = Date.init) {
+    public init(
+        commandRunner: CommandRunner,
+        invocations: [String: ToolInvocation] = [:],
+        shellPath: String? = nil,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) {
         self.commandRunner = commandRunner
+        self.invocations = invocations
+        self.shellPath = shellPath ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         self.now = now
     }
 
@@ -61,10 +73,28 @@ public struct WorkerRunner: Sendable {
         let args = manifest.resolvedArgs(context)
         let stdin = manifest.stdinPrompt(context)
 
+        // health == runs: spawn through the SAME invocation detection resolved
+        // (docs/phases/setup/01 §4.3, §10), not the bare command on the ambient PATH.
+        let spawnCommand: String
+        let spawnArgs: [String]
+        switch invocations[manifest.id] {
+        case .direct(let path), .shim(let path):
+            spawnCommand = path
+            spawnArgs = args
+        case .loginShell(let name):
+            // Resolve an alias/function via the login shell; argv flows through
+            // "$@" — never concatenated into the shell string (no injection).
+            spawnCommand = shellPath
+            spawnArgs = ["-lic", "\(name) \"$@\"", name] + args
+        case nil:
+            spawnCommand = invoke.command
+            spawnArgs = args
+        }
+
         let startedAt = now()
         let result = await commandRunner.run(
-            command: invoke.command,
-            args: args,
+            command: spawnCommand,
+            args: spawnArgs,
             stdin: stdin,
             env: invoke.env,
             workingDirectory: workingDir,

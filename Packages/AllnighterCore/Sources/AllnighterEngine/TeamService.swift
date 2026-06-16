@@ -61,6 +61,8 @@ public actor TeamService {
     private let governor: TeamGovernor
     private let now: @Sendable () -> Date
     private let environment: [String: String]
+    /// Per-driver invocations from detection (health == runs). Empty → bare command.
+    private let invocations: [String: ToolInvocation]
 
     public init(
         models: [Model],
@@ -71,6 +73,7 @@ public actor TeamService {
         commandRunner: CommandRunner = SubprocessCommandRunner(),
         governor: TeamGovernor? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
+        invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.models = models
@@ -81,6 +84,7 @@ public actor TeamService {
         self.commandRunner = commandRunner
         self.governor = governor ?? TeamGovernor(capacity: config.maxConcurrentTeamRuns)
         self.environment = environment
+        self.invocations = invocations
         self.now = now
     }
 
@@ -147,7 +151,7 @@ public actor TeamService {
         }
 
         let teamWorkers = preset.workerSpecs.expandedWorkers()
-        let coordinator = TeamRunCoordinator(workerRunner: WorkerRunner(commandRunner: commandRunner), registry: registry)
+        let coordinator = TeamRunCoordinator(workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations), registry: registry)
         // Forward fan-out events live; the coordinator finishes its stream at the
         // end of fanOut, so awaiting the forwarder flushes them before plan events.
         let forwarder: Task<Void, Never>? = events.map { sink in
@@ -160,7 +164,7 @@ public actor TeamService {
         if !run.answeredWorkers.isEmpty,
            let planWriter = resolvePlanWriter(preset: preset), let manifest = registry.manifest(for: planWriter), manifest.kind == .headlessCLI {
             events?.yield(planEvent(kind: RunEventKind.stageStarted, runId: run.id, stageId: nil, workerId: planWriter.id))
-            let stages = await PlanWriter(workerRunner: WorkerRunner(commandRunner: commandRunner))
+            let stages = await PlanWriter(workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations))
                 .synthesize(run: run, judge: planWriter, manifest: manifest, models: models, config: preset.synthesis)
             run.stages.append(contentsOf: stages)
             let planStage = stages.first { $0.purpose == .plan }

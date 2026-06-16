@@ -199,6 +199,18 @@ struct AllnighterCLI {
         for w in runtime.models where models[w.driverId] == nil { models[w.driverId] = w.modelLabel }
         let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
             .probeAll(runtime.registry.all, models: models, now: Date())
+
+        // Persist detection + assemble/persist the Bench/default team (the truth
+        // layer for first-run; docs/phases/setup/01 §8–§9). Runs cache the resolved
+        // invocation so health == runs.
+        let store = SetupStore()
+        let assembled = TeamAssembler.assemble(
+            models: runtime.models,
+            readyDriverIds: TeamAssembler.readyDriverIds(from: records),
+            now: Date()
+        )
+        try? store.save(.init(records: records, setupCompletedAt: store.load().setupCompletedAt, assembledTeam: assembled))
+
         for r in records.sorted(by: { $0.driverId < $1.driverId }) {
             let path = r.invocation?.resolvedPath ?? "—"
             switch r.status {
@@ -216,6 +228,7 @@ struct AllnighterCLI {
                 print("\(r.driverId)\tNOT INSTALLED\t(no binary on PATH or known paths)")
             }
         }
+        print("\nAssembled team: \(assembled.benchModelIds.count) ready model(s); plan writer: \(assembled.planWriterModelId ?? "—") · saved")
     }
 
     /// `alln dev export-contracts [--check]` — regenerate or verify the
@@ -461,6 +474,8 @@ struct ToolRuntime {
     let registry: DriverRegistry
     let presets: [TeamPreset]
     let config: ToolConfig
+    /// Cached per-driver invocations from the last detection (health == runs).
+    let invocations: [String: ToolInvocation]
 
     init() {
         // Bridge the login-shell PATH so spawned CLIs resolve as in a terminal.
@@ -469,10 +484,13 @@ struct ToolRuntime {
         self.registry = DefaultConfig.registry
         self.presets = DefaultConfig.tieredPresets(models: DefaultConfig.models)
         self.config = ToolRuntime.loadConfig()
+        var invs: [String: ToolInvocation] = [:]
+        for record in SetupStore().load().records { if let inv = record.invocation { invs[record.driverId] = inv } }
+        self.invocations = invs
     }
 
     func service() -> TeamService {
-        TeamService(models: models, registry: registry, presets: presets, config: config)
+        TeamService(models: models, registry: registry, presets: presets, config: config, invocations: invocations)
     }
 
     private static func loadConfig() -> ToolConfig {

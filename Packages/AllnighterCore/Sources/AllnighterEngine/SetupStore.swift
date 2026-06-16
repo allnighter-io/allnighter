@@ -15,10 +15,13 @@ public struct SetupStore: Sendable {
     public struct State: Codable, Sendable, Equatable {
         public var records: [ToolProbeRecord]
         public var setupCompletedAt: Date?
+        /// The Bench/default Team assembled from ready sources (docs/phases/setup/01 §8).
+        public var assembledTeam: TeamAssembler.Assembled?
 
-        public init(records: [ToolProbeRecord] = [], setupCompletedAt: Date? = nil) {
+        public init(records: [ToolProbeRecord] = [], setupCompletedAt: Date? = nil, assembledTeam: TeamAssembler.Assembled? = nil) {
             self.records = records
             self.setupCompletedAt = setupCompletedAt
+            self.assembledTeam = assembledTeam
         }
     }
 
