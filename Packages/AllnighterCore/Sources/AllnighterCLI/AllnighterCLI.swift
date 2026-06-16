@@ -14,9 +14,14 @@ struct AllnighterCLI {
 
         let runtime = ToolRuntime()
         switch command {
+        case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team": await runTeam(args, runtime)
         case "models": await runModels(args, runtime)
         case "history": await runHistory(args, runtime)
+        case "docs": runDocs(args)
+        case "show": runShow(args, runtime)
+        case "export": runExport(args, runtime)
+        case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "dev": runDev(args)
@@ -256,6 +261,136 @@ struct AllnighterCLI {
         }
     }
 
+    // MARK: - team show / docs / show / export / doctor explain
+
+    /// `alln team show [--json]` — the current default team lineup. Does NOT run.
+    static func runTeamShow(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        let preset = runtime.presets.first { $0.id == runtime.config.defaultPresetId } ?? runtime.presets.first
+        let modelById = Dictionary(runtime.models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let workers = preset?.workerSpecs.expandedWorkers() ?? []
+        if opts.flag("json") {
+            struct WorkerView: Encodable { let id, modelId, modelName: String; let skillId: String?; let instanceIndex: Int }
+            struct TeamView: Encodable {
+                let schemaVersion = 1
+                let contractVersion: String
+                let teamPresetId: String?
+                let planWriterModelId: String?
+                let workers: [WorkerView]
+            }
+            let views = workers.map { w in
+                WorkerView(id: w.id, modelId: w.modelId, modelName: modelById[w.modelId]?.displayName ?? w.modelId, skillId: w.skillId, instanceIndex: w.instanceIndex)
+            }
+            print(jsonString(TeamView(contractVersion: ContractRegistry.contractVersion, teamPresetId: preset?.id, planWriterModelId: preset?.synthesis.planWriterModelId, workers: views)))
+        } else {
+            print("Team: \(preset?.displayName ?? "default") · \(workers.count) workers")
+            for w in workers { print("  \(modelById[w.modelId]?.displayName ?? w.modelId)\t\(w.skillId ?? "—")") }
+            if let id = preset?.synthesis.planWriterModelId, let m = modelById[id] { print("Plan writer: \(m.displayName)") }
+        }
+    }
+
+    /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
+    /// agent-facing reference, projected from the contract registry.
+    static func runDocs(_ args: [String]) {
+        let opts = Options(args)
+        let reg = ContractRegistry.milestone1
+        if opts.flag("errors") {
+            print("# Error codes\n")
+            for e in reg.errors {
+                print("## \(e.code) (\(e.ruleId))\n- requiresManual: \(e.requiresManual) · retryable: \(e.retryable)\n- action: \(e.agentAction)\n- \(e.explain)\n")
+            }
+            return
+        }
+        if opts.flag("schema") {
+            print((try? ContractSchema.json(ContractSchema.teamRunSchema())) ?? "{}")
+            print((try? ContractSchema.json(ContractSchema.doctorResultSchema())) ?? "{}")
+            return
+        }
+        if opts.flag("examples") {
+            print("# Example recipes\n")
+            for ex in reg.examples { print("- `\(ex.id)` — \(ex.title): `\(ex.command)`") }
+            return
+        }
+        if let topic = opts.positional.first {
+            let cmds = reg.commands.filter { $0.name == topic || $0.name.hasPrefix(topic + " ") }
+            guard !cmds.isEmpty else {
+                FileHandle.standardError.write(Data("no docs for topic: \(topic)\n".utf8)); exit(2)
+            }
+            for c in cmds {
+                print("### alln \(c.name)\n\(c.summary)")
+                for a in c.args { print("- arg `\(a.name)`\(a.required ? " (required)" : ""): \(a.summary)") }
+                for f in c.flags { print("- `--\(f.name)`: \(f.summary)") }
+                print("")
+            }
+            return
+        }
+        print(ContractDocs.markdown(reg))
+    }
+
+    private static func resolveRun(_ ref: String) -> TeamRun? {
+        if ref == "latest" { return RunStore().list().max(by: { $0.createdAt < $1.createdAt }) }
+        return loadRun(ref)
+    }
+
+    /// `alln show <run-id|latest> [--json]` — show one run.
+    static func runShow(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let ref = opts.positional.first else {
+            FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json]\n".utf8)); exit(2)
+        }
+        guard let run = resolveRun(ref) else {
+            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
+        }
+        if opts.flag("json") {
+            let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path ?? ""
+            print(jsonString(TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: .init(runJournalPath: journalPath))))
+        } else {
+            print("Run \(run.id) · \(run.status.rawValue)")
+            print(run.prompt)
+            if let plan = run.plan { print("\n\(plan)") }
+        }
+    }
+
+    /// `alln export <run-id|latest> --format md` — export the result bundle.
+    static func runExport(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let ref = opts.positional.first else {
+            FileHandle.standardError.write(Data("usage: alln export <run-id|latest> --format md\n".utf8)); exit(2)
+        }
+        let format = opts.value("format") ?? "md"
+        guard format == "md" else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unsupported export format: \(format) (only md)"); exit(2)
+        }
+        guard let run = resolveRun(ref) else {
+            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
+        }
+        if let dir = try? RunStore().runDirectory(forRunId: run.id),
+           let bundle = try? String(contentsOf: dir.appendingPathComponent("bundle.md"), encoding: .utf8) {
+            print(bundle)
+        } else {
+            print("# \(run.id)\n\n\(run.prompt)\n\n\(run.plan ?? "(no plan)")")
+        }
+    }
+
+    /// `alln doctor explain <code> [--json]` — explain one registry error code.
+    static func runDoctorExplain(_ args: [String]) {
+        let opts = Options(args)
+        guard let code = opts.positional.first else {
+            FileHandle.standardError.write(Data("usage: alln doctor explain <code> [--json]\n".utf8)); exit(2)
+        }
+        guard let spec = ContractRegistry.milestone1.errors.first(where: { $0.code == code }) else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown error code: \(code)"); exit(2)
+        }
+        if opts.flag("json") {
+            print(jsonString(spec))
+        } else {
+            print("\(spec.code)  (\(spec.ruleId))")
+            print("  requiresManual: \(spec.requiresManual) · retryable: \(spec.retryable)")
+            print("  action: \(spec.agentAction)")
+            print("  \(spec.explain)")
+        }
+    }
+
     static func printInstallCLI() {
         let path = CommandLine.arguments.first ?? "alln"
         print("""
@@ -279,10 +414,15 @@ struct AllnighterCLI {
         print("""
         alln — local team run, callable by any agent (zero API cost)
           team "<question>" [--preset id] [--json | --stream]        run a team (--json: TeamRunJSON; --stream: NDJSON)
+          team show [--json]                                        show the current default team
+          show <run-id|latest> [--json]                             show one run
+          export <run-id|latest> --format md                        export a result bundle
           history "<query>" [--json]                                search prior team runs
           models [--json]                                           list bench models
           doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
-          detect                                                    first-run CLI detection, headless (real smoke probes)
+          doctor explain <code> [--json]                            explain an error/recovery code
+          docs [topic] [--errors|--schema|--examples]               generated agent-facing reference
+          detect                                                    first-run CLI detection, headless
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           mcp                                                       run as an MCP stdio server
           install-cli | mcp-install                                 setup helpers
