@@ -168,8 +168,8 @@ public actor WorkerChatCoordinator {
         return try store.update(settled, inThreadId: threadId, now: now())
     }
 
-    private func chatStatus(for member: WorkerAnswerStatus) -> ThreadTurnStatus {
-        switch member {
+    private func chatStatus(for answer: WorkerAnswerStatus) -> ThreadTurnStatus {
+        switch answer {
         case .done: return .done
         case .failed: return .failed
         case .timedOut: return .timedOut

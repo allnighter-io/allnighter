@@ -102,11 +102,11 @@ public enum ScorecardBuilder {
         var acc: [String: Acc] = [:]
 
         for run in runs {
-            for member in run.workerAnswers {
-                acc[member.modelId, default: Acc()].runs.insert(run.id)
-                acc[member.modelId, default: Acc()].seated += 1
-                if member.hasAnswer { acc[member.modelId, default: Acc()].answered += 1 }
-                if let ms = member.durationMs { acc[member.modelId, default: Acc()].latencies.append(ms) }
+            for answer in run.workerAnswers {
+                acc[answer.modelId, default: Acc()].runs.insert(run.id)
+                acc[answer.modelId, default: Acc()].seated += 1
+                if answer.hasAnswer { acc[answer.modelId, default: Acc()].answered += 1 }
+                if let ms = answer.durationMs { acc[answer.modelId, default: Acc()].latencies.append(ms) }
             }
             for stage in run.stages where stage.purpose == .plan {
                 if let w = stage.producedByWorkerId {

@@ -65,14 +65,14 @@ public actor DesignCoordinator {
         for index in run.workerAnswers.indices where run.workerAnswers[index].status == .queued {
             run.workerAnswers[index].status = .running
             run.workerAnswers[index].startedAt = now()
-            emitMember(run.workerAnswers[index], runId: run.id, from: .queued)
+            emitWorkerStatus(run.workerAnswers[index], runId: run.id, from: .queued)
         }
 
         let runner = imageRunner
         let prompt = request.prompt
         let targetShape = request.targetShape
 
-        // Fan out; reflect each option onto its member AS IT COMPLETES so the board
+        // Fan out; reflect each option onto its answer AS IT COMPLETES so the board
         // tile fills in progressively (the image path rides the event).
         var options: [DesignOption] = []
         await withTaskGroup(of: DesignOption.self) { group in
@@ -114,7 +114,7 @@ public actor DesignCoordinator {
                 run.workerAnswers[index].output = option.imagePath
                 run.workerAnswers[index].errorReason = option.failureReason
                 run.workerAnswers[index].finishedAt = now()
-                emitMember(run.workerAnswers[index], runId: run.id, from: previous, imagePath: option.imagePath)
+                emitWorkerStatus(run.workerAnswers[index], runId: run.id, from: previous, imagePath: option.imagePath)
             }
         }
 
@@ -175,11 +175,11 @@ public actor DesignCoordinator {
         return updated
     }
 
-    private func emitMember(_ member: WorkerAnswer, runId: String, from: WorkerAnswerStatus, imagePath: String? = nil) {
+    private func emitWorkerStatus(_ answer: WorkerAnswer, runId: String, from: WorkerAnswerStatus, imagePath: String? = nil) {
         var payload: [String: JSONValue] = [
-            "runId": .string(runId), "workerId": .string(member.workerId),
-            "modelId": .string(member.modelId), "from": .string(from.rawValue),
-            "to": .string(member.status.rawValue)
+            "runId": .string(runId), "workerId": .string(answer.workerId),
+            "modelId": .string(answer.modelId), "from": .string(from.rawValue),
+            "to": .string(answer.status.rawValue)
         ]
         if let imagePath { payload["output"] = .string(imagePath) }   // the run-relative image, for progressive board reveal
         continuation.yield(RunEvent(id: idFactory(), seq: nextSeq(), ts: now(),

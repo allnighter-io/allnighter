@@ -1,6 +1,6 @@
 import Foundation
 
-/// What a post-panel stage produces. A **closed** enum: exhaustive `switch`es
+/// What a post-answer stage produces. A **closed** enum: exhaustive `switch`es
 /// force every new purpose to be handled — a feature, not a trap. RB milestones
 /// add cases (`review`, `final_spec`, `dispatch`, `return_review`, `outcome_score`).
 public enum StagePurpose: String, Codable, Sendable, CaseIterable {
@@ -131,15 +131,16 @@ extension StagePayload: Codable {
     }
 }
 
-/// One post-panel stage in a team run. The panel fan-out produces `members`;
-/// everything after is a `StageOutput`. A reduce is produced by a worker
-/// invocation that is **not** a worker, so `producedByWorkerId` is the
-/// producer; `producedBySeatId` is set only on the rare seat-produced stage.
+/// One post-answer stage in a team run. The answer fan-out produces
+/// `workerAnswers`; everything after is a `StageOutput`. A reduce/review stage is
+/// produced by its own worker invocation, recorded in `producedByWorkerId`;
+/// `producedByAnswerWorkerId` is set only on the rare stage produced directly by
+/// an answer worker.
 public struct StageOutput: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var purpose: StagePurpose
     public var producedByWorkerId: String?
-    public var producedBySeatId: String?
+    public var producedByAnswerWorkerId: String?
     /// The named profile used — OR `customInstruction` (exactly one is set). The
     /// honest record of what ran.
     public var promptProfileId: String?
@@ -156,7 +157,7 @@ public struct StageOutput: Codable, Sendable, Equatable, Identifiable {
         id: String,
         purpose: StagePurpose,
         producedByWorkerId: String? = nil,
-        producedBySeatId: String? = nil,
+        producedByAnswerWorkerId: String? = nil,
         promptProfileId: String? = nil,
         customInstruction: String? = nil,
         status: StageStatus = .queued,
@@ -169,7 +170,7 @@ public struct StageOutput: Codable, Sendable, Equatable, Identifiable {
         self.id = id
         self.purpose = purpose
         self.producedByWorkerId = producedByWorkerId
-        self.producedBySeatId = producedBySeatId
+        self.producedByAnswerWorkerId = producedByAnswerWorkerId
         self.promptProfileId = promptProfileId
         self.customInstruction = customInstruction
         self.status = status
