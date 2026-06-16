@@ -7,9 +7,9 @@ final class TeamAssemblerTests: XCTestCase {
     private let t = Date(timeIntervalSince1970: 0)
     private let models = [
         Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both),
-        Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet", driverId: "claude_code", role: .member),
-        Model(id: "model_codex", displayName: "Codex", modelLabel: "gpt", driverId: "codex", role: .member),
-        Model(id: "model_grok", displayName: "Grok", modelLabel: "grok", driverId: "grok", role: .member),
+        Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet", driverId: "claude_code", role: .answerer),
+        Model(id: "model_codex", displayName: "Codex", modelLabel: "gpt", driverId: "codex", role: .answerer),
+        Model(id: "model_grok", displayName: "Grok", modelLabel: "grok", driverId: "grok", role: .answerer),
     ]
 
     func testAssemblesOnlyReadyModelsWithEligiblePlanWriter() {

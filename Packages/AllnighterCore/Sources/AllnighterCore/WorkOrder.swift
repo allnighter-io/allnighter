@@ -3,16 +3,16 @@ import Foundation
 /// Prediction-free rendering of the work order the user chose. Structural facts
 /// only — no seconds, quota, calls-as-estimate, or "est." prefix.
 public enum WorkOrder {
-    /// Panel / council composer shape: seats, judge, analysis depth, optional lenses.
+    /// Team composer shape: workers, plan writer, analysis depth, optional lenses.
     public static func teamSummary(
         workerCount: Int,
-        judgeLabel: String?,
+        planWriterLabel: String?,
         synthesis: SynthesisConfig,
         lensCount: Int = 0
     ) -> String {
         var parts: [String] = ["\(workerCount) worker\(workerCount == 1 ? "" : "s")"]
-        if let judgeLabel, !judgeLabel.isEmpty {
-            parts.append("\(judgeLabel) plan writer")
+        if let planWriterLabel, !planWriterLabel.isEmpty {
+            parts.append("\(planWriterLabel) plan writer")
         }
         let stageShape = synthesis.analysisDepth == .combined
             ? "combined analysis + plan"

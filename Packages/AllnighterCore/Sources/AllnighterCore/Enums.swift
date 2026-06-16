@@ -1,10 +1,10 @@
 import Foundation
 
-/// What a worker is allowed to do in a team run.
-/// A worker may answer (`member`), synthesize the plan (`plan writer`),
+/// What a model is allowed to do in a team run.
+/// A model may answer only (`answerer`), write the plan (`planWriter`),
 /// or both (e.g. Opus 4.8 answers the prompt *and* writes the plan).
 public enum ModelRole: String, Codable, Sendable, CaseIterable {
-    case member
+    case answerer
     case planWriter
     case both
 }

@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Built-in judge instruction profiles. Phase 06 splits synthesis into two
+/// Built-in plan-writer instruction profiles. Phase 06 splits synthesis into two
 /// reduces: `plan_analysis` produces the structured `PlanAnalysis`; `plan_writer`
 /// writes the plan grounded in it. Editable/overridable by the user; the
 /// canonical built-ins live in `SynthesisInstructionStore`.
@@ -13,12 +13,12 @@ public enum SynthesisInstructions {
     public static let defaultID = planID
 
     /// Sentinel that separates the JSON analysis block from the plan in the
-    /// `combined` judge output.
+    /// `combined` plan-writer output.
     public static let planDelimiter = "===PLAN==="
 
     public static let analysisText = """
-    You are the team's judge. Below is one prompt and the independent answers \
-    several seats (AI model runs) gave to it, each labeled with its seat id. \
+    You are the team's plan writer. Below is one prompt and the independent answers \
+    several workers (AI model runs) gave to it, each labeled with its worker id. \
     Analyze them. Output ONLY a single fenced ```json code block conforming exactly \
     to this schema (no prose before or after):
 
@@ -27,18 +27,18 @@ public enum SynthesisInstructions {
       "contradictions": [{ "topic": "...", "positions": [{ "workerId": "...", "summary": "..." }], "recommendedResolution": "..." }],
       "partialCoverage":[{ "workerId": "...", "addressed": ["..."], "silentOn": ["..."] }],
       "uniqueInsights": [{ "statement": "...", "sourceWorkerIds": ["..."], "strength": "strong|moderate|weak" }],
-      "blindSpots":     ["angles NO seat addressed"],
+      "blindSpots":     ["angles NO worker addressed"],
       "failedWorkers":    [{ "workerId": "...", "reason": "..." }],
       "confidenceNote": "optional calibration note"
     }
 
-    Attribute every point to the seat ids that raised it. Do not average away \
+    Attribute every point to the worker ids that raised it. Do not average away \
     disagreement — record genuine contradictions and recommend a resolution.
     """
 
     public static let planText = """
-    You are the team's writer. You are given the original prompt, the independent \
-    seat answers, and the judge's structured analysis. Produce a single decisive \
+    You are the team's plan writer. You are given the original prompt, the independent \
+    worker answers, and the structured analysis. Produce a single decisive \
     Plan in Markdown using EXACTLY these sections:
 
     ## Consensus
@@ -67,7 +67,7 @@ public enum SynthesisInstructions {
     }
 }
 
-/// Splits a `combined` judge response into a `PlanAnalysis` and the plan
+/// Splits a `combined` planWriter response into a `PlanAnalysis` and the plan
 /// Markdown. Tolerant + honest: each half is recovered independently so a good
 /// plan is never lost because the analysis JSON failed (and vice-versa).
 public enum PlanOutputParser {
@@ -223,7 +223,7 @@ public enum SynthesisPromptBuilder {
         return [
             instructions,
             "# Original prompt", run.prompt,
-            "# Judge analysis (structured)", "```json\n\(analysisJSON)\n```",
+            "# Plan analysis (structured)", "```json\n\(analysisJSON)\n```",
             answersSection(run: run, models: models)
         ].joined(separator: "\n\n")
     }
@@ -236,8 +236,8 @@ public enum SynthesisPromptBuilder {
 }
 
 /// Runs the synthesis reduces (analysis → plan) and returns the resulting stage
-/// outputs. `combined` is one judge call split into two stages; `separate` is two
-/// calls. Reuses `WorkerRunner` (the judge is a worker, not a worker).
+/// outputs. `combined` is one plan-writer call split into two stages; `separate`
+/// is two calls. Reuses `WorkerRunner` — the plan writer is itself a worker.
 public struct PlanWriter: Sendable {
     private let workerRunner: WorkerRunner
     private let idFactory: @Sendable () -> String
@@ -255,7 +255,7 @@ public struct PlanWriter: Sendable {
 
     public func synthesize(
         run: TeamRun,
-        judge: Model,
+        planWriter: Model,
         manifest: DriverManifest,
         models: [Model],
         config: SynthesisConfig,
@@ -264,92 +264,92 @@ public struct PlanWriter: Sendable {
     ) async -> [StageOutput] {
         switch config.analysisDepth {
         case .combined:
-            return await synthesizeCombined(run: run, judge: judge, manifest: manifest, models: models, config: config, analysisInstructions: analysisInstructions, planInstructions: planInstructions)
+            return await synthesizeCombined(run: run, planWriter: planWriter, manifest: manifest, models: models, config: config, analysisInstructions: analysisInstructions, planInstructions: planInstructions)
         case .separate:
-            return await synthesizeSeparate(run: run, judge: judge, manifest: manifest, models: models, config: config, analysisInstructions: analysisInstructions, planInstructions: planInstructions)
+            return await synthesizeSeparate(run: run, planWriter: planWriter, manifest: manifest, models: models, config: config, analysisInstructions: analysisInstructions, planInstructions: planInstructions)
         }
     }
 
     private func synthesizeCombined(
-        run: TeamRun, judge: Model, manifest: DriverManifest, models: [Model],
+        run: TeamRun, planWriter: Model, manifest: DriverManifest, models: [Model],
         config: SynthesisConfig, analysisInstructions: String, planInstructions: String
     ) async -> [StageOutput] {
         let prompt = SynthesisPromptBuilder.combinedPrompt(run: run, models: models, analysisInstructions: analysisInstructions, planInstructions: planInstructions)
         let startedAt = now()
-        let outcome = await workerRunner.invoke(worker: judge, manifest: manifest, prompt: prompt)
+        let outcome = await workerRunner.invoke(worker: planWriter, manifest: manifest, prompt: prompt)
         let finishedAt = now()
 
         guard outcome.hasOutput, let raw = outcome.output else {
             return [
-                failedStage(.analysis, judge: judge, profileId: config.analysisProfileId, reason: outcome.errorReason ?? "judge produced no output", startedAt: startedAt, finishedAt: finishedAt),
-                failedStage(.plan, judge: judge, profileId: config.planProfileId, reason: outcome.errorReason ?? "judge produced no output", startedAt: startedAt, finishedAt: finishedAt)
+                failedStage(.analysis, planWriter: planWriter, profileId: config.analysisProfileId, reason: outcome.errorReason ?? "plan writer produced no output", startedAt: startedAt, finishedAt: finishedAt),
+                failedStage(.plan, planWriter: planWriter, profileId: config.planProfileId, reason: outcome.errorReason ?? "plan writer produced no output", startedAt: startedAt, finishedAt: finishedAt)
             ]
         }
 
         let parsed = PlanOutputParser.parseCombined(raw)
-        let analysisStage = analysisStage(from: parsed.analysis, error: parsed.analysisError, raw: raw, judge: judge, profileId: config.analysisProfileId, startedAt: startedAt, finishedAt: finishedAt)
-        let planStage = planStage(markdown: parsed.planMarkdown, judge: judge, profileId: config.planProfileId, startedAt: startedAt, finishedAt: finishedAt)
+        let analysisStage = analysisStage(from: parsed.analysis, error: parsed.analysisError, raw: raw, planWriter: planWriter, profileId: config.analysisProfileId, startedAt: startedAt, finishedAt: finishedAt)
+        let planStage = planStage(markdown: parsed.planMarkdown, planWriter: planWriter, profileId: config.planProfileId, startedAt: startedAt, finishedAt: finishedAt)
         return [analysisStage, planStage]
     }
 
     private func synthesizeSeparate(
-        run: TeamRun, judge: Model, manifest: DriverManifest, models: [Model],
+        run: TeamRun, planWriter: Model, manifest: DriverManifest, models: [Model],
         config: SynthesisConfig, analysisInstructions: String, planInstructions: String
     ) async -> [StageOutput] {
         // Stage 1: analysis.
         let aPrompt = SynthesisPromptBuilder.analysisPrompt(run: run, models: models, instructions: analysisInstructions)
         let aStart = now()
-        let aOutcome = await workerRunner.invoke(worker: judge, manifest: manifest, prompt: aPrompt)
+        let aOutcome = await workerRunner.invoke(worker: planWriter, manifest: manifest, prompt: aPrompt)
         let aFinish = now()
         let (analysis, analysisError): (PlanAnalysis?, String?) = aOutcome.hasOutput
             ? PlanOutputParser.parseAnalysis(aOutcome.output ?? "")
-            : (nil, aOutcome.errorReason ?? "judge produced no output")
-        let analysisStage = analysisStage(from: analysis, error: analysisError, raw: aOutcome.output ?? "", judge: judge, profileId: config.analysisProfileId, startedAt: aStart, finishedAt: aFinish)
+            : (nil, aOutcome.errorReason ?? "plan writer produced no output")
+        let analysisStage = analysisStage(from: analysis, error: analysisError, raw: aOutcome.output ?? "", planWriter: planWriter, profileId: config.analysisProfileId, startedAt: aStart, finishedAt: aFinish)
 
         // Stage 2: plan, grounded in whatever analysis we have.
         let groundingAnalysis = analysis ?? PlanAnalysis()
         let pPrompt = SynthesisPromptBuilder.planPrompt(run: run, models: models, analysis: groundingAnalysis, instructions: planInstructions)
         let pStart = now()
-        let pOutcome = await workerRunner.invoke(worker: judge, manifest: manifest, prompt: pPrompt)
+        let pOutcome = await workerRunner.invoke(worker: planWriter, manifest: manifest, prompt: pPrompt)
         let pFinish = now()
         let planStage = pOutcome.hasOutput
-            ? planStage(markdown: pOutcome.output, judge: judge, profileId: config.planProfileId, startedAt: pStart, finishedAt: pFinish)
-            : failedStage(.plan, judge: judge, profileId: config.planProfileId, reason: pOutcome.errorReason ?? "judge produced no output", startedAt: pStart, finishedAt: pFinish)
+            ? planStage(markdown: pOutcome.output, planWriter: planWriter, profileId: config.planProfileId, startedAt: pStart, finishedAt: pFinish)
+            : failedStage(.plan, planWriter: planWriter, profileId: config.planProfileId, reason: pOutcome.errorReason ?? "plan writer produced no output", startedAt: pStart, finishedAt: pFinish)
         return [analysisStage, planStage]
     }
 
     // MARK: - Stage builders
 
-    private func analysisStage(from analysis: PlanAnalysis?, error: String?, raw: String, judge: Model, profileId: String, startedAt: Date, finishedAt: Date) -> StageOutput {
+    private func analysisStage(from analysis: PlanAnalysis?, error: String?, raw: String, planWriter: Model, profileId: String, startedAt: Date, finishedAt: Date) -> StageOutput {
         if let analysis {
             return StageOutput(
-                id: idFactory(), purpose: .analysis, producedByWorkerId: judge.id,
+                id: idFactory(), purpose: .analysis, producedByWorkerId: planWriter.id,
                 promptProfileId: profileId, status: .done, payload: .analysis(analysis),
                 startedAt: startedAt, finishedAt: finishedAt
             )
         }
         return StageOutput(
-            id: idFactory(), purpose: .analysis, producedByWorkerId: judge.id,
+            id: idFactory(), purpose: .analysis, producedByWorkerId: planWriter.id,
             promptProfileId: profileId, status: .failed,
             errorReason: (error ?? "analysis parse failed") + " — raw: " + raw.prefix(2000),
             startedAt: startedAt, finishedAt: finishedAt
         )
     }
 
-    private func planStage(markdown: String?, judge: Model, profileId: String, startedAt: Date, finishedAt: Date) -> StageOutput {
+    private func planStage(markdown: String?, planWriter: Model, profileId: String, startedAt: Date, finishedAt: Date) -> StageOutput {
         if let markdown, !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return StageOutput(
-                id: idFactory(), purpose: .plan, producedByWorkerId: judge.id,
+                id: idFactory(), purpose: .plan, producedByWorkerId: planWriter.id,
                 promptProfileId: profileId, status: .done, payload: .plan(markdown: markdown),
                 startedAt: startedAt, finishedAt: finishedAt
             )
         }
-        return failedStage(.plan, judge: judge, profileId: profileId, reason: "plan was empty or missing", startedAt: startedAt, finishedAt: finishedAt)
+        return failedStage(.plan, planWriter: planWriter, profileId: profileId, reason: "plan was empty or missing", startedAt: startedAt, finishedAt: finishedAt)
     }
 
-    private func failedStage(_ purpose: StagePurpose, judge: Model, profileId: String, reason: String, startedAt: Date, finishedAt: Date) -> StageOutput {
+    private func failedStage(_ purpose: StagePurpose, planWriter: Model, profileId: String, reason: String, startedAt: Date, finishedAt: Date) -> StageOutput {
         StageOutput(
-            id: idFactory(), purpose: purpose, producedByWorkerId: judge.id,
+            id: idFactory(), purpose: purpose, producedByWorkerId: planWriter.id,
             promptProfileId: profileId, status: .failed, errorReason: reason,
             startedAt: startedAt, finishedAt: finishedAt
         )

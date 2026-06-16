@@ -5,13 +5,13 @@ import AllnighterCore
 /// spec) append their own without a parallel store. The two judge profiles are
 /// the Phase 06 synthesis instructions, generalized into `PromptProfile`s.
 public enum BuiltInProfiles {
-    public static var judgeAnalysis: PromptProfile {
-        PromptProfile(id: SynthesisInstructions.analysisID, displayName: "Judge — Analysis",
-                      purpose: .judgeAnalysis, template: SynthesisInstructions.analysisText, builtIn: true)
+    public static var planAnalysis: PromptProfile {
+        PromptProfile(id: SynthesisInstructions.analysisID, displayName: "Plan — Analysis",
+                      purpose: .planAnalysis, template: SynthesisInstructions.analysisText, builtIn: true)
     }
-    public static var judgePlan: PromptProfile {
-        PromptProfile(id: SynthesisInstructions.planID, displayName: "Judge — Plan",
-                      purpose: .judgePlan, template: SynthesisInstructions.planText, builtIn: true)
+    public static var planWriter: PromptProfile {
+        PromptProfile(id: SynthesisInstructions.planID, displayName: "Plan — Writer",
+                      purpose: .planWriter, template: SynthesisInstructions.planText, builtIn: true)
     }
 
     /// Return-review profile (RB5): advisory evaluation of an execution return.
@@ -26,7 +26,7 @@ public enum BuiltInProfiles {
     /// All built-in profiles. RB2 adds `reviewLenses`; RB3 adds `finalSpec`;
     /// RB5 adds `returnReview`.
     public static var all: [PromptProfile] {
-        [judgeAnalysis, judgePlan] + reviewLenses + [finalSpec, returnReview]
+        [planAnalysis, planWriter] + reviewLenses + [finalSpec, returnReview]
     }
 }
 

@@ -34,9 +34,9 @@ public struct ReviewCoordinator: Sendable {
     /// Default input selectors for a lens. `dissent_preserver` also gets the raw
     /// seat answers so it can recover what the synthesis flattened.
     public static func defaultSelectors(forLens lensId: String) -> [InputSelector] {
-        var selectors: [InputSelector] = [.founderPrompt, .judgeAnalysis, .draftPlan]
+        var selectors: [InputSelector] = [.founderPrompt, .planAnalysis, .draftPlan]
         if lensId == "dissent_preserver" || lensId == "coverage_audit" {
-            selectors.append(.memberAnswers)
+            selectors.append(.workerAnswers)
         }
         return selectors
     }

@@ -8,7 +8,7 @@ final class RunEventTests: XCTestCase {
             id: "evt_1",
             seq: 42,
             ts: Date(timeIntervalSince1970: 1_750_000_000),
-            kind: RunEventKind.memberStatusChanged,
+            kind: RunEventKind.workerStatusChanged,
             payload: [
                 "runId": .string("run_complete_0001"),
                 "workerId": .string("model_grok"),

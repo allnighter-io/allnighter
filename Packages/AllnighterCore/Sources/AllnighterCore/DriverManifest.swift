@@ -20,7 +20,7 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     public var invoke: Invoke?
     public var output: OutputSpec?
 
-    /// Headless image generation (design council, Lane 2). Present only on workers
+    /// Headless image generation (design lane, Lane 2). Present only on workers
     /// whose CLI can generate an image at $0 (Grok Imagine, Gemini via Antigravity,
     /// ChatGPT via codex). `nil` on text-only and build-only workers. Additive —
     /// absent on every existing manifest.

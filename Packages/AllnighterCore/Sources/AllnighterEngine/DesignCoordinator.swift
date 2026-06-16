@@ -183,6 +183,6 @@ public actor DesignCoordinator {
         ]
         if let imagePath { payload["output"] = .string(imagePath) }   // the run-relative image, for progressive board reveal
         continuation.yield(RunEvent(id: idFactory(), seq: nextSeq(), ts: now(),
-                                    kind: RunEventKind.memberStatusChanged, payload: payload))
+                                    kind: RunEventKind.workerStatusChanged, payload: payload))
     }
 }

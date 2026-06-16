@@ -11,7 +11,7 @@ public enum RunMarkdown {
     /// A human-readable view of the structured `PlanAnalysis`.
     public static func analysis(_ run: TeamRun) -> String {
         guard let a = run.analysis else { return "" }
-        var lines: [String] = ["# Council Analysis", ""]
+        var lines: [String] = ["# Team Analysis", ""]
 
         func points(_ title: String, _ items: [AnalysisPoint]) {
             guard !items.isEmpty else { return }
@@ -44,7 +44,7 @@ public enum RunMarkdown {
         }
 
         if !a.failedWorkers.isEmpty {
-            lines.append("## Seats that did not answer")
+            lines.append("## Workers that did not answer")
             for f in a.failedWorkers { lines.append("- \(f.workerId): \(f.reason)") }
             lines.append("")
         }
@@ -69,7 +69,7 @@ public enum RunMarkdown {
             return seat.displayName(modelName: modelName, sharesModel: sharesModel(seat))
         }
 
-        var lines: [String] = ["# Council Run", "", "## Prompt", "", run.prompt, ""]
+        var lines: [String] = ["# Team Run", "", "## Prompt", "", run.prompt, ""]
 
         let analysisText = analysis(run)
         if !analysisText.isEmpty {

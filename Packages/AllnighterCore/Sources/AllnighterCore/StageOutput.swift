@@ -12,7 +12,7 @@ public enum StagePurpose: String, Codable, Sendable, CaseIterable {
     case dispatch
     case returnReview = "return_review"
     case outcomeScore = "outcome_score"
-    // Design council (Lane 2) adds the gallery board.
+    // Design lane (Lane 2) adds the gallery board.
     case board
 }
 

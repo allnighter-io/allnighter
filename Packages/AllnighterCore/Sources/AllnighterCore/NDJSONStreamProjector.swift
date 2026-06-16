@@ -134,7 +134,7 @@ public enum NDJSONStreamProjector {
                 default:
                     return nil   // intermediate transition (answers_in / planning / …)
                 }
-            case RunEventKind.memberStatusChanged:
+            case RunEventKind.workerStatusChanged:
                 let to = str("to") ?? ""
                 let workerId = str("workerId")
                 switch to {

@@ -1,6 +1,6 @@
 import Foundation
 
-/// The design council (Lane 2). A design run reuses the team spine: the panel
+/// The design lane (Lane 2). A design run reuses the team spine: the panel
 /// fans out (one image worker × one design persona per seat) and each seat's
 /// `WorkerAnswer.output` carries the **local path of a generated image** instead
 /// of prose. A `board` stage (`BoardPayload`) then organizes those images into the

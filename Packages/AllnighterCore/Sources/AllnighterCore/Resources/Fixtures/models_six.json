@@ -4,7 +4,7 @@
     "displayName": "ChatGPT 5.5",
     "modelLabel": "gpt-5.5",
     "driverId": "codex",
-    "role": "member",
+    "role": "answerer",
     "enabled": true
   },
   {
@@ -20,7 +20,7 @@
     "displayName": "Sonnet 4.6",
     "modelLabel": "claude-sonnet-4.6",
     "driverId": "claude_code",
-    "role": "member",
+    "role": "answerer",
     "enabled": true
   },
   {
@@ -28,7 +28,7 @@
     "displayName": "Composer 2.5",
     "modelLabel": "Grok Composer 2.5 Fast",
     "driverId": "grok",
-    "role": "member",
+    "role": "answerer",
     "enabled": true
   },
   {
@@ -36,7 +36,7 @@
     "displayName": "Gemini Flash",
     "modelLabel": "gemini-flash",
     "driverId": "gemini",
-    "role": "member",
+    "role": "answerer",
     "enabled": true
   },
   {
@@ -44,7 +44,7 @@
     "displayName": "Grok Build",
     "modelLabel": "Grok Build",
     "driverId": "grok",
-    "role": "member",
+    "role": "answerer",
     "enabled": true
   }
 ]

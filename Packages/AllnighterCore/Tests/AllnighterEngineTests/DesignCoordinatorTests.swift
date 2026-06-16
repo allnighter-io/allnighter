@@ -109,6 +109,6 @@ final class DesignCoordinatorTests: XCTestCase {
         _ = await runTask
 
         XCTAssertTrue(kinds.contains(RunEventKind.runStatusChanged))
-        XCTAssertTrue(kinds.contains(RunEventKind.memberStatusChanged))
+        XCTAssertTrue(kinds.contains(RunEventKind.workerStatusChanged))
     }
 }

@@ -63,8 +63,8 @@ final class ReviewCoordinatorTests: XCTestCase {
     }
 
     func testDissentLensGetsMemberAnswers() {
-        XCTAssertTrue(ReviewCoordinator.defaultSelectors(forLens: "dissent_preserver").contains(.memberAnswers))
-        XCTAssertFalse(ReviewCoordinator.defaultSelectors(forLens: "security_privacy").contains(.memberAnswers))
+        XCTAssertTrue(ReviewCoordinator.defaultSelectors(forLens: "dissent_preserver").contains(.workerAnswers))
+        XCTAssertFalse(ReviewCoordinator.defaultSelectors(forLens: "security_privacy").contains(.workerAnswers))
     }
 
     func testReviewsRenderInBundleAndStore() throws {

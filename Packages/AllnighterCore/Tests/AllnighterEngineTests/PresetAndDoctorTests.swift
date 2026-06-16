@@ -33,8 +33,8 @@ final class PresetAndDoctorTests: XCTestCase {
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
-            run: sampleRun(), judge: opus(), manifest: manifest, models: [opus()],
-            config: TestSupport.config(judge: "model_opus")
+            run: sampleRun(), planWriter: opus(), manifest: manifest, models: [opus()],
+            config: TestSupport.config(planWriter: "model_opus")
         )
         XCTAssertEqual(stages.first { $0.purpose == .analysis }?.promptProfileId, SynthesisInstructions.analysisID)
         XCTAssertEqual(stages.first { $0.purpose == .plan }?.promptProfileId, SynthesisInstructions.planID)
@@ -65,7 +65,7 @@ final class PresetAndDoctorTests: XCTestCase {
         XCTAssertNotNil(store.preset(id: SynthesisInstructions.planID))
     }
 
-    // MARK: - PanelPresetStore (legacy council/workflow panel shape)
+    // MARK: - PanelPresetStore (legacy workflow panel shape)
 
     func testPanelPresetStoreRoundTrips() throws {
         let tmp = Self.tempDir()
@@ -92,7 +92,7 @@ final class PresetAndDoctorTests: XCTestCase {
             analysisProfileId: "plan_analysis_v1",
             planProfileId: "plan_writer_v1"
         )
-        let summary = WorkOrder.teamSummary(workerCount: 6, judgeLabel: "Opus", synthesis: synthesis, lensCount: 3)
+        let summary = WorkOrder.teamSummary(workerCount: 6, planWriterLabel: "Opus", synthesis: synthesis, lensCount: 3)
         XCTAssertEqual(summary, "6 workers · Opus plan writer · separate analysis + plan · 3 lenses")
         XCTAssertFalse(summary.contains("est"))
         XCTAssertFalse(summary.contains("quota"))

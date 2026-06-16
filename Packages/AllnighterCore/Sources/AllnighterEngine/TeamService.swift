@@ -90,10 +90,10 @@ public actor TeamService {
 
     public func presetSummaries() -> [(id: String, name: String, shape: String)] {
         exposedPresets().map { preset in
-            let judgeLabel = resolvePlanWriter(preset: preset)?.displayName
+            let planWriterLabel = resolvePlanWriter(preset: preset)?.displayName
             let shape = WorkOrder.teamSummary(
                 workerCount: preset.workerSpecs.expandedWorkers().count,
-                judgeLabel: judgeLabel,
+                planWriterLabel: planWriterLabel,
                 synthesis: preset.synthesis
             )
             return (preset.id, preset.displayName, shape)
@@ -165,7 +165,7 @@ public actor TeamService {
            let planWriter = resolvePlanWriter(preset: preset), let manifest = registry.manifest(for: planWriter), manifest.kind == .headlessCLI {
             events?.yield(planEvent(kind: RunEventKind.stageStarted, runId: run.id, stageId: nil, workerId: planWriter.id))
             let stages = await PlanWriter(workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations))
-                .synthesize(run: run, judge: planWriter, manifest: manifest, models: models, config: preset.synthesis)
+                .synthesize(run: run, planWriter: planWriter, manifest: manifest, models: models, config: preset.synthesis)
             run.stages.append(contentsOf: stages)
             let planStage = stages.first { $0.purpose == .plan }
             let planDone = planStage?.status == .done

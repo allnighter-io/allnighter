@@ -113,9 +113,9 @@ final class TeamRunCoordinatorTests: XCTestCase {
 
         let kinds = events.map(\.kind)
         XCTAssertTrue(kinds.contains(RunEventKind.runStatusChanged))
-        XCTAssertTrue(kinds.contains(RunEventKind.memberStatusChanged))
+        XCTAssertTrue(kinds.contains(RunEventKind.workerStatusChanged))
         // Member events carry workerId.
-        let memberEvents = events.filter { $0.kind == RunEventKind.memberStatusChanged }
+        let memberEvents = events.filter { $0.kind == RunEventKind.workerStatusChanged }
         XCTAssertTrue(memberEvents.allSatisfy { $0.payload["workerId"]?.stringValue == "model_opus#0" })
         XCTAssertEqual(events.map(\.seq), Array(1...Int64(events.count)))
     }

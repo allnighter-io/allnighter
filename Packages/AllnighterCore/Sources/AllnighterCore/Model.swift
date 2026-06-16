@@ -19,7 +19,7 @@ public struct Model: Codable, Sendable, Equatable, Identifiable {
         displayName: String,
         modelLabel: String,
         driverId: String,
-        role: ModelRole = .member,
+        role: ModelRole = .answerer,
         enabled: Bool = true
     ) {
         self.id = id

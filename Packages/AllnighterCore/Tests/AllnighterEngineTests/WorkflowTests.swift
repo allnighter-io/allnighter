@@ -11,7 +11,7 @@ final class WorkflowTests: XCTestCase {
     private func reviewStage() -> WorkflowStage {
         WorkflowStage(
             id: "review", kind: .fanout, displayName: "Review", purpose: .review,
-            inputSelectors: [.founderPrompt, .judgeAnalysis, .draftPlan],
+            inputSelectors: [.founderPrompt, .planAnalysis, .draftPlan],
             bindings: [StageBinding(id: "b1", promptProfileId: "security_privacy", workerId: "model_opus")]
         )
     }
@@ -19,7 +19,7 @@ final class WorkflowTests: XCTestCase {
     private func finalStage() -> WorkflowStage {
         WorkflowStage(
             id: "final", kind: .reduce, displayName: "Final", purpose: .finalSpec,
-            inputSelectors: [.founderPrompt, .memberAnswers, .judgeAnalysis, .draftPlan, .reviews],
+            inputSelectors: [.founderPrompt, .workerAnswers, .planAnalysis, .draftPlan, .reviews],
             bindings: [StageBinding(id: "b2", promptProfileId: "final_spec_v1", workerId: "model_opus")]
         )
     }
@@ -75,12 +75,12 @@ final class WorkflowTests: XCTestCase {
         ]
         let models = [Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)]
         let prompt = StageInputBuilder.assemble(
-            instructions: "REVIEW THIS", selectors: [.founderPrompt, .judgeAnalysis, .draftPlan, .memberAnswers],
+            instructions: "REVIEW THIS", selectors: [.founderPrompt, .planAnalysis, .draftPlan, .workerAnswers],
             run: run, models: models
         )
         XCTAssertTrue(prompt.contains("REVIEW THIS"))
         XCTAssertTrue(prompt.contains("Build X"))
-        XCTAssertTrue(prompt.contains("Judge analysis"))
+        XCTAssertTrue(prompt.contains("Plan analysis"))
         XCTAssertTrue(prompt.contains("Draft plan"))
         XCTAssertTrue(prompt.contains("Use an actor."))
     }

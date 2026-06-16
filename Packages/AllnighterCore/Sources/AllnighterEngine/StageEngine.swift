@@ -18,11 +18,11 @@ public enum StageInputBuilder {
             switch selector {
             case .founderPrompt:
                 sections.append("# Original prompt\n\n\(run.prompt)")
-            case .memberAnswers:
+            case .workerAnswers:
                 sections.append(SynthesisPromptBuilder.answersSection(run: run, models: models))
-            case .judgeAnalysis:
+            case .planAnalysis:
                 if let analysis = run.analysis, let json = encode(analysis) {
-                    sections.append("# Judge analysis (structured)\n\n```json\n\(json)\n```")
+                    sections.append("# Plan analysis (structured)\n\n```json\n\(json)\n```")
                 }
             case .draftPlan:
                 if let plan = run.plan { sections.append("# Draft plan\n\n\(plan)") }

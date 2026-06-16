@@ -57,8 +57,8 @@ final class SynthesisTests: XCTestCase {
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
-            run: sampleRun(), judge: opus(), manifest: manifest, models: models(),
-            config: TestSupport.config(judge: "model_opus", depth: .combined)
+            run: sampleRun(), planWriter: opus(), manifest: manifest, models: models(),
+            config: TestSupport.config(planWriter: "model_opus", depth: .combined)
         )
         XCTAssertEqual(stages.count, 2)
         let analysis = stages.first { $0.purpose == .analysis }
@@ -78,8 +78,8 @@ final class SynthesisTests: XCTestCase {
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
-            run: sampleRun(), judge: opus(), manifest: manifest, models: models(),
-            config: TestSupport.config(judge: "model_opus", depth: .combined)
+            run: sampleRun(), planWriter: opus(), manifest: manifest, models: models(),
+            config: TestSupport.config(planWriter: "model_opus", depth: .combined)
         )
         XCTAssertEqual(stages.first { $0.purpose == .analysis }?.status, .failed)
         XCTAssertEqual(stages.first { $0.purpose == .plan }?.status, .done)
@@ -95,8 +95,8 @@ final class SynthesisTests: XCTestCase {
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
-            run: sampleRun(), judge: opus(), manifest: manifest, models: models(),
-            config: TestSupport.config(judge: "model_opus", depth: .separate)
+            run: sampleRun(), planWriter: opus(), manifest: manifest, models: models(),
+            config: TestSupport.config(planWriter: "model_opus", depth: .separate)
         )
         XCTAssertEqual(stages.count, 2)
         XCTAssertEqual(stages.first { $0.purpose == .analysis }?.status, .done)
@@ -110,8 +110,8 @@ final class SynthesisTests: XCTestCase {
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
-            run: sampleRun(), judge: opus(), manifest: manifest, models: models(),
-            config: TestSupport.config(judge: "model_opus", depth: .combined)
+            run: sampleRun(), planWriter: opus(), manifest: manifest, models: models(),
+            config: TestSupport.config(planWriter: "model_opus", depth: .combined)
         )
         XCTAssertTrue(stages.allSatisfy { $0.status == .failed })
     }
@@ -125,7 +125,7 @@ final class SynthesisTests: XCTestCase {
         run.status = .complete
         let bundle = RunMarkdown.bundle(run, models: models())
         XCTAssertTrue(bundle.contains("Team accounts or analytics first?"))
-        XCTAssertTrue(bundle.contains("Council Analysis"))
+        XCTAssertTrue(bundle.contains("Team Analysis"))
         XCTAssertTrue(bundle.contains("Plan"))
         XCTAssertTrue(bundle.contains("Opus 4.8"))
         XCTAssertTrue(bundle.contains("timed_out"))

@@ -5,8 +5,8 @@ import Foundation
 /// finalizer instruction are all prompt profiles distinguished by `purpose`.
 public struct PromptProfile: Codable, Sendable, Equatable, Identifiable {
     public enum Purpose: String, Codable, Sendable, CaseIterable {
-        case judgeAnalysis = "plan_analysis"
-        case judgePlan = "plan_writer"
+        case planAnalysis = "plan_analysis"
+        case planWriter = "plan_writer"
         case reviewLens = "review_lens"
         case finalSpec = "final_spec"
         case executionDispatch = "execution_dispatch"
@@ -33,8 +33,8 @@ public struct PromptProfile: Codable, Sendable, Equatable, Identifiable {
 /// `executionReturn`/`outcomeScore`.
 public enum InputSelector: String, Codable, Sendable, CaseIterable {
     case founderPrompt = "founder_prompt"
-    case memberAnswers = "member_answers"
-    case judgeAnalysis = "plan_analysis"
+    case workerAnswers = "worker_answers"
+    case planAnalysis = "plan_analysis"
     case draftPlan = "draft_plan"
     case reviews
     case finalSpec = "final_spec"

@@ -4,7 +4,7 @@ import Foundation
 /// without leaving Allnighter or re-explaining yourself.
 ///
 /// A thread is an ordered list of `ThreadTurn`s. It owns chat turns directly;
-/// heavy work (council/design/review/dispatch) is referenced by `runId` on a
+/// heavy work (team/design/review/dispatch) is referenced by `runId` on a
 /// turn — `TeamRun` stays the run-truth owner (see `Persistent_Work_Threads`).
 ///
 /// Liveness (running/needs-attention/last-worker/preview) is **derived** from
@@ -84,7 +84,7 @@ public extension WorkThread {
         turns.last { $0.text?.isEmpty == false }?.text
     }
 
-    /// One active heavy turn per thread in v1 (`council_run`, `dispatch`,
+    /// One active heavy turn per thread in v1 (`team_run`, `dispatch`,
     /// `return_review`). While one is live, new heavy actions are disabled.
     var hasActiveHeavyTurn: Bool {
         turns.contains { $0.kind.isHeavy && ($0.status == .queued || $0.status == .running) }

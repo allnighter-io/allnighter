@@ -21,7 +21,7 @@ public extension BuiltInProfiles {
             lens("proof_qa", "Proof / QA", "Define the Works Test, proof wall, and the likely failure cases."),
             lens("ui_ux", "UI / UX", "Pressure-test the interaction model, empty/error states, and visual simplicity."),
             lens("customer_advocate", "Customer Advocate", "Ask whether a paying user cares and whether this solves the real pain."),
-            lens("dissent_preserver", "Dissent Preserver", "Recover dissent or nuance the draft synthesis may have flattened. You get the raw seat answers — find what was lost."),
+            lens("dissent_preserver", "Dissent Preserver", "Recover dissent or nuance the draft synthesis may have flattened. You get the raw worker answers — find what was lost."),
             lens("scope_discipline", "Scope discipline", "Challenge unnecessary stages, duplicated review, vague work orders, and runaway workflow shape. Do not estimate provider cost, quota, or runtime."),
             lens("writer_editor", "Writer / Editor", "Improve spec clarity, product language, and user-facing copy."),
             lens("coverage_audit", "Coverage Audit", "Meta-coverage: judge whether the original question is fully answered and name domain risks/edge cases the panel AND judge could have missed (rollback, i18n, abuse, rate limits). Do not restate the analysis's own blind spots.")
@@ -33,7 +33,7 @@ public extension BuiltInProfiles {
             id: "final_spec_v1", displayName: "Final Spec (first principles)", purpose: .finalSpec,
             template: """
             You are the finalizer. From first principles, produce a decisive, executable implementation spec.
-            You are given the prompt, raw seat answers, the structured judge analysis, the draft plan, and advisory reviews.
+            You are given the prompt, raw worker answers, the structured plan analysis, the draft plan, and advisory reviews.
             Reviews are ADVISORY: adopt, partially adopt, reject, or defer each — and explain material decisions.
             Resolve EVERY contradiction in the analysis and rule on EVERY unique insight (preserve or reject, with a reason).
 

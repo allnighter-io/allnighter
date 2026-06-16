@@ -9,7 +9,7 @@ public struct RunEvent: Codable, Sendable, Equatable, Identifiable {
     /// Monotonic per-Mac sequence number; clients persist the last `seq` seen.
     public var seq: Int64
     public var ts: Date
-    /// Dotted kind, e.g. `run.status_changed`, `member.status_changed`,
+    /// Dotted kind, e.g. `run.status_changed`, `worker.status_changed`,
     /// `synthesis.completed`. Extensible (a String, not a closed enum) so new
     /// kinds never break old clients.
     public var kind: String
@@ -33,8 +33,8 @@ public struct RunEvent: Codable, Sendable, Equatable, Identifiable {
 /// Well-known event kinds. Stored as strings so the set is open for growth.
 public enum RunEventKind {
     public static let runStatusChanged = "run.status_changed"
-    public static let memberStatusChanged = "member.status_changed"
-    public static let memberOutput = "member.output"
+    public static let workerStatusChanged = "worker.status_changed"
+    public static let workerOutput = "worker.output"
     public static let synthesisStarted = "synthesis.started"
     public static let synthesisCompleted = "synthesis.completed"
     public static let synthesisFailed = "synthesis.failed"

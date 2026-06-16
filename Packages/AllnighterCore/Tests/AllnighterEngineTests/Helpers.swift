@@ -23,7 +23,7 @@ enum TestSupport {
         )
     }
 
-    static func worker(_ id: String, driverId: String, model: String = "m", enabled: Bool = true, role: ModelRole = .member) -> Model {
+    static func worker(_ id: String, driverId: String, model: String = "m", enabled: Bool = true, role: ModelRole = .answerer) -> Model {
         Model(id: id, displayName: id, modelLabel: model, driverId: driverId, role: role, enabled: enabled)
     }
 
@@ -35,7 +35,7 @@ enum TestSupport {
         workerIds.map { seat($0) }
     }
 
-    static func config(judge: String, depth: AnalysisDepth = .combined) -> SynthesisConfig {
-        SynthesisConfig(analysisDepth: depth, planWriterModelId: judge, analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID)
+    static func config(planWriter: String, depth: AnalysisDepth = .combined) -> SynthesisConfig {
+        SynthesisConfig(analysisDepth: depth, planWriterModelId: planWriter, analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID)
     }
 }

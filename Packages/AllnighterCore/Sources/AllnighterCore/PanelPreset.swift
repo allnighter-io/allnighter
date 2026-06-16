@@ -32,11 +32,11 @@ public struct SynthesisConfig: Codable, Sendable, Equatable {
     }
 }
 
-/// A saved, named panel configuration for the legacy council/workflow engine:
+/// A saved, named panel configuration for the legacy workflow engine:
 /// which seats answer (a worker may fill several — self-fusion), and how
 /// synthesis is run. Each field is explicit (no hardcoded "Opus always
 /// synthesizes"). The lane-scoped Fan out catalog uses `TeamPreset`
-/// (see `TeamCatalog.swift`); this council panel config is `PanelPreset`.
+/// (see `TeamCatalog.swift`); this workflow panel config is `PanelPreset`.
 public struct PanelPreset: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var displayName: String

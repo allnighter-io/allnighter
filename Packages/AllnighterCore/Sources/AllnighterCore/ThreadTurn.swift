@@ -18,7 +18,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
     public var text: String?
     /// The worker that authored (or is running) this turn, when applicable.
     public var workerId: String?
-    /// References a `TeamRun` for council/design/review/dispatch turns.
+    /// References a `TeamRun` for team/design/review/dispatch turns.
     public var runId: String?
     /// A specific `StageOutput` within the referenced run, when applicable.
     public var stageId: String?
@@ -80,7 +80,7 @@ public enum ThreadTurnKind: String, Codable, Sendable, CaseIterable {
     case userDecision = "user_decision"
     // Reply family
     case workerChat = "worker_chat"
-    // Council family
+    // Team-run family
     case teamRun = "team_run"
     case designBoard = "design_board"
     case reviewBoard = "review_board"
@@ -118,7 +118,7 @@ public extension ThreadTurnKind {
     }
 
     /// Heavy turns are the long-running run/build kinds. Only one may be active
-    /// per thread in v1 (`council_run`, `dispatch`, `return_review`).
+    /// per thread in v1 (`team_run`, `dispatch`, `return_review`).
     var isHeavy: Bool {
         switch self {
         case .teamRun, .designBoard, .reviewBoard, .dispatch, .returnReview:

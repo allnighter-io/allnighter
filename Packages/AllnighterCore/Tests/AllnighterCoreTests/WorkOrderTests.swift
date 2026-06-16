@@ -8,7 +8,7 @@ final class WorkOrderTests: XCTestCase {
             analysisProfileId: "a",
             planProfileId: "p"
         )
-        let summary = WorkOrder.teamSummary(workerCount: 3, judgeLabel: "Sonnet", synthesis: synthesis)
+        let summary = WorkOrder.teamSummary(workerCount: 3, planWriterLabel: "Sonnet", synthesis: synthesis)
         XCTAssertEqual(summary, "3 workers · Sonnet plan writer · combined analysis + plan")
     }
 

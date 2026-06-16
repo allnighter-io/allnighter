@@ -36,7 +36,7 @@ public struct Finalizer: Sendable {
         manifest: DriverManifest,
         models: [Model],
         profile: PromptProfile,
-        selectors: [InputSelector] = [.founderPrompt, .memberAnswers, .judgeAnalysis, .draftPlan, .reviews]
+        selectors: [InputSelector] = [.founderPrompt, .workerAnswers, .planAnalysis, .draftPlan, .reviews]
     ) async -> StageOutput {
         let reviewBoardRan = run.stages.contains { $0.purpose == .review && $0.status == .done }
         let prompt = StageInputBuilder.assemble(instructions: profile.template, selectors: selectors, run: run, models: models)

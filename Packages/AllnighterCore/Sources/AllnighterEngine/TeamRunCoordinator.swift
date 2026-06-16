@@ -170,7 +170,7 @@ public actor TeamRunCoordinator {
             id: idFactory(),
             seq: nextSeq(),
             ts: now(),
-            kind: RunEventKind.memberStatusChanged,
+            kind: RunEventKind.workerStatusChanged,
             payload: payload
         ))
     }

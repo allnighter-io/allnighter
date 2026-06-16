@@ -7,12 +7,12 @@ import AllnighterCore
 /// present (loaded by callers).
 public enum DefaultConfig {
     public static let models: [Model] = [
-        Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .member),
+        Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer),
         Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both),
-        Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .member),
-        Model(id: "model_composer", displayName: "Composer 2.5", modelLabel: "grok-composer-2.5-fast", driverId: "grok", role: .member),
-        Model(id: "model_gemini", displayName: "Gemini (Antigravity)", modelLabel: "Gemini 3.5 Flash (Medium)", driverId: "antigravity", role: .member),
-        Model(id: "model_grok", displayName: "Grok Build", modelLabel: "grok-build", driverId: "grok", role: .member)
+        Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .answerer),
+        Model(id: "model_composer", displayName: "Composer 2.5", modelLabel: "grok-composer-2.5-fast", driverId: "grok", role: .answerer),
+        Model(id: "model_gemini", displayName: "Gemini (Antigravity)", modelLabel: "Gemini 3.5 Flash (Medium)", driverId: "antigravity", role: .answerer),
+        Model(id: "model_grok", displayName: "Grok Build", modelLabel: "grok-build", driverId: "grok", role: .answerer)
     ]
 
     private static let manifestJSON: [String] = [
