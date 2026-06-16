@@ -39,20 +39,28 @@ public struct DoctorResult: Codable, Equatable, Sendable {
         self.coordinator = coordinator
     }
 
-    /// Overall and per-check status. `critical`: no runnable team / contract
-    /// drift / corrupted config. `degraded`: something fails but a minimal team
-    /// can run. `ok`: all required checks pass.
+    /// Overall status. `critical`: no runnable team / contract drift / corrupted
+    /// config. `degraded`: something fails but a minimal team can run. `ok`: no
+    /// problems detected by the checks that ran (a quota-free run can be `ok` with
+    /// readiness still `notChecked`).
     public enum Status: String, Codable, Sendable {
         case ok, degraded, critical
     }
 
+    /// Per-check status. Adds `notChecked` for the quota-free `alln doctor` path:
+    /// auth/smoke/model-readiness are reported honestly as not checked (next
+    /// action: `alln doctor --full`) rather than inferred from a skipped probe.
+    public enum CheckStatus: String, Codable, Sendable {
+        case ok, degraded, critical, notChecked
+    }
+
     public struct Check: Codable, Equatable, Sendable {
         public var name: String
-        public var status: Status
+        public var status: CheckStatus
         public var detail: String
         public var fixCommand: String?
         public var requiresManual: Bool
-        public init(name: String, status: Status, detail: String, fixCommand: String? = nil, requiresManual: Bool = false) {
+        public init(name: String, status: CheckStatus, detail: String, fixCommand: String? = nil, requiresManual: Bool = false) {
             self.name = name; self.status = status; self.detail = detail
             self.fixCommand = fixCommand; self.requiresManual = requiresManual
         }

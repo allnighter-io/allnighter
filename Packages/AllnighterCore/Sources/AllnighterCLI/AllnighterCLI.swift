@@ -19,7 +19,7 @@ struct AllnighterCLI {
         case "history": await runHistory(args, runtime)
         case "presets": await runPresets(args, runtime)
         case "recall": await runRecall(args, runtime)
-        case "doctor": await runDoctor(runtime)
+        case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "dev": runDev(args)
         case "mcp": await MCPServer(runtime: runtime).serve()
@@ -90,12 +90,59 @@ struct AllnighterCLI {
         }
     }
 
-    static func runDoctor(_ runtime: ToolRuntime) async {
-        let diagnoses = await Doctor(commandRunner: SubprocessCommandRunner()).diagnoseAll(models: runtime.models, registry: runtime.registry)
-        for d in diagnoses {
-            let status = d.isHealthy ? "healthy" : (d.health == .unknown ? "manual" : "UNHEALTHY")
-            print("\(d.modelName)\t\(status)\t\(d.version ?? "")")
-            if let hint = d.fixHint { print("  → \(hint)") }
+    static let binaryVersion = "0.1.0"
+
+    /// `alln doctor [--json] [--full]` — the product recovery surface. Default is
+    /// quota-free (resolve + version + local checks; auth/smoke/readiness reported
+    /// `notChecked`). `--full` runs smoke probes (spends quota) to confirm
+    /// auth/readiness. Emits `DoctorResult` (docs/phases/CLI_Implementation_Contract.md
+    /// §Doctor Contract).
+    static func runDoctor(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        let full = opts.flag("full")
+
+        var modelLabels: [String: String] = [:]
+        for m in runtime.models where modelLabels[m.driverId] == nil { modelLabels[m.driverId] = m.modelLabel }
+        let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
+            .probeAll(runtime.registry.all, models: modelLabels, now: Date(), smoke: full)
+
+        let inputs = DoctorReport.Inputs(
+            binaryVersion: binaryVersion,
+            contractVersion: ContractRegistry.contractVersion,
+            docsVersionMatchesBinary: true,
+            configDirWritable: ensureWritable(AllnighterPaths.config),
+            runsDirWritable: ensureWritable(AllnighterPaths.runs),
+            full: full
+        )
+        let result = DoctorReport.build(models: runtime.models, manifests: runtime.registry.all, records: records, inputs: inputs)
+
+        if opts.flag("json") {
+            print(jsonString(result))   // exactly one JSON object, no prose
+        } else {
+            printDoctorHuman(result, full: full)
+        }
+    }
+
+    private static func ensureWritable(_ url: URL) -> Bool {
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return FileManager.default.isWritableFile(atPath: url.path)
+    }
+
+    private static func printDoctorHuman(_ r: DoctorResult, full: Bool) {
+        print("alln doctor — \(r.status.rawValue)\(full ? " (full)" : "")")
+        for c in r.checks {
+            let mark: String
+            switch c.status {
+            case .ok: mark = "✓"
+            case .degraded: mark = "!"
+            case .critical: mark = "✗"
+            case .notChecked: mark = "·"
+            }
+            print("  \(mark) \(c.name)\t\(c.detail)")
+            if let fix = c.fixCommand { print("    → \(fix)") }
+        }
+        if !full {
+            print("\nAuth/readiness not probed (quota-free). Run `alln doctor --full` to confirm — spends quota.")
         }
     }
 
@@ -114,6 +161,8 @@ struct AllnighterCLI {
             switch r.status {
             case .ready(let v):
                 print("\(r.driverId)\tREADY\t\(v)\t\(path)")
+            case .installedNotProbed(let v):
+                print("\(r.driverId)\tINSTALLED (not probed)\t\(v)\t\(path)")
             case .installedNotSignedIn(let f):
                 print("\(r.driverId)\tNEEDS SIGN-IN\t\(r.version ?? "")\n  → \(f.instructions)")
             case .probeFailed(let reason):
@@ -202,7 +251,7 @@ struct AllnighterCLI {
           team show / presets [--json]                              list presets + work shape
           history "<query>" | recall "<query>" [--json]             search prior team runs
           models [--json]                                           list bench models
-          doctor                                                    check sources and models
+          doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
           detect                                                    first-run CLI detection, headless (real smoke probes)
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           mcp                                                       run as an MCP stdio server

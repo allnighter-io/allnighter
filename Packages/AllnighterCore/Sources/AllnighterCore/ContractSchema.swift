@@ -116,7 +116,7 @@ public enum ContractSchema {
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
             "Check": obj([
-                "name": str, "status": docStatus, "detail": str,
+                "name": str, "status": enumStr(["ok", "degraded", "critical", "notChecked"]), "detail": str,
                 "fixCommand": nullable("string"), "requiresManual": bool,
             ], required: ["name", "status", "detail", "requiresManual"]),
             "Coordinator": obj(["available": bool, "detail": str], required: ["available", "detail"]),

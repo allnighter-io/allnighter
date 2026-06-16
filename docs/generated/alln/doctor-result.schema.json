@@ -22,7 +22,8 @@
           "enum" : [
             "ok",
             "degraded",
-            "critical"
+            "critical",
+            "notChecked"
           ],
           "type" : "string"
         }

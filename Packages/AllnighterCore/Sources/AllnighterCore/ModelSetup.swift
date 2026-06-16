@@ -113,6 +113,10 @@ public enum ModelSetupStatus: Sendable, Equatable {
     case probeFailed(reason: String)
     /// Detect ok AND the smoke run returned the expected token.
     case ready(version: String)
+    /// Detect ok (resolved + version), but the smoke probe was deliberately not
+    /// run — the quota-free `alln doctor` path. Honest "installed, readiness not
+    /// checked"; never treated as ready. Confirm with `alln doctor --full`.
+    case installedNotProbed(version: String)
 
     /// Only `ready` may run.
     public var isReady: Bool {
@@ -128,11 +132,12 @@ public enum ModelSetupStatus: Sendable, Equatable {
         case .installedNotSignedIn: return .installedNotSignedIn
         case .probeFailed: return .probeFailed
         case .ready: return .ready
+        case .installedNotProbed: return .installedNotProbed
         }
     }
 
     public enum Kind: String, Codable, Sendable, CaseIterable {
-        case notInstalled, shimmedNeedsConfirm, installedNotSignedIn, probeFailed, ready
+        case notInstalled, shimmedNeedsConfirm, installedNotSignedIn, probeFailed, ready, installedNotProbed
     }
 }
 
@@ -152,6 +157,7 @@ extension ModelSetupStatus: Codable {
         case .installedNotSignedIn(let f): try c.encode(f, forKey: .loginFlow)
         case .probeFailed(let reason): try c.encode(reason, forKey: .reason)
         case .ready(let version): try c.encode(version, forKey: .version)
+        case .installedNotProbed(let version): try c.encode(version, forKey: .version)
         }
     }
 
@@ -163,6 +169,7 @@ extension ModelSetupStatus: Codable {
         case .installedNotSignedIn: self = .installedNotSignedIn(try c.decode(LoginFlow.self, forKey: .loginFlow))
         case .probeFailed: self = .probeFailed(reason: try c.decode(String.self, forKey: .reason))
         case .ready: self = .ready(version: try c.decode(String.self, forKey: .version))
+        case .installedNotProbed: self = .installedNotProbed(version: try c.decode(String.self, forKey: .version))
         }
     }
 }

@@ -84,12 +84,15 @@ public struct CLIDetector: Sendable {
     }
 
     /// Probe every headless-CLI tool (one resolve batch, then per-tool detect+smoke).
-    public func probeAll(_ manifests: [DriverManifest], models: [String: String], now: Date) async -> [ToolProbeRecord] {
+    /// `smoke: false` is the quota-free path (resolve + version only, no model
+    /// call) used by default `alln doctor`; `true` (the default) keeps the full
+    /// `alln detect` / `doctor --full` behavior.
+    public func probeAll(_ manifests: [DriverManifest], models: [String: String], now: Date, smoke: Bool = true) async -> [ToolProbeRecord] {
         let tools = manifests.filter { $0.kind == .headlessCLI }
         let resolutions = await resolver.resolve(Array(Set(tools.flatMap(bins(for:)))))
         var records: [ToolProbeRecord] = []
         for tool in tools {
-            records.append(await probe(tool, model: models[tool.id] ?? "", resolutions: resolutions, now: now))
+            records.append(await probe(tool, model: models[tool.id] ?? "", resolutions: resolutions, now: now, smoke: smoke))
         }
         return records
     }
@@ -98,7 +101,8 @@ public struct CLIDetector: Sendable {
         _ manifest: DriverManifest,
         model: String,
         resolutions: [String: ShellResolver.Resolution]? = nil,
-        now: Date
+        now: Date,
+        smoke: Bool = true
     ) async -> ToolProbeRecord {
         let bins = bins(for: manifest)
         let res: [String: ShellResolver.Resolution]
@@ -131,7 +135,11 @@ public struct CLIDetector: Sendable {
             return record(manifest, .probeFailed(reason: "could not run \(manifest.setup?.bins.first ?? "the CLI") --version"), inv, nil, now)
         }
 
-        // 4. Smoke → classify.
+        // 4. Smoke → classify (skipped in quota-free detect-only mode: report
+        // installed-but-not-probed rather than inferring readiness).
+        guard smoke else {
+            return record(manifest, .installedNotProbed(version: version), inv, version, now)
+        }
         let status = await smokeClassify(manifest, model: model, invocation: inv, version: version)
         return record(manifest, status, inv, version, now)
     }
