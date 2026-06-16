@@ -19,6 +19,13 @@ if grep -E '^DERIVED=' "$ROOT/scripts/dev.sh" | grep -qE '\$ROOT|\.build/'; then
 fi
 ran_any=true
 
+# GUI Visual Proof Gate (S05): a visible SwiftUI surface cannot land without a
+# proof packet or an explicit waiver. Cheap (git + grep) so it runs first and
+# fails fast. See docs/phases/GUI_Visual_Proof_Gate.md.
+echo "==> check GUI visual proof gate"
+bash "$ROOT/scripts/check_gui_proof.sh"
+ran_any=true
+
 if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   echo "==> swift test AllnighterCore"
   swift test --package-path "$ROOT/Packages/AllnighterCore"
