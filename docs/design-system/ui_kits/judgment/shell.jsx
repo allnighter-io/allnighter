@@ -13,6 +13,8 @@ const R = window.React;
   .jud-tc .nm{font-size:var(--text-label);font-weight:600;color:var(--text-secondary)}
   .jud-tc .sub{font-family:var(--font-mono);font-size:var(--text-mono-sm);color:var(--text-faint)}
   .jud-tr{display:flex;align-items:center;gap:6px}
+  .jud-ready{border:none;background:transparent;padding:0;border-radius:var(--radius-xs);cursor:pointer}
+  .jud-ready:focus-visible{outline:none;box-shadow:var(--focus-ring)}
   .jud-body{flex:1;display:flex;min-height:0}
   .jud-rail{width:248px;flex:none;background:var(--bg-subtle);border-right:1px solid var(--border-subtle);display:flex;flex-direction:column;overflow:auto}
   .jud-rail__hd{padding:15px 16px 10px}
@@ -79,7 +81,8 @@ window.JShell = function JShell({ active, onNav, children }) {
       R.createElement('div', { className: 'jud-tc' },
         R.createElement(window.JLive, { size: 16 }), R.createElement('span', { className: 'nm' }, 'allnighter'), R.createElement('span', { className: 'sub' }, '· review')),
       R.createElement('div', { className: 'jud-tr' },
-        R.createElement(Badge, { tone: 'positive', dot: true }, '5/5 healthy'),
+        R.createElement('button', { className: 'jud-ready', onClick: () => { window.location.href = '../team/index.html'; }, 'aria-label': 'Open Team readiness' },
+          R.createElement(Badge, { tone: 'positive', dot: true }, '5/5 healthy')),
         R.createElement(IconButton, { variant: 'ghost', size: 'sm', label: 'History' }, R.createElement(Icon, { name: 'history' })),
         R.createElement(IconButton, { variant: 'ghost', size: 'sm', label: 'Settings', onClick: () => onNav('cfg_scorecards') }, R.createElement(Icon, { name: 'settings-2' })))),
     R.createElement('div', { className: 'jud-body' },

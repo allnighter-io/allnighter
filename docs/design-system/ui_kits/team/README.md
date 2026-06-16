@@ -1,39 +1,37 @@
-# Team — Allnighter Studio UI kit (macOS)
+# Team command center — Allnighter UI kit (macOS)
 
-A high-fidelity, click-through recreation of the **Allnighter MVP** — *The
-Team*. One prompt → fan out to a team of subscription CLIs in parallel →
-**Opus 4.8 synthesizes one plan**. Text-only, local, zero marginal cost.
-(Spec: `archive/mentor-uploads/README-b6a6d478.md`.)
+This kit is the destination for the title-bar ready pill (`5/5 healthy`) in the
+Judgment shell. It owns source/CLI readiness, repair actions, and the lane
+benches where models become workers through `Skill | Model` assignments.
 
-## The flow (interactive)
-`index.html` is a working state machine:
+## Flow
 
-1. **Compose** — pick the team in the sidebar, type one prompt, `Run team`.
-2. **Live run** — every selected worker runs in parallel; per-worker
-   `StatusPill` goes queued → running (blinks) → done / failed / timed-out, with
-   mono token + time meta. A failed worker is shown failed, never faked.
-3. **Synthesis** — the live mark blinks while "Opus is planning the master
-   plan…", then "Plan ready".
-4. **Plan** — the synthesized output (Consensus · Conflicts · Gaps · The
-   plan · Minority report) plus a **Worker answers** tab with every raw answer.
-   `Copy` · `Export Markdown` · `New run`.
+1. **Ready** — source-level health for the CLIs/app bridges Allnighter can run.
+   This is where a broken source is re-checked, signed in, or pointed at a
+   binary. The tally is source-level, not worker-level.
+2. **Build bench** — ready Build-capable models plus the default Build team.
+   Type and effort are visible; `Customize team` opens the row editor.
+3. **Design bench** — image/design-capable models plus the default Design team.
+   Design workers are still `Skill | Model`, including image engines and
+   critique workers.
+4. **Copy bench** — placeholder parity with the same model while the copy phase
+   owns its detailed playbooks.
+5. **Skills** — lane-tagged skill library used by presets.
 
 ## Files
-- `index.html` — window chrome + the state machine (compose / run / plan). Mounts everything.
-- `data.jsx` — the six-worker team, simulated run timings, the plan + worker answers, and the `Glyph` helper.
-- `chrome.jsx` — `WindowChrome` (macOS frame, title bar, Doctor health), `Sidebar` (team · plan writer · recent), and the blinking `LiveMark`.
-- `screens.jsx` — `Composer`, `RunView`, `PlanView`.
 
-## How it composes the design system
-The kit renders the real component vocabulary via the runtime mirror
-`components/_preview.jsx` (the generated `_ds_bundle.js` is the source of truth
-for production): `Button`, `IconButton`, `Badge`, `Card`, `Textarea`, `Tabs`,
-and the signature **`StatusPill`** + **`WorkerChip`**. Brand glyphs come from
-Simple Icons; ChatGPT/Composer fall back to a Lucide icon (no Simple Icons
-logo). All color, type, spacing, and motion are design tokens from `styles.css`.
+- `index.html` — mounts the Team command center. Query helpers:
+  `?view=ready`, `?view=build`, `?view=design`, `?view=design&drawer=1`.
+- `data.jsx` — sample sources, Bench models, lane skills, and presets.
+- `chrome.jsx` — macOS window frame, ready pill, left nav.
+- `screens.jsx` — Ready, Bench, Skills, and Customize drawer views.
 
-## Known substitutions
-- Model answers, timings, and token counts are **representative sample data**,
-  not live CLI output.
-- ChatGPT/Codex and Composer/Cursor have no Simple Icons glyph — shown with a
-  neutral Lucide mark.
+## Product language
+
+Follows `docs/phases/Work_Order_Team_Model.md`:
+
+- **Source** = how Allnighter reaches a model.
+- **Bench** = available models.
+- **Skill** = reusable hat/instruction.
+- **Worker** = one model wearing one skill for a run.
+- **Team** = the worker lineup for a work order.

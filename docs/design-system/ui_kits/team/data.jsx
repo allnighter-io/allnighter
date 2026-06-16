@@ -1,64 +1,136 @@
-// @ds-adherence-ignore -- UI-kit data + a Glyph helper. Window globals.
+// @ds-adherence-ignore -- Team command-center sample data + glyph helpers. Window globals.
 const R = window.React;
 
-// The founder's real six-worker team (MVP README §0).
-window.AL_WORKERS = [
-  { id: 'opus',     name: 'Opus 4.8',     model: 'via claude-code', brand: 'anthropic',    color: 'FFA630', synth: true },
-  { id: 'gpt',      name: 'ChatGPT 5.5',  model: 'via codex-cli',   icon: 'terminal' },
-  { id: 'sonnet',   name: 'Sonnet 4.6',   model: 'via claude-code', brand: 'anthropic',    color: 'AEB5C9' },
-  { id: 'composer', name: 'Composer 2.5', model: 'via cursor',      icon: 'square' },
-  { id: 'gemini',   name: 'Gemini Flash', model: 'via gemini-cli',  brand: 'googlegemini', color: 'E1E5F0' },
-  { id: 'grok',     name: 'Grok Build',   model: 'via grok-cli',    brand: 'x',            color: 'E1E5F0' },
+window.TEAM_SOURCES = [
+  {
+    id: 'claude',
+    name: 'Claude Code',
+    command: 'claude',
+    version: 'v2.1.0',
+    path: '~/.local/bin/claude',
+    status: 'ready',
+    invocation: 'direct',
+    lastProbe: 'smoke 2m ago',
+    models: ['Opus 4.8', 'Sonnet 4.6'],
+    lanes: ['Build', 'Copy', 'Review'],
+    brand: 'anthropic',
+    color: 'FFA630',
+  },
+  {
+    id: 'codex',
+    name: 'Codex CLI',
+    command: 'codex',
+    version: 'v1.4.2',
+    path: '~/.volta/bin/codex',
+    status: 'ready',
+    invocation: 'shim',
+    lastProbe: 'smoke 9m ago',
+    models: ['ChatGPT 5.5'],
+    lanes: ['Build', 'Copy'],
+    icon: 'terminal',
+  },
+  {
+    id: 'grok',
+    name: 'Grok CLI',
+    command: 'grok',
+    version: 'v0.9.1',
+    path: '/opt/homebrew/bin/grok',
+    status: 'ready',
+    invocation: 'direct',
+    lastProbe: 'smoke 18m ago',
+    models: ['Grok Build', 'Grok Imagine'],
+    lanes: ['Build', 'Design'],
+    brand: 'x',
+    color: 'E1E5F0',
+  },
+  {
+    id: 'agy',
+    name: 'Antigravity CLI',
+    command: 'agy',
+    version: 'v0.7.0',
+    path: '/Applications/Antigravity.app/.../agy',
+    status: 'ready',
+    invocation: 'app bundle',
+    lastProbe: 'image smoke 31m ago',
+    models: ['Gemini image', 'Gemini Flash'],
+    lanes: ['Design', 'Build'],
+    brand: 'googlegemini',
+    color: 'E1E5F0',
+  },
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    command: 'cursor-agent',
+    version: 'v0.46.3',
+    path: '/Applications/Cursor.app/.../cursor-agent',
+    status: 'ready',
+    invocation: 'login shell',
+    lastProbe: 'smoke 1h ago',
+    models: ['Composer 2.5'],
+    lanes: ['Build'],
+    icon: 'square',
+  },
 ];
 
-window.AL_PROMPT = 'Give me three different directions for making this dashboard feel premium.';
+window.TEAM_MODELS = [
+  { id: 'opus', name: 'Opus 4.8', source: 'claude', caps: ['build', 'copy', 'review'], week: '42 runs', status: 'ready' },
+  { id: 'sonnet', name: 'Sonnet 4.6', source: 'claude', caps: ['build', 'copy', 'review'], week: '38 runs', status: 'ready' },
+  { id: 'gpt', name: 'ChatGPT 5.5', source: 'codex', caps: ['build', 'copy'], week: '31 runs', status: 'ready' },
+  { id: 'grokBuild', name: 'Grok Build', source: 'grok', caps: ['build'], week: '12 runs', status: 'ready' },
+  { id: 'grokImagine', name: 'Grok Imagine', source: 'grok', caps: ['design'], week: '9 images', status: 'ready' },
+  { id: 'geminiImage', name: 'Gemini image', source: 'agy', caps: ['design'], week: '7 images', status: 'ready' },
+  { id: 'geminiFlash', name: 'Gemini Flash', source: 'agy', caps: ['design', 'build'], week: '7 runs', status: 'ready' },
+  { id: 'composer', name: 'Composer 2.5', source: 'cursor', caps: ['build'], week: '4 runs', status: 'ready' },
+];
 
-// Per-worker simulated run timing + token counts (ms to done).
-window.AL_RUN = {
-  opus:     { ms: 4200, tok: '2,140' },
-  gpt:      { ms: 2600, tok: '1,512' },
-  sonnet:   { ms: 3100, tok: '1,884' },
-  composer: { ms: 2200, tok: '1,043' },
-  gemini:   { ms: 1500, tok: '842',   fail: false },
-  grok:     { ms: 2900, tok: '—', fail: true },
+window.TEAM_SKILLS = {
+  build: [
+    { id: 'first_principles', name: 'First-principles reviewer', model: 'opus', kind: 'review' },
+    { id: 'skeptic', name: 'Skeptic', model: 'sonnet', kind: 'review' },
+    { id: 'maintainer', name: 'Maintainer', model: 'gpt', kind: 'implementation' },
+    { id: 'proof', name: 'Proof skeptic', model: 'geminiFlash', kind: 'qa' },
+    { id: 'executor', name: 'Executor', model: 'grokBuild', kind: 'implementation' },
+  ],
+  design: [
+    { id: 'minimal', name: 'Minimal designer', model: 'grokImagine', kind: 'image' },
+    { id: 'bold', name: 'Bold designer', model: 'geminiImage', kind: 'image' },
+    { id: 'brand', name: 'On-brand designer', model: 'gpt', kind: 'critique' },
+    { id: 'product', name: 'Product critic', model: 'opus', kind: 'critique' },
+  ],
 };
 
-window.AL_PLAN = {
-  consensus: [
-    'Lead with typography and spacing, not color — premium reads as restraint.',
-    'Replace flat fills with one accent + a calm neutral scale; kill gradient noise.',
-    'Add depth through hairline borders and soft shadow, not heavy cards.',
-  ],
-  conflicts: [
-    'Opus & Sonnet want a denser data grid; Gemini argues for more whitespace and fewer KPIs.',
-    'ChatGPT proposes a dark theme by default; Composer keeps light primary with a dark mode toggle.',
-  ],
-  gaps: [
-    'No one addressed empty/loading states — premium products feel polished there first.',
-    'Motion was mentioned but unspecified; needs an easing + duration system.',
-  ],
-  plan: [
-    'Set a type scale (display 800 / body 400) and an 8px spacing grid; apply to the header + KPI row first.',
-    'Collapse the palette to one accent + a 7-step neutral ramp; remove all gradients from tiles.',
-    'Rebuild cards as hairline-border + soft-shadow surfaces; unify radius at 10px.',
-    'Design the empty, loading, and error states for the main chart before adding features.',
-    'Adopt a 160–240ms ease-out motion system for hovers, opens, and value changes.',
-  ],
-  minority: { who: 'Gemini Flash', text: 'Cut the dashboard to 3 KPIs and one chart. Most “premium” wins come from removing, not styling.' },
+window.TEAM_PRESETS = {
+  build: {
+    lane: 'Build',
+    type: 'Feature',
+    effort: 'Deep',
+    outputs: '5 workers · spec + implementation options',
+    runLabel: 'Run build team',
+    brief: 'Turn a work order into implementation paths, risks, proof, and a clean handoff.',
+  },
+  design: {
+    lane: 'Design',
+    type: 'Redesign',
+    effort: 'Standard',
+    outputs: '3 image options · 1 critique pass',
+    runLabel: 'Run design team',
+    brief: 'Generate real visual options from the models that can make or critique images.',
+  },
 };
 
-window.AL_ANSWERS = {
-  opus:     'Three directions: (1) Editorial — big type, generous whitespace, one accent. (2) Control-room — dense, mono numerics, dark. (3) Calm-OS — soft surfaces, muted color, motion. I’d ship (1): premium is restraint. Start with the type scale and spacing grid, then strip gradients.',
-  gpt:      'Default to a dark theme; it instantly reads as pro. Use a single saturated accent for primary actions and keep every surface near-black with hairline borders. Tighten the KPI row to four metrics and set them in a mono face.',
-  sonnet:   'Premium = hierarchy + consistency. Define a 6-step type scale and an 8px grid, then audit every component against it. Add a denser data table with sticky headers; power users equate density with capability.',
-  composer: 'Keep light as primary with a polished dark mode. Standardize radius (10px), border (1px hairline), and shadow (one soft step). Replace icon noise with a tighter set. Ship a motion spec: 200ms ease-out.',
-  gemini:   'Less is the upgrade. Cut to three KPIs and one chart, double the whitespace, and remove decorative color entirely. A premium dashboard answers one question beautifully, not ten adequately.',
-  grok:     '',
+window.TEAM_MODEL_OPTIONS = window.TEAM_MODELS.map((m) => ({ value: m.id, label: m.name }));
+
+window.TeamSource = function TeamSource(id) {
+  return window.TEAM_SOURCES.find((s) => s.id === id);
 };
 
-// Glyph renderer: brand logo when available, else a Lucide icon.
-window.Glyph = function Glyph({ worker, size = 18 }) {
+window.TeamModel = function TeamModel(id) {
+  return window.TEAM_MODELS.find((m) => m.id === id);
+};
+
+window.TeamGlyph = function TeamGlyph({ source, model, size = 18 }) {
   const { BrandIcon, Icon } = window;
-  if (worker.brand) return R.createElement(BrandIcon, { slug: worker.brand, color: worker.color, size });
-  return R.createElement(Icon, { name: worker.icon || 'terminal', size: size - 2, style: { color: 'var(--text-secondary)' } });
+  const src = source || (model && window.TeamSource(model.source));
+  if (src && src.brand) return R.createElement(BrandIcon, { slug: src.brand, color: src.color, size });
+  return R.createElement(Icon, { name: (src && src.icon) || 'terminal', size: size - 2, style: { color: 'var(--text-secondary)' } });
 };

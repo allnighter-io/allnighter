@@ -1,11 +1,11 @@
-<!-- @dsCard group="Team" viewport="1180x720" subtitle="MVP: one prompt → parallel team → Opus plan" -->
-<!-- @startingPoint section="Team" subtitle="The team command center (macOS)" viewport="1180x720" -->
+<!-- @dsCard group="Team" viewport="1180x720" subtitle="Ready → source repair, Build/Design bench, Customize team drawer" -->
+<!-- @startingPoint section="Team" subtitle="Team readiness + lane benches (macOS)" viewport="1180x720" -->
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Allnighter — Team</title>
+<title>Allnighter — Team command center</title>
 <link rel="icon" href="../../assets/allnighter-icon.svg">
 <link rel="stylesheet" href="../../styles.css">
 <style>
@@ -25,72 +25,30 @@
 <script type="text/babel" src="chrome.jsx"></script>
 <script type="text/babel" src="screens.jsx"></script>
 <script type="text/babel">
-const { WindowChrome, Sidebar, Composer, RunView, PlanView } = window;
-const WORKERS = window.AL_WORKERS, RUN = window.AL_RUN;
+const { TeamChrome, ReadyView, BenchView, CopyBenchView, SkillsView, CustomizeDrawer } = window;
 
-function fmt(ms) {
-  const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
-  return String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-}
-
-function TeamApp() {
-  const [selected, setSelected] = React.useState(new Set(WORKERS.map(w => w.id)));
-  const [prompt, setPrompt] = React.useState(window.AL_PROMPT);
-  const [view, setView] = React.useState('compose');   // compose | run | plan
-  const [states, setStates] = React.useState({});
-  const [elapsed, setElapsed] = React.useState('00:00');
-  const [synth, setSynth] = React.useState('waiting');  // waiting | planning | ready
-  const timers = React.useRef([]);
-  const clock = React.useRef(null);
-
-  const clearAll = () => {
-    timers.current.forEach(clearTimeout); timers.current = [];
-    if (clock.current) { clearInterval(clock.current); clock.current = null; }
-  };
-  React.useEffect(() => clearAll, []);
-
-  const toggle = (id) => setSelected(prev => {
-    const n = new Set(prev);
-    if (n.has(id)) { if (n.size > 1) n.delete(id); } else n.add(id);
-    return n;
-  });
-
-  const startRun = () => {
-    clearAll();
-    const sel = WORKERS.filter(w => selected.has(w.id));
-    const init = {}; sel.forEach(w => init[w.id] = { status: 'queued' });
-    setStates(init); setSynth('waiting'); setElapsed('00:00'); setView('run');
-    const t0 = Date.now();
-    clock.current = setInterval(() => setElapsed(fmt(Date.now() - t0)), 100);
-    let maxMs = 0;
-    sel.forEach((w, i) => {
-      const cfg = RUN[w.id]; maxMs = Math.max(maxMs, cfg.ms);
-      timers.current.push(setTimeout(() => setStates(s => ({ ...s, [w.id]: { status: 'running' } })), 150 + i * 170));
-      timers.current.push(setTimeout(() => setStates(s => ({
-        ...s, [w.id]: { status: cfg.fail ? 'failed' : 'done', meta: cfg.fail ? 'auth expired' : cfg.tok + ' · ' + fmt(cfg.ms) }
-      })), cfg.ms));
-    });
-    timers.current.push(setTimeout(() => setSynth('planning'), maxMs + 450));
-    timers.current.push(setTimeout(() => { setSynth('ready'); if (clock.current) { clearInterval(clock.current); clock.current = null; } }, maxMs + 2700));
-  };
-
-  const stop = () => { clearAll(); setView('compose'); };
-  const reset = () => { clearAll(); setStates({}); setSynth('waiting'); setElapsed('00:00'); setView('compose'); };
-
-  const sel = WORKERS.filter(w => selected.has(w.id));
-  let main;
-  if (view === 'compose') main = <Composer value={prompt} onChange={setPrompt} onRun={startRun} count={selected.size} onExample={setPrompt} />;
-  else if (view === 'run') main = <RunView workers={sel} states={states} elapsed={elapsed} prompt={prompt} synth={synth} onStop={stop} onView={() => setView('plan')} />;
-  else main = <PlanView onNew={reset} />;
-
+function TeamCommandCenter() {
+  const params = new URL(location.href).searchParams;
+  const initialView = params.get('view') || 'ready';
+  const initialDrawer = params.get('drawer');
+  const [active, setActive] = React.useState(initialView);
+  const [drawer, setDrawer] = React.useState(initialDrawer ? initialView : null);
+  const healthy = window.TEAM_SOURCES.filter((s) => s.status === 'ready').length;
+  const total = window.TEAM_SOURCES.length;
+  let view;
+  if (active === 'ready') view = <ReadyView />;
+  else if (active === 'build') view = <BenchView lane="build" onCustomize={setDrawer} />;
+  else if (active === 'design') view = <BenchView lane="design" onCustomize={setDrawer} />;
+  else if (active === 'copy') view = <CopyBenchView onCustomize={setDrawer} />;
+  else view = <SkillsView />;
   return (
-    <WindowChrome healthy={6} total={6}>
-      <Sidebar selected={selected} onToggle={toggle} disabled={view === 'run'} />
-      <main className="alk-main">{main}</main>
-    </WindowChrome>
+    <TeamChrome active={active} onNav={setActive} healthy={healthy} total={total}>
+      {view}
+      {drawer && <CustomizeDrawer lane={drawer} onClose={() => setDrawer(null)} />}
+    </TeamChrome>
   );
 }
-ReactDOM.createRoot(document.getElementById('root')).render(<TeamApp />);
+ReactDOM.createRoot(document.getElementById('root')).render(<TeamCommandCenter />);
 </script>
 </body>
 </html>
