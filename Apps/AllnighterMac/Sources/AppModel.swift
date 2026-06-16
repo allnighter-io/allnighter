@@ -38,6 +38,11 @@ final class AppModel {
     private(set) var isDetecting = false
     private let setupStore = SetupStore()
 
+    // Agent-powered tool discovery (the "census", tier 2): once ≥1 tool is ready,
+    // a healthy agent can hunt down the tools the plain probe missed.
+    private(set) var isRunningCensus = false
+    private(set) var lastCensusSummary: String?
+
     // History
     private(set) var history: [TeamRun] = []
     private(set) var historySelection: TeamRun?
@@ -615,6 +620,78 @@ final class AppModel {
             try? storeCopy.save(.init(records: records, setupCompletedAt: completedAt))
             self.isDetecting = false
         }
+    }
+
+    // MARK: - Census (agent-powered tool discovery, tier 2)
+
+    /// A model whose tool is confirmed ready — the agent we use to run the
+    /// read-only discovery build order. `nil` until at least one tool is ready,
+    /// because the census needs a working agent to run it (no bootstrap from
+    /// zero — the plain probe must light the first lamp first).
+    var censusAgent: Model? {
+        let readyDriverIds = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        return models.first { readyDriverIds.contains($0.driverId) }
+    }
+
+    var canRunCensus: Bool { censusAgent != nil && !isRunningCensus && !isDetecting }
+
+    /// Tier-2 discovery: have one healthy agent run the read-only census build
+    /// order to find the tools the plain probe couldn't, then VERIFY every
+    /// reported path locally before trusting it (health == runs). Only upgrades
+    /// non-ready drivers; never downgrades a tool that's already ready.
+    func runCensusDiscovery() {
+        guard let agent = censusAgent, !isRunningCensus, !isDetecting,
+              let manifest = registry.manifest(for: agent) else { return }
+        let prompt = ToolCensus.discoveryBuildOrder(for: registry.all)
+        var modelLabels: [String: String] = [:]
+        for m in models where modelLabels[m.driverId] == nil { modelLabels[m.driverId] = m.modelLabel }
+        let registryCopy = registry
+        let storeCopy = setupStore
+        let invocations = runnerInvocations
+        let completedAt = setupStore.load().setupCompletedAt
+        isRunningCensus = true
+        lastCensusSummary = nil
+        Task { @MainActor [weak self] in
+            let runner = WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: invocations)
+            let outcome = await runner.invoke(
+                worker: agent, manifest: manifest, prompt: prompt,
+                workingDirectoryOverride: AllnighterPaths.ensuredProbeScratchPath(),
+                timeoutOverride: .seconds(180)
+            )
+            guard let self else { return }
+            guard let text = outcome.output, let census = try? ToolCensus.parse(text) else {
+                self.lastCensusSummary = "Discovery didn’t return readable results."
+                self.isRunningCensus = false
+                return
+            }
+            let discovered = await CLIDetector(commandRunner: SubprocessCommandRunner())
+                .ingestCensus(census, manifests: registryCopy.all, models: modelLabels, now: Date(), smoke: true)
+            let before = Set(self.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+            self.toolStatuses = Self.mergedToolStatuses(existing: self.toolStatuses, discovered: discovered)
+            try? storeCopy.save(.init(records: self.toolStatuses, setupCompletedAt: completedAt))
+            let after = Set(self.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+            let newlyReady = after.subtracting(before).count
+            self.lastCensusSummary = newlyReady > 0
+                ? "Found and verified \(newlyReady) more tool\(newlyReady == 1 ? "" : "s")."
+                : "No additional ready tools found."
+            self.isRunningCensus = false
+        }
+    }
+
+    /// Merge census-discovered records into existing tool status. Pure so the
+    /// merge policy is unit-testable: a ready tool is never downgraded; a
+    /// non-ready tool is replaced only by a discovered record that's an
+    /// improvement (ready, or at least carries a verified invocation); brand-new
+    /// drivers are appended. Existing order is preserved.
+    static func mergedToolStatuses(existing: [ToolProbeRecord], discovered: [ToolProbeRecord]) -> [ToolProbeRecord] {
+        var byId = Dictionary(existing.map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
+        for rec in discovered {
+            if byId[rec.driverId]?.status.isReady == true { continue }
+            if rec.status.isReady || rec.invocation != nil { byId[rec.driverId] = rec }
+        }
+        var order = existing.map(\.driverId)
+        for rec in discovered where !order.contains(rec.driverId) { order.append(rec.driverId) }
+        return order.compactMap { byId[$0] }
     }
 
     // MARK: - History

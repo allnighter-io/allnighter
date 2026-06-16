@@ -123,6 +123,48 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(model.isDetecting, "a non-user-initiated full probe must not spawn")
     }
 
+    // MARK: - Census merge policy (C3)
+
+    private func record(_ driver: String, ready: Bool, path: String? = nil) -> ToolProbeRecord {
+        ToolProbeRecord(
+            driverId: driver,
+            status: ready ? .ready(version: "1.0") : .notInstalled,
+            invocation: path.map { .direct(path: $0) },
+            version: ready ? "1.0" : nil,
+            lastProbeAt: Date(timeIntervalSince1970: 0)
+        )
+    }
+
+    func testCensusMergeNeverDowngradesReadyTool() {
+        let existing = [record("claude_code", ready: true, path: "/x/claude")]
+        let discovered = [record("claude_code", ready: false)]
+        let merged = AppModel.mergedToolStatuses(existing: existing, discovered: discovered)
+        XCTAssertTrue(merged.first { $0.driverId == "claude_code" }?.status.isReady ?? false,
+                      "a ready tool must never be downgraded by a later census")
+    }
+
+    func testCensusMergeUpgradesNonReadyAndAppendsNew() {
+        let existing = [record("claude_code", ready: true, path: "/x/claude"),
+                        record("grok", ready: false)]
+        let discovered = [record("grok", ready: true, path: "/x/grok"),       // upgrade
+                          record("codex", ready: true, path: "/x/codex")]      // brand-new
+        let merged = AppModel.mergedToolStatuses(existing: existing, discovered: discovered)
+        let byId = Dictionary(uniqueKeysWithValues: merged.map { ($0.driverId, $0) })
+        XCTAssertTrue(byId["grok"]?.status.isReady ?? false, "non-ready grok upgraded to ready")
+        XCTAssertEqual(byId["codex"]?.invocation, .direct(path: "/x/codex"), "new driver appended")
+        XCTAssertEqual(merged.count, 3)
+        XCTAssertEqual(merged.prefix(2).map(\.driverId), ["claude_code", "grok"], "existing order preserved")
+    }
+
+    func testCensusMergeIgnoresUselessDiscovery() {
+        let existing = [record("grok", ready: false)]
+        // Discovered record has no ready status and no invocation → not an improvement.
+        let discovered = [record("grok", ready: false)]
+        let merged = AppModel.mergedToolStatuses(existing: existing, discovered: discovered)
+        XCTAssertEqual(merged.count, 1)
+        XCTAssertNil(merged.first?.invocation)
+    }
+
     func testHistorySelectionDrivesDisplayRun() {
         let model = AppModel()
         let past = TeamRun(id: "r1", prompt: "old prompt", status: .complete, createdAt: Date())
