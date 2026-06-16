@@ -152,8 +152,11 @@ alln work
 alln pending add [prompt]
 alln pending list
 alln pending show <pending-id>
+alln pending submit <pending-id>
+alln pending edit <pending-id>
 alln pending cancel <pending-id>
 alln pending run <pending-id>
+alln pending stop <pending-id>
 alln dispatch
 alln pair
 alln mcp serve --stdio
@@ -379,6 +382,7 @@ Starter error catalog:
 | `TEAM_RUN_TIMEOUT` | Retry with lower effort or fewer workers. |
 | `NESTED_TEAM_BLOCKED` | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | Wait or retry after current team run completes. |
+| `PENDING_MUTATION_DEFERRED` | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
 | `RUN_NOT_FOUND` | Run `alln history --json`. |
 | `COORDINATOR_UNAVAILABLE` | Use foreground CLI or start resident mode when available. |
 | `JSON_SCHEMA_VIOLATION` | Treat as implementation bug; run export-contracts check. |
@@ -469,10 +473,13 @@ team_start
 team_status
 team_result
 pending_add
+pending_submit
+pending_edit
 pending_list
 pending_show
 pending_cancel
 pending_run
+pending_stop
 team_recall
 doctor
 ```
@@ -572,24 +579,37 @@ Authority:
 Grammar:
 
 ```bash
-alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|tonight|manual] [--cwd <path>] [--may-write] [--json]
+alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--submit] [--json]
 alln pending list [--json]
 alln pending show <pending-id> [--json]
+alln pending submit <pending-id> [--json]
+alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--json]
 alln pending cancel <pending-id> [--json]
 alln pending run <pending-id> [--json | --stream]
+alln pending stop <pending-id> [--json]
 ```
 
 Rules:
 
-- `alln pending add` creates a `PendingItem`; it does not imply the worker is
-  available.
+- `alln pending add` creates a Draft `PendingItem`; it does not imply the worker
+  is available and it is not eligible to drain until submitted.
+- `--submit` creates the item and immediately moves it to Pending.
+- `alln pending submit` moves Draft to Pending.
+- `alln pending edit` changes the item and returns it to Draft when it was
+  Pending.
 - `--when ready` stores `drainMode: drainWhenReady`.
-- `--when tonight` stores `drainMode: drainOvernight`.
+- `--when away` stores `drainMode: drainAway`.
 - `--when manual` stores `drainMode: manualStart`.
-- `--may-write` is required for any pending dispatch that can mutate a working
-  directory; safety is rechecked at run time.
-- `alln pending run` attempts now when policy permits; if admission blocks, it
-  returns a held Pending item with sourced reasons instead of guessing.
+- Mutating dispatch is out of Pending M1. A Pending item that would require
+  unattended writes returns `PENDING_MUTATION_DEFERRED` until the dispatch phase
+  owns that surface.
+- `alln pending run` submits Draft first, then attempts now when policy permits;
+  if admission blocks, it returns a Pending item with sourced reasons instead of
+  guessing.
+- `alln pending stop` stops a Running attempt and returns the item to Pending
+  with a resume packet. It does not cancel the item.
+- `alln pending cancel` cancels Draft or Pending items. Cancelling Running first
+  stops the active attempt, then marks the item cancelled.
 - JSON mode prints exactly one object to stdout. Stream mode prints only NDJSON
   attempt events to stdout.
 - The GUI and iOS must be able to render Pending from `alln pending list --json`
@@ -615,7 +635,7 @@ Required `pendingItem` fields:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `id` | string | Stable pending id. |
-| `status` | enum | `draft`, `ready`, `held`, `leased`, `running`, `done`, `failed`, `cancelled`, or `needsAttention`. |
+| `status` | enum | `draft`, `pending`, `running`, `done`, `failed`, or `cancelled`. |
 | `title` | string | User-visible row title. |
 | `kind` | enum | `workerChat`, `teamRun`, `workOrder`, `dispatch`, `returnReview`, or `followUp`. |
 | `origin` | enum | `cli`, `gui`, `ios`, `mcp`, `localApi`, `system`, or `preset`. |
@@ -624,7 +644,8 @@ Required `pendingItem` fields:
 | `createdAt` | string | ISO 8601 timestamp. |
 | `updatedAt` | string | ISO 8601 timestamp. |
 | `nextWakeAt` | string/null | Observed reset or scheduled recheck time, never guessed. |
-| `heldReason` | string/null | Current sourced reason when held. |
+| `blockedReason` | string/null | Current sourced reason when Pending cannot run yet. |
+| `needsAttention` | boolean | Derived flag from `blockedReason`/manual action; not a lifecycle status. |
 
 Admission projection:
 
@@ -641,9 +662,12 @@ NDJSON event names:
 
 ```text
 pendingAdded
-pendingHeld
+pendingSubmitted
+pendingEdited
+pendingBlocked
 pendingLeased
 pendingStarted
+pendingStopped
 pendingAttemptEvent
 pendingCompleted
 pendingFailed
@@ -656,10 +680,14 @@ Pending completion gate:
 - `PendingItemJSON` fixture checked in.
 - Pending schema generated.
 - `alln pending list --json` contains no quota/cost/runtime/token estimates.
-- `alln pending run` returns held state when admission blocks.
+- `alln pending add` creates Draft unless `--submit` is provided.
+- Editing a Pending item returns it to Draft.
+- `alln pending run` returns Pending with `blockedReason` when admission blocks.
+- `alln pending stop` returns Running to Pending.
 - `alln serve` drains eligible Pending while the GUI is closed.
 - Fake-clock test proves observed `resetAt` wakeup.
-- Dirty-working-directory test blocks unattended mutating dispatch.
+- Mutation-deferred test proves unattended mutating dispatch does not run through
+  Pending M1.
 - `alln doctor --json` reports coordinator and admission-parser health.
 - `alln dev export-contracts --check` passes.
 - `swift test` passes or missing proof is explicitly waived.
@@ -669,9 +697,12 @@ Pending Works Test:
 ```bash
 alln serve
 alln pending add --worker claude --when ready --json "Review this patch when Claude is available."
+alln pending submit <pending-id> --json
+alln pending add --submit --worker claude --when ready --json "Continue security review."
 alln pending list --json
 alln pending show <pending-id> --json
 alln pending run <pending-id> --json
+alln pending stop <pending-id> --json
 alln doctor --json
 alln dev export-contracts --check
 ```

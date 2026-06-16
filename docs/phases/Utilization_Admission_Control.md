@@ -68,7 +68,7 @@ Execute in this order:
 1. CLI/resident prerequisite:
    incremental run journal + alln serve + alln doctor coordinator checks
 2. Pending CLI contract:
-   alln pending add/list/show/cancel/run + PendingItemJSON
+   alln pending add/submit/edit/list/show/cancel/run/stop + PendingItemJSON
 3. Utilization0:
    observed admission ledger + parser fixtures + single/team admission checks
 4. Utilization1:
@@ -89,8 +89,8 @@ the same Core/CLI truth after the command contract exists.
 - No silent worker substitution.
 - No generic "optimize spend" router.
 - No browser scraping by default.
-- No mutating unattended dispatch unless the work order and safety checks allow
-  it explicitly.
+- No mutating unattended dispatch in Pending v1. Later dispatch phases may add it
+  only with explicit work-order intent and safety checks.
 
 Deferred elsewhere:
 
@@ -99,7 +99,7 @@ Deferred elsewhere:
 - Context handoff / workspace bridge belongs to work threads and dispatch.
 - Agent-initiated design boards and deeper delegation fan-out deserve their own
   phase doc; this doc defines the availability policy they will consume.
-- Pending item semantics, Night Shift, cooldown resume packets, and Morning Pull
+- Pending item semantics, Away Mode, cooldown resume packets, and Activity Summary
   live in `Pending_Work_And_Drain.md`.
 - Process lifetime for app-closed execution lives in
   `Mac_Standalone_App_And_Background_Coordinator.md` and is implemented through
@@ -121,6 +121,8 @@ Allowed:
 - Observed worker state.
 - Observed provider messages.
 - Observed reset/cooldown times when the provider or CLI reports them.
+- Observed local recovery intervals: wall event -> later successful attempt for
+  the same source/model.
 - Exact selected work shape: model, worker lineup, stage, effort setting,
   fallback policy.
 - Actual outcomes after work runs.
@@ -144,8 +146,8 @@ Existing truth owners:
 Existing useful pieces:
 
 - Worker drivers already observe real run success/failure.
-- Thread turns and runs already have status vocabulary that can render held,
-  running, failed, and completed work.
+- Thread turns and runs already have status vocabulary that can render Pending,
+  Running, failed, and completed work.
 - The pending phase now requires `alln pending` and `alln serve` before GUI-only
   execution promises.
 
@@ -179,9 +181,11 @@ Lie-prone layers:
 
 New/changed semantic rules:
 
-- Pending means saved user intent; admission decides whether an attempt can run.
-- Waiting means a pending/queued attempt is blocked by sourced admission, safety,
-  local slot, or manual action.
+- Draft means editable saved intent that is not submitted.
+- Pending means submitted intent; admission decides whether an attempt can run.
+- Running means an active attempt.
+- Blocked admission or safety appears as a sourced reason under Pending, not as a
+  separate public Waiting state.
 - Queue remains internal scheduler language.
 - `alln serve` is the drainer for app-closed Pending work.
 - PTY probes are optional admission signals, never the baseline truth source.
@@ -203,9 +207,9 @@ Allnighter keeps your AI bench moving and tells you when something needs you.
 Example floor copy:
 
 ```text
-3 pending · 1 waiting
+4 pending
 Codex available
-Claude cooling down until 2:14 AM - observed from Claude
+Claude pending - cooling down until 2:14 AM, observed from Claude
 Gemini unknown - will check before dispatch
 Grok needs sign-in
 ```
@@ -267,6 +271,19 @@ CapacityEvent
 ```
 
 ```text
+RecoveryObservation
+- modelId
+- sourceId?
+- wallEventId: CapacityEvent.ID       # rateLimited/exhausted/cooling event
+- recoveredEventId: CapacityEvent.ID  # later success
+- wallObservedAt
+- recoveredAt
+- intervalSeconds
+- source
+- confidence: medium | low
+```
+
+```text
 AdmissionRequest
 - turnId?
 - runId?
@@ -295,6 +312,8 @@ Notes:
 - `manualRequired` is a worker capability/admission state for paste-only flows.
   It is eligible only when the user is present.
 - `resetAt` is present only when directly observed or user-entered.
+- `RecoveryObservation` is historical local evidence, not a reset promise. It
+  may tune recheck timing, but UI must not render it as provider-reported reset.
 - `degraded` means "works, but route cautiously": repeated timeouts, partial
   responses, parse instability, or flaky CLI behavior.
 - `rawSnippet` stays local and truncated for parser proof/debug.
@@ -432,7 +451,10 @@ Rules:
 - `available`: eligible for matching requests.
 - `busy`: wait for local slot.
 - `coolingDown` with observed `resetAt`: wake at `resetAt` plus jitter.
-- `coolingDown` without `resetAt`: back off and recheck later.
+- `coolingDown` without `resetAt`: back off and recheck later. If local
+  recovery observations exist for that source/model, the scheduler may choose a
+  next check from that observed cadence, labeled as a local retry policy rather
+  than a provider reset.
 - `exhausted`: hold until a later observed signal or user action changes state.
 - `authRequired`: hold and ask user to sign in.
 - `manualRequired`: hold unless the user is present and chooses the paste flow.
@@ -441,6 +463,14 @@ Rules:
 
 No rule may depend on guessed task cost, guessed task duration, or guessed token
 burn.
+
+No-reset honesty:
+
+- Provider-observed reset: "Pending - Claude cooling until 3:30 PM, observed from
+  Claude."
+- Local retry policy from recovery observations: "Pending - Claude cooling; next
+  check at 3:30 PM based on local recovery history."
+- No useful signal yet: "Pending - Claude cooling; will check later."
 
 Quiet hours:
 
@@ -454,7 +484,7 @@ Local slots:
 - Use a global concurrency governor and per-worker slots.
 - A worker with no free local slot is `busy` even if provider capacity is
   available.
-- Fairness default: priority/pinned turns first, then oldest ready turn, with at
+- Fairness default: priority/pinned turns first, then oldest submitted Pending turn, with at
   most one new heavy turn per thread per scheduler sweep to avoid starvation.
 
 ## Present vs Away
@@ -479,15 +509,16 @@ to answer immediately:
 - follow the stored fallback/partial-team policy;
 - if policy is ambiguous, hold and mark the thread/turn needs attention.
 
-Mutating dispatch safety:
+Mutating dispatch boundary:
 
 - Non-mutating turns (worker chat, team run, review, planning, return review)
   may run away if admission passes.
-- Mutating dispatch may run away only when the user explicitly added that work
-  order to Pending/Night Shift for unattended dispatch and the current safety
-  checks pass.
+- Pending v1 does not run unattended mutating dispatch.
+- Later dispatch phases may add unattended mutation only when the user explicitly
+  added that work order to Pending/Away Mode for unattended dispatch and current
+  safety checks pass.
 - Without a managed-isolation phase, a dirty or changed working directory blocks
-  unattended mutating dispatch and creates a needs-attention turn.
+  unattended mutating dispatch and creates a needs-attention badge.
 
 ## Effort and Admission
 
@@ -604,7 +635,7 @@ Recommendations may use:
 Recommendations may not use guessed prompt complexity, guessed burn, or fake
 remaining quota.
 
-## Pending And Waiting UX
+## Pending UX
 
 Capacity should appear where it changes behavior: on Pending, the thread
 composer, worker picker, active floor, and iOS floor manager. It should not
@@ -613,18 +644,22 @@ become a quota dashboard.
 Public words:
 
 ```text
-Pending = saved user intent that has not completed yet.
-Waiting = an attempt is blocked by admission, local slot, safety, or manual action.
+Draft   = editable saved intent; not submitted and not eligible to drain.
+Pending = submitted intent; may run when admission and safety allow.
+Running = active attempt.
 Queue   = internal scheduler machinery; avoid in core GUI copy.
 ```
+
+Blocked admission, local slots, safety, auth, or manual action render as reasons
+under Pending. The user does not need a public Waiting state.
 
 Useful copy:
 
 ```text
 3 pending
-Waiting for Claude - cooling down until 2:14 AM, observed from Claude
-Waiting for local slot - Codex is already running
-Grok paused - sign in required
+Pending - Claude cooling until 2:14 AM, observed from Claude
+Pending - local slot busy; Codex is already running
+Pending - Grok sign-in required
 Gemini unknown - will check before dispatch
 Claude has been flaky - last 2 runs timed out
 Team ran with 4 of 6 selected workers; 2 were cooling down
@@ -654,18 +689,18 @@ Example:
 Since you last checked:
 - 4 turns completed
 - 1 team ran with 4 of 6 selected workers
-- 1 dispatch held - working directory changed
+- 1 dispatch pending - working directory changed
 - 1 worker needs sign-in
 
 Workers used:
 - Codex: 3 turns
 - Gemini: 1 team worker
-- Claude: held until 2:14 AM, observed from Claude
+- Claude: pending until 2:14 AM, observed from Claude
 ```
 
-This may appear as Morning Pull, a thread/floor recap, or an iOS summary. The
+This may appear as Activity Summary, a thread/floor recap, or an iOS summary. The
 name of the surface may vary; the contract is the same: actual completed,
-failed, held, skipped, and needs-attention work. No estimates.
+failed, blocked, skipped, and needs-attention work. No estimates.
 
 ## Thread / Composer Interaction
 
@@ -710,8 +745,9 @@ iOS must be able to answer:
 
 ```text
 What is running?
-What is pending?
-What is waiting, and why?
+What is Draft?
+What is Pending, and why?
+What is Running?
 Which worker needs me?
 Can I stop it?
 Can I approve a pending action?
@@ -745,7 +781,8 @@ Global prerequisites:
   durable.
 - `alln doctor --json` can report coordinator, source auth, and parser-fixture
   health.
-- `alln pending` can create/list/show/cancel/run `PendingItemJSON`.
+- `alln pending` can create/submit/edit/list/show/cancel/run/stop
+  `PendingItemJSON`.
 
 ### Utilization0 - Observed Admission Ledger
 
@@ -765,6 +802,8 @@ Scope:
   `AdmissionRequest`, and `AdmissionPolicy`.
 - `ProviderObservation` parser seam shared with observed usage.
 - Rate-limit/auth/exhausted/timeout/degraded parser for `WorkerRunner` failures.
+- `RecoveryObservation` creation when a later success follows a cooldown/rate
+  limit without provider reset time.
 - Local ledger persisted beside run/thread history.
 - Window aggregation and confidence precedence.
 - Thread/composer badges and present-mode decisions.
@@ -803,6 +842,7 @@ Proof commands:
 ```text
 swift test --filter Admission
 swift test --filter ProviderObservation
+swift test --filter RecoveryObservation
 alln doctor --json
 ```
 
@@ -823,6 +863,8 @@ Scope:
 
 - Queue wakeups from observed reset times.
 - Jittered retries and backoff.
+- Recheck timing can use observed local recovery cadence when no provider
+  `resetAt` exists, without presenting it as a provider reset.
 - Local concurrency slots and fairness.
 - Auth-required holds.
 - Degraded-worker policy.
@@ -830,9 +872,10 @@ Scope:
 - Present vs away behavior.
 - Activity summary of actual outcomes.
 - iOS-readable admission state snapshots/events.
-- Pending list rows that can show `pending`, `waiting`, `running`, `done`,
+- Pending list rows that can show `Draft`, `Pending`, `Running`, `done`,
   `failed`, `cancelled`, and `needs attention`.
-- `alln pending run <id>` behavior for present/manual attempts.
+- `alln pending run <id>` behavior for present/manual attempts; if the item is
+  Draft, run submits it first.
 - `alln serve` drain behavior for away/unattended attempts.
 
 Out of scope:
@@ -846,17 +889,17 @@ Works Test:
 ```text
 Three Pending items, two workers cooling down, one available.
 Scheduler dispatches only admissible work.
-At observed reset time, one held worker is retried once.
-Summary reports actual completed/failed/held work, not estimates.
+At observed reset time, one blocked Pending item is retried once.
+Summary reports actual completed/failed/blocked work, not estimates.
 ```
 
-Safety Works Test:
+Mutation-Deferred Works Test:
 
 ```text
-Queue a mutating dispatch while away.
-Before dispatch, mark the working directory changed.
-Allnighter holds the dispatch, creates a needs-attention turn, and does not run
-the worker.
+Create a Pending item that would require unattended mutation.
+Set the user away.
+Allnighter keeps it Pending with mutation-deferred reason and does not run the
+worker.
 ```
 
 App-closed Works Test:
@@ -869,6 +912,17 @@ Fake clock reaches observed resetAt.
 alln serve leases and runs the item.
 Reopen the GUI.
 The same pending/run/thread journal renders without field translation.
+```
+
+No-Reset Works Test:
+
+```text
+Fake Claude rate-limits without resetAt.
+Scheduler keeps the item Pending and schedules a conservative retry.
+Later fake Claude succeeds.
+Allnighter records wall -> recovery interval.
+Future no-reset cooldown uses that observed cadence for next check copy labeled
+as local recovery history, not provider reset.
 ```
 
 Proof commands:
@@ -942,15 +996,15 @@ alln doctor --json --full
   policy that requires known availability.
 - It can resume when an observed reset or later signal says the worker may run.
 - `alln serve` can drain admissible Pending while the app window is closed.
-- The user can see why work is pending/waiting in thread, Pending, Mac floor, and iOS
+- The user can see why work is Pending in thread, Pending, Mac floor, and iOS
   floor views where implemented.
 - Present users can explicitly switch, fallback, run partial teams, or retry
   stale states where policy permits.
 - Away-mode scheduling never silently switches workers or uses manual override.
 - Team runs have deterministic full/partial/fallback behavior.
 - A skipped or unavailable worker is visible to the plan writer and the user.
-- Mutating away dispatch is gated by explicit Pending/Night Shift intent and
-  safety checks.
+- Mutating away dispatch remains deferred from Pending v1 and cannot run through
+  the baseline Pending drain.
 - The local admission ledger can be reset.
 - PTY probes, when enabled, are opt-in, cached, timeout-bound, fixture-tested,
   and never required for the baseline Pending drain.

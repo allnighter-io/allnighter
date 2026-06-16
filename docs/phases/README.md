@@ -10,11 +10,11 @@ The MVP team-run substrate has been built. Going forward,
 notes, and implementation phase docs.
 
 > **▶ [`setup/`](setup/README.md) — First-Run Setup ("assemble your team").**
-> Specs finalized; design + build pending. **Phase 0 is a confirmed prerequisite
-> bug:** the bundled driver manifests don't ship as a `Drivers/` folder, so first
-> run shows a broken "0/1 healthy" team. Fix packaging first, then the
-> CLI-detection engine, then the Setup UX. See `setup/README.md` for the build
-> order.
+> Phase 0 (packaging) and Phase 1 (detection engine: `CLIDetector` +
+> `ShellResolver` + `SetupStore`, reachable headless via `alln detect`) are
+> **built**; Phase 2 (app consumes the detector) is largely built. Remaining:
+> Phase 4 auto-team (engine), the Phase 2 "health == runs" check, and the Setup UX
+> (Phase 3, **blocked on designer mocks**). See `setup/README.md` for live status.
 
 `docs/mvp/` remains the source of truth for what has already shipped and for the
 foundation it created: workers, drivers, fan-out, synthesis, design boards, and
@@ -27,7 +27,7 @@ otherwise.
 | --- | --- | --- |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
-| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Night Shift drain, cooldown resume, and Morning Pull as the brand-fit utilization unlock. |
+| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Draft v3 for mentor feedback | Make `alln` a first-class, agent-ready CLI/tool contract, replace RB6 public grammar, and align the Mac app around the same command/schema model. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | Draft implementation contract | Exact `alln` milestone-1 schemas, docs/doctor/error/event surfaces, generated artifacts, MCP projection rules, and proof gates. |
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
@@ -137,7 +137,7 @@ Open questions:
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
 | Utilization, admission control, worker availability, pending dispatch | `Utilization_Admission_Control.md` |
-| Pending, Night Shift, cooldown resume, Morning Pull, drain policy | `Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md` + `Mac_Standalone_App_And_Background_Coordinator.md` |
+| Pending, Away Mode, cooldown resume, Activity Summary, drain policy | `Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md` + `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Copy lane, `/copy`, copy type packs, copy board | `copy/README.md` |
 | iOS remote floor manager | `ios/README.md` |
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |

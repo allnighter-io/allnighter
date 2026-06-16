@@ -69,7 +69,7 @@ Derived, never stored:
 
 ```text
 WorkThread.isRunning       = any turn.status in { queued, running }
-WorkThread.hasPending      = linked PendingItem exists with status in { ready, held, leased }
+WorkThread.hasPending      = linked PendingItem exists with status == pending
 WorkThread.needsAttention  = failed/timedOut/manual-paste/sign-in turn exists
 WorkThread.lastWorkerId    = most recent user-facing worker turn; for a team
                               result this is the plan writer
@@ -140,7 +140,7 @@ Use granular storage kinds but simple UI families:
 | Reply | `worker_chat` | One-worker response |
 | Team | `teamRun`, `designBoard`, `reviewBoard` | Rich expandable run turn |
 | Build | `work_order`, `dispatch`, `return_review` | Spec, execution, result |
-| System | `system_event` | Migration, waiting, sign-in, manual-paste notes |
+| System | `system_event` | Migration, Pending reasons, sign-in, manual-paste notes |
 
 ## Thread List Contract
 
@@ -164,7 +164,7 @@ Row content:
 - preview from the most recent meaningful turn;
 - last worker glyph/chip when present;
 - relative time;
-- derived state: pending, running, waiting, failed, manual-paste, auth-required;
+- derived state: draft, pending, running, failed, manual-paste, auth-required;
 - optional `workingDir` path chip when set.
 
 Minimum list affordances:
@@ -246,8 +246,10 @@ Guardrails:
   limited-context badges to the happy path.
 - If the resolved worker is `authRequired`, `coolingDown`, `degraded`, `busy`, or
   `unknown`, the composer shows the observed reason and offers explicit choices:
-  add to Pending when allowed, switch worker, manual-paste, or attempt anyway
+  save Draft, submit to Pending, switch worker, manual-paste, or attempt anyway
   where admission policy permits. It never silently sends to a different worker.
+- Pending is primarily a thread-composer capture path: it preserves the next turn
+  in this thread when the chosen worker cannot accept it yet.
 - One active heavy turn (`teamRun`, `dispatch`, `return_review`) is allowed
   per thread in v1. While one is active, new heavy actions are disabled with an
   explanation. Simple chat may continue only if the coordinator can safely attach
@@ -307,7 +309,8 @@ The MLP must still avoid dead-chat feel:
 - Create the worker turn immediately with status `running`.
 - Show worker, model, running heartbeat, and elapsed time while running.
 - Land the full reply when the CLI exits.
-- Cancel kills the subprocess and leaves a cancelled turn.
+- Stop kills the active attempt and returns linked Pending work to Pending.
+- Cancel is separate: it cancels Draft/Pending intent so no future attempt runs.
 - Timeout leaves a timed-out turn with elapsed time and worker provenance.
 - Auto-scroll to new content only when the user is already near the bottom.
 - Notification deep-links and future menu-bar jumps focus the relevant turn.
@@ -400,7 +403,7 @@ Notable model decisions made during build (not in the original spec, keep on
 resume):
 - Liveness is fully derived (`WorkThread.isRunning/needsAttention/lastWorkerId/
   preview/hasActiveHeavyTurn`); nothing stored.
-- `SystemEventKind` (`migration_imported`/`waiting`/`sign_in_required`/
+- `SystemEventKind` (`migration_imported`/`pending_reason`/`sign_in_required`/
   `manual_paste`) discriminates `system_event` turns. A blocking note
   (sign-in / manual-paste) is created `running` and raises `needsAttention`
   only while non-terminal, then transitioned to `done` to clear attention.

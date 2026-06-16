@@ -183,11 +183,14 @@ alln docs --schema                 # generated JSON/NDJSON schemas
 alln docs --examples               # generated example recipes
 alln work [prompt]                 # create a work order
 alln work from latest              # promote a plan/result into a work order
-alln pending add [prompt]          # save work to run when admitted
-alln pending list                  # list pending work and held reasons
+alln pending add [prompt]          # save editable Draft work
+alln pending submit <pending-id>   # submit Draft to Pending
+alln pending edit <pending-id>     # edit and return item to Draft
+alln pending list                  # list Draft, Pending, and Running work
 alln pending show <pending-id>     # inspect one pending item
 alln pending cancel <pending-id>   # cancel pending work before it runs
 alln pending run <pending-id>      # attempt one pending item now
+alln pending stop <pending-id>     # stop Running and return to Pending
 alln history                       # list recent runs
 alln show latest                   # show one run
 alln export latest --format md     # export result bundle
@@ -206,11 +209,12 @@ alln mcp install                   # write MCP config with user consent
 `alln mcp` may remain a transport command family, but tool names must use the
 new surface (`team_ask`, not `council_ask`).
 
-`alln pending` is the public command family for saved work that should run later
-or when selected workers become admissible. The GUI word is **Pending**; "queue"
-is internal scheduler language. Because Pending must execute while the app window
-is closed, `alln serve` is pulled forward from "someday resident mode" into the
-Pending milestone.
+`alln pending` is the public command family for Draft work, submitted Pending
+work, and Running attempts. The GUI words are **Draft**, **Pending**, and
+**Running**; "queue" is internal scheduler language. Editing Pending returns it
+to Draft. Stopping Running returns it to Pending. Because Pending must execute
+while the app window is closed, `alln serve` is pulled forward from "someday
+resident mode" into the Pending milestone.
 
 Do not use `alln prompt` as the primary work-order command. A prompt is the input
 object. The product object is a work order, so the command is `alln work`.
@@ -535,7 +539,7 @@ handlers:
 | Async start | `alln team start --json "..."` | `team_start` |
 | Status | `alln team status <run-id> --json` | `team_status` |
 | Result | `alln team result <run-id> --json` | `team_result` |
-| Pending work | `alln pending add/list/show/cancel/run --json` | `pending_*` |
+| Pending work | `alln pending add/submit/edit/list/show/cancel/run/stop --json` | `pending_*` |
 | History/recall | `alln history --json` / `alln show <run-id>` | `team_recall` |
 | Doctor | `alln doctor --json` | `doctor` |
 
@@ -739,11 +743,14 @@ Prerequisites:
 Commands:
 
 ```bash
-alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|tonight|manual] [--cwd <path>] [--may-write] [--json]
+alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--submit] [--json]
+alln pending submit <pending-id> [--json]
+alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--json]
 alln pending list [--json]
 alln pending show <pending-id> [--json]
 alln pending cancel <pending-id> [--json]
 alln pending run <pending-id> [--json | --stream]
+alln pending stop <pending-id> [--json]
 alln serve
 ```
 
@@ -752,9 +759,12 @@ Works Test:
 ```bash
 alln serve
 alln pending add --worker claude --when ready --json "Review this patch when Claude is available."
+alln pending submit <pending-id> --json
+alln pending add --submit --worker claude --when ready --json "Continue security review."
 alln pending list --json
 alln pending show <pending-id> --json
 alln pending run <pending-id> --json
+alln pending stop <pending-id> --json
 alln doctor --json
 ```
 
