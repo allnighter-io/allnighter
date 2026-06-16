@@ -604,6 +604,14 @@ final class AppModel {
         try? setupStore.save(state)
     }
 
+    /// DEV: clear the first-run completion flag so launch re-shows onboarding —
+    /// lets the founder re-experience first-run from the GUI routes sheet.
+    func resetSetupCompleted() {
+        var state = setupStore.load()
+        state.setupCompletedAt = nil
+        try? setupStore.save(state)
+    }
+
     #if DEBUG
     /// DEBUG dev panel — seed mixed-health bench state (never persisted).
     func applyDevBenchScenario(_ scenario: String) {

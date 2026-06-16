@@ -8,6 +8,7 @@ enum DevGUIScreen: String, CaseIterable, Identifiable {
     case teamDropdown
     case cliSetupPopover
     case cliSetupPage
+    case firstRunOnboarding
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ enum DevGUIScreen: String, CaseIterable, Identifiable {
         case .teamDropdown: return "Team dropdown"
         case .cliSetupPopover: return "CLI setup popover"
         case .cliSetupPage: return "CLI setup page"
+        case .firstRunOnboarding: return "First-run onboarding"
         }
     }
 }

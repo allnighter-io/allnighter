@@ -1,0 +1,4 @@
+# GUI proof waivers — non-visible changes to view files.
+# <hash>  <path>  # <reason> (<date>)
+d7a543ea455332593ed72037de2d84adc03c3ca7  Apps/AllnighterMac/Sources/RootView.swift  # Dev-only first-run route added to the DEBUG GUI-routes sheet; RootView delta is dev-route navigation logic only — no user-facing surface changed (readiness/dropdown/popover renders byte-identical to the sealed 2026-06-16 packets) (2026-06-16)
+fd4e8c12e3bc60842c972bd8315c4ebafcdaed21  Apps/AllnighterMac/Sources/DevSettingsView.swift  # Dev-only first-run route added to the DEBUG GUI-routes sheet; RootView delta is dev-route navigation logic only — no user-facing surface changed (readiness/dropdown/popover renders byte-identical to the sealed 2026-06-16 packets) (2026-06-16)

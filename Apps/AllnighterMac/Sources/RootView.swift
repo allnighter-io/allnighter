@@ -214,6 +214,15 @@ struct RootView: View {
             showDoctor = false
             readinessFocus = GUIFixture.readinessFocusDriverId(for: scenario ?? devBenchScenario)
             showReadiness = true
+        case .firstRunOnboarding:
+            // Re-experience first-run: clear the completion flag (so the gating
+            // would also fire on the next real launch) and open the onboarding
+            // page exactly as a brand-new user lands on it.
+            model.resetSetupCompleted()
+            showTeamDropdown = false
+            showDoctor = false
+            readinessFocus = GUIFixture.readinessFocusDriverId(for: scenario ?? devBenchScenario)
+            showReadiness = true
         }
     }
     #else
