@@ -186,6 +186,7 @@ alln work from latest              # promote a plan/result into a work order
 alln pending add [prompt]          # save editable Draft work
 alln pending submit <pending-id>   # submit Draft to Pending
 alln pending edit <pending-id>     # edit and return item to Draft
+alln pending reorder <pending-id>  # reorder Pending Execute work in one execution lane
 alln pending list                  # list Draft, Pending, and Running work
 alln pending show <pending-id>     # inspect one pending item
 alln pending cancel <pending-id>   # cancel pending work before it runs
@@ -539,7 +540,7 @@ handlers:
 | Async start | `alln team start --json "..."` | `team_start` |
 | Status | `alln team status <run-id> --json` | `team_status` |
 | Result | `alln team result <run-id> --json` | `team_result` |
-| Pending work | `alln pending add/submit/edit/list/show/cancel/run/stop --json` | `pending_*` |
+| Pending work | `alln pending add/submit/edit/reorder/list/show/cancel/run/stop --json` | `pending_*` |
 | History/recall | `alln history --json` / `alln show <run-id>` | `team_recall` |
 | Doctor | `alln doctor --json` | `doctor` |
 
@@ -746,6 +747,7 @@ Commands:
 alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--submit] [--json]
 alln pending submit <pending-id> [--json]
 alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--json]
+alln pending reorder <pending-id> [--before <pending-id> | --after <pending-id> | --position <n>] [--json]
 alln pending list [--json]
 alln pending show <pending-id> [--json]
 alln pending cancel <pending-id> [--json]
@@ -761,6 +763,7 @@ alln serve
 alln pending add --worker claude --when ready --json "Review this patch when Claude is available."
 alln pending submit <pending-id> --json
 alln pending add --submit --worker claude --when ready --json "Continue security review."
+alln pending reorder <pending-id> --before <other-pending-id> --json
 alln pending list --json
 alln pending show <pending-id> --json
 alln pending run <pending-id> --json

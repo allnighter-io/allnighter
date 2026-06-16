@@ -154,6 +154,7 @@ alln pending list
 alln pending show <pending-id>
 alln pending submit <pending-id>
 alln pending edit <pending-id>
+alln pending reorder <pending-id>
 alln pending cancel <pending-id>
 alln pending run <pending-id>
 alln pending stop <pending-id>
@@ -383,6 +384,7 @@ Starter error catalog:
 | `NESTED_TEAM_BLOCKED` | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | Wait or retry after current team run completes. |
 | `PENDING_MUTATION_DEFERRED` | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
+| `PENDING_REORDER_INVALID` | Keep order unchanged; reorder only Pending Execute items in the same execution lane. |
 | `RUN_NOT_FOUND` | Run `alln history --json`. |
 | `COORDINATOR_UNAVAILABLE` | Use foreground CLI or start resident mode when available. |
 | `JSON_SCHEMA_VIOLATION` | Treat as implementation bug; run export-contracts check. |
@@ -475,6 +477,7 @@ team_result
 pending_add
 pending_submit
 pending_edit
+pending_reorder
 pending_list
 pending_show
 pending_cancel
@@ -584,6 +587,7 @@ alln pending list [--json]
 alln pending show <pending-id> [--json]
 alln pending submit <pending-id> [--json]
 alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--json]
+alln pending reorder <pending-id> [--before <pending-id> | --after <pending-id> | --position <n>] [--json]
 alln pending cancel <pending-id> [--json]
 alln pending run <pending-id> [--json | --stream]
 alln pending stop <pending-id> [--json]
@@ -597,6 +601,13 @@ Rules:
 - `alln pending submit` moves Draft to Pending.
 - `alln pending edit` changes the item and returns it to Draft when it was
   Pending.
+- `alln pending reorder` changes execution-lane order only. It does not edit the
+  prompt, target, safety context, or lifecycle status.
+- Reorder is valid only for Pending Execute items in the same execution lane. A
+  Running item cannot be reordered.
+- Reorder is atomic: it takes a short execution-lane `editLock`, writes the new
+  order, emits audit, and releases the lock. `alln serve` must not start the next
+  item from that execution lane while the lock is open.
 - `--when ready` stores `drainMode: drainWhenReady`.
 - `--when away` stores `drainMode: drainAway`.
 - `--when manual` stores `drainMode: manualStart`.
@@ -623,6 +634,7 @@ contractVersion
 pendingItem
 target
 policy
+execution
 safety
 admission
 attempts
@@ -647,6 +659,31 @@ Required `pendingItem` fields:
 | `blockedReason` | string/null | Current sourced reason when Pending cannot run yet. |
 | `needsAttention` | boolean | Derived flag from `blockedReason`/manual action; not a lifecycle status. |
 
+Execution projection:
+
+```text
+intent: ask | execute
+executionLaneKey?
+executionLaneKeyVersion?
+executionLanePolicy: fifo | userOrdered
+executionLaneOrder?
+executionLaneHeadItemId?
+executionLaneBlockedByItemId?
+executionLanePausedReason?: user | editLock
+```
+
+Rules:
+
+- `Pending_Work_And_Drain.md` owns the execution-lane semantics.
+- `executionLaneKey` is internal scheduling/audit truth. Human copy should say
+  "prior execute order" or "execution lane," not unqualified "lane."
+- `executionLaneBusy` is a valid `blockedReason` when a later
+  same-execution-lane Execute item is Pending behind the current head item.
+- FIFO is the default execution-lane policy.
+- Manual reorder sets `executionLanePolicy: userOrdered` and records
+  `userReorderedExecutionLane` in audit.
+- CLI flags must not expose LIFO until the phase spec does.
+
 Admission projection:
 
 ```text
@@ -664,6 +701,7 @@ NDJSON event names:
 pendingAdded
 pendingSubmitted
 pendingEdited
+pendingReordered
 pendingBlocked
 pendingLeased
 pendingStarted
@@ -682,8 +720,14 @@ Pending completion gate:
 - `alln pending list --json` contains no quota/cost/runtime/token estimates.
 - `alln pending add` creates Draft unless `--submit` is provided.
 - Editing a Pending item returns it to Draft.
+- Reordering a Pending Execute item changes execution-lane order without changing
+  lifecycle status or prompt.
+- Invalid reorder returns `PENDING_REORDER_INVALID` and leaves order unchanged.
 - `alln pending run` returns Pending with `blockedReason` when admission blocks.
 - `alln pending stop` returns Running to Pending.
+- Same-execution-lane Execute fixture proves a later item reports
+  `executionLaneBusy` and does not start before the head item completes or is
+  cancelled.
 - `alln serve` drains eligible Pending while the GUI is closed.
 - Fake-clock test proves observed `resetAt` wakeup.
 - Mutation-deferred test proves unattended mutating dispatch does not run through
@@ -701,6 +745,7 @@ alln pending submit <pending-id> --json
 alln pending add --submit --worker claude --when ready --json "Continue security review."
 alln pending list --json
 alln pending show <pending-id> --json
+alln pending reorder <pending-id> --before <other-pending-id> --json
 alln pending run <pending-id> --json
 alln pending stop <pending-id> --json
 alln doctor --json

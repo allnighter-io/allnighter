@@ -200,10 +200,15 @@ per execution lane.
 An Execute order is work intended to let a target CLI act, not just answer. The
 same user can stack five Execute orders for Claude, leave the app window closed,
 and let `alln serve` keep Claude busy. Allnighter still submits only one Execute
-order at a time to the same lane.
+order at a time to the same execution lane.
 
-The lane rule is submission ordering only. It is not branch strategy, worktree
-management, isolation, commit policy, or merge policy.
+The execution-lane rule is submission ordering only. It is not branch strategy,
+worktree management, isolation, commit policy, or merge policy.
+
+An execution lane is an internal scheduler grouping. It is distinct from the
+product Lane vocabulary in `Work_Order_Team_Model.md` (`Build`, `Design`,
+`Copy`) and must always be qualified as "execution lane" in docs, JSON, logs, and
+debug UI.
 
 ## Public CLI Decision
 
@@ -212,8 +217,8 @@ Pending is public CLI vocabulary, not a GUI-only label.
 Required public surfaces:
 
 ```text
-GUI: Draft/Pending/Running rows, add-to-Draft and submit-to-Pending actions.
-CLI: alln pending add/submit/edit/list/show/cancel/run/stop, backed by the same PendingItem model.
+GUI: Draft/Pending/Running rows, add-to-Draft, submit-to-Pending, and reorder actions.
+CLI: alln pending add/submit/edit/reorder/list/show/cancel/run/stop, backed by the same PendingItem model.
 Resident: alln serve drains eligible Pending while the app window is closed.
 ```
 
@@ -247,9 +252,9 @@ Examples:
 - Draft items are never drained.
 - Pending items may be blocked by admission or safety, but they stay Pending in
   public UI.
-- Execute items drain FIFO per execution lane. Later same-lane Execute items stay
-  Pending until the earlier item is finished, cancelled, or explicitly skipped by
-  the user.
+- Execute items drain FIFO per execution lane. Later same-execution-lane Execute
+  items stay Pending until the earlier item is finished, cancelled, or explicitly
+  skipped by the user.
 - A worker reset time is used only when observed from provider/CLI output or
   user-entered.
 - If no reset time is known, rechecks use conservative backoff and local policy;
@@ -388,8 +393,10 @@ PendingPolicy
 ```text
 PendingExecution
 - intent: ask | execute
-- laneKey?
-- lanePolicy: fifo
+- executionLaneKey?
+- executionLaneKeyVersion?
+- executionLanePolicy: fifo | userOrdered
+- executionLaneOrder?
 ```
 
 ```text
@@ -431,6 +438,15 @@ PendingAttemptSummary
 - reason
 ```
 
+```text
+PendingExecutionLaneState
+- executionLaneKey
+- executionLanePolicy: fifo | userOrdered
+- pausedReason?: user | editLock
+- orderedItemIds: [PendingItem.ID]
+- editLease?: PendingLease
+```
+
 Notes:
 
 - `PendingItem` owns user intent. It may reference thread turns and runs, but it
@@ -438,8 +454,14 @@ Notes:
 - `PendingPolicy` composes with `AdmissionPolicy`; it does not replace it.
 - `PendingExecution.intent = execute` means "submit this as an order to the
   selected worker when allowed." It does not mean Allnighter owns the workspace.
-- `PendingExecution.laneKey` can be derived and stored for recovery/audit. The
-  default lane is target worker plus known working directory/session binding.
+- `PendingExecution.executionLaneKey` is computed and frozen at submit time when
+  the Execute item has one concrete worker candidate. For fallback or multi-worker
+  targets, the scheduler derives candidate keys deterministically and freezes the
+  actual key when an attempt is leased.
+- Editing the item returns it to Draft; resubmitting may compute new execution
+  lane keys from the edited target/safety context.
+- Reordering changes execution-lane order only. It does not edit the prompt,
+  target, safety context, or lifecycle status.
 - `PendingResume.nextInstruction` must be visible/editable before a Pending item
   is resumed in present mode.
 - A lease is process/scheduler bookkeeping. It is not a public status.
@@ -447,6 +469,37 @@ Notes:
   not a stored lifecycle status.
 - `expiresAt` is optional and user/preset-defined. Do not invent expiry from
   guessed usefulness.
+
+Default `kind` -> `intent` mapping:
+
+| `kind` | Default intent | Notes |
+| --- | --- | --- |
+| `workerChat` | `ask` | Can become `execute` only when the user marks it as an order. |
+| `followUp` | `ask` | Continuations that only request an answer stay ask-intent. |
+| `returnReview` | `ask` | Review/critique by default. |
+| `teamRun` | `ask` | Team synthesis is read/reply by default; mutating team dispatch is later work. |
+| `workOrder` | `execute` | When it asks a live CLI to act in a project/session. |
+| `dispatch` | `execute` | Mutating dispatch remains deferred from Pending v1. |
+
+Canonical execution lane key:
+
+```text
+executionLaneKey = v1:hash(workerId, normalizedWorkingDir || "unknown-dir", sessionBinding || "unknown-session")
+```
+
+Derivation rules:
+
+- `workerId` is the concrete candidate worker for execution-lane head checks and
+  the worker actually selected for an Execute attempt.
+- `normalizedWorkingDir` is the absolute, expanded, platform-normalized path
+  when known. If unknown or unsafe to resolve, use `unknown-dir`.
+- `sessionBinding` is the known worker session/thread binding when Allnighter has
+  one. If absent, use `unknown-session`.
+- Unknown values make the key more conservative, not more permissive. Unknown
+  directory/session means same-worker Execute orders share the same conservative
+  execution lane until proven independent.
+- The key must not inspect or mutate git state.
+- Attempt summaries copy the actual `executionLaneKey` used at lease/spawn time.
 
 ## Scheduler Drain Policy
 
@@ -480,27 +533,51 @@ Fairness rules:
 - If all selected workers are blocked and no fallback is allowed, the item stays
   Pending with the observed reason.
 
-FIFO execution lane rules:
+Execution-lane order rules:
 
 - Execute items are serialized by `executionLaneKey`.
-- The default lane key is conservative: worker id plus known working directory
-  plus known session/thread binding. If the scheduler cannot prove two Execute
-  orders are independent, they share a lane.
-- Each lane has at most one Running Execute item.
-- Lane order is FIFO by submitted order. Pinning can raise a lane in the global
-  sweep, but it must not let a later same-lane Execute jump an earlier one.
-- A same-lane Execute item behind the head stays Pending with reason
+- If the scheduler cannot prove two Execute orders are independent, they share an
+  execution lane.
+- Each execution lane has at most one Running Execute item.
+- Execution-lane order is FIFO by submitted order until the user manually
+  reorders Pending items in that execution lane.
+- Manual reorder sets `executionLanePolicy = userOrdered` for that execution lane
+  and records `userReorderedExecutionLane` in audit.
+- Pinning can raise an execution lane in the global sweep, but it must not let a
+  later same-execution-lane Execute jump an earlier one unless the user manually
+  reorders that execution lane.
+- A same-execution-lane Execute item behind the head stays Pending with reason
   `executionLaneBusy`.
-- A lane advances when the head item reaches `done`, `cancelled`, or an explicit
-  user skip.
+- An execution lane advances when the head item reaches `done`, `cancelled`, or
+  an explicit user `Skip Head` action.
 - `failed`, `timedOut`, `stopped`, `cooldown`, `authRequired`, and safety blocks
-  keep the head item Pending/needs-attention and hold later same-lane Execute
-  items.
+  keep the head item Pending/needs-attention and hold later
+  same-execution-lane Execute items.
 - Stopping a Running Execute returns that item to Pending and keeps it at the
-  head of its lane.
+  head of its execution lane.
 - Cooldown resume is the same head item, not permission to start the next order.
-- Non-mutating Ask/follow-up items can still drain according to normal admission
-  unless their policy explicitly pins them to the same execution lane.
+- A Running Execute item cannot be reordered. It remains the execution-lane head
+  until it stops, fails, completes, or is cancelled.
+- Pending Execute items behind a Running head can be reordered freely.
+- If no item is Running and the head is blocked, failed, stopped, or
+  needs-attention, the user may move another same-execution-lane Pending item
+  ahead of it. This is explicit user intent, not scheduler autonomy.
+- Manual reorder opens a short `editLock` for that execution lane. `alln serve`
+  must not start the next item from that execution lane while the lock is open.
+  Unrelated execution lanes continue draining.
+- Only `intent = execute` participates in execution-lane serialization by
+  default. Ask/follow-up items can still drain according to normal admission,
+  local concurrency, and driver limits unless their policy explicitly pins them
+  to the same execution lane.
+- Multi-worker/team Execute items are decomposed into per-worker execution-lane
+  checks before spawn. A fallback worker uses its own execution lane; falling back
+  must not let a later same-execution-lane item jump the original head for another
+  worker.
+- `Skip Head` is a present-user recovery action, not an automatic scheduler
+  decision. It preserves audit/history, records a skipped attempt/decision, and
+  releases the execution lane without pretending the skipped item succeeded.
+- FIFO and explicit user order are the only M1 execution-lane policies. LIFO is
+  deferred and must not be smuggled in through `priority: pinned`.
 
 Retry rules:
 
@@ -735,11 +812,12 @@ Scope:
 - `alln pending show <id> --json`.
 - `alln pending submit <id>`.
 - `alln pending edit <id>`.
+- `alln pending reorder <id>`.
 - `alln pending cancel <id>`.
 - `alln pending run <id>`.
 - `PendingItemJSON` fixture and schema.
 - Error/recovery metadata for invalid worker, auth-required, admission-blocked,
-  mutation-deferred, and serve-unavailable cases.
+  mutation-deferred, invalid-reorder, and serve-unavailable cases.
 - M1 kinds: `workerChat` and `followUp`.
 
 Works Test:
@@ -753,6 +831,9 @@ Run alln pending submit <id>.
 The item becomes Pending.
 Run alln pending add --submit --worker claude "Continue security review."
 The new item is created directly as Pending.
+Run alln pending reorder <second-id> --before <first-id>.
+The two items keep their lifecycle states, and only their execution-lane order
+changes.
 Run alln pending cancel <id>.
 The item becomes cancelled and is not drained by alln serve.
 ```
@@ -881,18 +962,23 @@ Approving it submits a Pending item targeting Claude.
 If Claude is cooling down, it remains Pending with the observed reason.
 ```
 
-### Pending6 - FIFO Execute Lanes
+### Pending6 - Ordered Execute Lanes
 
 Goal:
 Let users build a real Execute backlog without parallel writes colliding in the
-same worker/session/project.
+same worker/session/project, while still letting them change the order when
+parallel work is not safe.
 
 Scope:
 
 - `PendingExecution.intent = execute`.
-- Deterministic `executionLaneKey` derivation.
-- FIFO lane scheduler gate before admission spawn.
+- Deterministic `executionLaneKey` derivation and versioning.
+- FIFO execution-lane scheduler gate before admission spawn.
+- Manual reorder of Pending, not Running, Execute items inside one execution
+  lane.
+- Short execution-lane edit lock while order is being changed.
 - `executionLaneBusy` blocked reason.
+- Ask-vs-Execute default mapping.
 - Stop/resume/fail behavior that keeps the head item in place.
 - No branch, worktree, commit, merge, or workspace ownership.
 
@@ -908,7 +994,15 @@ Task 2 still remains Pending behind Task 1.
 Fake clock reaches resetAt and Task 1 resumes.
 Only after Task 1 reaches done does Task 2 start.
 Stopping Task 1 returns it to Pending and still holds Task 2.
-Cancelling Task 1 releases the lane and allows Task 2 to be considered.
+Cancelling Task 1 releases the execution lane and allows Task 2 to be considered.
+Submit Ask Task 3 to Claude while Task 2 is Pending behind the execution-lane head.
+Task 3 may run under normal admission because ask-intent does not join the
+execution lane unless explicitly pinned to it.
+Submit Execute Task 4 behind Task 2 in the same execution lane.
+Manually reorder Task 4 before Task 2 while Task 1 is Running.
+Task 1 keeps running and cannot be moved.
+Task 4 starts before Task 2 only after Task 1 reaches done/cancelled/skipped.
+Audit records userReorderedExecutionLane.
 ```
 
 ## Inference Bans
@@ -920,15 +1014,17 @@ Cancelling Task 1 releases the lane and allows Task 2 to be considered.
 | Worker prose -> Pending | AllnighterCore | Model suggestion creates hidden work | Suggestions are Draft until approved or preset-authorized | Worker says "run tests"; no new Pending item appears |
 | iOS command -> Mac execution | iOS remote spine | Phone sent command means Mac ran it | Sleeping/unreachable Mac queues command and reports reachability honestly | Phone shows Mac asleep; no run status is faked |
 | Dispatch safety -> away drain | Mac backend | Pending dispatch permission covers any workspace state | Safety is checked at dispatch time; dirty working dir keeps item Pending | Dirty cwd blocks unattended mutating item |
-| Execute lane -> workspace ownership | AllnighterEngine | FIFO means Allnighter owns branches/worktrees/landing | FIFO controls submission order only; target worker/process owns workspace setup | Two same-lane Execute items serialize, but no branch/worktree is created |
+| Execution lane -> workspace ownership | AllnighterEngine | FIFO means Allnighter owns branches/worktrees/landing | FIFO controls submission order only; target worker/process owns workspace setup | Two same-execution-lane Execute items serialize, but no branch/worktree is created |
+| Manual reorder -> scheduler autonomy | AllnighterEngine | Reorder permission lets scheduler choose a better order | Only explicit user reorder can change same-execution-lane order | Scheduler cannot start Task 4 before Task 2 unless user reordered them |
+| Product Lane -> execution lane | AllnighterCore | Build/Design/Copy lane means execution serialization group | Product Lane and execution lane are separate concepts; execution lane is always qualified | A Build work order and Copy work order can still share one Claude execution lane |
 | Activity Summary -> utilization | Mac backend | Report should estimate what could have happened | Activity Summary reports actual outcomes only | Summary contains no future quota/cost/runtime claims |
 
 ## Done When
 
 - The user can add work to Pending without requiring the target worker to
   be available at that moment.
-- `alln pending` can create, list, show, cancel, and run Pending items before any
-  GUI-only Pending surface ships.
+- `alln pending` can create, submit, edit, reorder, list, show, cancel, run, and
+  stop Pending items before any GUI-only Pending surface ships.
 - `alln serve` can drain eligible Pending while the app window is closed.
 - Pending items preserve target worker/team, context, fallback, priority, and
   mutation policy.
@@ -936,9 +1032,12 @@ Cancelling Task 1 releases the lane and allows Task 2 to be considered.
 - Stopping Running returns it to Pending; cancellation is explicit.
 - Scheduler drains admissible Pending and keeps blocked work Pending with sourced
   reasons.
-- Execute work is FIFO per execution lane; later same-lane work does not start
-  while an earlier item is running, cooling down, stopped, failed-needs-attention,
-  or safety-blocked.
+- Execute work is FIFO per execution lane; later same-execution-lane work does
+  not start while an earlier item is running, cooling down, stopped,
+  failed-needs-attention, or safety-blocked unless the user manually reorders
+  Pending items in that execution lane.
+- Manual reorder pauses only the edited execution lane for the edit transaction;
+  unrelated execution lanes continue draining.
 - Cooldown resume can continue an interrupted worker from saved context after an
   observed reset.
 - Away Mode makes unattended non-mutating work understandable before the user
