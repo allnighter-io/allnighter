@@ -219,11 +219,14 @@ a possible future consolidation, not a requirement of this phase.
 1. **Routing (done 2026-06-15):** menu-bar-only assumptions removed from forward
    Mac docs; new work routed here via `README.md`, `AGENTS.md`, and
    `CLI_Product_Spine.md`. The executable build sequence begins at slice 2.
-2. **Standalone app shell:** convert the shipped shell to a regular Dock app
-   (flip `LSUIElement`, add Dock presence + main-window-on-launch) while
-   preserving the existing main window, `AppModel`, and `RunEvent` wiring.
-3. **Status item pass:** keep or rebuild the menu bar item as optional status
-   and quick controls.
+2. **Standalone app shell (done 2026-06-15):** `LSUIElement` removed from
+   `project.yml` + `Info.plist`; the app is a regular Dock app, main `Window`
+   opens on launch; `AppModel`/`RunEvent` wiring preserved. Built bundle confirmed
+   LSUIElement-free. (Visual Finder-launch Works Test is founder-run — no UI
+   automation yet.)
+3. **Status item pass (done 2026-06-15):** `MenuBarExtra` kept as optional
+   status/quick controls (open, quick capture, run status, Stop-while-running) —
+   secondary to the window, not the product shell.
 4. **Coordinator contract:** build the coordinator as `alln serve` (resident
    `AllnighterCore` + loopback transports; see "Coordinator process model" under
    Process Model). Define the GUI/iOS↔coordinator process boundary, health shape,
