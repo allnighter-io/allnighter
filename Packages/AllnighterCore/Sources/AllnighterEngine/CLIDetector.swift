@@ -19,17 +19,25 @@ public struct ShellResolver: Sendable {
     /// Neutral CWD for the resolve shell so it never inherits the repo/Documents
     /// working dir (Launch Authority TCC hotfix, slice H3).
     private let workingDirectory: String?
+    /// When true, resolve through an INTERACTIVE login shell (`-lic`) so the
+    /// user's `.zshrc` PATH (bun/asdf/custom prefixes set only there) is seen —
+    /// the explicit-setup path the founder accepts a one-time TCC prompt for.
+    /// Default false (`-lc`): TCC-safe, used everywhere that is not explicit
+    /// setup intent. NEVER set true on a launch/background path. (Track 0.1)
+    private let interactive: Bool
 
     public init(
         commandRunner: CommandRunner,
         shellPath: String? = nil,
         timeout: Duration = .seconds(5),
-        workingDirectory: String? = AllnighterPaths.ensuredProbeScratchPath()
+        workingDirectory: String? = AllnighterPaths.ensuredProbeScratchPath(),
+        interactive: Bool = false
     ) {
         self.commandRunner = commandRunner
         self.shellPath = shellPath ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         self.timeout = timeout
         self.workingDirectory = workingDirectory
+        self.interactive = interactive
     }
 
     public struct Resolution: Sendable, Equatable {
@@ -48,13 +56,16 @@ public struct ShellResolver: Sendable {
         // One login shell; sentinel-wrapped `command -v` per bin.
         let list = bins.joined(separator: " ")
         let script = "for b in \(list); do printf '<<<ALR:%s|%s>>>\\n' \"$b\" \"$(command -v \"$b\" 2>/dev/null)\"; done"
-        // Non-interactive login shell (`-lc`, not `-lic`): resolves PATH binaries
-        // from login profiles without sourcing the interactive `.zshrc`, whose dev
-        // tools touch Downloads/Photos and make macOS raise TCC prompts attributed
-        // to the GUI app. Tools not on the login PATH fall back to `knownPaths`.
-        // (Shell-only aliases no longer auto-resolve — locate manually if needed.)
+        // `-lc` (default): non-interactive login shell — login profiles only, NOT
+        // the interactive `.zshrc` whose dev tools touch protected folders and
+        // raise TCC prompts attributed to the GUI app. TCC-safe.
+        // `-lic` (interactive, explicit setup only): also sources `.zshrc`, so the
+        // user's interactive PATH (bun/asdf/custom prefixes) resolves — closing the
+        // ".zshrc PATH" gap. The founder accepts the one-time setup prompt for this;
+        // it MUST NOT be reached on a launch/background path. (Track 0.1)
+        let loginFlag = interactive ? "-lic" : "-lc"
         let result = await commandRunner.run(
-            command: shellPath, args: ["-lc", script],
+            command: shellPath, args: [loginFlag, script],
             stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: timeout
         )
 
@@ -82,6 +93,19 @@ public struct CLIDetector: Sendable {
     /// Neutral CWD for every detect/version/smoke child process so they never
     /// inherit the repo/Documents working dir (Launch Authority TCC hotfix, H3).
     private let workingDirectory: String?
+    /// Shared install dirs scanned (in addition to a manifest's own knownPaths)
+    /// when the shell can't resolve a bin — the free net before Spotlight/agent.
+    private let commonBinDirs: [String]
+
+    /// Common CLI install locations across managers, `~` expands against `home`.
+    public static let defaultCommonBinDirs: [String] = [
+        "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin",
+        "~/.local/bin", "~/.local/share/bin", "~/bin",
+        "~/.bun/bin", "~/.deno/bin", "~/.cargo/bin",
+        "~/.npm-global/bin", "~/.yarn/bin", "~/Library/pnpm",
+        "~/.asdf/shims", "~/.local/share/mise/shims", "~/.volta/bin",
+        "~/.grok/bin", "~/.antigravity/antigravity/bin",
+    ]
 
     public init(
         commandRunner: CommandRunner,
@@ -90,16 +114,19 @@ public struct CLIDetector: Sendable {
         home: String? = nil,
         detectTimeout: Duration = .seconds(8),
         smokeTimeout: Duration = .seconds(60),
-        workingDirectory: String? = AllnighterPaths.ensuredProbeScratchPath()
+        workingDirectory: String? = AllnighterPaths.ensuredProbeScratchPath(),
+        interactive: Bool = false,
+        commonBinDirs: [String] = CLIDetector.defaultCommonBinDirs
     ) {
         self.commandRunner = commandRunner
         let sh = shellPath ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         self.shellPath = sh
-        self.resolver = resolver ?? ShellResolver(commandRunner: commandRunner, shellPath: sh, workingDirectory: workingDirectory)
+        self.resolver = resolver ?? ShellResolver(commandRunner: commandRunner, shellPath: sh, workingDirectory: workingDirectory, interactive: interactive)
         self.home = home ?? NSHomeDirectory()
         self.detectTimeout = detectTimeout
         self.smokeTimeout = smokeTimeout
         self.workingDirectory = workingDirectory
+        self.commonBinDirs = commonBinDirs
     }
 
     /// Probe every headless-CLI tool (one resolve batch, then per-tool detect+smoke).
@@ -148,8 +175,16 @@ public struct CLIDetector: Sendable {
             }
             break
         }
-        // 2. Known-paths fallback when the shell couldn't resolve it.
+        // 2. Known-paths fallback: per-manifest dirs + shared common install dirs
+        // (Homebrew, ~/.local/bin, bun/pnpm/asdf/mise/volta, …). Closes the
+        // "installed in a standard manager dir we didn't list per-tool" gap.
         if invocation == nil, let path = probeKnownPaths(manifest) {
+            invocation = .direct(path: path)
+        }
+        // 2.5 Spotlight fallback: locate the binary anywhere the index knows it.
+        // Closes the long-tail "installed somewhere non-standard" gap without an
+        // agent (Track 0.2). Only when nothing cheaper resolved it.
+        if invocation == nil, let path = await spotlightResolve(manifest) {
             invocation = .direct(path: path)
         }
         guard let inv = invocation else {
@@ -237,14 +272,45 @@ public struct CLIDetector: Sendable {
 
     private func probeKnownPaths(_ manifest: DriverManifest) -> String? {
         let bins = bins(for: manifest)
-        for dir in manifest.setup?.knownPaths ?? [] {
+        // Per-manifest dirs first (most specific), then the shared common dirs.
+        for dir in (manifest.setup?.knownPaths ?? []) + commonBinDirs {
             let expanded = dir.hasPrefix("~") ? home + dir.dropFirst() : dir
             for bin in bins {
                 let candidate = (expanded as NSString).appendingPathComponent(bin)
-                if FileManager.default.isExecutableFile(atPath: candidate) { return candidate }
+                if isExecutableFile(candidate) { return candidate }
             }
         }
         return nil
+    }
+
+    /// Spotlight (`mdfind`) fallback — locates a bin anywhere the index knows it,
+    /// for genuinely non-standard installs. Filters to an exact-name executable
+    /// file (not a dir, not a name-contains match) and prefers a stable launcher
+    /// over an upgrade-fragile versioned path. Returns nil if Spotlight is off or
+    /// finds nothing. (Track 0.2)
+    private func spotlightResolve(_ manifest: DriverManifest) async -> String? {
+        var candidates: [String] = []
+        for bin in bins(for: manifest) {
+            let result = await commandRunner.run(
+                command: "/usr/bin/mdfind", args: ["-name", bin],
+                stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: .seconds(5)
+            )
+            guard result.launchError == nil else { continue }
+            for line in result.stdout.split(whereSeparator: \.isNewline) {
+                let path = line.trimmingCharacters(in: .whitespaces)
+                guard (path as NSString).lastPathComponent == bin, isExecutableFile(path) else { continue }
+                candidates.append(path)
+            }
+        }
+        // Prefer a stable launcher; an ephemeral/versioned hit only as last resort.
+        return candidates.first(where: { !CensusPath.looksEphemeral($0) }) ?? candidates.first
+    }
+
+    /// Executable FILE check (rejects directories, which carry the execute bit).
+    private func isExecutableFile(_ path: String) -> Bool {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), !isDir.boolValue else { return false }
+        return FileManager.default.isExecutableFile(atPath: path)
     }
 
     private func detectVersion(_ manifest: DriverManifest, invocation: ToolInvocation) async -> String? {

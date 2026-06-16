@@ -117,11 +117,13 @@ enum LoginShell {
         let shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: shellPath)
-        // Non-interactive login shell: reads login profiles (PATH) but NOT the
-        // interactive `.zshrc`, whose dev tools touch Downloads/Photos and make
-        // macOS raise TCC prompts attributed to this GUI app. Runs use the cached
-        // absolute ToolInvocation from detection anyway (health == runs).
-        process.arguments = ["-lc", "printf %s \"$PATH\""]
+        // INTERACTIVE login shell (-lic): sources the user's `.zshrc` so PATH
+        // entries set only there (bun/asdf/custom prefixes) are captured. Only
+        // ever called from the explicit, user-initiated full setup probe
+        // (runFullSetupProbe) — the founder accepts the one-time TCC prompt that
+        // buys a complete PATH. NEVER call this on a launch/background path; cold
+        // launch stays cache-only (Launch Authority TCC hotfix + Track 0.1).
+        process.arguments = ["-lic", "printf %s \"$PATH\""]
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()

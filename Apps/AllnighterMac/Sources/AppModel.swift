@@ -613,7 +613,10 @@ final class AppModel {
         let storeCopy = setupStore
         let completedAt = cached.setupCompletedAt
         Task { @MainActor [weak self] in
-            let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
+            // Explicit user-initiated setup: resolve through the INTERACTIVE login
+            // shell (-lic) so the user's .zshrc PATH is seen. One-time TCC prompt
+            // is acceptable here (explicit intent); launch never reaches this.
+            let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
                 .probeAll(registryCopy.all, models: modelLabels, now: Date(), smoke: true)
             guard let self else { return }
             self.toolStatuses = records
@@ -633,7 +636,32 @@ final class AppModel {
         return models.first { readyDriverIds.contains($0.driverId) }
     }
 
-    var canRunCensus: Bool { censusAgent != nil && !isRunningCensus && !isDetecting }
+    var canRunCensus: Bool {
+        censusAgent != nil && !isRunningCensus && !isDetecting && hasUnresolvedSupportedTool
+    }
+
+    /// Supported headless-CLI drivers we could NOT find (notInstalled or never
+    /// probed) — the discovery gap. Powers onboarding "available to add" and gates
+    /// the agent fallback (offered only when there is actually a gap to fill, so
+    /// it never fires when everything is already found — Track 0.3).
+    var unresolvedSupportedDriverIds: [String] {
+        Self.unresolvedSupported(registry: registry, toolStatuses: toolStatuses)
+    }
+
+    var hasUnresolvedSupportedTool: Bool { !unresolvedSupportedDriverIds.isEmpty }
+
+    static func unresolvedSupported(registry: DriverRegistry, toolStatuses: [ToolProbeRecord]) -> [String] {
+        let byId = Dictionary(toolStatuses.map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
+        return registry.all
+            .filter { $0.kind == .headlessCLI }
+            .map(\.id)
+            .filter { id in
+                switch byId[id]?.status {
+                case .none, .some(.notInstalled): return true   // not found / never probed
+                default: return false                            // found in some state
+                }
+            }
+    }
 
     /// Tier-2 discovery: have one healthy agent run the read-only census build
     /// order to find the tools the plain probe couldn't, then VERIFY every

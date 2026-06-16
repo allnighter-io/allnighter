@@ -217,7 +217,9 @@ struct AllnighterCLI {
     static func doctorResult(_ runtime: ToolRuntime, full: Bool) async -> DoctorResult {
         var modelLabels: [String: String] = [:]
         for m in runtime.models where modelLabels[m.driverId] == nil { modelLabels[m.driverId] = m.modelLabel }
-        let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
+        // CLI runs in the user's terminal, so resolve interactively (-lic) to see
+        // the same PATH the terminal does (Track 0.1).
+        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
             .probeAll(runtime.registry.all, models: modelLabels, now: Date(), smoke: full)
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
@@ -262,7 +264,7 @@ struct AllnighterCLI {
     static func runDetect(_ runtime: ToolRuntime) async {
         var models: [String: String] = [:]
         for w in runtime.models where models[w.driverId] == nil { models[w.driverId] = w.modelLabel }
-        let records = await CLIDetector(commandRunner: SubprocessCommandRunner())
+        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
             .probeAll(runtime.registry.all, models: models, now: Date())
 
         // Persist detection + assemble/persist the Bench/default team (the truth

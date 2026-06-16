@@ -140,4 +140,21 @@ final class LaunchAuthorityProbeTests: XCTestCase {
         let smokeCalls = await runner.recorded().filter { $0.command == kToolPath && !$0.args.contains("--version") }
         XCTAssertEqual(smokeCalls.count, 1, "full probe must run the smoke command exactly once")
     }
+
+    /// Track 0.1: the resolve shell is non-interactive (-lc) by default — the
+    /// TCC-safe posture — and interactive (-lic) ONLY when explicitly requested
+    /// (explicit setup), so a launch/background probe can never source .zshrc.
+    func testResolveShellModeFollowsInteractiveFlag() async {
+        func resolveFlag(interactive: Bool) async -> String? {
+            let runner = RecordingRunner { _, _ in kResolved(kToolPath) }
+            let det = CLIDetector(commandRunner: runner, shellPath: kShell, home: "/tmp/home", interactive: interactive)
+            _ = await det.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0), smoke: false)
+            // The resolve call is the one whose argv carries the command-v script.
+            return await runner.recorded().first { $0.command == kShell }?.args.first
+        }
+        let safe = await resolveFlag(interactive: false)
+        let setup = await resolveFlag(interactive: true)
+        XCTAssertEqual(safe, "-lc", "default must be non-interactive (TCC-safe)")
+        XCTAssertEqual(setup, "-lic", "explicit setup resolves through the interactive shell")
+    }
 }

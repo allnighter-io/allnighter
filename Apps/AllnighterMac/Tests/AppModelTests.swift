@@ -165,6 +165,31 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(merged.first?.invocation)
     }
 
+    // MARK: - Gap detector (Track 0.3)
+
+    func testUnresolvedSupportedTreatsNotInstalledAndMissingAsGaps() {
+        let registry = AppConfig.loadDefaultRegistry()
+        let supported = registry.all.filter { $0.kind == .headlessCLI }.map(\.id)
+        guard let first = supported.first else { return XCTFail("no headless drivers") }
+
+        // Only `first` is ready; the rest have no record → all-but-first are gaps.
+        let gaps = AppModel.unresolvedSupported(registry: registry, toolStatuses: [record(first, ready: true, path: "/x/\(first)")])
+        XCTAssertEqual(Set(gaps), Set(supported).subtracting([first]),
+                       "a ready tool is not a gap; every supported tool without a found record is")
+
+        // Every tool notInstalled → every tool is a gap.
+        let allNotInstalled = supported.map { ToolProbeRecord(driverId: $0, status: .notInstalled, lastProbeAt: Date(timeIntervalSince1970: 0)) }
+        XCTAssertEqual(Set(AppModel.unresolvedSupported(registry: registry, toolStatuses: allNotInstalled)), Set(supported))
+    }
+
+    func testNoGapWhenAllSupportedReady() {
+        let registry = AppConfig.loadDefaultRegistry()
+        let supported = registry.all.filter { $0.kind == .headlessCLI }.map(\.id)
+        let allReady = supported.map { record($0, ready: true, path: "/x/\($0)") }
+        XCTAssertTrue(AppModel.unresolvedSupported(registry: registry, toolStatuses: allReady).isEmpty,
+                      "no gaps when every supported tool is ready")
+    }
+
     func testHistorySelectionDrivesDisplayRun() {
         let model = AppModel()
         let past = TeamRun(id: "r1", prompt: "old prompt", status: .complete, createdAt: Date())

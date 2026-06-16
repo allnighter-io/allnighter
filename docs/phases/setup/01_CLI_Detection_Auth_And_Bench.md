@@ -153,6 +153,16 @@ so glyphs ignite on *found* long before smoke resolves. A probe over ~8s shows
 spinner.
 
 ### 4.2 Resolve, hardened (the real fix for Cause 2)
+
+> **Probe-authority binding (Launch Authority TCC hotfix, rule 8 · Track 0.1):**
+> interactive `-lic` resolve is allowed ONLY on an explicit, user-initiated
+> setup/recheck probe (one-time TCC prompt acceptable). Any launch/background
+> path must stay cache-only or use non-interactive `-lc`. In code this is
+> `CLIDetector(interactive:)` / `ShellResolver(interactive:)`, default `false`
+> (`-lc`); set `true` only at explicit setup (`runFullSetupProbe`, `alln
+> detect`/`doctor`). Runs reuse the cached absolute `ToolInvocation` (health ==
+> runs), so no per-run shell is spawned.
+
 For each candidate `bin`:
 1. **Login-shell resolve (primary):** `"$SHELL" -lic` running
    `printf '<<<AL:%s>>>' "$(command -v <bin> 2>/dev/null)"`. The **sentinel**
@@ -305,6 +315,10 @@ After detection settles:
 ---
 
 ## 9. Persistence & launch performance
+
+**2026-06-16 HOTFIX note:** `../Launch_Authority_TCC_Hotfix.md` supersedes this
+section where it allows background full smoke on ordinary app launch. Launch may
+render cached/unknown state only until explicit setup/recheck/run user intent.
 
 - Per tool: `{ invocation, status, version, lastProbeAt }` under
   `AllnighterPaths.config`.
