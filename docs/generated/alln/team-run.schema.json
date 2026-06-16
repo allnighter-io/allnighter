@@ -1,0 +1,590 @@
+{
+  "$defs" : {
+    "AnswerInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "durationMs" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "error" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/ErrorEnvelope"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "markdown" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "modelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "skipped"
+          ],
+          "type" : "string"
+        },
+        "workerId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "workerId",
+        "status"
+      ],
+      "type" : "object"
+    },
+    "Audit" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "runJournalPath" : {
+          "type" : "string"
+        },
+        "traceId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "traceId",
+        "runJournalPath"
+      ],
+      "type" : "object"
+    },
+    "ErrorEnvelope" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "agentAction" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "code" : {
+          "type" : "string"
+        },
+        "fixCommand" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "message" : {
+          "type" : "string"
+        },
+        "modelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "requiresManual" : {
+          "type" : "boolean"
+        },
+        "retryable" : {
+          "type" : "boolean"
+        },
+        "ruleId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "runId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "sourceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "traceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "code",
+        "message",
+        "requiresManual",
+        "retryable"
+      ],
+      "type" : "object"
+    },
+    "ModelInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "displayName" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "sourceId" : {
+          "type" : "string"
+        },
+        "sourceName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "ready",
+            "unavailable",
+            "unknown"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "displayName",
+        "sourceId",
+        "status"
+      ],
+      "type" : "object"
+    },
+    "NextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "showRun",
+            "export",
+            "showHistory"
+          ],
+          "type" : "string"
+        },
+        "label" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "kind",
+        "command"
+      ],
+      "type" : "object"
+    },
+    "Plan" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "markdown" : {
+          "type" : "string"
+        },
+        "stageId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "skipped"
+          ],
+          "type" : "string"
+        },
+        "writerWorkerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "status",
+        "markdown"
+      ],
+      "type" : "object"
+    },
+    "PromptSource" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "kind" : {
+          "enum" : [
+            "positional",
+            "file",
+            "stdin"
+          ],
+          "type" : "string"
+        },
+        "path" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "kind"
+      ],
+      "type" : "object"
+    },
+    "RunInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "completedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt" : {
+          "type" : "string"
+        },
+        "effort" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "lane" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "origin" : {
+          "enum" : [
+            "cli",
+            "gui",
+            "mcp",
+            "ios",
+            "localApi",
+            "system"
+          ],
+          "type" : "string"
+        },
+        "originAgent" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "planWriterWorkerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "prompt" : {
+          "type" : "string"
+        },
+        "promptSource" : {
+          "$ref" : "#\/$defs\/PromptSource"
+        },
+        "reproduceCommand" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "startedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "skipped"
+          ],
+          "type" : "string"
+        },
+        "teamPresetId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "threadId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "type" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "id",
+        "status",
+        "origin",
+        "prompt",
+        "promptSource",
+        "createdAt"
+      ],
+      "type" : "object"
+    },
+    "StageInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "id" : {
+          "type" : "string"
+        },
+        "producedByWorkerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "promptProfileId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "purpose" : {
+          "enum" : [
+            "analysis",
+            "plan",
+            "review"
+          ],
+          "type" : "string"
+        },
+        "status" : {
+          "enum" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "skipped"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "purpose",
+        "status"
+      ],
+      "type" : "object"
+    },
+    "Usage" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "cliCalls" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "cliCalls"
+      ],
+      "type" : "object"
+    },
+    "Warning" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "code" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "message" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "message"
+      ],
+      "type" : "object"
+    },
+    "WorkerInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "id" : {
+          "type" : "string"
+        },
+        "instanceIndex" : {
+          "type" : "integer"
+        },
+        "modelId" : {
+          "type" : "string"
+        },
+        "modelName" : {
+          "type" : "string"
+        },
+        "purpose" : {
+          "enum" : [
+            "answer",
+            "plan",
+            "review"
+          ],
+          "type" : "string"
+        },
+        "skillId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "skillName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "sourceId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "modelId",
+        "modelName",
+        "sourceId",
+        "purpose",
+        "instanceIndex"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/team-run.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "audit" : {
+      "$ref" : "#\/$defs\/Audit"
+    },
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "errors" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ErrorEnvelope"
+      },
+      "type" : "array"
+    },
+    "models" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ModelInfo"
+      },
+      "type" : "array"
+    },
+    "nextActions" : {
+      "items" : {
+        "$ref" : "#\/$defs\/NextAction"
+      },
+      "type" : "array"
+    },
+    "plan" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/Plan"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "stages" : {
+      "items" : {
+        "$ref" : "#\/$defs\/StageInfo"
+      },
+      "type" : "array"
+    },
+    "teamRun" : {
+      "$ref" : "#\/$defs\/RunInfo"
+    },
+    "usage" : {
+      "$ref" : "#\/$defs\/Usage"
+    },
+    "warnings" : {
+      "items" : {
+        "$ref" : "#\/$defs\/Warning"
+      },
+      "type" : "array"
+    },
+    "workerAnswers" : {
+      "items" : {
+        "$ref" : "#\/$defs\/AnswerInfo"
+      },
+      "type" : "array"
+    },
+    "workers" : {
+      "items" : {
+        "$ref" : "#\/$defs\/WorkerInfo"
+      },
+      "type" : "array"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "teamRun",
+    "models",
+    "workers",
+    "workerAnswers",
+    "stages",
+    "plan",
+    "usage",
+    "warnings",
+    "errors",
+    "nextActions",
+    "audit"
+  ],
+  "title" : "TeamRunJSON",
+  "type" : "object"
+}

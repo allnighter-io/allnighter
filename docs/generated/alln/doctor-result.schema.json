@@ -1,0 +1,221 @@
+{
+  "$defs" : {
+    "Check" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "detail" : {
+          "type" : "string"
+        },
+        "fixCommand" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "requiresManual" : {
+          "type" : "boolean"
+        },
+        "status" : {
+          "enum" : [
+            "ok",
+            "degraded",
+            "critical"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "name",
+        "status",
+        "detail",
+        "requiresManual"
+      ],
+      "type" : "object"
+    },
+    "Coordinator" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "available" : {
+          "type" : "boolean"
+        },
+        "detail" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "available",
+        "detail"
+      ],
+      "type" : "object"
+    },
+    "ErrorEnvelope" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "agentAction" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "code" : {
+          "type" : "string"
+        },
+        "fixCommand" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "message" : {
+          "type" : "string"
+        },
+        "modelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "requiresManual" : {
+          "type" : "boolean"
+        },
+        "retryable" : {
+          "type" : "boolean"
+        },
+        "ruleId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "runId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "sourceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "traceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "code",
+        "message",
+        "requiresManual",
+        "retryable"
+      ],
+      "type" : "object"
+    },
+    "ModelInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "displayName" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "sourceId" : {
+          "type" : "string"
+        },
+        "sourceName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "ready",
+            "unavailable",
+            "unknown"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "displayName",
+        "sourceId",
+        "status"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/doctor-result.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "binaryVersion" : {
+      "type" : "string"
+    },
+    "checks" : {
+      "items" : {
+        "$ref" : "#\/$defs\/Check"
+      },
+      "type" : "array"
+    },
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "coordinator" : {
+      "$ref" : "#\/$defs\/Coordinator"
+    },
+    "docsVersionMatchesBinary" : {
+      "type" : "boolean"
+    },
+    "fixes" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ErrorEnvelope"
+      },
+      "type" : "array"
+    },
+    "models" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ModelInfo"
+      },
+      "type" : "array"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "status" : {
+      "enum" : [
+        "ok",
+        "degraded",
+        "critical"
+      ],
+      "type" : "string"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "status",
+    "binaryVersion",
+    "contractVersion",
+    "docsVersionMatchesBinary",
+    "checks",
+    "fixes",
+    "models",
+    "coordinator"
+  ],
+  "title" : "DoctorResult",
+  "type" : "object"
+}

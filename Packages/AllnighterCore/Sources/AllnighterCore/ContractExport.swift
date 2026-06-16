@@ -7,9 +7,8 @@ import Foundation
 /// the artifacts. `alln dev export-contracts --check` fails when the on-disk
 /// artifacts drift from the registry.
 ///
-/// This slice projects the registry-backed JSON artifacts. The JSON-Schema files
-/// (team-run.schema.json, doctor-result.schema.json) and the human markdown spec
-/// are a follow-on generator slice.
+/// Projects the registry-backed JSON artifacts, the JSON-Schema files for the
+/// public types, and the human markdown reference.
 public enum ContractExport {
     public struct Artifact: Sendable, Equatable {
         public let filename: String   // relative to docs/generated/alln/
@@ -28,6 +27,9 @@ public enum ContractExport {
             Artifact(filename: "error-codes.json", contents: try jsonString(registry.errors)),
             Artifact(filename: "ndjson-events.json", contents: try jsonString(registry.events)),
             Artifact(filename: "example-recipes.json", contents: try jsonString(registry.examples)),
+            Artifact(filename: "team-run.schema.json", contents: try ContractSchema.json(ContractSchema.teamRunSchema())),
+            Artifact(filename: "doctor-result.schema.json", contents: try ContractSchema.json(ContractSchema.doctorResultSchema())),
+            Artifact(filename: "help_alln_cli_spec.md", contents: ContractDocs.markdown(registry)),
         ]
     }
 
