@@ -12,6 +12,14 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     public var instanceIndex: Int
     /// Optional skill id. Drives a prompt prefix.
     public var skillId: String?
+    /// Snapshot of the resolved skill's display name at run start, so history
+    /// stays readable after a skill update (catalog runs set this).
+    public var skillName: String?
+    /// Snapshot of the resolved skill's version at run start.
+    public var skillVersion: Int?
+    /// Stage this worker runs in: answer (blind), review (after answers), or plan
+    /// (the synthetic output writer). `nil` on legacy runs → treated as answer.
+    public var purpose: TeamWorkerPurpose?
     /// Display override, e.g. `Opus (A)`.
     public var label: String?
 
@@ -20,12 +28,18 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         modelId: String,
         instanceIndex: Int,
         skillId: String? = nil,
+        skillName: String? = nil,
+        skillVersion: Int? = nil,
+        purpose: TeamWorkerPurpose? = nil,
         label: String? = nil
     ) {
         self.id = id
         self.modelId = modelId
         self.instanceIndex = instanceIndex
         self.skillId = skillId
+        self.skillName = skillName
+        self.skillVersion = skillVersion
+        self.purpose = purpose
         self.label = label
     }
 
