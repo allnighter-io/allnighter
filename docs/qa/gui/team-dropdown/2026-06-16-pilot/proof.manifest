@@ -1,0 +1,9 @@
+# surface: team-dropdown
+# fixtures: team-open-mixed
+# watcher: PASS
+# sealed: 2026-06-16
+# Binds each proven view to its exact content hash. The in-flight anchor
+# refactor changed these files, so this proof is now stale for the current tree
+# and must be re-sealed — by design.
+ff7c0b7aa69ac896bc968b3d7ae2e04caf459756  Apps/AllnighterMac/Sources/RootView.swift
+ca7139a35b6c7c3293bb06185efd4cf8d646413a  Apps/AllnighterMac/Sources/TeamControlView.swift

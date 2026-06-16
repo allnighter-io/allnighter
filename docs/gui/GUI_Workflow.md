@@ -87,10 +87,13 @@ Visible GUI work does not close from code/build confidence. Tier B-D work that
 changes layout, copy hierarchy, component state, popovers/sheets, navigation, or
 user-facing workflow must follow `docs/phases/GUI_Visual_Proof_Gate.md`.
 
-Closeout must include a proof packet under `docs/qa/gui/` with browser-visible
-spec proof, native SwiftUI render proof, structure/accessibility assertions,
-proof commands, and known deltas. If the agent cannot render or inspect the
-changed surface, closeout says visually unverified or blocked, never fixed.
+The gate is **layout-only**: render the changed surface to a native screenshot,
+then a separate **layout-watcher** agent looks at the pixels and must return no
+P1 breakage. Content/data correctness stays with CLI/Core tests (§6) — the gate
+does NOT require browser proof, structure dumps, or accessibility assertions.
+Closeout seals a content-bound proof packet (`gui_proof_seal.sh`). If the agent
+cannot render or inspect the changed surface, closeout says visually unverified
+or blocked, never fixed.
 
 ## 8. Related Docs
 

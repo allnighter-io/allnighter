@@ -11,8 +11,9 @@ renders and verdicts.
 ## The loop
 
 ```text
-bash scripts/gui_proof.sh <fixture>     # build + render a deterministic state → PNG
+bash scripts/gui_proof.sh <fixture>            # build + render a deterministic state → PNG
 → spawn .claude/agents/layout-watcher.md on the PNG → PASS/FAIL verdict
+bash scripts/gui_proof_seal.sh <surface> <slug> <fixture>...   # after PASS: seal the packet
 ```
 
 Fixtures live in `Apps/AllnighterMac/Sources/GUIFixture.swift`. The watcher judges
@@ -22,10 +23,21 @@ are owned by CLI/Core tests — not this gate.
 ## Paths
 
 - `_captures/<fixture>.png` — transient, overwritten each run, git-ignored.
-- `<surface>/<YYYY-MM-DD>-<slug>/` — durable packet for a recorded closeout:
-  - `native.png` — the passing render
+- `<surface>/<YYYY-MM-DD>-<slug>/` — durable packet, sealed by `gui_proof_seal.sh`:
+  - `native.png` (or `native-<fixture>.png`) — the passing render(s)
+  - `proof.manifest` — binds each proven view to its git blob hash + `watcher: PASS`
   - `watcher.md` — the verdict (PASS, P1=none, P2 notes)
   - `mockup.png` — optional, only if a rendered visual target exists
+- `WAIVERS.manifest` — content-bound waivers for non-visible view changes
+  (`gui_proof_waive.sh`).
+
+## Why content-bound
+
+`scripts/check_gui_proof.sh` requires every *currently changed* view's *current*
+git blob hash to appear in some `proof.manifest`/`WAIVERS.manifest`. So old proof
+goes stale the moment a view is re-edited, and an unrelated packet can't satisfy a
+different surface. Render and seal the surface you actually touched — not every
+screen.
 
 ## Closeout rule
 

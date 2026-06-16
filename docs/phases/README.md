@@ -30,7 +30,7 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Launch_Authority_TCC_Hotfix.md`](Launch_Authority_TCC_Hotfix.md) | **HOTFIX execution-ready** (2026-06-16) | Critical TCC launch-authority fix: cold launch renders cached/unknown state only; no shell, CLI, smoke, quota, or protected-folder probing before explicit user intent. |
-| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | Founder packet / execution-ready policy phase | Stops blind GUI "fixed" claims: browser-visible spec proof, native SwiftUI render proof, structure assertions, and proof packets before GUI closeout. |
+| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **BUILT** (S00–S05, 2026-06-16) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |

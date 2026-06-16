@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 # GUI Visual Proof Gate — wall enforcement (S05).
 #
-# Fails when a visible SwiftUI surface changed without a proof packet or an
-# explicit waiver. It does NOT verify the layout-watcher's verdict (a script
-# cannot judge pixels) — it enforces that the evidence ritual happened, so an
-# agent cannot silently skip the gate. The watcher PASS is the real check; this
-# makes producing one non-optional.
+# Fails when a visible SwiftUI surface changed without FRESH, SURFACE-BOUND proof.
 #
-# Scope is grandfathered to a BASELINE commit so introducing the gate does not
-# retroactively flag GUI work that predates it. Only changes AFTER the baseline
-# are enforced.
+# Proof is bound to file CONTENT, not to "any packet since the baseline". Each
+# changed visible view must have its CURRENT git blob hash recorded in a proof
+# packet (`docs/qa/gui/<surface>/<date>-<slug>/proof.manifest`, watcher PASS) or
+# in `docs/qa/gui/WAIVERS.manifest`. Re-editing a view changes its hash, so old
+# proof goes stale automatically; and a Team-dropdown packet can never satisfy a
+# Composer change because it does not carry Composer's hash. That closes the
+# stale/unrelated-proof loophole.
 #
-# Pass when:
-#   - no visible View file changed since the baseline; or
-#   - a proof packet under docs/qa/gui/<surface>/... changed/was added; or
-#   - a since-baseline commit carries a `GUI-proof-waiver: <reason>` trailer; or
-#   - ALLNIGHTER_GUI_PROOF_WAIVER="<reason>" is set (deliberate local override).
+# It enforces that proof was produced for THIS content — not that the pixels are
+# correct. The separate layout-watcher PASS is the real check; this makes
+# producing one, for the actual change, non-optional.
+#
+# Scope is grandfathered to a BASELINE commit so the gate does not retroactively
+# flag GUI work that predates it.
 #
 # Config:
-#   ALLNIGHTER_GUI_PROOF_BASE    override the baseline rev (CI may set origin/main)
-#   ALLNIGHTER_GUI_PROOF_WAIVER  one-shot waiver reason (must be non-empty)
+#   ALLNIGHTER_GUI_PROOF_BASE    override baseline rev (CI may set origin/main)
+#   ALLNIGHTER_GUI_PROOF_WAIVER  deliberate one-shot bypass (non-empty reason)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -27,13 +28,11 @@ cd "$ROOT"
 SRC_DIR="Apps/AllnighterMac/Sources"
 PACKET_ROOT="docs/qa/gui"
 
-# Deliberate one-shot override (CI never sets this).
 if [ -n "${ALLNIGHTER_GUI_PROOF_WAIVER:-}" ]; then
   echo "check-gui-proof: waived — ${ALLNIGHTER_GUI_PROOF_WAIVER}"
   exit 0
 fi
 
-# Not a git repo / git unavailable → cannot scope a diff; do not block.
 if ! command -v git >/dev/null 2>&1 || ! git rev-parse --git-dir >/dev/null 2>&1; then
   echo "check-gui-proof: no git context — skipping"
   exit 0
@@ -45,68 +44,64 @@ if [ -z "$BASE" ] || ! git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/n
   exit 0
 fi
 
-# All paths changed since the baseline under a dir: committed-since-baseline,
-# uncommitted-modified, AND untracked (so a brand-new packet/view counts).
+# Is this file a visible SwiftUI surface (vs pure logic/model/presenter)?
+is_view() { grep -qE ':[[:space:]]*View\b|some View\b|:[[:space:]]*App\b|PreviewProvider' "$1"; }
+
+# Files changed since baseline under a dir: committed-since-baseline,
+# uncommitted-modified, and untracked (so a new packet/view counts).
 changed_under() {
   { git diff --name-only "$BASE" -- "$1" 2>/dev/null || true
     git ls-files --others --exclude-standard -- "$1" 2>/dev/null || true
   } | sort -u
 }
 
-# Visible GUI = changed Swift files under Sources that declare a SwiftUI surface.
-# Logic/model/presenter files (no `View`/`App` conformance) are not gated.
-visible=()
+# Coverage = "<hash> <path>" pairs from every proof.manifest that carries a
+# watcher PASS, plus WAIVERS.manifest. Comment lines (#...) are ignored.
+COVER="$(mktemp)"; trap 'rm -f "$COVER"' EXIT
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  grep -qiE '^#[[:space:]]*watcher:[[:space:]]*PASS\b' "$m" || continue
+  grep -vE '^[[:space:]]*#' "$m" | awk 'NF>=2 {print $1, $2}' >> "$COVER"
+done < <(find "$PACKET_ROOT" -name proof.manifest 2>/dev/null || true)
+if [ -f "$PACKET_ROOT/WAIVERS.manifest" ]; then
+  grep -vE '^[[:space:]]*#' "$PACKET_ROOT/WAIVERS.manifest" | awk 'NF>=2 {print $1, $2}' >> "$COVER"
+fi
+
+uncovered=()
+visible=0
 while IFS= read -r f; do
-  [ -z "$f" ] && continue
+  [ -n "$f" ] || continue
   case "$f" in *.swift) ;; *) continue ;; esac
-  [ -f "$f" ] || continue   # deleted file: nothing to render
-  if grep -qE ':[[:space:]]*View\b|some View\b|:[[:space:]]*App\b|PreviewProvider' "$f"; then
-    visible+=("$f")
+  [ -f "$f" ] || continue   # deleted: nothing to render
+  is_view "$f" || continue  # pure logic: not gated
+  visible=$((visible + 1))
+  h="$(git hash-object "$f")"
+  if ! awk -v h="$h" -v f="$f" '($1==h && $2==f){ok=1} END{exit ok?0:1}' "$COVER"; then
+    uncovered+=("$f")
   fi
 done < <(changed_under "$SRC_DIR")
 
-if [ "${#visible[@]}" -eq 0 ]; then
+if [ "$visible" -eq 0 ]; then
   echo "check-gui-proof: no visible GUI surface changed since baseline — ok"
   exit 0
 fi
-
-# Proof packet present? Any change under docs/qa/gui/ that is a real packet
-# (not the transient _captures/ dir and not the top-level README).
-packet_found=false
-while IFS= read -r p; do
-  [ -z "$p" ] && continue
-  case "$p" in
-    "$PACKET_ROOT"/_captures/*) continue ;;
-    "$PACKET_ROOT"/README.md)   continue ;;
-    "$PACKET_ROOT"/*/*)         packet_found=true; break ;;
-  esac
-done < <(changed_under "$PACKET_ROOT")
-
-# Waiver trailer in any commit since baseline (only if baseline is an ancestor).
-waiver_found=false
-if git merge-base --is-ancestor "$BASE" HEAD 2>/dev/null; then
-  if git log "$BASE"..HEAD --format='%B' 2>/dev/null | grep -qiE '^GUI-proof-waiver:[[:space:]]*\S'; then
-    waiver_found=true
-  fi
-fi
-
-if $packet_found || $waiver_found; then
-  why=$($packet_found && echo "proof packet present" || echo "waiver trailer present")
-  echo "check-gui-proof: visible GUI change with $why — ok"
+if [ "${#uncovered[@]}" -eq 0 ]; then
+  echo "check-gui-proof: $visible visible view(s) changed; all have fresh content-bound proof — ok"
   exit 0
 fi
 
-echo "✗ check-gui-proof: visible GUI surface changed without a proof packet or waiver." >&2
-echo "  Changed visible views (since $BASE):" >&2
-for f in "${visible[@]}"; do echo "    - $f" >&2; done
+echo "✗ check-gui-proof: visible view(s) changed without fresh proof for their CURRENT content:" >&2
+for f in "${uncovered[@]}"; do echo "    - $f" >&2; done
 cat >&2 <<EOF
-  Resolve one of:
-    1. Render + look, then commit a packet under $PACKET_ROOT/<surface>/<date>-<slug>/:
-         bash scripts/gui_proof.sh <fixture>
-         # spawn .claude/agents/layout-watcher.md on the PNG; it must PASS (no P1)
-         # save native.png + watcher.md into the packet dir
-    2. Waive a non-visible change with a commit trailer:
-         GUI-proof-waiver: <why this change renders nothing / is pure logic>
+  Old/unrelated packets do not count — proof is bound to each file's content hash.
+  Resolve, for the surface(s) these views render:
+    1. Render the impacted state(s), look, then seal:
+         bash scripts/gui_proof.sh <fixture>           # one per affected state
+         # spawn .claude/agents/layout-watcher.md on the PNG(s); require PASS (no P1)
+         bash scripts/gui_proof_seal.sh <surface> <slug> <fixture> [<fixture>...]
+         # then paste the watcher verdict into the packet's watcher.md
+    2. Non-visible view change (comment/refactor with no visual effect):
+         bash scripts/gui_proof_waive.sh "<reason>" <file>...
     3. One-shot local override (states a reason; CI cannot use it):
          ALLNIGHTER_GUI_PROOF_WAIVER="<reason>" bash scripts/check.sh
   See docs/phases/GUI_Visual_Proof_Gate.md.

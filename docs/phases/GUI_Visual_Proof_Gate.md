@@ -40,10 +40,10 @@ close GUI work from code confidence. A build can pass while the user sees an
 empty list, clipped popover, wrong subtitle, dimmed overlay, or broken z-order.
 That permission is revoked.
 
-Tauri is rejected for the current crisis. It would make browser screenshots
-easier, but it would not remove the need for native proof, product-state proof,
-or accessibility assertions. It would also add a second platform stack while
-Allnighter's strategic shape is a native Mac app plus iOS floor manager.
+Tauri is rejected for the current crisis. It would make screenshots marginally
+easier, but it would not remove the need for a native render and a sighted
+watcher — and it would add a second platform stack while Allnighter's strategic
+shape is a native Mac app plus iOS floor manager.
 
 The mechanism is sight, not machinery. An LLM has good eyes; the failure was
 never that it could not see — it was that the building agent, motivated to close
@@ -143,15 +143,27 @@ Captures land at a stable path during iteration:
 docs/qa/gui/_captures/<fixture>.png      (overwritten each run; git-ignored)
 ```
 
-For a closeout that should persist as a record, copy the passing render into a
-dated packet:
+After a watcher PASS, seal the packet — this is what the wall checks:
+
+```text
+bash scripts/gui_proof_seal.sh <surface> <slug> <fixture> [<fixture>...]
+```
 
 ```text
 docs/qa/gui/<surface>/<YYYY-MM-DD>-<slug>/
-  native.png        # the rendered fixture state that passed
+  native.png        # the rendered fixture state that passed (native-<fixture>.png if many)
+  proof.manifest    # binds each proven view to its exact git blob hash + watcher: PASS
   watcher.md        # the layout-watcher's verdict (PASS, P1=none, P2 notes)
   mockup.png        # OPTIONAL — only if a rendered visual target exists
 ```
+
+**Proof is bound to content, not to "a packet exists."** `proof.manifest` records
+the git blob hash of each view it proved. The wall requires every *currently
+changed* view's *current* hash to be covered by some manifest. So a Team-dropdown
+packet can never satisfy a Composer change (different file, different hash), and
+re-editing any view makes its old proof stale — you must re-render and re-seal.
+A non-visible change to a view file (comment, pure-logic refactor) is waived
+content-bound instead: `bash scripts/gui_proof_waive.sh "<reason>" <file>...`.
 
 Closeout language:
 
@@ -203,19 +215,26 @@ render(s). It is a separate agent — never the one that wrote the code. Give it
 the PNG path(s) and the mockup path if a rendered one exists. It returns a
 verdict: P1 breakage (blocks) and P2 notes (advisory).
 
-### 5. Close Or Block
+### 5. Seal Or Block
 
-- Watcher PASS (no P1): may say `fixed`; record the closeout language above.
+- Watcher PASS (no P1): seal it — `bash scripts/gui_proof_seal.sh <surface>
+  <slug> <fixture>...` — paste the verdict into the packet's `watcher.md`, then
+  say `fixed` with the closeout language above.
 - Watcher FAIL (P1): not fixed. Fix and re-render until PASS.
 - Capture/fixture broken: `blocked on visual proof harness`, never `fixed`.
 
+Render and seal the surface(s) you actually touched — not every screen. A global
+token change uses one or a few representative impacted fixtures. The wall binds
+each changed view to its content hash, so stale or unrelated proof will not pass.
+
 ## Immediate Stop-Bleed Rule
 
-Any GUI work touching `Apps/AllnighterMac/Sources/*.swift` must end in one of:
+Any GUI work touching a visible view in `Apps/AllnighterMac/Sources/*.swift` must
+end in one of:
 
-1. a layout-watcher PASS on a render of the changed surface;
-2. an explicit waiver in the closeout naming why the change is not visible
-   (pure logic, a non-rendered code path);
+1. a sealed packet whose `proof.manifest` covers each changed view's current
+   hash (a layout-watcher PASS on a render of those surfaces);
+2. a content-bound waiver (`gui_proof_waive.sh`) for a non-visible view change;
 3. a blocker saying the render/watcher path could not be produced.
 
 The founder should not accept "fixed" for a visible GUI change without the
@@ -298,12 +317,18 @@ visible SwiftUI surface changed without a proof packet or an explicit waiver:
 
 - Visible = a changed `Sources/*.swift` declaring a `View`/`App`/Preview; pure
   logic/model/presenter files are not gated.
+- **Content-bound, not packet-presence.** Each changed view's *current* git blob
+  hash must appear in some `proof.manifest` (with `watcher: PASS`) or in
+  `WAIVERS.manifest`. Re-editing a view changes its hash → old proof goes stale;
+  a packet for one surface can't satisfy a different surface's view. This is what
+  keeps the wall true after the first packet exists.
 - Grandfathered to `scripts/.gui_proof_baseline` (the gate commit) so it does not
   retroactively flag pre-gate GUI work — only changes after the baseline count.
 - Detects untracked packets, so the commit-first workflow can't slip past.
-- Resolutions: a packet under `docs/qa/gui/<surface>/...`, a `GUI-proof-waiver:`
-  commit trailer, or one-shot `ALLNIGHTER_GUI_PROOF_WAIVER="reason"` (CI can't use
-  it). CI may set `ALLNIGHTER_GUI_PROOF_BASE=origin/main` for full-PR scope.
+- Resolutions: seal a packet (`gui_proof_seal.sh`), a content-bound waiver
+  (`gui_proof_waive.sh`), or one-shot `ALLNIGHTER_GUI_PROOF_WAIVER="reason"` (CI
+  can't use it). CI may set `ALLNIGHTER_GUI_PROOF_BASE=origin/main` for full-PR
+  scope.
 
 It enforces that the evidence ritual happened — not that pixels are correct. The
 layout-watcher PASS remains the real check; this makes producing one mandatory.
