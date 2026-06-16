@@ -5,6 +5,20 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 ran_any=false
 
+# Launch Authority TCC hotfix (H4/H6): the dev build/launch output must stay
+# OUTSIDE the repo. The checkout lives under ~/Documents and macOS attributes a
+# child's TCC prompts to the .app's location, so building/launching from the
+# repo re-opens the launch-permission code red. Guard against a regression that
+# points DERIVED back inside the repo (e.g. $ROOT/.build).
+echo "==> assert dev.sh build path is TCC-safe"
+if grep -E '^DERIVED=' "$ROOT/scripts/dev.sh" | grep -qE '\$ROOT|\.build/'; then
+  echo "check: scripts/dev.sh DERIVED points inside the repo — dev launch would" >&2
+  echo "       run from ~/Documents and trigger TCC prompts. Keep it under" >&2
+  echo "       ~/Library (see Launch_Authority_TCC_Hotfix.md, slice H4)." >&2
+  exit 1
+fi
+ran_any=true
+
 if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   echo "==> swift test AllnighterCore"
   swift test --package-path "$ROOT/Packages/AllnighterCore"

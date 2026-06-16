@@ -44,6 +44,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.allnighter.mac
         PRODUCT_NAME: Allnighter
+        # Keep the Swift module name = target name so `@testable import
+        # AllnighterMac` resolves; PRODUCT_NAME (the .app/executable) stays
+        # "Allnighter". Without this the module defaults to PRODUCT_NAME and the
+        # test target can't import the host.
+        PRODUCT_MODULE_NAME: AllnighterMac
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
@@ -65,6 +70,13 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.allnighter.mac.tests
         GENERATE_INFOPLIST_FILE: YES
+        # The host app's PRODUCT_NAME (Allnighter) differs from its target name
+        # (AllnighterMac), so XcodeGen's auto-generated TEST_HOST points at a
+        # non-existent AllnighterMac.app and `xcodebuild test` can't find the
+        # host. Pin both to the real product so the green wall's Mac tests —
+        # including the Launch Authority regression gates — actually run.
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Allnighter.app/Contents/MacOS/Allnighter"
+        BUNDLE_LOADER: "$(TEST_HOST)"
 
 schemes:
   AllnighterMac:

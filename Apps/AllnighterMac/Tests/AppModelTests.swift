@@ -104,6 +104,25 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.prompt, "already typed")
     }
 
+    /// Launch Authority TCC hotfix (H0/H1/H6): the cold-launch cache load must
+    /// NOT start live detection. The original code red was launch → runDetection
+    /// → isDetecting = true → shell/CLI spawn → TCC prompt. Re-adding a probe to
+    /// the launch path would flip isDetecting and fail this gate.
+    func testLoadCachedSetupStateDoesNotStartDetection() {
+        let model = AppModel()
+        XCTAssertFalse(model.isDetecting)
+        model.loadCachedSetupState()
+        XCTAssertFalse(model.isDetecting, "cold-launch cache load must never start a live probe")
+    }
+
+    /// Authority gate (H1): a full probe that is not user-initiated must fall
+    /// back to the quiet cache load instead of spawning.
+    func testFullSetupProbeWithoutUserIntentDoesNotDetect() {
+        let model = AppModel()
+        model.runFullSetupProbe(userInitiated: false)
+        XCTAssertFalse(model.isDetecting, "a non-user-initiated full probe must not spawn")
+    }
+
     func testHistorySelectionDrivesDisplayRun() {
         let model = AppModel()
         let past = TeamRun(id: "r1", prompt: "old prompt", status: .complete, createdAt: Date())
