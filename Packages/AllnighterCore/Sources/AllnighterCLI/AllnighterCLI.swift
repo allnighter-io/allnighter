@@ -21,6 +21,7 @@ struct AllnighterCLI {
         case "recall": await runRecall(args, runtime)
         case "doctor": await runDoctor(runtime)
         case "detect": await runDetect(runtime)
+        case "dev": runDev(args)
         case "mcp": await MCPServer(runtime: runtime).serve()
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
@@ -125,6 +126,56 @@ struct AllnighterCLI {
         }
     }
 
+    /// `alln dev export-contracts [--check]` — regenerate or verify the
+    /// checked-in generated artifacts from the contract registry
+    /// (docs/phases/CLI_Implementation_Contract.md §Generated Artifacts). The
+    /// generated dir is resolved relative to the current directory, so run this
+    /// from the repo root.
+    static func runDev(_ args: [String]) {
+        var rest = args
+        let sub = rest.first
+        if !rest.isEmpty { rest.removeFirst() }
+        switch sub {
+        case "export-contracts": runExportContracts(Options(rest))
+        default:
+            FileHandle.standardError.write(Data("usage: alln dev export-contracts [--check]\n".utf8)); exit(2)
+        }
+    }
+
+    static func runExportContracts(_ opts: Options) {
+        let artifacts: [ContractExport.Artifact]
+        do { artifacts = try ContractExport.artifacts() }
+        catch {
+            FileHandle.standardError.write(Data("export failed: \(error)\n".utf8)); exit(1)
+        }
+        let baseURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent(ContractExport.generatedDir)
+
+        if opts.flag("check") {
+            var drifted: [String] = []
+            for a in artifacts {
+                let onDisk = try? String(contentsOf: baseURL.appendingPathComponent(a.filename), encoding: .utf8)
+                if onDisk != a.contents { drifted.append(a.filename) }
+            }
+            if drifted.isEmpty {
+                print("contracts up to date (\(artifacts.count) artifacts)")
+            } else {
+                FileHandle.standardError.write(Data("CONTRACT_DRIFT: \(drifted.joined(separator: ", "))\nRun `alln dev export-contracts`, then rebuild.\n".utf8))
+                exit(1)
+            }
+        } else {
+            do {
+                try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
+                for a in artifacts {
+                    try a.contents.write(to: baseURL.appendingPathComponent(a.filename), atomically: true, encoding: .utf8)
+                }
+                print("wrote \(artifacts.count) artifacts to \(ContractExport.generatedDir)/")
+            } catch {
+                FileHandle.standardError.write(Data("write failed: \(error)\n".utf8)); exit(1)
+            }
+        }
+    }
+
     static func printInstallCLI() {
         let path = CommandLine.arguments.first ?? "alln"
         print("""
@@ -153,6 +204,7 @@ struct AllnighterCLI {
           models [--json]                                           list bench models
           doctor                                                    check sources and models
           detect                                                    first-run CLI detection, headless (real smoke probes)
+          dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           mcp                                                       run as an MCP stdio server
           install-cli | mcp-install                                 setup helpers
         """)

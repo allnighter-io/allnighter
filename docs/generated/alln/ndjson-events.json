@@ -1,0 +1,68 @@
+[
+  {
+    "name" : "teamRunStarted",
+    "requiredData" : [
+      "status",
+      "origin",
+      "teamPresetId"
+    ]
+  },
+  {
+    "name" : "workerStarted",
+    "requiredData" : [
+      "workerId",
+      "modelId",
+      "skillId"
+    ]
+  },
+  {
+    "name" : "workerAnswered",
+    "requiredData" : [
+      "workerId",
+      "durationMs"
+    ]
+  },
+  {
+    "name" : "workerFailed",
+    "requiredData" : [
+      "workerId",
+      "error"
+    ]
+  },
+  {
+    "name" : "planStarted",
+    "requiredData" : [
+      "workerId",
+      "stageId"
+    ]
+  },
+  {
+    "name" : "planWritten",
+    "requiredData" : [
+      "workerId",
+      "stageId",
+      "durationMs"
+    ]
+  },
+  {
+    "name" : "teamRunCompleted",
+    "requiredData" : [
+      "status",
+      "planStageId",
+      "durationMs"
+    ]
+  },
+  {
+    "name" : "teamRunFailed",
+    "requiredData" : [
+      "status",
+      "error"
+    ]
+  },
+  {
+    "name" : "error",
+    "requiredData" : [
+      "error"
+    ]
+  }
+]

@@ -1,0 +1,57 @@
+[
+  {
+    "command" : "alln docs",
+    "id" : "docs_all",
+    "title" : "Generate the full reference"
+  },
+  {
+    "command" : "alln doctor --json",
+    "id" : "doctor_json",
+    "title" : "Structured diagnostics"
+  },
+  {
+    "command" : "alln doctor explain SOURCE_AUTH_EXPIRED --json",
+    "id" : "doctor_explain",
+    "title" : "Explain an error code"
+  },
+  {
+    "command" : "alln models --json",
+    "id" : "models_json",
+    "title" : "List bench models"
+  },
+  {
+    "command" : "alln team show --json",
+    "id" : "team_show_json",
+    "title" : "Show the current team"
+  },
+  {
+    "command" : "alln team \"Pressure-test this launch plan.\"",
+    "id" : "team_basic",
+    "title" : "Ask the team"
+  },
+  {
+    "command" : "alln team --json \"Give me one small naming test.\"",
+    "id" : "team_json",
+    "title" : "Machine team run"
+  },
+  {
+    "command" : "alln team --stream \"Give me one tiny event-stream test.\"",
+    "id" : "team_stream",
+    "title" : "Streamed team run"
+  },
+  {
+    "command" : "alln show latest --json",
+    "id" : "show_latest_json",
+    "title" : "Show the latest run"
+  },
+  {
+    "command" : "alln export latest --format md",
+    "id" : "export_md",
+    "title" : "Export the latest result"
+  },
+  {
+    "command" : "alln dev export-contracts --check",
+    "id" : "export_contracts_check",
+    "title" : "Verify no contract drift"
+  }
+]

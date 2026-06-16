@@ -1,0 +1,154 @@
+[
+  {
+    "agentAction" : "Re-run `alln docs <command>` and fix arguments.",
+    "code" : "CLI_USAGE_ERROR",
+    "explain" : "The command was called with invalid or conflicting arguments. Consult the generated docs for the command and correct the invocation.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "cli.usage.error"
+  },
+  {
+    "agentAction" : "Run `alln dev export-contracts`, then rebuild.",
+    "code" : "CONTRACT_DRIFT",
+    "explain" : "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "contract.drift"
+  },
+  {
+    "agentAction" : "Run `alln doctor --json`.",
+    "code" : "DOCTOR_CHECK_FAILED",
+    "explain" : "A required doctor check failed. Inspect the structured report and address the named check, then retry.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "doctor.check.failed"
+  },
+  {
+    "agentAction" : "Run `alln doctor --json`; add\/configure the missing source.",
+    "code" : "SOURCE_NOT_FOUND",
+    "explain" : "A required source CLI\/runtime was not resolved on this machine. Install or locate it, then re-probe.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "source.not_found"
+  },
+  {
+    "agentAction" : "Re-authenticate the named source.",
+    "code" : "SOURCE_AUTH_EXPIRED",
+    "explain" : "The source resolved but its authentication is invalid or expired. Sign in via the source's own login flow.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "source.auth.expired"
+  },
+  {
+    "agentAction" : "Choose a ready model or run `alln models --json`.",
+    "code" : "MODEL_UNAVAILABLE",
+    "explain" : "The requested model is not ready right now. Pick a ready model from the Bench or retry when it recovers.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "model.unavailable"
+  },
+  {
+    "agentAction" : "Run `alln team show --json`; fix unavailable workers.",
+    "code" : "DEFAULT_TEAM_INVALID",
+    "explain" : "The default team has no runnable workers. Inspect and repair the team lineup before running.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "team.default.invalid"
+  },
+  {
+    "agentAction" : "Inspect `workerId` and source error; failed worker remains visible.",
+    "code" : "WORKER_FAILED",
+    "explain" : "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "worker.failed"
+  },
+  {
+    "agentAction" : "Retry with a ready plan writer or export worker answers.",
+    "code" : "PLAN_WRITER_FAILED",
+    "explain" : "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "plan_writer.failed"
+  },
+  {
+    "agentAction" : "Retry with lower effort or fewer workers.",
+    "code" : "TEAM_RUN_TIMEOUT",
+    "explain" : "The team run exceeded its time budget. Reduce effort or the worker count and retry.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "team.run.timeout"
+  },
+  {
+    "agentAction" : "Do not recursively spawn teams without explicit depth budget.",
+    "code" : "NESTED_TEAM_BLOCKED",
+    "explain" : "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "team.nested.blocked"
+  },
+  {
+    "agentAction" : "Wait or retry after current team run completes.",
+    "code" : "TEAM_GOVERNOR_BUSY",
+    "explain" : "The concurrency governor is at capacity. Wait for a slot and retry; this is a real busy state, not a fake queue.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "team.governor.busy"
+  },
+  {
+    "agentAction" : "Keep item Draft\/Pending; mutating dispatch is outside Pending M1.",
+    "code" : "PENDING_MUTATION_DEFERRED",
+    "explain" : "Mutating dispatch from Pending is not enabled in this milestone. Keep the item Draft\/Pending.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "pending.mutation.deferred"
+  },
+  {
+    "agentAction" : "Keep order unchanged; reorder only Pending Execute items in the same execution lane.",
+    "code" : "PENDING_REORDER_INVALID",
+    "explain" : "Reorder is only valid among Pending Execute items in one execution lane. The requested reorder was rejected.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "pending.reorder.invalid"
+  },
+  {
+    "agentAction" : "Run `alln history --json`.",
+    "code" : "RUN_NOT_FOUND",
+    "explain" : "No run matches the given id. List history and pick a valid run id or `latest`.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "run.not_found"
+  },
+  {
+    "agentAction" : "Use foreground CLI or start resident mode when available.",
+    "code" : "COORDINATOR_UNAVAILABLE",
+    "explain" : "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "coordinator.unavailable"
+  },
+  {
+    "agentAction" : "Treat as implementation bug; run export-contracts check.",
+    "code" : "JSON_SCHEMA_VIOLATION",
+    "explain" : "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "json.schema.violation"
+  },
+  {
+    "agentAction" : "Ask the user for the named permission.",
+    "code" : "PERMISSION_REQUIRED",
+    "explain" : "The action needs a user-granted permission that is not present. Request the named permission before retrying.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "permission.required"
+  },
+  {
+    "agentAction" : "Approve or configure the MCP client before retrying.",
+    "code" : "MCP_CLIENT_UNAPPROVED",
+    "explain" : "The calling MCP client is not approved. Approve or configure it, then retry.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "mcp.client.unapproved"
+  }
+]
