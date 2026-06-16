@@ -1,6 +1,8 @@
 # CLI Implementation Contract
 
-Status: Draft implementation contract for CLI milestone 1
+Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
+`serve --stdio` projects from the registry. Remaining (still owned here): MCP
+advertising/auto-install + async tools, and the deferred `alln pending` grammar.
 Owner: Shared Core + CLI + Mac
 Updated: 2026-06-15
 

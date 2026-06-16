@@ -1,6 +1,6 @@
 # CLI Product Spine
 
-Status: Draft v3 for mentor feedback; product spine
+Status: CLI M1 BUILT (2026-06-15); product spine (still owns forward naming/agent-first laws)
 Owner: Founder + Shared Core + CLI + Mac
 Updated: 2026-06-15
 
