@@ -15,8 +15,8 @@ final class DoctorReportTests: XCTestCase {
         DriverManifest(id: "codex", displayName: "Codex", kind: .headlessCLI),
     ]
 
-    private func inputs(full: Bool, configOK: Bool = true, runsOK: Bool = true) -> DoctorReport.Inputs {
-        .init(binaryVersion: "0.1.0", contractVersion: "1.0.0", configDirWritable: configOK, runsDirWritable: runsOK, full: full)
+    private func inputs(full: Bool, configOK: Bool = true, runsOK: Bool = true, coordinator: DoctorResult.Coordinator? = nil) -> DoctorReport.Inputs {
+        .init(binaryVersion: "0.1.0", contractVersion: "1.0.0", configDirWritable: configOK, runsDirWritable: runsOK, coordinator: coordinator, full: full)
     }
     private func check(_ r: DoctorResult, _ name: String) -> DoctorResult.Check? { r.checks.first { $0.name == name } }
 
@@ -25,7 +25,9 @@ final class DoctorReportTests: XCTestCase {
             ToolProbeRecord(driverId: "claude_code", status: .installedNotProbed(version: "1.2"), version: "1.2", lastProbeAt: t),
             ToolProbeRecord(driverId: "codex", status: .installedNotProbed(version: "0.9"), version: "0.9", lastProbeAt: t),
         ]
-        let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: inputs(full: false))
+        let coord = DoctorResult.Coordinator(state: .foregroundOnly, detail: "foreground CLI only")
+        let r = DoctorReport.build(models: models, manifests: manifests, records: records,
+                                   inputs: inputs(full: false, coordinator: coord))
 
         XCTAssertEqual(r.status, .ok, "all installed, no detected problems → ok even though readiness is unverified")
         // Readiness/auth honestly not checked, with a next action to --full.
@@ -37,6 +39,7 @@ final class DoctorReportTests: XCTestCase {
         // No readiness inferred: every model is unknown.
         XCTAssertTrue(r.models.allSatisfy { $0.status == .unknown })
         XCTAssertFalse(r.coordinator.available)
+        XCTAssertEqual(r.coordinator.state, .foregroundOnly)
     }
 
     func testFullReflectsRealProbeOutcomes() {

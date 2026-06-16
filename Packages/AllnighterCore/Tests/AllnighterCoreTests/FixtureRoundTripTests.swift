@@ -147,7 +147,8 @@ final class FixtureRoundTripTests: XCTestCase {
         try assertRoundTrips(DoctorResult.self, .doctorResult)
         let doc = try Fixtures.decode(DoctorResult.self, .doctorResult)
         XCTAssertEqual(doc.status, .degraded)
-        XCTAssertFalse(doc.coordinator.available)               // M1 foreground only — reported, not faked
+        XCTAssertFalse(doc.coordinator.available)
+        XCTAssertEqual(doc.coordinator.state, .foregroundOnly)
         XCTAssertTrue(doc.checks.contains { $0.name == "source.claude_code.auth" && $0.status == .degraded })
         XCTAssertEqual(doc.fixes.first?.code, "SOURCE_AUTH_EXPIRED")
         XCTAssertEqual(doc.models.first?.sourceName, "Claude Code")

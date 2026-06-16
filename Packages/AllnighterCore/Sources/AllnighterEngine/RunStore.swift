@@ -113,7 +113,7 @@ public struct RunStore: Sendable {
     /// True when `pid` names a live process. `kill(pid, 0)` returns 0 when we can
     /// signal it, or fails with `EPERM` when it exists but we may not — both mean
     /// alive; `ESRCH` means gone.
-    static func processAlive(_ pid: Int32) -> Bool {
+    public static func processAlive(_ pid: Int32) -> Bool {
         guard pid > 0 else { return false }
         if kill(pid, 0) == 0 { return true }
         return errno == EPERM

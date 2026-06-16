@@ -42,11 +42,38 @@
         "available" : {
           "type" : "boolean"
         },
+        "coordinatorId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "detail" : {
+          "type" : "string"
+        },
+        "pid" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "startedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "state" : {
+          "enum" : [
+            "foregroundOnly",
+            "available",
+            "unavailable"
+          ],
           "type" : "string"
         }
       },
       "required" : [
+        "state",
         "available",
         "detail"
       ],

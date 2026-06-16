@@ -448,6 +448,33 @@
 
       ],
       "exampleIds" : [
+        "serve_health_json"
+      ],
+      "flags" : [
+        {
+          "name" : "health",
+          "summary" : "Read-only coordinator health; does not start serve.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured CoordinatorHealth output.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "serve",
+      "outputSchema" : "coordinatorHealth",
+      "summary" : "Resident Mac coordinator (foreground skeleton)."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
 
       ],
       "flags" : [
@@ -784,24 +811,6 @@
       "name" : "mcp install",
       "outputSchema" : "none",
       "summary" : "Write MCP config with user consent."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "serve",
-      "outputSchema" : "none",
-      "summary" : "Resident Mac agent\/coordinator."
     }
   ],
   "contractVersion" : "1.0.0",
@@ -853,6 +862,14 @@
     {
       "meaning" : "Resident coordinator state; may be degraded in M1.",
       "name" : "coordinator"
+    },
+    {
+      "meaning" : "Async run journal persists worker\/status transitions incrementally.",
+      "name" : "journal.incrementalDurable"
+    },
+    {
+      "meaning" : "Orphaned async runs resolve to interrupted.",
+      "name" : "journal.orphanRecovery"
     },
     {
       "meaning" : "Deferred until MCP scope, but registry name reserved.",
@@ -1159,6 +1176,11 @@
       "command" : "alln dev export-contracts --check",
       "id" : "export_contracts_check",
       "title" : "Verify no contract drift"
+    },
+    {
+      "command" : "alln serve --health --json",
+      "id" : "serve_health_json",
+      "title" : "Coordinator health"
     }
   ],
   "mcpTools" : [

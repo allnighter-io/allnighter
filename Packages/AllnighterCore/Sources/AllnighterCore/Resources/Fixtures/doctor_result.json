@@ -57,6 +57,7 @@
     }
   ],
   "coordinator": {
+    "state": "foregroundOnly",
     "available": false,
     "detail": "foreground CLI only"
   }

@@ -15,15 +15,26 @@ public enum DoctorReport {
         public var docsVersionMatchesBinary: Bool
         public var configDirWritable: Bool
         public var runsDirWritable: Bool
+        /// Observed resident coordinator state from `ResidentCoordinatorProbe` when set.
+        public var coordinator: DoctorResult.Coordinator?
         /// True when smoke probes ran (`--full`); false for the quota-free path.
         public var full: Bool
 
-        public init(binaryVersion: String, contractVersion: String, docsVersionMatchesBinary: Bool = true, configDirWritable: Bool, runsDirWritable: Bool, full: Bool) {
+        public init(
+            binaryVersion: String,
+            contractVersion: String,
+            docsVersionMatchesBinary: Bool = true,
+            configDirWritable: Bool,
+            runsDirWritable: Bool,
+            coordinator: DoctorResult.Coordinator? = nil,
+            full: Bool
+        ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
             self.docsVersionMatchesBinary = docsVersionMatchesBinary
             self.configDirWritable = configDirWritable
             self.runsDirWritable = runsDirWritable
+            self.coordinator = coordinator
             self.full = full
         }
     }
@@ -77,7 +88,13 @@ public enum DoctorReport {
                             status: models.isEmpty ? .critical : .ok,
                             detail: models.isEmpty ? "no models configured" : "\(models.count) models configured"))
         checks.append(planWriterCheck(models: models, recByDriver: recByDriver, full: inputs.full))
-        checks.append(.init(name: "coordinator", status: .ok, detail: "foreground CLI only"))
+        checks.append(journalIncrementalCheck(inputs.runsDirWritable))
+        checks.append(journalOrphanCheck(inputs.runsDirWritable))
+        let coordinator = inputs.coordinator ?? DoctorResult.Coordinator(
+            state: .foregroundOnly,
+            detail: "foreground CLI only; resident coordinator not running"
+        )
+        checks.append(coordinatorCheck(coordinator))
 
         let modelInfos = models.map { m -> TeamRunJSON.ModelInfo in
             let status: TeamRunJSON.ModelStatus
@@ -89,7 +106,6 @@ public enum DoctorReport {
             return TeamRunJSON.ModelInfo(id: m.id, displayName: m.displayName, sourceId: m.driverId, sourceName: sourceName(m.driverId), status: status)
         }
 
-        let coordinator = DoctorResult.Coordinator(available: false, detail: "foreground CLI only")
         return DoctorResult(
             status: overallStatus(records: records, sourcesLoaded: sourcesLoaded, inputs: inputs),
             binaryVersion: inputs.binaryVersion,
@@ -129,6 +145,37 @@ public enum DoctorReport {
             return .init(name: key, status: .degraded, detail: "\(name) smoke probe failed: \(reason)")
         default:
             return .init(name: key, status: .notChecked, detail: "auth not determined")
+        }
+    }
+
+    private static func journalIncrementalCheck(_ runsOK: Bool) -> DoctorResult.Check {
+        guard runsOK else {
+            return .init(name: "journal.incrementalDurable", status: .critical,
+                         detail: "run journal dir missing or not writable", requiresManual: true)
+        }
+        return .init(name: "journal.incrementalDurable", status: .ok,
+                     detail: "run journal persists transitions incrementally")
+    }
+
+    private static func journalOrphanCheck(_ runsOK: Bool) -> DoctorResult.Check {
+        guard runsOK else {
+            return .init(name: "journal.orphanRecovery", status: .critical,
+                         detail: "run journal dir missing or not writable", requiresManual: true)
+        }
+        return .init(name: "journal.orphanRecovery", status: .ok,
+                     detail: "orphaned non-terminal runs resolve to interrupted")
+    }
+
+    private static func coordinatorCheck(_ coordinator: DoctorResult.Coordinator) -> DoctorResult.Check {
+        switch coordinator.state {
+        case .available:
+            let pid = coordinator.pid.map { " (pid \($0))" } ?? ""
+            return .init(name: "coordinator", status: .ok, detail: "resident coordinator running\(pid)")
+        case .foregroundOnly:
+            return .init(name: "coordinator", status: .ok, detail: coordinator.detail)
+        case .unavailable:
+            return .init(name: "coordinator", status: .degraded, detail: coordinator.detail,
+                         fixCommand: "alln serve", requiresManual: false)
         }
     }
 

@@ -68,5 +68,10 @@
     "command" : "alln dev export-contracts --check",
     "id" : "export_contracts_check",
     "title" : "Verify no contract drift"
+  },
+  {
+    "command" : "alln serve --health --json",
+    "id" : "serve_health_json",
+    "title" : "Coordinator health"
   }
 ]

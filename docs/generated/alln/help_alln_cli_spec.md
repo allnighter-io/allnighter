@@ -175,6 +175,18 @@ Flags:
 
 Examples: `export_contracts_check`.
 
+### `alln serve`
+
+Resident Mac coordinator (foreground skeleton).
+
+Flags:
+- `--health` — Read-only coordinator health; does not start serve.
+- `--json` — Structured CoordinatorHealth output.
+
+Output schema: `coordinatorHealth`.
+
+Examples: `serve_health_json`.
+
 ## Commands (named but deferred)
 
 - `alln team start` — Start a resumable/asynchronous team run.
@@ -196,7 +208,6 @@ Examples: `export_contracts_check`.
 - `alln pair` — Approve iOS/Mac pairing.
 - `alln mcp serve` — Run the MCP stdio server.
 - `alln mcp install` — Write MCP config with user consent.
-- `alln serve` — Resident Mac agent/coordinator.
 
 ## Error codes
 
@@ -259,4 +270,5 @@ Examples: `export_contracts_check`.
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`
+- `serve_health_json` — Coordinator health: `alln serve --health --json`
 

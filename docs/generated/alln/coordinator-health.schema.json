@@ -1,0 +1,106 @@
+{
+  "$defs" : {
+    "Journal" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "incrementalDurable" : {
+          "type" : "boolean"
+        },
+        "orphanRecovery" : {
+          "type" : "boolean"
+        },
+        "runsDirWritable" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "incrementalDurable",
+        "orphanRecovery",
+        "runsDirWritable"
+      ],
+      "type" : "object"
+    },
+    "Loopback" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "host" : {
+          "type" : "string"
+        },
+        "listening" : {
+          "type" : "boolean"
+        },
+        "port" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "listening",
+        "host"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/coordinator-health.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "activeObligationCount" : {
+      "type" : "integer"
+    },
+    "binaryVersion" : {
+      "type" : "string"
+    },
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "coordinatorId" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "journal" : {
+      "$ref" : "#\/$defs\/Journal"
+    },
+    "loopback" : {
+      "$ref" : "#\/$defs\/Loopback"
+    },
+    "pid" : {
+      "type" : [
+        "integer",
+        "null"
+      ]
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "startedAt" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "state" : {
+      "enum" : [
+        "foregroundOnly",
+        "available",
+        "unavailable"
+      ],
+      "type" : "string"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "state",
+    "contractVersion",
+    "binaryVersion",
+    "journal",
+    "loopback",
+    "activeObligationCount"
+  ],
+  "title" : "CoordinatorHealth",
+  "type" : "object"
+}

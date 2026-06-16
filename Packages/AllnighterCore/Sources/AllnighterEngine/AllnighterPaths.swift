@@ -27,6 +27,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Config", isDirectory: true)
     }
 
+    /// `…/Allnighter/Coordinator/` — resident `alln serve` durable state.
+    public static var coordinator: URL {
+        support.appendingPathComponent("Coordinator", isDirectory: true)
+    }
+
     /// `…/Allnighter/Evals/` — eval-harness runs, kept OUT of `Runs/` so history
     /// and `team_recall` (RB6) never surface them (contamination guard).
     public static var evals: URL {

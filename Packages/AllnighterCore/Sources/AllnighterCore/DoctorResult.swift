@@ -66,13 +66,35 @@ public struct DoctorResult: Codable, Equatable, Sendable {
         }
     }
 
-    /// Resident-coordinator state. May be `available: false` in milestone 1
-    /// (foreground CLI only) — reported, never faked.
+    /// Resident-coordinator state. `foregroundOnly` is normal when resident mode
+    /// is off — reported, never faked.
     public struct Coordinator: Codable, Equatable, Sendable {
+        public var state: CoordinatorState
         public var available: Bool
         public var detail: String
-        public init(available: Bool, detail: String) {
-            self.available = available; self.detail = detail
+        public var coordinatorId: String?
+        public var pid: Int32?
+        public var startedAt: Date?
+
+        public init(
+            state: CoordinatorState,
+            detail: String,
+            coordinatorId: String? = nil,
+            pid: Int32? = nil,
+            startedAt: Date? = nil
+        ) {
+            self.state = state
+            self.available = state == .available
+            self.detail = detail
+            self.coordinatorId = coordinatorId
+            self.pid = pid
+            self.startedAt = startedAt
         }
+    }
+
+    public enum CoordinatorState: String, Codable, Sendable {
+        case foregroundOnly
+        case available
+        case unavailable
     }
 }

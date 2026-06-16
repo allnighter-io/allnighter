@@ -160,6 +160,15 @@ public extension ContractRegistry {
             flags: [FlagSpec("check", summary: "Fail when generated output drifts from the registry.")],
             exampleIds: ["export_contracts_check"]
         ),
+        CommandSpec(
+            "serve", summary: "Resident Mac coordinator (foreground skeleton).", milestone: .m1,
+            flags: [
+                FlagSpec("health", summary: "Read-only coordinator health; does not start serve."),
+                FlagSpec("json", summary: "Structured CoordinatorHealth output."),
+            ],
+            outputSchema: .coordinatorHealth,
+            exampleIds: ["serve_health_json"]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
@@ -184,7 +193,6 @@ public extension ContractRegistry {
         CommandSpec("pair", summary: "Approve iOS/Mac pairing.", milestone: .deferred),
         CommandSpec("mcp serve", summary: "Run the MCP stdio server.", milestone: .deferred),
         CommandSpec("mcp install", summary: "Write MCP config with user consent.", milestone: .deferred),
-        CommandSpec("serve", summary: "Resident Mac agent/coordinator.", milestone: .deferred),
     ]
 
     // MARK: - Error catalog
@@ -227,6 +235,8 @@ public extension ContractRegistry {
         DoctorCheckSpec("defaultTeamValid", meaning: "Default team has runnable workers."),
         DoctorCheckSpec("planWriterReady", meaning: "Default team has a ready plan worker."),
         DoctorCheckSpec("coordinator", meaning: "Resident coordinator state; may be degraded in M1."),
+        DoctorCheckSpec("journal.incrementalDurable", meaning: "Async run journal persists worker/status transitions incrementally."),
+        DoctorCheckSpec("journal.orphanRecovery", meaning: "Orphaned async runs resolve to interrupted."),
         DoctorCheckSpec("mcpDescriptorsCurrent", meaning: "Deferred until MCP scope, but registry name reserved."),
     ]
 
@@ -269,5 +279,6 @@ public extension ContractRegistry {
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),
         ExampleRecipe("export_md", title: "Export the latest result", command: "alln export latest --format md"),
         ExampleRecipe("export_contracts_check", title: "Verify no contract drift", command: "alln dev export-contracts --check"),
+        ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
     ]
 }

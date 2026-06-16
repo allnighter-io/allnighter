@@ -31,6 +31,7 @@ struct AllnighterCLI {
         case "dev": runDev(args)
         case "mcp" where args.first == "install": printMCPInstall()   // consent-gated: prints config, never edits it
         case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
+        case "serve": await runServe(args)
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
         case "help", "--help", "-h": printHelp()
@@ -179,6 +180,34 @@ struct AllnighterCLI {
         }
     }
 
+    /// `alln serve [--health --json]` — resident coordinator skeleton. `--health`
+    /// is read-only and never starts the coordinator.
+    static func runServe(_ args: [String]) async {
+        let opts = Options(args)
+        if opts.flag("health") {
+            let probe = ResidentCoordinatorProbe()
+            let health = probe.health(binaryVersion: binaryVersion)
+            if opts.flag("json") {
+                print(jsonString(health))
+            } else {
+                print("coordinator \(health.state.rawValue)")
+                if let pid = health.pid { print("pid \(pid)") }
+                if let port = health.loopback.port { print("loopback \(health.loopback.host):\(port)") }
+                print("obligations \(health.activeObligationCount)")
+            }
+            return
+        }
+        if !opts.positional.isEmpty || !opts.values.isEmpty {
+            FileHandle.standardError.write(Data("usage: alln serve [--health --json]\n".utf8)); exit(2)
+        }
+        FileHandle.standardError.write(Data("alln serve — resident coordinator (Ctrl+C to stop)\n".utf8))
+        do {
+            try await ResidentCoordinator(binaryVersion: binaryVersion).runUntilSignal()
+        } catch {
+            FileHandle.standardError.write(Data("coordinator failed: \(error)\n".utf8)); exit(1)
+        }
+    }
+
     /// Builds a `DoctorResult` — shared by `alln doctor` and the MCP `doctor` tool
     /// so both project the same contract.
     static func doctorResult(_ runtime: ToolRuntime, full: Bool) async -> DoctorResult {
@@ -192,6 +221,7 @@ struct AllnighterCLI {
             docsVersionMatchesBinary: true,
             configDirWritable: ensureWritable(AllnighterPaths.config),
             runsDirWritable: ensureWritable(AllnighterPaths.runs),
+            coordinator: ResidentCoordinatorProbe().doctorCoordinator(),
             full: full
         )
         return DoctorReport.build(models: runtime.models, manifests: runtime.registry.all, records: records, inputs: inputs)
@@ -618,6 +648,7 @@ struct AllnighterCLI {
           docs [topic] [--errors|--schema|--examples]               generated agent-facing reference
           detect                                                    first-run CLI detection, headless
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
+          serve [--health --json]                                 resident coordinator (Serve0 skeleton)
           mcp                                                       run as an MCP stdio server
           install-cli | mcp-install                                 setup helpers
         """)
@@ -687,7 +718,7 @@ struct Options {
     /// Boolean flags never consume the next token as a value, so
     /// `alln team --json "prompt"` keeps "prompt" as the positional.
     static let booleanFlags: Set<String> = [
-        "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix",
+        "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix", "health",
     ]
     var positional: [String] = []
     var values: [String: String] = [:]

@@ -125,7 +125,12 @@ public enum ContractSchema {
                 "name": str, "status": enumStr(["ok", "degraded", "critical", "notChecked"]), "detail": str,
                 "fixCommand": nullable("string"), "requiresManual": bool,
             ], required: ["name", "status", "detail", "requiresManual"]),
-            "Coordinator": obj(["available": bool, "detail": str], required: ["available", "detail"]),
+            "Coordinator": obj([
+                "state": enumStr(["foregroundOnly", "available", "unavailable"]),
+                "available": bool, "detail": str,
+                "coordinatorId": nullable("string"), "pid": nullable("integer"),
+                "startedAt": nullable("string"),
+            ], required: ["state", "available", "detail"]),
             "ModelInfo": obj([
                 "id": str, "displayName": str, "sourceId": str,
                 "sourceName": nullable("string"), "status": enumStr(["ready", "unavailable", "unknown"]),
@@ -143,6 +148,41 @@ public enum ContractSchema {
             "runId": nullable("string"), "sourceId": nullable("string"),
             "modelId": nullable("string"), "workerId": nullable("string"),
         ], required: ["code", "message", "requiresManual", "retryable"])
+    }
+
+    // MARK: - CoordinatorHealth
+
+    public static func coordinatorHealthSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/coordinator-health.schema.json",
+            "title": "CoordinatorHealth",
+        ]
+        let top = obj([
+            "schemaVersion": int,
+            "state": enumStr(["foregroundOnly", "available", "unavailable"]),
+            "coordinatorId": nullable("string"),
+            "pid": nullable("integer"),
+            "startedAt": nullable("string"),
+            "contractVersion": str,
+            "binaryVersion": str,
+            "journal": ref("Journal"),
+            "loopback": ref("Loopback"),
+            "activeObligationCount": int,
+        ], required: [
+            "schemaVersion", "state", "contractVersion", "binaryVersion",
+            "journal", "loopback", "activeObligationCount",
+        ])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "Journal": obj([
+                "incrementalDurable": bool, "orphanRecovery": bool, "runsDirWritable": bool,
+            ], required: ["incrementalDurable", "orphanRecovery", "runsDirWritable"]),
+            "Loopback": obj([
+                "listening": bool, "host": str, "port": nullable("integer"),
+            ], required: ["listening", "host"]),
+        ]
+        return schema
     }
 
     // MARK: - Deterministic serialization
