@@ -40,14 +40,46 @@ struct AllnighterCLI {
         }
         let request = TeamRequest(question: question, presetId: opts.value("preset"), context: opts.value("context"))
         let result = await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"))
+
         if opts.flag("json") {
-            print(jsonString(result))
-        } else if result.status == .failed && result.runId.isEmpty {
+            // M1 step 5 (breaking): emit TeamRunJSON projected from the persisted
+            // run, replacing the legacy TeamToolResult shape.
+            guard !result.runId.isEmpty, let run = loadRun(result.runId) else {
+                emitFailure(code: "RUN_NOT_FOUND", message: result.note.isEmpty ? "team run did not persist" : result.note)
+                exit(1)
+            }
+            let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
+                .appendingPathComponent("run.json").path ?? ""
+            let context = TeamRunJSONMapper.Context(
+                promptSource: .init(kind: opts.value("file") != nil ? .file : .positional, path: opts.value("file")),
+                lane: opts.value("lane"), type: opts.value("type"), effort: opts.value("effort"),
+                runJournalPath: journalPath
+            )
+            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
+            print(jsonString(trj))
+            return
+        }
+
+        if result.status == .failed && result.runId.isEmpty {
             FileHandle.standardError.write(Data((result.note + "\n").utf8)); exit(1)
         } else {
             print(result.plan ?? "(no plan — status \(result.status.rawValue))")
             FileHandle.standardError.write(Data("\n[team \(result.preset): \(result.invocations) invocations; run \(result.runId)]\n".utf8))
         }
+    }
+
+    /// Loads a persisted run for projection to `TeamRunJSON`.
+    private static func loadRun(_ runId: String) -> TeamRun? {
+        guard let url = try? RunStore().runDirectory(forRunId: runId).appendingPathComponent("run.json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? CoreJSON.decode(TeamRun.self, from: data)
+    }
+
+    /// Emits the shared machine failure envelope (one JSON object on stdout).
+    private static func emitFailure(code: String, message: String) {
+        struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
+        let env = ErrorEnvelope(code: code, message: message, requiresManual: code == "RUN_NOT_FOUND", retryable: false)
+        print(jsonString(Failure(error: env)))
     }
 
     static func runPresets(_ args: [String], _ runtime: ToolRuntime) async {
