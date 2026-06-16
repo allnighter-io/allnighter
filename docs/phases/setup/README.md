@@ -56,12 +56,14 @@ Prove detection on a real machine before building the WOW UI (full detail in
 | Phase | Scope | Status |
 | --- | --- | --- |
 | **0** | Packaging fix + `DefaultConfig` safety net + built-bundle test → default models/team load, Doctor shows real reasons | **Done** (2026-06-15) |
-| **1** | Detection engine — `CLIDetector` + hardened login-shell resolve + cached invocation + 5-state status. Prove headless with `alln doctor` first. | Not started |
-| **2** | Wire Doctor + health badge to the detector → real "4/4 tools ready" | Not started |
+| **1** | Detection engine — `CLIDetector` + hardened login-shell resolve (`ShellResolver`) + cached invocation (`ToolInvocation`) + 5-state status (`ModelSetupStatus`) + persistence (`SetupStore`). Prove headless first. | **Built** (2026-06-15) — engine + persistence + `CLIDetectorTests`; reachable headless via `alln detect`. Live founder smoke run still pending. |
+| **2** | Wire Doctor + health badge to the detector → real "4/4 tools ready" | **Largely built** — `AppModel` runs `CLIDetector.probeAll`, caches via `SetupStore`, exposes `toolStatus(for:)` to the UI. Verify the runtime/`WorkerRunner` spawn uses the cached `ToolInvocation` (health == runs). |
 | **3** | Setup UI (Experience Scenes 1–6); Doctor becomes the compact roster | **Blocked on designer mocks** (`00_…`) |
-| **4** | Auto-build the Bench/default Team from ready sources/models | Not started |
+| **4** | Auto-build the Bench/default Team from ready sources/models | **Not started** (no assembly symbol in code). |
 
-**Next:** Phase 1 (engine, headless-first). Do not build Setup UI until designer
-delivers mocks from `00_First_Run_Setup_Experience.md`.
+**Next:** Phase 4 (auto-team assembly, engine) + confirm the Phase 2
+"health == runs" invocation reuse. Setup UI (Phase 3) stays blocked until the
+designer delivers mocks from `00_First_Run_Setup_Experience.md`.
 
-Created 2026-06-15 · Phase 0 implemented 2026-06-15.
+Created 2026-06-15 · Phase 0 implemented 2026-06-15 · Phases 1–2 reconciled to
+code 2026-06-15.

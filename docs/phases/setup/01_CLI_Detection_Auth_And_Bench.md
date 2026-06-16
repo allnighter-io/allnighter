@@ -345,13 +345,18 @@ Prove detection on a real machine **before** building the WOW UI.
     to `Contents/Resources/*.json`; `DefaultConfig` safety net replaces silent
     `fallbackPanel()`; blocking alert when both sources fail; `BuiltBundleConfigTests`
     + `DefaultConfigDriftTests`; interim Doctor runs against real manifests.
-  - **Not yet:** headless `CLIDetector` / `ShellResolver`; Setup UI; auto-team.
-- **Phase 1 — Detection core (engine).** `ShellResolver` (sentinel/timeout/batch)
-  + `CLIDetector` + known-paths fallback + `ResolvedInvocation` + 5-state status,
-  persisted. **Prove headless first:** `alln doctor` runnable from Terminal
-  **before any UI**.
-- **Phase 2 — Wire existing UI.** Doctor + health badge consume the detector;
-  runtime uses cached invocations. User opens app → real "4/4 tools ready", no Setup yet.
+  - **Not yet:** Setup UI; auto-team. (`CLIDetector`/`ShellResolver` landed in
+    Phase 1, below.)
+- **Phase 1 — Detection core (engine). BUILT (2026-06-15).** `ShellResolver`
+  (sentinel/timeout/batch) + `CLIDetector` + known-paths fallback +
+  `ToolInvocation` (direct/shim/loginShell) + 5-state `ModelSetupStatus`,
+  persisted via `SetupStore` (`cli_setup.json`). Covered by `CLIDetectorTests`.
+  Headless proof reachable via `alln detect`. **Still pending:** the live founder
+  smoke run against real CLIs (§12 "Founder live first-run").
+- **Phase 2 — Wire existing UI. LARGELY BUILT.** `AppModel` runs
+  `CLIDetector.probeAll`, caches via `SetupStore`, and exposes `toolStatus(for:)`
+  to the health badge/roster. **Verify:** the runtime/`WorkerRunner` spawn consumes
+  the cached `ToolInvocation` so health == runs (§10), not just the badge.
 - **Phase 3 — Setup UI (GUI Tier C).** Full-window Setup (Experience Scenes 1–6);
   Doctor sheet → compact roster.
 - **Phase 4 — Auto-team.** Assemble + persist from ready sources/models; Scene 5 pre-select.
