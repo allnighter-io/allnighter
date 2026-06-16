@@ -90,6 +90,19 @@ struct MCPServer {
         case "doctor":
             let doc = await AllnighterCLI.doctorResult(runtime, full: (args["full"] as? Bool) ?? false)
             respond(id: id, result: toolText("doctor: \(doc.status.rawValue)", structured: AllnighterCLI.jsonString(doc)))
+        case "error_explain":
+            guard let code = args["code"] as? String,
+                  let spec = ContractRegistry.milestone1.errors.first(where: { $0.code == code }) else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "unknown error code: \(args["code"] as? String ?? "")")
+            }
+            respond(id: id, result: toolText("\(spec.code): \(spec.agentAction)", structured: AllnighterCLI.jsonString(spec)))
+        case "spec_get":
+            let ref = (args["run"] as? String) ?? "latest"
+            guard let run = AllnighterCLI.resolveRun(ref) else {
+                return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+            }
+            let result = AllnighterCLI.specResult(run, runtime: runtime, detail: args["detail"] as? String)
+            respond(id: id, result: toolText(result.summary, structured: AllnighterCLI.jsonString(result)))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
         }

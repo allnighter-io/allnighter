@@ -129,6 +129,19 @@ Output schema: `teamRunJSON`.
 
 Examples: `show_latest_json`.
 
+### `alln spec`
+
+Retrieve a run's spec/result packet (summary|full|artifactRefsOnly).
+
+Arguments:
+- `run-id|latest` (optional) — A run id or `latest` (default latest).
+
+Flags:
+- `--detail <detail>` (default: summary) — summary | full | artifactRefsOnly.
+- `--json` — Structured SpecRetrieval result.
+
+Examples: `spec_full`.
+
 ### `alln export`
 
 Export a result bundle.
@@ -243,6 +256,7 @@ Examples: `export_contracts_check`.
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
 - `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
+- `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`
 

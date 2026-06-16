@@ -516,6 +516,41 @@ final class AppModel {
     var totalToolCount: Int { registry.all.filter { $0.kind == .headlessCLI }.count }
     func toolStatus(for driverId: String) -> ToolProbeRecord? { toolStatuses.first { $0.driverId == driverId } }
 
+    /// Workers (model seats) on tools that are ready — for the "· N workers" tally.
+    var readyWorkerCount: Int {
+        let readyDrivers = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }.count
+    }
+
+    /// Per-tool cards for the Team-health popover + Setup window, mapped from the
+    /// canonical probe records + manifests + the models each tool hosts.
+    var setupCards: [SetupCardModel] {
+        toolStatuses.compactMap { rec in
+            guard let manifest = registry.manifest(id: rec.driverId) else { return nil }
+            let seats = models.filter { $0.driverId == rec.driverId }.map {
+                SetupCardModel.WorkerSeat(id: $0.id, name: $0.displayName, modelLabel: $0.modelLabel, isPlanWriter: $0.canWritePlan)
+            }
+            let route = "via " + rec.driverId.replacingOccurrences(of: "_", with: "-")
+            let state: SetupCardState
+            var shim: String?
+            var reason: String?
+            switch rec.status {
+            case .ready: state = .ready
+            case .installedNotSignedIn: state = .needsLogin
+            case .shimmedNeedsConfirm(let r): state = .needsPath; shim = r.rawCommandV
+            case .probeFailed(let r): state = .probeFailed; reason = r
+            case .notInstalled: state = .notInstalled
+            case .installedNotProbed: state = .installedNotProbed
+            }
+            return SetupCardModel(
+                driverId: rec.driverId, name: manifest.displayName, route: route, version: rec.version,
+                state: state, workers: seats,
+                loginCommand: manifest.setup?.loginFlow?.interactiveCommand,
+                installHint: manifest.setup?.installHint, docsURL: manifest.setup?.docsURL,
+                shimCommand: shim, probeReason: reason)
+        }
+    }
+
     /// Per-driver invocations resolved by detection — so GUI runs spawn through the
     /// SAME plan that passed the health probe (health == runs; docs/phases/setup/01 §10).
     private var runnerInvocations: [String: ToolInvocation] {

@@ -153,5 +153,39 @@
       }
     ],
     "summary" : "Diagnostics report; quota-free unless `full` is set."
+  },
+  {
+    "command" : "doctor explain",
+    "name" : "error_explain",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "code",
+        "required" : true,
+        "summary" : "The error code to explain, e.g. SOURCE_AUTH_EXPIRED.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Explain an error\/recovery code: cause, who can fix it, and the next action."
+  },
+  {
+    "command" : "spec",
+    "name" : "spec_get",
+    "outputSchema" : "teamRunJSON",
+    "params" : [
+      {
+        "name" : "run",
+        "required" : false,
+        "summary" : "Run id or `latest` (default latest).",
+        "type" : "string"
+      },
+      {
+        "name" : "detail",
+        "required" : false,
+        "summary" : "summary | full | artifactRefsOnly (default summary).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Retrieve a run's full spec\/result packet without opening the GUI. Failed workers and warnings always included in full detail."
   }
 ]

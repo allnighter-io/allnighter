@@ -338,6 +338,39 @@
       "args" : [
         {
           "name" : "run-id|latest",
+          "required" : false,
+          "summary" : "A run id or `latest` (default latest)."
+        }
+      ],
+      "exampleIds" : [
+        "spec_full"
+      ],
+      "flags" : [
+        {
+          "defaultValue" : "summary",
+          "name" : "detail",
+          "summary" : "summary | full | artifactRefsOnly.",
+          "takesValue" : true,
+          "valueType" : "detail"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured SpecRetrieval result.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "spec",
+      "outputSchema" : "none",
+      "summary" : "Retrieve a run's spec\/result packet (summary|full|artifactRefsOnly)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "run-id|latest",
           "required" : true,
           "summary" : "A run id or `latest`."
         }
@@ -1113,6 +1146,11 @@
       "title" : "Show the latest run"
     },
     {
+      "command" : "alln spec latest --detail full --json",
+      "id" : "spec_full",
+      "title" : "Retrieve the full result packet"
+    },
+    {
       "command" : "alln export latest --format md",
       "id" : "export_md",
       "title" : "Export the latest result"
@@ -1278,6 +1316,40 @@
         }
       ],
       "summary" : "Diagnostics report; quota-free unless `full` is set."
+    },
+    {
+      "command" : "doctor explain",
+      "name" : "error_explain",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "code",
+          "required" : true,
+          "summary" : "The error code to explain, e.g. SOURCE_AUTH_EXPIRED.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Explain an error\/recovery code: cause, who can fix it, and the next action."
+    },
+    {
+      "command" : "spec",
+      "name" : "spec_get",
+      "outputSchema" : "teamRunJSON",
+      "params" : [
+        {
+          "name" : "run",
+          "required" : false,
+          "summary" : "Run id or `latest` (default latest).",
+          "type" : "string"
+        },
+        {
+          "name" : "detail",
+          "required" : false,
+          "summary" : "summary | full | artifactRefsOnly (default summary).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Retrieve a run's full spec\/result packet without opening the GUI. Failed workers and warnings always included in full detail."
     }
   ],
   "nextActionKinds" : [

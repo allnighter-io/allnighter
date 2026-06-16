@@ -55,6 +55,11 @@
     "title" : "Show the latest run"
   },
   {
+    "command" : "alln spec latest --detail full --json",
+    "id" : "spec_full",
+    "title" : "Retrieve the full result packet"
+  },
+  {
     "command" : "alln export latest --format md",
     "id" : "export_md",
     "title" : "Export the latest result"

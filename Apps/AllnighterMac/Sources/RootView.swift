@@ -14,7 +14,7 @@ struct RootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TitleBar(onDoctor: { model.runDoctor(); showDoctor = true })
+            TitleBar(onDoctor: { showDoctor = true })
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     WorkspaceSwitcher(mode: $workspaceMode)
@@ -43,7 +43,16 @@ struct RootView: View {
         .ignoresSafeArea(.container, edges: .top)
         .environment(threads)
         .background(ALColor.base)
-        .sheet(isPresented: $showDoctor) { DoctorView() }
+        .overlay {
+            if showDoctor {
+                ZStack(alignment: .topTrailing) {
+                    Rectangle().fill(ALColor.overlay).ignoresSafeArea()
+                        .onTapGesture { showDoctor = false }
+                    TeamHealthPopover(onClose: { showDoctor = false }, onOpenFull: { showDoctor = false })
+                        .padding(.top, 44).padding(.trailing, 13)
+                }
+            }
+        }
         .onAppear {
             GlobalHotKey.enable()
             if model.isConfigurationBroken {

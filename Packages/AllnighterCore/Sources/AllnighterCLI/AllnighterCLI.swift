@@ -23,6 +23,7 @@ struct AllnighterCLI {
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
         case "show": runShow(args, runtime)
+        case "spec": runSpec(args, runtime)
         case "export": runExport(args, runtime)
         case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
         case "doctor": await runDoctor(args, runtime)
@@ -517,6 +518,32 @@ struct AllnighterCLI {
             print(run.prompt)
             if let plan = run.plan { print("\n\(plan)") }
         }
+    }
+
+    /// `alln spec [<run-id>|latest] [--detail summary|full|artifactRefsOnly] [--json]`
+    /// — retrieve a run's spec/result packet. Shared with the MCP `spec_get` tool.
+    static func runSpec(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        let ref = opts.positional.first ?? "latest"
+        guard let run = resolveRun(ref) else {
+            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
+        }
+        let result = specResult(run, runtime: runtime, detail: opts.value("detail"))
+        if opts.flag("json") { print(jsonString(result)) }
+        else {
+            print(result.summary)
+            if let full = result.full, !full.isEmpty { print("\n\(full)") }
+            if !result.warnings.isEmpty { print("\nWarnings:"); for w in result.warnings { print("  ⚠︎ \(w)") } }
+        }
+    }
+
+    /// Project a persisted run into a `SpecRetrieval.Result` (shared CLI/MCP).
+    static func specResult(_ run: TeamRun, runtime: ToolRuntime, detail: String?) -> SpecRetrieval.Result {
+        let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path
+        return SpecRetrieval.project(
+            run: run, models: runtime.models,
+            detail: detail.flatMap(SpecRetrieval.Detail.init(rawValue:)) ?? .summary,
+            artifactRefs: journalPath.map { [$0] } ?? [])
     }
 
     /// `alln export <run-id|latest> --format md` — export the result bundle.

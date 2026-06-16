@@ -1,0 +1,560 @@
+import SwiftUI
+import AppKit
+import AllnighterCore
+
+// First-run Setup + Team-health UI, built pixel-exact from the setup handoff
+// (docs/phases/mockups/design_handoff_first_run_setup 3 — setup.jsx / doctor.jsx).
+// Vocabulary follows the code (council→team, seat→worker, synthesizer→plan writer).
+// Renders real ModelSetupStatus from AppModel.toolStatuses — never faked.
+
+// MARK: - Card model (mapped from a ToolProbeRecord by AppModel.setupCards)
+
+enum SetupCardState: Sendable {
+    case ready, needsLogin, needsPath, notInstalled, probeFailed, installedNotProbed, detecting, reprobing, queued, waiting
+}
+
+struct SetupCardModel: Identifiable {
+    let driverId: String
+    let name: String
+    let route: String
+    let version: String?
+    let state: SetupCardState
+    let workers: [WorkerSeat]      // models on this tool (shown when ready)
+    let loginCommand: String?      // loginFlow.interactiveCommand
+    let installHint: String?
+    let docsURL: String?
+    let shimCommand: String?       // raw `command -v` for needsPath
+    let probeReason: String?
+
+    var id: String { driverId }
+
+    struct WorkerSeat: Identifiable {
+        let id: String
+        let name: String
+        let modelLabel: String
+        let isPlanWriter: Bool
+    }
+}
+
+// MARK: - Brand glyph (40×40 tile + the tool's mark)
+
+struct BrandGlyph: View {
+    let driverId: String
+    var muted: Bool = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(ALColor.active)
+            .frame(width: 40, height: 40)
+            .overlay { glyph.opacity(muted ? 0.5 : 1) }
+    }
+
+    @ViewBuilder private var glyph: some View {
+        switch asset {
+        case .brand(let name, let tint):
+            Image(name).renderingMode(.template).resizable().scaledToFit()
+                .frame(width: 23, height: 23)
+                .foregroundStyle(muted ? Color(hex: 0x6B7180) : tint)
+        case .symbol(let system):
+            Image(systemName: system).font(.system(size: 21))
+                .foregroundStyle(muted ? ALColor.textFaint : ALColor.textSecondary)
+        }
+    }
+
+    private enum Asset { case brand(String, Color); case symbol(String) }
+    private var asset: Asset {
+        switch driverId {
+        case "claude_code": .brand("anthropic", ALColor.accent)
+        case "antigravity": .brand("googlegemini", ALColor.textPrimary)
+        case "grok": .brand("x", ALColor.textPrimary)
+        default: .symbol("terminal") // codex / others — Simple Icons removed OpenAI
+        }
+    }
+}
+
+// MARK: - Setup pill (su-pill)
+
+struct SetupPill: View {
+    enum Kind { case ready, step, muted, fail, check }
+    let kind: Kind
+    let label: String
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dim = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(dot).frame(width: 7, height: 7)
+                .opacity(kind == .check && dim ? 0.3 : 1)
+            Text(label).font(.system(size: 11.5, weight: .semibold))
+        }
+        .padding(.leading, 8).padding(.trailing, 10)
+        .frame(height: 23)
+        .foregroundStyle(fg)
+        .background(bg, in: Capsule())
+        .onAppear {
+            guard kind == .check, !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { dim = true }
+        }
+    }
+
+    private var bg: Color {
+        switch kind {
+        case .ready: ALColor.successSurface
+        case .step: ALColor.warningSurface
+        case .muted: ALColor.active
+        case .fail: ALColor.dangerSurface
+        case .check: ALColor.infoSurface
+        }
+    }
+    private var fg: Color {
+        switch kind {
+        case .ready: ALPalette.green400
+        case .step: ALPalette.yellow400
+        case .muted: ALColor.textFaint
+        case .fail: ALPalette.red400
+        case .check: ALPalette.blue400
+        }
+    }
+    private var dot: Color {
+        switch kind {
+        case .ready: ALPalette.green500
+        case .step: ALPalette.yellow400
+        case .muted: ALColor.textFaint
+        case .fail: ALPalette.red400
+        case .check: ALPalette.blue400
+        }
+    }
+}
+
+// MARK: - Copyable command box (su-cmd)
+
+struct CmdRow: View {
+    var prompt: String = "$"
+    let text: String
+    var error: Bool = false
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Text(prompt).font(.system(size: 12.5, design: .monospaced))
+                .foregroundStyle(error ? ALPalette.red400 : ALColor.textFaint)
+            Text(text).font(.system(size: 12.5, design: .monospaced))
+                .foregroundStyle(error ? ALPalette.red400 : ALColor.textPrimary)
+                .lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            IconButton(systemImage: "doc.on.doc", accessibilityLabel: "Copy", small: true) { copy(text) }
+        }
+        .padding(.vertical, 8).padding(.leading, 12).padding(.trailing, 8)
+        .background(ALColor.void, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+}
+
+// MARK: - Group label (su-grouplbl)
+
+struct SetupGroupLabel: View {
+    let title: String
+    let count: Int
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title.uppercased()).font(.system(size: 10.5, weight: .bold)).tracking(1.15)
+                .foregroundStyle(ALColor.textFaint)
+            Text("\(count)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+        }
+        .padding(.top, 15).padding(.bottom, 3).padding(.horizontal, 2)
+    }
+}
+
+// MARK: - The card (su-card)
+
+struct SetupCardView: View {
+    let card: SetupCardModel
+    var compact: Bool = false
+    var onAction: (SetupAction) -> Void = { _ in }
+
+    enum SetupAction { case openTerminal(String), copy(String), openURL(String), rescan, locate, useAnyway }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            head
+            if let body = bodyView { body }
+        }
+        .background(fill, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.lg)
+                .strokeBorder(borderColor, style: StrokeStyle(lineWidth: 1, dash: dashed ? [4, 3] : []))
+        }
+        .modifier(ShadowIfCard(on: !dashed))
+    }
+
+    private var head: some View {
+        HStack(spacing: 13) {
+            BrandGlyph(driverId: card.driverId, muted: muted)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(card.name).font(.system(size: 14.5, weight: .bold)).tracking(-0.14)
+                    .foregroundStyle(muted ? ALColor.textMuted : ALColor.textPrimary)
+                meta
+            }
+            Spacer(minLength: 8)
+            pill
+        }
+        .padding(.vertical, 13).padding(.horizontal, 15)
+    }
+
+    // meta row — mono items separated by a faded ·
+    private var meta: some View {
+        let items = metaItems
+        return HStack(spacing: 7) {
+            ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
+                if idx > 0 { Text("·").foregroundStyle(ALColor.textFaint.opacity(0.45)) }
+                Text(item.text).foregroundStyle(item.color)
+            }
+        }
+        .font(.system(size: 11, design: .monospaced))
+        .foregroundStyle(ALColor.textFaint)
+    }
+
+    private struct MetaItem { let text: String; let color: Color }
+    private var metaItems: [MetaItem] {
+        let route = MetaItem(text: card.route, color: ALColor.textMuted)
+        let version = MetaItem(text: card.version ?? "", color: ALColor.textMuted)
+        switch card.state {
+        case .ready:
+            return [route, version, MetaItem(text: "\(card.workers.count) workers", color: ALColor.textFaint),
+                    MetaItem(text: "signed in", color: ALPalette.green400)]
+        case .needsLogin, .waiting:
+            return [route, version, MetaItem(text: "found, not signed in", color: ALColor.textFaint)]
+        case .needsPath:
+            return [route, version, MetaItem(text: "shell function", color: ALColor.textFaint)]
+        case .notInstalled:
+            return [MetaItem(text: "no binary on PATH or known paths", color: ALColor.textFaint)]
+        case .probeFailed:
+            return [route, version, MetaItem(text: "smoke failed", color: ALColor.textFaint)]
+        case .installedNotProbed:
+            return [route, version, MetaItem(text: "installed — not yet probed", color: ALColor.textFaint)]
+        case .reprobing:
+            return [route, version, MetaItem(text: "cheap re-check…", color: ALColor.textFaint)]
+        case .detecting:
+            return [route, MetaItem(text: "resolving → version → smoke", color: ALColor.textFaint)]
+        case .queued:
+            return [MetaItem(text: "queued", color: ALColor.textFaint)]
+        }
+    }
+
+    private var pill: SetupPill {
+        switch card.state {
+        case .ready: SetupPill(kind: .ready, label: "Ready")
+        case .needsLogin: SetupPill(kind: .step, label: "Needs sign-in")
+        case .needsPath: SetupPill(kind: .step, label: "Needs a path")
+        case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
+        case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
+        case .installedNotProbed: SetupPill(kind: .muted, label: "Installed")
+        case .detecting: SetupPill(kind: .check, label: "Detecting…")
+        case .reprobing: SetupPill(kind: .check, label: "Re-checking…")
+        case .queued: SetupPill(kind: .muted, label: "Queued")
+        case .waiting: SetupPill(kind: .check, label: "Waiting for sign-in…")
+        }
+    }
+
+    // body / fix-it
+    @ViewBuilder private var bodyView: some View {
+        switch card.state {
+        case .ready where !compact:
+            seatsBody
+        case .needsLogin, .waiting:
+            fixItBody {
+                fixLine("\(card.name) is installed but not signed in. It prompts for sign-in on first run.")
+                CmdRow(text: card.loginCommand ?? card.driverId)
+                if card.state == .waiting {
+                    HStack(spacing: 10) {
+                        SetupPill(kind: .check, label: "Waiting for sign-in…")
+                        Text("re-checking every few seconds").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        Button { onAction(.openTerminal(card.loginCommand ?? card.driverId)) } label: {
+                            Label("Open Terminal & sign in", systemImage: "terminal")
+                        }.buttonStyle(.alPrimary(small: true))
+                        Button { onAction(.copy(card.loginCommand ?? card.driverId)) } label: {
+                            Label("Copy steps", systemImage: "doc.on.doc")
+                        }.buttonStyle(.alGhost)
+                    }
+                }
+                note(card.state == .waiting ? "Flips to ready the moment the probe passes — no restart, no app focus needed."
+                                             : "Sign in in Terminal — we’ll detect when you’re done.",
+                     systemImage: card.state == .waiting ? "arrow.triangle.2.circlepath" : "info.circle")
+            }
+        case .needsPath:
+            fixItBody {
+                fixLine("We found this tool as a shell function, not a plain command.")
+                CmdRow(prompt: "ƒ", text: card.shimCommand ?? "")
+                HStack(spacing: 8) {
+                    Button { onAction(.useAnyway) } label: { Text("Use it anyway") }.buttonStyle(.alSecondary)
+                    Button { onAction(.locate) } label: { Label("Locate the binary…", systemImage: "folder") }.buttonStyle(.alGhost)
+                }
+                note("Use-anyway runs it through your login shell — exactly as your terminal does.", systemImage: "info.circle")
+            }
+        case .notInstalled:
+            fixItBody {
+                fixLine("You don’t have \(card.name) yet. Install it, then re-scan.")
+                CmdRow(text: card.installHint ?? "see docs")
+                HStack(spacing: 8) {
+                    Button { onAction(.openURL(card.docsURL ?? "")) } label: { Label("Open install page", systemImage: "arrow.up.right.square") }
+                        .buttonStyle(.alSecondary).disabled((card.docsURL ?? "").isEmpty)
+                    Button { onAction(.rescan) } label: { Label("Re-scan", systemImage: "arrow.clockwise") }.buttonStyle(.alGhost)
+                }
+            }
+        case .probeFailed:
+            fixItBody {
+                fixLine("Detected \(card.version ?? card.name), but the smoke run failed.")
+                CmdRow(prompt: "!", text: card.probeReason ?? "smoke failed", error: true)
+                HStack(spacing: 8) {
+                    Button { onAction(.rescan) } label: { Label("Re-try probe", systemImage: "arrow.clockwise") }.buttonStyle(.alSecondary)
+                }
+                note("Detect passed, smoke didn’t — this is not a sign-in problem.", systemImage: "exclamationmark.triangle", tint: ALPalette.red400)
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    private var seatsBody: some View {
+        VStack(spacing: 1) {
+            ForEach(card.workers) { seat in
+                HStack(spacing: 10) {
+                    Circle().fill(ALColor.statusDone).frame(width: 7, height: 7)
+                    Text(seat.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                    Text(seat.modelLabel).font(.system(size: 11, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                    Spacer(minLength: 8)
+                    if seat.isPlanWriter {
+                        HStack(spacing: 5) {
+                            Image(systemName: "sparkles").font(.system(size: 11))
+                            Text("plan writer").font(.system(size: 10.5, weight: .semibold))
+                        }
+                        .padding(.horizontal, 8).frame(height: 20)
+                        .foregroundStyle(ALColor.accentText)
+                        .background(ALColor.accentSurface, in: Capsule())
+                        .overlay { Capsule().strokeBorder(ALColor.accentBorder, lineWidth: 1) }
+                    }
+                }
+                .padding(.vertical, 8).padding(.horizontal, 9)
+            }
+        }
+        .padding(.vertical, 14).padding(.horizontal, 15)
+        .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+
+    @ViewBuilder private func fixItBody<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) { content() }
+            .padding(.top, 14).padding(.horizontal, 15).padding(.bottom, 15)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+
+    private func fixLine(_ text: String) -> some View {
+        Text(text).font(.system(size: 13)).foregroundStyle(ALColor.textSecondary)
+            .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, 11)
+    }
+
+    private func note(_ text: String, systemImage: String, tint: Color? = nil) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            Image(systemName: systemImage).font(.system(size: 12)).foregroundStyle(tint ?? ALColor.textFaint)
+            Text(text).font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint).lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 12)
+    }
+
+    // variant styling
+    private var muted: Bool {
+        switch card.state { case .notInstalled, .queued, .detecting, .installedNotProbed: true; default: false }
+    }
+    private var dashed: Bool {
+        switch card.state { case .notInstalled, .queued, .detecting: true; default: false }
+    }
+    private var fill: Color {
+        switch card.state {
+        case .ready: ALColor.raised
+        case .notInstalled, .queued, .detecting, .installedNotProbed: ALColor.surface
+        default: ALColor.raised
+        }
+    }
+    private var borderColor: Color {
+        switch card.state {
+        case .ready: Color(hex: 0x3FB96D).opacity(0.26)
+        case .probeFailed: Color(hex: 0xF05A5A).opacity(0.28)
+        case .notInstalled, .queued, .detecting, .installedNotProbed: ALColor.borderDefault
+        default: ALColor.borderDefault
+        }
+    }
+}
+
+private struct ShadowIfCard: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        on ? AnyView(content.shadow(color: .black.opacity(0.45), radius: 3, y: 2)) : AnyView(content)
+    }
+}
+
+// MARK: - Team health popover (doctor.jsx)
+
+struct TeamHealthPopover: View {
+    @Environment(AppModel.self) private var model
+    var onClose: () -> Void
+    var onOpenFull: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    group("Ready", cards: ready, compact: true)
+                    group("Needs a step", cards: step, compact: false)
+                    group("Available to add", cards: add, compact: false)
+                }
+                .padding(.top, 4).padding(.horizontal, 13).padding(.bottom, 12)
+            }
+            footer
+        }
+        .frame(width: 404)
+        .frame(maxHeight: 620)
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.xl))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.xl).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        .shadow(color: .black.opacity(0.66), radius: 30, y: 24)
+    }
+
+    private var cards: [SetupCardModel] { model.setupCards }
+    private var ready: [SetupCardModel] { cards.filter { $0.state == .ready } }
+    private var add: [SetupCardModel] { cards.filter { $0.state == .notInstalled } }
+    private var step: [SetupCardModel] { cards.filter { !ready.contains(where: { c in c.id == $0.id }) && $0.state != .notInstalled } }
+
+    @ViewBuilder private func group(_ title: String, cards: [SetupCardModel], compact: Bool) -> some View {
+        if !cards.isEmpty {
+            SetupGroupLabel(title: title, count: cards.count)
+            ForEach(cards) { card in
+                SetupCardView(card: card, compact: compact) { handle($0) }
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 9) {
+                RoundedRectangle(cornerRadius: 8).fill(ALColor.active).frame(width: 26, height: 26)
+                    .overlay { Image(systemName: "shield").font(.system(size: 15)).foregroundStyle(ALColor.accentText) }
+                Text("Team health").font(.system(size: 14, weight: .bold)).tracking(-0.14)
+                    .foregroundStyle(ALColor.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button { model.runDetection() } label: { Label("Re-check", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.alGhost)
+                IconButton(systemImage: "xmark", accessibilityLabel: "Close", small: true) { onClose() }
+            }
+            HStack(spacing: 8) {
+                (Text("\(model.readyToolCount)").font(.system(size: 12.5, weight: .bold, design: .monospaced))
+                    + Text(" of ").font(.system(size: 12.5, weight: .bold))
+                    + Text("\(model.totalToolCount)").font(.system(size: 12.5, weight: .bold, design: .monospaced))
+                    + Text(" tools ready").font(.system(size: 12.5, weight: .bold)))
+                    .foregroundStyle(ALColor.textPrimary)
+                Text("· \(model.readyWorkerCount) workers").font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(ALColor.textFaint)
+                Spacer()
+                HStack(spacing: 5) {
+                    Image(systemName: "clock").font(.system(size: 12))
+                    Text(checkedAgo).font(.system(size: 10.5, design: .monospaced))
+                }.foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.top, 11)
+        }
+        .padding(.top, 13).padding(.horizontal, 13).padding(.bottom, 12)
+        .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+
+    private var footer: some View {
+        Button(action: onOpenFull) {
+            HStack(spacing: 7) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 12))
+                Text("Open full setup").font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(ALColor.textMuted)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
+        .background(ALColor.surface)
+        .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+
+    private var checkedAgo: String {
+        guard let last = model.toolStatuses.map(\.lastProbeAt).max() else { return "not checked" }
+        let secs = Int(Date().timeIntervalSince(last))
+        if model.isDetecting { return "checking…" }
+        if secs < 5 { return "checked just now" }
+        if secs < 60 { return "checked \(secs)s ago" }
+        return "checked \(secs / 60)m ago"
+    }
+
+    private func handle(_ action: SetupCardView.SetupAction) {
+        switch action {
+        case .openTerminal(let cmd): SetupActions.openTerminal(cmd)
+        case .copy(let text): copy(text)
+        case .openURL(let url): if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+        case .rescan, .useAnyway: model.runDetection()
+        case .locate: SetupActions.locateBinary()
+        }
+    }
+}
+
+// MARK: - Shared actions
+
+enum SetupActions {
+    static func openTerminal(_ command: String) {
+        let safe = command.replacingOccurrences(of: "\"", with: "\\\"")
+        let src = "tell application \"Terminal\"\nactivate\ndo script \"\(safe)\"\nend tell"
+        if let script = NSAppleScript(source: src) { script.executeAndReturnError(nil) }
+    }
+    @discardableResult static func locateBinary() -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+}
+
+private func copy(_ text: String) {
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(text, forType: .string)
+}
+
+// MARK: - Preview — every card state (the handoff spec sheet)
+
+#Preview("Team health — every card state") {
+    func m(_ id: String, _ name: String, _ state: SetupCardState, version: String? = nil,
+           workers: [SetupCardModel.WorkerSeat] = [], shim: String? = nil, reason: String? = nil) -> SetupCardModel {
+        SetupCardModel(driverId: id, name: name, route: "via \(id.replacingOccurrences(of: "_", with: "-"))",
+                       version: version, state: state, workers: workers,
+                       loginCommand: "codex", installHint: "brew install grok",
+                       docsURL: "https://x.ai/cli", shimCommand: shim, probeReason: reason)
+    }
+    let claude = m("claude_code", "Claude Code", .ready, version: "claude 1.2.4", workers: [
+        .init(id: "o", name: "Opus 4.8", modelLabel: "opus-4.8", isPlanWriter: true),
+        .init(id: "s", name: "Sonnet 4.6", modelLabel: "sonnet-4.6", isPlanWriter: false)])
+    return ScrollView {
+        VStack(spacing: 14) {
+            SetupCardView(card: claude)
+            SetupCardView(card: m("codex", "Codex", .needsLogin, version: "codex 0.9.1"))
+            SetupCardView(card: m("codex", "Codex", .waiting, version: "codex 0.9.1"))
+            SetupCardView(card: m("grok", "Grok", .notInstalled))
+            SetupCardView(card: m("antigravity", "Antigravity", .needsPath, version: "agy",
+                                  shim: "agy () { /Applications/Antigravity.app/Contents/MacOS/agy $@ }"))
+            SetupCardView(card: m("codex", "Codex", .probeFailed, version: "codex 0.9.1",
+                                  reason: "error: unknown flag --model (exit 2)"))
+            SetupCardView(card: m("grok", "Grok", .queued))
+            SetupCardView(card: m("claude_code", "Claude Code", .detecting))
+            SetupCardView(card: m("antigravity", "Antigravity", .reprobing, version: "agy"))
+        }
+        .padding(20).frame(width: 440)
+    }
+    .background(ALColor.base)
+}

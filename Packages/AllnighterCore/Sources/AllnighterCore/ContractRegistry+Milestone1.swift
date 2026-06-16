@@ -48,6 +48,12 @@ public extension ContractRegistry {
         MCPToolSpec("doctor", command: "doctor", summary: "Diagnostics report; quota-free unless `full` is set.",
                     params: [.init("full", type: "boolean", summary: "Run smoke probes (spends quota).")],
                     outputSchema: .doctorResult),
+        MCPToolSpec("error_explain", command: "doctor explain", summary: "Explain an error/recovery code: cause, who can fix it, and the next action.",
+                    params: [.init("code", required: true, summary: "The error code to explain, e.g. SOURCE_AUTH_EXPIRED.")]),
+        MCPToolSpec("spec_get", command: "spec", summary: "Retrieve a run's full spec/result packet without opening the GUI. Failed workers and warnings always included in full detail.",
+                    params: [.init("run", summary: "Run id or `latest` (default latest)."),
+                             .init("detail", summary: "summary | full | artifactRefsOnly (default summary).")],
+                    outputSchema: .teamRunJSON),
     ]
 
     // MARK: - Commands (in scope)
@@ -130,6 +136,13 @@ public extension ContractRegistry {
             args: [ArgSpec("run-id|latest", required: true, summary: "A run id or `latest`.")],
             flags: [FlagSpec("json", summary: "Emit the run as TeamRunJSON.")],
             outputSchema: .teamRunJSON, exampleIds: ["show_latest_json"]
+        ),
+        CommandSpec(
+            "spec", summary: "Retrieve a run's spec/result packet (summary|full|artifactRefsOnly).", milestone: .m1,
+            args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
+            flags: [FlagSpec("detail", takesValue: true, valueType: "detail", defaultValue: "summary", summary: "summary | full | artifactRefsOnly."),
+                    FlagSpec("json", summary: "Structured SpecRetrieval result.")],
+            exampleIds: ["spec_full"]
         ),
         CommandSpec(
             "export", summary: "Export a result bundle.", milestone: .m1,
@@ -253,6 +266,7 @@ public extension ContractRegistry {
         ExampleRecipe("team_json", title: "Machine team run", command: "alln team --json \"Give me one small naming test.\""),
         ExampleRecipe("team_stream", title: "Streamed team run", command: "alln team --stream \"Give me one tiny event-stream test.\""),
         ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),
+        ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),
         ExampleRecipe("export_md", title: "Export the latest result", command: "alln export latest --format md"),
         ExampleRecipe("export_contracts_check", title: "Verify no contract drift", command: "alln dev export-contracts --check"),
     ]
