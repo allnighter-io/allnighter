@@ -95,11 +95,81 @@ public enum NDJSONStreamProjector {
 
     /// One compact (single-line, sorted-key) JSON object per event — NDJSON.
     public static func lines(for run: TeamRun) -> [String] {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]   // compact: no .prettyPrinted
-        return events(for: run).map { event in
-            String(decoding: (try? encoder.encode(event)) ?? Data("{}".utf8), as: UTF8.self)
+        events(for: run).map(encodeLine)
+    }
+
+    /// Maps the live internal `RunEvent` stream (from `TeamService.run(events:)`)
+    /// into public NDJSON events as they arrive — the live counterpart to
+    /// `lines(for:)`. Assigns its own monotonic output `seq`; intermediate
+    /// internal transitions (e.g. `answers_in`) map to nil and are dropped.
+    public struct LiveMapper {
+        private var seq = 0
+        public init() {}
+
+        public mutating func line(for runEvent: RunEvent) -> String? {
+            guard let mapped = Self.map(runEvent) else { return nil }
+            seq += 1
+            let event = Event(seq: seq, ts: NDJSONStreamProjector.iso(runEvent.ts),
+                              event: mapped.name, teamRunId: mapped.runId, data: mapped.data)
+            return NDJSONStreamProjector.encodeLine(event)
         }
+
+        private static func map(_ e: RunEvent) -> (name: String, runId: String, data: EventData)? {
+            func str(_ k: String) -> String? { if case .string(let v)? = e.payload[k] { return v }; return nil }
+            func intVal(_ k: String) -> Int? { if case .int(let v)? = e.payload[k] { return v }; return nil }
+            let runId = str("runId") ?? ""
+
+            switch e.kind {
+            case RunEventKind.runStatusChanged:
+                switch str("to") ?? "" {
+                case RunStatus.fanningOut.rawValue:
+                    return ("teamRunStarted", runId, EventData(status: TeamRunJSON.Status.running.rawValue, origin: str("origin"), teamPresetId: str("presetId")))
+                case RunStatus.complete.rawValue, RunStatus.partial.rawValue:
+                    return ("teamRunCompleted", runId, EventData(status: TeamRunJSON.Status.done.rawValue, planStageId: str("planStageId")))
+                case RunStatus.failed.rawValue, RunStatus.cancelled.rawValue:
+                    let to = str("to") ?? RunStatus.failed.rawValue
+                    return ("teamRunFailed", runId, EventData(
+                        status: TeamRunJSONMapper.mapRun(RunStatus(rawValue: to) ?? .failed).rawValue,
+                        error: ErrorEnvelope(code: "TEAM_RUN_FAILED", message: str("reason") ?? "team run \(to)", requiresManual: false, retryable: true, runId: runId.isEmpty ? nil : runId)))
+                default:
+                    return nil   // intermediate transition (answers_in / planning / …)
+                }
+            case RunEventKind.memberStatusChanged:
+                let to = str("to") ?? ""
+                let workerId = str("workerId")
+                switch to {
+                case WorkerAnswerStatus.running.rawValue:
+                    return ("workerStarted", runId, EventData(workerId: workerId, modelId: str("modelId"), skillId: str("skillId")))
+                case WorkerAnswerStatus.done.rawValue:
+                    return ("workerAnswered", runId, EventData(workerId: workerId, durationMs: intVal("durationMs")))
+                case WorkerAnswerStatus.failed.rawValue, WorkerAnswerStatus.timedOut.rawValue:
+                    return ("workerFailed", runId, EventData(workerId: workerId, error: ErrorEnvelope(
+                        code: to == WorkerAnswerStatus.timedOut.rawValue ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
+                        message: str("reason") ?? "worker did not produce an answer",
+                        requiresManual: false, retryable: true, runId: runId.isEmpty ? nil : runId, workerId: workerId)))
+                default:
+                    return nil   // queued / skipped / cancelled — no terminal worker event
+                }
+            case RunEventKind.stageStarted where str("purpose") == "plan":
+                return ("planStarted", runId, EventData(workerId: str("workerId"), stageId: str("stageId")))
+            case RunEventKind.stageCompleted where str("purpose") == "plan":
+                return ("planWritten", runId, EventData(workerId: str("workerId"), stageId: str("stageId")))
+            default:
+                return nil
+            }
+        }
+    }
+
+    static func encodeLine(_ event: Event) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return String(decoding: (try? encoder.encode(event)) ?? Data("{}".utf8), as: UTF8.self)
+    }
+
+    static func iso(_ date: Date) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f.string(from: date)
     }
 
     private static func workerError(_ a: WorkerAnswer, runId: String) -> ErrorEnvelope {
@@ -108,11 +178,5 @@ public enum NDJSONStreamProjector {
             message: a.errorReason ?? "worker did not produce an answer",
             requiresManual: false, retryable: true, runId: runId, workerId: a.workerId
         )
-    }
-
-    private static func iso(_ date: Date) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f.string(from: date)
     }
 }

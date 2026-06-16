@@ -47,17 +47,20 @@ struct AllnighterCLI {
             exit(2)
         }
         let request = TeamRequest(question: question, presetId: opts.value("preset"), context: opts.value("context"))
-        let result = await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"))
 
         if opts.flag("stream") {
-            // NDJSON only on stdout; one event object per line, terminal event last.
-            guard !result.runId.isEmpty, let run = loadRun(result.runId) else {
-                emitFailure(code: "RUN_NOT_FOUND", message: result.note.isEmpty ? "team run did not persist" : result.note)
-                exit(1)
+            // Live NDJSON: emit events as the run progresses, not after it settles.
+            let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
+            let runTask = Task { await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation) }
+            var mapper = NDJSONStreamProjector.LiveMapper()
+            for await event in stream {
+                if let line = mapper.line(for: event) { print(line) }
             }
-            for line in NDJSONStreamProjector.lines(for: run) { print(line) }
+            _ = await runTask.value   // run is persisted by the time the stream ends
             return
         }
+
+        let result = await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"))
 
         if opts.flag("json") {
             // M1 step 5 (breaking): emit TeamRunJSON projected from the persisted

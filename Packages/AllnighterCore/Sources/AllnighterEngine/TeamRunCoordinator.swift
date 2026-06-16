@@ -55,10 +55,13 @@ public actor TeamRunCoordinator {
 
         run = transition(run, to: .fanningOut)
 
+        let skillByWorker = Dictionary(teamWorkers.map { ($0.id, $0.skillId) }, uniquingKeysWith: { a, _ in a })
+
         for index in run.workerAnswers.indices where run.workerAnswers[index].status == .queued {
             run.workerAnswers[index].status = .running
             run.workerAnswers[index].startedAt = now()
-            emitWorkerAnswer(run.workerAnswers[index], runId: run.id, from: .queued)
+            let id = run.workerAnswers[index].workerId
+            emitWorkerAnswer(run.workerAnswers[index], runId: run.id, from: .queued, skillId: skillByWorker[id] ?? nil)
         }
 
         let runnerCopy = workerRunner
@@ -111,7 +114,7 @@ public actor TeamRunCoordinator {
             if let index = run.workerAnswers.firstIndex(where: { $0.workerId == result.workerId }) {
                 let previous = run.workerAnswers[index].status
                 run.workerAnswers[index] = result
-                emitWorkerAnswer(result, runId: run.id, from: previous)
+                emitWorkerAnswer(result, runId: run.id, from: previous, skillId: skillByWorker[result.workerId] ?? nil)
             }
         }
 
@@ -135,33 +138,40 @@ public actor TeamRunCoordinator {
         var updated = run
         let from = updated.status
         updated.status = next
+        var payload: [String: JSONValue] = [
+            "runId": .string(updated.id),
+            "from": .string(from.rawValue),
+            "to": .string(next.rawValue),
+            "origin": .string(updated.origin.rawValue),
+        ]
+        if let presetId = updated.presetId { payload["presetId"] = .string(presetId) }
         continuation.yield(RunEvent(
             id: idFactory(),
             seq: nextSeq(),
             ts: now(),
             kind: RunEventKind.runStatusChanged,
-            payload: [
-                "runId": .string(updated.id),
-                "from": .string(from.rawValue),
-                "to": .string(next.rawValue)
-            ]
+            payload: payload
         ))
         return updated
     }
 
-    private func emitWorkerAnswer(_ answer: WorkerAnswer, runId: String, from: WorkerAnswerStatus) {
+    private func emitWorkerAnswer(_ answer: WorkerAnswer, runId: String, from: WorkerAnswerStatus, skillId: String?) {
+        var payload: [String: JSONValue] = [
+            "runId": .string(runId),
+            "workerId": .string(answer.workerId),
+            "modelId": .string(answer.modelId),
+            "from": .string(from.rawValue),
+            "to": .string(answer.status.rawValue),
+        ]
+        if let skillId { payload["skillId"] = .string(skillId) }
+        if let durationMs = answer.durationMs { payload["durationMs"] = .int(durationMs) }
+        if let reason = answer.errorReason { payload["reason"] = .string(reason) }
         continuation.yield(RunEvent(
             id: idFactory(),
             seq: nextSeq(),
             ts: now(),
             kind: RunEventKind.memberStatusChanged,
-            payload: [
-                "runId": .string(runId),
-                "workerId": .string(answer.workerId),
-                "modelId": .string(answer.modelId),
-                "from": .string(from.rawValue),
-                "to": .string(answer.status.rawValue)
-            ]
+            payload: payload
         ))
     }
 }
