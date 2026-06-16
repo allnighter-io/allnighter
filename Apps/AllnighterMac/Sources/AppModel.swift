@@ -537,28 +537,32 @@ final class AppModel {
         return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }.count
     }
 
-    /// Per-tool cards for the Team-health popover + Setup window, mapped from the
-    /// canonical probe records + manifests + the models each tool hosts.
+    /// Per-tool cards for the Team-health popover + Setup window. One card per
+    /// SUPPORTED headless-CLI driver (not just per cached record) so onboarding
+    /// always lists every CLI we support — a driver we've never probed shows as
+    /// `.notChecked` instead of vanishing, which is what made the cold first-run
+    /// page render blank.
     var setupCards: [SetupCardModel] {
-        toolStatuses.compactMap { rec in
-            guard let manifest = registry.manifest(id: rec.driverId) else { return nil }
-            let seats = models.filter { $0.driverId == rec.driverId }.map {
+        registry.all.filter { $0.kind == .headlessCLI }.map { manifest in
+            let rec = toolStatuses.first { $0.driverId == manifest.id }
+            let seats = models.filter { $0.driverId == manifest.id }.map {
                 SetupCardModel.WorkerSeat(id: $0.id, name: $0.displayName, modelLabel: $0.modelLabel, isPlanWriter: $0.canWritePlan)
             }
-            let route = "via " + rec.driverId.replacingOccurrences(of: "_", with: "-")
+            let route = "via " + manifest.id.replacingOccurrences(of: "_", with: "-")
             let state: SetupCardState
             var shim: String?
             var reason: String?
-            switch rec.status {
-            case .ready: state = .ready
-            case .installedNotSignedIn: state = .needsLogin
-            case .shimmedNeedsConfirm(let r): state = .needsPath; shim = r.rawCommandV
-            case .probeFailed(let r): state = .probeFailed; reason = r
-            case .notInstalled: state = .notInstalled
-            case .installedNotProbed: state = .installedNotProbed
+            switch rec?.status {
+            case .ready?: state = .ready
+            case .installedNotSignedIn?: state = .needsLogin
+            case .shimmedNeedsConfirm(let r)?: state = .needsPath; shim = r.rawCommandV
+            case .probeFailed(let r)?: state = .probeFailed; reason = r
+            case .notInstalled?: state = .notInstalled
+            case .installedNotProbed?: state = .installedNotProbed
+            case nil: state = .notChecked   // no record → never probed (cold launch)
             }
             return SetupCardModel(
-                driverId: rec.driverId, name: manifest.displayName, route: route, version: rec.version,
+                driverId: manifest.id, name: manifest.displayName, route: route, version: rec?.version,
                 state: state, workers: seats,
                 loginCommand: manifest.setup?.loginFlow?.interactiveCommand,
                 installHint: manifest.setup?.installHint, docsURL: manifest.setup?.docsURL,

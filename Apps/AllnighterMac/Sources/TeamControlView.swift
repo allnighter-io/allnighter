@@ -391,6 +391,7 @@ extension AppModel {
         case .notInstalled, .installedNotProbed: ("Not detected", .warning)
         case .probeFailed: ("Probe failed", .danger)
         case .detecting, .reprobing, .queued: ("Checking…", .neutral)
+        case .notChecked: ("Not checked", .neutral)
         }
     }
 }

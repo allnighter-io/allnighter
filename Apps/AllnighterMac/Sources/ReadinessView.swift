@@ -16,7 +16,10 @@ struct TeamReadinessView: View {
     private var cards: [SetupCardModel] { model.setupCards }
     private var ready: [SetupCardModel] { cards.filter { $0.state == .ready } }
     private var add: [SetupCardModel] { cards.filter { $0.state == .notInstalled } }
-    private var step: [SetupCardModel] { cards.filter { $0.state != .ready && $0.state != .notInstalled } }
+    private var notChecked: [SetupCardModel] { cards.filter { $0.state == .notChecked } }
+    private var step: [SetupCardModel] {
+        cards.filter { $0.state != .ready && $0.state != .notInstalled && $0.state != .notChecked }
+    }
 
     private var selectedCard: SetupCardModel? {
         cards.first { $0.driverId == selectedId }
@@ -153,6 +156,7 @@ struct TeamReadinessView: View {
             VStack(alignment: .leading, spacing: 9) {
                 rosterGroup("Ready", cards: ready)
                 rosterGroup("Needs a step", cards: step)
+                rosterGroup("Not checked yet", cards: notChecked)
                 rosterGroup("Add a CLI", cards: add)
                 censusFallback
             }
@@ -342,6 +346,8 @@ struct BenchRepairPanel: View {
             return "Detect passed but the smoke run failed — this is not a sign-in problem. Re-try the probe or read the log for the real error."
         case .notInstalled:
             return "No binary resolved on PATH or known locations. Install it, then re-scan — it joins the bench automatically."
+        case .notChecked:
+            return "Not checked yet on this machine. Run a scan to detect it — most CLIs resolve with no further action."
         case .ready:
             return card.workers.isEmpty
                 ? "This CLI passed its last check and is ready."
@@ -405,6 +411,12 @@ struct BenchRepairPanel: View {
                     if let url = card.docsURL, let u = URL(string: url) { NSWorkspace.shared.open(u) }
                 },
                 RepairAction(icon: "arrow.clockwise", title: "Re-scan", subtitle: "Look again once it's installed", button: "Run", primary: false, secondary: false) {
+                    model.runFullSetupProbe(userInitiated: true)
+                },
+            ]
+        case .notChecked:
+            return [
+                RepairAction(icon: "magnifyingglass", title: "Scan for this CLI", subtitle: "Runs Re-check all to detect every tool", button: "Scan", primary: true, secondary: false) {
                     model.runFullSetupProbe(userInitiated: true)
                 },
             ]

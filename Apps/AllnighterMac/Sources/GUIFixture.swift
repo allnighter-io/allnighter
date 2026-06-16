@@ -49,6 +49,7 @@ enum GUIFixture {
         ("team-open-mixed", "Mixed — team dropdown"),
         ("doctor-open-mixed", "Mixed — CLI setup popover"),
         ("readiness-mixed", "Mixed — CLI setup page"),
+        ("readiness-cold", "Cold — never scanned (CLI setup page)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
@@ -66,6 +67,9 @@ enum GUIFixture {
 
     /// Seed probe records for a named scenario (env fixtures + DEBUG dev panel only).
     static func seededToolStatuses(for models: [Model], now: Date, scenario: String) -> [ToolProbeRecord] {
+        // Cold first run: nothing probed yet → empty records → every supported
+        // CLI surfaces as `.notChecked` (proves the roster isn't blank cold).
+        if scenario == "readiness-cold" { return [] }
         let drivers = orderedDrivers(in: models)
         let name = scenario
         return drivers.enumerated().map { index, driver in

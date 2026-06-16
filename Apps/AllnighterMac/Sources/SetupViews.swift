@@ -11,6 +11,10 @@ import AllnighterCore
 
 enum SetupCardState: Sendable {
     case ready, needsLogin, needsPath, notInstalled, probeFailed, installedNotProbed, detecting, reprobing, queued, waiting
+    /// Supported, but never probed on this machine (cold first run). Honest
+    /// "we haven't looked yet" — shown so onboarding lists every supported CLI
+    /// before the first scan, instead of a blank roster.
+    case notChecked
 }
 
 struct SetupCardModel: Identifiable {
@@ -272,6 +276,8 @@ struct SetupCardView: View {
             return [route, MetaItem(text: "resolving → version → smoke", color: ALColor.textFaint)]
         case .queued:
             return [MetaItem(text: "queued", color: ALColor.textFaint)]
+        case .notChecked:
+            return [route, MetaItem(text: "not checked yet", color: ALColor.textFaint)]
         }
     }
 
@@ -287,6 +293,7 @@ struct SetupCardView: View {
         case .reprobing: SetupPill(kind: .check, label: "Re-checking…")
         case .queued: SetupPill(kind: .muted, label: "Queued")
         case .waiting: SetupPill(kind: .check, label: "Waiting for sign-in…")
+        case .notChecked: SetupPill(kind: .muted, label: "Not checked")
         }
     }
 
@@ -410,7 +417,7 @@ struct SetupCardView: View {
 
     // variant styling
     private var muted: Bool {
-        switch card.state { case .notInstalled, .queued, .detecting, .installedNotProbed: true; default: false }
+        switch card.state { case .notInstalled, .queued, .detecting, .installedNotProbed, .notChecked: true; default: false }
     }
     private var dashed: Bool {
         switch card.state { case .notInstalled, .queued, .detecting: true; default: false }
