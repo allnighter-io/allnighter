@@ -50,6 +50,11 @@ probes real CLIs — outcomes depend on what's installed/signed-in on the machin
 
 ## Build order (no shortcuts, but sequenced)
 
+**HOTFIX supersedes launch probing:** `docs/phases/Launch_Authority_TCC_Hotfix.md`
+must land before more Setup UI or background-probe work. Ordinary app launch may
+render cached/unknown setup state only; full smoke belongs behind explicit
+setup/recheck/run user intent.
+
 Prove detection on a real machine before building the WOW UI (full detail in
 `01_…` §11):
 
