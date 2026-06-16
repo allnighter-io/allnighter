@@ -32,7 +32,8 @@ targets:
     info:
       path: Sources/Info.plist
       properties:
-        LSUIElement: true
+        # Standalone Dock app (Mac_Standalone slice 2): a regular app with Dock
+        # presence and a main window on launch — no longer LSUIElement-only.
         CFBundleDisplayName: Allnighter
         CFBundleName: Allnighter
     settings:

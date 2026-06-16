@@ -43,7 +43,9 @@ private struct MenuBarContent: View {
         Text("Global hotkey: ⌥⌘Space")
             .font(.caption)
         if model.isRunning {
+            Divider()
             Text("Team running…")
+            Button("Stop team") { model.stop() }
         }
         Divider()
         Button("Quit Allnighter") {
