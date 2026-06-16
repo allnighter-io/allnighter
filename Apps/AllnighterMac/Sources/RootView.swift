@@ -45,7 +45,11 @@ struct RootView: View {
                             onAddSource: { model.markSetupCompleted(); showReadiness = false }
                         )
                     } else if showComposeSpecimen {
-                        ComposeSpecimen(openModeMenu: GUIFixture.composeMenuOpen)
+                        ComposeSpecimen(
+                            openModeMenu: GUIFixture.composeMenuOpen,
+                            openTarget: GUIFixture.composeTargetOpen,
+                            mode: GUIFixture.composeSpecimenMode
+                        )
                     } else {
                         HomeView()
                     }

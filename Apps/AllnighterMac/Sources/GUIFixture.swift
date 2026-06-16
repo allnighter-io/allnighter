@@ -37,6 +37,16 @@ enum GUIFixture {
     static var opensComposeSpecimen: Bool { (active ?? "").hasPrefix("compose-") }
     /// `compose-mode-menu` seeds the mode menu open for the proof capture.
     static var composeMenuOpen: Bool { active == "compose-mode-menu" }
+    /// `compose-target-*` seeds the target popover open.
+    static var composeTargetOpen: Bool { (active ?? "").hasPrefix("compose-target-") }
+    /// Mode for the compose specimen (drives which target popover renders).
+    static var composeSpecimenMode: ComposeMode {
+        switch active {
+        case "compose-target-fanout": return .fanout
+        case "compose-target-exec": return .exec
+        default: return .chat
+        }
+    }
 
     /// Which source the repair panel focuses on for readiness fixtures.
     static var readinessFocusDriverId: String? { readinessFocusDriverId(for: active) }
