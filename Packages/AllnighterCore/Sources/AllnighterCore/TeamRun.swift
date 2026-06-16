@@ -33,6 +33,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// disabled optional rows, admission queueing). Defaulted so legacy persisted
     /// runs (no `warnings` key) still decode.
     public var warnings: [String] = []
+    public var threadId: String?
+    public var originConversationId: String?
+    public var originMessageId: String?
 
     public init(
         id: String,
@@ -50,7 +53,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         effort: EffortLevel? = nil,
         teamDisplayName: String? = nil,
         outputKind: TeamOutputKind? = nil,
-        warnings: [String] = []
+        warnings: [String] = [],
+        threadId: String? = nil,
+        originConversationId: String? = nil,
+        originMessageId: String? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -68,6 +74,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.teamDisplayName = teamDisplayName
         self.outputKind = outputKind
         self.warnings = warnings
+        self.threadId = threadId
+        self.originConversationId = originConversationId
+        self.originMessageId = originMessageId
     }
 }
 

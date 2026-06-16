@@ -120,6 +120,22 @@
     "ruleId" : "pending.reorder.invalid"
   },
   {
+    "agentAction" : "Generate a new key or reuse the original payload.",
+    "code" : "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+    "explain" : "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request.",
+    "requiresManual" : false,
+    "retryable" : false,
+    "ruleId" : "idempotency.key.reused"
+  },
+  {
+    "agentAction" : "Poll team status using nextPollAfterMs, then call team result again.",
+    "code" : "RESULT_NOT_READY",
+    "explain" : "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "result.not_ready"
+  },
+  {
     "agentAction" : "Run `alln history --json`.",
     "code" : "RUN_NOT_FOUND",
     "explain" : "No run matches the given id. List history and pick a valid run id or `latest`.",

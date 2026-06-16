@@ -27,6 +27,7 @@ final class ContractRegistryTests: XCTestCase {
         XCTAssertEqual(m1, [
             "docs", "doctor", "doctor explain", "models", "team show",
             "team teams", "team hello", "team preflight",
+            "team start", "team status", "team result", "team cancel",
             "team", "show", "spec", "history", "export", "dev export-contracts", "serve",
         ])
     }

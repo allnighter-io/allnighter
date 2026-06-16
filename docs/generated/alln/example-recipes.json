@@ -50,6 +50,11 @@
     "title" : "Streamed team run"
   },
   {
+    "command" : "alln team start --json --lane build --team build_bug_hunt --effort low \"tiny async sanity\"",
+    "id" : "team_start_json",
+    "title" : "Start async team run"
+  },
+  {
     "command" : "alln show latest --json",
     "id" : "show_latest_json",
     "title" : "Show the latest run"

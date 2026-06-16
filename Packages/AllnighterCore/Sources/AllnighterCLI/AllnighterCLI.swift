@@ -18,6 +18,10 @@ struct AllnighterCLI {
         case "team" where args.first == "teams": runTeamCatalog(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "start": await runTeamStart(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
         case "team": await runTeam(args, runtime)
         case "models": await runModels(args, runtime)
         case "history": await runHistory(args, runtime)
@@ -479,6 +483,100 @@ struct AllnighterCLI {
             readyModels: runtime.readyModels)
     }
 
+    static func parseAsyncTeamStart(_ args: [String], _ opts: Options) -> AsyncTeamStartRequest? {
+        guard let question = opts.positional.first ?? opts.value("question") else { return nil }
+        return AsyncTeamStartRequest(
+            question: question,
+            lane: opts.value("lane").flatMap(WorkLane.init(rawValue:)),
+            teamPresetId: opts.value("team") ?? opts.value("preset"),
+            effort: opts.value("effort").flatMap(EffortLevel.init(rawValue:)),
+            type: opts.value("type"),
+            context: opts.value("context"),
+            threadId: opts.value("thread-id"),
+            originAgent: opts.value("agent"),
+            originConversationId: opts.value("conversation-id"),
+            originMessageId: opts.value("message-id"),
+            idempotencyKey: opts.value("idempotency-key")
+        )
+    }
+
+    /// `alln team start ... --json` — async start; returns run id after preflight + journal write.
+    static func runTeamStart(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard opts.flag("json") else {
+            FileHandle.standardError.write(Data("usage: alln team start \"<prompt>\" --json [--lane build|design|copy] [--team id] [--effort low|med|high] [--idempotency-key key]\n".utf8))
+            exit(2)
+        }
+        guard let request = parseAsyncTeamStart(args, opts) else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "missing prompt")
+            exit(2)
+        }
+        if let raw = opts.value("lane"), request.lane == nil {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw)")
+            exit(2)
+        }
+        if let raw = opts.value("effort"), request.effort == nil {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown effort: \(raw)")
+            exit(2)
+        }
+        let outcome = await runtime.asyncTeamService().start(request, origin: .cli, readyModels: runtime.readyModels)
+        switch outcome {
+        case .success(let response):
+            print(jsonString(response))
+        case .failure(let refusal):
+            emitFailure(code: refusal.code, message: refusal.message)
+            exit(1)
+        }
+    }
+
+    /// `alln team status <run-id> --json`
+    static func runTeamStatus(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard opts.flag("json"), let runId = opts.positional.first else {
+            FileHandle.standardError.write(Data("usage: alln team status <run-id> --json\n".utf8))
+            exit(2)
+        }
+        guard let status = await runtime.asyncTeamService().status(runId: runId) else {
+            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            exit(1)
+        }
+        print(jsonString(status))
+    }
+
+    /// `alln team result <run-id> --json`
+    static func runTeamResult(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard opts.flag("json"), let runId = opts.positional.first else {
+            FileHandle.standardError.write(Data("usage: alln team result <run-id> --json\n".utf8))
+            exit(2)
+        }
+        switch await runtime.asyncTeamService().result(runId: runId) {
+        case .notFound:
+            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            exit(1)
+        case .notReady(let nr):
+            print(jsonString(nr))
+        case .ready(let run):
+            let context = defaultRunContext(run)
+            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
+            print(jsonString(trj))
+        }
+    }
+
+    /// `alln team cancel <run-id> --json`
+    static func runTeamCancel(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard opts.flag("json"), let runId = opts.positional.first else {
+            FileHandle.standardError.write(Data("usage: alln team cancel <run-id> --json\n".utf8))
+            exit(2)
+        }
+        guard let response = await runtime.asyncTeamService().cancel(runId: runId) else {
+            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            exit(1)
+        }
+        print(jsonString(response))
+    }
+
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
     /// agent-facing reference, projected from the contract registry.
     static func runDocs(_ args: [String]) {
@@ -639,6 +737,10 @@ struct AllnighterCLI {
         alln — local team run, callable by any agent (zero API cost)
           team "<question>" [--preset id] [--json | --stream]        run a team (--json: TeamRunJSON; --stream: NDJSON)
           team show [--json]                                        show the current default team
+          team start "<question>" --json [--lane ...] [--team id]   start async team run (returns run id)
+          team status <run-id> --json                             poll async run status
+          team result <run-id> --json                             fetch TeamRunJSON when ready
+          team cancel <run-id> --json                             cancel an active async run
           show <run-id|latest> [--json]                             show one run
           export <run-id|latest> --format md                        export a result bundle
           history "<query>" [--json]                                search prior team runs
@@ -669,22 +771,29 @@ struct ToolRuntime {
     let config: ToolConfig
     /// Cached per-driver invocations from the last detection (health == runs).
     let invocations: [String: ToolInvocation]
+    let asyncTeam: AsyncTeamService
 
     init() {
-        // Bridge the login-shell PATH so spawned CLIs resolve as in a terminal.
         ToolRuntime.applyLoginPath()
-        self.models = DefaultConfig.models
-        self.registry = DefaultConfig.registry
-        self.teams = BuiltInTeams.all
-        self.config = ToolRuntime.loadConfig()
+        let models = DefaultConfig.models
+        let registry = DefaultConfig.registry
+        let teams = BuiltInTeams.all
+        let config = ToolRuntime.loadConfig()
         var invs: [String: ToolInvocation] = [:]
         for record in SetupStore().load().records { if let inv = record.invocation { invs[record.driverId] = inv } }
+        self.models = models
+        self.registry = registry
+        self.teams = teams
+        self.config = config
         self.invocations = invs
+        self.asyncTeam = AsyncTeamService(models: models, registry: registry, teams: teams, config: config, invocations: invs)
     }
 
     func service() -> TeamService {
         TeamService(models: models, registry: registry, teams: teams, config: config, invocations: invocations)
     }
+
+    func asyncTeamService() -> AsyncTeamService { asyncTeam }
 
     /// The ready bench from cached detection (no quota): enabled models whose
     /// source was detected ready. Falls back to all enabled models when no

@@ -116,6 +116,41 @@ public extension ContractRegistry {
             ]
         ),
         CommandSpec(
+            "team start", summary: "Start a resumable/asynchronous team run.", milestone: .m1,
+            args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
+            flags: [
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
+                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
+                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
+                FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
+                FlagSpec("json", summary: "Structured TeamStartResponse."),
+                FlagSpec("idempotency-key", takesValue: true, valueType: "id", summary: "Client idempotency key."),
+                FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id."),
+                FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id."),
+                FlagSpec("thread-id", takesValue: true, valueType: "id", summary: "Owning work thread id."),
+            ],
+            outputSchema: .teamStartResponse,
+            exampleIds: ["team_start_json"]
+        ),
+        CommandSpec(
+            "team status", summary: "Poll live state for an async team run.", milestone: .m1,
+            args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
+            flags: [FlagSpec("json", summary: "Structured TeamStatusResponse.")],
+            outputSchema: .teamStatusResponse
+        ),
+        CommandSpec(
+            "team result", summary: "Fetch TeamRunJSON when an async run is terminal.", milestone: .m1,
+            args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
+            flags: [FlagSpec("json", summary: "TeamRunJSON or not-ready envelope.")],
+            outputSchema: .teamRunJSON
+        ),
+        CommandSpec(
+            "team cancel", summary: "Cancel an active async team run.", milestone: .m1,
+            args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
+            flags: [FlagSpec("json", summary: "Structured TeamCancelResponse.")],
+            outputSchema: .teamCancelResponse
+        ),
+        CommandSpec(
             "team", summary: "Run a lane team on a prompt, foreground.", milestone: .m1,
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
@@ -174,9 +209,6 @@ public extension ContractRegistry {
     // MARK: - Commands (named but deferred past M1)
 
     static let deferredCommands: [CommandSpec] = [
-        CommandSpec("team start", summary: "Start a resumable/asynchronous team run.", milestone: .deferred),
-        CommandSpec("team status", summary: "Show live state for a team run.", milestone: .deferred),
-        CommandSpec("team result", summary: "Show the final result for a team run.", milestone: .deferred),
         CommandSpec("team edit", summary: "Edit the team lineup.", milestone: .deferred),
         CommandSpec("models add", summary: "Add/configure a model.", milestone: .deferred),
         CommandSpec("work", summary: "Create a work order.", milestone: .deferred),
@@ -213,6 +245,8 @@ public extension ContractRegistry {
         ErrorSpec("TEAM_GOVERNOR_BUSY", ruleId: "team.governor.busy", agentAction: "Wait or retry after current team run completes.", requiresManual: false, retryable: true, explain: "The concurrency governor is at capacity. Wait for a slot and retry; this is a real busy state, not a fake queue."),
         ErrorSpec("PENDING_MUTATION_DEFERRED", ruleId: "pending.mutation.deferred", agentAction: "Keep item Draft/Pending; mutating dispatch is outside Pending M1.", requiresManual: true, retryable: false, explain: "Mutating dispatch from Pending is not enabled in this milestone. Keep the item Draft/Pending."),
         ErrorSpec("PENDING_REORDER_INVALID", ruleId: "pending.reorder.invalid", agentAction: "Keep order unchanged; reorder only Pending Execute items in the same execution lane.", requiresManual: true, retryable: false, explain: "Reorder is only valid among Pending Execute items in one execution lane. The requested reorder was rejected."),
+        ErrorSpec("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD", ruleId: "idempotency.key.reused", agentAction: "Generate a new key or reuse the original payload.", requiresManual: false, retryable: false, explain: "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request."),
+        ErrorSpec("RESULT_NOT_READY", ruleId: "result.not_ready", agentAction: "Poll team status using nextPollAfterMs, then call team result again.", requiresManual: false, retryable: true, explain: "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true."),
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
         ErrorSpec("COORDINATOR_UNAVAILABLE", ruleId: "coordinator.unavailable", agentAction: "Use foreground CLI or start resident mode when available.", requiresManual: false, retryable: true, explain: "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available."),
         ErrorSpec("JSON_SCHEMA_VIOLATION", ruleId: "json.schema.violation", agentAction: "Treat as implementation bug; run export-contracts check.", requiresManual: true, retryable: false, explain: "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check."),
@@ -275,6 +309,7 @@ public extension ContractRegistry {
         ExampleRecipe("team_basic", title: "Ask the team", command: "alln team --lane build --team build_bug_hunt \"Why does run history disappear?\""),
         ExampleRecipe("team_json", title: "Machine team run", command: "alln team --json \"Give me one small naming test.\""),
         ExampleRecipe("team_stream", title: "Streamed team run", command: "alln team --stream \"Give me one tiny event-stream test.\""),
+        ExampleRecipe("team_start_json", title: "Start async team run", command: "alln team start --json --lane build --team build_bug_hunt --effort low \"tiny async sanity\""),
         ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),
         ExampleRecipe("export_md", title: "Export the latest result", command: "alln export latest --format md"),

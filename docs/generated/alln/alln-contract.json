@@ -245,6 +245,158 @@
         }
       ],
       "exampleIds" : [
+        "team_start_json"
+      ],
+      "flags" : [
+        {
+          "name" : "lane",
+          "summary" : "build | design | copy.",
+          "takesValue" : true,
+          "valueType" : "lane"
+        },
+        {
+          "name" : "team",
+          "summary" : "Team id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "effort",
+          "summary" : "low | med | high.",
+          "takesValue" : true,
+          "valueType" : "effort"
+        },
+        {
+          "name" : "type",
+          "summary" : "Copy-only routing sugar.",
+          "takesValue" : true,
+          "valueType" : "type"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured TeamStartResponse.",
+          "takesValue" : false
+        },
+        {
+          "name" : "idempotency-key",
+          "summary" : "Client idempotency key.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "conversation-id",
+          "summary" : "Origin conversation id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "message-id",
+          "summary" : "Origin message id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "thread-id",
+          "summary" : "Owning work thread id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "team start",
+      "outputSchema" : "teamStartResponse",
+      "summary" : "Start a resumable\/asynchronous team run."
+    },
+    {
+      "args" : [
+        {
+          "name" : "run-id",
+          "required" : true,
+          "summary" : "The run id from team start."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured TeamStatusResponse.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "team status",
+      "outputSchema" : "teamStatusResponse",
+      "summary" : "Poll live state for an async team run."
+    },
+    {
+      "args" : [
+        {
+          "name" : "run-id",
+          "required" : true,
+          "summary" : "The run id from team start."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "TeamRunJSON or not-ready envelope.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "team result",
+      "outputSchema" : "teamRunJSON",
+      "summary" : "Fetch TeamRunJSON when an async run is terminal."
+    },
+    {
+      "args" : [
+        {
+          "name" : "run-id",
+          "required" : true,
+          "summary" : "The run id from team start."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured TeamCancelResponse.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "team cancel",
+      "outputSchema" : "teamCancelResponse",
+      "summary" : "Cancel an active async team run."
+    },
+    {
+      "args" : [
+        {
+          "name" : "prompt",
+          "required" : false,
+          "summary" : "The prompt (or use --file)."
+        }
+      ],
+      "exampleIds" : [
         "team_basic",
         "team_json",
         "team_stream"
@@ -469,60 +621,6 @@
       "name" : "serve",
       "outputSchema" : "coordinatorHealth",
       "summary" : "Resident Mac coordinator (foreground skeleton)."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team start",
-      "outputSchema" : "none",
-      "summary" : "Start a resumable\/asynchronous team run."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team status",
-      "outputSchema" : "none",
-      "summary" : "Show live state for a team run."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team result",
-      "outputSchema" : "none",
-      "summary" : "Show the final result for a team run."
     },
     {
       "args" : [
@@ -998,6 +1096,22 @@
       "ruleId" : "pending.reorder.invalid"
     },
     {
+      "agentAction" : "Generate a new key or reuse the original payload.",
+      "code" : "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+      "explain" : "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "idempotency.key.reused"
+    },
+    {
+      "agentAction" : "Poll team status using nextPollAfterMs, then call team result again.",
+      "code" : "RESULT_NOT_READY",
+      "explain" : "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "result.not_ready"
+    },
+    {
       "agentAction" : "Run `alln history --json`.",
       "code" : "RUN_NOT_FOUND",
       "explain" : "No run matches the given id. List history and pick a valid run id or `latest`.",
@@ -1156,6 +1270,11 @@
       "command" : "alln team --stream \"Give me one tiny event-stream test.\"",
       "id" : "team_stream",
       "title" : "Streamed team run"
+    },
+    {
+      "command" : "alln team start --json --lane build --team build_bug_hunt --effort low \"tiny async sanity\"",
+      "id" : "team_start_json",
+      "title" : "Start async team run"
     },
     {
       "command" : "alln show latest --json",

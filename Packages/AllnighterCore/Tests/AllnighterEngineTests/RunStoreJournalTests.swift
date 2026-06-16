@@ -139,4 +139,18 @@ final class RunStoreJournalTests: XCTestCase {
         XCTAssertEqual(entries.last?.0, .complete)
         XCTAssertTrue(entries.last!.0.isTerminal)
     }
+
+    func testOrphanAsyncRunResolvesToInterrupted() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let runDir = try store.runDirectory(forRunId: "async-orphan")
+        try CoreJSON.encode(TeamRun(
+            id: "async-orphan", prompt: "p", status: .fanningOut,
+            workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
+            workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .running)],
+            createdAt: Date()
+        )).write(to: runDir.appendingPathComponent("run.json"))
+        try Data("2000000".utf8).write(to: runDir.appendingPathComponent("owner.pid"))
+        XCTAssertEqual(store.load(runId: "async-orphan")?.status, .interrupted)
+    }
 }

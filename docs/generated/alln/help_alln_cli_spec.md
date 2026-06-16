@@ -92,6 +92,64 @@ Flags:
 - `--effort <effort>` — low | med | high.
 - `--type <type>` — Copy-only routing sugar.
 
+### `alln team start`
+
+Start a resumable/asynchronous team run.
+
+Arguments:
+- `prompt` (optional) — The prompt (or use --file).
+
+Flags:
+- `--lane <lane>` — build | design | copy.
+- `--team <id>` — Team id.
+- `--effort <effort>` — low | med | high.
+- `--type <type>` — Copy-only routing sugar.
+- `--json` — Structured TeamStartResponse.
+- `--idempotency-key <id>` — Client idempotency key.
+- `--conversation-id <id>` — Origin conversation id.
+- `--message-id <id>` — Origin message id.
+- `--thread-id <id>` — Owning work thread id.
+
+Output schema: `teamStartResponse`.
+
+Examples: `team_start_json`.
+
+### `alln team status`
+
+Poll live state for an async team run.
+
+Arguments:
+- `run-id` (required) — The run id from team start.
+
+Flags:
+- `--json` — Structured TeamStatusResponse.
+
+Output schema: `teamStatusResponse`.
+
+### `alln team result`
+
+Fetch TeamRunJSON when an async run is terminal.
+
+Arguments:
+- `run-id` (required) — The run id from team start.
+
+Flags:
+- `--json` — TeamRunJSON or not-ready envelope.
+
+Output schema: `teamRunJSON`.
+
+### `alln team cancel`
+
+Cancel an active async team run.
+
+Arguments:
+- `run-id` (required) — The run id from team start.
+
+Flags:
+- `--json` — Structured TeamCancelResponse.
+
+Output schema: `teamCancelResponse`.
+
 ### `alln team`
 
 Run a lane team on a prompt, foreground.
@@ -189,9 +247,6 @@ Examples: `serve_health_json`.
 
 ## Commands (named but deferred)
 
-- `alln team start` — Start a resumable/asynchronous team run.
-- `alln team status` — Show live state for a team run.
-- `alln team result` — Show the final result for a team run.
 - `alln team edit` — Edit the team lineup.
 - `alln models add` — Add/configure a model.
 - `alln work` — Create a work order.
@@ -228,6 +283,8 @@ Examples: `serve_health_json`.
 | `TEAM_GOVERNOR_BUSY` | no | yes | Wait or retry after current team run completes. |
 | `PENDING_MUTATION_DEFERRED` | yes | no | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
 | `PENDING_REORDER_INVALID` | yes | no | Keep order unchanged; reorder only Pending Execute items in the same execution lane. |
+| `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | Generate a new key or reuse the original payload. |
+| `RESULT_NOT_READY` | no | yes | Poll team status using nextPollAfterMs, then call team result again. |
 | `RUN_NOT_FOUND` | yes | no | Run `alln history --json`. |
 | `COORDINATOR_UNAVAILABLE` | no | yes | Use foreground CLI or start resident mode when available. |
 | `JSON_SCHEMA_VIOLATION` | yes | no | Treat as implementation bug; run export-contracts check. |
@@ -266,6 +323,7 @@ Examples: `serve_health_json`.
 - `team_basic` — Ask the team: `alln team --lane build --team build_bug_hunt "Why does run history disappear?"`
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
 - `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
+- `team_start_json` — Start async team run: `alln team start --json --lane build --team build_bug_hunt --effort low "tiny async sanity"`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`

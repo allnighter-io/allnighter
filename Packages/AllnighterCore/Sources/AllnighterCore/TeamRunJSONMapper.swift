@@ -81,7 +81,7 @@ public enum TeamRunJSONMapper {
             effort: run.effort?.rawValue ?? context.effort,
             prompt: run.prompt, promptSource: context.promptSource,
             createdAt: isoString(run.createdAt), startedAt: iso(started), completedAt: iso(completed),
-            threadId: nil, teamPresetId: run.presetId,
+            threadId: run.threadId, teamPresetId: run.presetId,
             teamDisplayName: run.teamDisplayName, outputKind: run.outputKind?.rawValue,
             planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand
         )
