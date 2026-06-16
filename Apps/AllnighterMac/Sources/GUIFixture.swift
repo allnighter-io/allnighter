@@ -87,8 +87,11 @@ enum GUIFixture {
         if scenario == "readiness-cold" { return [] }
         let drivers = orderedDrivers(in: models)
         let name = scenario
+        // Compose/home specimens want a fully-ready bench so the routing surface
+        // reads cleanly (the real app derives readiness from live probes).
+        let allReady = name.hasPrefix("compose-") || name.hasPrefix("home-")
         return drivers.enumerated().map { index, driver in
-            let status = status(for: name, index: index, driverId: driver)
+            let status = allReady ? ModelSetupStatus.ready(version: "1.0") : status(for: name, index: index, driverId: driver)
             return ToolProbeRecord(
                 driverId: driver,
                 status: status,

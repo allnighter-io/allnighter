@@ -570,6 +570,51 @@ final class AppModel {
         }
     }
 
+    // MARK: - Compose routing data (CR3)
+
+    /// The bench the routing composer offers — the user's REAL enabled models
+    /// with REAL readiness from `toolStatuses`. Work routes to a model; the CLI
+    /// is only the source (brand glyph + slug + sub).
+    var composeBench: [ComposeBenchModel] {
+        models.filter(\.enabled).map { m in
+            let rec = toolStatus(for: m.driverId)
+            let ready = rec?.status.isReady ?? false
+            let cliName = registry.manifest(for: m)?.displayName ?? m.driverId
+            let reason: String?
+            switch rec?.status {
+            case .installedNotSignedIn?: reason = "Not signed in"
+            case .shimmedNeedsConfirm?: reason = "Needs a path"
+            case .probeFailed?: reason = "Probe failed"
+            case .installedNotProbed?: reason = "Not checked"
+            case .notInstalled?, .none: reason = "Not detected"
+            case .ready?: reason = nil
+            }
+            return ComposeBenchModel(
+                id: m.id, name: m.displayName, driverId: m.driverId,
+                cli: m.driverId.replacingOccurrences(of: "_", with: "-"),
+                sub: cliName, ready: ready, notReadyReason: ready ? nil : reason)
+        }
+    }
+
+    /// Models that can run as an agent in your repo (Execute) — every model whose
+    /// source is a headless CLI agent.
+    var composeExecutorIds: Set<String> {
+        Set(models.filter { registry.manifest(for: $0)?.kind == .headlessCLI }.map(\.id))
+    }
+
+    func composeTeams(for lane: ComposeLane) -> [ComposeTeam] {
+        BuiltInTeams.teams(in: lane.workLane).map { p in
+            let n = p.workerSpecs.count
+            let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
+            return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)", isDefault: p.isDefaultForLane)
+        }
+    }
+
+    func composeDefaultTeam(for lane: ComposeLane) -> String {
+        let teams = composeTeams(for: lane)
+        return (teams.first { $0.isDefault } ?? teams.first)?.id ?? ""
+    }
+
     /// Per-driver invocations resolved by detection — so GUI runs spawn through the
     /// SAME plan that passed the health probe (health == runs; docs/phases/setup/01 §10).
     private var runnerInvocations: [String: ToolInvocation] {

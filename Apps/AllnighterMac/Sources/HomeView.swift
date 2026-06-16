@@ -86,7 +86,8 @@ private struct HomeSidebar: View {
 // MARK: - Empty state ("You already pay for the team")
 
 private struct HomeEmptyState: View {
-    private let bench = ComposeRoutingData.bench
+    @Environment(AppModel.self) private var appModel
+    private var bench: [ComposeBenchModel] { appModel.composeBench }
     private let modes: [(ComposeMode, String)] = [
         (.chat, "Ask the bench a question — “token bucket or sliding window for rate limiting?”"),
         (.fanout, "Drop a screenshot — “make this profile feel premium and clean” → a board of options."),

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AllnighterCore
 
 // Compose Routing composer (docs/phases/wiring/design_handoff_compose_routing).
 // The composer reads as a sentence: [verb] → [who] → [effort].
@@ -34,36 +35,6 @@ struct ComposeTeam: Identifiable, Equatable {
     let isDefault: Bool
 }
 
-enum ComposeRoutingData {
-    // The bench is MODELS — work routes to a model (Opus), never to a CLI
-    // (Claude Code). The CLI is only the source: it picks the brand glyph and
-    // shows as the chip's grey slug. (CR3 maps this from AppModel.models.)
-    static let bench: [ComposeBenchModel] = [
-        .init(id: "opus", name: "Opus 4.8", driverId: "claude_code", cli: "claude-code", sub: "Anthropic · Claude Code", ready: true),
-        .init(id: "sonnet", name: "Sonnet 4.6", driverId: "claude_code", cli: "claude-code", sub: "Anthropic · Claude Code", ready: true),
-        .init(id: "chatgpt", name: "ChatGPT 5.5", driverId: "codex", cli: "codex", sub: "OpenAI · Codex", ready: true),
-        .init(id: "grok", name: "Grok Build", driverId: "grok", cli: "grok", sub: "xAI · Grok", ready: true),
-        .init(id: "composer", name: "Composer 2.5", driverId: "grok", cli: "grok", sub: "Cursor · Grok", ready: true),
-        .init(id: "gemini", name: "Gemini 3.5 Flash", driverId: "antigravity", cli: "antigravity", sub: "Google · Antigravity", ready: true),
-    ]
-    /// Models that can run as an agent in your repo (Execute mode).
-    static let execIds: Set<String> = ["opus", "chatgpt", "grok", "composer"]
-    static let teams: [ComposeLane: [ComposeTeam]] = [
-        .build: [.init(id: "bd-light", name: "Light review", summary: "3 workers", isDefault: true),
-                 .init(id: "bd-full", name: "Full review", summary: "6 workers", isDefault: false),
-                 .init(id: "bd-sec", name: "Security pass", summary: "3 workers · custom", isDefault: false)],
-        .design: [.init(id: "ds-std", name: "Standard board", summary: "4 mockups", isDefault: true),
-                  .init(id: "ds-brand", name: "Brand pass", summary: "2 mockups · custom", isDefault: false)],
-        .copy: [.init(id: "cp-land", name: "Landing page", summary: "4 versions", isDefault: true),
-                .init(id: "cp-launch", name: "Aggressive launch", summary: "6 versions · custom", isDefault: false)],
-    ]
-    static func defaultTeam(_ lane: ComposeLane) -> String {
-        let list = teams[lane] ?? []
-        return (list.first { $0.isDefault } ?? list.first)?.id ?? ""
-    }
-    static func model(_ id: String) -> ComposeBenchModel? { bench.first { $0.id == id } }
-}
-
 extension ComposeMode {
     var label: String { switch self { case .chat: "Chat"; case .fanout: "Fan out"; case .exec: "Execute" } }
     var icon: String { switch self { case .chat: "message"; case .fanout: "rectangle.stack"; case .exec: "hammer" } }
@@ -81,6 +52,7 @@ extension ComposeEffort { var label: String { rawValue.prefix(1).uppercased() + 
 extension ComposeLane {
     var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
     var icon: String { switch self { case .build: "hammer"; case .design: "photo"; case .copy: "doc.text" } }
+    var workLane: WorkLane { switch self { case .build: .build; case .design: .design; case .copy: .copy } }
 }
 
 /// Proof/specimen container — shows the composer on the dark canvas, anchored
@@ -105,6 +77,7 @@ struct ComposeSpecimen: View {
 struct RoutingComposer: View {
     enum Popover { case mode, target }
 
+    @Environment(AppModel.self) private var appModel
     @State var mode: ComposeMode
     @State var to: String
     @State var effort: ComposeEffort
@@ -118,10 +91,10 @@ struct RoutingComposer: View {
 
     init(mode: ComposeMode = .chat, openModeMenu: Bool = false, openTarget: Bool = false, big: Bool = false) {
         _mode = State(initialValue: mode)
-        _to = State(initialValue: mode == .exec ? "opus" : "opus")
+        _to = State(initialValue: "")     // seeded from the real bench in onAppear
         _effort = State(initialValue: .med)
         _lane = State(initialValue: .design)
-        _team = State(initialValue: ComposeRoutingData.defaultTeam(.design))
+        _team = State(initialValue: "")   // seeded from the real catalog in onAppear
         _pop = State(initialValue: openModeMenu ? .mode : (openTarget ? .target : nil))
         self.big = big
         self.placeholder = big
@@ -135,6 +108,17 @@ struct RoutingComposer: View {
             hint
         }
         .overlay(alignment: .bottomLeading) { popoverLayer }
+        .onAppear(perform: seedDefaults)
+    }
+
+    /// Seed the routing target from the REAL bench/catalog (init can't read the
+    /// environment). Prefer a ready model; fall back to the first model.
+    private func seedDefaults() {
+        let bench = appModel.composeBench
+        if to.isEmpty || !bench.contains(where: { $0.id == to }) {
+            to = bench.first(where: \.ready)?.id ?? bench.first?.id ?? ""
+        }
+        if team.isEmpty { team = appModel.composeDefaultTeam(for: lane) }
     }
 
     // MARK: composer box
@@ -192,7 +176,7 @@ struct RoutingComposer: View {
             HStack(spacing: 7) {
                 switch mode {
                 case .chat, .exec:
-                    if let m = ComposeRoutingData.model(to) {
+                    if let m = appModel.composeBench.first(where: { $0.id == to }) {
                         DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5)
                         Text(m.name).font(ALFont.mono).foregroundStyle(ALColor.textPrimary)
                     }
@@ -234,7 +218,7 @@ struct RoutingComposer: View {
 
     private func selectMode(_ m: ComposeMode) {
         mode = m
-        if m == .exec, !ComposeRoutingData.execIds.contains(to) { to = "opus" }
+        if m == .exec, !appModel.composeExecutorIds.contains(to) { to = appModel.composeBench.first(where: { appModel.composeExecutorIds.contains($0.id) && $0.ready })?.id ?? to }
         // Picking Fan out drops the user straight into the lane/team picker.
         pop = (m == .fanout) ? .target : nil
     }
@@ -256,11 +240,11 @@ struct RoutingComposer: View {
             switch mode {
             case .chat:
                 popHeader("Route to model", "One model answers this turn")
-                modelList(ComposeRoutingData.bench.map(\.id))
+                modelList(appModel.composeBench.map(\.id))
                 effortRow(note: "Higher effort = more reasoning time.")
             case .exec:
                 popHeader("Hand to executor", "An agent runs it in your repo")
-                modelList(ComposeRoutingData.bench.filter { ComposeRoutingData.execIds.contains($0.id) }.map(\.id))
+                modelList(appModel.composeBench.filter { appModel.composeExecutorIds.contains($0.id) }.map(\.id))
                 effortRow(note: "Higher effort = more reasoning time.")
             case .fanout:
                 popHeader("Send to team", "Pick the lane, then the lineup")
@@ -290,7 +274,7 @@ struct RoutingComposer: View {
     private func modelList(_ ids: [String]) -> some View {
         VStack(spacing: 1) {
             ForEach(ids, id: \.self) { id in
-                if let m = ComposeRoutingData.model(id) {
+                if let m = appModel.composeBench.first(where: { $0.id == id }) {
                     Button { if m.ready { to = id; pop = nil } } label: { modelRow(m) }
                         .buttonStyle(.plain)
                         .disabled(!m.ready)
@@ -322,7 +306,7 @@ struct RoutingComposer: View {
     private var laneTabs: some View {
         HStack(spacing: 6) {
             ForEach(ComposeLane.allCases, id: \.self) { l in
-                Button { lane = l; team = ComposeRoutingData.defaultTeam(l) } label: {
+                Button { lane = l; team = appModel.composeDefaultTeam(for: l) } label: {
                     HStack(spacing: 6) {
                         Image(systemName: l.icon).font(.system(size: 12)).foregroundStyle(l == lane ? ALColor.accentText : ALColor.textMuted)
                         Text(l.label).font(.system(size: 12, weight: .medium)).foregroundStyle(l == lane ? ALColor.textPrimary : ALColor.textMuted)
@@ -339,7 +323,7 @@ struct RoutingComposer: View {
 
     private var teamList: some View {
         VStack(spacing: 1) {
-            ForEach(ComposeRoutingData.teams[lane] ?? []) { t in
+            ForEach(appModel.composeTeams(for: lane)) { t in
                 Button { team = t.id; pop = nil } label: { teamRow(t) }.buttonStyle(.plain)
             }
         }

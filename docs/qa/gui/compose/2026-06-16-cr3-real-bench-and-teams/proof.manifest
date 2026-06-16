@@ -1,0 +1,16 @@
+# surface: compose
+# fixtures: compose-base compose-target-chat compose-target-fanout compose-target-exec compose-mode-menu home-empty
+# watcher: PASS
+# sealed: 2026-06-16
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+22a7d569e36ccdaffac0aee15c65ac14b096766b  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+21b4fbc4df510f79fa6a40c8fa5ddd7a420f5082  Apps/AllnighterMac/Sources/DesignComponents.swift
+ef56b710f18f5e2ea2e05bc531c6d2a88ce5f48b  Apps/AllnighterMac/Sources/DevSettingsView.swift
+208a93e62970c1fd481819e44e8e680e2b64e4f6  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+3c042b9173733b95037d73518593bb4193bd86b2  Apps/AllnighterMac/Sources/HomeView.swift
+1f87c18747bc714852559d5713bff4b3e18187d6  Apps/AllnighterMac/Sources/ReadinessView.swift
+c9d9e8bbb356d24b5e6d8880f99584081a584b8c  Apps/AllnighterMac/Sources/RootView.swift
+f646cdf40c1e6dd04d958485689d43aaae4aca41  Apps/AllnighterMac/Sources/RoutingComposer.swift
+f08a46bf81c2e00c67bdd311786641b9c8695c01  Apps/AllnighterMac/Sources/SetupViews.swift
+1ddabad43ba39b25aed98083cf8dd62e9fb253f5  Apps/AllnighterMac/Sources/TeamControlView.swift
