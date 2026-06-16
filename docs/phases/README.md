@@ -30,6 +30,7 @@ otherwise.
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). Still owns: MCP advertising/async tools + Pending grammar (deferred). |
+| [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Draft feature packet, ready for implementation planning | Lane-scoped custom teams and built-in Build/Design specialist teams for Fan out: Build/Design/Copy selection, team picker, Low/Med/High effort, and one-CLI multi-skill self-fusion. |
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
@@ -78,6 +79,14 @@ otherwise.
 - Build, Design, and Copy are the peer creation lanes. A fourth lane requires a
   new substrate or output class; otherwise it is a type or preset inside the
   existing lanes.
+- Fan out never infers lane from prompt prose. The user chooses Build / Design /
+  Copy. Fan out targets a lane-scoped team plus effort, not a bare model.
+- Every built-in and custom team belongs to exactly one lane. There are no
+  shared or multi-lane teams; duplicate and tune a lineup when it belongs in
+  another lane.
+- Team presets are reusable units. Built-in and custom teams may resolve to
+  multiple workers on one ready model when the user has only one CLI connected;
+  show that truthfully as many workers / one model.
 - A worker is one model wearing one skill. Lanes ship default teams, but advanced
   users can customize the worker lineup as `Skill | Model` one level below the
   main composer.
@@ -129,6 +138,7 @@ Open questions:
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
 | Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
+| Fan out composer, lane-scoped custom teams, built-in Build/Design teams | `Fanout_Team_Catalog.md` + `Work_Order_Team_Model.md` |
 | Standalone Mac app, Dock presence, menu-bar role, background coordinator, resident lifecycle | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |

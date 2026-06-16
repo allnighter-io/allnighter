@@ -1,8 +1,9 @@
 # Copy Lane - Work Orders That Sell
 
-Status: Draft post-MVP phase
+Status: Draft post-MVP phase; Fan out team picker updates routed through
+`docs/phases/Fanout_Team_Catalog.md`
 Owner: Founder + Shared Core + Mac
-Updated: 2026-06-15
+Updated: 2026-06-16
 
 ## Founder Intent
 
@@ -22,11 +23,11 @@ New work order
 Prompt
 "Rewrite my pricing page so solo founders actually convert."
 
-Copy type
-[ Auto ] [ Landing page ]
+Team
+[ Landing Page Team ]
 
 Effort
-[ Quick ] [ Standard ] [ Deep ]
+[ Low ] [ Med ] [ High ]
 
 Run copy board
 ```
@@ -77,7 +78,7 @@ Worker = model + skill for this run
 Team   = the worker lineup for this work order
 Lane   = Copy
 Type   = Landing page, Email, Ads, UGC, ...
-Effort = Quick / Standard / Deep
+Effort = Low / Med / High
 ```
 
 Read `docs/phases/Work_Order_Team_Model.md` before designing Copy team controls.
@@ -90,8 +91,9 @@ Read `docs/phases/Work_Order_Team_Model.md` before designing Copy team controls.
 - **Default team first; custom team second.** Prompt-only runs use the lane/type's
   default lineup. Advanced users can customize workers one level deeper as
   `Skill | Model` rows.
-- **Copy type is routing, not paperwork.** Ask only when the answer changes which
-  expert setup runs.
+- **Copy type is routing metadata, not paperwork.** In the Fan out composer,
+  Copy type packs materialize as Copy teams. CLI/slash compatibility may still
+  accept type and resolve it to the default team for that type.
 - **Effort is an instruction, not a forecast.** It may change how many versions,
   review passes, or research steps run. It must not imply predicted runtime, cost,
   quota burn, or difficulty.
@@ -116,7 +118,7 @@ MVP (`00`):
 
 - `/copy landing`;
 - prompt-only required input;
-- Quick / Standard / Deep effort;
+- Low / Med / High effort;
 - default landing-page team, with later customization through shared team controls;
 - copy board with distinct landing-page strategies;
 - deterministic copy pack after pick;
@@ -162,8 +164,8 @@ Avoid:
 | --- | --- | --- |
 | Entry | `Build / Design / Copy`, `/copy`, hotkeys | iOS remote start, saved defaults, recent copy types |
 | Required input | Prompt only | Prompt only |
-| Copy type | `Auto` + `Landing page` quality-gated first | Email funnel, ads, UGC, lead magnet, newsletter, app store, SEO/blog, sales page |
-| Effort | Quick / Standard / Deep | Per-type effort maps, saved user defaults |
+| Copy team/type | `Landing Page Team` quality-gated first; `landing-page` type may route to it in CLI/slash paths | Email funnel, ads, UGC, lead magnet, newsletter, app store, SEO/blog, sales page teams |
+| Effort | Low / Med / High | Per-team effort maps, saved user defaults |
 | Output | Copy board + deterministic picked copy pack | Apply-to-site handoff, channel exports, campaign pack |
 | Research | No public-web research in C0 | Source browser, competitor sets, customer-language library |
 | Memory | Log pick/rejection in the run | House voice, banned claims, audience memory, copy scorecards |

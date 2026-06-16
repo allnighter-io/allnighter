@@ -2,7 +2,7 @@
 
 Status: Active language contract for post-MVP specs
 Owner: Founder + Shared Core + Mac
-Updated: 2026-06-15
+Updated: 2026-06-16
 
 ## Purpose
 
@@ -26,9 +26,9 @@ Skill  = what hat/instruction a model wears
 Worker = one model wearing one skill for this run
 Team   = the worker lineup for a work order
 Lane   = Build / Design / Copy
-Type   = subtype inside a lane
-Effort = how big/deep the team runs
-Preset = saved type + effort + team defaults
+Type   = optional subtype metadata inside a lane; not a Fan out selector
+Effort = Low / Med / High bundle for how big/deep the team runs
+TeamPreset = saved lane team definition with effort defaults
 ```
 
 ## Definitions
@@ -42,9 +42,9 @@ Preset = saved type + effort + team defaults
 | **Worker** | One `model + skill` assignment for this run. A model can become multiple workers by wearing different skills. |
 | **Team** | The worker lineup for this work order. This is the user-facing word for the lineup that runs. |
 | **Lane** | The three peer creation lanes: Build, Design, Copy. |
-| **Type** | A subtype inside a lane, e.g. Copy -> Landing page, Email, Ads; Design -> Redesign, Greenfield; Build -> Feature, Bug fix. |
-| **Effort** | Quick / Standard / Deep. Controls worker count, review depth, patience, and later research. Never a forecast. |
-| **Preset** | A saved default: lane + type + effort + team lineup + enabled review skills. |
+| **Type** | Optional subtype metadata inside a lane. Type is not a primary Fan out selector. Copy may use type as compatibility/default-team routing, e.g. `landing-page` -> `copy_landing_page`, when owned by Copy docs. |
+| **Effort** | Low / Med / High. Controls worker count, review depth, patience, and later research. Never a forecast. |
+| **TeamPreset** | Core type for a saved built-in or custom team: lane, output kind, default effort, worker lineup, and synthesis/review policy. Product UI says Team. |
 
 Shortcut:
 
@@ -93,6 +93,11 @@ Worker: Opus 4.8 as Plan Writer
 The plan stage may run after the parallel answers, but the product still shows a
 worker doing the job. JSON uses `planWriterWorkerId`; UI copy may say "Plan
 written by Opus 4.8." Do not expose `plan writer` or `plan writer` as product nouns.
+
+For lane-scoped team catalog runs, Core may resolve this as a synthetic
+plan/output worker from the team's synthesis policy. It is still included in the
+run snapshot and still follows the rule: models sit on the Bench, workers do
+jobs.
 
 This keeps the rule simple:
 
@@ -168,15 +173,26 @@ compatibility promise.
 
 Both are true:
 
-- A lane/type ships with a **default team** so prompt-only runs work instantly.
+- Each lane ships with a **default team** so prompt-only runs work instantly.
+  Copy type compatibility may route to a type-specific Copy team.
 - Advanced users can customize the team: each row is one worker, shown as
   `skill + model`.
+- Every built-in and custom team belongs to exactly one lane. There are no shared
+  teams or multi-lane teams.
+- Users can create multiple custom teams per lane. A Security Review or Bug Hunt
+  team is a Build team, not a new lane.
+- A team may run with one ready model by assigning that model to multiple workers
+  with different skills. Show it truthfully as multiple workers on one model.
 
 The main composer must stay simple:
 
 ```text
-Lane -> Prompt -> Type when needed -> Effort -> Run
+Fan out -> Lane -> Team -> Effort -> Prompt -> Run
 ```
+
+Do not add a separate Type picker to Fan out. Copy type packs materialize as Copy
+teams. CLI or slash-command compatibility may still accept type and resolve it to
+a team when no explicit team was selected.
 
 Team customization is one click deeper:
 
@@ -191,6 +207,9 @@ Proof skeptic          Gemini
 ```
 
 Do not put team customization in the primary path.
+
+`docs/phases/Fanout_Team_Catalog.md` owns the forward phase for lane-scoped
+custom teams, built-in Build/Design team packs, and the composer picker.
 
 ## Skill Library
 
@@ -214,26 +233,27 @@ builtIn
 version
 ```
 
-Milestone 1 does not need standalone skill-library CRUD. Built-in and preset
-embedded skills are enough if `team show`, `team --json`, and the GUI snapshot
-resolve every worker row to `Skill | Model`.
+The Fan out team catalog requires a Core-owned skill catalog so built-in team
+prompts have one source of truth. Full standalone skill-library CRUD can stage
+later, but built-in skills, custom skill copies, and run snapshots must resolve
+every worker row to `Skill | Model` plus skill version.
 
 ## Lane / Type Examples
 
 ```text
 Build
-  Type: Feature
-  Effort: Deep
+  Type metadata: Feature
+  Effort: High
   Team: First Principles on Opus, Skeptic on Sonnet, Maintainer on Codex
 
 Design
-  Type: Redesign
-  Effort: Standard
+  Type metadata: Redesign
+  Effort: Med
   Team: Minimal Designer on Grok Imagine, Bold Designer on ChatGPT image
 
 Copy
-  Type: Landing page
-  Effort: Standard
+  Type metadata: Landing page
+  Effort: Med
   Team: Offer Strategist on Opus, Objection Hunter on Grok, Direct Response on Sonnet
 ```
 
@@ -246,8 +266,13 @@ Copy lane.
 - Work-order creation stays prompt-first.
 - Effort changes range, rigor, review, and later research. It does not create a
   new lane.
+- Fan out never infers Build / Design / Copy from prompt prose. The lane is an
+  explicit user choice.
+- Fan out shows a team target, not a model target.
+- Fan out uses Team as the routing unit. Type is metadata or compatibility sugar,
+  not a competing selector.
 - A fourth peer lane requires a new substrate or output class. Otherwise it is a
-  type, skill, preset, or thread turn inside Build / Design / Copy.
+  type metadata, skill, team, or thread turn inside Build / Design / Copy.
 - Model availability filters the bench. Skill compatibility filters the model
   dropdown.
 - Never call a model on the Bench a worker. Never call a team row a model. The
@@ -270,14 +295,14 @@ New work order
 
 [ Build ] [ Design ] [ Copy ]
 
-Prompt
-[ Rewrite my pricing page so solo founders actually convert. ]
-
-Copy type
-[ Auto ] [ Landing page ]
+Team
+[ Landing Page Team ]
 
 Effort
-[ Quick ] [ Standard ] [ Deep ]
+[ Low ] [ Med ] [ High ]
+
+Prompt
+[ Rewrite my pricing page so solo founders actually convert. ]
 
 4 versions - landing page experts
 

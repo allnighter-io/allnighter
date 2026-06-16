@@ -4,7 +4,7 @@ Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `serve --stdio` projects from the registry. Remaining (still owned here): MCP
 advertising/auto-install + async tools, and the deferred `alln pending` grammar.
 Owner: Shared Core + CLI + Mac
-Updated: 2026-06-15
+Updated: 2026-06-16
 
 ## Authority
 
@@ -141,7 +141,7 @@ alln doctor [--json] [--quiet] [--full] [--auto-fix]
 alln doctor explain <code> [--json]
 alln models [--json]
 alln team show [--json]
-alln team [prompt] [--file <path>] [--lane <lane>] [--type <type>] [--effort <effort>] [--preset <id>] [--json | --stream]
+alln team [prompt] [--file <path>] [--lane <lane>] [--team <id>] [--effort <effort>] [--type <type>] [--preset <id>] [--json | --stream]
 alln show <run-id|latest> [--json]
 alln export <run-id|latest> --format md
 alln dev export-contracts [--check]
@@ -186,6 +186,12 @@ Parsing rules:
 - `--json` and `--stream` are mutually exclusive.
 - `--file` and positional prompt may not both provide body text unless the
   registry explicitly defines concatenation later.
+- New Fan out work uses `--team`; `--preset` is a deprecated compatibility alias.
+- Canonical effort values are `low`, `med`, and `high`. The registry and
+  generated artifacts must not emit `quick`, `standard`, or `deep` after the
+  Fanout Team Catalog cutover.
+- `--type` is optional metadata or Copy compatibility routing. It must not
+  compete with `--team`; a conflicting type/team pair is rejected before running.
 - Human mode can print compact prose to stdout.
 - JSON mode prints exactly one JSON object to stdout.
 - Stream mode prints only NDJSON events to stdout.
@@ -225,8 +231,8 @@ Required `teamRun` fields:
 | `origin` | enum | `cli`, `gui`, `mcp`, `ios`, `localApi`, or `system`. |
 | `originAgent` | string/null | MCP/client/agent name when known. |
 | `lane` | string/null | `build`, `design`, `copy`, or null when unspecified. |
-| `type` | string/null | Lane subtype. |
-| `effort` | string/null | `quick`, `standard`, `deep`, or null. |
+| `type` | string/null | Optional lane subtype metadata. Copy compatibility may populate this when type routed to a Copy team; Build/Design Fan out usually leave it null. |
+| `effort` | string/null | `low`, `med`, `high`, or null. |
 | `prompt` | string | User prompt after file loading. |
 | `promptSource` | object | Positional/file/stdin provenance; no secret content. |
 | `createdAt` | string | ISO 8601 timestamp. |
@@ -234,6 +240,8 @@ Required `teamRun` fields:
 | `completedAt` | string/null | ISO 8601 timestamp. |
 | `threadId` | string/null | Owning work thread, if linked. |
 | `teamPresetId` | string/null | Default/custom team preset id. |
+| `teamDisplayName` | string/null | User-facing team name at run start. |
+| `outputKind` | string/null | Team output kind, e.g. `plan`, `bugPacket`, `designBoard`, `copyBoard`. |
 | `planWriterWorkerId` | string/null | Worker responsible for final plan and default linked-thread reply target. |
 | `reproduceCommand` | string/null | Redacted exact `alln team ...` command when safe. |
 
@@ -256,6 +264,7 @@ Worker fields:
   "id": "worker_first_principles_opus",
   "skillId": "first_principles",
   "skillName": "First Principles",
+  "skillVersion": 1,
   "modelId": "model_opus",
   "modelName": "Opus 4.8",
   "sourceId": "claude_code",

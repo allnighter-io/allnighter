@@ -14,7 +14,7 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MAC_APP="$ROOT/Apps/AllnighterMac"
 DERIVED="$ROOT/.build/mac"            # gitignored; deterministic .app path + cache
 SCHEME="AllnighterMac"
-APP="$DERIVED/Build/Products/Debug/AllnighterMac.app"
+APP="$DERIVED/Build/Products/Debug/Allnighter.app"
 LOG="$DERIVED/last-build.log"
 
 cmd="${1:-run}"
@@ -64,6 +64,6 @@ echo "✓ built in $(( $(date +%s) - start ))s"
 [ "$cmd" = "build" ] && exit 0
 
 # 3. Relaunch: kill any running instance, then open the fresh build.
-pkill -x AllnighterMac 2>/dev/null || true
+pkill -x Allnighter 2>/dev/null || true
 open "$APP"
 echo "✓ launched $APP"

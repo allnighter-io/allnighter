@@ -24,4 +24,5 @@ allapp clean    # drop the cached build, then build + launch fresh
 ```
 
 Build is cached under `.build/mac/` (gitignored), so repeat runs are fast.
+The built bundle is `Allnighter.app` (`PRODUCT_NAME` in `Apps/AllnighterMac/project.yml`).
 On a build failure it prints the `error:` lines and the log path.

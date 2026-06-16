@@ -158,8 +158,8 @@ show up as workers:
 ```bash
 alln team "Pressure-test this launch plan."
 alln team --file prompt.md
-alln team --lane build --effort deep "Plan this feature."
-alln team --lane copy --type landing-page "Rewrite this page."
+alln team --lane build --team build_core --effort high "Plan this feature."
+alln team --lane copy --team copy_landing_page --effort med "Rewrite this page."
 alln team --lane design --image screen.png --brief "Make this calmer."
 ```
 
@@ -321,7 +321,7 @@ Default human output should be compact and useful:
 
 ```text
 Run run_20260615_2214
-Team: 4 workers · Build · Deep
+Team: 4 workers · Build · High
 
 ✓ Opus / First Principles      1m42s
 ✓ Sonnet / Skeptic             1m10s
@@ -379,13 +379,15 @@ Sketch:
     "status": "done",
     "origin": "cli",
     "lane": "build",
-    "type": "feature",
-    "effort": "deep",
+    "type": null,
+    "effort": "high",
     "prompt": "Pressure-test this launch plan.",
     "createdAt": "2026-06-15T22:14:00Z",
     "completedAt": "2026-06-15T22:16:08Z",
     "threadId": null,
-    "teamPresetId": "default_deep",
+    "teamPresetId": "build_core",
+    "teamDisplayName": "Build Core",
+    "outputKind": "plan",
     "planWriterWorkerId": "worker_plan_opus"
   },
   "models": [
