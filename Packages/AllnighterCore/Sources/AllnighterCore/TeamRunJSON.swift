@@ -100,6 +100,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var completedAt: String?
         public var threadId: String?
         public var teamPresetId: String?
+        public var teamDisplayName: String?
+        public var outputKind: String?
         public var planWriterWorkerId: String?
         public var reproduceCommand: String?
 
@@ -108,15 +110,16 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             lane: String? = nil, type: String? = nil, effort: String? = nil,
             prompt: String, promptSource: PromptSource, createdAt: String,
             startedAt: String? = nil, completedAt: String? = nil, threadId: String? = nil,
-            teamPresetId: String? = nil, planWriterWorkerId: String? = nil,
-            reproduceCommand: String? = nil
+            teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
+            planWriterWorkerId: String? = nil, reproduceCommand: String? = nil
         ) {
             self.id = id; self.status = status; self.origin = origin
             self.originAgent = originAgent; self.lane = lane; self.type = type
             self.effort = effort; self.prompt = prompt; self.promptSource = promptSource
             self.createdAt = createdAt; self.startedAt = startedAt
             self.completedAt = completedAt; self.threadId = threadId
-            self.teamPresetId = teamPresetId; self.planWriterWorkerId = planWriterWorkerId
+            self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
+            self.outputKind = outputKind; self.planWriterWorkerId = planWriterWorkerId
             self.reproduceCommand = reproduceCommand
         }
     }
@@ -147,13 +150,14 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var id: String
         public var skillId: String?
         public var skillName: String?
+        public var skillVersion: Int?
         public var modelId: String
         public var modelName: String
         public var sourceId: String
         public var purpose: WorkerPurpose
         public var instanceIndex: Int
-        public init(id: String, skillId: String? = nil, skillName: String? = nil, modelId: String, modelName: String, sourceId: String, purpose: WorkerPurpose, instanceIndex: Int) {
-            self.id = id; self.skillId = skillId; self.skillName = skillName
+        public init(id: String, skillId: String? = nil, skillName: String? = nil, skillVersion: Int? = nil, modelId: String, modelName: String, sourceId: String, purpose: WorkerPurpose, instanceIndex: Int) {
+            self.id = id; self.skillId = skillId; self.skillName = skillName; self.skillVersion = skillVersion
             self.modelId = modelId; self.modelName = modelName; self.sourceId = sourceId
             self.purpose = purpose; self.instanceIndex = instanceIndex
         }

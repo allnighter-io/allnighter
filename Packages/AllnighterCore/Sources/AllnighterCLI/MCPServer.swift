@@ -42,10 +42,20 @@ struct MCPServer {
         switch name {
         case "team_ask":
             guard let q = args["question"] as? String else { return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "question required") }
-            let req = TeamRequest(question: q, presetId: args["preset"] as? String, context: args["context"] as? String)
+            let req = TeamRequest(
+                question: q,
+                lane: (args["lane"] as? String).flatMap(WorkLane.init(rawValue:)),
+                teamPresetId: (args["team"] as? String) ?? (args["preset"] as? String),
+                effort: (args["effort"] as? String).flatMap(EffortLevel.init(rawValue:)),
+                type: args["type"] as? String,
+                context: args["context"] as? String
+            )
             let result = await service.run(req, origin: .mcp, originAgent: agent)
-            guard !result.runId.isEmpty, let run = AllnighterCLI.loadRun(result.runId) else {
-                return respondToolError(id: id, code: "RUN_NOT_FOUND", message: result.note.isEmpty ? "team run did not persist" : result.note)
+            guard !result.runId.isEmpty else {
+                return respondToolError(id: id, code: result.errorCode ?? "DEFAULT_TEAM_INVALID", message: result.note.isEmpty ? "team run did not start" : result.note)
+            }
+            guard let run = AllnighterCLI.loadRun(result.runId) else {
+                return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "team run did not persist")
             }
             let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: AllnighterCLI.defaultRunContext(run))
             respond(id: id, result: toolText(run.plan ?? "(no plan — status \(run.status.rawValue))", structured: AllnighterCLI.jsonString(trj)))

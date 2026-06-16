@@ -101,7 +101,7 @@ alln docs <topic>
 alln docs --errors
 alln docs --schema
 alln docs --examples
-alln doctor explain <code>
+alln doctor explain <code|check>
 alln dev export-contracts
 alln dev export-contracts --check
 MCP tool descriptors
@@ -154,6 +154,7 @@ alln team start [prompt]
 alln team preflight [prompt]
 alln team status <run-id>
 alln team result <run-id>
+alln team cancel <run-id>
 alln team edit
 alln models add
 alln work
@@ -228,7 +229,7 @@ Required `teamRun` fields:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `id` | string | Stable run id. |
-| `status` | enum | `queued`, `running`, `done`, `failed`, `timedOut`, `cancelled`, or `skipped`. |
+| `status` | enum | `queued`, `running`, `done`, `failed`, `timedOut`, `cancelled`, or `interrupted`. |
 | `origin` | enum | `cli`, `gui`, `mcp`, `ios`, `localApi`, or `system`. |
 | `originAgent` | string/null | MCP/client/agent name when known. |
 | `lane` | string/null | `build`, `design`, `copy`, or null when unspecified. |
@@ -245,6 +246,24 @@ Required `teamRun` fields:
 | `outputKind` | string/null | Team output kind, e.g. `plan`, `bugPacket`, `designBoard`, `copyBoard`. |
 | `planWriterWorkerId` | string/null | Worker responsible for final plan and default linked-thread reply target. |
 | `reproduceCommand` | string/null | Redacted exact `alln team ...` command when safe. |
+
+Status vocabulary note: `TeamRunJSON.teamRun.status` is the archived record status.
+Live polling (`team_status`, `team_start` response) uses a superset that includes
+two transient statuses not present in the archived record:
+
+| Live status | Archived mapping | Notes |
+| --- | --- | --- |
+| `accepted` | `queued` | Run accepted before workers start. |
+| `running` | `running` | One or more workers active. |
+| `synthesizing` | `running` | Plan-writer phase; sub-state of `running` in the archive. |
+| `completed` | `done` | All stages finished, result available. |
+| `failed` | `failed` | One or more required workers failed. |
+| `timedOut` | `timedOut` | Run exceeded the configured timeout. |
+| `cancelled` | `cancelled` | Cancelled by user or agent. |
+| `interrupted` | `interrupted` | Coordinator stopped unexpectedly; run is orphaned and unrecoverable. |
+
+`skipped` appears in archived `TeamRunJSON` only for individual worker records, not
+for the top-level run status.
 
 Model fields:
 
@@ -470,24 +489,68 @@ it can be emitted.
 
 ## Doctor Contract
 
-`alln doctor --json` returns:
+M1 may return schema version 1. Agent-first upgrades doctor to schema version 2.
+`alln doctor --json` and MCP `doctor` must then return:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "status": "ok",
   "binaryVersion": "0.1.0",
   "contractVersion": "1.0.0",
   "docsVersionMatchesBinary": true,
+  "canStartTeamRun": true,
+  "readyTeams": [
+    {"lane": "build", "team": "build_core", "displayName": "Build Lab"}
+  ],
+  "blockedReason": null,
+  "nextAction": {
+    "kind": "startTeamRun",
+    "tool": "team_start"
+  },
   "checks": [],
   "fixes": [],
+  "appliedFixes": [],
+  "humanActions": [],
   "models": [],
+  "entitlement": {
+    "canStartTeamRun": true,
+    "blockedReason": null
+  },
   "coordinator": {
     "available": false,
     "detail": "foreground CLI only"
-  }
+  },
+  "observedAt": "2026-06-16T08:00:00Z",
+  "staleAfter": "2026-06-16T08:00:30Z",
+  "traceId": "trace_..."
 }
 ```
+
+MCP `doctor` input shape:
+
+```json
+{
+  "agent": "openclaw",
+  "full": false,
+  "autoFix": false,
+  "quiet": false,
+  "check": null
+}
+```
+
+- `agent`: names the calling agent; doctor includes agent-specific checks such as
+  `mcp.clientApproved.<agent>` and `agent.<agent>.configPresent`.
+- `full`: runs deeper bounded probes; provider smoke tests that spend quota require
+  `full: true` and must still be bounded by a timeout.
+- `autoFix`: applies all `alln_auto_fixable` fixes and populates `appliedFixes` in
+  the response; run once, then call doctor again to confirm convergence.
+- `quiet`: returns only failing checks; reduces payload for polling.
+- `check`: scopes `autoFix` to one named check; omit to fix all auto-fixable issues.
+
+`observedAt` and `staleAfter` are advisory metadata for client-side cache
+decisions. An agent may call `doctor` again at any time; `staleAfter` is not a
+server-side rate limit.
 
 Overall status:
 
@@ -496,6 +559,22 @@ Overall status:
 - `degraded`: at least one source/model/check is failing but a minimal team can
   run.
 - `ok`: all required milestone checks pass.
+
+Agents branch on `canStartTeamRun`, not prose. If `canStartTeamRun` is false,
+`nextAction` must name a deterministic next step: run doctor, run auto-fix,
+perform human action, approve MCP client, install/auth source, wait for
+admission, or upgrade entitlement.
+
+Fixes must declare remedy tier:
+
+```text
+alln_auto_fixable
+agent_executable
+user_interactive
+cannot_fix
+```
+
+Only `alln_auto_fixable` fixes may run under `--auto-fix`.
 
 Stable check names for milestone 1:
 
@@ -513,7 +592,19 @@ Stable check names for milestone 1:
 | `defaultTeamValid` | Default team has runnable workers. |
 | `planWriterReady` | Default team has a ready plan worker. |
 | `coordinator` | Resident coordinator state; may be `degraded` in M1. |
-| `mcpDescriptorsCurrent` | Deferred until MCP scope, but registry name reserved. |
+| `mcp.descriptorsCurrent` | Deferred until MCP scope, but registry name reserved. |
+| `mcp.serverReachable` | MCP server accepts a request and returns registry-backed descriptors. |
+| `mcp.clientApproved.<agent>` | Named MCP/agent client is approved by local policy. |
+| `mcp.docsCurrent` | Generated MCP/tool docs match binary contract. |
+| `agent.<agent>.configPresent` | Named agent install/config instructions exist or can be printed. |
+| `agent.<agent>.binaryOnPath` | Named agent binary is present when detectable. |
+| `journal.incrementalDurable` | Async run journal persists worker/status transitions incrementally. |
+| `journal.orphanRecovery` | Orphaned async runs resolve to `interrupted`. |
+| `pending.storeReadable` | Pending store can be read. |
+| `pending.storeWritable` | Pending store can be mutated. |
+| `admission.parsersHealthy` | Source/admission parsers load and return sourced block reasons. |
+| `catalog.team.<team>.valid` | Selected team exists, owns one lane, and resolves to startable workers. |
+| `entitlement.canStartTeamRun` | Entitlement preflight would allow a team start. |
 
 Auto-fix may only touch Allnighter-owned files:
 
@@ -521,6 +612,9 @@ Auto-fix may only touch Allnighter-owned files:
 - repair permissions on Allnighter-owned dirs
 - regenerate generated docs/contracts in a dev checkout when explicitly run
 - clean stale Allnighter temp files
+- re-run source discovery and repair the cached `ResolvedInvocation` when binary
+  paths are unchanged (this fixes the PATH/alias detection gap without touching
+  external CLIs or shell profiles)
 
 Auto-fix must not:
 
@@ -531,6 +625,53 @@ Auto-fix must not:
 - kill sessions
 - delete run history
 
+`fixes[]` item shape:
+
+```json
+{
+  "id": "fix_create_runs_dir",
+  "title": "Create the Allnighter runs directory",
+  "tier": "alln_auto_fixable",
+  "safeToAutoFix": true,
+  "fixesChecks": ["runsDir"],
+  "command": "alln doctor --auto-fix --check runsDir",
+  "tool": "doctor",
+  "params": {"autoFix": true, "check": "runsDir"},
+  "requiresHuman": false,
+  "requiresApproval": false,
+  "verifyCommand": "alln doctor --json",
+  "why": "Team runs need a writable journal directory.",
+  "trustTier": "alln_owned_state"
+}
+```
+
+`humanActions[]` item shape:
+
+```json
+{
+  "id": "human_auth_claude",
+  "title": "Reconnect Claude Code",
+  "source": "claude",
+  "kind": "terminalLogin",
+  "message": "Claude Code authentication expired. Run claude auth login on the Mac, then say done.",
+  "command": "claude auth login",
+  "authUrl": null,
+  "userCode": null,
+  "expiresAt": null,
+  "why": "Bug Hunt needs at least one ready Build worker.",
+  "recheckCommand": "alln doctor --agent openclaw --json",
+  "relatedChecks": ["source.claude.auth"]
+}
+```
+
+`kind` is one of: `deviceAuth`, `browserLogin`, `terminalLogin`, `keychainApproval`,
+`macosPermission`, `manualCommand`, `wait`. The example above shows `terminalLogin`
+(no device/browser flow available). When a device flow IS available, set
+`kind: "deviceAuth"` and populate `authUrl`, `userCode`, and `expiresAt`.
+
+Auth handoff data must use official provider flows only, must not include
+secrets/tokens/cookies, and must not be persisted beyond non-secret metadata.
+
 ## MCP Projection
 
 MCP is milestone 2 unless explicitly pulled forward. When it ships:
@@ -540,33 +681,64 @@ alln mcp serve --stdio
 alln mcp install
 ```
 
-Tool names (M1, derived from the registry now):
+Current M1 tool names (live, derived from registry):
 
 ```text
-team_ask      # alln team
+team_ask      # alln team            — DELETED when agent-first lands
 team_show     # alln team show
-history       # alln history (retrieval)
-show          # alln show <run-id|latest>
+history       # alln history         — DELETED when agent-first lands
+show          # alln show            — DELETED when agent-first lands
 doctor        # alln doctor --json
+```
+
+`team_ask`, `history`, and `show` are **deleted** when the agent-first tool set
+lands. No aliases. No backwards-compatibility shims. Hard delete from the
+registry. All callers must use the agent-first names below.
+
+Agent-first tool names (replace the registry when this phase lands):
+
+```text
+mcp_hello
+help_get
+doctor
+doctor_explain
+error_explain
+models_list
+teams_list
+team_show
+team_preflight
+team_start
+team_status
+team_result
+team_cancel
+run_show
+run_export
+spec_get
+history_search
 ```
 
 Deferred tool names (named, not yet derived — they need async/Pending first):
 
 ```text
-team_start / team_status / team_result        # async run lifecycle
 pending_add / pending_submit / pending_edit / pending_reorder /
 pending_list / pending_show / pending_cancel / pending_run / pending_stop
 ```
 
 `team_recall` is **retired** — Step 8 retired the `recall` grammar; MCP retrieval
-is `history`/`show`. Do not reintroduce `team_recall` or `team_presets`.
+is `history_search`, `run_show`, `run_export`, or `spec_get`. Do not reintroduce
+`team_recall` or `team_presets`.
 
 Rules:
 
 - Tool descriptors derive from the registry.
 - Tool results use `TeamRunJSON` and the shared error envelope.
 - No MCP-only flags or schemas.
-- Every MCP call records `origin: "mcp"` and `originAgent`.
+- Every MCP call records `origin: "mcp"` and `originAgent` when available.
+- `originAgent` is provenance only; it is not authorization or approval.
+- `team_start` and `pending_add` accept idempotency keys and reject reused keys
+  with changed canonical payloads.
+- `team_status` returns `nextPollAfterMs` and never reports fake percentages.
+- List/history tools support `limit` and `cursor`.
 - Long-running work should prefer foreground CLI or async start/status/result
   when coordinator support exists.
 - First-use MCP install/config remains consent-gated.
@@ -636,6 +808,12 @@ alln dev export-contracts --check
 8. Rename/remove legacy public grammar and fields.
 9. Wire GUI presenter tests to the same fixture.
 10. Project MCP from the registry only after the CLI contract is boring.
+11. Before agent-first MCP expansion, land `mcp_hello`, `help_get`,
+    doctor schema v2, `doctor_explain`, and `error_explain`.
+12. Add `team_preflight` before async `team_start` so setup/auth/entitlement
+    blockers are caught before any "started" acknowledgement.
+13. Add idempotency, `nextPollAfterMs`, payload caps, and cursor contracts before
+    exposing OpenClaw/Hermes generated examples.
 
 Journal boundary: M1's foreground synchronous runs may keep the current
 one-shot-at-end journal write. Before any async `alln team start/status/result`

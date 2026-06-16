@@ -36,9 +36,10 @@ public enum TeamRunJSONMapper {
 
         let workers = run.workers.map { w in
             TeamRunJSON.WorkerInfo(
-                id: w.id, skillId: w.skillId, skillName: w.label ?? w.skillId,
+                id: w.id, skillId: w.skillId, skillName: w.skillName ?? w.label ?? w.skillId,
+                skillVersion: w.skillVersion,
                 modelId: w.modelId, modelName: modelName(w.modelId), sourceId: sourceId(w.modelId),
-                purpose: .answer, instanceIndex: w.instanceIndex
+                purpose: workerPurpose(w.purpose), instanceIndex: w.instanceIndex
             )
         }
 
@@ -70,12 +71,18 @@ public enum TeamRunJSONMapper {
         let started = run.workerAnswers.compactMap(\.startedAt).min()
         let completed = run.status.isTerminal ? run.workerAnswers.compactMap(\.finishedAt).max() : nil
 
+        // Prefer the run's own catalog facts (self-describing); fall back to
+        // caller-supplied context for legacy runs that did not record them.
         let info = TeamRunJSON.RunInfo(
             id: run.id, status: mapRun(run.status), origin: mapOrigin(run.origin),
-            originAgent: run.originAgent, lane: context.lane, type: context.type, effort: context.effort,
+            originAgent: run.originAgent,
+            lane: run.lane?.rawValue ?? context.lane,
+            type: run.type ?? context.type,
+            effort: run.effort?.rawValue ?? context.effort,
             prompt: run.prompt, promptSource: context.promptSource,
             createdAt: isoString(run.createdAt), startedAt: iso(started), completedAt: iso(completed),
             threadId: nil, teamPresetId: run.presetId,
+            teamDisplayName: run.teamDisplayName, outputKind: run.outputKind?.rawValue,
             planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand
         )
 
@@ -86,7 +93,8 @@ public enum TeamRunJSONMapper {
         return TeamRunJSON(
             contractVersion: ContractRegistry.contractVersion,
             teamRun: info, models: modelInfos, workers: workers, workerAnswers: answers,
-            stages: stages, plan: plan, usage: usage, warnings: [], errors: [],
+            stages: stages, plan: plan, usage: usage,
+            warnings: run.warnings.map { TeamRunJSON.Warning(message: $0) }, errors: [],
             nextActions: [
                 .init(kind: .showRun, command: "alln show \(run.id)", label: "Show run"),
                 .init(kind: .export, command: "alln export \(run.id) --format md", label: "Export markdown"),
@@ -129,6 +137,15 @@ public enum TeamRunJSONMapper {
         case .failed: return .failed
         case .timedOut: return .timedOut
         case .skipped: return .skipped
+        }
+    }
+
+    /// Worker stage → public worker purpose. Legacy runs (nil) are answer workers.
+    static func workerPurpose(_ stage: WorkerStage?) -> TeamRunJSON.WorkerPurpose {
+        switch stage {
+        case .review: return .review
+        case .plan: return .plan
+        case .answer, nil: return .answer
         }
     }
 

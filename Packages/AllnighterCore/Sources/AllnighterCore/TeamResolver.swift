@@ -26,6 +26,8 @@ public struct ResolvedTeamRun: Sendable, Equatable {
     public var answerWorkers: [Worker]
     public var reviewWorkers: [Worker]
     public var planWriter: Worker?
+    /// How the output writer treats disagreement (from the synthesis policy).
+    public var dissentPolicy: DissentPolicy
     public var disabledRows: [DisabledRow]
     public var warnings: [String]
     public var isRunnable: Bool
@@ -40,13 +42,15 @@ public struct ResolvedTeamRun: Sendable, Equatable {
         teamPresetId: String, teamDisplayName: String, lane: WorkLane,
         outputKind: TeamOutputKind, effort: EffortLevel,
         answerWorkers: [Worker] = [], reviewWorkers: [Worker] = [], planWriter: Worker? = nil,
+        dissentPolicy: DissentPolicy = .preserveDissent,
         disabledRows: [DisabledRow] = [], warnings: [String] = [],
         isRunnable: Bool = false, blockReason: String? = nil
     ) {
         self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
         self.lane = lane; self.outputKind = outputKind; self.effort = effort
         self.answerWorkers = answerWorkers; self.reviewWorkers = reviewWorkers
-        self.planWriter = planWriter; self.disabledRows = disabledRows
+        self.planWriter = planWriter; self.dissentPolicy = dissentPolicy
+        self.disabledRows = disabledRows
         self.warnings = warnings; self.isRunnable = isRunnable; self.blockReason = blockReason
     }
 }
@@ -134,6 +138,7 @@ public enum TeamResolver {
 
         // Rule 9: synthetic plan/output writer from synthesisPolicyByEffort.
         var planWriter: Worker?
+        result.dissentPolicy = team.synthesisPolicy(at: effort)?.dissentPolicy ?? .preserveDissent
         if let policy = team.synthesisPolicy(at: effort) {
             if let model = selectModel(
                 preferredModelId: policy.modelPolicy.preferredModelId,

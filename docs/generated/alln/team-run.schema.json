@@ -307,6 +307,12 @@
             "null"
           ]
         },
+        "outputKind" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "planWriterWorkerId" : {
           "type" : [
             "string",
@@ -338,10 +344,15 @@
             "done",
             "failed",
             "timedOut",
-            "cancelled",
-            "skipped"
+            "cancelled"
           ],
           "type" : "string"
+        },
+        "teamDisplayName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
         },
         "teamPresetId" : {
           "type" : [
@@ -480,6 +491,12 @@
         "skillName" : {
           "type" : [
             "string",
+            "null"
+          ]
+        },
+        "skillVersion" : {
+          "type" : [
+            "integer",
             "null"
           ]
         },

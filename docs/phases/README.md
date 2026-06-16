@@ -31,7 +31,7 @@ otherwise.
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). Still owns: MCP advertising/async tools + Pending grammar (deferred). |
 | [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Draft feature packet, ready for implementation planning | Lane-scoped custom teams and built-in Build/Design specialist teams for Fan out: Build/Design/Copy selection, team picker, Low/Med/High effort, and one-CLI multi-skill self-fusion. |
-| [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md) | Draft feature packet for mentor review | Agent-first workflow layer for OpenClaw/Hermes-style messaging and voice agents: MCP async team tools, Pending over MCP, full spec retrieval, provenance, and entitlement hooks. |
+| [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md) | Draft feature packet, hardened after mentor review | Agent-first workflow layer for OpenClaw/Hermes-style messaging and voice agents: bootstrap/doctor recovery loop, MCP async team tools, Pending over MCP, full spec retrieval, provenance, approval handoffs, and entitlement hooks. |
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
@@ -96,6 +96,9 @@ otherwise.
   invent parallel run schemas.
 - Messaging-first agents are first-class clients. OpenClaw/Hermes-style agents
   should call Allnighter through the same CLI/MCP/Core contracts as the GUI.
+- Agent-first surfaces must bootstrap and recover headlessly: `mcp_hello`,
+  doctor v2, explain tools, safe auto-fix, and exact human actions are part of
+  the product surface.
 - Agent-originated runs and Pending items are not a pricing bypass. They follow
   the same entitlement policy once billing is implemented.
 
@@ -144,7 +147,7 @@ Open questions:
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
 | Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
 | Fan out composer, lane-scoped custom teams, built-in Build/Design teams | `Fanout_Team_Catalog.md` + `Work_Order_Team_Model.md` |
-| OpenClaw/Hermes, messaging agents, voice-to-text workflows, Pending over MCP, full spec retrieval | `Agent_First_MCP_And_Messaging_Workflows.md` + `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` + `Pending_Work_And_Drain.md` |
+| OpenClaw/Hermes, messaging agents, voice-to-text workflows, doctor recovery, Pending over MCP, full spec retrieval | `Agent_First_MCP_And_Messaging_Workflows.md` + `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` + `Pending_Work_And_Drain.md` |
 | Standalone Mac app, Dock presence, menu-bar role, background coordinator, resident lifecycle | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |

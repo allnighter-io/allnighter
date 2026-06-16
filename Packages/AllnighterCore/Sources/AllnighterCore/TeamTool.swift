@@ -1,9 +1,19 @@
 import Foundation
 
-/// The normalized input to the team tool (RB6), shared across CLI / MCP / HTTP.
+/// The normalized Fan out request, shared across CLI / MCP / HTTP. The canonical
+/// Fan out selector is `lane + teamPresetId + effort + question`; `type` is Copy
+/// compatibility/routing sugar only (Fanout_Team_Catalog §Canonical Fan out request).
 public struct TeamRequest: Codable, Sendable, Equatable {
     public var question: String
-    public var presetId: String?
+    /// Explicit Fan out lane. Allnighter never infers it from the prompt.
+    public var lane: WorkLane?
+    /// The chosen team's id (CLI `--team`; `--preset` is a hidden alias).
+    public var teamPresetId: String?
+    /// Effort bundle; nil falls back to the team's default effort.
+    public var effort: EffortLevel?
+    /// Optional lane subtype. Copy-only routing/compat sugar; never competes with
+    /// `teamPresetId` (a conflicting pair is rejected before running).
+    public var type: String?
     /// Optional bounded snippet the calling agent wants considered.
     public var context: String?
     /// `team_ask` client timeout (seconds). When set, the tool may return a
@@ -11,9 +21,20 @@ public struct TeamRequest: Codable, Sendable, Equatable {
     /// predicted duration.
     public var waitSeconds: Int?
 
-    public init(question: String, presetId: String? = nil, context: String? = nil, waitSeconds: Int? = nil) {
+    public init(
+        question: String,
+        lane: WorkLane? = nil,
+        teamPresetId: String? = nil,
+        effort: EffortLevel? = nil,
+        type: String? = nil,
+        context: String? = nil,
+        waitSeconds: Int? = nil
+    ) {
         self.question = question
-        self.presetId = presetId
+        self.lane = lane
+        self.teamPresetId = teamPresetId
+        self.effort = effort
+        self.type = type
         self.context = context
         self.waitSeconds = waitSeconds
     }
@@ -33,12 +54,18 @@ public struct TeamToolResult: Codable, Sendable, Equatable {
     public var partials: [WorkerFailure]
     public var contextTruncated: Bool
     public var invocations: Int
+    /// Non-fatal warnings (one-model self-fusion, fallbacks, disabled rows).
+    public var warnings: [String]
+    /// Stable error code when the run was refused (so agents can branch on it);
+    /// nil for runs that started.
+    public var errorCode: String?
     public var note: String
 
     public init(
         runId: String, origin: RunOrigin, preset: String, status: RunStatus, createdAt: Date,
         plan: String? = nil, finalSpec: String? = nil, analysis: PlanAnalysis? = nil,
-        partials: [WorkerFailure] = [], contextTruncated: Bool = false, invocations: Int = 0, note: String = ""
+        partials: [WorkerFailure] = [], contextTruncated: Bool = false, invocations: Int = 0,
+        warnings: [String] = [], errorCode: String? = nil, note: String = ""
     ) {
         self.runId = runId
         self.origin = origin
@@ -51,12 +78,14 @@ public struct TeamToolResult: Codable, Sendable, Equatable {
         self.partials = partials
         self.contextTruncated = contextTruncated
         self.invocations = invocations
+        self.warnings = warnings
+        self.errorCode = errorCode
         self.note = note
     }
 
-    /// A compact, honest error result (recursion refused, busy, no preset, …).
-    public static func refused(reason: String, preset: String = "", now: Date) -> TeamToolResult {
-        TeamToolResult(runId: "", origin: .gui, preset: preset, status: .failed, createdAt: now, note: reason)
+    /// A compact, honest error result (recursion refused, busy, conflict, blocked).
+    public static func refused(reason: String, code: String? = nil, preset: String = "", now: Date) -> TeamToolResult {
+        TeamToolResult(runId: "", origin: .gui, preset: preset, status: .failed, createdAt: now, errorCode: code, note: reason)
     }
 }
 

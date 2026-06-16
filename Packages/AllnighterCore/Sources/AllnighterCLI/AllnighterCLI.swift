@@ -15,6 +15,7 @@ struct AllnighterCLI {
         let runtime = ToolRuntime()
         switch command {
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "teams": runTeamCatalog(Array(args.dropFirst()), runtime)
         case "team": await runTeam(args, runtime)
         case "models": await runModels(args, runtime)
         case "history": await runHistory(args, runtime)
@@ -40,14 +41,27 @@ struct AllnighterCLI {
     static func runTeam(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let question = opts.positional.first ?? opts.value("question") else {
-            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--preset id] [--lane l] [--type t] [--effort e] [--json | --stream]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--lane build|design|copy] [--team id] [--effort low|med|high] [--type t] [--json | --stream]\n".utf8)); exit(2)
         }
         // --json and --stream are mutually exclusive (checked before spending quota).
         if opts.flag("json") && opts.flag("stream") {
             emitFailure(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
             exit(2)
         }
-        let request = TeamRequest(question: question, presetId: opts.value("preset"), context: opts.value("context"))
+        // `--team` is the public selector; `--preset` is a hidden compat alias.
+        let teamId = opts.value("team") ?? opts.value("preset")
+        let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
+        if let raw = opts.value("lane"), lane == nil {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use build|design|copy)"); exit(2)
+        }
+        let effort = opts.value("effort").flatMap(EffortLevel.init(rawValue:))
+        if let raw = opts.value("effort"), effort == nil {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown effort: \(raw) (use low|med|high)"); exit(2)
+        }
+        let request = TeamRequest(
+            question: question, lane: lane, teamPresetId: teamId, effort: effort,
+            type: opts.value("type"), context: opts.value("context")
+        )
 
         if opts.flag("stream") {
             // Live NDJSON: emit events as the run progresses, not after it settles.
@@ -64,18 +78,21 @@ struct AllnighterCLI {
         let result = await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"))
 
         if opts.flag("json") {
-            // M1 step 5 (breaking): emit TeamRunJSON projected from the persisted
-            // run, replacing the legacy TeamToolResult shape.
-            guard !result.runId.isEmpty, let run = loadRun(result.runId) else {
-                emitFailure(code: "RUN_NOT_FOUND", message: result.note.isEmpty ? "team run did not persist" : result.note)
+            // A refused request (conflict / unknown team / blocked / busy) never
+            // persists a run — emit the machine failure envelope with its code.
+            guard !result.runId.isEmpty else {
+                emitFailure(code: result.errorCode ?? "DEFAULT_TEAM_INVALID", message: result.note.isEmpty ? "team run did not start" : result.note)
+                exit(1)
+            }
+            guard let run = loadRun(result.runId) else {
+                emitFailure(code: "RUN_NOT_FOUND", message: "team run did not persist")
                 exit(1)
             }
             let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
                 .appendingPathComponent("run.json").path ?? ""
             let context = TeamRunJSONMapper.Context(
                 promptSource: .init(kind: opts.value("file") != nil ? .file : .positional, path: opts.value("file")),
-                lane: opts.value("lane"), type: opts.value("type"), effort: opts.value("effort"),
-                runJournalPath: journalPath
+                runJournalPath: journalPath, reproduceCommand: reproduceCommand(run)
             )
             let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
             print(jsonString(trj))
@@ -86,8 +103,20 @@ struct AllnighterCLI {
             FileHandle.standardError.write(Data((result.note + "\n").utf8)); exit(1)
         } else {
             print(result.plan ?? "(no plan — status \(result.status.rawValue))")
+            for w in result.warnings { FileHandle.standardError.write(Data("⚠︎ \(w)\n".utf8)) }
             FileHandle.standardError.write(Data("\n[team \(result.preset): \(result.invocations) invocations; run \(result.runId)]\n".utf8))
         }
+    }
+
+    /// The `alln team …` command that replays this run's intent (lane/team/effort).
+    /// The worker snapshot in the run is the historical truth; replay may resolve a
+    /// different concrete model set if the bench changed.
+    static func reproduceCommand(_ run: TeamRun) -> String {
+        var parts = ["alln team"]
+        if let lane = run.lane { parts.append("--lane \(lane.rawValue)") }
+        if let team = run.presetId { parts.append("--team \(team)") }
+        if let effort = run.effort { parts.append("--effort \(effort.rawValue)") }
+        return parts.joined(separator: " ")
     }
 
     /// Loads a persisted run for projection to `TeamRunJSON`.
@@ -283,35 +312,82 @@ struct AllnighterCLI {
 
     // MARK: - team show / docs / show / export / doctor explain
 
-    /// `alln team show [--json]` — the current default team lineup. Does NOT run.
+    /// `alln team show [--lane build|design|copy] [--json]` — the default team for
+    /// each lane (or one lane). Does NOT run.
     static func runTeamShow(_ args: [String], _ runtime: ToolRuntime) {
-        if Options(args).flag("json") { print(teamShowJSONString(runtime)); return }
-        let preset = runtime.presets.first { $0.id == runtime.config.defaultPresetId } ?? runtime.presets.first
-        let modelById = Dictionary(runtime.models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let workers = preset?.workerSpecs.expandedWorkers() ?? []
-        print("Team: \(preset?.displayName ?? "default") · \(workers.count) workers")
-        for w in workers { print("  \(modelById[w.modelId]?.displayName ?? w.modelId)\t\(w.skillId ?? "—")") }
-        if let id = preset?.synthesis.planWriterModelId, let m = modelById[id] { print("Plan writer: \(m.displayName)") }
+        let opts = Options(args)
+        if opts.flag("json") { print(teamShowJSONString(runtime, lane: opts.value("lane").flatMap(WorkLane.init(rawValue:)))); return }
+        let lanes = opts.value("lane").flatMap(WorkLane.init(rawValue:)).map { [$0] } ?? WorkLane.allCases
+        for lane in lanes {
+            guard let team = runtime.teams.defaultTeam(for: lane) else { continue }
+            let counts = team.workerCountByEffort()
+            print("\(lane.rawValue) → \(team.displayName) (\(team.id)) · default \(team.defaultEffort.displayLabel) · \(team.outputKind.rawValue)")
+            print("  workers L/M/H: \(counts[.low] ?? 0)/\(counts[.med] ?? 0)/\(counts[.high] ?? 0) · writer \(team.synthesisPolicy(at: team.defaultEffort)?.planWriterSkillId ?? "—")")
+        }
     }
 
-    /// The current-team snapshot JSON — shared by `alln team show --json` and the
-    /// MCP `team_show` tool.
-    static func teamShowJSONString(_ runtime: ToolRuntime) -> String {
-        let preset = runtime.presets.first { $0.id == runtime.config.defaultPresetId } ?? runtime.presets.first
-        let modelById = Dictionary(runtime.models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let workers = preset?.workerSpecs.expandedWorkers() ?? []
-        struct WorkerView: Encodable { let id, modelId, modelName: String; let skillId: String?; let instanceIndex: Int }
+    /// The default-team-per-lane snapshot JSON — shared by `alln team show --json`
+    /// and the MCP `team_show` tool.
+    static func teamShowJSONString(_ runtime: ToolRuntime, lane: WorkLane? = nil) -> String {
+        let lanes = lane.map { [$0] } ?? WorkLane.allCases
         struct TeamView: Encodable {
+            let id, displayName, lane, outputKind, defaultEffort: String
+            let isDefaultForLane: Bool
+            let workerCountByEffort: [String: Int]
+        }
+        struct Snapshot: Encodable {
             let schemaVersion = 1
             let contractVersion: String
-            let teamPresetId: String?
-            let planWriterModelId: String?
-            let workers: [WorkerView]
+            let defaults: [TeamView]
         }
-        let views = workers.map { w in
-            WorkerView(id: w.id, modelId: w.modelId, modelName: modelById[w.modelId]?.displayName ?? w.modelId, skillId: w.skillId, instanceIndex: w.instanceIndex)
+        let defaults = lanes.compactMap { lane -> TeamView? in
+            guard let t = runtime.teams.defaultTeam(for: lane) else { return nil }
+            let counts = t.workerCountByEffort()
+            return TeamView(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
+                            outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
+                            isDefaultForLane: true,
+                            workerCountByEffort: ["low": counts[.low] ?? 0, "med": counts[.med] ?? 0, "high": counts[.high] ?? 0])
         }
-        return jsonString(TeamView(contractVersion: ContractRegistry.contractVersion, teamPresetId: preset?.id, planWriterModelId: preset?.synthesis.planWriterModelId, workers: views))
+        return jsonString(Snapshot(contractVersion: ContractRegistry.contractVersion, defaults: defaults))
+    }
+
+    /// `alln team teams [--lane build|design|copy] [--json]` — the lane-scoped team
+    /// catalog summary (no full prompt templates).
+    static func runTeamCatalog(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
+        if let raw = opts.value("lane"), lane == nil {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use build|design|copy)"); exit(2)
+        }
+        let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
+        struct TeamSummary: Encodable {
+            let id, displayName, lane, outputKind, defaultEffort: String
+            let builtIn, isDefaultForLane: Bool
+            let workerCountByEffort: [String: Int]
+            let disabledReason: String?
+        }
+        struct Catalog: Encodable {
+            let schemaVersion = 1
+            let contractVersion: String
+            let lane: String?
+            let teams: [TeamSummary]
+        }
+        let summaries = teams.map { t -> TeamSummary in
+            let c = t.workerCountByEffort()
+            return TeamSummary(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
+                               outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
+                               builtIn: t.builtIn, isDefaultForLane: t.isDefaultForLane,
+                               workerCountByEffort: ["low": c[.low] ?? 0, "med": c[.med] ?? 0, "high": c[.high] ?? 0],
+                               disabledReason: nil)
+        }
+        if opts.flag("json") {
+            print(jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, teams: summaries)))
+        } else {
+            for t in summaries {
+                let c = t.workerCountByEffort
+                print("\(t.id)\t\(t.displayName)\t\(t.lane)/\(t.outputKind)\tdefault \(t.defaultEffort)\tL/M/H \(c["low"] ?? 0)/\(c["med"] ?? 0)/\(c["high"] ?? 0)\(t.isDefaultForLane ? "\t(default)" : "")")
+            }
+        }
     }
 
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
@@ -359,10 +435,11 @@ struct AllnighterCLI {
         return loadRun(ref)
     }
 
-    /// Default projection context for a persisted run (run-journal path only).
+    /// Default projection context for a persisted run (journal path + reproduce
+    /// command derived from the run's own catalog facts).
     static func defaultRunContext(_ run: TeamRun) -> TeamRunJSONMapper.Context {
         let path = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path ?? ""
-        return .init(runJournalPath: path)
+        return .init(runJournalPath: path, reproduceCommand: reproduceCommand(run))
     }
 
     /// `alln show <run-id|latest> [--json]` — show one run.
@@ -472,7 +549,7 @@ struct AllnighterCLI {
 struct ToolRuntime {
     let models: [Model]
     let registry: DriverRegistry
-    let presets: [PanelPreset]
+    let teams: [TeamPreset]
     let config: ToolConfig
     /// Cached per-driver invocations from the last detection (health == runs).
     let invocations: [String: ToolInvocation]
@@ -482,7 +559,7 @@ struct ToolRuntime {
         ToolRuntime.applyLoginPath()
         self.models = DefaultConfig.models
         self.registry = DefaultConfig.registry
-        self.presets = DefaultConfig.tieredPresets(models: DefaultConfig.models)
+        self.teams = BuiltInTeams.all
         self.config = ToolRuntime.loadConfig()
         var invs: [String: ToolInvocation] = [:]
         for record in SetupStore().load().records { if let inv = record.invocation { invs[record.driverId] = inv } }
@@ -490,7 +567,7 @@ struct ToolRuntime {
     }
 
     func service() -> TeamService {
-        TeamService(models: models, registry: registry, presets: presets, config: config, invocations: invocations)
+        TeamService(models: models, registry: registry, teams: teams, config: config, invocations: invocations)
     }
 
     private static func loadConfig() -> ToolConfig {

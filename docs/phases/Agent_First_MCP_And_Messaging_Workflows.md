@@ -405,8 +405,8 @@ to the user without inventing instructions.
   "id": "human_auth_claude",
   "title": "Reconnect Claude Code",
   "source": "claude",
-  "kind": "deviceAuth|browserLogin|terminalLogin|keychainApproval|macosPermission|manualCommand|wait",
-  "message": "Claude Code authentication expired. Open the link, enter the code, then say done.",
+  "kind": "terminalLogin",
+  "message": "Claude Code authentication expired. Run claude auth login on the Mac, then say done.",
   "command": "claude auth login",
   "authUrl": null,
   "userCode": null,
@@ -416,6 +416,11 @@ to the user without inventing instructions.
   "relatedChecks": ["source.claude.auth"]
 }
 ```
+
+`kind` is one of: `deviceAuth`, `browserLogin`, `terminalLogin`, `keychainApproval`,
+`macosPermission`, `manualCommand`, `wait`. The example above shows `terminalLogin`
+(no device/browser flow available). When a device flow IS available, set
+`kind: "deviceAuth"` and populate `authUrl`, `userCode`, and `expiresAt`.
 
 ### Auth Handoff
 
@@ -744,6 +749,11 @@ Preflight rules:
   returned.
 - A failed `team_start` caused by preflight-detectable setup/auth/config issues
   is a bug in the implementation.
+- Calling `team_preflight` explicitly before `team_start` gives the agent
+  visibility into degraded workers, self-fusion state, and entitlement readiness
+  before committing to the run. `team_start` enforces the same checks internally
+  and will never return a run id when they fail — but the explicit call lets the
+  agent surface blockers in chat before the user expects a run to have started.
 
 `team_start` input:
 
@@ -795,13 +805,17 @@ Preflight rules:
   canonical payload during the idempotency retention window.
 - Must reject the same idempotency key with a different canonical payload as
   `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD`.
+- The idempotency retention window is 24 hours from the initial accepted
+  response. Retries beyond the window create a new run. The window is long
+  enough to cover messaging transport retries and short-lived outages without
+  risk of re-running forgotten work.
 
 `team_status` output:
 
 ```json
 {
   "runId": "run_...",
-  "status": "accepted|running|synthesizing|completed|failed|cancelled|interrupted",
+  "status": "accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted",
   "lane": "build",
   "teamPresetId": "build_bug_hunt",
   "effort": "high",
@@ -830,9 +844,28 @@ Polling rules:
 - Do not expose fake progress percentages.
 - Do not report orphaned async runs as still `running`; resolve them to
   `interrupted` with a sourced reason.
-- Terminal statuses are `completed`, `failed`, `cancelled`, and `interrupted`.
+- Terminal statuses are `completed`, `failed`, `timedOut`, `cancelled`, and
+  `interrupted`.
 - `team_result` is valid only when `resultAvailable` is true or the status is
   terminal.
+
+Status vocabulary: `team_status` and `team_start` use a live status set.
+`TeamRunJSON.teamRun.status` is the archived record status. The mapping:
+
+| Live (`team_status`) | Archived (`TeamRunJSON`) | Notes |
+| --- | --- | --- |
+| `accepted` | `queued` | Before workers start. |
+| `running` | `running` | One or more workers active. |
+| `synthesizing` | `running` | Plan-writer phase; transient, resolves to `done` in archive. |
+| `completed` | `done` | All stages finished successfully. |
+| `failed` | `failed` | One or more required workers failed. |
+| `timedOut` | `timedOut` | Run exceeded timeout. |
+| `cancelled` | `cancelled` | Cancelled by user or agent. |
+| `interrupted` | `interrupted` | Coordinator stopped; orphaned run. |
+
+Agents branch on the terminal check (is status in the terminal set?), not on
+specific string values. Always use the server-returned `resultAvailable` field
+rather than inferring result availability from status alone.
 
 `team_result` returns `TeamRunJSON` or a compact projection selected by a
 `detail` parameter:

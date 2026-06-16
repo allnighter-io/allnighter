@@ -55,12 +55,15 @@ final class TeamServiceStreamTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
-        let preset = PanelPreset(id: "preset_fast", displayName: "Fast", workerSpecs: [WorkerSpec(modelId: "model_opus")],
-                                synthesis: SynthesisConfig(planWriterModelId: "model_opus", analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID))
+        let team = TeamPreset(
+            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low, isDefaultForLane: true,
+            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
+            synthesisPolicyByEffort: [.low: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build")],
+            builtIn: true)
         let gated = GatedRunner(planOutput: combined)
         let service = TeamService(
-            models: [opus], registry: registry, presets: [preset],
-            config: ToolConfig(exposedPresetIds: ["preset_fast"], defaultPresetId: "preset_fast", maxConcurrentTeamRuns: 2, maxTeamRunDepth: 1),
+            models: [opus], registry: registry, teams: [team],
+            config: ToolConfig(maxConcurrentTeamRuns: 2, maxTeamRunDepth: 1),
             runStore: RunStore(rootDirectory: tmp), commandRunner: gated,
             governor: TeamGovernor(directory: tmp.appendingPathComponent("gov"), capacity: 2))
 
@@ -75,7 +78,7 @@ final class TeamServiceStreamTests: XCTestCase {
                 await collected.add(name)
             }
         }
-        let runTask = Task { await service.run(TeamRequest(question: "actor or queue?"), origin: .cli, events: continuation) }
+        let runTask = Task { await service.run(TeamRequest(question: "actor or queue?", lane: .build, teamPresetId: "build_test", effort: .low), origin: .cli, events: continuation) }
 
         // Worker is now running and blocked.
         for await _ in gated.started { break }

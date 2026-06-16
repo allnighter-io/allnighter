@@ -4,48 +4,65 @@ import AllnighterCore
 
 final class TeamServiceTests: XCTestCase {
 
-    private let combined = """
-    ```json
-    {"consensus":[{"statement":"actor","sourceWorkerIds":["model_opus#0"]}],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedWorkers":[]}
-    ```
-    ===PLAN===
-    # Plan
-    Use an actor.
-    """
+    private let planMarkdown = "# Plan\nUse an actor."
+
+    /// A tiny build catalog team: one answer worker + the build plan writer.
+    private func testTeam() -> TeamPreset {
+        TeamPreset(
+            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
+            isDefaultForLane: true,
+            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
+            synthesisPolicyByEffort: [.low: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build")],
+            builtIn: true)
+    }
 
     private func makeService(env: [String: String] = [:], capacity: Int = 2, store: RunStore) -> TeamService {
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
-        let preset = PanelPreset(id: "preset_fast", displayName: "Fast", workerSpecs: [WorkerSpec(modelId: "model_opus")],
-                                 synthesis: SynthesisConfig(planWriterModelId: "model_opus", analysisProfileId: SynthesisInstructions.analysisID, planProfileId: SynthesisInstructions.planID))
-        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: combined, exitCode: 0)])
+        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: planMarkdown, exitCode: 0)])
         let governorDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("gov-\(UUID().uuidString)")
         return TeamService(
-            models: [opus], registry: registry, presets: [preset],
-            config: ToolConfig(exposedPresetIds: ["preset_fast"], defaultPresetId: "preset_fast", maxConcurrentTeamRuns: capacity, maxTeamRunDepth: 1),
+            models: [opus], registry: registry, teams: [testTeam()],
+            config: ToolConfig(maxConcurrentTeamRuns: capacity, maxTeamRunDepth: 1),
             runStore: store, commandRunner: mock,
             governor: TeamGovernor(directory: governorDir, capacity: capacity),
             environment: env
         )
     }
 
-    func testRunProducesCompleteResultWithPlanAndAnalysis() async {
+    private func request(_ q: String) -> TeamRequest {
+        TeamRequest(question: q, lane: .build, teamPresetId: "build_test", effort: .low)
+    }
+
+    func testRunProducesCompleteResultWithPlan() async {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(store: RunStore(rootDirectory: tmp))
-        let result = await service.run(TeamRequest(question: "actor or queue?"), origin: .cli)
+        let result = await service.run(request("actor or queue?"), origin: .cli)
         XCTAssertEqual(result.status, .complete)
-        XCTAssertNotNil(result.plan)
-        XCTAssertNotNil(result.analysis)
+        XCTAssertEqual(result.plan, planMarkdown)
+        XCTAssertEqual(result.preset, "build_test")
         XCTAssertEqual(result.origin, .cli)
         XCTAssertGreaterThan(result.invocations, 0)
+    }
+
+    func testConflictingTeamAndTypeIsRejected() async {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let service = makeService(store: RunStore(rootDirectory: tmp))
+        // build_test has no typeTags, so any --type conflicts.
+        let result = await service.run(
+            TeamRequest(question: "x", lane: .build, teamPresetId: "build_test", type: "landing-page"), origin: .cli)
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertTrue(result.runId.isEmpty)
+        XCTAssertTrue(result.note.contains("conflicts with"))
     }
 
     func testRecursionGuardRefusesWhenInsideTeam() async {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(env: ["ALLNIGHTER_TEAM_DEPTH": "1"], store: RunStore(rootDirectory: tmp))
-        let result = await service.run(TeamRequest(question: "x"), origin: .mcp)
+        let result = await service.run(request("x"), origin: .mcp)
         XCTAssertEqual(result.status, .failed)
         XCTAssertTrue(result.note.contains("nested teams"))
     }
@@ -55,7 +72,7 @@ final class TeamServiceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
         let store = RunStore(rootDirectory: tmp)
         let service = makeService(store: store)
-        _ = await service.run(TeamRequest(question: "should the run store be an actor?"), origin: .cli)
+        _ = await service.run(request("should the run store be an actor?"), origin: .cli)
         let hits = await service.recall(query: "run store")
         XCTAssertEqual(hits.count, 1)
         XCTAssertTrue(hits.first?.prompt.contains("run store") ?? false)
@@ -72,12 +89,13 @@ final class TeamServiceTests: XCTestCase {
         XCTAssertNil(b, "second acquire should be refused at capacity 1")
     }
 
-    func testPresetSummariesIncludeShape() async {
+    func testCatalogTeamsExposesLaneTeams() async {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(store: RunStore(rootDirectory: tmp))
-        let summaries = await service.presetSummaries()
-        XCTAssertEqual(summaries.first?.id, "preset_fast")
-        XCTAssertTrue(summaries.first?.shape.contains("worker") ?? false)
+        let build = await service.catalogTeams(lane: .build)
+        XCTAssertEqual(build.first?.id, "build_test")
+        let design = await service.catalogTeams(lane: .design)
+        XCTAssertTrue(design.isEmpty)
     }
 }

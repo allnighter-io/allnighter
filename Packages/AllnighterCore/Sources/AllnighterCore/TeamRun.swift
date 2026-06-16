@@ -11,15 +11,28 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var origin: RunOrigin
     /// Best-effort caller label for tool runs, e.g. `claude-code`.
     public var originAgent: String?
-    /// The preset this run was launched from (replaces Phase 05 `teamPresetId`).
+    /// The team this run was launched from (the catalog `TeamPreset.id`).
     public var presetId: String?
-    /// The seats the prompt was sent to, in display order.
+    /// The workers the prompt was sent to, in display order.
     public var workers: [Worker]
-    /// One result per seat (keyed by `workerId`).
+    /// One result per answer/review worker (keyed by `workerId`).
     public var workerAnswers: [WorkerAnswer]
-    /// Everything after the panel: analysis, plan, then RB stages.
+    /// Everything after the answer stage: review/plan/output stages.
     public var stages: [StageOutput]
     public var createdAt: Date
+
+    // Catalog facts, so the persisted run is self-describing (Fan out runs set
+    // these; legacy runs leave them nil/empty). The public projection prefers
+    // these over caller-supplied context.
+    public var lane: WorkLane?
+    public var type: String?
+    public var effort: EffortLevel?
+    public var teamDisplayName: String?
+    public var outputKind: TeamOutputKind?
+    /// Non-fatal warnings recorded at run time (one-model self-fusion, fallbacks,
+    /// disabled optional rows, admission queueing). Defaulted so legacy persisted
+    /// runs (no `warnings` key) still decode.
+    public var warnings: [String] = []
 
     public init(
         id: String,
@@ -31,7 +44,13 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         workers: [Worker] = [],
         workerAnswers: [WorkerAnswer] = [],
         stages: [StageOutput] = [],
-        createdAt: Date
+        createdAt: Date,
+        lane: WorkLane? = nil,
+        type: String? = nil,
+        effort: EffortLevel? = nil,
+        teamDisplayName: String? = nil,
+        outputKind: TeamOutputKind? = nil,
+        warnings: [String] = []
     ) {
         self.id = id
         self.prompt = prompt
@@ -43,6 +62,12 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.workerAnswers = workerAnswers
         self.stages = stages
         self.createdAt = createdAt
+        self.lane = lane
+        self.type = type
+        self.effort = effort
+        self.teamDisplayName = teamDisplayName
+        self.outputKind = outputKind
+        self.warnings = warnings
     }
 }
 

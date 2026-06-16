@@ -26,6 +26,9 @@ public enum ContractSchema {
     private static func nullableRef(_ name: String) -> [String: Any] { ["oneOf": [ref(name), ["type": "null"]]] }
 
     private static var runStatus: [String: Any] { enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled", "skipped"]) }
+    /// Run-level status never includes `skipped` — only a worker/stage can be
+    /// skipped (a manual-paste worker awaiting input).
+    private static var teamRunStatus: [String: Any] { enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled"]) }
 
     // MARK: - TeamRunJSON
 
@@ -50,13 +53,14 @@ public enum ContractSchema {
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
             "RunInfo": obj([
-                "id": str, "status": runStatus,
+                "id": str, "status": teamRunStatus,
                 "origin": enumStr(["cli", "gui", "mcp", "ios", "localApi", "system"]),
                 "originAgent": nullable("string"), "lane": nullable("string"),
                 "type": nullable("string"), "effort": nullable("string"),
                 "prompt": str, "promptSource": ref("PromptSource"),
                 "createdAt": str, "startedAt": nullable("string"), "completedAt": nullable("string"),
                 "threadId": nullable("string"), "teamPresetId": nullable("string"),
+                "teamDisplayName": nullable("string"), "outputKind": nullable("string"),
                 "planWriterWorkerId": nullable("string"), "reproduceCommand": nullable("string"),
             ], required: ["id", "status", "origin", "prompt", "promptSource", "createdAt"]),
             "PromptSource": obj([
@@ -68,6 +72,7 @@ public enum ContractSchema {
             ], required: ["id", "displayName", "sourceId", "status"]),
             "WorkerInfo": obj([
                 "id": str, "skillId": nullable("string"), "skillName": nullable("string"),
+                "skillVersion": nullable("integer"),
                 "modelId": str, "modelName": str, "sourceId": str,
                 "purpose": enumStr(["answer", "plan", "review"]), "instanceIndex": int,
             ], required: ["id", "modelId", "modelName", "sourceId", "purpose", "instanceIndex"]),

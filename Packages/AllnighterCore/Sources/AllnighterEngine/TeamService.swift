@@ -47,14 +47,15 @@ public final class TeamGovernor: @unchecked Sendable {
     }
 }
 
-/// RB6: the single normalized entry for running a team from a tool request
-/// (CLI / MCP / HTTP). Reuses the Phase 06 engine; recursion-guarded and governed;
-/// origin-tagged; persisted to the shared `Runs/` store. Judgment only — it links
-/// no dispatch/executor code and writes only under `AllnighterPaths`.
+/// The single normalized entry for running a lane-scoped Fan out team from a tool
+/// request (CLI / MCP / HTTP). Resolves request → team → workers, runs the fixed
+/// answer→review→output staging, and persists to the shared `Runs/` store.
+/// Recursion-guarded and governed; origin-tagged. Judgment only — it links no
+/// dispatch/executor code and writes only under `AllnighterPaths`.
 public actor TeamService {
     private let models: [Model]
     private let registry: DriverRegistry
-    private let presets: [PanelPreset]
+    private let teams: [TeamPreset]
     private let config: ToolConfig
     private let runStore: RunStore
     private let commandRunner: CommandRunner
@@ -67,7 +68,7 @@ public actor TeamService {
     public init(
         models: [Model],
         registry: DriverRegistry,
-        presets: [PanelPreset],
+        teams: [TeamPreset] = BuiltInTeams.all,
         config: ToolConfig = ToolConfig(),
         runStore: RunStore = RunStore(),
         commandRunner: CommandRunner = SubprocessCommandRunner(),
@@ -78,7 +79,7 @@ public actor TeamService {
     ) {
         self.models = models
         self.registry = registry
-        self.presets = presets
+        self.teams = teams
         self.config = config
         self.runStore = runStore
         self.commandRunner = commandRunner
@@ -88,31 +89,19 @@ public actor TeamService {
         self.now = now
     }
 
-    public func presetSummaries() -> [(id: String, name: String, shape: String)] {
-        exposedPresets().map { preset in
-            let planWriterLabel = resolvePlanWriter(preset: preset)?.displayName
-            let shape = WorkOrder.teamSummary(
-                workerCount: preset.workerSpecs.expandedWorkers().count,
-                planWriterLabel: planWriterLabel,
-                synthesis: preset.synthesis
-            )
-            return (preset.id, preset.displayName, shape)
-        }
+    /// Catalog teams in a lane (all teams when `lane` is nil), for `team teams`.
+    public func catalogTeams(lane: WorkLane? = nil) -> [TeamPreset] {
+        guard let lane else { return teams }
+        return teams.teams(in: lane)
     }
 
-    private func exposedPresets() -> [PanelPreset] {
-        let allowed = Set(config.exposedPresetIds)
-        let exposed = presets.filter { allowed.contains($0.id) }
-        return exposed.isEmpty ? presets : exposed
-    }
+    /// Models the resolver may use — enabled bench models. Readiness is the
+    /// caller's responsibility; the run still fails per-worker if a CLI is missing.
+    private func readyModels() -> [Model] { models.filter(\.enabled) }
 
-    /// Run a team from a tool request. `origin` tags the run; depth is read from
-    /// the environment (recursion guard).
+    /// Run a Fan out team from a tool request. `origin` tags the run; depth is read
+    /// from the environment (recursion guard). Staging is fixed answer→review→output.
     public func run(_ request: TeamRequest, origin: RunOrigin, originAgent: String? = nil, events: AsyncStream<RunEvent>.Continuation? = nil) async -> TeamToolResult {
-        // Live NDJSON streaming: when `events` is provided, forward the
-        // coordinator's RunEvents as they happen, then emit plan + terminal
-        // events. With `events == nil` (the `--json`/human path) behavior is
-        // unchanged.
         func finishStream(failed reason: String? = nil) {
             if let reason {
                 events?.yield(RunEvent(id: UUID().uuidString, seq: 0, ts: now(), kind: RunEventKind.runStatusChanged,
@@ -124,20 +113,36 @@ public actor TeamService {
         // Recursion guard (fail closed).
         if RecursionGuard.atOrOverCeiling(config.maxTeamRunDepth, environment: environment) {
             finishStream(failed: "already inside a team; nested teams are disabled")
-            return .refused(reason: "already inside a team; nested teams are disabled", now: now())
+            return .refused(reason: "already inside a team; nested teams are disabled", code: "NESTED_TEAM_BLOCKED", now: now())
         }
 
-        // Resolve preset.
-        guard let preset = exposedPresets().first(where: { $0.id == (request.presetId ?? config.defaultPresetId) })
-                ?? exposedPresets().first else {
-            finishStream(failed: "no exposed preset available")
-            return .refused(reason: "no exposed preset available", now: now())
+        // Resolve request -> concrete team (lane/team/type/effort); reject conflicts.
+        let resolvedRequest: TeamRequestResolver.Resolved
+        switch TeamRequestResolver.resolve(teams: teams, lane: request.lane, teamId: request.teamPresetId, type: request.type, effort: request.effort) {
+        case .failure(let failure):
+            finishStream(failed: failure.description)
+            return .refused(reason: failure.description, code: failure.code, now: now())
+        case .success(let r):
+            resolvedRequest = r
+        }
+
+        // Resolve team -> concrete workers against the ready bench.
+        let resolved = TeamResolver.resolve(
+            team: resolvedRequest.team, requestLane: resolvedRequest.lane,
+            requestEffort: resolvedRequest.effort, readyModels: readyModels()
+        )
+        guard resolved.isRunnable else {
+            let reason = resolved.blockReason ?? "team \(resolvedRequest.team.id) cannot run at \(resolvedRequest.effort.rawValue) effort"
+            let code = reason.contains("plan/output writer") ? "PLAN_WRITER_FAILED" : "DEFAULT_TEAM_INVALID"
+            finishStream(failed: reason)
+            return .refused(reason: reason, code: code, preset: resolvedRequest.team.id, now: now())
         }
 
         // Governor (concurrency cap).
         guard let slot = governor.acquire() else {
-            finishStream(failed: "busy: \(config.maxConcurrentTeamRuns) team runs already running")
-            return .refused(reason: "busy: \(config.maxConcurrentTeamRuns) team runs already running", preset: preset.id, now: now())
+            let reason = "busy: \(config.maxConcurrentTeamRuns) team runs already running"
+            finishStream(failed: reason)
+            return .refused(reason: reason, code: "TEAM_GOVERNOR_BUSY", preset: resolvedRequest.team.id, now: now())
         }
         defer { _ = slot } // released on scope exit (deinit unlocks).
 
@@ -150,54 +155,33 @@ public actor TeamService {
             prompt += "\n\n# Context\n\(clipped)"
         }
 
-        let teamWorkers = preset.workerSpecs.expandedWorkers()
-        let coordinator = TeamRunCoordinator(workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations), registry: registry)
-        // Forward fan-out events live; the coordinator finishes its stream at the
-        // end of fanOut, so awaiting the forwarder flushes them before plan events.
+        // Fixed answer -> review -> output staging.
+        let coordinator = CatalogRunCoordinator(
+            workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations), registry: registry
+        )
         let forwarder: Task<Void, Never>? = events.map { sink in
             Task { for await event in coordinator.events { sink.yield(event) } }
         }
-        var run = await coordinator.fanOut(prompt: prompt, teamWorkers: teamWorkers, models: models, origin: origin, originAgent: originAgent, presetId: preset.id)
+        var run = await coordinator.run(resolved: resolved, prompt: prompt, models: models, origin: origin, originAgent: originAgent)
         await forwarder?.value
+        events?.finish()
 
-        // Plan writing (analysis + plan), if a plan writer model is available.
-        if !run.answeredWorkers.isEmpty,
-           let planWriter = resolvePlanWriter(preset: preset), let manifest = registry.manifest(for: planWriter), manifest.kind == .headlessCLI {
-            events?.yield(planEvent(kind: RunEventKind.stageStarted, runId: run.id, stageId: nil, workerId: planWriter.id))
-            let stages = await PlanWriter(workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations))
-                .synthesize(run: run, planWriter: planWriter, manifest: manifest, models: models, config: preset.synthesis)
-            run.stages.append(contentsOf: stages)
-            let planStage = stages.first { $0.purpose == .plan }
-            let planDone = planStage?.status == .done
-            run.status = planDone ? .complete : .partial
-            events?.yield(planEvent(kind: planDone ? RunEventKind.stageCompleted : RunEventKind.stageFailed, runId: run.id, stageId: planStage?.id, workerId: planWriter.id))
-        } else {
-            run.status = .partial
-        }
+        // Stamp catalog facts + warnings so the persisted run is self-describing.
+        run.lane = resolvedRequest.lane
+        run.type = resolvedRequest.type
+        run.effort = resolvedRequest.effort
+        run.teamDisplayName = resolved.teamDisplayName
+        run.outputKind = resolved.outputKind
+        run.warnings = resolved.warnings
 
         try? runStore.save(run, models: models)
 
-        // Terminal: the coordinator's stream ended at `answersIn`; emit the final
-        // run-status transition, then finish the live stream.
-        if events != nil {
-            var payload: [String: JSONValue] = [
-                "runId": .string(run.id),
-                "from": .string(RunStatus.answersIn.rawValue),
-                "to": .string(run.status.rawValue),
-            ]
-            if let planStageId = run.latestStage(.plan).flatMap({ $0.status == .done ? $0.id : nil }) {
-                payload["planStageId"] = .string(planStageId)
-            }
-            events?.yield(RunEvent(id: UUID().uuidString, seq: 0, ts: now(), kind: RunEventKind.runStatusChanged, payload: payload))
-            events?.finish()
-        }
-
         let invocations = run.workerAnswers.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
         return TeamToolResult(
-            runId: run.id, origin: origin, preset: preset.id, status: run.status, createdAt: run.createdAt,
+            runId: run.id, origin: origin, preset: resolvedRequest.team.id, status: run.status, createdAt: run.createdAt,
             plan: run.plan, analysis: run.analysis,
             partials: run.failedWorkerAnswers.map { WorkerFailure(workerId: $0.workerId, reason: $0.errorReason ?? $0.status.rawValue) },
-            contextTruncated: contextTruncated, invocations: invocations
+            contextTruncated: contextTruncated, invocations: invocations, warnings: resolved.warnings
         )
     }
 
@@ -212,22 +196,6 @@ public actor TeamService {
                 return RecallResult(runId: run.id, prompt: run.prompt, createdAt: run.createdAt,
                                     planExcerpt: String(plan.prefix(400)))
             }
-    }
-
-    /// A plan-stage RunEvent for the live stream (the coordinator does not emit
-    /// these — the plan stage runs here, after fan-out).
-    private func planEvent(kind: String, runId: String, stageId: String?, workerId: String) -> RunEvent {
-        var payload: [String: JSONValue] = [
-            "runId": .string(runId), "purpose": .string("plan"), "workerId": .string(workerId),
-        ]
-        if let stageId { payload["stageId"] = .string(stageId) }
-        return RunEvent(id: UUID().uuidString, seq: 0, ts: now(), kind: kind, payload: payload)
-    }
-
-    private func resolvePlanWriter(preset: PanelPreset) -> Model? {
-        let roster = models.filter { preset.workerIds.contains($0.id) }
-        if let id = preset.synthesis.planWriterModelId, let m = roster.first(where: { $0.id == id }) { return m }
-        return roster.first(where: \.canWritePlan) ?? roster.first
     }
 
     private func clip(_ text: String, limit: Int) -> (String, Bool) {
