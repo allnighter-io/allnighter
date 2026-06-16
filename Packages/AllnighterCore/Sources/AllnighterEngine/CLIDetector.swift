@@ -127,12 +127,19 @@ public struct CLIDetector: Sendable {
         let res: [String: ShellResolver.Resolution]
         if let resolutions { res = resolutions } else { res = await resolver.resolve(bins) }
 
-        // 1. Resolve to an invocation (path → direct; alias/function → confirm).
+        // 1. Resolve to an invocation (path → direct; bare-path alias → shim;
+        // alias-with-flags / function → confirm).
         var invocation: ToolInvocation?
         for b in bins {
             guard let r = res[b], r.found else { continue }
             if r.isPath {
                 invocation = .direct(path: r.raw)
+            } else if let aliasPath = Self.barePathAliasTarget(fromCommandV: r.raw) {
+                // The alias is exactly an absolute executable with no extra args —
+                // functionally a symlink. Resolve it directly so runs never
+                // re-enter the login shell (quiet, no per-run -lic), with no
+                // behavior change (we'd be dropping flags otherwise → confirm).
+                invocation = .shim(path: aliasPath)
             } else {
                 let resolution = ToolResolution(
                     invocation: .loginShell(commandName: b), rawCommandV: r.raw, isAmbiguous: true
@@ -205,6 +212,21 @@ public struct CLIDetector: Sendable {
 
     private func record(_ m: DriverManifest, _ status: ModelSetupStatus, _ inv: ToolInvocation?, _ version: String?, _ now: Date) -> ToolProbeRecord {
         ToolProbeRecord(driverId: m.id, status: status, invocation: inv, version: version, lastProbeAt: now)
+    }
+
+    /// Extracts the target of a "name → /abs/path" alias from `command -v` output,
+    /// but ONLY when the alias is exactly one absolute executable path with no
+    /// extra arguments (zsh `name: aliased to /p`, bash ``name is aliased to `/p'``).
+    /// Such an alias is functionally a symlink, so resolving it to the path is a
+    /// no-behavior-change quiet-run win. Aliases that add flags, same-name
+    /// wrappers, and functions return nil — we must not silently drop their args.
+    static func barePathAliasTarget(fromCommandV raw: String, fileManager: FileManager = .default) -> String? {
+        guard let r = raw.range(of: "aliased to ", options: .caseInsensitive) else { return nil }
+        let rest = String(raw[r.upperBound...]).trimmingCharacters(in: CharacterSet(charactersIn: " `'\"\n"))
+        let tokens = ShellWords.split(rest)
+        guard tokens.count == 1, let path = tokens.first, path.hasPrefix("/"),
+              fileManager.isExecutableFile(atPath: path) else { return nil }
+        return path
     }
 
     private func bins(for manifest: DriverManifest) -> [String] {
