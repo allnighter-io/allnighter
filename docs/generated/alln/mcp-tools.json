@@ -60,6 +60,122 @@
     "summary" : "Validate lane\/team\/effort against the ready bench WITHOUT running or spending quota; shows resolved\/blocked workers and self-fusion."
   },
   {
+    "command" : "team start",
+    "name" : "team_start",
+    "outputSchema" : "teamStartResponse",
+    "params" : [
+      {
+        "name" : "prompt",
+        "required" : true,
+        "summary" : "The prompt to run.",
+        "type" : "string"
+      },
+      {
+        "name" : "lane",
+        "required" : false,
+        "summary" : "build|design|copy.",
+        "type" : "string"
+      },
+      {
+        "name" : "team",
+        "required" : false,
+        "summary" : "Team id.",
+        "type" : "string"
+      },
+      {
+        "name" : "effort",
+        "required" : false,
+        "summary" : "low|med|high.",
+        "type" : "string"
+      },
+      {
+        "name" : "type",
+        "required" : false,
+        "summary" : "Copy-only routing sugar (optional).",
+        "type" : "string"
+      },
+      {
+        "name" : "context",
+        "required" : false,
+        "summary" : "Bounded inline context (optional).",
+        "type" : "string"
+      },
+      {
+        "name" : "threadId",
+        "required" : false,
+        "summary" : "Owning work thread id (optional).",
+        "type" : "string"
+      },
+      {
+        "name" : "originAgent",
+        "required" : false,
+        "summary" : "Calling agent id for provenance.",
+        "type" : "string"
+      },
+      {
+        "name" : "originConversationId",
+        "required" : false,
+        "summary" : "Origin conversation id.",
+        "type" : "string"
+      },
+      {
+        "name" : "originMessageId",
+        "required" : false,
+        "summary" : "Origin message id.",
+        "type" : "string"
+      },
+      {
+        "name" : "idempotencyKey",
+        "required" : false,
+        "summary" : "Client idempotency key (24h retention).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Start an async team run; returns run id after preflight and journal write."
+  },
+  {
+    "command" : "team status",
+    "name" : "team_status",
+    "outputSchema" : "teamStatusResponse",
+    "params" : [
+      {
+        "name" : "runId",
+        "required" : true,
+        "summary" : "Run id from team_start.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Poll live async run state with nextPollAfterMs."
+  },
+  {
+    "command" : "team result",
+    "name" : "team_result",
+    "outputSchema" : "teamRunJSON",
+    "params" : [
+      {
+        "name" : "runId",
+        "required" : true,
+        "summary" : "Run id from team_start.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Fetch TeamRunJSON when terminal, or a not-ready envelope."
+  },
+  {
+    "command" : "team cancel",
+    "name" : "team_cancel",
+    "outputSchema" : "teamCancelResponse",
+    "params" : [
+      {
+        "name" : "runId",
+        "required" : true,
+        "summary" : "Run id from team_start.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Cancel an active async team run."
+  },
+  {
     "command" : "team",
     "name" : "team_ask",
     "outputSchema" : "teamRunJSON",

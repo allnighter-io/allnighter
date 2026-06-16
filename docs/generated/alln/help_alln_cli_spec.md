@@ -245,6 +245,13 @@ Output schema: `coordinatorHealth`.
 
 Examples: `serve_health_json`.
 
+### `alln mcp serve`
+
+Run the MCP stdio server.
+
+Flags:
+- `--stdio` — Use stdio transport (default).
+
 ## Commands (named but deferred)
 
 - `alln team edit` — Edit the team lineup.
@@ -261,7 +268,6 @@ Examples: `serve_health_json`.
 - `alln pending stop` — Stop a running Pending item.
 - `alln dispatch` — Send a work order/spec to an execution target.
 - `alln pair` — Approve iOS/Mac pairing.
-- `alln mcp serve` — Run the MCP stdio server.
 - `alln mcp install` — Write MCP config with user consent.
 
 ## Error codes

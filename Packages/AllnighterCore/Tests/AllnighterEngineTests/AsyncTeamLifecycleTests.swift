@@ -6,7 +6,7 @@ import AllnighterCore
 
 /// Serializes async lifecycle tests — XCTest may run test classes in parallel.
 private actor AsyncTeamLifecycleTestGate {
-    func run<T>(_ body: () async throws -> T) async rethrows -> T {
+    func run<T: Sendable>(_ body: @Sendable () async throws -> T) async rethrows -> T {
         try await body()
     }
 }

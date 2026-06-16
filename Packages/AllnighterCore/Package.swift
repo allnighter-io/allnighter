@@ -35,7 +35,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AllnighterEngineTests",
-            dependencies: ["AllnighterEngine", "AllnighterCore"]
+            dependencies: ["AllnighterEngine", "AllnighterCore", "AllnighterCLI"]
         ),
         // Live CLI smoke proof — `swift run prove-cli` from repo root.
         .executableTarget(

@@ -772,6 +772,7 @@ struct ToolRuntime {
     /// Cached per-driver invocations from the last detection (health == runs).
     let invocations: [String: ToolInvocation]
     let asyncTeam: AsyncTeamService
+    private let readyModelsOverride: [Model]?
 
     init() {
         ToolRuntime.applyLoginPath()
@@ -787,6 +788,26 @@ struct ToolRuntime {
         self.config = config
         self.invocations = invs
         self.asyncTeam = AsyncTeamService(models: models, registry: registry, teams: teams, config: config, invocations: invs)
+        self.readyModelsOverride = nil
+    }
+
+    /// Injected runtime for MCP/CLI handler tests (isolated async team store).
+    init(
+        models: [Model],
+        registry: DriverRegistry,
+        teams: [TeamPreset],
+        config: ToolConfig,
+        invocations: [String: ToolInvocation] = [:],
+        asyncTeam: AsyncTeamService,
+        readyModels: [Model]
+    ) {
+        self.models = models
+        self.registry = registry
+        self.teams = teams
+        self.config = config
+        self.invocations = invocations
+        self.asyncTeam = asyncTeam
+        self.readyModelsOverride = readyModels
     }
 
     func service() -> TeamService {
@@ -800,6 +821,7 @@ struct ToolRuntime {
     /// detection cache exists yet (fresh dev environment — optimistic, not a lie:
     /// a per-worker failure still surfaces honestly at run time).
     var readyModels: [Model] {
+        if let readyModelsOverride { return readyModelsOverride }
         let readyDrivers = TeamAssembler.readyDriverIds(from: SetupStore().load().records)
         guard !readyDrivers.isEmpty else { return models.filter(\.enabled) }
         return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }

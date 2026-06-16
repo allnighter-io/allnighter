@@ -55,6 +55,14 @@ struct MCPServer {
                 ? "Preflight OK: \(result.teamDisplayName ?? result.teamPresetId ?? "team") / \(result.effort ?? "?"). \(result.readyWorkers.count) workers."
                 : "Preflight blocked: \(result.blockedReason ?? "unknown")."
             respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(result)))
+        case "team_start":
+            await respondAsyncTeam(id: id, outcome: await MCPAsyncTeamHandlers.start(runtime: runtime, args: args, defaultAgent: agent))
+        case "team_status":
+            await respondAsyncTeam(id: id, outcome: await MCPAsyncTeamHandlers.status(runtime: runtime, args: args))
+        case "team_result":
+            await respondAsyncTeam(id: id, outcome: await MCPAsyncTeamHandlers.result(runtime: runtime, args: args))
+        case "team_cancel":
+            await respondAsyncTeam(id: id, outcome: await MCPAsyncTeamHandlers.cancel(runtime: runtime, args: args))
         case "team_ask":
             guard let q = args["question"] as? String else { return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "question required") }
             let req = TeamRequest(
@@ -124,6 +132,15 @@ struct MCPServer {
     }
 
     /// A tool-level failure carrying the shared `ErrorEnvelope` (no MCP-only error shape).
+    private func respondAsyncTeam(id: Any?, outcome: MCPAsyncTeamHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
     private func respondToolError(id: Any?, code: String, message: String) {
         let envelope = ErrorEnvelope(code: code, message: message, requiresManual: code == "RUN_NOT_FOUND", retryable: false)
         respond(id: id, result: [

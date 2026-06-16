@@ -31,6 +31,28 @@ public extension ContractRegistry {
                              .init("team", summary: "Team id (e.g. build_bug_hunt)."),
                              .init("effort", summary: "low|med|high (optional; default is the team's)."),
                              .init("type", summary: "Copy-only routing sugar (optional).")]),
+        MCPToolSpec("team_start", command: "team start", summary: "Start an async team run; returns run id after preflight and journal write.",
+                    params: [.init("prompt", required: true, summary: "The prompt to run."),
+                             .init("lane", summary: "build|design|copy."),
+                             .init("team", summary: "Team id."),
+                             .init("effort", summary: "low|med|high."),
+                             .init("type", summary: "Copy-only routing sugar (optional)."),
+                             .init("context", summary: "Bounded inline context (optional)."),
+                             .init("threadId", summary: "Owning work thread id (optional)."),
+                             .init("originAgent", summary: "Calling agent id for provenance."),
+                             .init("originConversationId", summary: "Origin conversation id."),
+                             .init("originMessageId", summary: "Origin message id."),
+                             .init("idempotencyKey", summary: "Client idempotency key (24h retention).")],
+                    outputSchema: .teamStartResponse),
+        MCPToolSpec("team_status", command: "team status", summary: "Poll live async run state with nextPollAfterMs.",
+                    params: [.init("runId", required: true, summary: "Run id from team_start.")],
+                    outputSchema: .teamStatusResponse),
+        MCPToolSpec("team_result", command: "team result", summary: "Fetch TeamRunJSON when terminal, or a not-ready envelope.",
+                    params: [.init("runId", required: true, summary: "Run id from team_start.")],
+                    outputSchema: .teamRunJSON),
+        MCPToolSpec("team_cancel", command: "team cancel", summary: "Cancel an active async team run.",
+                    params: [.init("runId", required: true, summary: "Run id from team_start.")],
+                    outputSchema: .teamCancelResponse),
         MCPToolSpec("team_ask", command: "team", summary: "Run a lane team on a prompt; returns a synthesized result + structured run.",
                     params: [.init("question", required: true, summary: "The prompt to ask the team."),
                              .init("lane", summary: "build|design|copy (explicit; never inferred)."),
@@ -204,6 +226,10 @@ public extension ContractRegistry {
             outputSchema: .coordinatorHealth,
             exampleIds: ["serve_health_json"]
         ),
+        CommandSpec(
+            "mcp serve", summary: "Run the MCP stdio server.", milestone: .m1,
+            flags: [FlagSpec("stdio", summary: "Use stdio transport (default).")]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
@@ -223,7 +249,6 @@ public extension ContractRegistry {
         CommandSpec("pending stop", summary: "Stop a running Pending item.", milestone: .deferred),
         CommandSpec("dispatch", summary: "Send a work order/spec to an execution target.", milestone: .deferred),
         CommandSpec("pair", summary: "Approve iOS/Mac pairing.", milestone: .deferred),
-        CommandSpec("mcp serve", summary: "Run the MCP stdio server.", milestone: .deferred),
         CommandSpec("mcp install", summary: "Write MCP config with user consent.", milestone: .deferred),
     ]
 

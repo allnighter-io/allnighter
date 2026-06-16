@@ -58,6 +58,26 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
         TeamRequest(question: question, lane: lane, teamPresetId: teamPresetId,
                     effort: effort, type: type, context: context)
     }
+
+    /// MCP `team_start` arguments (`prompt` preferred; `question` accepted for compatibility).
+    public init?(mcpArguments args: [String: Any]) {
+        guard let prompt = (args["prompt"] as? String) ?? (args["question"] as? String), !prompt.isEmpty else {
+            return nil
+        }
+        self.init(
+            question: prompt,
+            lane: (args["lane"] as? String).flatMap(WorkLane.init(rawValue:)),
+            teamPresetId: (args["team"] as? String) ?? (args["preset"] as? String),
+            effort: (args["effort"] as? String).flatMap(EffortLevel.init(rawValue:)),
+            type: args["type"] as? String,
+            context: args["context"] as? String,
+            threadId: args["threadId"] as? String,
+            originAgent: args["originAgent"] as? String,
+            originConversationId: args["originConversationId"] as? String,
+            originMessageId: args["originMessageId"] as? String,
+            idempotencyKey: args["idempotencyKey"] as? String
+        )
+    }
 }
 
 public struct AsyncTeamNextAction: Codable, Equatable, Sendable {

@@ -28,14 +28,18 @@ final class ContractRegistryTests: XCTestCase {
             "docs", "doctor", "doctor explain", "models", "team show",
             "team teams", "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
-            "team", "show", "spec", "history", "export", "dev export-contracts", "serve",
+            "team", "show", "spec", "history", "export", "dev export-contracts", "serve", "mcp serve",
         ])
     }
 
     /// MCP tools are a clean projection of M1 commands — no retired vocabulary.
     func testMCPToolsAreCleanAndDeriveFromCommands() {
         let names = reg.mcpTools.map(\.name)
-        XCTAssertEqual(Set(names), ["mcp_hello", "teams_list", "team_preflight", "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get"])
+        XCTAssertEqual(Set(names), [
+            "mcp_hello", "teams_list", "team_preflight",
+            "team_start", "team_status", "team_result", "team_cancel",
+            "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get",
+        ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
