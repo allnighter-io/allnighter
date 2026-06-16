@@ -16,7 +16,7 @@ final class AppModel {
     var prompt: String = ""
 
     // Presets (Phase 06 tiered) + current (possibly hand-edited) selection.
-    private(set) var presets: [TeamPreset] = []
+    private(set) var presets: [PanelPreset] = []
     private(set) var activePresetId: String?
     private(set) var currentWorkerSpecs: [WorkerSpec] = []
     private(set) var currentSynthesis: SynthesisConfig
@@ -68,7 +68,7 @@ final class AppModel {
     var isConfigurationBroken: Bool { bundledConfiguration.isBroken }
     private let bundledConfiguration: BundledConfiguration
     private let store = RunStore()
-    private let presetStore = TeamPresetStore()
+    private let presetStore = PanelPresetStore()
     private let profileStore = PromptProfileStore()
     private var runTask: Task<Void, Never>?
 
@@ -136,17 +136,17 @@ final class AppModel {
         presets = AppConfig.builtInPresets(models: models) + presetStore.load()
     }
 
-    func apply(_ preset: TeamPreset) {
+    func apply(_ preset: PanelPreset) {
         currentWorkerSpecs = preset.workerSpecs
         currentSynthesis = preset.synthesis
         activePresetId = preset.id
     }
 
     @discardableResult
-    func saveCurrentAsPreset(named name: String) -> TeamPreset? {
+    func saveCurrentAsPreset(named name: String) -> PanelPreset? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !currentWorkerSpecs.isEmpty else { return nil }
-        let preset = TeamPreset(
+        let preset = PanelPreset(
             id: "preset_\(UUID().uuidString.prefix(8))",
             displayName: trimmed,
             workerSpecs: currentWorkerSpecs,
@@ -158,7 +158,7 @@ final class AppModel {
         return preset
     }
 
-    func deletePreset(_ preset: TeamPreset) {
+    func deletePreset(_ preset: PanelPreset) {
         guard !preset.builtIn else { return }
         try? presetStore.delete(id: preset.id)
         if activePresetId == preset.id { activePresetId = nil }
@@ -186,7 +186,7 @@ final class AppModel {
     var workOrderSummary: String {
         WorkOrder.teamSummary(
             workerCount: expandedWorkers.count,
-            judgeLabel: planWriterModel?.displayName,
+            planWriterLabel: planWriterModel?.displayName,
             synthesis: currentSynthesis
         )
     }
@@ -240,7 +240,7 @@ final class AppModel {
         guard var current = run, !current.answeredWorkers.isEmpty, !Task.isCancelled else { return }
         guard let planWriter = planWriterModel, let manifest = registry.manifest(for: planWriter) else { return }
 
-        // Manual judge: reveal the combined synthesis prompt; user pastes the result.
+        // Manual planWriter: reveal the combined synthesis prompt; user pastes the result.
         if manifest.kind == .manualPaste {
             manualSynthesisPrompt = SynthesisPromptBuilder.combinedPrompt(
                 run: current, models: models,
@@ -254,7 +254,7 @@ final class AppModel {
         transition(to: .planning)
         let writer = PlanWriter(workerRunner: makeWorkerRunner())
         let stages = await writer.synthesize(
-            run: run ?? current, judge: planWriter, manifest: manifest, models: models, config: currentSynthesis
+            run: run ?? current, planWriter: planWriter, manifest: manifest, models: models, config: currentSynthesis
         )
         guard var updated = run else { return }
         updated.stages.append(contentsOf: stages)
@@ -595,7 +595,7 @@ final class AppModel {
             if let to = event.payload["to"]?.stringValue, let status = RunStatus(rawValue: to) {
                 current.status = status
             }
-        case RunEventKind.memberStatusChanged:
+        case RunEventKind.workerStatusChanged:
             if let workerId = event.payload["workerId"]?.stringValue,
                let to = event.payload["to"]?.stringValue,
                let status = WorkerAnswerStatus(rawValue: to),

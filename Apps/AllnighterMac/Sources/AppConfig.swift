@@ -68,7 +68,7 @@ enum AppConfig {
         loadConfiguration().registry
     }
 
-    static func builtInPresets(models: [Model]) -> [TeamPreset] {
+    static func builtInPresets(models: [Model]) -> [PanelPreset] {
         DefaultConfig.tieredPresets(models: models)
     }
 
