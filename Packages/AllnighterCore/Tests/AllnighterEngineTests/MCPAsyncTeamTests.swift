@@ -155,4 +155,31 @@ final class MCPAsyncTeamTests: XCTestCase {
             XCTAssertEqual(run.status, .cancelled)
         }
     }
+
+    /// Regression law (2026-06-16 flake): cancel-right-after-start must ALWAYS
+    /// succeed and persist `.cancelled` — never lose the cancel to a torn read of
+    /// run.json, nor to a background progress save clobbering it. Looped so the
+    /// wall catches a re-introduced race instead of passing it by luck.
+    func testTeamCancelWinsRepeatedly() async throws {
+        try await mcpAsyncTeamTestGate.run {
+            for i in 0..<12 {
+                let runId = "mcp-cancel-loop-\(i)"
+                let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("mcp-async-\(UUID().uuidString)")
+                defer { try? FileManager.default.removeItem(at: root) }
+                let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown, delay: .seconds(2))])
+                let runtime = Self.makeRuntime(runId: runId, mock: mock, root: root)
+                _ = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
+                    "prompt": "cancel me", "lane": "build", "team": "build_test", "effort": "low",
+                ], defaultAgent: "mcp")
+                let outcome = await MCPAsyncTeamHandlers.cancel(runtime: runtime, args: ["runId": runId])
+                guard case .success(let json, _) = outcome else {
+                    return XCTFail("iteration \(i): expected cancel success")
+                }
+                let response = try CoreJSON.decode(TeamCancelResponse.self, from: Data(json.utf8))
+                XCTAssertEqual(response.status, .cancelled, "iteration \(i): cancel response")
+                let run = try XCTUnwrap(RunStore(rootDirectory: root.appendingPathComponent("Runs")).load(runId: runId))
+                XCTAssertEqual(run.status, .cancelled, "iteration \(i): persisted status")
+            }
+        }
+    }
 }

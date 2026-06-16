@@ -24,7 +24,12 @@ public struct RunStore: Sendable {
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        try CoreJSON.encode(run).write(to: directory.appendingPathComponent("run.json"))
+        // Atomic write (temp + rename): a background coordinator can be saving
+        // progress while another caller (e.g. cancel/status) reads run.json. A
+        // plain write truncates-then-writes, so a concurrent read could see an
+        // empty/partial file and fail to decode. Atomic makes readers see only
+        // the complete old or complete new file.
+        try CoreJSON.encode(run).write(to: directory.appendingPathComponent("run.json"), options: .atomic)
 
         // Liveness marker: while a run is non-terminal, record the owning pid so a
         // reader can tell a genuinely-running run from an orphaned/crashed one.

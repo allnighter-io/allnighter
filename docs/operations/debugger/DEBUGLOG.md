@@ -39,3 +39,15 @@ Fix boundary: Add a mandatory GUI visual proof gate — render the surface, then
 Proof: Shipped 2026-06-16 — `Apps/AllnighterMac/Sources/GUIFixture.swift` (env-gated self-capture, no Screen-Recording TCC) + `scripts/gui_proof.sh` + `.claude/agents/layout-watcher.md`. Proven on the Team dropdown: render → watcher FAIL (clipped header, detached popover) → fix (panel moved to a RootView overlay below the title bar) → watcher PASS. Pilot packet: `docs/qa/gui/team-dropdown/2026-06-16-pilot/`. Bound into `docs/operations/Debugger.md` (GUI-Visible Bugs + Forbidden Moves + DoD).
 Deferred proof: NONE — wall-gate shipped 2026-06-16: `scripts/check_gui_proof.sh` (in `scripts/check.sh`) fails a visible `Sources/*.swift` change with no proof packet/waiver, scoped by `scripts/.gui_proof_baseline`.
 Pattern candidate: GUI-visible work is not fixed until a separate layout-watcher passes a real render; if the surface cannot be rendered/inspected, closeout says visually unverified or blocked.
+
+## 2026-06-16 - AsyncTeamService team cancel flake (testTeamCancel) — lost cancel under two races
+
+Tier: T2-T3 (recurring flaky test on the green wall)
+Symptom: MCPAsyncTeamTests.testTeamCancel failed intermittently two ways — (a) persisted run.status was "fanningOut" not "cancelled", and (b) cancel returned RUN_NOT_FOUND ("expected cancel success").
+Truth owner: AsyncTeamService cancellation + RunStore persisted run state.
+Lie-prone layer: the background coordinator persists progress OFF the actor via a plain @Sendable persist closure, which looks serialized with cancel but is not.
+RCA: Two distinct races on run.json. (1) TOCTOU: persistDuringRun checked "not cancelled" then saved; cancel could flip+save .cancelled in between, then the progress save resumed and clobbered it back. (2) Torn read: RunStore.save wrote run.json non-atomically (truncate-then-write), so a concurrent reader (cancel/status load) could decode an empty/partial file and get nil.
+Fix boundary: Do not add test sleeps. Serialize a run's cancelled-flag flip and its saves under one lock (CancelledRunRegistry.saveIfActive / cancelAndSave) so cancel is always the last write; make RunStore run.json writes atomic (.atomic) so readers never see a torn file.
+Proof: Shipped 2026-06-16. testTeamCancel 30x green; full MCPAsyncTeamTests suite ~38x green; full AllnighterCore suite 326 tests green. Regression laws: RunStoreConcurrencyTests.testConcurrentSaveAndLoadNeverReturnsNil (atomic-write) + MCPAsyncTeamTests.testTeamCancelWinsRepeatedly (12x cancel-after-start, asserts success + persisted .cancelled).
+Deferred proof: NONE.
+Pattern candidate: A file-backed run/state store read+written from concurrent contexts must (a) write atomically and (b) serialize terminal-status transitions against in-flight progress saves, or a late progress write silently reverts a terminal state.

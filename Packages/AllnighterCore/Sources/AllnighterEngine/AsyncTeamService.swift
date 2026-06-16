@@ -12,21 +12,35 @@ public struct AsyncTeamStartRefusal: Error, Sendable, Equatable {
     }
 }
 
-/// Thread-safe registry of run ids cancelled while a background coordinator task may still persist.
+/// Serializes a run's persists against its cancellation so cancel is always the
+/// last write. The background coordinator task persists progress OFF the actor
+/// (`persistDuringRun` is a plain `@Sendable` closure), so without this an
+/// in-flight progress save could pass a "not cancelled" check, then `cancel`
+/// writes `.cancelled`, then the progress save resumes and clobbers it back to a
+/// running status — a TOCTOU race on the file store. Holding one lock across both
+/// the cancelled-flag flip and the save removes the interleaving entirely.
 private final class CancelledRunRegistry: @unchecked Sendable {
     private var ids = Set<String>()
     private let lock = NSLock()
 
-    func mark(_ runId: String) {
-        lock.lock()
-        ids.insert(runId)
-        lock.unlock()
+    func contains(_ runId: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return ids.contains(runId)
     }
 
-    func contains(_ runId: String) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return ids.contains(runId)
+    /// Run `save` only if the run is not cancelled — atomically with `cancelAndSave`.
+    func saveIfActive(_ runId: String, _ save: () -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        if ids.contains(runId) { return }
+        save()
+    }
+
+    /// Mark cancelled AND perform the terminal save under the same lock, so no
+    /// concurrent progress save can land between the flip and the write.
+    func cancelAndSave(_ runId: String, _ save: () -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        ids.insert(runId)
+        save()
     }
 }
 
@@ -185,9 +199,9 @@ public actor AsyncTeamService {
         }
         let cancelledRuns = cancelledRuns
         let persistDuringRun: @Sendable (TeamRun) -> Void = { incoming in
-            if cancelledRuns.contains(runId) { return }
-            if let existing = store.load(runId: runId), existing.status == .cancelled { return }
-            try? store.save(stamped(incoming), models: allModels)
+            cancelledRuns.saveIfActive(runId) {
+                try? store.save(stamped(incoming), models: allModels)
+            }
         }
 
         let coordinator = CatalogRunCoordinator(
@@ -244,19 +258,23 @@ public actor AsyncTeamService {
     }
 
     public func cancel(runId: String) -> TeamCancelResponse? {
-        guard var run = runStore.load(runId: runId) else { return nil }
-        guard !run.status.isTerminal else {
-            return TeamCancelResponse(runId: runId, status: AsyncTeamStatusMapper.liveStatus(for: run), cancelledAt: now())
+        guard let loaded = runStore.load(runId: runId) else { return nil }
+        guard !loaded.status.isTerminal else {
+            return TeamCancelResponse(runId: runId, status: AsyncTeamStatusMapper.liveStatus(for: loaded), cancelledAt: now())
         }
-        cancelledRuns.mark(runId)
         if let active = activeRuns.removeValue(forKey: runId) {
             active.task.cancel()
         }
-        run.status = .cancelled
-        for i in run.workerAnswers.indices where !run.workerAnswers[i].status.isTerminal {
-            run.workerAnswers[i].status = .cancelled
+        // Flip the cancelled flag and write the terminal state under the same lock
+        // the progress saves use, re-loading inside so we cancel the freshest run.
+        cancelledRuns.cancelAndSave(runId) {
+            var run = self.runStore.load(runId: runId) ?? loaded
+            run.status = .cancelled
+            for i in run.workerAnswers.indices where !run.workerAnswers[i].status.isTerminal {
+                run.workerAnswers[i].status = .cancelled
+            }
+            try? self.runStore.save(run, models: self.models)
         }
-        try? runStore.save(run, models: models)
         return TeamCancelResponse(runId: runId, status: .cancelled, cancelledAt: now())
     }
 
@@ -268,8 +286,9 @@ public actor AsyncTeamService {
     }
 
     private func persist(_ run: TeamRun) {
-        guard !cancelledRuns.contains(run.id) else { return }
-        try? runStore.save(run, models: models)
+        cancelledRuns.saveIfActive(run.id) {
+            try? self.runStore.save(run, models: self.models)
+        }
     }
 
     private func resolveRequest(_ request: AsyncTeamStartRequest) -> TeamRequestResolver.Resolved? {
