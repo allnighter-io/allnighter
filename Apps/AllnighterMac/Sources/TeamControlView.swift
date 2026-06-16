@@ -228,33 +228,22 @@ struct BenchDropdownPanel: View {
 
     private var footer: some View {
         VStack(spacing: 9) {
-            // Setup affordance is state-driven (Track B): when something needs
-            // setup, the primary action opens the full setup page (where install /
-            // sign-in / locate / agent-search live). When everything is ready, a
-            // full re-check spends quota and can flip a working tool, so it's a
-            // quiet ghost action — not a primary CTA. (The agent census is NOT
-            // offered here; it belongs to onboarding/setup, not the dropdown.)
-            if appModel.allToolsReady {
-                Button {
-                    appModel.runFullSetupProbe(userInitiated: true)
-                } label: {
-                    Label(appModel.isDetecting ? "Re-checking…" : "Re-check tools",
-                          systemImage: "arrow.clockwise")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.alGhost)
-                .disabled(appModel.isDetecting)
-                .help("Re-runs the local CLI checks. Already all-ready, so only needed after you change something.")
-            } else {
+            // Setup affordance is state-driven (Track B): when everything is
+            // ready the dropdown stays clutter-free — no re-check here (re-check
+            // lives on the CLI setup page + the health-badge popover, where a
+            // full re-check that spends quota / can flip a tool belongs). When
+            // anything is NOT ready, point the user to the setup page to fix it.
+            // (The agent census is NOT offered here — onboarding/setup only.)
+            if !appModel.allToolsReady {
                 Button {
                     isOpen = false
                     onOpenSetup()
                 } label: {
-                    Label("Set up tools", systemImage: "wrench.and.screwdriver")
+                    Label("Open CLI setup", systemImage: "wrench.and.screwdriver")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.alPrimary(small: true))
-                .help("Open setup to install, sign in to, or locate the CLIs that aren't ready yet.")
+                .help("Install, sign in to, or locate the CLIs that aren't ready yet.")
             }
 
             HStack(spacing: 9) {
