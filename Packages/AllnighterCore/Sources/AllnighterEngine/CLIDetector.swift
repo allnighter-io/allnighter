@@ -149,18 +149,56 @@ public struct CLIDetector: Sendable {
             return record(manifest, .notInstalled, nil, nil, now)
         }
 
-        // 3. Detect (version).
+        return await classify(manifest, model: model, invocation: inv, now: now, smoke: smoke)
+    }
+
+    /// Given a concrete invocation, run version (+ optional smoke) and classify.
+    /// Shared by shell-resolved probes and census verification so both honor the
+    /// same `health == runs` contract.
+    private func classify(_ manifest: DriverManifest, model: String, invocation inv: ToolInvocation, now: Date, smoke: Bool) async -> ToolProbeRecord {
+        // Detect (version).
         guard let version = await detectVersion(manifest, invocation: inv) else {
             return record(manifest, .probeFailed(reason: "could not run \(manifest.setup?.bins.first ?? "the CLI") --version"), inv, nil, now)
         }
-
-        // 4. Smoke → classify (skipped in quota-free detect-only mode: report
+        // Smoke → classify (skipped in quota-free detect-only mode: report
         // installed-but-not-probed rather than inferring readiness).
         guard smoke else {
             return record(manifest, .installedNotProbed(version: version), inv, version, now)
         }
         let status = await smokeClassify(manifest, model: model, invocation: inv, version: version)
         return record(manifest, status, inv, version, now)
+    }
+
+    /// Verify an agent-discovered census by actually RUNNING each candidate path
+    /// — the census is a hint, never trusted (`health == runs`). When the census
+    /// path is upgrade-fragile (`looksEphemeral`), a stable launcher from the
+    /// manifest's `knownPaths` is tried first and the ephemeral path only as a
+    /// fallback, so we never cache a `/versions/<n>/…` blob that 404s on upgrade.
+    /// Returns one record per matched headless-CLI driver.
+    public func ingestCensus(
+        _ census: ToolCensus,
+        manifests: [DriverManifest],
+        models: [String: String],
+        now: Date,
+        smoke: Bool = true
+    ) async -> [ToolProbeRecord] {
+        let byId = Dictionary(manifests.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var records: [ToolProbeRecord] = []
+        for candidate in census.candidates(for: manifests) {
+            guard let manifest = byId[candidate.driverId] else { continue }
+            let stableAlt = candidate.looksEphemeral ? probeKnownPaths(manifest) : nil
+            // Prefer the stable launcher; fall back to the (ephemeral) census path.
+            let ordered = (candidate.looksEphemeral ? [stableAlt, candidate.path] : [candidate.path])
+                .compactMap { $0 }
+            var chosen: ToolProbeRecord?
+            for path in ordered where FileManager.default.isExecutableFile(atPath: path) {
+                let rec = await classify(manifest, model: models[manifest.id] ?? "", invocation: .direct(path: path), now: now, smoke: smoke)
+                chosen = rec
+                if rec.version != nil { break } // a real, runnable binary — stop here
+            }
+            records.append(chosen ?? record(manifest, .notInstalled, nil, nil, now))
+        }
+        return records
     }
 
     // MARK: helpers
