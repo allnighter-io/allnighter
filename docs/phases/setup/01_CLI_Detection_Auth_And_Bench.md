@@ -353,13 +353,18 @@ Prove detection on a real machine **before** building the WOW UI.
   persisted via `SetupStore` (`cli_setup.json`). Covered by `CLIDetectorTests`.
   Headless proof reachable via `alln detect`. **Still pending:** the live founder
   smoke run against real CLIs (§12 "Founder live first-run").
-- **Phase 2 — Wire existing UI. LARGELY BUILT.** `AppModel` runs
-  `CLIDetector.probeAll`, caches via `SetupStore`, and exposes `toolStatus(for:)`
-  to the health badge/roster. **Verify:** the runtime/`WorkerRunner` spawn consumes
-  the cached `ToolInvocation` so health == runs (§10), not just the badge.
+- **Phase 2 — Wire existing UI + health == runs. BUILT (2026-06-15).** `AppModel`
+  runs `CLIDetector.probeAll` + caches; and **`WorkerRunner` now spawns through the
+  cached `ToolInvocation`** (direct/shim → absolute path; loginShell → `$SHELL -lic`
+  with argv via `"$@"`, no injection), threaded `TeamService(invocations:)` ←
+  `ToolRuntime` from `SetupStore`. Empty map → legacy bare command. (The Mac
+  run-path adopting the cached invocation is app integration.)
 - **Phase 3 — Setup UI (GUI Tier C).** Full-window Setup (Experience Scenes 1–6);
-  Doctor sheet → compact roster.
-- **Phase 4 — Auto-team.** Assemble + persist from ready sources/models; Scene 5 pre-select.
+  Doctor sheet → compact roster. **Blocked on designer mocks.**
+- **Phase 4 — Auto-team. BUILT (2026-06-15).** `TeamAssembler` assembles Bench +
+  default Team from ready sources with a truthful plan writer; persisted in
+  `SetupStore.assembledTeam`; `alln detect` detects → assembles → persists. Scene 5
+  pre-select is UI (Phase 3).
 
 ---
 
