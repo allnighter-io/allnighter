@@ -1,0 +1,14 @@
+# surface: setup
+# fixtures: team-open-mixed doctor-open-mixed readiness-mixed
+# watcher: PASS
+# sealed: 2026-06-16
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+22a7d569e36ccdaffac0aee15c65ac14b096766b  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+21b4fbc4df510f79fa6a40c8fa5ddd7a420f5082  Apps/AllnighterMac/Sources/DesignComponents.swift
+66b285c4ca459bda29c5373f50d028a73c04dfc1  Apps/AllnighterMac/Sources/DevSettingsView.swift
+208a93e62970c1fd481819e44e8e680e2b64e4f6  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+69c338947a2457017f2eb35df73bda024d61159c  Apps/AllnighterMac/Sources/ReadinessView.swift
+a82d339e49dd5c3a8fb283997c6efb40cc8eafca  Apps/AllnighterMac/Sources/RootView.swift
+6111f0d7b3622d288ad1c7a2a6fd45fb3b1853db  Apps/AllnighterMac/Sources/SetupViews.swift
+435761a18f65073f7dd9ea43c6becf24f8a09e17  Apps/AllnighterMac/Sources/TeamControlView.swift

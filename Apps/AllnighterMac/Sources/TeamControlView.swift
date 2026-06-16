@@ -158,6 +158,7 @@ struct BenchDropdownPanel: View {
     var attached: Bool = false
     var onRepair: (String) -> Void = { _ in }
     var onManageTeam: () -> Void = {}
+    var onOpenSetup: () -> Void = {}
 
     private var rows: [BenchDropdownRow] { appModel.benchDropdownRows }
     private var readyCount: Int { rows.filter(\.isReady).count }
@@ -227,44 +228,33 @@ struct BenchDropdownPanel: View {
 
     private var footer: some View {
         VStack(spacing: 9) {
-            // Explicit, user-owned probe trigger. Cold launch is process-quiet
-            // (Launch Authority TCC hotfix), so this is the first place a live
-            // check of the local CLIs is allowed to run — and the only reachable
-            // one in the active UI. Running CLIs may take a moment + spend quota.
-            Button {
-                appModel.runFullSetupProbe(userInitiated: true)
-            } label: {
-                Label(appModel.isDetecting ? "Checking tools…" : "Check tools",
-                      systemImage: appModel.isDetecting ? "hourglass" : "arrow.clockwise")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.alPrimary(small: true))
-            .disabled(appModel.isDetecting)
-            .help("Launches your local CLIs to verify which models are ready. May take a moment and use quota.")
-
-            // Tier-2 discovery: once one agent is ready, let it hunt down the
-            // tools the plain probe missed — each found path is verified locally
-            // before it counts (health == runs). Hidden until an agent is ready,
-            // because the census needs a working agent to run it.
-            if appModel.canRunCensus || appModel.isRunningCensus {
+            // Setup affordance is state-driven (Track B): when something needs
+            // setup, the primary action opens the full setup page (where install /
+            // sign-in / locate / agent-search live). When everything is ready, a
+            // full re-check spends quota and can flip a working tool, so it's a
+            // quiet ghost action — not a primary CTA. (The agent census is NOT
+            // offered here; it belongs to onboarding/setup, not the dropdown.)
+            if appModel.allToolsReady {
                 Button {
-                    appModel.runCensusDiscovery()
+                    appModel.runFullSetupProbe(userInitiated: true)
                 } label: {
-                    Label(appModel.isRunningCensus
-                            ? "Finding your tools…"
-                            : "Find the rest with \(appModel.censusAgent?.displayName ?? "an agent")",
-                          systemImage: appModel.isRunningCensus ? "hourglass" : "wand.and.stars")
+                    Label(appModel.isDetecting ? "Re-checking…" : "Re-check tools",
+                          systemImage: "arrow.clockwise")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.alSecondary(small: true))
-                .disabled(!appModel.canRunCensus)
-                .help("Uses a ready agent to locate the CLIs that weren't found, then verifies each before marking it ready.")
-            }
-            if let summary = appModel.lastCensusSummary {
-                Text(summary)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(ALColor.textFaint)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.alGhost)
+                .disabled(appModel.isDetecting)
+                .help("Re-runs the local CLI checks. Already all-ready, so only needed after you change something.")
+            } else {
+                Button {
+                    isOpen = false
+                    onOpenSetup()
+                } label: {
+                    Label("Set up tools", systemImage: "wrench.and.screwdriver")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.alPrimary(small: true))
+                .help("Open setup to install, sign in to, or locate the CLIs that aren't ready yet.")
             }
 
             HStack(spacing: 9) {

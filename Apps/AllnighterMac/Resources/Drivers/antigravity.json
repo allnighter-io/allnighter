@@ -1,7 +1,7 @@
 {
   "id": "antigravity",
   "manifestVersion": 1,
-  "displayName": "Antigravity CLI",
+  "displayName": "Gemini (Antigravity CLI)",
   "kind": "headless_cli",
   "detectCommand": "agy --version",
   "smokeTestCommand": "agy --print \"Reply with the single token ALLNIGHTER_READY\" --model \"{{model}}\" --dangerously-skip-permissions",

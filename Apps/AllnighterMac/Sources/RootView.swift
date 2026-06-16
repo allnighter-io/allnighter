@@ -81,7 +81,8 @@ struct RootView: View {
                         isOpen: $showTeamDropdown,
                         attached: true,
                         onRepair: openReadiness(focus:),
-                        onManageTeam: { showTeamDropdown = false }
+                        onManageTeam: { showTeamDropdown = false },
+                        onOpenSetup: { openReadiness() }
                     )
                     .offset(
                         x: pillFrame.maxX - origin.x - 306,

@@ -525,6 +525,9 @@ final class AppModel {
 
     var readyToolCount: Int { toolStatuses.filter { $0.status.isReady }.count }
     var totalToolCount: Int { registry.all.filter { $0.kind == .headlessCLI }.count }
+    /// Every supported tool is ready — used to keep setup affordances quiet when
+    /// there is nothing to fix (Track B). False on a cold, unprobed launch.
+    var allToolsReady: Bool { totalToolCount > 0 && readyToolCount == totalToolCount }
     func toolStatus(for driverId: String) -> ToolProbeRecord? { toolStatuses.first { $0.driverId == driverId } }
 
     /// Workers (model seats) on tools that are ready — for the "· N workers" tally.
