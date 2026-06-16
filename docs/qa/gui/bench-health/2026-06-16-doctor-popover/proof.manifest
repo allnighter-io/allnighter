@@ -1,0 +1,10 @@
+# surface: bench-health
+# fixtures: doctor-open-mixed
+# watcher: PASS
+# sealed: 2026-06-16
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+22a7d569e36ccdaffac0aee15c65ac14b096766b  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+2fbf57597c9e734634d2bdeedde089227b470ca8  Apps/AllnighterMac/Sources/RootView.swift
+b8a1b61b34e12148e2162cc448a4bec9b23688c9  Apps/AllnighterMac/Sources/SetupViews.swift
+333cce5aa920217da7ed0e4502171a4e3a32f60b  Apps/AllnighterMac/Sources/TeamControlView.swift

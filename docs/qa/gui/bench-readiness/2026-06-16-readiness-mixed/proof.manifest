@@ -1,0 +1,11 @@
+# surface: bench-readiness
+# fixtures: readiness-mixed
+# watcher: PASS
+# sealed: 2026-06-16
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+22a7d569e36ccdaffac0aee15c65ac14b096766b  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+8bb8286ff01a683a43c202c8aa9c6f7eacc594ec  Apps/AllnighterMac/Sources/ReadinessView.swift
+17926247023dabf4a71d987ad53a9d60d077f876  Apps/AllnighterMac/Sources/RootView.swift
+da7de010b9a7e2ae932f8b6ef241acaf76f3cf89  Apps/AllnighterMac/Sources/SetupViews.swift
+333cce5aa920217da7ed0e4502171a4e3a32f60b  Apps/AllnighterMac/Sources/TeamControlView.swift
