@@ -219,11 +219,13 @@ a possible future consolidation, not a requirement of this phase.
 1. **Routing (done 2026-06-15):** menu-bar-only assumptions removed from forward
    Mac docs; new work routed here via `README.md`, `AGENTS.md`, and
    `CLI_Product_Spine.md`. The executable build sequence begins at slice 2.
-2. **Standalone app shell (done 2026-06-15):** `LSUIElement` removed from
-   `project.yml` + `Info.plist`; the app is a regular Dock app, main `Window`
-   opens on launch; `AppModel`/`RunEvent` wiring preserved. Built bundle confirmed
-   LSUIElement-free. (Visual Finder-launch Works Test is founder-run — no UI
-   automation yet.)
+2. **Standalone app shell (done 2026-06-15):** runtime-promoted Dock app — the
+   bundle launches as an accessory (`LSUIElement`, so the hosted unit-test runner
+   connects) and `AppDelegate` promotes it to a regular Dock app
+   (`setActivationPolicy(.regular)` + activate) on real launches, staying accessory
+   under XCTest. Net result: a standalone Dock app with icon + main window;
+   `AppModel`/`RunEvent` wiring preserved. (Visual Finder-launch Works Test is
+   founder-run — no UI automation yet.)
 3. **Status item pass (done 2026-06-15):** `MenuBarExtra` kept as optional
    status/quick controls (open, quick capture, run status, Stop-while-running) —
    secondary to the window, not the product shell.
