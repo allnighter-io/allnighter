@@ -137,8 +137,8 @@ Milestone 1 grammar:
 
 ```bash
 alln docs [topic] [--errors] [--schema] [--examples]
-alln doctor [--json] [--quiet] [--full] [--auto-fix]
-alln doctor explain <code> [--json]
+alln doctor [--json] [--quiet] [--full] [--auto-fix] [--agent <agent>]
+alln doctor explain <code|check> [--json] [--agent <agent>]
 alln models [--json]
 alln team show [--json]
 alln team [prompt] [--file <path>] [--lane <lane>] [--team <id>] [--effort <effort>] [--type <type>] [--preset <id>] [--json | --stream]
@@ -151,6 +151,7 @@ Named but deferred:
 
 ```bash
 alln team start [prompt]
+alln team preflight [prompt]
 alln team status <run-id>
 alln team result <run-id>
 alln team edit
@@ -380,14 +381,59 @@ Machine command failure shape:
 }
 ```
 
+Agent-first error envelope upgrade:
+
+```json
+{
+  "schemaVersion": 2,
+  "success": false,
+  "error": {
+    "code": "INVALID_ENUM",
+    "ruleId": "tool.input.invalid_enum",
+    "message": "Invalid effort value.",
+    "tool": "team_start",
+    "field": "effort",
+    "allowedValues": ["low", "med", "high"],
+    "agentAction": "Retry once with one of the allowed values.",
+    "remedyTier": "agent_executable",
+    "whoCanFix": "agent",
+    "fixCommand": null,
+    "humanAction": null,
+    "requiresManual": false,
+    "retryable": true,
+    "traceId": "trace_...",
+    "runId": null,
+    "sourceId": null,
+    "modelId": null,
+    "workerId": null
+  }
+}
+```
+
+Schema v2 keeps the v1 fields and adds:
+
+| Field | Meaning |
+| --- | --- |
+| `tool` | Tool/command that rejected or failed. |
+| `field` | Input field when the error is field-specific. |
+| `allowedValues` | Valid enum values when applicable. |
+| `remedyTier` | `alln_auto_fixable`, `agent_executable`, `user_interactive`, or `cannot_fix`. |
+| `whoCanFix` | `alln`, `agent`, `user`, `external`, or `unknown`. |
+| `humanAction` | Optional structured action safe to present in chat. |
+| `approval` | Optional reveal-only approval object for risky actions. |
+
 Recovery ladder:
 
 1. Parse `error.code`.
-2. If `requiresManual == false` and `fixCommand` is present, run the command once
-   and retry once.
-3. If `requiresManual == true`, present `agentAction` and stop.
-4. If no fix exists, run `alln doctor explain <code> --json`.
-5. Escalate only after `agentAction`, safe auto-fixes, and required manual fixes
+2. If `remedyTier == alln_auto_fixable`, run `alln doctor --auto-fix --json`
+   once, then re-run doctor before retrying the original command.
+3. If `remedyTier == agent_executable` and the metadata gives one exact safe
+   correction, the calling agent may retry once under its own policy.
+4. If `remedyTier == user_interactive`, present `humanAction` or `agentAction`
+   and stop until the user says the action is complete.
+5. If no fix exists, run `alln doctor explain <code|check> --json` or the MCP
+   `error_explain` tool.
+6. Escalate only after safe auto-fixes, exact retries, and required human actions
    have failed.
 
 Starter error catalog:
@@ -395,6 +441,9 @@ Starter error catalog:
 | Code | Default action |
 | --- | --- |
 | `CLI_USAGE_ERROR` | Re-run `alln docs <command>` and fix arguments. |
+| `INVALID_ENUM` | Use `allowedValues`; retry once only if the intended value is unambiguous. |
+| `CONTENT_TOO_LARGE` | Pass context as an artifact/ref or reduce payload. |
+| `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | Generate a new key or reuse the original payload. |
 | `CONTRACT_DRIFT` | Run `alln dev export-contracts`, then rebuild. |
 | `DOCTOR_CHECK_FAILED` | Run `alln doctor --json`. |
 | `SOURCE_NOT_FOUND` | Run `alln doctor --json`; add/configure the missing source. |
@@ -413,9 +462,11 @@ Starter error catalog:
 | `JSON_SCHEMA_VIOLATION` | Treat as implementation bug; run export-contracts check. |
 | `PERMISSION_REQUIRED` | Ask the user for the named permission. |
 | `MCP_CLIENT_UNAPPROVED` | Approve or configure the MCP client before retrying. |
+| `ENTITLEMENT_BLOCKED` | Show upgrade/recovery action; do not start a run. |
 
-Every code must have default `agentAction`, `requiresManual`, `retryable`, and
-doctor-explain text in the registry before it can be emitted.
+Every code must have default `agentAction`, `requiresManual`, `retryable`,
+`remedyTier`, `whoCanFix`, and doctor/error-explain text in the registry before
+it can be emitted.
 
 ## Doctor Contract
 

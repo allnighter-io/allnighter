@@ -306,6 +306,19 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         }
         return out
     }
+
+    /// A custom, editable copy of this team. Built-ins are duplicate-to-edit: the
+    /// copy gets a fresh id, `builtIn == false`, and is not a lane default until the
+    /// user makes it one. The original (built-in) is never mutated.
+    public func duplicated(newId: String, newName: String? = nil) -> TeamPreset {
+        var copy = self
+        copy.id = newId
+        copy.displayName = newName ?? "\(displayName) (Custom)"
+        copy.builtIn = false
+        copy.isDefaultForLane = false
+        copy.version = 1
+        return copy
+    }
 }
 
 // MARK: - Default-per-lane integrity
