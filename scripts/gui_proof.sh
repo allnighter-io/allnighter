@@ -34,7 +34,7 @@ mkdir -p "$(dirname "$OUT")" "$DEV_ROOT"
 rm -f "$OUT" "$ERR"
 
 needs_overlays() {
-  case "$FIXTURE" in compose-*) return 0 ;; esac
+  case "$FIXTURE" in compose-*|tcc-probe) return 0 ;; esac
   return 1
 }
 

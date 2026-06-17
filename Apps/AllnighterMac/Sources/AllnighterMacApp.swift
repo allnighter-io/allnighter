@@ -15,6 +15,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !Self.isTesting else { return }   // stay accessory under XCTest
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        #if DEBUG
+        // Grant fixture: request Screen Recording at launch, before SwiftUI paints.
+        // No env flags, no gating — macOS must see the request from a frontmost app.
+        if GUIFixture.isGrantSession {
+            let requested = CGRequestScreenCaptureAccess()
+            let preflight = CGPreflightScreenCaptureAccess()
+            FileHandle.standardError.write(Data(
+                "gui-grant(launch): request=\(requested) preflight=\(preflight) path=\(Bundle.main.bundlePath)\n".utf8
+            ))
+        }
+        #endif
     }
 }
 

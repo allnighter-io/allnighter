@@ -265,17 +265,22 @@ investment:
 - `scripts/gui_proof.sh <fixture>` — builds, launches the fixture, waits for the
   PNG, prints its path.
 
-**Capture revision (2026-06-17): own-window composite, so native overlays show.**
-The first cut self-captured only the main window via `cacheDisplay`, which by
-construction CANNOT see a native SwiftUI popover/menu/sheet — those render in
-separate OS windows. That gap silently selected AGAINST native SwiftUI: the only
-popups a self-capture could prove were ones hand-drawn inside the main window
-with fragile offset/preference-key geometry, which is exactly the recurring
-anchoring bug. Fix: capture composites the app's own window list
-(`CGImage(windowListFromArrayScreenBounds:…)`), so overlays appear. This needs
-Screen-Recording permission (own windows only, fixture mode only, dev machine
-only — see Auth/privacy/permissions). XCUITest stays rejected: slow, flaky, and
-built to assert content the CLI already owns.
+**Capture (2026-06-17+): tiered, native overlays for compose only.**
+- Fixtures without native popovers (`home-*`, `thread-*`, `team-*`, readiness,
+  doctor, etc.) use an in-process main-window bitmap snapshot of the primary
+  content view (`cacheDisplay` on the contentView). Deterministic, no Screen
+  Recording permission, no TCC dialog, no grant.
+- `compose-*` (and the diagnostic `tcc-probe`) use the full composite of the
+  app's own windows via **ScreenCaptureKit** (`SCScreenshotManager.captureImage`)
+  so native SwiftUI `.alPopover` popovers (separate OS
+  windows created by AppKit) appear in proofs. These are the only cases that
+  require the one-time Screen Recording grant for the Debug bundle.
+
+This preserves the invariant that native popovers are used and provable, while
+unblocking layout proofs for conversation shell / home / thread surfaces (CR4)
+that have no popovers in the captured state. The first cut used only main-window
+self-capture (insufficient for popovers) then moved everything to composite
+(over-constrained the non-popover cases). Tiering is the minimal durable fix.
 
 Fixtures: `team-open-ready`, `team-open-mixed` (more added per surface).
 
@@ -375,15 +380,17 @@ Driver/protocol impact:
 Auth/privacy/permissions impact:
 - Fixture mode disables real CLI probes, shells, auth checks, network, and
   quota-bearing invocations.
-- **Screen-Recording permission (dev machine only).** Capture composites the
-  app's OWN windows so native popovers/menus/sheets (separate OS windows) appear
-  in proofs. This uses `CGImage(windowListFromArrayScreenBounds:…)`, which needs
-  Screen-Recording permission, granted once to "Allnighter". The capture path is
-  reached ONLY in fixture mode (`ALLNIGHTER_GUI_PROOF_OUT` set) — never on a real
-  launch — so the shipping app never prompts and end-user posture is unchanged.
-  Only the dev machine carries the bundle id in its Screen-Recording allowlist.
-  Without the grant, capture falls back to in-window only (overlays missing) and
-  both the app log and `gui_proof.sh` reprint how to finish.
+- **Screen-Recording permission (dev machine only, compose popovers only).**
+  Most proof fixtures use a pure in-process main-window snapshot and require
+  zero extra permissions. Only `compose-*` fixtures (native SwiftUI popovers via
+  `.alPopover`) and the `tcc-probe` diagnostic take the composite path over the
+  app's own windows via ScreenCaptureKit and therefore needs the Screen Recording grant
+  (one time, via `gui_proof_grant.sh`, for the Debug `com.allnighter.mac`
+  bundle). The harness is DEBUG-only and gated behind the proof request file /
+  env; the Release app never contains or executes any of this code. Grant is
+  attributed via Launch Services launch of the .app bundle. Without the grant,
+  compose proofs fail hard (no silent PNG missing the popover); non-compose
+  proofs continue to work.
 - Captures must not include credentials, secret-bearing paths, or private user
   content — fixtures use mock data only, and only the app's own windows are
   composited (not the wider desktop).

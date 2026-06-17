@@ -59,6 +59,12 @@ struct GUIProofGrantView: View {
                 .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
 
             HStack(spacing: 10) {
+                Button("Register with macOS") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    _ = CGRequestScreenCaptureAccess()
+                    refreshGrant()
+                }
+                .buttonStyle(.alSecondary)
                 Button("Open System Settings") { GUIFixture.openScreenRecordingSettings() }
                     .buttonStyle(.alSecondary)
                 Button("Check again") { refreshGrant() }
@@ -77,11 +83,8 @@ struct GUIProofGrantView: View {
     }
 
     private func beginGrantFlow() {
-        // Only surface the system dialog when explicitly opted in (first-time
-        // grant). Day-to-day: grant in System Settings; no pop-up on every launch.
-        if GUIFixture.allowScreenCapturePermissionPrompts {
-            _ = CGRequestScreenCaptureAccess()
-        }
+        NSApp.activate(ignoringOtherApps: true)
+        _ = CGRequestScreenCaptureAccess()
         refreshGrant()
         pollTask = Task { @MainActor in
             while !Task.isCancelled {

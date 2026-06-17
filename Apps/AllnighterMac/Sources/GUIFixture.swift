@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import AllnighterCore
+@preconcurrency import ScreenCaptureKit
 
 #if DEBUG
 
@@ -14,28 +15,19 @@ import AllnighterCore
 ///    the **`.app` bundle** via `open` (Launch Services), app reads the request.
 /// 2. Legacy direct exec with `ALLNIGHTER_GUI_FIXTURE` + `ALLNIGHTER_GUI_PROOF_OUT`.
 ///
-/// Capture composites the app's OWN windows via Screen Recording APIs so native
-/// SwiftUI popovers/menus/sheets (separate OS windows) appear in proofs. One-time
-/// grant: `bash scripts/gui_proof_grant.sh`. See `docs/phases/GUI_Visual_Proof_Gate.md`.
+/// Capture is tiered (DEBUG only):
+/// - compose-* / tcc-probe: ScreenCaptureKit screenshot (Apple-supported replacement
+///   for deprecated CGWindowListCreateImage). Requires Screen Recording grant.
+/// - All other fixtures (home-*, thread-*, team-*, etc.): in-process snapshot of
+///   the primary window's content view (no TCC, no separate windows). See policy
+///   in `docs/phases/GUI_Visual_Proof_Gate.md`.
 enum GUIFixture {
     private static let devRoot: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Developer/Allnighter", isDirectory: true)
 
-    /// When `false` (default), never calls `CGRequestScreenCaptureAccess()` — no
-    /// macOS Screen Recording dialog. Capture still runs if permission is already
-    /// granted. Set env `ALLNIGHTER_GUI_PROOF_REQUEST_SCREEN_CAPTURE=1` to
-    /// re-enable the prompt (first-time grant only).
-    static var allowScreenCapturePermissionPrompts: Bool {
-        ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_PROOF_REQUEST_SCREEN_CAPTURE"] == "1"
-    }
-
-    /// Written by `gui_proof.sh` / `gui_proof_grant.sh`; consumed on launch.
     static let proofRequestURL = devRoot.appendingPathComponent("gui-proof-request.json")
-
-    /// Written when Screen Recording preflight passes (grant UI or successful capture).
     static let grantMarkerURL = devRoot.appendingPathComponent("gui-proof-screen-recording.ok")
 
-    /// Written on capture failure so `gui_proof.sh` can exit non-zero with a message.
     static var lastErrorURL: URL {
         buildRoot.appendingPathComponent("gui-proof-last-error.txt")
     }
@@ -86,7 +78,10 @@ enum GUIFixture {
         Bundle.main.bundlePath
     }
 
-    /// Fixtures that open a native SwiftUI popover/menu — capture MUST use Screen Recording.
+    /// Fixtures that open a *native* SwiftUI popover (via .alPopover / AppKit NSPopover window).
+    /// These require the full window-list composite capture (Screen Recording TCC).
+    /// All other fixtures (home-*, thread-*, team-*, doctor-*, readiness-*) use an
+    /// in-process main-window bitmap snapshot and need no Screen Recording permission.
     static var needsNativeOverlays: Bool {
         (active ?? "").hasPrefix("compose-")
     }
@@ -115,6 +110,11 @@ enum GUIFixture {
     static var composeMenuOpen: Bool { active == "compose-mode-menu" }
     /// `compose-target-*` seeds the target popover open.
     static var composeTargetOpen: Bool { (active ?? "").hasPrefix("compose-target-") }
+
+    /// Dedicated fixture for testing the Screen Recording grant / preflight in isolation.
+    /// Runs the composite path (so native popovers + SR are exercised) but is intended
+    /// only for "does preflight + captureComposite succeed right now?" verification.
+    static var isTCCProbe: Bool { (active ?? "") == "tcc-probe" }
     /// Mode for the compose specimen (drives which target popover renders).
     static var composeSpecimenMode: ComposeMode {
         switch active {
@@ -148,6 +148,7 @@ enum GUIFixture {
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
         ("compose-target-fanout", "Compose — fan out team (native popover)"),
+        ("tcc-probe", "TCC / Screen Recording grant probe (forces composite path)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
@@ -287,20 +288,33 @@ enum GUIFixture {
                 window.center()
             }
 
-            if needsNativeOverlays {
-                await waitForOverlayWindows(timeout: 4)
+            let useScreenRecordingCapture = needsNativeOverlays || isTCCProbe
+            if useScreenRecordingCapture {
+                if needsNativeOverlays {
+                    await waitForOverlayWindows(timeout: 4)
+                } else {
+                    // tcc-probe: just give the app a moment to have at least the main window
+                    try? await Task.sleep(for: .seconds(1))
+                }
+                switch await captureComposite() {
+                case .success(let image):
+                    writeGrantMarker()
+                    writePNG(image, to: URL(fileURLWithPath: out))
+                    NSApp.terminate(nil)
+                case .failure(let message):
+                    failProof(message)
+                    NSApp.terminate(nil)
+                }
             } else {
                 try? await Task.sleep(for: .seconds(1))
-            }
-
-            switch captureComposite() {
-            case .success(let image):
-                writeGrantMarker()
-                writePNG(image, to: URL(fileURLWithPath: out))
-                NSApp.terminate(nil)
-            case .failure(let message):
-                failProof(message)
-                NSApp.terminate(nil)
+                switch captureMainWindowOnly() {
+                case .success(let image):
+                    writePNG(image, to: URL(fileURLWithPath: out))
+                    NSApp.terminate(nil)
+                case .failure(let message):
+                    failProof(message)
+                    NSApp.terminate(nil)
+                }
             }
         }
     }
@@ -335,33 +349,118 @@ enum GUIFixture {
         case failure(String)
     }
 
-    /// Composite the app's own windows. Requires Screen Recording permission.
+    /// Composite the app's own windows (including separate popover windows) via
+    /// ScreenCaptureKit — the supported API; CGWindowListCreateImage is deprecated
+    /// and returns nil on modern macOS even when Screen Recording is granted.
     @MainActor
-    private static func captureComposite() -> CaptureResult {
-        let windows = NSApp.windows.filter { $0.isVisible && $0.contentView != nil }
-        guard !windows.isEmpty else { return .failure("no window to capture") }
+    private static func captureComposite() async -> CaptureResult {
+        let appWindows = NSApp.windows.filter { $0.isVisible && $0.contentView != nil }
+        guard !appWindows.isEmpty else { return .failure("no window to capture") }
 
         guard CGPreflightScreenCaptureAccess() else {
-            if allowScreenCapturePermissionPrompts {
-                _ = CGRequestScreenCaptureAccess()
+            NSApp.activate(ignoringOtherApps: true)
+            _ = CGRequestScreenCaptureAccess()
+            return .failure("""
+            CGPreflightScreenCaptureAccess() is false after requesting access. \
+            Open System Settings → Screen & System Audio Recording, add Allnighter \
+            with + if missing, toggle ON, then re-run. \(screenRecordingInstructions)
+            """)
+        }
+
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            let bundleID = Bundle.main.bundleIdentifier ?? "com.allnighter.mac"
+            let visibleIDs = Set(appWindows.map { CGWindowID($0.windowNumber) })
+
+            var scWindows = content.windows.filter { window in
+                window.owningApplication?.bundleIdentifier == bundleID && visibleIDs.contains(window.windowID)
             }
-            return .failure(screenRecordingInstructions)
-        }
+            if scWindows.isEmpty {
+                scWindows = content.windows.filter { $0.owningApplication?.bundleIdentifier == bundleID }
+            }
+            guard !scWindows.isEmpty else {
+                return .failure("ScreenCaptureKit: no shareable windows for \(bundleID) (NSApp visible=\(appWindows.count))")
+            }
 
-        let ids = windows.map { CGWindowID($0.windowNumber) } as CFArray
-        guard let composite = CGImage(
-            windowListFromArrayScreenBounds: .null,
-            windowArray: ids,
-            imageOption: [.boundsIgnoreFraming]
-        ) else {
-            return .failure("Screen Recording capture failed — windows=\(windows.count). \(screenRecordingInstructions)")
-        }
+            let filter: SCContentFilter
+            if scWindows.count == 1, let only = scWindows.first {
+                filter = SCContentFilter(desktopIndependentWindow: only)
+            } else {
+                guard let display = displayForCapture(mainWindow: appWindows.first, displays: content.displays) else {
+                    return .failure("ScreenCaptureKit: no display for multi-window capture")
+                }
+                let otherApps = content.applications.filter { $0.bundleIdentifier != bundleID }
+                filter = SCContentFilter(display: display, excludingApplications: otherApps, exceptingWindows: [])
+            }
 
-        if needsNativeOverlays, windows.count < 2 {
-            return .failure("native popover window not visible at capture time (only main window captured). Re-run; if this persists, check popover wiring.")
-        }
+            let config = SCStreamConfiguration()
+            config.showsCursor = false
+            config.captureResolution = .best
+            let scale = Double(filter.pointPixelScale)
+            config.width = Int(Double(filter.contentRect.width) * scale)
+            config.height = Int(Double(filter.contentRect.height) * scale)
 
-        return .success(composite)
+            guard let image = try await captureScreenshot(filter: filter, configuration: config) else {
+                return .failure("ScreenCaptureKit: empty screenshot (scWindows=\(scWindows.count), nsWindows=\(appWindows.count))")
+            }
+
+            if needsNativeOverlays, scWindows.count < 2 {
+                return .failure("native popover window not visible at capture time (scWindows=\(scWindows.count)). Re-run; if this persists, check popover wiring.")
+            }
+            if isTCCProbe, scWindows.isEmpty {
+                return .failure("tcc-probe: no shareable windows at capture time")
+            }
+
+            log("ScreenCaptureKit capture ok scWindows=\(scWindows.count)")
+            return .success(image)
+        } catch {
+            return .failure("ScreenCaptureKit capture failed: \(error.localizedDescription). \(screenRecordingInstructions)")
+        }
+    }
+
+    private static func displayForCapture(mainWindow: NSWindow?, displays: [SCDisplay]) -> SCDisplay? {
+        if let screenNumber = mainWindow?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
+           let match = displays.first(where: { $0.displayID == screenNumber }) {
+            return match
+        }
+        return displays.first
+    }
+
+    private static func captureScreenshot(
+        filter: SCContentFilter,
+        configuration: SCStreamConfiguration
+    ) async throws -> CGImage? {
+        try await withCheckedThrowingContinuation { continuation in
+            SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) { image, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: image)
+                }
+            }
+        }
+    }
+
+    /// In-process snapshot of the primary window's content view only.
+    /// Does not require Screen Recording permission. Captures exactly what the
+    /// main window renders (including any in-window overlays). Does *not* include
+    /// separate OS windows such as native SwiftUI popovers (those use captureComposite).
+    @MainActor
+    private static func captureMainWindowOnly() -> CaptureResult {
+        guard let win = mainWindow() else { return .failure("no main window for snapshot") }
+        guard let view = win.contentView else { return .failure("main window has no contentView") }
+        let bounds = view.bounds
+        guard bounds.width > 1, bounds.height > 1 else {
+            return .failure("main content bounds too small for capture (\(bounds))")
+        }
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: bounds) else {
+            return .failure("failed to allocate bitmap rep for main window snapshot")
+        }
+        view.cacheDisplay(in: bounds, to: rep)
+        guard let cg = rep.cgImage else {
+            return .failure("bitmap rep for main window did not produce CGImage")
+        }
+        return .success(cg)
     }
 
     private static var screenRecordingInstructions: String {

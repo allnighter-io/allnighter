@@ -52,8 +52,12 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGN_IDENTITY: "-"
+        # Apple Development signing — required so Screen Recording TCC survives
+        # rebuilds (adhoc/CDHash grants do not stick). Team must match your cert.
+        # Keychain: security find-identity -v -p codesigning
+        DEVELOPMENT_TEAM: LP5YNK7A36
         ENABLE_HARDENED_RUNTIME: YES
+        OTHER_LDFLAGS: $(inherited) -framework ScreenCaptureKit
 
   AllnighterMacTests:
     type: bundle.unit-test
@@ -69,6 +73,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.allnighter.mac.tests
+        DEVELOPMENT_TEAM: LP5YNK7A36
         GENERATE_INFOPLIST_FILE: YES
         # The host app's PRODUCT_NAME (Allnighter) differs from its target name
         # (AllnighterMac), so XcodeGen's auto-generated TEST_HOST points at a

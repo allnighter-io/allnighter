@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Allnighter — one-time Screen Recording grant for the GUI proof harness.
 #
-# Launches Allnighter through the real .app bundle (Launch Services) with a
-# dedicated grant UI. Stay on this window until it shows the green checkmark,
-# then quit. After that, overlay fixtures (compose-*) capture native popovers.
+# Launches ONLY the grant UI (do not run `allapp` first — one instance only).
+# Stay until the grant window shows green, then Quit.
 #
 # Usage:
 #   bash scripts/gui_proof_grant.sh
@@ -51,19 +50,24 @@ if [ ! -d "$APP" ]; then
 fi
 
 pkill -x Allnighter 2>/dev/null || true
-sleep 0.3
+sleep 0.5
 rm -f "$DERIVED/gui-proof-last-error.txt"
 
 printf '%s\n' '{"fixture":"proof-grant"}' >"$REQ"
 
-echo "==> opening Allnighter grant UI…" >&2
+echo "==> opening Allnighter grant UI (do NOT run allapp first)…" >&2
 echo "    App: $APP" >&2
-echo "    Stay on the grant window until Screen Recording shows granted, then Quit." >&2
+echo "" >&2
+echo "    If Allnighter is missing from Settings → Screen Recording:" >&2
+echo "      1. In the grant window click **Register with macOS** (system dialog may appear)" >&2
+echo "      2. Or Settings → + → ⌘⇧G → paste the path above → Open → toggle ON" >&2
+echo "      3. Wait for GREEN check in grant window, then Quit" >&2
+echo "" >&2
 
-open -n "$APP"
+open "$APP"
 
 if [ -f "$MARKER" ]; then
   echo "✓ grant marker already present: $MARKER" >&2
 else
-  echo "    (grant marker will be written to $MARKER when macOS accepts the grant)" >&2
+  echo "    (marker appears at $MARKER when preflight passes)" >&2
 fi
