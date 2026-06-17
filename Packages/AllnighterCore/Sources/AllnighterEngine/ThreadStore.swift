@@ -79,44 +79,41 @@ public struct ThreadStore: Sendable {
         projectLabel: String? = nil,
         defaultWorkerId: String? = nil
     ) throws -> WorkThread {
-        let threadDirectory = rootDirectory.appendingPathComponent("thread_\(id)", isDirectory: true)
-        if get(id) != nil || FileManager.default.fileExists(atPath: threadDirectory.path) {
-            throw ThreadStoreError.threadAlreadyExists(id)
+        try synchronized {
+            let threadDirectory = rootDirectory.appendingPathComponent("thread_\(id)", isDirectory: true)
+            if get(id) != nil || FileManager.default.fileExists(atPath: threadDirectory.path) {
+                throw ThreadStoreError.threadAlreadyExists(id)
+            }
+            let thread = WorkThread(
+                id: id, title: title, status: .active, createdAt: now, updatedAt: now,
+                workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId
+            )
+            _ = try persistThread(thread)
+            return thread
         }
-        let thread = WorkThread(
-            id: id, title: title, status: .active, createdAt: now, updatedAt: now,
-            workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId
-        )
-        try save(thread)
-        return thread
     }
 
     @discardableResult
     public func save(_ thread: WorkThread) throws -> URL {
-        var thread = thread
-        thread.upgradeFormatVersionIfNeeded()
-        let directory = try threadDirectory(forThreadId: thread.id)
-        try CoreJSON.encode(thread).write(to: directory.appendingPathComponent("thread.json"))
-        // Derived transcript, regenerated from thread.json truth on each save.
-        let transcript = ThreadMarkdown.transcript(thread)
-        try Data(transcript.utf8).write(to: directory.appendingPathComponent("transcript.md"))
-        return directory
+        try synchronized { try persistThread(thread) }
     }
 
     /// Appends a turn and bumps `updatedAt`. The turn's `threadId` is normalized
     /// to the target thread.
     @discardableResult
     public func append(_ turn: ThreadTurn, toThreadId threadId: String, now: Date) throws -> WorkThread {
-        guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
-        if thread.turns.contains(where: { $0.id == turn.id }) {
-            throw ThreadStoreError.duplicateTurnId(turn.id)
+        try synchronized {
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            if thread.turns.contains(where: { $0.id == turn.id }) {
+                throw ThreadStoreError.duplicateTurnId(turn.id)
+            }
+            var turn = turn
+            turn.threadId = threadId
+            thread.turns.append(turn)
+            thread.updatedAt = now
+            _ = try persistThread(thread)
+            return thread
         }
-        var turn = turn
-        turn.threadId = threadId
-        thread.turns.append(turn)
-        thread.updatedAt = now
-        try save(thread)
-        return thread
     }
 
     /// Replaces an existing turn (matched by id) in place — used to settle an
@@ -124,29 +121,33 @@ public struct ThreadStore: Sendable {
     /// transition unless the status is unchanged.
     @discardableResult
     public func update(_ turn: ThreadTurn, inThreadId threadId: String, now: Date) throws -> WorkThread {
-        guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
-        guard let index = thread.turns.firstIndex(where: { $0.id == turn.id }) else {
-            throw ThreadStoreError.turnNotFound(turn.id)
+        try synchronized {
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            guard let index = thread.turns.firstIndex(where: { $0.id == turn.id }) else {
+                throw ThreadStoreError.turnNotFound(turn.id)
+            }
+            let previous = thread.turns[index].status
+            if previous != turn.status, !previous.allowedTransitions().contains(turn.status) {
+                throw ThreadStoreError.illegalTurnTransition(turnId: turn.id, from: previous, to: turn.status)
+            }
+            var turn = turn
+            turn.threadId = threadId
+            thread.turns[index] = turn
+            thread.updatedAt = now
+            _ = try persistThread(thread)
+            return thread
         }
-        let previous = thread.turns[index].status
-        if previous != turn.status, !previous.allowedTransitions().contains(turn.status) {
-            throw ThreadStoreError.illegalTurnTransition(turnId: turn.id, from: previous, to: turn.status)
-        }
-        var turn = turn
-        turn.threadId = threadId
-        thread.turns[index] = turn
-        thread.updatedAt = now
-        try save(thread)
-        return thread
     }
 
     @discardableResult
     public func archive(_ id: String, now: Date) throws -> WorkThread {
-        guard var thread = get(id) else { throw ThreadStoreError.threadNotFound(id) }
-        thread.status = .archived
-        thread.updatedAt = now
-        try save(thread)
-        return thread
+        try synchronized {
+            guard var thread = get(id) else { throw ThreadStoreError.threadNotFound(id) }
+            thread.status = .archived
+            thread.updatedAt = now
+            _ = try persistThread(thread)
+            return thread
+        }
     }
 
     // MARK: - Context packets
@@ -155,12 +156,7 @@ public struct ThreadStore: Sendable {
     /// so "what the worker saw" can be revealed later as truth.
     @discardableResult
     public func savePacket(_ packet: ThreadContextPacket) throws -> URL {
-        let directory = try threadDirectory(forThreadId: packet.threadId)
-            .appendingPathComponent("context", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent("\(packet.id).json")
-        try CoreJSON.encode(packet).write(to: url)
-        return url
+        try synchronized { try persistPacket(packet) }
     }
 
     public func packet(threadId: String, packetId: String) -> ThreadContextPacket? {
@@ -196,5 +192,31 @@ public struct ThreadStore: Sendable {
             }
         }
         return index
+    }
+
+    // MARK: - Private persistence
+
+    private func synchronized<T>(_ body: () throws -> T) rethrows -> T {
+        try ThreadStoreWriteSerializer.synchronized(rootDirectory: rootDirectory, body)
+    }
+
+    private func persistThread(_ thread: WorkThread) throws -> URL {
+        var thread = thread
+        thread.upgradeFormatVersionIfNeeded()
+        let directory = try threadDirectory(forThreadId: thread.id)
+        try CoreJSON.encode(thread).write(to: directory.appendingPathComponent("thread.json"))
+        // Derived transcript, regenerated from thread.json truth on each save.
+        let transcript = ThreadMarkdown.transcript(thread)
+        try Data(transcript.utf8).write(to: directory.appendingPathComponent("transcript.md"))
+        return directory
+    }
+
+    private func persistPacket(_ packet: ThreadContextPacket) throws -> URL {
+        let directory = try threadDirectory(forThreadId: packet.threadId)
+            .appendingPathComponent("context", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("\(packet.id).json")
+        try CoreJSON.encode(packet).write(to: url)
+        return url
     }
 }
