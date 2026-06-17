@@ -49,6 +49,74 @@ struct MCPServer {
         case "teams_list":
             let lane = (args["lane"] as? String).flatMap(WorkLane.init(rawValue:))
             respond(id: id, result: toolText("Team catalog", structured: AllnighterCLI.teamsCatalogJSONString(runtime, lane: lane)))
+        case "teams_show":
+            guard let teamId = args["teamId"] as? String, let team = TeamCatalog.get(teamId) else {
+                return respondToolError(id: id, code: "TEAM_NOT_FOUND", message: "teamId required")
+            }
+            respond(id: id, result: toolText(team.displayName, structured: AllnighterCLI.teamShowJSONString(team)))
+        case "teams_duplicate":
+            guard let teamId = args["teamId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "teamId required")
+            }
+            do {
+                let team = try TeamCatalog.duplicateBuiltIn(teamId, name: args["name"] as? String)
+                respond(id: id, result: toolText("duplicated \(teamId)", structured: AllnighterCLI.teamShowJSONString(team)))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
+        case "teams_save":
+            guard let teamId = args["teamId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "teamId required")
+            }
+            guard TeamCatalog.get(teamId) != nil else {
+                return respondToolError(id: id, code: "TEAM_NOT_FOUND", message: "unknown team: \(teamId)")
+            }
+            guard let definition = args["definition"] else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "definition required")
+            }
+            do {
+                let data = try JSONSerialization.data(withJSONObject: definition)
+                let team = try CoreJSON.decode(TeamPreset.self, from: data)
+                guard team.id == teamId else {
+                    return respondToolError(id: id, code: "TEAM_INVALID", message: "definition id must match teamId")
+                }
+                try TeamCatalog.saveCustom(team)
+                respond(id: id, result: toolText("saved \(teamId)", structured: AllnighterCLI.teamShowJSONString(team)))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
+        case "teams_set_default":
+            guard let teamId = args["teamId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "teamId required")
+            }
+            do {
+                let team = try TeamCatalog.setDefault(teamId)
+                respond(id: id, result: toolText("default \(team.lane.rawValue)", structured: AllnighterCLI.teamShowJSONString(team)))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
+        case "teams_delete":
+            guard let teamId = args["teamId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "teamId required")
+            }
+            do {
+                try TeamCatalog.deleteCustom(teamId)
+                respond(id: id, result: toolText("deleted \(teamId)", structured: AllnighterCLI.jsonString(AllnighterCLI.DeleteAck(deleted: teamId))))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
         case "skills_list":
             let lane = (args["lane"] as? String).flatMap(WorkLane.init(rawValue:))
             respond(id: id, result: toolText("Skill catalog", structured: AllnighterCLI.skillsCatalogJSONString(lane: lane)))
@@ -57,6 +125,56 @@ struct MCPServer {
                 return respondToolError(id: id, code: "SKILL_NOT_FOUND", message: "skillId required")
             }
             respond(id: id, result: toolText(skill.displayName, structured: AllnighterCLI.skillShowJSONString(skill)))
+        case "skills_duplicate":
+            guard let skillId = args["skillId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "skillId required")
+            }
+            do {
+                let skill = try SkillCatalog.duplicateBuiltIn(skillId, name: args["name"] as? String)
+                respond(id: id, result: toolText("duplicated \(skillId)", structured: AllnighterCLI.skillShowJSONString(skill)))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error, skillContext: true)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
+        case "skills_save":
+            guard let skillId = args["skillId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "skillId required")
+            }
+            guard SkillCatalog.get(skillId) != nil else {
+                return respondToolError(id: id, code: "SKILL_NOT_FOUND", message: "unknown skill: \(skillId)")
+            }
+            guard let definition = args["definition"] else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "definition required")
+            }
+            do {
+                let data = try JSONSerialization.data(withJSONObject: definition)
+                let skill = try CoreJSON.decode(Skill.self, from: data)
+                guard skill.id == skillId else {
+                    return respondToolError(id: id, code: "SKILL_INVALID", message: "definition id must match skillId")
+                }
+                try SkillCatalog.saveCustom(skill)
+                respond(id: id, result: toolText("saved \(skillId)", structured: AllnighterCLI.skillShowJSONString(skill)))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error, skillContext: true)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
+        case "skills_delete":
+            guard let skillId = args["skillId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "skillId required")
+            }
+            do {
+                try SkillCatalog.deleteCustom(skillId)
+                respond(id: id, result: toolText("deleted \(skillId)", structured: AllnighterCLI.jsonString(AllnighterCLI.DeleteAck(deleted: skillId))))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error, skillContext: true)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
         case "team_preflight":
             let result = AllnighterCLI.preflight(runtime, args: args)
             let text = result.canStart

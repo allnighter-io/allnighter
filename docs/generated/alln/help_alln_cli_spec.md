@@ -100,6 +100,120 @@ Flags:
 
 Examples: `skills_show_json`.
 
+### `alln teams show`
+
+Show one team definition including worker rows.
+
+Arguments:
+- `team-id` (required) — Team id.
+
+Flags:
+- `--json` — Structured team detail.
+
+Examples: `teams_show_json`.
+
+### `alln teams duplicate`
+
+Duplicate a built-in team into a custom team.
+
+Arguments:
+- `team-id` (required) — Source team id.
+
+Flags:
+- `--name <string>` — Display name for the copy.
+- `--json` — Structured team detail.
+
+Examples: `teams_duplicate_json`.
+
+### `alln teams edit`
+
+Edit a custom team definition (full replacement).
+
+Arguments:
+- `team-id` (required) — Team id.
+
+Flags:
+- `--file <path>` — TeamPreset JSON file.
+- `--json` — Structured team detail.
+
+Examples: `teams_edit_json`.
+
+### `alln teams set-default`
+
+Set the default team for a lane.
+
+Arguments:
+- `team-id` (required) — Team id.
+
+Flags:
+- `--json` — Structured team detail.
+
+Examples: `teams_set_default_json`.
+
+### `alln teams delete`
+
+Delete a custom team.
+
+Arguments:
+- `team-id` (required) — Team id.
+
+Flags:
+- `--json` — Deletion acknowledgement JSON.
+
+Examples: `teams_delete_json`.
+
+### `alln skills duplicate`
+
+Duplicate a built-in skill into a custom skill.
+
+Arguments:
+- `skill-id` (required) — Source skill id.
+
+Flags:
+- `--name <string>` — Display name for the copy.
+- `--json` — Structured skill detail.
+
+Examples: `skills_duplicate_json`.
+
+### `alln skills new`
+
+Create a custom skill.
+
+Flags:
+- `--lane <lane>` — build | design | copy.
+- `--name <string>` — Display name.
+- `--purpose <purpose>` — answer | review | planWriter.
+- `--template-file <path>` — Skill template text file.
+- `--json` — Structured skill detail.
+
+Examples: `skills_new_json`.
+
+### `alln skills edit`
+
+Edit a custom skill definition.
+
+Arguments:
+- `skill-id` (required) — Skill id.
+
+Flags:
+- `--name <string>` — New display name.
+- `--template-file <path>` — Replacement template file.
+- `--json` — Structured skill detail.
+
+Examples: `skills_edit_json`.
+
+### `alln skills delete`
+
+Delete a custom skill.
+
+Arguments:
+- `skill-id` (required) — Skill id.
+
+Flags:
+- `--json` — Deletion acknowledgement JSON.
+
+Examples: `skills_delete_json`.
+
 ### `alln team hello`
 
 Agent bootstrap: readiness + ready teams + next action (quota-free).
@@ -277,7 +391,6 @@ Flags:
 
 ## Commands (named but deferred)
 
-- `alln teams edit` — Edit a custom team definition.
 - `alln models add` — Add/configure a model.
 - `alln work` — Create a work order.
 - `alln pending add` — Queue a Pending item.
@@ -317,6 +430,17 @@ Flags:
 | `RUN_NOT_FOUND` | yes | no | Run `alln history --json`. |
 | `COORDINATOR_UNAVAILABLE` | no | yes | Use foreground CLI or start resident mode when available. |
 | `SKILL_NOT_FOUND` | yes | no | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
+| `TEAM_NOT_FOUND` | yes | no | Run `alln teams --lane <lane> --json` and pick a valid team id. |
+| `TEAM_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in team, then edit the custom copy. |
+| `SKILL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in skill, then edit the custom copy. |
+| `TEAM_ID_COLLISION` | yes | no | Pick a different team id or delete the conflicting custom team. |
+| `SKILL_ID_COLLISION` | yes | no | Pick a different skill id or delete the conflicting custom skill. |
+| `TEAM_INVALID` | yes | no | Fix the team definition and retry `alln teams edit`. |
+| `SKILL_INVALID` | yes | no | Fix the skill definition and retry `alln skills edit`. |
+| `TEAM_DEFAULT_INVALID` | yes | no | Set another default team before deleting or changing the lane default. |
+| `SKILL_IN_USE` | yes | no | Remove the skill from team definitions before deleting. |
+| `SKILL_LANE_MISMATCH` | yes | no | Pick a skill from the same lane as the team. |
+| `CATALOG_ID_INVALID` | yes | no | Use a canonical lowercase id matching the catalog rules. |
 | `JSON_SCHEMA_VIOLATION` | yes | no | Treat as implementation bug; run export-contracts check. |
 | `PERMISSION_REQUIRED` | yes | no | Ask the user for the named permission. |
 | `MCP_CLIENT_UNAPPROVED` | yes | no | Approve or configure the MCP client before retrying. |

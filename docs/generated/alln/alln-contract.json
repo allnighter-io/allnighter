@@ -233,6 +233,290 @@
     },
     {
       "args" : [
+        {
+          "name" : "team-id",
+          "required" : true,
+          "summary" : "Team id."
+        }
+      ],
+      "exampleIds" : [
+        "teams_show_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured team detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "teams show",
+      "outputSchema" : "none",
+      "summary" : "Show one team definition including worker rows."
+    },
+    {
+      "args" : [
+        {
+          "name" : "team-id",
+          "required" : true,
+          "summary" : "Source team id."
+        }
+      ],
+      "exampleIds" : [
+        "teams_duplicate_json"
+      ],
+      "flags" : [
+        {
+          "name" : "name",
+          "summary" : "Display name for the copy.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured team detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "teams duplicate",
+      "outputSchema" : "none",
+      "summary" : "Duplicate a built-in team into a custom team."
+    },
+    {
+      "args" : [
+        {
+          "name" : "team-id",
+          "required" : true,
+          "summary" : "Team id."
+        }
+      ],
+      "exampleIds" : [
+        "teams_edit_json"
+      ],
+      "flags" : [
+        {
+          "name" : "file",
+          "summary" : "TeamPreset JSON file.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured team detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "teams edit",
+      "outputSchema" : "none",
+      "summary" : "Edit a custom team definition (full replacement)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "team-id",
+          "required" : true,
+          "summary" : "Team id."
+        }
+      ],
+      "exampleIds" : [
+        "teams_set_default_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured team detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "teams set-default",
+      "outputSchema" : "none",
+      "summary" : "Set the default team for a lane."
+    },
+    {
+      "args" : [
+        {
+          "name" : "team-id",
+          "required" : true,
+          "summary" : "Team id."
+        }
+      ],
+      "exampleIds" : [
+        "teams_delete_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Deletion acknowledgement JSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "teams delete",
+      "outputSchema" : "none",
+      "summary" : "Delete a custom team."
+    },
+    {
+      "args" : [
+        {
+          "name" : "skill-id",
+          "required" : true,
+          "summary" : "Source skill id."
+        }
+      ],
+      "exampleIds" : [
+        "skills_duplicate_json"
+      ],
+      "flags" : [
+        {
+          "name" : "name",
+          "summary" : "Display name for the copy.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured skill detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills duplicate",
+      "outputSchema" : "none",
+      "summary" : "Duplicate a built-in skill into a custom skill."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+        "skills_new_json"
+      ],
+      "flags" : [
+        {
+          "name" : "lane",
+          "summary" : "build | design | copy.",
+          "takesValue" : true,
+          "valueType" : "lane"
+        },
+        {
+          "name" : "name",
+          "summary" : "Display name.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "purpose",
+          "summary" : "answer | review | planWriter.",
+          "takesValue" : true,
+          "valueType" : "purpose"
+        },
+        {
+          "name" : "template-file",
+          "summary" : "Skill template text file.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured skill detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills new",
+      "outputSchema" : "none",
+      "summary" : "Create a custom skill."
+    },
+    {
+      "args" : [
+        {
+          "name" : "skill-id",
+          "required" : true,
+          "summary" : "Skill id."
+        }
+      ],
+      "exampleIds" : [
+        "skills_edit_json"
+      ],
+      "flags" : [
+        {
+          "name" : "name",
+          "summary" : "New display name.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "template-file",
+          "summary" : "Replacement template file.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured skill detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills edit",
+      "outputSchema" : "none",
+      "summary" : "Edit a custom skill definition."
+    },
+    {
+      "args" : [
+        {
+          "name" : "skill-id",
+          "required" : true,
+          "summary" : "Skill id."
+        }
+      ],
+      "exampleIds" : [
+        "skills_delete_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Deletion acknowledgement JSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills delete",
+      "outputSchema" : "none",
+      "summary" : "Delete a custom skill."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [
@@ -717,24 +1001,6 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "teams edit",
-      "outputSchema" : "none",
-      "summary" : "Edit a custom team definition."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
       "name" : "models add",
       "outputSchema" : "none",
       "summary" : "Add\/configure a model."
@@ -1199,6 +1465,94 @@
       "ruleId" : "skill.not_found"
     },
     {
+      "agentAction" : "Run `alln teams --lane <lane> --json` and pick a valid team id.",
+      "code" : "TEAM_NOT_FOUND",
+      "explain" : "No team matches the given id. List teams for the lane and retry with a valid TeamID.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "team.not_found"
+    },
+    {
+      "agentAction" : "Duplicate the built-in team, then edit the custom copy.",
+      "code" : "TEAM_BUILTIN_IMMUTABLE",
+      "explain" : "Built-in teams cannot be edited or deleted. Duplicate to a custom team and edit that copy.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "team.builtin.immutable"
+    },
+    {
+      "agentAction" : "Duplicate the built-in skill, then edit the custom copy.",
+      "code" : "SKILL_BUILTIN_IMMUTABLE",
+      "explain" : "Built-in skills cannot be edited or deleted. Duplicate to a custom skill and edit that copy.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "skill.builtin.immutable"
+    },
+    {
+      "agentAction" : "Pick a different team id or delete the conflicting custom team.",
+      "code" : "TEAM_ID_COLLISION",
+      "explain" : "A team with this id already exists.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "team.id.collision"
+    },
+    {
+      "agentAction" : "Pick a different skill id or delete the conflicting custom skill.",
+      "code" : "SKILL_ID_COLLISION",
+      "explain" : "A skill with this id already exists.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "skill.id.collision"
+    },
+    {
+      "agentAction" : "Fix the team definition and retry `alln teams edit`.",
+      "code" : "TEAM_INVALID",
+      "explain" : "The team definition is invalid (missing rows, unknown skills, or bad effort\/output kind).",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "team.invalid"
+    },
+    {
+      "agentAction" : "Fix the skill definition and retry `alln skills edit`.",
+      "code" : "SKILL_INVALID",
+      "explain" : "The skill definition is invalid (empty template, missing lane, or unknown purpose).",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "skill.invalid"
+    },
+    {
+      "agentAction" : "Set another default team before deleting or changing the lane default.",
+      "code" : "TEAM_DEFAULT_INVALID",
+      "explain" : "The default-team change would leave a lane without a valid default.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "team.catalog.default.invalid"
+    },
+    {
+      "agentAction" : "Remove the skill from team definitions before deleting.",
+      "code" : "SKILL_IN_USE",
+      "explain" : "The skill is still referenced by one or more team definitions.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "skill.in_use"
+    },
+    {
+      "agentAction" : "Pick a skill from the same lane as the team.",
+      "code" : "SKILL_LANE_MISMATCH",
+      "explain" : "A team row references a skill from another lane.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "skill.lane.mismatch"
+    },
+    {
+      "agentAction" : "Use a canonical lowercase id matching the catalog rules.",
+      "code" : "CATALOG_ID_INVALID",
+      "explain" : "The catalog id fails canonical ID rules.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "catalog.id.invalid"
+    },
+    {
       "agentAction" : "Treat as implementation bug; run export-contracts check.",
       "code" : "JSON_SCHEMA_VIOLATION",
       "explain" : "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check.",
@@ -1413,6 +1767,88 @@
       "summary" : "Lane-scoped team catalog summary (no prompt templates)."
     },
     {
+      "command" : "teams show",
+      "name" : "teams_show",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "teamId",
+          "required" : true,
+          "summary" : "Team id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "One team definition including worker rows."
+    },
+    {
+      "command" : "teams duplicate",
+      "name" : "teams_duplicate",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "teamId",
+          "required" : true,
+          "summary" : "Source team id.",
+          "type" : "string"
+        },
+        {
+          "name" : "name",
+          "required" : false,
+          "summary" : "Display name for the copy (optional).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Duplicate a built-in team into a custom team."
+    },
+    {
+      "command" : "teams edit",
+      "name" : "teams_save",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "teamId",
+          "required" : true,
+          "summary" : "Team id.",
+          "type" : "string"
+        },
+        {
+          "name" : "definition",
+          "required" : true,
+          "summary" : "TeamPreset JSON object.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Save a custom team definition (full replacement)."
+    },
+    {
+      "command" : "teams set-default",
+      "name" : "teams_set_default",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "teamId",
+          "required" : true,
+          "summary" : "Team id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Set the default team for a lane."
+    },
+    {
+      "command" : "teams delete",
+      "name" : "teams_delete",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "teamId",
+          "required" : true,
+          "summary" : "Team id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Delete a custom team."
+    },
+    {
       "command" : "skills",
       "name" : "skills_list",
       "outputSchema" : "none",
@@ -1439,6 +1875,60 @@
         }
       ],
       "summary" : "One skill definition including template."
+    },
+    {
+      "command" : "skills duplicate",
+      "name" : "skills_duplicate",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "skillId",
+          "required" : true,
+          "summary" : "Source skill id.",
+          "type" : "string"
+        },
+        {
+          "name" : "name",
+          "required" : false,
+          "summary" : "Display name for the copy (optional).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Duplicate a built-in skill into a custom skill."
+    },
+    {
+      "command" : "skills edit",
+      "name" : "skills_save",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "skillId",
+          "required" : true,
+          "summary" : "Skill id.",
+          "type" : "string"
+        },
+        {
+          "name" : "definition",
+          "required" : true,
+          "summary" : "Skill JSON object.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Save a custom skill definition (full replacement)."
+    },
+    {
+      "command" : "skills delete",
+      "name" : "skills_delete",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "skillId",
+          "required" : true,
+          "summary" : "Skill id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Delete a custom skill."
     },
     {
       "command" : "team preflight",

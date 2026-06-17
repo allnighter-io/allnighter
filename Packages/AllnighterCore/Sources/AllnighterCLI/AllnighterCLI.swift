@@ -14,8 +14,17 @@ struct AllnighterCLI {
 
         let runtime = ToolRuntime()
         switch command {
+        case "teams" where args.first == "show": runTeamsShow(Array(args.dropFirst()), runtime)
+        case "teams" where args.first == "duplicate": runTeamsDuplicate(Array(args.dropFirst()), runtime)
+        case "teams" where args.first == "edit": runTeamsEdit(Array(args.dropFirst()), runtime)
+        case "teams" where args.first == "set-default": runTeamsSetDefault(Array(args.dropFirst()), runtime)
+        case "teams" where args.first == "delete": runTeamsDelete(Array(args.dropFirst()), runtime)
         case "teams": runTeamCatalog(args, runtime)
         case "skills" where args.first == "show": runSkillShow(Array(args.dropFirst()), runtime)
+        case "skills" where args.first == "duplicate": runSkillsDuplicate(Array(args.dropFirst()), runtime)
+        case "skills" where args.first == "new": runSkillsNew(Array(args.dropFirst()), runtime)
+        case "skills" where args.first == "edit": runSkillsEdit(Array(args.dropFirst()), runtime)
+        case "skills" where args.first == "delete": runSkillsDelete(Array(args.dropFirst()), runtime)
         case "skills": runSkillCatalog(args, runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
@@ -140,6 +149,31 @@ struct AllnighterCLI {
         struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
         let env = ErrorEnvelope(code: code, message: message, requiresManual: code == "RUN_NOT_FOUND", retryable: false)
         print(jsonString(Failure(error: env)))
+    }
+
+    static func emitCatalogError(_ error: CatalogError, skillContext: Bool = false) -> Never {
+        let (code, message) = catalogErrorEnvelope(error, skillContext: skillContext)
+        emitFailure(code: code, message: message)
+        exit(1)
+    }
+
+    static func catalogErrorEnvelope(_ error: CatalogError, skillContext: Bool = false) -> (code: String, message: String) {
+        switch error {
+        case .teamNotFound: return ("TEAM_NOT_FOUND", "team not found")
+        case .skillNotFound: return ("SKILL_NOT_FOUND", "skill not found")
+        case .builtInImmutable:
+            return (skillContext ? "SKILL_BUILTIN_IMMUTABLE" : "TEAM_BUILTIN_IMMUTABLE", "built-in catalog entry cannot be changed")
+        case .idCollision:
+            return (skillContext ? "SKILL_ID_COLLISION" : "TEAM_ID_COLLISION", "catalog id already exists")
+        case .idInvalid: return ("CATALOG_ID_INVALID", "catalog id is invalid")
+        case .teamInvalid(let detail): return ("TEAM_INVALID", detail)
+        case .skillInvalid(let detail): return ("SKILL_INVALID", detail)
+        case .skillLaneMismatch(let skillId, let teamId):
+            return ("SKILL_LANE_MISMATCH", "skill \(skillId) is not in the same lane as team \(teamId)")
+        case .skillInUse(let ids):
+            return ("SKILL_IN_USE", "skill is referenced by team(s): \(ids.joined(separator: ", "))")
+        case .teamDefaultInvalid(let detail): return ("TEAM_DEFAULT_INVALID", detail)
+        }
     }
 
     static func runModels(_ args: [String], _ runtime: ToolRuntime) async {
@@ -512,6 +546,215 @@ struct AllnighterCLI {
             createdAt: skill.createdAt.map { iso.string(from: $0) },
             updatedAt: skill.updatedAt.map { iso.string(from: $0) }
         ))
+    }
+
+    // MARK: - Catalog mutation (teams)
+
+    /// `alln teams show <team-id> [--json]` — one team including worker rows.
+    static func runTeamsShow(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams show <team-id> [--json]"); exit(2)
+        }
+        guard let team = TeamCatalog.get(id) else {
+            emitFailure(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)"); exit(2)
+        }
+        if opts.flag("json") { print(teamShowJSONString(team)) }
+        else {
+            print("\(team.id)\t\(team.displayName)\t\(team.lane.rawValue)/\(team.outputKind.rawValue)")
+            for row in team.workerSpecs {
+                print("  \(row.id)\t\(row.skillId)\t\(row.purpose.rawValue)\t\(row.minEffort.rawValue)")
+            }
+        }
+    }
+
+    static func teamShowJSONString(_ team: TeamPreset) -> String {
+        struct WorkerRow: Encodable {
+            let id, skillId, purpose, minEffort: String
+            let count: Int
+            let required: Bool
+        }
+        struct Detail: Encodable {
+            let schemaVersion = 1
+            let contractVersion: String
+            let id, displayName, lane, outputKind, defaultEffort: String
+            let builtIn, isDefaultForLane: Bool
+            let description: String
+            let workerSpecs: [WorkerRow]
+        }
+        let rows = team.workerSpecs.map {
+            WorkerRow(id: $0.id, skillId: $0.skillId, purpose: $0.purpose.rawValue,
+                      minEffort: $0.minEffort.rawValue, count: $0.count, required: $0.required)
+        }
+        return jsonString(Detail(
+            contractVersion: ContractRegistry.contractVersion,
+            id: team.id, displayName: team.displayName, lane: team.lane.rawValue,
+            outputKind: team.outputKind.rawValue, defaultEffort: team.defaultEffort.rawValue,
+            builtIn: team.builtIn, isDefaultForLane: team.isDefaultForLane,
+            description: team.description, workerSpecs: rows
+        ))
+    }
+
+    /// `alln teams duplicate <team-id> [--name <displayName>] [--json]`
+    static func runTeamsDuplicate(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams duplicate <team-id> [--name <name>] [--json]"); exit(2)
+        }
+        do {
+            let team = try TeamCatalog.duplicateBuiltIn(id, name: opts.value("name"))
+            if opts.flag("json") { print(teamShowJSONString(team)) }
+            else { print("duplicated \(id) → \(team.id)") }
+        } catch let error as CatalogError { emitCatalogError(error) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    /// `alln teams edit <team-id> [--file <path>] [--json]` — full replacement save.
+    static func runTeamsEdit(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams edit <team-id> [--file <path>] [--json]"); exit(2)
+        }
+        guard TeamCatalog.get(id) != nil else {
+            emitFailure(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)"); exit(2)
+        }
+        do {
+            let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id)
+            try TeamCatalog.saveCustom(team)
+            if opts.flag("json") { print(teamShowJSONString(team)) }
+            else { print("saved \(team.id)") }
+        } catch let error as CatalogError { emitCatalogError(error) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    /// `alln teams set-default <team-id> [--json]`
+    static func runTeamsSetDefault(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams set-default <team-id> [--json]"); exit(2)
+        }
+        do {
+            let team = try TeamCatalog.setDefault(id)
+            if opts.flag("json") { print(teamShowJSONString(team)) }
+            else { print("default for \(team.lane.rawValue) → \(team.id)") }
+        } catch let error as CatalogError { emitCatalogError(error) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    /// `alln teams delete <team-id> [--json]`
+    static func runTeamsDelete(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams delete <team-id> [--json]"); exit(2)
+        }
+        do {
+            try TeamCatalog.deleteCustom(id)
+            if opts.flag("json") { print(jsonString(DeleteAck(deleted: id))) }
+            else { print("deleted \(id)") }
+        } catch let error as CatalogError { emitCatalogError(error) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    static func loadTeamDefinition(from path: String?, expectedId: TeamID) throws -> TeamPreset {
+        guard let path else {
+            throw CatalogError.teamInvalid("--file is required for teams edit (full replacement)")
+        }
+        let url = URL(fileURLWithPath: path)
+        let data = try Data(contentsOf: url)
+        if let envelope = try? CoreJSON.decode(CatalogEnvelope<TeamPreset>.self, from: data) {
+            guard envelope.definition.id == expectedId else {
+                throw CatalogError.teamInvalid("file team id \(envelope.definition.id) does not match \(expectedId)")
+            }
+            return envelope.definition
+        }
+        let team = try CoreJSON.decode(TeamPreset.self, from: data)
+        guard team.id == expectedId else {
+            throw CatalogError.teamInvalid("file team id \(team.id) does not match \(expectedId)")
+        }
+        return team
+    }
+
+    // MARK: - Catalog mutation (skills)
+
+    /// `alln skills duplicate <skill-id> [--name <displayName>] [--json]`
+    static func runSkillsDuplicate(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills duplicate <skill-id> [--name <name>] [--json]"); exit(2)
+        }
+        do {
+            let skill = try SkillCatalog.duplicateBuiltIn(id, name: opts.value("name"))
+            if opts.flag("json") { print(skillShowJSONString(skill)) }
+            else { print("duplicated \(id) → \(skill.id)") }
+        } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    /// `alln skills new --lane <lane> --name <name> --purpose <purpose> [--template-file <path>] [--json]`
+    static func runSkillsNew(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let laneRaw = opts.value("lane"), let lane = WorkLane(rawValue: laneRaw) else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills new --lane build|design|copy --name <name> --purpose answer|review|planWriter [--template-file <path>] [--json]"); exit(2)
+        }
+        guard let name = opts.value("name"), !name.isEmpty else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "--name is required"); exit(2)
+        }
+        guard let purposeRaw = opts.value("purpose"), let purpose = SkillPurpose(rawValue: purposeRaw) else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "--purpose must be answer, review, or planWriter"); exit(2)
+        }
+        let template: String
+        do { template = try loadTemplateText(opts.value("template-file")) }
+        catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        do {
+            let skill = try SkillCatalog.createCustom(lane: lane, name: name, purpose: purpose, template: template)
+            if opts.flag("json") { print(skillShowJSONString(skill)) }
+            else { print("created \(skill.id)") }
+        } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    /// `alln skills edit <skill-id> [--name <displayName>] [--template-file <path>] [--json]`
+    static func runSkillsEdit(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills edit <skill-id> [--name <name>] [--template-file <path>] [--json]"); exit(2)
+        }
+        guard var skill = SkillCatalog.get(id) else {
+            emitFailure(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)"); exit(2)
+        }
+        if let name = opts.value("name") { skill.displayName = name }
+        do {
+            if let path = opts.value("template-file") { skill.template = try loadTemplateText(path) }
+            try SkillCatalog.saveCustom(skill)
+            if opts.flag("json") { print(skillShowJSONString(skill)) }
+            else { print("saved \(skill.id)") }
+        } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    /// `alln skills delete <skill-id> [--json]`
+    static func runSkillsDelete(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills delete <skill-id> [--json]"); exit(2)
+        }
+        do {
+            try SkillCatalog.deleteCustom(id)
+            if opts.flag("json") { print(jsonString(DeleteAck(deleted: id))) }
+            else { print("deleted \(id)") }
+        } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
+        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+    }
+
+    static func loadTemplateText(_ path: String?) throws -> String {
+        guard let path else { return "You are a helpful specialist for this lane." }
+        return try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
+    }
+
+    struct DeleteAck: Encodable {
+        let schemaVersion = 1
+        let deleted: String
     }
 
     /// The agent bootstrap snapshot JSON — shared by `alln team hello` and the MCP

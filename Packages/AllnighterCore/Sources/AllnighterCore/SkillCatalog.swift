@@ -115,6 +115,26 @@ public enum SkillCatalog {
         try CatalogFileIO.delete(id: id, root: CatalogRoots.skills)
     }
 
+    @discardableResult
+    public static func createCustom(
+        lane: WorkLane, name: String, purpose: SkillPurpose, template: String
+    ) throws -> SkillDefinition {
+        guard !template.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw CatalogError.skillInvalid("template must not be empty")
+        }
+        var newId = CatalogIDGenerator.customID(lane: lane, displayName: name)
+        while get(newId) != nil {
+            newId = CatalogIDGenerator.customID(lane: lane, displayName: name, suffix: String(Int.random(in: 1000...9999)))
+        }
+        let now = Date()
+        let skill = Skill(
+            id: newId, displayName: name, lane: lane, purpose: purpose, template: template,
+            builtIn: false, createdAt: now, updatedAt: now
+        )
+        try saveCustom(skill)
+        return skill
+    }
+
     private static func teamsReferencingSkill(_ skillId: SkillID) -> [TeamID] {
         TeamCatalog.all.compactMap { team in
             let rowHit = team.workerSpecs.contains { $0.skillId == skillId }

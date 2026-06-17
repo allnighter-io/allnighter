@@ -376,7 +376,13 @@ public enum TeamCatalog {
     }
 
     public static func defaultTeam(for lane: WorkLane) -> TeamDefinition? {
-        all.defaultTeam(for: lane)
+        let inLane = list(lane: lane)
+        if let customDefault = inLane.first(where: { !$0.builtIn && $0.isDefaultForLane }) {
+            return customDefault
+        }
+        return inLane.first { $0.isDefaultForLane }
+            ?? inLane.first { $0.builtIn && $0.id == "\(lane.rawValue)_core" }
+            ?? inLane.first
     }
 
     @discardableResult
@@ -414,10 +420,35 @@ public enum TeamCatalog {
 
     public static func deleteCustom(_ id: TeamID) throws {
         if BuiltInTeams.team(id) != nil { throw CatalogError.builtInImmutable }
-        guard CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) != nil else {
+        guard let existing = CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) else {
             throw CatalogError.teamNotFound
         }
+        if existing.isDefaultForLane {
+            let remaining = list(lane: existing.lane).filter { $0.id != id }
+            if remaining.defaultTeam(for: existing.lane) == nil {
+                throw CatalogError.teamDefaultInvalid("deleting \(id) would leave \(existing.lane.rawValue) without a default team")
+            }
+        }
         try CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
+    }
+
+    @discardableResult
+    public static func setDefault(_ id: TeamID) throws -> TeamDefinition {
+        guard let team = get(id) else { throw CatalogError.teamNotFound }
+        try clearCustomDefaultFlags(in: team.lane)
+        if team.builtIn { return team }
+        var custom = team
+        custom.isDefaultForLane = true
+        try saveCustom(custom)
+        return custom
+    }
+
+    private static func clearCustomDefaultFlags(in lane: WorkLane) throws {
+        for var custom in CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) {
+            guard custom.lane == lane, custom.isDefaultForLane else { continue }
+            custom.isDefaultForLane = false
+            try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.teams)
+        }
     }
 
     private static func mergeCustom(_ customs: [TeamPreset]) -> [TeamPreset] {

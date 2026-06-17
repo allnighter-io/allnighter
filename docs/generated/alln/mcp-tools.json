@@ -28,6 +28,88 @@
     "summary" : "Lane-scoped team catalog summary (no prompt templates)."
   },
   {
+    "command" : "teams show",
+    "name" : "teams_show",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "teamId",
+        "required" : true,
+        "summary" : "Team id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "One team definition including worker rows."
+  },
+  {
+    "command" : "teams duplicate",
+    "name" : "teams_duplicate",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "teamId",
+        "required" : true,
+        "summary" : "Source team id.",
+        "type" : "string"
+      },
+      {
+        "name" : "name",
+        "required" : false,
+        "summary" : "Display name for the copy (optional).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Duplicate a built-in team into a custom team."
+  },
+  {
+    "command" : "teams edit",
+    "name" : "teams_save",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "teamId",
+        "required" : true,
+        "summary" : "Team id.",
+        "type" : "string"
+      },
+      {
+        "name" : "definition",
+        "required" : true,
+        "summary" : "TeamPreset JSON object.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Save a custom team definition (full replacement)."
+  },
+  {
+    "command" : "teams set-default",
+    "name" : "teams_set_default",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "teamId",
+        "required" : true,
+        "summary" : "Team id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Set the default team for a lane."
+  },
+  {
+    "command" : "teams delete",
+    "name" : "teams_delete",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "teamId",
+        "required" : true,
+        "summary" : "Team id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Delete a custom team."
+  },
+  {
     "command" : "skills",
     "name" : "skills_list",
     "outputSchema" : "none",
@@ -54,6 +136,60 @@
       }
     ],
     "summary" : "One skill definition including template."
+  },
+  {
+    "command" : "skills duplicate",
+    "name" : "skills_duplicate",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "skillId",
+        "required" : true,
+        "summary" : "Source skill id.",
+        "type" : "string"
+      },
+      {
+        "name" : "name",
+        "required" : false,
+        "summary" : "Display name for the copy (optional).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Duplicate a built-in skill into a custom skill."
+  },
+  {
+    "command" : "skills edit",
+    "name" : "skills_save",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "skillId",
+        "required" : true,
+        "summary" : "Skill id.",
+        "type" : "string"
+      },
+      {
+        "name" : "definition",
+        "required" : true,
+        "summary" : "Skill JSON object.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Save a custom skill definition (full replacement)."
+  },
+  {
+    "command" : "skills delete",
+    "name" : "skills_delete",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "skillId",
+        "required" : true,
+        "summary" : "Skill id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Delete a custom skill."
   },
   {
     "command" : "team preflight",

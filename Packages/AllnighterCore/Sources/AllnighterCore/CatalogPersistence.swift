@@ -31,6 +31,7 @@ public enum CatalogError: Error, Equatable, Sendable {
     case skillInvalid(String)
     case skillLaneMismatch(skillId: SkillID, teamId: TeamID)
     case skillInUse(referencingTeamIDs: [TeamID])
+    case teamDefaultInvalid(String)
 }
 
 // MARK: - ID rules

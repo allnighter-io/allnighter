@@ -26,9 +26,29 @@ public extension ContractRegistry {
                     params: [.init("agent", summary: "Calling agent id for provenance (advisory only).")]),
         MCPToolSpec("teams_list", command: "teams", summary: "Lane-scoped team catalog summary (no prompt templates).",
                     params: [.init("lane", summary: "Filter to one lane: build|design|copy (optional).")]),
+        MCPToolSpec("teams_show", command: "teams show", summary: "One team definition including worker rows.",
+                    params: [.init("teamId", required: true, summary: "Team id.")]),
+        MCPToolSpec("teams_duplicate", command: "teams duplicate", summary: "Duplicate a built-in team into a custom team.",
+                    params: [.init("teamId", required: true, summary: "Source team id."),
+                             .init("name", summary: "Display name for the copy (optional).")]),
+        MCPToolSpec("teams_save", command: "teams edit", summary: "Save a custom team definition (full replacement).",
+                    params: [.init("teamId", required: true, summary: "Team id."),
+                             .init("definition", required: true, summary: "TeamPreset JSON object.")]),
+        MCPToolSpec("teams_set_default", command: "teams set-default", summary: "Set the default team for a lane.",
+                    params: [.init("teamId", required: true, summary: "Team id.")]),
+        MCPToolSpec("teams_delete", command: "teams delete", summary: "Delete a custom team.",
+                    params: [.init("teamId", required: true, summary: "Team id.")]),
         MCPToolSpec("skills_list", command: "skills", summary: "Lane-scoped skill catalog summary (no templates).",
                     params: [.init("lane", summary: "Filter to one lane: build|design|copy (optional).")]),
         MCPToolSpec("skills_show", command: "skills show", summary: "One skill definition including template.",
+                    params: [.init("skillId", required: true, summary: "Skill id.")]),
+        MCPToolSpec("skills_duplicate", command: "skills duplicate", summary: "Duplicate a built-in skill into a custom skill.",
+                    params: [.init("skillId", required: true, summary: "Source skill id."),
+                             .init("name", summary: "Display name for the copy (optional).")]),
+        MCPToolSpec("skills_save", command: "skills edit", summary: "Save a custom skill definition (full replacement).",
+                    params: [.init("skillId", required: true, summary: "Skill id."),
+                             .init("definition", required: true, summary: "Skill JSON object.")]),
+        MCPToolSpec("skills_delete", command: "skills delete", summary: "Delete a custom skill.",
                     params: [.init("skillId", required: true, summary: "Skill id.")]),
         MCPToolSpec("team_preflight", command: "team preflight", summary: "Validate lane/team/effort against the ready bench WITHOUT running or spending quota; shows resolved/blocked workers and self-fusion.",
                     params: [.init("lane", summary: "build|design|copy."),
@@ -142,6 +162,72 @@ public extension ContractRegistry {
             exampleIds: ["skills_show_json"]
         ),
         CommandSpec(
+            "teams show", summary: "Show one team definition including worker rows.", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "Team id.")],
+            flags: [FlagSpec("json", summary: "Structured team detail.")],
+            exampleIds: ["teams_show_json"]
+        ),
+        CommandSpec(
+            "teams duplicate", summary: "Duplicate a built-in team into a custom team.", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "Source team id.")],
+            flags: [FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name for the copy."),
+                    FlagSpec("json", summary: "Structured team detail.")],
+            exampleIds: ["teams_duplicate_json"]
+        ),
+        CommandSpec(
+            "teams edit", summary: "Edit a custom team definition (full replacement).", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "Team id.")],
+            flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "TeamPreset JSON file."),
+                    FlagSpec("json", summary: "Structured team detail.")],
+            exampleIds: ["teams_edit_json"]
+        ),
+        CommandSpec(
+            "teams set-default", summary: "Set the default team for a lane.", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "Team id.")],
+            flags: [FlagSpec("json", summary: "Structured team detail.")],
+            exampleIds: ["teams_set_default_json"]
+        ),
+        CommandSpec(
+            "teams delete", summary: "Delete a custom team.", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "Team id.")],
+            flags: [FlagSpec("json", summary: "Deletion acknowledgement JSON.")],
+            exampleIds: ["teams_delete_json"]
+        ),
+        CommandSpec(
+            "skills duplicate", summary: "Duplicate a built-in skill into a custom skill.", milestone: .m1,
+            args: [ArgSpec("skill-id", required: true, summary: "Source skill id.")],
+            flags: [FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name for the copy."),
+                    FlagSpec("json", summary: "Structured skill detail.")],
+            exampleIds: ["skills_duplicate_json"]
+        ),
+        CommandSpec(
+            "skills new", summary: "Create a custom skill.", milestone: .m1,
+            flags: [
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
+                FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name."),
+                FlagSpec("purpose", takesValue: true, valueType: "purpose", summary: "answer | review | planWriter."),
+                FlagSpec("template-file", takesValue: true, valueType: "path", summary: "Skill template text file."),
+                FlagSpec("json", summary: "Structured skill detail."),
+            ],
+            exampleIds: ["skills_new_json"]
+        ),
+        CommandSpec(
+            "skills edit", summary: "Edit a custom skill definition.", milestone: .m1,
+            args: [ArgSpec("skill-id", required: true, summary: "Skill id.")],
+            flags: [
+                FlagSpec("name", takesValue: true, valueType: "string", summary: "New display name."),
+                FlagSpec("template-file", takesValue: true, valueType: "path", summary: "Replacement template file."),
+                FlagSpec("json", summary: "Structured skill detail."),
+            ],
+            exampleIds: ["skills_edit_json"]
+        ),
+        CommandSpec(
+            "skills delete", summary: "Delete a custom skill.", milestone: .m1,
+            args: [ArgSpec("skill-id", required: true, summary: "Skill id.")],
+            flags: [FlagSpec("json", summary: "Deletion acknowledgement JSON.")],
+            exampleIds: ["skills_delete_json"]
+        ),
+        CommandSpec(
             "team hello", summary: "Agent bootstrap: readiness + ready teams + next action (quota-free).", milestone: .m1,
             outputSchema: .none
         ),
@@ -253,7 +339,6 @@ public extension ContractRegistry {
     // MARK: - Commands (named but deferred past M1)
 
     static let deferredCommands: [CommandSpec] = [
-        CommandSpec("teams edit", summary: "Edit a custom team definition.", milestone: .deferred),
         CommandSpec("models add", summary: "Add/configure a model.", milestone: .deferred),
         CommandSpec("work", summary: "Create a work order.", milestone: .deferred),
         CommandSpec("pending add", summary: "Queue a Pending item.", milestone: .deferred),
@@ -293,6 +378,17 @@ public extension ContractRegistry {
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
         ErrorSpec("COORDINATOR_UNAVAILABLE", ruleId: "coordinator.unavailable", agentAction: "Use foreground CLI or start resident mode when available.", requiresManual: false, retryable: true, explain: "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available."),
         ErrorSpec("SKILL_NOT_FOUND", ruleId: "skill.not_found", agentAction: "Run `alln skills --lane <lane> --json` and pick a valid skill id.", requiresManual: true, retryable: false, explain: "No skill matches the given id. List skills for the lane and retry with a valid SkillID."),
+        ErrorSpec("TEAM_NOT_FOUND", ruleId: "team.not_found", agentAction: "Run `alln teams --lane <lane> --json` and pick a valid team id.", requiresManual: true, retryable: false, explain: "No team matches the given id. List teams for the lane and retry with a valid TeamID."),
+        ErrorSpec("TEAM_BUILTIN_IMMUTABLE", ruleId: "team.builtin.immutable", agentAction: "Duplicate the built-in team, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in teams cannot be edited or deleted. Duplicate to a custom team and edit that copy."),
+        ErrorSpec("SKILL_BUILTIN_IMMUTABLE", ruleId: "skill.builtin.immutable", agentAction: "Duplicate the built-in skill, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in skills cannot be edited or deleted. Duplicate to a custom skill and edit that copy."),
+        ErrorSpec("TEAM_ID_COLLISION", ruleId: "team.id.collision", agentAction: "Pick a different team id or delete the conflicting custom team.", requiresManual: true, retryable: false, explain: "A team with this id already exists."),
+        ErrorSpec("SKILL_ID_COLLISION", ruleId: "skill.id.collision", agentAction: "Pick a different skill id or delete the conflicting custom skill.", requiresManual: true, retryable: false, explain: "A skill with this id already exists."),
+        ErrorSpec("TEAM_INVALID", ruleId: "team.invalid", agentAction: "Fix the team definition and retry `alln teams edit`.", requiresManual: true, retryable: false, explain: "The team definition is invalid (missing rows, unknown skills, or bad effort/output kind)."),
+        ErrorSpec("SKILL_INVALID", ruleId: "skill.invalid", agentAction: "Fix the skill definition and retry `alln skills edit`.", requiresManual: true, retryable: false, explain: "The skill definition is invalid (empty template, missing lane, or unknown purpose)."),
+        ErrorSpec("TEAM_DEFAULT_INVALID", ruleId: "team.catalog.default.invalid", agentAction: "Set another default team before deleting or changing the lane default.", requiresManual: true, retryable: false, explain: "The default-team change would leave a lane without a valid default."),
+        ErrorSpec("SKILL_IN_USE", ruleId: "skill.in_use", agentAction: "Remove the skill from team definitions before deleting.", requiresManual: true, retryable: false, explain: "The skill is still referenced by one or more team definitions."),
+        ErrorSpec("SKILL_LANE_MISMATCH", ruleId: "skill.lane.mismatch", agentAction: "Pick a skill from the same lane as the team.", requiresManual: true, retryable: false, explain: "A team row references a skill from another lane."),
+        ErrorSpec("CATALOG_ID_INVALID", ruleId: "catalog.id.invalid", agentAction: "Use a canonical lowercase id matching the catalog rules.", requiresManual: true, retryable: false, explain: "The catalog id fails canonical ID rules."),
         ErrorSpec("JSON_SCHEMA_VIOLATION", ruleId: "json.schema.violation", agentAction: "Treat as implementation bug; run export-contracts check.", requiresManual: true, retryable: false, explain: "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check."),
         ErrorSpec("PERMISSION_REQUIRED", ruleId: "permission.required", agentAction: "Ask the user for the named permission.", requiresManual: true, retryable: false, explain: "The action needs a user-granted permission that is not present. Request the named permission before retrying."),
         ErrorSpec("MCP_CLIENT_UNAPPROVED", ruleId: "mcp.client.unapproved", agentAction: "Approve or configure the MCP client before retrying.", requiresManual: true, retryable: false, explain: "The calling MCP client is not approved. Approve or configure it, then retry."),
