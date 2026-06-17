@@ -28,7 +28,7 @@ final class ThreadStoreTests: XCTestCase {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        try store.save(thread("a", updatedAt: t0))
+        try store.saveForImport(thread("a", updatedAt: t0))
         let loaded = store.get("a")
         XCTAssertEqual(loaded?.title, "Thread a")
         XCTAssertNil(store.get("missing"))
@@ -40,7 +40,7 @@ final class ThreadStoreTests: XCTestCase {
 
         var t = thread("a", updatedAt: t0)
         t.turns = [userTurn("u1", threadId: "a")]
-        let folder = try store.save(t)
+        let folder = try store.saveForImport(t)
         let transcript = try String(contentsOf: folder.appendingPathComponent("transcript.md"), encoding: .utf8)
         XCTAssertTrue(transcript.contains("# Thread a"))
         XCTAssertTrue(transcript.contains("hello"))
@@ -50,8 +50,8 @@ final class ThreadStoreTests: XCTestCase {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        try store.save(thread("old", updatedAt: t0))
-        try store.save(thread("new", updatedAt: t1))
+        try store.saveForImport(thread("old", updatedAt: t0))
+        try store.saveForImport(thread("new", updatedAt: t1))
         XCTAssertEqual(store.list().map(\.id), ["new", "old"])
     }
 
@@ -59,7 +59,7 @@ final class ThreadStoreTests: XCTestCase {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        try store.save(thread("a", updatedAt: t0))
+        try store.saveForImport(thread("a", updatedAt: t0))
         // Turn carries a stale threadId; append normalizes it.
         let stray = ThreadTurn(id: "u1", threadId: "WRONG", kind: .userMessage,
                                status: .done, createdAt: t0, author: .user, text: "hi")
@@ -73,7 +73,7 @@ final class ThreadStoreTests: XCTestCase {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        try store.save(thread("a", updatedAt: t0))
+        try store.saveForImport(thread("a", updatedAt: t0))
         let running = ThreadTurn(id: "w1", threadId: "a", kind: .workerChat, status: .running,
                                  createdAt: t0, author: .worker, workerId: "model_opus")
         try store.append(running, toThreadId: "a", now: t0)
@@ -90,7 +90,7 @@ final class ThreadStoreTests: XCTestCase {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        try store.save(thread("a", updatedAt: t0))
+        try store.saveForImport(thread("a", updatedAt: t0))
         let done = ThreadTurn(id: "w1", threadId: "a", kind: .workerChat, status: .done,
                               createdAt: t0, author: .worker, text: "x", workerId: "model_opus")
         try store.append(done, toThreadId: "a", now: t0)
@@ -106,7 +106,7 @@ final class ThreadStoreTests: XCTestCase {
     func testUpdateMissingTurnThrows() throws {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
-        try store.save(thread("a", updatedAt: t0))
+        try store.saveForImport(thread("a", updatedAt: t0))
         let ghost = userTurn("ghost", threadId: "a")
         XCTAssertThrowsError(try store.update(ghost, inThreadId: "a", now: t1)) { error in
             XCTAssertEqual(error as? ThreadStoreError, .turnNotFound("ghost"))
@@ -136,7 +136,7 @@ final class ThreadStoreTests: XCTestCase {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        try store.save(thread("a", updatedAt: t0))
+        try store.saveForImport(thread("a", updatedAt: t0))
         try store.append(userTurn("u1", threadId: "a"), toThreadId: "a", now: t0)
         XCTAssertThrowsError(try store.append(userTurn("u1", threadId: "a"), toThreadId: "a", now: t1)) { error in
             XCTAssertEqual(error as? ThreadStoreError, .duplicateTurnId("u1"))
@@ -162,15 +162,87 @@ final class ThreadStoreTests: XCTestCase {
         var legacy = try Fixtures.thread(.threadChat)
         XCTAssertEqual(legacy.formatVersion, 0)
         legacy.id = "legacy"
-        try store.save(legacy)
+        try store.saveForImport(legacy)
         XCTAssertEqual(store.get("legacy")?.formatVersion, WorkThread.currentFormatVersion)
+    }
+
+    func testArchiveThreadPreservesUpdatedAtAndClearsPin() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var seeded = thread("a", updatedAt: t0)
+        seeded.pinnedAt = t0
+        try store.saveForImport(seeded)
+        let archived = try store.archiveThread(threadId: "a")
+        XCTAssertEqual(archived.status, .archived)
+        XCTAssertNil(archived.pinnedAt)
+        XCTAssertEqual(archived.updatedAt, t0)
+        XCTAssertEqual(store.get("a")?.updatedAt, t0)
+    }
+
+    func testRenameThreadPreservesUpdatedAt() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try store.saveForImport(thread("a", updatedAt: t0))
+        let renamed = try store.renameThread(threadId: "a", title: "Renamed")
+        XCTAssertEqual(renamed.title, "Renamed")
+        XCTAssertEqual(renamed.updatedAt, t0)
+        XCTAssertEqual(store.list().map(\.id), ["a"])
+    }
+
+    func testRenameThreadRejectsEmptyTitle() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try store.saveForImport(thread("a", updatedAt: t0))
+        XCTAssertThrowsError(try store.renameThread(threadId: "a", title: "   ")) { error in
+            XCTAssertEqual(error as? ThreadStoreError, .emptyTitle)
+        }
+    }
+
+    func testSetPinnedDoesNotChangeTranscriptBytes() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var seeded = thread("a", updatedAt: t0)
+        seeded.turns = [userTurn("u1", threadId: "a")]
+        let folder = try store.saveForImport(seeded)
+        let transcriptURL = folder.appendingPathComponent("transcript.md")
+        let before = try Data(contentsOf: transcriptURL)
+
+        _ = try store.setPinned(threadId: "a", pinned: true, now: t1)
+        let after = try Data(contentsOf: transcriptURL)
+        XCTAssertEqual(before, after)
+        XCTAssertEqual(store.get("a")?.updatedAt, t0)
+        XCTAssertEqual(store.get("a")?.pinnedAt, t1)
+    }
+
+    func testCannotPinArchivedThread() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try store.saveForImport(thread("a", updatedAt: t0))
+        _ = try store.archiveThread(threadId: "a")
+        XCTAssertThrowsError(try store.setPinned(threadId: "a", pinned: true, now: t1)) { error in
+            XCTAssertEqual(error as? ThreadStoreError, .cannotPinArchivedThread("a"))
+        }
+    }
+
+    func testUnarchiveThread() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try store.saveForImport(thread("a", updatedAt: t0))
+        _ = try store.archiveThread(threadId: "a")
+        let restored = try store.unarchiveThread(threadId: "a")
+        XCTAssertEqual(restored.status, .active)
+        XCTAssertNil(restored.pinnedAt)
+        XCTAssertEqual(restored.updatedAt, t0)
     }
 
     func testArchive() throws {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
-        try store.save(thread("a", updatedAt: t0))
-        let archived = try store.archive("a", now: t1)
+        try store.saveForImport(thread("a", updatedAt: t0))
+        let archived = try store.archiveThread(threadId: "a")
         XCTAssertEqual(archived.status, .archived)
         XCTAssertTrue(archived.isArchived)
         XCTAssertEqual(store.get("a")?.status, .archived)
@@ -182,11 +254,11 @@ final class ThreadStoreTests: XCTestCase {
 
         var seeded = thread("a", updatedAt: t0)
         seeded.turns = [userTurn("u1", threadId: "a")]
-        let folder = try store.save(seeded)
+        let folder = try store.saveForImport(seeded)
         let transcriptURL = folder.appendingPathComponent("transcript.md")
         let before = try Data(contentsOf: transcriptURL)
 
-        _ = try store.archive("a", now: t1)
+        _ = try store.archiveThread(threadId: "a")
         let after = try Data(contentsOf: transcriptURL)
         XCTAssertEqual(before, after)
     }
@@ -197,7 +269,7 @@ final class ThreadStoreTests: XCTestCase {
 
         var seeded = thread("a", updatedAt: t0)
         seeded.turns = [userTurn("u1", threadId: "a")]
-        let folder = try store.save(seeded)
+        let folder = try store.saveForImport(seeded)
         let transcriptURL = folder.appendingPathComponent("transcript.md")
         let before = try Data(contentsOf: transcriptURL)
         let updatedAt = seeded.updatedAt
@@ -223,8 +295,8 @@ final class ThreadStoreTests: XCTestCase {
             ThreadTurn(id: "c1", threadId: "a", kind: .teamRun, status: .done,
                        createdAt: t0, author: .system, runId: "run_42"),
         ]
-        try store.save(t)
-        try store.save(thread("b", updatedAt: t1))   // no runs
+        try store.saveForImport(t)
+        try store.saveForImport(thread("b", updatedAt: t1))   // no runs
 
         XCTAssertEqual(store.threadId(forRunId: "run_42"), "a")
         XCTAssertNil(store.threadId(forRunId: "run_unknown"))

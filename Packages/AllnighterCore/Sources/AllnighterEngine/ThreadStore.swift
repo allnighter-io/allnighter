@@ -7,6 +7,9 @@ public enum ThreadStoreError: Error, Equatable, CustomStringConvertible {
     case turnNotFound(String)
     case duplicateTurnId(String)
     case illegalTurnTransition(turnId: String, from: ThreadTurnStatus, to: ThreadTurnStatus)
+    case emptyTitle
+    case cannotPinArchivedThread(String)
+    case missingContextPacket(String)
 
     public var description: String {
         switch self {
@@ -16,6 +19,9 @@ public enum ThreadStoreError: Error, Equatable, CustomStringConvertible {
         case .duplicateTurnId(let id): return "Duplicate turn id: \(id)"
         case .illegalTurnTransition(let id, let from, let to):
             return "Illegal turn transition for \(id): \(from.rawValue) -> \(to.rawValue)"
+        case .emptyTitle: return "Thread title cannot be empty"
+        case .cannotPinArchivedThread(let id): return "Cannot pin archived thread: \(id)"
+        case .missingContextPacket(let id): return "Missing context packet: \(id)"
         }
     }
 }
@@ -93,8 +99,10 @@ public struct ThreadStore: Sendable {
         }
     }
 
+    /// Fixture/import-only full-record write. App runtime must use explicit
+    /// mutation methods instead of mutating a `WorkThread` and saving it back.
     @discardableResult
-    public func save(_ thread: WorkThread) throws -> URL {
+    public func saveForImport(_ thread: WorkThread) throws -> URL {
         try synchronized { try persistContent(thread) }
     }
 
@@ -107,6 +115,7 @@ public struct ThreadStore: Sendable {
             if thread.turns.contains(where: { $0.id == turn.id }) {
                 throw ThreadStoreError.duplicateTurnId(turn.id)
             }
+            try validateContextPacket(for: turn, threadId: threadId)
             var turn = turn
             turn.threadId = threadId
             thread.turns.append(turn)
@@ -130,6 +139,7 @@ public struct ThreadStore: Sendable {
             if previous != turn.status, !previous.allowedTransitions().contains(turn.status) {
                 throw ThreadStoreError.illegalTurnTransition(turnId: turn.id, from: previous, to: turn.status)
             }
+            try validateContextPacket(for: turn, threadId: threadId)
             var turn = turn
             turn.threadId = threadId
             thread.turns[index] = turn
@@ -140,11 +150,51 @@ public struct ThreadStore: Sendable {
     }
 
     @discardableResult
-    public func archive(_ id: String, now: Date) throws -> WorkThread {
+    public func renameThread(threadId: String, title: String) throws -> WorkThread {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw ThreadStoreError.emptyTitle }
+        return try synchronized {
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            thread.title = trimmed
+            _ = try persistMetadata(thread, regenerateTranscript: true)
+            return thread
+        }
+    }
+
+    @discardableResult
+    public func setPinned(threadId: String, pinned: Bool, now: Date) throws -> WorkThread {
         try synchronized {
-            guard var thread = get(id) else { throw ThreadStoreError.threadNotFound(id) }
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            if pinned {
+                guard !thread.isArchived else { throw ThreadStoreError.cannotPinArchivedThread(threadId) }
+                if thread.pinnedAt == nil {
+                    thread.pinnedAt = now
+                    _ = try persistMetadata(thread, regenerateTranscript: false)
+                }
+            } else if thread.pinnedAt != nil {
+                thread.pinnedAt = nil
+                _ = try persistMetadata(thread, regenerateTranscript: false)
+            }
+            return thread
+        }
+    }
+
+    @discardableResult
+    public func archiveThread(threadId: String) throws -> WorkThread {
+        try synchronized {
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
             thread.status = .archived
-            thread.updatedAt = now
+            thread.pinnedAt = nil
+            _ = try persistMetadata(thread, regenerateTranscript: false)
+            return thread
+        }
+    }
+
+    @discardableResult
+    public func unarchiveThread(threadId: String) throws -> WorkThread {
+        try synchronized {
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            thread.status = .active
             _ = try persistMetadata(thread, regenerateTranscript: false)
             return thread
         }
@@ -195,6 +245,13 @@ public struct ThreadStore: Sendable {
     }
 
     // MARK: - Private persistence
+
+    private func validateContextPacket(for turn: ThreadTurn, threadId: String) throws {
+        guard let packetId = turn.contextPacketId else { return }
+        if packet(threadId: threadId, packetId: packetId) == nil {
+            throw ThreadStoreError.missingContextPacket(packetId)
+        }
+    }
 
     private func synchronized<T>(_ body: () throws -> T) rethrows -> T {
         try ThreadStoreWriteSerializer.synchronized(rootDirectory: rootDirectory, body)

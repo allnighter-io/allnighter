@@ -70,7 +70,7 @@ final class ThreadStoreConcurrencyTests: XCTestCase {
                     guard var thread = store.get("concurrent-1") else { continue }
                     thread.title = "title-\(i % 64)"
                     thread.updatedAt = epoch.addingTimeInterval(Double(i))
-                    _ = try? store.save(thread)
+                    _ = try? store.saveForImport(thread)
                 }
             }
             group.addTask {

@@ -520,7 +520,7 @@ final class ThreadsViewModel {
         // Pinned design conversation.
         if (try? store.create(id: "rail-design", title: "Redesign the onboarding flow", now: base.addingTimeInterval(-600))) != nil {
             _ = try? store.append(turn("rail-design-t", "rail-design", .designBoard, .done), toThreadId: "rail-design", now: base)
-            if var t = store.get("rail-design") { t.pinnedAt = base; _ = try? store.save(t) }
+            _ = try? store.setPinned(threadId: "rail-design", pinned: true, now: base)
         }
         // Build conversation, currently running (Running filter + running pill).
         if (try? store.create(id: "rail-build", title: "Rate-limit the public API", now: base.addingTimeInterval(-120))) != nil {

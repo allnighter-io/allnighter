@@ -459,7 +459,7 @@ Do not implement 06 or 07 until 05 proof wall is green.
   comments. Add concurrency read test mirroring `RunStoreConcurrencyTests`.
 - [x] TSH-S03 - Split save paths: `persistContent(_:)` vs `persistMetadata(_:)`
   vs `persistCursor(_:)` with timestamp + transcript law enforced internally.
-- [ ] TSH-S04 - Replace public `save(_:)` with explicit APIs:
+- [x] TSH-S04 - Replace public `save(_:)` with explicit APIs:
   `renameThread`, `setPinned`, `archiveThread` (fix `updatedAt`), `unarchiveThread`.
   Add `saveForImport` for tests only.
 - [ ] TSH-S05 - Rename `append`/`update` to `appendTurn`/`updateTurn` (keep
