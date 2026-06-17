@@ -119,7 +119,8 @@ private struct StudioTeamListView: View {
     let lane: ComposeLane
     @Environment(AppModel.self) private var appModel
     @State private var selectedId: TeamID?
-    @State private var editingBase: TeamPreset?
+    /// Bumped to rebuild the inline editor with a fresh draft (revert / after save).
+    @State private var revertTick = 0
 
     private var teams: [TeamPreset] { TeamCatalog.list(lane: lane.workLane) }
     private var selected: TeamPreset? { teams.first { $0.id == selectedId } ?? teams.first }
@@ -132,54 +133,41 @@ private struct StudioTeamListView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .trailing) {
-            HStack(spacing: 0) {
-                // Master — the lane's saved lineups.
-                VStack(alignment: .leading, spacing: 0) {
-                    header("\(lane.label) teams",
-                           subtitle: "Saved \(lane.label.lowercased()) lineups. Pick one in the composer, or duplicate to tune it.")
-                    ScrollView {
-                        VStack(spacing: 3) {
-                            ForEach(teams) { team in teamRow(team) }
-                        }
-                        .padding(.horizontal, 12).padding(.bottom, 12)
+        HStack(spacing: 0) {
+            // Master — the lane's saved lineups.
+            VStack(alignment: .leading, spacing: 0) {
+                header("\(lane.label) teams",
+                       subtitle: "Saved \(lane.label.lowercased()) lineups. Pick one to tune it, or pick one in the composer.")
+                ScrollView {
+                    VStack(spacing: 3) {
+                        ForEach(teams) { team in teamRow(team) }
                     }
+                    .padding(.horizontal, 12).padding(.bottom, 12)
                 }
-                .frame(width: 300)
-                Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
+            }
+            .frame(width: 300)
+            Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
 
-                // Detail — the selected team's Skill → Model lineup.
-                Group {
-                    if let team = selected {
-                        StudioTeamDetailView(team: team, models: appModel.models, readyModels: readyModels,
-                                             onEdit: { editingBase = team })
-                    } else {
-                        StudioEmptyDetail(icon: lane.icon, message: "No \(lane.label.lowercased()) teams yet.")
-                    }
+            // The detail pane IS the editor — select a team and tune it in place
+            // (models inline, a skill cell opens the worker editor). No separate
+            // "Customize" step, no read-only copy. Built-ins draft in memory and
+            // only fork to a custom team on Save; switching teams rebuilds the draft.
+            Group {
+                if let team = selected {
+                    TeamEditorView(
+                        base: team, lane: lane, models: appModel.models, readyModels: readyModels,
+                        onRevert: { revertTick += 1 },
+                        onSaved: { id in selectedId = id; revertTick += 1 }
+                    )
+                    .id("\(team.id)#\(revertTick)")
+                } else {
+                    StudioEmptyDetail(icon: lane.icon, message: "No \(lane.label.lowercased()) teams yet.")
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-
-            // Customize editor — a right-anchored drawer over a scrim. Nothing is
-            // saved until Save; Cancel drops the draft (built-ins never mutate).
-            if let base = editingBase {
-                ALColor.scrimSubtle.ignoresSafeArea()
-                    .onTapGesture { editingBase = nil }
-                TeamEditorView(
-                    base: base, lane: lane, models: appModel.models, readyModels: readyModels,
-                    onCancel: { editingBase = nil },
-                    onSaved: { id in selectedId = id; editingBase = nil }
-                )
-                .transition(.move(edge: .trailing))
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
-        .onAppear {
-            #if DEBUG
-            if GUIFixture.opensTeamEditor { editingBase = selected }
-            #endif
-        }
     }
 
     private func teamRow(_ team: TeamPreset) -> some View {
@@ -210,111 +198,6 @@ private struct StudioTeamListView: View {
             .foregroundStyle(c)
             .padding(.horizontal, 5).padding(.vertical, 1.5)
             .background(c.opacity(0.14), in: Capsule())
-    }
-}
-
-/// Read-only team detail: header + chips + the Skill | Model table (the declared
-/// lineup at the team's default effort). "Customize" opens the editor (S01B).
-private struct StudioTeamDetailView: View {
-    let team: TeamPreset
-    let models: [Model]
-    let readyModels: [Model]
-    var onEdit: () -> Void = {}
-
-    private var rows: [TeamWorkerSpec] { team.activeRows(at: team.defaultEffort) }
-    /// Who would actually run this team on the current bench (skill → real model).
-    private var resolved: ResolvedTeamRun {
-        TeamResolver.resolve(team: team, requestLane: team.lane,
-                             requestEffort: team.defaultEffort, readyModels: readyModels)
-    }
-    private var lineup: [Worker] {
-        resolved.answerWorkers + resolved.reviewWorkers + (resolved.planWriter.map { [$0] } ?? [])
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 8) {
-                    Image(systemName: "rectangle.3.group").font(.system(size: 15)).foregroundStyle(ALColor.accent)
-                    Text(team.displayName)
-                        .font(.system(size: 18, weight: .bold)).tracking(-0.3)
-                        .foregroundStyle(ALColor.textPrimary)
-                    if team.isDefaultForLane { chip("Default", accent: true) }
-                    if !team.builtIn { chip("Custom", accent: false) }
-                    Spacer(minLength: 0)
-                }
-                HStack(spacing: 6) {
-                    chip(team.lane.rawValue.capitalized, accent: false)
-                    chip(team.defaultEffort.rawValue.capitalized, accent: false)
-                    chip("\(lineup.isEmpty ? rows.count : lineup.count) workers", accent: false)
-                    chip(team.outputKind.rawValue, accent: false)
-                }
-
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("SKILL").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-                        Spacer()
-                        Text("MODEL").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-                    }
-                    .padding(.bottom, 4)
-                    if lineup.isEmpty {
-                        // No ready bench → show the declared roles honestly.
-                        ForEach(rows) { row in
-                            tableRow(skill: skillName(row.skillId), model: "needs a ready CLI", muted: true)
-                        }
-                    } else {
-                        ForEach(lineup) { worker in
-                            tableRow(skill: worker.skillName ?? worker.skillId.map(skillName) ?? "Worker",
-                                     model: modelName(worker.modelId), muted: false)
-                        }
-                    }
-                }
-
-                if lineup.isEmpty {
-                    Text("Connect a CLI on the Bench to see who runs this team.")
-                        .font(.system(size: 11)).foregroundStyle(ALColor.statusTimeout)
-                }
-
-                HStack(spacing: 8) {
-                    Button(action: onEdit) {
-                        // Built-ins are templates you customize into your own team —
-                        // not "duplicate" ceremony (rescue §2).
-                        Label("Customize", systemImage: "slider.horizontal.3")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .buttonStyle(.alSecondary(small: true))
-                    Spacer(minLength: 0)
-                }
-                .padding(.top, 4)
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(ALColor.base)
-    }
-
-    private func tableRow(skill: String, model: String, muted: Bool) -> some View {
-        HStack {
-            Text(skill).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-            Spacer(minLength: 12)
-            Text(model)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(muted ? ALColor.textFaint : ALColor.textSecondary)
-        }
-        .padding(.vertical, 9)
-        .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
-    }
-
-    private func skillName(_ id: String) -> String { SkillCatalog.get(id)?.displayName ?? id }
-    private func modelName(_ id: String) -> String {
-        models.first { $0.id == id }?.displayName ?? id
-    }
-    private func chip(_ t: String, accent: Bool) -> some View {
-        Text(t).font(.system(size: 11, weight: .medium))
-            .foregroundStyle(accent ? ALColor.accent : ALColor.textSecondary)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(accent ? ALColor.accent.opacity(0.12) : ALColor.surface, in: Capsule())
-            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
     }
 }
 

@@ -118,23 +118,28 @@ struct TeamDraft: Equatable {
 struct TeamEditorView: View {
     let lane: ComposeLane
     let models: [Model]
-    var onCancel: () -> Void
+    /// Drop the in-memory edits and rebuild a fresh draft from the base team.
+    var onRevert: () -> Void
     var onSaved: (TeamID) -> Void
 
     @State private var draft: TeamDraft
     @State private var errorText: String?
     /// Level-2: which worker row is open in the Customize-worker editor (nil = the
-    /// team roster). The drawer pushes to the worker editor and back.
+    /// team roster). The pane pushes to the worker editor and back.
     @State private var editingRow: Int?
 
     init(base: TeamPreset, lane: ComposeLane, models: [Model], readyModels: [Model],
-         onCancel: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
+         onRevert: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
         self.lane = lane
         self.models = models
-        self.onCancel = onCancel
+        self.onRevert = onRevert
         self.onSaved = onSaved
         _draft = State(initialValue: TeamDraft(base: base, defaultModelId: readyModels.first?.id ?? models.first?.id))
     }
+
+    /// True until this team has been forked to a custom — Save creates a copy and
+    /// the built-in source is never mutated.
+    private var isBuiltIn: Bool { draft.base.builtIn }
 
     private var laneSkills: [Skill] { SkillCatalog.list(lane: lane.workLane) }
 
@@ -151,10 +156,8 @@ struct TeamEditorView: View {
                 teamContent
             }
         }
-        .frame(width: 420)
-        .frame(maxHeight: .infinity)
-        .background(ALColor.surface)
-        .overlay(alignment: .leading) { Rectangle().fill(ALColor.borderSubtle).frame(width: 1) }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(ALColor.base)
         .onAppear {
             #if DEBUG
             if GUIFixture.opensWorkerEditor, editingRow == nil, !draft.rows.isEmpty { editingRow = 0 }
@@ -183,12 +186,18 @@ struct TeamEditorView: View {
         HStack(spacing: 8) {
             Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(ALColor.accent)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Customize team").font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                Text("\(lane.label) · skill | model").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                Text(draft.name).font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                Text(isBuiltIn ? "Built-in · edits save as your own team" : "\(lane.label) team · skill | model")
+                    .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
-            Button(action: onCancel) { Image(systemName: "xmark").font(.system(size: 12)) }
-                .buttonStyle(.plain).foregroundStyle(ALColor.textMuted)
+            if isBuiltIn {
+                Text("BUILT-IN").font(.system(size: 9, weight: .semibold)).tracking(0.5)
+                    .foregroundStyle(ALColor.textMuted)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(ALColor.textMuted.opacity(0.14), in: Capsule())
+            }
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
     }
@@ -278,8 +287,9 @@ struct TeamEditorView: View {
             }
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
-                Button("Cancel", action: onCancel).buttonStyle(.alSecondary(small: true))
-                Button("Save", action: save).buttonStyle(.alPrimary(small: true)).disabled(!draft.isSavable)
+                Button("Revert", action: onRevert).buttonStyle(.alSecondary(small: true))
+                Button(isBuiltIn ? "Save as my team" : "Save changes", action: save)
+                    .buttonStyle(.alPrimary(small: true)).disabled(!draft.isSavable)
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
