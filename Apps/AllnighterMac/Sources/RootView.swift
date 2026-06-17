@@ -48,6 +48,27 @@ struct RootView: View {
                 commands.focusSearchTick += 1
                 commands.palettePresented = false
             },
+            AppCommand(id: "rename-thread", title: "Rename thread", symbol: "pencil",
+                       key: KeyEquivalent(Character(UnicodeScalar(0xF705)!))) {
+                commands.focusRenameTick += 1
+                commands.palettePresented = false
+            },
+            AppCommand(id: "toggle-pin", title: "Pin thread", symbol: "pin", key: "p", modifiers: [.command, .shift]) {
+                if let id = threads.selectedThreadId, let thread = threads.selectedThread {
+                    threads.togglePin(for: thread)
+                }
+                commands.palettePresented = false
+            },
+            AppCommand(id: "archive-thread", title: "Archive thread", symbol: "archivebox", key: "e", modifiers: [.command, .shift]) {
+                if let id = threads.selectedThreadId {
+                    if threads.showingArchive {
+                        threads.unarchiveThread(id)
+                    } else {
+                        threads.archiveThread(id)
+                    }
+                }
+                commands.palettePresented = false
+            },
             AppCommand(id: "command-palette", title: "Command palette", symbol: "command", key: "k", hiddenInPalette: true) {
                 commands.palettePresented.toggle()
             },

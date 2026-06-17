@@ -116,7 +116,12 @@ final class ThreadsViewModel {
     // MARK: - Derived
 
     /// Threads in triage order for the list.
-    var triagedThreads: [WorkThread] { ThreadsPresenter.triaged(threads) }
+    var triagedThreads: [WorkThread] { ThreadsPresenter.triagedActive(threads) }
+
+    var archivedThreads: [WorkThread] { ThreadsPresenter.triagedArchived(threads) }
+
+    /// Active rail vs archive browser (07).
+    var showingArchive = false
 
     var selectedThread: WorkThread? {
         guard let id = selectedThreadId else { return nil }
@@ -137,6 +142,7 @@ final class ThreadsViewModel {
 
     var canSend: Bool {
         selectedThreadId != nil &&
+        selectedThread?.isArchived != true &&
         !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
@@ -157,6 +163,36 @@ final class ThreadsViewModel {
     func select(_ thread: WorkThread) {
         selectedThreadId = thread.id
         requestedWorkerId = nil
+    }
+
+    // MARK: - Rail controls (07)
+
+    func renameThread(_ threadId: String, title: String) {
+        guard (try? store.renameThread(threadId: threadId, title: title)) != nil else { return }
+        reload()
+    }
+
+    func setPinned(_ threadId: String, pinned: Bool) {
+        guard (try? store.setPinned(threadId: threadId, pinned: pinned, now: Date())) != nil else { return }
+        reload()
+    }
+
+    func archiveThread(_ threadId: String) {
+        guard (try? store.archiveThread(threadId: threadId)) != nil else { return }
+        reload()
+        if selectedThreadId == threadId, showingArchive == false {
+            selectedThreadId = triagedThreads.first?.id
+        }
+    }
+
+    func unarchiveThread(_ threadId: String) {
+        guard (try? store.unarchiveThread(threadId: threadId)) != nil else { return }
+        reload()
+    }
+
+    func togglePin(for thread: WorkThread) {
+        guard !thread.isArchived else { return }
+        setPinned(thread.id, pinned: !thread.isPinned)
     }
 
     @discardableResult
@@ -206,6 +242,7 @@ final class ThreadsViewModel {
             selectedThreadId = thread.id
             threadId = thread.id
         } else if let id = selectedThreadId {
+            guard store.get(id)?.isArchived != true else { return }
             threadId = id
         } else {
             return
@@ -456,12 +493,21 @@ final class ThreadsViewModel {
     /// reply in place.
     private func runChat(message: String, toThreadId threadId: String, workerId: String) {
         Task { @MainActor in
-            let sendTask = Task.detached { [coordinator] in
-                try await coordinator.send(message: message, toThreadId: threadId, requestedWorkerId: workerId)
+            do {
+                let checkpoint = try await coordinator.beginSend(
+                    message: message, toThreadId: threadId, requestedWorkerId: workerId
+                )
+                reload()
+                switch checkpoint {
+                case .finished:
+                    break
+                case .awaitingInvoke(let pending):
+                    _ = try await coordinator.completeSend(pending)
+                    reload()
+                }
+            } catch {
+                reload()
             }
-            reload()                  // show the optimistic running turn at once
-            _ = try? await sendTask.value
-            reload()                  // settle the worker reply (or honest failure)
         }
     }
 
@@ -502,6 +548,9 @@ final class ThreadsViewModel {
         case "home-rail":
             seedFixtureRail()
             selectedThreadId = nil
+        case "home-rail-th2":
+            seedFixtureRailControls()
+            selectedThreadId = nil
         default:
             break
         }
@@ -534,6 +583,29 @@ final class ThreadsViewModel {
         // Chat-only conversation (no lane → only under All).
         _ = try? store.create(id: "rail-chat", title: "Token bucket vs sliding window", now: base.addingTimeInterval(-900))
 
+        reload()
+    }
+
+    /// TH2 proof: pinned thread, unread landed reply, archived thread — triage + archive view.
+    private func seedFixtureRailControls() {
+        let base = Date()
+        func workerDone(_ id: String, threadId: String, at: Date) -> ThreadTurn {
+            ThreadTurn(id: id, threadId: threadId, kind: .workerChat, status: .done,
+                       createdAt: at, completedAt: at, author: .worker, text: "reply", workerId: "model_opus")
+        }
+
+        if (try? store.create(id: "th2-pinned", title: "Pinned planning thread", now: base.addingTimeInterval(-300))) != nil {
+            _ = try? store.setPinned(threadId: "th2-pinned", pinned: true, now: base)
+        }
+        if (try? store.create(id: "th2-unread", title: "Unread worker reply", now: base.addingTimeInterval(-60))) != nil {
+            _ = try? store.appendTurn(workerDone("th2-unread-w", threadId: "th2-unread", at: base), toThreadId: "th2-unread", now: base)
+        }
+        if (try? store.create(id: "th2-archived", title: "Archived finished thread", now: base.addingTimeInterval(-900))) != nil {
+            _ = try? store.appendTurn(workerDone("th2-arch-w", threadId: "th2-archived", at: base.addingTimeInterval(-800)),
+                                     toThreadId: "th2-archived", now: base)
+            _ = try? store.setPinned(threadId: "th2-archived", pinned: true, now: base)
+            _ = try? store.archiveThread(threadId: "th2-archived")
+        }
         reload()
     }
 
@@ -704,15 +776,17 @@ final class ThreadsViewModel {
 
         Task { @MainActor in
             do {
-                // The coordinator persists optimistic turns before awaiting the
-                // invoke; poll the store once so the UI shows running right away.
-                let sendTask = Task.detached { [coordinator] in
-                    try await coordinator.send(message: message, toThreadId: threadId, requestedWorkerId: requested)
+                let checkpoint = try await coordinator.beginSend(
+                    message: message, toThreadId: threadId, requestedWorkerId: requested
+                )
+                reload()
+                switch checkpoint {
+                case .finished:
+                    break
+                case .awaitingInvoke(let pending):
+                    _ = try await coordinator.completeSend(pending)
+                    reload()
                 }
-                // Brief optimistic refresh, then the settled refresh.
-                reload()
-                _ = try await sendTask.value
-                reload()
             } catch {
                 reload()
             }

@@ -57,9 +57,30 @@ private struct ThreadEmptyState: View {
             )
             .frame(maxWidth: 640)
             .padding(.horizontal, 28).padding(.bottom, 28)
+            .disabled(thread.isArchived)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+        .overlay {
+            if thread.isArchived {
+                archivedComposerOverlay
+            }
+        }
+    }
+
+    private var archivedComposerOverlay: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 10) {
+                Image(systemName: "archivebox").foregroundStyle(ALColor.textFaint)
+                Text("Unarchive to reply").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+                Spacer()
+                Button("Unarchive") { threads.unarchiveThread(thread.id) }
+                    .buttonStyle(.alLight)
+            }
+            .padding(.horizontal, 28).padding(.vertical, 14)
+            .background(ALColor.base.opacity(0.92))
+        }
     }
 }
 
@@ -75,33 +96,83 @@ private struct ThreadConversationPane: View {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             ThreadTurnTimeline(thread: thread)
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
-            RoutingComposer(
-                defaultMode: ComposeRoutingDefaults.mode(for: thread),
-                onSend: { threads.sendRouting($0) }
-            )
-            .padding(.horizontal, 20).padding(.vertical, 14)
-            .frame(maxWidth: 680)
-            .frame(maxWidth: .infinity)
+            if thread.isArchived {
+                archivedComposerBar
+            } else {
+                RoutingComposer(
+                    defaultMode: ComposeRoutingDefaults.mode(for: thread),
+                    onSend: { threads.sendRouting($0) }
+                )
+                .padding(.horizontal, 20).padding(.vertical, 14)
+                .frame(maxWidth: 680)
+                .frame(maxWidth: .infinity)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+    }
+
+    private var archivedComposerBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "archivebox").foregroundStyle(ALColor.textFaint)
+            Text("Unarchive to reply")
+                .font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+            Spacer()
+            Button("Unarchive") { threads.unarchiveThread(thread.id) }
+                .buttonStyle(.alLight)
+        }
+        .padding(.horizontal, 20).padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
     }
 }
 
 private struct ThreadPaneHeader: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
+    @Environment(CommandCenter.self) private var commands
     let thread: WorkThread
+    @State private var editTitle = ""
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(thread.title)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(ALColor.textPrimary)
-                .lineLimit(1)
+            if thread.isArchived {
+                Text(thread.title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(ALColor.textPrimary)
+                    .lineLimit(1)
+                Text("Archived")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ALColor.textMuted)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(ALColor.surface, in: Capsule())
+            } else {
+                TextField("Title", text: $editTitle, onCommit: commitRename)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(ALColor.textPrimary)
+                    .focused($titleFocused)
+            }
             if let lane = inferredLane {
                 laneChip(lane)
             }
             Spacer(minLength: 8)
+            if thread.isArchived {
+                Button("Unarchive") { threads.unarchiveThread(thread.id) }
+                    .buttonStyle(.alLight)
+            } else {
+                Button { threads.togglePin(for: thread) } label: {
+                    Image(systemName: thread.isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 13))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(ALColor.textMuted)
+                .help(thread.isPinned ? "Unpin" : "Pin")
+                Button("Archive") { threads.archiveThread(thread.id) }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(ALColor.textMuted)
+                    .buttonStyle(.plain)
+            }
             if !routedWorkerIds.isEmpty {
                 HStack(spacing: 6) {
                     Text("routed across")
@@ -118,6 +189,15 @@ private struct ThreadPaneHeader: View {
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
+        .onAppear { editTitle = thread.title }
+        .onChange(of: thread.title) { _, title in editTitle = title }
+        .onChange(of: commands.focusRenameTick) { _, _ in titleFocused = true }
+    }
+
+    private func commitRename() {
+        let trimmed = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        threads.renameThread(thread.id, title: trimmed)
     }
 
     private var inferredLane: ComposeLane? {

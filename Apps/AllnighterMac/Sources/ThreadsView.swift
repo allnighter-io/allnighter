@@ -11,28 +11,48 @@ struct ThreadListView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Threads")
-                    .font(ALFont.caption.weight(.bold)).tracking(1.1).textCase(.uppercase)
-                    .foregroundStyle(ALColor.accentText)
+                if model.showingArchive {
+                    Button { model.showingArchive = false } label: {
+                        Label("Back", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.plain)
+                    Text("Archive")
+                        .font(ALFont.caption.weight(.bold)).tracking(1.1).textCase(.uppercase)
+                        .foregroundStyle(ALColor.accentText)
+                } else {
+                    Text("Threads")
+                        .font(ALFont.caption.weight(.bold)).tracking(1.1).textCase(.uppercase)
+                        .foregroundStyle(ALColor.accentText)
+                }
                 Spacer()
-                IconButton(systemImage: "square.and.pencil", accessibilityLabel: "New thread", small: true) {
-                    model.newThread()
+                if !model.showingArchive {
+                    IconButton(systemImage: "square.and.pencil", accessibilityLabel: "New thread", small: true) {
+                        model.newThread()
+                    }
                 }
             }
             .padding(.horizontal, 14).padding(.top, 16).padding(.bottom, 10)
 
-            if model.triagedThreads.isEmpty {
+            let threads = model.showingArchive ? model.archivedThreads : model.triagedThreads
+            if threads.isEmpty {
                 VStack(spacing: 6) {
-                    Text("No threads yet").font(ALFont.body.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
-                    Text("Start one to think with a worker.").font(ALFont.caption).foregroundStyle(ALColor.textFaint)
+                    Text(model.showingArchive ? "No archived threads" : "No threads yet")
+                        .font(ALFont.body.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
+                    if !model.showingArchive {
+                        Text("Start one to think with a worker.").font(ALFont.caption).foregroundStyle(ALColor.textFaint)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 14)
             } else {
                 ScrollView {
                     VStack(spacing: 4) {
-                        ForEach(model.triagedThreads) { thread in
-                            ThreadRow(thread: thread, selected: thread.id == model.selectedThreadId) {
+                        ForEach(threads) { thread in
+                            ThreadRow(
+                                thread: thread,
+                                selected: thread.id == model.selectedThreadId,
+                                inArchiveView: model.showingArchive
+                            ) {
                                 model.select(thread)
                             }
                         }
@@ -40,6 +60,24 @@ struct ThreadListView: View {
                     .padding(.horizontal, 10)
                 }
             }
+
+            if !model.showingArchive {
+                Button { model.showingArchive = true } label: {
+                    HStack {
+                        Label("Archive", systemImage: "archivebox")
+                            .font(ALFont.caption)
+                        Spacer()
+                        if !model.archivedThreads.isEmpty {
+                            Text("\(model.archivedThreads.count)")
+                                .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                        }
+                    }
+                    .foregroundStyle(ALColor.textMuted)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+            }
+
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -50,6 +88,7 @@ struct ThreadListView: View {
 private struct ThreadRow: View {
     let thread: WorkThread
     let selected: Bool
+    var inArchiveView: Bool = false
     let onTap: () -> Void
 
     var body: some View {
@@ -60,9 +99,9 @@ private struct ThreadRow: View {
                     Text(thread.title).font(ALFont.body.weight(.semibold))
                         .foregroundStyle(ALColor.textPrimary).lineLimit(1)
                     Spacer(minLength: 4)
-                    if thread.isPinned {
-                        Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
-                    }
+                    ThreadRailComponents.PinMarker(pinned: thread.isPinned)
+                    ThreadRailComponents.UnreadLight(thread: thread)
+                        .frame(width: 10)
                 }
                 if let preview = thread.preview {
                     Text(preview).font(ALFont.caption).foregroundStyle(ALColor.textMuted).lineLimit(1)
@@ -87,6 +126,7 @@ private struct ThreadRow: View {
             .background(selected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
         }
         .buttonStyle(.plain)
+        .threadRowContextMenu(thread: thread, inArchiveView: inArchiveView)
     }
 
     @ViewBuilder private var stateDot: some View {
@@ -139,11 +179,26 @@ struct ThreadDetailPane: View {
 
 private struct ThreadHeader: View {
     @Environment(ThreadsViewModel.self) private var model
+    @Environment(CommandCenter.self) private var commands
     let thread: WorkThread
+    @State private var editTitle = ""
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(thread.title).font(ALFont.h3).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+            if thread.isArchived {
+                Text(thread.title).font(ALFont.h3).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                Text("Archived")
+                    .font(ALFont.caption).foregroundStyle(ALColor.textMuted)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(ALColor.surface, in: Capsule())
+            } else {
+                TextField("Title", text: $editTitle, onCommit: commitRename)
+                    .textFieldStyle(.plain)
+                    .font(ALFont.h3)
+                    .foregroundStyle(ALColor.textPrimary)
+                    .focused($titleFocused)
+            }
             if let dir = thread.workingDir {
                 Label((dir as NSString).lastPathComponent, systemImage: "folder")
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textMuted)
@@ -151,11 +206,34 @@ private struct ThreadHeader: View {
                     .background(ALColor.surface, in: Capsule())
             }
             Spacer()
+            if thread.isArchived {
+                Button("Unarchive") { model.unarchiveThread(thread.id) }
+                    .buttonStyle(.alSecondary)
+            } else {
+                Button {
+                    model.togglePin(for: thread)
+                } label: {
+                    Image(systemName: thread.isPinned ? "pin.fill" : "pin")
+                }
+                .buttonStyle(.alGhost)
+                .help(thread.isPinned ? "Unpin" : "Pin")
+                Button("Archive") { model.archiveThread(thread.id) }
+                    .buttonStyle(.alGhost)
+            }
             if let worker = thread.defaultWorkerId {
                 Text("default: \(worker)").font(ALFont.caption).foregroundStyle(ALColor.textFaint)
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
+        .onAppear { editTitle = thread.title }
+        .onChange(of: thread.title) { _, title in editTitle = title }
+        .onChange(of: commands.focusRenameTick) { _, _ in titleFocused = true }
+    }
+
+    private func commitRename() {
+        let trimmed = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        model.renameThread(thread.id, title: trimmed)
     }
 }
 
@@ -328,8 +406,28 @@ private struct ThreadComposer: View {
     @FocusState private var focused: Bool
 
     var body: some View {
+        if thread.isArchived {
+            archivedComposer
+        } else {
+            activeComposer
+        }
+    }
+
+    private var archivedComposer: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "archivebox").foregroundStyle(ALColor.textFaint)
+            Text("Unarchive to reply")
+                .font(ALFont.body).foregroundStyle(ALColor.textMuted)
+            Spacer()
+            Button("Unarchive") { model.unarchiveThread(thread.id) }
+                .buttonStyle(.alPrimary)
+        }
+        .padding(.horizontal, 20).padding(.vertical, 14)
+    }
+
+    private var activeComposer: some View {
         @Bindable var model = model
-        VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 8) {
             workerChip
             HStack(alignment: .bottom, spacing: 10) {
                 TextEditor(text: $model.composerText)

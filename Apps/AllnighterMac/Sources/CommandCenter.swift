@@ -17,6 +17,8 @@ final class CommandCenter {
     var requestedMode: ComposeMode?
     /// Bumped by ⌘F; the rail's search field focuses on change.
     var focusSearchTick = 0
+    /// Bumped by F2; the selected thread header title field focuses.
+    var focusRenameTick = 0
 }
 
 /// One keyboard-triggerable action. Title, symbol, and shortcut live here once so

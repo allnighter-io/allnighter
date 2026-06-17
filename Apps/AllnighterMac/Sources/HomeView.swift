@@ -38,9 +38,19 @@ private struct HomeSidebar: View {
     @FocusState private var searchFocused: Bool
     @State private var search = ""
     @State private var filter: ThreadsPresenter.RailFilter = .all
+    @State private var renameThreadId: String?
 
-    private var railGroups: [ThreadsPresenter.RailGroup] {
-        ThreadsPresenter.railGroups(threads.threads, filter: filter, search: search)
+    private var triageSections: [ThreadsPresenter.TriageSection] {
+        ThreadsPresenter.triageSections(threads.threads, filter: filter, search: search)
+    }
+
+    private var archivedSections: [ThreadsPresenter.TriageSection] {
+        let archived = ThreadsPresenter.triagedArchived(threads.threads)
+        let filtered = archived.filter {
+            ThreadsPresenter.matchesSearch($0, query: search)
+        }
+        guard !filtered.isEmpty else { return [] }
+        return [ThreadsPresenter.TriageSection(id: "archive", title: "Archived", threads: filtered)]
     }
 
     private func label(for filter: ThreadsPresenter.RailFilter) -> String {
@@ -89,7 +99,9 @@ private struct HomeSidebar: View {
             }
             .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 12)
 
-            if railGroups.isEmpty {
+            if threads.showingArchive {
+                archiveRail
+            } else if triageSections.isEmpty {
                 Spacer(minLength: 0)
                 if threads.threads.contains(where: { !$0.isArchived }) {
                     noMatchHint
@@ -98,20 +110,86 @@ private struct HomeSidebar: View {
                 }
                 Spacer(minLength: 0)
             } else {
+                activeRail
+            }
+
+            if !threads.showingArchive {
+                archiveEntry
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(ALColor.subtle)
+        .onChange(of: commands.focusRenameTick) { _, _ in
+            if let id = threads.selectedThreadId { renameThreadId = id }
+        }
+        .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
+    }
+
+    private var activeRail: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
+                ForEach(triageSections) { section in
+                    Section {
+                        ForEach(section.threads) { thread in
+                            ConversationRow(
+                                thread: thread,
+                                selected: thread.id == threads.selectedThreadId,
+                                renaming: renameThreadId == thread.id,
+                                onEndRename: { renameThreadId = nil },
+                                onRename: { renameThreadId = thread.id }
+                            ) {
+                                threads.select(thread)
+                            }
+                        }
+                    } header: {
+                        railSectionHeader(section.title)
+                    }
+                }
+            }
+            .padding(.horizontal, 10).padding(.bottom, 12)
+        }
+    }
+
+    private var archiveRail: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Button {
+                    threads.showingArchive = false
+                } label: {
+                    Label("Back", systemImage: "chevron.left")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(ALColor.textMuted)
+                Spacer()
+                Text("Archive")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(ALColor.textSecondary)
+            }
+            .padding(.horizontal, 14).padding(.bottom, 8)
+
+            if archivedSections.isEmpty {
+                Spacer(minLength: 0)
+                Text("No archived conversations")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(ALColor.textFaint)
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
+            } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
-                        ForEach(railGroups) { group in
-                            Section {
-                                ForEach(group.threads) { thread in
-                                    ConversationRow(
-                                        thread: thread,
-                                        selected: thread.id == threads.selectedThreadId
-                                    ) {
-                                        threads.select(thread)
-                                    }
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(archivedSections) { section in
+                            ForEach(section.threads) { thread in
+                                ConversationRow(
+                                    thread: thread,
+                                    selected: thread.id == threads.selectedThreadId,
+                                    renaming: renameThreadId == thread.id,
+                                    onEndRename: { renameThreadId = nil },
+                                    onRename: { renameThreadId = thread.id },
+                                    inArchiveView: true
+                                ) {
+                                    threads.select(thread)
                                 }
-                            } header: {
-                                railSectionHeader(group.title)
                             }
                         }
                     }
@@ -119,9 +197,29 @@ private struct HomeSidebar: View {
                 }
             }
         }
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(ALColor.subtle)
-        .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
+    }
+
+    private var archiveEntry: some View {
+        Button {
+            threads.showingArchive = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "archivebox")
+                    .font(.system(size: 12))
+                Text("Archive")
+                    .font(.system(size: 12, weight: .medium))
+                Spacer()
+                if !threads.archivedThreads.isEmpty {
+                    Text("\(threads.archivedThreads.count)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(ALColor.textFaint)
+                }
+            }
+            .foregroundStyle(ALColor.textMuted)
+            .padding(.horizontal, 14).padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
     private func railSectionHeader(_ title: String) -> some View {
@@ -162,19 +260,40 @@ private struct HomeSidebar: View {
 
 private struct ConversationRow: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
     let thread: WorkThread
     let selected: Bool
+    var renaming: Bool = false
+    var onEndRename: (() -> Void)? = nil
+    var onRename: (() -> Void)? = nil
+    var inArchiveView: Bool = false
     let onTap: () -> Void
+    @State private var editTitle = ""
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 10) {
                 rowGlyph
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(thread.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(ALColor.textPrimary)
-                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        if renaming {
+                            TextField("Title", text: $editTitle, onCommit: commitRename)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 13, weight: .semibold))
+                                .focused($titleFocused)
+                                .onAppear {
+                                    editTitle = thread.title
+                                    titleFocused = true
+                                }
+                        } else {
+                            Text(thread.title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(ALColor.textPrimary)
+                                .lineLimit(1)
+                        }
+                        ThreadRailComponents.PinMarker(pinned: thread.isPinned)
+                    }
                     HStack(spacing: 6) {
                         if let status = ThreadsPresenter.conversationStatus(for: thread) {
                             ConversationStatusPill(status: status)
@@ -185,12 +304,28 @@ private struct ConversationRow: View {
                     }
                 }
                 Spacer(minLength: 0)
+                ThreadRailComponents.UnreadLight(thread: thread)
+                    .frame(width: 10)
             }
             .padding(.horizontal, 9).padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(selected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
         }
         .buttonStyle(.plain)
+        .threadRowContextMenu(thread: thread, inArchiveView: inArchiveView, onRename: onRename)
+        .onChange(of: renaming) { _, isRenaming in
+            if isRenaming {
+                editTitle = thread.title
+                titleFocused = true
+            }
+        }
+    }
+
+    private func commitRename() {
+        let trimmed = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        threads.renameThread(thread.id, title: trimmed)
+        onEndRename?()
     }
 
     @ViewBuilder
