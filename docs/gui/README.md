@@ -19,4 +19,6 @@ tier and links the rest.
 - `0.GUI-Tech-Stack.md` — SwiftUI / macOS stack and where tokens enter the app.
 - `1.GUI-Invariants.md` — the always-true UI rules.
 - `2.GUI-Surface-Architecture.md` — the app's surfaces, mapped to the design-system UI kits.
+- `patterns/` — enforced SwiftUI building blocks with ONE blessed implementation
+  (e.g. anchored popups → `alPopover`). Re-solving these inline is rejected.
 - `surfaces/` — per-surface briefs and field-ownership ledgers (template in `surfaces/README.md`).
