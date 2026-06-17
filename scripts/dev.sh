@@ -54,7 +54,6 @@ xcodebuild build \
   -destination 'platform=macOS' \
   -derivedDataPath "$DERIVED" \
   -configuration Debug \
-  CODE_SIGNING_ALLOWED=NO \
   -quiet >"$LOG" 2>&1
 status=$?
 set -e

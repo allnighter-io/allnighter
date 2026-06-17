@@ -40,6 +40,7 @@ targets:
         LSUIElement: true
         CFBundleDisplayName: Allnighter
         CFBundleName: Allnighter
+        NSScreenCaptureUsageDescription: "Allnighter captures its own windows during developer GUI proof runs so native popovers and menus can be verified. This is only used when you run the GUI proof harness — never during normal use."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.allnighter.mac

@@ -259,16 +259,23 @@ investment:
 
 - `Apps/AllnighterMac/Sources/GUIFixture.swift` — env-gated designer mock
   (`ALLNIGHTER_GUI_FIXTURE`). Inert on every real launch. Seeds deterministic
-  mixed-health rows, deep-links the captured state, and self-renders the window
-  to a PNG (`ALLNIGHTER_GUI_PROOF_OUT`) with no probes, no network, no quota,
-  and no Screen-Recording TCC prompt.
+  mixed-health rows, deep-links the captured state, and composites the app's OWN
+  windows to a PNG (`ALLNIGHTER_GUI_PROOF_OUT`) with no probes, no network, no
+  quota.
 - `scripts/gui_proof.sh <fixture>` — builds, launches the fixture, waits for the
   PNG, prints its path.
 
-Why self-capture, not `screencapture`/XCUITest: grabbing another process's
-window needs Screen-Recording permission — re-opening the launch-TCC code red —
-and XCUITest is slow, flaky, and built to assert content, which the CLI already
-owns. Rendering our own window is permission-free and deterministic.
+**Capture revision (2026-06-17): own-window composite, so native overlays show.**
+The first cut self-captured only the main window via `cacheDisplay`, which by
+construction CANNOT see a native SwiftUI popover/menu/sheet — those render in
+separate OS windows. That gap silently selected AGAINST native SwiftUI: the only
+popups a self-capture could prove were ones hand-drawn inside the main window
+with fragile offset/preference-key geometry, which is exactly the recurring
+anchoring bug. Fix: capture composites the app's own window list
+(`CGImage(windowListFromArrayScreenBounds:…)`), so overlays appear. This needs
+Screen-Recording permission (own windows only, fixture mode only, dev machine
+only — see Auth/privacy/permissions). XCUITest stays rejected: slow, flaky, and
+built to assert content the CLI already owns.
 
 Fixtures: `team-open-ready`, `team-open-mixed` (more added per surface).
 
@@ -367,10 +374,19 @@ Driver/protocol impact:
 
 Auth/privacy/permissions impact:
 - Fixture mode disables real CLI probes, shells, auth checks, network, and
-  quota-bearing invocations, and never captures another process's window (no
-  Screen-Recording TCC).
+  quota-bearing invocations.
+- **Screen-Recording permission (dev machine only).** Capture composites the
+  app's OWN windows so native popovers/menus/sheets (separate OS windows) appear
+  in proofs. This uses `CGImage(windowListFromArrayScreenBounds:…)`, which needs
+  Screen-Recording permission, granted once to "Allnighter". The capture path is
+  reached ONLY in fixture mode (`ALLNIGHTER_GUI_PROOF_OUT` set) — never on a real
+  launch — so the shipping app never prompts and end-user posture is unchanged.
+  Only the dev machine carries the bundle id in its Screen-Recording allowlist.
+  Without the grant, capture falls back to in-window only (overlays missing) and
+  both the app log and `gui_proof.sh` reprint how to finish.
 - Captures must not include credentials, secret-bearing paths, or private user
-  content — fixtures use mock data only.
+  content — fixtures use mock data only, and only the app's own windows are
+  composited (not the wider desktop).
 
 Design-system impact:
 - A rendered mockup, when one exists, is the watcher's comparison reference. A

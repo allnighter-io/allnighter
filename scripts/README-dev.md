@@ -32,3 +32,27 @@ reboots. Override the location with `ALLNIGHTER_BUILD_DIR`.
 
 The built bundle is `Allnighter.app` (`PRODUCT_NAME` in `Apps/AllnighterMac/project.yml`).
 On a build failure it prints the `error:` lines and the log path.
+
+## GUI proof (one-time Screen Recording grant)
+
+Overlay fixtures (`compose-*`) capture **native SwiftUI popovers**, which requires
+Screen Recording permission. Grant it once through the real `.app` bundle:
+
+```sh
+bash scripts/gui_proof_grant.sh
+```
+
+1. Allnighter opens a **grant window** (not a silent 1.5s flash).
+2. Click **Open System Settings**.
+3. If Allnighter is missing, click **+** → ⌘⇧G → paste the path shown in the window.
+4. Turn **Allnighter** ON.
+5. Wait for the green checkmark, then **Quit**.
+
+Then capture proofs normally:
+
+```sh
+bash scripts/gui_proof.sh compose-mode-menu
+```
+
+If an overlay capture fails, the script exits non-zero with the error — it does
+**not** silently produce a broken PNG.
