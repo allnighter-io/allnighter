@@ -135,7 +135,7 @@ private struct HomeSidebar: View {
 
     private var emptyHint: some View {
         VStack(spacing: 8) {
-            Image(systemName: "moon.stars.fill").font(.system(size: 26)).foregroundStyle(ALColor.accent)
+            AllnighterGlyph(size: 26)
             Text("No conversations yet")
                 .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
             Text("Your work orders will live here — newest on top.")
@@ -199,9 +199,7 @@ private struct ConversationRow: View {
         if let workerId, let model = appModel.models.first(where: { $0.id == workerId }) {
             DriverBrandGlyph(driverId: model.driverId, boxSize: 28, iconSize: 14, cornerRadius: 7)
         } else {
-            Image(systemName: "moon.stars.fill")
-                .font(.system(size: 14))
-                .foregroundStyle(ALColor.accentText)
+            AllnighterGlyph(size: 15)
                 .frame(width: 28, height: 28)
                 .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
         }
@@ -255,7 +253,7 @@ private struct HomeMarketingEmptyState: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                Image(systemName: "moon.stars.fill").font(.system(size: 40)).foregroundStyle(ALColor.accent)
+                AllnighterGlyph(size: 40)
                     .padding(.top, 40)
                 Text("You already pay for the team.")
                     .font(.system(size: 26, weight: .heavy)).tracking(-0.4)
@@ -347,7 +345,7 @@ private struct HomeNewWorkOrderPane: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             VStack(spacing: 12) {
-                Image(systemName: "moon.stars.fill").font(.system(size: 38)).foregroundStyle(ALColor.accent)
+                AllnighterGlyph(size: 38)
                 Text("Start a work order")
                     .font(.system(size: 25, weight: .heavy)).tracking(-0.4)
                     .foregroundStyle(ALColor.textPrimary)

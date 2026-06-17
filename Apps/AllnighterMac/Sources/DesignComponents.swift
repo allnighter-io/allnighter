@@ -475,14 +475,11 @@ struct LiveMark: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            // White crescent — one brand color across the app (founder: amber
+            // everywhere reads like a circus). "Live" is the blinking cursor block,
+            // not color.
             Crescent()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: 0xFFD79E), Color(hex: 0xFFA630), Color(hex: 0xF0901C)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ),
-                    style: FillStyle(eoFill: true)
-                )
+                .fill(ALColor.textPrimary, style: FillStyle(eoFill: true))
             RoundedRectangle(cornerRadius: size * 0.026)
                 .fill(blockColor)
                 .frame(width: size * 0.105, height: size * 0.17)
@@ -496,7 +493,21 @@ struct LiveMark: View {
         }
     }
 
-    private var blockColor: Color { state == .done ? ALColor.statusDone : Color(hex: 0xFFE9C6) }
+    private var blockColor: Color { state == .done ? ALColor.statusDone : ALColor.textPrimary }
+}
+
+/// The Allnighter crescent mark, white — the single brand glyph for any avatar or
+/// empty-state decoration (recent list, "start a work order"). Amber is retired
+/// from the mark: one color, no circus (founder, 2026-06-17).
+struct AllnighterGlyph: View {
+    var size: CGFloat = 28
+    var color: Color = ALColor.textPrimary
+
+    var body: some View {
+        Crescent()
+            .fill(color, style: FillStyle(eoFill: true))
+            .frame(width: size, height: size)
+    }
 }
 
 private struct Crescent: Shape {

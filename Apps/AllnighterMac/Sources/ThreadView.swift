@@ -34,7 +34,7 @@ private struct ThreadEmptyState: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             VStack(spacing: 12) {
-                Image(systemName: "moon.stars.fill").font(.system(size: 38)).foregroundStyle(ALColor.accent)
+                AllnighterGlyph(size: 38)
                 Text("Start a work order")
                     .font(.system(size: 25, weight: .heavy)).tracking(-0.4)
                     .foregroundStyle(ALColor.textPrimary)
