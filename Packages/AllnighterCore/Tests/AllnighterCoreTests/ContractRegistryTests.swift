@@ -13,12 +13,12 @@ final class ContractRegistryTests: XCTestCase {
         XCTAssertEqual(reg.contractVersion, "1.0.0")
     }
 
-    /// The closed `nextActions.kind` enum and the registry catalog must match
-    /// exactly — neither may drift from the other.
+    /// Team-run and Pending next-action kinds must match the registry catalog.
     func testNextActionKindParityWithClosedEnum() {
-        let enumCases = Set(TeamRunJSON.NextAction.Kind.allCases.map(\.rawValue))
+        let teamKinds = Set(TeamRunJSON.NextAction.Kind.allCases.map(\.rawValue))
+        let pendingKinds = Set(PendingItemJSON.NextAction.Kind.allCases.map(\.rawValue))
         let registryKinds = Set(reg.nextActionKinds.map(\.kind))
-        XCTAssertEqual(enumCases, registryKinds, "nextActions.kind enum and registry catalog drifted")
+        XCTAssertEqual(registryKinds, teamKinds.union(pendingKinds), "nextActions.kind catalogs drifted from closed enums")
     }
 
     /// The in-scope M1 command set must equal the documented Milestone Boundary.
@@ -31,7 +31,10 @@ final class ContractRegistryTests: XCTestCase {
             "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
             "thread send", "thread get", "thread status",
-            "team", "show", "spec", "history", "export", "dev export-contracts", "serve", "mcp serve",
+            "team", "show", "spec", "history", "export", "dev export-contracts", "serve",
+            "pending add", "pending list", "pending show", "pending submit", "pending edit",
+            "pending reorder", "pending cancel", "pending run",
+            "mcp serve",
         ])
     }
 
@@ -106,7 +109,7 @@ final class ContractRegistryTests: XCTestCase {
     func testDoctorChecksAndEventsAreCompleteAndUnique() {
         let checks = reg.doctorChecks.map(\.name)
         XCTAssertEqual(checks.count, Set(checks).count, "duplicate doctor check")
-        for required in ["binaryVersion", "docsVersion", "benchReadyCount", "defaultTeamValid", "planWriterReady", "coordinator"] {
+        for required in ["binaryVersion", "docsVersion", "benchReadyCount", "defaultTeamValid", "planWriterReady", "coordinator", "pending.storeReadable", "pending.storeWritable"] {
             XCTAssertTrue(checks.contains(required), "missing doctor check \(required)")
         }
         let events = reg.events.map(\.name)

@@ -153,4 +153,8 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(doc.fixes.first?.code, "SOURCE_AUTH_EXPIRED")
         XCTAssertEqual(doc.models.first?.sourceName, "Claude Code")
     }
+
+    func testPendingItemJSONRoundTrips() throws {
+        try assertRoundTrips(PendingItemJSON.self, .pendingItemJSON)
+    }
 }

@@ -93,5 +93,15 @@
     "command" : "alln serve --health --json",
     "id" : "serve_health_json",
     "title" : "Coordinator health"
+  },
+  {
+    "command" : "alln pending add --worker claude --when ready --json \"Review this patch when Claude is available.\"",
+    "id" : "pending_add_json",
+    "title" : "Create a Draft Pending item"
+  },
+  {
+    "command" : "alln pending list --json",
+    "id" : "pending_list_json",
+    "title" : "List Pending items"
   }
 ]

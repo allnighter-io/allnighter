@@ -422,6 +422,123 @@ Output schema: `coordinatorHealth`.
 
 Examples: `serve_health_json`.
 
+### `alln pending add`
+
+Create a Draft Pending item.
+
+Arguments:
+- `prompt` (optional) — Work prompt (or use --file).
+
+Flags:
+- `--file <path>` — Read prompt from a file.
+- `--worker <id>` — Target worker id or alias.
+- `--team <id>` — Team preset id.
+- `--fallback <id>` — Fallback worker id.
+- `--when <when>` — ready | away | manual.
+- `--cwd <path>` — Working directory context.
+- `--submit` — Create directly as Pending.
+- `--json` — Emit one PendingItemJSON object.
+
+Output schema: `pendingItemJSON`.
+
+Examples: `pending_add_json`.
+
+### `alln pending list`
+
+List Pending items.
+
+Flags:
+- `--json` — Structured PendingListJSON.
+
+Output schema: `pendingListJSON`.
+
+Examples: `pending_list_json`.
+
+### `alln pending show`
+
+Show one Pending item.
+
+Arguments:
+- `pending-id` (required) — Pending item id.
+
+Flags:
+- `--json` — Emit one PendingItemJSON object.
+
+Output schema: `pendingItemJSON`.
+
+### `alln pending submit`
+
+Move a Draft item to Pending.
+
+Arguments:
+- `pending-id` (required) — Pending item id.
+
+Flags:
+- `--json` — Emit one PendingItemJSON object.
+
+Output schema: `pendingItemJSON`.
+
+### `alln pending edit`
+
+Edit a Pending item (Pending returns to Draft).
+
+Arguments:
+- `pending-id` (required) — Pending item id.
+
+Flags:
+- `--prompt <string>` — Replacement prompt text.
+- `--file <path>` — Replacement prompt file.
+- `--worker <id>` — Target worker id or alias.
+- `--team <id>` — Team preset id.
+- `--fallback <id>` — Fallback worker id.
+- `--when <when>` — ready | away | manual.
+- `--cwd <path>` — Working directory context.
+- `--json` — Emit one PendingItemJSON object.
+
+Output schema: `pendingItemJSON`.
+
+### `alln pending reorder`
+
+Reorder Pending items (execution-lane or floor order).
+
+Arguments:
+- `pending-id` (required) — Item to move.
+
+Flags:
+- `--before <id>` — Move before another item.
+- `--after <id>` — Move after another item.
+- `--position <integer>` — Move to zero-based position.
+- `--json` — Emit one PendingItemJSON object.
+
+Output schema: `pendingItemJSON`.
+
+### `alln pending cancel`
+
+Cancel a Draft or Pending item.
+
+Arguments:
+- `pending-id` (required) — Pending item id.
+
+Flags:
+- `--json` — Emit one PendingItemJSON object.
+
+Output schema: `pendingItemJSON`.
+
+### `alln pending run`
+
+Run a Pending item now (manual attempt; no drain).
+
+Arguments:
+- `pending-id` (required) — Pending item id.
+
+Flags:
+- `--json` — Emit one PendingItemJSON object.
+- `--stream` — NDJSON attempt events (deferred until async attempts).
+
+Mutually exclusive: `--json`, `--stream`.
+
+Output schema: `pendingItemJSON`.
+
 ### `alln mcp serve`
 
 Run the MCP stdio server.
@@ -433,14 +550,6 @@ Flags:
 
 - `alln models add` — Add/configure a model.
 - `alln work` — Create a work order.
-- `alln pending add` — Queue a Pending item.
-- `alln pending list` — List Pending items.
-- `alln pending show` — Show one Pending item.
-- `alln pending submit` — Move a Draft item to Pending.
-- `alln pending edit` — Edit a Pending item.
-- `alln pending reorder` — Reorder Pending Execute items in one lane.
-- `alln pending cancel` — Cancel a Pending item.
-- `alln pending run` — Run a Pending item now.
 - `alln pending stop` — Stop a running Pending item.
 - `alln dispatch` — Send a work order/spec to an execution target.
 - `alln pair` — Approve iOS/Mac pairing.
@@ -508,12 +617,21 @@ Flags:
 | `teamRunCompleted` | `status`, `planStageId`, `durationMs` |
 | `teamRunFailed` | `status`, `error` |
 | `error` | `error` |
+| `pendingAdded` | `pendingItemId`, `status` |
+| `pendingSubmitted` | `pendingItemId`, `status` |
+| `pendingEdited` | `pendingItemId`, `status` |
+| `pendingReordered` | `pendingItemId` |
+| `pendingCancelled` | `pendingItemId`, `status` |
 
 ## Next-action kinds
 
 - `showRun` — Show the full run.
 - `export` — Export the result bundle.
 - `showHistory` — List recent runs.
+- `submitPending` — Submit a Draft item to Pending.
+- `runPending` — Run a Pending item now.
+- `showPending` — Show one Pending item.
+- `cancelPending` — Cancel a Pending item.
 
 ## Example recipes
 
@@ -536,4 +654,6 @@ Flags:
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`
 - `thread_send_json` — Send message with image to thread: `alln thread send latest "describe this" --image ./shot.png --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
+- `pending_add_json` — Create a Draft Pending item: `alln pending add --worker claude --when ready --json "Review this patch when Claude is available."`
+- `pending_list_json` — List Pending items: `alln pending list --json`
 

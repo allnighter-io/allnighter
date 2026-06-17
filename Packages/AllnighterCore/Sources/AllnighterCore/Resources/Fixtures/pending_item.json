@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "1.0.0",
+  "pendingItem": {
+    "id": "pending_20260617_1200",
+    "status": "pending",
+    "title": "Review this patch when Claude is ready.",
+    "kind": "workerChat",
+    "origin": "cli",
+    "threadId": null,
+    "promptExcerpt": "Review this patch when Claude is ready.",
+    "createdAt": "2026-06-17T12:00:00Z",
+    "updatedAt": "2026-06-17T12:00:01Z",
+    "nextWakeAt": null,
+    "blockedReason": null,
+    "needsAttention": false
+  },
+  "target": {
+    "workerIds": ["model_opus"],
+    "teamPresetId": null,
+    "preferredWorkerIds": ["model_opus"],
+    "fallbackWorkerIds": [],
+    "requiredWorkerIds": [],
+    "minWorkers": null
+  },
+  "policy": {
+    "selection": "selectedOnly",
+    "attentionMode": "present",
+    "drainMode": "drainWhenReady",
+    "maxAttempts": null,
+    "retryFloorSeconds": null,
+    "allowDegraded": false,
+    "requireKnownAvailable": false,
+    "createSuggestedFollowUps": false
+  },
+  "execution": {
+    "intent": "ask",
+    "executionLaneKey": null,
+    "executionLaneKeyVersion": "v1",
+    "executionLanePolicy": "fifo",
+    "executionLaneOrder": null,
+    "executionLaneHeadItemId": null,
+    "executionLaneBlockedByItemId": null,
+    "executionLanePausedReason": null
+  },
+  "safety": {
+    "workingDir": null,
+    "requiresTrustedDevice": false,
+    "privacyLabel": null
+  },
+  "admission": null,
+  "attempts": [],
+  "nextActions": [
+    {
+      "kind": "runPending",
+      "command": "alln pending run pending_20260617_1200 --json",
+      "label": "Run now"
+    },
+    {
+      "kind": "cancelPending",
+      "command": "alln pending cancel pending_20260617_1200",
+      "label": "Cancel"
+    },
+    {
+      "kind": "showPending",
+      "command": "alln pending show pending_20260617_1200 --json",
+      "label": "Show item"
+    }
+  ],
+  "audit": {
+    "traceId": "trace_pending_fixture",
+    "pendingStorePath": "/tmp/Allnighter/Pending",
+    "userReorderedExecutionLane": null
+  }
+}

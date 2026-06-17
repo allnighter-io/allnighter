@@ -1,0 +1,467 @@
+{
+  "$defs" : {
+    "AdmissionInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "confidence" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "observedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "reason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "resetAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "source" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "state" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "state"
+      ],
+      "type" : "object"
+    },
+    "AttemptInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "attemptId" : {
+          "type" : "string"
+        },
+        "completedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt" : {
+          "type" : "string"
+        },
+        "executionLaneKey" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "reason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "startedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "type" : "string"
+        },
+        "workerIds" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "attemptId",
+        "createdAt",
+        "workerIds",
+        "status"
+      ],
+      "type" : "object"
+    },
+    "AuditInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "pendingStorePath" : {
+          "type" : "string"
+        },
+        "traceId" : {
+          "type" : "string"
+        },
+        "userReorderedExecutionLane" : {
+          "type" : [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "traceId",
+        "pendingStorePath"
+      ],
+      "type" : "object"
+    },
+    "ExecutionInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "executionLaneBlockedByItemId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "executionLaneHeadItemId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "executionLaneKey" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "executionLaneKeyVersion" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "executionLaneOrder" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "executionLanePausedReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "executionLanePolicy" : {
+          "type" : "string"
+        },
+        "intent" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "intent",
+        "executionLanePolicy"
+      ],
+      "type" : "object"
+    },
+    "ItemInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "blockedReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "workerChat",
+            "teamRun",
+            "workOrder",
+            "dispatch",
+            "returnReview",
+            "followUp"
+          ],
+          "type" : "string"
+        },
+        "needsAttention" : {
+          "type" : "boolean"
+        },
+        "nextWakeAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "origin" : {
+          "enum" : [
+            "cli",
+            "gui",
+            "mcp",
+            "ios",
+            "localApi",
+            "system",
+            "preset"
+          ],
+          "type" : "string"
+        },
+        "promptExcerpt" : {
+          "type" : "string"
+        },
+        "status" : {
+          "enum" : [
+            "draft",
+            "pending",
+            "running",
+            "done",
+            "failed",
+            "cancelled"
+          ],
+          "type" : "string"
+        },
+        "threadId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "title" : {
+          "type" : "string"
+        },
+        "updatedAt" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "status",
+        "title",
+        "kind",
+        "origin",
+        "promptExcerpt",
+        "createdAt",
+        "updatedAt",
+        "needsAttention"
+      ],
+      "type" : "object"
+    },
+    "NextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "submitPending",
+            "runPending",
+            "showPending",
+            "cancelPending"
+          ],
+          "type" : "string"
+        },
+        "label" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "kind",
+        "command"
+      ],
+      "type" : "object"
+    },
+    "PolicyInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "allowDegraded" : {
+          "type" : "boolean"
+        },
+        "attentionMode" : {
+          "type" : "string"
+        },
+        "createSuggestedFollowUps" : {
+          "type" : "boolean"
+        },
+        "drainMode" : {
+          "type" : "string"
+        },
+        "maxAttempts" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "requireKnownAvailable" : {
+          "type" : "boolean"
+        },
+        "retryFloorSeconds" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "selection" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "selection",
+        "attentionMode",
+        "drainMode",
+        "allowDegraded",
+        "requireKnownAvailable",
+        "createSuggestedFollowUps"
+      ],
+      "type" : "object"
+    },
+    "SafetyInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "privacyLabel" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "requiresTrustedDevice" : {
+          "type" : "boolean"
+        },
+        "workingDir" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "requiresTrustedDevice"
+      ],
+      "type" : "object"
+    },
+    "TargetInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "fallbackWorkerIds" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "minWorkers" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "preferredWorkerIds" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "requiredWorkerIds" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "teamPresetId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerIds" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "workerIds",
+        "preferredWorkerIds",
+        "fallbackWorkerIds",
+        "requiredWorkerIds"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/pending-item.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "admission" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/AdmissionInfo"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "attempts" : {
+      "items" : {
+        "$ref" : "#\/$defs\/AttemptInfo"
+      },
+      "type" : "array"
+    },
+    "audit" : {
+      "$ref" : "#\/$defs\/AuditInfo"
+    },
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "execution" : {
+      "$ref" : "#\/$defs\/ExecutionInfo"
+    },
+    "nextActions" : {
+      "items" : {
+        "$ref" : "#\/$defs\/NextAction"
+      },
+      "type" : "array"
+    },
+    "pendingItem" : {
+      "$ref" : "#\/$defs\/ItemInfo"
+    },
+    "policy" : {
+      "$ref" : "#\/$defs\/PolicyInfo"
+    },
+    "safety" : {
+      "$ref" : "#\/$defs\/SafetyInfo"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "target" : {
+      "$ref" : "#\/$defs\/TargetInfo"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "pendingItem",
+    "target",
+    "policy",
+    "execution",
+    "safety",
+    "attempts",
+    "nextActions",
+    "audit"
+  ],
+  "title" : "PendingItemJSON",
+  "type" : "object"
+}

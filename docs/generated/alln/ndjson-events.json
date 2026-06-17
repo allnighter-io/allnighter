@@ -64,5 +64,39 @@
     "requiredData" : [
       "error"
     ]
+  },
+  {
+    "name" : "pendingAdded",
+    "requiredData" : [
+      "pendingItemId",
+      "status"
+    ]
+  },
+  {
+    "name" : "pendingSubmitted",
+    "requiredData" : [
+      "pendingItemId",
+      "status"
+    ]
+  },
+  {
+    "name" : "pendingEdited",
+    "requiredData" : [
+      "pendingItemId",
+      "status"
+    ]
+  },
+  {
+    "name" : "pendingReordered",
+    "requiredData" : [
+      "pendingItemId"
+    ]
+  },
+  {
+    "name" : "pendingCancelled",
+    "requiredData" : [
+      "pendingItemId",
+      "status"
+    ]
   }
 ]

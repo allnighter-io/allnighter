@@ -24,7 +24,7 @@ final class ContractExportTests: XCTestCase {
         XCTAssertEqual(a.map(\.filename), [
             "alln-contract.json", "error-codes.json", "ndjson-events.json", "example-recipes.json",
             "mcp-tools.json", "team-run.schema.json", "doctor-result.schema.json",
-            "coordinator-health.schema.json", "help_alln_cli_spec.md",
+            "coordinator-health.schema.json", "pending-item.schema.json", "help_alln_cli_spec.md",
         ])
         // The full contract artifact decodes back to the registry.
         let contract = try XCTUnwrap(a.first { $0.filename == "alln-contract.json" })

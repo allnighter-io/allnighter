@@ -1068,6 +1068,319 @@
     },
     {
       "args" : [
+        {
+          "name" : "prompt",
+          "required" : false,
+          "summary" : "Work prompt (or use --file)."
+        }
+      ],
+      "exampleIds" : [
+        "pending_add_json"
+      ],
+      "flags" : [
+        {
+          "name" : "file",
+          "summary" : "Read prompt from a file.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "worker",
+          "summary" : "Target worker id or alias.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "team",
+          "summary" : "Team preset id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "fallback",
+          "summary" : "Fallback worker id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "when",
+          "summary" : "ready | away | manual.",
+          "takesValue" : true,
+          "valueType" : "when"
+        },
+        {
+          "name" : "cwd",
+          "summary" : "Working directory context.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "submit",
+          "summary" : "Create directly as Pending.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit one PendingItemJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending add",
+      "outputSchema" : "pendingItemJSON",
+      "summary" : "Create a Draft Pending item."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+        "pending_list_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured PendingListJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending list",
+      "outputSchema" : "pendingListJSON",
+      "summary" : "List Pending items."
+    },
+    {
+      "args" : [
+        {
+          "name" : "pending-id",
+          "required" : true,
+          "summary" : "Pending item id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit one PendingItemJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending show",
+      "outputSchema" : "pendingItemJSON",
+      "summary" : "Show one Pending item."
+    },
+    {
+      "args" : [
+        {
+          "name" : "pending-id",
+          "required" : true,
+          "summary" : "Pending item id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit one PendingItemJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending submit",
+      "outputSchema" : "pendingItemJSON",
+      "summary" : "Move a Draft item to Pending."
+    },
+    {
+      "args" : [
+        {
+          "name" : "pending-id",
+          "required" : true,
+          "summary" : "Pending item id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "prompt",
+          "summary" : "Replacement prompt text.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "file",
+          "summary" : "Replacement prompt file.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "worker",
+          "summary" : "Target worker id or alias.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "team",
+          "summary" : "Team preset id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "fallback",
+          "summary" : "Fallback worker id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "when",
+          "summary" : "ready | away | manual.",
+          "takesValue" : true,
+          "valueType" : "when"
+        },
+        {
+          "name" : "cwd",
+          "summary" : "Working directory context.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit one PendingItemJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending edit",
+      "outputSchema" : "pendingItemJSON",
+      "summary" : "Edit a Pending item (Pending returns to Draft)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "pending-id",
+          "required" : true,
+          "summary" : "Item to move."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "before",
+          "summary" : "Move before another item.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "after",
+          "summary" : "Move after another item.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "position",
+          "summary" : "Move to zero-based position.",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit one PendingItemJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending reorder",
+      "outputSchema" : "pendingItemJSON",
+      "summary" : "Reorder Pending items (execution-lane or floor order)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "pending-id",
+          "required" : true,
+          "summary" : "Pending item id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit one PendingItemJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending cancel",
+      "outputSchema" : "pendingItemJSON",
+      "summary" : "Cancel a Draft or Pending item."
+    },
+    {
+      "args" : [
+        {
+          "name" : "pending-id",
+          "required" : true,
+          "summary" : "Pending item id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit one PendingItemJSON object.",
+          "takesValue" : false
+        },
+        {
+          "name" : "stream",
+          "summary" : "NDJSON attempt events (deferred until async attempts).",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+        [
+          "json",
+          "stream"
+        ]
+      ],
+      "name" : "pending run",
+      "outputSchema" : "pendingItemJSON",
+      "summary" : "Run a Pending item now (manual attempt; no drain)."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [
@@ -1123,150 +1436,6 @@
       "name" : "work",
       "outputSchema" : "none",
       "summary" : "Create a work order."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending add",
-      "outputSchema" : "none",
-      "summary" : "Queue a Pending item."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending list",
-      "outputSchema" : "none",
-      "summary" : "List Pending items."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending show",
-      "outputSchema" : "none",
-      "summary" : "Show one Pending item."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending submit",
-      "outputSchema" : "none",
-      "summary" : "Move a Draft item to Pending."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending edit",
-      "outputSchema" : "none",
-      "summary" : "Edit a Pending item."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending reorder",
-      "outputSchema" : "none",
-      "summary" : "Reorder Pending Execute items in one lane."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending cancel",
-      "outputSchema" : "none",
-      "summary" : "Cancel a Pending item."
-    },
-    {
-      "args" : [
-
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "milestone" : "deferred",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "pending run",
-      "outputSchema" : "none",
-      "summary" : "Run a Pending item now."
     },
     {
       "args" : [
@@ -1398,6 +1567,14 @@
     {
       "meaning" : "Orphaned async runs resolve to interrupted.",
       "name" : "journal.orphanRecovery"
+    },
+    {
+      "meaning" : "Pending store can be read.",
+      "name" : "pending.storeReadable"
+    },
+    {
+      "meaning" : "Pending store can be mutated.",
+      "name" : "pending.storeWritable"
     },
     {
       "meaning" : "Deferred until MCP scope, but registry name reserved.",
@@ -1824,6 +2001,40 @@
       "requiredData" : [
         "error"
       ]
+    },
+    {
+      "name" : "pendingAdded",
+      "requiredData" : [
+        "pendingItemId",
+        "status"
+      ]
+    },
+    {
+      "name" : "pendingSubmitted",
+      "requiredData" : [
+        "pendingItemId",
+        "status"
+      ]
+    },
+    {
+      "name" : "pendingEdited",
+      "requiredData" : [
+        "pendingItemId",
+        "status"
+      ]
+    },
+    {
+      "name" : "pendingReordered",
+      "requiredData" : [
+        "pendingItemId"
+      ]
+    },
+    {
+      "name" : "pendingCancelled",
+      "requiredData" : [
+        "pendingItemId",
+        "status"
+      ]
     }
   ],
   "examples" : [
@@ -1921,6 +2132,16 @@
       "command" : "alln serve --health --json",
       "id" : "serve_health_json",
       "title" : "Coordinator health"
+    },
+    {
+      "command" : "alln pending add --worker claude --when ready --json \"Review this patch when Claude is available.\"",
+      "id" : "pending_add_json",
+      "title" : "Create a Draft Pending item"
+    },
+    {
+      "command" : "alln pending list --json",
+      "id" : "pending_list_json",
+      "title" : "List Pending items"
     }
   ],
   "mcpTools" : [
@@ -2499,6 +2720,22 @@
     {
       "kind" : "showHistory",
       "summary" : "List recent runs."
+    },
+    {
+      "kind" : "submitPending",
+      "summary" : "Submit a Draft item to Pending."
+    },
+    {
+      "kind" : "runPending",
+      "summary" : "Run a Pending item now."
+    },
+    {
+      "kind" : "showPending",
+      "summary" : "Show one Pending item."
+    },
+    {
+      "kind" : "cancelPending",
+      "summary" : "Cancel a Pending item."
     }
   ],
   "schemaVersion" : 1

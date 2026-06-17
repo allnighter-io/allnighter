@@ -40,6 +40,12 @@ final class ContractSchemaTests: XCTestCase {
         XCTAssertEqual(try properties(def(schema, "Coordinator")), labels(doc.coordinator), "Coordinator schema drifted")
     }
 
+    func testPendingItemSchemaMatchesType() throws {
+        let pending = try Fixtures.pendingItemJSON()
+        let schema = ContractSchema.pendingItemSchema()
+        XCTAssertEqual(try properties(schema), labels(pending), "PendingItemJSON top-level schema drifted from the type")
+    }
+
     func testSchemasSerializeDeterministically() throws {
         XCTAssertEqual(try ContractSchema.json(ContractSchema.teamRunSchema()),
                        try ContractSchema.json(ContractSchema.teamRunSchema()))

@@ -1,10 +1,11 @@
 # CLI Implementation Contract
 
 Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
-`serve --stdio` projects from the registry. Remaining (still owned here): MCP
-advertising/auto-install + async tools, and the deferred `alln pending` grammar.
+`serve --stdio` projects from the registry. **Pending0/1 BUILT** (2026-06-17):
+`alln pending` CRUD + `PendingItemJSON`. Remaining (still owned here): MCP
+advertising/auto-install + async tools, `pending stop`, and Pending2 drain.
 Owner: Shared Core + CLI + Mac
-Updated: 2026-06-16
+Updated: 2026-06-17
 
 ## Authority
 
@@ -54,7 +55,7 @@ Out of scope for milestone 1:
   it prints config, never edits client files)
 - async MCP tools (`team_start`/`team_status`/`team_result`) — need async runs first
 - `alln serve`
-- `alln pending`
+- `alln pending stop`
 - iOS pairing
 - dispatch that edits/kills sessions
 - `alln work`
@@ -845,9 +846,10 @@ health shape that A0 can depend on.
 contract is async: accepted run id first, status/result later, idempotency before
 duplicate work, and orphan recovery from the incremental journal.
 
-Status note (2026-06-17): `Journal0`, `Serve0`, and `A0` are built. The next
-bridge item is `Pending0`/`Pending1` from `Pending_Work_And_Drain.md`; do not
-start `Pending2` drain until the local Pending model and CLI CRUD are real.
+Status note (2026-06-17): `Journal0`, `Serve0`, `A0`, and **Pending0/Pending1**
+are built. The next bridge item is **Pending2** drain from
+`Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md`; do not promise
+app-closed Pending execution until Pending2 is real.
 
 ## Pending CLI Contract
 

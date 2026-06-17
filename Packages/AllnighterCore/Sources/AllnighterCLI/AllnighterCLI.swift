@@ -48,6 +48,7 @@ struct AllnighterCLI {
         case "mcp" where args.first == "install": printMCPInstall()   // consent-gated: prints config, never edits it
         case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "serve": await runServe(args)
+        case "pending": PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
         case "help", "--help", "-h": printHelp()
@@ -264,6 +265,7 @@ struct AllnighterCLI {
             docsVersionMatchesBinary: true,
             configDirWritable: ensureWritable(AllnighterPaths.config),
             runsDirWritable: ensureWritable(AllnighterPaths.runs),
+            pendingDirWritable: ensureWritable(AllnighterPaths.pending),
             coordinator: ResidentCoordinatorProbe().doctorCoordinator(),
             full: full
         )
@@ -1177,7 +1179,7 @@ struct Options {
     /// Boolean flags never consume the next token as a value, so
     /// `alln team --json "prompt"` keeps "prompt" as the positional.
     static let booleanFlags: Set<String> = [
-        "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix", "health",
+        "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix", "health", "submit",
     ]
     var positional: [String] = []
     var values: [String: String] = [:]

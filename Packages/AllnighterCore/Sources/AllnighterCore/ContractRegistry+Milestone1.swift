@@ -372,6 +372,82 @@ public extension ContractRegistry {
             exampleIds: ["serve_health_json"]
         ),
         CommandSpec(
+            "pending add", summary: "Create a Draft Pending item.", milestone: .m1,
+            args: [ArgSpec("prompt", required: false, summary: "Work prompt (or use --file).")],
+            flags: [
+                FlagSpec("file", takesValue: true, valueType: "path", summary: "Read prompt from a file."),
+                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker id or alias."),
+                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
+                FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
+                FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
+                FlagSpec("cwd", takesValue: true, valueType: "path", summary: "Working directory context."),
+                FlagSpec("submit", summary: "Create directly as Pending."),
+                FlagSpec("json", summary: "Emit one PendingItemJSON object."),
+            ],
+            outputSchema: .pendingItemJSON,
+            exampleIds: ["pending_add_json"]
+        ),
+        CommandSpec(
+            "pending list", summary: "List Pending items.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured PendingListJSON.")],
+            outputSchema: .pendingListJSON,
+            exampleIds: ["pending_list_json"]
+        ),
+        CommandSpec(
+            "pending show", summary: "Show one Pending item.", milestone: .m1,
+            args: [ArgSpec("pending-id", required: true, summary: "Pending item id.")],
+            flags: [FlagSpec("json", summary: "Emit one PendingItemJSON object.")],
+            outputSchema: .pendingItemJSON
+        ),
+        CommandSpec(
+            "pending submit", summary: "Move a Draft item to Pending.", milestone: .m1,
+            args: [ArgSpec("pending-id", required: true, summary: "Pending item id.")],
+            flags: [FlagSpec("json", summary: "Emit one PendingItemJSON object.")],
+            outputSchema: .pendingItemJSON
+        ),
+        CommandSpec(
+            "pending edit", summary: "Edit a Pending item (Pending returns to Draft).", milestone: .m1,
+            args: [ArgSpec("pending-id", required: true, summary: "Pending item id.")],
+            flags: [
+                FlagSpec("prompt", takesValue: true, valueType: "string", summary: "Replacement prompt text."),
+                FlagSpec("file", takesValue: true, valueType: "path", summary: "Replacement prompt file."),
+                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker id or alias."),
+                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
+                FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
+                FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
+                FlagSpec("cwd", takesValue: true, valueType: "path", summary: "Working directory context."),
+                FlagSpec("json", summary: "Emit one PendingItemJSON object."),
+            ],
+            outputSchema: .pendingItemJSON
+        ),
+        CommandSpec(
+            "pending reorder", summary: "Reorder Pending items (execution-lane or floor order).", milestone: .m1,
+            args: [ArgSpec("pending-id", required: true, summary: "Item to move.")],
+            flags: [
+                FlagSpec("before", takesValue: true, valueType: "id", summary: "Move before another item."),
+                FlagSpec("after", takesValue: true, valueType: "id", summary: "Move after another item."),
+                FlagSpec("position", takesValue: true, valueType: "integer", summary: "Move to zero-based position."),
+                FlagSpec("json", summary: "Emit one PendingItemJSON object."),
+            ],
+            outputSchema: .pendingItemJSON
+        ),
+        CommandSpec(
+            "pending cancel", summary: "Cancel a Draft or Pending item.", milestone: .m1,
+            args: [ArgSpec("pending-id", required: true, summary: "Pending item id.")],
+            flags: [FlagSpec("json", summary: "Emit one PendingItemJSON object.")],
+            outputSchema: .pendingItemJSON
+        ),
+        CommandSpec(
+            "pending run", summary: "Run a Pending item now (manual attempt; no drain).", milestone: .m1,
+            args: [ArgSpec("pending-id", required: true, summary: "Pending item id.")],
+            flags: [
+                FlagSpec("json", summary: "Emit one PendingItemJSON object."),
+                FlagSpec("stream", summary: "NDJSON attempt events (deferred until async attempts)."),
+            ],
+            mutuallyExclusiveFlags: [["json", "stream"]],
+            outputSchema: .pendingItemJSON
+        ),
+        CommandSpec(
             "mcp serve", summary: "Run the MCP stdio server.", milestone: .m1,
             flags: [FlagSpec("stdio", summary: "Use stdio transport (default).")]
         ),
@@ -382,14 +458,6 @@ public extension ContractRegistry {
     static let deferredCommands: [CommandSpec] = [
         CommandSpec("models add", summary: "Add/configure a model.", milestone: .deferred),
         CommandSpec("work", summary: "Create a work order.", milestone: .deferred),
-        CommandSpec("pending add", summary: "Queue a Pending item.", milestone: .deferred),
-        CommandSpec("pending list", summary: "List Pending items.", milestone: .deferred),
-        CommandSpec("pending show", summary: "Show one Pending item.", milestone: .deferred),
-        CommandSpec("pending submit", summary: "Move a Draft item to Pending.", milestone: .deferred),
-        CommandSpec("pending edit", summary: "Edit a Pending item.", milestone: .deferred),
-        CommandSpec("pending reorder", summary: "Reorder Pending Execute items in one lane.", milestone: .deferred),
-        CommandSpec("pending cancel", summary: "Cancel a Pending item.", milestone: .deferred),
-        CommandSpec("pending run", summary: "Run a Pending item now.", milestone: .deferred),
         CommandSpec("pending stop", summary: "Stop a running Pending item.", milestone: .deferred),
         CommandSpec("dispatch", summary: "Send a work order/spec to an execution target.", milestone: .deferred),
         CommandSpec("pair", summary: "Approve iOS/Mac pairing.", milestone: .deferred),
@@ -462,6 +530,8 @@ public extension ContractRegistry {
         DoctorCheckSpec("coordinator", meaning: "Resident coordinator state; may be degraded in M1."),
         DoctorCheckSpec("journal.incrementalDurable", meaning: "Async run journal persists worker/status transitions incrementally."),
         DoctorCheckSpec("journal.orphanRecovery", meaning: "Orphaned async runs resolve to interrupted."),
+        DoctorCheckSpec("pending.storeReadable", meaning: "Pending store can be read."),
+        DoctorCheckSpec("pending.storeWritable", meaning: "Pending store can be mutated."),
         DoctorCheckSpec("mcpDescriptorsCurrent", meaning: "Deferred until MCP scope, but registry name reserved."),
     ]
 
@@ -477,6 +547,11 @@ public extension ContractRegistry {
         EventSpec("teamRunCompleted", requiredData: ["status", "planStageId", "durationMs"]),
         EventSpec("teamRunFailed", requiredData: ["status", "error"]),
         EventSpec("error", requiredData: ["error"]),
+        EventSpec("pendingAdded", requiredData: ["pendingItemId", "status"]),
+        EventSpec("pendingSubmitted", requiredData: ["pendingItemId", "status"]),
+        EventSpec("pendingEdited", requiredData: ["pendingItemId", "status"]),
+        EventSpec("pendingReordered", requiredData: ["pendingItemId"]),
+        EventSpec("pendingCancelled", requiredData: ["pendingItemId", "status"]),
     ]
 
     /// The closed `nextActions.kind` catalog. Must stay in lock-step with
@@ -485,6 +560,10 @@ public extension ContractRegistry {
         NextActionKindSpec("showRun", summary: "Show the full run."),
         NextActionKindSpec("export", summary: "Export the result bundle."),
         NextActionKindSpec("showHistory", summary: "List recent runs."),
+        NextActionKindSpec("submitPending", summary: "Submit a Draft item to Pending."),
+        NextActionKindSpec("runPending", summary: "Run a Pending item now."),
+        NextActionKindSpec("showPending", summary: "Show one Pending item."),
+        NextActionKindSpec("cancelPending", summary: "Cancel a Pending item."),
     ]
 
     // MARK: - Example recipes
@@ -509,5 +588,7 @@ public extension ContractRegistry {
         ExampleRecipe("export_contracts_check", title: "Verify no contract drift", command: "alln dev export-contracts --check"),
         ExampleRecipe("thread_send_json", title: "Send message with image to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --json"),
         ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
+        ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --worker claude --when ready --json \"Review this patch when Claude is available.\""),
+        ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),
     ]
 }

@@ -22,6 +22,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Threads", isDirectory: true)
     }
 
+    /// `…/Allnighter/Pending/` — durable Draft/Pending user intent.
+    public static var pending: URL {
+        support.appendingPathComponent("Pending", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)

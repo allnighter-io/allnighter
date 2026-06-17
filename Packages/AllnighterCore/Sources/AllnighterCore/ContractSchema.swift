@@ -185,6 +185,74 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - PendingItemJSON
+
+    public static func pendingItemSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/pending-item.schema.json",
+            "title": "PendingItemJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str,
+            "pendingItem": ref("ItemInfo"), "target": ref("TargetInfo"),
+            "policy": ref("PolicyInfo"), "execution": ref("ExecutionInfo"),
+            "safety": ref("SafetyInfo"), "admission": nullableRef("AdmissionInfo"),
+            "attempts": arr(ref("AttemptInfo")), "nextActions": arr(ref("NextAction")),
+            "audit": ref("AuditInfo"),
+        ], required: [
+            "schemaVersion", "contractVersion", "pendingItem", "target", "policy",
+            "execution", "safety", "attempts", "nextActions", "audit",
+        ])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "ItemInfo": obj([
+                "id": str, "status": enumStr(["draft", "pending", "running", "done", "failed", "cancelled"]),
+                "title": str, "kind": enumStr(["workerChat", "teamRun", "workOrder", "dispatch", "returnReview", "followUp"]),
+                "origin": enumStr(["cli", "gui", "mcp", "ios", "localApi", "system", "preset"]),
+                "threadId": nullable("string"), "promptExcerpt": str,
+                "createdAt": str, "updatedAt": str, "nextWakeAt": nullable("string"),
+                "blockedReason": nullable("string"), "needsAttention": bool,
+            ], required: ["id", "status", "title", "kind", "origin", "promptExcerpt", "createdAt", "updatedAt", "needsAttention"]),
+            "TargetInfo": obj([
+                "workerIds": arr(str), "teamPresetId": nullable("string"),
+                "preferredWorkerIds": arr(str), "fallbackWorkerIds": arr(str),
+                "requiredWorkerIds": arr(str), "minWorkers": nullable("integer"),
+            ], required: ["workerIds", "preferredWorkerIds", "fallbackWorkerIds", "requiredWorkerIds"]),
+            "PolicyInfo": obj([
+                "selection": str, "attentionMode": str, "drainMode": str,
+                "maxAttempts": nullable("integer"), "retryFloorSeconds": nullable("integer"),
+                "allowDegraded": bool, "requireKnownAvailable": bool, "createSuggestedFollowUps": bool,
+            ], required: ["selection", "attentionMode", "drainMode", "allowDegraded", "requireKnownAvailable", "createSuggestedFollowUps"]),
+            "ExecutionInfo": obj([
+                "intent": str, "executionLaneKey": nullable("string"),
+                "executionLaneKeyVersion": nullable("string"), "executionLanePolicy": str,
+                "executionLaneOrder": nullable("integer"), "executionLaneHeadItemId": nullable("string"),
+                "executionLaneBlockedByItemId": nullable("string"), "executionLanePausedReason": nullable("string"),
+            ], required: ["intent", "executionLanePolicy"]),
+            "SafetyInfo": obj([
+                "workingDir": nullable("string"), "requiresTrustedDevice": bool, "privacyLabel": nullable("string"),
+            ], required: ["requiresTrustedDevice"]),
+            "AdmissionInfo": obj([
+                "state": str, "source": nullable("string"), "observedAt": nullable("string"),
+                "resetAt": nullable("string"), "confidence": nullable("string"), "reason": nullable("string"),
+            ], required: ["state"]),
+            "AttemptInfo": obj([
+                "attemptId": str, "createdAt": str, "startedAt": nullable("string"),
+                "completedAt": nullable("string"), "workerIds": arr(str), "status": str,
+                "executionLaneKey": nullable("string"), "reason": nullable("string"),
+            ], required: ["attemptId", "createdAt", "workerIds", "status"]),
+            "NextAction": obj([
+                "kind": enumStr(["submitPending", "runPending", "showPending", "cancelPending"]),
+                "command": str, "label": nullable("string"),
+            ], required: ["kind", "command"]),
+            "AuditInfo": obj([
+                "traceId": str, "pendingStorePath": str, "userReorderedExecutionLane": nullable("boolean"),
+            ], required: ["traceId", "pendingStorePath"]),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

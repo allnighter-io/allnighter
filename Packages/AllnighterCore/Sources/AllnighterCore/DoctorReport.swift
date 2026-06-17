@@ -15,6 +15,7 @@ public enum DoctorReport {
         public var docsVersionMatchesBinary: Bool
         public var configDirWritable: Bool
         public var runsDirWritable: Bool
+        public var pendingDirWritable: Bool
         /// Observed resident coordinator state from `ResidentCoordinatorProbe` when set.
         public var coordinator: DoctorResult.Coordinator?
         /// True when smoke probes ran (`--full`); false for the quota-free path.
@@ -26,6 +27,7 @@ public enum DoctorReport {
             docsVersionMatchesBinary: Bool = true,
             configDirWritable: Bool,
             runsDirWritable: Bool,
+            pendingDirWritable: Bool = true,
             coordinator: DoctorResult.Coordinator? = nil,
             full: Bool
         ) {
@@ -34,6 +36,7 @@ public enum DoctorReport {
             self.docsVersionMatchesBinary = docsVersionMatchesBinary
             self.configDirWritable = configDirWritable
             self.runsDirWritable = runsDirWritable
+            self.pendingDirWritable = pendingDirWritable
             self.coordinator = coordinator
             self.full = full
         }
@@ -90,6 +93,8 @@ public enum DoctorReport {
         checks.append(planWriterCheck(models: models, recByDriver: recByDriver, full: inputs.full))
         checks.append(journalIncrementalCheck(inputs.runsDirWritable))
         checks.append(journalOrphanCheck(inputs.runsDirWritable))
+        checks.append(pendingReadableCheck(inputs.pendingDirWritable))
+        checks.append(pendingWritableCheck(inputs.pendingDirWritable))
         let coordinator = inputs.coordinator ?? DoctorResult.Coordinator(
             state: .foregroundOnly,
             detail: "foreground CLI only; resident coordinator not running"
@@ -166,6 +171,22 @@ public enum DoctorReport {
                      detail: "orphaned non-terminal runs resolve to interrupted")
     }
 
+    private static func pendingReadableCheck(_ pendingOK: Bool) -> DoctorResult.Check {
+        guard pendingOK else {
+            return .init(name: "pending.storeReadable", status: .critical,
+                         detail: "pending store dir missing or not readable", requiresManual: true)
+        }
+        return .init(name: "pending.storeReadable", status: .ok, detail: "pending store readable")
+    }
+
+    private static func pendingWritableCheck(_ pendingOK: Bool) -> DoctorResult.Check {
+        guard pendingOK else {
+            return .init(name: "pending.storeWritable", status: .critical,
+                         detail: "pending store dir missing or not writable", requiresManual: true)
+        }
+        return .init(name: "pending.storeWritable", status: .ok, detail: "pending store writable")
+    }
+
     private static func coordinatorCheck(_ coordinator: DoctorResult.Coordinator) -> DoctorResult.Check {
         switch coordinator.state {
         case .available:
@@ -198,7 +219,7 @@ public enum DoctorReport {
         let nothingInstalled = !records.isEmpty && records.allSatisfy {
             if case .notInstalled = $0.status { return true } else { return false }
         }
-        if !inputs.configDirWritable || !inputs.runsDirWritable || !sourcesLoaded || nothingInstalled {
+        if !inputs.configDirWritable || !inputs.runsDirWritable || !inputs.pendingDirWritable || !sourcesLoaded || nothingInstalled {
             return .critical
         }
         if inputs.full && records.allSatisfy({ !$0.status.isReady }) && !records.isEmpty {

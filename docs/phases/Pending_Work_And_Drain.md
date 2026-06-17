@@ -1,8 +1,8 @@
 # Pending Work and Drain
 
-Status: Draft founder packet; CLI-first Pending approved
+Status: **Pending0 + Pending1 BUILT** (2026-06-17); Pending2 drain deferred
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-15
+Updated: 2026-06-17
 
 ## Founder Intent
 
@@ -811,6 +811,8 @@ Implementation order note:
 
 ### Pending0 - Public CLI Contract
 
+Status: **BUILT** (2026-06-17)
+
 Goal:
 Make Pending a public command contract before building GUI-only behavior.
 
@@ -848,6 +850,8 @@ The item becomes cancelled and is not drained by alln serve.
 ```
 
 ### Pending1 - Local Pending Model
+
+Status: **BUILT** (2026-06-17)
 
 Goal:
 Store user-owned work intent separately from scheduler attempts.
