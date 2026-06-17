@@ -76,6 +76,10 @@ WorkThread.lastWorkerId    = most recent user-facing worker turn; for a team
 WorkThread.preview         = most recent message/reply excerpt
 ```
 
+Fast follow `05_Unread_Message_Light.md` adds `ThreadReadCursor` and derives
+`WorkThread.hasUnread` from the cursor plus unread-eligible turns. Do not infer
+unread from `updatedAt`.
+
 ```text
 ThreadTurn
 - id
@@ -146,7 +150,7 @@ Use granular storage kinds but simple UI families:
 
 Home becomes a floor-manager inbox, not a passive run log.
 
-Default row order:
+Default MLP row order:
 
 ```text
 1. pinned threads needing attention
@@ -158,12 +162,16 @@ Default row order:
 7. archived threads, hidden behind Archive
 ```
 
+After `05_Unread_Message_Light.md`, unread landed work slots between
+needs-attention and running.
+
 Row content:
 
 - title, editable from the thread header;
 - preview from the most recent meaningful turn;
 - last worker glyph/chip when present;
 - relative time;
+- unread indication light after `05_Unread_Message_Light.md`;
 - derived state: draft, pending, running, failed, manual-paste, auth-required;
 - optional `workingDir` path chip when set.
 
@@ -434,7 +442,8 @@ resume):
 - **PWT-S09 — Export full thread transcript + linked run artifacts.** Extend
   `ThreadMarkdown` (currently a viewing transcript) into a full export bundle
   that pulls linked run artifacts by `runId`.
-- **Fast-follow docs (separate phases, not started):** `02_Notifications.md`,
+- **Fast-follow docs (separate phases, not started):**
+  `05_Unread_Message_Light.md`, `02_Notifications.md`,
   `03_Mac_Streaming.md`, `04_Observed_Usage.md`.
 
 ## Works Test

@@ -2,7 +2,7 @@
 
 Status: MLP BUILT (S01–S06) — PAUSED 2026-06-15; S07–S09 + fast-follows remain
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-15
+Updated: 2026-06-17
 
 > **Resume pointer:** the MLP (chat → team run → work order → dispatch loop's chat
 > primitive) is built and green on branch `feat/design-chain`. Per-slice status,
@@ -55,17 +55,24 @@ Build in this order:
    - [ ] Existing team/design/review/dispatch work attaches to threads as
      turns (S07 — backend linkage exists; rich in-timeline cards pending).
 
-2. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
+2. [`threads/05_Unread_Message_Light.md`](threads/05_Unread_Message_Light.md)
+   — **not started**
+   - Fast follow for durable read cursors and the Mac rail indication light when
+     worker/team/dispatch work lands unseen.
+   - This is the inbox freshness loop: what changed while the floor manager was
+     looking elsewhere.
+
+3. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
    - Fast follow for Mac local notifications when work lands or needs attention.
    - OneSignal mobile push lands later, after the remote spine exists.
    - This is the walk-away loop: keep the bench useful without staring at the app.
 
-3. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
+4. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
    - Fast follow for live output where the driver/CLI can expose it.
    - May ship Mac-only first.
    - This is the stare-at-it loop: make long turns feel alive.
 
-4. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
+5. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
    - Fast follow for provider-reported usage only.
    - No estimates, no fake dollar math, no opaque quota percentages.
    - Duration stays first-class and already partially exists.
@@ -79,10 +86,14 @@ Build in this order:
   then Codex as builder.
 - **Enter never builds.** Hitting Enter sends a chat turn to the resolved default
   worker. Dispatch is always a named action from an editable work-order preview.
-- **Allnighter transcript is truth.** Vendor-native sessions may be used later
-  as an optimization, never as durable product truth.
+- **Allnighter thread record is truth.** `thread.json`/`run.json` own durable
+  product truth. Derived Markdown transcripts are exports/views. Vendor-native
+  sessions may be used later as an optimization, never as durable product truth.
 - **Thread liveness is derived.** Running, failed, waiting, and needs-attention
   states are computed from turns, not stored as drift-prone thread flags.
+- **Thread freshness is derived.** Read/unread state is computed from
+  `ThreadReadCursor` plus turns after `threads/05_Unread_Message_Light.md`; the
+  GUI never owns unread truth.
 - **Failures are turns too.** Failed, timed-out, cancelled, cooling-down, and
   manual-paste states remain visible inside the thread.
 - **No usage theater.** Show observed duration and source-labeled usage only
@@ -114,10 +125,32 @@ Truth added by the MLP (S01–S06, built 2026-06-15):
 - ✅ Context packet builder — `ThreadContextBuilder` + persisted
   `ThreadContextPacket`.
 
+Storage SSOT:
+
+```text
+AllnighterCore      -> Swift Codable schema + pure derived semantics
+AllnighterEngine    -> ThreadStore/RunStore mutation and persistence gates
+Application Support -> local folder-of-JSON storage
+SwiftUI             -> render + intent only; no durable truth
+```
+
+There is no Rust truth layer and no SQL database today. Thread truth lives at:
+
+```text
+~/Library/Application Support/Allnighter/Threads/thread_<id>/thread.json
+```
+
+`transcript.md` and Markdown exports are derived from JSON truth. Worker context
+packets live under each thread's `context/` folder. Team/design/review/dispatch
+run truth remains under `Runs/run_<id>/run.json`; threads reference those runs by
+id instead of copying run data.
+
 Still missing (deferred):
 
 - No streaming command path (fast follow `03_Mac_Streaming.md`).
 - No observed usage model (fast follow `04_Observed_Usage.md`).
+- No read cursor or unread/new-message indication light (fast follow
+  `05_Unread_Message_Light.md`).
 - No thread/turn notification policy (fast follow `02_Notifications.md`).
 
 ## Architecture Rule
@@ -147,11 +180,12 @@ The designer should spec surfaces from these backend truths:
 5. Ask team, turn into work order, dispatch, and continue from result are
    escalation actions inside the thread.
 6. Team/build turns expand in place.
-7. Running/failed/waiting are turn states, not separate inboxes.
+7. Running/failed/waiting/unread are derived from turn state plus read cursor,
+   not separate inboxes.
 8. The thread header exposes title, working directory, and default worker
    (`model + chat skill`), not a bare model.
-9. The thread list is a triage surface: needs-attention, running, pinned, then
-   recent.
+9. The thread list is a triage surface: needs-attention, unread landed work,
+   running, pinned, then recent.
 
 Visual design belongs in the design-system and GUI docs. This doc owns product
 semantics and sequencing.

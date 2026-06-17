@@ -1,8 +1,8 @@
 # 02 - Thread Notifications
 
-Status: Fast follow immediately after Work Threads MLP
+Status: Fast follow after Work Threads MLP; coordinates with `05_Unread_Message_Light.md`
 Owner: Mac app backend + iOS remote spine
-Updated: 2026-06-15
+Updated: 2026-06-17
 
 ## Goal
 
@@ -29,6 +29,12 @@ Ship in two layers:
    are in place.
 
 Mac notifications do not require cloud or iOS.
+
+Unread/read truth is owned separately by
+[`05_Unread_Message_Light.md`](05_Unread_Message_Light.md). Notification
+delivery, click-through, and push receipt must not be treated as read receipts.
+The notification policy may suppress delivery when the target turn is already
+visible and read, but visibility/read state remains the cursor's job.
 
 ## Notification Events
 
@@ -80,6 +86,9 @@ click                    -> highest-priority thread by Home triage order
 ```
 
 This gives some walk-away value even before notification permission is granted.
+Do not include ordinary unread threads in the numeric badge; that count is for
+needs-attention only. If unread is later reflected in the menu bar, use a quiet
+amber dot and source it from `05_Unread_Message_Light.md`.
 
 ## Mobile Push With OneSignal
 

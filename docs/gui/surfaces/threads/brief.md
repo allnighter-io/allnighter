@@ -11,15 +11,16 @@ team/build turn cards (the `richRow` here is a placeholder). See
 **Tier:** D (renders run/dispatch state, worker liveness, manual-paste)
 **Visual kit:** docs/design-system/ (tokens: `AllnighterTokens.swift`)
 **Behavioral owner:** docs/phases/Persistent_Work_Threads.md +
-docs/phases/threads/01_Work_Threads_MLP.md
+docs/phases/threads/01_Work_Threads_MLP.md +
+docs/phases/threads/05_Unread_Message_Light.md
 **Core contracts:** `WorkThread`, `ThreadTurn`, `ThreadContextPacket`,
 `ArtifactRef` (AllnighterCore); `ThreadStore`, `WorkerChatCoordinator`,
 `ThreadContextBuilder` (AllnighterEngine).
 
-This brief covers two surfaces that ship together in PWT-S06: the **ThreadList**
-(triage inbox) and the **ThreadTimeline** (turns + always-visible composer).
-They live alongside the existing team-run UI; Home does not flip to threads until
-PWT-S08.
+This brief covers the **ThreadList** (triage inbox) and the **ThreadTimeline**
+(turns + always-visible composer). While both the legacy `ThreadsView` sidebar
+and CR4 `HomeView` conversation rail exist, any WorkThread rail must render the
+same derived unread truth and triage order from `05_Unread_Message_Light.md`.
 
 ---
 
@@ -27,17 +28,20 @@ PWT-S08.
 
 ### States
 loading · empty ("No threads yet — start one") · populated · archived (behind a
-toggle). Per-row derived state: running · needs-attention · waiting ·
+toggle). Per-row derived state: unread · running · needs-attention · waiting ·
 manual-paste · failed.
 
 ### Intents
 - New thread → `ThreadStore.create(...)` then select it.
 - Select thread → open ThreadTimeline.
+- Read clearing → timeline visibility reports visible turn ids; view model sends
+  `ThreadStore.markReadToLatestVisible(...)`.
 - (S08) local text filter over title/preview/first message/run prompt.
 
-### Row order (triage — `WorkThread` derived liveness, never stored)
-1. pinned + needs-attention → 2. needs-attention → 3. pinned + running →
-4. running → 5. pinned recent → 6. recent by `updatedAt` → 7. archived (hidden).
+### Row order (triage — derived, never stored)
+1. pinned + needs-attention → 2. needs-attention → 3. pinned + unread →
+4. unread → 5. pinned + running → 6. running → 7. pinned recent →
+8. recent by `updatedAt` → 9. archived (hidden).
 
 ### Field Ownership Ledger
 | GUI field | Core model field | Source | States | Test owner |
@@ -46,10 +50,15 @@ manual-paste · failed.
 | Preview line | `thread.preview` | derived (latest text turn) | populated | ThreadsPresenterTests |
 | Last-worker chip | `thread.lastWorkerId` | derived | populated | ThreadsPresenterTests |
 | Relative time | `thread.updatedAt` | WorkThread | populated | — (Foundation format) |
+| Unread light | `thread.readCursor` + unread-eligible `turns` | derived (see `05_Unread_Message_Light.md`) | unread | ThreadsPresenterTests |
 | Running dot | `thread.isRunning` | derived | running | ThreadsPresenterTests |
 | Attention flag | `thread.needsAttention` | derived | needs-attention | ThreadsPresenterTests |
 | workingDir pill | `thread.workingDir` | WorkThread | when set | ThreadsPresenterTests |
 | Pinned marker | `thread.isPinned` / `pinnedAt` | WorkThread | pinned | ThreadsPresenterTests |
+
+Unread is an orthogonal axis. `rowState` remains attention/running/idle; the
+trailing unread light is derived separately and must not be encoded in status
+pill copy.
 
 ---
 

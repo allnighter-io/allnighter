@@ -1,7 +1,7 @@
 # Allnighter - Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-06-16
+Updated: 2026-06-17
 
 ## Purpose
 
@@ -33,7 +33,8 @@ otherwise.
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **BUILT** (S00–S05, 2026-06-16) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. |
 | [`Compose_Routing_CR4_Send_And_Conversations.md`](Compose_Routing_CR4_Send_And_Conversations.md) | **Execution-ready handoff** (2026-06-16) | Finishes the routing composer: Send creates a conversation and runs real work (chat→one model, fan out→team board, execute→dispatch) + the conversation/thread surface. CR1–CR3 shipped (composer built + wired to the real bench/teams); CR4a–CR4e sliced here. Design SSOT: `wiring/design_handoff_compose_routing/`. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | Draft founder packet (2026-06-16) | **Implementation law + appendix:** one coordinator send transaction, ordered attachment truth, audit packets, canonical history; workspace mirrors delivery-only. Proof matrix §11 items. DnD CIA-S09 last. After CR4b. |
-| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then Mac notifications, streaming, and observed usage as fast follows. |
+| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then unread lights, Mac notifications, streaming, and observed usage as fast follows. |
+| [`threads/05_Unread_Message_Light.md`](threads/05_Unread_Message_Light.md) | Draft founder packet (2026-06-17) | Durable read cursor plus Mac thread-rail indication light for new/unread worker, team, dispatch, and attention turns. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
@@ -162,6 +163,7 @@ Open questions:
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |
 | Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** |
+| Read/unread thread state, new-message indication light, read cursor semantics | `Persistent_Work_Threads.md` -> `threads/05_Unread_Message_Light.md` |
 | Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
