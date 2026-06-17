@@ -74,4 +74,69 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertEqual(TeamCatalog.list(lane: .build).count, before,
                        "a rejected save must not leave an orphan custom team")
     }
+
+    // MARK: - S01A: save-time worker-prompt forking
+
+    private func customBuildSkills() -> [Skill] {
+        SkillCatalog.list(lane: .build).filter { !$0.builtIn }
+    }
+    private func customBuildTeams() -> [TeamPreset] {
+        TeamCatalog.list(lane: .build).filter { !$0.builtIn }
+    }
+
+    func testEditingPromptDraftWithoutCommitWritesNothing() {
+        let skillsBefore = customBuildSkills().count
+        let teamsBefore = customBuildTeams().count
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        d.rows[0].promptDraft = "edited but never saved (this is Cancel)"
+        // No commit() — equivalent to Cancel.
+        XCTAssertEqual(customBuildSkills().count, skillsBefore, "cancel forks no skill")
+        XCTAssertEqual(customBuildTeams().count, teamsBefore, "cancel saves no team")
+    }
+
+    func testPromptEditForksCustomSkillOnSaveAndRepointsRow() throws {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        let originalSkillId = d.rows[0].skillId
+        let originalTemplate = SkillCatalog.get(originalSkillId)?.template
+        let originalName = SkillCatalog.get(originalSkillId)?.displayName ?? originalSkillId
+        d.rows[0].promptDraft = "You are a tuned product architect. Be terse and ship."
+        let skillsBefore = customBuildSkills().count
+
+        let teamId = try d.commit()
+        let team = try XCTUnwrap(TeamCatalog.get(teamId))
+        let customs = customBuildSkills()
+        XCTAssertEqual(customs.count, skillsBefore + 1, "exactly one fork is created")
+
+        let fork = try XCTUnwrap(customs.first { $0.template.contains("tuned product architect") })
+        XCTAssertFalse(fork.builtIn)
+        XCTAssertEqual(fork.lane, .build, "fork inherits the team lane")
+        XCTAssertEqual(fork.displayName, "\(originalName) for \(d.name)", "<Skill> for <Team> naming")
+        XCTAssertEqual(team.workerSpecs.first?.skillId, fork.id, "row repointed to the fork")
+        XCTAssertEqual(SkillCatalog.get(originalSkillId)?.template, originalTemplate,
+                       "the built-in skill is never mutated")
+    }
+
+    func testModelOnlyChangeDoesNotFork() throws {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        d.rows[0].modelId = "model_grok"   // model only; no promptDraft
+        let skillsBefore = customBuildSkills().count
+        _ = try d.commit()
+        XCTAssertEqual(customBuildSkills().count, skillsBefore, "changing only the model forks no skill")
+    }
+
+    func testFailedTeamSaveRollsBackForkedSkill() throws {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        XCTAssertGreaterThan(d.rows.count, 1, "need a second row to force a team-save failure")
+        d.rows[0].promptDraft = "tuned prompt that must roll back"
+        // Force the team save to fail AFTER the fork: a later row points at no skill.
+        d.rows[1].skillId = "nonexistent_skill_xyz"
+        let skillsBefore = customBuildSkills().count
+        let teamsBefore = customBuildTeams().count
+
+        XCTAssertThrowsError(try d.commit(), "team save must fail on the unknown skill")
+        XCTAssertEqual(customBuildSkills().count, skillsBefore,
+                       "the forked skill is rolled back — no orphan custom skill")
+        XCTAssertEqual(customBuildTeams().count, teamsBefore,
+                       "no orphan custom team")
+    }
 }

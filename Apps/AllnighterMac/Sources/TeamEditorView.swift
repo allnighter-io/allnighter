@@ -13,12 +13,20 @@ struct TeamDraft: Equatable {
     var rows: [Row]
     var allowSubstitutions: Bool
 
+    /// One worker's pending edit state (the rescue's TeamWorkerDraft). Prompt edits
+    /// live here and are forked into a custom skill ONLY at team Save — never
+    /// mutating the shared/built-in skill, never written before Save.
     struct Row: Identifiable, Equatable {
         let id: String
         var skillId: String
         var modelId: String?
         var purpose: TeamWorkerPurpose
         var minEffort: EffortLevel
+        /// Edited prompt for this worker. nil = use `skillId`'s template as-is (no fork).
+        var promptDraft: String? = nil
+        /// The skill whose template seeded `promptDraft` (so a skill change can ask
+        /// before discarding an edit).
+        var promptBaseSkillId: String? = nil
     }
 
     /// Seed from a base team. A built-in seeds a "(custom)" name; rows pre-fill with
@@ -44,37 +52,65 @@ struct TeamDraft: Equatable {
     /// Persist as a custom team and return its id. Built-in base → duplicate to a
     /// fresh custom; existing custom → save in place. Throws CatalogError on
     /// validation failure (e.g. a skill from another lane).
+    /// Save-time forking (rescue S01A): one transaction-like sequence.
+    ///   for each row with an edited prompt → fork a custom skill, repoint the row;
+    ///   then save the custom team. If anything fails, roll back every custom skill
+    ///   (and a freshly-duplicated team) created in this attempt — no orphans.
+    /// Built-in source skills/teams are never mutated; the fork is a normal custom
+    /// SkillDefinition named "<Skill> for <Team>".
     @discardableResult
     func commit() throws -> TeamID {
         let fallback: ModelFallbackPolicy = allowSubstitutions ? .laneCapable : .exactOnly
-        let specs = rows.map { row in
-            TeamWorkerSpec(
-                id: row.id, skillId: row.skillId, purpose: row.purpose,
-                minEffort: row.minEffort, preferredModelId: row.modelId,
-                count: 1, fallbackPolicy: fallback, required: true
-            )
+        var forkedSkillIds: [SkillID] = []
+        var duplicatedTeamId: TeamID?
+
+        func rollback() {
+            for id in forkedSkillIds { try? SkillCatalog.deleteCustom(id) }
+            if let duplicatedTeamId { try? TeamCatalog.deleteCustom(duplicatedTeamId) }
         }
 
-        if base.builtIn {
-            // Duplicate to a fresh custom, then save the edited rows. If the edit
-            // fails validation (e.g. a wrong-lane skill), roll back the duplicate
-            // so a failed Save never leaves an orphan team behind.
-            var team = try TeamCatalog.duplicateBuiltIn(base.id, name: name)
+        do {
+            // 1) Fork edited prompts into custom skills; build the worker specs.
+            let specs: [TeamWorkerSpec] = try rows.map { row in
+                let skillId: String
+                if let prompt = row.promptDraft?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty {
+                    let source = SkillCatalog.get(row.skillId)
+                    let forkName = "\(source?.displayName ?? row.skillId) for \(name)"
+                    let custom = try SkillCatalog.createCustom(
+                        lane: base.lane,
+                        name: forkName,
+                        purpose: source?.purpose ?? .answer,
+                        template: prompt
+                    )
+                    forkedSkillIds.append(custom.id)
+                    skillId = custom.id
+                } else {
+                    skillId = row.skillId
+                }
+                return TeamWorkerSpec(
+                    id: row.id, skillId: skillId, purpose: row.purpose,
+                    minEffort: row.minEffort, preferredModelId: row.modelId,
+                    count: 1, fallbackPolicy: fallback, required: true
+                )
+            }
+
+            // 2) Save the custom team. Built-in source → duplicate to a fresh custom.
+            var team: TeamPreset
+            if base.builtIn {
+                team = try TeamCatalog.duplicateBuiltIn(base.id, name: name)
+                duplicatedTeamId = team.id
+            } else if let existing = TeamCatalog.get(base.id) {
+                team = existing
+            } else {
+                throw CatalogError.teamNotFound
+            }
             team.displayName = name
             team.workerSpecs = specs
-            do {
-                try TeamCatalog.saveCustom(team)
-            } catch {
-                try? TeamCatalog.deleteCustom(team.id)
-                throw error
-            }
+            try TeamCatalog.saveCustom(team)
             return team.id
-        } else {
-            guard var existing = TeamCatalog.get(base.id) else { throw CatalogError.teamNotFound }
-            existing.displayName = name
-            existing.workerSpecs = specs
-            try TeamCatalog.saveCustom(existing)
-            return existing.id
+        } catch {
+            rollback()
+            throw error
         }
     }
 }
