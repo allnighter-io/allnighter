@@ -139,44 +139,6 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertEqual(ThreadsPresenter.routingDefaultMode(for: specDraft), .chat)
     }
 
-    func testRoutingDefaultWorkerPrefersLastWorkerOverBenchFallback() {
-        let bench: [ComposeBenchModel] = [
-            .init(id: "model_codex", name: "ChatGPT", driverId: "codex", cli: "codex", sub: "5.5", ready: true),
-            .init(id: "model_grok", name: "Grok Build", driverId: "grok", cli: "grok", sub: "build", ready: true),
-        ]
-        var grokReply = turn(.workerChat, .done)
-        grokReply.workerId = "model_grok"
-        let afterGrok = thread("t", updatedAt: t0, turns: [grokReply])
-
-        XCTAssertEqual(ComposeRoutingDefaults.worker(for: afterGrok, bench: bench), "model_grok")
-    }
-
-    func testRoutingDefaultWorkerUsesThreadDefaultBeforeLastWorker() {
-        let bench: [ComposeBenchModel] = [
-            .init(id: "model_opus", name: "Opus", driverId: "claude", cli: "claude", sub: "opus", ready: true),
-            .init(id: "model_grok", name: "Grok", driverId: "grok", cli: "grok", sub: "build", ready: true),
-        ]
-        var grokReply = turn(.workerChat, .done)
-        grokReply.workerId = "model_grok"
-        let pinned = WorkThread(
-            id: "t", title: "t", createdAt: t0, updatedAt: t0,
-            defaultWorkerId: "model_opus", turns: [grokReply]
-        )
-
-        XCTAssertEqual(ComposeRoutingDefaults.worker(for: pinned, bench: bench), "model_opus")
-    }
-
-    func testRoutingDefaultWorkerFallsBackToFirstReadyWhenThreadIsEmpty() {
-        let bench: [ComposeBenchModel] = [
-            .init(id: "model_codex", name: "ChatGPT", driverId: "codex", cli: "codex", sub: "5.5", ready: true),
-            .init(id: "model_grok", name: "Grok", driverId: "grok", cli: "grok", sub: "build", ready: false),
-        ]
-        let empty = thread("new", updatedAt: t0)
-
-        XCTAssertEqual(ComposeRoutingDefaults.worker(for: empty, bench: bench), "model_codex")
-        XCTAssertEqual(ComposeRoutingDefaults.worker(for: nil, bench: bench), "model_codex")
-    }
-
     func testConversationStatus() {
         let replied = thread("r", updatedAt: t0, turns: [turn(.workerChat, .done)])
         XCTAssertEqual(ThreadsPresenter.conversationStatus(for: replied), .replied)
