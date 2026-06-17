@@ -60,6 +60,7 @@ public enum AttachmentSourceKind: String, Codable, Sendable, CaseIterable {
     case mcpPath = "mcp_path"
     case mcpBase64 = "mcp_base64"
     case guiAttach = "gui_attach"
+    case workerGenerated = "worker_generated"
 }
 
 public struct TurnAttachment: Codable, Sendable, Equatable, Identifiable {

@@ -31,6 +31,7 @@ public struct ThreadSendIdempotencyStore: Sendable {
         public var payloadDigest: String
         public var userTurnId: String
         public var workerTurnId: String
+        public var workerAttachmentIds: [String]?
         public var acceptedAt: Date
     }
 
@@ -57,6 +58,7 @@ public struct ThreadSendIdempotencyStore: Sendable {
         payload: ThreadSendCanonicalPayload,
         userTurnId: String,
         workerTurnId: String,
+        workerAttachmentIds: [String]? = nil,
         now: Date = Date()
     ) throws -> Entry {
         var file = load()
@@ -66,6 +68,7 @@ public struct ThreadSendIdempotencyStore: Sendable {
             payloadDigest: Self.digest(payload),
             userTurnId: userTurnId,
             workerTurnId: workerTurnId,
+            workerAttachmentIds: workerAttachmentIds,
             acceptedAt: now
         )
         file.entries.removeAll { $0.key == key }

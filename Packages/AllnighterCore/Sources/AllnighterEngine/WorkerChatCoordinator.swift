@@ -52,10 +52,12 @@ public actor WorkerChatCoordinator {
     public init(
         store: ThreadStore,
         runner: WorkerRunner,
+        imageInvoker: WorkerImageInvoker? = nil,
         registry: DriverRegistry,
         models: [Model],
         defaultDriverWorkerId: String? = nil,
         contextBuilder: ThreadContextBuilder = ThreadContextBuilder(),
+        seedResolver: ThreadImageSeedResolver = ThreadImageSeedResolver(),
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
         now: @escaping @Sendable () -> Date = Date.init
     ) {
@@ -69,10 +71,12 @@ public actor WorkerChatCoordinator {
         self.sendCoordinator = ThreadSendCoordinator(
             store: store,
             runner: runner,
+            imageInvoker: imageInvoker,
             registry: registry,
             models: models,
             defaultDriverWorkerId: defaultDriverWorkerId,
             contextBuilder: contextBuilder,
+            seedResolver: seedResolver,
             idFactory: idFactory,
             now: now
         )
@@ -98,6 +102,33 @@ public actor WorkerChatCoordinator {
 
     // MARK: - Send
 
+    /// Persist optimistic turns synchronously, then invoke when ready.
+    public func beginSend(
+        message: String,
+        toThreadId threadId: String,
+        requestedWorkerId: String? = nil,
+        contextOptions: ThreadContextBuilder.Options = ThreadContextBuilder.Options(),
+        draftIds: [String] = [],
+        images: [ThreadSendCoordinator.ImageInput] = []
+    ) throws -> ThreadSendCoordinator.SendCheckpoint {
+        try sendCoordinator.beginSend(
+            request: ThreadSendCoordinator.Request(
+                message: message,
+                draftIds: draftIds,
+                images: images,
+                requestedWorkerId: requestedWorkerId,
+                contextOptions: contextOptions
+            ),
+            toThreadId: threadId
+        )
+    }
+
+    /// Invoke the worker for a pending send and settle the worker turn.
+    public func completeSend(_ pending: ThreadSendCoordinator.PendingSend) async throws -> ChatResult {
+        let result = try await sendCoordinator.completeSend(pending)
+        return chatResult(from: result)
+    }
+
     /// Send a chat message to one worker. Persists optimistic turns before the
     /// invoke so a concurrent reader sees `running` immediately.
     @discardableResult
@@ -109,17 +140,23 @@ public actor WorkerChatCoordinator {
         draftIds: [String] = [],
         images: [ThreadSendCoordinator.ImageInput] = []
     ) async throws -> ChatResult {
-        let result = try await sendCoordinator.send(
-            request: ThreadSendCoordinator.Request(
-                message: message,
-                draftIds: draftIds,
-                images: images,
-                requestedWorkerId: requestedWorkerId,
-                contextOptions: contextOptions
-            ),
-            toThreadId: threadId
-        )
-        return ChatResult(
+        switch try beginSend(
+            message: message,
+            toThreadId: threadId,
+            requestedWorkerId: requestedWorkerId,
+            contextOptions: contextOptions,
+            draftIds: draftIds,
+            images: images
+        ) {
+        case .finished(let result):
+            return chatResult(from: result)
+        case .awaitingInvoke(let pending):
+            return try await completeSend(pending)
+        }
+    }
+
+    private func chatResult(from result: ThreadSendCoordinator.Result) -> ChatResult {
+        ChatResult(
             thread: result.thread,
             workerId: result.workerId,
             userTurnId: result.userTurnId,

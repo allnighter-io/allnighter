@@ -70,11 +70,13 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     /// True when this worker can read an image headlessly (build-side, Design2).
     public var canReadImages: Bool { readsImages == true }
 
-    /// How a worker's CLI generates an image headlessly. Image gen is an agentic
-    /// tool call triggered by the prompt (not an `--out` flag); the image always
-    /// arrives as a **local file** (PNG/JPEG, never base64/URL), with the path
-    /// reported in stdout. The manifest controls the destination via the prompt,
-    /// with a stdout-path-parse fallback. See `docs/mvp/Design1`.
+    /// How a worker's CLI generates an image headlessly — used by design fan-out
+    /// seats and by chat turns when `ChatImageIntent` selects the `imageGen`
+    /// profile. Image gen is an agentic tool call triggered by the prompt (not an
+    /// `--out` flag); the image always arrives as a **local file** (PNG/JPEG,
+    /// never base64/URL), with the path reported in stdout. The manifest controls
+    /// the destination via the prompt, with a stdout-path-parse fallback. See
+    /// `docs/mvp/Design1` and `docs/phases/threads/08_Worker_Image_Output_In_Chat.md`.
     public struct ImageGen: Codable, Sendable, Equatable {
         /// How the model returns the image.
         public enum Arrival: String, Codable, Sendable {

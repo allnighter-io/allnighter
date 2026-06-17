@@ -82,7 +82,7 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
         let fixedClock = clock
         let coordinator = ThreadSendCoordinator(
             store: store,
-            runner: WorkerRunner(commandRunner: capture, now: { fixedClock }),
+            commandRunner: capture,
             registry: DriverRegistry([manifest]),
             models: [worker],
             idFactory: { counter.next() },
@@ -122,7 +122,7 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
         let fixedClock = clock
         let coordinator = ThreadSendCoordinator(
             store: store,
-            runner: WorkerRunner(commandRunner: capture, now: { fixedClock }),
+            commandRunner: capture,
             registry: DriverRegistry([manifest]),
             models: [worker],
             idFactory: { UUID().uuidString },
@@ -144,6 +144,178 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
         private let lock = NSLock()
         private var n = 0
         func next() -> String { lock.lock(); defer { lock.unlock() }; n += 1; return "id\(n)" }
+    }
+
+    private struct ImageWritingRunner: CommandRunner {
+        func run(
+            command: String, args: [String], stdin: String?, env: [String: String],
+            workingDirectory: String?, timeout: Duration
+        ) async -> CommandResult {
+            let blob = stdin ?? args.joined(separator: " ")
+            let patterns = [#"Save to (\S+)"#, #"Save the final image to (\S+)"#]
+            for pattern in patterns {
+                if let path = WorkerImageCapture.firstCapture(blob, pattern: pattern) {
+                    if let png = try? Self.validPNGData() {
+                        try? png.write(to: URL(fileURLWithPath: path))
+                    }
+                    break
+                }
+            }
+            return CommandResult(stdout: "Here is your cute cat photo.", exitCode: 0)
+        }
+
+        private static func validPNGData() throws -> Data {
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let context = CGContext(
+                data: nil, width: 4, height: 4,
+                bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )!
+            context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+            let image = context.makeImage()!
+            let data = NSMutableData()
+            let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil)!
+            CGImageDestinationAddImage(dest, image, nil)
+            _ = CGImageDestinationFinalize(dest)
+            return data as Data
+        }
+    }
+
+    private func fakeImageManifest() -> DriverManifest {
+        DriverManifest(
+            id: "fake_image", displayName: "Fake Image", kind: .headlessCLI,
+            invoke: .init(command: "fake-image", args: ["-p", "{{prompt}}"]),
+            imageGen: .init(
+                args: ["-p", "{{prompt}}"],
+                promptTemplate: "Generate: {{designPrompt}} Save to {{imageOut}}",
+                arrival: .promptDirected
+            )
+        )
+    }
+
+    func testWorkerImageCaptureCommitsAttachmentOnCompleteSend() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wio-send-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads"))
+        try store.create(id: "t1", title: "cat", now: clock, defaultWorkerId: "img")
+
+        let runner = ImageWritingRunner()
+        let worker = TestSupport.worker("img", driverId: "fake_image")
+        let counter = Counter()
+        let fixedClock = clock
+        let coordinator = ThreadSendCoordinator(
+            store: store,
+            commandRunner: runner,
+            registry: DriverRegistry([fakeImageManifest()]),
+            models: [worker],
+            idFactory: { counter.next() },
+            now: { fixedClock }
+        )
+
+        let result = try await coordinator.send(
+            request: ThreadSendCoordinator.Request(message: "generate an image of a cute cat"),
+            toThreadId: "t1"
+        )
+
+        XCTAssertEqual(result.workerAttachmentIds.count, 1)
+        XCTAssertEqual(result.attachmentIds, [])
+        let thread = try XCTUnwrap(store.get("t1"))
+        let workerTurn = try XCTUnwrap(thread.turns.last { $0.kind == .workerChat })
+        XCTAssertEqual(workerTurn.attachmentRefs.count, 1)
+        XCTAssertEqual(workerTurn.attachmentRefs[0].sequence, 0)
+
+        let threadDir = try store.threadDirectory(forThreadId: "t1")
+        let attachmentPath = threadDir
+            .appendingPathComponent("attachments/\(result.workerAttachmentIds[0]).png")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: attachmentPath.path))
+    }
+
+    func testDesignBoardPickMaterializedIntoContextPacket() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wio-board-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let runsRoot = root.appendingPathComponent("runs")
+        let runStore = RunStore(rootDirectory: runsRoot)
+        let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads"))
+        try store.create(id: "t1", title: "design", now: clock, defaultWorkerId: "img")
+
+        let runId = "run-design-1"
+        let runDir = try runStore.runDirectory(forRunId: runId)
+        let optionPath = "option_a.png"
+        let png = try tinyPNGFile(in: runDir.deletingLastPathComponent())
+        try FileManager.default.copyItem(at: png, to: runDir.appendingPathComponent(optionPath))
+
+        var run = TeamRun(
+            id: runId, prompt: "improve", status: .complete,
+            workers: [TestSupport.seat("img")],
+            createdAt: clock
+        )
+        run.stages = [
+            StageOutput(
+                id: "board1", purpose: .board, status: .done,
+                payload: .board(BoardPayload(
+                    targetShape: .mobile,
+                    options: [
+                        DesignOption(
+                            workerId: "img#0", modelId: "img", persona: "bold",
+                            imagePath: optionPath, status: .done
+                        )
+                    ],
+                    chosen: ChosenOption(workerId: "img#0", persona: "bold")
+                )),
+                startedAt: clock, finishedAt: clock
+            )
+        ]
+        try runStore.save(run, models: [TestSupport.worker("img", driverId: "fake_image")])
+
+        let boardTurn = ThreadTurn(
+            id: "board-turn", threadId: "t1", kind: .designBoard, status: .done,
+            createdAt: clock, completedAt: clock, author: .system, runId: runId
+        )
+        _ = try store.appendTurn(boardTurn, toThreadId: "t1", now: clock)
+
+        let runner = ImageWritingRunner()
+        let worker = TestSupport.worker("img", driverId: "fake_image")
+        let counter = Counter()
+        let fixedClock = clock
+        let coordinator = ThreadSendCoordinator(
+            store: store,
+            commandRunner: runner,
+            registry: DriverRegistry([fakeImageManifest()]),
+            models: [worker],
+            seedResolver: ThreadImageSeedResolver(runStore: runStore),
+            idFactory: { counter.next() },
+            now: { fixedClock }
+        )
+
+        let result = try await coordinator.send(
+            request: ThreadSendCoordinator.Request(message: "make the header bolder"),
+            toThreadId: "t1"
+        )
+
+        let thread = try XCTUnwrap(store.get("t1"))
+        XCTAssertTrue(thread.turns.contains { $0.kind == .userDecision })
+        let packet = try XCTUnwrap(store.packet(threadId: "t1", packetId: result.contextPacketId))
+        XCTAssertEqual(packet.includedAttachments.count, 1)
+        XCTAssertTrue(packet.includedAttachments[0].canonicalPath.contains("attachments/"))
+    }
+
+    func testIdempotencyReplayReturnsWorkerAttachmentIdsForNewRecords() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wio-idem-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("idem.json")
+        let store = ThreadSendIdempotencyStore(fileURL: file)
+        let payload = ThreadSendCanonicalPayload(threadId: "t1", message: "generate an image", workerId: "img", imageHashes: [])
+        let entry = try store.record(
+            key: "k1", payload: payload, userTurnId: "u1", workerTurnId: "w1",
+            workerAttachmentIds: ["att-worker-1"]
+        )
+        switch store.lookup(key: "k1", payload: payload) {
+        case .hit(let hit):
+            XCTAssertEqual(hit.workerAttachmentIds, entry.workerAttachmentIds)
+        default:
+            XCTFail("expected idempotency hit")
+        }
     }
 }
 

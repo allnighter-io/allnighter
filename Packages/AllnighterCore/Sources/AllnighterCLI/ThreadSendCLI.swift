@@ -10,6 +10,8 @@ enum ThreadSendCLI {
         var workerTurnId: String
         var attachmentIds: [String]
         var attachments: [AttachmentRow]
+        var workerAttachmentIds: [String]
+        var workerAttachments: [AttachmentRow]
 
         struct AttachmentRow: Codable {
             var attachmentId: String
@@ -89,10 +91,10 @@ enum ThreadSendCLI {
             }
         }
 
-        let runner = WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: runtime.invocations)
         let coordinator = ThreadSendCoordinator(
             store: store,
-            runner: runner,
+            commandRunner: SubprocessCommandRunner(),
+            invocations: runtime.invocations,
             registry: runtime.registry,
             models: runtime.readyModels,
             defaultDriverWorkerId: runtime.models.first?.id
@@ -104,7 +106,11 @@ enum ThreadSendCLI {
                 toThreadId: threadId
             )
             if let key = opts.value("idempotency-key"), !key.isEmpty {
-                try? idempotency.record(key: key, payload: canonical, userTurnId: result.userTurnId, workerTurnId: result.workerTurnId)
+                try? idempotency.record(
+                    key: key, payload: canonical,
+                    userTurnId: result.userTurnId, workerTurnId: result.workerTurnId,
+                    workerAttachmentIds: result.workerAttachmentIds.isEmpty ? nil : result.workerAttachmentIds
+                )
             }
             if opts.flag("json") {
                 let response = Response(
@@ -112,18 +118,13 @@ enum ThreadSendCLI {
                     userTurnId: result.userTurnId,
                     workerTurnId: result.workerTurnId,
                     attachmentIds: result.attachmentIds,
-                    attachments: result.deliveries.map {
-                        Response.AttachmentRow(
-                            attachmentId: $0.attachmentId,
-                            canonicalPath: $0.canonicalPath,
-                            deliveredPathUsed: $0.deliveredPathUsed,
-                            storedSha256: $0.storedSha256
-                        )
-                    }
+                    attachments: result.deliveries.map { row(from: $0) },
+                    workerAttachmentIds: result.workerAttachmentIds,
+                    workerAttachments: result.workerDeliveries.map { row(from: $0) }
                 )
                 print(AllnighterCLI.jsonString(response))
             } else {
-                print("sent to \(result.workerId): user=\(result.userTurnId) worker=\(result.workerTurnId) attachments=\(result.attachmentIds.count)")
+                print("sent to \(result.workerId): user=\(result.userTurnId) worker=\(result.workerTurnId) attachments=\(result.attachmentIds.count) workerImages=\(result.workerAttachmentIds.count)")
             }
         } catch let error as AttachmentError {
             AllnighterCLI.emitFailure(code: error.code, message: error.description)
@@ -151,15 +152,28 @@ enum ThreadSendCLI {
         return paths
     }
 
+    private static func row(from delivery: IncludedAttachmentDelivery) -> Response.AttachmentRow {
+        Response.AttachmentRow(
+            attachmentId: delivery.attachmentId,
+            canonicalPath: delivery.canonicalPath,
+            deliveredPathUsed: delivery.deliveredPathUsed,
+            storedSha256: delivery.storedSha256
+        )
+    }
+
     private static func emitCachedJSON(threadId: String, entry: ThreadSendIdempotencyStore.Entry, store: ThreadStore) {
         let thread = store.get(threadId)
         let userTurn = thread?.turns.first { $0.id == entry.userTurnId }
+        let workerTurn = thread?.turns.first { $0.id == entry.workerTurnId }
+        let workerIds = entry.workerAttachmentIds ?? workerTurn?.attachmentRefs.map(\.attachmentId) ?? []
         let response = Response(
             threadId: threadId,
             userTurnId: entry.userTurnId,
             workerTurnId: entry.workerTurnId,
             attachmentIds: userTurn?.attachmentRefs.map(\.attachmentId) ?? [],
-            attachments: []
+            attachments: [],
+            workerAttachmentIds: workerIds,
+            workerAttachments: []
         )
         print(AllnighterCLI.jsonString(response))
     }
@@ -249,7 +263,20 @@ enum MCPThreadSendHandlers {
         if let key = idempotencyKey, !key.isEmpty {
             switch idempotency.lookup(key: key, payload: canonical) {
             case .hit(let entry):
-                return .success(Response(threadId: threadId, userTurnId: entry.userTurnId, workerTurnId: entry.workerTurnId, attachmentIds: [], deliveries: []))
+                let store = ThreadStore()
+                let thread = store.get(threadId)
+                let userTurn = thread?.turns.first { $0.id == entry.userTurnId }
+                let workerTurn = thread?.turns.first { $0.id == entry.workerTurnId }
+                let workerIds = entry.workerAttachmentIds ?? workerTurn?.attachmentRefs.map(\.attachmentId) ?? []
+                return .success(Response(
+                    threadId: threadId,
+                    userTurnId: entry.userTurnId,
+                    workerTurnId: entry.workerTurnId,
+                    attachmentIds: userTurn?.attachmentRefs.map(\.attachmentId) ?? [],
+                    deliveries: [],
+                    workerAttachmentIds: workerIds,
+                    workerDeliveries: []
+                ))
             case .conflict:
                 return .failure(ErrorEnvelope(code: "THREAD_SEND_IDEMPOTENCY_CONFLICT", message: "idempotency conflict", requiresManual: false, retryable: false))
             case .miss:
@@ -259,7 +286,8 @@ enum MCPThreadSendHandlers {
 
         let coordinator = ThreadSendCoordinator(
             store: store,
-            runner: WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: runtime.invocations),
+            commandRunner: SubprocessCommandRunner(),
+            invocations: runtime.invocations,
             registry: runtime.registry,
             models: runtime.readyModels
         )
@@ -269,14 +297,20 @@ enum MCPThreadSendHandlers {
                 toThreadId: threadId
             )
             if let key = idempotencyKey, !key.isEmpty {
-                try? idempotency.record(key: key, payload: canonical, userTurnId: result.userTurnId, workerTurnId: result.workerTurnId)
+                try? idempotency.record(
+                    key: key, payload: canonical,
+                    userTurnId: result.userTurnId, workerTurnId: result.workerTurnId,
+                    workerAttachmentIds: result.workerAttachmentIds.isEmpty ? nil : result.workerAttachmentIds
+                )
             }
             return .success(Response(
                 threadId: threadId,
                 userTurnId: result.userTurnId,
                 workerTurnId: result.workerTurnId,
                 attachmentIds: result.attachmentIds,
-                deliveries: result.deliveries
+                deliveries: result.deliveries,
+                workerAttachmentIds: result.workerAttachmentIds,
+                workerDeliveries: result.workerDeliveries
             ))
         } catch let error as AttachmentError {
             return .failure(ErrorEnvelope(code: error.code, message: error.description, requiresManual: true, retryable: false))
@@ -293,5 +327,7 @@ enum MCPThreadSendHandlers {
         var workerTurnId: String
         var attachmentIds: [String]
         var deliveries: [IncludedAttachmentDelivery]
+        var workerAttachmentIds: [String]
+        var workerDeliveries: [IncludedAttachmentDelivery]
     }
 }

@@ -74,13 +74,15 @@ final class ThreadsViewModel {
         store = ThreadStore()
         runStore = RunStore()
         #endif
+        let commandRunner = SubprocessCommandRunner()
         self.init(
             store: store,
             runStore: runStore,
             registry: config.registry,
             models: config.models,
             toolStatuses: records,
-            runner: WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: invocations)
+            runner: WorkerRunner(commandRunner: commandRunner, invocations: invocations),
+            imageInvoker: WorkerImageInvoker(commandRunner: commandRunner, invocations: invocations)
         )
         #if DEBUG
         if let fixture = GUIFixture.active {
@@ -97,6 +99,7 @@ final class ThreadsViewModel {
         models: [Model],
         toolStatuses: [ToolProbeRecord] = [],
         runner: WorkerRunner,
+        imageInvoker: WorkerImageInvoker? = nil,
         laneRegistry: ExecutionLaneRegistry = .shared,
         isAppActiveForReadClear: @escaping () -> Bool = {
             NSApplication.shared.isActive && NSApplication.shared.keyWindow != nil
@@ -111,7 +114,8 @@ final class ThreadsViewModel {
         self.laneRegistry = laneRegistry
         self.isAppActiveForReadClear = isAppActiveForReadClear
         self.coordinator = WorkerChatCoordinator(
-            store: store, runner: runner, registry: registry, models: models
+            store: store, runner: runner, imageInvoker: imageInvoker,
+            registry: registry, models: models
         )
         reload()
     }

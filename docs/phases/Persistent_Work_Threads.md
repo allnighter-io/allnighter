@@ -16,8 +16,8 @@ Updated: 2026-06-17
 > **Resume pointer:** the MLP thread primitive is built, and later CR4 work added
 > the Home conversation rail plus real Chat, Fan out, and Execute send paths.
 > ThreadStore hardening and Threads 2.0 rail controls are archived. Remaining
-> active thread work: unread viewport clear (06 S05+), worker image output (08),
-> core-loop gaps in `01`, and fast follows 02–04.
+> active thread work: unread Mac notification hooks/rich-turn clear (06 S06/S08),
+> worker image output (08), core-loop gaps in `01`, and fast follows 02–04.
 
 ## Product Promise
 
@@ -82,11 +82,14 @@ Build in this order:
    - Unread and rail controls can now build on this archived gate.
 
 3. [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md)
-   — **UNR-S01–S04 BUILT** (2026-06-17); S05–S09 remain
+   — **UNR-S01–S05 + S07 BUILT** (2026-06-17); S06/S08 remain
    - Durable read cursors, Core derivation, store `markRead*`, presenter unread
-     buckets, and Mac rail indication light are built.
-   - Timeline visibility clear, notification hooks, full UNR GUI proof, rich-turn
-     read-clear, and remote protocol defer to UNR-S05–S09.
+     buckets, Mac rail indication light, viewport clear, and GUI matrix proof
+     are built.
+   - Mac notification hooks and rich-turn read-clear defer to UNR-S06/S08.
+   - iOS read-state protocol moved to
+     [`ios/03_iOS_Thread_Read_State_And_Push.md`](ios/03_iOS_Thread_Read_State_And_Push.md)
+     and is not a Mac blocker.
 
 4. [`Threads 2.0`](../archive/phases/07_Threads_2_0.md) — **BUILT / archived**
    (2026-06-17)
@@ -96,23 +99,22 @@ Build in this order:
    - GUI proof: `docs/qa/gui/home/2026-06-17-th2-rail/`.
 
 5. [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md)
-   — **Ready for Implementation** (2026-06-17)
-   - Chat replies from workers declaring `imageGen` must capture the generated
-     image via the shared contract and commit it as a `.workerGenerated`
-     attachment (same store as user paste). Text caption lives in turn.text.
+   — **Backend BUILT** (WIO-S00–S03, S05, 2026-06-17); WIO-S04 GUI deferred
+   - Chat replies from workers declaring `imageGen` capture the generated
+     image via the shared `WorkerImageCapture` contract and commit it as a
+     `.workerGenerated` attachment (same store as user paste). Text caption
+     lives in turn.text.
    - Design continuity: after a board (or prior chat image), a follow-up chat
-     tweak can return a new inline image in the same thread without a full
-     re-fan-out.
-   - Implementation reuses (does not duplicate) the arrival/normalize logic
-     from `DesignImageRunner`; `ThreadContextBuilder` / send coordinator seed
-     prior images into `includedAttachments` for the worker when appropriate.
+     tweak materializes the seed image into `includedAttachments` via
+     `ThreadImageSeedResolver` + optional `userDecision` turn.
    - Mac timeline thumbnails for worker bubbles (WIO-S04); CLI/MCP JSON parity
-     (WIO-S05). Coordinates with CIA user-attachment GUI work.
+     (`workerAttachmentIds`) shipped in WIO-S05.
 
 6. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
    **defer here**
    - Fast follow for Mac local notifications when work lands or needs attention.
-   - OneSignal mobile push lands later, after the remote spine exists.
+   - Mobile push is deferred to
+     [`ios/03_iOS_Thread_Read_State_And_Push.md`](ios/03_iOS_Thread_Read_State_And_Push.md).
    - This is the walk-away loop: keep the bench useful without staring at the app.
 
 7. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
@@ -214,8 +216,9 @@ Still missing / deferred:
   lazy legacy-run migration, and full thread export with linked run artifacts.
 - ThreadStore hardening and explicit mutation APIs are built and archived at
   `docs/archive/phases/05_ThreadStore_Hardening.md`.
-- Read cursor, unread derivation, Mac rail light, and viewport clear defer to
-  `06_Unread_Message_Light.md` (S05–S09 remain).
+- Read cursor, unread derivation, Mac rail light, viewport clear, and GUI proof
+  are built in `06_Unread_Message_Light.md`; S06/S08 remain for Mac notification
+  hooks and rich-turn read-clear.
 - Rename/pin/archive/archive-view rail controls are built and archived at
   `docs/archive/phases/07_Threads_2_0.md`.
 - Thread/turn notification policy defers to `02_Notifications.md`.
@@ -291,9 +294,8 @@ semantics and sequencing.
    used on the turn/run.
 5. **Quick capture default:** new thread by default; append-to-active can be a
    setting or explicit picker.
-6. **iOS compose:** iOS should send async chat turns in the first serious remote
-   cut. When Dispatch/Execute appears on iOS, it is a named send mode from an
-   editable work order, not a second-confirmation flow.
+6. **iOS compose:** moved to `ios/README.md`; iOS is deferred until the macOS app
+   is done and must not block Mac thread delivery.
 7. **Search:** not MLP; add title + first-message + run-prompt search once Home
    flips to thread list.
 

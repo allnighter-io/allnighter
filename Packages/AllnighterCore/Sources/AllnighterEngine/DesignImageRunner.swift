@@ -73,7 +73,7 @@ public struct DesignImageRunner: Sendable {
         let wrapped = imageGen.promptTemplate
             .replacingOccurrences(of: "{{designPrompt}}", with: designPrompt)
             .replacingOccurrences(of: "{{imageOut}}", with: imageOut.path)
-        let args = Self.resolveArgs(imageGen.args, prompt: wrapped, model: worker.modelLabel, runDir: runDir.path)
+        let args = WorkerImageInvoker.resolveArgs(imageGen.args, prompt: wrapped, model: worker.modelLabel, runDir: runDir.path)
 
         let result = await commandRunner.run(
             command: command,
@@ -96,27 +96,11 @@ public struct DesignImageRunner: Sendable {
         }
 
         let stdout = TextUtil.stripANSI(result.stdout)
-        let sessionId = imageGen.sessionIdRegex.flatMap { Self.firstCapture(stdout, pattern: $0) }
+        let sessionId = imageGen.sessionIdRegex.flatMap { WorkerImageCapture.firstCapture(stdout, pattern: $0) }
 
-        // Capture the image to the canonical local path.
-        switch imageGen.arrival {
-        case .promptDirected:
-            // The model should have saved to imageOut. Fall back to a path parsed
-            // from stdout (then copy) if it wrote elsewhere.
-            if Self.isValidImage(at: imageOut) {
-                break
-            }
-            guard let parsed = imageGen.stdoutPathRegex.flatMap({ Self.firstCapture(stdout, pattern: $0) }),
-                  Self.copyImage(from: parsed, to: imageOut) else {
-                return failed("no valid image at the requested path and none parseable from output")
-            }
-        case .stdoutPath:
-            guard let parsed = imageGen.stdoutPathRegex.flatMap({ Self.firstCapture(stdout, pattern: $0) }) else {
-                return failed("could not parse an image path from output")
-            }
-            guard Self.copyImage(from: parsed, to: imageOut) else {
-                return failed("parsed image path was not a readable image: \(parsed)")
-            }
+        let capture = WorkerImageCapture.capture(imageGen: imageGen, stdout: stdout, intendedOut: imageOut)
+        guard capture.normalizedImageURL != nil else {
+            return failed(capture.failureReason ?? "no valid image produced")
         }
 
         return DesignOption(
@@ -124,7 +108,7 @@ public struct DesignImageRunner: Sendable {
             modelId: worker.id,
             persona: request.personaId,
             imagePath: relativeName,
-            sessionId: sessionId,
+            sessionId: capture.sessionId ?? sessionId,
             status: .done
         )
     }
@@ -148,58 +132,25 @@ public struct DesignImageRunner: Sendable {
         return parts.joined(separator: " ")
     }
 
-    // MARK: - Arg resolution (injection-safe, per element)
-
     static func resolveArgs(_ args: [String], prompt: String, model: String, runDir: String) -> [String] {
-        args.map { element in
-            switch element {
-            case "{{prompt}}": return prompt
-            case "{{runDir}}": return runDir
-            default: return element.replacingOccurrences(of: "{{model}}", with: model)
-            }
-        }
+        WorkerImageInvoker.resolveArgs(args, prompt: prompt, model: model, runDir: runDir)
     }
 
-    // MARK: - Capture helpers
+    // MARK: - Capture helpers (forwarded to shared `WorkerImageCapture`)
 
     static func sanitize(_ workerId: String) -> String {
         workerId.replacingOccurrences(of: "#", with: "-")
     }
 
-    /// First capture group of `pattern` in `text`, or the whole match if the
-    /// pattern has no group. Trimmed.
     static func firstCapture(_ text: String, pattern: String) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
-        let range = NSRange(text.startIndex..., in: text)
-        guard let match = regex.firstMatch(in: text, range: range) else { return nil }
-        let group = match.numberOfRanges > 1 ? 1 : 0
-        guard let r = Range(match.range(at: group), in: text) else { return nil }
-        return String(text[r]).trimmingCharacters(in: .whitespacesAndNewlines)
+        WorkerImageCapture.firstCapture(text, pattern: pattern)
     }
 
-    /// Copies a source image into `dest` if it is a readable PNG/JPEG. Returns true
-    /// on success.
     static func copyImage(from sourcePath: String, to dest: URL) -> Bool {
-        let source = URL(fileURLWithPath: sourcePath)
-        guard isValidImage(at: source) else { return false }
-        try? FileManager.default.removeItem(at: dest)
-        do {
-            try FileManager.default.copyItem(at: source, to: dest)
-            return isValidImage(at: dest)
-        } catch {
-            return false
-        }
+        WorkerImageCapture.copyImage(from: sourcePath, to: dest)
     }
 
-    /// True if `url` is a non-empty file whose magic bytes are PNG or JPEG. The
-    /// only output normalization that matters: no URLs, no base64, no broken tiles.
     static func isValidImage(at url: URL) -> Bool {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
-        defer { try? handle.close() }
-        guard let head = try? handle.read(upToCount: 4), head.count >= 3 else { return false }
-        let b = [UInt8](head)
-        let isPNG = b.count >= 4 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47
-        let isJPEG = b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF
-        return isPNG || isJPEG
+        WorkerImageCapture.isValidImage(at: url)
     }
 }

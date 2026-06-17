@@ -17,17 +17,6 @@ final class AttachmentLegacyDecodeTests: XCTestCase {
         XCTAssertEqual(packet.includedAttachments, [])
     }
 
-    func testThreadTurnRoundTripWithAttachments() throws {
-        let turn = ThreadTurn(
-            id: "t1", threadId: "th1", kind: .userMessage, status: .done,
-            createdAt: Date(timeIntervalSince1970: 0), author: .user, text: "hi",
-            attachmentRefs: [TurnAttachmentRef(attachmentId: "a1", sequence: 0)]
-        )
-        let data = try CoreJSON.encode(turn)
-        let decoded = try CoreJSON.decode(ThreadTurn.self, from: data)
-        XCTAssertEqual(decoded.attachmentRefs, turn.attachmentRefs)
-    }
-
     func testContextPacketRoundTripWithIncludedAttachments() throws {
         let packet = ThreadContextPacket(
             id: "p1", threadId: "th1", turnId: "t1", createdAt: Date(timeIntervalSince1970: 0),
@@ -43,5 +32,27 @@ final class AttachmentLegacyDecodeTests: XCTestCase {
         let data = try CoreJSON.encode(packet)
         let decoded = try CoreJSON.decode(ThreadContextPacket.self, from: data)
         XCTAssertEqual(decoded.includedAttachments, packet.includedAttachments)
+    }
+
+    func testWorkerGeneratedSourceKindRoundTrips() throws {
+        let attachment = TurnAttachment(
+            id: "w1", threadId: "th1", createdAt: Date(timeIntervalSince1970: 0),
+            storagePath: "attachments/w1.png", mimeType: "image/png", byteSize: 10,
+            storedSha256: "abc", sourceKind: .workerGenerated, wasDownscaled: false
+        )
+        let data = try CoreJSON.encode(attachment)
+        let decoded = try CoreJSON.decode(TurnAttachment.self, from: data)
+        XCTAssertEqual(decoded.sourceKind, .workerGenerated)
+    }
+
+    func testThreadTurnRoundTripWithAttachments() throws {
+        let turn = ThreadTurn(
+            id: "t1", threadId: "th1", kind: .userMessage, status: .done,
+            createdAt: Date(timeIntervalSince1970: 0), author: .user, text: "hi",
+            attachmentRefs: [TurnAttachmentRef(attachmentId: "a1", sequence: 0)]
+        )
+        let data = try CoreJSON.encode(turn)
+        let decoded = try CoreJSON.decode(ThreadTurn.self, from: data)
+        XCTAssertEqual(decoded.attachmentRefs, turn.attachmentRefs)
     }
 }

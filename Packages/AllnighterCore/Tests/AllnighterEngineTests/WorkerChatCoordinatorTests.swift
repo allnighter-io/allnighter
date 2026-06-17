@@ -26,11 +26,14 @@ final class WorkerChatCoordinatorTests: XCTestCase {
     ) -> (WorkerChatCoordinator, ThreadStore) {
         let store = ThreadStore(rootDirectory: dir)
         let fixedClock = clock
-        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: scripts), now: { fixedClock })
+        let commandRunner = MockCommandRunner(scripts: scripts)
+        let runner = WorkerRunner(commandRunner: commandRunner, now: { fixedClock })
+        let imageInvoker = WorkerImageInvoker(commandRunner: commandRunner, now: { fixedClock })
         let counter = Counter()
         let coordinator = WorkerChatCoordinator(
             store: store,
             runner: runner,
+            imageInvoker: imageInvoker,
             registry: DriverRegistry(manifests),
             models: models,
             idFactory: { counter.next() },
@@ -49,6 +52,35 @@ final class WorkerChatCoordinatorTests: XCTestCase {
     private let clock = Date(timeIntervalSince1970: 1_700_000_000)
 
     // MARK: - Headless happy path
+
+    func testBeginSendPersistsOptimisticTurnsBeforeInvoke() async throws {
+        let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
+        let worker = TestSupport.worker("model_opus", driverId: "claude_code")
+        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
+        let (coord, store) = makeCoordinator(dir: dir,
+            scripts: ["claude": .init(stdout: "late reply", exitCode: 0)],
+            models: [worker], manifests: [manifest])
+        try store.create(id: "t1", title: "T", now: clock, defaultWorkerId: "model_opus")
+
+        let checkpoint = try await coord.beginSend(message: "hello", toThreadId: "t1")
+        guard case .awaitingInvoke(let pending) = checkpoint else {
+            return XCTFail("expected headless invoke pending")
+        }
+
+        let mid = store.get("t1")!
+        XCTAssertEqual(mid.turns.count, 2)
+        XCTAssertEqual(mid.turns[0].kind, .userMessage)
+        XCTAssertEqual(mid.turns[0].text, "hello")
+        XCTAssertEqual(mid.turns[1].kind, .workerChat)
+        XCTAssertEqual(mid.turns[1].status, .running)
+        XCTAssertTrue(mid.isRunning)
+
+        _ = try await coord.completeSend(pending)
+        let settled = store.get("t1")!
+        XCTAssertEqual(settled.turns[1].status, .done)
+        XCTAssertEqual(settled.turns[1].text, "late reply")
+        XCTAssertFalse(settled.isRunning)
+    }
 
     func testSendCreatesUserAndWorkerTurnsAndLandsReply() async throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
