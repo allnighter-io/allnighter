@@ -151,7 +151,7 @@ private struct ThreadTurnTimeline: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(thread.turns) { turn in
-                        ThreadUserTurnRow(turn: turn).id(turn.id)
+                        ThreadTurnRow(turn: turn).id(turn.id)
                     }
                 }
                 .padding(20)
@@ -167,16 +167,63 @@ private struct ThreadTurnTimeline: View {
     }
 }
 
-/// CR4a renders user messages; other turn kinds get honest stubs until CR4b–d.
-private struct ThreadUserTurnRow: View {
+/// CR4a user messages + CR4b worker chat replies; team/dispatch turns stay
+/// honest stubs until CR4c–d.
+private struct ThreadTurnRow: View {
+    @Environment(AppModel.self) private var appModel
     let turn: ThreadTurn
 
     var body: some View {
         switch turn.kind {
         case .userMessage, .userDecision:
             userBubble
+        case .workerChat:
+            workerBubble
         default:
             stubTurn
+        }
+    }
+
+    // CR4b — one model's reply.
+    private var model: ComposeBenchModel? {
+        guard let id = turn.workerId else { return nil }
+        return appModel.composeBench.first(where: { $0.id == id })
+    }
+
+    private var workerBubble: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Group {
+                if let model { DriverBrandGlyph(driverId: model.driverId, boxSize: 28, iconSize: 14, cornerRadius: 7) }
+                else { Image(systemName: "cpu").font(.system(size: 13)).foregroundStyle(ALColor.textSecondary).frame(width: 28, height: 28).background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 7)) }
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(model?.name ?? turn.workerId ?? "Model")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+                    Text(turn.createdAt, format: .dateTime.hour().minute())
+                        .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                }
+                switch turn.status {
+                case .running, .queued, .draft:
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text("running…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                    }
+                case .failed, .timedOut:
+                    Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The worker failed.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(ALPalette.red400)
+                        .textSelection(.enabled)
+                case .cancelled:
+                    Text("Cancelled.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+                case .done:
+                    Text(.init(turn.text ?? ""))
+                        .font(.system(size: 13.5)).foregroundStyle(ALColor.textPrimary)
+                        .lineSpacing(2).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            Spacer(minLength: 0)
         }
     }
 

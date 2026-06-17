@@ -144,6 +144,7 @@ enum GUIFixture {
         ("home-with-threads", "Home — rail with conversations"),
         ("thread-empty", "Thread — empty work order"),
         ("thread-with-turns", "Thread — user message turn"),
+        ("thread-chat", "Thread — chat reply from a model"),
         ("command-palette", "⌘K command palette"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),

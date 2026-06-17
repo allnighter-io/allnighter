@@ -135,7 +135,7 @@ final class ThreadsViewModel {
         _ = newThread(title: "New work order")
     }
 
-    // MARK: - Routing composer (CR4a — user turn only)
+    // MARK: - Routing composer (CR4a user turn; CR4b chat runs the model)
 
     /// Global quick capture (hotkey / menu bar): create a fresh thread (by default,
     /// per Persistent_Work_Threads) and stage clipboard content for the composer
@@ -150,17 +150,18 @@ final class ThreadsViewModel {
         }
     }
 
-    /// Append a `userMessage` turn from the routing composer. Creates a thread
-    /// when `createThread` is true or no thread is selected.
+    /// Send from the routing composer. Resolves/creates the thread, then routes
+    /// by mode: Chat runs the chosen model and streams its reply back as a
+    /// `workerChat` turn (CR4b); Fan out / Execute record the user turn for now
+    /// (their runs land in CR4c/CR4d — never a faked result).
     func sendRouting(_ routing: ComposeRouting, createThread: Bool = false) {
         let message = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
 
         let threadId: String
         if createThread || selectedThreadId == nil {
-            let title = Self.title(from: message)
             guard let thread = try? store.create(
-                id: UUID().uuidString, title: title, now: Date()
+                id: UUID().uuidString, title: Self.title(from: message), now: Date()
             ) else { return }
             reload()
             selectedThreadId = thread.id
@@ -171,15 +172,35 @@ final class ThreadsViewModel {
             return
         }
 
+        switch routing.mode {
+        case .chat:
+            runChat(message: message, toThreadId: threadId, workerId: routing.to)
+        case .fanout, .exec:
+            // CR4c/CR4d: team board + dispatch. For now record the intent as a
+            // user turn so nothing is lost or faked.
+            appendUserTurn(message, toThreadId: threadId)
+        }
+    }
+
+    /// Chat: hand the message to the chosen model via the coordinator, which
+    /// persists the user turn + an optimistic running `workerChat` turn, invokes
+    /// the worker through the cached invocation (health == runs), and settles the
+    /// reply in place.
+    private func runChat(message: String, toThreadId threadId: String, workerId: String) {
+        Task { @MainActor in
+            let sendTask = Task.detached { [coordinator] in
+                try await coordinator.send(message: message, toThreadId: threadId, requestedWorkerId: workerId)
+            }
+            reload()                  // show the optimistic running turn at once
+            _ = try? await sendTask.value
+            reload()                  // settle the worker reply (or honest failure)
+        }
+    }
+
+    private func appendUserTurn(_ message: String, toThreadId threadId: String) {
         let turn = ThreadTurn(
-            id: UUID().uuidString,
-            threadId: threadId,
-            kind: .userMessage,
-            status: .done,
-            createdAt: Date(),
-            completedAt: Date(),
-            author: .user,
-            text: message
+            id: UUID().uuidString, threadId: threadId, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user, text: message
         )
         try? store.append(turn, toThreadId: threadId, now: Date())
         reload()
@@ -204,6 +225,8 @@ final class ThreadsViewModel {
             selectedThreadId = nil
         case "thread-with-turns":
             seedFixtureThreadWithTurns()
+        case "thread-chat":
+            seedFixtureChatExchange()
         default:
             break
         }
@@ -240,6 +263,28 @@ final class ThreadsViewModel {
             text: "For per-user API rate limiting — token bucket or sliding window? Short answer + why."
         )
         _ = try? store.append(turn, toThreadId: id, now: Date())
+        reload()
+        selectedThreadId = id
+    }
+
+    /// CR4b proof: a user turn + a settled worker reply (designer-mock only).
+    private func seedFixtureChatExchange() {
+        let id = "fixture-chat"
+        _ = try? store.create(id: id, title: "Token bucket vs sliding window", now: Date())
+        let workerId = models.first { $0.id == "model_opus" }?.id ?? models.first?.id ?? "model_opus"
+        let user = ThreadTurn(
+            id: "fixture-chat-user", threadId: id, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user,
+            text: "For per-user API rate limiting — token bucket or sliding window? Short answer + why."
+        )
+        let reply = ThreadTurn(
+            id: "fixture-chat-reply", threadId: id, kind: .workerChat, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .worker,
+            text: "**Token bucket.** It allows short bursts (up to the bucket size) while holding the long-run average to the refill rate — which is what per-user API limits actually want. Sliding-window log is more precise but stores every timestamp per user (memory + GC churn); sliding-window counter approximates it but still smooths bursts away. For rate limiting, allow the burst: token bucket, refill = your sustained rate, capacity = your burst budget.",
+            workerId: workerId
+        )
+        _ = try? store.append(user, toThreadId: id, now: Date())
+        _ = try? store.append(reply, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }
