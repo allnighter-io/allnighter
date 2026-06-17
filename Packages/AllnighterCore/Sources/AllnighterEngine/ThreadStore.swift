@@ -238,22 +238,17 @@ public struct ThreadStore: Sendable {
         now: Date
     ) throws -> WorkThread {
         try synchronized {
-            guard let thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
             let unreadIds = UnreadDerivation.unreadTurnIds(thread: thread)
             guard let firstUnread = unreadIds.first else { return thread }
             let visible = Set(visibleTurnIds)
             guard visible.contains(firstUnread) else { return thread }
 
-            var lastVisibleUnread: String?
             for unreadId in unreadIds {
-                if visible.contains(unreadId) {
-                    lastVisibleUnread = unreadId
-                } else {
-                    break
-                }
+                guard visible.contains(unreadId) else { break }
+                thread = try applyMarkRead(threadId: threadId, throughTurnId: unreadId, now: now)
             }
-            guard let through = lastVisibleUnread else { return thread }
-            return try applyMarkRead(threadId: threadId, throughTurnId: through, now: now)
+            return thread
         }
     }
 

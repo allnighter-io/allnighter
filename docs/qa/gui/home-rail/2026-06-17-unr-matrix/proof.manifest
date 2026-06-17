@@ -1,0 +1,26 @@
+# surface: home-rail
+# fixtures: home-rail-unr
+# watcher: PASS
+# sealed: 2026-06-17
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+51c7b0d966e7bddfe0d2109c2a1322db73a6bb98  Apps/AllnighterMac/Sources/AllnighterMacApp.swift
+119a52242340691d845f307f10bce0379bd38947  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+00b6f02dac7032c7da3666dfaba6507270f6f31b  Apps/AllnighterMac/Sources/CommandCenter.swift
+27b44d9a33c6155ac698dbe97c1887f654032325  Apps/AllnighterMac/Sources/DesignBoardView.swift
+e40cc42041d1712d18d6399fe946ddea6100c60c  Apps/AllnighterMac/Sources/DesignComponents.swift
+cd7ca70785ddddd4085f29f4e243f82cb2634b4f  Apps/AllnighterMac/Sources/DevSettingsView.swift
+208a93e62970c1fd481819e44e8e680e2b64e4f6  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+02c31c4d91f27d7ad77e3b117ea7cf6b1a5e6ae6  Apps/AllnighterMac/Sources/GUIProofGrantView.swift
+cd46489b0c0444629de0ea6ca25e8e87e044e100  Apps/AllnighterMac/Sources/HomeView.swift
+364f27ae6a4e8c9072a5922bfb1ec4ee02a1989d  Apps/AllnighterMac/Sources/ReadinessView.swift
+ff171cc9086afb9dd01d72b5aa5a7befd89f7294  Apps/AllnighterMac/Sources/RootView.swift
+364048e5194284e2a76fe5440d81d08c9dc2c177  Apps/AllnighterMac/Sources/RoutingComposer.swift
+c485d677e6a87baaf027ea8f8beb95aa7f404870  Apps/AllnighterMac/Sources/SetupViews.swift
+de3ba5323e0f6b633b73f0c9329d718e04d5a6f6  Apps/AllnighterMac/Sources/TeamControlView.swift
+de612b73cc205cfa639ef24bafa7021824b9eba9  Apps/AllnighterMac/Sources/TeamEditorView.swift
+b08131e28661ef64a497617517aae402174a511d  Apps/AllnighterMac/Sources/TeamStudioView.swift
+7f8bc4566584f227963df2bebbb9b5ddc47a8991  Apps/AllnighterMac/Sources/ThreadRailComponents.swift
+f92f3a21ae111567312710a818646b4c76d9397f  Apps/AllnighterMac/Sources/ThreadView.swift
+cb4273a343a814db397e5f4c461938710ba1713d  Apps/AllnighterMac/Sources/ThreadsView.swift
+c66492718da4e96ed75e120d5b13d4a656516546  Apps/AllnighterMac/Sources/TimelineVisibility.swift

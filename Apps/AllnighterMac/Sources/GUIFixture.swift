@@ -124,6 +124,9 @@ enum GUIFixture {
         return name.hasPrefix("home-") || name.hasPrefix("thread-") || name == "command-palette"
     }
 
+    /// UNR proof: keep selected-unread below the fold for the rail matrix capture.
+    static var suppressUnreadAutoScroll: Bool { active == "home-rail-unr" }
+
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// `compose-mode-menu` seeds the mode menu open for the proof capture.
@@ -164,6 +167,7 @@ enum GUIFixture {
         ("home-with-threads", "Home — rail with conversations"),
         ("home-rail", "Home — grouped/filtered rail (CR4e)"),
         ("home-rail-th2", "Home — TH2 triage pin/unread/archive"),
+        ("home-rail-unr", "Home — UNR unread matrix (S07)"),
         ("thread-empty", "Thread — empty work order"),
         ("thread-with-turns", "Thread — user message turn"),
         ("thread-chat", "Thread — chat reply from a model"),
@@ -541,6 +545,7 @@ enum GUIFixture {
     static var opensComposeSpecimen: Bool { false }
     static var opensCommandPalette: Bool { false }
     static var opensHomeWorkspace: Bool { false }
+    static var suppressUnreadAutoScroll: Bool { false }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
     static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] { [] }
     static func captureAndExitIfRequested() {}

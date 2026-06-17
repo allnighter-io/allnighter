@@ -224,6 +224,7 @@ private struct ThreadPaneHeader: View {
 }
 
 private struct ThreadTurnTimeline: View {
+    @Environment(ThreadsViewModel.self) private var threads
     let thread: WorkThread
 
     var body: some View {
@@ -231,16 +232,29 @@ private struct ThreadTurnTimeline: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(thread.turns) { turn in
-                        ThreadTurnRow(turn: turn).id(turn.id)
+                        ThreadTurnRow(turn: turn)
+                            .id(turn.id)
+                            .timelineTurnFrame(turnId: turn.id)
                     }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .timelineVisibilityTracking(thread: thread)
+            .onAppear {
+                TimelineScrollPolicy.scrollToUnreadIfNeeded(
+                    proxy: proxy,
+                    thread: thread,
+                    pendingTarget: threads.consumePendingScrollTarget(),
+                    suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll
+                )
+            }
             .onChange(of: thread.turns.count) { _, _ in
-                if let last = thread.turns.last {
-                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                }
+                TimelineScrollPolicy.scrollOnTurnCountChange(
+                    proxy: proxy,
+                    thread: thread,
+                    suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

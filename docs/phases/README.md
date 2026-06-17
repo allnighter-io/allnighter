@@ -33,7 +33,7 @@ otherwise.
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
-| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S04 BUILT** (2026-06-17); S05–S09 remain | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light. Viewport clear, notification hooks, full GUI proof, rich-turn clear, and protocol defer to S05–S09. |
+| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S05 + S07 BUILT** (2026-06-17); S06/S08 remain | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, `home-rail-unr` GUI matrix. Mac notification hooks and rich-turn clear defer to S06/S08; iOS protocol moved to `ios/03`. |
 | [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Ready for Implementation** (2026-06-17) | Worker image output in chat (design continuity): chat to imageGen workers captures + commits canonical attachments (same store as user paste); prior/picked images flow into next context; WIO-S00–S05. Reuses capture law; no duplicate paths. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
@@ -46,7 +46,7 @@ otherwise.
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
-| [`ios/README.md`](ios/README.md) | Active iOS spine | Remote floor manager: sign in, pick your Mac, control runs. |
+| [`ios/README.md`](ios/README.md) | Parked iOS spine; deferred until macOS app is done | Remote floor manager specs live here so they do not block Mac delivery. `ios/03_iOS_Thread_Read_State_And_Push.md` owns future iOS unread/push. |
 
 ## Operating Rules
 
@@ -85,7 +85,8 @@ otherwise.
   the GUI promises app-closed execution.
 - Forward Mac app work targets a standalone Dock app plus explicit background
   coordinator. The menu bar is status/quick controls, not the primary shell.
-- iOS is a floor manager. The Mac remains the execution and run-truth owner.
+- iOS is a future floor manager. The Mac remains the execution and run-truth
+  owner, and iOS must not block macOS app delivery.
 - Work-order creation stays prompt-first. Build/Design/Copy and Effort route the
   work; they must not become an intake form.
 - Build, Design, and Copy are the peer creation lanes. A fourth lane requires a
@@ -179,7 +180,8 @@ Open questions:
 | ThreadStore write gate, serialized thread mutation, schema/migration safety, timestamp/transcript law | **BUILT** — `docs/archive/phases/05_ThreadStore_Hardening.md` |
 | Read/unread thread state, new-message indication light, read cursor semantics | `Persistent_Work_Threads.md` -> `threads/06_Unread_Message_Light.md` |
 | Thread rail rename/pin/archive, archive view, Home/Threads triage convergence | **BUILT** — `docs/archive/phases/07_Threads_2_0.md` |
-| Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
+| Mac local notifications | `threads/02_Notifications.md` |
+| iOS remote unread / mobile push | `ios/03_iOS_Thread_Read_State_And_Push.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
 | Utilization, admission control, worker availability, pending dispatch | `Utilization_Admission_Control.md` |

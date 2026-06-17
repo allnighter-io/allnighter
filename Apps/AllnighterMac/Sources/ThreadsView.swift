@@ -246,14 +246,29 @@ private struct ThreadTimeline: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(thread.turns) { turn in
-                        TurnRow(turn: turn).id(turn.id)
+                        TurnRow(turn: turn)
+                            .id(turn.id)
+                            .timelineTurnFrame(turnId: turn.id)
                     }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .timelineVisibilityTracking(thread: thread)
+            .onAppear {
+                TimelineScrollPolicy.scrollToUnreadIfNeeded(
+                    proxy: proxy,
+                    thread: thread,
+                    pendingTarget: model.consumePendingScrollTarget(),
+                    suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll
+                )
+            }
             .onChange(of: thread.turns.count) { _, _ in
-                if let last = thread.turns.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } }
+                TimelineScrollPolicy.scrollOnTurnCountChange(
+                    proxy: proxy,
+                    thread: thread,
+                    suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

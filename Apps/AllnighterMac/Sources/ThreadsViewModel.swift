@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import AllnighterCore
@@ -39,6 +40,12 @@ final class ThreadsViewModel {
     /// [[allnighter-pending-execute-lane-safety]]). Shared so every dispatch path
     /// (thread + legacy AppModel) serializes on the same lanes.
     private let laneRegistry: ExecutionLaneRegistry
+    /// Scroll target set on thread select when unread exists (cleared after scroll).
+    private(set) var pendingScrollToTurnId: String?
+    private var readClearDebounceTask: Task<Void, Never>?
+    private let isAppActiveForReadClear: () -> Bool
+
+    private static let readClearDebounceNs: UInt64 = 200_000_000
 
     /// Production init: self-sufficient, loads the same config as AppModel and
     /// invokes real CLIs. GUI fixtures use an isolated temp store.
@@ -90,7 +97,10 @@ final class ThreadsViewModel {
         models: [Model],
         toolStatuses: [ToolProbeRecord] = [],
         runner: WorkerRunner,
-        laneRegistry: ExecutionLaneRegistry = .shared
+        laneRegistry: ExecutionLaneRegistry = .shared,
+        isAppActiveForReadClear: @escaping () -> Bool = {
+            NSApplication.shared.isActive && NSApplication.shared.keyWindow != nil
+        }
     ) {
         self.store = store
         self.runStore = runStore
@@ -99,6 +109,7 @@ final class ThreadsViewModel {
         self.toolStatuses = toolStatuses
         self.runner = runner
         self.laneRegistry = laneRegistry
+        self.isAppActiveForReadClear = isAppActiveForReadClear
         self.coordinator = WorkerChatCoordinator(
             store: store, runner: runner, registry: registry, models: models
         )
@@ -163,6 +174,38 @@ final class ThreadsViewModel {
     func select(_ thread: WorkThread) {
         selectedThreadId = thread.id
         requestedWorkerId = nil
+        pendingScrollToTurnId = ThreadsPresenter.firstUnreadTurnId(thread)
+    }
+
+    /// Consumes the pending first-unread scroll target after the timeline mounts.
+    func consumePendingScrollTarget() -> String? {
+        defer { pendingScrollToTurnId = nil }
+        return pendingScrollToTurnId
+    }
+
+    // MARK: - Timeline visibility / read clear (06 S05)
+
+    /// Timeline reports geometrically visible turn ids; debounced read-clear goes through
+    /// `ThreadStore.markReadToLatestVisible` — never GUI-only unread truth.
+    func reportTimelineVisibility(threadId: String, visibleTurnIds: [String]) {
+        guard threadId == selectedThreadId else { return }
+        readClearDebounceTask?.cancel()
+        readClearDebounceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: Self.readClearDebounceNs)
+            guard !Task.isCancelled else { return }
+            applyReadClearIfNeeded(threadId: threadId, visibleTurnIds: visibleTurnIds)
+        }
+    }
+
+    private func applyReadClearIfNeeded(threadId: String, visibleTurnIds: [String]) {
+        guard isAppActiveForReadClear() else { return }
+        let before = store.get(threadId)
+        guard let updated = try? store.markReadToLatestVisible(
+            threadId: threadId, visibleTurnIds: visibleTurnIds, now: Date()
+        ) else { return }
+        if before?.readCursor != updated.readCursor || before?.hasUnread != updated.hasUnread {
+            reload()
+        }
     }
 
     // MARK: - Rail controls (07)
@@ -551,6 +594,8 @@ final class ThreadsViewModel {
         case "home-rail-th2":
             seedFixtureRailControls()
             selectedThreadId = nil
+        case "home-rail-unr":
+            seedFixtureUnreadMatrix()
         default:
             break
         }
@@ -607,6 +652,100 @@ final class ThreadsViewModel {
             _ = try? store.archiveThread(threadId: "th2-archived")
         }
         reload()
+    }
+
+    /// UNR-S07 proof: full unread row matrix — idle, reply, attention, running,
+    /// running+unread, and selected-unread-below-fold.
+    private func seedFixtureUnreadMatrix() {
+        let base = Date()
+        let workerId = models.first?.id ?? "model_opus"
+
+        func userTurn(_ id: String, threadId: String, at: Date, text: String = "question") -> ThreadTurn {
+            ThreadTurn(
+                id: id, threadId: threadId, kind: .userMessage, status: .done,
+                createdAt: at, completedAt: at, author: .user, text: text
+            )
+        }
+
+        func workerTurn(
+            _ id: String, threadId: String, at: Date, status: ThreadTurnStatus,
+            text: String = "reply"
+        ) -> ThreadTurn {
+            ThreadTurn(
+                id: id, threadId: threadId, kind: .workerChat, status: status,
+                createdAt: at, completedAt: status.isTerminal ? at : nil,
+                author: .worker, text: text, workerId: workerId
+            )
+        }
+
+        // Read idle — landed reply, cursor caught up.
+        if (try? store.create(id: "unr-idle", title: "Read — idle", now: base.addingTimeInterval(-500))) != nil {
+            _ = try? store.appendTurn(userTurn("unr-idle-u", threadId: "unr-idle", at: base.addingTimeInterval(-480)),
+                                     toThreadId: "unr-idle", now: base.addingTimeInterval(-480))
+            _ = try? store.appendTurn(workerTurn("unr-idle-w", threadId: "unr-idle", at: base.addingTimeInterval(-470), status: .done),
+                                     toThreadId: "unr-idle", now: base.addingTimeInterval(-470))
+            _ = try? store.markRead(threadId: "unr-idle", throughTurnId: "unr-idle-w", now: base.addingTimeInterval(-469))
+        }
+
+        // Unread landed reply.
+        if (try? store.create(id: "unr-reply", title: "Unread — worker reply", now: base.addingTimeInterval(-400))) != nil {
+            _ = try? store.appendTurn(userTurn("unr-reply-u", threadId: "unr-reply", at: base.addingTimeInterval(-390)),
+                                     toThreadId: "unr-reply", now: base.addingTimeInterval(-390))
+            _ = try? store.appendTurn(workerTurn("unr-reply-w", threadId: "unr-reply", at: base.addingTimeInterval(-380), status: .done,
+                                                  text: "Token bucket — allows bursts while holding the average."),
+                                     toThreadId: "unr-reply", now: base.addingTimeInterval(-380))
+        }
+
+        // Unread + attention (failed worker).
+        if (try? store.create(id: "unr-attention", title: "Unread — failed worker", now: base.addingTimeInterval(-350))) != nil {
+            _ = try? store.appendTurn(userTurn("unr-attention-u", threadId: "unr-attention", at: base.addingTimeInterval(-340)),
+                                     toThreadId: "unr-attention", now: base.addingTimeInterval(-340))
+            _ = try? store.appendTurn(workerTurn("unr-attention-w", threadId: "unr-attention", at: base.addingTimeInterval(-330),
+                                                  status: .failed, text: "The worker failed."),
+                                     toThreadId: "unr-attention", now: base.addingTimeInterval(-330))
+        }
+
+        // Running with no unread (cursor at user, running worker not yet landed).
+        if (try? store.create(id: "unr-running", title: "Running — no unread", now: base.addingTimeInterval(-300))) != nil {
+            _ = try? store.appendTurn(userTurn("unr-running-u", threadId: "unr-running", at: base.addingTimeInterval(-290)),
+                                     toThreadId: "unr-running", now: base.addingTimeInterval(-290))
+            _ = try? store.appendTurn(workerTurn("unr-running-w", threadId: "unr-running", at: base.addingTimeInterval(-280), status: .running),
+                                     toThreadId: "unr-running", now: base.addingTimeInterval(-280))
+        }
+
+        // Running + unread (landed reply unseen, newer running turn).
+        if (try? store.create(id: "unr-running-unread", title: "Running + unread", now: base.addingTimeInterval(-250))) != nil {
+            _ = try? store.appendTurn(userTurn("unr-run-unread-u", threadId: "unr-running-unread", at: base.addingTimeInterval(-240)),
+                                     toThreadId: "unr-running-unread", now: base.addingTimeInterval(-240))
+            _ = try? store.appendTurn(workerTurn("unr-run-unread-w1", threadId: "unr-running-unread", at: base.addingTimeInterval(-230),
+                                                  status: .done, text: "Earlier reply you have not opened."),
+                                     toThreadId: "unr-running-unread", now: base.addingTimeInterval(-230))
+            _ = try? store.appendTurn(workerTurn("unr-run-unread-w2", threadId: "unr-running-unread", at: base.addingTimeInterval(-220), status: .running),
+                                     toThreadId: "unr-running-unread", now: base.addingTimeInterval(-220))
+        }
+
+        // Selected unread below the fold — filler turns keep the unread anchor off-screen.
+        if (try? store.create(id: "unr-selected", title: "Selected unread (below fold)", now: base.addingTimeInterval(-200))) != nil {
+            for index in 0..<12 {
+                let at = base.addingTimeInterval(Double(-190 + index))
+                _ = try? store.appendTurn(
+                    userTurn("unr-selected-u\(index)", threadId: "unr-selected", at: at,
+                             text: "Earlier context message \(index + 1)."),
+                    toThreadId: "unr-selected", now: at
+                )
+            }
+            let unreadAt = base.addingTimeInterval(-60)
+            _ = try? store.appendTurn(
+                workerTurn("unr-selected-w", threadId: "unr-selected", at: unreadAt, status: .done,
+                           text: "Unread reply below the visible viewport."),
+                toThreadId: "unr-selected", now: unreadAt
+            )
+        }
+
+        reload()
+        if let selected = threads.first(where: { $0.id == "unr-selected" }) {
+            select(selected)
+        }
     }
 
     private func seedFixtureThreads() {

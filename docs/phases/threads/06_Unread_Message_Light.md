@@ -1,6 +1,6 @@
 # 06 - Unread Message Light
 
-Status: **UNR-S01–S04 BUILT** (2026-06-17) — read cursor, store mark-read, presenter triage, Mac rail light; S05–S09 remain
+Status: **UNR-S01–S05 + S07 BUILT** (2026-06-17) — read cursor, store mark-read, presenter triage, Mac rail light, viewport clear, UNR GUI matrix; S06/S08 remain
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
 
@@ -58,7 +58,7 @@ Non-goals:
 
 ## Current State
 
-Built (UNR-S01–S04, 2026-06-17):
+Built (UNR-S01–S05 + S07, 2026-06-17):
 
 - `ThreadReadCursor` on `WorkThread` with Codable migration fixtures.
 - Pure `UnreadDerivation` helpers in AllnighterCore (`hasUnread`,
@@ -69,17 +69,19 @@ Built (UNR-S01–S04, 2026-06-17):
   (final rail order from archived `07_Threads_2_0.md` TH2-S02).
 - `ThreadRailComponents.UnreadLight` on Home + legacy Threads rows: reserved
   trailing slot, amber/failed tokens, accessibility label/value, no count.
+- Mac timeline visibility reporting + debounced `markReadToLatestVisible` wiring
+  in `ThreadsViewModel` for `workerChat` + blocking `systemEvent` (S05).
+- GUI fixture `home-rail-unr` for the full unread matrix: read idle, unread
+  reply, unread attention, running without unread, running+unread, selected
+  unread below fold (S07).
 
 Still missing:
 
-- Timeline visibility reporting and Mac `markReadToLatestVisible` wiring (S05).
-  The store helper exists; `ThreadsViewModel` does not call it yet.
 - Notification suppression hooks for visible landed turns (S06).
-- Dedicated UNR GUI fixture/proof packet for the full unread matrix (S07). The
-  `home-rail-th2` capture proves unread light placement in triage but not
-  selected-unread, running+unread, or clear-on-visible behavior.
 - Rich-turn read-clear contracts for team/build/dispatch cards (S08).
-- Remote protocol fields/intents when the iOS thread spine ships (S09).
+- iOS read-state protocol and mobile push. That work is deferred to
+  [`../ios/03_iOS_Thread_Read_State_And_Push.md`](../ios/03_iOS_Thread_Read_State_And_Push.md)
+  and is not part of Mac unread acceptance.
 
 Persisted today:
 
@@ -112,7 +114,8 @@ WorkThread.preview         = latest text turn
 
 Remaining gaps:
 
-- Selecting a thread does not yet durably clear read via viewport visibility (S05).
+- Selecting a thread scrolls to the first unread turn; durable read clears only
+  after the unread anchor is viewport-visible in an active window (S05).
 - Status dots still mean running/result/attention; unread is a separate trailing
   light axis (S04), not a fourth dot state.
 
@@ -221,8 +224,8 @@ Rules:
 - `lastReadTurnCreatedAt` is a fallback for migrations, corrupted fixture data,
   or a future compaction that removes a turn id from the visible timeline.
 - `readAt` records when the cursor advanced. It is used only for debugging,
-  future iOS reconciliation, and out-of-order completion detection. It is not
-  used to sort threads.
+  future remote-client reconciliation, and out-of-order completion detection. It
+  is not used to sort threads.
 - Updating the cursor must not change `thread.updatedAt` (05 cursor-only path).
 - Updating the cursor must not regenerate or change user-facing transcript
   content (05 transcript law).
@@ -626,55 +629,31 @@ It does create the read-state foundation that notifications should respect:
   local notification can be suppressed.
 - If a notification is delivered, it is not a read receipt.
 - Clicking a notification is not read by itself; visibility clears read.
-- Mobile push payloads remain content-light and do not carry read truth.
 - Menu-bar numeric count, when notifications land, is for needs-attention
   threads only. Ordinary unread may get a quiet amber dot only after a designed
   menu-bar contract exists; do not double-count unread + attention.
 
 ## iOS Relationship
 
-iOS is not required for the first Mac slice, but the model must not block it.
+iOS is not a prerequisite for this document. Mac unread behavior must be able to
+ship, prove, and close with no iOS target, no remote protocol, and no mobile push.
 
-Future iOS rules:
-
-- Mac remains the read-state truth owner.
-- iOS renders the same unread light from the Mac thread payload.
-- iOS sends `markRead(threadId, throughTurnId)` after the target turn is visible.
-- If iOS is offline, it may clear locally for feel, but must reconcile with Mac
-  truth on reconnect.
-- Reconciliation is monotonic: Mac accepts an iOS cursor only if it advances the
-  Mac cursor under the same store rules; otherwise Mac sends its newer truth
-  back to iOS.
-- Push notification delivery state is separate from read state.
+Future iOS read-state, remote `markRead`, and mobile push rules live in
+[`../ios/03_iOS_Thread_Read_State_And_Push.md`](../ios/03_iOS_Thread_Read_State_And_Push.md).
+That doc consumes the Mac read cursor contract after the Mac app is done; it does
+not add acceptance criteria here.
 
 ## Protocol Impact
 
-When the remote spine exposes threads, add:
-
-```text
-Thread payload
-- readCursor?
-- hasUnread              # derived convenience allowed only if source fields are
-                         # also present and versioned by the Mac
-- firstUnreadTurnId?
-- latestUnreadTurnId?
-
-Intent
-- thread.mark_read(threadId, throughTurnId)  # monotonic/forward-only
-
-Event
-- thread.read_state_changed(threadId, readCursor, firstUnreadTurnId?)
-```
-
-Do not let iOS invent unread from local timestamps.
+None for Mac v1. Do not add remote fields, iOS intents, or mobile push payloads
+as part of this unread slice.
 
 ## Privacy And Permissions
 
 - Read state is local attention metadata.
 - It contains no prompt, reply, code, artifact text, secret, or credential.
 - It should not require a new macOS permission.
-- It should not leave the user's machines except through the explicit local/iOS
-  remote thread protocol.
+- It should not leave the user's Mac in this Mac v1 slice.
 - Do not use read state for analytics or worker prompting.
 
 ## Migration
@@ -757,18 +736,15 @@ Prerequisite: **TSH-S00 through TSH-S04** from archived
 - [x] UNR-S04 - Add Mac thread-row unread light component on both rail rows using
   design tokens, no visible label/count, with accessibility value and reserved
   trailing slot (`ThreadRailComponents.UnreadLight`, landed with TH2-S03).
-- [ ] UNR-S05 - Add timeline visibility reporting, contiguous visible-prefix
+- [x] UNR-S05 - Add timeline visibility reporting, contiguous visible-prefix
   mark-read helper, and clear-on-visible behavior for `workerChat` + blocking
-  `systemEvent`. Store `markReadToLatestVisible` is built; Mac wiring is not.
+  `systemEvent` (`TimelineVisibility` + `ThreadsViewModel.reportTimelineVisibility`).
 - [ ] UNR-S06 - Add notification handoff hooks so `02_Notifications.md` can
   suppress notifications when the landed turn is already visible.
-- [ ] UNR-S07 - Add GUI fixture/proof scenario for unread, selected unread,
-  running without unread, unread attention, and running+unread. `home-rail-th2`
-  proves rail placement only; full UNR matrix proof remains open.
+- [x] UNR-S07 - Add GUI fixture/proof scenario `home-rail-unr` for unread, selected
+  unread, running without unread, unread attention, and running+unread.
 - [ ] UNR-S08 - Add rich-turn visibility contract for team/build/dispatch cards
   when PWT-S07 lands.
-- [ ] UNR-S09 - Add remote protocol fields/intents when the iOS thread spine
-  exposes thread lists.
 
 ## Works Test
 
@@ -874,7 +850,8 @@ row spacing, light placement, contrast, and no text overlap.
 - The row renders a light, not a note, label, or count (UNR-S04).
 - Unit tests cover cursor migration, derivation, store updates, and presenter
   ordering.
-- GUI proof for clear-on-visible and the full unread matrix defers to UNR-S05/S07.
+- GUI proof `home-rail-unr` covers the unread matrix; clear-on-visible is proven
+  in `ThreadsViewModelUnreadTests` + `ThreadStoreTests` (UNR-S05/S07).
 
 ## Resolved Product Decisions
 

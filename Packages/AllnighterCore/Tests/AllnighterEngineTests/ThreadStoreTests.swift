@@ -479,6 +479,27 @@ final class ThreadStoreTests: XCTestCase {
         XCTAssertEqual(cleared.readCursor?.lastReadTurnId, "w2")
     }
 
+    func testMarkReadToLatestVisibleClearsContiguousPrefixInOneCall() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var seeded = thread("a", updatedAt: t0)
+        seeded.turns = [
+            userTurn("u1", threadId: "a"),
+            workerTurn("w1", threadId: "a", status: .done, at: t1),
+            userTurn("u2", threadId: "a"),
+            workerTurn("w2", threadId: "a", status: .done, at: t2),
+        ]
+        seeded.readCursor = ThreadReadCursor(lastReadTurnId: "u1", lastReadTurnCreatedAt: t0, readAt: t0)
+        try store.saveForImport(seeded)
+
+        let cleared = try store.markReadToLatestVisible(
+            threadId: "a", visibleTurnIds: ["w1", "u2", "w2"], now: t3
+        )
+        XCTAssertFalse(cleared.hasUnread)
+        XCTAssertEqual(cleared.readCursor?.lastReadTurnId, "w2")
+    }
+
     func testMarkReadDoesNotAdvanceThroughUserTurnWithEarlierUnread() throws {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
