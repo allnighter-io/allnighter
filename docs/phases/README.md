@@ -194,3 +194,8 @@ Open questions:
 The old numbered roadmap docs that previously lived here were removed. Do not
 infer active product truth from missing `XX_*.md` phase links or archived
 worktree-era plans. New forward phases are added explicitly to this folder.
+
+Thread child-doc numbering (2026-06-17): unread moved from slot **05** to
+`threads/06_Unread_Message_Light.md` after `threads/05_ThreadStore_Hardening.md`
+was inserted; `threads/07_Threads_2_0.md` owns rail controls after 05 + 06.
+Route live work through `Persistent_Work_Threads.md`.

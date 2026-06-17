@@ -12,7 +12,9 @@ team/build turn cards (the `richRow` here is a placeholder). See
 **Visual kit:** docs/design-system/ (tokens: `AllnighterTokens.swift`)
 **Behavioral owner:** docs/phases/Persistent_Work_Threads.md +
 docs/phases/threads/01_Work_Threads_MLP.md +
-docs/phases/threads/05_Unread_Message_Light.md
+docs/phases/threads/05_ThreadStore_Hardening.md +
+docs/phases/threads/06_Unread_Message_Light.md +
+docs/phases/threads/07_Threads_2_0.md
 **Core contracts:** `WorkThread`, `ThreadTurn`, `ThreadContextPacket`,
 `ArtifactRef` (AllnighterCore); `ThreadStore`, `WorkerChatCoordinator`,
 `ThreadContextBuilder` (AllnighterEngine).
@@ -20,7 +22,8 @@ docs/phases/threads/05_Unread_Message_Light.md
 This brief covers the **ThreadList** (triage inbox) and the **ThreadTimeline**
 (turns + always-visible composer). While both the legacy `ThreadsView` sidebar
 and CR4 `HomeView` conversation rail exist, any WorkThread rail must render the
-same derived unread truth and triage order from `05_Unread_Message_Light.md`.
+same derived unread truth and triage order from `06_Unread_Message_Light.md` and
+`07_Threads_2_0.md`. Store mutations go through `05_ThreadStore_Hardening.md`.
 
 ---
 
@@ -34,6 +37,7 @@ manual-paste · failed.
 ### Intents
 - New thread → `ThreadStore.create(...)` then select it.
 - Select thread → open ThreadTimeline.
+- Rename / pin / archive → explicit `ThreadStore` methods (see `07_Threads_2_0.md`).
 - Read clearing → timeline visibility reports visible turn ids; view model sends
   `ThreadStore.markReadToLatestVisible(...)`.
 - (S08) local text filter over title/preview/first message/run prompt.
@@ -50,7 +54,7 @@ manual-paste · failed.
 | Preview line | `thread.preview` | derived (latest text turn) | populated | ThreadsPresenterTests |
 | Last-worker chip | `thread.lastWorkerId` | derived | populated | ThreadsPresenterTests |
 | Relative time | `thread.updatedAt` | WorkThread | populated | — (Foundation format) |
-| Unread light | `thread.readCursor` + unread-eligible `turns` | derived (see `05_Unread_Message_Light.md`) | unread | ThreadsPresenterTests |
+| Unread light | `thread.readCursor` + unread-eligible `turns` | derived (see `06_Unread_Message_Light.md`) | unread | ThreadsPresenterTests |
 | Running dot | `thread.isRunning` | derived | running | ThreadsPresenterTests |
 | Attention flag | `thread.needsAttention` | derived | needs-attention | ThreadsPresenterTests |
 | workingDir pill | `thread.workingDir` | WorkThread | when set | ThreadsPresenterTests |

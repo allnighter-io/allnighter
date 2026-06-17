@@ -1,8 +1,25 @@
 # 01 - Work Threads MLP
 
-Status: Ready for implementation
+Status: Mostly BUILT / historical foundation packet; remaining gaps routed by
+`Persistent_Work_Threads.md`
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-15
+Updated: 2026-06-17
+
+> **Do not execute this doc from top to bottom.** The core thread primitive and
+> CR4 conversation send paths have landed. Use
+> [`../Persistent_Work_Threads.md`](../Persistent_Work_Threads.md) as the live
+> router for what remains.
+
+## Current Truth
+
+Built: persistent thread/turn models, `ThreadStore` CRUD, context packets,
+one-worker chat through `WorkerChatCoordinator`, minimal Mac thread UI, Home
+conversation rail, Chat/Fan out/Execute routing turns, and CR4 rail polish.
+
+Still deferred here until resliced: editable `work_order` turn creation,
+return-review as a thread turn, team-result reply defaulting to the writer with
+switch-away warning, lazy legacy-run migration, and full thread export with
+linked run artifacts.
 
 ## Goal
 
@@ -76,9 +93,9 @@ WorkThread.lastWorkerId    = most recent user-facing worker turn; for a team
 WorkThread.preview         = most recent message/reply excerpt
 ```
 
-Fast follow `05_Unread_Message_Light.md` adds `ThreadReadCursor` and derives
-`WorkThread.hasUnread` from the cursor plus unread-eligible turns. Do not infer
-unread from `updatedAt`.
+Fast follow `06_Unread_Message_Light.md` adds `ThreadReadCursor` and derives
+`WorkThread.hasUnread` from the cursor plus unread-eligible turns. Requires
+`05_ThreadStore_Hardening.md` first. Do not infer unread from `updatedAt`.
 
 ```text
 ThreadTurn
@@ -162,8 +179,8 @@ Default MLP row order:
 7. archived threads, hidden behind Archive
 ```
 
-After `05_Unread_Message_Light.md`, unread landed work slots between
-needs-attention and running.
+After `06_Unread_Message_Light.md` and `07_Threads_2_0.md`, unread landed work
+slots between needs-attention and running.
 
 Row content:
 
@@ -171,7 +188,7 @@ Row content:
 - preview from the most recent meaningful turn;
 - last worker glyph/chip when present;
 - relative time;
-- unread indication light after `05_Unread_Message_Light.md`;
+- unread indication light after `06_Unread_Message_Light.md`;
 - derived state: draft, pending, running, failed, manual-paste, auth-required;
 - optional `workingDir` path chip when set.
 
@@ -443,7 +460,8 @@ resume):
   `ThreadMarkdown` (currently a viewing transcript) into a full export bundle
   that pulls linked run artifacts by `runId`.
 - **Fast-follow docs (separate phases, not started):**
-  `05_Unread_Message_Light.md`, `02_Notifications.md`,
+  `05_ThreadStore_Hardening.md`, `06_Unread_Message_Light.md`,
+  `07_Threads_2_0.md`, `02_Notifications.md`,
   `03_Mac_Streaming.md`, `04_Observed_Usage.md`.
 
 ## Works Test

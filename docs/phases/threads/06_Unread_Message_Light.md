@@ -1,8 +1,18 @@
-# 05 - Unread Message Light
+# 06 - Unread Message Light
 
-Status: Draft founder packet - ready for implementation
+Status: Draft founder packet — ready for implementation after ThreadStore hardening
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
+
+## Requires
+
+```text
+05_ThreadStore_Hardening.md
+```
+
+Do not implement unread until `ThreadStore` has serialized writes, explicit mutation
+APIs, cursor-safe save paths, and `updatedAt`/transcript law from doc 05. This doc
+owns read cursor semantics and derivation; doc 05 owns the write gate they use.
 
 ## Founder Intent
 
@@ -42,8 +52,9 @@ Non-goals:
 - No unread prompt/context behavior. Read state is a UI attention contract, not
   a worker context input.
 - No auto-unarchive rule in this slice. Archived unread is preserved and shown
-  when the archive is viewed; changing archive status needs a separate archive
-  semantics decision.
+  when the archive is viewed (`07_Threads_2_0.md` owns archive UI).
+- No store infrastructure invention here — serialization, atomic writes, and
+  timestamp law live in `05_ThreadStore_Hardening.md`.
 
 ## Current State
 
@@ -65,24 +76,6 @@ WorkThread
 - projectLabel?
 - defaultWorkerId?
 - turns: [ThreadTurn]
-
-ThreadTurn
-- id
-- threadId
-- kind
-- status
-- createdAt
-- completedAt?
-- author
-- text?
-- workerId?
-- runId?
-- stageId?
-- artifactRefs
-- contextPacketId?
-- supersedesTurnId?
-- seedFromTurnId?
-- systemEvent?
 ```
 
 Derived today:
@@ -118,7 +111,7 @@ Truth owner:
 
 ```text
 AllnighterCore.WorkThread + ThreadReadCursor + unread derivation helpers
-AllnighterEngine.ThreadStore serialized thread mutation operations
+AllnighterEngine.ThreadStore.markRead* (via 05 write gate)
 ~/Library/Application Support/Allnighter/Threads/thread_<id>/thread.json
 ```
 
@@ -127,7 +120,7 @@ truth is Swift `Codable` data stored as local JSON:
 
 ```text
 AllnighterCore      -> schema and pure derived semantics
-AllnighterEngine    -> ThreadStore/RunStore persistence and mutation gates
+AllnighterEngine    -> ThreadStore persistence and mutation gates (05)
 Application Support -> folder-of-JSON storage on disk
 SwiftUI             -> renders state and sends intents only
 ```
@@ -150,9 +143,7 @@ Thread storage:
 
 For v1, keep `ThreadReadCursor` inside `thread.json`. Do not introduce
 `cursor.json`, `read_cursors.json`, SwiftUI state, notification receipts, or a
-side database as parallel read truth. If cursor writes become a measured
-performance problem later, a storage split must preserve a single transactional
-thread truth owner first.
+side database as parallel read truth.
 
 Lie-prone layers:
 
@@ -175,7 +166,7 @@ Duplicate truth to delete:
 - Any future GUI-only `isUnread`, `hasNewMessage`, or row dot state.
 - Any status pill color that silently means unread.
 - Any notification-delivery receipt used as read truth.
-- Any direct file write path that bypasses `ThreadStore` cursor rules.
+- Any direct file write path that bypasses `ThreadStore` (see 05).
 
 ## Core Model
 
@@ -211,17 +202,25 @@ Rules:
 - `readAt` records when the cursor advanced. It is used only for debugging,
   future iOS reconciliation, and out-of-order completion detection. It is not
   used to sort threads.
-- Updating the cursor must not change `thread.updatedAt`.
+- Updating the cursor must not change `thread.updatedAt` (05 cursor-only path).
 - Updating the cursor must not regenerate or change user-facing transcript
-  content.
-- Missing cursor in legacy data means "no known unread yet", not "everything is
-  unread."
-- New threads should start with an empty cursor at `createdAt`, then advance
-  through the first visible user turn after send if there are no earlier unread
-  anchors.
+  content (05 transcript law).
+- `readCursor == nil` means legacy/no-baseline data. It evaluates to **no unread
+  yet** until a feature-aware append/update seeds the baseline inside the same
+  store transaction.
+- New threads created after 06 ships should start with an explicit empty-timeline
+  cursor: `lastReadTurnId == nil`, `lastReadTurnCreatedAt == nil`,
+  `readAt == createdAt`. Legacy nil should remain only a migration state.
 - `turns` array order is canonical timeline/send order. Do not sort turns by
   timestamp for unread derivation; timestamps are fallbacks and landing-time
   checks only.
+- If timestamps tie, array order wins. A fallback timestamp matches only turns
+  with `createdAt > lastReadTurnCreatedAt`; equal timestamps are not after the
+  cursor.
+- Superseded turns are not unread anchors or cursor targets in v1. The successor
+  turn is evaluated normally. If a stored cursor points at a superseded turn that
+  still exists in the array, its array index remains a valid read boundary; if it
+  was removed by a future compaction, fall back to `lastReadTurnCreatedAt`.
 
 ## Unread Eligibility
 
@@ -251,6 +250,7 @@ queued/running worker/team/dispatch work before it lands
 system_event migration_imported
 system_event waiting
 cancelled turns caused by explicit user cancellation
+superseded turns that have an active successor
 ```
 
 Clarifications:
@@ -266,35 +266,45 @@ Clarifications:
   every earlier unread anchor.
 - Terminal unread-eligible turns should set `completedAt`. If `completedAt` is
   absent, derivation falls back to `createdAt`.
+- Unread eligibility and read-clear eligibility are different contracts:
+  `isUnreadEligible(turn)` is Core truth; `canClearReadWithoutExpansion(turn)`
+  is a GUI family contract owned by the timeline/card surface.
 
 ## Derived Freshness
 
-Add derived helpers in `AllnighterCore` beside existing `WorkThread.isRunning`
-and `WorkThread.needsAttention`. Presenters may format and sort; they must not
-own freshness semantics.
+Add one pure derivation namespace in `AllnighterCore` beside existing
+`WorkThread.isRunning` and `WorkThread.needsAttention`. Presenters may format
+and sort; they must not own freshness semantics.
 
 ```text
-WorkThread.unreadTurnIds
-WorkThread.firstUnreadTurnId
-WorkThread.latestUnreadTurnId
-WorkThread.hasUnread
-WorkThread.unreadNeedsAttention
+UnreadDerivation.unreadTurnIds(thread:) -> [String]
+UnreadDerivation.firstUnreadTurnId(thread:) -> String?
+UnreadDerivation.latestUnreadTurnId(thread:) -> String?
+UnreadDerivation.hasUnread(thread:) -> Bool
+UnreadDerivation.unreadNeedsAttention(thread:) -> Bool
 ```
+
+Convenience properties on `WorkThread` may delegate to this namespace, but there
+must be one canonical algorithm.
 
 Derivation:
 
 ```text
 1. Keep `turns` in stored array order. This is the timeline order.
-2. Find the index of readCursor.lastReadTurnId in turns.
-3. If found, a turn is after the cursor when its index is greater than the
+2. If `readCursor == nil`, return no unread. Legacy baseline seeding happens on
+   the next feature-aware append/update.
+3. Build the candidate list in array order, excluding user-authored, cancelled,
+   and superseded turns.
+4. Find the index of readCursor.lastReadTurnId in turns.
+5. If found, a turn is after the cursor when its index is greater than the
    cursor index.
-4. If not found but lastReadTurnCreatedAt exists, a turn is after the fallback
+6. If not found but lastReadTurnCreatedAt exists, a turn is after the fallback
    cursor when its createdAt is greater than that timestamp.
-5. A turn is landed-after-read when `(completedAt ?? createdAt) > readAt`.
-6. An unread candidate is unread-eligible AND (after cursor OR
+7. If no id or timestamp boundary exists, only `landed-after-read` can create an
+   unread candidate.
+8. A turn is landed-after-read when `(completedAt ?? createdAt) > readAt`.
+9. An unread candidate is unread-eligible AND (after cursor OR
    landed-after-read).
-7. If no cursor exists, legacy baseline is "read through current known turns"
-   until a new append/update happens under the feature-aware store.
 ```
 
 `unreadNeedsAttention`:
@@ -310,38 +320,39 @@ a new stored state.
 The UI may compute a count for accessibility, tests, or a future menu-bar badge,
 but the Mac rail renders a light only.
 
-## Store Semantics
+## Store Semantics (Read Cursor)
 
-`ThreadStore` is the mutation owner. Every thread read-modify-write must flow
-through store methods that enforce cursor rules.
+`ThreadStore` is the mutation owner (05). This section defines **cursor math
+only**; write serialization, atomic persistence, and `updatedAt` law are in
+[`05_ThreadStore_Hardening.md`](05_ThreadStore_Hardening.md).
 
-Add explicit store operations:
+Add store operations/helpers implemented on the 05 write gate:
 
 ```text
 ThreadStore.markRead(threadId:throughTurnId:now:)
 ThreadStore.markReadToLatestVisible(threadId:visibleTurnIds:now:)
-ThreadStore.ensureLegacyReadBaseline(threadId:beforeAppendingOrUpdating:)
+ThreadStore.ensureLegacyReadBaseline(threadId:beforeAppendingOrUpdating:)  # internal/test-visible helper
 ```
 
-Write-gate rules:
+Cursor-only writes use `persistCursor` from 05:
 
-- Serialize all thread file writes per store root (actor, file lock, or a
-  single internal queue). Last writer wins is not acceptable for cursor state.
-- External callers should not call a general `save(_:)` with ad hoc mutated
-  threads. Make raw save internal/private, or document it as a fixture/import
-  path that still validates cursor invariants.
-- Cursor-only writes must use a dedicated non-bumping save path: preserve
-  `updatedAt`, write `thread.json` atomically, and leave `transcript.md`
-  byte-identical.
-- Append/update writes remain the only ordinary paths that bump `updatedAt`.
-- Store never reads SwiftUI selection, scroll, focus, or window state.
+- Preserve `updatedAt`.
+- Atomic `thread.json`.
+- Leave `transcript.md` byte-identical.
+- Serialized with all other thread mutations.
+
+Store never reads SwiftUI selection, scroll, focus, or window state.
 
 `markRead` rules:
 
 - Validate that the thread exists.
 - Validate that `throughTurnId` exists in the thread.
-- Move the cursor forward only. Calling with the current cursor or an older turn
-  is an idempotent no-op, not an error.
+- Move `lastReadTurnId` forward only. Calling with the current cursor or an
+  older turn is idempotent for the index cursor, not an error.
+- If `throughTurnId` is older than the current cursor but is unread only because
+  it landed after `readAt`, do **not** move `lastReadTurnId` backward. Advance
+  `readAt` only after visible-prefix rules prove the relevant landed-after-read
+  prefix is visible.
 - If `throughTurnId` is unread-eligible, advance through it only when all earlier
   unread anchors are already cleared or included by the visible-prefix helper.
 - If `throughTurnId` is not unread-eligible, advance through it only when there
@@ -349,7 +360,6 @@ Write-gate rules:
   send without clearing earlier unseen work.
 - Allow archived threads. Archive status does not change read truth.
 - Preserve `thread.updatedAt`.
-- Save atomically with the thread JSON.
 - Return the updated `WorkThread`.
 
 `markReadToLatestVisible` algorithm:
@@ -366,11 +376,14 @@ input: visibleTurnIds in timeline order
 This prevents seeing a later unread turn from clearing earlier unseen unread
 turns. Debounce viewport reports; do not write on every scroll tick.
 
-Append/update rules:
+Append/update baseline rules (call `ensureLegacyReadBaseline` before write):
 
 - Before appending or settling a turn on a legacy thread with no cursor, seed the
   cursor through the latest already-known read baseline. This avoids an
   upgrade-time unread storm while still making newly landed work unread.
+- Baseline seeding runs inside the same serialized store transaction as the
+  append/update that creates the new state. It is not a separate view-model
+  read/write.
 - For append, the baseline is the latest existing turn before the append.
 - For update, if the updated turn is transitioning from non-unread-eligible to
   unread-eligible, the baseline is the latest turn before that updated turn, not
@@ -384,10 +397,41 @@ Append/update rules:
   may create unread if the user has not seen the turn.
 - Manual-paste/sign-in system turns become unread when created open.
 
+Worked non-eligible example:
+
+```text
+Turns: user1, worker1(unread), user2, worker2(landed)
+
+Visible through user2 only:
+  do not advance cursor through user2, because worker1 is an earlier unread
+  anchor.
+
+Visible through worker1:
+  advance through worker1. If user2 is also visible and no earlier unread anchor
+  remains, a later visibility report may advance through user2.
+
+Visible worker2 while worker1 is not visible:
+  no-op. The visible unread set is non-contiguous from the first unread anchor.
+```
+
+Out-of-order completion rule:
+
+```text
+If a running turn before the current cursor completes after readAt, it can become
+unread via landed-after-read. Clearing it must never move lastReadTurnId backward.
+```
+
+V1 invariant: do not relax one-active-heavy-turn / one-active-chat-turn behavior
+in a way that permits multiple unseen in-place completions before the cursor
+unless the read model is extended with per-turn read anchors or landed result
+turns. A single `readAt` is intentionally small; it must not be asked to prove
+visibility for many independent older updates.
+
 Layer split:
 
 ```text
-Store        -> cursor math, baseline seeding, serialized persistence
+Store (05)   -> serialized persistence, cursor-only vs content paths
+Store (06)   -> cursor math, baseline seeding, markRead*
 Coordinator  -> tells store when a user/worker/system turn was appended/settled
 ViewModel    -> tells store when timeline visibility proves a read event
 SwiftUI view -> reports visible turn ids and focus/window facts only
@@ -400,37 +444,9 @@ Read cursor updates do not bump updatedAt and do not by themselves move a thread
 to the top of recent history.
 ```
 
-## Thread List Triage
-
-Unread landed work is more actionable than merely running work.
-
-Revised default row order:
-
-```text
-1. pinned threads needing attention
-2. unpinned threads needing attention
-3. pinned unread threads
-4. unpinned unread threads
-5. pinned running threads
-6. unpinned running threads
-7. pinned recent threads
-8. recent threads by updatedAt
-9. archived threads, hidden behind Archive
-```
-
-Reason:
-
-```text
-Running means the factory is busy.
-Unread means the factory handed something back.
-Attention means the factory needs the floor manager now.
-```
-
-If a thread is both unread and running, unread wins for triage once at least one
-eligible unread turn exists. The running state can still render inside the row.
-
-Within each bucket, sort by `updatedAt` descending. Cursor-only writes do not
-change `updatedAt`; append/update writes do.
+Full rail triage order (pin + unread + archive) is owned by
+[`07_Threads_2_0.md`](07_Threads_2_0.md). Unread buckets slot between
+attention and running.
 
 ## Surface Binding
 
@@ -448,8 +464,8 @@ Rules:
 - Both surfaces read the same `WorkThread.hasUnread`/`firstUnreadTurnId`
   derivation from Core.
 - Both surfaces reserve the same trailing light slot so the row does not reflow.
-- Home must adopt the same triage order as ThreadList when unread ships.
-  `railThreads` newest-first is not sufficient for unread.
+- Home must adopt the same triage order as ThreadList when unread ships
+  (`07_Threads_2_0.md` converges rails).
 - `ThreadsPresenter.rowState` remains attention/running/idle. Unread is a
   separate axis, not a fourth mutually exclusive row state.
 - `ConversationStatus` / status pills may still report stable outcome
@@ -457,6 +473,10 @@ Rules:
   encode freshness, suppress the unread light, or become the read truth.
 - If a status pill and unread light both appear, the pill says what happened;
   the light says the user has not seen it yet.
+- Rich team/build/dispatch turns may be unread in Core before their cards are
+  visually complete, but they may not clear read on the Mac until the card family
+  has a minimum-visible contract. Do not fake-clear a collapsed rich turn just
+  because its row shell appeared.
 
 ## Visual Contract
 
@@ -615,7 +635,7 @@ When the remote spine exposes threads, add:
 Thread payload
 - readCursor?
 - hasUnread              # derived convenience allowed only if source fields are
-                         # also present or versioned by the Mac
+                         # also present and versioned by the Mac
 - firstUnreadTurnId?
 - latestUnreadTurnId?
 
@@ -662,14 +682,24 @@ Implementation options:
 Prefer lazy baseline unless eager migration is needed for UI simplicity. Either
 way, do not show every old thread as unread after upgrade.
 
+New thread state machine:
+
+| Event | Cursor | `hasUnread` |
+| --- | --- | --- |
+| Create after 06 | explicit empty cursor at `createdAt` | false |
+| User sends first message | cursor may remain empty; user turn is never eligible | false |
+| Worker turn queued/running | unchanged | false |
+| Worker lands while not visible | unchanged until visibility proves read | true |
+| Worker lands while visible in active window | mark read after debounce | false |
+
 Archived threads:
 
 - Archive status does not clear read state.
 - New unread-eligible turns on archived threads keep unread truth, but this
   slice does not auto-unarchive them.
 - If the archive view is opened, archived unread rows may show the same light.
-- A future auto-unarchive rule must be owned by an archive/lifecycle phase, not
-  smuggled into read-state derivation.
+- A future auto-unarchive rule must be owned by `07_Threads_2_0.md` or a
+  lifecycle phase, not smuggled into read-state derivation.
 
 ## Inference Bans
 
@@ -683,22 +713,26 @@ Archived threads:
 | User message | `TurnAuthor.user` | latest message in row means unread | User-authored turns never create unread | Appending a user message leaves unread false |
 | User send while scrolled up | Composer/view model | sending a reply means earlier unseen turns were read | Do not advance through a user turn when an earlier unread anchor is unseen | User sends while scrolled above an unread reply; light remains |
 | Out-of-order completion | index-only cursor | a completed older running turn before cursor is read | Include landed-after-read using `completedAt/readAt` | Running turn created before cursor completes after cursor; light appears |
-| Direct save | ad hoc `ThreadStore.save` caller | partial write can bypass cursor/baseline rules | All RMW writes go through serialized store operations | Direct save path is unavailable or validates cursor invariants |
+| Backward cursor | `markRead` | older completed turn moves cursor backward | Never move `lastReadTurnId` backward; update `readAt` only under visible-prefix rules | markRead older out-of-order turn preserves cursor id |
+| Direct save | 05 write gate | partial write can bypass cursor/baseline rules | All RMW writes go through serialized store operations | See `05_ThreadStore_Hardening.md` negative tests |
 | Partial viewport | SwiftUI visibility callback | any visible later unread clears all earlier unread | Mark through contiguous visible unread prefix only | Turn 5 visible while turn 3 unread unseen; cursor does not jump to 5 |
 | Rich collapsed turn | timeline row header | any collapsed header is read | Apply family visibility contract; require preview or expansion | Rich turn with no preview header visible; cursor unchanged |
-| Home rail | `HomeView.railThreads` | newest-first is enough for unread | Primary rails must use triage order and Core `hasUnread` | Home unread thread sorts above running/recent |
+| Superseded turn | turn replacement | old replaced turn creates unread | Exclude superseded turns as unread anchors | superseded failed turn does not light row |
+| Home rail | `HomeView.railThreads` | newest-first is enough for unread | Primary rails must use triage order (`07`) and Core `hasUnread` | Home unread thread sorts above running/recent |
 | Archived thread | archive status | archive clears or suppresses read truth | Archive hides rows only; cursor semantics continue | Archived unread thread shows light when archive is viewed |
 
 ## Ordered Slices
 
+Prerequisite: **TSH-S00 through TSH-S04** from `05_ThreadStore_Hardening.md`.
+
 - [ ] UNR-S01 - Add `ThreadReadCursor` to Core, Codable migration fixtures, and
-  pure unread derivation helpers, including landed-after-read logic.
-- [ ] UNR-S02 - Add serialized `ThreadStore` write gate, `markRead`, cursor-only
-  save, and append/update legacy-baseline semantics. Prove `updatedAt` is
-  preserved and `transcript.md` is byte-identical on cursor-only writes.
-- [ ] UNR-S03 - Add presenter freshness state and revised triage ordering:
-  attention -> unread -> running -> recent. Apply to Home and legacy Threads
-  rails.
+  pure unread derivation helpers, including landed-after-read, nil-cursor,
+  timestamp tie, superseded-turn, and missing-cursor-id logic.
+- [ ] UNR-S02 - Add `markRead`, `markReadToLatestVisible`,
+  `ensureLegacyReadBaseline` on the 05 cursor-only persist path. Prove
+  `updatedAt` preserved and `transcript.md` byte-identical on cursor writes.
+- [ ] UNR-S03 - Add presenter freshness inputs and unread buckets in triage
+  (full rail order finalized in TH2-S02).
 - [ ] UNR-S04 - Add Mac thread-row unread light component on both rail rows using
   design tokens, no visible label/count, with accessibility value and reserved
   trailing slot.
@@ -759,6 +793,23 @@ xcodebuild test -scheme AllnighterMac -destination 'platform=macOS' \
   -only-testing:AllnighterMacTests/ThreadsPresenterTests
 ```
 
+Required derivation fixtures:
+
+```text
+legacy no cursor
+new empty cursor
+cursor at user message
+out-of-order completion before cursor
+two unread, only second visible
+user send with earlier unread above viewport
+archived unread
+failed worker unread + attention
+missing lastReadTurnId with timestamp fallback
+identical createdAt tie
+superseded turn excluded
+cancelled turn excluded
+```
+
 Green wall:
 
 ```text
@@ -787,16 +838,17 @@ row spacing, light placement, contrast, and no text overlap.
 - The database has a durable read cursor for threads.
 - Unread is derived from cursor plus turn truth, not stored as a boolean.
 - All derivation lives in Core; all persistence/mutation lives behind
-  serialized `ThreadStore` operations.
+  serialized `ThreadStore` operations (05).
 - Existing legacy threads do not all light up on upgrade.
 - Running turns that complete after the cursor still light via landed-after-read.
+- The cursor is monotonic: read clearing never moves `lastReadTurnId` backward.
 - Worker/team/dispatch results that land away from view light the row.
 - User-authored turns and running turns do not light the row or clear earlier
   unseen unread anchors.
 - Opening the thread clears only after the unread turn is visible.
 - Clearing read survives relaunch and does not bump `updatedAt`.
 - Thread triage prioritizes attention, then unread landed work, then running on
-  both Home and legacy Threads rails.
+  both Home and legacy Threads rails (with 07).
 - The row renders a light, not a note, label, or count.
 - Unit tests cover cursor migration, derivation, store updates, and presenter
   ordering.
@@ -814,6 +866,7 @@ row spacing, light placement, contrast, and no text overlap.
 ## Open Questions
 
 - Should a future archive/lifecycle slice auto-unarchive background completions,
-  or should archive always mean "hide until I inspect archive"?
+  or should archive always mean "hide until I inspect archive"? (Default in 07:
+  no auto-unarchive v1.)
 - After PWT-S07 rich cards land, are compact preview headers enough for every
   team/build read-clear, or should certain artifact-heavy cards require expand?
