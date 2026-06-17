@@ -263,7 +263,7 @@ final class ThreadsViewModel {
             id: UUID().uuidString, threadId: threadId, kind: boardKind, status: .running,
             createdAt: startedAt, author: .worker, runId: runId
         )
-        guard (try? store.append(board, toThreadId: threadId, now: startedAt)) != nil else { return }
+        guard (try? store.appendTurn(board, toThreadId: threadId, now: startedAt)) != nil else { return }
         reload()
 
         let prompt = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -287,7 +287,7 @@ final class ThreadsViewModel {
             var settled = board
             settled.status = Self.turnStatus(for: finalRun.status)
             settled.completedAt = Date()
-            _ = try? store.update(settled, inThreadId: threadId, now: Date())
+            _ = try? store.updateTurn(settled, inThreadId: threadId, now: Date())
             reload()
         }
     }
@@ -368,7 +368,7 @@ final class ThreadsViewModel {
                 id: turnId, threadId: threadId, kind: .dispatch, status: .running,
                 createdAt: Date(), author: .worker, workerId: model.id, runId: runId
             )
-            _ = try? store.append(dispatchTurn, toThreadId: threadId, now: Date())
+            _ = try? store.appendTurn(dispatchTurn, toThreadId: threadId, now: Date())
             reload()
 
             let stage = await Task.detached { () -> StageOutput in
@@ -391,7 +391,7 @@ final class ThreadsViewModel {
             settled.stageId = stage.id
             settled.status = Self.dispatchTurnStatus(for: stage.status)
             settled.completedAt = Date()
-            _ = try? store.update(settled, inThreadId: threadId, now: Date())
+            _ = try? store.updateTurn(settled, inThreadId: threadId, now: Date())
             reload()
         }
     }
@@ -414,7 +414,7 @@ final class ThreadsViewModel {
             id: UUID().uuidString, threadId: threadId, kind: .dispatch, status: status,
             createdAt: Date(), completedAt: Date(), author: .system, text: text
         )
-        try? store.append(turn, toThreadId: threadId, now: Date())
+        try? store.appendTurn(turn, toThreadId: threadId, now: Date())
         reload()
     }
 
@@ -434,7 +434,7 @@ final class ThreadsViewModel {
             id: UUID().uuidString, threadId: threadId, kind: kind, status: .failed,
             createdAt: Date(), completedAt: Date(), author: .system, text: reason
         )
-        try? store.append(turn, toThreadId: threadId, now: Date())
+        try? store.appendTurn(turn, toThreadId: threadId, now: Date())
         reload()
     }
 
@@ -470,7 +470,7 @@ final class ThreadsViewModel {
             id: UUID().uuidString, threadId: threadId, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user, text: message
         )
-        try? store.append(turn, toThreadId: threadId, now: Date())
+        try? store.appendTurn(turn, toThreadId: threadId, now: Date())
         reload()
     }
 
@@ -519,17 +519,17 @@ final class ThreadsViewModel {
 
         // Pinned design conversation.
         if (try? store.create(id: "rail-design", title: "Redesign the onboarding flow", now: base.addingTimeInterval(-600))) != nil {
-            _ = try? store.append(turn("rail-design-t", "rail-design", .designBoard, .done), toThreadId: "rail-design", now: base)
+            _ = try? store.appendTurn(turn("rail-design-t", "rail-design", .designBoard, .done), toThreadId: "rail-design", now: base)
             _ = try? store.setPinned(threadId: "rail-design", pinned: true, now: base)
         }
         // Build conversation, currently running (Running filter + running pill).
         if (try? store.create(id: "rail-build", title: "Rate-limit the public API", now: base.addingTimeInterval(-120))) != nil {
-            _ = try? store.append(turn("rail-build-t1", "rail-build", .teamRun, .done), toThreadId: "rail-build", now: base)
-            _ = try? store.append(turn("rail-build-t2", "rail-build", .dispatch, .running), toThreadId: "rail-build", now: base)
+            _ = try? store.appendTurn(turn("rail-build-t1", "rail-build", .teamRun, .done), toThreadId: "rail-build", now: base)
+            _ = try? store.appendTurn(turn("rail-build-t2", "rail-build", .dispatch, .running), toThreadId: "rail-build", now: base)
         }
         // Build conversation, settled.
         if (try? store.create(id: "rail-build2", title: "Refactor the uploader client", now: base.addingTimeInterval(-300))) != nil {
-            _ = try? store.append(turn("rail-build2-t", "rail-build2", .workOrder, .done), toThreadId: "rail-build2", now: base)
+            _ = try? store.appendTurn(turn("rail-build2-t", "rail-build2", .workOrder, .done), toThreadId: "rail-build2", now: base)
         }
         // Chat-only conversation (no lane → only under All).
         _ = try? store.create(id: "rail-chat", title: "Token bucket vs sliding window", now: base.addingTimeInterval(-900))
@@ -567,7 +567,7 @@ final class ThreadsViewModel {
             author: .user,
             text: "For per-user API rate limiting — token bucket or sliding window? Short answer + why."
         )
-        _ = try? store.append(turn, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(turn, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }
@@ -588,8 +588,8 @@ final class ThreadsViewModel {
             text: "**Token bucket.** It allows short bursts (up to the bucket size) while holding the long-run average to the refill rate — which is what per-user API limits actually want. Sliding-window log is more precise but stores every timestamp per user (memory + GC churn); sliding-window counter approximates it but still smooths bursts away. For rate limiting, allow the burst: token bucket, refill = your sustained rate, capacity = your burst budget.",
             workerId: workerId
         )
-        _ = try? store.append(user, toThreadId: id, now: Date())
-        _ = try? store.append(reply, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }
@@ -642,8 +642,8 @@ final class ThreadsViewModel {
             id: "fixture-team-board", threadId: id, kind: .teamRun, status: .done,
             createdAt: Date(), completedAt: Date(), author: .worker, runId: run.id
         )
-        _ = try? store.append(user, toThreadId: id, now: Date())
-        _ = try? store.append(board, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(board, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }
@@ -684,8 +684,8 @@ final class ThreadsViewModel {
             createdAt: Date(), completedAt: Date(), author: .worker,
             workerId: workerId, runId: run.id, stageId: "fixture-dispatch-stage"
         )
-        _ = try? store.append(user, toThreadId: id, now: Date())
-        _ = try? store.append(dispatch, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(dispatch, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }

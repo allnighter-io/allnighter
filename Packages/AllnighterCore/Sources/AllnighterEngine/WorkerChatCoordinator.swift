@@ -123,14 +123,14 @@ public actor WorkerChatCoordinator {
             id: userTurnId, threadId: threadId, kind: .userMessage, status: .done,
             createdAt: now(), completedAt: now(), author: .user, text: message
         )
-        try store.append(userTurn, toThreadId: threadId, now: now())
+        try store.appendTurn(userTurn, toThreadId: threadId, now: now())
 
         // 2. Optimistic worker turn — created `running` immediately.
         let workerTurn = ThreadTurn(
             id: workerTurnId, threadId: threadId, kind: .workerChat, status: .running,
             createdAt: now(), author: .worker, workerId: workerId, contextPacketId: packetId
         )
-        try store.append(workerTurn, toThreadId: threadId, now: now())
+        try store.appendTurn(workerTurn, toThreadId: threadId, now: now())
 
         let model = models.first { $0.id == workerId }
         let manifest = model.flatMap { registry.manifest(for: $0) }
@@ -165,7 +165,7 @@ public actor WorkerChatCoordinator {
         case .draft, .queued, .running:
             break
         }
-        return try store.update(settled, inThreadId: threadId, now: now())
+        return try store.updateTurn(settled, inThreadId: threadId, now: now())
     }
 
     private func chatStatus(for answer: WorkerAnswerStatus) -> ThreadTurnStatus {
@@ -192,7 +192,7 @@ public actor WorkerChatCoordinator {
             text: "Paste \(workerId)'s reply to complete this turn.",
             systemEvent: .manualPaste
         )
-        let thread = try store.append(note, toThreadId: threadId, now: now())
+        let thread = try store.appendTurn(note, toThreadId: threadId, now: now())
         return ChatResult(
             thread: thread, workerId: workerId, userTurnId: userTurnId,
             workerTurnId: workerTurnId, contextPacketId: packetId,
@@ -214,12 +214,12 @@ public actor WorkerChatCoordinator {
         workerTurn.status = .done
         workerTurn.text = reply
         workerTurn.completedAt = now()
-        var updated = try store.update(workerTurn, inThreadId: threadId, now: now())
+        var updated = try store.updateTurn(workerTurn, inThreadId: threadId, now: now())
 
         if let manualNoteTurnId, var note = updated.turn(id: manualNoteTurnId), !note.status.isTerminal {
             note.status = .done
             note.completedAt = now()
-            updated = try store.update(note, inThreadId: threadId, now: now())
+            updated = try store.updateTurn(note, inThreadId: threadId, now: now())
         }
         return updated
     }

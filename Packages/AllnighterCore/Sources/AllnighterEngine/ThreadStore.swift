@@ -109,7 +109,7 @@ public struct ThreadStore: Sendable {
     /// Appends a turn and bumps `updatedAt`. The turn's `threadId` is normalized
     /// to the target thread.
     @discardableResult
-    public func append(_ turn: ThreadTurn, toThreadId threadId: String, now: Date) throws -> WorkThread {
+    public func appendTurn(_ turn: ThreadTurn, toThreadId threadId: String, now: Date) throws -> WorkThread {
         try synchronized {
             guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
             if thread.turns.contains(where: { $0.id == turn.id }) {
@@ -125,11 +125,17 @@ public struct ThreadStore: Sendable {
         }
     }
 
+    @available(*, deprecated, renamed: "appendTurn(_:toThreadId:now:)")
+    @discardableResult
+    public func append(_ turn: ThreadTurn, toThreadId threadId: String, now: Date) throws -> WorkThread {
+        try appendTurn(turn, toThreadId: threadId, now: now)
+    }
+
     /// Replaces an existing turn (matched by id) in place — used to settle an
     /// optimistic `running` turn to `done`/`failed`/etc. Validates the lifecycle
     /// transition unless the status is unchanged.
     @discardableResult
-    public func update(_ turn: ThreadTurn, inThreadId threadId: String, now: Date) throws -> WorkThread {
+    public func updateTurn(_ turn: ThreadTurn, inThreadId threadId: String, now: Date) throws -> WorkThread {
         try synchronized {
             guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
             guard let index = thread.turns.firstIndex(where: { $0.id == turn.id }) else {
@@ -147,6 +153,12 @@ public struct ThreadStore: Sendable {
             _ = try persistContent(thread)
             return thread
         }
+    }
+
+    @available(*, deprecated, renamed: "updateTurn(_:inThreadId:now:)")
+    @discardableResult
+    public func update(_ turn: ThreadTurn, inThreadId threadId: String, now: Date) throws -> WorkThread {
+        try updateTurn(turn, inThreadId: threadId, now: now)
     }
 
     @discardableResult

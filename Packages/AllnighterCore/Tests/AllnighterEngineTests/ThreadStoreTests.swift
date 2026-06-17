@@ -63,7 +63,7 @@ final class ThreadStoreTests: XCTestCase {
         // Turn carries a stale threadId; append normalizes it.
         let stray = ThreadTurn(id: "u1", threadId: "WRONG", kind: .userMessage,
                                status: .done, createdAt: t0, author: .user, text: "hi")
-        let updated = try store.append(stray, toThreadId: "a", now: t1)
+        let updated = try store.appendTurn(stray, toThreadId: "a", now: t1)
         XCTAssertEqual(updated.turns.count, 1)
         XCTAssertEqual(updated.turns[0].threadId, "a")
         XCTAssertEqual(updated.updatedAt, t1)
@@ -76,12 +76,12 @@ final class ThreadStoreTests: XCTestCase {
         try store.saveForImport(thread("a", updatedAt: t0))
         let running = ThreadTurn(id: "w1", threadId: "a", kind: .workerChat, status: .running,
                                  createdAt: t0, author: .worker, workerId: "model_opus")
-        try store.append(running, toThreadId: "a", now: t0)
+        try store.appendTurn(running, toThreadId: "a", now: t0)
 
         var done = running
         done.status = .done
         done.text = "answer"
-        let updated = try store.update(done, inThreadId: "a", now: t1)
+        let updated = try store.updateTurn(done, inThreadId: "a", now: t1)
         XCTAssertEqual(updated.turns[0].status, .done)
         XCTAssertEqual(updated.turns[0].text, "answer")
     }
@@ -93,11 +93,11 @@ final class ThreadStoreTests: XCTestCase {
         try store.saveForImport(thread("a", updatedAt: t0))
         let done = ThreadTurn(id: "w1", threadId: "a", kind: .workerChat, status: .done,
                               createdAt: t0, author: .worker, text: "x", workerId: "model_opus")
-        try store.append(done, toThreadId: "a", now: t0)
+        try store.appendTurn(done, toThreadId: "a", now: t0)
 
         var revived = done
         revived.status = .running   // done -> running is illegal
-        XCTAssertThrowsError(try store.update(revived, inThreadId: "a", now: t1)) { error in
+        XCTAssertThrowsError(try store.updateTurn(revived, inThreadId: "a", now: t1)) { error in
             XCTAssertEqual(error as? ThreadStoreError,
                            .illegalTurnTransition(turnId: "w1", from: .done, to: .running))
         }
@@ -108,7 +108,7 @@ final class ThreadStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         try store.saveForImport(thread("a", updatedAt: t0))
         let ghost = userTurn("ghost", threadId: "a")
-        XCTAssertThrowsError(try store.update(ghost, inThreadId: "a", now: t1)) { error in
+        XCTAssertThrowsError(try store.updateTurn(ghost, inThreadId: "a", now: t1)) { error in
             XCTAssertEqual(error as? ThreadStoreError, .turnNotFound("ghost"))
         }
     }
@@ -116,7 +116,7 @@ final class ThreadStoreTests: XCTestCase {
     func testAppendToMissingThreadThrows() {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
-        XCTAssertThrowsError(try store.append(userTurn("u", threadId: "nope"), toThreadId: "nope", now: t0)) { error in
+        XCTAssertThrowsError(try store.appendTurn(userTurn("u", threadId: "nope"), toThreadId: "nope", now: t0)) { error in
             XCTAssertEqual(error as? ThreadStoreError, .threadNotFound("nope"))
         }
     }
@@ -137,8 +137,8 @@ final class ThreadStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try store.saveForImport(thread("a", updatedAt: t0))
-        try store.append(userTurn("u1", threadId: "a"), toThreadId: "a", now: t0)
-        XCTAssertThrowsError(try store.append(userTurn("u1", threadId: "a"), toThreadId: "a", now: t1)) { error in
+        try store.appendTurn(userTurn("u1", threadId: "a"), toThreadId: "a", now: t0)
+        XCTAssertThrowsError(try store.appendTurn(userTurn("u1", threadId: "a"), toThreadId: "a", now: t1)) { error in
             XCTAssertEqual(error as? ThreadStoreError, .duplicateTurnId("u1"))
         }
         XCTAssertEqual(store.get("a")?.turns.count, 1)

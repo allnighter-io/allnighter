@@ -38,13 +38,13 @@ final class ThreadStoreConcurrencyTests: XCTestCase {
             group.addTask {
                 for i in 0..<50 {
                     let turn = Self.userTurn("turn-a-\(i)", threadId: "shared", createdAt: epoch)
-                    _ = try? storeA.append(turn, toThreadId: "shared", now: epoch.addingTimeInterval(Double(i)))
+                    _ = try? storeA.appendTurn(turn, toThreadId: "shared", now: epoch.addingTimeInterval(Double(i)))
                 }
             }
             group.addTask {
                 for i in 0..<50 {
                     let turn = Self.userTurn("turn-b-\(i)", threadId: "shared", createdAt: epoch)
-                    _ = try? storeB.append(turn, toThreadId: "shared", now: epoch.addingTimeInterval(Double(100 + i)))
+                    _ = try? storeB.appendTurn(turn, toThreadId: "shared", now: epoch.addingTimeInterval(Double(100 + i)))
                 }
             }
         }
@@ -104,7 +104,7 @@ final class ThreadStoreConcurrencyTests: XCTestCase {
                 group.addTask {
                     let store: ThreadStore = Bool.random() ? storeA : storeB
                     do {
-                        _ = try store.append(duplicate, toThreadId: "shared", now: epoch)
+                        _ = try store.appendTurn(duplicate, toThreadId: "shared", now: epoch)
                         return .success
                     } catch let error as ThreadStoreError {
                         if error == .duplicateTurnId("dup") {
