@@ -465,7 +465,7 @@ Do not implement 06 or 07 until 05 proof wall is green.
 - [x] TSH-S05 - Rename `append`/`update` to `appendTurn`/`updateTurn` (keep
   deprecated aliases one slice if needed) and route all production callers,
   including CR4 team/design/dispatch append/update paths.
-- [ ] TSH-S06 - Document + enforce caller allowlist; grep gate in
+- [x] TSH-S06 - Document + enforce caller allowlist; grep gate in
   `scripts/check.sh` or audit test that app sources do not call `saveForImport`.
 - [ ] TSH-S07 - Unit proof wall: timestamp law table, transcript byte identity,
   archive-clears-pin, packet-reference invariant, duplicate-id/turn-id rejection,

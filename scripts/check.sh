@@ -26,6 +26,19 @@ echo "==> check GUI visual proof gate"
 bash "$ROOT/scripts/check_gui_proof.sh"
 ran_any=true
 
+# ThreadStore hardening (TSH-S06): app runtime must use explicit mutation APIs,
+# not fixture/import saves. See threads/05_ThreadStore_Hardening.md.
+echo "==> check ThreadStore caller allowlist"
+if rg -n '\.saveForImport\(' "$ROOT/Apps" --glob '*.swift' 2>/dev/null; then
+  echo "check: Apps/ must not call ThreadStore.saveForImport (fixture/test gate only)" >&2
+  exit 1
+fi
+if rg -n 'testPersistCursor' "$ROOT/Apps" --glob '*.swift' 2>/dev/null; then
+  echo "check: Apps/ must not call ThreadStore test-only cursor hooks" >&2
+  exit 1
+fi
+ran_any=true
+
 if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   echo "==> swift test AllnighterCore"
   swift test --package-path "$ROOT/Packages/AllnighterCore"
