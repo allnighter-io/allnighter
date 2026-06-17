@@ -85,7 +85,7 @@ enum ProveCLI {
             try? FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
             let request = DesignSeatRequest(
                 userPrompt: "a clean mobile login screen for a coffee app",
-                personaId: "minimal", personaDirection: DesignPersonaLibrary.direction(for: "minimal"),
+                personaId: "minimal", personaDirection: SkillCatalog.designDirection(for: "minimal"),
                 targetShape: .mobile)
             fputs("[\(driverId)] generating image (\(manifest.imageGen!.arrival.rawValue)) — this hits the real engine…\n", stderr)
             let option = await runner.run(seat: seat, worker: worker, manifest: manifest, request: request, runDir: runDir)

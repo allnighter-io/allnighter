@@ -136,13 +136,13 @@ private struct PersonaChips: View {
     @Environment(AppModel.self) private var model
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(DesignPersonaLibrary.builtInIDs, id: \.self) { id in
+            ForEach(SkillCatalog.defaultDesignPanelSkillIDs, id: \.self) { id in
                 let on = model.designPersonaIds.contains(id)
                 Button {
                     if on { model.designPersonaIds.removeAll { $0 == id } }
                     else { model.designPersonaIds.append(id) }
                 } label: {
-                    Text(DesignPersonaLibrary.displayName(for: id))
+                    Text(SkillCatalog.displayName(for: id))
                         .font(.caption)
                         .padding(.horizontal, 10).padding(.vertical, 4)
                         .background(on ? Color.accentColor.opacity(0.25) : Color(nsColor: .quaternaryLabelColor).opacity(0.4),
@@ -178,7 +178,7 @@ struct DesignBoardView: View {
                     }
                     if let chosen = model.board?.chosen {
                         if readOnly {
-                            Label("Picked \(DesignPersonaLibrary.displayName(for: chosen.persona))", systemImage: "checkmark.seal.fill")
+                            Label("Picked \(SkillCatalog.displayName(for: chosen.persona))", systemImage: "checkmark.seal.fill")
                                 .font(.callout).foregroundStyle(.green)
                         } else {
                             BuildSection()
@@ -298,7 +298,7 @@ private struct BoardTile: View {
             .onTapGesture { if model.imageURL(forSeat: worker.id) != nil { onOpen() } }
 
             HStack(spacing: 6) {
-                Text(DesignPersonaLibrary.displayName(for: worker.skillId ?? ""))
+                Text(SkillCatalog.displayName(for: worker.skillId ?? ""))
                     .font(.caption).bold()
                 Text(engineName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
@@ -326,7 +326,7 @@ private struct FullscreenOption: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Text(DesignPersonaLibrary.displayName(for: model.designPersona(forSeat: workerId))).font(.headline)
+                Text(SkillCatalog.displayName(for: model.designPersona(forSeat: workerId))).font(.headline)
                 Spacer()
                 if model.screenshotURL != nil {
                     Toggle("Show original", isOn: $showingBefore).toggleStyle(.button)

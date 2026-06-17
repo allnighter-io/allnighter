@@ -73,7 +73,7 @@ public actor TeamRunCoordinator {
             for assignment in teamWorkers {
                 let model = modelByID[assignment.modelId]
                 let manifest = model.flatMap { manifestByModel[$0.id] ?? nil }
-                let workerPrompt = SkillLibrary.assemblePrompt(
+                let workerPrompt = SkillCatalog.assemblePrompt(
                     skillId: assignment.skillId,
                     founderPrompt: prompt
                 )

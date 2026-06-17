@@ -63,7 +63,7 @@ final class AppModel {
     var designMode = false
     var designScreenshotURL: URL?
     var designTargetShape: TargetShape = .desktop
-    var designPersonaIds: [String] = DesignPersonaLibrary.defaultPanelIDs
+    var designPersonaIds: [String] = SkillCatalog.defaultDesignPanelSkillIDs
     private(set) var isDesigning = false
 
     private let registry: DriverRegistry

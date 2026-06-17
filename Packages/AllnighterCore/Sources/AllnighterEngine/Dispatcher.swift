@@ -42,7 +42,7 @@ public enum DesignBriefBuilder {
 
         let imageAbs = runFolder.appendingPathComponent(imageRel).path
         let beforeAbs = board.screenshotPath.map { runFolder.appendingPathComponent($0).path }
-        let persona = DesignPersonaLibrary.displayName(for: option.persona)
+        let persona = SkillCatalog.displayName(for: option.persona)
         let intent = "Adopt the \(persona) design direction shown in the chosen image. \(run.prompt)"
 
         return ImplementationBrief(

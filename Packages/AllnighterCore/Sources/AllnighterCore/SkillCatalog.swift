@@ -45,7 +45,7 @@ public typealias SkillDefinition = Skill
 /// reference skills by id; the resolver snapshots id/name into runs.
 public enum SkillCatalog {
     /// All built-in skills, keyed by id (first-seen wins on duplicate ids).
-    public static let builtIns: [Skill] = buildSkills + designSkills + copySkills + writerSkills
+    public static let builtIns: [Skill] = buildSkills + designSkills + designPanelSkills + copySkills + writerSkills
 
     private static let byID: [String: Skill] =
         Dictionary(builtIns.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -54,6 +54,28 @@ public enum SkillCatalog {
 
     public static func skills(in lane: WorkLane) -> [Skill] {
         builtIns.filter { $0.lane == lane }
+    }
+
+    /// Lane-scoped catalog list (built-in + custom when persistence ships).
+    public static func list(lane: WorkLane) -> [SkillDefinition] { skills(in: lane) }
+
+    /// Lookup one skill definition by id.
+    public static func get(_ id: SkillID) -> SkillDefinition? { skill(id) }
+
+    /// Default design-board panel skill ids (one image worker per direction).
+    public static let defaultDesignPanelSkillIDs: [SkillID] = ["minimal", "bold", "editorial", "on_brand"]
+
+    /// User-facing skill name; falls back to a capitalized id.
+    public static func displayName(for skillId: String) -> String {
+        skill(skillId)?.displayName ?? skillId.capitalized
+    }
+
+    /// Image-direction text for a design-board skill (the skill template body).
+    public static func designDirection(for skillId: String) -> String {
+        guard let skill = skill(skillId), !skill.template.isEmpty else {
+            return "A clean, considered redesign with clear hierarchy."
+        }
+        return skill.template
     }
 
     /// Prefix the founder prompt with the skill template for one worker.
@@ -257,6 +279,24 @@ public enum SkillCatalog {
     ]
 
     // MARK: - Design skills
+
+    /// Lane-owned design-board panel skills (formerly `DesignPersonaLibrary`).
+    private static let designPanelSkills: [Skill] = [
+        s("minimal", "Minimal", .design, .answer, """
+        Restraint, generous whitespace, type-led hierarchy; strip every non-essential element.
+        """),
+        s("bold", "Bold", .design, .answer, """
+        High contrast, oversized type, opinionated color; the primary action dominates.
+        """),
+        s("editorial", "Editorial", .design, .answer, """
+        Break the generic SaaS look — magazine/editorial or information-dense — while staying \
+        recognizably the same screen and usable.
+        """),
+        s("on_brand", "On-brand", .design, .answer, """
+        Match the product's existing look: palette, type scale, and spacing from the attached \
+        screen. Range in layout, not in brand.
+        """)
+    ]
 
     private static let designSkills: [Skill] = [
         s("information_architect", "Information Architect", .design, .answer, """

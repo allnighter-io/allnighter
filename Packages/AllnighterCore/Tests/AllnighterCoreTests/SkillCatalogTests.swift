@@ -59,4 +59,9 @@ final class SkillCatalogTests: XCTestCase {
             .map { ModelCatalog.capabilities($0).strengthRank }
         XCTAssertEqual(ranked, ranked.sorted(by: >))
     }
+
+    func testModelCapabilitiesLaneTagsRemainMultiLane() {
+        let opusLanes = ModelCatalog.capabilities("model_opus").laneTags
+        XCTAssertGreaterThan(opusLanes.count, 1, "model capability laneTags stay multi-lane")
+    }
 }

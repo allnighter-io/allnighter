@@ -83,7 +83,7 @@ public actor DesignCoordinator {
                 let seatRequest = DesignSeatRequest(
                     userPrompt: prompt,
                     personaId: personaId,
-                    personaDirection: DesignPersonaLibrary.direction(for: personaId),
+                    personaDirection: SkillCatalog.designDirection(for: personaId),
                     targetShape: targetShape,
                     screenshotPath: screenshotAbsolutePath
                 )

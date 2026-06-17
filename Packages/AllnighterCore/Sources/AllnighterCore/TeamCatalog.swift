@@ -359,3 +359,18 @@ public extension Array where Element == TeamPreset {
         }
     }
 }
+
+// MARK: - Team catalog API
+
+/// Built-in and custom team definitions (MLP: built-ins only; persistence in S02).
+public enum TeamCatalog {
+    public static var all: [TeamDefinition] { BuiltInTeams.all }
+
+    public static func list(lane: WorkLane) -> [TeamDefinition] { BuiltInTeams.teams(in: lane) }
+
+    public static func get(_ id: TeamID) -> TeamDefinition? { BuiltInTeams.team(id) }
+
+    public static func defaultTeam(for lane: WorkLane) -> TeamDefinition? {
+        BuiltInTeams.all.defaultTeam(for: lane)
+    }
+}
