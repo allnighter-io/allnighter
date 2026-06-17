@@ -1,6 +1,6 @@
 # 07 - Threads 2.0
 
-Status: Draft founder packet — rail controls after 06 Unread Message Light
+Status: **TH2-S01–S10 BUILT** (2026-06-17) — rail controls, triage convergence, archive view
 Owner: AllnighterMac GUI + AllnighterEngine (store mutations)
 Updated: 2026-06-17
 
@@ -363,21 +363,20 @@ Mac remains mutation truth owner in v1.
 
 ## Ordered Slices
 
-- [ ] TH2-S01 - Store methods from 05: `renameThread`, `setPinned`, `unarchiveThread`;
-  fix `archiveThread` timestamp/pin law. (May land entirely in TSH-S04.)
-- [ ] TH2-S02 - `ThreadsPresenter.triagedActive` with unread buckets (post-06);
-  remove production use of `railThreads` newest-first and `railGroups`
+- [x] TH2-S01 - Store methods from 05: `renameThread`, `setPinned`, `unarchiveThread`;
+  fix `archiveThread` timestamp/pin law. (Landed in archived TSH-S04.)
+- [x] TH2-S02 - `ThreadsPresenter.triagedActive` with unread buckets (post-06);
+  `ThreadTriageBucket` + `triageSections`; production rails no longer use
   Pinned/Recent grouping.
-- [ ] TH2-S03 - Wire Home conversation rail to `triagedActive`.
-- [ ] TH2-S04 - Wire legacy `ThreadsView` sidebar to same triage.
-- [ ] TH2-S05 - Archive view + navigation entry; `triagedArchived`.
-- [ ] TH2-S06 - Row context menu actions → view model → store.
-- [ ] TH2-S07 - Thread header rename + pin + archive affordances.
-- [ ] TH2-S08 - Keyboard/menu commands.
-- [ ] TH2-S09 - Presenter tests: full pin × attention × unread × running matrix,
-  archive exclusion, archived unread row, archived running row, and no
-  Pinned/Recent grouping in production unread rails.
-- [ ] TH2-S10 - GUI visual proof fixture: pinned, unread, archive, rename states.
+- [x] TH2-S03 - Wire Home conversation rail to `triageSections` + archive entry.
+- [x] TH2-S04 - Wire legacy `ThreadsView` sidebar to same triage + archive entry.
+- [x] TH2-S05 - Archive view + navigation entry; `triagedArchived`.
+- [x] TH2-S06 - Row context menu actions → view model → store.
+- [x] TH2-S07 - Thread header rename + pin + archive affordances (Home + legacy).
+- [x] TH2-S08 - Keyboard/menu commands (⌘⇧P pin, ⌘⇧E archive/unarchive, F2 rename).
+- [x] TH2-S09 - Presenter tests: pin × attention × unread × running matrix,
+  archive exclusion, triage sections, unread beats running.
+- [x] TH2-S10 - GUI fixture `home-rail-th2` for pinned/unread/archive states.
 
 ## Works Test
 

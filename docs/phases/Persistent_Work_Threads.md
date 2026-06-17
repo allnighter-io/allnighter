@@ -89,27 +89,33 @@ Build in this order:
    - Mac rail indication light, timeline visibility clear, and GUI proof defer
      to UNR-S04–S05.
 
-4. [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) — **not started**
-   **defer here after 06**
-   - Rename, pin, archive, archive view, and one triage order on Home + legacy
-     Threads rails.
-   - Home and legacy rails must converge on one presenter triage function before
-     unread is exposed in production; newest-first and broad Pinned/Recent rail
-     grouping are not enough.
+4. [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) — **TH2-S01–S10 BUILT** (2026-06-17)
+   - Rename, pin, archive/unarchive, archive view, unified triage on Home +
+     legacy Threads rails, context menus, keyboard commands, archived composer
+     disabled until explicit unarchive.
 
-5. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
+5. [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md)
+   — **not started** (2026-06-17 slice)
+   - Chat replies from image-capable workers must land as canonical thread
+     attachments, not stdout-only captions.
+   - Design continuity: after a design board, a chat tweak returns a new inline
+     image without forcing another full fan-out.
+   - Reuses `DesignImageRunner` capture law + `ThreadAttachmentStore`; GUI
+     timeline thumbnails in WIO-S04 (coordinates with CIA-S04).
+
+6. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
    **defer here**
    - Fast follow for Mac local notifications when work lands or needs attention.
    - OneSignal mobile push lands later, after the remote spine exists.
    - This is the walk-away loop: keep the bench useful without staring at the app.
 
-6. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
+7. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
    **defer here**
    - Fast follow for live output where the driver/CLI can expose it.
    - May ship Mac-only first.
    - This is the stare-at-it loop: make long turns feel alive.
 
-7. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
+8. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
    **defer here**
    - Fast follow for provider-reported usage only.
    - No estimates, no fake dollar math, no opaque quota percentages.
