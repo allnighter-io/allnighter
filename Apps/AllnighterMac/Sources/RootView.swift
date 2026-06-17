@@ -9,6 +9,7 @@ struct RootView: View {
     @State private var showDoctor = false
     @State private var showTeamDropdown = false
     @State private var showReadiness = false
+    @State private var showTeamStudio = false
     @State private var showComposeSpecimen = false
     @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
@@ -73,7 +74,7 @@ struct RootView: View {
                 showTeamDropdown: $showTeamDropdown,
                 showDoctor: $showDoctor,
                 onRepair: openReadiness(focus:),
-                onManageTeam: { showTeamDropdown = false },
+                onManageTeam: openTeamStudio,
                 devSimActive: devSimLabel,
                 onSettings: openSettings
             )
@@ -85,7 +86,9 @@ struct RootView: View {
                 // open). Old Team/Threads workspace panes are superseded by the
                 // home + routing composer (CR3/CR4 wire conversations live).
                 Group {
-                    if showReadiness {
+                    if showTeamStudio {
+                        TeamStudioView(onDone: { showTeamStudio = false })
+                    } else if showReadiness {
                         TeamReadinessView(
                             focusDriverId: readinessFocus,
                             onClose: { model.markSetupCompleted(); showReadiness = false },
@@ -133,7 +136,7 @@ struct RootView: View {
                         isOpen: $showTeamDropdown,
                         attached: true,
                         onRepair: openReadiness(focus:),
-                        onManageTeam: { showTeamDropdown = false },
+                        onManageTeam: openTeamStudio,
                         onOpenSetup: { openReadiness() }
                     )
                     .offset(
@@ -186,6 +189,10 @@ struct RootView: View {
                     readinessFocus = GUIFixture.readinessFocusDriverId
                 }
                 if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
+                if GUIFixture.opensTeamStudio {
+                    model.applyDevBenchScenario("readiness-mixed")
+                    showTeamStudio = true
+                }
                 if GUIFixture.opensCommandPalette { commands.palettePresented = true }
                 if GUIFixture.opensHomeWorkspace {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
@@ -300,9 +307,17 @@ struct RootView: View {
     private func openSettings() {}
     #endif
 
+    private func openTeamStudio() {
+        showTeamDropdown = false
+        showDoctor = false
+        showReadiness = false
+        showTeamStudio = true
+    }
+
     private func openReadiness(focus: String? = nil) {
         showTeamDropdown = false
         showDoctor = false
+        showTeamStudio = false
         readinessFocus = focus ?? model.setupCards.first {
             $0.state != .ready && $0.state != .notInstalled
         }?.driverId ?? model.setupCards.first { $0.state != .ready }?.driverId

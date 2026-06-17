@@ -98,6 +98,9 @@ enum GUIFixture {
     /// Deep-link: show the routing-composer specimen for `compose-*` fixtures.
     static var opensComposeSpecimen: Bool { (active ?? "").hasPrefix("compose-") }
 
+    /// Deep-link: open the Team Studio settings surface for `studio*` fixtures.
+    static var opensTeamStudio: Bool { (active ?? "").hasPrefix("studio") }
+
     /// Home / thread conversation fixtures stay on HomeView (not the specimen).
     static var opensHomeWorkspace: Bool {
         let name = active ?? ""
@@ -148,6 +151,7 @@ enum GUIFixture {
         ("thread-chat", "Thread — chat reply from a model"),
         ("thread-team-board", "Thread — fan-out team board"),
         ("thread-dispatch", "Thread — execute → dispatch to repo"),
+        ("studio-clis", "Team Studio — CLIs (settings shell)"),
         ("command-palette", "⌘K command palette"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
