@@ -38,6 +38,21 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Evals", isDirectory: true)
     }
 
+    /// `…/Allnighter/Catalogs/` — custom team and skill definitions.
+    public static var catalogs: URL {
+        support.appendingPathComponent("Catalogs", isDirectory: true)
+    }
+
+    /// `…/Allnighter/Catalogs/teams/`
+    public static var catalogTeams: URL {
+        catalogs.appendingPathComponent("teams", isDirectory: true)
+    }
+
+    /// `…/Allnighter/Catalogs/skills/`
+    public static var catalogSkills: URL {
+        catalogs.appendingPathComponent("skills", isDirectory: true)
+    }
+
     /// `…/Allnighter/ProbeScratch/` — neutral CWD for setup/health probe child
     /// processes. Setup/health probes must NOT inherit the repo or app-bundle
     /// CWD: in dev that is the checkout under `~/Documents`, so a child CLI that

@@ -780,7 +780,7 @@ struct ToolRuntime {
         ToolRuntime.applyLoginPath()
         let models = DefaultConfig.models
         let registry = DefaultConfig.registry
-        let teams = BuiltInTeams.all
+        let teams = TeamCatalog.all
         let config = ToolRuntime.loadConfig()
         var invs: [String: ToolInvocation] = [:]
         for record in SetupStore().load().records { if let inv = record.invocation { invs[record.driverId] = inv } }

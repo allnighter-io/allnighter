@@ -20,6 +20,8 @@ public struct Skill: Codable, Sendable, Equatable, Identifiable {
     public var purpose: SkillPurpose
     public var template: String
     public var builtIn: Bool
+    public var createdAt: Date?
+    public var updatedAt: Date?
 
     public init(
         id: SkillID,
@@ -27,7 +29,9 @@ public struct Skill: Codable, Sendable, Equatable, Identifiable {
         lane: WorkLane,
         purpose: SkillPurpose,
         template: String,
-        builtIn: Bool = true
+        builtIn: Bool = true,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -35,6 +39,8 @@ public struct Skill: Codable, Sendable, Equatable, Identifiable {
         self.purpose = purpose
         self.template = template
         self.builtIn = builtIn
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 }
 
@@ -50,17 +56,72 @@ public enum SkillCatalog {
     private static let byID: [String: Skill] =
         Dictionary(builtIns.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
 
-    public static func skill(_ id: String) -> Skill? { byID[id] }
-
-    public static func skills(in lane: WorkLane) -> [Skill] {
-        builtIns.filter { $0.lane == lane }
+    public static func skill(_ id: String) -> Skill? {
+        byID[id] ?? CatalogFileIO.loadOne(id: id, kind: .skill, root: CatalogRoots.skills, as: Skill.self)
     }
 
-    /// Lane-scoped catalog list (built-in + custom when persistence ships).
-    public static func list(lane: WorkLane) -> [SkillDefinition] { skills(in: lane) }
+    public static func skills(in lane: WorkLane) -> [Skill] {
+        list(lane: lane)
+    }
 
-    /// Lookup one skill definition by id.
+    /// Lane-scoped catalog list (built-in + custom).
+    public static func list(lane: WorkLane) -> [SkillDefinition] {
+        let reserved = Set(builtIns.map(\.id))
+        let customs = CatalogFileIO.loadAll(kind: .skill, root: CatalogRoots.skills, as: Skill.self)
+            .filter { $0.lane == lane && !reserved.contains($0.id) }
+        return builtIns.filter { $0.lane == lane } + customs
+    }
+
+    /// Lookup one skill definition by id (built-in wins).
     public static func get(_ id: SkillID) -> SkillDefinition? { skill(id) }
+
+    @discardableResult
+    public static func duplicateBuiltIn(_ id: SkillID, name: String?) throws -> SkillDefinition {
+        guard let source = byID[id] else { throw CatalogError.skillNotFound }
+        var newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName)
+        while get(newId) != nil { newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName, suffix: String(Int.random(in: 1000...9999))) }
+        let now = Date()
+        let copy = Skill(
+            id: newId, displayName: name ?? "\(source.displayName) (Custom)", lane: source.lane,
+            purpose: source.purpose, template: source.template, builtIn: false,
+            createdAt: now, updatedAt: now
+        )
+        try saveCustom(copy)
+        return copy
+    }
+
+    public static func saveCustom(_ skill: SkillDefinition) throws {
+        guard !skill.builtIn else { throw CatalogError.builtInImmutable }
+        if byID[skill.id] != nil { throw CatalogError.idCollision }
+        guard CatalogIDValidator.isValid(skill.id) else { throw CatalogError.idInvalid }
+        guard !skill.template.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw CatalogError.skillInvalid("template must not be empty")
+        }
+        var custom = skill
+        custom.builtIn = false
+        let now = Date()
+        if custom.createdAt == nil { custom.createdAt = now }
+        custom.updatedAt = now
+        try CatalogFileIO.save(custom, id: custom.id, kind: .skill, root: CatalogRoots.skills)
+    }
+
+    public static func deleteCustom(_ id: SkillID) throws {
+        if byID[id] != nil { throw CatalogError.builtInImmutable }
+        guard CatalogFileIO.loadOne(id: id, kind: .skill, root: CatalogRoots.skills, as: Skill.self) != nil else {
+            throw CatalogError.skillNotFound
+        }
+        let refs = teamsReferencingSkill(id)
+        if !refs.isEmpty { throw CatalogError.skillInUse(referencingTeamIDs: refs) }
+        try CatalogFileIO.delete(id: id, root: CatalogRoots.skills)
+    }
+
+    private static func teamsReferencingSkill(_ skillId: SkillID) -> [TeamID] {
+        TeamCatalog.all.compactMap { team in
+            let rowHit = team.workerSpecs.contains { $0.skillId == skillId }
+            let writerHit = team.synthesisPolicyByEffort.values.contains { $0.planWriterSkillId == skillId }
+            return (rowHit || writerHit) ? team.id : nil
+        }
+    }
 
     /// Default design-board panel skill ids (one image worker per direction).
     public static let defaultDesignPanelSkillIDs: [SkillID] = ["minimal", "bold", "editorial", "on_brand"]

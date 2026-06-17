@@ -362,15 +362,66 @@ public extension Array where Element == TeamPreset {
 
 // MARK: - Team catalog API
 
-/// Built-in and custom team definitions (MLP: built-ins only; persistence in S02).
+/// Built-in and custom team definitions. Built-in ids are reserved; customs persist
+/// under `Catalogs/teams/<id>.json`.
 public enum TeamCatalog {
-    public static var all: [TeamDefinition] { BuiltInTeams.all }
+    public static var all: [TeamDefinition] {
+        mergeCustom(CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self))
+    }
 
-    public static func list(lane: WorkLane) -> [TeamDefinition] { BuiltInTeams.teams(in: lane) }
+    public static func list(lane: WorkLane) -> [TeamDefinition] { all.teams(in: lane) }
 
-    public static func get(_ id: TeamID) -> TeamDefinition? { BuiltInTeams.team(id) }
+    public static func get(_ id: TeamID) -> TeamDefinition? {
+        BuiltInTeams.team(id) ?? CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self)
+    }
 
     public static func defaultTeam(for lane: WorkLane) -> TeamDefinition? {
-        BuiltInTeams.all.defaultTeam(for: lane)
+        all.defaultTeam(for: lane)
+    }
+
+    @discardableResult
+    public static func duplicateBuiltIn(_ id: TeamID, name: String?) throws -> TeamDefinition {
+        guard let source = BuiltInTeams.team(id) else { throw CatalogError.teamNotFound }
+        var newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName)
+        while get(newId) != nil { newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName, suffix: String(Int.random(in: 1000...9999))) }
+        let copy = source.duplicated(newId: newId, newName: name)
+        try saveCustom(copy)
+        return copy
+    }
+
+    public static func saveCustom(_ team: TeamDefinition) throws {
+        guard !team.builtIn else { throw CatalogError.builtInImmutable }
+        if BuiltInTeams.team(team.id) != nil { throw CatalogError.idCollision }
+        guard CatalogIDValidator.isValid(team.id) else { throw CatalogError.idInvalid }
+        guard !team.workerSpecs.isEmpty else { throw CatalogError.teamInvalid("team must have at least one worker row") }
+        for row in team.workerSpecs {
+            guard let skill = SkillCatalog.get(row.skillId) else {
+                throw CatalogError.teamInvalid("unknown skill \(row.skillId)")
+            }
+            guard skill.lane == team.lane else {
+                throw CatalogError.skillLaneMismatch(skillId: row.skillId, teamId: team.id)
+            }
+        }
+        for (_, policy) in team.synthesisPolicyByEffort {
+            if let skill = SkillCatalog.get(policy.planWriterSkillId), skill.lane != team.lane {
+                throw CatalogError.skillLaneMismatch(skillId: policy.planWriterSkillId, teamId: team.id)
+            }
+        }
+        var custom = team
+        custom.builtIn = false
+        try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.teams)
+    }
+
+    public static func deleteCustom(_ id: TeamID) throws {
+        if BuiltInTeams.team(id) != nil { throw CatalogError.builtInImmutable }
+        guard CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) != nil else {
+            throw CatalogError.teamNotFound
+        }
+        try CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
+    }
+
+    private static func mergeCustom(_ customs: [TeamPreset]) -> [TeamPreset] {
+        let reserved = Set(BuiltInTeams.all.map(\.id))
+        return BuiltInTeams.all + customs.filter { !reserved.contains($0.id) }
     }
 }

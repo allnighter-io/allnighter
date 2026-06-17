@@ -69,7 +69,7 @@ public actor AsyncTeamService {
     public init(
         models: [Model],
         registry: DriverRegistry,
-        teams: [TeamPreset] = BuiltInTeams.all,
+        teams: [TeamPreset] = TeamCatalog.all,
         config: ToolConfig = ToolConfig(),
         runStore: RunStore = RunStore(),
         commandRunner: CommandRunner = SubprocessCommandRunner(),

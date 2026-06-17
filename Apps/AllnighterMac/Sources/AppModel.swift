@@ -612,7 +612,7 @@ final class AppModel {
     }
 
     func composeTeams(for lane: ComposeLane) -> [ComposeTeam] {
-        BuiltInTeams.teams(in: lane.workLane).map { p in
+        TeamCatalog.list(lane: lane.workLane).map { p in
             let n = p.workerSpecs.count
             let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
             return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)", isDefault: p.isDefaultForLane)
