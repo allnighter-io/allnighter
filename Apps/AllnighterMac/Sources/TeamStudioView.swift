@@ -19,10 +19,13 @@ enum StudioRoute: Hashable {
 }
 
 struct TeamStudioView: View {
+    /// Composer "Customize…" deep-link: which team to pre-select on the Teams page.
+    var customizeTeamId: String?
     var onDone: () -> Void
     @State private var route: StudioRoute
 
-    init(initialRoute: StudioRoute = .clis, onDone: @escaping () -> Void) {
+    init(initialRoute: StudioRoute = .clis, customizeTeamId: String? = nil, onDone: @escaping () -> Void) {
+        self.customizeTeamId = customizeTeamId
         self.onDone = onDone
         _route = State(initialValue: initialRoute)
     }
@@ -45,7 +48,7 @@ struct TeamStudioView: View {
             // The shipped CLI-setup / readiness surface, embedded as the CLIs page.
             TeamReadinessView(focusDriverId: nil, onClose: onDone, onAddSource: {})
         case .teams(let lane):
-            StudioTeamListView(lane: lane)
+            StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId)
         case .skills(let lane):
             StudioSkillListView(lane: lane)
         }
@@ -117,6 +120,8 @@ private struct StudioNav: View {
 
 private struct StudioTeamListView: View {
     let lane: ComposeLane
+    /// Composer "Customize…" deep-link: pre-select this team on appear (its editor).
+    var customizeTeamId: String? = nil
     @Environment(AppModel.self) private var appModel
     @State private var selectedId: TeamID?
     /// Bumped to rebuild the inline editor with a fresh draft (revert / after save).
@@ -168,6 +173,12 @@ private struct StudioTeamListView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+        .onAppear {
+            // Composer "Customize…" deep-link → select that team (its editor opens).
+            if let id = customizeTeamId, teams.contains(where: { $0.id == id }) {
+                selectedId = id
+            }
+        }
     }
 
     private func teamRow(_ team: TeamPreset) -> some View {

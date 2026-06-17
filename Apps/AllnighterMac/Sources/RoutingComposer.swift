@@ -429,9 +429,17 @@ struct RoutingComposer: View {
 
     private var customizeFooter: some View {
         HStack(spacing: 8) {
-            Button {} label: { Label("Customize…", systemImage: "slider.horizontal.3").font(.system(size: 12, weight: .medium)) }
-                .buttonStyle(.alGhost)
-            Text("Build & edit teams in settings.").font(.system(size: 10.5)).foregroundStyle(ALColor.textFaint)
+            Button {
+                // Open Team Studio at this lane's Teams page with the team selected
+                // (its editor opens in place — see RootView.customizeTeamRequest).
+                pop = nil
+                commands.customizeTeamRequest = CustomizeTeamRequest(lane: lane, teamId: team)
+            } label: {
+                Label("Customize…", systemImage: "slider.horizontal.3").font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.alGhost)
+            .disabled(team.isEmpty)
+            Text("Tune this team's workers + skills.").font(.system(size: 10.5)).foregroundStyle(ALColor.textFaint)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 6).padding(.vertical, 6)

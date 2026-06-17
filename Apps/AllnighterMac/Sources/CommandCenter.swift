@@ -19,6 +19,15 @@ final class CommandCenter {
     var focusSearchTick = 0
     /// Bumped by F2; the selected thread header title field focuses.
     var focusRenameTick = 0
+    /// Set by the composer's "Customize…"; RootView opens Team Studio at this
+    /// lane's Teams page with the team selected (its editor), then clears it.
+    var customizeTeamRequest: CustomizeTeamRequest?
+}
+
+/// "Customize this team" intent from the composer → the Team Studio editor.
+struct CustomizeTeamRequest: Equatable {
+    let lane: ComposeLane
+    let teamId: String
 }
 
 /// One keyboard-triggerable action. Title, symbol, and shortcut live here once so

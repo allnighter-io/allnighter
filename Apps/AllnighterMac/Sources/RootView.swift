@@ -12,6 +12,8 @@ struct RootView: View {
     @State private var showReadiness = false
     @State private var showTeamStudio = false
     @State private var studioInitialRoute: StudioRoute = .clis
+    /// Composer "Customize…" deep-link: which team to select when Studio opens.
+    @State private var studioCustomizeTeamId: String?
     @State private var showComposeSpecimen = false
     @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
@@ -109,7 +111,11 @@ struct RootView: View {
                 // home + routing composer (CR3/CR4 wire conversations live).
                 Group {
                     if showTeamStudio {
-                        TeamStudioView(initialRoute: studioInitialRoute, onDone: { showTeamStudio = false })
+                        TeamStudioView(
+                            initialRoute: studioInitialRoute,
+                            customizeTeamId: studioCustomizeTeamId,
+                            onDone: { showTeamStudio = false; studioCustomizeTeamId = nil }
+                        )
                     } else if showReadiness {
                         TeamReadinessView(
                             focusDriverId: readinessFocus,
@@ -190,6 +196,15 @@ struct RootView: View {
                 }
             }
             .allowsHitTesting(showDoctor)
+        }
+        .onChange(of: commands.customizeTeamRequest) { _, req in
+            // Composer "Customize…" → open Studio at this lane's Teams page with
+            // the team selected (the editor opens in place). Clear the intent.
+            guard let req else { return }
+            studioInitialRoute = .teams(req.lane)
+            studioCustomizeTeamId = req.teamId
+            showTeamStudio = true
+            commands.customizeTeamRequest = nil
         }
         .onChange(of: showTeamDropdown) { _, open in
             if open { showDoctor = false }
