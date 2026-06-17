@@ -123,6 +123,9 @@ struct TeamEditorView: View {
 
     @State private var draft: TeamDraft
     @State private var errorText: String?
+    /// Level-2: which worker row is open in the Customize-worker editor (nil = the
+    /// team roster). The drawer pushes to the worker editor and back.
+    @State private var editingRow: Int?
 
     init(base: TeamPreset, lane: ComposeLane, models: [Model], readyModels: [Model],
          onCancel: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
@@ -136,6 +139,30 @@ struct TeamEditorView: View {
     private var laneSkills: [Skill] { SkillCatalog.list(lane: lane.workLane) }
 
     var body: some View {
+        Group {
+            if let i = editingRow, draft.rows.indices.contains(i) {
+                CustomizeWorkerView(
+                    teamName: draft.name, lane: lane, models: models, laneSkills: laneSkills,
+                    row: draft.rows[i],
+                    onDone: { updated in draft.rows[i] = updated; editingRow = nil },
+                    onCancel: { editingRow = nil }
+                )
+            } else {
+                teamContent
+            }
+        }
+        .frame(width: 420)
+        .frame(maxHeight: .infinity)
+        .background(ALColor.surface)
+        .overlay(alignment: .leading) { Rectangle().fill(ALColor.borderSubtle).frame(width: 1) }
+        .onAppear {
+            #if DEBUG
+            if GUIFixture.opensWorkerEditor, editingRow == nil, !draft.rows.isEmpty { editingRow = 0 }
+            #endif
+        }
+    }
+
+    private var teamContent: some View {
         VStack(spacing: 0) {
             headerBar
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
@@ -150,10 +177,6 @@ struct TeamEditorView: View {
             }
             footer
         }
-        .frame(width: 420)
-        .frame(maxHeight: .infinity)
-        .background(ALColor.surface)
-        .overlay(alignment: .leading) { Rectangle().fill(ALColor.borderSubtle).frame(width: 1) }
     }
 
     private var headerBar: some View {
@@ -186,9 +209,26 @@ struct TeamEditorView: View {
             Text("WORKERS").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
             ForEach($draft.rows) { $row in
                 HStack(spacing: 8) {
-                    picker(current: skillName($row.wrappedValue.skillId), options: laneSkills.map { ($0.id, $0.displayName) }) {
-                        $row.wrappedValue.skillId = $0
+                    // Skill cell opens the level-2 Customize-worker editor (skill +
+                    // prompt + model). A dot marks a worker whose prompt is tuned.
+                    Button { editingRow = draft.rows.firstIndex { $0.id == row.id } } label: {
+                        HStack(spacing: 6) {
+                            Text(skillName($row.wrappedValue.skillId))
+                                .font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                            if $row.wrappedValue.promptDraft != nil {
+                                Circle().fill(ALColor.accent).frame(width: 5, height: 5)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
+                        }
+                        .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
+                        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+
+                    // Model quick-swap stays inline (rescue: fast model change on the row).
                     picker(current: modelName($row.wrappedValue.modelId) ?? "Pick a model", options: models.map { ($0.id, $0.displayName) }) {
                         $row.wrappedValue.modelId = $0
                     }
@@ -270,5 +310,151 @@ struct TeamEditorView: View {
         case .idCollision: return "A team with that name already exists — try another name."
         default: return "Could not save this team."
         }
+    }
+}
+
+// MARK: - Customize worker (level 2)
+
+/// The focused worker editor: the skill (hat), its full PROMPT (editable), and the
+/// model — everything for one worker in one place (rescue S01B). Edits stay in the
+/// in-memory team draft; the prompt is forked into a custom skill only at team Save.
+private struct CustomizeWorkerView: View {
+    let teamName: String
+    let lane: ComposeLane
+    let models: [Model]
+    let laneSkills: [Skill]
+    let row: TeamDraft.Row
+    var onDone: (TeamDraft.Row) -> Void
+    var onCancel: () -> Void
+
+    @State private var skillId: String
+    @State private var modelId: String?
+    @State private var promptText: String
+
+    init(teamName: String, lane: ComposeLane, models: [Model], laneSkills: [Skill],
+         row: TeamDraft.Row, onDone: @escaping (TeamDraft.Row) -> Void, onCancel: @escaping () -> Void) {
+        self.teamName = teamName; self.lane = lane; self.models = models
+        self.laneSkills = laneSkills; self.row = row; self.onDone = onDone; self.onCancel = onCancel
+        _skillId = State(initialValue: row.skillId)
+        _modelId = State(initialValue: row.modelId)
+        _promptText = State(initialValue: row.promptDraft ?? (SkillCatalog.get(row.skillId)?.template ?? ""))
+    }
+
+    private var skill: Skill? { SkillCatalog.get(skillId) }
+    private var template: String { skill?.template ?? "" }
+    private var isForked: Bool {
+        promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+            != template.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private func modelName(_ id: String?) -> String {
+        guard let id else { return "Pick a model" }
+        return models.first { $0.id == id }?.displayName ?? id
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    field("SKILL") {
+                        ALDropdown(current: skill?.displayName ?? skillId,
+                                   options: laneSkills.map { ($0.id, $0.displayName) }) { newId in
+                            // Don't silently discard an edit: only reload the template
+                            // when the prompt is still the current skill's template.
+                            if promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                == template.trimmingCharacters(in: .whitespacesAndNewlines) {
+                                promptText = SkillCatalog.get(newId)?.template ?? ""
+                            }
+                            skillId = newId
+                        }
+                    }
+                    field("MODEL") {
+                        ALDropdown(current: modelName(modelId),
+                                   options: models.map { ($0.id, $0.displayName) }) { modelId = $0 }
+                    }
+                    metadata
+                    promptEditor
+                }
+                .padding(20)
+            }
+            footer
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Button(action: onCancel) { Image(systemName: "arrow.left").font(.system(size: 13)) }
+                .buttonStyle(.plain).foregroundStyle(ALColor.textSecondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Customize worker").font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                Text("\(teamName) · \(skill?.displayName ?? skillId) | \(modelName(modelId))")
+                    .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 14)
+    }
+
+    private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            content()
+        }
+    }
+
+    private var metadata: some View {
+        HStack(spacing: 6) {
+            chip(lane.label)
+            chip((skill?.purpose.rawValue ?? "answer"))
+            chip((skill?.builtIn ?? true) ? "from a template" : "custom")
+        }
+    }
+
+    private var promptEditor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text("PROMPT").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                if isForked {
+                    Text("· will save as a custom skill")
+                        .font(.system(size: 10)).foregroundStyle(ALColor.accentText)
+                }
+                Spacer(minLength: 0)
+            }
+            TextEditor(text: $promptText)
+                .font(.system(size: 12.5, design: .monospaced))
+                .foregroundStyle(ALColor.textPrimary)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 200)
+                .padding(10)
+                .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        }
+    }
+
+    private func chip(_ t: String) -> some View {
+        Text(t).font(.system(size: 11, weight: .medium)).foregroundStyle(ALColor.textSecondary)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(ALColor.surface, in: Capsule())
+            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            Button("Cancel worker changes", action: onCancel).buttonStyle(.alSecondary(small: true))
+            Button("Done") {
+                var updated = row
+                updated.skillId = skillId
+                updated.modelId = modelId
+                updated.promptDraft = isForked ? promptText : nil
+                updated.promptBaseSkillId = isForked ? skillId : nil
+                onDone(updated)
+            }
+            .buttonStyle(.alPrimary(small: true))
+            .disabled(modelId == nil || promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 14)
+        .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 }

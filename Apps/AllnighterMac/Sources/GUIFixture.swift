@@ -104,7 +104,7 @@ enum GUIFixture {
     /// Which Studio page a `studio-*` fixture deep-links to.
     static var studioRoute: StudioRoute {
         switch active {
-        case "studio-teams-build", "studio-team-editor": return .teams(.build)
+        case "studio-teams-build", "studio-team-editor", "studio-worker-editor": return .teams(.build)
         case "studio-teams-design": return .teams(.design)
         case "studio-teams-copy": return .teams(.copy)
         case "studio-skills-build": return .skills(.build)
@@ -113,7 +113,10 @@ enum GUIFixture {
     }
 
     /// Deep-link: open the team Customize editor over the selected team.
-    static var opensTeamEditor: Bool { active == "studio-team-editor" }
+    static var opensTeamEditor: Bool { active == "studio-team-editor" || active == "studio-worker-editor" }
+
+    /// Deep-link: push straight into the level-2 Customize-worker editor.
+    static var opensWorkerEditor: Bool { active == "studio-worker-editor" }
 
     /// Home / thread conversation fixtures stay on HomeView (not the specimen).
     static var opensHomeWorkspace: Bool {
@@ -170,6 +173,7 @@ enum GUIFixture {
         ("studio-teams-build", "Team Studio — Build teams (detail)"),
         ("studio-skills-build", "Team Studio — Build skills (detail)"),
         ("studio-team-editor", "Team Studio — Customize team editor"),
+        ("studio-worker-editor", "Team Studio — Customize worker (skill + prompt)"),
         ("command-palette", "⌘K command palette"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
