@@ -28,15 +28,25 @@ final class ThreadsViewModel {
 
     let models: [Model]
     private let store: ThreadStore
+    private let runStore: RunStore
     private let coordinator: WorkerChatCoordinator
     private let registry: DriverRegistry
+    private let runner: WorkerRunner
+    /// Cached health truth (loaded once at launch, never probed here) — drives the
+    /// ready bench the team resolver may draw from. Empty until setup has run.
+    private let toolStatuses: [ToolProbeRecord]
 
     /// Production init: self-sufficient, loads the same config as AppModel and
     /// invokes real CLIs. GUI fixtures use an isolated temp store.
     convenience init() {
         let config = AppConfig.loadConfiguration()
-        #if DEBUG
+        // Cached health (no probing): lets fan-out resolve teams through the SAME
+        // invocations that passed the health probe (health == runs).
+        let records = SetupStore().load().records
+        let invocations = Self.invocations(from: records)
         let store: ThreadStore
+        let runStore: RunStore
+        #if DEBUG
         if GUIFixture.isActive {
             let name = GUIFixture.active ?? "fixture"
             let root = FileManager.default.temporaryDirectory
@@ -44,17 +54,22 @@ final class ThreadsViewModel {
             try? FileManager.default.removeItem(at: root)
             try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             store = ThreadStore(rootDirectory: root)
+            runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
         } else {
             store = ThreadStore()
+            runStore = RunStore()
         }
         #else
-        let store = ThreadStore()
+        store = ThreadStore()
+        runStore = RunStore()
         #endif
         self.init(
             store: store,
+            runStore: runStore,
             registry: config.registry,
             models: config.models,
-            runner: WorkerRunner(commandRunner: SubprocessCommandRunner())
+            toolStatuses: records,
+            runner: WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: invocations)
         )
         #if DEBUG
         if let fixture = GUIFixture.active {
@@ -63,15 +78,33 @@ final class ThreadsViewModel {
         #endif
     }
 
-    /// Designated init — tests inject a temp store and a mock runner.
-    init(store: ThreadStore, registry: DriverRegistry, models: [Model], runner: WorkerRunner) {
+    /// Designated init — tests inject temp stores, cached health, and a mock runner.
+    init(
+        store: ThreadStore,
+        runStore: RunStore,
+        registry: DriverRegistry,
+        models: [Model],
+        toolStatuses: [ToolProbeRecord] = [],
+        runner: WorkerRunner
+    ) {
         self.store = store
+        self.runStore = runStore
         self.registry = registry
         self.models = models
+        self.toolStatuses = toolStatuses
+        self.runner = runner
         self.coordinator = WorkerChatCoordinator(
             store: store, runner: runner, registry: registry, models: models
         )
         reload()
+    }
+
+    private static func invocations(from records: [ToolProbeRecord]) -> [String: ToolInvocation] {
+        var map: [String: ToolInvocation] = [:]
+        for record in records where record.invocation != nil {
+            map[record.driverId] = record.invocation
+        }
+        return map
     }
 
     // MARK: - Derived
@@ -175,10 +208,106 @@ final class ThreadsViewModel {
         switch routing.mode {
         case .chat:
             runChat(message: message, toThreadId: threadId, workerId: routing.to)
-        case .fanout, .exec:
-            // CR4c/CR4d: team board + dispatch. For now record the intent as a
-            // user turn so nothing is lost or faked.
+        case .fanout:
+            // CR4c: the user's question is the first turn; the team board follows.
             appendUserTurn(message, toThreadId: threadId)
+            runTeam(routing, toThreadId: threadId)
+        case .exec:
+            // CR4d: dispatch to a repo (execute-lane FIFO — INVIOLABLE). Until then
+            // record the intent as a user turn so nothing is lost or faked.
+            appendUserTurn(message, toThreadId: threadId)
+        }
+    }
+
+    /// Models whose driver is confirmed ready (cached health) — the only bench the
+    /// team resolver may draw from. Never probes.
+    var readyModels: [Model] {
+        let readyDriverIds = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        return models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
+    }
+
+    /// Fan out (CR4c): resolve the chosen lane-team against the ready bench, then
+    /// run it (answer → review → plan writer) via the catalog coordinator. Persists
+    /// an optimistic running board turn, keeps the `TeamRun` durable so the board
+    /// renders from `runId`, and settles the turn when the run finishes. Never fakes
+    /// a board — an unresolvable team lands an honest failed turn with the reason.
+    private func runTeam(_ routing: ComposeRouting, toThreadId threadId: String) {
+        let boardKind: ThreadTurnKind = routing.lane == .design ? .designBoard : .teamRun
+        guard let preset = BuiltInTeams.team(routing.team) else {
+            appendFailedBoard("No team selected.", kind: boardKind, toThreadId: threadId)
+            return
+        }
+        let effort = EffortLevel(rawValue: routing.effort.rawValue) ?? preset.defaultEffort
+        let resolved = TeamResolver.resolve(
+            team: preset, requestLane: routing.lane.workLane,
+            requestEffort: effort, readyModels: readyModels
+        )
+        guard resolved.isRunnable else {
+            appendFailedBoard(
+                resolved.blockReason ?? "This team can't run with the ready bench.",
+                kind: boardKind, toThreadId: threadId
+            )
+            return
+        }
+
+        let runId = UUID().uuidString
+        let startedAt = Date()
+        let board = ThreadTurn(
+            id: UUID().uuidString, threadId: threadId, kind: boardKind, status: .running,
+            createdAt: startedAt, author: .worker, runId: runId
+        )
+        guard (try? store.append(board, toThreadId: threadId, now: startedAt)) != nil else { return }
+        reload()
+
+        let prompt = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let snapshotModels = models
+        let runStore = self.runStore
+        let runner = self.runner
+        let registry = self.registry
+
+        Task { @MainActor in
+            let runTask = Task.detached { () -> TeamRun in
+                let coordinator = CatalogRunCoordinator(workerRunner: runner, registry: registry)
+                return await coordinator.run(
+                    resolved: resolved, prompt: prompt, models: snapshotModels,
+                    origin: .gui, runId: runId,
+                    persist: { run in try? runStore.save(run, models: snapshotModels) }
+                )
+            }
+            // Re-poll while the run writes incremental durability so the board can
+            // surface answers as they settle, then a final settle of the turn.
+            let finalRun = await runTask.value
+            var settled = board
+            settled.status = Self.turnStatus(for: finalRun.status)
+            settled.completedAt = Date()
+            _ = try? store.update(settled, inThreadId: threadId, now: Date())
+            reload()
+        }
+    }
+
+    /// The durable TeamRun behind a board turn (by `runId`), for the board view.
+    func teamRun(forRunId runId: String) -> TeamRun? {
+        runStore.load(runId: runId)
+    }
+
+    private func appendFailedBoard(_ reason: String, kind: ThreadTurnKind, toThreadId threadId: String) {
+        let turn = ThreadTurn(
+            id: UUID().uuidString, threadId: threadId, kind: kind, status: .failed,
+            createdAt: Date(), completedAt: Date(), author: .system, text: reason
+        )
+        try? store.append(turn, toThreadId: threadId, now: Date())
+        reload()
+    }
+
+    /// A board turn is `.done` whenever the run produced something to show (complete
+    /// OR partial — the board itself shows which workers failed); only a fully
+    /// failed/interrupted run with no board is a failed turn.
+    private static func turnStatus(for status: RunStatus) -> ThreadTurnStatus {
+        switch status {
+        case .complete, .partial: return .done
+        case .cancelled: return .cancelled
+        case .failed, .interrupted: return .failed
+        case .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
         }
     }
 
@@ -227,6 +356,8 @@ final class ThreadsViewModel {
             seedFixtureThreadWithTurns()
         case "thread-chat":
             seedFixtureChatExchange()
+        case "thread-team-board":
+            seedFixtureTeamBoard()
         default:
             break
         }
@@ -285,6 +416,60 @@ final class ThreadsViewModel {
         )
         _ = try? store.append(user, toThreadId: id, now: Date())
         _ = try? store.append(reply, toThreadId: id, now: Date())
+        reload()
+        selectedThreadId = id
+    }
+
+    /// CR4c proof: a user question + a settled team board (designer-mock only).
+    /// Seeds a durable TeamRun into the fixture run store so the board renders the
+    /// real path (turn → runId → TeamRun → answers + plan).
+    private func seedFixtureTeamBoard() {
+        let id = "fixture-team"
+        _ = try? store.create(id: id, title: "Rate-limit the public API", now: Date())
+
+        let picks = models.filter { $0.enabled }.prefix(2)
+        let m0 = picks.first?.id ?? "model_opus"
+        let m1 = picks.dropFirst().first?.id ?? "model_grok"
+        let w0 = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 0), modelId: m0,
+                        instanceIndex: 0, skillId: "answer", skillName: "Answer", skillVersion: 1, purpose: .answer)
+        let w1 = Worker(id: Worker.makeID(modelId: m1, instanceIndex: 0), modelId: m1,
+                        instanceIndex: 0, skillId: "answer", skillName: "Answer", skillVersion: 1, purpose: .answer)
+        let writer = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 1), modelId: m0,
+                            instanceIndex: 1, skillId: "plan_writer", skillName: "Plan writer", skillVersion: 1, purpose: .plan)
+
+        var run = TeamRun(
+            id: "fixture-team-run", prompt: "Per-user rate limiting for the public API — recommend an approach.",
+            status: .complete, origin: .gui, presetId: "build_panel",
+            workers: [w0, w1, writer],
+            workerAnswers: [
+                WorkerAnswer(workerId: w0.id, modelId: m0, status: .done,
+                             output: "**Token bucket.** Allows controlled bursts up to the bucket size while holding the long-run average to the refill rate — the right fit for per-user API limits.",
+                             durationMs: 4200),
+                WorkerAnswer(workerId: w1.id, modelId: m1, status: .done,
+                             output: "**Sliding-window counter.** Smoother than fixed windows and cheap to store (two counters per user); slightly approximates the boundary but avoids the double-burst edge of fixed windows.",
+                             durationMs: 5100),
+            ],
+            createdAt: Date()
+        )
+        run.stages = [StageOutput(
+            id: "fixture-team-plan", purpose: .plan, producedByWorkerId: writer.id,
+            promptProfileId: "plan_writer", status: .done,
+            payload: .plan(markdown: "**Recommendation: token bucket**, refill = sustained rate, capacity = burst budget. It satisfies the burst requirement both answers agreed on; the sliding-window counter is the fallback if memory per user must stay flat. Minority view (worker 2) preserved: prefer sliding-window if exact boundary fairness matters more than bursts."),
+            startedAt: Date(), finishedAt: Date()
+        )]
+        _ = try? runStore.save(run, models: models)
+
+        let user = ThreadTurn(
+            id: "fixture-team-user", threadId: id, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user,
+            text: "Per-user rate limiting for the public API — fan it out and recommend an approach."
+        )
+        let board = ThreadTurn(
+            id: "fixture-team-board", threadId: id, kind: .teamRun, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .worker, runId: run.id
+        )
+        _ = try? store.append(user, toThreadId: id, now: Date())
+        _ = try? store.append(board, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }

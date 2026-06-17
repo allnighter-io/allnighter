@@ -179,6 +179,8 @@ private struct ThreadTurnRow: View {
             userBubble
         case .workerChat:
             workerBubble
+        case .teamRun, .designBoard, .reviewBoard:
+            ThreadBoardRow(turn: turn)
         default:
             stubTurn
         }
@@ -263,5 +265,134 @@ private struct ThreadTurnRow: View {
             StatusPill(kind: ThreadsPresenter.pillKind(for: turn.status))
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - CR4c team board
+
+/// A fan-out result: the team's synthesis up top, then each model's answer as a
+/// card. Renders from the durable TeamRun behind the turn's `runId` (turn → run →
+/// answers + plan), so it always shows the real path — never a faked board.
+private struct ThreadBoardRow: View {
+    @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
+    let turn: ThreadTurn
+
+    private var run: TeamRun? { turn.runId.flatMap { threads.teamRun(forRunId: $0) } }
+    private var synthesis: String? {
+        run?.stages.last { $0.purpose == .plan && $0.status == .done }?.payload?.markdown
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: turn.kind == .designBoard ? "paintbrush.fill" : "person.3.sequence.fill")
+                .font(.system(size: 13)).foregroundStyle(ALColor.accent)
+                .frame(width: 28, height: 28)
+                .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 7))
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                content
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Text(turn.kind == .designBoard ? "Design board" : "Team board")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+            if let n = run?.workerAnswers.count, n > 0 {
+                Text("· \(n) models").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            }
+            Text(turn.createdAt, format: .dateTime.hour().minute())
+                .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+        }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch turn.status {
+        case .running, .queued, .draft:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("fanning out…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+            }
+        case .cancelled:
+            Text("Cancelled.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+        case .failed, .timedOut:
+            // A team that couldn't resolve/run has no board — show the honest
+            // reason. A run that produced answers but ended partial still shows them.
+            if run == nil {
+                Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The team couldn't run.")
+                    .font(.system(size: 13)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
+            } else {
+                board
+            }
+        case .done:
+            board
+        }
+    }
+
+    @ViewBuilder private var board: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let synthesis {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("RECOMMENDATION").font(.system(size: 9, weight: .bold)).tracking(0.6)
+                        .foregroundStyle(ALColor.accentText)
+                    Text(.init(synthesis))
+                        .font(.system(size: 13.5)).foregroundStyle(ALColor.textPrimary)
+                        .lineSpacing(2).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(12)
+                .background(ALColor.active, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+                .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+            }
+            ForEach(run?.workerAnswers ?? []) { answer in
+                answerCard(answer)
+            }
+        }
+    }
+
+    private func answerCard(_ answer: WorkerAnswer) -> some View {
+        let bench = appModel.composeBench.first { $0.id == answer.modelId }
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                if let bench { DriverBrandGlyph(driverId: bench.driverId, boxSize: 18, iconSize: 9, cornerRadius: 5) }
+                Text(bench?.name ?? answer.modelId)
+                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+                Spacer(minLength: 0)
+                StatusPill(kind: ThreadsPresenter.pillKind(for: workerTurnStatus(answer.status)))
+            }
+            switch answer.status {
+            case .done:
+                Text(.init(answer.output ?? ""))
+                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                    .lineSpacing(2).textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            case .failed, .timedOut:
+                Text(answer.errorReason ?? "No answer.")
+                    .font(.system(size: 12.5)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
+            default:
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("running…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+
+    private func workerTurnStatus(_ status: WorkerAnswerStatus) -> ThreadTurnStatus {
+        switch status {
+        case .done: return .done
+        case .failed: return .failed
+        case .timedOut: return .timedOut
+        case .cancelled: return .cancelled
+        case .running: return .running
+        case .queued, .skipped: return .queued
+        }
     }
 }
