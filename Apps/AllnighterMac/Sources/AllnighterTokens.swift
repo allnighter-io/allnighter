@@ -36,15 +36,17 @@ enum ALPalette {
     static let ink300 = Color(hex: 0x7E869E)
     static let ink400 = Color(hex: 0x555C74)
     static let ink450 = Color(hex: 0x454C62)
-    static let ink500 = Color(hex: 0x373D51)
-    static let ink600 = Color(hex: 0x252A39)
-    static let ink650 = Color(hex: 0x1F2331)
-    static let ink700 = Color(hex: 0x1A1E2A)
-    static let ink750 = Color(hex: 0x151822)   // raised surface
-    static let ink800 = Color(hex: 0x111420)   // surface
-    static let ink850 = Color(hex: 0x0D101A)   // subtle bg
-    static let ink900 = Color(hex: 0x090B13)   // app base
-    static let ink950 = Color(hex: 0x05060C)   // void
+    // Calm-down pass (2026-06-17): lift the dark end off pure black so the UI
+    // reads softer (Cursor/Linear, not glary). 50–450 unchanged.
+    static let ink500 = Color(hex: 0x3A4054)   // strong divider
+    static let ink600 = Color(hex: 0x2A2F3E)   // border strong
+    static let ink650 = Color(hex: 0x242833)   // pressed / selected
+    static let ink700 = Color(hex: 0x1F2330)   // hover surface
+    static let ink750 = Color(hex: 0x1B1E29)   // raised surface (card / popover)
+    static let ink800 = Color(hex: 0x181B25)   // surface (panel)
+    static let ink850 = Color(hex: 0x15171F)   // subtle background
+    static let ink900 = Color(hex: 0x13151E)   // app background base
+    static let ink950 = Color(hex: 0x0C0E14)   // deepest void
 
     // Signature amber phosphor.
     static let amber300 = Color(hex: 0xFFD79E)
@@ -75,7 +77,7 @@ enum ALColor {
     static let raised   = ALPalette.ink750   // cards, popovers, menus
     static let hover    = ALPalette.ink700   // row / control hover
     static let active   = ALPalette.ink650   // pressed / selected
-    static let input    = Color(hex: 0x13161F)
+    static let input    = Color(hex: 0x15171F)
     static let overlay  = ALPalette.ink950.opacity(0.66) // modal scrim
     static let scrimSubtle = ALPalette.ink950.opacity(0.28) // dropdown dismiss — content only
 
@@ -85,7 +87,7 @@ enum ALColor {
     static let borderStrong  = Color.white.opacity(0.16)
 
     // Text
-    static let textPrimary   = ALPalette.ink100
+    static let textPrimary   = ALPalette.ink150  // calm-down: #CBD1E0, not #E1E5F0
     static let textSecondary = ALPalette.ink200
     static let textMuted     = ALPalette.ink300
     static let textFaint     = ALPalette.ink400
@@ -138,9 +140,9 @@ enum ALFont {
     }
 
     // Named ramp (size, weight, tracking-pts, lineSpacing-extra)
-    static let display = sans(40, .heavy)     // tracking -0.88,  marketing only
-    static let h1      = sans(28, .bold)      // tracking -0.39
-    static let h2      = sans(22, .bold)      // tracking -0.31 — "Team run" title
+    static let display = sans(40, .bold)      // calm-down: was .heavy
+    static let h1      = sans(28, .semibold)  // calm-down: was .bold
+    static let h2      = sans(22, .semibold)  // calm-down: was .bold
     static let h3      = sans(17, .semibold)
     static let title   = sans(15, .semibold)  // section titles, sidebar plan writer
     static let bodyLg  = sans(15, .regular)   // comfortable reading body

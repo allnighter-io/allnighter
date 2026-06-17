@@ -175,7 +175,7 @@ struct WorkerChip: View {
             .overlay {
                 if selected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .heavy))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(ALColor.textOnAmber)
                 }
             }
@@ -241,6 +241,66 @@ extension View {
             content()
                 .environment(\.colorScheme, .dark)
                 .presentationBackground(ALColor.surface)
+        }
+    }
+}
+
+// MARK: - ALDropdown
+//
+// The app's styled option picker. NEVER use the native SwiftUI `Menu` for
+// skill/model/option lists — it renders the system menu chrome (light, wrong
+// metrics) that breaks the dark UI. This opens an `.alPopover` with our own rows.
+
+struct ALDropdown: View {
+    let current: String
+    /// (id, label) pairs.
+    let options: [(String, String)]
+    var width: CGFloat = 220
+    var onPick: (String) -> Void
+
+    @State private var open = false
+
+    var body: some View {
+        Button { open.toggle() } label: {
+            HStack(spacing: 4) {
+                Text(current).font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
+            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay {
+                RoundedRectangle(cornerRadius: ALRadius.md)
+                    .strokeBorder(open ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .alPopover(isPresented: $open, arrowEdge: .bottom) {
+            ScrollView {
+                VStack(spacing: 1) {
+                    ForEach(options, id: \.0) { id, label in
+                        Button { onPick(id); open = false } label: {
+                            HStack(spacing: 8) {
+                                Text(label).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                                Spacer(minLength: 8)
+                                if label == current {
+                                    Image(systemName: "checkmark").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
+                                }
+                            }
+                            .padding(.horizontal, 9).padding(.vertical, 7)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(label == current ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(6)
+            }
+            .frame(width: width)
+            .frame(maxHeight: 300)
+            .background(ALColor.surface)
         }
     }
 }

@@ -58,12 +58,12 @@ struct TeamReadinessView: View {
         HStack(alignment: .top, spacing: 18) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Setup")
-                    .font(.system(size: 11, weight: .bold)).tracking(1.1)
+                    .font(.system(size: 11, weight: .semibold)).tracking(1.1)
                     .textCase(.uppercase)
                     .foregroundStyle(ALColor.accentText)
                     .padding(.bottom, 7)
                 Text("CLI setup")
-                    .font(.system(size: 24, weight: .heavy)).tracking(-0.48)
+                    .font(.system(size: 24, weight: .bold)).tracking(-0.48)
                     .foregroundStyle(ALColor.textPrimary)
                 Text("Add, install, and sign in to the command-line tools on your Mac. Fix a CLI here before it can take work — the same check runs in the title bar and the team dropdown.")
                     .font(.system(size: 13))
@@ -128,7 +128,7 @@ struct TeamReadinessView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(value)
-                    .font(.system(size: smallValue ? 16 : 24, weight: .heavy)).tracking(-0.48)
+                    .font(.system(size: smallValue ? 16 : 24, weight: .bold)).tracking(-0.48)
                     .foregroundStyle(ok ? ALPalette.green400 : ALColor.textPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
@@ -257,7 +257,7 @@ struct BenchRepairPanel: View {
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(card.name)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(ALColor.textPrimary)
                     Text(metaLine)
                         .font(.system(size: 11, design: .monospaced))
@@ -305,7 +305,7 @@ struct BenchRepairPanel: View {
     private var detailModels: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Models on this CLI")
-                .font(.system(size: 10, weight: .bold)).tracking(0.8)
+                .font(.system(size: 10, weight: .semibold)).tracking(0.8)
                 .textCase(.uppercase)
                 .foregroundStyle(ALColor.textFaint)
             ForEach(card.workers) { seat in
@@ -452,7 +452,7 @@ struct BenchRepairPanel: View {
     private var lastProof: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("Last proof")
-                .font(.system(size: 10, weight: .bold)).tracking(0.8)
+                .font(.system(size: 10, weight: .semibold)).tracking(0.8)
                 .textCase(.uppercase)
                 .foregroundStyle(ALColor.textFaint)
             ForEach(Array(proofLines.enumerated()), id: \.offset) { _, line in

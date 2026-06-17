@@ -124,7 +124,7 @@ struct TeamEditorView: View {
         HStack(spacing: 8) {
             Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(ALColor.accent)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Customize team").font(.system(size: 14, weight: .bold)).foregroundStyle(ALColor.textPrimary)
+                Text("Customize team").font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
                 Text("\(lane.label) · skill | model").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
@@ -136,7 +136,7 @@ struct TeamEditorView: View {
 
     private var nameField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("TEAM NAME").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            Text("TEAM NAME").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
             TextField("Team name", text: $draft.name)
                 .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
                 .padding(.horizontal, 10).frame(height: 32)
@@ -147,7 +147,7 @@ struct TeamEditorView: View {
 
     private var workers: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("WORKERS").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            Text("WORKERS").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
             ForEach($draft.rows) { $row in
                 HStack(spacing: 8) {
                     picker(current: skillName($row.wrappedValue.skillId), options: laneSkills.map { ($0.id, $0.displayName) }) {
@@ -173,20 +173,9 @@ struct TeamEditorView: View {
         }
     }
 
+    // Custom dropdown (never the native Menu — it breaks the dark UI).
     private func picker(current: String, options: [(String, String)], onPick: @escaping (String) -> Void) -> some View {
-        Menu {
-            ForEach(options, id: \.0) { id, label in Button(label) { onPick(id) } }
-        } label: {
-            HStack(spacing: 4) {
-                Text(current).font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
-            }
-            .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
-            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-        }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden)
+        ALDropdown(current: current, options: options, onPick: onPick)
     }
 
     private var substitutionsToggle: some View {

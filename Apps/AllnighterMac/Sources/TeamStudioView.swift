@@ -89,7 +89,7 @@ private struct StudioNav: View {
     private func laneHeader(_ lane: ComposeLane) -> some View {
         HStack(spacing: 6) {
             Image(systemName: lane.icon).font(.system(size: 10))
-            Text(lane.label.uppercased()).font(.system(size: 10, weight: .bold)).tracking(0.6)
+            Text(lane.label.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.6)
         }
         .foregroundStyle(ALColor.textFaint)
         .padding(.horizontal, 8).padding(.top, 12).padding(.bottom, 3)
@@ -206,7 +206,7 @@ private struct StudioTeamListView: View {
     }
 
     private func miniBadge(_ t: String, _ c: Color) -> some View {
-        Text(t).font(.system(size: 9, weight: .bold))
+        Text(t).font(.system(size: 9, weight: .semibold))
             .foregroundStyle(c)
             .padding(.horizontal, 5).padding(.vertical, 1.5)
             .background(c.opacity(0.14), in: Capsule())
@@ -237,7 +237,7 @@ private struct StudioTeamDetailView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "rectangle.3.group").font(.system(size: 15)).foregroundStyle(ALColor.accent)
                     Text(team.displayName)
-                        .font(.system(size: 18, weight: .heavy)).tracking(-0.3)
+                        .font(.system(size: 18, weight: .bold)).tracking(-0.3)
                         .foregroundStyle(ALColor.textPrimary)
                     if team.isDefaultForLane { chip("Default", accent: true) }
                     if !team.builtIn { chip("Custom", accent: false) }
@@ -252,9 +252,9 @@ private struct StudioTeamDetailView: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
-                        Text("SKILL").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                        Text("SKILL").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                         Spacer()
-                        Text("MODEL").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                        Text("MODEL").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                     }
                     .padding(.bottom, 4)
                     if lineup.isEmpty {
@@ -375,7 +375,7 @@ private struct StudioSkillListView: View {
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
                         .lineLimit(1)
                     if !skill.builtIn {
-                        Text("Custom").font(.system(size: 9, weight: .bold)).foregroundStyle(ALColor.accent)
+                        Text("Custom").font(.system(size: 9, weight: .semibold)).foregroundStyle(ALColor.accent)
                             .padding(.horizontal, 5).padding(.vertical, 1.5)
                             .background(ALColor.accent.opacity(0.14), in: Capsule())
                     }
@@ -404,20 +404,20 @@ private struct StudioSkillDetailView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles").font(.system(size: 15)).foregroundStyle(ALColor.accent)
                     Text(skill.displayName)
-                        .font(.system(size: 18, weight: .heavy)).tracking(-0.3)
+                        .font(.system(size: 18, weight: .bold)).tracking(-0.3)
                         .foregroundStyle(ALColor.textPrimary)
                     chip(skill.builtIn ? "Built-in · read-only" : "Custom", accent: !skill.builtIn)
                     Spacer(minLength: 0)
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("LANE · PURPOSE").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                    Text("LANE · PURPOSE").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                     HStack(spacing: 6) {
                         chip(skill.lane.rawValue.capitalized, accent: false)
                         chip(skill.purpose.rawValue, accent: false)
                     }
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("PROMPT TEMPLATE").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                    Text("PROMPT TEMPLATE").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                     Text(skill.template)
                         .font(.system(size: 12.5, design: .monospaced))
                         .foregroundStyle(ALColor.textSecondary)
@@ -449,7 +449,7 @@ private struct StudioSkillDetailView: View {
 private func header(_ title: String, subtitle: String) -> some View {
     VStack(alignment: .leading, spacing: 4) {
         Text(title)
-            .font(.system(size: 20, weight: .heavy)).tracking(-0.3)
+            .font(.system(size: 20, weight: .bold)).tracking(-0.3)
             .foregroundStyle(ALColor.textPrimary)
         Text(subtitle)
             .font(.system(size: 12))

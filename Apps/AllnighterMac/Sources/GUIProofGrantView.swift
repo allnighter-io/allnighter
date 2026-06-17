@@ -16,7 +16,7 @@ struct GUIProofGrantView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("GUI proof — Screen Recording")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(ALColor.textPrimary)
 
             Text("""
@@ -41,7 +41,7 @@ struct GUIProofGrantView: View {
             .font(.system(size: 13, weight: .semibold))
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Steps").font(.system(size: 12, weight: .bold)).foregroundStyle(ALColor.textMuted)
+                Text("Steps").font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textMuted)
                 Text("1. Click **Open System Settings** below.")
                 Text("2. If Allnighter is not listed, click **+** → ⌘⇧G → paste the app path shown below → Open.")
                 Text("3. Turn **Allnighter** ON.")

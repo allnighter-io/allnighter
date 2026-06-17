@@ -339,7 +339,7 @@ struct RoutingComposer: View {
 
     private func popHeader(_ title: String, _ sub: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.system(size: 12.5, weight: .bold)).foregroundStyle(ALColor.textPrimary)
+            Text(title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
             Text(sub).font(.system(size: 10.5)).foregroundStyle(ALColor.textFaint)
         }
         .padding(.horizontal, 6).padding(.top, 4).padding(.bottom, 7)
@@ -441,7 +441,7 @@ struct RoutingComposer: View {
     private func effortRow(note: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                Text("EFFORT").font(.system(size: 10.5, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                Text("EFFORT").font(.system(size: 10.5, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                 Spacer(minLength: 8)
                 HStack(spacing: 0) {
                     ForEach(ComposeEffort.allCases, id: \.self) { e in

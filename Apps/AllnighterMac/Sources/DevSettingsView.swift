@@ -51,11 +51,11 @@ struct DevSettingsSheet: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Developer")
-                    .font(.system(size: 11, weight: .bold)).tracking(1.1)
+                    .font(.system(size: 11, weight: .semibold)).tracking(1.1)
                     .textCase(.uppercase)
                     .foregroundStyle(ALColor.accentText)
                 Text("GUI routes")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(ALColor.textPrimary)
             }
             Spacer()
@@ -112,7 +112,7 @@ struct DevSettingsSheet: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 10.5, weight: .bold)).tracking(1.1)
+            .font(.system(size: 10.5, weight: .semibold)).tracking(1.1)
             .foregroundStyle(ALColor.textFaint)
     }
 

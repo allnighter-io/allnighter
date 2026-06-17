@@ -197,7 +197,7 @@ struct BenchDropdownPanel: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Your bench")
-                .font(.system(size: 12.5, weight: .bold))
+                .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(ALColor.textPrimary)
             Text("\(readyCount) of \(rows.count) models ready")
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))

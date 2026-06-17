@@ -126,7 +126,7 @@ private struct HomeSidebar: View {
 
     private func railSectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 10, weight: .bold)).tracking(0.6)
+            .font(.system(size: 10, weight: .semibold)).tracking(0.6)
             .foregroundStyle(ALColor.textFaint)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 9).padding(.top, 10).padding(.bottom, 4)
@@ -256,7 +256,7 @@ private struct HomeMarketingEmptyState: View {
                 AllnighterGlyph(size: 40)
                     .padding(.top, 40)
                 Text("You already pay for the team.")
-                    .font(.system(size: 26, weight: .heavy)).tracking(-0.4)
+                    .font(.system(size: 26, weight: .bold)).tracking(-0.4)
                     .foregroundStyle(ALColor.textPrimary)
                 Text("Allnighter puts the AI tools you already subscribe to on one bench. Ask one, ask them all, or hand the work to an agent — and route any turn to anyone.")
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
@@ -347,7 +347,7 @@ private struct HomeNewWorkOrderPane: View {
             VStack(spacing: 12) {
                 AllnighterGlyph(size: 38)
                 Text("Start a work order")
-                    .font(.system(size: 25, weight: .heavy)).tracking(-0.4)
+                    .font(.system(size: 25, weight: .bold)).tracking(-0.4)
                     .foregroundStyle(ALColor.textPrimary)
                 Text("One message in. Chat with a single model, fan it out to the whole bench for options, or hand it to an agent to build — and route any turn to anyone.")
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)

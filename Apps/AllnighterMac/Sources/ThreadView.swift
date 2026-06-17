@@ -36,7 +36,7 @@ private struct ThreadEmptyState: View {
             VStack(spacing: 12) {
                 AllnighterGlyph(size: 38)
                 Text("Start a work order")
-                    .font(.system(size: 25, weight: .heavy)).tracking(-0.4)
+                    .font(.system(size: 25, weight: .bold)).tracking(-0.4)
                     .foregroundStyle(ALColor.textPrimary)
                 Text("One message in. Chat with a single model, fan it out to the whole bench for options, or hand it to an agent to build — and route any turn to anyone.")
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
@@ -95,7 +95,7 @@ private struct ThreadPaneHeader: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(thread.title)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(ALColor.textPrimary)
                 .lineLimit(1)
             if let lane = inferredLane {
@@ -234,7 +234,7 @@ private struct ThreadTurnRow: View {
     private var userBubble: some View {
         HStack(alignment: .top, spacing: 10) {
             Text("YOU")
-                .font(.system(size: 9, weight: .bold)).tracking(0.5)
+                .font(.system(size: 9, weight: .semibold)).tracking(0.5)
                 .foregroundStyle(ALColor.textFaint)
                 .frame(width: 28, height: 28)
                 .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 7))
@@ -338,7 +338,7 @@ private struct ThreadBoardRow: View {
         VStack(alignment: .leading, spacing: 10) {
             if let synthesis {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("RECOMMENDATION").font(.system(size: 9, weight: .bold)).tracking(0.6)
+                    Text("RECOMMENDATION").font(.system(size: 9, weight: .semibold)).tracking(0.6)
                         .foregroundStyle(ALColor.accentText)
                     Text(.init(synthesis))
                         .font(.system(size: 13.5)).foregroundStyle(ALColor.textPrimary)

@@ -154,7 +154,7 @@ struct SetupGroupLabel: View {
     let count: Int
     var body: some View {
         HStack(spacing: 10) {
-            Text(title.uppercased()).font(.system(size: 10.5, weight: .bold)).tracking(1.15)
+            Text(title.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(1.15)
                 .foregroundStyle(ALColor.textFaint)
             Text("\(count)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
@@ -203,7 +203,7 @@ struct SetupCardView: View {
             BrandGlyph(driverId: card.driverId, muted: muted)
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 8) {
-                    Text(card.name).font(.system(size: 14.5, weight: .bold)).tracking(-0.14)
+                    Text(card.name).font(.system(size: 14.5, weight: .semibold)).tracking(-0.14)
                         .foregroundStyle(muted ? ALColor.textMuted : ALColor.textPrimary)
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -224,7 +224,7 @@ struct SetupCardView: View {
         HStack(spacing: 13) {
             BrandGlyph(driverId: card.driverId, muted: muted)
             VStack(alignment: .leading, spacing: 4) {
-                Text(card.name).font(.system(size: 14.5, weight: .bold)).tracking(-0.14)
+                Text(card.name).font(.system(size: 14.5, weight: .semibold)).tracking(-0.14)
                     .foregroundStyle(muted ? ALColor.textMuted : ALColor.textPrimary)
                     .lineLimit(2)
                 meta
@@ -531,16 +531,16 @@ struct BenchHealthPopover: View {
             HStack(spacing: 9) {
                 RoundedRectangle(cornerRadius: 8).fill(ALColor.active).frame(width: 26, height: 26)
                     .overlay { Image(systemName: "shield").font(.system(size: 15)).foregroundStyle(ALColor.accentText) }
-                Text("CLI setup").font(.system(size: 14, weight: .bold)).tracking(-0.14)
+                Text("CLI setup").font(.system(size: 14, weight: .semibold)).tracking(-0.14)
                     .foregroundStyle(ALColor.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 IconButton(systemImage: "xmark", accessibilityLabel: "Close", small: true) { onClose() }
             }
             HStack(spacing: 8) {
-                (Text("\(model.readyToolCount)").font(.system(size: 12.5, weight: .bold, design: .monospaced))
-                    + Text(" of ").font(.system(size: 12.5, weight: .bold))
-                    + Text("\(model.totalToolCount)").font(.system(size: 12.5, weight: .bold, design: .monospaced))
-                    + Text(" CLIs ready").font(.system(size: 12.5, weight: .bold)))
+                (Text("\(model.readyToolCount)").font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    + Text(" of ").font(.system(size: 12.5, weight: .semibold))
+                    + Text("\(model.totalToolCount)").font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    + Text(" CLIs ready").font(.system(size: 12.5, weight: .semibold)))
                     .foregroundStyle(ALColor.textPrimary)
                 Text("· \(model.readyWorkerCount) models").font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(ALColor.textFaint)
