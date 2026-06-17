@@ -474,53 +474,30 @@ struct LiveMark: View {
     @State private var blinkOn = true
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // White crescent — one brand color across the app (founder: amber
-            // everywhere reads like a circus). "Live" is the blinking cursor block,
-            // not color.
-            Crescent()
-                .fill(ALColor.textPrimary, style: FillStyle(eoFill: true))
-            RoundedRectangle(cornerRadius: size * 0.026)
-                .fill(blockColor)
-                .frame(width: size * 0.105, height: size * 0.17)
-                .offset(x: size * 0.595, y: size * 0.43)
-                .opacity(state == .running && !blinkOn ? 0 : 1)
-        }
-        .frame(width: size, height: size)
-        .onAppear {
-            guard state == .running, !reduceMotion else { return }
-            withAnimation(ALMotion.blink) { blinkOn = false }
-        }
+        // Render the FINAL brand FILE (solid white crescent) — never a drawn shape
+        // (a stroked/eo-filled crescent reads as a ring; allnighter-logo-FINAL
+        // README). "Live" is a gentle opacity pulse, not color.
+        AllnighterGlyph(size: size)
+            .opacity(state == .running && !blinkOn ? 0.45 : 1)
+            .onAppear {
+                guard state == .running, !reduceMotion else { return }
+                withAnimation(ALMotion.blink) { blinkOn = false }
+            }
     }
-
-    private var blockColor: Color { state == .done ? ALColor.statusDone : ALColor.textPrimary }
 }
 
-/// The Allnighter crescent mark, white — the single brand glyph for any avatar or
-/// empty-state decoration (recent list, "start a work order"). Amber is retired
-/// from the mark: one color, no circus (founder, 2026-06-17).
+/// The Allnighter brand mark — the FINAL solid white crescent FILE
+/// (`AllnighterLogoWhite` asset), used for every avatar/empty-state. Do not draw
+/// it as a shape and do not recolor it through the icon system
+/// (allnighter-logo-FINAL README).
 struct AllnighterGlyph: View {
     var size: CGFloat = 28
-    var color: Color = ALColor.textPrimary
 
     var body: some View {
-        Crescent()
-            .fill(color, style: FillStyle(eoFill: true))
+        Image("AllnighterLogoWhite")
+            .resizable()
+            .scaledToFit()
             .frame(width: size, height: size)
-    }
-}
-
-private struct Crescent: Shape {
-    // 100×100 design box: filled circle r32 @ (47,50) MINUS circle r28 @ (62,41).
-    func path(in rect: CGRect) -> Path {
-        let s = min(rect.width, rect.height) / 100
-        func circle(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat) -> CGRect {
-            CGRect(x: (cx - r) * s, y: (cy - r) * s, width: 2 * r * s, height: 2 * r * s)
-        }
-        var p = Path()
-        p.addEllipse(in: circle(47, 50, 32))
-        p.addEllipse(in: circle(62, 41, 28))
-        return p
     }
 }
 

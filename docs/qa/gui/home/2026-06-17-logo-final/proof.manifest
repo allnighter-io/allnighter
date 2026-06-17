@@ -1,0 +1,23 @@
+# surface: home
+# fixtures: thread-empty
+# watcher: PASS
+# sealed: 2026-06-17
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+51c7b0d966e7bddfe0d2109c2a1322db73a6bb98  Apps/AllnighterMac/Sources/AllnighterMacApp.swift
+f1b7a3ddeabd22c32562e475fe0775f97c195b55  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+77437c0ccd098fc0c030462b918738c3341b4bc5  Apps/AllnighterMac/Sources/CommandCenter.swift
+27b44d9a33c6155ac698dbe97c1887f654032325  Apps/AllnighterMac/Sources/DesignBoardView.swift
+89fb2a30f86b1187219e9a4ce7ac4663309f6164  Apps/AllnighterMac/Sources/DesignComponents.swift
+ef56b710f18f5e2ea2e05bc531c6d2a88ce5f48b  Apps/AllnighterMac/Sources/DevSettingsView.swift
+208a93e62970c1fd481819e44e8e680e2b64e4f6  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+c36742038854ca85eea1339e877410cdc2de1994  Apps/AllnighterMac/Sources/GUIProofGrantView.swift
+b04c0a8e1b5a89399371a357c2672dcd13fb6275  Apps/AllnighterMac/Sources/HomeView.swift
+1f87c18747bc714852559d5713bff4b3e18187d6  Apps/AllnighterMac/Sources/ReadinessView.swift
+5370e18e1743a28c97bdfa445e06903fa426f6ea  Apps/AllnighterMac/Sources/RootView.swift
+44c32c191352f20d1edaa8e1eba9320631cc35d4  Apps/AllnighterMac/Sources/RoutingComposer.swift
+f08a46bf81c2e00c67bdd311786641b9c8695c01  Apps/AllnighterMac/Sources/SetupViews.swift
+1ddabad43ba39b25aed98083cf8dd62e9fb253f5  Apps/AllnighterMac/Sources/TeamControlView.swift
+eb49c551c88ee7a7aad9e1a8bb3a530a198880bf  Apps/AllnighterMac/Sources/TeamEditorView.swift
+ece10ce33bc125e8c1f552bf01c130edf98f17d1  Apps/AllnighterMac/Sources/TeamStudioView.swift
+e8e538458fad9daa01267db4801cff1dd77801df  Apps/AllnighterMac/Sources/ThreadView.swift
