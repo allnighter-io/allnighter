@@ -14,8 +14,8 @@ struct AllnighterCLI {
 
         let runtime = ToolRuntime()
         switch command {
+        case "teams": runTeamCatalog(args, runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "teams": runTeamCatalog(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
         case "team" where args.first == "start": await runTeamStart(Array(args.dropFirst()), runtime)
@@ -389,7 +389,7 @@ struct AllnighterCLI {
         return jsonString(Snapshot(contractVersion: ContractRegistry.contractVersion, defaults: defaults))
     }
 
-    /// `alln team teams [--lane build|design|copy] [--json]` — the lane-scoped team
+    /// `alln teams [--lane build|design|copy] [--json]` — the lane-scoped team
     /// catalog summary (no full prompt templates).
     static func runTeamCatalog(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
@@ -408,7 +408,7 @@ struct AllnighterCLI {
         }
     }
 
-    /// The lane-scoped catalog summary JSON — shared by `alln team teams --json`
+    /// The lane-scoped catalog summary JSON — shared by `alln teams --json`
     /// and the MCP `teams_list` tool.
     static func teamsCatalogJSONString(_ runtime: ToolRuntime, lane: WorkLane?) -> String {
         let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams

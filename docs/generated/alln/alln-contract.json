@@ -173,7 +173,7 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "team teams",
+      "name" : "teams",
       "outputSchema" : "none",
       "summary" : "List the lane-scoped team catalog."
     },
@@ -658,9 +658,9 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "team edit",
+      "name" : "teams edit",
       "outputSchema" : "none",
-      "summary" : "Edit the team lineup."
+      "summary" : "Edit a custom team definition."
     },
     {
       "args" : [
@@ -1251,7 +1251,7 @@
       "title" : "Show the current team"
     },
     {
-      "command" : "alln team teams --lane build --json",
+      "command" : "alln teams --lane build --json",
       "id" : "teams_build_json",
       "title" : "List Build teams"
     },
@@ -1308,7 +1308,7 @@
   ],
   "mcpTools" : [
     {
-      "command" : "team teams",
+      "command" : "teams",
       "name" : "mcp_hello",
       "outputSchema" : "none",
       "params" : [
@@ -1322,7 +1322,7 @@
       "summary" : "Agent bootstrap: whether a team can start now, which teams are ready, and the next action. Cheap, non-mutating, no quota."
     },
     {
-      "command" : "team teams",
+      "command" : "teams",
       "name" : "teams_list",
       "outputSchema" : "none",
       "params" : [

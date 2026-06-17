@@ -22,9 +22,9 @@ public extension ContractRegistry {
     /// MCP tools (M1) — thin projections of `alln` commands. No `team_recall`
     /// (retired in step 8); retrieval is `history`/`show`.
     static let m1MCPTools: [MCPToolSpec] = [
-        MCPToolSpec("mcp_hello", command: "team teams", summary: "Agent bootstrap: whether a team can start now, which teams are ready, and the next action. Cheap, non-mutating, no quota.",
+        MCPToolSpec("mcp_hello", command: "teams", summary: "Agent bootstrap: whether a team can start now, which teams are ready, and the next action. Cheap, non-mutating, no quota.",
                     params: [.init("agent", summary: "Calling agent id for provenance (advisory only).")]),
-        MCPToolSpec("teams_list", command: "team teams", summary: "Lane-scoped team catalog summary (no prompt templates).",
+        MCPToolSpec("teams_list", command: "teams", summary: "Lane-scoped team catalog summary (no prompt templates).",
                     params: [.init("lane", summary: "Filter to one lane: build|design|copy (optional).")]),
         MCPToolSpec("team_preflight", command: "team preflight", summary: "Validate lane/team/effort against the ready bench WITHOUT running or spending quota; shows resolved/blocked workers and self-fusion.",
                     params: [.init("lane", summary: "build|design|copy."),
@@ -119,7 +119,7 @@ public extension ContractRegistry {
             exampleIds: ["team_show_json"]
         ),
         CommandSpec(
-            "team teams", summary: "List the lane-scoped team catalog.", milestone: .m1,
+            "teams", summary: "List the lane-scoped team catalog.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
             exampleIds: ["teams_build_json"]
@@ -235,7 +235,7 @@ public extension ContractRegistry {
     // MARK: - Commands (named but deferred past M1)
 
     static let deferredCommands: [CommandSpec] = [
-        CommandSpec("team edit", summary: "Edit the team lineup.", milestone: .deferred),
+        CommandSpec("teams edit", summary: "Edit a custom team definition.", milestone: .deferred),
         CommandSpec("models add", summary: "Add/configure a model.", milestone: .deferred),
         CommandSpec("work", summary: "Create a work order.", milestone: .deferred),
         CommandSpec("pending add", summary: "Queue a Pending item.", milestone: .deferred),
@@ -329,7 +329,7 @@ public extension ContractRegistry {
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
         ExampleRecipe("models_json", title: "List bench models", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
-        ExampleRecipe("teams_build_json", title: "List Build teams", command: "alln team teams --lane build --json"),
+        ExampleRecipe("teams_build_json", title: "List Build teams", command: "alln teams --lane build --json"),
         ExampleRecipe("team_preflight", title: "Preflight a team", command: "alln team preflight --lane build --team build_bug_hunt --effort high"),
         ExampleRecipe("team_basic", title: "Ask the team", command: "alln team --lane build --team build_bug_hunt \"Why does run history disappear?\""),
         ExampleRecipe("team_json", title: "Machine team run", command: "alln team --json \"Give me one small naming test.\""),

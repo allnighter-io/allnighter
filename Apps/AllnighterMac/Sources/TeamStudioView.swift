@@ -7,8 +7,8 @@ import AllnighterCore
 // (lane-agnostic — sources feed every lane), then per-lane Teams + Skills.
 //
 // CLIs reuses the existing `TeamReadinessView` (the shipped CLI-setup/readiness
-// surface). Teams render read-only until `alln team edit` ships; Skills arrive
-// with the SkillStore backend (Skills_Library_And_Editing.md). The shell never
+// surface). Teams render read-only until `alln teams edit` ships; Skills arrive
+// with SkillCatalog (`alln skills`). The shell never
 // invents team/skill truth — placeholders say so honestly.
 
 /// One destination in the Studio. Teams/Skills are always lane-scoped (every team
@@ -49,13 +49,13 @@ struct TeamStudioView: View {
             StudioPlaceholder(
                 icon: lane.icon,
                 title: "\(lane.label) teams",
-                message: "Saved \(lane.label.lowercased()) lineups land here next — list, detail, and the Skill | Model table. Read-only until team editing (`alln team edit`) ships."
+                message: "Saved \(lane.label.lowercased()) lineups land here next — list, detail, and the Skill | Model table. Read-only until team editing (`alln teams edit`) ships."
             )
         case .skills(let lane):
             StudioPlaceholder(
                 icon: "sparkles",
                 title: "\(lane.label) skills",
-                message: "The skill library arrives with the Skills backend (SkillStore + `alln skills`). Allnighter won't fake skill truth in the UI before it exists."
+                message: "The skill library arrives with SkillCatalog (`alln skills`). Allnighter won't fake skill truth in the UI before it exists."
             )
         }
     }

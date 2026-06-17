@@ -104,7 +104,6 @@ public enum TeamResolver {
                     lane: team.lane, ready: readyModels, capabilities: capabilities
                 )
                 let skillName = skill(row.skillId)?.displayName ?? row.skillId
-                let skillVersion = skill(row.skillId)?.version ?? 1
                 guard let model = chosen else {
                     let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
                         + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
@@ -125,7 +124,7 @@ public enum TeamResolver {
                     workers.append(Worker(
                         id: Worker.makeID(modelId: model.id, instanceIndex: index),
                         modelId: model.id, instanceIndex: index,
-                        skillId: row.skillId, skillName: skillName, skillVersion: skillVersion,
+                        skillId: row.skillId, skillName: skillName,
                         purpose: stage
                     ))
                 }
@@ -155,7 +154,7 @@ public enum TeamResolver {
                     modelId: model.id, instanceIndex: index,
                     skillId: policy.planWriterSkillId,
                     skillName: writerSkill?.displayName ?? policy.planWriterSkillId,
-                    skillVersion: writerSkill?.version ?? 1, purpose: .plan
+                    purpose: .plan
                 )
             }
         }

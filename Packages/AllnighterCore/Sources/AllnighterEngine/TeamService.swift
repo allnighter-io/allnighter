@@ -89,7 +89,7 @@ public actor TeamService {
         self.now = now
     }
 
-    /// Catalog teams in a lane (all teams when `lane` is nil), for `team teams`.
+    /// Catalog teams in a lane (all teams when `lane` is nil), for `alln teams`.
     public func catalogTeams(lane: WorkLane? = nil) -> [TeamPreset] {
         guard let lane else { return teams }
         return teams.teams(in: lane)

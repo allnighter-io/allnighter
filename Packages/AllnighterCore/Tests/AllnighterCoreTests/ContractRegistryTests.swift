@@ -26,7 +26,7 @@ final class ContractRegistryTests: XCTestCase {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         XCTAssertEqual(m1, [
             "docs", "doctor", "doctor explain", "models", "team show",
-            "team teams", "team hello", "team preflight",
+            "teams", "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
             "team", "show", "spec", "history", "export", "dev export-contracts", "serve", "mcp serve",
         ])
@@ -42,6 +42,9 @@ final class ContractRegistryTests: XCTestCase {
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))
+        let deferred = Set(reg.commands.filter { $0.milestone == .deferred }.map(\.name))
+        XCTAssertFalse(deferred.contains("team edit"), "retired nested catalog command")
+        XCTAssertTrue(deferred.contains("teams edit"))
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         for tool in reg.mcpTools {
             XCTAssertTrue(m1.contains(tool.command), "MCP tool \(tool.name) maps to non-M1 command \(tool.command)")

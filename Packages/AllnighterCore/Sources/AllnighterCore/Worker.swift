@@ -25,8 +25,6 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     /// Snapshot of the resolved skill's display name at run start, so history
     /// stays readable after a skill update (catalog runs set this).
     public var skillName: String?
-    /// Snapshot of the resolved skill's version at run start.
-    public var skillVersion: Int?
     /// Stage this worker runs in: answer (blind), review (after answers), or plan
     /// (the synthetic output writer). `nil` on legacy runs → treated as answer.
     public var purpose: WorkerStage?
@@ -39,7 +37,6 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         instanceIndex: Int,
         skillId: String? = nil,
         skillName: String? = nil,
-        skillVersion: Int? = nil,
         purpose: WorkerStage? = nil,
         label: String? = nil
     ) {
@@ -48,7 +45,6 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         self.instanceIndex = instanceIndex
         self.skillId = skillId
         self.skillName = skillName
-        self.skillVersion = skillVersion
         self.purpose = purpose
         self.label = label
     }

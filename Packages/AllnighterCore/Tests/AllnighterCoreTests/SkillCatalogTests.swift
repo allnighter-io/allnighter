@@ -11,15 +11,25 @@ final class SkillCatalogTests: XCTestCase {
     func testEverySkillHasNonEmptyTemplateAndLane() {
         for skill in SkillCatalog.builtIns {
             XCTAssertFalse(skill.template.isEmpty, "\(skill.id) has empty template")
-            XCTAssertFalse(skill.laneTags.isEmpty, "\(skill.id) has no lane tag")
+            XCTAssertTrue(WorkLane.allCases.contains(skill.lane), "\(skill.id) has invalid lane")
             XCTAssertTrue(skill.builtIn)
+        }
+    }
+
+    func testEveryBuiltInSkillHasExactlyOneLane() {
+        for skill in SkillCatalog.builtIns {
+            XCTAssertEqual(SkillCatalog.skills(in: skill.lane).filter { $0.id == skill.id }.count, 1)
+            for lane in WorkLane.allCases where lane != skill.lane {
+                XCTAssertFalse(SkillCatalog.skills(in: lane).contains { $0.id == skill.id },
+                               "\(skill.id) must not appear in \(lane.rawValue) catalog list")
+            }
         }
     }
 
     func testKnownSkillsResolveByID() {
         XCTAssertEqual(SkillCatalog.skill("bug_reproducer")?.displayName, "Bug Reproducer")
         XCTAssertEqual(SkillCatalog.skill("bug_packet_writer")?.purpose, .planWriter)
-        XCTAssertEqual(SkillCatalog.skill("offer_strategist")?.laneTags, [.copy])
+        XCTAssertEqual(SkillCatalog.skill("offer_strategist")?.lane, .copy)
         XCTAssertNil(SkillCatalog.skill("does_not_exist"))
     }
 

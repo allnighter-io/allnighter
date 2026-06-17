@@ -498,12 +498,6 @@
             "null"
           ]
         },
-        "skillVersion" : {
-          "type" : [
-            "integer",
-            "null"
-          ]
-        },
         "sourceId" : {
           "type" : "string"
         }

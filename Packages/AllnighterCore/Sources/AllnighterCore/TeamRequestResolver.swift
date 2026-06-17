@@ -35,7 +35,7 @@ public enum TeamRequestResolver {
             case .laneRequired:
                 return "Fan out requires a lane: pass --lane build|design|copy (or --team)."
             case .unknownTeam(let id):
-                return "unknown team: \(id). Run `alln team teams --lane <lane> --json`."
+                return "unknown team: \(id). Run `alln teams --lane <lane> --json`."
             case .laneMismatch(let team, let teamLane, let requestLane):
                 return "team \(team) is a \(teamLane.rawValue) team but --lane is \(requestLane.rawValue)."
             case .conflictingTeamAndType(let team, let type):

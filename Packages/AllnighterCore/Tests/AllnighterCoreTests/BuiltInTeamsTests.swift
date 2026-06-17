@@ -50,8 +50,8 @@ final class BuiltInTeamsTests: XCTestCase {
             // Answer/review rows should be skills tagged for the team's lane.
             for row in team.workerSpecs {
                 let skill = SkillCatalog.skill(row.skillId)
-                XCTAssertTrue(skill?.laneTags.contains(team.lane) ?? false,
-                              "skill \(row.skillId) not tagged for lane \(team.lane.rawValue) in \(team.id)")
+                XCTAssertEqual(skill?.lane, team.lane,
+                              "skill \(row.skillId) lane \(skill?.lane.rawValue ?? "?") != team lane \(team.lane.rawValue) in \(team.id)")
             }
         }
     }

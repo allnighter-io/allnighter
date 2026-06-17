@@ -1,5 +1,16 @@
 import Foundation
 
+// MARK: - Catalog identifiers
+
+/// Stable machine identifier for one team definition (global namespace across lanes).
+public typealias TeamID = String
+
+/// Stable machine identifier for one skill definition (global namespace across lanes).
+public typealias SkillID = String
+
+/// Catalog entry for one built-in or custom lane team (`TeamPreset` is the persisted shape).
+public typealias TeamDefinition = TeamPreset
+
 // MARK: - Fan out lane / effort / output
 
 /// The three peer creation lanes. Fan out always requires an explicit lane —

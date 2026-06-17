@@ -63,11 +63,11 @@ final class ContractSchemaTests: XCTestCase {
     /// only the new grammar — no legacy RB6/council vocabulary.
     func testNoLegacyPublicGrammar() {
         let md = ContractDocs.markdown().lowercased()
-        for legacy in ["masterplan", "council", "panelseat", "alln ask", "alln presets", "alln recall"] {
+        for legacy in ["masterplan", "council", "panelseat", "alln ask", "alln presets", "alln recall", "team teams", "skillversion"] {
             XCTAssertFalse(md.contains(legacy), "generated docs still teach legacy grammar: \(legacy)")
         }
         let names = Set(ContractRegistry.milestone1.commands.map(\.name))
-        for legacy in ["ask", "presets", "recall"] {
+        for legacy in ["ask", "presets", "recall", "team teams", "team edit"] {
             XCTAssertFalse(names.contains(legacy), "registry still has legacy command: \(legacy)")
         }
         // Public error codes use the new vocabulary, not council/panel/seat.

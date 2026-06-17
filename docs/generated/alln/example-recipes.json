@@ -25,7 +25,7 @@
     "title" : "Show the current team"
   },
   {
-    "command" : "alln team teams --lane build --json",
+    "command" : "alln teams --lane build --json",
     "id" : "teams_build_json",
     "title" : "List Build teams"
   },

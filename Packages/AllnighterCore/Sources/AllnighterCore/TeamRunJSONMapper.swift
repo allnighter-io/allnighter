@@ -37,7 +37,6 @@ public enum TeamRunJSONMapper {
         let workers = run.workers.map { w in
             TeamRunJSON.WorkerInfo(
                 id: w.id, skillId: w.skillId, skillName: w.skillName ?? w.label ?? w.skillId,
-                skillVersion: w.skillVersion,
                 modelId: w.modelId, modelName: modelName(w.modelId), sourceId: sourceId(w.modelId),
                 purpose: workerPurpose(w.purpose), instanceIndex: w.instanceIndex
             )

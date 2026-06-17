@@ -605,11 +605,11 @@ final class ThreadsViewModel {
         let m0 = picks.first?.id ?? "model_opus"
         let m1 = picks.dropFirst().first?.id ?? "model_grok"
         let w0 = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 0), modelId: m0,
-                        instanceIndex: 0, skillId: "answer", skillName: "Answer", skillVersion: 1, purpose: .answer)
+                        instanceIndex: 0, skillId: "answer", skillName: "Answer", purpose: .answer)
         let w1 = Worker(id: Worker.makeID(modelId: m1, instanceIndex: 0), modelId: m1,
-                        instanceIndex: 0, skillId: "answer", skillName: "Answer", skillVersion: 1, purpose: .answer)
+                        instanceIndex: 0, skillId: "answer", skillName: "Answer", purpose: .answer)
         let writer = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 1), modelId: m0,
-                            instanceIndex: 1, skillId: "plan_writer", skillName: "Plan writer", skillVersion: 1, purpose: .plan)
+                            instanceIndex: 1, skillId: "plan_writer", skillName: "Plan writer", purpose: .plan)
 
         var run = TeamRun(
             id: "fixture-team-run", prompt: "Per-user rate limiting for the public API — recommend an approach.",

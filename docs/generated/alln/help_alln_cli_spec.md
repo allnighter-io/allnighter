@@ -68,7 +68,7 @@ Flags:
 
 Examples: `team_show_json`.
 
-### `alln team teams`
+### `alln teams`
 
 List the lane-scoped team catalog.
 
@@ -254,7 +254,7 @@ Flags:
 
 ## Commands (named but deferred)
 
-- `alln team edit` — Edit the team lineup.
+- `alln teams edit` — Edit a custom team definition.
 - `alln models add` — Add/configure a model.
 - `alln work` — Create a work order.
 - `alln pending add` — Queue a Pending item.
@@ -324,7 +324,7 @@ Flags:
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
 - `models_json` — List bench models: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
-- `teams_build_json` — List Build teams: `alln team teams --lane build --json`
+- `teams_build_json` — List Build teams: `alln teams --lane build --json`
 - `team_preflight` — Preflight a team: `alln team preflight --lane build --team build_bug_hunt --effort high`
 - `team_basic` — Ask the team: `alln team --lane build --team build_bug_hunt "Why does run history disappear?"`
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`

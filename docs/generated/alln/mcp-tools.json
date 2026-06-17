@@ -1,6 +1,6 @@
 [
   {
-    "command" : "team teams",
+    "command" : "teams",
     "name" : "mcp_hello",
     "outputSchema" : "none",
     "params" : [
@@ -14,7 +14,7 @@
     "summary" : "Agent bootstrap: whether a team can start now, which teams are ready, and the next action. Cheap, non-mutating, no quota."
   },
   {
-    "command" : "team teams",
+    "command" : "teams",
     "name" : "teams_list",
     "outputSchema" : "none",
     "params" : [

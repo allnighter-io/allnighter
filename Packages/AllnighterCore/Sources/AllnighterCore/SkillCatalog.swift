@@ -9,40 +9,40 @@ public enum SkillPurpose: String, Codable, Sendable, CaseIterable {
     case planWriter
 }
 
-/// A reusable prompt profile ("hat") one model wears for one worker. Built-in
-/// skills are product assets with versioned templates; editing a built-in creates
-/// a custom skill. Runs snapshot `id`, `displayName`, and `version` so history
-/// stays readable after an update (Work_Order_Team_Model §Skill Library).
+/// A reusable prompt profile ("hat") one model wears for one worker. Every skill
+/// belongs to exactly one lane. Built-in skills are product assets; editing a
+/// built-in creates a custom skill. Runs snapshot resolved skill data so history
+/// stays readable after an update (Team_And_Skill_Catalogs.md).
 public struct Skill: Codable, Sendable, Equatable, Identifiable {
-    public var id: String
+    public var id: SkillID
     public var displayName: String
-    public var laneTags: [WorkLane]
+    public var lane: WorkLane
     public var purpose: SkillPurpose
     public var template: String
     public var builtIn: Bool
-    public var version: Int
 
     public init(
-        id: String,
+        id: SkillID,
         displayName: String,
-        laneTags: [WorkLane],
+        lane: WorkLane,
         purpose: SkillPurpose,
         template: String,
-        builtIn: Bool = true,
-        version: Int = 1
+        builtIn: Bool = true
     ) {
         self.id = id
         self.displayName = displayName
-        self.laneTags = laneTags
+        self.lane = lane
         self.purpose = purpose
         self.template = template
         self.builtIn = builtIn
-        self.version = version
     }
 }
 
+/// Catalog entry for one built-in or custom skill definition.
+public typealias SkillDefinition = Skill
+
 /// Core-owned source of truth for built-in skill prompts. Built-in team rows
-/// reference skills by id; the resolver snapshots id/name/version into runs.
+/// reference skills by id; the resolver snapshots id/name into runs.
 public enum SkillCatalog {
     /// All built-in skills, keyed by id (first-seen wins on duplicate ids).
     public static let builtIns: [Skill] = buildSkills + designSkills + copySkills + writerSkills
@@ -53,7 +53,7 @@ public enum SkillCatalog {
     public static func skill(_ id: String) -> Skill? { byID[id] }
 
     public static func skills(in lane: WorkLane) -> [Skill] {
-        builtIns.filter { $0.laneTags.contains(lane) }
+        builtIns.filter { $0.lane == lane }
     }
 
     /// Prefix the founder prompt with the skill template for one worker.
@@ -65,192 +65,192 @@ public enum SkillCatalog {
     // MARK: - Build skills
 
     private static let buildSkills: [Skill] = [
-        s("product_architect", "Product Architect", [.build], .answer, """
+        s("product_architect", "Product Architect", .build, .answer, """
         You are the product architect for this Build fan-out. Convert the prompt into \
         specific behavior, state ownership, and acceptance criteria. Name the truth owner \
         and the smallest coherent slice. Do not write implementation code. Do not expand \
         scope beyond what the user asked.
         """),
-        s("first_principles_builder", "First Principles Builder", [.build], .answer, """
+        s("first_principles_builder", "First Principles Builder", .build, .answer, """
         Reason from first principles before touching existing patterns. What shape would \
         the feature have if built cleanly today? Then reconcile that with the existing \
         repo and name the compromise. Prefer simple, local changes over clever systems.
         """),
-        s("code_maintainer", "Code Maintainer", [.build], .answer, """
+        s("code_maintainer", "Code Maintainer", .build, .answer, """
         Read the request as a maintainer. Identify likely files, coupling risk, \
         migration risk, and behavior that must not regress. Preserve existing style. \
         Reject broad cleanup unless it is required for the requested behavior.
         """),
-        s("proof_planner", "Proof Planner", [.build], .answer, """
+        s("proof_planner", "Proof Planner", .build, .answer, """
         Design proof. Name the Works Test, deterministic checks, fixtures, and negative \
         tests. Say exactly what would convince a skeptical maintainer that the behavior \
         works. Do not accept screenshots as proof for state or dispatch semantics.
         """),
-        s("scope_steward", "Scope Steward", [.build], .review, """
+        s("scope_steward", "Scope Steward", .build, .review, """
         Cut. Separate must-have from nice-to-have, feature from cleanup, and current \
         slice from later phase. If the plan is too large, propose the smallest valuable \
         slice that still honors the prompt.
         """),
-        s("security_privacy_reviewer", "Security & Privacy Reviewer", [.build], .review, """
+        s("security_privacy_reviewer", "Security & Privacy Reviewer", .build, .review, """
         Review privacy, credentials, local files, permissions, network calls, destructive \
         actions, and user consent. Name any high-risk stop before implementation. Calibrate \
         for a one- or two-developer team: prefer simple, local, auditable mitigations and \
         reject enterprise theater unless this surface truly requires it.
         """),
-        s("contrarian_reviewer", "Contrarian Reviewer", [.build], .review, """
+        s("contrarian_reviewer", "Contrarian Reviewer", .build, .review, """
         Disagree usefully. Find the strongest reason the emerging plan may fail. Look \
         for hidden assumptions, missing owner truth, and user-trust risks. Preserve \
         dissent even if the final plan chooses another path.
         """),
         // Bug Hunt
-        s("bug_reproducer", "Bug Reproducer", [.build], .answer, """
+        s("bug_reproducer", "Bug Reproducer", .build, .answer, """
         Reduce the bug to the smallest reproducible scenario. Use concrete steps, \
         inputs, expected behavior, and observed behavior. Do not invent facts. If a \
         detail is unknown, name the missing observation.
         """),
-        s("truth_owner_mapper", "Truth Owner Mapper", [.build], .answer, """
+        s("truth_owner_mapper", "Truth Owner Mapper", .build, .answer, """
         Name the truth owner before proposing a fix. Separate the observed symptom from \
         the semantic owner, the layer that appears to be lying, and the proof that would \
         disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.
         """),
-        s("trace_mapper", "Trace Mapper", [.build], .answer, """
+        s("trace_mapper", "Trace Mapper", .build, .answer, """
         Map the bug through the likely layers: UI, presenter/model, engine, store, \
         contract, persisted file, external CLI. Name the truth owner and the first layer \
         likely to be lying.
         """),
-        s("state_skeptic", "State Skeptic", [.build], .answer, """
+        s("state_skeptic", "State Skeptic", .build, .answer, """
         Assume the bug is caused by duplicated state, stale state, optimistic UI, missing \
         persistence, or a drifted snapshot. Look for places the UI can display truth it \
         does not own.
         """),
-        s("change_impact_reviewer", "Change Impact Reviewer", [.build], .answer, """
+        s("change_impact_reviewer", "Change Impact Reviewer", .build, .answer, """
         Zoom out before the fix. Name the shared components, state owners, presenters, \
         persisted files, contracts, fixtures, and nearby workflows that the proposed fix \
         could affect. The goal is not broad cleanup; it is avoiding a local patch that \
         leaves wreckage elsewhere.
         """),
-        s("correct_fix_planner", "Correct Fix Planner", [.build], .answer, """
+        s("correct_fix_planner", "Correct Fix Planner", .build, .answer, """
         Plan the smallest correct fix, not the smallest visible patch. Do not patch the \
         visible layer until the truth owner and blast radius are named. If the cause is \
         duplicated state, SSOT drift, presenter mismatch, or shared component behavior, \
         the correct fix may be deeper than the failing view.
         """),
-        s("regression_guard", "Regression Guard", [.build], .answer, """
+        s("regression_guard", "Regression Guard", .build, .answer, """
         Write the proof plan. Name the exact unit/integration/fixture test that would \
         fail before the fix and pass after. Include a negative test for the old lie when \
         possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition \
         to semantic tests.
         """),
-        s("gui_bug_reproducer", "GUI Bug Reproducer", [.build], .answer, """
+        s("gui_bug_reproducer", "GUI Bug Reproducer", .build, .answer, """
         Reduce the visible GUI bug to the smallest rendered state that proves it: surface, \
         fixture, window state, interaction, expected pixels, and observed pixels. Separate \
         layout breakage from content/data truth.
         """),
-        s("gui_proof_guard", "GUI Proof Guard", [.build], .answer, """
+        s("gui_proof_guard", "GUI Proof Guard", .build, .answer, """
         Apply the GUI proof law. A visible GUI bug is not fixed from build success, code \
         confidence, or the builder's own screenshot. Name the required GUIFixture render, \
         layout-watcher pass, affected states, and any blocked proof harness.
         """),
-        s("gui_layout_reviewer", "GUI Layout Reviewer", [.build], .review, """
+        s("gui_layout_reviewer", "GUI Layout Reviewer", .build, .review, """
         Review the rendered surface for clipped, collapsed, missing, overlapping, \
         off-screen, detached, or z-order/scrim breakage. Treat layout proof as separate \
         from Core/content truth, and block closeout when pixels are still broken.
         """),
-        s("user_impact_narrator", "User Impact Narrator", [.build], .review, """
+        s("user_impact_narrator", "User Impact Narrator", .build, .review, """
         Describe the trust break in user terms. What did the user believe Allnighter \
         would do, what happened instead, and what must be visibly true after the fix?
         """),
-        s("contrarian_root_cause", "Contrarian Root Cause", [.build], .review, """
+        s("contrarian_root_cause", "Contrarian Root Cause", .build, .review, """
         Argue against the leading theory. Provide an alternate root cause and the \
         cheapest observation or test that rules it in or out.
         """),
         // Security Review
-        s("boundary_mapper", "Boundary Mapper", [.build], .answer, """
+        s("boundary_mapper", "Boundary Mapper", .build, .answer, """
         Map every trust boundary. Name local process, app, CLI, network, cloud, paired \
         device, and file-system boundaries. For each crossing, name the data, authority, \
         and owner. Calibrate mitigations for a small team moving fast.
         """),
-        s("secrets_reviewer", "Secrets Reviewer", [.build], .answer, """
+        s("secrets_reviewer", "Secrets Reviewer", .build, .answer, """
         Hunt for secrets and credential exposure. Check env vars, config files, Keychain, \
         logs, generated artifacts, prompts, run journals, and error messages. Assume logs \
         outlive the session. Prefer cheap, durable hygiene over enterprise process.
         """),
-        s("permission_reviewer", "Permission Reviewer", [.build], .answer, """
+        s("permission_reviewer", "Permission Reviewer", .build, .answer, """
         Review macOS/iOS permission posture. Name every permission request or destructive \
         capability, why it is needed, how the user consents, and how the app minimizes \
         the surface. Avoid permission rituals that slow traction without reducing real risk.
         """),
-        s("data_flow_reviewer", "Data Flow Reviewer", [.build], .answer, """
+        s("data_flow_reviewer", "Data Flow Reviewer", .build, .answer, """
         Trace sensitive data from source to deletion. Include local files, prompts, \
         attachments, worker output, run journals, cloud metadata, encrypted blobs, and \
         notifications. Prefer simple ownership and deletion rules a tiny team can maintain.
         """),
-        s("abuse_case_reviewer", "Abuse Case Reviewer", [.build], .answer, """
+        s("abuse_case_reviewer", "Abuse Case Reviewer", .build, .answer, """
         Invent realistic misuse cases: confused user, malicious local client, \
         compromised paired device, compromised cloud metadata, prompt injection, and \
         agent overreach. Tie each to the smallest practical mitigation, not a generic \
         enterprise control.
         """),
-        s("dependency_injection_reviewer", "Dependency/Injection Reviewer", [.build], .review, """
+        s("dependency_injection_reviewer", "Dependency/Injection Reviewer", .build, .review, """
         Check command construction, argument escaping, shell usage, dependency trust, \
         file paths, prompt injection, output parsing, and generated artifacts. Prefer \
         structured APIs over string parsing where possible, and prefer local code changes \
         over heavyweight governance.
         """),
-        s("security_fix_prioritizer", "Security Fix Prioritizer", [.build], .review, """
+        s("security_fix_prioritizer", "Security Fix Prioritizer", .build, .review, """
         Convert findings into small-team action. Label required stop, must-fix before \
         ship, cheap hardening, later when scale warrants, accepted risk, or enterprise-only \
         suggestion rejected. Every required stop needs a proof condition.
         """),
         // Architecture Pressure Test
-        s("truth_owner", "Truth Owner", [.build], .answer, """
+        s("truth_owner", "Truth Owner", .build, .answer, """
         Name the semantic owner for every durable fact. Separate product truth from UI \
         rendering, generated artifacts, prompt prose, and cache state. Reject any design \
         where SwiftUI or an agent prompt becomes the only owner of durable meaning.
         """),
-        s("complexity_cutter", "Complexity Cutter", [.build], .answer, """
+        s("complexity_cutter", "Complexity Cutter", .build, .answer, """
         Remove abstractions that do not pay rent. Prefer the smallest local shape that \
         preserves the future path. Call out cleverness, generic frameworks, and config \
         surfaces that are not needed for the current slice.
         """),
-        s("failure_concurrency", "Failure & Concurrency", [.build], .answer, """
+        s("failure_concurrency", "Failure & Concurrency", .build, .answer, """
         Look for races, partial writes, cancelled tasks, orphaned runs, interrupted \
         processes, retries, and stale snapshots. Name what happens if the app closes \
         mid-run or two attempts touch the same owner.
         """),
-        s("migration_steward", "Migration Steward", [.build], .answer, """
+        s("migration_steward", "Migration Steward", .build, .answer, """
         Identify fixtures, generated artifacts, persisted files, CLI contracts, and docs \
         that must move together. Because the product is pre-user, prefer clean cutovers \
         over long-lived compatibility shims.
         """),
-        s("contrarian_architect", "Contrarian Architect", [.build], .review, """
+        s("contrarian_architect", "Contrarian Architect", .build, .review, """
         Defend the strongest alternative architecture. Say what it would make simpler, \
         what it would make worse, and what evidence would change the decision.
         """),
         // Release Proof
-        s("acceptance_auditor", "Acceptance Auditor", [.build], .answer, """
+        s("acceptance_auditor", "Acceptance Auditor", .build, .answer, """
         Compare the claimed user-visible behavior to the actual slice. Name what is \
         done, what is not done, and what would make the claim misleading.
         """),
-        s("test_runner_planner", "Test Runner Planner", [.build], .answer, """
+        s("test_runner_planner", "Test Runner Planner", .build, .answer, """
         Choose the exact proof commands, fixtures, and focused tests. Prefer \
         deterministic checks over agent judgment. Include the smallest command set that \
         protects the behavior.
         """),
-        s("edge_case_hunter", "Edge Case Hunter", [.build], .answer, """
+        s("edge_case_hunter", "Edge Case Hunter", .build, .answer, """
         Probe empty, error, partial, interrupted, one-model, missing-model, and stale \
         history states. Look for where the happy path can lie.
         """),
-        s("contract_drift_checker", "Contract Drift Checker", [.build], .answer, """
+        s("contract_drift_checker", "Contract Drift Checker", .build, .answer, """
         Check CLI help, generated schemas, fixtures, JSON field names, docs, and \
         reproduce commands for drift. Generated artifacts must come from the registry, \
         not hand edits.
         """),
-        s("demo_narrator", "Demo Narrator", [.build], .review, """
+        s("demo_narrator", "Demo Narrator", .build, .review, """
         Write the shortest credible demo walkthrough. It should say what the user can do \
         now, what they will see, and why the result proves the slice.
         """),
-        s("risk_register", "Risk Register", [.build], .review, """
+        s("risk_register", "Risk Register", .build, .review, """
         Name residual risks and proof gaps honestly. Separate blockers from acceptable \
         follow-ups and assign an owner to each open item.
         """)
@@ -259,141 +259,141 @@ public enum SkillCatalog {
     // MARK: - Design skills
 
     private static let designSkills: [Skill] = [
-        s("information_architect", "Information Architect", [.design], .answer, """
+        s("information_architect", "Information Architect", .design, .answer, """
         Design the information structure. What must be seen first, what can be \
         secondary, and what object relationships must be clear? Optimize for scanning \
         and repeated use, not marketing flourish.
         """),
-        s("interaction_designer", "Interaction Designer", [.design], .answer, """
+        s("interaction_designer", "Interaction Designer", .design, .answer, """
         Design behavior. Choose controls, states, affordances, and flow. Make the common \
         path fast and the dangerous path explicit. Include empty, loading, error, \
         running, and done states where relevant.
         """),
-        s("visual_system_designer", "Visual System Designer", [.design], .answer, """
+        s("visual_system_designer", "Visual System Designer", .design, .answer, """
         Apply the design system. Use dark-mode midnight surfaces, one warm amber signal, \
         restrained status hues, stable dimensions, and existing component patterns. \
         Avoid decorative clutter and one-note palettes.
         """),
-        s("accessibility_reviewer", "Accessibility Reviewer", [.design], .review, """
+        s("accessibility_reviewer", "Accessibility Reviewer", .design, .review, """
         Review contrast, focus, keyboard use, screen-reader labels, hit targets, motion, \
         and cognitive load. Point out where the design would fail under stress or on a \
         small screen.
         """),
-        s("brand_fit_reviewer", "Brand Fit Reviewer", [.design], .review, """
+        s("brand_fit_reviewer", "Brand Fit Reviewer", .design, .review, """
         Protect Allnighter's voice and visual posture: calm, capable, local, technical, \
         and plain-spoken. Reject hype, noisy cards, and UI text that explains itself \
         instead of doing the job.
         """),
-        s("outlier_direction", "Outlier Direction", [.design], .answer, """
+        s("outlier_direction", "Outlier Direction", .design, .answer, """
         Create one plausible direction that breaks the default assumptions while still \
         respecting product truth and the design system. The goal is useful contrast, not \
         novelty for its own sake.
         """),
-        s("design_critic", "Design Critic", [.design], .review, """
+        s("design_critic", "Design Critic", .design, .review, """
         Evaluate the options. Name the job each option does best, where it fails, and \
         which tradeoff matters most. Prefer usable hierarchy over surface decoration.
         """),
         // Premium Polish
-        s("hierarchy_sculptor", "Hierarchy Sculptor", [.design], .answer, """
+        s("hierarchy_sculptor", "Hierarchy Sculptor", .design, .answer, """
         Improve visual hierarchy and scan order. Make the user's next action obvious \
         without oversized hero treatment. Group related controls and reduce visual noise.
         """),
-        s("type_spacing_auditor", "Type & Spacing Auditor", [.design], .answer, """
+        s("type_spacing_auditor", "Type & Spacing Auditor", .design, .answer, """
         Audit type scale, line length, truncation, spacing rhythm, alignment, and \
         responsive fit. Text must not overlap, overflow, or look oversized inside compact \
         surfaces.
         """),
-        s("color_token_keeper", "Color & Token Keeper", [.design], .answer, """
+        s("color_token_keeper", "Color & Token Keeper", .design, .answer, """
         Use the existing design tokens. Preserve dark mode, one warm amber signal, muted \
         status colors, and restrained surfaces. Do not introduce decorative gradients or \
         new accent families.
         """),
-        s("component_stylist", "Component Stylist", [.design], .answer, """
+        s("component_stylist", "Component Stylist", .design, .answer, """
         Choose familiar controls for each job: icons for tools, segmented controls for \
         modes, toggles for binary settings, menus for option sets, tabs for views, and \
         buttons for commands.
         """),
-        s("state_designer", "State Designer", [.design], .answer, """
+        s("state_designer", "State Designer", .design, .answer, """
         Design every state the surface can enter: loading, empty, running, partial, \
         failed, done, disabled, and manual attention. A failed worker is shown failed.
         """),
-        s("polish_critic", "Polish Critic", [.design], .review, """
+        s("polish_critic", "Polish Critic", .design, .review, """
         Cut decoration. Keep only changes that improve clarity, trust, speed, or fit \
         with the design system. Preserve product semantics.
         """),
         // Conversion Studio
-        s("offer_clarity", "Offer Clarity", [.design], .answer, """
+        s("offer_clarity", "Offer Clarity", .design, .answer, """
         Make the literal offer legible. The first viewport should answer what this is, \
         who it is for, and why the user should care. Put value props in supporting copy, \
         not vague headlines.
         """),
-        s("cta_path", "CTA Path", [.design], .answer, """
+        s("cta_path", "CTA Path", .design, .answer, """
         Inspect the primary and secondary action path: button copy, placement, visual \
         priority, follow-through, and dead ends. The user should know what happens next.
         """),
-        s("friction_hunter", "Friction Hunter", [.design], .answer, """
+        s("friction_hunter", "Friction Hunter", .design, .answer, """
         Find hesitation points: missing context, overlong forms, unclear commitments, \
         buried proof, confusing labels, and choices that arrive too early.
         """),
-        s("trust_builder", "Trust Builder", [.design], .answer, """
+        s("trust_builder", "Trust Builder", .design, .answer, """
         Place evidence where it reduces risk: proof, safety copy, local/privacy claims, \
         testimonials, screenshots, or concrete examples. Do not add trust badges as \
         decoration.
         """),
-        s("mobile_scanner", "Mobile Scanner", [.design], .answer, """
+        s("mobile_scanner", "Mobile Scanner", .design, .answer, """
         Optimize for small-screen scan order and thumb flow. Ensure the product or offer \
         is visible early, text does not crowd controls, and the next section is hinted.
         """),
-        s("objection_finder", "Objection Finder", [.design], .review, """
+        s("objection_finder", "Objection Finder", .design, .review, """
         Name the objections the screen must answer before action: price, effort, risk, \
         credibility, setup, switching cost, privacy, and "why now."
         """),
         // Radical Directions
-        s("minimal_direction", "Minimal Direction", [.design], .answer, """
+        s("minimal_direction", "Minimal Direction", .design, .answer, """
         Create the quietest functional direction. Fewer elements, clearer hierarchy, \
         less copy, and the shortest path to the user's decision.
         """),
-        s("bold_direction", "Bold Direction", [.design], .answer, """
+        s("bold_direction", "Bold Direction", .design, .answer, """
         Create a stronger, more opinionated direction with clearer contrast and larger \
         gestures while staying usable and inside the design system.
         """),
-        s("editorial_direction", "Editorial Direction", [.design], .answer, """
+        s("editorial_direction", "Editorial Direction", .design, .answer, """
         Create a narrative direction for complex value props. Use sequencing, \
         explanation, examples, and proof to make the idea easier to understand.
         """),
-        s("operational_direction", "Operational Direction", [.design], .answer, """
+        s("operational_direction", "Operational Direction", .design, .answer, """
         Create a dense repeat-use direction for power users. Prioritize scanning, \
         comparison, predictable controls, and fast repeated action over decorative \
         composition.
         """),
-        s("native_app_direction", "Native App Direction", [.design], .answer, """
+        s("native_app_direction", "Native App Direction", .design, .answer, """
         Create the most macOS/iOS-native version. Use familiar controls, restrained \
         surfaces, stable layout, and local-app posture instead of web landing-page \
         patterns.
         """),
-        s("direction_critic", "Direction Critic", [.design], .review, """
+        s("direction_critic", "Direction Critic", .design, .review, """
         Keep the directions truly different. Reject shallow style swaps, name what each \
         direction optimizes for, and say when each should win.
         """),
         // Usability Triage
-        s("journey_mapper", "Journey Mapper", [.design], .answer, """
+        s("journey_mapper", "Journey Mapper", .design, .answer, """
         Walk the user's path step by step. Name every decision point, every place context \
         can be lost, and every place the user has to remember something.
         """),
-        s("control_ergonomics", "Control Ergonomics", [.design], .answer, """
+        s("control_ergonomics", "Control Ergonomics", .design, .answer, """
         Check whether each control matches the user's mental model. Use menus, \
         segmented controls, toggles, sliders, tabs, and buttons for the jobs they are \
         best at.
         """),
-        s("navigation_reviewer", "Navigation Reviewer", [.design], .answer, """
+        s("navigation_reviewer", "Navigation Reviewer", .design, .answer, """
         Review wayfinding, mode switching, backtracking, selection state, and whether \
         the user can recover from the wrong turn without losing work.
         """),
-        s("cognitive_load_cutter", "Cognitive Load Cutter", [.design], .review, """
+        s("cognitive_load_cutter", "Cognitive Load Cutter", .design, .review, """
         Remove choices, labels, or steps that do not earn their place. Prefer visible \
         state and concrete verbs over explanatory text.
         """),
-        s("state_feedback_reviewer", "State Feedback Reviewer", [.design], .review, """
+        s("state_feedback_reviewer", "State Feedback Reviewer", .design, .review, """
         Make queued, running, partial, done, failed, timed out, disabled, and \
         needs-attention states obvious and honest. A failed worker is shown failed.
         """)
@@ -402,35 +402,35 @@ public enum SkillCatalog {
     // MARK: - Copy skills (Copy lane parity; full type packs owned by docs/phases/copy)
 
     private static let copySkills: [Skill] = [
-        s("offer_strategist", "Offer Strategist", [.copy], .answer, """
+        s("offer_strategist", "Offer Strategist", .copy, .answer, """
         Name the literal offer and the one job the copy must do. Lead with the value the \
         reader cares about, not the brand. State who it is for and why now.
         """),
-        s("headline_writer", "Headline Writer", [.copy], .answer, """
+        s("headline_writer", "Headline Writer", .copy, .answer, """
         Write candidate headlines and a subhead that make the offer legible in the first \
         viewport. Specific over clever. No vague hype.
         """),
-        s("direct_response_writer", "Direct Response Writer", [.copy], .answer, """
+        s("direct_response_writer", "Direct Response Writer", .copy, .answer, """
         Write the body copy in plain, direct language. One idea per paragraph, concrete \
         nouns and verbs, reader-first. Cut throat-clearing and filler.
         """),
-        s("objection_hunter", "Objection Hunter", [.copy], .answer, """
+        s("objection_hunter", "Objection Hunter", .copy, .answer, """
         Name the objections the reader has before acting — price, effort, risk, trust, \
         switching cost, privacy, "why now" — and answer each in copy.
         """),
-        s("cta_writer", "CTA Writer", [.copy], .answer, """
+        s("cta_writer", "CTA Writer", .copy, .answer, """
         Write the primary and secondary calls to action. The verb should say exactly what \
         happens next. Remove ambiguity and dead ends.
         """),
-        s("proof_skeptic", "Proof Skeptic", [.copy], .review, """
+        s("proof_skeptic", "Proof Skeptic", .copy, .review, """
         Challenge every claim. Demand evidence, specifics, or honest hedging. Flag any \
         line that overpromises or that a skeptical reader would not believe.
         """),
-        s("brand_voice", "Brand Voice", [.copy], .review, """
+        s("brand_voice", "Brand Voice", .copy, .review, """
         Keep the copy calm, capable, local, technical, and plain-spoken. Reject hype, \
         clichés, and copy that explains itself instead of doing the job.
         """),
-        s("clarity_editor", "Clarity Editor", [.copy], .review, """
+        s("clarity_editor", "Clarity Editor", .copy, .review, """
         Edit for clarity and rhythm. Cut words that do not earn their place, fix \
         ambiguity, and make the scan order match the reader's decision.
         """)
@@ -439,42 +439,42 @@ public enum SkillCatalog {
     // MARK: - Synthetic plan/output writer skills (one per output kind)
 
     private static let writerSkills: [Skill] = [
-        writer("plan_writer_build", "Build Plan Writer", [.build],
+        writer("plan_writer_build", "Build Plan Writer", .build,
                "implementable plan with scope, architecture, risks, and a proof wall"),
-        writer("bug_packet_writer", "Bug Packet Writer", [.build],
+        writer("bug_packet_writer", "Bug Packet Writer", .build,
                "bug packet: symptom, repro, truth owner, lie-prone layer, blast radius, smallest correct fix, regression proof"),
-        writer("gui_bug_packet_writer", "GUI Bug Packet Writer", [.build],
+        writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .build,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
-        writer("security_register_writer", "Security Register Writer", [.build],
+        writer("security_register_writer", "Security Register Writer", .build,
                "small-team security review: boundaries, risks, severity, required stops, cheap hardening, accepted risks, proof requirements"),
-        writer("architecture_verdict_writer", "Architecture Verdict Writer", [.build],
+        writer("architecture_verdict_writer", "Architecture Verdict Writer", .build,
                "architecture verdict: truth owner, boundary map, rejected alternatives, implementation slices, proof wall"),
-        writer("proof_packet_writer", "Proof Packet Writer", [.build],
+        writer("proof_packet_writer", "Proof Packet Writer", .build,
                "proof packet: Works Test, commands run, missing proof, residual risks, closeout verdict"),
-        writer("design_board_writer", "Design Board Writer", [.design],
+        writer("design_board_writer", "Design Board Writer", .design,
                "design board: options, rationale, tradeoffs, and the selected direction when requested"),
-        writer("polish_board_writer", "Polish Board Writer", [.design],
+        writer("polish_board_writer", "Polish Board Writer", .design,
                "polish board: concrete visual/interaction improvements, before/after priorities, token/component changes"),
-        writer("conversion_board_writer", "Conversion Board Writer", [.design],
+        writer("conversion_board_writer", "Conversion Board Writer", .design,
                "conversion board: hierarchy, offer clarity, trust/proof, CTA path, friction cuts"),
-        writer("direction_board_writer", "Direction Board Writer", [.design],
+        writer("direction_board_writer", "Direction Board Writer", .design,
                "option board: distinct directions, what each optimizes for, and when to choose it"),
-        writer("usability_triage_writer", "Usability Triage Writer", [.design],
+        writer("usability_triage_writer", "Usability Triage Writer", .design,
                "usability triage: top friction points, severity, fix order, state/control changes"),
-        writer("copy_board_writer", "Copy Board Writer", [.copy],
+        writer("copy_board_writer", "Copy Board Writer", .copy,
                "copy board: the versions, what each optimizes for, and the recommended pick"),
-        writer("landing_copy_writer", "Landing Copy Writer", [.copy],
+        writer("landing_copy_writer", "Landing Copy Writer", .copy,
                "landing page copy board: hero, value props, proof, objections handled, and CTAs")
     ]
 
     // MARK: - Builders
 
-    private static func s(_ id: String, _ name: String, _ lanes: [WorkLane], _ purpose: SkillPurpose, _ template: String) -> Skill {
-        Skill(id: id, displayName: name, laneTags: lanes, purpose: purpose, template: template)
+    private static func s(_ id: String, _ name: String, _ lane: WorkLane, _ purpose: SkillPurpose, _ template: String) -> Skill {
+        Skill(id: id, displayName: name, lane: lane, purpose: purpose, template: template)
     }
 
-    private static func writer(_ id: String, _ name: String, _ lanes: [WorkLane], _ outputDescription: String) -> Skill {
-        Skill(id: id, displayName: name, laneTags: lanes, purpose: .planWriter, template: """
+    private static func writer(_ id: String, _ name: String, _ lane: WorkLane, _ outputDescription: String) -> Skill {
+        Skill(id: id, displayName: name, lane: lane, purpose: .planWriter, template: """
         You are the team's plan writer. You are given the original prompt, the independent \
         worker answers, and any review notes. Synthesize them into a single decisive \
         \(outputDescription). Decide; do not average. Resolve each contradiction explicitly \
