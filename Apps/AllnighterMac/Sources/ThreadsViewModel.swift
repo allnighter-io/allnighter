@@ -35,6 +35,10 @@ final class ThreadsViewModel {
     /// Cached health truth (loaded once at launch, never probed here) — drives the
     /// ready bench the team resolver may draw from. Empty until setup has run.
     private let toolStatuses: [ToolProbeRecord]
+    /// Process-wide one-Running-per-lane gate for Execute orders (INVIOLABLE — see
+    /// [[allnighter-pending-execute-lane-safety]]). Shared so every dispatch path
+    /// (thread + legacy AppModel) serializes on the same lanes.
+    private let laneRegistry: ExecutionLaneRegistry
 
     /// Production init: self-sufficient, loads the same config as AppModel and
     /// invokes real CLIs. GUI fixtures use an isolated temp store.
@@ -85,7 +89,8 @@ final class ThreadsViewModel {
         registry: DriverRegistry,
         models: [Model],
         toolStatuses: [ToolProbeRecord] = [],
-        runner: WorkerRunner
+        runner: WorkerRunner,
+        laneRegistry: ExecutionLaneRegistry = .shared
     ) {
         self.store = store
         self.runStore = runStore
@@ -93,6 +98,7 @@ final class ThreadsViewModel {
         self.models = models
         self.toolStatuses = toolStatuses
         self.runner = runner
+        self.laneRegistry = laneRegistry
         self.coordinator = WorkerChatCoordinator(
             store: store, runner: runner, registry: registry, models: models
         )
@@ -213,9 +219,10 @@ final class ThreadsViewModel {
             appendUserTurn(message, toThreadId: threadId)
             runTeam(routing, toThreadId: threadId)
         case .exec:
-            // CR4d: dispatch to a repo (execute-lane FIFO — INVIOLABLE). Until then
-            // record the intent as a user turn so nothing is lost or faked.
+            // CR4d: hand the work to an executor CLI in the repo. The execute-lane
+            // gate (one running per working dir) is INVIOLABLE — enforced in dispatch.
             appendUserTurn(message, toThreadId: threadId)
+            dispatchExecute(routing, toThreadId: threadId)
         }
     }
 
@@ -290,6 +297,138 @@ final class ThreadsViewModel {
         runStore.load(runId: runId)
     }
 
+    /// The executor's return behind a dispatch turn, for the dispatch row.
+    func executionReturn(runId: String?, stageId: String?) -> ExecutionReturn? {
+        guard let runId, let run = runStore.load(runId: runId) else { return nil }
+        if let stageId, let stage = run.stages.first(where: { $0.id == stageId }) {
+            return stage.payload?.executionReturn
+        }
+        return run.stages.last { $0.purpose == .dispatch }?.payload?.executionReturn
+    }
+
+    // MARK: - Execute (CR4d)
+
+    /// Hand the conversation's work to an executor CLI running IN the thread's
+    /// working directory. INVIOLABLE: the execution lane (one Running per working
+    /// dir) gates this — a second Execute order in a busy folder is REFUSED with an
+    /// honest blocked turn, never run concurrently (two agents in one repo corrupts
+    /// work). Reuses the RB4 `Dispatcher`; an unhealthy worker or non-writable dir
+    /// reveals the brief instead of inventing a result. Allnighter never makes a
+    /// worktree or commits — the CLI owns the repo.
+    private func dispatchExecute(_ routing: ComposeRouting, toThreadId threadId: String) {
+        guard let model = models.first(where: { $0.id == routing.to }) else {
+            appendDispatchNote("No executor selected. Route the turn to a coding agent first.",
+                               status: .failed, toThreadId: threadId)
+            return
+        }
+        let dir = (store.get(threadId)?.workingDir ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !dir.isEmpty else {
+            appendDispatchNote("Set a working directory on this conversation before you Execute — Allnighter won't run an agent in an unknown folder.",
+                               status: .failed, toThreadId: threadId)
+            return
+        }
+
+        let prompt = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Dispatch the plan the team just wrote, if this thread has one; otherwise
+        // the typed instruction directly. Either way the executor runs in the repo.
+        let sourceRun = latestDurableTeamRun(in: threadId)
+        let brief: ImplementationBrief
+        if let sourceRun, let built = BriefBuilder.build(run: sourceRun, executionWorkerId: model.id, workingDirectory: dir) {
+            brief = built
+        } else {
+            brief = ImplementationBrief(
+                sourceRunId: sourceRun?.id ?? UUID().uuidString, sourceArtifact: .plan,
+                executionWorkerId: model.id, workingDirectory: dir,
+                prompt: prompt, spec: prompt, judgmentSummary: "Direct execute from conversation."
+            )
+        }
+
+        let runId = sourceRun?.id ?? UUID().uuidString
+        let laneKey = ExecutionLane.key(workingDirectory: dir)
+        let healthy = readyModels.contains { $0.id == model.id }
+        let manifest = registry.manifest(for: model)
+        let dispatchIndex = (sourceRun?.stages.filter { $0.purpose == .dispatch }.count ?? 0) + 1
+        let artifactsDir = (try? runStore.runDirectory(forRunId: runId))
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("alln-dispatch-\(runId)", isDirectory: true)
+        let runner = self.runner
+        let runStore = self.runStore
+        let snapshotModels = models
+        let laneRegistry = self.laneRegistry
+
+        Task { @MainActor in
+            // EXECUTE-LANE GATE (INVIOLABLE). Refuse, never run two in one folder.
+            guard await laneRegistry.acquire(laneKey) else {
+                appendDispatchNote("Execution lane busy — an Execute order is already running in \(dir). Allnighter runs one agent at a time per folder; let it finish or cancel it.",
+                                   status: .failed, toThreadId: threadId)
+                return
+            }
+
+            let turnId = UUID().uuidString
+            let dispatchTurn = ThreadTurn(
+                id: turnId, threadId: threadId, kind: .dispatch, status: .running,
+                createdAt: Date(), author: .worker, workerId: model.id, runId: runId
+            )
+            _ = try? store.append(dispatchTurn, toThreadId: threadId, now: Date())
+            reload()
+
+            let stage = await Task.detached { () -> StageOutput in
+                await Dispatcher(workerRunner: runner).dispatch(
+                    brief: brief, worker: model, manifest: manifest, healthy: healthy,
+                    revealOnly: false, dispatchIndex: dispatchIndex, artifactsDir: artifactsDir
+                )
+            }.value
+
+            // Release the lane the instant the order settles — before persistence —
+            // so the next queued Execute can proceed without waiting on disk I/O.
+            await laneRegistry.release(laneKey)
+
+            // Persist the dispatch stage into a durable run so the turn renders by runId.
+            var run = sourceRun ?? TeamRun(id: runId, prompt: prompt, status: .complete, origin: .gui, createdAt: Date())
+            run.stages.append(stage)
+            _ = try? runStore.save(run, models: snapshotModels)
+
+            var settled = dispatchTurn
+            settled.stageId = stage.id
+            settled.status = Self.dispatchTurnStatus(for: stage.status)
+            settled.completedAt = Date()
+            _ = try? store.update(settled, inThreadId: threadId, now: Date())
+            reload()
+        }
+    }
+
+    /// The most recent team board in this thread whose durable run carries a plan —
+    /// the spec an executor should implement (true dogfood: fan out → plan → execute).
+    private func latestDurableTeamRun(in threadId: String) -> TeamRun? {
+        guard let thread = store.get(threadId) else { return nil }
+        for turn in thread.turns.reversed()
+        where turn.kind == .teamRun || turn.kind == .designBoard {
+            if let runId = turn.runId, let run = runStore.load(runId: runId), run.plan != nil {
+                return run
+            }
+        }
+        return nil
+    }
+
+    private func appendDispatchNote(_ text: String, status: ThreadTurnStatus, toThreadId threadId: String) {
+        let turn = ThreadTurn(
+            id: UUID().uuidString, threadId: threadId, kind: .dispatch, status: status,
+            createdAt: Date(), completedAt: Date(), author: .system, text: text
+        )
+        try? store.append(turn, toThreadId: threadId, now: Date())
+        reload()
+    }
+
+    /// A reveal (worker not healthy / dir not writable) settles `done` — it is an
+    /// intentional no-run, not a failure; the dispatch row shows the reveal reason.
+    private static func dispatchTurnStatus(for status: StageStatus) -> ThreadTurnStatus {
+        switch status {
+        case .done, .skipped, .reused: return .done
+        case .failed: return .failed
+        case .timedOut: return .timedOut
+        case .queued, .running: return .running
+        }
+    }
+
     private func appendFailedBoard(_ reason: String, kind: ThreadTurnKind, toThreadId threadId: String) {
         let turn = ThreadTurn(
             id: UUID().uuidString, threadId: threadId, kind: kind, status: .failed,
@@ -358,6 +497,8 @@ final class ThreadsViewModel {
             seedFixtureChatExchange()
         case "thread-team-board":
             seedFixtureTeamBoard()
+        case "thread-dispatch":
+            seedFixtureDispatch()
         default:
             break
         }
@@ -470,6 +611,48 @@ final class ThreadsViewModel {
         )
         _ = try? store.append(user, toThreadId: id, now: Date())
         _ = try? store.append(board, toThreadId: id, now: Date())
+        reload()
+        selectedThreadId = id
+    }
+
+    /// CR4d proof: a user instruction + a settled dispatch turn (designer-mock).
+    /// Seeds a durable run carrying a dispatch stage so the row renders the real
+    /// path (turn → runId/stageId → ExecutionReturn).
+    private func seedFixtureDispatch() {
+        let id = "fixture-dispatch"
+        _ = try? store.create(id: id, title: "Add retry to the upload client", now: Date(),
+                              workingDir: "/Users/you/code/uploader")
+        let workerId = models.first { $0.id == "model_claude_code" }?.id
+            ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
+            ?? models.first?.id ?? "model_claude_code"
+
+        let ret = ExecutionReturn(
+            id: "fixture-exec", executionWorkerId: workerId, workingDirectory: "/Users/you/code/uploader",
+            dispatchIndex: 1, status: .done, exitCode: 0,
+            transcriptExcerpt: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing.",
+            diffSummary: "2 files changed, 47 insertions(+), 6 deletions(-)",
+            startedAt: Date(), finishedAt: Date()
+        )
+        var run = TeamRun(id: "fixture-dispatch-run", prompt: "Add retry to the upload client",
+                          status: .complete, origin: .gui, createdAt: Date())
+        run.stages = [StageOutput(
+            id: "fixture-dispatch-stage", purpose: .dispatch, producedByWorkerId: workerId,
+            status: .done, payload: .dispatch(ret), startedAt: Date(), finishedAt: Date()
+        )]
+        _ = try? runStore.save(run, models: models)
+
+        let user = ThreadTurn(
+            id: "fixture-dispatch-user", threadId: id, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user,
+            text: "Add exponential backoff retry to the upload client and run the tests."
+        )
+        let dispatch = ThreadTurn(
+            id: "fixture-dispatch-turn", threadId: id, kind: .dispatch, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .worker,
+            workerId: workerId, runId: run.id, stageId: "fixture-dispatch-stage"
+        )
+        _ = try? store.append(user, toThreadId: id, now: Date())
+        _ = try? store.append(dispatch, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }

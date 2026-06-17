@@ -396,9 +396,17 @@ final class AppModel {
         let snapshotRunId = current.id
 
         isDispatching = true
-        let registryCopy = registry
+        // Execute-lane gate (INVIOLABLE): never run two Execute orders in one folder,
+        // even across surfaces. Shares the registry with the thread dispatch path.
+        let laneKey = ExecutionLane.key(workingDirectory: dir)
         Task { @MainActor [weak self] in
             guard let self else { return }
+            guard await ExecutionLaneRegistry.shared.acquire(laneKey) else {
+                // Another Execute order already holds this folder's lane.
+                self.isDispatching = false
+                return
+            }
+            defer { self.isDispatching = false }
             // Doctor gate: use a cached healthy result, else diagnose now.
             var healthy = self.diagnosis(for: workerId)?.isHealthy ?? false
             if self.diagnosis(for: workerId) == nil {
@@ -412,11 +420,11 @@ final class AppModel {
                 brief: brief, worker: model, manifest: manifest, healthy: healthy,
                 revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
             )
-            guard var updated = self.run else { self.isDispatching = false; return }
+            await ExecutionLaneRegistry.shared.release(laneKey)
+            guard var updated = self.run else { return }
             updated.stages.append(stage)
             self.run = updated
             self.persist()
-            self.isDispatching = false
         }
     }
 
@@ -1049,8 +1057,16 @@ extension AppModel {
         let snapshotRunId = current.id
 
         isDispatching = true
+        // Execute-lane gate (INVIOLABLE): a design build runs an agent in the repo
+        // too — serialize it on the same folder lane as every other Execute path.
+        let laneKey = ExecutionLane.key(workingDirectory: dir)
         Task { @MainActor [weak self] in
             guard let self else { return }
+            guard await ExecutionLaneRegistry.shared.acquire(laneKey) else {
+                self.isDispatching = false
+                return
+            }
+            defer { self.isDispatching = false }
             var healthy = self.diagnosis(for: workerId)?.isHealthy ?? false
             if self.diagnosis(for: workerId) == nil {
                 let d = await Doctor(commandRunner: SubprocessCommandRunner()).diagnose(model, manifest: manifest)
@@ -1063,11 +1079,11 @@ extension AppModel {
                 brief: brief, worker: model, manifest: manifest, healthy: healthy,
                 revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
             )
-            guard var updated = self.run else { self.isDispatching = false; return }
+            await ExecutionLaneRegistry.shared.release(laneKey)
+            guard var updated = self.run else { return }
             updated.stages.append(stage)
             self.run = updated
             self.persist()
-            self.isDispatching = false
         }
     }
 }

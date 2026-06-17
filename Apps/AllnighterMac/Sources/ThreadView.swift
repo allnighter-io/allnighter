@@ -181,6 +181,8 @@ private struct ThreadTurnRow: View {
             workerBubble
         case .teamRun, .designBoard, .reviewBoard:
             ThreadBoardRow(turn: turn)
+        case .dispatch:
+            ThreadDispatchRow(turn: turn)
         default:
             stubTurn
         }
@@ -393,6 +395,127 @@ private struct ThreadBoardRow: View {
         case .cancelled: return .cancelled
         case .running: return .running
         case .queued, .skipped: return .queued
+        }
+    }
+}
+
+// MARK: - CR4d dispatch (Execute → repo)
+
+/// An executor ran (or was refused/revealed) in the repo. Renders from the durable
+/// ExecutionReturn behind the turn (runId/stageId). System notes (no run) — a
+/// missing dir, busy execution lane — render as honest text, never a fake result.
+private struct ThreadDispatchRow: View {
+    @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
+    let turn: ThreadTurn
+
+    private var ret: ExecutionReturn? { threads.executionReturn(runId: turn.runId, stageId: turn.stageId) }
+    private var model: ComposeBenchModel? {
+        guard let id = turn.workerId else { return nil }
+        return appModel.composeBench.first { $0.id == id }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            glyph
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                content
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder private var glyph: some View {
+        if let model {
+            DriverBrandGlyph(driverId: model.driverId, boxSize: 28, iconSize: 14, cornerRadius: 7)
+        } else {
+            Image(systemName: "terminal.fill").font(.system(size: 13)).foregroundStyle(ALColor.accent)
+                .frame(width: 28, height: 28).background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 7))
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Text(model?.name ?? turn.workerId ?? "Executor")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+            Text("· executed").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            Text(turn.createdAt, format: .dateTime.hour().minute())
+                .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+        }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch turn.status {
+        case .running, .queued, .draft:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("running in the repo…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+            }
+        case .failed, .timedOut:
+            // No durable return → a system note (missing dir / busy execution lane /
+            // no executor). With a return, render the executor's actual outcome.
+            if ret == nil {
+                Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The executor failed.")
+                    .font(.system(size: 13)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
+            } else {
+                resultCard
+            }
+        case .done:
+            resultCard
+        case .cancelled:
+            Text("Cancelled.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+        }
+    }
+
+    @ViewBuilder private var resultCard: some View {
+        if let ret {
+            VStack(alignment: .leading, spacing: 8) {
+                workingDirRow(ret.workingDirectory)
+                if ret.status == .reveal {
+                    banner(icon: "eye", tint: ALColor.textMuted,
+                           text: "Revealed the brief — not run\(ret.transcriptExcerpt.map { " (\($0))" } ?? "").")
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: ret.status == .done ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(ret.status == .done ? ALPalette.green500 : ALPalette.red400)
+                        Text(ret.status == .done ? "Executed" : ret.status.rawValue.capitalized)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(ret.status == .done ? ALColor.textSecondary : ALPalette.red400)
+                        if let diff = ret.diffSummary, !diff.isEmpty {
+                            Text("· \(diff)").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                        }
+                    }
+                    if let excerpt = ret.transcriptExcerpt, !excerpt.isEmpty {
+                        Text(.init(excerpt))
+                            .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                            .lineSpacing(2).textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        } else {
+            Text(turn.text ?? "Dispatched.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+        }
+    }
+
+    private func workingDirRow(_ dir: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "folder.fill").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+            Text(dir).font(ALFont.monoSm).foregroundStyle(ALColor.textMuted).lineLimit(1).truncationMode(.middle)
+        }
+    }
+
+    private func banner(icon: String, tint: Color, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(tint)
+            Text(text).font(.system(size: 12.5)).foregroundStyle(ALColor.textMuted)
+                .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
         }
     }
 }
