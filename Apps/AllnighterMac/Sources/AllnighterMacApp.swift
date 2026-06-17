@@ -24,7 +24,9 @@ struct AllnighterMacApp: App {
     @State private var model: AppModel
 
     init() {
+        #if DEBUG
         GUIFixture.bootstrap()
+        #endif
         // HOTFIX (Launch Authority TCC): cold launch must be process-quiet.
         // Do NOT capture login-shell PATH here — spawning a login shell before
         // first paint reads login profiles/version-manager hooks and triggers

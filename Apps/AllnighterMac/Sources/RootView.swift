@@ -54,11 +54,15 @@ struct RootView: View {
 
     var body: some View {
         Group {
+            #if DEBUG
             if GUIFixture.isGrantSession {
                 GUIProofGrantView()
             } else {
                 workspaceContent
             }
+            #else
+            workspaceContent
+            #endif
         }
     }
 
@@ -170,10 +174,11 @@ struct RootView: View {
         }
         .onAppear {
             GlobalHotKey.enable()
+            #if DEBUG
             if GUIFixture.isActive {
                 // GUI Visual Proof Gate: deep-link the captured state (no probes,
                 // no cached load), then self-capture + exit if a PNG was asked
-                // for. Designer-mock only — env-gated, inert on real launches.
+                // for. Designer-mock only — DEBUG + env/file gated.
                 if GUIFixture.opensTeamDropdown { showTeamDropdown = true }
                 if GUIFixture.opensDoctorPopover { showDoctor = true }
                 if GUIFixture.opensReadiness {
@@ -186,7 +191,10 @@ struct RootView: View {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
                 }
                 GUIFixture.captureAndExitIfRequested()
-            } else if model.isConfigurationBroken {
+                return
+            }
+            #endif
+            if model.isConfigurationBroken {
                 showMissingDriversAlert = true
             } else if !didLoadCachedSetup {
                 didLoadCachedSetup = true

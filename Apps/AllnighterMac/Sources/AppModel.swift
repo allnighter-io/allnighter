@@ -96,12 +96,13 @@ final class AppModel {
         reloadPresets()
         if let first = presets.first { apply(first) }
         reloadHistory()
+        #if DEBUG
         // GUI Visual Proof Gate: seed deterministic mixed-health rows ONLY when a
-        // fixture is requested (env-gated designer mock). Inert on every real
-        // launch. See docs/phases/GUI_Visual_Proof_Gate.md.
+        // fixture is requested. DEBUG builds only. See docs/phases/GUI_Visual_Proof_Gate.md.
         if GUIFixture.isActive {
             toolStatuses = GUIFixture.seededToolStatuses(for: models, now: Date())
         }
+        #endif
     }
 
     // MARK: - Panel / seats

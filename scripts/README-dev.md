@@ -42,6 +42,9 @@ Screen Recording permission. Grant it once through the real `.app` bundle:
 bash scripts/gui_proof_grant.sh
 ```
 
+The proof harness is **`#if DEBUG` only** — it is compiled out of Release builds.
+Proof scripts (`gui_proof.sh`, `gui_proof_grant.sh`) build Debug by default.
+
 1. Allnighter opens a **grant window** (not a silent 1.5s flash).
 2. Click **Open System Settings**.
 3. If Allnighter is missing, click **+** → ⌘⇧G → paste the path shown in the window.

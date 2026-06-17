@@ -35,6 +35,7 @@ final class ThreadsViewModel {
     /// invokes real CLIs. GUI fixtures use an isolated temp store.
     convenience init() {
         let config = AppConfig.loadConfiguration()
+        #if DEBUG
         let store: ThreadStore
         if GUIFixture.isActive {
             let name = GUIFixture.active ?? "fixture"
@@ -46,15 +47,20 @@ final class ThreadsViewModel {
         } else {
             store = ThreadStore()
         }
+        #else
+        let store = ThreadStore()
+        #endif
         self.init(
             store: store,
             registry: config.registry,
             models: config.models,
             runner: WorkerRunner(commandRunner: SubprocessCommandRunner())
         )
+        #if DEBUG
         if let fixture = GUIFixture.active {
             applyFixture(fixture)
         }
+        #endif
     }
 
     /// Designated init — tests inject a temp store and a mock runner.

@@ -1,6 +1,8 @@
 import SwiftUI
 import AppKit
 
+#if DEBUG
+
 /// One-time Screen Recording grant UI for the GUI proof harness.
 ///
 /// Launched via `bash scripts/gui_proof_grant.sh` through the real `.app`
@@ -75,8 +77,11 @@ struct GUIProofGrantView: View {
     }
 
     private func beginGrantFlow() {
-        // Register Allnighter in the Screen Recording list and surface the prompt.
-        _ = CGRequestScreenCaptureAccess()
+        // Only surface the system dialog when explicitly opted in (first-time
+        // grant). Day-to-day: grant in System Settings; no pop-up on every launch.
+        if GUIFixture.allowScreenCapturePermissionPrompts {
+            _ = CGRequestScreenCaptureAccess()
+        }
         refreshGrant()
         pollTask = Task { @MainActor in
             while !Task.isCancelled {
@@ -92,3 +97,5 @@ struct GUIProofGrantView: View {
         if granted { GUIFixture.writeGrantMarker() }
     }
 }
+
+#endif

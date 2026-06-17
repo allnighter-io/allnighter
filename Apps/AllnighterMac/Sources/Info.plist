@@ -22,7 +22,5 @@
 	<string>1</string>
 	<key>LSUIElement</key>
 	<true/>
-	<key>NSScreenCaptureUsageDescription</key>
-	<string>Allnighter captures its own windows during developer GUI proof runs so native popovers and menus can be verified. This is only used when you run the GUI proof harness — never during normal use.</string>
 </dict>
 </plist>

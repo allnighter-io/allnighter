@@ -2,10 +2,12 @@ import Foundation
 import AppKit
 import AllnighterCore
 
-/// Designer-mock harness for the GUI Visual Proof Gate.
+#if DEBUG
+
+/// Designer-mock harness for the GUI Visual Proof Gate (DEBUG builds only).
 ///
-/// ENTIRELY env-gated: when no proof session is active — every real launch — this
-/// type seeds nothing, captures nothing, and is inert.
+/// ENTIRELY DEBUG-only: compiled out of Release builds. When no proof session is
+/// active, this type seeds nothing, captures nothing, and is inert.
 ///
 /// Proof sessions start one of two ways:
 /// 1. `bash scripts/gui_proof.sh <fixture>` — writes a request JSON, launches
@@ -18,6 +20,14 @@ import AllnighterCore
 enum GUIFixture {
     private static let devRoot: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Developer/Allnighter", isDirectory: true)
+
+    /// When `false` (default), never calls `CGRequestScreenCaptureAccess()` — no
+    /// macOS Screen Recording dialog. Capture still runs if permission is already
+    /// granted. Set env `ALLNIGHTER_GUI_PROOF_REQUEST_SCREEN_CAPTURE=1` to
+    /// re-enable the prompt (first-time grant only).
+    static var allowScreenCapturePermissionPrompts: Bool {
+        ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_PROOF_REQUEST_SCREEN_CAPTURE"] == "1"
+    }
 
     /// Written by `gui_proof.sh` / `gui_proof_grant.sh`; consumed on launch.
     static let proofRequestURL = devRoot.appendingPathComponent("gui-proof-request.json")
@@ -332,7 +342,9 @@ enum GUIFixture {
         guard !windows.isEmpty else { return .failure("no window to capture") }
 
         guard CGPreflightScreenCaptureAccess() else {
-            _ = CGRequestScreenCaptureAccess()
+            if allowScreenCapturePermissionPrompts {
+                _ = CGRequestScreenCaptureAccess()
+            }
             return .failure(screenRecordingInstructions)
         }
 
@@ -382,3 +394,27 @@ enum GUIFixture {
         FileHandle.standardError.write(Data("gui-fixture: \(message)\n".utf8))
     }
 }
+
+#else
+
+/// Release stub — proof harness compiles out; every gate is inert.
+enum GUIFixture {
+    static func bootstrap() {}
+    static var isActive: Bool { false }
+    static var isGrantSession: Bool { false }
+    static var active: String? { nil }
+    static var composeMenuOpen: Bool { false }
+    static var composeTargetOpen: Bool { false }
+    static var composeSpecimenMode: ComposeMode { .chat }
+    static var opensTeamDropdown: Bool { false }
+    static var opensDoctorPopover: Bool { false }
+    static var opensReadiness: Bool { false }
+    static var opensComposeSpecimen: Bool { false }
+    static var opensCommandPalette: Bool { false }
+    static var opensHomeWorkspace: Bool { false }
+    static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
+    static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] { [] }
+    static func captureAndExitIfRequested() {}
+}
+
+#endif
