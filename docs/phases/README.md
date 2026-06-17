@@ -30,6 +30,7 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
+| [`Floor_Manager_Execution_Queue.md`](Floor_Manager_Execution_Queue.md) | Founder review packet — PM Advisory Mode first | Approval-based Floor Manager: assesses readiness, proposes bounded next moves (`execute_slice`, `spec_fanout`, audit, docs reconcile, ask-user, wait), user approves/edits/postpones, lanes run only approved items. Verifier before proposer; approval is perishable; external agents can call but not self-approve. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
 | [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
@@ -83,6 +84,11 @@ otherwise.
   policy.
 - Pending is public CLI-first: `alln pending` plus `alln serve` must exist before
   the GUI promises app-closed execution.
+- The Floor Manager is the approval and verification layer above specialist
+  lanes. It may propose next work and verify completion, but v1 must not
+  auto-execute unapproved work.
+- Execution queue state is derived from git, docs, active runs, proof artifacts,
+  and approvals. It must not become a competing source of product truth.
 - Forward Mac app work targets a standalone Dock app plus explicit background
   coordinator. The menu bar is status/quick controls, not the primary shell.
 - iOS is a future floor manager. The Mac remains the execution and run-truth
@@ -164,6 +170,7 @@ Open questions:
 | --- | --- |
 | Mac launch TCC prompts, startup shell/CLI probes, process-quiet launch | **BUILT** — `docs/archive/phases/Launch_Authority_TCC_Hotfix.md`; new regressions route through `docs/operations/Debugger.md` |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
+| Project management, next-item proposals, execution queue, approval gates, worker handoffs, proof verification | `Floor_Manager_Execution_Queue.md` + `docs/operations/Execution-Playbook.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` (historical cleanup: `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
