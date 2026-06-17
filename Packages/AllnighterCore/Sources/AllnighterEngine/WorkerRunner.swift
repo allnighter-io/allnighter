@@ -64,6 +64,15 @@ public struct WorkerRunner: Sendable {
         defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
 
         let workingDir = workingDirectoryOverride ?? invoke.workingDir
+        // The spawned CLI must NOT inherit the app's process CWD — in dev that is
+        // the checkout under ~/Documents, so the worker reading its cwd raises a
+        // TCC Documents prompt attributed to the app (code red on first chat send).
+        // When no explicit dir is given (chat / team runs), spawn in an
+        // Allnighter-owned neutral scratch; dispatch/explicit runs keep theirs.
+        // (Launch Authority TCC hotfix neutralized setup/health probe CWDs; this
+        // extends the same rule to worker runs.) The scratch is only the process
+        // CWD — args still resolve against the real `workingDir` (nil → no token).
+        let spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()
         let context = DriverManifest.ResolveContext(
             prompt: prompt,
             model: worker.modelLabel,
@@ -97,7 +106,7 @@ public struct WorkerRunner: Sendable {
             args: spawnArgs,
             stdin: stdin,
             env: invoke.env,
-            workingDirectory: workingDir,
+            workingDirectory: spawnWorkingDir,
             timeout: timeoutOverride ?? .seconds(invoke.timeoutSeconds)
         )
         let finishedAt = now()

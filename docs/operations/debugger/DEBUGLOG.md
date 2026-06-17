@@ -51,3 +51,15 @@ Fix boundary: Do not add test sleeps. (1) Serialize a run's cancelled-flag flip 
 Proof: Shipped 2026-06-16. testTeamCancel 30x green; testTeamCancelWinsRepeatedly 20x (240 cancels) green; full AllnighterCore suite (333 tests) 6x green under parallel load + 3 rounds of two concurrent suites (heavy contention) green. Regression laws: RunStoreConcurrencyTests.testConcurrentSaveAndLoadNeverReturnsNil (atomic write; load never nil AND never spuriously .interrupted under concurrent save/load) + MCPAsyncTeamTests.testTeamCancelWinsRepeatedly (12x cancel-after-start, asserts cancel response + persisted both .cancelled).
 Deferred proof: NONE.
 Pattern candidate: A file-backed run/state store read+written from concurrent contexts must (a) write every state file atomically, (b) order dependent files so a visible primary (run.json) never implies a missing/torn companion (owner.pid), and (c) serialize terminal-status transitions against in-flight progress saves — else a late write reverts a terminal state or a torn companion read misclassifies a live run.
+
+## 2026-06-16 - Worker run inherits app CWD → TCC Documents prompt on first chat send
+
+Tier: T3 Critical (TCC launch-trust regression, surfaced by CR4b GUI chat)
+Symptom: Pressing Send on the first chat raised "Allnighter would like to access files in your Documents folder."
+Truth owner: WorkerRunner spawn working directory; Launch Authority TCC hotfix is the probe-authority owner.
+Lie-prone layer: a worker run with no explicit working dir looks harmless but the child CLI inherits the app's process CWD.
+RCA: The hotfix neutralized setup/health probe CWDs (CLIDetector → ProbeScratch) but explicitly DEFERRED worker runs ("keep worker runs using their existing working dir"). WorkerRunner.invoke passed `workingDirectory: workingDirectoryOverride ?? invoke.workingDir` — nil for chat/team runs → the spawned CLI inherits the app's CWD (in dev the checkout under ~/Documents), so the CLI reading its cwd trips a TCC Documents prompt attributed to the app. CR4b made GUI chat the first reachable worker run, exposing the deferred gap.
+Fix boundary: Do not request a Documents entitlement. Spawn worker runs in an Allnighter-owned neutral scratch when no explicit dir is given; preserve explicit dirs (dispatch). Args still resolve against the real workingDir (nil → no token); only the process CWD is neutralized.
+Fix: WorkerRunner.invoke computes `spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()` and passes it as the process CWD.
+Proof: WorkerRunnerCWDTests (no-dir run spawns in probeScratch; explicit dir preserved); full AllnighterCore suite green; chat send verified on the founder's machine (Grok Build → "Hi!") with no Documents prompt after the fix.
+Pattern candidate: Any spawned child process (probe OR run) must use an owned neutral CWD unless an explicit, user-chosen dir is given — never inherit the app's process CWD, which in dev is under ~/Documents and trips TCC.
