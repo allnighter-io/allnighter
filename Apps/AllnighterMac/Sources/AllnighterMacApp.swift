@@ -58,7 +58,9 @@ struct AllnighterMacApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands { AppCommandMenu() }
 
-        MenuBarExtra("Allnighter", systemImage: "moon.stars.fill") {
+        // Crescent-only brand mark (template → adapts to the menu bar). The old
+        // moon+sparkle SF Symbol is retired everywhere (allnighter-logos README).
+        MenuBarExtra("Allnighter", image: "MenuBarGlyph") {
             MenuBarContent()
                 .environment(model)
         }
