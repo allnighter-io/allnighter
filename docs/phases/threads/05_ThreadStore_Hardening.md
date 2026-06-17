@@ -455,7 +455,7 @@ Do not implement 06 or 07 until 05 proof wall is green.
 - [x] TSH-S01 - Add per-root synchronous serial writer around all mutation entry
   points. Prove concurrent `appendTurn` + `markRead` do not lose either field
   (stub `markRead` if 06 not landed yet).
-- [ ] TSH-S02 - Atomic `thread.json` writes (`.atomic`), matching RunStore
+- [x] TSH-S02 - Atomic `thread.json` writes (`.atomic`), matching RunStore
   comments. Add concurrency read test mirroring `RunStoreConcurrencyTests`.
 - [ ] TSH-S03 - Split save paths: `persistContent(_:)` vs `persistMetadata(_:)`
   vs `persistCursor(_:)` with timestamp + transcript law enforced internally.

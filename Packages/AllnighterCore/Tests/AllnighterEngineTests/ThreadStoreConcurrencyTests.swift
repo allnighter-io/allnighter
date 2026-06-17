@@ -54,6 +54,35 @@ final class ThreadStoreConcurrencyTests: XCTestCase {
         XCTAssertEqual(Set(final?.turns.map(\.id) ?? []).count, 100)
     }
 
+    /// Concurrent save + load must never tear: the reader sees the complete old
+    /// or complete new thread.json, never a corrupt decode. Guards atomic writes.
+    func testConcurrentSaveAndLoadNeverReturnsCorruptThread() async throws {
+        let root = freshRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let store = ThreadStore(rootDirectory: root)
+        let epoch = Self.epoch
+        _ = try store.create(id: "concurrent-1", title: "Seed", now: epoch)
+
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for i in 0..<300 {
+                    guard var thread = store.get("concurrent-1") else { continue }
+                    thread.title = "title-\(i % 64)"
+                    thread.updatedAt = epoch.addingTimeInterval(Double(i))
+                    _ = try? store.save(thread)
+                }
+            }
+            group.addTask {
+                for _ in 0..<300 {
+                    let loaded = store.get("concurrent-1")
+                    XCTAssertNotNil(loaded, "load saw a torn/partial thread.json — save must be atomic")
+                    XCTAssertEqual(loaded?.id, "concurrent-1")
+                }
+            }
+        }
+    }
+
     func testConcurrentDuplicateTurnIdRejectedUnderSerialization() async throws {
         let root = freshRoot()
         defer { try? FileManager.default.removeItem(at: root) }

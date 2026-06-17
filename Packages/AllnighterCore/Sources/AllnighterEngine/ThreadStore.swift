@@ -204,7 +204,10 @@ public struct ThreadStore: Sendable {
         var thread = thread
         thread.upgradeFormatVersionIfNeeded()
         let directory = try threadDirectory(forThreadId: thread.id)
-        try CoreJSON.encode(thread).write(to: directory.appendingPathComponent("thread.json"))
+        try CoreJSON.encode(thread).write(
+            to: directory.appendingPathComponent("thread.json"),
+            options: .atomic
+        )
         // Derived transcript, regenerated from thread.json truth on each save.
         let transcript = ThreadMarkdown.transcript(thread)
         try Data(transcript.utf8).write(to: directory.appendingPathComponent("transcript.md"))
@@ -216,7 +219,7 @@ public struct ThreadStore: Sendable {
             .appendingPathComponent("context", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("\(packet.id).json")
-        try CoreJSON.encode(packet).write(to: url)
+        try CoreJSON.encode(packet).write(to: url, options: .atomic)
         return url
     }
 }
