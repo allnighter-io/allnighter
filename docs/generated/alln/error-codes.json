@@ -152,6 +152,14 @@
     "ruleId" : "coordinator.unavailable"
   },
   {
+    "agentAction" : "Run `alln skills --lane <lane> --json` and pick a valid skill id.",
+    "code" : "SKILL_NOT_FOUND",
+    "explain" : "No skill matches the given id. List skills for the lane and retry with a valid SkillID.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "skill.not_found"
+  },
+  {
     "agentAction" : "Treat as implementation bug; run export-contracts check.",
     "code" : "JSON_SCHEMA_VIOLATION",
     "explain" : "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check.",

@@ -26,6 +26,10 @@ public extension ContractRegistry {
                     params: [.init("agent", summary: "Calling agent id for provenance (advisory only).")]),
         MCPToolSpec("teams_list", command: "teams", summary: "Lane-scoped team catalog summary (no prompt templates).",
                     params: [.init("lane", summary: "Filter to one lane: build|design|copy (optional).")]),
+        MCPToolSpec("skills_list", command: "skills", summary: "Lane-scoped skill catalog summary (no templates).",
+                    params: [.init("lane", summary: "Filter to one lane: build|design|copy (optional).")]),
+        MCPToolSpec("skills_show", command: "skills show", summary: "One skill definition including template.",
+                    params: [.init("skillId", required: true, summary: "Skill id.")]),
         MCPToolSpec("team_preflight", command: "team preflight", summary: "Validate lane/team/effort against the ready bench WITHOUT running or spending quota; shows resolved/blocked workers and self-fusion.",
                     params: [.init("lane", summary: "build|design|copy."),
                              .init("team", summary: "Team id (e.g. build_bug_hunt)."),
@@ -123,6 +127,18 @@ public extension ContractRegistry {
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
             exampleIds: ["teams_build_json"]
+        ),
+        CommandSpec(
+            "skills", summary: "List the lane-scoped skill catalog.", milestone: .m1,
+            flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
+                    FlagSpec("json", summary: "Structured catalog summary (no templates).")],
+            exampleIds: ["skills_build_json"]
+        ),
+        CommandSpec(
+            "skills show", summary: "Show one skill definition including template.", milestone: .m1,
+            args: [ArgSpec("skill-id", required: true, summary: "Skill id.")],
+            flags: [FlagSpec("json", summary: "Structured skill detail.")],
+            exampleIds: ["skills_show_json"]
         ),
         CommandSpec(
             "team hello", summary: "Agent bootstrap: readiness + ready teams + next action (quota-free).", milestone: .m1,
@@ -274,6 +290,7 @@ public extension ContractRegistry {
         ErrorSpec("RESULT_NOT_READY", ruleId: "result.not_ready", agentAction: "Poll team status using nextPollAfterMs, then call team result again.", requiresManual: false, retryable: true, explain: "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true."),
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
         ErrorSpec("COORDINATOR_UNAVAILABLE", ruleId: "coordinator.unavailable", agentAction: "Use foreground CLI or start resident mode when available.", requiresManual: false, retryable: true, explain: "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available."),
+        ErrorSpec("SKILL_NOT_FOUND", ruleId: "skill.not_found", agentAction: "Run `alln skills --lane <lane> --json` and pick a valid skill id.", requiresManual: true, retryable: false, explain: "No skill matches the given id. List skills for the lane and retry with a valid SkillID."),
         ErrorSpec("JSON_SCHEMA_VIOLATION", ruleId: "json.schema.violation", agentAction: "Treat as implementation bug; run export-contracts check.", requiresManual: true, retryable: false, explain: "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check."),
         ErrorSpec("PERMISSION_REQUIRED", ruleId: "permission.required", agentAction: "Ask the user for the named permission.", requiresManual: true, retryable: false, explain: "The action needs a user-granted permission that is not present. Request the named permission before retrying."),
         ErrorSpec("MCP_CLIENT_UNAPPROVED", ruleId: "mcp.client.unapproved", agentAction: "Approve or configure the MCP client before retrying.", requiresManual: true, retryable: false, explain: "The calling MCP client is not approved. Approve or configure it, then retry."),
@@ -330,6 +347,8 @@ public extension ContractRegistry {
         ExampleRecipe("models_json", title: "List bench models", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
         ExampleRecipe("teams_build_json", title: "List Build teams", command: "alln teams --lane build --json"),
+        ExampleRecipe("skills_build_json", title: "List Build skills", command: "alln skills --lane build --json"),
+        ExampleRecipe("skills_show_json", title: "Show a Build skill", command: "alln skills show bug_reproducer --json"),
         ExampleRecipe("team_preflight", title: "Preflight a team", command: "alln team preflight --lane build --team build_bug_hunt --effort high"),
         ExampleRecipe("team_basic", title: "Ask the team", command: "alln team --lane build --team build_bug_hunt \"Why does run history disappear?\""),
         ExampleRecipe("team_json", title: "Machine team run", command: "alln team --json \"Give me one small naming test.\""),

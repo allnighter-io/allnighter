@@ -49,6 +49,14 @@ struct MCPServer {
         case "teams_list":
             let lane = (args["lane"] as? String).flatMap(WorkLane.init(rawValue:))
             respond(id: id, result: toolText("Team catalog", structured: AllnighterCLI.teamsCatalogJSONString(runtime, lane: lane)))
+        case "skills_list":
+            let lane = (args["lane"] as? String).flatMap(WorkLane.init(rawValue:))
+            respond(id: id, result: toolText("Skill catalog", structured: AllnighterCLI.skillsCatalogJSONString(lane: lane)))
+        case "skills_show":
+            guard let skillId = args["skillId"] as? String, let skill = SkillCatalog.get(skillId) else {
+                return respondToolError(id: id, code: "SKILL_NOT_FOUND", message: "skillId required")
+            }
+            respond(id: id, result: toolText(skill.displayName, structured: AllnighterCLI.skillShowJSONString(skill)))
         case "team_preflight":
             let result = AllnighterCLI.preflight(runtime, args: args)
             let text = result.canStart

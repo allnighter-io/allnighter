@@ -78,6 +78,28 @@ Flags:
 
 Examples: `teams_build_json`.
 
+### `alln skills`
+
+List the lane-scoped skill catalog.
+
+Flags:
+- `--lane <lane>` — Filter to one lane.
+- `--json` — Structured catalog summary (no templates).
+
+Examples: `skills_build_json`.
+
+### `alln skills show`
+
+Show one skill definition including template.
+
+Arguments:
+- `skill-id` (required) — Skill id.
+
+Flags:
+- `--json` — Structured skill detail.
+
+Examples: `skills_show_json`.
+
 ### `alln team hello`
 
 Agent bootstrap: readiness + ready teams + next action (quota-free).
@@ -293,6 +315,7 @@ Flags:
 | `RESULT_NOT_READY` | no | yes | Poll team status using nextPollAfterMs, then call team result again. |
 | `RUN_NOT_FOUND` | yes | no | Run `alln history --json`. |
 | `COORDINATOR_UNAVAILABLE` | no | yes | Use foreground CLI or start resident mode when available. |
+| `SKILL_NOT_FOUND` | yes | no | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
 | `JSON_SCHEMA_VIOLATION` | yes | no | Treat as implementation bug; run export-contracts check. |
 | `PERMISSION_REQUIRED` | yes | no | Ask the user for the named permission. |
 | `MCP_CLIENT_UNAPPROVED` | yes | no | Approve or configure the MCP client before retrying. |
@@ -325,6 +348,8 @@ Flags:
 - `models_json` — List bench models: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
 - `teams_build_json` — List Build teams: `alln teams --lane build --json`
+- `skills_build_json` — List Build skills: `alln skills --lane build --json`
+- `skills_show_json` — Show a Build skill: `alln skills show bug_reproducer --json`
 - `team_preflight` — Preflight a team: `alln team preflight --lane build --team build_bug_hunt --effort high`
 - `team_basic` — Ask the team: `alln team --lane build --team build_bug_hunt "Why does run history disappear?"`
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`

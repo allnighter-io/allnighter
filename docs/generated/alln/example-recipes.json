@@ -30,6 +30,16 @@
     "title" : "List Build teams"
   },
   {
+    "command" : "alln skills --lane build --json",
+    "id" : "skills_build_json",
+    "title" : "List Build skills"
+  },
+  {
+    "command" : "alln skills show bug_reproducer --json",
+    "id" : "skills_show_json",
+    "title" : "Show a Build skill"
+  },
+  {
     "command" : "alln team preflight --lane build --team build_bug_hunt --effort high",
     "id" : "team_preflight",
     "title" : "Preflight a team"

@@ -26,7 +26,7 @@ final class ContractRegistryTests: XCTestCase {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         XCTAssertEqual(m1, [
             "docs", "doctor", "doctor explain", "models", "team show",
-            "teams", "team hello", "team preflight",
+            "teams", "skills", "skills show", "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
             "team", "show", "spec", "history", "export", "dev export-contracts", "serve", "mcp serve",
         ])
@@ -36,7 +36,7 @@ final class ContractRegistryTests: XCTestCase {
     func testMCPToolsAreCleanAndDeriveFromCommands() {
         let names = reg.mcpTools.map(\.name)
         XCTAssertEqual(Set(names), [
-            "mcp_hello", "teams_list", "team_preflight",
+            "mcp_hello", "teams_list", "skills_list", "skills_show", "team_preflight",
             "team_start", "team_status", "team_result", "team_cancel",
             "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get",
         ])

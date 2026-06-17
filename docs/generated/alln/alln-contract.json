@@ -182,6 +182,60 @@
 
       ],
       "exampleIds" : [
+        "skills_build_json"
+      ],
+      "flags" : [
+        {
+          "name" : "lane",
+          "summary" : "Filter to one lane.",
+          "takesValue" : true,
+          "valueType" : "lane"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured catalog summary (no templates).",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills",
+      "outputSchema" : "none",
+      "summary" : "List the lane-scoped skill catalog."
+    },
+    {
+      "args" : [
+        {
+          "name" : "skill-id",
+          "required" : true,
+          "summary" : "Skill id."
+        }
+      ],
+      "exampleIds" : [
+        "skills_show_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured skill detail.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills show",
+      "outputSchema" : "none",
+      "summary" : "Show one skill definition including template."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
 
       ],
       "flags" : [
@@ -1132,6 +1186,14 @@
       "ruleId" : "coordinator.unavailable"
     },
     {
+      "agentAction" : "Run `alln skills --lane <lane> --json` and pick a valid skill id.",
+      "code" : "SKILL_NOT_FOUND",
+      "explain" : "No skill matches the given id. List skills for the lane and retry with a valid SkillID.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "skill.not_found"
+    },
+    {
       "agentAction" : "Treat as implementation bug; run export-contracts check.",
       "code" : "JSON_SCHEMA_VIOLATION",
       "explain" : "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check.",
@@ -1256,6 +1318,16 @@
       "title" : "List Build teams"
     },
     {
+      "command" : "alln skills --lane build --json",
+      "id" : "skills_build_json",
+      "title" : "List Build skills"
+    },
+    {
+      "command" : "alln skills show bug_reproducer --json",
+      "id" : "skills_show_json",
+      "title" : "Show a Build skill"
+    },
+    {
       "command" : "alln team preflight --lane build --team build_bug_hunt --effort high",
       "id" : "team_preflight",
       "title" : "Preflight a team"
@@ -1334,6 +1406,34 @@
         }
       ],
       "summary" : "Lane-scoped team catalog summary (no prompt templates)."
+    },
+    {
+      "command" : "skills",
+      "name" : "skills_list",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "lane",
+          "required" : false,
+          "summary" : "Filter to one lane: build|design|copy (optional).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Lane-scoped skill catalog summary (no templates)."
+    },
+    {
+      "command" : "skills show",
+      "name" : "skills_show",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "skillId",
+          "required" : true,
+          "summary" : "Skill id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "One skill definition including template."
     },
     {
       "command" : "team preflight",

@@ -28,6 +28,34 @@
     "summary" : "Lane-scoped team catalog summary (no prompt templates)."
   },
   {
+    "command" : "skills",
+    "name" : "skills_list",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "lane",
+        "required" : false,
+        "summary" : "Filter to one lane: build|design|copy (optional).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Lane-scoped skill catalog summary (no templates)."
+  },
+  {
+    "command" : "skills show",
+    "name" : "skills_show",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "skillId",
+        "required" : true,
+        "summary" : "Skill id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "One skill definition including template."
+  },
+  {
     "command" : "team preflight",
     "name" : "team_preflight",
     "outputSchema" : "none",

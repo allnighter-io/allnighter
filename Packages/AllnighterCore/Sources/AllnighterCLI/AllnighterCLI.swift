@@ -15,6 +15,8 @@ struct AllnighterCLI {
         let runtime = ToolRuntime()
         switch command {
         case "teams": runTeamCatalog(args, runtime)
+        case "skills" where args.first == "show": runSkillShow(Array(args.dropFirst()), runtime)
+        case "skills": runSkillCatalog(args, runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
@@ -433,6 +435,83 @@ struct AllnighterCLI {
                                disabledReason: nil)
         }
         return jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, teams: summaries))
+    }
+
+    /// `alln skills [--lane build|design|copy] [--json]` — lane-scoped skill catalog (no templates).
+    static func runSkillCatalog(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
+        if let raw = opts.value("lane"), lane == nil {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use build|design|copy)"); exit(2)
+        }
+        if opts.flag("json") {
+            print(skillsCatalogJSONString(lane: lane))
+        } else {
+            let skills = lane.map { SkillCatalog.list(lane: $0) } ?? WorkLane.allCases.flatMap { SkillCatalog.list(lane: $0) }
+            for s in skills {
+                print("\(s.id)\t\(s.displayName)\t\(s.lane.rawValue)\t\(s.purpose.rawValue)\(s.builtIn ? "\t(built-in)" : "")")
+            }
+        }
+    }
+
+    /// `alln skills show <skill-id> [--json]` — one skill including template.
+    static func runSkillShow(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills show <skill-id> [--json]"); exit(2)
+        }
+        guard let skill = SkillCatalog.get(id) else {
+            emitFailure(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)"); exit(2)
+        }
+        if opts.flag("json") {
+            print(skillShowJSONString(skill))
+        } else {
+            print("\(skill.id)\t\(skill.displayName)\t\(skill.lane.rawValue)\t\(skill.purpose.rawValue)")
+            print(skill.template)
+        }
+    }
+
+    static func skillsCatalogJSONString(lane: WorkLane?) -> String {
+        struct SkillSummary: Encodable {
+            let id, displayName, lane, purpose: String
+            let builtIn: Bool
+        }
+        struct Catalog: Encodable {
+            let schemaVersion = 1
+            let contractVersion: String
+            let lane: String?
+            let skills: [SkillSummary]
+        }
+        let skills: [Skill]
+        if let lane {
+            skills = SkillCatalog.list(lane: lane)
+        } else {
+            skills = WorkLane.allCases.flatMap { SkillCatalog.list(lane: $0) }
+        }
+        let summaries = skills.map {
+            SkillSummary(id: $0.id, displayName: $0.displayName, lane: $0.lane.rawValue,
+                         purpose: $0.purpose.rawValue, builtIn: $0.builtIn)
+        }
+        return jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, skills: summaries))
+    }
+
+    static func skillShowJSONString(_ skill: Skill) -> String {
+        struct Detail: Encodable {
+            let schemaVersion = 1
+            let contractVersion: String
+            let id, displayName, lane, purpose: String
+            let builtIn: Bool
+            let template: String
+            let createdAt, updatedAt: String?
+        }
+        let iso = ISO8601DateFormatter()
+        return jsonString(Detail(
+            contractVersion: ContractRegistry.contractVersion,
+            id: skill.id, displayName: skill.displayName, lane: skill.lane.rawValue,
+            purpose: skill.purpose.rawValue, builtIn: skill.builtIn, template: skill.template,
+            createdAt: skill.createdAt.map { iso.string(from: $0) },
+            updatedAt: skill.updatedAt.map { iso.string(from: $0) }
+        ))
     }
 
     /// The agent bootstrap snapshot JSON — shared by `alln team hello` and the MCP
