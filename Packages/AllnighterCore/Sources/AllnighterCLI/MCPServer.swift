@@ -240,6 +240,32 @@ struct MCPServer {
             }
             let result = AllnighterCLI.specResult(run, runtime: runtime, detail: args["detail"] as? String)
             respond(id: id, result: toolText(result.summary, structured: AllnighterCLI.jsonString(result)))
+        case "thread_send":
+            let outcome = await MCPThreadSendHandlers.runSend(args: args, runtime: runtime)
+            switch outcome {
+            case .success(let response):
+                respond(id: id, result: toolText("thread send ok", structured: AllnighterCLI.jsonString(response)))
+            case .failure(let envelope):
+                respondToolError(id: id, code: envelope.code, message: envelope.message)
+            }
+        case "thread_get":
+            guard let threadId = args["threadId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "threadId required")
+            }
+            guard let thread = ThreadStore().get(threadId) else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "thread not found")
+            }
+            respond(id: id, result: toolText(thread.title, structured: AllnighterCLI.jsonString(thread)))
+        case "thread_status":
+            guard let threadId = args["threadId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "threadId required")
+            }
+            guard let thread = ThreadStore().get(threadId) else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "thread not found")
+            }
+            let running = thread.isRunning
+            let status = ThreadStatusResponse(threadId: threadId, isRunning: running, needsAttention: thread.needsAttention)
+            respond(id: id, result: toolText(running ? "running" : "idle", structured: AllnighterCLI.jsonString(status)))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
         }
@@ -251,7 +277,19 @@ struct MCPServer {
             var properties: [String: Any] = [:]
             var required: [String] = []
             for p in tool.params {
-                properties[p.name] = ["type": p.type, "description": p.summary]
+                var property: [String: Any] = ["type": p.type, "description": p.summary]
+                if let arrayItems = p.arrayItems {
+                    property["items"] = ["oneOf": arrayItems.oneOf.map { item -> [String: Any] in
+                        var spec: [String: Any] = [:]
+                        if let type = item.type { spec["type"] = type }
+                        if let properties = item.properties {
+                            spec["properties"] = properties.mapValues { ["type": $0.type] }
+                        }
+                        if let required = item.required { spec["required"] = required }
+                        return spec
+                    }]
+                }
+                properties[p.name] = property
                 if p.required { required.append(p.name) }
             }
             var schema: [String: Any] = ["type": "object", "properties": properties]

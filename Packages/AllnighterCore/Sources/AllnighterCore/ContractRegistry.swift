@@ -138,11 +138,39 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var outputSchema: OutputSchema
         public struct Param: Codable, Sendable, Equatable {
             public var name: String
-            public var type: String        // "string" | "boolean"
+            public var type: String        // "string" | "boolean" | "array" | "object"
             public var required: Bool
             public var summary: String
-            public init(_ name: String, type: String = "string", required: Bool = false, summary: String) {
+            public var arrayItems: ArrayItemsSpec?
+
+            public struct ArrayItemsSpec: Codable, Sendable, Equatable {
+                public var oneOf: [UnionItemSpec]
+                public init(oneOf: [UnionItemSpec]) { self.oneOf = oneOf }
+            }
+
+            public struct UnionItemSpec: Codable, Sendable, Equatable {
+                public var type: String?
+                public var properties: [String: PropertySpec]?
+                public var required: [String]?
+                public init(type: String? = nil, properties: [String: PropertySpec]? = nil, required: [String]? = nil) {
+                    self.type = type; self.properties = properties; self.required = required
+                }
+            }
+
+            public struct PropertySpec: Codable, Sendable, Equatable {
+                public var type: String
+                public init(type: String) { self.type = type }
+            }
+
+            public init(
+                _ name: String,
+                type: String = "string",
+                required: Bool = false,
+                summary: String,
+                arrayItems: ArrayItemsSpec? = nil
+            ) {
                 self.name = name; self.type = type; self.required = required; self.summary = summary
+                self.arrayItems = arrayItems
             }
         }
         public init(_ name: String, command: String, summary: String, params: [Param] = [], outputSchema: OutputSchema = .none) {

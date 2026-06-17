@@ -101,6 +101,21 @@ public extension ContractRegistry {
                     params: [.init("run", summary: "Run id or `latest` (default latest)."),
                              .init("detail", summary: "summary | full | artifactRefsOnly (default summary).")],
                     outputSchema: .teamRunJSON),
+        MCPToolSpec("thread_send", command: "thread send", summary: "Send a message and/or images to a work thread worker.",
+                    params: [
+                        .init("threadId", summary: "Thread id or `latest`."),
+                        .init("message", summary: "User message text."),
+                        .init("workerId", summary: "Requested worker/model id."),
+                        .init("idempotencyKey", summary: "Client idempotency key (24h retention)."),
+                        .init("images", type: "array", summary: "Image paths or base64 objects.", arrayItems: .init(oneOf: [
+                            .init(type: "string"),
+                            .init(type: "object", properties: ["mimeType": .init(type: "string"), "base64": .init(type: "string")], required: ["base64"]),
+                        ])),
+                    ]),
+        MCPToolSpec("thread_get", command: "thread get", summary: "Fetch a work thread snapshot.",
+                    params: [.init("threadId", required: true, summary: "Thread id.")]),
+        MCPToolSpec("thread_status", command: "thread status", summary: "Poll thread running/attention state.",
+                    params: [.init("threadId", required: true, summary: "Thread id.")]),
     ]
 
     // MARK: - Commands (in scope)
@@ -148,6 +163,32 @@ public extension ContractRegistry {
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
             exampleIds: ["teams_build_json"]
+        ),
+        CommandSpec(
+            "thread send", summary: "Send a message and/or images to a work thread.", milestone: .m1,
+            args: [
+                ArgSpec("thread-id", required: true, summary: "Thread id or `latest`."),
+                ArgSpec("message", required: false, summary: "User message text."),
+            ],
+            flags: [
+                FlagSpec("image", takesValue: true, valueType: "path", summary: "Attach an image (repeatable)."),
+                FlagSpec("worker", takesValue: true, valueType: "string", summary: "Requested worker/model id."),
+                FlagSpec("idempotency-key", takesValue: true, valueType: "string", summary: "Idempotency key (24h)."),
+                FlagSpec("json", summary: "Structured send result."),
+            ],
+            exampleIds: ["thread_send_json"]
+        ),
+        CommandSpec(
+            "thread get", summary: "Fetch one work thread snapshot.", milestone: .m1,
+            args: [ArgSpec("thread-id", required: true, summary: "Thread id.")],
+            flags: [FlagSpec("json", summary: "Structured thread JSON.")],
+            exampleIds: ["thread_get_json"]
+        ),
+        CommandSpec(
+            "thread status", summary: "Poll thread running/attention state.", milestone: .m1,
+            args: [ArgSpec("thread-id", required: true, summary: "Thread id.")],
+            flags: [FlagSpec("json", summary: "Structured status JSON.")],
+            exampleIds: ["thread_status_json"]
         ),
         CommandSpec(
             "skills", summary: "List the lane-scoped skill catalog.", milestone: .m1,
@@ -392,6 +433,16 @@ public extension ContractRegistry {
         ErrorSpec("JSON_SCHEMA_VIOLATION", ruleId: "json.schema.violation", agentAction: "Treat as implementation bug; run export-contracts check.", requiresManual: true, retryable: false, explain: "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check."),
         ErrorSpec("PERMISSION_REQUIRED", ruleId: "permission.required", agentAction: "Ask the user for the named permission.", requiresManual: true, retryable: false, explain: "The action needs a user-granted permission that is not present. Request the named permission before retrying."),
         ErrorSpec("MCP_CLIENT_UNAPPROVED", ruleId: "mcp.client.unapproved", agentAction: "Approve or configure the MCP client before retrying.", requiresManual: true, retryable: false, explain: "The calling MCP client is not approved. Approve or configure it, then retry."),
+        ErrorSpec("ATTACHMENT_HASH_MISMATCH", ruleId: "attachment.hash.mismatch", agentAction: "Re-ingest or re-send the attachment; do not retry with stale bytes.", requiresManual: true, retryable: false, explain: "Attachment storedSha256 does not match on-disk bytes."),
+        ErrorSpec("ATTACHMENT_TOO_MANY", ruleId: "attachment.too_many", agentAction: "Remove attachments until within the count cap.", requiresManual: true, retryable: false, explain: "Too many images attached for one send."),
+        ErrorSpec("ATTACHMENT_TOO_LARGE", ruleId: "attachment.too_large", agentAction: "Use a smaller image or fewer attachments.", requiresManual: true, retryable: false, explain: "An attachment exceeds byte or megapixel limits."),
+        ErrorSpec("ATTACHMENT_UNSUPPORTED_TYPE", ruleId: "attachment.unsupported_type", agentAction: "Send PNG/JPEG/GIF/WebP only.", requiresManual: true, retryable: false, explain: "Attachment MIME type is not allowed."),
+        ErrorSpec("ATTACHMENT_DECODE_FAILED", ruleId: "attachment.decode_failed", agentAction: "Fix or replace the corrupt image file.", requiresManual: true, retryable: false, explain: "Image could not be decoded."),
+        ErrorSpec("ATTACHMENT_BASE64_INVALID", ruleId: "attachment.base64_invalid", agentAction: "Fix the base64 payload.", requiresManual: true, retryable: false, explain: "MCP base64 image payload is invalid."),
+        ErrorSpec("ATTACHMENT_STAGE_FAILED", ruleId: "attachment.stage_failed", agentAction: "Check workingDir permissions and disk space.", requiresManual: true, retryable: true, explain: "Could not copy attachment into workspace mirror."),
+        ErrorSpec("ATTACHMENT_STAGE_UNIGNORED", ruleId: "attachment.stage_unignored", agentAction: "Add `.allnighter/` to gitignore or info/exclude manually.", requiresManual: true, retryable: false, explain: "Staged mirror but could not update git ignore rules."),
+        ErrorSpec("CONTEXT_ATTACHMENT_CAP_EXCEEDED", ruleId: "context.attachment.cap", agentAction: "Reduce message or attachment count; never silently trim current send.", requiresManual: true, retryable: false, explain: "Protected attachment block does not fit context cap."),
+        ErrorSpec("THREAD_SEND_IDEMPOTENCY_CONFLICT", ruleId: "thread.send.idempotency.conflict", agentAction: "Use a new idempotency key or repeat the original payload.", requiresManual: false, retryable: false, explain: "Same idempotency key reused with a different thread send payload."),
     ]
 
     // MARK: - Doctor checks (stable names)
@@ -456,6 +507,7 @@ public extension ContractRegistry {
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),
         ExampleRecipe("export_md", title: "Export the latest result", command: "alln export latest --format md"),
         ExampleRecipe("export_contracts_check", title: "Verify no contract drift", command: "alln dev export-contracts --check"),
+        ExampleRecipe("thread_send_json", title: "Send message with image to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --json"),
         ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
     ]
 }

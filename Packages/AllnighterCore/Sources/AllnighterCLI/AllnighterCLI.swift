@@ -26,6 +26,7 @@ struct AllnighterCLI {
         case "skills" where args.first == "edit": runSkillsEdit(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "delete": runSkillsDelete(Array(args.dropFirst()), runtime)
         case "skills": runSkillCatalog(args, runtime)
+        case "thread" where args.first == "send": await ThreadSendCLI.runSend(Array(args.dropFirst()), runtime: runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
@@ -145,7 +146,7 @@ struct AllnighterCLI {
     }
 
     /// Emits the shared machine failure envelope (one JSON object on stdout).
-    private static func emitFailure(code: String, message: String) {
+    static func emitFailure(code: String, message: String) {
         struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
         let env = ErrorEnvelope(code: code, message: message, requiresManual: code == "RUN_NOT_FOUND", retryable: false)
         print(jsonString(Failure(error: env)))

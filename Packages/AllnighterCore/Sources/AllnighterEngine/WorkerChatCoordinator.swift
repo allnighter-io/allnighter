@@ -40,7 +40,7 @@ public actor WorkerChatCoordinator {
     }
 
     private let store: ThreadStore
-    private let runner: WorkerRunner
+    private let sendCoordinator: ThreadSendCoordinator
     private let registry: DriverRegistry
     private let contextBuilder: ThreadContextBuilder
     private let models: [Model]
@@ -60,13 +60,22 @@ public actor WorkerChatCoordinator {
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.store = store
-        self.runner = runner
         self.registry = registry
         self.models = models
         self.defaultDriverWorkerId = defaultDriverWorkerId
         self.contextBuilder = contextBuilder
         self.idFactory = idFactory
         self.now = now
+        self.sendCoordinator = ThreadSendCoordinator(
+            store: store,
+            runner: runner,
+            registry: registry,
+            models: models,
+            defaultDriverWorkerId: defaultDriverWorkerId,
+            contextBuilder: contextBuilder,
+            idFactory: idFactory,
+            now: now
+        )
     }
 
     // MARK: - Model resolution (Composer Contract)
@@ -96,107 +105,29 @@ public actor WorkerChatCoordinator {
         message: String,
         toThreadId threadId: String,
         requestedWorkerId: String? = nil,
-        contextOptions: ThreadContextBuilder.Options = ThreadContextBuilder.Options()
+        contextOptions: ThreadContextBuilder.Options = ThreadContextBuilder.Options(),
+        draftIds: [String] = [],
+        images: [ThreadSendCoordinator.ImageInput] = []
     ) async throws -> ChatResult {
-        guard let priorThread = store.get(threadId) else { throw ChatError.threadNotFound(threadId) }
-        guard let workerId = resolveWorkerId(for: priorThread, requested: requestedWorkerId) else {
-            throw ChatError.noWorkerAvailable
-        }
-
-        // Assemble the packet from the thread state BEFORE the new user turn, so
-        // the message is not duplicated (it lands as "Latest user message").
-        let workerTurnId = idFactory()
-        let packetId = idFactory()
-        let packet = contextBuilder.build(
-            thread: priorThread,
-            latestMessage: message,
-            turnId: workerTurnId,
-            packetId: packetId,
-            now: now(),
-            options: contextOptions
+        let result = try await sendCoordinator.send(
+            request: ThreadSendCoordinator.Request(
+                message: message,
+                draftIds: draftIds,
+                images: images,
+                requestedWorkerId: requestedWorkerId,
+                contextOptions: contextOptions
+            ),
+            toThreadId: threadId
         )
-        try store.savePacket(packet)
-
-        // 1. User turn — saved and renderable immediately.
-        let userTurnId = idFactory()
-        let userTurn = ThreadTurn(
-            id: userTurnId, threadId: threadId, kind: .userMessage, status: .done,
-            createdAt: now(), completedAt: now(), author: .user, text: message
-        )
-        try store.appendTurn(userTurn, toThreadId: threadId, now: now())
-
-        // 2. Optimistic worker turn — created `running` immediately.
-        let workerTurn = ThreadTurn(
-            id: workerTurnId, threadId: threadId, kind: .workerChat, status: .running,
-            createdAt: now(), author: .worker, workerId: workerId, contextPacketId: packetId
-        )
-        try store.appendTurn(workerTurn, toThreadId: threadId, now: now())
-
-        let model = models.first { $0.id == workerId }
-        let manifest = model.flatMap { registry.manifest(for: $0) }
-
-        // Manual-paste path: no runnable manifest, or an explicit manual driver.
-        guard let model, let manifest, manifest.kind == .headlessCLI else {
-            return try enterManualPaste(
-                threadId: threadId, workerId: workerId,
-                userTurnId: userTurnId, workerTurnId: workerTurnId, packetId: packetId
-            )
-        }
-
-        // Headless path: invoke and settle the worker turn.
-        let outcome = await runner.invoke(worker: model, manifest: manifest, prompt: packet.text)
-        let thread = try settle(workerTurn: workerTurn, with: outcome, inThreadId: threadId)
         return ChatResult(
-            thread: thread, workerId: workerId, userTurnId: userTurnId,
-            workerTurnId: workerTurnId, contextPacketId: packetId,
-            outcome: outcome, awaitingManualPaste: false, manualNoteTurnId: nil
-        )
-    }
-
-    private func settle(workerTurn: ThreadTurn, with outcome: WorkerRunOutcome, inThreadId threadId: String) throws -> WorkThread {
-        var settled = workerTurn
-        settled.status = chatStatus(for: outcome.status)
-        settled.completedAt = outcome.finishedAt ?? now()
-        switch settled.status {
-        case .done:
-            settled.text = outcome.output
-        case .failed, .timedOut, .cancelled:
-            settled.text = outcome.errorReason
-        case .draft, .queued, .running:
-            break
-        }
-        return try store.updateTurn(settled, inThreadId: threadId, now: now())
-    }
-
-    private func chatStatus(for answer: WorkerAnswerStatus) -> ThreadTurnStatus {
-        switch answer {
-        case .done: return .done
-        case .failed: return .failed
-        case .timedOut: return .timedOut
-        case .cancelled: return .cancelled
-        case .queued, .running: return .running
-        case .skipped: return .failed   // headless worker should not skip
-        }
-    }
-
-    private func enterManualPaste(
-        threadId: String, workerId: String,
-        userTurnId: String, workerTurnId: String, packetId: String
-    ) throws -> ChatResult {
-        // An OPEN manual-paste note pulls the thread into needs-attention until
-        // the user pastes; the worker turn stays `running` (awaiting).
-        let noteId = idFactory()
-        let note = ThreadTurn(
-            id: noteId, threadId: threadId, kind: .systemEvent, status: .running,
-            createdAt: now(), author: .system,
-            text: "Paste \(workerId)'s reply to complete this turn.",
-            systemEvent: .manualPaste
-        )
-        let thread = try store.appendTurn(note, toThreadId: threadId, now: now())
-        return ChatResult(
-            thread: thread, workerId: workerId, userTurnId: userTurnId,
-            workerTurnId: workerTurnId, contextPacketId: packetId,
-            outcome: nil, awaitingManualPaste: true, manualNoteTurnId: noteId
+            thread: result.thread,
+            workerId: result.workerId,
+            userTurnId: result.userTurnId,
+            workerTurnId: result.workerTurnId,
+            contextPacketId: result.contextPacketId,
+            outcome: result.outcome,
+            awaitingManualPaste: result.awaitingManualPaste,
+            manualNoteTurnId: result.manualNoteTurnId
         )
     }
 

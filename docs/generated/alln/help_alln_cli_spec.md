@@ -78,6 +78,46 @@ Flags:
 
 Examples: `teams_build_json`.
 
+### `alln thread send`
+
+Send a message and/or images to a work thread.
+
+Arguments:
+- `thread-id` (required) — Thread id or `latest`.
+- `message` (optional) — User message text.
+
+Flags:
+- `--image <path>` — Attach an image (repeatable).
+- `--worker <string>` — Requested worker/model id.
+- `--idempotency-key <string>` — Idempotency key (24h).
+- `--json` — Structured send result.
+
+Examples: `thread_send_json`.
+
+### `alln thread get`
+
+Fetch one work thread snapshot.
+
+Arguments:
+- `thread-id` (required) — Thread id.
+
+Flags:
+- `--json` — Structured thread JSON.
+
+Examples: `thread_get_json`.
+
+### `alln thread status`
+
+Poll thread running/attention state.
+
+Arguments:
+- `thread-id` (required) — Thread id.
+
+Flags:
+- `--json` — Structured status JSON.
+
+Examples: `thread_status_json`.
+
 ### `alln skills`
 
 List the lane-scoped skill catalog.
@@ -444,6 +484,16 @@ Flags:
 | `JSON_SCHEMA_VIOLATION` | yes | no | Treat as implementation bug; run export-contracts check. |
 | `PERMISSION_REQUIRED` | yes | no | Ask the user for the named permission. |
 | `MCP_CLIENT_UNAPPROVED` | yes | no | Approve or configure the MCP client before retrying. |
+| `ATTACHMENT_HASH_MISMATCH` | yes | no | Re-ingest or re-send the attachment; do not retry with stale bytes. |
+| `ATTACHMENT_TOO_MANY` | yes | no | Remove attachments until within the count cap. |
+| `ATTACHMENT_TOO_LARGE` | yes | no | Use a smaller image or fewer attachments. |
+| `ATTACHMENT_UNSUPPORTED_TYPE` | yes | no | Send PNG/JPEG/GIF/WebP only. |
+| `ATTACHMENT_DECODE_FAILED` | yes | no | Fix or replace the corrupt image file. |
+| `ATTACHMENT_BASE64_INVALID` | yes | no | Fix the base64 payload. |
+| `ATTACHMENT_STAGE_FAILED` | yes | yes | Check workingDir permissions and disk space. |
+| `ATTACHMENT_STAGE_UNIGNORED` | yes | no | Add `.allnighter/` to gitignore or info/exclude manually. |
+| `CONTEXT_ATTACHMENT_CAP_EXCEEDED` | yes | no | Reduce message or attachment count; never silently trim current send. |
+| `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | Use a new idempotency key or repeat the original payload. |
 
 ## NDJSON events
 
@@ -484,5 +534,6 @@ Flags:
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`
+- `thread_send_json` — Send message with image to thread: `alln thread send latest "describe this" --image ./shot.png --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
 

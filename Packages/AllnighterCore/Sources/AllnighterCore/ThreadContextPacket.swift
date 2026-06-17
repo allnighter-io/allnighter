@@ -21,6 +21,8 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
     public var truncated: Bool
     /// Human-readable note, e.g. "included last 8 turns; older omitted."
     public var truncationNote: String?
+    /// Audit record of attachments delivered to the worker for this turn.
+    public var includedAttachments: [IncludedAttachmentDelivery]
 
     public init(
         id: String,
@@ -33,7 +35,8 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
         includedFiles: [String] = [],
         text: String,
         truncated: Bool = false,
-        truncationNote: String? = nil
+        truncationNote: String? = nil,
+        includedAttachments: [IncludedAttachmentDelivery] = []
     ) {
         self.id = id
         self.threadId = threadId
@@ -46,6 +49,44 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
         self.text = text
         self.truncated = truncated
         self.truncationNote = truncationNote
+        self.includedAttachments = includedAttachments
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, threadId, turnId, createdAt, strategy, includedTurnIds, includedRunIds,
+             includedFiles, text, truncated, truncationNote, includedAttachments
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        threadId = try c.decode(String.self, forKey: .threadId)
+        turnId = try c.decode(String.self, forKey: .turnId)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        strategy = try c.decode(ContextStrategy.self, forKey: .strategy)
+        includedTurnIds = try c.decodeIfPresent([String].self, forKey: .includedTurnIds) ?? []
+        includedRunIds = try c.decodeIfPresent([String].self, forKey: .includedRunIds) ?? []
+        includedFiles = try c.decodeIfPresent([String].self, forKey: .includedFiles) ?? []
+        text = try c.decode(String.self, forKey: .text)
+        truncated = try c.decodeIfPresent(Bool.self, forKey: .truncated) ?? false
+        truncationNote = try c.decodeIfPresent(String.self, forKey: .truncationNote)
+        includedAttachments = try c.decodeIfPresent([IncludedAttachmentDelivery].self, forKey: .includedAttachments) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(threadId, forKey: .threadId)
+        try c.encode(turnId, forKey: .turnId)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(strategy, forKey: .strategy)
+        try c.encode(includedTurnIds, forKey: .includedTurnIds)
+        try c.encode(includedRunIds, forKey: .includedRunIds)
+        try c.encode(includedFiles, forKey: .includedFiles)
+        try c.encode(text, forKey: .text)
+        try c.encode(truncated, forKey: .truncated)
+        try c.encodeIfPresent(truncationNote, forKey: .truncationNote)
+        try c.encode(includedAttachments, forKey: .includedAttachments)
     }
 }
 

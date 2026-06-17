@@ -270,5 +270,85 @@
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "mcp.client.unapproved"
+  },
+  {
+    "agentAction" : "Re-ingest or re-send the attachment; do not retry with stale bytes.",
+    "code" : "ATTACHMENT_HASH_MISMATCH",
+    "explain" : "Attachment storedSha256 does not match on-disk bytes.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "attachment.hash.mismatch"
+  },
+  {
+    "agentAction" : "Remove attachments until within the count cap.",
+    "code" : "ATTACHMENT_TOO_MANY",
+    "explain" : "Too many images attached for one send.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "attachment.too_many"
+  },
+  {
+    "agentAction" : "Use a smaller image or fewer attachments.",
+    "code" : "ATTACHMENT_TOO_LARGE",
+    "explain" : "An attachment exceeds byte or megapixel limits.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "attachment.too_large"
+  },
+  {
+    "agentAction" : "Send PNG\/JPEG\/GIF\/WebP only.",
+    "code" : "ATTACHMENT_UNSUPPORTED_TYPE",
+    "explain" : "Attachment MIME type is not allowed.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "attachment.unsupported_type"
+  },
+  {
+    "agentAction" : "Fix or replace the corrupt image file.",
+    "code" : "ATTACHMENT_DECODE_FAILED",
+    "explain" : "Image could not be decoded.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "attachment.decode_failed"
+  },
+  {
+    "agentAction" : "Fix the base64 payload.",
+    "code" : "ATTACHMENT_BASE64_INVALID",
+    "explain" : "MCP base64 image payload is invalid.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "attachment.base64_invalid"
+  },
+  {
+    "agentAction" : "Check workingDir permissions and disk space.",
+    "code" : "ATTACHMENT_STAGE_FAILED",
+    "explain" : "Could not copy attachment into workspace mirror.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "attachment.stage_failed"
+  },
+  {
+    "agentAction" : "Add `.allnighter\/` to gitignore or info\/exclude manually.",
+    "code" : "ATTACHMENT_STAGE_UNIGNORED",
+    "explain" : "Staged mirror but could not update git ignore rules.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "attachment.stage_unignored"
+  },
+  {
+    "agentAction" : "Reduce message or attachment count; never silently trim current send.",
+    "code" : "CONTEXT_ATTACHMENT_CAP_EXCEEDED",
+    "explain" : "Protected attachment block does not fit context cap.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "context.attachment.cap"
+  },
+  {
+    "agentAction" : "Use a new idempotency key or repeat the original payload.",
+    "code" : "THREAD_SEND_IDEMPOTENCY_CONFLICT",
+    "explain" : "Same idempotency key reused with a different thread send payload.",
+    "requiresManual" : false,
+    "retryable" : false,
+    "ruleId" : "thread.send.idempotency.conflict"
   }
 ]

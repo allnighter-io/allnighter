@@ -23,6 +23,8 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
     /// A specific `StageOutput` within the referenced run, when applicable.
     public var stageId: String?
     public var artifactRefs: [ArtifactRef]
+    /// Ordered chat image refs (join → `attachments.json` → canonical bytes).
+    public var attachmentRefs: [TurnAttachmentRef]
     /// The context packet the worker was given for this turn.
     public var contextPacketId: String?
     /// An edited/re-run turn that replaces an earlier one in the timeline.
@@ -47,6 +49,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         runId: String? = nil,
         stageId: String? = nil,
         artifactRefs: [ArtifactRef] = [],
+        attachmentRefs: [TurnAttachmentRef] = [],
         contextPacketId: String? = nil,
         supersedesTurnId: String? = nil,
         seedFromTurnId: String? = nil,
@@ -64,10 +67,59 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         self.runId = runId
         self.stageId = stageId
         self.artifactRefs = artifactRefs
+        self.attachmentRefs = attachmentRefs
         self.contextPacketId = contextPacketId
         self.supersedesTurnId = supersedesTurnId
         self.seedFromTurnId = seedFromTurnId
         self.systemEvent = systemEvent
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, threadId, kind, status, createdAt, completedAt, author, text,
+             workerId, runId, stageId, artifactRefs, attachmentRefs, contextPacketId,
+             supersedesTurnId, seedFromTurnId, systemEvent
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        threadId = try c.decode(String.self, forKey: .threadId)
+        kind = try c.decode(ThreadTurnKind.self, forKey: .kind)
+        status = try c.decode(ThreadTurnStatus.self, forKey: .status)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        author = try c.decode(TurnAuthor.self, forKey: .author)
+        text = try c.decodeIfPresent(String.self, forKey: .text)
+        workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+        runId = try c.decodeIfPresent(String.self, forKey: .runId)
+        stageId = try c.decodeIfPresent(String.self, forKey: .stageId)
+        artifactRefs = try c.decodeIfPresent([ArtifactRef].self, forKey: .artifactRefs) ?? []
+        attachmentRefs = try c.decodeIfPresent([TurnAttachmentRef].self, forKey: .attachmentRefs) ?? []
+        contextPacketId = try c.decodeIfPresent(String.self, forKey: .contextPacketId)
+        supersedesTurnId = try c.decodeIfPresent(String.self, forKey: .supersedesTurnId)
+        seedFromTurnId = try c.decodeIfPresent(String.self, forKey: .seedFromTurnId)
+        systemEvent = try c.decodeIfPresent(SystemEventKind.self, forKey: .systemEvent)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(threadId, forKey: .threadId)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(status, forKey: .status)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encodeIfPresent(completedAt, forKey: .completedAt)
+        try c.encode(author, forKey: .author)
+        try c.encodeIfPresent(text, forKey: .text)
+        try c.encodeIfPresent(workerId, forKey: .workerId)
+        try c.encodeIfPresent(runId, forKey: .runId)
+        try c.encodeIfPresent(stageId, forKey: .stageId)
+        try c.encode(artifactRefs, forKey: .artifactRefs)
+        try c.encode(attachmentRefs, forKey: .attachmentRefs)
+        try c.encodeIfPresent(contextPacketId, forKey: .contextPacketId)
+        try c.encodeIfPresent(supersedesTurnId, forKey: .supersedesTurnId)
+        try c.encodeIfPresent(seedFromTurnId, forKey: .seedFromTurnId)
+        try c.encodeIfPresent(systemEvent, forKey: .systemEvent)
     }
 }
 

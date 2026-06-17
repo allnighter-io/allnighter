@@ -473,5 +473,92 @@
       }
     ],
     "summary" : "Retrieve a run's full spec\/result packet without opening the GUI. Failed workers and warnings always included in full detail."
+  },
+  {
+    "command" : "thread send",
+    "name" : "thread_send",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "threadId",
+        "required" : false,
+        "summary" : "Thread id or `latest`.",
+        "type" : "string"
+      },
+      {
+        "name" : "message",
+        "required" : false,
+        "summary" : "User message text.",
+        "type" : "string"
+      },
+      {
+        "name" : "workerId",
+        "required" : false,
+        "summary" : "Requested worker\/model id.",
+        "type" : "string"
+      },
+      {
+        "name" : "idempotencyKey",
+        "required" : false,
+        "summary" : "Client idempotency key (24h retention).",
+        "type" : "string"
+      },
+      {
+        "arrayItems" : {
+          "oneOf" : [
+            {
+              "type" : "string"
+            },
+            {
+              "properties" : {
+                "base64" : {
+                  "type" : "string"
+                },
+                "mimeType" : {
+                  "type" : "string"
+                }
+              },
+              "required" : [
+                "base64"
+              ],
+              "type" : "object"
+            }
+          ]
+        },
+        "name" : "images",
+        "required" : false,
+        "summary" : "Image paths or base64 objects.",
+        "type" : "array"
+      }
+    ],
+    "summary" : "Send a message and\/or images to a work thread worker."
+  },
+  {
+    "command" : "thread get",
+    "name" : "thread_get",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "threadId",
+        "required" : true,
+        "summary" : "Thread id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Fetch a work thread snapshot."
+  },
+  {
+    "command" : "thread status",
+    "name" : "thread_status",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "threadId",
+        "required" : true,
+        "summary" : "Thread id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Poll thread running\/attention state."
   }
 ]

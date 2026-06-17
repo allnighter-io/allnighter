@@ -1,9 +1,8 @@
 # Composer Image Attachments (Paste + CLI + MCP)
 
-**Status:** Draft founder packet — **not implementation-ready until
-`threads/05_ThreadStore_Hardening.md` lands**
+**Status:** **Backend BUILT** (CIA-S00–S07, 2026-06-17) — GUI slices S03/S04/S08/S09 remain
 **Owner:** AllnighterCore · AllnighterEngine · Mac GUI · CLI/MCP
-**Created:** 2026-06-16 · **Updated:** 2026-06-17 (implementation law + invoke/reveal hardening + ThreadStore prerequisite)
+**Created:** 2026-06-16 · **Updated:** 2026-06-17 (backend foundation landed; GUI deferred)
 **Process:** `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
 **Depends on:** [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md),
@@ -17,10 +16,11 @@
 
 CR4b is built. Do not re-run the CR4 send packet for this feature.
 
-The blocker is storage/send truth: implement
-[`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md)
-before this doc, then update this packet's status to execution-ready. The rest
-of `docs/phases/threads/` is **not** a prerequisite for image attachments.
+[`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md) is **BUILT**
+(TSH-S00–S07). Backend/headless slices CIA-S00 through CIA-S07 are **BUILT** (2026-06-17).
+Remaining work is GUI-only: paste/attach (S03), timeline chips (S04), visual proof seal
+(S08), drag-and-drop (S09). The rest of `docs/phases/threads/` is **not** a prerequisite
+for image attachments beyond 05.
 
 ## First principle
 
@@ -295,16 +295,19 @@ implementers need so the shorter spec does not become under-specified.
 
 ### Current state audit
 
-| Area | Current gap |
+| Area | Status |
 | --- | --- |
-| `ThreadTurn` | No `attachmentRefs`; chat images must not be squeezed into `artifactRefs` |
-| `ThreadContextPacket` | No `includedAttachments`; context reveal only has packet text |
-| `ThreadStore` | `thread.json` and packets are not yet protected by per-thread flock + atomic transaction |
-| `WorkerChatCoordinator.send` | Text-only; invokes `runner.invoke(..., prompt: packet.text)` |
-| `ThreadsViewModel.sendRouting` | Appends user turns directly; must be removed from real send path |
-| `RoutingComposer` | Plain `TextEditor`; photo button stub; no paste intercept or draft strip |
-| `ContractRegistry.MCPToolSpec.Param` | Scalar params only; needs array/union schema support before `images[]` |
-| `DriverManifest` | Already has `readsImages` / `canReadImages`; use this seam for delivery decisions |
+| `ThreadTurn.attachmentRefs` | **Built** — legacy decode defaults to `[]` |
+| `ThreadContextPacket.includedAttachments` | **Built** — audit record on send |
+| `AttachmentIngestor` + `ThreadAttachmentStore` | **Built** — canonical store, flock, atomic writes |
+| `ThreadSendCoordinator` | **Built** — send transaction (law §2) |
+| `WorkerChatCoordinator.send` | **Built** — routes through `ThreadSendCoordinator` |
+| `alln thread send` + MCP `thread_send` | **Built** — temp freeze, idempotency, `images[]` union |
+| `FanoutAttachmentMapper` | **Built** — design lane first-image mapping |
+| `ThreadsViewModel.sendRouting` | Fan-out/exec still bypass coordinator (CR4b chat path uses coordinator) |
+| `RoutingComposer` | **GUI gap** — no paste intercept, draft strip, or attach controls |
+| Timeline chips / context reveal thumbnails | **GUI gap** (S04) |
+| GUI proof fixture `compose-paste-image` | **GUI gap** (S08) |
 
 ### Ingest pipeline
 
@@ -468,19 +471,26 @@ Cleanup logs what mirror files were removed. It never touches
 
 ## Required proof (slice not done until all pass)
 
-| # | Proof |
-| --- | --- |
-| 1 | GUI paste → fake vision worker receives path; hash matches `storedSha256`; reveal shows thumbnail + "path sent to worker" |
-| 2 | Image-only send works |
-| 3 | Send during ingest waits (**Preparing…**), then sends complete ordered refs |
-| 4 | Multi-image paste completing out of order → prompt still in paste `sequence` |
-| 5 | CLI: mutate source after temp freeze → sent bytes unchanged |
-| 6 | MCP base64 and CLI file ingest → same canonical `storedSha256` |
-| 7 | `workingDir` set → workspace staging; prompt uses staged relative path |
-| 8 | Mirror cleanup removes workspace files; history thumbnails still open canonical |
-| 9 | Legacy thread fixtures decode with `attachmentRefs == []` |
-| 10 | Concurrent GUI + CLI sends → no lost turns, no packet mismatch |
-| 11 | Hash mismatch at invoke → fatal, visible `ATTACHMENT_HASH_MISMATCH` |
+| # | Proof | Backend | GUI |
+| --- | --- | --- | --- |
+| 1 | Fake vision worker receives path; hash matches `storedSha256`; reveal shows thumbnail + "path sent to worker" | **Headless** (`ThreadSendCoordinatorAttachmentTests`) | Reveal thumbnail (S04) |
+| 2 | Image-only send works | **Built** | — |
+| 3 | Send during ingest waits (**Preparing…**), then sends complete ordered refs | Coordinator rejects non-ready drafts | Preparing UI (S03) |
+| 4 | Multi-image out-of-order completion → prompt in paste `sequence` | Sequence law in store | Paste UI (S03) |
+| 5 | CLI: mutate source after temp freeze → sent bytes unchanged | **Built** (freeze path) | — |
+| 6 | MCP base64 and CLI file ingest → same canonical `storedSha256` | **Built** (shared ingestor) | — |
+| 7 | `workingDir` set → workspace staging; prompt uses staged relative path | **Built** (`WorkspaceAttachmentStagingTests`) | — |
+| 8 | Mirror cleanup removes workspace files; history thumbnails still open canonical | Cleanup helper built | Timeline open (S04) |
+| 9 | Legacy thread fixtures decode with `attachmentRefs == []` | **Built** (`AttachmentLegacyDecodeTests`) | — |
+| 10 | Concurrent GUI + CLI sends → no lost turns, no packet mismatch | Partial (flock + store concurrency tests) | — |
+| 11 | Hash mismatch at invoke → fatal, visible `ATTACHMENT_HASH_MISMATCH` | **Built** (`ThreadAttachmentStoreTests`) | — |
+
+**Backend proof command:**
+
+```text
+swift test --package-path Packages/AllnighterCore --filter 'AttachmentLegacyDecodeTests|AttachmentIngestorTests|ThreadAttachmentStoreTests|ThreadAttachmentConcurrencyTests|ThreadSendCoordinatorAttachmentTests|WorkspaceAttachmentStagingTests|FanoutAttachmentMapperTests|WorkerChatCoordinatorTests'
+bash scripts/check.sh
+```
 
 CI gate: **fake vision worker** (not real model color guessing). Real Claude/Codex =
 smoke only. GUI proof fixture `compose-paste-image` (CIA-S08). DnD manual (CIA-S09).
@@ -489,21 +499,21 @@ smoke only. GUI proof fixture `compose-paste-image` (CIA-S08). DnD manual (CIA-S
 
 ## Slices
 
-| Slice | Delivers |
-| --- | --- |
-| **CIA-S00** | Schema, `AttachmentIngestor`, canonical store, flock, atomic writes, law §10 defaults |
-| **CIA-S00b** | `ThreadStoreConcurrencyTests`, validate, orphan recovery |
-| **CIA-S01** | `includedAttachments`, sequence, delivery renderer, protected context, fake worker fixture |
-| **CIA-S01b** | Workspace staging, git hygiene (law §7), mirror cleanup (law §6) |
-| **CIA-S02** | **Send transaction** (law §2) in coordinator |
-| **CR4b** | Remove `sendRouting` bypass (law §1) |
-| **CIA-S03** | Paste + attach; law §3–4; Preparing send |
-| **CIA-S04** | Timeline from canonical (law §11) |
-| **CIA-S05** | CLI law §8 + idempotency |
-| **CIA-S06** | MCP law §9 + idempotency + poll tools |
-| **CIA-S07** | Design fan-out attachment mapping |
-| **CIA-S08** | GUI proof seal |
-| **CIA-S09** | Drag-and-drop (last; not blocking v1 done) |
+| Slice | Delivers | Status |
+| --- | --- | --- |
+| **CIA-S00** | Schema, `AttachmentIngestor`, canonical store, flock, atomic writes, law §10 defaults | ✅ Built |
+| **CIA-S00b** | Concurrency tests, validate, orphan recovery | ✅ Built |
+| **CIA-S01** | `includedAttachments`, sequence, delivery renderer, protected context, fake worker fixture | ✅ Built |
+| **CIA-S01b** | Workspace staging, git hygiene (law §7), mirror cleanup (law §6) | ✅ Built |
+| **CIA-S02** | **Send transaction** (law §2) in coordinator | ✅ Built |
+| **CR4b** | Remove `sendRouting` bypass (law §1) | ✅ Chat path (fan-out/exec deferred) |
+| **CIA-S03** | Paste + attach; law §3–4; Preparing send | **GUI** |
+| **CIA-S04** | Timeline from canonical (law §11) | **GUI** |
+| **CIA-S05** | CLI law §8 + idempotency | ✅ Built |
+| **CIA-S06** | MCP law §9 + idempotency + poll tools | ✅ Built |
+| **CIA-S07** | Design fan-out attachment mapping | ✅ Built |
+| **CIA-S08** | GUI proof seal | **GUI** |
+| **CIA-S09** | Drag-and-drop (last; not blocking v1 done) | **GUI** |
 
 ---
 

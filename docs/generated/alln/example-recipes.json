@@ -85,6 +85,11 @@
     "title" : "Verify no contract drift"
   },
   {
+    "command" : "alln thread send latest \"describe this\" --image .\/shot.png --json",
+    "id" : "thread_send_json",
+    "title" : "Send message with image to thread"
+  },
+  {
     "command" : "alln serve --health --json",
     "id" : "serve_health_json",
     "title" : "Coordinator health"
