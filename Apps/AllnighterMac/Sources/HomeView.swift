@@ -37,11 +37,19 @@ private struct HomeSidebar: View {
     @Environment(CommandCenter.self) private var commands
     @FocusState private var searchFocused: Bool
     @State private var search = ""
-    @State private var filter = "all"
-    private let filters = [("all", "All"), ("design", "Design"), ("build", "Build"), ("running", "Running")]
+    @State private var filter: ThreadsPresenter.RailFilter = .all
 
-    private var railThreads: [WorkThread] {
-        ThreadsPresenter.railThreads(threads.threads)
+    private var railGroups: [ThreadsPresenter.RailGroup] {
+        ThreadsPresenter.railGroups(threads.threads, filter: filter, search: search)
+    }
+
+    private func label(for filter: ThreadsPresenter.RailFilter) -> String {
+        switch filter {
+        case .all: return "All"
+        case .design: return "Design"
+        case .build: return "Build"
+        case .running: return "Running"
+        }
     }
 
     var body: some View {
@@ -67,9 +75,9 @@ private struct HomeSidebar: View {
                 .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
 
                 HStack(spacing: 7) {
-                    ForEach(filters, id: \.0) { key, label in
+                    ForEach(ThreadsPresenter.RailFilter.allCases, id: \.self) { key in
                         Button { filter = key } label: {
-                            Text(label).font(.system(size: 11.5, weight: .medium))
+                            Text(label(for: key)).font(.system(size: 11.5, weight: .medium))
                                 .foregroundStyle(filter == key ? ALColor.textPrimary : ALColor.textMuted)
                                 .padding(.horizontal, 11).frame(height: 26)
                                 .background(filter == key ? ALColor.active : ALColor.subtle, in: Capsule())
@@ -81,19 +89,29 @@ private struct HomeSidebar: View {
             }
             .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 12)
 
-            if railThreads.isEmpty {
+            if railGroups.isEmpty {
                 Spacer(minLength: 0)
-                emptyHint
+                if threads.threads.contains(where: { !$0.isArchived }) {
+                    noMatchHint
+                } else {
+                    emptyHint
+                }
                 Spacer(minLength: 0)
             } else {
                 ScrollView {
-                    VStack(spacing: 2) {
-                        ForEach(railThreads) { thread in
-                            ConversationRow(
-                                thread: thread,
-                                selected: thread.id == threads.selectedThreadId
-                            ) {
-                                threads.select(thread)
+                    LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
+                        ForEach(railGroups) { group in
+                            Section {
+                                ForEach(group.threads) { thread in
+                                    ConversationRow(
+                                        thread: thread,
+                                        selected: thread.id == threads.selectedThreadId
+                                    ) {
+                                        threads.select(thread)
+                                    }
+                                }
+                            } header: {
+                                railSectionHeader(group.title)
                             }
                         }
                     }
@@ -106,12 +124,34 @@ private struct HomeSidebar: View {
         .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
     }
 
+    private func railSectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 10, weight: .bold)).tracking(0.6)
+            .foregroundStyle(ALColor.textFaint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 9).padding(.top, 10).padding(.bottom, 4)
+            .background(ALColor.subtle)
+    }
+
     private var emptyHint: some View {
         VStack(spacing: 8) {
             Image(systemName: "moon.stars.fill").font(.system(size: 26)).foregroundStyle(ALColor.accent)
             Text("No conversations yet")
                 .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
             Text("Your work orders will live here — newest on top.")
+                .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
+                .multilineTextAlignment(.center).frame(maxWidth: 210).lineSpacing(2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 14)
+    }
+
+    private var noMatchHint: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "line.3.horizontal.decrease.circle").font(.system(size: 24)).foregroundStyle(ALColor.textFaint)
+            Text("No matches")
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+            Text(search.isEmpty ? "No \(label(for: filter).lowercased()) conversations." : "Nothing matches “\(search)”.")
                 .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
                 .multilineTextAlignment(.center).frame(maxWidth: 210).lineSpacing(2)
         }

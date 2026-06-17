@@ -91,6 +91,66 @@ enum ThreadsPresenter {
         threads.filter { !$0.isArchived }.sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    // MARK: - Rail filter / search / grouping (CR4e)
+
+    /// The rail's lane chips. `running` is a state, not a lane, but lives here so
+    /// the rail filter is a single control.
+    enum RailFilter: String, CaseIterable {
+        case all, design, build, running
+    }
+
+    /// The lane a thread belongs to, inferred from the work it actually did (a
+    /// design board → Design; a team run / work order / dispatch → Build). A
+    /// chat-only or empty thread has no lane and shows only under All.
+    static func lane(of thread: WorkThread) -> ComposeLane? {
+        if thread.turns.contains(where: { $0.kind == .designBoard }) { return .design }
+        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .workOrder || $0.kind == .dispatch }) {
+            return .build
+        }
+        return nil
+    }
+
+    static func matches(_ thread: WorkThread, filter: RailFilter) -> Bool {
+        switch filter {
+        case .all: return true
+        case .design: return lane(of: thread) == .design
+        case .build: return lane(of: thread) == .build
+        case .running: return thread.isRunning
+        }
+    }
+
+    /// Case-insensitive match over the title and any turn text — so search finds a
+    /// conversation by what was actually said in it, not just its title.
+    static func matchesSearch(_ thread: WorkThread, query: String) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return true }
+        if thread.title.lowercased().contains(q) { return true }
+        return thread.turns.contains { ($0.text ?? "").lowercased().contains(q) }
+    }
+
+    /// Triaged, filtered, and searched — the flat rail order.
+    static func railThreads(_ threads: [WorkThread], filter: RailFilter, search: String) -> [WorkThread] {
+        triaged(threads).filter { matches($0, filter: filter) && matchesSearch($0, query: search) }
+    }
+
+    /// A labelled rail section (Pinned / Recent), in display order. Pinned floats
+    /// to its own group; empty groups are omitted.
+    struct RailGroup: Identifiable, Equatable {
+        let id: String
+        let title: String
+        let threads: [WorkThread]
+    }
+
+    static func railGroups(_ threads: [WorkThread], filter: RailFilter, search: String) -> [RailGroup] {
+        let visible = railThreads(threads, filter: filter, search: search)
+        let pinned = visible.filter(\.isPinned)
+        let recent = visible.filter { !$0.isPinned }
+        var groups: [RailGroup] = []
+        if !pinned.isEmpty { groups.append(RailGroup(id: "pinned", title: "Pinned", threads: pinned)) }
+        if !recent.isEmpty { groups.append(RailGroup(id: "recent", title: "Recent", threads: recent)) }
+        return groups
+    }
+
     // MARK: - Turn presentation
 
     /// Map a turn's lifecycle to the shared StatusPill kind.

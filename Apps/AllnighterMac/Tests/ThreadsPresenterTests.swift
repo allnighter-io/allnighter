@@ -118,4 +118,65 @@ final class ThreadsPresenterTests: XCTestCase {
         let running = thread("run", updatedAt: t0, turns: [turn(.workerChat, .running)])
         XCTAssertEqual(ThreadsPresenter.conversationStatus(for: running), .running)
     }
+
+    // MARK: - Rail filter / search / grouping (CR4e)
+
+    private func textTurn(_ kind: ThreadTurnKind, _ text: String) -> ThreadTurn {
+        ThreadTurn(id: "\(kind.rawValue)-txt", threadId: "x", kind: kind, status: .done,
+                   createdAt: t0, author: .worker, text: text)
+    }
+
+    func testLaneInference() {
+        XCTAssertEqual(ThreadsPresenter.lane(of: thread("d", updatedAt: t0, turns: [turn(.designBoard, .done)])), .design)
+        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b", updatedAt: t0, turns: [turn(.teamRun, .done)])), .build)
+        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b2", updatedAt: t0, turns: [turn(.dispatch, .done)])), .build)
+        XCTAssertNil(ThreadsPresenter.lane(of: thread("chat", updatedAt: t0, turns: [turn(.workerChat, .done)])))
+        XCTAssertNil(ThreadsPresenter.lane(of: thread("empty", updatedAt: t0)))
+    }
+
+    func testRailFilterByLaneAndRunning() {
+        let design = thread("d", updatedAt: t0, turns: [turn(.designBoard, .done)])
+        let build = thread("b", updatedAt: t0, turns: [turn(.teamRun, .done)])
+        let runningBuild = thread("rb", updatedAt: t0, turns: [turn(.dispatch, .running)])
+        let chat = thread("c", updatedAt: t0, turns: [turn(.workerChat, .done)])
+        let all = [design, build, runningBuild, chat]
+
+        XCTAssertEqual(Set(ThreadsPresenter.railThreads(all, filter: .all, search: "").map(\.id)),
+                       ["d", "b", "rb", "c"])
+        XCTAssertEqual(ThreadsPresenter.railThreads(all, filter: .design, search: "").map(\.id), ["d"])
+        XCTAssertEqual(Set(ThreadsPresenter.railThreads(all, filter: .build, search: "").map(\.id)),
+                       ["b", "rb"])
+        XCTAssertEqual(ThreadsPresenter.railThreads(all, filter: .running, search: "").map(\.id), ["rb"])
+    }
+
+    func testRailSearchMatchesTitleAndTurnText() {
+        let byTitle = WorkThread(id: "t1", title: "Rate-limit the API", status: .active,
+                                 createdAt: t0, updatedAt: t0)
+        let byText = WorkThread(id: "t2", title: "Misc", status: .active, createdAt: t0, updatedAt: t0,
+                                turns: [textTurn(.workerChat, "use a token bucket here")])
+        let neither = WorkThread(id: "t3", title: "Profile redesign", status: .active, createdAt: t0, updatedAt: t0)
+        let all = [byTitle, byText, neither]
+
+        XCTAssertEqual(ThreadsPresenter.railThreads(all, filter: .all, search: "rate-limit").map(\.id), ["t1"])
+        XCTAssertEqual(ThreadsPresenter.railThreads(all, filter: .all, search: "TOKEN").map(\.id), ["t2"])
+        XCTAssertEqual(ThreadsPresenter.railThreads(all, filter: .all, search: "  ").map(\.id).count, 3,
+                       "blank search is a no-op")
+        XCTAssertTrue(ThreadsPresenter.railThreads(all, filter: .all, search: "zzz").isEmpty)
+    }
+
+    func testRailGroupsSplitPinnedFromRecent() {
+        let pinned = thread("p", updatedAt: t0, pinned: true, turns: [turn(.teamRun, .done)])
+        let recent = thread("r", updatedAt: t0.addingTimeInterval(100), turns: [turn(.teamRun, .done)])
+        let groups = ThreadsPresenter.railGroups([recent, pinned], filter: .all, search: "")
+
+        XCTAssertEqual(groups.map(\.id), ["pinned", "recent"])
+        XCTAssertEqual(groups.first?.threads.map(\.id), ["p"])
+        XCTAssertEqual(groups.last?.threads.map(\.id), ["r"])
+    }
+
+    func testRailGroupsOmitsEmptySections() {
+        let recent = thread("r", updatedAt: t0)
+        let groups = ThreadsPresenter.railGroups([recent], filter: .all, search: "")
+        XCTAssertEqual(groups.map(\.id), ["recent"], "no pinned section when nothing is pinned")
+    }
 }

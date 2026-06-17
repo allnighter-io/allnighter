@@ -142,6 +142,7 @@ enum GUIFixture {
         ("readiness-mixed", "Mixed — CLI setup page"),
         ("readiness-cold", "Cold — never scanned (CLI setup page)"),
         ("home-with-threads", "Home — rail with conversations"),
+        ("home-rail", "Home — grouped/filtered rail (CR4e)"),
         ("thread-empty", "Thread — empty work order"),
         ("thread-with-turns", "Thread — user message turn"),
         ("thread-chat", "Thread — chat reply from a model"),

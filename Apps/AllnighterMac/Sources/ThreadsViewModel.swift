@@ -499,9 +499,42 @@ final class ThreadsViewModel {
             seedFixtureTeamBoard()
         case "thread-dispatch":
             seedFixtureDispatch()
+        case "home-rail":
+            seedFixtureRail()
+            selectedThreadId = nil
         default:
             break
         }
+    }
+
+    /// CR4e proof: a grouped rail — a pinned conversation, plus recent ones across
+    /// lanes (design / build / chat) with a running pill — so the Pinned/Recent
+    /// sections, lane filters, and status pills all have something to show.
+    private func seedFixtureRail() {
+        let base = Date()
+        func turn(_ tid: String, _ thread: String, _ kind: ThreadTurnKind, _ status: ThreadTurnStatus) -> ThreadTurn {
+            ThreadTurn(id: tid, threadId: thread, kind: kind, status: status,
+                       createdAt: base, completedAt: status.isTerminal ? base : nil, author: .worker)
+        }
+
+        // Pinned design conversation.
+        if (try? store.create(id: "rail-design", title: "Redesign the onboarding flow", now: base.addingTimeInterval(-600))) != nil {
+            _ = try? store.append(turn("rail-design-t", "rail-design", .designBoard, .done), toThreadId: "rail-design", now: base)
+            if var t = store.get("rail-design") { t.pinnedAt = base; _ = try? store.save(t) }
+        }
+        // Build conversation, currently running (Running filter + running pill).
+        if (try? store.create(id: "rail-build", title: "Rate-limit the public API", now: base.addingTimeInterval(-120))) != nil {
+            _ = try? store.append(turn("rail-build-t1", "rail-build", .teamRun, .done), toThreadId: "rail-build", now: base)
+            _ = try? store.append(turn("rail-build-t2", "rail-build", .dispatch, .running), toThreadId: "rail-build", now: base)
+        }
+        // Build conversation, settled.
+        if (try? store.create(id: "rail-build2", title: "Refactor the uploader client", now: base.addingTimeInterval(-300))) != nil {
+            _ = try? store.append(turn("rail-build2-t", "rail-build2", .workOrder, .done), toThreadId: "rail-build2", now: base)
+        }
+        // Chat-only conversation (no lane → only under All).
+        _ = try? store.create(id: "rail-chat", title: "Token bucket vs sliding window", now: base.addingTimeInterval(-900))
+
+        reload()
     }
 
     private func seedFixtureThreads() {
