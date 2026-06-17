@@ -10,6 +10,7 @@ struct RootView: View {
     @State private var showTeamDropdown = false
     @State private var showReadiness = false
     @State private var showTeamStudio = false
+    @State private var studioInitialRoute: StudioRoute = .clis
     @State private var showComposeSpecimen = false
     @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
@@ -87,7 +88,7 @@ struct RootView: View {
                 // home + routing composer (CR3/CR4 wire conversations live).
                 Group {
                     if showTeamStudio {
-                        TeamStudioView(onDone: { showTeamStudio = false })
+                        TeamStudioView(initialRoute: studioInitialRoute, onDone: { showTeamStudio = false })
                     } else if showReadiness {
                         TeamReadinessView(
                             focusDriverId: readinessFocus,
@@ -191,6 +192,7 @@ struct RootView: View {
                 if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
                 if GUIFixture.opensTeamStudio {
                     model.applyDevBenchScenario("readiness-mixed")
+                    studioInitialRoute = GUIFixture.studioRoute
                     showTeamStudio = true
                 }
                 if GUIFixture.opensCommandPalette { commands.palettePresented = true }

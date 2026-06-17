@@ -101,6 +101,17 @@ enum GUIFixture {
     /// Deep-link: open the Team Studio settings surface for `studio*` fixtures.
     static var opensTeamStudio: Bool { (active ?? "").hasPrefix("studio") }
 
+    /// Which Studio page a `studio-*` fixture deep-links to.
+    static var studioRoute: StudioRoute {
+        switch active {
+        case "studio-teams-build": return .teams(.build)
+        case "studio-teams-design": return .teams(.design)
+        case "studio-teams-copy": return .teams(.copy)
+        case "studio-skills-build": return .skills(.build)
+        default: return .clis
+        }
+    }
+
     /// Home / thread conversation fixtures stay on HomeView (not the specimen).
     static var opensHomeWorkspace: Bool {
         let name = active ?? ""
@@ -152,6 +163,7 @@ enum GUIFixture {
         ("thread-team-board", "Thread — fan-out team board"),
         ("thread-dispatch", "Thread — execute → dispatch to repo"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
+        ("studio-teams-build", "Team Studio — Build teams (detail)"),
         ("command-palette", "⌘K command palette"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
