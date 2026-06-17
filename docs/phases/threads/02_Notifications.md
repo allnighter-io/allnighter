@@ -1,7 +1,7 @@
 # 02 - Thread Notifications
 
-Status: Fast follow after Work Threads MLP; coordinates with `06_Unread_Message_Light.md`
-Owner: Mac app backend + iOS remote spine
+Status: **BUILT** (NOTIF-S01–S05 + UNR-S06, 2026-06-17)
+Owner: Mac app backend
 Updated: 2026-06-17
 
 ## Goal
@@ -19,22 +19,26 @@ blocked.
 Allnighter tells you when a thread is ready for your next decision.
 ```
 
-## Sequence
+## Scope
 
-Ship in two layers:
+Ship **Mac local notifications only** in this phase.
 
-1. **Mac local notifications** immediately after Work Threads MLP, or in
-   parallel with rich-turn attachment if the thread state-change hooks are ready.
-2. **Mobile push via OneSignal** after the iOS remote spine and E2E content rules
-   are in place.
+Notifications 1.0 does not require cloud, iOS, OneSignal, Supabase, R2, or a
+remote spine. iOS push is deferred to
+[`../ios/03_iOS_Thread_Read_State_And_Push.md`](../ios/03_iOS_Thread_Read_State_And_Push.md)
+and must not block Mac shipping.
 
-Mac notifications do not require cloud or iOS.
+This doc also owns UNR-S06 from
+[`06_Unread_Message_Light.md`](06_Unread_Message_Light.md): the notification
+policy must suppress local notification delivery when the landed turn is already
+visible/read. It must not treat notification delivery or click-through as read
+truth.
 
 Unread/read truth is owned separately by
 [`06_Unread_Message_Light.md`](06_Unread_Message_Light.md). Notification
-delivery, click-through, and push receipt must not be treated as read receipts.
-The notification policy may suppress delivery when the target turn is already
-visible and read, but visibility/read state remains the cursor's job.
+delivery and click-through must not be treated as read receipts. The notification
+policy may suppress delivery when the target turn is already visible and read,
+but visibility/read state remains the cursor's job.
 
 ## Notification Events
 
@@ -90,53 +94,23 @@ Do not include ordinary unread threads in the numeric badge; that count is for
 needs-attention only. If unread is later reflected in the menu bar, use a quiet
 amber dot and source it from `06_Unread_Message_Light.md`.
 
-## Mobile Push With OneSignal
-
-Use OneSignal as the likely default push provider behind a `PushNotifier` seam,
-consistent with the iOS remote spine.
-
-Rules:
-
-- Push payload is content-light.
-- Sensitive content stays E2E encrypted and fetched after open.
-- The Mac remains thread truth and final authorizer.
-- A cloud breach must not reveal thread content or control the Mac.
-- Push is a doorbell, not durable storage.
-
-Payload shape:
-
-```text
-threadId
-turnId
-eventKind
-displayTitle      # content-light
-macId
-seq
-```
-
 ## User Controls
 
 - Global notifications on/off.
 - Per-thread mute.
 - Notify on: replies, team run complete, dispatch returned, failures/blocked.
 - Quiet hours.
-- Mobile push on/off per paired device.
 - Reset notification permission guidance if macOS permission was denied.
 
 ## Ordered Slices
 
-- [ ] NOTIF-S01 - Add notification policy model and settings.
-- [ ] NOTIF-S02 - Emit notification candidates from turn/thread state changes.
-- [ ] NOTIF-S03 - Mac local notification delivery and click-to-thread.
-- [ ] NOTIF-S04 - Debounce and per-thread mute.
-- [ ] NOTIF-S05 - Menu bar live/needs-attention indicator.
-- [ ] NOTIF-S06 - Add push seam (`PushNotifier`) but keep implementation off.
-- [ ] NOTIF-S07 - OneSignal mobile push after remote spine exists.
-- [ ] NOTIF-S08 - E2E fetch-on-open validation for pushed thread events.
+- [x] NOTIF-S01 - Add notification policy model and settings.
+- [x] NOTIF-S02 - Emit notification candidates from turn/thread state changes.
+- [x] NOTIF-S03 - Mac local notification delivery and click-to-thread.
+- [x] NOTIF-S04 - Debounce and per-thread mute.
+- [x] NOTIF-S05 - Menu bar live/needs-attention indicator.
 
 ## Works Test
-
-Mac:
 
 ```text
 Send a chat turn and leave the thread. When the worker reply completes,
@@ -145,21 +119,9 @@ reply turn. A failed worker posts a needs-attention notification. Muting the
 thread suppresses both.
 ```
 
-Mobile:
-
-```text
-With a paired phone and push enabled, a completed worker/team/dispatch event
-sends a content-light OneSignal notification. Opening it fetches encrypted
-thread content through the remote spine. The push payload contains no prompt,
-reply, code, or artifact text.
-```
-
 ## Proof Command
 
 ```text
 swift test
 scripts/check.sh
 ```
-
-Mobile push also needs an end-to-end manual Works Test on a paired device before
-product copy claims remote notifications.

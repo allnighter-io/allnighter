@@ -1,0 +1,61 @@
+import XCTest
+@testable import AllnighterCore
+
+final class NotificationDeliveryFilterTests: XCTestCase {
+    private let now = Date(timeIntervalSinceReferenceDate: 920_000)
+
+    func testMutedThreadBlocksDelivery() {
+        var policy = NotificationPolicy()
+        policy.mutedThreadIds.insert("t1")
+        let candidate = sampleCandidate(threadId: "t1")
+        XCTAssertFalse(NotificationDeliveryFilter.shouldDeliver(
+            candidate: candidate, policy: policy, now: now
+        ))
+    }
+
+    func testDebounceBlocksSecondDeliveryInWindow() {
+        var policy = NotificationPolicy(debounceIntervalSeconds: 60)
+        let candidate = sampleCandidate(threadId: "t1")
+        NotificationDeliveryFilter.recordDelivery(candidate: candidate, policy: &policy, now: now)
+        XCTAssertFalse(NotificationDeliveryFilter.shouldDeliver(
+            candidate: candidate, policy: policy, now: now.addingTimeInterval(10)
+        ))
+    }
+
+    func testQuietHoursBlocksDelivery() {
+        var policy = NotificationPolicy(
+            quietHoursEnabled: true,
+            quietHoursStartMinutes: 0,
+            quietHoursEndMinutes: 24 * 60
+        )
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let noon = calendar.date(from: DateComponents(
+            year: 2026, month: 6, day: 17, hour: 12, minute: 0
+        ))!
+        XCTAssertFalse(NotificationDeliveryFilter.shouldDeliver(
+            candidate: sampleCandidate(),
+            policy: policy,
+            now: noon,
+            calendar: calendar
+        ))
+    }
+
+    func testReplyToggleDisablesCompletedEvents() {
+        var policy = NotificationPolicy(notifyReplies: false)
+        let candidate = NotificationCandidate(
+            threadId: "t1", turnId: "w1", event: .turnCompleted,
+            threadTitle: "t", occurredAt: now
+        )
+        XCTAssertFalse(NotificationDeliveryFilter.shouldDeliver(
+            candidate: candidate, policy: policy, now: now
+        ))
+    }
+
+    private func sampleCandidate(threadId: String = "t1") -> NotificationCandidate {
+        NotificationCandidate(
+            threadId: threadId, turnId: "w1", event: .turnCompleted,
+            threadTitle: "Thread", occurredAt: now
+        )
+    }
+}

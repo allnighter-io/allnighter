@@ -61,6 +61,16 @@ struct ThreadRowContextMenu: ViewModifier {
                     }
                     Button("Rename…") { onRename?() }
                     Button("Archive") { threads.archiveThread(thread.id) }
+                    Divider()
+                    if threads.isThreadNotificationsMuted(thread.id) {
+                        Button("Unmute notifications") {
+                            threads.setThreadNotificationsMuted(thread.id, muted: false)
+                        }
+                    } else {
+                        Button("Mute notifications") {
+                            threads.setThreadNotificationsMuted(thread.id, muted: true)
+                        }
+                    }
                 }
             }
         }

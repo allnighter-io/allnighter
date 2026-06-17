@@ -9,16 +9,16 @@ The MVP team-run substrate has been built. Going forward,
 `docs/phases/` is the active home for post-MVP product slices, mentor-review
 notes, and implementation phase docs.
 
-> **HOTFIX FIRST: [`Launch_Authority_TCC_Hotfix.md`](Launch_Authority_TCC_Hotfix.md).**
-> Ordinary app launch must be process-quiet before setup/recheck/run. This
-> supersedes setup-phase background smoke language until closed.
+> **Launch authority hotfix is built and archived:** ordinary app launch is
+> process-quiet before setup/recheck/run. Historical policy/proof:
+> [`docs/archive/phases/Launch_Authority_TCC_Hotfix.md`](../archive/phases/Launch_Authority_TCC_Hotfix.md).
 >
 > **▶ [`setup/`](setup/README.md) — First-Run Setup ("assemble your team").**
 > Phase 0 (packaging) and Phase 1 (detection engine: `CLIDetector` +
 > `ShellResolver` + `SetupStore`, reachable headless via `alln detect`) are
-> **built**; Phase 2 (app consumes the detector) is largely built. Remaining:
-> Phase 4 auto-team (engine), the Phase 2 "health == runs" check, and the Setup UX
-> (Phase 3, **blocked on designer mocks**). See `setup/README.md` for live status.
+> **built**; Phase 2 health == runs, Phase 3 lean setup surfaces, and Phase 4
+> auto-team are also built. Remaining setup work is live founder smoke on a real
+> machine plus repair polish found in use. See `setup/README.md` for live status.
 
 `docs/mvp/` remains the source of truth for what has already shipped and for the
 foundation it created: workers, drivers, fan-out, synthesis, design boards, and
@@ -29,11 +29,11 @@ otherwise.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Launch_Authority_TCC_Hotfix.md`](Launch_Authority_TCC_Hotfix.md) | **HOTFIX execution-ready** (2026-06-16) | Critical TCC launch-authority fix: cold launch renders cached/unknown state only; no shell, CLI, smoke, quota, or protected-folder probing before explicit user intent. |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
-| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S05 + S07 BUILT** (2026-06-17); S06/S08 remain | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, `home-rail-unr` GUI matrix. Mac notification hooks and rich-turn clear defer to S06/S08; iOS protocol moved to `ios/03`. |
+| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
+| [`threads/02_Notifications.md`](threads/02_Notifications.md) | **BUILT** (NOTIF-S01–S05 + UNR-S06, 2026-06-17) | Mac local notifications for landed work and attention states; menu-bar live/needs-attention indicator; per-thread mute; debounce/quiet-hours policy. Mobile push parked in `ios/03`. |
 | [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Backend BUILT** (WIO-S00–S03, S05, 2026-06-17); WIO-S04 GUI deferred | Worker image output in chat (design continuity): chat to imageGen workers captures + commits canonical attachments (same store as user paste); prior/picked images flow into next context; WIO-S04 Mac timeline thumbnails remain. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
@@ -162,7 +162,7 @@ Open questions:
 
 | Work | Read first |
 | --- | --- |
-| Mac launch TCC prompts, startup shell/CLI probes, process-quiet launch | `Launch_Authority_TCC_Hotfix.md` |
+| Mac launch TCC prompts, startup shell/CLI probes, process-quiet launch | **BUILT** — `docs/archive/phases/Launch_Authority_TCC_Hotfix.md`; new regressions route through `docs/operations/Debugger.md` |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` (historical cleanup: `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |

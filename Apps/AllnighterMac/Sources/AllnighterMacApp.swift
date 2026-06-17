@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !Self.isTesting else { return }   // stay accessory under XCTest
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        MacNotificationDelivery.shared.configure()
         #if DEBUG
         // Grant fixture: request Screen Recording at launch, before SwiftUI paints.
         // No env flags, no gating — macOS must see the request from a frontmost app.
@@ -33,36 +34,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct AllnighterMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: AppModel
+    @State private var floorStatus = FloorManagerStatus()
+    @State private var threads: ThreadsViewModel
 
     init() {
         #if DEBUG
         GUIFixture.bootstrap()
         #endif
-        // HOTFIX (Launch Authority TCC): cold launch must be process-quiet.
-        // Do NOT capture login-shell PATH here — spawning a login shell before
-        // first paint reads login profiles/version-manager hooks and triggers
-        // TCC prompts attributed to this GUI app. PATH capture is now explicit
-        // user intent only (full setup/recheck). Runs reuse cached absolute
-        // ToolInvocations from detection (health == runs), so launch needs no
-        // ambient PATH mutation.
+        let floor = FloorManagerStatus()
+        _floorStatus = State(initialValue: floor)
+        _threads = State(initialValue: ThreadsViewModel(floorStatus: floor))
         _model = State(initialValue: AppModel())
     }
 
     var body: some Scene {
         Window("Allnighter", id: "main") {
-            RootView()
+            RootView(threads: threads)
                 .environment(model)
+                .environment(threads)
+                .environment(floorStatus)
                 .frame(minWidth: 1100, minHeight: 720)
         }
         .windowResizability(.contentMinSize)
         .windowStyle(.hiddenTitleBar)
         .commands { AppCommandMenu() }
 
-        // Crescent-only brand mark (template → adapts to the menu bar). The old
-        // moon+sparkle SF Symbol is retired everywhere (allnighter-logos README).
-        MenuBarExtra("Allnighter", image: "MenuBarGlyph") {
+        MenuBarExtra {
             MenuBarContent()
                 .environment(model)
+                .environment(threads)
+                .environment(floorStatus)
+        } label: {
+            MenuBarLabel()
+                .environment(floorStatus)
+        }
+    }
+}
+
+private struct MenuBarLabel: View {
+    @Environment(FloorManagerStatus.self) private var floorStatus
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image("MenuBarGlyph")
+            if floorStatus.anyThreadRunning {
+                Circle()
+                    .fill(ALColor.accent)
+                    .frame(width: 5, height: 5)
+                    .accessibilityLabel("Bench running")
+            }
+            if floorStatus.needsAttentionCount > 0 {
+                Text("\(floorStatus.needsAttentionCount)")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(ALColor.textPrimary)
+                    .accessibilityLabel("\(floorStatus.needsAttentionCount) threads need attention")
+            }
         }
     }
 }
@@ -70,15 +96,30 @@ struct AllnighterMacApp: App {
 private struct MenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(AppModel.self) private var model
+    @Environment(ThreadsViewModel.self) private var threads
+    @Environment(FloorManagerStatus.self) private var floorStatus
 
     var body: some View {
+        if floorStatus.anyThreadRunning {
+            Label("Bench running", systemImage: "circle.fill")
+                .font(.caption)
+                .foregroundStyle(ALColor.accent)
+        }
+        if floorStatus.needsAttentionCount > 0 {
+            Text("\(floorStatus.needsAttentionCount) need attention")
+                .font(.caption)
+        }
+        Button(attentionButtonTitle) {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            openWindow(id: "main")
+            threads.openPriorityThreadFromMenuBar()
+        }
+        .disabled(floorStatus.priorityThreadId == nil)
         Button("Open Allnighter") {
             NSApplication.shared.activate(ignoringOtherApps: true)
             openWindow(id: "main")
         }
         Button("Quick capture (paste prompt)") {
-            // Use the notification so the single handler owns threads prefill
-            // (new thread + composer text) + legacy prompt path + activation.
             NotificationCenter.default.post(name: .allnQuickCapture, object: nil)
         }
         Text("Global hotkey: ⌥⌘Space")
@@ -93,5 +134,12 @@ private struct MenuBarContent: View {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q")
+    }
+
+    private var attentionButtonTitle: String {
+        if floorStatus.needsAttentionCount > 0 {
+            return "Open attention (\(floorStatus.needsAttentionCount))"
+        }
+        return "Open highest-priority thread"
     }
 }

@@ -6,6 +6,7 @@ import AllnighterEngine
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
+    @Bindable var threads: ThreadsViewModel
     @State private var showDoctor = false
     @State private var showTeamDropdown = false
     @State private var showReadiness = false
@@ -16,7 +17,6 @@ struct RootView: View {
     @State private var didLoadCachedSetup = false
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .team
-    @State private var threads = ThreadsViewModel()
     @State private var commands = CommandCenter()
     #if DEBUG
     @State private var showDevSettings = false
@@ -258,6 +258,12 @@ struct RootView: View {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             threads.applyQuickCapture(clipboardText: clip)
             model.quickCapture(prefillClipboard: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .allnOpenThreadFromNotification)) { note in
+            guard let link = note.object as? ThreadNotificationDeepLink else { return }
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            openWindow(id: "main")
+            threads.openFromNotification(threadId: link.threadId, turnId: link.turnId)
         }
         .preferredColorScheme(.dark)
         #if DEBUG

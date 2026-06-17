@@ -44,12 +44,18 @@ final class ThreadsViewModel {
     private(set) var pendingScrollToTurnId: String?
     private var readClearDebounceTask: Task<Void, Never>?
     private let isAppActiveForReadClear: () -> Bool
+    private var notificationSnapshots: [String: ThreadNotificationSnapshot]?
+    private var notificationPolicy: NotificationPolicy
+    private let notificationPolicyStore: NotificationPolicyStore
+    private let notificationDelivery: any ThreadNotificationDelivering
+    private let floorStatus: FloorManagerStatus?
+    private var latestVisibleTurnIds: [String: Set<String>] = [:]
 
     private static let readClearDebounceNs: UInt64 = 200_000_000
 
     /// Production init: self-sufficient, loads the same config as AppModel and
     /// invokes real CLIs. GUI fixtures use an isolated temp store.
-    convenience init() {
+    convenience init(floorStatus: FloorManagerStatus? = nil) {
         let config = AppConfig.loadConfiguration()
         // Cached health (no probing): lets fan-out resolve teams through the SAME
         // invocations that passed the health probe (health == runs).
@@ -82,7 +88,9 @@ final class ThreadsViewModel {
             models: config.models,
             toolStatuses: records,
             runner: WorkerRunner(commandRunner: commandRunner, invocations: invocations),
-            imageInvoker: WorkerImageInvoker(commandRunner: commandRunner, invocations: invocations)
+            imageInvoker: WorkerImageInvoker(commandRunner: commandRunner, invocations: invocations),
+            floorStatus: floorStatus,
+            notificationDelivery: MacNotificationDelivery.shared
         )
         #if DEBUG
         if let fixture = GUIFixture.active {
@@ -103,7 +111,10 @@ final class ThreadsViewModel {
         laneRegistry: ExecutionLaneRegistry = .shared,
         isAppActiveForReadClear: @escaping () -> Bool = {
             NSApplication.shared.isActive && NSApplication.shared.keyWindow != nil
-        }
+        },
+        floorStatus: FloorManagerStatus? = nil,
+        notificationPolicyStore: NotificationPolicyStore = NotificationPolicyStore(),
+        notificationDelivery: (any ThreadNotificationDelivering)? = nil
     ) {
         self.store = store
         self.runStore = runStore
@@ -113,6 +124,10 @@ final class ThreadsViewModel {
         self.runner = runner
         self.laneRegistry = laneRegistry
         self.isAppActiveForReadClear = isAppActiveForReadClear
+        self.floorStatus = floorStatus
+        self.notificationPolicyStore = notificationPolicyStore
+        self.notificationPolicy = notificationPolicyStore.load()
+        self.notificationDelivery = notificationDelivery ?? NoOpThreadNotificationDelivery()
         self.coordinator = WorkerChatCoordinator(
             store: store, runner: runner, imageInvoker: imageInvoker,
             registry: registry, models: models
@@ -169,10 +184,15 @@ final class ThreadsViewModel {
     // MARK: - List / selection
 
     func reload() {
+        let beforeSnapshots = notificationSnapshots
         threads = store.list()
         if let id = selectedThreadId, !threads.contains(where: { $0.id == id }) {
             selectedThreadId = threads.first?.id
         }
+        let afterSnapshots = NotificationCandidateDetection.snapshots(from: threads)
+        notificationSnapshots = afterSnapshots
+        floorStatus?.update(from: threads)
+        Task { await processNotificationTransitions(before: beforeSnapshots, after: afterSnapshots) }
     }
 
     func select(_ thread: WorkThread) {
@@ -192,6 +212,7 @@ final class ThreadsViewModel {
     /// Timeline reports geometrically visible turn ids; debounced read-clear goes through
     /// `ThreadStore.markReadToLatestVisible` — never GUI-only unread truth.
     func reportTimelineVisibility(threadId: String, visibleTurnIds: [String]) {
+        latestVisibleTurnIds[threadId] = Set(visibleTurnIds)
         guard threadId == selectedThreadId else { return }
         readClearDebounceTask?.cancel()
         readClearDebounceTask = Task { @MainActor in
@@ -958,4 +979,71 @@ final class ThreadsViewModel {
     }
 
     func dismissReveal() { revealedPacket = nil }
+
+    // MARK: - Notifications (02 + UNR-S06)
+
+    func isThreadNotificationsMuted(_ threadId: String) -> Bool {
+        notificationPolicy.isThreadMuted(threadId)
+    }
+
+    func setThreadNotificationsMuted(_ threadId: String, muted: Bool) {
+        notificationPolicy.setThreadMuted(threadId, muted: muted)
+        try? notificationPolicyStore.save(notificationPolicy)
+    }
+
+    func shouldSuppressNotification(candidate: NotificationCandidate) -> Bool {
+        guard let thread = threads.first(where: { $0.id == candidate.threadId }) else { return true }
+        return NotificationSuppression.shouldSuppress(
+            candidate: candidate,
+            thread: thread,
+            visibility: notificationVisibilityContext()
+        )
+    }
+
+    func notificationVisibilityContext() -> NotificationVisibilityContext {
+        NotificationVisibilityContext(
+            selectedThreadId: selectedThreadId,
+            visibleTurnIdsByThread: latestVisibleTurnIds,
+            isAppActive: isAppActiveForReadClear()
+        )
+    }
+
+    func openFromNotification(threadId: String, turnId: String) {
+        guard let thread = threads.first(where: { $0.id == threadId }) else { return }
+        select(thread)
+        pendingScrollToTurnId = turnId
+    }
+
+    func openPriorityThreadFromMenuBar() {
+        guard let id = floorStatus?.priorityThreadId,
+              let thread = threads.first(where: { $0.id == id }) else { return }
+        select(thread)
+    }
+
+    private func processNotificationTransitions(
+        before: [String: ThreadNotificationSnapshot]?,
+        after: [String: ThreadNotificationSnapshot]
+    ) async {
+        let now = Date()
+        let candidates = NotificationCandidateDetection.candidates(before: before, after: after, now: now)
+        guard !candidates.isEmpty, notificationPolicy.enabled else { return }
+        _ = await MacNotificationDelivery.shared.requestAuthorizationIfNeeded()
+        for candidate in candidates {
+            guard let thread = threads.first(where: { $0.id == candidate.threadId }) else { continue }
+            if NotificationSuppression.shouldSuppress(
+                candidate: candidate,
+                thread: thread,
+                visibility: notificationVisibilityContext()
+            ) { continue }
+            if !NotificationDeliveryFilter.shouldDeliver(
+                candidate: candidate, policy: notificationPolicy, now: now
+            ) { continue }
+            let workerName = candidate.workerId.map { driverName(for: $0) }
+            await notificationDelivery.deliver(candidate: candidate, workerDisplayName: workerName)
+            NotificationDeliveryFilter.recordDelivery(
+                candidate: candidate, policy: &notificationPolicy, now: now
+            )
+            try? notificationPolicyStore.save(notificationPolicy)
+        }
+    }
 }

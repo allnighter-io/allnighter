@@ -15,9 +15,10 @@ Updated: 2026-06-17
 >
 > **Resume pointer:** the MLP thread primitive is built, and later CR4 work added
 > the Home conversation rail plus real Chat, Fan out, and Execute send paths.
-> ThreadStore hardening and Threads 2.0 rail controls are archived. Remaining
-> active thread work: unread Mac notification hooks/rich-turn clear (06 S06/S08),
-> worker image output (08), core-loop gaps in `01`, and fast follows 02–04.
+> ThreadStore hardening and Threads 2.0 rail controls are archived. Mac local
+> notifications 1.0 are built (02). Remaining active thread work: rich-turn read
+> clear (06 S08), worker image GUI (08 S04), core-loop gaps in `01`, and fast
+> follows 03–04.
 
 ## Product Promise
 
@@ -82,11 +83,12 @@ Build in this order:
    - Unread and rail controls can now build on this archived gate.
 
 3. [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md)
-   — **UNR-S01–S05 + S07 BUILT** (2026-06-17); S06/S08 remain
+   — **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains
    - Durable read cursors, Core derivation, store `markRead*`, presenter unread
      buckets, Mac rail indication light, viewport clear, and GUI matrix proof
      are built.
-   - Mac notification hooks and rich-turn read-clear defer to UNR-S06/S08.
+   - Notification suppression hooks (UNR-S06) shipped with `02_Notifications.md`.
+   - Rich-turn read-clear defers to UNR-S08.
    - iOS read-state protocol moved to
      [`ios/03_iOS_Thread_Read_State_And_Push.md`](ios/03_iOS_Thread_Read_State_And_Push.md)
      and is not a Mac blocker.
@@ -110,12 +112,14 @@ Build in this order:
    - Mac timeline thumbnails for worker bubbles (WIO-S04); CLI/MCP JSON parity
      (`workerAttachmentIds`) shipped in WIO-S05.
 
-6. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
-   **defer here**
-   - Fast follow for Mac local notifications when work lands or needs attention.
+6. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **BUILT**
+   (NOTIF-S01–S05 + UNR-S06, 2026-06-17)
+   - Mac local notifications when work lands or needs attention; menu-bar
+     live/needs-attention indicator; per-thread mute; debounce and quiet hours
+     policy in Core/Engine.
+   - Owns UNR-S06 suppression when the landed turn is already visible/read.
    - Mobile push is deferred to
      [`ios/03_iOS_Thread_Read_State_And_Push.md`](ios/03_iOS_Thread_Read_State_And_Push.md).
-   - This is the walk-away loop: keep the bench useful without staring at the app.
 
 7. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
    **defer here**
@@ -216,12 +220,10 @@ Still missing / deferred:
   lazy legacy-run migration, and full thread export with linked run artifacts.
 - ThreadStore hardening and explicit mutation APIs are built and archived at
   `docs/archive/phases/05_ThreadStore_Hardening.md`.
-- Read cursor, unread derivation, Mac rail light, viewport clear, and GUI proof
-  are built in `06_Unread_Message_Light.md`; S06/S08 remain for Mac notification
-  hooks and rich-turn read-clear.
-- Rename/pin/archive/archive-view rail controls are built and archived at
-  `docs/archive/phases/07_Threads_2_0.md`.
-- Thread/turn notification policy defers to `02_Notifications.md`.
+- Read cursor, unread derivation, Mac rail light, viewport clear, notification
+  suppression hooks, and GUI proof are built in `06_Unread_Message_Light.md`;
+  S08 remains for rich-turn read-clear.
+- Mac local notifications 1.0 are built in `02_Notifications.md`.
 - No streaming command path (fast follow `03_Mac_Streaming.md`).
 - No observed usage model (fast follow `04_Observed_Usage.md`).
 

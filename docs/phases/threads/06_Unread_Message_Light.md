@@ -1,6 +1,6 @@
 # 06 - Unread Message Light
 
-Status: **UNR-S01–S05 + S07 BUILT** (2026-06-17) — read cursor, store mark-read, presenter triage, Mac rail light, viewport clear, UNR GUI matrix; S06/S08 remain
+Status: **UNR-S01–S06 + S07 BUILT** (2026-06-17) — read cursor, store mark-read, presenter triage, Mac rail light, viewport clear, notification suppression hooks, UNR GUI matrix; S08 remains
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
 
@@ -77,7 +77,6 @@ Built (UNR-S01–S05 + S07, 2026-06-17):
 
 Still missing:
 
-- Notification suppression hooks for visible landed turns (S06).
 - Rich-turn read-clear contracts for team/build/dispatch cards (S08).
 - iOS read-state protocol and mobile push. That work is deferred to
   [`../ios/03_iOS_Thread_Read_State_And_Push.md`](../ios/03_iOS_Thread_Read_State_And_Push.md)
@@ -739,7 +738,7 @@ Prerequisite: **TSH-S00 through TSH-S04** from archived
 - [x] UNR-S05 - Add timeline visibility reporting, contiguous visible-prefix
   mark-read helper, and clear-on-visible behavior for `workerChat` + blocking
   `systemEvent` (`TimelineVisibility` + `ThreadsViewModel.reportTimelineVisibility`).
-- [ ] UNR-S06 - Add notification handoff hooks so `02_Notifications.md` can
+- [x] UNR-S06 - Add notification handoff hooks so `02_Notifications.md` can
   suppress notifications when the landed turn is already visible.
 - [x] UNR-S07 - Add GUI fixture/proof scenario `home-rail-unr` for unread, selected
   unread, running without unread, unread attention, and running+unread.
