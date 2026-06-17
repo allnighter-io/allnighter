@@ -92,7 +92,8 @@ public struct ThreadStore: Sendable {
             }
             let thread = WorkThread(
                 id: id, title: title, status: .active, createdAt: now, updatedAt: now,
-                workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId
+                workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId,
+                readCursor: .empty(at: now)
             )
             _ = try persistContent(thread)
             return thread
@@ -116,6 +117,7 @@ public struct ThreadStore: Sendable {
                 throw ThreadStoreError.duplicateTurnId(turn.id)
             }
             try validateContextPacket(for: turn, threadId: threadId)
+            ensureLegacyReadBaseline(&thread, beforeAppendingOrUpdating: .append, now: now)
             var turn = turn
             turn.threadId = threadId
             thread.turns.append(turn)
@@ -141,11 +143,16 @@ public struct ThreadStore: Sendable {
             guard let index = thread.turns.firstIndex(where: { $0.id == turn.id }) else {
                 throw ThreadStoreError.turnNotFound(turn.id)
             }
-            let previous = thread.turns[index].status
-            if previous != turn.status, !previous.allowedTransitions().contains(turn.status) {
-                throw ThreadStoreError.illegalTurnTransition(turnId: turn.id, from: previous, to: turn.status)
+            let previous = thread.turns[index]
+            if previous.status != turn.status, !previous.status.allowedTransitions().contains(turn.status) {
+                throw ThreadStoreError.illegalTurnTransition(turnId: turn.id, from: previous.status, to: turn.status)
             }
             try validateContextPacket(for: turn, threadId: threadId)
+            ensureLegacyReadBaseline(
+                &thread,
+                beforeAppendingOrUpdating: .update(previousTurn: previous, updatedTurn: turn, atIndex: index),
+                now: now
+            )
             var turn = turn
             turn.threadId = threadId
             thread.turns[index] = turn
@@ -210,6 +217,79 @@ public struct ThreadStore: Sendable {
             _ = try persistMetadata(thread, regenerateTranscript: false)
             return thread
         }
+    }
+
+    // MARK: - Read cursor (06)
+
+    /// Advances the durable read cursor through `throughTurnId`. Monotonic:
+    /// `lastReadTurnId` never moves backward.
+    @discardableResult
+    public func markRead(threadId: String, throughTurnId: String, now: Date) throws -> WorkThread {
+        try synchronized {
+            try applyMarkRead(threadId: threadId, throughTurnId: throughTurnId, now: now)
+        }
+    }
+
+    /// Marks read through the contiguous visible prefix of unread turns.
+    @discardableResult
+    public func markReadToLatestVisible(
+        threadId: String,
+        visibleTurnIds: [String],
+        now: Date
+    ) throws -> WorkThread {
+        try synchronized {
+            guard let thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            let unreadIds = UnreadDerivation.unreadTurnIds(thread: thread)
+            guard let firstUnread = unreadIds.first else { return thread }
+            let visible = Set(visibleTurnIds)
+            guard visible.contains(firstUnread) else { return thread }
+
+            var lastVisibleUnread: String?
+            for unreadId in unreadIds {
+                if visible.contains(unreadId) {
+                    lastVisibleUnread = unreadId
+                } else {
+                    break
+                }
+            }
+            guard let through = lastVisibleUnread else { return thread }
+            return try applyMarkRead(threadId: threadId, throughTurnId: through, now: now)
+        }
+    }
+
+    /// Seeds a legacy nil cursor through the latest known baseline before the
+    /// first unread-aware append/update in the same store transaction.
+    func ensureLegacyReadBaseline(
+        _ thread: inout WorkThread,
+        beforeAppendingOrUpdating context: ReadBaselineContext,
+        now: Date
+    ) {
+        guard thread.readCursor == nil else { return }
+
+        let baselineTurn: ThreadTurn?
+        switch context {
+        case .append:
+            baselineTurn = thread.turns.last
+        case .update(let previous, let updated, let index):
+            let becomingEligible = !UnreadDerivation.isUnreadEligible(previous)
+                && UnreadDerivation.isUnreadEligible(updated)
+            if becomingEligible, index > 0 {
+                baselineTurn = thread.turns[index - 1]
+            } else {
+                baselineTurn = thread.turns.last
+            }
+        }
+
+        thread.readCursor = ThreadReadCursor(
+            lastReadTurnId: baselineTurn?.id,
+            lastReadTurnCreatedAt: baselineTurn?.createdAt,
+            readAt: now
+        )
+    }
+
+    enum ReadBaselineContext {
+        case append
+        case update(previousTurn: ThreadTurn, updatedTurn: ThreadTurn, atIndex: Int)
     }
 
     // MARK: - Context packets
@@ -333,5 +413,54 @@ public struct ThreadStore: Sendable {
         let url = directory.appendingPathComponent("\(packet.id).json")
         try CoreJSON.encode(packet).write(to: url, options: .atomic)
         return url
+    }
+
+    private func currentCursorIndex(in thread: WorkThread) -> Int? {
+        guard let cursorId = thread.readCursor?.lastReadTurnId else { return nil }
+        return thread.turns.firstIndex { $0.id == cursorId }
+    }
+
+    /// Caller must already hold the per-root write lock.
+    private func applyMarkRead(threadId: String, throughTurnId: String, now: Date) throws -> WorkThread {
+        guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+        guard let throughIndex = thread.turns.firstIndex(where: { $0.id == throughTurnId }) else {
+            throw ThreadStoreError.turnNotFound(throughTurnId)
+        }
+        let throughTurn = thread.turns[throughIndex]
+        guard canAdvanceReadCursor(thread: thread, throughIndex: throughIndex) else {
+            return thread
+        }
+        let cursorIndex = currentCursorIndex(in: thread)
+        if throughIndex >= (cursorIndex ?? -1) {
+            thread.readCursor = ThreadReadCursor(
+                lastReadTurnId: throughTurnId,
+                lastReadTurnCreatedAt: throughTurn.createdAt,
+                readAt: now
+            )
+        } else if UnreadDerivation.isUnreadEligible(throughTurn),
+                  landedAfterReadOnly(turn: throughTurn, thread: thread) {
+            var cursor = thread.readCursor ?? ThreadReadCursor(readAt: now)
+            cursor.readAt = now
+            thread.readCursor = cursor
+        }
+        _ = try persistCursor(thread)
+        return thread
+    }
+
+    private func canAdvanceReadCursor(thread: WorkThread, throughIndex: Int) -> Bool {
+        let throughTurn = thread.turns[throughIndex]
+        let unreadBefore = UnreadDerivation.unreadTurnIds(thread: thread).filter { unreadId in
+            guard let idx = thread.turns.firstIndex(where: { $0.id == unreadId }) else { return false }
+            return idx < throughIndex
+        }
+        if !unreadBefore.isEmpty { return false }
+        if UnreadDerivation.isUnreadEligible(throughTurn) { return true }
+        return unreadBefore.isEmpty
+    }
+
+    private func landedAfterReadOnly(turn: ThreadTurn, thread: WorkThread) -> Bool {
+        guard let cursor = thread.readCursor else { return false }
+        let landedAt = turn.completedAt ?? turn.createdAt
+        return landedAt > cursor.readAt
     }
 }

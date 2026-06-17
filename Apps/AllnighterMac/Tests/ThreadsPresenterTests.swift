@@ -7,17 +7,21 @@ import AllnighterCore
 final class ThreadsPresenterTests: XCTestCase {
 
     private let t0 = Date(timeIntervalSince1970: 1_000)
+    private let t1 = Date(timeIntervalSince1970: 2_000)
 
     private func thread(
-        _ id: String, updatedAt: Date, pinned: Bool = false, archived: Bool = false, turns: [ThreadTurn] = []
+        _ id: String, updatedAt: Date, pinned: Bool = false, archived: Bool = false,
+        readCursor: ThreadReadCursor? = nil, turns: [ThreadTurn] = []
     ) -> WorkThread {
         WorkThread(id: id, title: id, status: archived ? .archived : .active,
-                   createdAt: t0, updatedAt: updatedAt, pinnedAt: pinned ? t0 : nil, turns: turns)
+                   createdAt: t0, updatedAt: updatedAt, pinnedAt: pinned ? t0 : nil,
+                   readCursor: readCursor, turns: turns)
     }
 
     private func turn(_ kind: ThreadTurnKind, _ status: ThreadTurnStatus, systemEvent: SystemEventKind? = nil) -> ThreadTurn {
         ThreadTurn(id: "\(kind.rawValue)-\(status.rawValue)", threadId: "x", kind: kind, status: status,
-                   createdAt: t0, author: kind == .workerChat ? .worker : .system, workerId: "model_opus",
+                   createdAt: t0, completedAt: status.isTerminal ? t1 : nil,
+                   author: kind == .workerChat ? .worker : .system, workerId: "model_opus",
                    systemEvent: systemEvent)
     }
 
@@ -26,6 +30,10 @@ final class ThreadsPresenterTests: XCTestCase {
     func testTriageOrderFollowsSpec() {
         let attention = thread("attn", updatedAt: t0, turns: [turn(.workerChat, .failed)])
         let pinnedAttention = thread("pinAttn", updatedAt: t0, pinned: true, turns: [turn(.workerChat, .failed)])
+        let unread = thread("unread", updatedAt: t0, readCursor: .empty(at: t0),
+                            turns: [turn(.workerChat, .done)])
+        let pinnedUnread = thread("pinUnread", updatedAt: t0, pinned: true, readCursor: .empty(at: t0),
+                                  turns: [turn(.workerChat, .done)])
         let running = thread("run", updatedAt: t0, turns: [turn(.workerChat, .running)])
         let pinnedRunning = thread("pinRun", updatedAt: t0, pinned: true, turns: [turn(.workerChat, .running)])
         let pinnedIdle = thread("pinIdle", updatedAt: t0, pinned: true)
@@ -33,10 +41,13 @@ final class ThreadsPresenterTests: XCTestCase {
         let recentOld = thread("recentOld", updatedAt: t0)
 
         let ordered = ThreadsPresenter.triaged(
-            [recentOld, running, pinnedIdle, recentNew, pinnedRunning, attention, pinnedAttention]
+            [recentOld, unread, running, pinnedIdle, recentNew, pinnedRunning, attention, pinnedAttention, pinnedUnread]
         ).map(\.id)
 
-        XCTAssertEqual(ordered, ["pinAttn", "attn", "pinRun", "run", "pinIdle", "recentNew", "recentOld"])
+        XCTAssertEqual(
+            ordered,
+            ["pinAttn", "attn", "pinUnread", "unread", "pinRun", "run", "pinIdle", "recentNew", "recentOld"]
+        )
     }
 
     func testArchivedThreadsExcludedFromTriage() {
@@ -49,6 +60,23 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertEqual(ThreadsPresenter.rowState(thread("a", updatedAt: t0, turns: [turn(.workerChat, .failed)])), .needsAttention)
         XCTAssertEqual(ThreadsPresenter.rowState(thread("b", updatedAt: t0, turns: [turn(.workerChat, .running)])), .running)
         XCTAssertEqual(ThreadsPresenter.rowState(thread("c", updatedAt: t0)), .idle)
+    }
+
+    func testUnreadFreshnessSeparateFromRowState() {
+        let unread = thread("u", updatedAt: t0, readCursor: .empty(at: t0), turns: [turn(.workerChat, .done)])
+        XCTAssertEqual(ThreadsPresenter.rowState(unread), .idle)
+        XCTAssertTrue(ThreadsPresenter.showsUnreadLight(unread))
+        XCTAssertEqual(ThreadsPresenter.firstUnreadTurnId(unread), unread.turns[0].id)
+
+        let failedUnread = thread("f", updatedAt: t0, readCursor: .empty(at: t0), turns: [turn(.workerChat, .failed)])
+        XCTAssertEqual(ThreadsPresenter.rowState(failedUnread), .needsAttention)
+        XCTAssertTrue(ThreadsPresenter.showsUnreadLight(failedUnread))
+        XCTAssertTrue(ThreadsPresenter.unreadNeedsAttention(failedUnread))
+
+        let runningNoUnread = thread("r", updatedAt: t0, readCursor: .empty(at: t0),
+                                     turns: [turn(.workerChat, .running)])
+        XCTAssertEqual(ThreadsPresenter.rowState(runningNoUnread), .running)
+        XCTAssertFalse(ThreadsPresenter.showsUnreadLight(runningNoUnread))
     }
 
     // MARK: - Turn presentation

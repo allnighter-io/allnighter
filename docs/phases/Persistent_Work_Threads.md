@@ -83,15 +83,11 @@ Build in this order:
    - Unread and rail controls can now build on this archived gate.
 
 3. [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md)
-   — **execution-ready now that archived 05 is built**
-   - Durable read cursors and the Mac rail indication light when worker/team/dispatch
-     work lands unseen.
-   - This is the inbox freshness loop: what changed while the floor manager was
-     looking elsewhere.
-   - V1 visual proof is worker-chat plus blocking system events. Rich
-     team/build/dispatch turns may be derivation-tested before their cards ship,
-     but cannot clear read visually until the PWT-S07 card visibility contract
-     exists.
+   — **UNR-S01–S03 BUILT** (2026-06-17); S04–S09 remain
+   - Durable read cursors, Core derivation, store `markRead*`, and presenter
+     unread buckets are built.
+   - Mac rail indication light, timeline visibility clear, and GUI proof defer
+     to UNR-S04–S05.
 
 4. [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) — **not started**
    **defer here after 06**

@@ -30,6 +30,9 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
     public var defaultWorkerId: String?
     /// Append-only, in send order.
     public var turns: [ThreadTurn]
+    /// Durable read position. `nil` means legacy/no-baseline until the store
+    /// seeds a baseline on the next feature-aware append/update.
+    public var readCursor: ThreadReadCursor?
 
     public init(
         id: String,
@@ -42,6 +45,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         workingDir: String? = nil,
         projectLabel: String? = nil,
         defaultWorkerId: String? = nil,
+        readCursor: ThreadReadCursor? = nil,
         turns: [ThreadTurn] = []
     ) {
         self.formatVersion = formatVersion
@@ -54,12 +58,13 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         self.workingDir = workingDir
         self.projectLabel = projectLabel
         self.defaultWorkerId = defaultWorkerId
+        self.readCursor = readCursor
         self.turns = turns
     }
 
     private enum CodingKeys: String, CodingKey {
         case formatVersion, id, title, status, createdAt, updatedAt, pinnedAt,
-             workingDir, projectLabel, defaultWorkerId, turns
+             workingDir, projectLabel, defaultWorkerId, readCursor, turns
     }
 
     public init(from decoder: Decoder) throws {
@@ -74,6 +79,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         workingDir = try container.decodeIfPresent(String.self, forKey: .workingDir)
         projectLabel = try container.decodeIfPresent(String.self, forKey: .projectLabel)
         defaultWorkerId = try container.decodeIfPresent(String.self, forKey: .defaultWorkerId)
+        readCursor = try container.decodeIfPresent(ThreadReadCursor.self, forKey: .readCursor)
         turns = try container.decode([ThreadTurn].self, forKey: .turns)
     }
 
@@ -89,6 +95,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         try container.encodeIfPresent(workingDir, forKey: .workingDir)
         try container.encodeIfPresent(projectLabel, forKey: .projectLabel)
         try container.encodeIfPresent(defaultWorkerId, forKey: .defaultWorkerId)
+        try container.encodeIfPresent(readCursor, forKey: .readCursor)
         try container.encode(turns, forKey: .turns)
     }
 }

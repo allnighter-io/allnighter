@@ -10,9 +10,10 @@ enum ThreadsPresenter {
 
     // MARK: - Thread list triage
 
-    /// The Thread List row order from 01_Work_Threads_MLP.md:
-    /// pinned+attention → attention → pinned+running → running →
-    /// pinned recent → recent (by updatedAt). Archived threads are excluded.
+    /// The Thread List row order from 01_Work_Threads_MLP.md, extended with unread
+    /// buckets (06) between attention and running:
+    /// pinned+attention → attention → pinned+unread → unread → pinned+running →
+    /// running → pinned recent → recent (by updatedAt). Archived excluded.
     static func triaged(_ threads: [WorkThread]) -> [WorkThread] {
         threads
             .filter { !$0.isArchived }
@@ -27,8 +28,9 @@ enum ThreadsPresenter {
     static func bucket(_ thread: WorkThread) -> Int {
         let pinned = thread.isPinned
         if thread.needsAttention { return pinned ? 0 : 1 }
-        if thread.isRunning { return pinned ? 2 : 3 }
-        return pinned ? 4 : 5
+        if thread.hasUnread { return pinned ? 2 : 3 }
+        if thread.isRunning { return pinned ? 4 : 5 }
+        return pinned ? 6 : 7
     }
 
     /// The single derived state shown as the row's status chip.
@@ -42,6 +44,23 @@ enum ThreadsPresenter {
         if thread.needsAttention { return .needsAttention }
         if thread.isRunning { return .running }
         return .idle
+    }
+
+    // MARK: - Unread freshness (06)
+
+    /// Whether the row should show the unread indication light. Separate from
+    /// `rowState` — attention and unread are independent axes.
+    static func showsUnreadLight(_ thread: WorkThread) -> Bool {
+        thread.hasUnread
+    }
+
+    /// Unread anchor that also requires user attention (failed/blocking system).
+    static func unreadNeedsAttention(_ thread: WorkThread) -> Bool {
+        thread.unreadNeedsAttention
+    }
+
+    static func firstUnreadTurnId(_ thread: WorkThread) -> String? {
+        thread.firstUnreadTurnId
     }
 
     // MARK: - Compose routing

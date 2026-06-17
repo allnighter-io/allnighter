@@ -1,0 +1,144 @@
+import Foundation
+
+/// Durable read position for a work thread. Stored inside `thread.json`; never
+/// a sidecar file or GUI-local flag.
+public struct ThreadReadCursor: Codable, Sendable, Equatable {
+    /// Primary cursor: the last turn the user has read through.
+    public var lastReadTurnId: String?
+    /// Fallback boundary when `lastReadTurnId` is missing from the timeline.
+    public var lastReadTurnCreatedAt: Date?
+    /// When the cursor last advanced. Used for landed-after-read detection and
+    /// future reconciliation — not for thread sorting.
+    public var readAt: Date
+
+    public init(lastReadTurnId: String? = nil, lastReadTurnCreatedAt: Date? = nil, readAt: Date) {
+        self.lastReadTurnId = lastReadTurnId
+        self.lastReadTurnCreatedAt = lastReadTurnCreatedAt
+        self.readAt = readAt
+    }
+
+    /// Empty-timeline cursor for threads created after unread ships.
+    public static func empty(at readAt: Date) -> ThreadReadCursor {
+        ThreadReadCursor(lastReadTurnId: nil, lastReadTurnCreatedAt: nil, readAt: readAt)
+    }
+}
+
+/// Pure unread derivation from `WorkThread` turn truth plus the durable read
+/// cursor. One canonical algorithm — presenters format and sort only.
+public enum UnreadDerivation {
+    public static func unreadTurnIds(thread: WorkThread) -> [String] {
+        guard let cursor = thread.readCursor else { return [] }
+        return candidateTurns(thread: thread).compactMap { turn, index in
+            isUnread(turn: turn, index: index, thread: thread, cursor: cursor) ? turn.id : nil
+        }
+    }
+
+    public static func firstUnreadTurnId(thread: WorkThread) -> String? {
+        unreadTurnIds(thread: thread).first
+    }
+
+    public static func latestUnreadTurnId(thread: WorkThread) -> String? {
+        unreadTurnIds(thread: thread).last
+    }
+
+    public static func hasUnread(thread: WorkThread) -> Bool {
+        !unreadTurnIds(thread: thread).isEmpty
+    }
+
+    public static func unreadNeedsAttention(thread: WorkThread) -> Bool {
+        guard let cursor = thread.readCursor else { return false }
+        return candidateTurns(thread: thread).contains { turn, index in
+            isUnread(turn: turn, index: index, thread: thread, cursor: cursor)
+                && turn.requiresUserAttention
+        }
+    }
+
+    /// Whether a turn can create unread when it lands after the read cursor.
+    public static func isUnreadEligible(_ turn: ThreadTurn) -> Bool {
+        if isUserAuthored(turn) { return false }
+        if turn.status == .cancelled { return false }
+        if turn.kind == .workOrder { return false }
+
+        switch turn.kind {
+        case .userMessage, .userDecision, .workOrder:
+            return false
+        case .workerChat, .teamRun, .designBoard, .reviewBoard, .dispatch, .returnReview:
+            switch turn.status {
+            case .done, .failed, .timedOut:
+                return true
+            case .draft, .queued, .running, .cancelled:
+                return false
+            }
+        case .systemEvent:
+            switch turn.status {
+            case .failed, .timedOut:
+                return true
+            case .running:
+                switch turn.systemEvent {
+                case .signInRequired, .manualPaste:
+                    return true
+                case .migrationImported, .waiting, .none:
+                    return false
+                }
+            case .draft, .queued, .done, .cancelled:
+                return false
+            }
+        }
+    }
+
+    // MARK: - Private
+
+    private static func candidateTurns(thread: WorkThread) -> [(ThreadTurn, Int)] {
+        let supersededIds = Set(thread.turns.compactMap(\.supersedesTurnId))
+        return thread.turns.enumerated().compactMap { index, turn in
+            if isUserAuthored(turn) { return nil }
+            if turn.status == .cancelled { return nil }
+            if supersededIds.contains(turn.id) { return nil }
+            return (turn, index)
+        }
+    }
+
+    private static func isUserAuthored(_ turn: ThreadTurn) -> Bool {
+        turn.author == .user || turn.kind == .userMessage || turn.kind == .userDecision
+    }
+
+    private static func isUnread(
+        turn: ThreadTurn,
+        index: Int,
+        thread: WorkThread,
+        cursor: ThreadReadCursor
+    ) -> Bool {
+        guard isUnreadEligible(turn) else { return false }
+        let afterCursor = isAfterCursor(turn: turn, index: index, thread: thread, cursor: cursor)
+        let landedAfterRead = landedAfterRead(turn: turn, cursor: cursor)
+        return afterCursor || landedAfterRead
+    }
+
+    private static func isAfterCursor(
+        turn: ThreadTurn,
+        index: Int,
+        thread: WorkThread,
+        cursor: ThreadReadCursor
+    ) -> Bool {
+        if let cursorId = cursor.lastReadTurnId,
+           let cursorIndex = thread.turns.firstIndex(where: { $0.id == cursorId }) {
+            return index > cursorIndex
+        }
+        if let cursorTimestamp = cursor.lastReadTurnCreatedAt {
+            return turn.createdAt > cursorTimestamp
+        }
+        return false
+    }
+
+    private static func landedAfterRead(turn: ThreadTurn, cursor: ThreadReadCursor) -> Bool {
+        let landedAt = turn.completedAt ?? turn.createdAt
+        return landedAt > cursor.readAt
+    }
+}
+
+public extension WorkThread {
+    var hasUnread: Bool { UnreadDerivation.hasUnread(thread: self) }
+    var unreadNeedsAttention: Bool { UnreadDerivation.unreadNeedsAttention(thread: self) }
+    var firstUnreadTurnId: String? { UnreadDerivation.firstUnreadTurnId(thread: self) }
+    var latestUnreadTurnId: String? { UnreadDerivation.latestUnreadTurnId(thread: self) }
+}

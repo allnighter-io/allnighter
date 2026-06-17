@@ -1,6 +1,6 @@
 # 06 - Unread Message Light
 
-Status: Execution-ready — ThreadStore hardening gate is built and archived
+Status: **UNR-S01–S03 BUILT** (2026-06-17) — backend/read cursor + presenter triage; GUI light + visibility defer to S04–S05
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
 
@@ -726,13 +726,13 @@ Archived threads:
 Prerequisite: **TSH-S00 through TSH-S04** from archived
 [`05_ThreadStore_Hardening.md`](../../archive/phases/05_ThreadStore_Hardening.md).
 
-- [ ] UNR-S01 - Add `ThreadReadCursor` to Core, Codable migration fixtures, and
+- [x] UNR-S01 - Add `ThreadReadCursor` to Core, Codable migration fixtures, and
   pure unread derivation helpers, including landed-after-read, nil-cursor,
   timestamp tie, superseded-turn, and missing-cursor-id logic.
-- [ ] UNR-S02 - Add `markRead`, `markReadToLatestVisible`,
+- [x] UNR-S02 - Add `markRead`, `markReadToLatestVisible`,
   `ensureLegacyReadBaseline` on the 05 cursor-only persist path. Prove
   `updatedAt` preserved and `transcript.md` byte-identical on cursor writes.
-- [ ] UNR-S03 - Add presenter freshness inputs and unread buckets in triage
+- [x] UNR-S03 - Add presenter freshness inputs and unread buckets in triage
   (full rail order finalized in TH2-S02).
 - [ ] UNR-S04 - Add Mac thread-row unread light component on both rail rows using
   design tokens, no visible label/count, with accessibility value and reserved
