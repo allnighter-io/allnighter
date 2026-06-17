@@ -1,0 +1,17 @@
+<svg viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cg" x1="20" y1="24" x2="66" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD79E"></stop>
+      <stop offset=".5" stop-color="#FFA630"></stop>
+      <stop offset="1" stop-color="#F0901C"></stop>
+    </linearGradient>
+    <mask id="cm">
+      <rect width="100" height="100" fill="black"></rect>
+      <circle cx="47" cy="50" r="32" fill="white"></circle>
+      <circle cx="62" cy="41" r="28" fill="black"></circle>
+    </mask>
+    
+  </defs>
+  <rect width="100" height="100" fill="url(#cg)" mask="url(#cm)"></rect>
+  <rect class="cur" x="60" y="43" width="10.5" height="17" rx="2.6" fill="#FFE9C6"></rect>
+</svg>
