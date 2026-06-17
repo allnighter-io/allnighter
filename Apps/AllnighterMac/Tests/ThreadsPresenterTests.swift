@@ -139,6 +139,44 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertEqual(ThreadsPresenter.routingDefaultMode(for: specDraft), .chat)
     }
 
+    func testRoutingDefaultWorkerPrefersLastWorkerOverBenchFallback() {
+        let bench: [ComposeBenchModel] = [
+            .init(id: "model_codex", name: "ChatGPT", driverId: "codex", cli: "codex", sub: "5.5", ready: true),
+            .init(id: "model_grok", name: "Grok Build", driverId: "grok", cli: "grok", sub: "build", ready: true),
+        ]
+        var grokReply = turn(.workerChat, .done)
+        grokReply.workerId = "model_grok"
+        let afterGrok = thread("t", updatedAt: t0, turns: [grokReply])
+
+        XCTAssertEqual(ComposeRoutingDefaults.worker(for: afterGrok, bench: bench), "model_grok")
+    }
+
+    func testRoutingDefaultWorkerUsesThreadDefaultBeforeLastWorker() {
+        let bench: [ComposeBenchModel] = [
+            .init(id: "model_opus", name: "Opus", driverId: "claude", cli: "claude", sub: "opus", ready: true),
+            .init(id: "model_grok", name: "Grok", driverId: "grok", cli: "grok", sub: "build", ready: true),
+        ]
+        var grokReply = turn(.workerChat, .done)
+        grokReply.workerId = "model_grok"
+        let pinned = WorkThread(
+            id: "t", title: "t", createdAt: t0, updatedAt: t0,
+            defaultWorkerId: "model_opus", turns: [grokReply]
+        )
+
+        XCTAssertEqual(ComposeRoutingDefaults.worker(for: pinned, bench: bench), "model_opus")
+    }
+
+    func testRoutingDefaultWorkerFallsBackToFirstReadyWhenThreadIsEmpty() {
+        let bench: [ComposeBenchModel] = [
+            .init(id: "model_codex", name: "ChatGPT", driverId: "codex", cli: "codex", sub: "5.5", ready: true),
+            .init(id: "model_grok", name: "Grok", driverId: "grok", cli: "grok", sub: "build", ready: false),
+        ]
+        let empty = thread("new", updatedAt: t0)
+
+        XCTAssertEqual(ComposeRoutingDefaults.worker(for: empty, bench: bench), "model_codex")
+        XCTAssertEqual(ComposeRoutingDefaults.worker(for: nil, bench: bench), "model_codex")
+    }
+
     func testConversationStatus() {
         let replied = thread("r", updatedAt: t0, turns: [turn(.workerChat, .done)])
         XCTAssertEqual(ThreadsPresenter.conversationStatus(for: replied), .replied)
@@ -195,16 +233,42 @@ final class ThreadsPresenterTests: XCTestCase {
     func testRailGroupsSplitPinnedFromRecent() {
         let pinned = thread("p", updatedAt: t0, pinned: true, turns: [turn(.teamRun, .done)])
         let recent = thread("r", updatedAt: t0.addingTimeInterval(100), turns: [turn(.teamRun, .done)])
-        let groups = ThreadsPresenter.railGroups([recent, pinned], filter: .all, search: "")
+        let sections = ThreadsPresenter.triageSections([recent, pinned], filter: .all, search: "")
 
-        XCTAssertEqual(groups.map(\.id), ["pinned", "recent"])
-        XCTAssertEqual(groups.first?.threads.map(\.id), ["p"])
-        XCTAssertEqual(groups.last?.threads.map(\.id), ["r"])
+        XCTAssertEqual(sections.map(\.id), ["recent"])
+        XCTAssertEqual(sections.first?.threads.map(\.id), ["p", "r"])
     }
 
     func testRailGroupsOmitsEmptySections() {
         let recent = thread("r", updatedAt: t0)
-        let groups = ThreadsPresenter.railGroups([recent], filter: .all, search: "")
-        XCTAssertEqual(groups.map(\.id), ["recent"], "no pinned section when nothing is pinned")
+        let sections = ThreadsPresenter.triageSections([recent], filter: .all, search: "")
+        XCTAssertEqual(sections.map(\.id), ["recent"], "idle thread lands in Recent only")
+    }
+
+    func testTriagedArchivedExcludesActive() {
+        let live = thread("live", updatedAt: t0)
+        let archived = thread("archived", updatedAt: t0.addingTimeInterval(999), archived: true)
+        XCTAssertEqual(ThreadsPresenter.triagedArchived([archived, live]).map(\.id), ["archived"])
+        XCTAssertEqual(ThreadsPresenter.triagedActive([archived, live]).map(\.id), ["live"])
+    }
+
+    func testTriageSectionsMirrorFamiliesNotPinnedRecent() {
+        let unread = thread("u", updatedAt: t0, readCursor: .empty(at: t0), turns: [turn(.workerChat, .done)])
+        let running = thread("r", updatedAt: t0, turns: [turn(.workerChat, .running)])
+        let sections = ThreadsPresenter.triageSections([running, unread], filter: .all, search: "")
+        XCTAssertEqual(sections.map(\.title), ["Unread", "Running"])
+    }
+
+    func testUnreadBeatsRunningInBucket() {
+        let unreadRunning = thread("ur", updatedAt: t0, readCursor: .empty(at: t0),
+                                   turns: [turn(.workerChat, .running), turn(.workerChat, .done)])
+        XCTAssertEqual(ThreadsPresenter.triageBucket(for: unreadRunning), .unread)
+    }
+
+    func testAttentionBeatsUnreadInBucket() {
+        let both = thread("both", updatedAt: t0, readCursor: .empty(at: t0),
+                          turns: [turn(.workerChat, .failed)])
+        XCTAssertEqual(ThreadsPresenter.triageBucket(for: both), .attention)
+        XCTAssertTrue(ThreadsPresenter.showsUnreadLight(both))
     }
 }

@@ -8,29 +8,118 @@ import AllnighterEngine
 /// app. All values derive from `WorkThread` / `ThreadTurn` truth.
 enum ThreadsPresenter {
 
-    // MARK: - Thread list triage
+    // MARK: - Thread list triage (06 + 07)
 
-    /// The Thread List row order from 01_Work_Threads_MLP.md, extended with unread
-    /// buckets (06) between attention and running:
-    /// pinned+attention → attention → pinned+unread → unread → pinned+running →
-    /// running → pinned recent → recent (by updatedAt). Archived excluded.
-    static func triaged(_ threads: [WorkThread]) -> [WorkThread] {
+    /// Named triage bucket — lower sorts first within the active rail.
+    enum ThreadTriageBucket: Int, Comparable, CaseIterable {
+        case pinnedAttention
+        case attention
+        case pinnedUnread
+        case unread
+        case pinnedRunning
+        case running
+        case pinnedRecent
+        case recent
+
+        public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+
+        /// Section header for production rails (pinned/unpinned share a family).
+        var sectionTitle: String {
+            switch self {
+            case .pinnedAttention, .attention: return "Attention"
+            case .pinnedUnread, .unread: return "Unread"
+            case .pinnedRunning, .running: return "Running"
+            case .pinnedRecent, .recent: return "Recent"
+            }
+        }
+    }
+
+    struct ThreadTriageKey: Equatable {
+        var bucket: ThreadTriageBucket
+        var updatedAt: Date
+    }
+
+    /// Active rail order: pinned+attention → attention → pinned+unread → unread →
+    /// pinned+running → running → pinned recent → recent (`updatedAt` desc).
+    static func triagedActive(_ threads: [WorkThread]) -> [WorkThread] {
         threads
             .filter { !$0.isArchived }
             .sorted { lhs, rhs in
-                let l = bucket(lhs), r = bucket(rhs)
-                if l != r { return l < r }
-                return lhs.updatedAt > rhs.updatedAt   // newest first within a bucket
+                let l = triageKey(for: lhs), r = triageKey(for: rhs)
+                if l.bucket != r.bucket { return l.bucket < r.bucket }
+                return l.updatedAt > r.updatedAt
             }
     }
 
-    /// Lower bucket sorts first.
-    static func bucket(_ thread: WorkThread) -> Int {
+    /// Archive view: archived threads only, `updatedAt` desc.
+    static func triagedArchived(_ threads: [WorkThread]) -> [WorkThread] {
+        threads.filter(\.isArchived).sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    /// Back-compat alias used by legacy Threads sidebar.
+    static func triaged(_ threads: [WorkThread]) -> [WorkThread] {
+        triagedActive(threads)
+    }
+
+    static func triageKey(for thread: WorkThread) -> ThreadTriageKey {
+        ThreadTriageKey(bucket: triageBucket(for: thread), updatedAt: thread.updatedAt)
+    }
+
+    static func triageBucket(for thread: WorkThread) -> ThreadTriageBucket {
         let pinned = thread.isPinned
-        if thread.needsAttention { return pinned ? 0 : 1 }
-        if thread.hasUnread { return pinned ? 2 : 3 }
-        if thread.isRunning { return pinned ? 4 : 5 }
-        return pinned ? 6 : 7
+        if thread.needsAttention { return pinned ? .pinnedAttention : .attention }
+        if thread.hasUnread { return pinned ? .pinnedUnread : .unread }
+        if thread.isRunning { return pinned ? .pinnedRunning : .running }
+        return pinned ? .pinnedRecent : .recent
+    }
+
+    /// Lower bucket sorts first (legacy int API for tests migrating to `ThreadTriageBucket`).
+    static func bucket(_ thread: WorkThread) -> Int {
+        triageBucket(for: thread).rawValue
+    }
+
+    /// Labelled sections that mirror triage families — not broad Pinned/Recent.
+    struct TriageSection: Identifiable, Equatable {
+        let id: String
+        let title: String
+        let threads: [WorkThread]
+    }
+
+    @available(*, deprecated, renamed: "TriageSection")
+    typealias RailGroup = TriageSection
+
+    static func triageSections(
+        _ threads: [WorkThread], filter: RailFilter, search: String
+    ) -> [TriageSection] {
+        let visible = activeRailThreads(threads, filter: filter, search: search)
+        var sections: [TriageSection] = []
+        var currentTitle: String?
+        var currentThreads: [WorkThread] = []
+
+        func flush() {
+            guard let title = currentTitle, !currentThreads.isEmpty else { return }
+            sections.append(TriageSection(id: title.lowercased(), title: title, threads: currentThreads))
+        }
+
+        for thread in visible {
+            let title = triageBucket(for: thread).sectionTitle
+            if title != currentTitle {
+                flush()
+                currentTitle = title
+                currentThreads = [thread]
+            } else {
+                currentThreads.append(thread)
+            }
+        }
+        flush()
+        return sections
+    }
+
+    /// Triaged active list with lane filter + search.
+    static func activeRailThreads(
+        _ threads: [WorkThread], filter: RailFilter, search: String
+    ) -> [WorkThread] {
+        triagedActive(threads).filter { matches($0, filter: filter) && matchesSearch($0, query: search) }
     }
 
     /// The single derived state shown as the row's status chip.
@@ -105,9 +194,9 @@ enum ThreadsPresenter {
         }
     }
 
-    /// Newest-first flat list for the home rail (CR4a; triage polish = CR4e).
+    /// Production rails use `triagedActive`; kept for fixtures that need a flat list.
     static func railThreads(_ threads: [WorkThread]) -> [WorkThread] {
-        threads.filter { !$0.isArchived }.sorted { $0.updatedAt > $1.updatedAt }
+        triagedActive(threads)
     }
 
     // MARK: - Rail filter / search / grouping (CR4e)
@@ -147,27 +236,16 @@ enum ThreadsPresenter {
         return thread.turns.contains { ($0.text ?? "").lowercased().contains(q) }
     }
 
-    /// Triaged, filtered, and searched — the flat rail order.
+    /// Triaged, filtered, and searched — the flat active-rail order.
     static func railThreads(_ threads: [WorkThread], filter: RailFilter, search: String) -> [WorkThread] {
-        triaged(threads).filter { matches($0, filter: filter) && matchesSearch($0, query: search) }
+        activeRailThreads(threads, filter: filter, search: search)
     }
 
-    /// A labelled rail section (Pinned / Recent), in display order. Pinned floats
-    /// to its own group; empty groups are omitted.
-    struct RailGroup: Identifiable, Equatable {
-        let id: String
-        let title: String
-        let threads: [WorkThread]
-    }
-
+    @available(*, deprecated, renamed: "triageSections(_:filter:search:)")
     static func railGroups(_ threads: [WorkThread], filter: RailFilter, search: String) -> [RailGroup] {
-        let visible = railThreads(threads, filter: filter, search: search)
-        let pinned = visible.filter(\.isPinned)
-        let recent = visible.filter { !$0.isPinned }
-        var groups: [RailGroup] = []
-        if !pinned.isEmpty { groups.append(RailGroup(id: "pinned", title: "Pinned", threads: pinned)) }
-        if !recent.isEmpty { groups.append(RailGroup(id: "recent", title: "Recent", threads: recent)) }
-        return groups
+        triageSections(threads, filter: filter, search: search).map {
+            RailGroup(id: $0.id, title: $0.title, threads: $0.threads)
+        }
     }
 
     // MARK: - Turn presentation
