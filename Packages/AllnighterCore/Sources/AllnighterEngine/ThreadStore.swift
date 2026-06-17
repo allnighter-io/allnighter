@@ -88,14 +88,14 @@ public struct ThreadStore: Sendable {
                 id: id, title: title, status: .active, createdAt: now, updatedAt: now,
                 workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId
             )
-            _ = try persistThread(thread)
+            _ = try persistContent(thread)
             return thread
         }
     }
 
     @discardableResult
     public func save(_ thread: WorkThread) throws -> URL {
-        try synchronized { try persistThread(thread) }
+        try synchronized { try persistContent(thread) }
     }
 
     /// Appends a turn and bumps `updatedAt`. The turn's `threadId` is normalized
@@ -111,7 +111,7 @@ public struct ThreadStore: Sendable {
             turn.threadId = threadId
             thread.turns.append(turn)
             thread.updatedAt = now
-            _ = try persistThread(thread)
+            _ = try persistContent(thread)
             return thread
         }
     }
@@ -134,7 +134,7 @@ public struct ThreadStore: Sendable {
             turn.threadId = threadId
             thread.turns[index] = turn
             thread.updatedAt = now
-            _ = try persistThread(thread)
+            _ = try persistContent(thread)
             return thread
         }
     }
@@ -145,7 +145,7 @@ public struct ThreadStore: Sendable {
             guard var thread = get(id) else { throw ThreadStoreError.threadNotFound(id) }
             thread.status = .archived
             thread.updatedAt = now
-            _ = try persistThread(thread)
+            _ = try persistMetadata(thread, regenerateTranscript: false)
             return thread
         }
     }
@@ -200,18 +200,57 @@ public struct ThreadStore: Sendable {
         try ThreadStoreWriteSerializer.synchronized(rootDirectory: rootDirectory, body)
     }
 
-    private func persistThread(_ thread: WorkThread) throws -> URL {
+    /// Append/update turns, create, and fixture import: atomic `thread.json` +
+    /// full transcript regeneration.
+    private func persistContent(_ thread: WorkThread) throws -> URL {
+        let directory = try preparedThreadDirectory(for: thread)
+        try writeThreadJSON(thread, to: directory)
+        try writeTranscript(for: thread, to: directory)
+        return directory
+    }
+
+    /// Rename/pin/archive/unarchive: atomic `thread.json`; transcript only when
+    /// rename changes the title heading.
+    private func persistMetadata(_ thread: WorkThread, regenerateTranscript: Bool) throws -> URL {
+        let directory = try preparedThreadDirectory(for: thread)
+        try writeThreadJSON(thread, to: directory)
+        if regenerateTranscript {
+            try writeTranscript(for: thread, to: directory)
+        }
+        return directory
+    }
+
+    /// Read-cursor writes (full `markRead` lands in 06): atomic `thread.json`
+    /// only; `transcript.md` bytes must stay identical.
+    private func persistCursor(_ thread: WorkThread) throws -> URL {
+        let directory = try preparedThreadDirectory(for: thread)
+        try writeThreadJSON(thread, to: directory)
+        return directory
+    }
+
+    /// Test hook for cursor-only persistence before `markRead` ships (06).
+    internal func testPersistCursor(_ thread: WorkThread) throws -> URL {
+        try synchronized { try persistCursor(thread) }
+    }
+
+    private func preparedThreadDirectory(for thread: WorkThread) throws -> URL {
         var thread = thread
         thread.upgradeFormatVersionIfNeeded()
-        let directory = try threadDirectory(forThreadId: thread.id)
+        return try threadDirectory(forThreadId: thread.id)
+    }
+
+    private func writeThreadJSON(_ thread: WorkThread, to directory: URL) throws {
+        var thread = thread
+        thread.upgradeFormatVersionIfNeeded()
         try CoreJSON.encode(thread).write(
             to: directory.appendingPathComponent("thread.json"),
             options: .atomic
         )
-        // Derived transcript, regenerated from thread.json truth on each save.
+    }
+
+    private func writeTranscript(for thread: WorkThread, to directory: URL) throws {
         let transcript = ThreadMarkdown.transcript(thread)
         try Data(transcript.utf8).write(to: directory.appendingPathComponent("transcript.md"))
-        return directory
     }
 
     private func persistPacket(_ packet: ThreadContextPacket) throws -> URL {

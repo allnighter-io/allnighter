@@ -457,7 +457,7 @@ Do not implement 06 or 07 until 05 proof wall is green.
   (stub `markRead` if 06 not landed yet).
 - [x] TSH-S02 - Atomic `thread.json` writes (`.atomic`), matching RunStore
   comments. Add concurrency read test mirroring `RunStoreConcurrencyTests`.
-- [ ] TSH-S03 - Split save paths: `persistContent(_:)` vs `persistMetadata(_:)`
+- [x] TSH-S03 - Split save paths: `persistContent(_:)` vs `persistMetadata(_:)`
   vs `persistCursor(_:)` with timestamp + transcript law enforced internally.
 - [ ] TSH-S04 - Replace public `save(_:)` with explicit APIs:
   `renameThread`, `setPinned`, `archiveThread` (fix `updatedAt`), `unarchiveThread`.

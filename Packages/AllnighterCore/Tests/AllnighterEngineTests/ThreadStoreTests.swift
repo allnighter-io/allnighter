@@ -176,6 +176,41 @@ final class ThreadStoreTests: XCTestCase {
         XCTAssertEqual(store.get("a")?.status, .archived)
     }
 
+    func testArchiveDoesNotRegenerateTranscriptBytes() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var seeded = thread("a", updatedAt: t0)
+        seeded.turns = [userTurn("u1", threadId: "a")]
+        let folder = try store.save(seeded)
+        let transcriptURL = folder.appendingPathComponent("transcript.md")
+        let before = try Data(contentsOf: transcriptURL)
+
+        _ = try store.archive("a", now: t1)
+        let after = try Data(contentsOf: transcriptURL)
+        XCTAssertEqual(before, after)
+    }
+
+    func testPersistCursorLeavesTranscriptBytesIdentical() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var seeded = thread("a", updatedAt: t0)
+        seeded.turns = [userTurn("u1", threadId: "a")]
+        let folder = try store.save(seeded)
+        let transcriptURL = folder.appendingPathComponent("transcript.md")
+        let before = try Data(contentsOf: transcriptURL)
+        let updatedAt = seeded.updatedAt
+
+        guard let loaded = store.get("a") else {
+            return XCTFail("missing thread")
+        }
+        _ = try store.testPersistCursor(loaded)
+        let after = try Data(contentsOf: transcriptURL)
+        XCTAssertEqual(before, after)
+        XCTAssertEqual(store.get("a")?.updatedAt, updatedAt)
+    }
+
     // MARK: - Derived run -> thread index (PWT-S02)
 
     func testRunToThreadIndexIsDerivedFromTurns() throws {
