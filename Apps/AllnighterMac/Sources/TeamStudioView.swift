@@ -214,7 +214,7 @@ private struct StudioTeamListView: View {
 }
 
 /// Read-only team detail: header + chips + the Skill | Model table (the declared
-/// lineup at the team's default effort). Edit/duplicate/set-default land next slice.
+/// lineup at the team's default effort). "Customize" opens the editor (S01B).
 private struct StudioTeamDetailView: View {
     let team: TeamPreset
     let models: [Model]
@@ -277,7 +277,9 @@ private struct StudioTeamDetailView: View {
 
                 HStack(spacing: 8) {
                     Button(action: onEdit) {
-                        Label(team.builtIn ? "Duplicate to edit" : "Edit team", systemImage: "square.on.square")
+                        // Built-ins are templates you customize into your own team —
+                        // not "duplicate" ceremony (rescue §2).
+                        Label("Customize", systemImage: "slider.horizontal.3")
                             .font(.system(size: 12, weight: .medium))
                     }
                     .buttonStyle(.alSecondary(small: true))
@@ -406,7 +408,7 @@ private struct StudioSkillDetailView: View {
                     Text(skill.displayName)
                         .font(.system(size: 18, weight: .bold)).tracking(-0.3)
                         .foregroundStyle(ALColor.textPrimary)
-                    chip(skill.builtIn ? "Built-in · read-only" : "Custom", accent: !skill.builtIn)
+                    chip(skill.builtIn ? "Built-in template" : "Custom", accent: !skill.builtIn)
                     Spacer(minLength: 0)
                 }
                 VStack(alignment: .leading, spacing: 6) {
@@ -427,7 +429,7 @@ private struct StudioSkillDetailView: View {
                         .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
                         .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
                 }
-                Text("Duplicate to edit and New skill arrive in the editor slice.")
+                Text("Tune a skill where you use it — open a team and customize the worker's prompt.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
             }
             .padding(24)
