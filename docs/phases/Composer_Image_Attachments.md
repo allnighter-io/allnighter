@@ -1,16 +1,26 @@
 # Composer Image Attachments (Paste + CLI + MCP)
 
-**Status:** Draft founder packet — execution-ready after Compose Routing CR4b
+**Status:** Draft founder packet — **not implementation-ready until
+`threads/05_ThreadStore_Hardening.md` lands**
 **Owner:** AllnighterCore · AllnighterEngine · Mac GUI · CLI/MCP
-**Created:** 2026-06-16 · **Updated:** 2026-06-16 (implementation law + appendix)
+**Created:** 2026-06-16 · **Updated:** 2026-06-17 (implementation law + invoke/reveal hardening + ThreadStore prerequisite)
 **Process:** `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
-**Depends on:** [`Compose_Routing_CR4_Send_And_Conversations.md`](Compose_Routing_CR4_Send_And_Conversations.md)
-(CR4b), [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md),
+**Depends on:** [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md),
+[`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md),
 [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md),
 [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md)
 
 ---
+
+## Current implementation gate
+
+CR4b is built. Do not re-run the CR4 send packet for this feature.
+
+The blocker is storage/send truth: implement
+[`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md)
+before this doc, then update this packet's status to execution-ready. The rest
+of `docs/phases/threads/` is **not** a prerequisite for image attachments.
 
 ## First principle
 
@@ -33,7 +43,8 @@ restarts.
 `RoutingComposer`, CLI `thread send`, and MCP `thread_send` **must not** append
 turns or packets directly. They call the same coordinator/service
 (`WorkerChatCoordinator` or thin wrapper). Current `ThreadsViewModel.sendRouting`
-bypass is **temporary scaffolding** and must not survive this slice.
+append paths for Fan out / Execute are **temporary scaffolding** and must not
+survive the attachment send-transaction slice.
 
 ### 2. Send transaction owns the full truth write
 
@@ -42,7 +53,7 @@ Under the per-thread `.lock`, **one transaction** must:
 1. Promote ready drafts → `attachments/`
 2. Update `attachments/attachments.json`
 3. Append user turn with ordered `attachmentRefs`
-4. Compute delivery snapshot (`canonicalPath`, `deliveredPathUsed`, `storedSha256` per attachment)
+4. Re-hash/stage and compute delivery snapshot (`canonicalPath`, `deliveredPathUsed`, `storedSha256` per attachment)
 5. Save `context/<packetId>.json` with `includedAttachments`
 6. Create optimistic `running` worker turn
 
@@ -74,6 +85,10 @@ order, filename, id, or write time.
 
 UI file open/reveal → `canonicalPath`. Context reveal labels `deliveredPathUsed`
 as **"path sent to worker."** Workspace mirrors are not truth.
+
+The worker prompt is rendered from the saved packet + `includedAttachments`, not
+from drafts, transient GUI state, or a fresh attachment-store scan. Once the packet
+is saved, invoke and later reveal must agree on the same attachment block.
 
 ### 6. Workspace mirrors are delivery cache only
 
@@ -157,6 +172,10 @@ block; fail with `CONTEXT_ATTACHMENT_CAP_EXCEEDED`.
 Do not embed full `TurnAttachment` on each turn in `thread.json`. Do not use
 `ArtifactRef` for chat images.
 
+History lookup is a join: `ThreadTurn.attachmentRefs` → `attachments.json` →
+canonical bytes. If the index or bytes are missing, render a broken attachment
+chip and a visible system note; do not silently hide the ref.
+
 ---
 
 ## Schema
@@ -228,12 +247,15 @@ threads/thread_<id>/
 <workingDir>/.allnighter/attachments/thread_<id>/   # delivery cache (law §6)
 ```
 
-**Invoke flow (inside send transaction after packet saved):**
+**Delivery/invoke boundary:**
 
-1. Re-hash canonical `storedSha256`
+1. During the send transaction, re-hash canonical `storedSha256`
 2. Stage workspace mirror if `workingDir` set (law §6–7)
-3. Build prompt path block from `deliveredPathUsed`, sorted by `sequence`
-4. `WorkerRunner.invoke` — hash mismatch → `ATTACHMENT_HASH_MISMATCH`, fatal
+3. Save final `includedAttachments` with final `deliveredPathUsed`
+4. Render the protected prompt path block from saved `includedAttachments`, sorted by `sequence`
+5. Invoke `WorkerRunner` with the saved packet text; no recomputing from drafts or index
+
+Hash mismatch before invoke → `ATTACHMENT_HASH_MISMATCH`, fatal.
 
 ---
 
@@ -245,6 +267,8 @@ threads/thread_<id>/
 - Paste precedence: **image wins** (no text from same paste when image present)
 - Thumbnail strip sorted by `sequence`; loading skeleton during ingest
 - Send → **Preparing…** (law §3); image-only send allowed
+- Timeline chips render thumbnails from canonical bytes; context reveal shows
+  thumbnails/list plus **"path sent to worker"** from the saved packet
 - Non-vision: composer badge; vision: privacy notice (worker CLI may upload)
 - **DnD → CIA-S09 only** (last slice)
 
@@ -329,9 +353,11 @@ threads/thread_<id>/draft_attachments/
   <draftId>.png
 ```
 
-Home composer attachment requires a durable folder. Create the thread early or
-use an explicit pending draft folder that is promoted into a thread before send.
-Do not leave image bytes only in SwiftUI state.
+Home composer attachment requires a durable folder. **Create the thread
+immediately on first attachment** and store drafts under that thread; do not add a
+separate pending scratch folder. If the user removes every draft before any turn
+is sent, the empty draft-only thread may be deleted by the same stale-draft
+sweeper. Do not leave image bytes only in SwiftUI state.
 
 If the app quits during ingest, reload the draft index on next open. Ready drafts
 return as thumbnails; ingesting drafts restart or settle to failed with an exact
@@ -444,7 +470,7 @@ Cleanup logs what mirror files were removed. It never touches
 
 | # | Proof |
 | --- | --- |
-| 1 | GUI paste → fake vision worker receives path; hash matches `storedSha256` |
+| 1 | GUI paste → fake vision worker receives path; hash matches `storedSha256`; reveal shows thumbnail + "path sent to worker" |
 | 2 | Image-only send works |
 | 3 | Send during ingest waits (**Preparing…**), then sends complete ordered refs |
 | 4 | Multi-image paste completing out of order → prompt still in paste `sequence` |
@@ -492,7 +518,7 @@ smoke only. GUI proof fixture `compose-paste-image` (CIA-S08). DnD manual (CIA-S
 
 ## Related docs
 
-- `Compose_Routing_CR4_Send_And_Conversations.md` (CR4b removes bypass)
+- `docs/archive/phases/Compose_Routing_CR4_Send_And_Conversations.md` (historical CR4 packet; CR4b is built)
 - `docs/phases/threads/01_Work_Threads_MLP.md`
 - `docs/mvp/Design2_Build_This.md`
 - `ThreadStore.savePacket` → `context/`

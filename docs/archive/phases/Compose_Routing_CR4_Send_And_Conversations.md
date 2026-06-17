@@ -1,18 +1,31 @@
 # Compose Routing CR4 — Send + Conversations
 
-**Status:** Execution-ready handoff (CR1–CR3 shipped; CR4 is this doc).
+**Status:** BUILT / archived (2026-06-17). CR4a through CR4e delivered.
 **Owner:** GUI + Mac app (compose surface) · **Created:** 2026-06-16
+**Archived:** `docs/archive/phases/Compose_Routing_CR4_Send_And_Conversations.md`
 **Process:** `docs/operations/Execution-Playbook.md` · **GUI governance:** `docs/gui/GUI_Workflow.md` + the visual proof gate (`docs/phases/GUI_Visual_Proof_Gate.md`)
 **Design SSOT:** `docs/phases/wiring/design_handoff_compose_routing/README.md` (+ `reference/app.jsx`, the authoritative prototype)
 
 ---
 
+## Current Truth
+
+This doc is no longer the work queue. CR4a–CR4e have landed: Send creates and
+opens conversations, Chat runs one model through `WorkerChatCoordinator`, Fan out
+renders durable team/design board turns, Execute renders durable dispatch turns,
+and the Home rail has filters/search plus Pinned/Recent grouping.
+
+Use [`Persistent_Work_Threads.md`](../../phases/Persistent_Work_Threads.md) as the live router.
+The next thread-foundation work is
+[`threads/05_ThreadStore_Hardening.md`](../../phases/threads/05_ThreadStore_Hardening.md).
+Do not execute this CR4 packet as fresh implementation work.
+
 ## 0. Read first
 
-This finishes the composer: it already **looks** right and **selects** right
-(mode, model, effort, team) against the real bench — but **Send does nothing
-yet**. CR4 makes Send create a conversation and run real work, and builds the
-conversation/thread surface the result lands in.
+This section is historical context from before CR4 landed. It explained the gap
+at the time: the composer already **looked** right and **selected** right (mode,
+model, effort, team) against the real bench, but Send had not yet been wired.
+That gap is now closed; see **Current Truth** above.
 
 ### What is already built (do not rebuild)
 
@@ -25,8 +38,8 @@ conversation/thread surface the result lands in.
 
 Composer state lives in `RoutingComposer` as `@State`: `mode`
 (`ComposeMode .chat/.fanout/.exec`), `to` (model id), `effort` (`ComposeEffort`),
-`lane` (`ComposeLane`), `team` (team id), `pop`. Send is currently a no-op
-(`sendButton`'s action is `{}`).
+`lane` (`ComposeLane`), `team` (team id), `pop`. The old "Send is no-op" state
+is obsolete; send is now routed through `ThreadsViewModel.sendRouting`.
 
 ### The backend you will wire into (already exists)
 
@@ -52,18 +65,18 @@ Composer state lives in `RoutingComposer` as `@State`: `mode`
 
 All under `docs/phases/wiring/compose-routing/`:
 - Conversation thread + composer (the CR4 target surface):
-  [`allnighter-compose-routing-base.png`](wiring/compose-routing/allnighter-compose-routing-base.png)
+  [`allnighter-compose-routing-base.png`](../../phases/wiring/compose-routing/allnighter-compose-routing-base.png)
 - Empty "Start a work order" thread state:
-  [`allnighter-compose-routing-new-work-order.png`](wiring/compose-routing/allnighter-compose-routing-new-work-order.png)
-- Mode menu: [`…-mode-menu.png`](wiring/compose-routing/allnighter-compose-routing-mode-menu.png)
-- Chat target: [`…-chat-target.png`](wiring/compose-routing/allnighter-compose-routing-chat-target.png)
-- Execute target: [`…-execute-target.png`](wiring/compose-routing/allnighter-compose-routing-execute-target.png)
-- Fan-out target: [`…-fanout-team.png`](wiring/compose-routing/allnighter-compose-routing-fanout-team.png)
-- Team dropdown: [`…-team-dropdown.png`](wiring/compose-routing/allnighter-compose-routing-team-dropdown.png)
+  [`allnighter-compose-routing-new-work-order.png`](../../phases/wiring/compose-routing/allnighter-compose-routing-new-work-order.png)
+- Mode menu: [`…-mode-menu.png`](../../phases/wiring/compose-routing/allnighter-compose-routing-mode-menu.png)
+- Chat target: [`…-chat-target.png`](../../phases/wiring/compose-routing/allnighter-compose-routing-chat-target.png)
+- Execute target: [`…-execute-target.png`](../../phases/wiring/compose-routing/allnighter-compose-routing-execute-target.png)
+- Fan-out target: [`…-fanout-team.png`](../../phases/wiring/compose-routing/allnighter-compose-routing-fanout-team.png)
+- Team dropdown: [`…-team-dropdown.png`](../../phases/wiring/compose-routing/allnighter-compose-routing-team-dropdown.png)
 
 Authoritative prototype + spec:
-[`design_handoff_compose_routing/README.md`](wiring/design_handoff_compose_routing/README.md),
-[`reference/app.jsx`](wiring/design_handoff_compose_routing/reference/app.jsx)
+[`design_handoff_compose_routing/README.md`](../../phases/wiring/design_handoff_compose_routing/README.md),
+[`reference/app.jsx`](../../phases/wiring/design_handoff_compose_routing/reference/app.jsx)
 (see `ThreadPane`, `Composer`, `MSG`/turn rendering), and the clickable
 `Compose Routing Prototype.html` in that folder.
 
@@ -295,8 +308,8 @@ CR4c/CR4d add the other two verbs. CR4e is polish.
 
 Each slice: small diff, focused proof while iterating, `check.sh` at closeout,
 render→watcher→seal for visible surfaces, one commit. Log any durable lesson in
-`DEBUGLOG`. When the whole epic lands, fold the composer/conversation truth into
-the relevant SSOT and archive this doc per the Execution-Playbook.
+`DEBUGLOG`. Durable composer/conversation truth now lives in
+[`Persistent_Work_Threads.md`](../../phases/Persistent_Work_Threads.md).
 
 ## 4. Gotchas
 

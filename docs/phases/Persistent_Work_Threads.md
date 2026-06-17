@@ -1,14 +1,24 @@
 # Persistent Work Threads
 
-Status: MLP BUILT (S01–S06) — PAUSED 2026-06-15; S07–S09 + fast-follows remain
+Status: Parent/router — core thread MLP + CR4 conversation send paths delivered;
+remaining work deferred to routed child docs
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
 
-> **Resume pointer:** the MLP (chat → team run → work order → dispatch loop's chat
-> primitive) is built and green on branch `feat/design-chain`. Per-slice status,
-> file locations, and what remains live in
-> [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md) §
-> "Implementation Status". The fast-follow docs (02/03/04) are not started.
+> **Parent doc:** this page is the router for the work-thread product lane. It
+> records what shipped and which child doc owns the next work. Do not use this
+> page as the detailed implementation spec when a routed child doc exists.
+> When this page conflicts with
+> [`docs/archive/phases/Compose_Routing_CR4_Send_And_Conversations.md`](../archive/phases/Compose_Routing_CR4_Send_And_Conversations.md)
+> or `threads/01_Work_Threads_MLP.md`, this page wins; those docs now contain
+> historical implementation context for already-built work.
+>
+> **Resume pointer:** the MLP thread primitive is built, and later CR4 work added
+> the Home conversation rail plus real Chat, Fan out, and Execute send paths. The
+> remaining work is split below: core-loop gaps stay with
+> [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md), while store
+> hardening, unread, rail controls, notifications, streaming, and observed usage
+> defer to their named child docs.
 
 ## Product Promise
 
@@ -46,33 +56,65 @@ core thread primitive.
 
 Build in this order:
 
-1. [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md) — **MLP
-   BUILT (S01–S06); S07–S09 remain. See that doc's Implementation Status.**
+1. [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md) — **core
+   MLP built; remaining core-loop gaps still owned here**
    - [x] Persistent thread + turn models.
    - [x] One-worker async chat.
    - [x] Context packets.
-   - [x] Minimal Mac thread surface alongside the existing team-run UI.
-   - [ ] Existing team/design/review/dispatch work attaches to threads as
-     turns (S07 — backend linkage exists; rich in-timeline cards pending).
+   - [x] Minimal Mac thread surface.
+   - [x] Home conversation rail and Send creates/opens conversations (CR4a).
+   - [x] Chat send runs one model and renders the reply in-thread (CR4b).
+   - [x] Fan out runs a real team/design board and renders it from durable
+     `runId` truth (CR4c).
+   - [x] Execute dispatches to the repo and renders a durable dispatch result
+     from `runId`/`stageId` truth (CR4d).
+   - [x] Rail filters, search, and pinned/recent grouping exist (CR4e).
+   - [ ] Not delivered: editable `work_order` turn creation, return-review as a
+     thread turn, team-result reply defaulting to the writer with switch-away
+     warning, lazy legacy-run migration, and full thread export with linked run
+     artifacts. Keep these in `01_Work_Threads_MLP.md` until resliced.
 
-2. [`threads/05_Unread_Message_Light.md`](threads/05_Unread_Message_Light.md)
-   — **not started**
-   - Fast follow for durable read cursors and the Mac rail indication light when
-     worker/team/dispatch work lands unseen.
+2. [`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md)
+   — **defer here before unread or rail controls**
+   - Engine prerequisite: serialized writes, explicit mutation APIs, atomic
+     `thread.json` persistence, and `updatedAt`/transcript law.
+   - Also owns `WorkThread.formatVersion`, duplicate id/turn-id rejection,
+     context-packet reference integrity, and the no-raw-save caller gate.
+   - Unread and rail controls must not ship on the current broad `save(_:)` path.
+
+3. [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md)
+   — **defer here after 05**
+   - Durable read cursors and the Mac rail indication light when worker/team/dispatch
+     work lands unseen.
    - This is the inbox freshness loop: what changed while the floor manager was
      looking elsewhere.
+   - V1 visual proof is worker-chat plus blocking system events. Rich
+     team/build/dispatch turns may be derivation-tested before their cards ship,
+     but cannot clear read visually until the PWT-S07 card visibility contract
+     exists.
 
-3. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
+4. [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) — **not started**
+   **defer here after 05 + 06**
+   - Rename, pin, archive, archive view, and one triage order on Home + legacy
+     Threads rails.
+   - Home and legacy rails must converge on one presenter triage function before
+     unread is exposed in production; newest-first and broad Pinned/Recent rail
+     grouping are not enough.
+
+5. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
+   **defer here**
    - Fast follow for Mac local notifications when work lands or needs attention.
    - OneSignal mobile push lands later, after the remote spine exists.
    - This is the walk-away loop: keep the bench useful without staring at the app.
 
-4. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
+6. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
+   **defer here**
    - Fast follow for live output where the driver/CLI can expose it.
    - May ship Mac-only first.
    - This is the stare-at-it loop: make long turns feel alive.
 
-5. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
+7. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
+   **defer here**
    - Fast follow for provider-reported usage only.
    - No estimates, no fake dollar math, no opaque quota percentages.
    - Duration stays first-class and already partially exists.
@@ -91,8 +133,13 @@ Build in this order:
   sessions may be used later as an optimization, never as durable product truth.
 - **Thread liveness is derived.** Running, failed, waiting, and needs-attention
   states are computed from turns, not stored as drift-prone thread flags.
+- **Thread mutations are store-gated.** All durable thread writes go through
+  explicit `ThreadStore` methods after `threads/05_ThreadStore_Hardening.md`.
+- **Thread schema evolves deliberately.** `WorkThread.formatVersion` and typed
+  store errors own migration and duplicate-id safety; UI code must not infer
+  durable meaning from missing fields.
 - **Thread freshness is derived.** Read/unread state is computed from
-  `ThreadReadCursor` plus turns after `threads/05_Unread_Message_Light.md`; the
+  `ThreadReadCursor` plus turns after `threads/06_Unread_Message_Light.md`; the
   GUI never owns unread truth.
 - **Failures are turns too.** Failed, timed-out, cancelled, cooling-down, and
   manual-paste states remain visible inside the thread.
@@ -116,7 +163,7 @@ Existing truth owners:
   on answer cards. Scorecards already store `medianLatencyMs`, though the current
   Doctor scorecard UI does not surface it.
 
-Truth added by the MLP (S01–S06, built 2026-06-15):
+Truth/UI paths delivered:
 
 - ✅ Durable thread object — `WorkThread` (AllnighterCore).
 - ✅ Persisted chat turn model — `ThreadTurn` + `ThreadStore` (folder-of-JSON).
@@ -124,6 +171,12 @@ Truth added by the MLP (S01–S06, built 2026-06-15):
   (rename/classify during the Model/Worker cleanup).
 - ✅ Context packet builder — `ThreadContextBuilder` + persisted
   `ThreadContextPacket`.
+- ✅ Home conversation rail and thread pane render the active conversation.
+- ✅ Chat send persists user + worker turns and lands model replies in-thread.
+- ✅ Fan out persists a team/design board turn referencing durable `TeamRun`
+  truth by `runId`.
+- ✅ Execute persists a dispatch turn referencing durable run/stage truth by
+  `runId`/`stageId`.
 
 Storage SSOT:
 
@@ -145,13 +198,41 @@ packets live under each thread's `context/` folder. Team/design/review/dispatch
 run truth remains under `Runs/run_<id>/run.json`; threads reference those runs by
 id instead of copying run data.
 
-Still missing (deferred):
+Still missing / deferred:
 
+- Core-loop gaps still owned by `01_Work_Threads_MLP.md`: editable work-order
+  turns, return-review turns, team-result writer default + switch-away warning,
+  lazy legacy-run migration, and full thread export with linked run artifacts.
+- ThreadStore hardening and explicit mutation APIs defer to
+  `05_ThreadStore_Hardening.md`.
+- Read cursor and unread/new-message indication light defer to
+  `06_Unread_Message_Light.md`.
+- Rename/pin/archive/archive-view rail controls defer to `07_Threads_2_0.md`.
+- Thread/turn notification policy defers to `02_Notifications.md`.
 - No streaming command path (fast follow `03_Mac_Streaming.md`).
 - No observed usage model (fast follow `04_Observed_Usage.md`).
-- No read cursor or unread/new-message indication light (fast follow
-  `05_Unread_Message_Light.md`).
-- No thread/turn notification policy (fast follow `02_Notifications.md`).
+
+## Foundation Gates
+
+These gates are here so future roadmap work does not accidentally skip the hard
+part and wire a pretty rail to weak storage:
+
+```text
+05 before 06/07:
+  one per-root writer, atomic thread.json, no runtime raw save,
+  explicit mutation methods, versioned schema, duplicate-id/turn-id rejection
+
+06 before visible unread:
+  pure Core derivation, monotonic read cursor, legacy nil cursor baseline,
+  viewport-based clear, worker-chat/system-event visual proof
+
+07 before production rail controls:
+  one presenter triage key for Home + legacy rails, archive view,
+  archived composer disabled until explicit unarchive
+```
+
+Do not mark read/unread, rename/pin/archive, or rail convergence complete from
+UI behavior alone. The proof must include store law tests and presenter tests.
 
 ## Architecture Rule
 

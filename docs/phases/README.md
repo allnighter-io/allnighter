@@ -31,15 +31,17 @@ otherwise.
 | --- | --- | --- |
 | [`Launch_Authority_TCC_Hotfix.md`](Launch_Authority_TCC_Hotfix.md) | **HOTFIX execution-ready** (2026-06-16) | Critical TCC launch-authority fix: cold launch renders cached/unknown state only; no shell, CLI, smoke, quota, or protected-folder probing before explicit user intent. |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **BUILT** (S00–S05, 2026-06-16) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. |
-| [`Compose_Routing_CR4_Send_And_Conversations.md`](Compose_Routing_CR4_Send_And_Conversations.md) | **Execution-ready handoff** (2026-06-16) | Finishes the routing composer: Send creates a conversation and runs real work (chat→one model, fan out→team board, execute→dispatch) + the conversation/thread surface. CR1–CR3 shipped (composer built + wired to the real bench/teams); CR4a–CR4e sliced here. Design SSOT: `wiring/design_handoff_compose_routing/`. |
-| [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | Draft founder packet (2026-06-16) | **Implementation law + appendix:** one coordinator send transaction, ordered attachment truth, audit packets, canonical history; workspace mirrors delivery-only. Proof matrix §11 items. DnD CIA-S09 last. After CR4b. |
-| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | MLP BUILT (S01–S06), PAUSED 2026-06-15; S07–S09 + fast-follows remain | Thread/chat phase router: async work-thread MLP first, then unread lights, Mac notifications, streaming, and observed usage as fast follows. |
-| [`threads/05_Unread_Message_Light.md`](threads/05_Unread_Message_Light.md) | Draft founder packet (2026-06-17) | Durable read cursor plus Mac thread-rail indication light for new/unread worker, team, dispatch, and attention turns. |
+| [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | Draft founder packet — **not implementation-ready until ThreadStore hardening** | **Implementation law + appendix:** one coordinator send transaction, ordered attachment truth, audit packets, canonical history; workspace mirrors delivery-only. Execute after `threads/05_ThreadStore_Hardening.md`, not after the whole threads folder. |
+| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
+| [`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md) | Draft founder packet (2026-06-17) | Engine SSOT gate: per-root serialized thread writes, explicit mutation APIs, atomic persistence, schema versioning, duplicate-id safety, and `updatedAt`/transcript law. Prerequisite for unread and Threads 2.0. |
+| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | Draft founder packet (2026-06-17) | Durable read cursor plus Mac thread-rail indication light: pure Core unread derivation, monotonic cursor, viewport clear, and worker-chat/system-event v1 proof. Requires 05. |
+| [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) | Draft founder packet (2026-06-17) | Rail controls: rename, pin, archive, archive view, Home/Threads triage convergence, archived composer rule, and unread integration. Requires 05 + 06. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). Still owns: MCP advertising/async tools + Pending grammar (deferred). |
-| [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Lane-scoped custom teams and built-in Build/Design/Copy specialist teams for Fan out: team picker, Low/Med/High effort, and one-CLI multi-skill self-fusion. |
+| [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Build/Design/Copy specialist team catalog substrate for Fan out: team picker, Low/Med/High effort, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
+| [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) | Founder review packet (2026-06-17) | Cleanup-first lane catalog feature: `TeamCatalog` + `SkillCatalog`, `TeamID` + `SkillID`, built-in and custom teams/skills in one catalog model, lane-first Settings, no Store vocabulary, no migration, no skill versioning. |
 | [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md) | PARTIAL: bootstrap/preflight/discovery + spec retrieval built; async/Pending deferred | Agent-first workflow layer for OpenClaw/Hermes-style messaging and voice agents: bootstrap/doctor recovery loop, MCP async team tools, Pending over MCP, full spec retrieval, provenance, approval handoffs, and entitlement hooks. |
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
@@ -94,7 +96,15 @@ otherwise.
 - Every built-in and custom team belongs to exactly one lane. There are no
   shared or multi-lane teams; duplicate and tune a lineup when it belongs in
   another lane.
-- Team presets are reusable units. Built-in and custom teams may resolve to
+- Every built-in and custom skill belongs to exactly one lane. There are no
+  shared or multi-lane skills; similar roles (Skeptic, Contrarian, etc.) ship as
+  separate lane-sharpened built-ins — duplicate and tune when a hat belongs in
+  another lane.
+- Settings navigation is **lane-first**: CLIs (lane-agnostic), then BUILD /
+  DESIGN / COPY, each with Teams and Skills — not noun-first Teams | Skills with
+  lane filters inside. Default: health badge → CLIs; composer Manage team → that
+  lane's Teams.
+- Team definitions are reusable units. Built-in and custom teams may resolve to
   multiple workers on one ready model when the user has only one CLI connected;
   show that truthfully as many workers / one model.
 - A worker is one model wearing one skill. Lanes ship default teams, but advanced
@@ -157,13 +167,17 @@ Open questions:
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
 | Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
-| Fan out composer, lane-scoped custom teams, built-in Build/Design teams | `Fanout_Team_Catalog.md` + `Work_Order_Team_Model.md` |
+| Fan out composer, built-in lane team packs, team resolver substrate | `Fanout_Team_Catalog.md` + `Work_Order_Team_Model.md` |
+| Team/skill catalogs, custom team + skill editing, `alln teams`, `alln skills`, lane-first Settings | `Team_And_Skill_Catalogs.md` + `Work_Order_Team_Model.md` |
+| Team lineup edit, customize/new/duplicate team, worker rows referencing SkillID | `Team_And_Skill_Catalogs.md` first, then `CLI_Implementation_Contract.md` + `Fanout_Team_Catalog.md` |
 | OpenClaw/Hermes, messaging agents, voice-to-text workflows, doctor recovery, Pending over MCP, full spec retrieval | `Agent_First_MCP_And_Messaging_Workflows.md` + `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` + `Pending_Work_And_Drain.md` |
 | Standalone Mac app, Dock presence, menu-bar role, background coordinator, resident lifecycle | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |
-| Persistent chat, routable turns, thread backend, run-to-thread linkage | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** |
-| Read/unread thread state, new-message indication light, read cursor semantics | `Persistent_Work_Threads.md` -> `threads/05_Unread_Message_Light.md` |
+| Persistent chat, routable turns, thread backend, run-to-thread linkage, compose routing send | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** (historical CR4: `docs/archive/phases/Compose_Routing_CR4_Send_And_Conversations.md`) |
+| ThreadStore write gate, serialized thread mutation, schema/migration safety, timestamp/transcript law | `Persistent_Work_Threads.md` -> `threads/05_ThreadStore_Hardening.md` |
+| Read/unread thread state, new-message indication light, read cursor semantics | `Persistent_Work_Threads.md` -> `threads/06_Unread_Message_Light.md` |
+| Thread rail rename/pin/archive, archive view, Home/Threads triage convergence | `Persistent_Work_Threads.md` -> `threads/07_Threads_2_0.md` |
 | Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
