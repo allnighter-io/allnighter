@@ -31,9 +31,9 @@ final class SkillCatalogTests: XCTestCase {
     }
 
     func testAssemblePromptPrefixesTemplate() {
-        let assembled = SkillCatalog.assemblePrompt(skillId: "minimal_fixer", founderPrompt: "FIX THE BUG")
+        let assembled = SkillCatalog.assemblePrompt(skillId: "correct_fix_planner", founderPrompt: "FIX THE BUG")
         XCTAssertTrue(assembled.hasSuffix("FIX THE BUG"))
-        XCTAssertTrue(assembled.contains("smallest safe fix"))
+        XCTAssertTrue(assembled.contains("smallest correct fix"))
         // Unknown skill id -> founder prompt unchanged.
         XCTAssertEqual(SkillCatalog.assemblePrompt(skillId: "nope", founderPrompt: "X"), "X")
     }

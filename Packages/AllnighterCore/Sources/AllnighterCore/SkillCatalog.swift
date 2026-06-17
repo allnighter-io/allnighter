@@ -93,8 +93,9 @@ public enum SkillCatalog {
         """),
         s("security_privacy_reviewer", "Security & Privacy Reviewer", [.build], .review, """
         Review privacy, credentials, local files, permissions, network calls, destructive \
-        actions, and user consent. Name any high-risk stop before implementation. Prefer \
-        local, auditable behavior.
+        actions, and user consent. Name any high-risk stop before implementation. Calibrate \
+        for a one- or two-developer team: prefer simple, local, auditable mitigations and \
+        reject enterprise theater unless this surface truly requires it.
         """),
         s("contrarian_reviewer", "Contrarian Reviewer", [.build], .review, """
         Disagree usefully. Find the strongest reason the emerging plan may fail. Look \
@@ -107,6 +108,11 @@ public enum SkillCatalog {
         inputs, expected behavior, and observed behavior. Do not invent facts. If a \
         detail is unknown, name the missing observation.
         """),
+        s("truth_owner_mapper", "Truth Owner Mapper", [.build], .answer, """
+        Name the truth owner before proposing a fix. Separate the observed symptom from \
+        the semantic owner, the layer that appears to be lying, and the proof that would \
+        disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.
+        """),
         s("trace_mapper", "Trace Mapper", [.build], .answer, """
         Map the bug through the likely layers: UI, presenter/model, engine, store, \
         contract, persisted file, external CLI. Name the truth owner and the first layer \
@@ -117,15 +123,38 @@ public enum SkillCatalog {
         persistence, or a drifted snapshot. Look for places the UI can display truth it \
         does not own.
         """),
-        s("minimal_fixer", "Minimal Fixer", [.build], .answer, """
-        Propose the smallest safe fix. Preserve behavior outside the bug. Do not mix in \
-        renames, cleanup, or architecture changes unless the bug cannot be fixed without \
-        them.
+        s("change_impact_reviewer", "Change Impact Reviewer", [.build], .answer, """
+        Zoom out before the fix. Name the shared components, state owners, presenters, \
+        persisted files, contracts, fixtures, and nearby workflows that the proposed fix \
+        could affect. The goal is not broad cleanup; it is avoiding a local patch that \
+        leaves wreckage elsewhere.
+        """),
+        s("correct_fix_planner", "Correct Fix Planner", [.build], .answer, """
+        Plan the smallest correct fix, not the smallest visible patch. Do not patch the \
+        visible layer until the truth owner and blast radius are named. If the cause is \
+        duplicated state, SSOT drift, presenter mismatch, or shared component behavior, \
+        the correct fix may be deeper than the failing view.
         """),
         s("regression_guard", "Regression Guard", [.build], .answer, """
         Write the proof plan. Name the exact unit/integration/fixture test that would \
         fail before the fix and pass after. Include a negative test for the old lie when \
-        possible.
+        possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition \
+        to semantic tests.
+        """),
+        s("gui_bug_reproducer", "GUI Bug Reproducer", [.build], .answer, """
+        Reduce the visible GUI bug to the smallest rendered state that proves it: surface, \
+        fixture, window state, interaction, expected pixels, and observed pixels. Separate \
+        layout breakage from content/data truth.
+        """),
+        s("gui_proof_guard", "GUI Proof Guard", [.build], .answer, """
+        Apply the GUI proof law. A visible GUI bug is not fixed from build success, code \
+        confidence, or the builder's own screenshot. Name the required GUIFixture render, \
+        layout-watcher pass, affected states, and any blocked proof harness.
+        """),
+        s("gui_layout_reviewer", "GUI Layout Reviewer", [.build], .review, """
+        Review the rendered surface for clipped, collapsed, missing, overlapping, \
+        off-screen, detached, or z-order/scrim breakage. Treat layout proof as separate \
+        from Core/content truth, and block closeout when pixels are still broken.
         """),
         s("user_impact_narrator", "User Impact Narrator", [.build], .review, """
         Describe the trust break in user terms. What did the user believe Allnighter \
@@ -139,36 +168,39 @@ public enum SkillCatalog {
         s("boundary_mapper", "Boundary Mapper", [.build], .answer, """
         Map every trust boundary. Name local process, app, CLI, network, cloud, paired \
         device, and file-system boundaries. For each crossing, name the data, authority, \
-        and owner.
+        and owner. Calibrate mitigations for a small team moving fast.
         """),
         s("secrets_reviewer", "Secrets Reviewer", [.build], .answer, """
         Hunt for secrets and credential exposure. Check env vars, config files, Keychain, \
         logs, generated artifacts, prompts, run journals, and error messages. Assume logs \
-        outlive the session.
+        outlive the session. Prefer cheap, durable hygiene over enterprise process.
         """),
         s("permission_reviewer", "Permission Reviewer", [.build], .answer, """
         Review macOS/iOS permission posture. Name every permission request or destructive \
         capability, why it is needed, how the user consents, and how the app minimizes \
-        the surface.
+        the surface. Avoid permission rituals that slow traction without reducing real risk.
         """),
         s("data_flow_reviewer", "Data Flow Reviewer", [.build], .answer, """
         Trace sensitive data from source to deletion. Include local files, prompts, \
         attachments, worker output, run journals, cloud metadata, encrypted blobs, and \
-        notifications.
+        notifications. Prefer simple ownership and deletion rules a tiny team can maintain.
         """),
         s("abuse_case_reviewer", "Abuse Case Reviewer", [.build], .answer, """
         Invent realistic misuse cases: confused user, malicious local client, \
         compromised paired device, compromised cloud metadata, prompt injection, and \
-        agent overreach. Tie each to a mitigation.
+        agent overreach. Tie each to the smallest practical mitigation, not a generic \
+        enterprise control.
         """),
         s("dependency_injection_reviewer", "Dependency/Injection Reviewer", [.build], .review, """
         Check command construction, argument escaping, shell usage, dependency trust, \
         file paths, prompt injection, output parsing, and generated artifacts. Prefer \
-        structured APIs over string parsing where possible.
+        structured APIs over string parsing where possible, and prefer local code changes \
+        over heavyweight governance.
         """),
         s("security_fix_prioritizer", "Security Fix Prioritizer", [.build], .review, """
-        Convert findings into action. Label required stop, must-fix before ship, can \
-        defer with owner, or accepted risk. Every required stop needs a proof condition.
+        Convert findings into small-team action. Label required stop, must-fix before \
+        ship, cheap hardening, later when scale warrants, accepted risk, or enterprise-only \
+        suggestion rejected. Every required stop needs a proof condition.
         """),
         // Architecture Pressure Test
         s("truth_owner", "Truth Owner", [.build], .answer, """
@@ -410,9 +442,11 @@ public enum SkillCatalog {
         writer("plan_writer_build", "Build Plan Writer", [.build],
                "implementable plan with scope, architecture, risks, and a proof wall"),
         writer("bug_packet_writer", "Bug Packet Writer", [.build],
-               "bug packet: symptom, repro, suspected owner, likely lie-prone layer, minimal fix, regression proof"),
+               "bug packet: symptom, repro, truth owner, lie-prone layer, blast radius, smallest correct fix, regression proof"),
+        writer("gui_bug_packet_writer", "GUI Bug Packet Writer", [.build],
+               "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
         writer("security_register_writer", "Security Register Writer", [.build],
-               "security review: boundaries, risks, severity, required stops, mitigations, proof requirements"),
+               "small-team security review: boundaries, risks, severity, required stops, cheap hardening, accepted risks, proof requirements"),
         writer("architecture_verdict_writer", "Architecture Verdict Writer", [.build],
                "architecture verdict: truth owner, boundary map, rejected alternatives, implementation slices, proof wall"),
         writer("proof_packet_writer", "Proof Packet Writer", [.build],

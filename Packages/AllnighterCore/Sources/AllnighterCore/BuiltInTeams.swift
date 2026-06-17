@@ -7,7 +7,7 @@ import Foundation
 public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
-        buildCore, buildBugHunt, buildSecurityReview, buildArchitecturePressureTest, buildReleaseProof,
+        buildCore, buildBugHunt, buildGUIBugHunt, buildSecurityReview, buildArchitecturePressureTest, buildReleaseProof,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage
     ]
@@ -72,20 +72,37 @@ public enum BuiltInTeams {
 
     static let buildBugHunt = make(
         id: "build_bug_hunt", name: "Bug Hunt", lane: .build, output: .bugPacket, defaultEffort: .high,
-        description: "Find, reproduce, localize, and fix broken behavior without turning the bug into a broad refactor.",
+        description: "Find the real cause of broken behavior, map the blast radius, and plan the smallest correct fix.",
         rows: [
             row("bug_reproducer", .answer, .low),
-            row("minimal_fixer", .answer, .low),
+            row("truth_owner_mapper", .answer, .low),
+            row("correct_fix_planner", .answer, .low),
             row("regression_guard", .answer, .low, preferred: "model_chatgpt", fallback: .anyReady),
             row("trace_mapper", .answer, .med),
             row("state_skeptic", .answer, .med),
+            row("change_impact_reviewer", .answer, .med),
             row("user_impact_narrator", .review, .high),
             row("contrarian_root_cause", .review, .high)
         ], writer: "bug_packet_writer")
 
+    static let buildGUIBugHunt = make(
+        id: "build_gui_bug_hunt", name: "GUI Bug Hunt", lane: .build, output: .bugPacket, defaultEffort: .high,
+        description: "Fix visible native-app breakage with rendered proof, layout-watcher review, and the right truth owner.",
+        rows: [
+            row("gui_bug_reproducer", .answer, .low),
+            row("gui_proof_guard", .answer, .low),
+            row("correct_fix_planner", .answer, .low),
+            row("regression_guard", .answer, .low, preferred: "model_chatgpt", fallback: .anyReady),
+            row("truth_owner_mapper", .answer, .med),
+            row("state_skeptic", .answer, .med),
+            row("change_impact_reviewer", .answer, .med),
+            row("gui_layout_reviewer", .review, .high),
+            row("contrarian_root_cause", .review, .high)
+        ], writer: "gui_bug_packet_writer")
+
     static let buildSecurityReview = make(
         id: "build_security_review", name: "Security Review", lane: .build, output: .securityRegister, defaultEffort: .high,
-        description: "Evaluate code, architecture, or a planned feature for privacy, credentials, permission posture, exposure, and destructive operations.",
+        description: "Evaluate privacy, credentials, permissions, exposure, and destructive operations with small-team shipping judgment.",
         rows: [
             row("boundary_mapper", .answer, .low),
             row("secrets_reviewer", .answer, .low),

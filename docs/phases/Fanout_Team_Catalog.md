@@ -2,7 +2,7 @@
 
 Status: Backend BUILT — S00–S05 shipped (2026-06-16, branch `feat/design-chain`).
 Core lane-scoped `TeamPreset` + `SkillCatalog`/`ModelCatalog`/`TeamResolver`/
-`TeamRequestResolver`/`BuiltInTeams` (12 teams) + Engine `CatalogRunCoordinator`
+`TeamRequestResolver`/`BuiltInTeams` (13 teams) + Engine `CatalogRunCoordinator`
 (answer→review→output staging) + CLI `--team`/`--lane`/`--effort`/`--type` +
 `team teams` + `TeamRunJSON` upgrades. 278 Core/Engine tests + Mac build green;
 contracts regenerated. GUI composer/team-library (S05/S06) + iOS (S07) NOT built.
@@ -51,8 +51,8 @@ Custom teams are the 10x upgrade to fan-out:
 
 - The composer stays fast: pick lane, team, effort, send.
 - Users get immediate value from built-in specialist teams.
-- Power users can create reusable expert units: Bug Hunt, Security Review,
-  Premium Polish, Conversion Studio, Architecture Pressure Test.
+- Power users can create reusable expert units: Bug Hunt, GUI Bug Hunt,
+  Security Review, Premium Polish, Conversion Studio, Architecture Pressure Test.
 - Skill prompts become product value, not hidden implementation detail.
 - One connected CLI still unlocks parallel perspectives through self-fusion.
 
@@ -388,6 +388,7 @@ Specialties live inside the lane:
 
 ```text
 Build -> Bug Hunt
+Build -> GUI Bug Hunt
 Build -> Security Review
 Build -> Architecture Pressure Test
 Design -> Premium Polish
@@ -727,13 +728,15 @@ One-model example:
   "readyModels": ["model_opus"],
   "workers": [
     {"id": "model_opus#0", "skillId": "bug_reproducer", "modelId": "model_opus"},
-    {"id": "model_opus#1", "skillId": "trace_mapper", "modelId": "model_opus"},
-    {"id": "model_opus#2", "skillId": "state_skeptic", "modelId": "model_opus"},
-    {"id": "model_opus#3", "skillId": "minimal_fixer", "modelId": "model_opus"},
-    {"id": "model_opus#4", "skillId": "regression_guard", "modelId": "model_opus"},
-    {"id": "model_opus#5", "skillId": "user_impact_narrator", "modelId": "model_opus"},
-    {"id": "model_opus#6", "skillId": "contrarian_root_cause", "modelId": "model_opus"},
-    {"id": "model_opus#7", "skillId": "bug_packet_writer", "modelId": "model_opus", "purpose": "plan"}
+    {"id": "model_opus#1", "skillId": "truth_owner_mapper", "modelId": "model_opus"},
+    {"id": "model_opus#2", "skillId": "correct_fix_planner", "modelId": "model_opus"},
+    {"id": "model_opus#3", "skillId": "regression_guard", "modelId": "model_opus"},
+    {"id": "model_opus#4", "skillId": "trace_mapper", "modelId": "model_opus"},
+    {"id": "model_opus#5", "skillId": "state_skeptic", "modelId": "model_opus"},
+    {"id": "model_opus#6", "skillId": "change_impact_reviewer", "modelId": "model_opus"},
+    {"id": "model_opus#7", "skillId": "user_impact_narrator", "modelId": "model_opus"},
+    {"id": "model_opus#8", "skillId": "contrarian_root_cause", "modelId": "model_opus"},
+    {"id": "model_opus#9", "skillId": "bug_packet_writer", "modelId": "model_opus", "purpose": "plan"}
   ],
   "warnings": [
     "Only one ready model. Running multiple skills on Opus.",
@@ -786,6 +789,7 @@ Build teams
 
 * Build Core          Med   Default
   Bug Hunt            High
+  GUI Bug Hunt        High
   Security Review     High
   Architecture Test   Med
   Release Proof       High
@@ -909,11 +913,29 @@ defaultEffort: high
 writer: bug_packet_writer (P, strongest planner, all efforts)
 rows:
   bug_reproducer (A, L)
-  minimal_fixer (A, L)
+  truth_owner_mapper (A, L)
+  correct_fix_planner (A, L)
   regression_guard (A, L)
   trace_mapper (A, M)
   state_skeptic (A, M)
+  change_impact_reviewer (A, M)
   user_impact_narrator (R, H)
+  contrarian_root_cause (R, H)
+
+build_gui_bug_hunt
+lane: build
+outputKind: bugPacket
+defaultEffort: high
+writer: gui_bug_packet_writer (P, strongest planner, all efforts)
+rows:
+  gui_bug_reproducer (A, L)
+  gui_proof_guard (A, L)
+  correct_fix_planner (A, L)
+  regression_guard (A, L)
+  truth_owner_mapper (A, M)
+  state_skeptic (A, M)
+  change_impact_reviewer (A, M)
+  gui_layout_reviewer (R, H)
   contrarian_root_cause (R, H)
 
 build_security_review
@@ -1144,8 +1166,8 @@ Specialist Build team.
 Purpose:
 
 ```text
-Find, reproduce, localize, and fix broken behavior without turning the bug into
-a broad refactor.
+Find the real cause of broken behavior, map the blast radius, and plan the
+smallest correct fix.
 ```
 
 Default effort: High.
@@ -1153,7 +1175,7 @@ Default effort: High.
 Best for:
 
 - "This is broken."
-- flaky UI or CLI behavior;
+- CLI, persistence, contract, worker, lifecycle, or state bugs;
 - state not persisting;
 - wrong worker/team shown;
 - results disappearing;
@@ -1162,23 +1184,26 @@ Best for:
 Output:
 
 ```text
-bug packet: symptom, repro, suspected owner, likely lie-prone layer, minimal fix,
-regression proof
+bug packet: symptom, repro, truth owner, lie-prone layer, blast radius, smallest
+correct fix, regression proof
 ```
 
 Low activates:
 
 - Bug Reproducer
-- Minimal Fixer
+- Truth Owner Mapper
+- Correct Fix Planner
 - Regression Guard
 
 Med activates:
 
 - Bug Reproducer
+- Truth Owner Mapper
+- Correct Fix Planner
+- Regression Guard
 - Trace Mapper
 - State Skeptic
-- Minimal Fixer
-- Regression Guard
+- Change Impact Reviewer
 
 High activates:
 
@@ -1192,9 +1217,11 @@ Workers:
 | Skill | Prompt job | Preferred model policy |
 | --- | --- | --- |
 | Bug Reproducer | Turn the report into the shortest reproducible scenario. Separate observed facts from guesses. | any ready |
+| Truth Owner Mapper | Name the semantic owner and lie-prone layer before any fix proposal. | strongest ready planner |
 | Trace Mapper | Map the likely path through UI, model, store, coordinator, and persisted data. Name where truth should live. | code-capable model |
 | State Skeptic | Look for duplicated state, stale snapshots, optimistic UI lies, missing reloads, and persistence gaps. | strongest ready planner |
-| Minimal Fixer | Propose the smallest behavior-preserving patch. Reject broad cleanup unless it is required for the fix. | code-capable model |
+| Change Impact Reviewer | Name shared components, state owners, contracts, fixtures, and nearby workflows that the fix could affect. | code-capable model |
+| Correct Fix Planner | Plan the smallest correct fix, not the smallest visible patch. | code-capable model |
 | Regression Guard | Define the deterministic test that would have caught the bug. Include a negative test when possible. | code-capable model |
 | User Impact Narrator | Explain what the user experienced and what trust was damaged. Keep the fix oriented around that claim. | any ready |
 | Contrarian Root Cause | Challenge the obvious root cause. Name the second most plausible cause and how to rule it out cheaply. | any ready |
@@ -1207,6 +1234,12 @@ Reduce the bug to the smallest reproducible scenario. Use concrete steps,
 inputs, expected behavior, and observed behavior. Do not invent facts. If a
 detail is unknown, name the missing observation.
 
+Truth Owner Mapper:
+Name the truth owner before proposing a fix. Separate the observed symptom from
+the semantic owner, the layer that appears to be lying, and the proof that would
+disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed
+owner.
+
 Trace Mapper:
 Map the bug through the likely layers: UI, presenter/model, engine, store,
 contract, persisted file, external CLI. Name the truth owner and the first layer
@@ -1217,15 +1250,23 @@ Assume the bug is caused by duplicated state, stale state, optimistic UI, missin
 persistence, or a drifted snapshot. Look for places the UI can display truth it
 does not own.
 
-Minimal Fixer:
-Propose the smallest safe fix. Preserve behavior outside the bug. Do not mix in
-renames, cleanup, or architecture changes unless the bug cannot be fixed without
-them.
+Change Impact Reviewer:
+Zoom out before the fix. Name the shared components, state owners, presenters,
+persisted files, contracts, fixtures, and nearby workflows that the proposed fix
+could affect. The goal is not broad cleanup; it is avoiding a local patch that
+leaves wreckage elsewhere.
+
+Correct Fix Planner:
+Plan the smallest correct fix, not the smallest visible patch. Do not patch the
+visible layer until the truth owner and blast radius are named. If the cause is
+duplicated state, SSOT drift, presenter mismatch, or shared component behavior,
+the correct fix may be deeper than the failing view.
 
 Regression Guard:
 Write the proof plan. Name the exact unit/integration/fixture test that would
 fail before the fix and pass after. Include a negative test for the old lie when
-possible.
+possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition
+to semantic tests.
 
 User Impact Narrator:
 Describe the trust break in user terms. What did the user believe Allnighter
@@ -1234,6 +1275,86 @@ would do, what happened instead, and what must be visibly true after the fix?
 Contrarian Root Cause:
 Argue against the leading theory. Provide an alternate root cause and the
 cheapest observation or test that rules it in or out.
+```
+
+### GUI Bug Hunt
+
+Specialist Build team.
+
+Purpose:
+
+```text
+Fix visible native-app breakage with rendered proof, layout-watcher review, and
+the right truth owner.
+```
+
+Default effort: High.
+
+Best for:
+
+- missing, clipped, collapsed, overlapping, detached, or off-screen UI;
+- broken popovers, sheets, scrims, z-order, or responsive layout;
+- GUI bugs where build success or code inspection is not visual proof;
+- visible wrong state where Core/content truth and layout truth must be separated.
+
+Output:
+
+```text
+GUI bug packet: visible symptom, rendered repro, truth owner, layout proof,
+smallest correct fix, regression proof
+```
+
+Low activates:
+
+- GUI Bug Reproducer
+- GUI Proof Guard
+- Correct Fix Planner
+- Regression Guard
+
+Med activates:
+
+- all Low workers;
+- Truth Owner Mapper
+- State Skeptic
+- Change Impact Reviewer
+
+High activates:
+
+- all Med workers;
+- GUI Layout Reviewer;
+- Contrarian Root Cause.
+
+Workers:
+
+| Skill | Prompt job | Preferred model policy |
+| --- | --- | --- |
+| GUI Bug Reproducer | Reduce the visible failure to a rendered fixture/state and separate layout from data truth. | any ready |
+| GUI Proof Guard | Name the required GUIFixture render, layout-watcher pass, affected states, and proof blockers. | code-capable model |
+| Correct Fix Planner | Plan the smallest correct fix, not the smallest visible patch. | code-capable model |
+| Regression Guard | Define semantic proof plus rendered proof when the surface is visible. | code-capable model |
+| Truth Owner Mapper | Name the owner before SwiftUI is treated as the cause. | strongest ready planner |
+| State Skeptic | Check SSOT drift, duplicated state, stale snapshots, and presenter mismatch. | strongest ready planner |
+| Change Impact Reviewer | Name shared components and nearby workflows the visual fix can break. | code-capable model |
+| GUI Layout Reviewer | Block closeout on clipped, missing, collapsed, overlapping, off-screen, detached, or z-order breakage. | any ready |
+| Contrarian Root Cause | Challenge the leading visual-root-cause theory and name the cheapest ruling observation. | any ready |
+
+Skill prompt templates:
+
+```text
+GUI Bug Reproducer:
+Reduce the visible GUI bug to the smallest rendered state that proves it:
+surface, fixture, window state, interaction, expected pixels, and observed
+pixels. Separate layout breakage from content/data truth.
+
+GUI Proof Guard:
+Apply the GUI proof law. A visible GUI bug is not fixed from build success, code
+confidence, or the builder's own screenshot. Name the required GUIFixture render,
+layout-watcher pass, affected states, and any blocked proof harness.
+
+GUI Layout Reviewer:
+Review the rendered surface for clipped, collapsed, missing, overlapping,
+off-screen, detached, or z-order/scrim breakage. Treat layout proof as separate
+from Core/content truth, and block closeout when pixels are still broken.
 ```
 
 ### Security Review
@@ -1245,6 +1366,7 @@ Purpose:
 ```text
 Evaluate code, architecture, or a planned feature for privacy, credentials,
 permission posture, local network exposure, and destructive operations.
+Calibrate mitigations for a small team shipping quickly.
 ```
 
 Default effort: High.
@@ -1261,8 +1383,8 @@ Best for:
 Output:
 
 ```text
-security review: boundaries, risks, severity, required stops, mitigations,
-proof requirements
+small-team security review: boundaries, risks, severity, required stops, cheap
+hardening, accepted risks, proof requirements
 ```
 
 Low activates:
@@ -1296,7 +1418,7 @@ Workers:
 | Data Flow Reviewer | Trace sensitive data lifecycle: source, transform, storage, transmission, deletion, and audit trail. | code-capable model |
 | Abuse Case Reviewer | Think like a malicious local client, paired device, compromised cloud row, or confused agent. | any ready |
 | Dependency/Injection Reviewer | Check shell invocation, argument escaping, prompt/file injection, dependency trust, and output handling. | code-capable model |
-| Security Fix Prioritizer | Convert findings into required stops, must-fix before ship, can-defer, and proof obligations. | strongest ready planner |
+| Security Fix Prioritizer | Convert findings into required stops, must-fix before ship, cheap hardening, later-when-scale-warrants, accepted risk, and enterprise-only rejections. | strongest ready planner |
 
 Skill prompt templates:
 
@@ -1304,36 +1426,39 @@ Skill prompt templates:
 Boundary Mapper:
 Map every trust boundary. Name local process, app, CLI, network, cloud, paired
 device, and file-system boundaries. For each crossing, name the data, authority,
-and owner.
+and owner. Calibrate mitigations for a small team moving fast.
 
 Secrets Reviewer:
 Hunt for secrets and credential exposure. Check env vars, config files, Keychain,
 logs, generated artifacts, prompts, run journals, and error messages. Assume logs
-outlive the session.
+outlive the session. Prefer cheap, durable hygiene over enterprise process.
 
 Permission Reviewer:
 Review macOS/iOS permission posture. Name every permission request or destructive
 capability, why it is needed, how the user consents, and how the app minimizes
-the surface.
+the surface. Avoid permission rituals that slow traction without reducing real risk.
 
 Data Flow Reviewer:
 Trace sensitive data from source to deletion. Include local files, prompts,
 attachments, worker output, run journals, cloud metadata, encrypted blobs, and
-notifications.
+notifications. Prefer simple ownership and deletion rules a tiny team can maintain.
 
 Abuse Case Reviewer:
 Invent realistic misuse cases: confused user, malicious local client,
 compromised paired device, compromised cloud metadata, prompt injection, and
-agent overreach. Tie each to a mitigation.
+agent overreach. Tie each to the smallest practical mitigation, not a generic
+enterprise control.
 
 Dependency/Injection Reviewer:
 Check command construction, argument escaping, shell usage, dependency trust,
 file paths, prompt injection, output parsing, and generated artifacts. Prefer
-structured APIs over string parsing where possible.
+structured APIs over string parsing where possible, and prefer local code changes
+over heavyweight governance.
 
 Security Fix Prioritizer:
-Convert findings into action. Label required stop, must-fix before ship, can
-defer with owner, or accepted risk. Every required stop needs a proof condition.
+Convert findings into small-team action. Label required stop, must-fix before
+ship, cheap hardening, later when scale warrants, accepted risk, or
+enterprise-only suggestion rejected. Every required stop needs a proof condition.
 ```
 
 ### Architecture Pressure Test
@@ -1948,7 +2073,7 @@ prompt templates by default:
       "defaultEffort": "high",
       "builtIn": true,
       "isDefaultForLane": false,
-      "workerCountByEffort": {"low": 3, "med": 5, "high": 7},
+      "workerCountByEffort": {"low": 4, "med": 7, "high": 9},
       "disabledReason": null
     }
   ]
@@ -2131,6 +2256,7 @@ Security Review is a planning/review team; it does not grant permissions.
 ```text
 build_core
 build_bug_hunt
+build_gui_bug_hunt
 build_security_review
 build_architecture_pressure_test
 build_release_proof
@@ -2199,9 +2325,11 @@ Assertions:
 - Run starts.
 - `teamPresetId == build_bug_hunt`.
 - `effort == high`.
-- Exactly seven answer/review workers resolve:
-  `bug_reproducer`, `minimal_fixer`, `regression_guard`, `trace_mapper`,
-  `state_skeptic`, `user_impact_narrator`, `contrarian_root_cause`.
+- Exactly nine answer/review workers resolve:
+  `bug_reproducer`, `truth_owner_mapper`, `correct_fix_planner`,
+  `regression_guard`, `trace_mapper`, `state_skeptic`,
+  `change_impact_reviewer`, `user_impact_narrator`,
+  `contrarian_root_cause`.
 - One synthetic plan/output worker resolves with `skillId == bug_packet_writer`.
 - All workers may have `modelId == model_opus`.
 - Workers have distinct `skillId`s.
@@ -2341,7 +2469,7 @@ Assertions:
 Setup:
 
 ```text
-Bug Hunt High resolves eight workers to Opus including synthetic writer.
+Bug Hunt High resolves ten workers to Opus including synthetic writer.
 Admission allows two concurrent Opus attempts.
 ```
 
@@ -2384,8 +2512,8 @@ Missing proof until implementation:
 - Model fallback uses deterministic capability tags and strength rank.
 - Team output kind drives synthesis/rendering.
 - Answer, review, and synthetic plan/output stages are explicit in run snapshots.
-- Build ships with Build Core, Bug Hunt, Security Review, Architecture Pressure
-  Test, and Release Proof.
+- Build ships with Build Core, Bug Hunt, GUI Bug Hunt, Security Review,
+  Architecture Pressure Test, and Release Proof.
 - Design ships with Design Core, Premium Polish, Conversion Studio, Radical
   Directions, and Usability Triage.
 - Copy is either backed by at least `copy_core` and `copy_landing_page` or is not

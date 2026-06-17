@@ -11,7 +11,7 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testRequiredBuiltInIdsArePresent() {
         let required = [
-            "build_core", "build_bug_hunt", "build_security_review",
+            "build_core", "build_bug_hunt", "build_gui_bug_hunt", "build_security_review",
             "build_architecture_pressure_test", "build_release_proof",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
@@ -62,7 +62,7 @@ final class BuiltInTeamsTests: XCTestCase {
 
     // MARK: - Headline proof: one ready CLI runs Bug Hunt High
 
-    func testBugHuntHighWithOnlyOpusResolvesSevenWorkersPlusWriter() {
+    func testBugHuntHighWithOnlyOpusResolvesNineWorkersPlusWriter() {
         let team = BuiltInTeams.team("build_bug_hunt")!
         XCTAssertEqual(team.defaultEffort, .high)
         let r = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .high, readyModels: [opus()])
@@ -70,12 +70,13 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertTrue(r.isRunnable)
         XCTAssertNil(r.blockReason)
 
-        // Exactly seven answer/review workers, the expected distinct skills.
+        // Exactly nine answer/review workers, the expected distinct skills.
         let answerReview = r.answerWorkers + r.reviewWorkers
-        XCTAssertEqual(answerReview.count, 7)
+        XCTAssertEqual(answerReview.count, 9)
         XCTAssertEqual(Set(answerReview.map { $0.skillId ?? "" }), [
-            "bug_reproducer", "minimal_fixer", "regression_guard", "trace_mapper",
-            "state_skeptic", "user_impact_narrator", "contrarian_root_cause"
+            "bug_reproducer", "truth_owner_mapper", "correct_fix_planner", "regression_guard",
+            "trace_mapper", "state_skeptic", "change_impact_reviewer",
+            "user_impact_narrator", "contrarian_root_cause"
         ])
 
         // One synthetic plan/output worker, bug_packet_writer.
@@ -84,8 +85,8 @@ final class BuiltInTeamsTests: XCTestCase {
 
         // All workers on Opus; distinct skill ids; distinct instance indices.
         XCTAssertTrue(r.allWorkers.allSatisfy { $0.modelId == "model_opus" })
-        XCTAssertEqual(Set(r.allWorkers.map(\.id)).count, 8)
-        XCTAssertEqual(Set(r.allWorkers.map(\.instanceIndex)).count, 8)
+        XCTAssertEqual(Set(r.allWorkers.map(\.id)).count, 10)
+        XCTAssertEqual(Set(r.allWorkers.map(\.instanceIndex)).count, 10)
 
         // Honest one-model + admission warnings; never "not enough models".
         XCTAssertTrue(r.warnings.contains { $0.contains("Only one ready model") })
@@ -100,9 +101,22 @@ final class BuiltInTeamsTests: XCTestCase {
             let r = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: e, readyModels: bench)
             return r.answerWorkers.count + r.reviewWorkers.count
         }
-        XCTAssertEqual(answerReviewCount(.low), 3)
-        XCTAssertEqual(answerReviewCount(.med), 5)
-        XCTAssertEqual(answerReviewCount(.high), 7)
+        XCTAssertEqual(answerReviewCount(.low), 4)
+        XCTAssertEqual(answerReviewCount(.med), 7)
+        XCTAssertEqual(answerReviewCount(.high), 9)
+    }
+
+    func testGUIBugHuntCarriesRenderedProofSkills() {
+        let team = BuiltInTeams.team("build_gui_bug_hunt")!
+        XCTAssertEqual(team.displayName, "GUI Bug Hunt")
+        XCTAssertEqual(team.outputKind, .bugPacket)
+        XCTAssertEqual(team.defaultEffort, .high)
+
+        let high = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .high, readyModels: [opus()])
+        XCTAssertTrue(high.isRunnable)
+        XCTAssertEqual(high.planWriter?.skillId, "gui_bug_packet_writer")
+        XCTAssertTrue(high.answerWorkers.contains { $0.skillId == "gui_proof_guard" })
+        XCTAssertTrue(high.reviewWorkers.contains { $0.skillId == "gui_layout_reviewer" })
     }
 
     // MARK: - Works Test E: preferred Codex unavailable falls back deterministically

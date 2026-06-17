@@ -47,7 +47,7 @@ final class TeamResolverTests: XCTestCase {
     func testOneModelFillsManyRowsWithDistinctInstanceIndices() {
         let t = team(rows: [
             TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low),
-            TeamWorkerSpec(id: "r2", skillId: "minimal_fixer", minEffort: .low),
+            TeamWorkerSpec(id: "r2", skillId: "correct_fix_planner", minEffort: .low),
             TeamWorkerSpec(id: "r3", skillId: "regression_guard", minEffort: .low)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .build, requestEffort: .low, readyModels: [opus()])

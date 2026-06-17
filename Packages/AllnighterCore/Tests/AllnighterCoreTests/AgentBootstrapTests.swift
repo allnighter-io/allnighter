@@ -33,7 +33,7 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertEqual(r.teamPresetId, "build_bug_hunt")
         XCTAssertEqual(r.effort, "high")
         XCTAssertEqual(r.outputKind, "bugPacket")
-        XCTAssertEqual(r.readyWorkers.count, 8) // 7 answer/review + writer
+        XCTAssertEqual(r.readyWorkers.count, 10) // 9 answer/review + writer
         XCTAssertTrue(r.selfFusion.enabled)
         XCTAssertEqual(r.nextAction.kind, "startTeamRun")
         XCTAssertTrue(r.readyWorkers.contains { $0.purpose == "plan" }) // synthetic writer
