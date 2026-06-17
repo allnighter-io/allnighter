@@ -2,7 +2,7 @@
 
 Status: **Locked for future iOS; deferred until the macOS app is done.** Every
 iOS doc obeys this one.
-Milestone: iOS (Remote Floor Manager)
+Milestone: iOS (Remote Project Manager)
 Owner: Founder
 Created: 2026-06-15
 Updated: 2026-06-17 (Mac-first reset)

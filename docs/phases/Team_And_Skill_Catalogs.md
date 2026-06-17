@@ -30,7 +30,8 @@ docs, CLI, MCP, debug output, and most code should think in catalogs and IDs.
 
 ## Product Value
 
-Settings becomes the floor manager for the user's lane-owned teams and skills:
+Settings becomes the Project Manager's control room for the user's lane-owned
+teams and skills:
 
 ```text
 CLIs

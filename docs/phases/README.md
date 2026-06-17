@@ -30,7 +30,7 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
-| [`Floor_Manager_Execution_Queue.md`](Floor_Manager_Execution_Queue.md) | Founder review packet — PM Advisory Mode first | Approval-based Floor Manager: assesses readiness, proposes bounded next moves (`execute_slice`, `spec_fanout`, audit, docs reconcile, ask-user, wait), user approves/edits/postpones, lanes run only approved items. Verifier before proposer; approval is perishable; external agents can call but not self-approve. |
+| [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md) | **CODE RED spec** — must land before Project Manager queue/autopropose | Projects are the durable repo/folder floor above threads, runs, pending, approvals, and worker dispatch. Regular chat inside a Project is chat with that Project's Manager. Backend slices PRJ-S00–S07 first; GUI Projects rail PRJ-S08/S09 after Core/CLI. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
 | [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
@@ -47,7 +47,7 @@ otherwise.
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
-| [`ios/README.md`](ios/README.md) | Parked iOS spine; deferred until macOS app is done | Remote floor manager specs live here so they do not block Mac delivery. `ios/03_iOS_Thread_Read_State_And_Push.md` owns future iOS unread/push. |
+| [`ios/README.md`](ios/README.md) | Parked iOS spine; deferred until macOS app is done | Future remote Project Manager specs live here so they do not block Mac delivery. `ios/03_iOS_Thread_Read_State_And_Push.md` owns future iOS unread/push. |
 
 ## Operating Rules
 
@@ -65,11 +65,12 @@ otherwise.
 
 - Allnighter coordinates workers the user already pays for. It is not a model
   provider, IDE, chat aggregator, cloud coding service, or terminal viewer.
-- A work thread is the durable product unit. Chat is the default turn; team run,
-  design board, work order, dispatch, and return review are stronger turn types
-  inside the same thread.
-- The user-facing words are: model, skill, worker, team, team run, worker answer,
-  plan, work order, thread, floor manager.
+- A Project is the durable local repo/folder floor. A work thread is the durable
+  conversation unit inside a Project. Chat is the default turn; team run, design
+  board, work order, dispatch, and return review are stronger turn types inside
+  the same thread.
+- The user-facing words are: project, project manager, model, skill, worker,
+  team, team run, worker answer, plan, work order, thread.
 - Do not add new public `team` language. `Work_Order_Team_Model.md`
   owns the active vocabulary contract (cleanup slice complete — see
   `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`).
@@ -84,15 +85,16 @@ otherwise.
   policy.
 - Pending is public CLI-first: `alln pending` plus `alln serve` must exist before
   the GUI promises app-closed execution.
-- The Floor Manager is the approval and verification layer above specialist
-  lanes. It may propose next work and verify completion, but v1 must not
-  auto-execute unapproved work.
+- The Project Manager is the default chat identity inside a Project and the
+  approval/verification layer above specialist lanes. It may answer, propose
+  next work, and verify completion, but v1 must not auto-execute unapproved
+  work.
 - Execution queue state is derived from git, docs, active runs, proof artifacts,
   and approvals. It must not become a competing source of product truth.
 - Forward Mac app work targets a standalone Dock app plus explicit background
   coordinator. The menu bar is status/quick controls, not the primary shell.
-- iOS is a future floor manager. The Mac remains the execution and run-truth
-  owner, and iOS must not block macOS app delivery.
+- iOS is a future remote Project Manager surface. The Mac remains the execution
+  and run-truth owner, and iOS must not block macOS app delivery.
 - Work-order creation stays prompt-first. Build/Design/Copy and Effort route the
   work; they must not become an intake form.
 - Build, Design, and Copy are the peer creation lanes. A fourth lane requires a
@@ -170,7 +172,8 @@ Open questions:
 | --- | --- |
 | Mac launch TCC prompts, startup shell/CLI probes, process-quiet launch | **BUILT** — `docs/archive/phases/Launch_Authority_TCC_Hotfix.md`; new regressions route through `docs/operations/Debugger.md` |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
-| Project management, next-item proposals, execution queue, approval gates, worker handoffs, proof verification | `Floor_Manager_Execution_Queue.md` + `docs/operations/Execution-Playbook.md` |
+| Projects, local repo/folder roots, Project Manager chat, project-scoped threads/runs/pending/dispatch | `Project_Spine_And_Project_Manager.md` |
+| Next-item proposals, execution queue, approval gates, worker handoffs, proof verification | `Project_Spine_And_Project_Manager.md` + `docs/operations/Execution-Playbook.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` (historical cleanup: `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
@@ -194,7 +197,7 @@ Open questions:
 | Utilization, admission control, worker availability, pending dispatch | `Utilization_Admission_Control.md` |
 | Pending, Away Mode, cooldown resume, Activity Summary, drain policy | `Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md` + `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Copy lane, `/copy`, copy type packs, copy board | `copy/README.md` |
-| iOS remote floor manager | `ios/README.md` |
+| iOS remote Project Manager | `ios/README.md` |
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |
 | Sprint execution and closeout | `docs/operations/Execution-Playbook.md` |
 | Stack and proof commands | `docs/operations/TechStack.md` |

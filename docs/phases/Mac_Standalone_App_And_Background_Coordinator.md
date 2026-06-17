@@ -8,10 +8,10 @@ Updated: 2026-06-15
 
 ## Founder Intent
 
-Allnighter should not feel like a tiny menu-bar utility. It is the floor manager
-for an overnight AI-agent factory: the place users start work, watch teams run,
-review results, and control whether their Mac is available to their phone and
-other agents.
+Allnighter should not feel like a tiny menu-bar utility. It is the visual
+Project Manager for an overnight AI-agent factory: the place users start work,
+watch teams run, review results, and control whether their Mac is available to
+their phone and other agents.
 
 The menu bar may remain useful as a status/control surface, but the product
 shell should become a regular Mac app with a Dock presence and first-class
@@ -31,7 +31,7 @@ are preserved.
 Forward product direction:
 
 ```text
-Allnighter.app       = standalone Mac app / visual floor manager
+Allnighter.app       = standalone Mac app / visual Project Manager
 alln                 = foreground CLI and proof surface
 background coordinator = resident Mac process for long/remote work
 menu bar item        = optional status and quick controls, not the product shell
@@ -57,7 +57,7 @@ Those are shell/lifecycle decisions, not CLI grammar.
 ## Product Law
 
 ```text
-The app is the floor manager.
+The app is the Project Manager surface.
 The coordinator keeps the floor open.
 The menu bar is a status light.
 ```

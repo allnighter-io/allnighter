@@ -298,7 +298,7 @@ Mac:
 iOS:
 
 - No MVP requirement beyond rendering/starting an existing copy work order once
-  remote floor manager supports generic work kinds.
+  remote Project Manager supports generic work kinds.
 
 Driver/protocol:
 

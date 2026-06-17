@@ -13,7 +13,7 @@ experiments as more authoritative than the routed source docs.
 ## Mission
 
 Allnighter turns the user's Mac into an overnight **AI-agent factory** and the
-user's iPhone into the **floor manager** for it. It coordinates the coding agents
+app/iPhone into the **Project Manager** for it. It coordinates the coding agents
 the user already pays for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor)
 plus local models — running tasks in parallel, generating competing options, and
 turning the user's pick into the work order.
@@ -34,7 +34,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
   (originally called Council: one prompt → parallel CLIs → plan), plus
   `docs/mvp/00_MVP_Architecture.md`.
 - **Post-MVP phases:** `docs/phases/README.md` (active forward phase router).
-- **Active iOS work:** `docs/phases/ios/README.md` (Tailscale remote floor manager).
+- **Active iOS work:** `docs/phases/ios/README.md` (future remote Project Manager).
 - **Visual design SSOT** (brand, voice, tokens, components, logo, icon):
   `docs/design-system/readme.md` + binding app rules in
   `docs/design-system/production.md`. Skill: `allnighter-design`.
@@ -53,6 +53,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | --- | --- |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
+| Projects, repo/folder roots, Project Manager chat/proposals | `docs/phases/Project_Spine_And_Project_Manager.md` |
 | Work-order vocabulary, model/skill/worker/team model | `docs/phases/Work_Order_Team_Model.md` |
 | CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
@@ -96,6 +97,8 @@ One-time per clone: `bash scripts/install_commit_queue_watcher.sh`. Full rules:
 ## Project Laws
 
 - Founder/user input is intent, not final authority.
+- Projects own repo/folder scope for new work; Project Manager chat/proposals
+  route through `docs/phases/Project_Spine_And_Project_Manager.md`.
 - SwiftUI may render truth; it must not invent durable product truth.
 - Prompt prose may request work; it must not be the only owner of semantics.
 - Generated output (parsers, design bundle) is derived. Change the source

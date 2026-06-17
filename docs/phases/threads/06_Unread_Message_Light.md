@@ -28,8 +28,8 @@ Check our database.
 Product value:
 
 ```text
-The floor manager should instantly know which threads changed while their
-attention was elsewhere.
+The Project Manager should instantly know which threads changed while attention
+was elsewhere.
 ```
 
 Trusted workflow slice:

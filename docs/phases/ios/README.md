@@ -1,4 +1,4 @@
-# Allnighter iOS — Remote Floor Manager (control your Mac from anywhere)
+# Allnighter iOS — Remote Project Manager (control your Mac from anywhere)
 
 > **This folder is the parked spine for the future iOS companion app.** The MVP
 > execution truth lives in `docs/mvp/`; this folder records the architecture, the

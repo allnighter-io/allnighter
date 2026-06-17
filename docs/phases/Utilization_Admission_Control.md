@@ -638,7 +638,7 @@ remaining quota.
 ## Pending UX
 
 Capacity should appear where it changes behavior: on Pending, the thread
-composer, worker picker, active floor, and iOS floor manager. It should not
+composer, worker picker, active Project, and iOS Project Manager. It should not
 become a quota dashboard.
 
 Public words:
@@ -698,8 +698,8 @@ Workers used:
 - Claude: pending until 2:14 AM, observed from Claude
 ```
 
-This may appear as Activity Summary, a thread/floor recap, or an iOS summary. The
-name of the surface may vary; the contract is the same: actual completed,
+This may appear as Activity Summary, a thread/Project recap, or an iOS summary.
+The name of the surface may vary; the contract is the same: actual completed,
 failed, blocked, skipped, and needs-attention work. No estimates.
 
 ## Thread / Composer Interaction
@@ -736,7 +736,7 @@ Settings must include **Reset Admission Ledger**. It clears observed cooldown an
 degraded memory locally; it does not alter worker auth, provider limits, or run
 history.
 
-## iOS Floor Manager Visibility
+## iOS Project Manager Visibility
 
 The Mac remains admission truth. iOS renders admission state from Mac-owned
 events/snapshots.

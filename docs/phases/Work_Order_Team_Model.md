@@ -19,6 +19,8 @@ rather than alias it.
 ## Canonical Model
 
 ```text
+Project = the local repo/folder floor where work happens
+Project Manager = the default chat/proposal/verification agent inside a Project
 Source = how Allnighter reaches a model (internal / setup detail)
 Bench  = the models the user has available
 Model  = the AI identity users recognize: Opus, Sonnet, Grok, Gemini, etc.
@@ -35,6 +37,8 @@ TeamPreset = saved lane team definition with effort defaults
 
 | Term | Meaning |
 | --- | --- |
+| **Project** | The durable local repo/folder context where work happens. Projects own the selected root, thread grouping, run/pending/proposal scope, and default Project Manager chat. |
+| **Project Manager** | The default chat identity inside a Project. It can answer, propose, verify, and route approved work, but it is not a separate lane and it does not auto-execute unapproved work. |
 | **Source** | How Allnighter reaches a model: Claude Code, Codex CLI, Gemini CLI, Grok, a local runtime. Mostly setup/internal language. |
 | **Bench** | The user's available models. |
 | **Model** | The AI identity users already recognize: Opus 4.8, Sonnet, Grok, Gemini, ChatGPT image, etc. A model sits on the Bench. |

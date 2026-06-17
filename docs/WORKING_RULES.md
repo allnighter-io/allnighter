@@ -2,9 +2,11 @@
 
 ## Positioning
 
-Allnighter is a **local-first agent factory and floor manager** for terminal-based
-AI coding tools. Lead with parallel safe lanes, team-driven planning, and
-native Mac + iOS delight — not with model/provider choice.
+Allnighter is a **local-first agent factory and Project Manager** for
+terminal-based AI coding tools. Projects are the floor: local repo/folder scope
+plus threads, runs, approvals, and proof. Lead with parallel safe lanes,
+team-driven planning, and native Mac + iOS delight — not with model/provider
+choice.
 
 ## Product Boundary
 
@@ -41,7 +43,7 @@ Must ship for first testers (Team slice — see `docs/mvp/README.md`):
 Deferred from v1 (documented in `docs/phases/`):
 
 - full lane factory and worktree automation;
-- iOS remote floor manager (`docs/phases/ios/`);
+- iOS remote Project Manager (`docs/phases/ios/`);
 - push notifications and Live Activities;
 - preference ledger and taste memory;
 - local model workers.

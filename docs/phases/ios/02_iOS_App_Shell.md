@@ -1,8 +1,8 @@
-# 02 — iOS App Shell (the remote floor manager)
+# 02 - iOS App Shell (the remote Project Manager)
 
 Status: Draft — **deferred iOS GUI**. Build after the macOS app is done and
 after `01`'s spine is green.
-Milestone: iOS (Remote Floor Manager)
+Milestone: iOS (Remote Project Manager)
 Owner: iOS
 Created: 2026-06-15
 Updated: 2026-06-17 (Mac-first reset)
@@ -38,7 +38,8 @@ slice deletes it and stands up `Apps/AllnighteriOS/` via XcodeGen on `Allnighter
 
 - New backend behavior — the phone only drives what `01` exposes.
 - Push / Live Activities (deferred seam — `00` §7).
-- Typing-heavy authoring. The phone is a *floor manager*, not a composer; 1–2 taps.
+- Typing-heavy authoring. The phone is a remote Project Manager, not a composer;
+  1-2 taps.
 
 ## Platform decisions
 

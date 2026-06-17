@@ -691,7 +691,7 @@ Rules:
 - The suggestion stores its source turn/run/stage so the user can inspect why it
   exists.
 
-## iOS Floor Manager Impact
+## iOS Project Manager Impact
 
 The Mac remains Pending and run truth. iOS captures commands and renders
 Mac-owned snapshots/events.

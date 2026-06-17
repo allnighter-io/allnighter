@@ -19,6 +19,11 @@ Updated: 2026-06-17
 > notifications 1.0 are built (02). Remaining active thread work: rich-turn read
 > clear (06 S08), worker image GUI (08 S04), core-loop gaps in `01`, and fast
 > follows 03–04.
+>
+> **Project spine dependency:** threads are no longer the top-level floor for
+> new forward work. [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md)
+> owns the durable Project root, `projectId` binding, and Project Manager chat.
+> This doc owns thread/turn behavior inside a Project.
 
 ## Product Promise
 
@@ -27,10 +32,11 @@ One thread for one goal: chat, team run, build, review, and keep going without
 leaving Allnighter or re-explaining yourself.
 ```
 
-This phase fixes the missing product unit. Allnighter is not just a team-run
-launcher and not a generic chat aggregator. It owns **local work threads** that
-can route each turn to one worker, escalate to the team, turn an answer into a
-work order, dispatch a builder, and review the return.
+This phase fixed the missing conversation unit. Allnighter is not just a
+team-run launcher and not a generic chat aggregator. It owns **local work
+threads** that can route each turn to one worker, escalate to the team, turn an
+answer into a work order, dispatch a builder, and review the return. New
+forward work must attach those threads to a Project.
 
 ## Decision
 
@@ -138,6 +144,9 @@ Build in this order:
 - **Chat is the default turn.** The user can brainstorm with one worker before
   any team run, work order, or dispatch. That worker is still `model + skill`:
   usually a selected model wearing the default Chat skill.
+- **Project Manager is the default project chat.** Once the Project spine lands,
+  ordinary chat starts as a Project Manager turn inside the selected Project.
+  It can answer without creating a work order.
 - **Routing is per turn.** A thread may use Grok, then Claude, then the team,
   then Codex as builder.
 - **Enter never builds.** Hitting Enter sends a chat turn to the resolved default

@@ -9,9 +9,9 @@ Updated: 2026-06-17
 Notify the user when work lands or needs attention, so they can keep the bench
 busy without staring at Allnighter.
 
-This is high value because Allnighter is a floor manager. The user should know
-when a worker replied, a team run completed, a dispatch returned, or a lane is
-blocked.
+This is high value because Allnighter is the Project Manager. The user should
+know when a worker replied, a team run completed, a dispatch returned, or a lane
+is blocked.
 
 ## Product Claim
 

@@ -26,8 +26,8 @@ Allnighter should not be trapped inside a menu bar app. The product coordinates
 CLIs, so the CLI should be a first-class product surface rather than a debug
 sidecar.
 
-The Mac app still matters. It is the visual floor manager. But the command line
-should be the spine: scriptable, testable, agent-callable, and semantically
+The Mac app still matters. It is the visual Project Manager. But the command
+line should be the spine: scriptable, testable, agent-callable, and semantically
 identical to what the GUI renders.
 
 The stronger version: Allnighter is entering an agent-first world. Other agents
@@ -71,8 +71,8 @@ artifacts, and proof gates.
 Product: Allnighter
 Daily command: alln
 Primary operation: alln team
-Mac app: visual floor manager over the same command model
-iOS app: remote floor manager over the same command model
+Mac app: visual Project Manager over the same command model
+iOS app: remote Project Manager over the same command model
 Agent surface: team as a local tool, same engine as alln
 ```
 

@@ -10,7 +10,7 @@ back broken GUI. The founder must not be the agent's first pair of eyes.
 
 Product value:
 Preserve the native Swift app path without accepting blind UI development.
-Allnighter is a local Mac/iPhone floor manager; native Swift remains the right
+Allnighter is a local Mac/iPhone Project Manager; native Swift remains the right
 production stack. The fix is a hard visual proof gate, not a rewrite.
 
 Trusted workflow slice:
@@ -43,7 +43,7 @@ That permission is revoked.
 Tauri is rejected for the current crisis. It would make screenshots marginally
 easier, but it would not remove the need for a native render and a sighted
 watcher — and it would add a second platform stack while Allnighter's strategic
-shape is a native Mac app plus iOS floor manager.
+shape is a native Mac app plus iOS Project Manager.
 
 The mechanism is sight, not machinery. An LLM has good eyes; the failure was
 never that it could not see — it was that the building agent, motivated to close

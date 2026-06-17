@@ -1,7 +1,7 @@
 # 03 - iOS Thread Read State And Push
 
 Status: Deferred iOS-only phase; does not gate Mac app delivery
-Milestone: iOS (Remote Floor Manager)
+Milestone: iOS (Remote Project Manager)
 Owner: iOS + remote spine
 Updated: 2026-06-17
 
@@ -22,8 +22,8 @@ requirement, or acceptance criterion for the macOS app.
 ## Product Rule
 
 ```text
-iOS is a remote floor manager after the Mac app is done. The Mac owns execution,
-thread truth, read truth, and notification truth for Mac v1.
+iOS is a remote Project Manager after the Mac app is done. The Mac owns
+execution, thread truth, read truth, and notification truth for Mac v1.
 ```
 
 Do not put iOS-only protocol fields, mobile push, or phone-side reconciliation
