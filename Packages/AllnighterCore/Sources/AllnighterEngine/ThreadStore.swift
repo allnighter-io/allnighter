@@ -3,13 +3,17 @@ import AllnighterCore
 
 public enum ThreadStoreError: Error, Equatable, CustomStringConvertible {
     case threadNotFound(String)
+    case threadAlreadyExists(String)
     case turnNotFound(String)
+    case duplicateTurnId(String)
     case illegalTurnTransition(turnId: String, from: ThreadTurnStatus, to: ThreadTurnStatus)
 
     public var description: String {
         switch self {
         case .threadNotFound(let id): return "Thread not found: \(id)"
+        case .threadAlreadyExists(let id): return "Thread already exists: \(id)"
         case .turnNotFound(let id): return "Turn not found: \(id)"
+        case .duplicateTurnId(let id): return "Duplicate turn id: \(id)"
         case .illegalTurnTransition(let id, let from, let to):
             return "Illegal turn transition for \(id): \(from.rawValue) -> \(to.rawValue)"
         }
@@ -75,6 +79,10 @@ public struct ThreadStore: Sendable {
         projectLabel: String? = nil,
         defaultWorkerId: String? = nil
     ) throws -> WorkThread {
+        let threadDirectory = rootDirectory.appendingPathComponent("thread_\(id)", isDirectory: true)
+        if get(id) != nil || FileManager.default.fileExists(atPath: threadDirectory.path) {
+            throw ThreadStoreError.threadAlreadyExists(id)
+        }
         let thread = WorkThread(
             id: id, title: title, status: .active, createdAt: now, updatedAt: now,
             workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId
@@ -85,6 +93,8 @@ public struct ThreadStore: Sendable {
 
     @discardableResult
     public func save(_ thread: WorkThread) throws -> URL {
+        var thread = thread
+        thread.upgradeFormatVersionIfNeeded()
         let directory = try threadDirectory(forThreadId: thread.id)
         try CoreJSON.encode(thread).write(to: directory.appendingPathComponent("thread.json"))
         // Derived transcript, regenerated from thread.json truth on each save.
@@ -98,6 +108,9 @@ public struct ThreadStore: Sendable {
     @discardableResult
     public func append(_ turn: ThreadTurn, toThreadId threadId: String, now: Date) throws -> WorkThread {
         guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+        if thread.turns.contains(where: { $0.id == turn.id }) {
+            throw ThreadStoreError.duplicateTurnId(turn.id)
+        }
         var turn = turn
         turn.threadId = threadId
         thread.turns.append(turn)

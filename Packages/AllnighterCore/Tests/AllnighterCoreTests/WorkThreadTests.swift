@@ -12,12 +12,27 @@ final class WorkThreadTests: XCTestCase {
         XCTAssertEqual(decoded, reDecoded, "Round-trip mismatch for \(name.rawValue)")
     }
 
+    private func assertLegacyThreadRoundTrips(_ name: Fixtures.Name) throws {
+        var decoded = try Fixtures.decode(WorkThread.self, name)
+        XCTAssertEqual(decoded.formatVersion, 0, "Bundled legacy fixture \(name.rawValue) should decode as v0")
+        decoded.upgradeFormatVersionIfNeeded()
+        let reEncoded = try CoreJSON.encode(decoded)
+        let reDecoded = try CoreJSON.decode(WorkThread.self, from: reEncoded)
+        XCTAssertEqual(decoded, reDecoded, "Round-trip mismatch for \(name.rawValue)")
+        XCTAssertEqual(reDecoded.formatVersion, WorkThread.currentFormatVersion)
+    }
+
     // MARK: - Round-trip
 
     func testThreadFixturesRoundTrip() throws {
-        try assertRoundTrips(WorkThread.self, .threadChat)
-        try assertRoundTrips(WorkThread.self, .threadImported)
+        try assertLegacyThreadRoundTrips(.threadChat)
+        try assertLegacyThreadRoundTrips(.threadImported)
         try assertRoundTrips(ThreadContextPacket.self, .threadContextPacket)
+    }
+
+    func testNewThreadDefaultsToCurrentFormatVersion() {
+        let thread = WorkThread(id: "t1", title: "T", createdAt: epoch, updatedAt: epoch)
+        XCTAssertEqual(thread.formatVersion, WorkThread.currentFormatVersion)
     }
 
     func testChatThreadShape() throws {

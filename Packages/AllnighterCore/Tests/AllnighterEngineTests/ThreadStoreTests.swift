@@ -121,6 +121,51 @@ final class ThreadStoreTests: XCTestCase {
         }
     }
 
+    func testCreateRejectsDuplicateThreadId() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        _ = try store.create(id: "a", title: "First", now: t0)
+        XCTAssertThrowsError(try store.create(id: "a", title: "Second", now: t1)) { error in
+            XCTAssertEqual(error as? ThreadStoreError, .threadAlreadyExists("a"))
+        }
+        XCTAssertEqual(store.get("a")?.title, "First")
+    }
+
+    func testAppendRejectsDuplicateTurnId() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try store.save(thread("a", updatedAt: t0))
+        try store.append(userTurn("u1", threadId: "a"), toThreadId: "a", now: t0)
+        XCTAssertThrowsError(try store.append(userTurn("u1", threadId: "a"), toThreadId: "a", now: t1)) { error in
+            XCTAssertEqual(error as? ThreadStoreError, .duplicateTurnId("u1"))
+        }
+        XCTAssertEqual(store.get("a")?.turns.count, 1)
+    }
+
+    func testSaveWritesCurrentFormatVersion() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        _ = try store.create(id: "a", title: "Thread a", now: t0)
+        let json = try Data(contentsOf: dir.appendingPathComponent("thread_a/thread.json"))
+        let object = try JSONSerialization.jsonObject(with: json) as? [String: Any]
+        XCTAssertEqual(object?["formatVersion"] as? Int, WorkThread.currentFormatVersion)
+        XCTAssertEqual(store.get("a")?.formatVersion, WorkThread.currentFormatVersion)
+    }
+
+    func testLegacyThreadUpgradesFormatVersionOnSave() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var legacy = try Fixtures.thread(.threadChat)
+        XCTAssertEqual(legacy.formatVersion, 0)
+        legacy.id = "legacy"
+        try store.save(legacy)
+        XCTAssertEqual(store.get("legacy")?.formatVersion, WorkThread.currentFormatVersion)
+    }
+
     func testArchive() throws {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }

@@ -10,6 +10,11 @@ import Foundation
 /// Liveness (running/needs-attention/last-worker/preview) is **derived** from
 /// turns, never stored, so thread state cannot drift from turn truth.
 public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
+    /// Schema version for on-disk `thread.json`. Current writers emit `1`.
+    /// Legacy files without this field decode as `0`.
+    public static let currentFormatVersion = 1
+
+    public var formatVersion: Int
     public var id: String
     /// Auto from the first user message; editable from the thread header.
     public var title: String
@@ -32,12 +37,14 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         status: ThreadStatus = .active,
         createdAt: Date,
         updatedAt: Date,
+        formatVersion: Int = WorkThread.currentFormatVersion,
         pinnedAt: Date? = nil,
         workingDir: String? = nil,
         projectLabel: String? = nil,
         defaultWorkerId: String? = nil,
         turns: [ThreadTurn] = []
     ) {
+        self.formatVersion = formatVersion
         self.id = id
         self.title = title
         self.status = status
@@ -49,6 +56,41 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         self.defaultWorkerId = defaultWorkerId
         self.turns = turns
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case formatVersion, id, title, status, createdAt, updatedAt, pinnedAt,
+             workingDir, projectLabel, defaultWorkerId, turns
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        formatVersion = try container.decodeIfPresent(Int.self, forKey: .formatVersion) ?? 0
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        status = try container.decode(ThreadStatus.self, forKey: .status)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        pinnedAt = try container.decodeIfPresent(Date.self, forKey: .pinnedAt)
+        workingDir = try container.decodeIfPresent(String.self, forKey: .workingDir)
+        projectLabel = try container.decodeIfPresent(String.self, forKey: .projectLabel)
+        defaultWorkerId = try container.decodeIfPresent(String.self, forKey: .defaultWorkerId)
+        turns = try container.decode([ThreadTurn].self, forKey: .turns)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(formatVersion, forKey: .formatVersion)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(status, forKey: .status)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(pinnedAt, forKey: .pinnedAt)
+        try container.encodeIfPresent(workingDir, forKey: .workingDir)
+        try container.encodeIfPresent(projectLabel, forKey: .projectLabel)
+        try container.encodeIfPresent(defaultWorkerId, forKey: .defaultWorkerId)
+        try container.encode(turns, forKey: .turns)
+    }
 }
 
 public enum ThreadStatus: String, Codable, Sendable, CaseIterable {
@@ -59,6 +101,13 @@ public enum ThreadStatus: String, Codable, Sendable, CaseIterable {
 // MARK: - Derived liveness (never stored; computed from turns)
 
 public extension WorkThread {
+    /// Upgrades legacy v0 threads to the current on-disk schema before write.
+    mutating func upgradeFormatVersionIfNeeded() {
+        if formatVersion < Self.currentFormatVersion {
+            formatVersion = Self.currentFormatVersion
+        }
+    }
+
     var isPinned: Bool { pinnedAt != nil }
 
     var isArchived: Bool { status == .archived }

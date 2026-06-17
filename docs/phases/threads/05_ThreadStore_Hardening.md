@@ -450,7 +450,7 @@ Do not implement 06 or 07 until 05 proof wall is green.
 
 ## Ordered Slices
 
-- [ ] TSH-S00 - Add `WorkThread.formatVersion`, legacy decode fixtures, typed
+- [x] TSH-S00 - Add `WorkThread.formatVersion`, legacy decode fixtures, typed
   duplicate-id and duplicate-turn-id errors.
 - [ ] TSH-S01 - Add per-root synchronous serial writer around all mutation entry
   points. Prove concurrent `appendTurn` + `markRead` do not lose either field
