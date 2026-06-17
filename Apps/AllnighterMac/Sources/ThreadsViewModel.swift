@@ -17,6 +17,12 @@ final class ThreadsViewModel {
     /// Per-turn worker override chosen in the composer; nil resolves the default.
     var requestedWorkerId: String?
 
+    /// Pending text from a global quick-capture hotkey (⌥⌘Space or menu "Quick capture").
+    /// The currently-visible RoutingComposer will adopt it into its editor (only if
+    /// that editor is empty), then clear the pending. Quick capture creates a new
+    /// thread by default per the threads phase spec.
+    var pendingQuickCaptureText: String?
+
     /// The context packet being revealed, if the reveal sheet is open.
     private(set) var revealedPacket: ThreadContextPacket?
 
@@ -26,15 +32,29 @@ final class ThreadsViewModel {
     private let registry: DriverRegistry
 
     /// Production init: self-sufficient, loads the same config as AppModel and
-    /// invokes real CLIs.
+    /// invokes real CLIs. GUI fixtures use an isolated temp store.
     convenience init() {
         let config = AppConfig.loadConfiguration()
+        let store: ThreadStore
+        if GUIFixture.isActive {
+            let name = GUIFixture.active ?? "fixture"
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("allnighter-gui-fixture-\(name)", isDirectory: true)
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            store = ThreadStore(rootDirectory: root)
+        } else {
+            store = ThreadStore()
+        }
         self.init(
-            store: ThreadStore(),
+            store: store,
             registry: config.registry,
             models: config.models,
             runner: WorkerRunner(commandRunner: SubprocessCommandRunner())
         )
+        if let fixture = GUIFixture.active {
+            applyFixture(fixture)
+        }
     }
 
     /// Designated init — tests inject a temp store and a mock runner.
@@ -102,6 +122,120 @@ final class ThreadsViewModel {
         reload()
         if let thread { selectedThreadId = thread.id }
         return thread
+    }
+
+    /// Empty thread for the "Start a work order" flow.
+    func newWorkOrder() {
+        _ = newThread(title: "New work order")
+    }
+
+    // MARK: - Routing composer (CR4a — user turn only)
+
+    /// Global quick capture (hotkey / menu bar): create a fresh thread (by default,
+    /// per Persistent_Work_Threads) and stage clipboard content for the composer
+    /// that will mount for it. If clipboardText is empty this still surfaces the
+    /// composer for a new work order.
+    func applyQuickCapture(clipboardText: String?) {
+        let clip = clipboardText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let title = clip.isEmpty ? "New work order" : Self.title(from: clip)
+        _ = newThread(title: title)
+        if !clip.isEmpty {
+            pendingQuickCaptureText = clip
+        }
+    }
+
+    /// Append a `userMessage` turn from the routing composer. Creates a thread
+    /// when `createThread` is true or no thread is selected.
+    func sendRouting(_ routing: ComposeRouting, createThread: Bool = false) {
+        let message = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+
+        let threadId: String
+        if createThread || selectedThreadId == nil {
+            let title = Self.title(from: message)
+            guard let thread = try? store.create(
+                id: UUID().uuidString, title: title, now: Date()
+            ) else { return }
+            reload()
+            selectedThreadId = thread.id
+            threadId = thread.id
+        } else if let id = selectedThreadId {
+            threadId = id
+        } else {
+            return
+        }
+
+        let turn = ThreadTurn(
+            id: UUID().uuidString,
+            threadId: threadId,
+            kind: .userMessage,
+            status: .done,
+            createdAt: Date(),
+            completedAt: Date(),
+            author: .user,
+            text: message
+        )
+        try? store.append(turn, toThreadId: threadId, now: Date())
+        reload()
+    }
+
+    private static func title(from text: String) -> String {
+        let line = text.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? text
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "New work order" }
+        if trimmed.count <= 48 { return trimmed }
+        return String(trimmed.prefix(45)) + "…"
+    }
+
+    // MARK: - GUI fixtures
+
+    func applyFixture(_ fixture: String) {
+        switch fixture {
+        case "thread-empty":
+            _ = newThread(title: "New work order")
+        case "home-with-threads":
+            seedFixtureThreads()
+            selectedThreadId = nil
+        case "thread-with-turns":
+            seedFixtureThreadWithTurns()
+        default:
+            break
+        }
+    }
+
+    private func seedFixtureThreads() {
+        let base = Date()
+        let titles = [
+            "Token bucket vs sliding window",
+            "Redesign the profile screen",
+            "Rate-limit the public API",
+        ]
+        for (index, title) in titles.enumerated() {
+            _ = try? store.create(
+                id: "fixture-\(index)",
+                title: title,
+                now: base.addingTimeInterval(TimeInterval(-index * 120))
+            )
+        }
+        reload()
+    }
+
+    private func seedFixtureThreadWithTurns() {
+        let id = "fixture-thread"
+        _ = try? store.create(id: id, title: "Token bucket vs sliding window", now: Date())
+        let turn = ThreadTurn(
+            id: "fixture-turn-1",
+            threadId: id,
+            kind: .userMessage,
+            status: .done,
+            createdAt: Date(),
+            completedAt: Date(),
+            author: .user,
+            text: "For per-user API rate limiting — token bucket or sliding window? Short answer + why."
+        )
+        _ = try? store.append(turn, toThreadId: id, now: Date())
+        reload()
+        selectedThreadId = id
     }
 
     // MARK: - Send

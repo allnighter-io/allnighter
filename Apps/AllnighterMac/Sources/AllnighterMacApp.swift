@@ -24,6 +24,7 @@ struct AllnighterMacApp: App {
     @State private var model: AppModel
 
     init() {
+        GUIFixture.bootstrap()
         // HOTFIX (Launch Authority TCC): cold launch must be process-quiet.
         // Do NOT capture login-shell PATH here — spawning a login shell before
         // first paint reads login profiles/version-manager hooks and triggers
@@ -42,6 +43,7 @@ struct AllnighterMacApp: App {
         }
         .windowResizability(.contentMinSize)
         .windowStyle(.hiddenTitleBar)
+        .commands { AppCommandMenu() }
 
         MenuBarExtra("Allnighter", systemImage: "moon.stars.fill") {
             MenuBarContent()
@@ -60,9 +62,9 @@ private struct MenuBarContent: View {
             openWindow(id: "main")
         }
         Button("Quick capture (paste prompt)") {
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            openWindow(id: "main")
-            model.quickCapture(prefillClipboard: true)
+            // Use the notification so the single handler owns threads prefill
+            // (new thread + composer text) + legacy prompt path + activation.
+            NotificationCenter.default.post(name: .allnQuickCapture, object: nil)
         }
         Text("Global hotkey: ⌥⌘Space")
             .font(.caption)

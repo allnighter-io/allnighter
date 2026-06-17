@@ -4,25 +4,82 @@ import AllnighterCore
 
 /// Designer-mock harness for the GUI Visual Proof Gate.
 ///
-/// ENTIRELY env-gated: when `ALLNIGHTER_GUI_FIXTURE` is unset — every real
-/// launch — this type seeds nothing, captures nothing, and is inert. It exists
-/// so an agent can render a deterministic UI state, self-capture the window to a
-/// PNG, and *look at the pixels* before claiming a GUI fix is done.
+/// ENTIRELY env-gated: when no proof session is active — every real launch — this
+/// type seeds nothing, captures nothing, and is inert.
 ///
-/// Why self-capture (not the `screencapture` CLI): grabbing another process's
-/// window needs Screen-Recording TCC permission, which would re-open the exact
-/// launch-permission code red the app just escaped. Rendering our OWN window to a
-/// bitmap needs no permission, no network, no probes, and no quota.
+/// Proof sessions start one of two ways:
+/// 1. `bash scripts/gui_proof.sh <fixture>` — writes a request JSON, launches
+///    the **`.app` bundle** via `open` (Launch Services), app reads the request.
+/// 2. Legacy direct exec with `ALLNIGHTER_GUI_FIXTURE` + `ALLNIGHTER_GUI_PROOF_OUT`.
 ///
-/// See `docs/phases/GUI_Visual_Proof_Gate.md`.
+/// Capture composites the app's OWN windows via Screen Recording APIs so native
+/// SwiftUI popovers/menus/sheets (separate OS windows) appear in proofs. One-time
+/// grant: `bash scripts/gui_proof_grant.sh`. See `docs/phases/GUI_Visual_Proof_Gate.md`.
 enum GUIFixture {
+    private static let devRoot: URL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Developer/Allnighter", isDirectory: true)
+
+    /// Written by `gui_proof.sh` / `gui_proof_grant.sh`; consumed on launch.
+    static let proofRequestURL = devRoot.appendingPathComponent("gui-proof-request.json")
+
+    /// Written when Screen Recording preflight passes (grant UI or successful capture).
+    static let grantMarkerURL = devRoot.appendingPathComponent("gui-proof-screen-recording.ok")
+
+    /// Written on capture failure so `gui_proof.sh` can exit non-zero with a message.
+    static var lastErrorURL: URL {
+        buildRoot.appendingPathComponent("gui-proof-last-error.txt")
+    }
+
+    private static var buildRoot: URL {
+        if let dir = ProcessInfo.processInfo.environment["ALLNIGHTER_BUILD_DIR"], !dir.isEmpty {
+            return URL(fileURLWithPath: dir, isDirectory: true)
+        }
+        return devRoot.appendingPathComponent("Build", isDirectory: true)
+    }
+
+    private struct ProofRequest: Codable {
+        var fixture: String
+        var output: String?
+    }
+
+    nonisolated(unsafe) private static var sessionFixture: String?
+    nonisolated(unsafe) private static var sessionOutput: String?
+    nonisolated(unsafe) private static var didBootstrap = false
+
+    /// Call once at app launch before any fixture gate is read.
+    static func bootstrap() {
+        guard !didBootstrap else { return }
+        didBootstrap = true
+        loadProofRequestIfNeeded()
+    }
+
     /// The active fixture name, or nil on every normal launch.
     static var active: String? {
-        let v = ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_FIXTURE"]
-        return (v?.isEmpty == false) ? v : nil
+        bootstrap()
+        if let v = ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_FIXTURE"], !v.isEmpty { return v }
+        return sessionFixture
     }
 
     static var isActive: Bool { active != nil }
+
+    static var isGrantSession: Bool { active == "proof-grant" }
+
+    /// PNG output path for the active proof capture session.
+    static var proofOutputPath: String? {
+        bootstrap()
+        if let v = ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_PROOF_OUT"], !v.isEmpty { return v }
+        return sessionOutput
+    }
+
+    /// Human-readable path mentors/operators paste into the Screen Recording + picker.
+    static var grantAppPath: String {
+        Bundle.main.bundlePath
+    }
+
+    /// Fixtures that open a native SwiftUI popover/menu — capture MUST use Screen Recording.
+    static var needsNativeOverlays: Bool {
+        (active ?? "").hasPrefix("compose-")
+    }
 
     /// Deep-link: open the Team dropdown for `team-*` fixtures.
     static var opensTeamDropdown: Bool { (active ?? "").hasPrefix("team-") }
@@ -35,6 +92,15 @@ enum GUIFixture {
 
     /// Deep-link: show the routing-composer specimen for `compose-*` fixtures.
     static var opensComposeSpecimen: Bool { (active ?? "").hasPrefix("compose-") }
+
+    /// Home / thread conversation fixtures stay on HomeView (not the specimen).
+    static var opensHomeWorkspace: Bool {
+        let name = active ?? ""
+        return name.hasPrefix("home-") || name.hasPrefix("thread-") || name == "command-palette"
+    }
+
+    /// Deep-link: open the ⌘K command palette over the home workspace.
+    static var opensCommandPalette: Bool { active == "command-palette" }
     /// `compose-mode-menu` seeds the mode menu open for the proof capture.
     static var composeMenuOpen: Bool { active == "compose-mode-menu" }
     /// `compose-target-*` seeds the target popover open.
@@ -65,31 +131,65 @@ enum GUIFixture {
         ("doctor-open-mixed", "Mixed — CLI setup popover"),
         ("readiness-mixed", "Mixed — CLI setup page"),
         ("readiness-cold", "Cold — never scanned (CLI setup page)"),
+        ("home-with-threads", "Home — rail with conversations"),
+        ("thread-empty", "Thread — empty work order"),
+        ("thread-with-turns", "Thread — user message turn"),
+        ("command-palette", "⌘K command palette"),
+        ("compose-mode-menu", "Compose — mode menu (native popover)"),
+        ("compose-target-chat", "Compose — route to model (native popover)"),
+        ("compose-target-fanout", "Compose — fan out team (native popover)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
     /// always renders to the same frame.
     static let captureWindowSize = NSSize(width: 1100, height: 720)
 
+    static func openScreenRecordingSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    static func writeGrantMarker() {
+        let body = "granted-at=\(ISO8601DateFormatter().string(from: Date()))\n"
+            + "bundle=\(Bundle.main.bundleIdentifier ?? "unknown")\n"
+            + "path=\(Bundle.main.bundlePath)\n"
+        try? FileManager.default.createDirectory(at: devRoot, withIntermediateDirectories: true)
+        try? body.write(to: grantMarkerURL, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: - Proof request (Launch Services path)
+
+    private static func loadProofRequestIfNeeded() {
+        guard sessionFixture == nil,
+              ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_FIXTURE"]?.isEmpty != false,
+              FileManager.default.fileExists(atPath: proofRequestURL.path)
+        else { return }
+
+        defer { try? FileManager.default.removeItem(at: proofRequestURL) }
+
+        guard let data = try? Data(contentsOf: proofRequestURL),
+              let req = try? JSONDecoder().decode(ProofRequest.self, from: data),
+              !req.fixture.isEmpty
+        else {
+            log("could not read proof request at \(proofRequestURL.path)")
+            return
+        }
+        sessionFixture = req.fixture
+        sessionOutput = req.output
+    }
+
     // MARK: - Seeded health (DESIGNER MOCK — never a real launch)
 
-    /// Mixed-health probe records keyed off the live model driverIds, so the
-    /// bench dropdown produces real rows in a known state. This is the only
-    /// place fabricated health is allowed, and only when a fixture is active.
     static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] {
         seededToolStatuses(for: models, now: now, scenario: active ?? "")
     }
 
-    /// Seed probe records for a named scenario (env fixtures + DEBUG dev panel only).
     static func seededToolStatuses(for models: [Model], now: Date, scenario: String) -> [ToolProbeRecord] {
-        // Cold first run: nothing probed yet → empty records → every supported
-        // CLI surfaces as `.notChecked` (proves the roster isn't blank cold).
         if scenario == "readiness-cold" { return [] }
         let drivers = orderedDrivers(in: models)
         let name = scenario
-        // Compose/home specimens want a fully-ready bench so the routing surface
-        // reads cleanly (the real app derives readiness from live probes).
-        let allReady = name.hasPrefix("compose-") || name.hasPrefix("home-")
+        let allReady = name.hasPrefix("compose-") || name.hasPrefix("home-") || name.hasPrefix("thread-")
         return drivers.enumerated().map { index, driver in
             let status = allReady ? ModelSetupStatus.ready(version: "1.0") : status(for: name, index: index, driverId: driver)
             return ToolProbeRecord(
@@ -125,8 +225,6 @@ enum GUIFixture {
         case "team-open-ready":
             return .ready(version: "1.0.0")
         case "team-open-mixed":
-            // Deterministic spread that exercises the dot, the issue badge, and
-            // the Repair affordance side by side.
             switch index {
             case 2:
                 return .installedNotSignedIn(LoginFlow(
@@ -139,7 +237,6 @@ enum GUIFixture {
                 return .ready(version: "1.0.0")
             }
         case "doctor-open-mixed":
-            // Mirrors home/doctor.jsx: 1 ready, 2 need a step, 1 to add.
             switch driverId {
             case "claude_code": return .ready(version: "claude 1.2.4")
             case "codex": return .installedNotSignedIn(LoginFlow(
@@ -152,7 +249,6 @@ enum GUIFixture {
             default: return .ready(version: "1.0.0")
             }
         case "readiness-mixed":
-            // bench-views.jsx: claude + agy ready, codex probeFailed, grok not installed.
             switch driverId {
             case "claude_code": return .ready(version: "claude 1.2.4")
             case "antigravity": return .ready(version: "agy")
@@ -165,35 +261,113 @@ enum GUIFixture {
         }
     }
 
-    // MARK: - Self-capture
+    // MARK: - Screen capture
 
-    /// If `ALLNIGHTER_GUI_PROOF_OUT` is set, resize the main window to a fixed
-    /// frame, let SwiftUI settle, render the window content to a PNG at that
-    /// path, then terminate. No-op when no output path is requested (so a
-    /// fixture can also be launched interactively for hand inspection).
+    /// If a proof output path is set, resize, capture, write PNG, terminate.
     @MainActor
     static func captureAndExitIfRequested() {
-        guard isActive,
-              let out = ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_PROOF_OUT"],
-              !out.isEmpty
+        guard isActive, !isGrantSession,
+              let out = proofOutputPath, !out.isEmpty
         else { return }
 
         Task { @MainActor in
-            // Stage 1: pin the window to a deterministic size.
             try? await Task.sleep(for: .milliseconds(500))
             if let window = mainWindow() {
                 window.setContentSize(captureWindowSize)
                 window.center()
             }
-            // Stage 2: snapshot once layout has settled, then exit.
-            try? await Task.sleep(for: .seconds(1))
-            writePNG(to: URL(fileURLWithPath: out))
-            NSApp.terminate(nil)
+
+            if needsNativeOverlays {
+                await waitForOverlayWindows(timeout: 4)
+            } else {
+                try? await Task.sleep(for: .seconds(1))
+            }
+
+            switch captureComposite() {
+            case .success(let image):
+                writeGrantMarker()
+                writePNG(image, to: URL(fileURLWithPath: out))
+                NSApp.terminate(nil)
+            case .failure(let message):
+                failProof(message)
+                NSApp.terminate(nil)
+            }
         }
     }
 
-    /// The largest visible content window — the main "Allnighter" window, not the
-    /// MenuBarExtra's host window.
+    @MainActor
+    private static func waitForOverlayWindows(timeout: TimeInterval) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let count = NSApp.windows.filter { $0.isVisible && $0.contentView != nil }.count
+            if count > 1 { try? await Task.sleep(for: .milliseconds(200)); return }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    @MainActor
+    private static func writePNG(_ cgImage: CGImage, to url: URL) {
+        let rep = NSBitmapImageRep(cgImage: cgImage)
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            failProof("PNG encode failed")
+            return
+        }
+        do {
+            try data.write(to: url)
+            log("wrote \(url.path)")
+        } catch {
+            failProof("write failed: \(error.localizedDescription)")
+        }
+    }
+
+    private enum CaptureResult {
+        case success(CGImage)
+        case failure(String)
+    }
+
+    /// Composite the app's own windows. Requires Screen Recording permission.
+    @MainActor
+    private static func captureComposite() -> CaptureResult {
+        let windows = NSApp.windows.filter { $0.isVisible && $0.contentView != nil }
+        guard !windows.isEmpty else { return .failure("no window to capture") }
+
+        guard CGPreflightScreenCaptureAccess() else {
+            _ = CGRequestScreenCaptureAccess()
+            return .failure(screenRecordingInstructions)
+        }
+
+        let ids = windows.map { CGWindowID($0.windowNumber) } as CFArray
+        guard let composite = CGImage(
+            windowListFromArrayScreenBounds: .null,
+            windowArray: ids,
+            imageOption: [.boundsIgnoreFraming]
+        ) else {
+            return .failure("Screen Recording capture failed — windows=\(windows.count). \(screenRecordingInstructions)")
+        }
+
+        if needsNativeOverlays, windows.count < 2 {
+            return .failure("native popover window not visible at capture time (only main window captured). Re-run; if this persists, check popover wiring.")
+        }
+
+        return .success(composite)
+    }
+
+    private static var screenRecordingInstructions: String {
+        """
+        Screen Recording permission is required for this fixture (native SwiftUI overlays). \
+        Run once: bash scripts/gui_proof_grant.sh — then enable Allnighter in \
+        System Settings → Privacy & Security → Screen & System Audio Recording. \
+        App path: \(grantAppPath)
+        """
+    }
+
+    @MainActor
+    private static func failProof(_ message: String) {
+        try? FileManager.default.createDirectory(at: buildRoot, withIntermediateDirectories: true)
+        try? message.write(to: lastErrorURL, atomically: true, encoding: .utf8)
+        log("ERROR: \(message)")
+    }
+
     @MainActor
     private static func mainWindow() -> NSWindow? {
         NSApp.windows
@@ -204,28 +378,7 @@ enum GUIFixture {
             }
     }
 
-    @MainActor
-    private static func writePNG(to url: URL) {
-        guard let view = mainWindow()?.contentView else {
-            FileHandle.standardError.write(Data("gui-fixture: no window to capture\n".utf8))
-            return
-        }
-        let bounds = view.bounds
-        guard bounds.width > 0, bounds.height > 0,
-              let rep = view.bitmapImageRepForCachingDisplay(in: bounds) else {
-            FileHandle.standardError.write(Data("gui-fixture: could not allocate bitmap\n".utf8))
-            return
-        }
-        view.cacheDisplay(in: bounds, to: rep)
-        guard let data = rep.representation(using: .png, properties: [:]) else {
-            FileHandle.standardError.write(Data("gui-fixture: PNG encode failed\n".utf8))
-            return
-        }
-        do {
-            try data.write(to: url)
-            FileHandle.standardError.write(Data("gui-fixture: wrote \(url.path)\n".utf8))
-        } catch {
-            FileHandle.standardError.write(Data("gui-fixture: write failed: \(error)\n".utf8))
-        }
+    private static func log(_ message: String) {
+        FileHandle.standardError.write(Data("gui-fixture: \(message)\n".utf8))
     }
 }

@@ -1,19 +1,31 @@
 import SwiftUI
+import AllnighterCore
 
-// The clean conversation-workspace home (docs/phases/wiring compose-routing,
-// reference FirstRun). What the app launches into: a left rail of work orders +
-// a "You already pay for the team" empty state with the bench, the three modes,
-// and the routing composer. Conversation list + live wiring come in CR3/CR4;
-// this is the launch shell so the app never opens into setup/clutter.
+// The clean conversation-workspace home (docs/phases/wiring compose-routing).
+// CR4a: real thread rail + send creates/opens conversations; marketing empty
+// state stays for a cold bench with no work orders yet.
 
 struct HomeView: View {
+    @Environment(ThreadsViewModel.self) private var threads
+
     var body: some View {
         HStack(spacing: 0) {
             HomeSidebar()
                 .frame(width: 300)
             Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
-            HomeEmptyState()
+            mainPane
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private var mainPane: some View {
+        if threads.selectedThread != nil {
+            ThreadView()
+        } else if threads.threads.isEmpty {
+            HomeMarketingEmptyState()
+        } else {
+            HomeNewWorkOrderPane()
         }
     }
 }
@@ -21,19 +33,26 @@ struct HomeView: View {
 // MARK: - Left rail
 
 private struct HomeSidebar: View {
+    @Environment(ThreadsViewModel.self) private var threads
+    @Environment(CommandCenter.self) private var commands
+    @FocusState private var searchFocused: Bool
     @State private var search = ""
     @State private var filter = "all"
     private let filters = [("all", "All"), ("design", "Design"), ("build", "Build"), ("running", "Running")]
 
+    private var railThreads: [WorkThread] {
+        ThreadsPresenter.railThreads(threads.threads)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(spacing: 10) {
-                Button {} label: {
+                Button { threads.newWorkOrder() } label: {
                     Label("New work order", systemImage: "plus")
                         .font(.system(size: 13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.alPrimary)
+                .buttonStyle(.alLight)
 
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").font(.system(size: 13)).foregroundStyle(ALColor.textFaint)
@@ -41,6 +60,7 @@ private struct HomeSidebar: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 12.5))
                         .foregroundStyle(ALColor.textPrimary)
+                        .focused($searchFocused)
                 }
                 .padding(.horizontal, 10).frame(height: 32)
                 .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
@@ -61,12 +81,29 @@ private struct HomeSidebar: View {
             }
             .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 12)
 
-            Spacer(minLength: 0)
-            emptyHint
-            Spacer(minLength: 0)
+            if railThreads.isEmpty {
+                Spacer(minLength: 0)
+                emptyHint
+                Spacer(minLength: 0)
+            } else {
+                ScrollView {
+                    VStack(spacing: 2) {
+                        ForEach(railThreads) { thread in
+                            ConversationRow(
+                                thread: thread,
+                                selected: thread.id == threads.selectedThreadId
+                            ) {
+                                threads.select(thread)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10).padding(.bottom, 12)
+                }
+            }
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(ALColor.subtle)
+        .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
     }
 
     private var emptyHint: some View {
@@ -83,10 +120,91 @@ private struct HomeSidebar: View {
     }
 }
 
-// MARK: - Empty state ("You already pay for the team")
-
-private struct HomeEmptyState: View {
+private struct ConversationRow: View {
     @Environment(AppModel.self) private var appModel
+    let thread: WorkThread
+    let selected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                rowGlyph
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(thread.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(ALColor.textPrimary)
+                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        if let status = ThreadsPresenter.conversationStatus(for: thread) {
+                            ConversationStatusPill(status: status)
+                        }
+                        Text(thread.updatedAt, format: .relative(presentation: .numeric))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(ALColor.textFaint)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 9).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(selected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var rowGlyph: some View {
+        let workerId = thread.lastWorkerId ?? thread.defaultWorkerId
+        if let workerId, let model = appModel.models.first(where: { $0.id == workerId }) {
+            DriverBrandGlyph(driverId: model.driverId, boxSize: 28, iconSize: 14, cornerRadius: 7)
+        } else {
+            Image(systemName: "moon.stars.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(ALColor.accentText)
+                .frame(width: 28, height: 28)
+                .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
+        }
+    }
+}
+
+private struct ConversationStatusPill: View {
+    let status: ThreadsPresenter.ConversationStatus
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle().fill(dotColor).frame(width: 5, height: 5)
+            Text(status.label)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(labelColor)
+        }
+    }
+
+    private var dotColor: Color {
+        switch status {
+        case .running: ALPalette.blue400
+        case .exit0: ALPalette.green400
+        case .exit1: ALPalette.red400
+        default: ALColor.textFaint
+        }
+    }
+
+    private var labelColor: Color {
+        switch status {
+        case .running: ALPalette.blue400
+        case .boardReady, .specReady: ALColor.accentText
+        case .exit0: ALPalette.green400
+        case .exit1: ALPalette.red400
+        default: ALColor.textMuted
+        }
+    }
+}
+
+// MARK: - Marketing empty state ("You already pay for the team")
+
+private struct HomeMarketingEmptyState: View {
+    @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
     private var bench: [ComposeBenchModel] { appModel.composeBench }
     private let modes: [(ComposeMode, String)] = [
         (.chat, "Ask the bench a question — “token bucket or sliding window for rate limiting?”"),
@@ -108,8 +226,11 @@ private struct HomeEmptyState: View {
 
                 benchChips
                 modeCards
-                RoutingComposer(big: true)
-                    .padding(.top, 4)
+                RoutingComposer(
+                    big: true,
+                    onSend: { threads.sendRouting($0, createThread: true) }
+                )
+                .padding(.top, 4)
                 hint
             }
             .frame(maxWidth: 760)
@@ -170,5 +291,45 @@ private struct HomeEmptyState: View {
             Text("One model answers — route the turn to anyone.")
                 .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
         }
+    }
+}
+
+// MARK: - New work order (threads exist, none selected)
+
+private struct HomeNewWorkOrderPane: View {
+    @Environment(ThreadsViewModel.self) private var threads
+    @Environment(AppModel.self) private var appModel
+
+    private var readyCount: Int { appModel.composeBench.filter(\.ready).count }
+    private var benchTotal: Int { appModel.composeBench.count }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            VStack(spacing: 12) {
+                Image(systemName: "moon.stars.fill").font(.system(size: 38)).foregroundStyle(ALColor.accent)
+                Text("Start a work order")
+                    .font(.system(size: 25, weight: .heavy)).tracking(-0.4)
+                    .foregroundStyle(ALColor.textPrimary)
+                Text("One message in. Chat with a single model, fan it out to the whole bench for options, or hand it to an agent to build — and route any turn to anyone.")
+                    .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
+                    .multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 486)
+                HStack(spacing: 8) {
+                    Circle().fill(ALPalette.green500).frame(width: 6, height: 6)
+                    Text("\(benchTotal) models on the bench · \(readyCount) ready")
+                        .font(ALFont.monoSm).foregroundStyle(ALColor.textMuted)
+                }
+            }
+            .padding(.horizontal, 28)
+            Spacer(minLength: 0)
+            RoutingComposer(
+                big: true,
+                onSend: { threads.sendRouting($0, createThread: true) }
+            )
+            .frame(maxWidth: 640)
+            .padding(.horizontal, 28).padding(.bottom, 28)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(ALColor.base)
     }
 }

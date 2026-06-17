@@ -15,12 +15,55 @@ struct RootView: View {
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .team
     @State private var threads = ThreadsViewModel()
+    @State private var commands = CommandCenter()
     #if DEBUG
     @State private var showDevSettings = false
     @State private var devBenchScenario: String?
     #endif
 
+    /// SSOT command list — feeds the Actions menu (real ⌘-shortcuts) and the ⌘K
+    /// palette. Compose-mode titles/icons read from `ComposeMode` so the menu,
+    /// palette, and composer can never disagree.
+    private var appCommands: [AppCommand] {
+        [
+            AppCommand(id: "new-work-order", title: "New work order", symbol: "plus", key: "n") {
+                threads.newWorkOrder()
+                commands.palettePresented = false
+            },
+            AppCommand(id: "mode-chat", title: "\(ComposeMode.chat.label) — one model answers", symbol: ComposeMode.chat.icon, key: "1") {
+                commands.requestedMode = .chat
+                commands.palettePresented = false
+            },
+            AppCommand(id: "mode-fanout", title: "\(ComposeMode.fanout.label) — a team answers", symbol: ComposeMode.fanout.icon, key: "2") {
+                commands.requestedMode = .fanout
+                commands.palettePresented = false
+            },
+            AppCommand(id: "mode-exec", title: "\(ComposeMode.exec.label) — an agent builds it", symbol: ComposeMode.exec.icon, key: "3") {
+                commands.requestedMode = .exec
+                commands.palettePresented = false
+            },
+            AppCommand(id: "focus-search", title: "Search conversations", symbol: "magnifyingglass", key: "f") {
+                commands.focusSearchTick += 1
+                commands.palettePresented = false
+            },
+            AppCommand(id: "command-palette", title: "Command palette", symbol: "command", key: "k", hiddenInPalette: true) {
+                commands.palettePresented.toggle()
+            },
+        ]
+    }
+
     var body: some View {
+        Group {
+            if GUIFixture.isGrantSession {
+                GUIProofGrantView()
+            } else {
+                workspaceContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workspaceContent: some View {
         VStack(spacing: 0) {
             TitleBar(
                 showTeamDropdown: $showTeamDropdown,
@@ -69,6 +112,14 @@ struct RootView: View {
         // (the dots overlay its empty left region), not in a separate band below.
         .ignoresSafeArea(.container, edges: .top)
         .environment(threads)
+        .environment(commands)
+        .focusedSceneValue(\.appCommands, appCommands)
+        .overlay {
+            if commands.palettePresented {
+                CommandPalette(commands: appCommands) { commands.palettePresented = false }
+                    .zIndex(50)
+            }
+        }
         .background(ALColor.base)
         .overlayPreferenceValue(TeamPillFrameKey.self) { pillFrame in
             GeometryReader { geo in
@@ -130,6 +181,10 @@ struct RootView: View {
                     readinessFocus = GUIFixture.readinessFocusDriverId
                 }
                 if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
+                if GUIFixture.opensCommandPalette { commands.palettePresented = true }
+                if GUIFixture.opensHomeWorkspace {
+                    model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
+                }
                 GUIFixture.captureAndExitIfRequested()
             } else if model.isConfigurationBroken {
                 showMissingDriversAlert = true
@@ -157,6 +212,11 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .allnQuickCapture)) { _ in
             NSApplication.shared.activate(ignoringOtherApps: true)
             openWindow(id: "main")
+            // Read the clipboard once; fan out to current threads flow (new thread
+            // + composer prefill) and the legacy AppModel.prompt path.
+            let clip = NSPasteboard.general.string(forType: .string)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            threads.applyQuickCapture(clipboardText: clip)
             model.quickCapture(prefillClipboard: true)
         }
         .preferredColorScheme(.dark)

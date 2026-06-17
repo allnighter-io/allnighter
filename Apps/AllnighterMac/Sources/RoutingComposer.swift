@@ -16,6 +16,26 @@ enum ComposeMode: String, CaseIterable { case chat, fanout, exec }
 enum ComposeEffort: String, CaseIterable { case low, med, high }
 enum ComposeLane: String, CaseIterable { case build, design, copy }
 
+/// Everything the composer arms when the user clicks Send.
+struct ComposeRouting: Equatable {
+    var mode: ComposeMode
+    var to: String
+    var effort: ComposeEffort
+    var lane: ComposeLane
+    var team: String
+    var text: String
+}
+
+/// Thread-aware defaults for the routing composer (verb re-seeds on switch;
+/// effort/team persist in the composer's local state).
+enum ComposeRoutingDefaults {
+    /// Spec/board ready → Execute; everything else → Chat.
+    static func mode(for thread: WorkThread?) -> ComposeMode {
+        guard let thread else { return .chat }
+        return ThreadsPresenter.routingDefaultMode(for: thread)
+    }
+}
+
 /// A bench model as the composer sees it (CR3 maps this from AppModel).
 struct ComposeBenchModel: Identifiable, Equatable {
     let id: String
@@ -78,6 +98,8 @@ struct RoutingComposer: View {
     enum Popover { case mode, target }
 
     @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
+    @Environment(CommandCenter.self) private var commands
     @State var mode: ComposeMode
     @State var to: String
     @State var effort: ComposeEffort
@@ -86,10 +108,23 @@ struct RoutingComposer: View {
     @State private var text: String = ""
     @State private var pop: Popover?
 
+    @State private var composerFocused = false
+    @State private var editorHeight = ComposeEditorMetrics.minHeight
+
     let placeholder: String
     private let big: Bool
+    /// Re-seeded when the active thread changes; effort/team are left alone.
+    let defaultMode: ComposeMode
+    var onSend: ((ComposeRouting) -> Void)?
 
-    init(mode: ComposeMode = .chat, openModeMenu: Bool = false, openTarget: Bool = false, big: Bool = false) {
+    init(
+        mode: ComposeMode = .chat,
+        openModeMenu: Bool = false,
+        openTarget: Bool = false,
+        big: Bool = false,
+        defaultMode: ComposeMode = .chat,
+        onSend: ((ComposeRouting) -> Void)? = nil
+    ) {
         _mode = State(initialValue: mode)
         _to = State(initialValue: "")     // seeded from the real bench in onAppear
         _effort = State(initialValue: .med)
@@ -97,6 +132,8 @@ struct RoutingComposer: View {
         _team = State(initialValue: "")   // seeded from the real catalog in onAppear
         _pop = State(initialValue: openModeMenu ? .mode : (openTarget ? .target : nil))
         self.big = big
+        self.defaultMode = defaultMode
+        self.onSend = onSend
         self.placeholder = big
             ? "Describe the work — a question, a screen to redesign, a change to ship…"
             : "Reply, or start the next turn…"
@@ -107,8 +144,29 @@ struct RoutingComposer: View {
             box
             hint
         }
-        .overlay(alignment: .bottomLeading) { popoverLayer }
         .onAppear(perform: seedDefaults)
+        .onAppear(perform: consumePendingPrefillIfNeeded)
+        .onChange(of: defaultMode) { _, next in mode = next }
+        .onChange(of: threads.pendingQuickCaptureText) { _, _ in
+            consumePendingPrefillIfNeeded()
+        }
+        // ⌘1/⌘2/⌘3 (and the palette) request a mode; the on-screen composer
+        // applies it via the same path as clicking the mode pill, then clears.
+        .onChange(of: commands.requestedMode) { _, requested in
+            guard let requested else { return }
+            selectMode(requested)
+            commands.requestedMode = nil
+        }
+    }
+
+    /// Bridges the single `pop` selection to the per-trigger `Bool` bindings the
+    /// native popover expects. Selecting elsewhere or tapping out flips it off.
+    private func popBinding(_ which: Popover) -> Binding<Bool> {
+        Binding(get: { pop == which }, set: { pop = $0 ? which : nil })
+    }
+
+    private var canSend: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && onSend != nil
     }
 
     /// Seed the routing target from the REAL bench/catalog (init can't read the
@@ -121,6 +179,18 @@ struct RoutingComposer: View {
         if team.isEmpty { team = appModel.composeDefaultTeam(for: lane) }
     }
 
+    /// Adopt a pending quick-capture clipboard value (from global hotkey) into
+    /// this composer's editor when the editor is empty. Also focuses it so the
+    /// user can immediately edit or send. Safe to call multiple times; only
+    /// acts when there is a non-empty pending and local text is blank.
+    private func consumePendingPrefillIfNeeded() {
+        guard let pending = threads.pendingQuickCaptureText,
+              text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        text = pending
+        threads.pendingQuickCaptureText = nil
+        composerFocused = true
+    }
+
     // MARK: composer box
 
     private var box: some View {
@@ -128,13 +198,16 @@ struct RoutingComposer: View {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
                     Text(placeholder).font(.system(size: 13)).foregroundStyle(ALColor.textFaint)
-                        .padding(.horizontal, 14).padding(.top, 12).allowsHitTesting(false)
+                        .padding(.horizontal, 14).padding(.top, 8).allowsHitTesting(false)
                 }
-                TextEditor(text: $text)
-                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal, 10).padding(.top, 6)
-                    .frame(minHeight: big ? 76 : 52, maxHeight: 140)
+                ALTextEditor(
+                    text: $text,
+                    contentHeight: $editorHeight,
+                    isFocused: $composerFocused,
+                    maxHeight: ComposeEditorMetrics.maxHeight
+                )
+                .padding(.horizontal, 10).padding(.top, 6)
+                .frame(height: editorHeight)
             }
             bar
         }
@@ -169,6 +242,7 @@ struct RoutingComposer: View {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .alPopover(isPresented: popBinding(.mode), arrowEdge: .top) { modeMenuPanel }
     }
 
     private var targetChip: some View {
@@ -193,17 +267,29 @@ struct RoutingComposer: View {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .alPopover(isPresented: popBinding(.target), arrowEdge: .top) { targetPopoverPanel }
     }
 
     private var sendButton: some View {
-        Button {} label: {
-            Image(systemName: "arrow.right").font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(ALColor.textOnAmber)
+        Button(action: performSend) {
+            Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(canSend ? ALColor.textOnLight : ALColor.textFaint)
                 .frame(width: 34, height: 34)
-                .background(ALColor.accent, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                .background(canSend ? ALColor.actionLight : ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.sm))
         }
         .buttonStyle(.plain)
+        .disabled(!canSend)
+        .keyboardShortcut(.return, modifiers: .command)
         .accessibilityLabel("Send — \(mode.label)")
+    }
+
+    private func performSend() {
+        let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        onSend?(ComposeRouting(mode: mode, to: to, effort: effort, lane: lane, team: team, text: body))
+        text = ""
+        pop = nil
+        editorHeight = ComposeEditorMetrics.minHeight
     }
 
     private var hint: some View {
@@ -225,17 +311,9 @@ struct RoutingComposer: View {
 
     // MARK: popovers
 
-    @ViewBuilder private var popoverLayer: some View {
-        switch pop {
-        case .mode: modeMenu
-        case .target: targetPopover
-        case .none: EmptyView()
-        }
-    }
-
     // MARK: target popover (who + effort)
 
-    private var targetPopover: some View {
+    private var targetPopoverPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch mode {
             case .chat:
@@ -256,11 +334,7 @@ struct RoutingComposer: View {
         }
         .padding(6)
         .frame(width: mode == .fanout ? 320 : 300)
-        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
-        .alShadowXl()
-        .fixedSize()
-        .offset(x: 96, y: -150)
+        .background(ALColor.surface)
     }
 
     private func popHeader(_ title: String, _ sub: String) -> some View {
@@ -390,7 +464,7 @@ struct RoutingComposer: View {
         .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
-    private var modeMenu: some View {
+    private var modeMenuPanel: some View {
         VStack(spacing: 2) {
             ForEach(ComposeMode.allCases, id: \.self) { m in
                 Button { selectMode(m) } label: { modeRow(m) }
@@ -399,10 +473,7 @@ struct RoutingComposer: View {
         }
         .padding(6)
         .frame(width: 300)
-        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
-        .alShadowXl()
-        .offset(y: -130)
+        .background(ALColor.surface)
     }
 
     private func modeRow(_ m: ComposeMode) -> some View {

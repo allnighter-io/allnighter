@@ -90,6 +90,11 @@ enum ALColor {
     static let textMuted     = ALPalette.ink300
     static let textFaint     = ALPalette.ink400
     static let textOnAmber   = Color(hex: 0x1A1203) // near-black ink on amber fills
+    static let textOnLight   = ALPalette.ink900      // near-black ink on light fills
+
+    // Light "action" fill — the primary affordance color used SPARINGLY for the
+    // send / commit actions so amber stays a rare accent, not the whole UI.
+    static let actionLight   = ALPalette.ink50
 
     // Accent (amber)
     static let accent        = ALPalette.amber500

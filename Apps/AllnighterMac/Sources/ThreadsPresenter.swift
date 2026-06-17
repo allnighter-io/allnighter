@@ -44,6 +44,53 @@ enum ThreadsPresenter {
         return .idle
     }
 
+    // MARK: - Compose routing
+
+    /// Spec ready → Execute; everything else → Chat (re-seeded on thread switch).
+    static func routingDefaultMode(for thread: WorkThread) -> ComposeMode {
+        if let last = thread.turns.last(where: { $0.kind == .workOrder }), last.status == .done {
+            return .exec
+        }
+        return .chat
+    }
+
+    /// Observed conversation status for the rail pill (facts only).
+    enum ConversationStatus: Equatable {
+        case running, replied, boardReady, specReady, exit0, exit1
+
+        var label: String {
+            switch self {
+            case .running: return "running"
+            case .replied: return "replied"
+            case .boardReady: return "board ready"
+            case .specReady: return "spec ready"
+            case .exit0: return "exit 0"
+            case .exit1: return "exit 1"
+            }
+        }
+    }
+
+    static func conversationStatus(for thread: WorkThread) -> ConversationStatus? {
+        if thread.isRunning { return .running }
+        if thread.needsAttention { return .exit1 }
+        guard let last = thread.turns.last(where: { $0.kind != .userMessage && $0.kind != .userDecision }) else {
+            return nil
+        }
+        switch last.kind {
+        case .workerChat where last.status == .done: return .replied
+        case .designBoard, .teamRun where last.status == .done: return .boardReady
+        case .workOrder where last.status == .done: return .specReady
+        case .dispatch where last.status == .done: return .exit0
+        case .dispatch where last.status == .failed: return .exit1
+        default: return nil
+        }
+    }
+
+    /// Newest-first flat list for the home rail (CR4a; triage polish = CR4e).
+    static func railThreads(_ threads: [WorkThread]) -> [WorkThread] {
+        threads.filter { !$0.isArchived }.sorted { $0.updatedAt > $1.updatedAt }
+    }
+
     // MARK: - Turn presentation
 
     /// Map a turn's lifecycle to the shared StatusPill kind.

@@ -95,4 +95,27 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertEqual(label, "5 bytes")
         XCTAssertFalse(label.lowercased().contains("token"))
     }
+
+    func testRoutingDefaultMode() {
+        let idle = thread("idle", updatedAt: t0)
+        XCTAssertEqual(ThreadsPresenter.routingDefaultMode(for: idle), .chat)
+
+        let specReady = thread("spec", updatedAt: t0, turns: [
+            turn(.workOrder, .done)
+        ])
+        XCTAssertEqual(ThreadsPresenter.routingDefaultMode(for: specReady), .exec)
+
+        let specDraft = thread("draft", updatedAt: t0, turns: [
+            turn(.workOrder, .draft)
+        ])
+        XCTAssertEqual(ThreadsPresenter.routingDefaultMode(for: specDraft), .chat)
+    }
+
+    func testConversationStatus() {
+        let replied = thread("r", updatedAt: t0, turns: [turn(.workerChat, .done)])
+        XCTAssertEqual(ThreadsPresenter.conversationStatus(for: replied), .replied)
+
+        let running = thread("run", updatedAt: t0, turns: [turn(.workerChat, .running)])
+        XCTAssertEqual(ThreadsPresenter.conversationStatus(for: running), .running)
+    }
 }
