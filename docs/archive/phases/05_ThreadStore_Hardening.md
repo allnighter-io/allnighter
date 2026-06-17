@@ -16,7 +16,7 @@ Correct foundation order:
 ```text
 ThreadStore hardening
   -> unread/read cursor
-  -> Threads 2.0 rail controls
+  -> Threads 2.0 rail controls (archived 07)
 ```
 
 Wrong order (how you get month-long SSOT bugs):

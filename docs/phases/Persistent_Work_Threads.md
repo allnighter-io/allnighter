@@ -14,11 +14,10 @@ Updated: 2026-06-17
 > historical implementation context for already-built work.
 >
 > **Resume pointer:** the MLP thread primitive is built, and later CR4 work added
-> the Home conversation rail plus real Chat, Fan out, and Execute send paths. The
-> remaining work is split below: core-loop gaps stay with
-> [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md), while store
-> hardening, unread, rail controls, notifications, streaming, and observed usage
-> defer to their named child docs.
+> the Home conversation rail plus real Chat, Fan out, and Execute send paths.
+> ThreadStore hardening and Threads 2.0 rail controls are archived. Remaining
+> active thread work: unread viewport clear (06 S05+), worker image output (08),
+> core-loop gaps in `01`, and fast follows 02–04.
 
 ## Product Promise
 
@@ -83,25 +82,32 @@ Build in this order:
    - Unread and rail controls can now build on this archived gate.
 
 3. [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md)
-   — **UNR-S01–S03 BUILT** (2026-06-17); S04–S09 remain
-   - Durable read cursors, Core derivation, store `markRead*`, and presenter
-     unread buckets are built.
-   - Mac rail indication light, timeline visibility clear, and GUI proof defer
-     to UNR-S04–S05.
+   — **UNR-S01–S04 BUILT** (2026-06-17); S05–S09 remain
+   - Durable read cursors, Core derivation, store `markRead*`, presenter unread
+     buckets, and Mac rail indication light are built.
+   - Timeline visibility clear, notification hooks, full UNR GUI proof, rich-turn
+     read-clear, and remote protocol defer to UNR-S05–S09.
 
-4. [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) — **TH2-S01–S10 BUILT** (2026-06-17)
+4. [`Threads 2.0`](../archive/phases/07_Threads_2_0.md) — **BUILT / archived**
+   (2026-06-17)
    - Rename, pin, archive/unarchive, archive view, unified triage on Home +
      legacy Threads rails, context menus, keyboard commands, archived composer
      disabled until explicit unarchive.
+   - GUI proof: `docs/qa/gui/home/2026-06-17-th2-rail/`.
 
 5. [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md)
-   — **not started** (2026-06-17 slice)
-   - Chat replies from image-capable workers must land as canonical thread
-     attachments, not stdout-only captions.
-   - Design continuity: after a design board, a chat tweak returns a new inline
-     image without forcing another full fan-out.
-   - Reuses `DesignImageRunner` capture law + `ThreadAttachmentStore`; GUI
-     timeline thumbnails in WIO-S04 (coordinates with CIA-S04).
+   — **Ready for Implementation** (2026-06-17)
+   - Chat replies from workers declaring `imageGen` must capture the generated
+     image via the shared contract and commit it as a `.workerGenerated`
+     attachment (same store as user paste). Text caption lives in turn.text.
+   - Design continuity: after a board (or prior chat image), a follow-up chat
+     tweak can return a new inline image in the same thread without a full
+     re-fan-out.
+   - Implementation reuses (does not duplicate) the arrival/normalize logic
+     from `DesignImageRunner`; `ThreadContextBuilder` / send coordinator seed
+     prior images into `includedAttachments` for the worker when appropriate.
+   - Mac timeline thumbnails for worker bubbles (WIO-S04); CLI/MCP JSON parity
+     (WIO-S05). Coordinates with CIA user-attachment GUI work.
 
 6. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **not started**
    **defer here**
@@ -208,9 +214,10 @@ Still missing / deferred:
   lazy legacy-run migration, and full thread export with linked run artifacts.
 - ThreadStore hardening and explicit mutation APIs are built and archived at
   `docs/archive/phases/05_ThreadStore_Hardening.md`.
-- Read cursor and unread/new-message indication light defer to
-  `06_Unread_Message_Light.md`.
-- Rename/pin/archive/archive-view rail controls defer to `07_Threads_2_0.md`.
+- Read cursor, unread derivation, Mac rail light, and viewport clear defer to
+  `06_Unread_Message_Light.md` (S05–S09 remain).
+- Rename/pin/archive/archive-view rail controls are built and archived at
+  `docs/archive/phases/07_Threads_2_0.md`.
 - Thread/turn notification policy defers to `02_Notifications.md`.
 - No streaming command path (fast follow `03_Mac_Streaming.md`).
 - No observed usage model (fast follow `04_Observed_Usage.md`).

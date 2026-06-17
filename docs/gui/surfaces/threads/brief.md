@@ -14,7 +14,7 @@ team/build turn cards (the `richRow` here is a placeholder). See
 docs/phases/threads/01_Work_Threads_MLP.md +
 docs/archive/phases/05_ThreadStore_Hardening.md +
 docs/phases/threads/06_Unread_Message_Light.md +
-docs/phases/threads/07_Threads_2_0.md
+docs/archive/phases/07_Threads_2_0.md
 **Core contracts:** `WorkThread`, `ThreadTurn`, `ThreadContextPacket`,
 `ArtifactRef` (AllnighterCore); `ThreadStore`, `WorkerChatCoordinator`,
 `ThreadContextBuilder` (AllnighterEngine).
@@ -23,7 +23,7 @@ This brief covers the **ThreadList** (triage inbox) and the **ThreadTimeline**
 (turns + always-visible composer). While both the legacy `ThreadsView` sidebar
 and CR4 `HomeView` conversation rail exist, any WorkThread rail must render the
 same derived unread truth and triage order from `06_Unread_Message_Light.md` and
-`07_Threads_2_0.md`. Store mutations go through the archived hardening contract
+archived `07_Threads_2_0.md`. Store mutations go through the archived hardening contract
 in `docs/archive/phases/05_ThreadStore_Hardening.md`.
 
 ---
@@ -38,7 +38,7 @@ manual-paste · failed.
 ### Intents
 - New thread → `ThreadStore.create(...)` then select it.
 - Select thread → open ThreadTimeline.
-- Rename / pin / archive → explicit `ThreadStore` methods (see `07_Threads_2_0.md`).
+- Rename / pin / archive → explicit `ThreadStore` methods (see archived `07_Threads_2_0.md`).
 - Read clearing → timeline visibility reports visible turn ids; view model sends
   `ThreadStore.markReadToLatestVisible(...)`.
 - (S08) local text filter over title/preview/first message/run prompt.

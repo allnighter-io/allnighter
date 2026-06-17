@@ -1,5 +1,6 @@
 # 07 - Threads 2.0
 
+Archived: 2026-06-17
 Status: **TH2-S01–S10 BUILT** (2026-06-17) — rail controls, triage convergence, archive view
 Owner: AllnighterMac GUI + AllnighterEngine (store mutations)
 Updated: 2026-06-17
@@ -8,7 +9,7 @@ Updated: 2026-06-17
 
 ```text
 ../../archive/phases/05_ThreadStore_Hardening.md  — serialized writes, explicit mutation APIs, timestamp law
-06_Unread_Message_Light.md     — read cursor, hasUnread derivation, unread light
+../../phases/threads/06_Unread_Message_Light.md — read cursor, hasUnread derivation, unread light
 ```
 
 Do not implement Threads 2.0 rail controls until 06 is complete. GUI must call
@@ -131,7 +132,7 @@ Duplicate truth to delete:
 ### Unread integration
 
 - Unread derivation, light rendering, mark-read: fully owned by
-  [`06_Unread_Message_Light.md`](06_Unread_Message_Light.md).
+  [`06_Unread_Message_Light.md`](../../phases/threads/06_Unread_Message_Light.md).
 - This doc owns **triage placement** of unread rows relative to pin/attention/running.
 - Unread is an orthogonal axis to `rowState` (attention/running/idle).
 - Attention precedence uses `thread.needsAttention`, not

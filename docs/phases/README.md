@@ -33,9 +33,8 @@ otherwise.
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
-| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S03 BUILT** (2026-06-17); S04–S09 remain | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets. Mac rail light + viewport clear + GUI proof defer to S04–S05. |
-| [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) | **TH2-S01–S10 BUILT** (2026-06-17) | Rail controls: rename, pin, archive, archive view, unified triage on Home + Threads rails, context menus, keyboard commands. |
-| [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Draft — ready for implementation** (2026-06-17) | Chat worker image capture + design continuity: fan-out → pick → chat tweak returns canonical inline image; reuses `DesignImageRunner` + attachment store; WIO-S00–S05. |
+| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S04 BUILT** (2026-06-17); S05–S09 remain | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light. Viewport clear, notification hooks, full GUI proof, rich-turn clear, and protocol defer to S05–S09. |
+| [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Ready for Implementation** (2026-06-17) | Worker image output in chat (design continuity): chat to imageGen workers captures + commits canonical attachments (same store as user paste); prior/picked images flow into next context; WIO-S00–S05. Reuses capture law; no duplicate paths. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
@@ -176,10 +175,10 @@ Open questions:
 | Standalone Mac app, Dock presence, menu-bar role, background coordinator, resident lifecycle | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |
-| Persistent chat, routable turns, thread backend, run-to-thread linkage, compose routing send | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** (historical CR4: `docs/archive/phases/Compose_Routing_CR4_Send_And_Conversations.md`) |
+| Persistent chat, routable turns, thread backend, run-to-thread linkage, compose routing send | `Persistent_Work_Threads.md` -> child docs (01 MLP core; 06 unread; 08 worker image output in chat) |
 | ThreadStore write gate, serialized thread mutation, schema/migration safety, timestamp/transcript law | **BUILT** — `docs/archive/phases/05_ThreadStore_Hardening.md` |
 | Read/unread thread state, new-message indication light, read cursor semantics | `Persistent_Work_Threads.md` -> `threads/06_Unread_Message_Light.md` |
-| Thread rail rename/pin/archive, archive view, Home/Threads triage convergence | `Persistent_Work_Threads.md` -> `threads/07_Threads_2_0.md` |
+| Thread rail rename/pin/archive, archive view, Home/Threads triage convergence | **BUILT** — `docs/archive/phases/07_Threads_2_0.md` |
 | Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
@@ -200,6 +199,6 @@ worktree-era plans. New forward phases are added explicitly to this folder.
 Thread child-doc numbering (2026-06-17): unread moved from slot **05** to
 `threads/06_Unread_Message_Light.md` after ThreadStore hardening was inserted
 and completed. The completed hardening packet is archived at
-`docs/archive/phases/05_ThreadStore_Hardening.md`; `threads/07_Threads_2_0.md`
-owns rail controls after the archived 05 gate plus active 06. Route live work
-through `Persistent_Work_Threads.md`.
+`docs/archive/phases/05_ThreadStore_Hardening.md`; rail controls are archived at
+`docs/archive/phases/07_Threads_2_0.md`. Route live thread work through
+`Persistent_Work_Threads.md`.

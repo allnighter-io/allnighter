@@ -1,6 +1,6 @@
 # 06 - Unread Message Light
 
-Status: **UNR-S01–S03 BUILT** (2026-06-17) — backend/read cursor + presenter triage; GUI light + visibility defer to S04–S05
+Status: **UNR-S01–S04 BUILT** (2026-06-17) — read cursor, store mark-read, presenter triage, Mac rail light; S05–S09 remain
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
 
@@ -52,13 +52,34 @@ Non-goals:
 - No unread prompt/context behavior. Read state is a UI attention contract, not
   a worker context input.
 - No auto-unarchive rule in this slice. Archived unread is preserved and shown
-  when the archive is viewed (`07_Threads_2_0.md` owns archive UI).
+  when the archive is viewed (archive UI built in archived `07_Threads_2_0.md`).
 - No store infrastructure invention here — serialization, atomic writes, and
   timestamp law live in archived `05_ThreadStore_Hardening.md`.
 
 ## Current State
 
-The current thread database does not track read/unread.
+Built (UNR-S01–S04, 2026-06-17):
+
+- `ThreadReadCursor` on `WorkThread` with Codable migration fixtures.
+- Pure `UnreadDerivation` helpers in AllnighterCore (`hasUnread`,
+  `firstUnreadTurnId`, landed-after-read, legacy nil-cursor baseline).
+- `ThreadStore.markRead`, `markReadToLatestVisible`, `ensureLegacyReadBaseline`
+  on the archived 05 cursor-only persist path (proven in `ThreadStoreTests`).
+- `ThreadsPresenter` triage buckets include unread between attention and running
+  (final rail order from archived `07_Threads_2_0.md` TH2-S02).
+- `ThreadRailComponents.UnreadLight` on Home + legacy Threads rows: reserved
+  trailing slot, amber/failed tokens, accessibility label/value, no count.
+
+Still missing:
+
+- Timeline visibility reporting and Mac `markReadToLatestVisible` wiring (S05).
+  The store helper exists; `ThreadsViewModel` does not call it yet.
+- Notification suppression hooks for visible landed turns (S06).
+- Dedicated UNR GUI fixture/proof packet for the full unread matrix (S07). The
+  `home-rail-th2` capture proves unread light placement in triage but not
+  selected-unread, running+unread, or clear-on-visible behavior.
+- Rich-turn read-clear contracts for team/build/dispatch cards (S08).
+- Remote protocol fields/intents when the iOS thread spine ships (S09).
 
 Persisted today:
 
@@ -72,6 +93,7 @@ WorkThread
 - createdAt
 - updatedAt
 - pinnedAt?
+- readCursor?          # UNR-S01
 - workingDir?
 - projectLabel?
 - defaultWorkerId?
@@ -83,17 +105,16 @@ Derived today:
 ```text
 WorkThread.isRunning       = any queued/running turn
 WorkThread.needsAttention  = failed/timedOut/open blocking system turn
+WorkThread.hasUnread       = UnreadDerivation from readCursor + turns (UNR-S01)
 WorkThread.lastWorkerId    = latest worker-authored turn
 WorkThread.preview         = latest text turn
 ```
 
-Gaps:
+Remaining gaps:
 
-- No `readAt`, `seenAt`, `lastReadTurnId`, or equivalent cursor.
-- Thread list status dots currently mean running/result/attention, not unread.
-- Selecting a thread is GUI-local and not durable across restart.
-- Existing persisted threads cannot truthfully tell whether old worker replies
-  were read before this feature existed.
+- Selecting a thread does not yet durably clear read via viewport visibility (S05).
+- Status dots still mean running/result/attention; unread is a separate trailing
+  light axis (S04), not a fourth dot state.
 
 ## User-Visible Claim
 
@@ -444,9 +465,9 @@ Read cursor updates do not bump updatedAt and do not by themselves move a thread
 to the top of recent history.
 ```
 
-Full rail triage order (pin + unread + archive) is owned by
-[`07_Threads_2_0.md`](07_Threads_2_0.md). Unread buckets slot between
-attention and running.
+Full rail triage order (pin + unread + archive) is built in archived
+[`07_Threads_2_0.md`](../../archive/phases/07_Threads_2_0.md). Unread buckets
+slot between attention and running.
 
 ## Surface Binding
 
@@ -464,8 +485,7 @@ Rules:
 - Both surfaces read the same `WorkThread.hasUnread`/`firstUnreadTurnId`
   derivation from Core.
 - Both surfaces reserve the same trailing light slot so the row does not reflow.
-- Home must adopt the same triage order as ThreadList when unread ships
-  (`07_Threads_2_0.md` converges rails).
+- Home adopts the same triage order as ThreadList (archived TH2-S02).
 - `ThreadsPresenter.rowState` remains attention/running/idle. Unread is a
   separate axis, not a fourth mutually exclusive row state.
 - `ConversationStatus` / status pills may still report stable outcome
@@ -698,7 +718,7 @@ Archived threads:
 - New unread-eligible turns on archived threads keep unread truth, but this
   slice does not auto-unarchive them.
 - If the archive view is opened, archived unread rows may show the same light.
-- A future auto-unarchive rule must be owned by `07_Threads_2_0.md` or a
+- A future auto-unarchive rule must be owned by archived `07_Threads_2_0.md` or a
   lifecycle phase, not smuggled into read-state derivation.
 
 ## Inference Bans
@@ -734,16 +754,17 @@ Prerequisite: **TSH-S00 through TSH-S04** from archived
   `updatedAt` preserved and `transcript.md` byte-identical on cursor writes.
 - [x] UNR-S03 - Add presenter freshness inputs and unread buckets in triage
   (full rail order finalized in TH2-S02).
-- [ ] UNR-S04 - Add Mac thread-row unread light component on both rail rows using
+- [x] UNR-S04 - Add Mac thread-row unread light component on both rail rows using
   design tokens, no visible label/count, with accessibility value and reserved
-  trailing slot.
+  trailing slot (`ThreadRailComponents.UnreadLight`, landed with TH2-S03).
 - [ ] UNR-S05 - Add timeline visibility reporting, contiguous visible-prefix
   mark-read helper, and clear-on-visible behavior for `workerChat` + blocking
-  `systemEvent`.
+  `systemEvent`. Store `markReadToLatestVisible` is built; Mac wiring is not.
 - [ ] UNR-S06 - Add notification handoff hooks so `02_Notifications.md` can
   suppress notifications when the landed turn is already visible.
 - [ ] UNR-S07 - Add GUI fixture/proof scenario for unread, selected unread,
-  running without unread, unread attention, and running+unread.
+  running without unread, unread attention, and running+unread. `home-rail-th2`
+  proves rail placement only; full UNR matrix proof remains open.
 - [ ] UNR-S08 - Add rich-turn visibility contract for team/build/dispatch cards
   when PWT-S07 lands.
 - [ ] UNR-S09 - Add remote protocol fields/intents when the iOS thread spine
@@ -849,11 +870,11 @@ row spacing, light placement, contrast, and no text overlap.
 - Opening the thread clears only after the unread turn is visible.
 - Clearing read survives relaunch and does not bump `updatedAt`.
 - Thread triage prioritizes attention, then unread landed work, then running on
-  both Home and legacy Threads rails (with 07).
-- The row renders a light, not a note, label, or count.
+  both Home and legacy Threads rails (archived TH2-S02).
+- The row renders a light, not a note, label, or count (UNR-S04).
 - Unit tests cover cursor migration, derivation, store updates, and presenter
   ordering.
-- GUI proof verifies the light in the actual Mac rail.
+- GUI proof for clear-on-visible and the full unread matrix defers to UNR-S05/S07.
 
 ## Resolved Product Decisions
 
@@ -867,7 +888,7 @@ row spacing, light placement, contrast, and no text overlap.
 ## Open Questions
 
 - Should a future archive/lifecycle slice auto-unarchive background completions,
-  or should archive always mean "hide until I inspect archive"? (Default in 07:
-  no auto-unarchive v1.)
+  or should archive always mean "hide until I inspect archive"? (Default in
+  archived 07: no auto-unarchive v1.)
 - After PWT-S07 rich cards land, are compact preview headers enough for every
   team/build read-clear, or should certain artifact-heavy cards require expand?
