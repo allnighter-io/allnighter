@@ -30,12 +30,11 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Launch_Authority_TCC_Hotfix.md`](Launch_Authority_TCC_Hotfix.md) | **HOTFIX execution-ready** (2026-06-16) | Critical TCC launch-authority fix: cold launch renders cached/unknown state only; no shell, CLI, smoke, quota, or protected-folder probing before explicit user intent. |
-| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **BUILT** (S00–S05, 2026-06-16) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. |
+| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
-| [`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md) | **BUILT** (TSH-S00–S07, 2026-06-17) | Engine SSOT gate: per-root serialized thread writes, explicit mutation APIs, atomic persistence, schema versioning, duplicate-id safety, and `updatedAt`/transcript law. Prerequisite for unread and Threads 2.0. |
-| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | Draft founder packet (2026-06-17) | Durable read cursor plus Mac thread-rail indication light: pure Core unread derivation, monotonic cursor, viewport clear, and worker-chat/system-event v1 proof. Requires 05. |
-| [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) | Draft founder packet (2026-06-17) | Rail controls: rename, pin, archive, archive view, Home/Threads triage convergence, archived composer rule, and unread integration. Requires 05 + 06. |
+| [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **Execution-ready** (ThreadStore gate built/archived, 2026-06-17) | Durable read cursor plus Mac thread-rail indication light: pure Core unread derivation, monotonic cursor, viewport clear, and worker-chat/system-event v1 proof. |
+| [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) | Draft founder packet (2026-06-17); waits on 06 | Rail controls: rename, pin, archive, archive view, Home/Threads triage convergence, archived composer rule, and unread integration. Archived 05 gate is satisfied; 06 remains prerequisite. |
 | [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | Draft founder packet; CLI-first naming approved | Public `alln pending`, Away Mode drain, cooldown resume, and Activity Summary as the brand-fit utilization unlock. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
@@ -175,7 +174,7 @@ Open questions:
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
 | Work-order vocabulary, model/skill/worker/team model | `Work_Order_Team_Model.md` |
 | Persistent chat, routable turns, thread backend, run-to-thread linkage, compose routing send | `Persistent_Work_Threads.md` -> `threads/01_Work_Threads_MLP.md` **(BUILT S01–S06; S07–S09 remain)** (historical CR4: `docs/archive/phases/Compose_Routing_CR4_Send_And_Conversations.md`) |
-| ThreadStore write gate, serialized thread mutation, schema/migration safety, timestamp/transcript law | `Persistent_Work_Threads.md` -> `threads/05_ThreadStore_Hardening.md` |
+| ThreadStore write gate, serialized thread mutation, schema/migration safety, timestamp/transcript law | **BUILT** — `docs/archive/phases/05_ThreadStore_Hardening.md` |
 | Read/unread thread state, new-message indication light, read cursor semantics | `Persistent_Work_Threads.md` -> `threads/06_Unread_Message_Light.md` |
 | Thread rail rename/pin/archive, archive view, Home/Threads triage convergence | `Persistent_Work_Threads.md` -> `threads/07_Threads_2_0.md` |
 | Mac notifications / mobile OneSignal push | `threads/02_Notifications.md` |
@@ -196,6 +195,8 @@ infer active product truth from missing `XX_*.md` phase links or archived
 worktree-era plans. New forward phases are added explicitly to this folder.
 
 Thread child-doc numbering (2026-06-17): unread moved from slot **05** to
-`threads/06_Unread_Message_Light.md` after `threads/05_ThreadStore_Hardening.md`
-was inserted; `threads/07_Threads_2_0.md` owns rail controls after 05 + 06.
-Route live work through `Persistent_Work_Threads.md`.
+`threads/06_Unread_Message_Light.md` after ThreadStore hardening was inserted
+and completed. The completed hardening packet is archived at
+`docs/archive/phases/05_ThreadStore_Hardening.md`; `threads/07_Threads_2_0.md`
+owns rail controls after the archived 05 gate plus active 06. Route live work
+through `Persistent_Work_Threads.md`.

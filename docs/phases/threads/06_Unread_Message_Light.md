@@ -1,18 +1,18 @@
 # 06 - Unread Message Light
 
-Status: Draft founder packet — ready for implementation after ThreadStore hardening
+Status: Execution-ready — ThreadStore hardening gate is built and archived
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
 
 ## Requires
 
 ```text
-05_ThreadStore_Hardening.md
+../../archive/phases/05_ThreadStore_Hardening.md
 ```
 
-Do not implement unread until `ThreadStore` has serialized writes, explicit mutation
-APIs, cursor-safe save paths, and `updatedAt`/transcript law from doc 05. This doc
-owns read cursor semantics and derivation; doc 05 owns the write gate they use.
+ThreadStore now has serialized writes, explicit mutation APIs, cursor-safe save
+paths, and `updatedAt`/transcript law from archived doc 05. This doc owns read
+cursor semantics and derivation; archived doc 05 owns the write gate they use.
 
 ## Founder Intent
 
@@ -54,7 +54,7 @@ Non-goals:
 - No auto-unarchive rule in this slice. Archived unread is preserved and shown
   when the archive is viewed (`07_Threads_2_0.md` owns archive UI).
 - No store infrastructure invention here — serialization, atomic writes, and
-  timestamp law live in `05_ThreadStore_Hardening.md`.
+  timestamp law live in archived `05_ThreadStore_Hardening.md`.
 
 ## Current State
 
@@ -324,7 +324,7 @@ but the Mac rail renders a light only.
 
 `ThreadStore` is the mutation owner (05). This section defines **cursor math
 only**; write serialization, atomic persistence, and `updatedAt` law are in
-[`05_ThreadStore_Hardening.md`](05_ThreadStore_Hardening.md).
+[`05_ThreadStore_Hardening.md`](../../archive/phases/05_ThreadStore_Hardening.md).
 
 Add store operations/helpers implemented on the 05 write gate:
 
@@ -714,7 +714,7 @@ Archived threads:
 | User send while scrolled up | Composer/view model | sending a reply means earlier unseen turns were read | Do not advance through a user turn when an earlier unread anchor is unseen | User sends while scrolled above an unread reply; light remains |
 | Out-of-order completion | index-only cursor | a completed older running turn before cursor is read | Include landed-after-read using `completedAt/readAt` | Running turn created before cursor completes after cursor; light appears |
 | Backward cursor | `markRead` | older completed turn moves cursor backward | Never move `lastReadTurnId` backward; update `readAt` only under visible-prefix rules | markRead older out-of-order turn preserves cursor id |
-| Direct save | 05 write gate | partial write can bypass cursor/baseline rules | All RMW writes go through serialized store operations | See `05_ThreadStore_Hardening.md` negative tests |
+| Direct save | 05 write gate | partial write can bypass cursor/baseline rules | All RMW writes go through serialized store operations | See archived `05_ThreadStore_Hardening.md` negative tests |
 | Partial viewport | SwiftUI visibility callback | any visible later unread clears all earlier unread | Mark through contiguous visible unread prefix only | Turn 5 visible while turn 3 unread unseen; cursor does not jump to 5 |
 | Rich collapsed turn | timeline row header | any collapsed header is read | Apply family visibility contract; require preview or expansion | Rich turn with no preview header visible; cursor unchanged |
 | Superseded turn | turn replacement | old replaced turn creates unread | Exclude superseded turns as unread anchors | superseded failed turn does not light row |
@@ -723,7 +723,8 @@ Archived threads:
 
 ## Ordered Slices
 
-Prerequisite: **TSH-S00 through TSH-S04** from `05_ThreadStore_Hardening.md`.
+Prerequisite: **TSH-S00 through TSH-S04** from archived
+[`05_ThreadStore_Hardening.md`](../../archive/phases/05_ThreadStore_Hardening.md).
 
 - [ ] UNR-S01 - Add `ThreadReadCursor` to Core, Codable migration fixtures, and
   pure unread derivation helpers, including landed-after-read, nil-cursor,

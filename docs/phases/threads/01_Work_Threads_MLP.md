@@ -94,8 +94,10 @@ WorkThread.preview         = most recent message/reply excerpt
 ```
 
 Fast follow `06_Unread_Message_Light.md` adds `ThreadReadCursor` and derives
-`WorkThread.hasUnread` from the cursor plus unread-eligible turns. Requires
-`05_ThreadStore_Hardening.md` first. Do not infer unread from `updatedAt`.
+`WorkThread.hasUnread` from the cursor plus unread-eligible turns. Requires the
+archived ThreadStore hardening gate first:
+`../../archive/phases/05_ThreadStore_Hardening.md`. Do not infer unread from
+`updatedAt`.
 
 ```text
 ThreadTurn
@@ -460,7 +462,8 @@ resume):
   `ThreadMarkdown` (currently a viewing transcript) into a full export bundle
   that pulls linked run artifacts by `runId`.
 - **Fast-follow docs (separate phases, not started):**
-  `05_ThreadStore_Hardening.md`, `06_Unread_Message_Light.md`,
+  `../../archive/phases/05_ThreadStore_Hardening.md`,
+  `06_Unread_Message_Light.md`,
   `07_Threads_2_0.md`, `02_Notifications.md`,
   `03_Mac_Streaming.md`, `04_Observed_Usage.md`.
 

@@ -6,7 +6,7 @@
 **Process:** `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
 **Depends on:** [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md),
-[`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md),
+[`ThreadStore Hardening`](../archive/phases/05_ThreadStore_Hardening.md),
 [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md),
 [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md)
 
@@ -16,7 +16,7 @@
 
 CR4b is built. Do not re-run the CR4 send packet for this feature.
 
-[`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md) is **BUILT**
+[`ThreadStore Hardening`](../archive/phases/05_ThreadStore_Hardening.md) is **BUILT**
 (TSH-S00–S07). Backend/headless slices CIA-S00 through CIA-S07 are **BUILT** (2026-06-17).
 Remaining work is GUI-only: paste/attach (S03), timeline chips (S04), visual proof seal
 (S08), drag-and-drop (S09). The rest of `docs/phases/threads/` is **not** a prerequisite

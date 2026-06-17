@@ -1,5 +1,6 @@
 # 05 - ThreadStore Hardening
 
+Archived: 2026-06-17
 Status: **TSH-S00–S07 BUILT** (2026-06-17) — implementation prerequisite for unread and Threads 2.0
 Owner: AllnighterEngine (+ AllnighterCore schema helpers)
 Updated: 2026-06-17

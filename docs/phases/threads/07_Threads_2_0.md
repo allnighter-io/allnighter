@@ -1,18 +1,19 @@
 # 07 - Threads 2.0
 
-Status: Draft founder packet — rail controls after ThreadStore hardening + unread
+Status: Draft founder packet — rail controls after 06 Unread Message Light
 Owner: AllnighterMac GUI + AllnighterEngine (store mutations)
 Updated: 2026-06-17
 
 ## Requires
 
 ```text
-05_ThreadStore_Hardening.md  — serialized writes, explicit mutation APIs, timestamp law
+../../archive/phases/05_ThreadStore_Hardening.md  — serialized writes, explicit mutation APIs, timestamp law
 06_Unread_Message_Light.md     — read cursor, hasUnread derivation, unread light
 ```
 
-Do not implement Threads 2.0 rail controls until both prerequisites are complete.
-GUI must call `ThreadStore` methods from doc 05; unread rendering follows doc 06.
+Do not implement Threads 2.0 rail controls until 06 is complete. GUI must call
+the hardened `ThreadStore` methods from archived doc 05; unread rendering follows
+doc 06.
 
 ## Founder Intent
 

@@ -17,7 +17,7 @@ and the Home rail has filters/search plus Pinned/Recent grouping.
 
 Use [`Persistent_Work_Threads.md`](../../phases/Persistent_Work_Threads.md) as the live router.
 The next thread-foundation work is
-[`threads/05_ThreadStore_Hardening.md`](../../phases/threads/05_ThreadStore_Hardening.md).
+[`05_ThreadStore_Hardening.md`](05_ThreadStore_Hardening.md).
 Do not execute this CR4 packet as fresh implementation work.
 
 ## 0. Read first

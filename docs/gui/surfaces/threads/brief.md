@@ -12,7 +12,7 @@ team/build turn cards (the `richRow` here is a placeholder). See
 **Visual kit:** docs/design-system/ (tokens: `AllnighterTokens.swift`)
 **Behavioral owner:** docs/phases/Persistent_Work_Threads.md +
 docs/phases/threads/01_Work_Threads_MLP.md +
-docs/phases/threads/05_ThreadStore_Hardening.md +
+docs/archive/phases/05_ThreadStore_Hardening.md +
 docs/phases/threads/06_Unread_Message_Light.md +
 docs/phases/threads/07_Threads_2_0.md
 **Core contracts:** `WorkThread`, `ThreadTurn`, `ThreadContextPacket`,
@@ -23,7 +23,8 @@ This brief covers the **ThreadList** (triage inbox) and the **ThreadTimeline**
 (turns + always-visible composer). While both the legacy `ThreadsView` sidebar
 and CR4 `HomeView` conversation rail exist, any WorkThread rail must render the
 same derived unread truth and triage order from `06_Unread_Message_Light.md` and
-`07_Threads_2_0.md`. Store mutations go through `05_ThreadStore_Hardening.md`.
+`07_Threads_2_0.md`. Store mutations go through the archived hardening contract
+in `docs/archive/phases/05_ThreadStore_Hardening.md`.
 
 ---
 

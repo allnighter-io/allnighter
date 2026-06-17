@@ -74,16 +74,16 @@ Build in this order:
      warning, lazy legacy-run migration, and full thread export with linked run
      artifacts. Keep these in `01_Work_Threads_MLP.md` until resliced.
 
-2. [`threads/05_ThreadStore_Hardening.md`](threads/05_ThreadStore_Hardening.md)
-   — **defer here before unread or rail controls**
-   - Engine prerequisite: serialized writes, explicit mutation APIs, atomic
-     `thread.json` persistence, and `updatedAt`/transcript law.
-   - Also owns `WorkThread.formatVersion`, duplicate id/turn-id rejection,
+2. [`ThreadStore Hardening`](../archive/phases/05_ThreadStore_Hardening.md)
+   — **BUILT / archived**
+   - Engine prerequisite is complete: serialized writes, explicit mutation APIs,
+     atomic `thread.json` persistence, and `updatedAt`/transcript law.
+   - Also delivered `WorkThread.formatVersion`, duplicate id/turn-id rejection,
      context-packet reference integrity, and the no-raw-save caller gate.
-   - Unread and rail controls must not ship on the current broad `save(_:)` path.
+   - Unread and rail controls can now build on this archived gate.
 
 3. [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md)
-   — **defer here after 05**
+   — **execution-ready now that archived 05 is built**
    - Durable read cursors and the Mac rail indication light when worker/team/dispatch
      work lands unseen.
    - This is the inbox freshness loop: what changed while the floor manager was
@@ -94,7 +94,7 @@ Build in this order:
      exists.
 
 4. [`threads/07_Threads_2_0.md`](threads/07_Threads_2_0.md) — **not started**
-   **defer here after 05 + 06**
+   **defer here after 06**
    - Rename, pin, archive, archive view, and one triage order on Home + legacy
      Threads rails.
    - Home and legacy rails must converge on one presenter triage function before
@@ -134,7 +134,8 @@ Build in this order:
 - **Thread liveness is derived.** Running, failed, waiting, and needs-attention
   states are computed from turns, not stored as drift-prone thread flags.
 - **Thread mutations are store-gated.** All durable thread writes go through
-  explicit `ThreadStore` methods after `threads/05_ThreadStore_Hardening.md`.
+  explicit `ThreadStore` methods; see archived proof in
+  `docs/archive/phases/05_ThreadStore_Hardening.md`.
 - **Thread schema evolves deliberately.** `WorkThread.formatVersion` and typed
   store errors own migration and duplicate-id safety; UI code must not infer
   durable meaning from missing fields.
@@ -203,8 +204,8 @@ Still missing / deferred:
 - Core-loop gaps still owned by `01_Work_Threads_MLP.md`: editable work-order
   turns, return-review turns, team-result writer default + switch-away warning,
   lazy legacy-run migration, and full thread export with linked run artifacts.
-- ThreadStore hardening and explicit mutation APIs defer to
-  `05_ThreadStore_Hardening.md`.
+- ThreadStore hardening and explicit mutation APIs are built and archived at
+  `docs/archive/phases/05_ThreadStore_Hardening.md`.
 - Read cursor and unread/new-message indication light defer to
   `06_Unread_Message_Light.md`.
 - Rename/pin/archive/archive-view rail controls defer to `07_Threads_2_0.md`.
