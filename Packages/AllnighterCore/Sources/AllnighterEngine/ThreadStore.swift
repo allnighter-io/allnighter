@@ -297,9 +297,13 @@ public struct ThreadStore: Sendable {
         return directory
     }
 
-    /// Test hook for cursor-only persistence before `markRead` ships (06).
-    internal func testPersistCursor(_ thread: WorkThread) throws -> URL {
-        try synchronized { try persistCursor(thread) }
+    /// Test hook for cursor-only persistence before `markRead` ships (06). Reloads
+    /// under the write lock so callers cannot pass a stale `WorkThread` snapshot.
+    internal func testPersistCursor(threadId: String) throws -> URL {
+        try synchronized {
+            guard let thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            return try persistCursor(thread)
+        }
     }
 
     private func preparedThreadDirectory(for thread: WorkThread) throws -> URL {

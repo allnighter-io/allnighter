@@ -1,6 +1,6 @@
 # 05 - ThreadStore Hardening
 
-Status: Draft founder packet — **implementation prerequisite** for unread and Threads 2.0
+Status: **TSH-S00–S07 BUILT** (2026-06-17) — implementation prerequisite for unread and Threads 2.0
 Owner: AllnighterEngine (+ AllnighterCore schema helpers)
 Updated: 2026-06-17
 
@@ -467,7 +467,7 @@ Do not implement 06 or 07 until 05 proof wall is green.
   including CR4 team/design/dispatch append/update paths.
 - [x] TSH-S06 - Document + enforce caller allowlist; grep gate in
   `scripts/check.sh` or audit test that app sources do not call `saveForImport`.
-- [ ] TSH-S07 - Unit proof wall: timestamp law table, transcript byte identity,
+- [x] TSH-S07 - Unit proof wall: timestamp law table, transcript byte identity,
   archive-clears-pin, packet-reference invariant, duplicate-id/turn-id rejection,
   atomic read under concurrent writes.
 

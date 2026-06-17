@@ -274,13 +274,69 @@ final class ThreadStoreTests: XCTestCase {
         let before = try Data(contentsOf: transcriptURL)
         let updatedAt = seeded.updatedAt
 
-        guard let loaded = store.get("a") else {
+        guard store.get("a") != nil else {
             return XCTFail("missing thread")
         }
-        _ = try store.testPersistCursor(loaded)
+        _ = try store.testPersistCursor(threadId: "a")
         let after = try Data(contentsOf: transcriptURL)
         XCTAssertEqual(before, after)
         XCTAssertEqual(store.get("a")?.updatedAt, updatedAt)
+    }
+
+    func testAppendTurnRejectsMissingContextPacket() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try store.saveForImport(thread("a", updatedAt: t0))
+        let turn = ThreadTurn(
+            id: "w1", threadId: "a", kind: .workerChat, status: .done,
+            createdAt: t0, author: .worker, text: "hi", workerId: "model_opus",
+            contextPacketId: "missing-packet"
+        )
+        XCTAssertThrowsError(try store.appendTurn(turn, toThreadId: "a", now: t1)) { error in
+            XCTAssertEqual(error as? ThreadStoreError, .missingContextPacket("missing-packet"))
+        }
+        XCTAssertTrue(store.get("a")?.turns.isEmpty ?? false)
+    }
+
+    func testUpdateTurnRejectsMissingContextPacket() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try store.saveForImport(thread("a", updatedAt: t0))
+        let running = ThreadTurn(
+            id: "w1", threadId: "a", kind: .workerChat, status: .running,
+            createdAt: t0, author: .worker, workerId: "model_opus"
+        )
+        try store.appendTurn(running, toThreadId: "a", now: t0)
+
+        var settled = running
+        settled.status = .done
+        settled.text = "answer"
+        settled.contextPacketId = "missing-packet"
+        XCTAssertThrowsError(try store.updateTurn(settled, inThreadId: "a", now: t1)) { error in
+            XCTAssertEqual(error as? ThreadStoreError, .missingContextPacket("missing-packet"))
+        }
+        XCTAssertEqual(store.get("a")?.turns.first?.status, .running)
+    }
+
+    func testRenameAloneDoesNotChangeListRecencyOrder() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try store.saveForImport(thread("old", updatedAt: t0))
+        try store.saveForImport(thread("new", updatedAt: t1))
+        _ = try store.renameThread(threadId: "old", title: "Renamed old")
+        XCTAssertEqual(store.list().map(\.id), ["new", "old"])
+    }
+
+    func testSaveForImportPreservesCallerUpdatedAt() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let imported = thread("a", updatedAt: t0)
+        _ = try store.saveForImport(imported)
+        XCTAssertEqual(store.get("a")?.updatedAt, t0)
     }
 
     // MARK: - Derived run -> thread index (PWT-S02)

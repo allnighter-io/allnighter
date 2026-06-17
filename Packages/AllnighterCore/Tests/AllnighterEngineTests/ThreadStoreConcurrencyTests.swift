@@ -133,4 +133,32 @@ final class ThreadStoreConcurrencyTests: XCTestCase {
         XCTAssertEqual(storeA.get("shared")?.turns.count, 1)
         XCTAssertEqual(storeA.get("shared")?.turns.first?.id, "dup")
     }
+
+    func testConcurrentAppendAndCursorPersistRetainAllTurns() async throws {
+        let root = freshRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let storeA = ThreadStore(rootDirectory: root)
+        let storeB = ThreadStore(rootDirectory: root)
+        let epoch = Self.epoch
+        _ = try storeA.create(id: "shared", title: "Shared", now: epoch)
+
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for i in 0..<40 {
+                    let turn = Self.userTurn("turn-a-\(i)", threadId: "shared", createdAt: epoch)
+                    _ = try? storeA.appendTurn(turn, toThreadId: "shared", now: epoch.addingTimeInterval(Double(i)))
+                }
+            }
+            group.addTask {
+                for _ in 0..<40 {
+                    _ = try? storeB.testPersistCursor(threadId: "shared")
+                }
+            }
+        }
+
+        let final = storeA.get("shared")
+        XCTAssertEqual(final?.turns.count, 40)
+        XCTAssertEqual(Set(final?.turns.map(\.id) ?? []).count, 40)
+    }
 }
