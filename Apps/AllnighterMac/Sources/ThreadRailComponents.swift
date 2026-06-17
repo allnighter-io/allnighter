@@ -21,7 +21,9 @@ enum ThreadRailComponents {
         }
 
         private var lightColor: Color {
-            ThreadsPresenter.unreadNeedsAttention(thread) ? ALColor.statusFailed : ALColor.accent
+            // Normal unread = the soft amber (#FFD79E, founder spec); a failed /
+            // blocking unread escalates to red.
+            ThreadsPresenter.unreadNeedsAttention(thread) ? ALColor.statusFailed : ALPalette.amber300
         }
     }
 
