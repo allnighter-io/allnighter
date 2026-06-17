@@ -1,18 +1,17 @@
 # Agent-First MCP and Messaging Workflows
 
-Status: PARTIAL — bootstrap/preflight/discovery + retrieval BUILT (2026-06-16,
-branch `feat/design-chain`). Shipped: Core `AgentReadiness` (mcp_hello readiness),
-`TeamPreflight` (pure, no run/quota), `SpecRetrieval`; MCP tools `mcp_hello`,
-`teams_list`, `team_preflight`, `team_ask` (+lane/team/effort/type), `team_show`,
+Status: PARTIAL — bootstrap/preflight/discovery + retrieval + A0 async team loop
+BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
+(pure, no run/quota), `SpecRetrieval`; MCP tools `mcp_hello`, `teams_list`,
+`team_preflight`, `team_ask` (+lane/team/effort/type), `team_show`,
 `error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
-hello|preflight|teams`, `alln spec`). 278 tests + Mac build green. DEFERRED (need
-`Journal0` + resident `alln serve` coordinator): async A0 team_start/status/
-result/cancel. DEFERRED (need Pending0/Pending1/Pending2): A1 Pending-over-MCP.
-Still deferred: doctor schema-v2 remedy tiers/humanActions, A3 install artifacts,
-A4 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
-(Agents can run work today synchronously via `team_ask` → full TeamRunJSON.)
+hello|preflight|teams`, `alln spec`); async `team_start`, `team_status`,
+`team_result`, and `team_cancel` over Journal0 + Serve0. DEFERRED (needs
+Pending0/Pending1/Pending2): A1 Pending-over-MCP. Still deferred: doctor
+schema-v2 remedy tiers/humanActions, A3 install artifacts, A4 messaging UX, A5
+provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
-Updated: 2026-06-16
+Updated: 2026-06-17
 
 ## Founder Intent
 
@@ -129,13 +128,13 @@ Existing useful substrate:
 - `DoctorResult` exists for recovery.
 - Pending has an approved CLI-first phase doc.
 - Fanout Team Catalog defines the future lane/team/effort backend.
+- Journal0 and Serve0 are built.
+- Async team lifecycle is built for CLI/MCP:
+  `team_start`, `team_status`, `team_result`, and `team_cancel`.
 
 Current gaps:
 
-- MCP does not yet expose async team start/status/result.
 - MCP does not yet expose Pending Draft/Pending/Running operations.
-- MCP does not yet expose full spec/result retrieval as a first-class operation.
-- MCP does not yet expose an agent bootstrap/hello contract.
 - Doctor/auto-fix does not yet form a closed recovery loop for headless agents.
 - Doctor results do not yet classify remedies by who can perform them.
 - No OpenClaw/Hermes install artifact exists.
@@ -1374,6 +1373,9 @@ Completion gate:
   `blockedReason`.
 
 ### A0 - Agent-facing MCP async team loop
+
+Status: **BUILT** (commits `c315435` and `a35bd86`; async lifecycle and MCP
+handler tests exist). Keep this section as the contract/reference for regressions.
 
 Prerequisites:
 

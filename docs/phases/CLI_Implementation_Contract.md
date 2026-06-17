@@ -845,6 +845,10 @@ health shape that A0 can depend on.
 contract is async: accepted run id first, status/result later, idempotency before
 duplicate work, and orphan recovery from the incremental journal.
 
+Status note (2026-06-17): `Journal0`, `Serve0`, and `A0` are built. The next
+bridge item is `Pending0`/`Pending1` from `Pending_Work_And_Drain.md`; do not
+start `Pending2` drain until the local Pending model and CLI CRUD are real.
+
 ## Pending CLI Contract
 
 Authority:
