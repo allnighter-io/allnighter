@@ -25,6 +25,9 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     /// Snapshot of the resolved skill's display name at run start, so history
     /// stays readable after a skill update (catalog runs set this).
     public var skillName: String?
+    /// Exact prompt payload assembled for this worker (skill template + context).
+    /// Populated on catalog runs; omitted from the default public TeamRunJSON.
+    public var resolvedWorkerPromptSnapshot: String?
     /// Stage this worker runs in: answer (blind), review (after answers), or plan
     /// (the synthetic output writer). `nil` on legacy runs → treated as answer.
     public var purpose: WorkerStage?
@@ -37,6 +40,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         instanceIndex: Int,
         skillId: String? = nil,
         skillName: String? = nil,
+        resolvedWorkerPromptSnapshot: String? = nil,
         purpose: WorkerStage? = nil,
         label: String? = nil
     ) {
@@ -45,6 +49,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         self.instanceIndex = instanceIndex
         self.skillId = skillId
         self.skillName = skillName
+        self.resolvedWorkerPromptSnapshot = resolvedWorkerPromptSnapshot
         self.purpose = purpose
         self.label = label
     }

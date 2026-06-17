@@ -530,6 +530,11 @@
           "name" : "json",
           "summary" : "Emit the run as TeamRunJSON.",
           "takesValue" : false
+        },
+        {
+          "name" : "full",
+          "summary" : "Include resolved worker prompt snapshots (audit).",
+          "takesValue" : false
         }
       ],
       "milestone" : "m1",
@@ -1660,6 +1665,12 @@
           "required" : true,
           "summary" : "A run id or `latest`.",
           "type" : "string"
+        },
+        {
+          "name" : "full",
+          "required" : false,
+          "summary" : "Include resolved worker prompt snapshots (audit).",
+          "type" : "boolean"
         }
       ],
       "summary" : "Show one run as TeamRunJSON."

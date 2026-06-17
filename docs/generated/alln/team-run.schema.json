@@ -486,6 +486,12 @@
           ],
           "type" : "string"
         },
+        "resolvedWorkerPromptSnapshot" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "skillId" : {
           "type" : [
             "string",

@@ -15,14 +15,17 @@ public enum TeamRunJSONMapper {
         public var effort: String?
         public var runJournalPath: String
         public var reproduceCommand: String?
+        public var includeWorkerPromptSnapshots: Bool
         public init(
             promptSource: TeamRunJSON.PromptSource = .init(kind: .positional),
             lane: String? = nil, type: String? = nil, effort: String? = nil,
-            runJournalPath: String, reproduceCommand: String? = nil
+            runJournalPath: String, reproduceCommand: String? = nil,
+            includeWorkerPromptSnapshots: Bool = false
         ) {
             self.promptSource = promptSource; self.lane = lane; self.type = type
             self.effort = effort; self.runJournalPath = runJournalPath
             self.reproduceCommand = reproduceCommand
+            self.includeWorkerPromptSnapshots = includeWorkerPromptSnapshots
         }
     }
 
@@ -37,6 +40,7 @@ public enum TeamRunJSONMapper {
         let workers = run.workers.map { w in
             TeamRunJSON.WorkerInfo(
                 id: w.id, skillId: w.skillId, skillName: w.skillName ?? w.label ?? w.skillId,
+                resolvedWorkerPromptSnapshot: context.includeWorkerPromptSnapshots ? w.resolvedWorkerPromptSnapshot : nil,
                 modelId: w.modelId, modelName: modelName(w.modelId), sourceId: sourceId(w.modelId),
                 purpose: workerPurpose(w.purpose), instanceIndex: w.instanceIndex
             )

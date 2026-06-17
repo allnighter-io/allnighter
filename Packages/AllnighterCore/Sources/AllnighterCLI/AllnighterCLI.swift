@@ -705,22 +705,25 @@ struct AllnighterCLI {
 
     /// Default projection context for a persisted run (journal path + reproduce
     /// command derived from the run's own catalog facts).
-    static func defaultRunContext(_ run: TeamRun) -> TeamRunJSONMapper.Context {
+    static func defaultRunContext(_ run: TeamRun, full: Bool = false) -> TeamRunJSONMapper.Context {
         let path = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path ?? ""
-        return .init(runJournalPath: path, reproduceCommand: reproduceCommand(run))
+        return .init(runJournalPath: path, reproduceCommand: reproduceCommand(run), includeWorkerPromptSnapshots: full)
     }
 
-    /// `alln show <run-id|latest> [--json]` — show one run.
+    /// `alln show <run-id|latest> [--json] [--full]` — show one run.
     static func runShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let ref = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json] [--full]\n".utf8)); exit(2)
         }
         guard let run = resolveRun(ref) else {
             emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
         }
         if opts.flag("json") {
-            print(jsonString(TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: defaultRunContext(run))))
+            print(jsonString(TeamRunJSONMapper.map(
+                run, models: runtime.models, manifests: runtime.registry.all,
+                context: defaultRunContext(run, full: opts.flag("full"))
+            )))
         } else {
             print("Run \(run.id) · \(run.status.rawValue)")
             print(run.prompt)

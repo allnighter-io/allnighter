@@ -69,7 +69,8 @@ public extension ContractRegistry {
         MCPToolSpec("history", command: "history", summary: "Search prior local team runs (read-only, zero cost).",
                     params: [.init("query", required: true, summary: "Search text.")]),
         MCPToolSpec("show", command: "show", summary: "Show one run as TeamRunJSON.",
-                    params: [.init("run", required: true, summary: "A run id or `latest`.")],
+                    params: [.init("run", required: true, summary: "A run id or `latest`."),
+                             .init("full", type: "boolean", summary: "Include resolved worker prompt snapshots (audit).")],
                     outputSchema: .teamRunJSON),
         MCPToolSpec("doctor", command: "doctor", summary: "Diagnostics report; quota-free unless `full` is set.",
                     params: [.init("full", type: "boolean", summary: "Run smoke probes (spends quota).")],
@@ -207,7 +208,8 @@ public extension ContractRegistry {
         CommandSpec(
             "show", summary: "Show one run.", milestone: .m1,
             args: [ArgSpec("run-id|latest", required: true, summary: "A run id or `latest`.")],
-            flags: [FlagSpec("json", summary: "Emit the run as TeamRunJSON.")],
+            flags: [FlagSpec("json", summary: "Emit the run as TeamRunJSON."),
+                    FlagSpec("full", summary: "Include resolved worker prompt snapshots (audit).")],
             outputSchema: .teamRunJSON, exampleIds: ["show_latest_json"]
         ),
         CommandSpec(

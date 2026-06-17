@@ -101,7 +101,10 @@ struct MCPServer {
             guard let run = AllnighterCLI.resolveRun(ref) else {
                 return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
             }
-            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: AllnighterCLI.defaultRunContext(run))
+            let full = (args["full"] as? Bool) ?? false
+            let trj = TeamRunJSONMapper.map(
+                run, models: runtime.models, manifests: runtime.registry.all,
+                context: AllnighterCLI.defaultRunContext(run, full: full))
             respond(id: id, result: toolText("Run \(run.id) · \(run.status.rawValue)", structured: AllnighterCLI.jsonString(trj)))
         case "doctor":
             let doc = await AllnighterCLI.doctorResult(runtime, full: (args["full"] as? Bool) ?? false)

@@ -150,13 +150,15 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var id: String
         public var skillId: String?
         public var skillName: String?
+        public var resolvedWorkerPromptSnapshot: String?
         public var modelId: String
         public var modelName: String
         public var sourceId: String
         public var purpose: WorkerPurpose
         public var instanceIndex: Int
-        public init(id: String, skillId: String? = nil, skillName: String? = nil, modelId: String, modelName: String, sourceId: String, purpose: WorkerPurpose, instanceIndex: Int) {
+        public init(id: String, skillId: String? = nil, skillName: String? = nil, resolvedWorkerPromptSnapshot: String? = nil, modelId: String, modelName: String, sourceId: String, purpose: WorkerPurpose, instanceIndex: Int) {
             self.id = id; self.skillId = skillId; self.skillName = skillName
+            self.resolvedWorkerPromptSnapshot = resolvedWorkerPromptSnapshot
             self.modelId = modelId; self.modelName = modelName; self.sourceId = sourceId
             self.purpose = purpose; self.instanceIndex = instanceIndex
         }

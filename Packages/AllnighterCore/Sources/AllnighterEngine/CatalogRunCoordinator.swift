@@ -62,14 +62,16 @@ public actor CatalogRunCoordinator {
         persist?(run) // durable state before any worker executes
 
         // Stage 1 — answer workers, blind and parallel.
-        let answers = await runWorkers(resolved.answerWorkers, prompt: prompt, modelByID: modelByID, runId: run.id)
+        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: prompt, modelByID: modelByID, runId: run.id)
+        applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
 
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
             let reviewPrompt = prompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
-            let reviews = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, modelByID: modelByID, runId: run.id)
+            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, modelByID: modelByID, runId: run.id)
+            applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
         }
@@ -81,7 +83,8 @@ public actor CatalogRunCoordinator {
         if let writer = resolved.planWriter, !run.answeredWorkers.isEmpty {
             run = transition(run, to: .planning)
             persist?(run)
-            let stage = await runWriter(writer, resolved: resolved, run: run, modelByID: modelByID)
+            let (stage, writerSnapshot) = await runWriter(writer, resolved: resolved, run: run, modelByID: modelByID)
+            if let writerSnapshot { applySnapshots([writer.id: writerSnapshot], to: &run) }
             run.stages.append(stage)
             run = transition(run, to: stage.status == .done ? .complete : .partial)
         } else {
@@ -96,17 +99,19 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Stages
 
-    private func runWorkers(_ workers: [Worker], prompt: String, modelByID: [String: Model], runId: String) async -> [WorkerAnswer] {
+    private func runWorkers(_ workers: [Worker], prompt: String, modelByID: [String: Model], runId: String) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
+        var snapshots: [String: String] = [:]
         for worker in workers {
             emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
         }
         let runner = workerRunner
         let registry = self.registry
-        return await withTaskGroup(of: WorkerAnswer.self) { group in
+        let answers = await withTaskGroup(of: WorkerAnswer.self) { group in
             for worker in workers {
                 let model = modelByID[worker.modelId]
                 let manifest = model.flatMap { registry.manifest(for: $0) }
                 let workerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: prompt)
+                snapshots[worker.id] = workerPrompt
                 group.addTask {
                     guard let model else {
                         return WorkerAnswer(workerId: worker.id, modelId: worker.modelId, status: .failed,
@@ -127,18 +132,19 @@ public actor CatalogRunCoordinator {
             }
             return collected
         }
+        return (answers, snapshots)
     }
 
-    private func runWriter(_ writer: Worker, resolved: ResolvedTeamRun, run: TeamRun, modelByID: [String: Model]) async -> StageOutput {
+    private func runWriter(_ writer: Worker, resolved: ResolvedTeamRun, run: TeamRun, modelByID: [String: Model]) async -> (stage: StageOutput, promptSnapshot: String?) {
         let stageId = idFactory()
         let startedAt = now()
         emitStage(RunEventKind.stageStarted, runId: run.id, stageId: stageId, workerId: writer.id)
 
-        func fail(_ reason: String) -> StageOutput {
+        func fail(_ reason: String) -> (StageOutput, String?) {
             emitStage(RunEventKind.stageFailed, runId: run.id, stageId: stageId, workerId: writer.id)
-            return StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
+            return (StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
                                promptProfileId: writer.skillId, status: .failed,
-                               errorReason: reason, startedAt: startedAt, finishedAt: now())
+                               errorReason: reason, startedAt: startedAt, finishedAt: now()), nil)
         }
 
         guard let model = modelByID[writer.modelId], let manifest = registry.manifest(for: model), manifest.kind == .headlessCLI else {
@@ -150,9 +156,9 @@ public actor CatalogRunCoordinator {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }
         emitStage(RunEventKind.stageCompleted, runId: run.id, stageId: stageId, workerId: writer.id)
-        return StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
+        return (StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
                            promptProfileId: writer.skillId, status: .done,
-                           payload: .plan(markdown: markdown), startedAt: startedAt, finishedAt: now())
+                           payload: .plan(markdown: markdown), startedAt: startedAt, finishedAt: now()), writerPrompt)
     }
 
     // MARK: - Prompt assembly
@@ -201,6 +207,14 @@ public actor CatalogRunCoordinator {
         for answer in answers {
             if let i = run.workerAnswers.firstIndex(where: { $0.workerId == answer.workerId }) {
                 run.workerAnswers[i] = answer
+            }
+        }
+    }
+
+    private func applySnapshots(_ snapshots: [String: String], to run: inout TeamRun) {
+        for i in run.workers.indices {
+            if let snap = snapshots[run.workers[i].id] {
+                run.workers[i].resolvedWorkerPromptSnapshot = snap
             }
         }
     }

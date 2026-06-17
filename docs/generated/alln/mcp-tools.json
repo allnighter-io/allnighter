@@ -280,6 +280,12 @@
         "required" : true,
         "summary" : "A run id or `latest`.",
         "type" : "string"
+      },
+      {
+        "name" : "full",
+        "required" : false,
+        "summary" : "Include resolved worker prompt snapshots (audit).",
+        "type" : "boolean"
       }
     ],
     "summary" : "Show one run as TeamRunJSON."

@@ -7,6 +7,16 @@ final class TeamRunJSONMapperTests: XCTestCase {
     private func ctx() -> TeamRunJSONMapper.Context { .init(runJournalPath: "/tmp/run.json") }
     private func bench() throws -> [Model] { try Fixtures.models() }
 
+    func testWorkerPromptSnapshotsOmittedByDefaultIncludedWhenFull() throws {
+        var run = try Fixtures.run(.runComplete)
+        run.workers[0].resolvedWorkerPromptSnapshot = "SNAPSHOT_MARKER"
+        let defaultMap = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertNil(defaultMap.workers.first?.resolvedWorkerPromptSnapshot)
+        let fullCtx = TeamRunJSONMapper.Context(runJournalPath: "/tmp/run.json", includeWorkerPromptSnapshots: true)
+        let fullMap = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: fullCtx)
+        XCTAssertEqual(fullMap.workers.first?.resolvedWorkerPromptSnapshot, "SNAPSHOT_MARKER")
+    }
+
     func testCompleteRunMapsToDoneWithPlan() throws {
         let run = try Fixtures.run(.runComplete)            // internal status .complete
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())

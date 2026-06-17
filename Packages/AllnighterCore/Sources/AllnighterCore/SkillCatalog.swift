@@ -141,7 +141,7 @@ public enum SkillCatalog {
 
     /// Prefix the founder prompt with the skill template for one worker.
     public static func assemblePrompt(skillId: String?, founderPrompt: String) -> String {
-        guard let skillId, let skill = byID[skillId], !skill.template.isEmpty else { return founderPrompt }
+        guard let skillId, let skill = skill(skillId), !skill.template.isEmpty else { return founderPrompt }
         return "\(skill.template)\n\n\(founderPrompt)"
     }
 

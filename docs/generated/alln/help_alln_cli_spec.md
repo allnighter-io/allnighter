@@ -204,6 +204,7 @@ Arguments:
 
 Flags:
 - `--json` — Emit the run as TeamRunJSON.
+- `--full` — Include resolved worker prompt snapshots (audit).
 
 Output schema: `teamRunJSON`.
 
