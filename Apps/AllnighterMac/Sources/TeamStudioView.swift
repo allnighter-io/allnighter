@@ -119,6 +119,7 @@ private struct StudioTeamListView: View {
     let lane: ComposeLane
     @Environment(AppModel.self) private var appModel
     @State private var selectedId: TeamID?
+    @State private var editingBase: TeamPreset?
 
     private var teams: [TeamPreset] { TeamCatalog.list(lane: lane.workLane) }
     private var selected: TeamPreset? { teams.first { $0.id == selectedId } ?? teams.first }
@@ -131,33 +132,54 @@ private struct StudioTeamListView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Master — the lane's saved lineups.
-            VStack(alignment: .leading, spacing: 0) {
-                header("\(lane.label) teams",
-                       subtitle: "Saved \(lane.label.lowercased()) lineups. Pick one in the composer, or duplicate to tune it.")
-                ScrollView {
-                    VStack(spacing: 3) {
-                        ForEach(teams) { team in teamRow(team) }
+        ZStack(alignment: .trailing) {
+            HStack(spacing: 0) {
+                // Master — the lane's saved lineups.
+                VStack(alignment: .leading, spacing: 0) {
+                    header("\(lane.label) teams",
+                           subtitle: "Saved \(lane.label.lowercased()) lineups. Pick one in the composer, or duplicate to tune it.")
+                    ScrollView {
+                        VStack(spacing: 3) {
+                            ForEach(teams) { team in teamRow(team) }
+                        }
+                        .padding(.horizontal, 12).padding(.bottom, 12)
                     }
-                    .padding(.horizontal, 12).padding(.bottom, 12)
                 }
-            }
-            .frame(width: 300)
-            Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
+                .frame(width: 300)
+                Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
 
-            // Detail — the selected team's Skill → Model lineup.
-            Group {
-                if let team = selected {
-                    StudioTeamDetailView(team: team, models: appModel.models, readyModels: readyModels)
-                } else {
-                    StudioEmptyDetail(icon: lane.icon, message: "No \(lane.label.lowercased()) teams yet.")
+                // Detail — the selected team's Skill → Model lineup.
+                Group {
+                    if let team = selected {
+                        StudioTeamDetailView(team: team, models: appModel.models, readyModels: readyModels,
+                                             onEdit: { editingBase = team })
+                    } else {
+                        StudioEmptyDetail(icon: lane.icon, message: "No \(lane.label.lowercased()) teams yet.")
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Customize editor — a right-anchored drawer over a scrim. Nothing is
+            // saved until Save; Cancel drops the draft (built-ins never mutate).
+            if let base = editingBase {
+                ALColor.scrimSubtle.ignoresSafeArea()
+                    .onTapGesture { editingBase = nil }
+                TeamEditorView(
+                    base: base, lane: lane, models: appModel.models, readyModels: readyModels,
+                    onCancel: { editingBase = nil },
+                    onSaved: { id in selectedId = id; editingBase = nil }
+                )
+                .transition(.move(edge: .trailing))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+        .onAppear {
+            #if DEBUG
+            if GUIFixture.opensTeamEditor { editingBase = selected }
+            #endif
+        }
     }
 
     private func teamRow(_ team: TeamPreset) -> some View {
@@ -197,6 +219,7 @@ private struct StudioTeamDetailView: View {
     let team: TeamPreset
     let models: [Model]
     let readyModels: [Model]
+    var onEdit: () -> Void = {}
 
     private var rows: [TeamWorkerSpec] { team.activeRows(at: team.defaultEffort) }
     /// Who would actually run this team on the current bench (skill → real model).
@@ -251,8 +274,16 @@ private struct StudioTeamDetailView: View {
                     Text("Connect a CLI on the Bench to see who runs this team.")
                         .font(.system(size: 11)).foregroundStyle(ALColor.statusTimeout)
                 }
-                Text("Duplicate to edit, set-default, and the Customize editor arrive in the next slice.")
-                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint).padding(.top, 2)
+
+                HStack(spacing: 8) {
+                    Button(action: onEdit) {
+                        Label(team.builtIn ? "Duplicate to edit" : "Edit team", systemImage: "square.on.square")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .buttonStyle(.alSecondary(small: true))
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 4)
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
