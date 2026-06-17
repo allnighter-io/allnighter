@@ -269,7 +269,7 @@ Hash mismatch before invoke → `ATTACHMENT_HASH_MISMATCH`, fatal.
 - Send → **Preparing…** (law §3); image-only send allowed
 - Timeline chips render thumbnails from canonical bytes; context reveal shows
   thumbnails/list plus **"path sent to worker"** from the saved packet
-- Non-vision: composer badge; vision: privacy notice (worker CLI may upload)
+- Non-vision composer badge: optional, design-owned (not implementation law)
 - **DnD → CIA-S09 only** (last slice)
 
 ### CLI
