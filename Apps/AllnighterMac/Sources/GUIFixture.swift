@@ -164,6 +164,7 @@ enum GUIFixture {
         ("thread-dispatch", "Thread — execute → dispatch to repo"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
         ("studio-teams-build", "Team Studio — Build teams (detail)"),
+        ("studio-skills-build", "Team Studio — Build skills (detail)"),
         ("command-palette", "⌘K command palette"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),

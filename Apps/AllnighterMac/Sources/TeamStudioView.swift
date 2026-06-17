@@ -268,41 +268,117 @@ private struct StudioEmptyDetail: View {
 
 private struct StudioSkillListView: View {
     let lane: ComposeLane
+    @State private var selectedId: SkillID?
+
     private var skills: [Skill] { SkillCatalog.list(lane: lane.workLane) }
+    private var selected: Skill? { skills.first { $0.id == selectedId } ?? skills.first }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header("\(lane.label) skills", subtitle: "Prompt profiles for this lane — templates on detail in a later slice.")
-            List(skills) { skill in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(skill.displayName)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(ALColor.textPrimary)
-                        Text(skill.purpose.rawValue)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(ALColor.textFaint)
-                        if skill.builtIn {
-                            Text("Built-in")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(ALColor.textFaint)
-                        } else {
-                            Text("Custom")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(ALColor.accent)
-                        }
+        HStack(spacing: 0) {
+            // Master — the lane's skills (the hats a worker can wear).
+            VStack(alignment: .leading, spacing: 0) {
+                header("\(lane.label) skills",
+                       subtitle: "The hats your \(lane.label.lowercased()) models wear. Duplicate to tune one.")
+                ScrollView {
+                    VStack(spacing: 3) {
+                        ForEach(skills) { skill in skillRow(skill) }
                     }
-                    Text(skill.id)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(ALColor.textFaint)
+                    .padding(.horizontal, 12).padding(.bottom, 12)
                 }
-                .padding(.vertical, 4)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
+            .frame(width: 300)
+            Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
+
+            // Detail — the selected skill's compatibility + prompt template.
+            Group {
+                if let skill = selected {
+                    StudioSkillDetailView(skill: skill)
+                } else {
+                    StudioEmptyDetail(icon: "sparkles", message: "No \(lane.label.lowercased()) skills yet.")
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+    }
+
+    private func skillRow(_ skill: Skill) -> some View {
+        let on = selected?.id == skill.id
+        return Button { selectedId = skill.id } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(skill.displayName)
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                        .lineLimit(1)
+                    if !skill.builtIn {
+                        Text("Custom").font(.system(size: 9, weight: .bold)).foregroundStyle(ALColor.accent)
+                            .padding(.horizontal, 5).padding(.vertical, 1.5)
+                            .background(ALColor.accent.opacity(0.14), in: Capsule())
+                    }
+                    Spacer(minLength: 0)
+                }
+                Text("\(skill.builtIn ? "built-in" : "custom") · \(skill.purpose.rawValue)")
+                    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(on ? ALColor.active : .clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Read-only skill detail: name + built-in/custom + purpose, the lane it belongs
+/// to, and the prompt template. Duplicate-to-edit / new land in the editor slice.
+private struct StudioSkillDetailView: View {
+    let skill: Skill
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles").font(.system(size: 15)).foregroundStyle(ALColor.accent)
+                    Text(skill.displayName)
+                        .font(.system(size: 18, weight: .heavy)).tracking(-0.3)
+                        .foregroundStyle(ALColor.textPrimary)
+                    chip(skill.builtIn ? "Built-in · read-only" : "Custom", accent: !skill.builtIn)
+                    Spacer(minLength: 0)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("LANE · PURPOSE").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                    HStack(spacing: 6) {
+                        chip(skill.lane.rawValue.capitalized, accent: false)
+                        chip(skill.purpose.rawValue, accent: false)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("PROMPT TEMPLATE").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                    Text(skill.template)
+                        .font(.system(size: 12.5, design: .monospaced))
+                        .foregroundStyle(ALColor.textSecondary)
+                        .lineSpacing(3).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+                        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                }
+                Text("Duplicate to edit and New skill arrive in the editor slice.")
+                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(ALColor.base)
+    }
+
+    private func chip(_ t: String, accent: Bool) -> some View {
+        Text(t).font(.system(size: 11, weight: .medium))
+            .foregroundStyle(accent ? ALColor.accent : ALColor.textSecondary)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(accent ? ALColor.accent.opacity(0.12) : ALColor.surface, in: Capsule())
+            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
     }
 }
 
