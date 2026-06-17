@@ -123,6 +123,13 @@ private struct StudioTeamListView: View {
     private var teams: [TeamPreset] { TeamCatalog.list(lane: lane.workLane) }
     private var selected: TeamPreset? { teams.first { $0.id == selectedId } ?? teams.first }
 
+    /// The models confirmed ready on the bench — so the detail can show who would
+    /// actually run each role (concrete, not "Auto").
+    private var readyModels: [Model] {
+        let readyIds = Set(appModel.composeBench.filter(\.ready).map(\.id))
+        return appModel.models.filter { readyIds.contains($0.id) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Master — the lane's saved lineups.
@@ -142,7 +149,7 @@ private struct StudioTeamListView: View {
             // Detail — the selected team's Skill → Model lineup.
             Group {
                 if let team = selected {
-                    StudioTeamDetailView(team: team, models: appModel.models)
+                    StudioTeamDetailView(team: team, models: appModel.models, readyModels: readyModels)
                 } else {
                     StudioEmptyDetail(icon: lane.icon, message: "No \(lane.label.lowercased()) teams yet.")
                 }
@@ -189,8 +196,17 @@ private struct StudioTeamListView: View {
 private struct StudioTeamDetailView: View {
     let team: TeamPreset
     let models: [Model]
+    let readyModels: [Model]
 
     private var rows: [TeamWorkerSpec] { team.activeRows(at: team.defaultEffort) }
+    /// Who would actually run this team on the current bench (skill → real model).
+    private var resolved: ResolvedTeamRun {
+        TeamResolver.resolve(team: team, requestLane: team.lane,
+                             requestEffort: team.defaultEffort, readyModels: readyModels)
+    }
+    private var lineup: [Worker] {
+        resolved.answerWorkers + resolved.reviewWorkers + (resolved.planWriter.map { [$0] } ?? [])
+    }
 
     var body: some View {
         ScrollView {
@@ -207,7 +223,7 @@ private struct StudioTeamDetailView: View {
                 HStack(spacing: 6) {
                     chip(team.lane.rawValue.capitalized, accent: false)
                     chip(team.defaultEffort.rawValue.capitalized, accent: false)
-                    chip("\(rows.count) workers", accent: false)
+                    chip("\(lineup.isEmpty ? rows.count : lineup.count) workers", accent: false)
                     chip(team.outputKind.rawValue, accent: false)
                 }
 
@@ -218,18 +234,23 @@ private struct StudioTeamDetailView: View {
                         Text("MODEL").font(.system(size: 10, weight: .bold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                     }
                     .padding(.bottom, 4)
-                    ForEach(rows) { row in
-                        HStack {
-                            Text(skillName(row.skillId)).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                            Spacer(minLength: 12)
-                            Text(modelName(row.preferredModelId))
-                                .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+                    if lineup.isEmpty {
+                        // No ready bench → show the declared roles honestly.
+                        ForEach(rows) { row in
+                            tableRow(skill: skillName(row.skillId), model: "needs a ready CLI", muted: true)
                         }
-                        .padding(.vertical, 9)
-                        .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+                    } else {
+                        ForEach(lineup) { worker in
+                            tableRow(skill: worker.skillName ?? worker.skillId.map(skillName) ?? "Worker",
+                                     model: modelName(worker.modelId), muted: false)
+                        }
                     }
                 }
 
+                if lineup.isEmpty {
+                    Text("Connect a CLI on the Bench to see who runs this team.")
+                        .font(.system(size: 11)).foregroundStyle(ALColor.statusTimeout)
+                }
                 Text("Duplicate to edit, set-default, and the Customize editor arrive in the next slice.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint).padding(.top, 2)
             }
@@ -239,10 +260,21 @@ private struct StudioTeamDetailView: View {
         .background(ALColor.base)
     }
 
+    private func tableRow(skill: String, model: String, muted: Bool) -> some View {
+        HStack {
+            Text(skill).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+            Spacer(minLength: 12)
+            Text(model)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(muted ? ALColor.textFaint : ALColor.textSecondary)
+        }
+        .padding(.vertical, 9)
+        .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+
     private func skillName(_ id: String) -> String { SkillCatalog.get(id)?.displayName ?? id }
-    private func modelName(_ id: String?) -> String {
-        guard let id else { return "Auto (strongest ready)" }
-        return models.first { $0.id == id }?.displayName ?? id
+    private func modelName(_ id: String) -> String {
+        models.first { $0.id == id }?.displayName ?? id
     }
     private func chip(_ t: String, accent: Bool) -> some View {
         Text(t).font(.system(size: 11, weight: .medium))

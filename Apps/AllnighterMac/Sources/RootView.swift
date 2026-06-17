@@ -191,7 +191,9 @@ struct RootView: View {
                 }
                 if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
                 if GUIFixture.opensTeamStudio {
-                    model.applyDevBenchScenario("readiness-mixed")
+                    // CLIs page shows a mixed bench (exercises repair); Teams/Skills
+                    // pages need a ready bench so the lineup resolves to real models.
+                    model.applyDevBenchScenario(GUIFixture.active == "studio-clis" ? "readiness-mixed" : "team-open-ready")
                     studioInitialRoute = GUIFixture.studioRoute
                     showTeamStudio = true
                 }
