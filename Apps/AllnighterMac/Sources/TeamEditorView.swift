@@ -29,11 +29,13 @@ struct TeamDraft: Equatable {
         var promptBaseSkillId: String? = nil
     }
 
-    /// Seed from a base team. A built-in seeds a "(custom)" name; rows pre-fill with
-    /// the row's pinned model, else a concrete default so the user starts with names.
+    /// Seed from a base team. The name stays the base team's real name — selecting a
+    /// built-in must NOT preemptively rename it to "(custom)"; that only happens at
+    /// Save (see `commit()`). Rows pre-fill with the row's pinned model, else a
+    /// concrete default so the user starts with real names.
     init(base: TeamPreset, defaultModelId: String?) {
         self.base = base
-        self.name = base.builtIn ? "\(base.displayName) (custom)" : base.displayName
+        self.name = base.displayName
         self.allowSubstitutions = true
         self.rows = base.activeRows(at: base.defaultEffort).map { spec in
             Row(id: UUID().uuidString, skillId: spec.skillId,
@@ -61,6 +63,9 @@ struct TeamDraft: Equatable {
     @discardableResult
     func commit() throws -> TeamID {
         let fallback: ModelFallbackPolicy = allowSubstitutions ? .laneCapable : .exactOnly
+        // Built-ins become "<name> (custom)" only at Save, and only if the user
+        // didn't already rename it — never preemptively on selection.
+        let saveName = (base.builtIn && name == base.displayName) ? "\(name) (custom)" : name
         var forkedSkillIds: [SkillID] = []
         var duplicatedTeamId: TeamID?
 
@@ -75,7 +80,7 @@ struct TeamDraft: Equatable {
                 let skillId: String
                 if let prompt = row.promptDraft?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty {
                     let source = SkillCatalog.get(row.skillId)
-                    let forkName = "\(source?.displayName ?? row.skillId) for \(name)"
+                    let forkName = "\(source?.displayName ?? row.skillId) for \(saveName)"
                     let custom = try SkillCatalog.createCustom(
                         lane: base.lane,
                         name: forkName,
@@ -97,14 +102,14 @@ struct TeamDraft: Equatable {
             // 2) Save the custom team. Built-in source → duplicate to a fresh custom.
             var team: TeamPreset
             if base.builtIn {
-                team = try TeamCatalog.duplicateBuiltIn(base.id, name: name)
+                team = try TeamCatalog.duplicateBuiltIn(base.id, name: saveName)
                 duplicatedTeamId = team.id
             } else if let existing = TeamCatalog.get(base.id) {
                 team = existing
             } else {
                 throw CatalogError.teamNotFound
             }
-            team.displayName = name
+            team.displayName = saveName
             team.workerSpecs = specs
             try TeamCatalog.saveCustom(team)
             return team.id

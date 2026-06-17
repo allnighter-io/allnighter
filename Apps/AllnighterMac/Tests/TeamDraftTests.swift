@@ -28,12 +28,22 @@ final class TeamDraftTests: XCTestCase {
     }
     private var buildSkill: String { SkillCatalog.list(lane: .build).first!.id }
 
-    func testSeedFromBuiltInMakesACustomDraft() {
+    func testSeedFromBuiltInKeepsRealNameUntilSaved() {
         let d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
-        XCTAssertTrue(d.name.contains("(custom)"), "a built-in seeds a custom name")
+        XCTAssertEqual(d.name, buildBase.displayName,
+                       "selecting a built-in must NOT preemptively rename it to (custom)")
+        XCTAssertFalse(d.name.contains("(custom)"))
         XCTAssertFalse(d.rows.isEmpty)
         XCTAssertTrue(d.rows.allSatisfy { $0.modelId != nil }, "rows pre-fill a concrete model")
         XCTAssertTrue(d.isSavable)
+    }
+
+    func testSavingAnUnrenamedBuiltInSuffixesCustomAtSaveTime() throws {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer, minEffort: .low)]
+        let id = try d.commit()
+        XCTAssertEqual(TeamCatalog.get(id)?.displayName, "\(buildBase.displayName) (custom)",
+                       "(custom) is appended only at Save, and only when the user didn't rename it")
     }
 
     func testNotSavableWithAModellessRow() {
@@ -110,7 +120,8 @@ final class TeamDraftTests: XCTestCase {
         let fork = try XCTUnwrap(customs.first { $0.template.contains("tuned product architect") })
         XCTAssertFalse(fork.builtIn)
         XCTAssertEqual(fork.lane, .build, "fork inherits the team lane")
-        XCTAssertEqual(fork.displayName, "\(originalName) for \(d.name)", "<Skill> for <Team> naming")
+        XCTAssertEqual(fork.displayName, "\(originalName) for \(team.displayName)",
+                       "<Skill> for <Team> naming — keyed to the SAVED team name (\"… (custom)\")")
         XCTAssertEqual(team.workerSpecs.first?.skillId, fork.id, "row repointed to the fork")
         XCTAssertEqual(SkillCatalog.get(originalSkillId)?.template, originalTemplate,
                        "the built-in skill is never mutated")
