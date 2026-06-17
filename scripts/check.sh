@@ -14,7 +14,7 @@ echo "==> assert dev.sh build path is TCC-safe"
 if grep -E '^DERIVED=' "$ROOT/scripts/dev.sh" | grep -qE '\$ROOT|\.build/'; then
   echo "check: scripts/dev.sh DERIVED points inside the repo — dev launch would" >&2
   echo "       run from ~/Documents and trigger TCC prompts. Keep it under" >&2
-  echo "       ~/Library (see Launch_Authority_TCC_Hotfix.md, slice H4)." >&2
+  echo "       ~/Library (see docs/archive/phases/Launch_Authority_TCC_Hotfix.md, slice H4)." >&2
   exit 1
 fi
 ran_any=true

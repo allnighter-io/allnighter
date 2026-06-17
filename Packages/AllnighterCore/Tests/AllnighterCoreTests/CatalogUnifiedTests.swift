@@ -4,6 +4,23 @@ import XCTest
 /// S01 — unified built-in catalogs; retired prompt libraries must not return.
 final class CatalogUnifiedTests: XCTestCase {
 
+    private var teamsRoot: URL!
+    private var skillsRoot: URL!
+
+    override func setUp() {
+        super.setUp()
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        teamsRoot = base.appendingPathComponent("teams", isDirectory: true)
+        skillsRoot = base.appendingPathComponent("skills", isDirectory: true)
+        CatalogRoots.overrideForTesting(teams: teamsRoot, skills: skillsRoot)
+    }
+
+    override func tearDown() {
+        CatalogRoots.resetTestingOverrides()
+        try? FileManager.default.removeItem(at: teamsRoot.deletingLastPathComponent())
+        super.tearDown()
+    }
+
     func testTeamCatalogExposesBuiltInTeams() {
         XCTAssertEqual(TeamCatalog.all.count, BuiltInTeams.all.count)
         XCTAssertEqual(TeamCatalog.get("build_bug_hunt")?.displayName, "Bug Hunt")

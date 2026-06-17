@@ -1,11 +1,11 @@
 # 01 — Connection Spine (cloud-first; the reusable core)
 
-Status: Draft — **finalized for implementation** (post round-4 review). Buildable in
-parallel with the Mac MVP. Foundation, not deferred GUI.
+Status: Draft — **finalized for future iOS implementation**, but deferred until
+the macOS app is done. Not a Mac blocker.
 Milestone: iOS (Remote Floor Manager)
 Owner: Mac + Shared Core
 Created: 2026-06-15
-Updated: 2026-06-15 (cloud-first pivot + hardening)
+Updated: 2026-06-17 (Mac-first reset)
 Depends on: `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
 §4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`, `../CLI_Product_Spine.md`,
 `../Work_Order_Team_Model.md` (vocabulary). Historical cleanup record:

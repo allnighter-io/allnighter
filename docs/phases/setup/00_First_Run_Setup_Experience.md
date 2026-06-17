@@ -1,8 +1,9 @@
 # First-Run Setup — The Experience ("Find your team")
 
 **Status:** BUILT (lean). Designers/agents follow this doc — it is the spec.
-**Surface:** A full-window, first-launch page on macOS (the same window the team
-runs in). Re-runnable later from the team dropdown / health badge.
+**Surface:** A full-window setup page on macOS (the same window the team runs
+in), reachable from the team dropdown / health badge. Current launch lands on
+clean Home; setup does not auto-open.
 **Owner:** Founder / GUI
 **Created:** 2026-06-15 · **Lean rewrite:** 2026-06-16
 **Visual SSOT:** `docs/design-system/` · **Build governance:** `docs/gui/GUI_Workflow.md`
@@ -75,10 +76,10 @@ catching up to reality, and it is the real reward loop.
 
 One page, no scenes.
 
-1. **First-run gate.** On launch, if setup was never completed
-   (`AppModel.hasCompletedSetup == false`), the app opens the **CLI setup page**
-   automatically. It is **process-quiet** (Launch Authority TCC hotfix): it
-   renders cached/unknown state and spawns nothing until the user acts.
+1. **Launch and entry.** On launch, the app lands on clean Home and loads cached
+   setup state only. The **CLI setup page** is reachable by user intent from the
+   team dropdown / health badge. It is **process-quiet**: it renders
+   cached/unknown state and spawns nothing until the user acts.
 2. **The roster (`TeamReadinessView`).** All supported CLIs in three groups:
    - **Ready** — green, version shown; the models that source powers.
    - **Needs a step** — found but not signed in / alias-or-path ambiguous /
@@ -166,8 +167,8 @@ is not ready. Setup, the popover, and the badge all read one source of truth
 ## 8. Design decisions (current)
 
 1. **No cinematic scenes.** No hero cold-open, no roll-call, no celebration, no
-   separate confirm/launch scenes. First-run = land on the CLI setup page.
-2. **No auto-scan on the auto-opened page.** Process-quiet: render cache; the
+   separate confirm/launch scenes. Setup is one page reached from Home.
+2. **No auto-scan on the setup page.** Process-quiet: render cache; the
    probe runs only on the explicit "Re-check all" click (one-time TCC prompt OK).
 3. **Non-trapping.** Never block the app behind setup; always offer a way back in.
 4. **"Add a tool you don't have"** lives inline on `not-installed` cards. No
@@ -184,11 +185,11 @@ is not ready. Setup, the popover, and the badge all read one source of truth
 - `TeamReadinessView` (full CLI setup page), `BenchRepairPanel` (contextual fix),
   `BenchHealthPopover` / `BenchHealthBadge` (compact roster), `BenchDropdownPanel`
   (team dropdown footer state-driven to "Open CLI setup").
-- First-run gating: `AppModel.hasCompletedSetup` / `markSetupCompleted`
-  (persisted via `SetupStore`); launch opens the page when unset.
+- Setup seen state: `AppModel.hasCompletedSetup` / `markSetupCompleted`
+  (persisted via `SetupStore`); current launch does not auto-open setup.
 - Detection: `CLIDetector` interactive `-lic` at explicit setup, common-bin-dirs
   + Spotlight fallback, gap detector `AppModel.unresolvedSupported`. See `01_…`
-  and `Launch_Authority_TCC_Hotfix.md` (rule 8).
+  and archived `Launch_Authority_TCC_Hotfix.md` (rule 8).
 - Dev review: the DEBUG **GUI routes** sheet has a **First-run onboarding** route
   plus CLI-setup page/popover and mixed-health scenarios.
 - Visual proof packets under `docs/qa/gui/setup/` (layout-watcher PASS).

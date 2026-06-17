@@ -648,12 +648,12 @@ final class AppModel {
         if !cached.records.isEmpty { toolStatuses = cached.records }
     }
 
-    /// First-run gating (Track A): true once the user has been through setup at
-    /// least once. Drives whether launch opens the CLI-setup page automatically.
-    /// Reads persisted truth, so it survives relaunches.
+    /// Setup seen state (Track A): true once the user has been through setup at
+    /// least once. Current launch does not auto-open setup; this persisted truth
+    /// is kept for routing/copy and future setup decisions.
     var hasCompletedSetup: Bool { setupStore.load().setupCompletedAt != nil }
 
-    /// Mark first-run setup as seen so launch stops auto-opening the setup page.
+    /// Mark first-run setup as seen.
     /// Idempotent; preserves probe records + the assembled team.
     func markSetupCompleted() {
         var state = setupStore.load()

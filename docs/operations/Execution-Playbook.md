@@ -59,6 +59,28 @@ xcodebuild test -scheme Allnighter      # iOS app (see TechStack.md)
 
 Until targets exist, closeout names missing proof explicitly.
 
+## Codex permissions (one-time, per machine)
+
+Managed permission profiles need **codex-cli `0.138.0+`**. Legacy sandbox settings
+(`sandbox_mode`, `[sandbox_workspace_write]`, or CLI `--sandbox`) override
+`default_permissions` and block scoped `.git` writes Codex needs for commit
+handoff and hook installers.
+
+**Install once** (merges `workspace-git` into `~/.codex/config.toml`):
+
+```bash
+bash scripts/install_codex_workspace_permissions.sh
+```
+
+Then **fully quit Codex** and **start a new thread** — existing threads keep
+their launch-time sandbox. Verify in the new thread:
+
+```bash
+touch .git/codex-write-test && rm .git/codex-write-test && echo OK
+```
+
+Do not pass `--sandbox` to `codex exec` from drivers or scripts.
+
 ## Codex Commit Handoff
 
 When Codex finishes work that should be saved locally, it uses the queue at
@@ -75,10 +97,11 @@ python3 scripts/commit_handoff_queue.py request \
 Queue items record `id`, `repo`, expected `branch`, explicit `paths`,
 `commit_message`, `status`, timestamps, `commit_sha`, and `failure_reason`.
 Pending items are processed automatically while Cursor is open via hooks
-installed by `bash scripts/install_commit_queue_watcher.sh`: `sessionStart`
-starts a repo-local poll watcher on `.wmd/commit-queue.jsonl` (2s interval);
-`stop` drains once immediately. Run the installer once per clone; restart Cursor
-after install. Manual fallback: `python3 scripts/commit_handoff_queue.py process-next`.
+installed by `bash scripts/install_commit_queue_watcher.sh` (which also runs the
+Codex permissions installer above if present): `sessionStart` starts a repo-local
+poll watcher on `.wmd/commit-queue.jsonl` (2s interval); `stop` drains once
+immediately. Run the installer once per clone; restart Cursor after install.
+Manual fallback: `python3 scripts/commit_handoff_queue.py process-next`.
 
 To prove an in-progress Codex slice with the same unrelated-dirty-work
 isolation but without creating a commit:

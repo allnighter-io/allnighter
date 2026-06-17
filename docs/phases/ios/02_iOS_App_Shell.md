@@ -1,10 +1,11 @@
 # 02 — iOS App Shell (the remote floor manager)
 
-Status: Draft — **deferred GUI**. Build after `01`'s spine is green.
+Status: Draft — **deferred iOS GUI**. Build after the macOS app is done and
+after `01`'s spine is green.
 Milestone: iOS (Remote Floor Manager)
 Owner: iOS
 Created: 2026-06-15
-Updated: 2026-06-15 (cloud-first pivot)
+Updated: 2026-06-17 (Mac-first reset)
 Depends on: `01_Connection_Spine.md` (its `RemoteClient` + reducer), `01a` (pairing),
 `00`, `../../mvp/00_MVP_Architecture.md`, `../../mvp/Design0_Design_Team_Overview.md`
 

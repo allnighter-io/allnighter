@@ -17,7 +17,14 @@
 #   python3 scripts/commit_handoff_queue.py status
 # -----------------------------------------------------------------------------
 #
+# PREREQUISITE (Codex agents)
+#   bash scripts/install_codex_workspace_permissions.sh
+#   Requires codex-cli >= 0.138.0. Fully quit Codex and start a new thread after.
+#
 # WHAT THIS DOES
+#   0. (if present) Ensures the Codex workspace-git permission profile is merged
+#      into ~/.codex/config.toml (strips legacy sandbox_mode / sandbox_workspace_write
+#      that would block .git writes needed for handoff).
 #   1. Installs Cursor hooks that start a repo-local poll watcher on sessionStart
 #      (and drain once on stop). The watcher polls .wmd/commit-queue.jsonl every
 #      2s so Codex --wait closeouts complete while Cursor is open.
@@ -226,6 +233,14 @@ PLIST
   echo "  Python:   $PYTHON3"
   echo "  Log:      $LOG_PATH"
 }
+
+if [[ -f "$REPO_ROOT/scripts/install_codex_workspace_permissions.sh" ]]; then
+  echo "==> Codex workspace permissions (workspace-git profile)"
+  bash "$REPO_ROOT/scripts/install_codex_workspace_permissions.sh" || {
+    echo "warning: Codex permissions install failed; commit handoff may not work in Codex threads" >&2
+  }
+  echo ""
+fi
 
 install_cursor_hooks
 

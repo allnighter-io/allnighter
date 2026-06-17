@@ -278,18 +278,19 @@ Registry scope for v1:
 
 ## 7. First-run gate
 
-Today nothing gates Compose on setup; `RootView` drops into Compose and runs
-Doctor in the background — so a polished Setup would be invisible to most users.
+Current product decision: ordinary launch lands on clean Home and is
+process-quiet. Setup is reachable by user intent from the team dropdown / health
+badge; it does not auto-open and it does not run Doctor in the background.
 
 - **`SetupStore.setupCompletedAt`** in Application Support (alongside
   `TeamPresetStore` / `AllnighterPaths.config`).
-- First launch **or** never-completed **or** registry-was-empty-last-run →
-  full-window **Setup** (Experience Scenes 1–6), not silent Doctor behind Compose.
+- Never-completed setup remains persisted truth for future routing/copy, but it
+  does not currently force a launch gate.
 - **Menu-bar app (`LSUIElement`)**: first launch must **auto-open the main window
-  at full size** (≥1100×720) — never hide the WOW behind the menu-bar icon.
-- **Never skippable to a 0-ready team.** Require ≥1 ready tool; the none-found
-  state (Experience §4) is the empty path.
-- Re-entry: Settings → "Re-configure team" re-runs the same flow.
+  at full size** (≥1100×720) — never hide the product behind the menu-bar icon.
+- **Non-trapping.** The user can leave setup with 0 ready tools; the app remains
+  honest and the team dropdown/health badge keeps a visible path back.
+- Re-entry: team dropdown / health badge -> CLI setup.
 - **Interim gate (before the Setup UI exists):** if `registry.all.isEmpty`, show a
   blocking "bundled drivers missing — reinstall" alert with a copyable fix —
   never the silent 0/1 team.
@@ -316,9 +317,10 @@ After detection settles:
 
 ## 9. Persistence & launch performance
 
-**2026-06-16 HOTFIX note:** `../Launch_Authority_TCC_Hotfix.md` supersedes this
-section where it allows background full smoke on ordinary app launch. Launch may
-render cached/unknown state only until explicit setup/recheck/run user intent.
+**2026-06-16 launch-authority note:**
+`../../archive/phases/Launch_Authority_TCC_Hotfix.md` supersedes this section
+where it allows background full smoke on ordinary app launch. Launch may render
+cached/unknown state only until explicit setup/recheck/run user intent.
 
 - Per tool: `{ invocation, status, version, lastProbeAt }` under
   `AllnighterPaths.config`.

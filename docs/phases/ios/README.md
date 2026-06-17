@@ -1,14 +1,14 @@
 # Allnighter iOS — Remote Floor Manager (control your Mac from anywhere)
 
-> **This folder is the design spine for the iOS companion app.** The MVP execution
-> truth lives in `docs/mvp/`; this folder records the architecture, the trust model,
-> and the connection spine so iOS lands without reshaping anything.
+> **This folder is the parked spine for the future iOS companion app.** The MVP
+> execution truth lives in `docs/mvp/`; this folder records the architecture, the
+> trust model, and the connection spine so iOS can land later without reshaping
+> the Mac product.
 
-Status: **Spine finalized — cloud-first (Supabase + R2).** The **connection spine
-(`01`) is buildable in parallel** with the Mac MVP; the **GUI (`02`) is deferred —
-except its pairing screen, which ships first** (pairing is the trust foundation). Mac
-MVP ships first.
-Updated: 2026-06-15 (cloud-first pivot)
+Status: **Deferred until the macOS app is done.** Architecture decisions are
+preserved here, but iOS work must not block Mac feature delivery, Mac proofs, or
+Mac phase closeout.
+Updated: 2026-06-17 (Mac-first reset)
 
 ---
 
@@ -43,7 +43,7 @@ just works.*
 | **Sign-in** | **Apple primary** (no new password; Hide-My-Email; App-Store-required if Google offered) + **Google fallback**. Account = identity/discovery; device key + Mac approval = authorization. |
 | **CloudKit** | Still **dropped** (Apple-locked, entitlement risk). Supabase is cross-platform + turnkey. **Not Cloudflare-only** for v1 (would mean building auth/realtime/admin ourselves). |
 | **Contract** | The `RunEvent` envelope (`../../mvp/00_MVP_Architecture.md` §6) is unchanged — but legacy `synthesis.*` constants must be **frozen to `stage.*`** before the wire locks. |
-| **Push** | Specialist SaaS behind a `PushNotifier` seam — **OneSignal likely default, swappable**. **Not v1** (live updates ride Supabase Realtime while the app is open). Content-light doorbell, no secrets. |
+| **Push** | Deferred iOS-only follow-up in `03`. Specialist SaaS behind a `PushNotifier` seam — **OneSignal likely default, swappable**. Content-light doorbell, no secrets. |
 
 ---
 
@@ -52,16 +52,17 @@ just works.*
 ```text
 00   iOS Architecture & Trust Decision  (cloud-first; trust model; sign-in; E2E)  <- read first
 01   Connection Spine                   (Supabase control + R2 media + Mac agent + trust + RemoteClient)
-01a  Pairing Ceremony                   (sign in → tap your Mac → approve once — the WOW; built NOW)
+01a  Pairing Ceremony                   (sign in -> tap your Mac -> approve once)
 02   iOS App Shell                      (onboarding / Home / Active / Design board / kill switch)  [deferred GUI]
+03   iOS Thread Read State And Push     (remote unread + mobile push; deferred)
 ```
 
-> **Pairing (`01a`) is the WOW and is built NOW.** Cloud mode makes it *even simpler*
-> than the earlier QR plan: **sign in, tap your Mac, approve once** — no VPN, no
-> scanning. Only the polished GUI is deferred; the ceremony is foundation, proven
-> headless before any SwiftUI, and the `02` pairing screen ships **first**.
+> iOS execution starts after the macOS app is done. When it starts, pairing
+> (`01a`) is still the first trust moment, but it is not a Mac blocker.
 
-`03_Push.md` is intentionally unwritten — deferred seam (`00` §7).
+[`03_iOS_Thread_Read_State_And_Push.md`](03_iOS_Thread_Read_State_And_Push.md)
+owns remote unread state and mobile push. Do not put that acceptance burden back
+on Mac thread docs.
 
 ### Known pre-reqs (do not skip)
 

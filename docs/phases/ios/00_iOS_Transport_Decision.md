@@ -1,10 +1,11 @@
 # 00 — iOS Architecture & Trust Decision (read first)
 
-Status: **Locked for iOS.** Every iOS doc obeys this one.
+Status: **Locked for future iOS; deferred until the macOS app is done.** Every
+iOS doc obeys this one.
 Milestone: iOS (Remote Floor Manager)
 Owner: Founder
 Created: 2026-06-15
-Updated: 2026-06-15 (cloud-first pivot)
+Updated: 2026-06-17 (Mac-first reset)
 Depends on: `../../mvp/00_MVP_Architecture.md` §4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`
 
 > This fixes *how* the phone reaches the Mac and *how trust works*, so no later iOS

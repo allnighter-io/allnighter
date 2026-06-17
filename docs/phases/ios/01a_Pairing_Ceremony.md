@@ -1,12 +1,11 @@
 # 01a — Pairing Ceremony (the WOW — sign in, tap your Mac, approve once)
 
-Status: Draft — **first-class FOUNDATION, built now** (headless + testable). Only the
-*polished GUI* is deferred to `02`, which is a **thin presenter** over this ceremony.
-Pairing is **not** later polish.
+Status: Draft — **first iOS trust foundation when iOS starts**, but deferred until
+the macOS app is done. Not a Mac blocker.
 Milestone: iOS (Remote Floor Manager)
 Owner: Mac + Shared Core (engine) / iOS (presenter)
 Created: 2026-06-15
-Updated: 2026-06-15 (cloud-first pivot)
+Updated: 2026-06-17 (Mac-first reset)
 Depends on: `01_Connection_Spine.md` (`TrustedRemoteStore`, device assertion, the Mac
 agent), `00` (§3 trust model, §5 sign-in, §2.4 connection modes)
 
@@ -130,10 +129,11 @@ endpoint in Direct Mode). Pairing is an *armed moment*, not an open door.
   and **resumes automatically** on return; an expired token re-arms in one tap.
 - Guidance is always **reason + button + resume**, in plain language.
 
-## Headless carrier = foundation + test surface (built now)
+## Headless carrier = foundation + test surface (when iOS starts)
 
-The CLI is how the whole ceremony is built and proven **before any SwiftUI**, and it
-doubles as the Mac→Mac/headless approver:
+The CLI is how the whole ceremony will be built and proven **before any SwiftUI**
+when the deferred iOS phase starts, and it doubles as the Mac->Mac/headless
+approver:
 
 ```text
 allnighter pair list                       # pending + trusted devices

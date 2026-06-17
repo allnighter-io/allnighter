@@ -1,8 +1,16 @@
 # Launch Authority TCC Hotfix
 
-Status: HOTFIX, execution-ready
+Status: BUILT / archived
 Owner: Mac app launch policy + Core setup detection
-Updated: 2026-06-16
+Updated: 2026-06-17
+
+Archived: 2026-06-17
+
+Final status:
+H0-H6 are built. Cold launch is cache-only/process-quiet, full smoke probes are
+explicit user intent, setup/health probes use an Allnighter-owned neutral CWD,
+`scripts/dev.sh` builds outside protected folders, and regression gates exist in
+`AppModelTests`, `LaunchAuthorityProbeTests`, and `scripts/check.sh`.
 
 Founder intent:
 Opening Allnighter must never produce macOS Documents, Downloads, or network

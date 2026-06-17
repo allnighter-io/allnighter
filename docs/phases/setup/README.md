@@ -21,6 +21,10 @@ not configuration.
   probing, auto-building the Bench/default Team, persistence, and the honesty
   rules.
 
+Historical design handoff/mockup folders are pixel reference only. When they
+conflict with this README, `00_First_Run_Setup_Experience.md`, or
+`01_CLI_Detection_Auth_And_Bench.md`, the live setup docs win.
+
 ## Ground rules (both docs obey these)
 
 - **Dark mode only, amber on midnight** — built on `docs/design-system/` tokens
@@ -50,8 +54,8 @@ probes real CLIs — outcomes depend on what's installed/signed-in on the machin
 
 ## Build order (no shortcuts, but sequenced)
 
-**HOTFIX supersedes launch probing:** `docs/phases/Launch_Authority_TCC_Hotfix.md`
-must land before more Setup UI or background-probe work. Ordinary app launch may
+**Launch authority law:** the completed hotfix is archived at
+`docs/archive/phases/Launch_Authority_TCC_Hotfix.md`. Ordinary app launch may
 render cached/unknown setup state only; full smoke belongs behind explicit
 setup/recheck/run user intent.
 
@@ -63,13 +67,13 @@ Prove detection on a real machine before building the WOW UI (full detail in
 | **0** | Packaging fix + `DefaultConfig` safety net + built-bundle test → default models/team load, Doctor shows real reasons | **Done** (2026-06-15) |
 | **1** | Detection engine — `CLIDetector` + hardened login-shell resolve (`ShellResolver`) + cached invocation (`ToolInvocation`) + 5-state status (`ModelSetupStatus`) + persistence (`SetupStore`). Prove headless first. | **Built** (2026-06-15) — engine + persistence + `CLIDetectorTests`; reachable headless via `alln detect`. Live founder smoke run still pending. |
 | **2** | Wire Doctor + health badge to the detector → real "4/4 tools ready" | **Built** (2026-06-15) — `AppModel` runs `CLIDetector.probeAll` + caches; **health == runs proven**: `WorkerRunner` spawns through the cached `ToolInvocation` (direct/shim/loginShell), threaded `TeamService(invocations:)` ← `ToolRuntime` from `SetupStore`. (Mac run-path adopting the cached invocation is app integration.) |
-| **3** | First-run setup UI; Doctor becomes the compact roster | **Built (lean)** (2026-06-16) — cinematic scenes CUT (see `00_…` Direction change). Shipped: `TeamReadinessView` (CLI setup page), `BenchRepairPanel` (contextual fix + re-probe-in-place), `BenchHealthPopover`/`Badge` (compact roster), state-driven team dropdown, first-run gating (`AppModel.hasCompletedSetup`/`markSetupCompleted`), non-trapping. Visual proof: `docs/qa/gui/setup/`. |
+| **3** | Setup UI; Doctor becomes the compact roster | **Built (lean)** (2026-06-16) — cinematic scenes CUT (see `00_…` Direction change). Shipped: `TeamReadinessView` (CLI setup page), `BenchRepairPanel` (contextual fix + re-probe-in-place), `BenchHealthPopover`/`Badge` (compact roster), state-driven team dropdown, setup seen state (`AppModel.hasCompletedSetup`/`markSetupCompleted`), non-trapping. Current launch lands on clean Home; setup is reached by user intent through the team dropdown / health badge. Visual proof: `docs/qa/gui/setup/`. |
 | **4** | Auto-build the Bench/default Team from ready sources/models | **Built** (2026-06-15) — `TeamAssembler` (pure) assembles Bench/team + truthful plan writer from ready sources; persisted in `SetupStore.assembledTeam`; `alln detect` now detects → assembles → persists. |
 
 **Next:** detection robustness has landed (interactive `-lic` at explicit setup,
 common-bin-dirs + Spotlight fallback, gap detector — Track 0; see `01_…` and
-`Launch_Authority_TCC_Hotfix.md` rule 8). Remaining: live founder smoke on a real
-machine, and any per-tool repair polish surfaced in use.
+archived `Launch_Authority_TCC_Hotfix.md` rule 8). Remaining: live founder smoke
+on a real machine, and any per-tool repair polish surfaced in use.
 
 Created 2026-06-15 · Phase 0 implemented 2026-06-15 · Phases 1–2 reconciled to
 code 2026-06-15.
