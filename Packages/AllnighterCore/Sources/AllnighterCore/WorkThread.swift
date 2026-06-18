@@ -26,6 +26,12 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
     /// Context anchor and default dispatch cwd. Attached files resolve here.
     public var workingDir: String?
     public var projectLabel: String?
+    /// The owning Project (PRJ-S03). `nil` = Unassigned: blocked from mutating
+    /// dispatch until bound. New durable threads should carry a `projectId`.
+    public var projectId: String?
+    /// Historical receipt of the path the thread migrated from. Not the owner of
+    /// current Project scope — `projectId` is.
+    public var localRootPathSnapshot: String?
     /// Composer default worker, if the user has fixed one for this thread.
     public var defaultWorkerId: String?
     /// Append-only, in send order.
@@ -44,6 +50,8 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         pinnedAt: Date? = nil,
         workingDir: String? = nil,
         projectLabel: String? = nil,
+        projectId: String? = nil,
+        localRootPathSnapshot: String? = nil,
         defaultWorkerId: String? = nil,
         readCursor: ThreadReadCursor? = nil,
         turns: [ThreadTurn] = []
@@ -57,6 +65,8 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         self.pinnedAt = pinnedAt
         self.workingDir = workingDir
         self.projectLabel = projectLabel
+        self.projectId = projectId
+        self.localRootPathSnapshot = localRootPathSnapshot
         self.defaultWorkerId = defaultWorkerId
         self.readCursor = readCursor
         self.turns = turns
@@ -64,7 +74,8 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case formatVersion, id, title, status, createdAt, updatedAt, pinnedAt,
-             workingDir, projectLabel, defaultWorkerId, readCursor, turns
+             workingDir, projectLabel, projectId, localRootPathSnapshot,
+             defaultWorkerId, readCursor, turns
     }
 
     public init(from decoder: Decoder) throws {
@@ -78,6 +89,8 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         pinnedAt = try container.decodeIfPresent(Date.self, forKey: .pinnedAt)
         workingDir = try container.decodeIfPresent(String.self, forKey: .workingDir)
         projectLabel = try container.decodeIfPresent(String.self, forKey: .projectLabel)
+        projectId = try container.decodeIfPresent(String.self, forKey: .projectId)
+        localRootPathSnapshot = try container.decodeIfPresent(String.self, forKey: .localRootPathSnapshot)
         defaultWorkerId = try container.decodeIfPresent(String.self, forKey: .defaultWorkerId)
         readCursor = try container.decodeIfPresent(ThreadReadCursor.self, forKey: .readCursor)
         turns = try container.decode([ThreadTurn].self, forKey: .turns)
@@ -94,6 +107,8 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         try container.encodeIfPresent(pinnedAt, forKey: .pinnedAt)
         try container.encodeIfPresent(workingDir, forKey: .workingDir)
         try container.encodeIfPresent(projectLabel, forKey: .projectLabel)
+        try container.encodeIfPresent(projectId, forKey: .projectId)
+        try container.encodeIfPresent(localRootPathSnapshot, forKey: .localRootPathSnapshot)
         try container.encodeIfPresent(defaultWorkerId, forKey: .defaultWorkerId)
         try container.encodeIfPresent(readCursor, forKey: .readCursor)
         try container.encode(turns, forKey: .turns)
@@ -116,6 +131,10 @@ public extension WorkThread {
     }
 
     var isPinned: Bool { pinnedAt != nil }
+
+    /// PRJ-S03: a thread bound to a Project. Unassigned threads (`projectId == nil`)
+    /// are blocked from mutating dispatch until assigned.
+    var isProjectAssigned: Bool { projectId != nil }
 
     var isArchived: Bool { status == .archived }
 

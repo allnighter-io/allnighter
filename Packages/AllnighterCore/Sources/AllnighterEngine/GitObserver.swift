@@ -42,6 +42,13 @@ public struct GitObserver: Sendable {
         return Observation(kind: .gitRepo, branch: branch, head: head, remote: remote, dirtySummary: dirtySummary)
     }
 
+    /// The git repo top level containing `path` (from any subdir), as a normalized
+    /// key — or `nil` if `path` is not inside a git work tree. Used by ProjectBinding.
+    public func repoTopLevel(forPath path: String) -> String? {
+        guard let top = runGit(["rev-parse", "--show-toplevel"], cwd: path) else { return nil }
+        return RootNormalization.normalize(top).key
+    }
+
     /// Recent commits as `<short-sha> <subject>` lines (newest first), observed.
     /// Empty when not a git repo or the repo has no commits.
     public func recentCommits(rootPath: String, limit: Int = 5) -> [String] {

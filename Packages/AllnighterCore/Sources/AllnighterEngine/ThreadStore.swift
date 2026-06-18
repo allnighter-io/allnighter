@@ -198,6 +198,22 @@ public struct ThreadStore: Sendable {
         }
     }
 
+    /// PRJ-S03: bind a thread to a Project, recording the migrated-from path as a
+    /// receipt. Explicit, hardened mutation — used by the migrator and the GUI/CLI
+    /// "assign project" action.
+    @discardableResult
+    public func bindProject(threadId: String, projectId: String, localRootPathSnapshot: String? = nil) throws -> WorkThread {
+        try synchronized {
+            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+            thread.projectId = projectId
+            if let localRootPathSnapshot, thread.localRootPathSnapshot == nil {
+                thread.localRootPathSnapshot = localRootPathSnapshot
+            }
+            _ = try persistMetadata(thread, regenerateTranscript: false)
+            return thread
+        }
+    }
+
     @discardableResult
     public func archiveThread(threadId: String) throws -> WorkThread {
         try synchronized {
