@@ -249,8 +249,23 @@ public enum ModelCatalog {
     public static func capabilities(_ modelId: String) -> ModelCapabilities {
         if let caps = builtInCapabilities[modelId] { return caps }
         if let def = get(modelId), !def.capabilities.capabilityTags.isEmpty { return def.capabilities }
-        if let def = get(modelId) { return fallbackCapabilities(driverId: def.driverId) }
+        if let def = get(modelId) {
+            // A recognized/custom model with no explicit tags inherits its CLI's
+            // representative capabilities so it's usable in its lane out of the box.
+            var caps = fallbackCapabilities(driverId: def.driverId)
+            // A lighter variant (mini / spark) ranks just below the flagship so
+            // `.strongestReady` still prefers the flagship when both are ready.
+            if isLighterVariant(def) { caps.strengthRank = max(0, caps.strengthRank - 15) }
+            return caps
+        }
         return ModelCapabilities()
+    }
+
+    /// A faster/cheaper sibling (e.g. "mini", "spark") that should not outrank the
+    /// driver's flagship in strongest-ready selection.
+    private static func isLighterVariant(_ def: ModelDefinition) -> Bool {
+        let hay = (def.displayName + " " + def.modelLabel).lowercased()
+        return hay.contains("mini") || hay.contains("spark")
     }
 
     /// Default fresh-install Bench as runtime `[Model]` (all built-ins enabled).

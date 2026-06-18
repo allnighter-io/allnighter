@@ -117,4 +117,20 @@ final class ModelCatalogTests: XCTestCase {
         _ = ModelCatalog.resolvedModels(registry: registry)
         XCTAssertNil(ModelDiscoveryRegistry.provider(for: "claude_code"))
     }
+
+    func testRecognizedModelInheritsDriverCapabilities() {
+        // A default-off recognized model (no explicit tags) inherits its CLI's lane
+        // capability, so enabling it makes it usable in team resolution.
+        let caps = ModelCatalog.capabilities("model_chatgpt_54")
+        XCTAssertFalse(caps.laneTags.isEmpty, "gpt-5.4 inherits Codex lanes")
+        XCTAssertTrue(caps.capabilityTags.contains(.code))
+    }
+
+    func testLighterVariantRanksBelowFlagship() {
+        let flagship = ModelCatalog.capabilities("model_chatgpt").strengthRank
+        XCTAssertLessThan(ModelCatalog.capabilities("model_chatgpt_54_mini").strengthRank, flagship)
+        XCTAssertLessThan(ModelCatalog.capabilities("model_codex_spark").strengthRank, flagship)
+        // A full sibling (not mini/spark) inherits the flagship rank unchanged.
+        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_54").strengthRank, flagship)
+    }
 }
