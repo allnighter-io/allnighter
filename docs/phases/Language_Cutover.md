@@ -149,13 +149,14 @@ Docs:
   + approval gate + MCP⊆CLI parity test is the separate MCP Solidity Plan M-A..M-D,
   not the language cutover. Internal comment refs to the doc filename are swept in
   CUT-S06 with the doc rename.)
-- [~] **CUT-S04 — GUI labels (code DONE 2026-06-18; render-proof pending).** Composer
-  lane label Build→Code; `ComposeMode.fanout` → `.sendToTeam` ("Send to team"); effort
-  tooltip → "more reasoning time"; ReadinessView "Code · Design · Copy"; work-order
-  filter labels derive "Code" from rawValue. Execute route KEPT (the make-real mode,
-  per the locked model). Mac build + tests green. **Remaining:** GUI render-proof seal
-  for the changed surfaces (HomeView, RoutingComposer, ReadinessView, TeamEditorView,
-  TeamStudioView) to clear the visual-proof gate.
+- [x] **CUT-S04 — GUI labels (DONE 2026-06-18).** Composer lane label Build→Code;
+  `ComposeMode.fanout` → `.sendToTeam` ("Send to team"); effort tooltip → "more
+  reasoning time"; ReadinessView "Code · Design · Copy"; work-order filter labels
+  derive "Code" from rawValue. Execute route KEPT (the make-real mode, per the locked
+  model). Mac build + tests green. GUI visual-proof sealed: 6 surfaces rendered
+  (`team-open-mixed`, `compose-mode-menu`, `readiness-mixed`, `studio-team-editor`,
+  `studio-teams-build`, `thread-team-board`), all layout-watcher **PASS**, packet
+  `docs/qa/gui/cutover/2026-06-18-language-relabel/`. Full `check.sh` green.
 - [x] **CUT-S05 — Effort = reasoning level (DONE 2026-06-18).** Ripped out
   `minEffort`, `TeamEffortPolicy`, `effortPolicy`, `outputCountByEffort`,
   `activeRows`, `workerCountByEffort` — all effort→worker-count gating. `EffortLevel`
