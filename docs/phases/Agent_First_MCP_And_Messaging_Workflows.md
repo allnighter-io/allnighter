@@ -1540,12 +1540,14 @@ named pre-cutover tools that no longer exist; the real gaps are below):
 - `MCPToolSpec` (27 tools in `ContractRegistry+Milestone1.swift`) **already** has
   an argument schema for every tool and an `outputSchema` marker; that part of
   M-A is effectively done.
-- REAL GAP 1 — **error set**: `MCPToolSpec` has no `errors[]` listing the catalog
-  codes a tool can emit. Add it (additive), populate per tool from its handler,
-  and gate that every listed code exists in the M-C catalog.
-- REAL GAP 2 — **idempotency rule**: `MCPToolSpec` has no idempotency field. Add
-  an enum (idempotent | not-idempotent | keyed) and populate per tool.
-- REAL GAP 3 — **return schema for data-returning tools**: several tools that
+- REAL GAP 1 — **error set**: ✅ DONE (2026-06-18). `MCPToolSpec.errors[]` added
+  + populated for all 27 tools; `MCPToolContractTests` gates that every listed
+  code exists in the M-C catalog.
+- REAL GAP 2 — **idempotency rule**: ✅ DONE (2026-06-18).
+  `MCPToolSpec.idempotency` (idempotent | not_idempotent | keyed) added +
+  populated; gate asserts keyed tools declare an `idempotencyKey` param and fresh
+  run-starters are not marked idempotent.
+- REAL GAP 3 — **return schema for data-returning tools** (REMAINING): several tools that
   return structured data still carry `outputSchema: .none` (e.g. `teams_list`,
   `skills_list`, `history`, `thread_get`, `thread_status`). Either give them real
   return schemas (new `OutputSchema` cases + hand-written JSON Schemas, like the
