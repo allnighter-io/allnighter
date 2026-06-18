@@ -41,6 +41,15 @@ readiness rule may begin life only in:
 - local fixture data;
 - runtime heuristics.
 
+## CLI/MCP-First Rule
+
+Every capability ships as an `alln` CLI command and an MCP tool first; the GUI and
+iOS only present that contract. A slice's CLI/MCP surface (commands, tools,
+arguments, JSON output, exit codes, errors) is part of the slice, not a follow-up.
+A feature with no CLI/MCP surface is not Ready for Implementation. CLI, GUI, MCP,
+and iOS share one contract — never parallel JSON. This is the exact gap that let the
+MCP surface fall behind the app; it must not recur.
+
 ## Deterministic Guardrail Rule
 
 Recurring correctness questions should become deterministic checks: Swift types,
@@ -57,11 +66,14 @@ review once the rule is known.
 4. Name the truth owner.
 5. Name affected models, WebSocket messages, Mac/iOS surfaces, parsers, and
    agent driver configs.
-6. Define the user-visible claim.
-7. Define the Works Test: setup, gesture, owner path, output, assertion.
-8. Name supporting checks.
-9. Name deletion targets for duplicate truth.
-10. Name proof waiver only when proof cannot be built yet.
+6. Define the CLI/MCP surface first: the `alln` command(s) and MCP tool(s), their
+   arguments, JSON output, exit codes, and errors. The GUI/iOS present this
+   contract; they never own a parallel one.
+7. Define the user-visible claim.
+8. Define the Works Test: setup, gesture, owner path, output, assertion.
+9. Name supporting checks.
+10. Name deletion targets for duplicate truth.
+11. Name proof waiver only when proof cannot be built yet.
 
 If the rule cannot be assigned to an owner, stop and fix the design.
 
@@ -92,6 +104,8 @@ SSOT
 - Duplicate truth to delete:
 
 Implementation
+- CLI surface (`alln` command(s) + args + JSON + exit codes):
+- MCP tools (names + args + returns + errors):
 - Model/package impact:
 - Mac app impact:
 - iOS app impact:
@@ -108,6 +122,7 @@ Proof
 
 Done When
 - User-visible claim:
+- CLI/MCP contract shipped + tested (not GUI-only):
 - Proof:
 - Docs/logs:
 ```
