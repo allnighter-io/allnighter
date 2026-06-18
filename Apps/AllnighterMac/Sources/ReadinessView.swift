@@ -113,7 +113,7 @@ struct TeamReadinessView: View {
                 ok: false
             )
             statCard(
-                value: "Build · Design · Copy",
+                value: "Code · Design · Copy",
                 suffix: nil,
                 label: "Lanes covered",
                 ok: false,

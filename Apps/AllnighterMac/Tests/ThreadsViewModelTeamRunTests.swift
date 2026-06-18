@@ -41,7 +41,7 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
     func testUnresolvableTeamLandsHonestFailedBoard() {
         let vm = makeVM(toolStatuses: [])      // no ready bench → nothing can resolve
         _ = vm.newThread(title: "t")
-        vm.sendRouting(ComposeRouting(mode: .fanout, to: "", effort: .med,
+        vm.sendRouting(ComposeRouting(mode: .sendToTeam, to: "", effort: .med,
                                       lane: .code, team: buildTeamId, text: "rate limit?"))
 
         let board = vm.selectedThread?.turns.first { $0.kind == .teamRun }
@@ -64,7 +64,7 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         try XCTSkipUnless(resolved.isRunnable, "default build team can't form on this bench: \(resolved.blockReason ?? "")")
 
         _ = vm.newThread(title: "t")
-        vm.sendRouting(ComposeRouting(mode: .fanout, to: "", effort: .med,
+        vm.sendRouting(ComposeRouting(mode: .sendToTeam, to: "", effort: .med,
                                       lane: .code, team: buildTeamId, text: "rate limit the public API"))
 
         // Synchronously, the optimistic running board turn carries a runId.

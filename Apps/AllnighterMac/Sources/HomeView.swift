@@ -57,7 +57,7 @@ private struct HomeSidebar: View {
         switch filter {
         case .all: return "All"
         case .design: return "Design"
-        case .code: return "Build"
+        case .code: return "Code"
         case .running: return "Running"
         }
     }
@@ -381,7 +381,7 @@ private struct HomeMarketingEmptyState: View {
     private var bench: [ComposeBenchModel] { appModel.composeBench }
     private let modes: [(ComposeMode, String)] = [
         (.chat, "Ask the bench a question — “token bucket or sliding window for rate limiting?”"),
-        (.fanout, "Drop a screenshot — “make this profile feel premium and clean” → a board of options."),
+        (.sendToTeam, "Drop a screenshot — “make this profile feel premium and clean” → a board of options."),
         (.exec, "Point an agent at your repo — “add the 429 + Retry-After path to the limiter.”"),
     ]
 

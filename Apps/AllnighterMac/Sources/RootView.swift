@@ -38,8 +38,8 @@ struct RootView: View {
                 commands.requestedMode = .chat
                 commands.palettePresented = false
             },
-            AppCommand(id: "mode-fanout", title: "\(ComposeMode.fanout.label) — a team answers", symbol: ComposeMode.fanout.icon, key: "2") {
-                commands.requestedMode = .fanout
+            AppCommand(id: "mode-fanout", title: "\(ComposeMode.sendToTeam.label) — a team answers", symbol: ComposeMode.sendToTeam.icon, key: "2") {
+                commands.requestedMode = .sendToTeam
                 commands.palettePresented = false
             },
             AppCommand(id: "mode-exec", title: "\(ComposeMode.exec.label) — an agent builds it", symbol: ComposeMode.exec.icon, key: "3") {

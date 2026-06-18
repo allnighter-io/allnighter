@@ -12,7 +12,7 @@ import AllnighterCore
 // wiring = CR3; thread integration = CR4. Until then it runs on local prototype
 // data that mirrors reference/app.jsx, so the surface is provable in isolation.
 
-enum ComposeMode: String, CaseIterable { case chat, fanout, exec }
+enum ComposeMode: String, CaseIterable { case chat, sendToTeam, exec }
 enum ComposeEffort: String, CaseIterable { case low, med, high }
 enum ComposeLane: String, CaseIterable { case code, design, copy }
 
@@ -56,13 +56,13 @@ struct ComposeTeam: Identifiable, Equatable {
 }
 
 extension ComposeMode {
-    var label: String { switch self { case .chat: "Chat"; case .fanout: "Fan out"; case .exec: "Execute" } }
-    var icon: String { switch self { case .chat: "message"; case .fanout: "rectangle.stack"; case .exec: "hammer" } }
-    var kbd: String { switch self { case .chat: "⌘1"; case .fanout: "⌘2"; case .exec: "⌘3" } }
+    var label: String { switch self { case .chat: "Chat"; case .sendToTeam: "Send to team"; case .exec: "Execute" } }
+    var icon: String { switch self { case .chat: "message"; case .sendToTeam: "rectangle.stack"; case .exec: "hammer" } }
+    var kbd: String { switch self { case .chat: "⌘1"; case .sendToTeam: "⌘2"; case .exec: "⌘3" } }
     var desc: String {
         switch self {
         case .chat: "One model answers — route the turn to anyone."
-        case .fanout: "A team answers in parallel → a board to compare and pick."
+        case .sendToTeam: "A team answers in parallel → a board to compare and pick."
         case .exec: "An agent runs it in your repo and the result returns here."
         }
     }
@@ -218,7 +218,7 @@ struct RoutingComposer: View {
     private var bar: some View {
         HStack(spacing: 9) {
             modePill
-            if mode != .fanout {
+            if mode != .sendToTeam {
                 Text("to").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             targetChip
@@ -254,7 +254,7 @@ struct RoutingComposer: View {
                         DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5)
                         Text(m.name).font(ALFont.mono).foregroundStyle(ALColor.textPrimary)
                     }
-                case .fanout:
+                case .sendToTeam:
                     Image(systemName: lane.icon).font(.system(size: 12)).foregroundStyle(ALColor.accentText)
                     Text("\(lane.label) team").font(ALFont.mono).foregroundStyle(ALColor.textPrimary)
                 }
@@ -306,7 +306,7 @@ struct RoutingComposer: View {
         mode = m
         if m == .exec, !appModel.composeExecutorIds.contains(to) { to = appModel.composeBench.first(where: { appModel.composeExecutorIds.contains($0.id) && $0.ready })?.id ?? to }
         // Picking Fan out drops the user straight into the lane/team picker.
-        pop = (m == .fanout) ? .target : nil
+        pop = (m == .sendToTeam) ? .target : nil
     }
 
     // MARK: popovers
@@ -324,16 +324,16 @@ struct RoutingComposer: View {
                 popHeader("Hand to executor", "An agent runs it in your repo")
                 modelList(appModel.composeBench.filter { appModel.composeExecutorIds.contains($0.id) }.map(\.id))
                 effortRow(note: "Higher effort = more reasoning time.")
-            case .fanout:
+            case .sendToTeam:
                 popHeader("Send to team", "Pick the lane, then the lineup")
                 laneTabs
                 teamList
                 customizeFooter
-                effortRow(note: "Higher effort = more workers + a deeper pass.")
+                effortRow(note: "Higher effort = more reasoning time.")
             }
         }
         .padding(6)
-        .frame(width: mode == .fanout ? 320 : 300)
+        .frame(width: mode == .sendToTeam ? 320 : 300)
         .background(ALColor.surface)
     }
 

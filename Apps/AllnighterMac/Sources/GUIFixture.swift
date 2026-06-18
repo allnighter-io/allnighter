@@ -141,7 +141,7 @@ enum GUIFixture {
     /// Mode for the compose specimen (drives which target popover renders).
     static var composeSpecimenMode: ComposeMode {
         switch active {
-        case "compose-target-fanout": return .fanout
+        case "compose-target-fanout": return .sendToTeam
         case "compose-target-exec": return .exec
         default: return .chat
         }

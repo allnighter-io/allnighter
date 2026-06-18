@@ -238,7 +238,7 @@ final class AppModel {
             let consumer = Task { @MainActor [weak self] in
                 for await event in stream { self?.apply(event) }
             }
-            let settled = await coordinator.fanOut(prompt: trimmed, teamWorkers: seats, models: snapshotModels, origin: .gui, presetId: presetId, runId: runId)
+            let settled = await coordinator.runTeam(prompt: trimmed, teamWorkers: seats, models: snapshotModels, origin: .gui, presetId: presetId, runId: runId)
             await consumer.value
             self.run = settled
             await self.performSynthesis()

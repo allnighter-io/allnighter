@@ -319,7 +319,7 @@ final class ThreadsViewModel {
         switch routing.mode {
         case .chat:
             runChat(message: message, toThreadId: threadId, workerId: routing.to)
-        case .fanout:
+        case .sendToTeam:
             // CR4c: the user's question is the first turn; the team board follows.
             appendUserTurn(message, toThreadId: threadId)
             runTeam(routing, toThreadId: threadId)
