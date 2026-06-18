@@ -249,6 +249,18 @@ struct BenchRepairPanel: View {
     @Environment(AppModel.self) private var model
     let card: SetupCardModel
 
+    @State private var addingModel = false
+    @State private var newModelName = ""
+    @State private var newModelLabel = ""
+
+    /// Every model this CLI can run (on-bench + available), A→Z. Drives the editable
+    /// bench roster — toggling a row writes `Model.enabled` via the catalog.
+    private var modelDefs: [ModelDefinition] {
+        _ = model.models   // observe roster changes so the list refreshes after a toggle
+        return ModelCatalog.list(driverId: card.driverId)
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 11) {
@@ -271,7 +283,7 @@ struct BenchRepairPanel: View {
             .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
 
             VStack(alignment: .leading, spacing: 0) {
-                if !card.workers.isEmpty {
+                if !modelDefs.isEmpty {
                     detailModels
                         .padding(.top, 4).padding(.bottom, 12)
                 }
@@ -304,26 +316,89 @@ struct BenchRepairPanel: View {
 
     private var detailModels: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Models on this CLI")
-                .font(.system(size: 10, weight: .semibold)).tracking(0.8)
-                .textCase(.uppercase)
-                .foregroundStyle(ALColor.textFaint)
-            ForEach(card.workers) { seat in
-                HStack(spacing: 8) {
-                    Text(seat.setupChipLabel)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(ALColor.textPrimary)
-                    if let slug = seat.setupDetailSlug {
-                        Text(slug)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(ALColor.textFaint)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                }
+            HStack(spacing: 6) {
+                Text("Models on this CLI")
+                    .font(.system(size: 10, weight: .semibold)).tracking(0.8)
+                    .textCase(.uppercase)
+                    .foregroundStyle(ALColor.textFaint)
+                Spacer(minLength: 0)
+                Text("on bench")
+                    .font(.system(size: 9, weight: .semibold)).tracking(0.4)
+                    .textCase(.uppercase)
+                    .foregroundStyle(ALColor.textFaint)
             }
+            ForEach(modelDefs) { def in modelRow(def) }
+            addModelControl
         }
     }
+
+    private func modelRow(_ def: ModelDefinition) -> some View {
+        HStack(spacing: 8) {
+            Text(def.displayName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(ALColor.textPrimary).lineLimit(1)
+            Text(def.modelLabel)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(ALColor.textFaint).lineLimit(1)
+            if def.origin == .custom {
+                Text("custom").font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(ALColor.accent)
+                    .padding(.horizontal, 5).padding(.vertical, 1.5)
+                    .background(ALColor.accent.opacity(0.14), in: Capsule())
+            }
+            Spacer(minLength: 8)
+            if def.origin == .custom {
+                Button { try? model.deleteCustomModel(modelId: def.id) } label: {
+                    Image(systemName: "trash").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                }
+                .buttonStyle(.plain).help("Delete this custom model")
+            }
+            Toggle("", isOn: Binding(
+                get: { ModelCatalog.isEnabled(def.id) },
+                set: { try? model.setModelEnabled(modelId: def.id, enabled: $0) }
+            ))
+            .labelsHidden().toggleStyle(.switch).tint(ALColor.accent)
+            .help("On the bench — usable by teams")
+        }
+    }
+
+    @ViewBuilder private var addModelControl: some View {
+        if addingModel {
+            VStack(alignment: .leading, spacing: 6) {
+                addField("Model name", text: $newModelName)        // e.g. "Opus 4.8"
+                addField("CLI model label", text: $newModelLabel)  // e.g. "opus" — what the CLI expects
+                HStack(spacing: 8) {
+                    Spacer(minLength: 0)
+                    Button("Cancel") { resetAdd() }.buttonStyle(.alSecondary(small: true))
+                    Button("Add") {
+                        try? model.addCustomModel(driverId: card.driverId,
+                                                  displayName: newModelName.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                  modelLabel: newModelLabel.trimmingCharacters(in: .whitespacesAndNewlines))
+                        resetAdd()
+                    }
+                    .buttonStyle(.alPrimary(small: true))
+                    .disabled(newModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              || newModelLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(.top, 4)
+        } else {
+            Button { addingModel = true } label: {
+                Label("Add model", systemImage: "plus").font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.plain).foregroundStyle(ALColor.accentText).padding(.top, 2)
+        }
+    }
+
+    private func addField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(ALColor.textPrimary)
+            .padding(.horizontal, 9).frame(height: 30)
+            .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+
+    private func resetAdd() { addingModel = false; newModelName = ""; newModelLabel = "" }
 
     @ViewBuilder private var repairPill: some View {
         switch card.state {
