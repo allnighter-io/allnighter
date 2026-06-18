@@ -129,9 +129,13 @@ Docs:
 
 - [x] **CUT-S00 — Vocabulary SSOT.** This doc is the canonical word list; pointers
   added in `AGENTS.md` and `docs/phases/README.md` (done 2026-06-18).
-- [ ] **CUT-S01 — Core craft rename.** `WorkLane.build → .code` (rawValue),
-  `defaultBuildTeamId → defaultCodeTeamId`, `WorkOrder.lane` values, built-in team
-  lane tags. Migrate fixtures; regenerate contracts. Green wall.
+- [x] **CUT-S01 — Core craft rename (DONE 2026-06-18).** `WorkLane.build → .code`
+  (rawValue); built-in team ids `build_* → code_*`; custom-id + lane block-reason
+  derive `code`; CLI usage strings `code|design|copy`; `team_run` fixture; Mac enums
+  `ComposeLane`/`RailFilter` `.build → .code`. Regenerated `docs/generated/alln/*`.
+  `TurnFamily.build` (execution-turn family) intentionally left for the Execute work.
+  Full green wall passes (Core tests + Mac build/test); GUI gate satisfied with a
+  non-visible waiver (labels still render "Build"; visible relabel is CUT-S04).
 - [ ] **CUT-S02 — Core run rename.** `Fanout*` → team-run naming; collapse run
   entrypoints toward the single `run a team` primitive (posture + `mutating`
   metadata). Internal only; no behavior change. Green wall.
