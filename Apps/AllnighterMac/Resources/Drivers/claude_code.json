@@ -8,7 +8,7 @@
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "claude",
-    "args": ["-p", "{{prompt}}", "--model", "{{model}}"],
+    "args": ["-p", "{{prompt}}", "--model", "{{model}}", "{{effortArgs}}"],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,

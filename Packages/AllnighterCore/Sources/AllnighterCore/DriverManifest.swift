@@ -215,6 +215,10 @@ public extension DriverManifest {
         case workingDir = "{{workingDir}}"
         /// A temp file the CLI should write its final answer to (file capture).
         case outputFile = "{{outputFile}}"
+        /// Expands to the driver's per-call effort flag args (or nothing) at the
+        /// exact position the CLI wants them — e.g. Claude `--effort high` at the
+        /// end, Codex `-c model_reasoning_effort="high"` BEFORE the positional prompt.
+        case effortArgs = "{{effortArgs}}"
     }
 
     /// Context for resolving template tokens.
@@ -241,14 +245,19 @@ public extension DriverManifest {
     /// prompt, so prompt content cannot inject additional arguments or commands.
     func resolvedArgs(_ ctx: ResolveContext) -> [String] {
         guard let invoke else { return [] }
-        var args = invoke.args.map { resolveStandaloneToken($0, ctx) }
-        // Append the per-call effort flag when this driver supports one and has a
-        // mapping for the run's effort (Claude `--effort medium`). Drivers without
-        // an effortFlag (Grok, or Antigravity which uses model variants) add nothing.
-        if let ef = invoke.effortFlag, let level = ef.levels[ctx.effort.rawValue] {
-            args += [ef.flag, level]
+        // `{{effortArgs}}` expands to 0–2 args at its position; every other element
+        // resolves 1:1. Effort flags only appear where the manifest places the token.
+        return invoke.args.flatMap { element -> [String] in
+            element == Token.effortArgs.rawValue ? effortFlagArgs(ctx) : [resolveStandaloneToken(element, ctx)]
         }
-        return args
+    }
+
+    /// The driver's per-call effort flag args for the run effort (Claude
+    /// `["--effort","high"]`, Codex `["-c", "model_reasoning_effort=\"high\""]`),
+    /// or `[]` when the driver has no effort flag or no mapping for this level.
+    private func effortFlagArgs(_ ctx: ResolveContext) -> [String] {
+        guard let ef = invoke?.effortFlag, let level = ef.levels[ctx.effort.rawValue] else { return [] }
+        return [ef.flag, level]
     }
 
     /// The argv element that should be fed via stdin when `promptVia == .stdin`,

@@ -30,6 +30,22 @@ final class EffortRoutingTests: XCTestCase {
         XCTAssertFalse(args.contains("--effort"), "Grok has no effort axis")
     }
 
+    func testCodexPassesModelAndReasoningEffortBeforePrompt() {
+        let m = manifest("codex")
+        XCTAssertNotNil(m.invoke?.effortFlag)
+        let args = m.resolvedArgs(.init(prompt: "do it", model: "gpt-5.4-mini",
+                                        outputFile: "/tmp/out.txt", effort: .high))
+        XCTAssertTrue(args.contains("-m"))
+        XCTAssertTrue(args.contains("gpt-5.4-mini"), "the selected Codex model is passed via -m")
+        XCTAssertTrue(args.contains(#"model_reasoning_effort="high""#))
+        let cIdx = try! XCTUnwrap(args.firstIndex(of: "-c"))
+        let promptIdx = try! XCTUnwrap(args.firstIndex(of: "do it"))
+        XCTAssertLessThan(cIdx, promptIdx, "the effort override precedes the positional prompt")
+        // Low/medium map through too.
+        XCTAssertTrue(m.resolvedArgs(.init(prompt: "x", model: "gpt-5.5", outputFile: "/tmp/o", effort: .low))
+            .contains(#"model_reasoning_effort="low""#))
+    }
+
     func testAntigravityRoutesEffortViaModelLabel() {
         // AGY carries no effort flag — effort rides in the model name.
         XCTAssertNil(manifest("antigravity").invoke?.effortFlag)

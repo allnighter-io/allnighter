@@ -8,11 +8,12 @@
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "codex",
-    "args": ["exec", "--skip-git-repo-check", "--color", "never", "-o", "{{outputFile}}", "{{prompt}}"],
+    "args": ["exec", "--skip-git-repo-check", "--color", "never", "-m", "{{model}}", "{{effortArgs}}", "-o", "{{outputFile}}", "{{prompt}}"],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
-    "timeoutSeconds": 300
+    "timeoutSeconds": 300,
+    "effortFlag": { "flag": "-c", "levels": { "low": "model_reasoning_effort=\"low\"", "med": "model_reasoning_effort=\"medium\"", "high": "model_reasoning_effort=\"high\"" } }
   },
   "output": {
     "capture": "file",
