@@ -305,6 +305,134 @@ struct ALDropdown: View {
     }
 }
 
+// MARK: - ALSearchableDropdown
+//
+// A searchable option picker for long lists (skills): type to filter, rows sorted
+// A→Z with an optional trailing tag (e.g. built-in / custom), and — when `onCreate`
+// is set and the typed name matches nothing — a "+ Create …" footer. Same anchored
+// `.alPopover` chrome as `ALDropdown`; never the native Menu.
+
+struct ALComboItem: Identifiable, Equatable {
+    let id: String
+    let label: String
+    var tag: String? = nil
+}
+
+struct ALSearchableDropdown: View {
+    let current: String
+    let items: [ALComboItem]
+    var width: CGFloat = 280
+    var placeholder: String = "Search…"
+    var onPick: (String) -> Void
+    /// When set, a non-matching query offers "+ Create <query>" (passes the name).
+    var onCreate: ((String) -> Void)? = nil
+
+    @State private var open = false
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
+
+    private var sorted: [ALComboItem] {
+        items.sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+    }
+    private var filtered: [ALComboItem] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return sorted }
+        return sorted.filter { $0.label.localizedCaseInsensitiveContains(q) }
+    }
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var hasExactMatch: Bool {
+        !trimmedQuery.isEmpty && items.contains { $0.label.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
+    }
+    private var canCreate: Bool { onCreate != nil && !trimmedQuery.isEmpty && !hasExactMatch }
+
+    var body: some View {
+        Button { open.toggle() } label: {
+            HStack(spacing: 4) {
+                Text(current).font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
+            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay {
+                RoundedRectangle(cornerRadius: ALRadius.md)
+                    .strokeBorder(open ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .alPopover(isPresented: $open, arrowEdge: .bottom) {
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                    TextField(placeholder, text: $query)
+                        .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(ALColor.textPrimary)
+                        .focused($searchFocused)
+                }
+                .padding(.horizontal, 10).frame(height: 36)
+                Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+
+                ScrollView {
+                    VStack(spacing: 1) {
+                        ForEach(filtered) { item in row(item) }
+                        if filtered.isEmpty && !canCreate {
+                            Text("No match").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
+                                .frame(maxWidth: .infinity).padding(.vertical, 14)
+                        }
+                    }
+                    .padding(6)
+                }
+                .frame(maxHeight: 260)
+
+                if canCreate {
+                    Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                    Button {
+                        onCreate?(trimmedQuery); close()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
+                            Text("Create \"\(trimmedQuery)\"").font(.system(size: 12.5, weight: .medium))
+                                .foregroundStyle(ALColor.accentText).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 10).frame(height: 36).frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(width: width)
+            .background(ALColor.surface)
+            .onAppear { searchFocused = true }
+        }
+    }
+
+    private func row(_ item: ALComboItem) -> some View {
+        Button { onPick(item.id); close() } label: {
+            HStack(spacing: 8) {
+                Text(item.label).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                Spacer(minLength: 8)
+                if let tag = item.tag {
+                    Text(tag).font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(ALColor.textMuted)
+                        .padding(.horizontal, 5).padding(.vertical, 1.5)
+                        .background(ALColor.textMuted.opacity(0.14), in: Capsule())
+                }
+                if item.label == current {
+                    Image(systemName: "checkmark").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
+                }
+            }
+            .padding(.horizontal, 9).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(item.label == current ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func close() { open = false; query = "" }
+}
+
 private struct ALButtonSurface<Label: View>: View {
     let variant: ALButtonVariant
     var small: Bool = false

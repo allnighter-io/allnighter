@@ -228,8 +228,16 @@ private struct StudioEmptyDetail: View {
 private struct StudioSkillListView: View {
     let lane: ComposeLane
     @State private var selectedId: SkillID?
+    @State private var query = ""
 
-    private var skills: [Skill] { SkillCatalog.list(lane: lane.workLane) }
+    /// Lane skills, sorted A→Z, filtered by the search box (founder: a growing list
+    /// must be scannable + searchable).
+    private var skills: [Skill] {
+        let all = SkillCatalog.list(lane: lane.workLane)
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return q.isEmpty ? all : all.filter { $0.displayName.localizedCaseInsensitiveContains(q) }
+    }
     private var selected: Skill? { skills.first { $0.id == selectedId } ?? skills.first }
 
     var body: some View {
@@ -238,9 +246,16 @@ private struct StudioSkillListView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header("\(lane.label) skills",
                        subtitle: "The hats your \(lane.label.lowercased()) models wear. Duplicate to tune one.")
+                skillSearchField
                 ScrollView {
                     VStack(spacing: 3) {
                         ForEach(skills) { skill in skillRow(skill) }
+                        if skills.isEmpty {
+                            Text("No \(lane.label.lowercased()) skill matches \"\(query)\".")
+                                .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 10).padding(.top, 6)
+                        }
                     }
                     .padding(.horizontal, 12).padding(.bottom, 12)
                 }
@@ -260,6 +275,18 @@ private struct StudioSkillListView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+    }
+
+    private var skillSearchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+            TextField("Search skills…", text: $query)
+                .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(ALColor.textPrimary)
+        }
+        .padding(.horizontal, 10).frame(height: 32)
+        .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        .padding(.horizontal, 12).padding(.bottom, 10)
     }
 
     private func skillRow(_ skill: Skill) -> some View {

@@ -452,16 +452,21 @@ private struct CustomizeWorkerView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     field("SKILL") {
-                        ALDropdown(current: skill?.displayName ?? skillId,
-                                   options: laneSkills.map { ($0.id, $0.displayName) }) { newId in
-                            // Don't silently discard an edit: only reload the template
-                            // when the prompt is still the current skill's template.
-                            if promptText.trimmingCharacters(in: .whitespacesAndNewlines)
-                                == template.trimmingCharacters(in: .whitespacesAndNewlines) {
-                                promptText = SkillCatalog.get(newId)?.template ?? ""
+                        ALSearchableDropdown(
+                            current: skill?.displayName ?? skillId,
+                            items: laneSkills.map { ALComboItem(id: $0.id, label: $0.displayName,
+                                                                tag: $0.builtIn ? "built-in" : "custom") },
+                            placeholder: "Search \(lane.label.lowercased()) skills…",
+                            onPick: { newId in
+                                // Don't silently discard an edit: only reload the template
+                                // when the prompt is still the current skill's template.
+                                if promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    == template.trimmingCharacters(in: .whitespacesAndNewlines) {
+                                    promptText = SkillCatalog.get(newId)?.template ?? ""
+                                }
+                                skillId = newId
                             }
-                            skillId = newId
-                        }
+                        )
                     }
                     field("MODEL") {
                         ALDropdown(current: modelName(modelId),
