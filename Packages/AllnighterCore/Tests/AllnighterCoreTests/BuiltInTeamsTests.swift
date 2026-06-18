@@ -30,10 +30,8 @@ final class BuiltInTeamsTests: XCTestCase {
                 XCTAssertNotNil(SkillCatalog.skill(row.skillId),
                                 "team \(team.id) references unknown skill \(row.skillId)")
             }
-            for (_, policy) in team.synthesisPolicyByEffort {
-                XCTAssertNotNil(SkillCatalog.skill(policy.planWriterSkillId),
-                                "team \(team.id) references unknown writer \(policy.planWriterSkillId)")
-            }
+            XCTAssertNotNil(SkillCatalog.skill(team.lead.skillId),
+                            "team \(team.id) references unknown Team Lead skill \(team.lead.skillId)")
         }
     }
 

@@ -8,19 +8,18 @@ final class TeamResolverTests: XCTestCase {
     private func codex() -> Model { Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer) }
     private func gemini() -> Model { Model(id: "model_gemini", displayName: "Gemini", modelLabel: "g", driverId: "antigravity", role: .answerer) }
 
-    private func writerPolicy(_ skill: String = "plan_writer_build",
-                              tags: [ModelCapabilityTag] = [.planner]) -> TeamSynthesisPolicy {
-        TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: skill,
-                            modelPolicy: ModelSelectionPolicy(requiredCapabilityTags: tags, fallbackPolicy: .strongestReady))
+    private func leadSpec(_ skill: String = "plan_writer_build",
+                          tags: [ModelCapabilityTag] = [.planner]) -> TeamLeadSpec {
+        TeamLeadSpec(skillId: skill, requiredCapabilityTags: tags, fallbackPolicy: .strongestReady)
     }
 
     private func team(rows: [TeamWorkerSpec],
                       lane: WorkLane = .build,
-                      synthesis: [EffortLevel: TeamSynthesisPolicy]? = nil) -> TeamPreset {
+                      lead: TeamLeadSpec? = nil) -> TeamPreset {
         TeamPreset(
             id: "build_test", displayName: "Test", lane: lane, outputKind: .plan,
             defaultEffort: .med, workerSpecs: rows,
-            synthesisPolicyByEffort: synthesis ?? [.low: writerPolicy()]
+            lead: lead ?? leadSpec()
         )
     }
 
@@ -115,7 +114,7 @@ final class TeamResolverTests: XCTestCase {
     func testPlanWriterUnavailableBlocksRun() {
         let t = team(
             rows: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low)],
-            synthesis: [.low: writerPolicy(tags: [.image])] // no ready model has .image
+            lead: leadSpec(tags: [.image]) // no ready model has .image
         )
         let r = TeamResolver.resolve(team: t, requestLane: .build, requestEffort: .low, readyModels: [opus()])
         XCTAssertFalse(r.isRunnable)
@@ -138,7 +137,7 @@ final class TeamResolverTests: XCTestCase {
         let t = team(rows: [
             TeamWorkerSpec(id: "r1", skillId: "visual_system_designer", minEffort: .low,
                            requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: true)
-        ], lane: .design, synthesis: [.low: writerPolicy("design_board_writer", tags: [.design])])
+        ], lane: .design, lead: leadSpec("design_board_writer", tags: [.design]))
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus(), gemini()])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gemini")
         XCTAssertTrue(r.isRunnable)

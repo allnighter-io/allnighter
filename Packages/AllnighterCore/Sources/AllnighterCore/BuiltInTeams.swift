@@ -31,16 +31,9 @@ public enum BuiltInTeams {
                        fallbackPolicy: fallback, required: required)
     }
 
-    /// The synthetic plan/output writer for all efforts — strongest ready model
-    /// (no hard capability requirement, so one ready CLI can still write output).
-    private static func writerPolicy(_ skillId: String, _ outputKind: TeamOutputKind,
-                                     dissent: DissentPolicy = .preserveDissent) -> [EffortLevel: TeamSynthesisPolicy] {
-        [.low: TeamSynthesisPolicy(
-            outputKind: outputKind, planWriterSkillId: skillId,
-            modelPolicy: ModelSelectionPolicy(fallbackPolicy: .strongestReady),
-            analysisDepth: .combined, dissentPolicy: dissent)]
-    }
-
+    /// Every built-in carries one mandatory Team Lead (synthesizer) — strongest
+    /// ready model by default (no hard capability requirement, so one ready CLI can
+    /// still report back). Effort scales the crew, never the Lead.
     private static func make(
         id: String, name: String, lane: WorkLane, output: TeamOutputKind,
         defaultEffort: EffortLevel, isDefault: Bool = false, description: String,
@@ -51,7 +44,7 @@ public enum BuiltInTeams {
             id: id, displayName: name, lane: lane, description: description, outputKind: output,
             defaultEffort: defaultEffort, isDefaultForLane: isDefault, workerSpecs: rows,
             effortPolicy: TeamEffortPolicy(defaultEffort: defaultEffort),
-            synthesisPolicyByEffort: writerPolicy(writer, output, dissent: dissent),
+            lead: TeamLeadSpec(skillId: writer, fallbackPolicy: .strongestReady, dissentPolicy: dissent),
             typeTags: typeTags, builtIn: true, version: 1)
     }
 

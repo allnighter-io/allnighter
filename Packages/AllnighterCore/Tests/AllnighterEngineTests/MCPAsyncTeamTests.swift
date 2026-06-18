@@ -16,7 +16,7 @@ final class MCPAsyncTeamTests: XCTestCase {
             id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
             isDefaultForLane: true,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
-            synthesisPolicyByEffort: [.low: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build")],
+            lead: TeamLeadSpec(skillId: "plan_writer_build"),
             builtIn: true)
     }
 

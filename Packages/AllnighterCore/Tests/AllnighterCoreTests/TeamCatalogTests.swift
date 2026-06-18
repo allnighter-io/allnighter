@@ -19,11 +19,7 @@ final class TeamCatalogTests: XCTestCase {
                                preferredModelId: "model_opus", fallbackPolicy: .anyReady, required: false)
             ],
             effortPolicy: TeamEffortPolicy(defaultEffort: .med, outputCountByEffort: [.low: 1, .med: 1, .high: 2]),
-            synthesisPolicyByEffort: [
-                .low: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build"),
-                .high: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build",
-                                           dissentPolicy: .riskRegister)
-            ],
+            lead: TeamLeadSpec(skillId: "plan_writer_build", dissentPolicy: .riskRegister),
             typeTags: ["feature"],
             builtIn: true
         )
@@ -36,7 +32,8 @@ final class TeamCatalogTests: XCTestCase {
         let data = try CoreJSON.encode(team)
         let decoded = try CoreJSON.decode(TeamPreset.self, from: data)
         XCTAssertEqual(decoded, team)
-        XCTAssertEqual(decoded.synthesisPolicyByEffort[.high]?.dissentPolicy, .riskRegister)
+        XCTAssertEqual(decoded.lead.dissentPolicy, .riskRegister)
+        XCTAssertEqual(decoded.lead.skillId, "plan_writer_build")
         XCTAssertEqual(decoded.effortPolicy.outputCountByEffort[.high], 2)
     }
 
@@ -57,12 +54,11 @@ final class TeamCatalogTests: XCTestCase {
         XCTAssertEqual(team.workerCountByEffort(), [.low: 1, .med: 2, .high: 3])
     }
 
-    func testSynthesisPolicyFallsBackToNearestLowerEffort() {
+    func testLeadIsEffortIndependent() {
+        // One Team Lead per team — effort scales the crew, never the Lead.
         let team = sampleTeam()
-        // med has no explicit policy -> falls back to low's policy.
-        XCTAssertEqual(team.synthesisPolicy(at: .low)?.dissentPolicy, .preserveDissent)
-        XCTAssertEqual(team.synthesisPolicy(at: .med)?.dissentPolicy, .preserveDissent)
-        XCTAssertEqual(team.synthesisPolicy(at: .high)?.dissentPolicy, .riskRegister)
+        XCTAssertEqual(team.lead.skillId, "plan_writer_build")
+        XCTAssertEqual(team.lead.dissentPolicy, .riskRegister)
     }
 
     // MARK: - Default-per-lane integrity

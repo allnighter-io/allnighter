@@ -399,7 +399,7 @@ struct AllnighterCLI {
             guard let team = runtime.teams.defaultTeam(for: lane) else { continue }
             let counts = team.workerCountByEffort()
             print("\(lane.rawValue) → \(team.displayName) (\(team.id)) · default \(team.defaultEffort.displayLabel) · \(team.outputKind.rawValue)")
-            print("  workers L/M/H: \(counts[.low] ?? 0)/\(counts[.med] ?? 0)/\(counts[.high] ?? 0) · writer \(team.synthesisPolicy(at: team.defaultEffort)?.planWriterSkillId ?? "—")")
+            print("  workers L/M/H: \(counts[.low] ?? 0)/\(counts[.med] ?? 0)/\(counts[.high] ?? 0) · lead \(team.lead.skillId)")
         }
     }
 

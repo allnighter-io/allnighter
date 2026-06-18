@@ -138,8 +138,8 @@ public enum SkillCatalog {
     private static func teamsReferencingSkill(_ skillId: SkillID) -> [TeamID] {
         TeamCatalog.all.compactMap { team in
             let rowHit = team.workerSpecs.contains { $0.skillId == skillId }
-            let writerHit = team.synthesisPolicyByEffort.values.contains { $0.planWriterSkillId == skillId }
-            return (rowHit || writerHit) ? team.id : nil
+            let leadHit = team.lead.skillId == skillId
+            return (rowHit || leadHit) ? team.id : nil
         }
     }
 

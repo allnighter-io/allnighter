@@ -194,44 +194,31 @@ public struct TeamEffortPolicy: Codable, Sendable, Equatable {
     }
 }
 
-/// How a model is selected for the synthetic plan/output writer (preferred, then
-/// capability-filtered fallback by rank).
-public struct ModelSelectionPolicy: Codable, Sendable, Equatable {
+/// The team's single **Team Lead** — the one role that reads the crew's output and
+/// writes the answer that reports back. Exactly one per team, effort-independent
+/// (effort scales the crew, never the Lead). Its prompt is the template of its
+/// `skillId` (a `.planWriter` skill); editing that prompt forks a custom skill on
+/// save like any worker. The model is picked by name (preferred, then
+/// capability/lane fallback) — never "strongest" shown to the user.
+public struct TeamLeadSpec: Codable, Sendable, Equatable {
+    public var skillId: String
     public var preferredModelId: String?
     public var requiredCapabilityTags: [ModelCapabilityTag]
     public var fallbackPolicy: ModelFallbackPolicy
-
-    public init(
-        preferredModelId: String? = nil,
-        requiredCapabilityTags: [ModelCapabilityTag] = [],
-        fallbackPolicy: ModelFallbackPolicy = .strongestReady
-    ) {
-        self.preferredModelId = preferredModelId
-        self.requiredCapabilityTags = requiredCapabilityTags
-        self.fallbackPolicy = fallbackPolicy
-    }
-}
-
-/// The synthetic plan/output writer stage for one effort: which skill writes the
-/// output, how its model is selected, analysis depth, and how dissent is kept.
-public struct TeamSynthesisPolicy: Codable, Sendable, Equatable {
-    public var outputKind: TeamOutputKind
-    public var planWriterSkillId: String
-    public var modelPolicy: ModelSelectionPolicy
-    public var analysisDepth: AnalysisDepth
+    /// How the Lead treats disagreement among the crew when it synthesizes.
     public var dissentPolicy: DissentPolicy
 
     public init(
-        outputKind: TeamOutputKind,
-        planWriterSkillId: String,
-        modelPolicy: ModelSelectionPolicy = ModelSelectionPolicy(),
-        analysisDepth: AnalysisDepth = .combined,
+        skillId: String,
+        preferredModelId: String? = nil,
+        requiredCapabilityTags: [ModelCapabilityTag] = [],
+        fallbackPolicy: ModelFallbackPolicy = .strongestReady,
         dissentPolicy: DissentPolicy = .preserveDissent
     ) {
-        self.outputKind = outputKind
-        self.planWriterSkillId = planWriterSkillId
-        self.modelPolicy = modelPolicy
-        self.analysisDepth = analysisDepth
+        self.skillId = skillId
+        self.preferredModelId = preferredModelId
+        self.requiredCapabilityTags = requiredCapabilityTags
+        self.fallbackPolicy = fallbackPolicy
         self.dissentPolicy = dissentPolicy
     }
 }
@@ -252,7 +239,8 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var isDefaultForLane: Bool
     public var workerSpecs: [TeamWorkerSpec]
     public var effortPolicy: TeamEffortPolicy
-    public var synthesisPolicyByEffort: [EffortLevel: TeamSynthesisPolicy]
+    /// The mandatory Team Lead (synthesizer). Exactly one, effort-independent.
+    public var lead: TeamLeadSpec
     public var typeTags: [String]
     public var purposeTags: [String]
     public var builtIn: Bool
@@ -268,7 +256,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         isDefaultForLane: Bool = false,
         workerSpecs: [TeamWorkerSpec],
         effortPolicy: TeamEffortPolicy = TeamEffortPolicy(),
-        synthesisPolicyByEffort: [EffortLevel: TeamSynthesisPolicy] = [:],
+        lead: TeamLeadSpec,
         typeTags: [String] = [],
         purposeTags: [String] = [],
         builtIn: Bool = false,
@@ -283,7 +271,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.isDefaultForLane = isDefaultForLane
         self.workerSpecs = workerSpecs
         self.effortPolicy = effortPolicy
-        self.synthesisPolicyByEffort = synthesisPolicyByEffort
+        self.lead = lead
         self.typeTags = typeTags
         self.purposeTags = purposeTags
         self.builtIn = builtIn
@@ -294,18 +282,6 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     /// declared order.
     public func activeRows(at effort: EffortLevel) -> [TeamWorkerSpec] {
         workerSpecs.filter { $0.minEffort <= effort }
-    }
-
-    /// The synthesis policy for `effort`, falling back to the nearest lower effort
-    /// that defines one, then any defined policy.
-    public func synthesisPolicy(at effort: EffortLevel) -> TeamSynthesisPolicy? {
-        if let exact = synthesisPolicyByEffort[effort] { return exact }
-        for level in EffortLevel.allCases.sorted(by: >) where level <= effort {
-            if let p = synthesisPolicyByEffort[level] { return p }
-        }
-        // No lower match — return the lowest defined policy so a team with one
-        // shared policy still resolves at every effort.
-        return EffortLevel.allCases.compactMap { synthesisPolicyByEffort[$0] }.first
     }
 
     /// Worker count active at each effort — the catalog summary shape
@@ -408,10 +384,11 @@ public enum TeamCatalog {
                 throw CatalogError.skillLaneMismatch(skillId: row.skillId, teamId: team.id)
             }
         }
-        for (_, policy) in team.synthesisPolicyByEffort {
-            if let skill = SkillCatalog.get(policy.planWriterSkillId), skill.lane != team.lane {
-                throw CatalogError.skillLaneMismatch(skillId: policy.planWriterSkillId, teamId: team.id)
-            }
+        guard let leadSkill = SkillCatalog.get(team.lead.skillId) else {
+            throw CatalogError.teamInvalid("unknown Team Lead skill \(team.lead.skillId)")
+        }
+        guard leadSkill.lane == team.lane else {
+            throw CatalogError.skillLaneMismatch(skillId: team.lead.skillId, teamId: team.id)
         }
         var custom = team
         custom.builtIn = false

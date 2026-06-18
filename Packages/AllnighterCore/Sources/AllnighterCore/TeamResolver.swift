@@ -135,28 +135,28 @@ public enum TeamResolver {
         let answerWorkers = resolveRows(answerRows, stage: .answer)
         let reviewWorkers = resolveRows(reviewRows, stage: .review)
 
-        // Rule 9: synthetic plan/output writer from synthesisPolicyByEffort.
+        // Rule 9: the mandatory Team Lead (synthesizer) — exactly one worker, from
+        // `team.lead` (effort-independent). Resolves its model by name like a row.
+        let lead = team.lead
+        result.dissentPolicy = lead.dissentPolicy
         var planWriter: Worker?
-        result.dissentPolicy = team.synthesisPolicy(at: effort)?.dissentPolicy ?? .preserveDissent
-        if let policy = team.synthesisPolicy(at: effort) {
-            if let model = selectModel(
-                preferredModelId: policy.modelPolicy.preferredModelId,
-                allowedModelIds: [],
-                requiredTags: policy.modelPolicy.requiredCapabilityTags,
-                fallback: policy.modelPolicy.fallbackPolicy,
-                lane: team.lane, ready: readyModels, capabilities: capabilities
-            ) {
-                let writerSkill = skill(policy.planWriterSkillId)
-                let index = nextIndex[model.id, default: 0]
-                nextIndex[model.id] = index + 1
-                planWriter = Worker(
-                    id: Worker.makeID(modelId: model.id, instanceIndex: index),
-                    modelId: model.id, instanceIndex: index,
-                    skillId: policy.planWriterSkillId,
-                    skillName: writerSkill?.displayName ?? policy.planWriterSkillId,
-                    purpose: .plan
-                )
-            }
+        if let model = selectModel(
+            preferredModelId: lead.preferredModelId,
+            allowedModelIds: [],
+            requiredTags: lead.requiredCapabilityTags,
+            fallback: lead.fallbackPolicy,
+            lane: team.lane, ready: readyModels, capabilities: capabilities
+        ) {
+            let leadSkill = skill(lead.skillId)
+            let index = nextIndex[model.id, default: 0]
+            nextIndex[model.id] = index + 1
+            planWriter = Worker(
+                id: Worker.makeID(modelId: model.id, instanceIndex: index),
+                modelId: model.id, instanceIndex: index,
+                skillId: lead.skillId,
+                skillName: leadSkill?.displayName ?? lead.skillId,
+                purpose: .plan
+            )
         }
 
         // Self-fusion / admission warnings (honest, never an estimate).

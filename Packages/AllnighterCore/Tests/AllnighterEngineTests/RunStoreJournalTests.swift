@@ -118,7 +118,7 @@ final class RunStoreJournalTests: XCTestCase {
         let team = TeamPreset(
             id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
-            synthesisPolicyByEffort: [.low: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build")])
+            lead: TeamLeadSpec(skillId: "plan_writer_build"))
         let resolved = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .low, readyModels: [opus])
         XCTAssertTrue(resolved.isRunnable)
 
@@ -147,7 +147,7 @@ final class RunStoreJournalTests: XCTestCase {
         let team = TeamPreset(
             id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
-            synthesisPolicyByEffort: [.low: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build")])
+            lead: TeamLeadSpec(skillId: "plan_writer_build"))
         let resolved = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .low, readyModels: [opus])
         let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
         let run = await coordinator.run(resolved: resolved, prompt: "founder prompt", models: [opus])
@@ -176,7 +176,7 @@ final class RunStoreJournalTests: XCTestCase {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDone.", exitCode: 0)])
         var team = try TeamCatalog.duplicateBuiltIn("build_core", name: "Snapshot Team")
         team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id, purpose: .answer, minEffort: .low)]
-        team.synthesisPolicyByEffort = [.low: TeamSynthesisPolicy(outputKind: .plan, planWriterSkillId: "plan_writer_build")]
+        team.lead = TeamLeadSpec(skillId: "plan_writer_build")
         try TeamCatalog.saveCustom(team)
 
         let resolved = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .low, readyModels: [opus])
