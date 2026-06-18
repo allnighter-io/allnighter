@@ -21,10 +21,10 @@ final class TeamRequestResolverTests: XCTestCase {
     }
 
     func testExplicitTeamWins() {
-        guard case .success(let r) = resolve(lane: .build, team: "build_bug_hunt", type: nil) else {
+        guard case .success(let r) = resolve(lane: .code, team: "code_bug_hunt", type: nil) else {
             return XCTFail("expected success")
         }
-        XCTAssertEqual(r.team.id, "build_bug_hunt")
+        XCTAssertEqual(r.team.id, "code_bug_hunt")
         XCTAssertEqual(r.effort, .high) // bug hunt default
     }
 
@@ -36,7 +36,7 @@ final class TeamRequestResolverTests: XCTestCase {
     }
 
     func testEffortOverrideRespected() {
-        guard case .success(let r) = resolve(lane: .build, team: "build_core", type: nil, effort: .high) else {
+        guard case .success(let r) = resolve(lane: .code, team: "code_core", type: nil, effort: .high) else {
             return XCTFail("expected success")
         }
         XCTAssertEqual(r.effort, .high)
@@ -52,10 +52,10 @@ final class TeamRequestResolverTests: XCTestCase {
     // MARK: - Conflicts / errors
 
     func testConflictingTeamAndTypeRejected() {
-        guard case .failure(let f) = resolve(lane: .build, team: "build_bug_hunt", type: "landing-page") else {
+        guard case .failure(let f) = resolve(lane: .code, team: "code_bug_hunt", type: "landing-page") else {
             return XCTFail("expected failure")
         }
-        XCTAssertEqual(f, .conflictingTeamAndType(team: "build_bug_hunt", type: "landing-page"))
+        XCTAssertEqual(f, .conflictingTeamAndType(team: "code_bug_hunt", type: "landing-page"))
         XCTAssertEqual(f.code, "CLI_USAGE_ERROR")
     }
 
@@ -69,17 +69,17 @@ final class TeamRequestResolverTests: XCTestCase {
     }
 
     func testLaneMismatchRejected() {
-        guard case .failure(let f) = resolve(lane: .design, team: "build_bug_hunt", type: nil) else {
+        guard case .failure(let f) = resolve(lane: .design, team: "code_bug_hunt", type: nil) else {
             return XCTFail("expected failure")
         }
-        XCTAssertEqual(f, .laneMismatch(team: "build_bug_hunt", teamLane: .build, requestLane: .design))
+        XCTAssertEqual(f, .laneMismatch(team: "code_bug_hunt", teamLane: .code, requestLane: .design))
     }
 
     func testUnknownTeamRejected() {
-        guard case .failure(let f) = resolve(lane: .build, team: "build_nope", type: nil) else {
+        guard case .failure(let f) = resolve(lane: .code, team: "code_nope", type: nil) else {
             return XCTFail("expected failure")
         }
-        XCTAssertEqual(f, .unknownTeam("build_nope"))
+        XCTAssertEqual(f, .unknownTeam("code_nope"))
         XCTAssertEqual(f.code, "DEFAULT_TEAM_INVALID")
     }
 

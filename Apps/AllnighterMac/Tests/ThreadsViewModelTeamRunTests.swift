@@ -34,7 +34,7 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
     }
 
     private var buildTeamId: String {
-        let teams = BuiltInTeams.teams(in: .build)
+        let teams = BuiltInTeams.teams(in: .code)
         return (teams.first(where: \.isDefaultForLane) ?? teams.first)?.id ?? ""
     }
 
@@ -42,7 +42,7 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         let vm = makeVM(toolStatuses: [])      // no ready bench → nothing can resolve
         _ = vm.newThread(title: "t")
         vm.sendRouting(ComposeRouting(mode: .fanout, to: "", effort: .med,
-                                      lane: .build, team: buildTeamId, text: "rate limit?"))
+                                      lane: .code, team: buildTeamId, text: "rate limit?"))
 
         let board = vm.selectedThread?.turns.first { $0.kind == .teamRun }
         XCTAssertNotNil(board, "fan-out must always record a board turn, even when it can't run")
@@ -59,13 +59,13 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
 
         // Precondition: the default build team must form with an all-ready bench.
         guard let preset = BuiltInTeams.team(buildTeamId) else { return XCTFail("no build team") }
-        let resolved = TeamResolver.resolve(team: preset, requestLane: .build,
+        let resolved = TeamResolver.resolve(team: preset, requestLane: .code,
                                             requestEffort: .med, readyModels: vm.readyModels)
         try XCTSkipUnless(resolved.isRunnable, "default build team can't form on this bench: \(resolved.blockReason ?? "")")
 
         _ = vm.newThread(title: "t")
         vm.sendRouting(ComposeRouting(mode: .fanout, to: "", effort: .med,
-                                      lane: .build, team: buildTeamId, text: "rate limit the public API"))
+                                      lane: .code, team: buildTeamId, text: "rate limit the public API"))
 
         // Synchronously, the optimistic running board turn carries a runId.
         let optimistic = vm.selectedThread?.turns.first { $0.kind == .teamRun }

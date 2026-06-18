@@ -71,8 +71,8 @@ extension ComposeMode {
 extension ComposeEffort { var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() } }
 extension ComposeLane {
     var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
-    var icon: String { switch self { case .build: "hammer"; case .design: "photo"; case .copy: "doc.text" } }
-    var workLane: WorkLane { switch self { case .build: .build; case .design: .design; case .copy: .copy } }
+    var icon: String { switch self { case .code: "hammer"; case .design: "photo"; case .copy: "doc.text" } }
+    var workLane: WorkLane { switch self { case .code: .code; case .design: .design; case .copy: .copy } }
 }
 
 /// Proof/specimen container — shows the composer on the dark canvas, anchored

@@ -7,27 +7,27 @@ public enum ModelCatalog {
 
     public static let builtInCapabilities: [String: ModelCapabilities] = [
         "model_opus": ModelCapabilities(
-            laneTags: [.build, .design, .copy],
+            laneTags: [.code, .design, .copy],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 100),
         "model_chatgpt": ModelCapabilities(
-            laneTags: [.build, .design, .copy],
+            laneTags: [.code, .design, .copy],
             capabilityTags: [.code, .planner, .review, .security],
             strengthRank: 90),
         "model_sonnet": ModelCapabilities(
-            laneTags: [.build, .design, .copy],
+            laneTags: [.code, .design, .copy],
             capabilityTags: [.code, .planner, .review, .fast],
             strengthRank: 80),
         "model_gemini": ModelCapabilities(
-            laneTags: [.design, .build],
+            laneTags: [.design, .code],
             capabilityTags: [.code, .design, .image, .fast],
             strengthRank: 75),
         "model_grok": ModelCapabilities(
-            laneTags: [.build, .copy],
+            laneTags: [.code, .copy],
             capabilityTags: [.code, .planner],
             strengthRank: 70),
         "model_composer": ModelCapabilities(
-            laneTags: [.build],
+            laneTags: [.code],
             capabilityTags: [.code, .fast],
             strengthRank: 60)
     ]

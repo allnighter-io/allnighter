@@ -6,7 +6,7 @@
     "status": "done",
     "origin": "cli",
     "originAgent": null,
-    "lane": "build",
+    "lane": "code",
     "type": "feature",
     "effort": "deep",
     "prompt": "Pressure-test this launch plan.",

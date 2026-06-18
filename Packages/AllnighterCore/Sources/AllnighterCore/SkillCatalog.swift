@@ -168,192 +168,192 @@ public enum SkillCatalog {
     // MARK: - Build skills
 
     private static let buildSkills: [Skill] = [
-        s("product_architect", "Product Architect", .build, .answer, """
+        s("product_architect", "Product Architect", .code, .answer, """
         You are the product architect for this Build fan-out. Convert the prompt into \
         specific behavior, state ownership, and acceptance criteria. Name the truth owner \
         and the smallest coherent slice. Do not write implementation code. Do not expand \
         scope beyond what the user asked.
         """),
-        s("first_principles_builder", "First Principles Builder", .build, .answer, """
+        s("first_principles_builder", "First Principles Builder", .code, .answer, """
         Reason from first principles before touching existing patterns. What shape would \
         the feature have if built cleanly today? Then reconcile that with the existing \
         repo and name the compromise. Prefer simple, local changes over clever systems.
         """),
-        s("code_maintainer", "Code Maintainer", .build, .answer, """
+        s("code_maintainer", "Code Maintainer", .code, .answer, """
         Read the request as a maintainer. Identify likely files, coupling risk, \
         migration risk, and behavior that must not regress. Preserve existing style. \
         Reject broad cleanup unless it is required for the requested behavior.
         """),
-        s("proof_planner", "Proof Planner", .build, .answer, """
+        s("proof_planner", "Proof Planner", .code, .answer, """
         Design proof. Name the Works Test, deterministic checks, fixtures, and negative \
         tests. Say exactly what would convince a skeptical maintainer that the behavior \
         works. Do not accept screenshots as proof for state or dispatch semantics.
         """),
-        s("scope_steward", "Scope Steward", .build, .review, """
+        s("scope_steward", "Scope Steward", .code, .review, """
         Cut. Separate must-have from nice-to-have, feature from cleanup, and current \
         slice from later phase. If the plan is too large, propose the smallest valuable \
         slice that still honors the prompt.
         """),
-        s("security_privacy_reviewer", "Security & Privacy Reviewer", .build, .review, """
+        s("security_privacy_reviewer", "Security & Privacy Reviewer", .code, .review, """
         Review privacy, credentials, local files, permissions, network calls, destructive \
         actions, and user consent. Name any high-risk stop before implementation. Calibrate \
         for a one- or two-developer team: prefer simple, local, auditable mitigations and \
         reject enterprise theater unless this surface truly requires it.
         """),
-        s("contrarian_reviewer", "Contrarian Reviewer", .build, .review, """
+        s("contrarian_reviewer", "Contrarian Reviewer", .code, .review, """
         Disagree usefully. Find the strongest reason the emerging plan may fail. Look \
         for hidden assumptions, missing owner truth, and user-trust risks. Preserve \
         dissent even if the final plan chooses another path.
         """),
         // Bug Hunt
-        s("bug_reproducer", "Bug Reproducer", .build, .answer, """
+        s("bug_reproducer", "Bug Reproducer", .code, .answer, """
         Reduce the bug to the smallest reproducible scenario. Use concrete steps, \
         inputs, expected behavior, and observed behavior. Do not invent facts. If a \
         detail is unknown, name the missing observation.
         """),
-        s("truth_owner_mapper", "Truth Owner Mapper", .build, .answer, """
+        s("truth_owner_mapper", "Truth Owner Mapper", .code, .answer, """
         Name the truth owner before proposing a fix. Separate the observed symptom from \
         the semantic owner, the layer that appears to be lying, and the proof that would \
         disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.
         """),
-        s("trace_mapper", "Trace Mapper", .build, .answer, """
+        s("trace_mapper", "Trace Mapper", .code, .answer, """
         Map the bug through the likely layers: UI, presenter/model, engine, store, \
         contract, persisted file, external CLI. Name the truth owner and the first layer \
         likely to be lying.
         """),
-        s("state_skeptic", "State Skeptic", .build, .answer, """
+        s("state_skeptic", "State Skeptic", .code, .answer, """
         Assume the bug is caused by duplicated state, stale state, optimistic UI, missing \
         persistence, or a drifted snapshot. Look for places the UI can display truth it \
         does not own.
         """),
-        s("change_impact_reviewer", "Change Impact Reviewer", .build, .answer, """
+        s("change_impact_reviewer", "Change Impact Reviewer", .code, .answer, """
         Zoom out before the fix. Name the shared components, state owners, presenters, \
         persisted files, contracts, fixtures, and nearby workflows that the proposed fix \
         could affect. The goal is not broad cleanup; it is avoiding a local patch that \
         leaves wreckage elsewhere.
         """),
-        s("correct_fix_planner", "Correct Fix Planner", .build, .answer, """
+        s("correct_fix_planner", "Correct Fix Planner", .code, .answer, """
         Plan the smallest correct fix, not the smallest visible patch. Do not patch the \
         visible layer until the truth owner and blast radius are named. If the cause is \
         duplicated state, SSOT drift, presenter mismatch, or shared component behavior, \
         the correct fix may be deeper than the failing view.
         """),
-        s("regression_guard", "Regression Guard", .build, .answer, """
+        s("regression_guard", "Regression Guard", .code, .answer, """
         Write the proof plan. Name the exact unit/integration/fixture test that would \
         fail before the fix and pass after. Include a negative test for the old lie when \
         possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition \
         to semantic tests.
         """),
-        s("gui_bug_reproducer", "GUI Bug Reproducer", .build, .answer, """
+        s("gui_bug_reproducer", "GUI Bug Reproducer", .code, .answer, """
         Reduce the visible GUI bug to the smallest rendered state that proves it: surface, \
         fixture, window state, interaction, expected pixels, and observed pixels. Separate \
         layout breakage from content/data truth.
         """),
-        s("gui_proof_guard", "GUI Proof Guard", .build, .answer, """
+        s("gui_proof_guard", "GUI Proof Guard", .code, .answer, """
         Apply the GUI proof law. A visible GUI bug is not fixed from build success, code \
         confidence, or the builder's own screenshot. Name the required GUIFixture render, \
         layout-watcher pass, affected states, and any blocked proof harness.
         """),
-        s("gui_layout_reviewer", "GUI Layout Reviewer", .build, .review, """
+        s("gui_layout_reviewer", "GUI Layout Reviewer", .code, .review, """
         Review the rendered surface for clipped, collapsed, missing, overlapping, \
         off-screen, detached, or z-order/scrim breakage. Treat layout proof as separate \
         from Core/content truth, and block closeout when pixels are still broken.
         """),
-        s("user_impact_narrator", "User Impact Narrator", .build, .review, """
+        s("user_impact_narrator", "User Impact Narrator", .code, .review, """
         Describe the trust break in user terms. What did the user believe Allnighter \
         would do, what happened instead, and what must be visibly true after the fix?
         """),
-        s("contrarian_root_cause", "Contrarian Root Cause", .build, .review, """
+        s("contrarian_root_cause", "Contrarian Root Cause", .code, .review, """
         Argue against the leading theory. Provide an alternate root cause and the \
         cheapest observation or test that rules it in or out.
         """),
         // Security Review
-        s("boundary_mapper", "Boundary Mapper", .build, .answer, """
+        s("boundary_mapper", "Boundary Mapper", .code, .answer, """
         Map every trust boundary. Name local process, app, CLI, network, cloud, paired \
         device, and file-system boundaries. For each crossing, name the data, authority, \
         and owner. Calibrate mitigations for a small team moving fast.
         """),
-        s("secrets_reviewer", "Secrets Reviewer", .build, .answer, """
+        s("secrets_reviewer", "Secrets Reviewer", .code, .answer, """
         Hunt for secrets and credential exposure. Check env vars, config files, Keychain, \
         logs, generated artifacts, prompts, run journals, and error messages. Assume logs \
         outlive the session. Prefer cheap, durable hygiene over enterprise process.
         """),
-        s("permission_reviewer", "Permission Reviewer", .build, .answer, """
+        s("permission_reviewer", "Permission Reviewer", .code, .answer, """
         Review macOS/iOS permission posture. Name every permission request or destructive \
         capability, why it is needed, how the user consents, and how the app minimizes \
         the surface. Avoid permission rituals that slow traction without reducing real risk.
         """),
-        s("data_flow_reviewer", "Data Flow Reviewer", .build, .answer, """
+        s("data_flow_reviewer", "Data Flow Reviewer", .code, .answer, """
         Trace sensitive data from source to deletion. Include local files, prompts, \
         attachments, worker output, run journals, cloud metadata, encrypted blobs, and \
         notifications. Prefer simple ownership and deletion rules a tiny team can maintain.
         """),
-        s("abuse_case_reviewer", "Abuse Case Reviewer", .build, .answer, """
+        s("abuse_case_reviewer", "Abuse Case Reviewer", .code, .answer, """
         Invent realistic misuse cases: confused user, malicious local client, \
         compromised paired device, compromised cloud metadata, prompt injection, and \
         agent overreach. Tie each to the smallest practical mitigation, not a generic \
         enterprise control.
         """),
-        s("dependency_injection_reviewer", "Dependency/Injection Reviewer", .build, .review, """
+        s("dependency_injection_reviewer", "Dependency/Injection Reviewer", .code, .review, """
         Check command construction, argument escaping, shell usage, dependency trust, \
         file paths, prompt injection, output parsing, and generated artifacts. Prefer \
         structured APIs over string parsing where possible, and prefer local code changes \
         over heavyweight governance.
         """),
-        s("security_fix_prioritizer", "Security Fix Prioritizer", .build, .review, """
+        s("security_fix_prioritizer", "Security Fix Prioritizer", .code, .review, """
         Convert findings into small-team action. Label required stop, must-fix before \
         ship, cheap hardening, later when scale warrants, accepted risk, or enterprise-only \
         suggestion rejected. Every required stop needs a proof condition.
         """),
         // Architecture Pressure Test
-        s("truth_owner", "Truth Owner", .build, .answer, """
+        s("truth_owner", "Truth Owner", .code, .answer, """
         Name the semantic owner for every durable fact. Separate product truth from UI \
         rendering, generated artifacts, prompt prose, and cache state. Reject any design \
         where SwiftUI or an agent prompt becomes the only owner of durable meaning.
         """),
-        s("complexity_cutter", "Complexity Cutter", .build, .answer, """
+        s("complexity_cutter", "Complexity Cutter", .code, .answer, """
         Remove abstractions that do not pay rent. Prefer the smallest local shape that \
         preserves the future path. Call out cleverness, generic frameworks, and config \
         surfaces that are not needed for the current slice.
         """),
-        s("failure_concurrency", "Failure & Concurrency", .build, .answer, """
+        s("failure_concurrency", "Failure & Concurrency", .code, .answer, """
         Look for races, partial writes, cancelled tasks, orphaned runs, interrupted \
         processes, retries, and stale snapshots. Name what happens if the app closes \
         mid-run or two attempts touch the same owner.
         """),
-        s("migration_steward", "Migration Steward", .build, .answer, """
+        s("migration_steward", "Migration Steward", .code, .answer, """
         Identify fixtures, generated artifacts, persisted files, CLI contracts, and docs \
         that must move together. Because the product is pre-user, prefer clean cutovers \
         over long-lived compatibility shims.
         """),
-        s("contrarian_architect", "Contrarian Architect", .build, .review, """
+        s("contrarian_architect", "Contrarian Architect", .code, .review, """
         Defend the strongest alternative architecture. Say what it would make simpler, \
         what it would make worse, and what evidence would change the decision.
         """),
         // Release Proof
-        s("acceptance_auditor", "Acceptance Auditor", .build, .answer, """
+        s("acceptance_auditor", "Acceptance Auditor", .code, .answer, """
         Compare the claimed user-visible behavior to the actual slice. Name what is \
         done, what is not done, and what would make the claim misleading.
         """),
-        s("test_runner_planner", "Test Runner Planner", .build, .answer, """
+        s("test_runner_planner", "Test Runner Planner", .code, .answer, """
         Choose the exact proof commands, fixtures, and focused tests. Prefer \
         deterministic checks over agent judgment. Include the smallest command set that \
         protects the behavior.
         """),
-        s("edge_case_hunter", "Edge Case Hunter", .build, .answer, """
+        s("edge_case_hunter", "Edge Case Hunter", .code, .answer, """
         Probe empty, error, partial, interrupted, one-model, missing-model, and stale \
         history states. Look for where the happy path can lie.
         """),
-        s("contract_drift_checker", "Contract Drift Checker", .build, .answer, """
+        s("contract_drift_checker", "Contract Drift Checker", .code, .answer, """
         Check CLI help, generated schemas, fixtures, JSON field names, docs, and \
         reproduce commands for drift. Generated artifacts must come from the registry, \
         not hand edits.
         """),
-        s("demo_narrator", "Demo Narrator", .build, .review, """
+        s("demo_narrator", "Demo Narrator", .code, .review, """
         Write the shortest credible demo walkthrough. It should say what the user can do \
         now, what they will see, and why the result proves the slice.
         """),
-        s("risk_register", "Risk Register", .build, .review, """
+        s("risk_register", "Risk Register", .code, .review, """
         Name residual risks and proof gaps honestly. Separate blockers from acceptable \
         follow-ups and assign an owner to each open item.
         """)
@@ -560,17 +560,17 @@ public enum SkillCatalog {
     // MARK: - Synthetic plan/output writer skills (one per output kind)
 
     private static let writerSkills: [Skill] = [
-        writer("plan_writer_build", "Build Plan Writer", .build,
+        writer("plan_writer_build", "Build Plan Writer", .code,
                "implementable plan with scope, architecture, risks, and a proof wall"),
-        writer("bug_packet_writer", "Bug Packet Writer", .build,
+        writer("bug_packet_writer", "Bug Packet Writer", .code,
                "bug packet: symptom, repro, truth owner, lie-prone layer, blast radius, smallest correct fix, regression proof"),
-        writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .build,
+        writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
-        writer("security_register_writer", "Security Register Writer", .build,
+        writer("security_register_writer", "Security Register Writer", .code,
                "small-team security review: boundaries, risks, severity, required stops, cheap hardening, accepted risks, proof requirements"),
-        writer("architecture_verdict_writer", "Architecture Verdict Writer", .build,
+        writer("architecture_verdict_writer", "Architecture Verdict Writer", .code,
                "architecture verdict: truth owner, boundary map, rejected alternatives, implementation slices, proof wall"),
-        writer("proof_packet_writer", "Proof Packet Writer", .build,
+        writer("proof_packet_writer", "Proof Packet Writer", .code,
                "proof packet: Works Test, commands run, missing proof, residual risks, closeout verdict"),
         writer("design_board_writer", "Design Board Writer", .design,
                "design board: options, rationale, tradeoffs, and the selected direction when requested"),

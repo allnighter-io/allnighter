@@ -22,7 +22,7 @@ final class CatalogCLITests: XCTestCase {
     }
 
     func testSkillsBuildJSONListsOnlyBuildLane() throws {
-        let json = AllnighterCLI.skillsCatalogJSONString(lane: .build)
+        let json = AllnighterCLI.skillsCatalogJSONString(lane: .code)
         let data = try XCTUnwrap(json.data(using: .utf8))
         struct Catalog: Decodable {
             struct Skill: Decodable { let id: String; let lane: String }
@@ -30,9 +30,9 @@ final class CatalogCLITests: XCTestCase {
             let skills: [Skill]
         }
         let catalog = try CoreJSON.decode(Catalog.self, from: data)
-        XCTAssertEqual(catalog.lane, "build")
+        XCTAssertEqual(catalog.lane, "code")
         XCTAssertFalse(catalog.skills.isEmpty)
-        XCTAssertTrue(catalog.skills.allSatisfy { $0.lane == "build" })
+        XCTAssertTrue(catalog.skills.allSatisfy { $0.lane == "code" })
     }
 
     func testSkillShowJSONIncludesTemplate() throws {
@@ -50,7 +50,7 @@ final class CatalogCLITests: XCTestCase {
     }
 
     func testTeamsDuplicateProducesCustomJSON() throws {
-        let team = try TeamCatalog.duplicateBuiltIn("build_core", name: "WT Build Team")
+        let team = try TeamCatalog.duplicateBuiltIn("code_core", name: "WT Build Team")
         let json = AllnighterCLI.teamShowJSONString(team)
         XCTAssertTrue(json.contains(team.id))
         XCTAssertTrue(json.contains("WT Build Team"))
@@ -58,9 +58,9 @@ final class CatalogCLITests: XCTestCase {
 
     func testSkillsNewCreatesCustomSkill() throws {
         let skill = try SkillCatalog.createCustom(
-            lane: .build, name: "Fresh Skill", purpose: .answer, template: "Be precise."
+            lane: .code, name: "Fresh Skill", purpose: .answer, template: "Be precise."
         )
         XCTAssertFalse(skill.builtIn)
-        XCTAssertTrue(skill.id.hasPrefix("custom_build_"))
+        XCTAssertTrue(skill.id.hasPrefix("custom_code_"))
     }
 }

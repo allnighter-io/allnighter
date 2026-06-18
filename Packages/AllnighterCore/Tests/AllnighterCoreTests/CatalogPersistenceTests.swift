@@ -22,17 +22,17 @@ final class CatalogPersistenceTests: XCTestCase {
 
     func testCustomSkillRoundTrips() throws {
         let skill = Skill(
-            id: "custom_build_wt_skill", displayName: "WT Skill", lane: .build,
+            id: "custom_code_wt_skill", displayName: "WT Skill", lane: .code,
             purpose: .answer, template: "Be skeptical.", builtIn: false,
             createdAt: Date(), updatedAt: Date()
         )
         try SkillCatalog.saveCustom(skill)
-        XCTAssertEqual(SkillCatalog.get("custom_build_wt_skill")?.displayName, "WT Skill")
+        XCTAssertEqual(SkillCatalog.get("custom_code_wt_skill")?.displayName, "WT Skill")
     }
 
     func testBuiltInSkillShadowRejected() throws {
         let skill = Skill(
-            id: "bug_reproducer", displayName: "Shadow", lane: .build,
+            id: "bug_reproducer", displayName: "Shadow", lane: .code,
             purpose: .answer, template: "nope", builtIn: false
         )
         XCTAssertThrowsError(try SkillCatalog.saveCustom(skill)) { error in
@@ -41,16 +41,16 @@ final class CatalogPersistenceTests: XCTestCase {
     }
 
     func testDuplicateBuiltInTeamCreatesCustom() throws {
-        let copy = try TeamCatalog.duplicateBuiltIn("build_bug_hunt", name: "Mike's Bug Hunt")
+        let copy = try TeamCatalog.duplicateBuiltIn("code_bug_hunt", name: "Mike's Bug Hunt")
         XCTAssertFalse(copy.builtIn)
-        XCTAssertTrue(copy.id.hasPrefix("custom_build_"))
+        XCTAssertTrue(copy.id.hasPrefix("custom_code_"))
         XCTAssertEqual(TeamCatalog.get(copy.id)?.displayName, "Mike's Bug Hunt")
-        XCTAssertEqual(BuiltInTeams.team("build_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunt")
     }
 
     func testWrongLaneSkillRejectedAtTeamSave() throws {
         let skill = try SkillCatalog.duplicateBuiltIn("offer_strategist", name: "Wrong Lane")
-        var team = try TeamCatalog.duplicateBuiltIn("build_core", name: "Bad Team")
+        var team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Bad Team")
         team.workerSpecs[0].skillId = skill.id
         XCTAssertThrowsError(try TeamCatalog.saveCustom(team)) { error in
             if case .skillLaneMismatch(let sid, _) = error as? CatalogError {
@@ -63,7 +63,7 @@ final class CatalogPersistenceTests: XCTestCase {
 
     func testSkillDeleteBlockedWhenReferencedByTeam() throws {
         let skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "In Use")
-        var team = try TeamCatalog.duplicateBuiltIn("build_core", name: "Uses Custom")
+        var team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Uses Custom")
         team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id)]
         try TeamCatalog.saveCustom(team)
         XCTAssertThrowsError(try SkillCatalog.deleteCustom(skill.id)) { error in
@@ -76,7 +76,7 @@ final class CatalogPersistenceTests: XCTestCase {
     }
 
     func testRestartReloadsCustomTeam() throws {
-        let team = try TeamCatalog.duplicateBuiltIn("build_core", name: "Persisted")
+        let team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Persisted")
         CatalogRoots.resetTestingOverrides()
         CatalogRoots.overrideForTesting(teams: teamsRoot, skills: skillsRoot)
         XCTAssertNotNil(TeamCatalog.get(team.id))

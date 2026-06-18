@@ -56,7 +56,7 @@ final class TeamServiceStreamTests: XCTestCase {
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
         let team = TeamPreset(
-            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low, isDefaultForLane: true,
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low, isDefaultForLane: true,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"),
             builtIn: true)
@@ -78,7 +78,7 @@ final class TeamServiceStreamTests: XCTestCase {
                 await collected.add(name)
             }
         }
-        let runTask = Task { await service.run(TeamRequest(question: "actor or queue?", lane: .build, teamPresetId: "build_test", effort: .low), origin: .cli, events: continuation) }
+        let runTask = Task { await service.run(TeamRequest(question: "actor or queue?", lane: .code, teamPresetId: "code_test", effort: .low), origin: .cli, events: continuation) }
 
         // Worker is now running and blocked.
         for await _ in gated.started { break }

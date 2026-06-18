@@ -3,7 +3,7 @@ import XCTest
 
 final class TeamCatalogTests: XCTestCase {
 
-    private func sampleTeam(id: String = "build_sample", lane: WorkLane = .build, isDefault: Bool = false) -> TeamPreset {
+    private func sampleTeam(id: String = "code_sample", lane: WorkLane = .code, isDefault: Bool = false) -> TeamPreset {
         TeamPreset(
             id: id,
             displayName: "Sample",
@@ -65,22 +65,22 @@ final class TeamCatalogTests: XCTestCase {
 
     func testExactlyOneDefaultPerLaneIsValid() {
         let teams = [
-            sampleTeam(id: "build_core", lane: .build, isDefault: true),
-            sampleTeam(id: "build_bug_hunt", lane: .build, isDefault: false),
+            sampleTeam(id: "code_core", lane: .code, isDefault: true),
+            sampleTeam(id: "code_bug_hunt", lane: .code, isDefault: false),
             sampleTeam(id: "design_core", lane: .design, isDefault: true)
         ]
         XCTAssertTrue(teams.lanesViolatingSingleDefault().isEmpty)
-        XCTAssertEqual(teams.defaultTeam(for: .build)?.id, "build_core")
+        XCTAssertEqual(teams.defaultTeam(for: .code)?.id, "code_core")
         XCTAssertEqual(teams.defaultTeam(for: .design)?.id, "design_core")
         XCTAssertNil(teams.defaultTeam(for: .copy))
     }
 
     func testZeroOrMultipleDefaultsViolate() {
         let twoDefaults = [
-            sampleTeam(id: "build_core", lane: .build, isDefault: true),
-            sampleTeam(id: "build_bug_hunt", lane: .build, isDefault: true)
+            sampleTeam(id: "code_core", lane: .code, isDefault: true),
+            sampleTeam(id: "code_bug_hunt", lane: .code, isDefault: true)
         ]
-        XCTAssertEqual(twoDefaults.lanesViolatingSingleDefault(), [.build])
+        XCTAssertEqual(twoDefaults.lanesViolatingSingleDefault(), [.code])
 
         let noDefault = [sampleTeam(id: "design_core", lane: .design, isDefault: false)]
         XCTAssertEqual(noDefault.lanesViolatingSingleDefault(), [.design])

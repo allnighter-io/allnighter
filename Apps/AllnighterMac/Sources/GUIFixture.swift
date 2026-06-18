@@ -104,10 +104,10 @@ enum GUIFixture {
     /// Which Studio page a `studio-*` fixture deep-links to.
     static var studioRoute: StudioRoute {
         switch active {
-        case "studio-teams-build", "studio-team-editor", "studio-worker-editor": return .teams(.build)
+        case "studio-teams-build", "studio-team-editor", "studio-worker-editor": return .teams(.code)
         case "studio-teams-design": return .teams(.design)
         case "studio-teams-copy": return .teams(.copy)
-        case "studio-skills-build": return .skills(.build)
+        case "studio-skills-build": return .skills(.code)
         default: return .clis
         }
     }

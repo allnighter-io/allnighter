@@ -48,7 +48,7 @@ final class ThreadsViewModelDispatchTests: XCTestCase {
     }
 
     private func exec(_ to: String, _ text: String) -> ComposeRouting {
-        ComposeRouting(mode: .exec, to: to, effort: .med, lane: .build, team: "", text: text)
+        ComposeRouting(mode: .exec, to: to, effort: .med, lane: .code, team: "", text: text)
     }
 
     private func firstDispatchTurn(_ vm: ThreadsViewModel) async throws -> ThreadTurn? {

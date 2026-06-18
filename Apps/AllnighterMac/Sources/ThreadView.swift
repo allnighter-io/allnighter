@@ -202,7 +202,7 @@ private struct ThreadPaneHeader: View {
 
     private var inferredLane: ComposeLane? {
         if thread.turns.contains(where: { $0.kind == .designBoard }) { return .design }
-        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .workOrder }) { return .build }
+        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .workOrder }) { return .code }
         return nil
     }
 

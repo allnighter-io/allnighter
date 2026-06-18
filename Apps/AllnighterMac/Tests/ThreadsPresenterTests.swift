@@ -156,8 +156,8 @@ final class ThreadsPresenterTests: XCTestCase {
 
     func testLaneInference() {
         XCTAssertEqual(ThreadsPresenter.lane(of: thread("d", updatedAt: t0, turns: [turn(.designBoard, .done)])), .design)
-        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b", updatedAt: t0, turns: [turn(.teamRun, .done)])), .build)
-        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b2", updatedAt: t0, turns: [turn(.dispatch, .done)])), .build)
+        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b", updatedAt: t0, turns: [turn(.teamRun, .done)])), .code)
+        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b2", updatedAt: t0, turns: [turn(.dispatch, .done)])), .code)
         XCTAssertNil(ThreadsPresenter.lane(of: thread("chat", updatedAt: t0, turns: [turn(.workerChat, .done)])))
         XCTAssertNil(ThreadsPresenter.lane(of: thread("empty", updatedAt: t0)))
     }
@@ -172,7 +172,7 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertEqual(Set(ThreadsPresenter.railThreads(all, filter: .all, search: "").map(\.id)),
                        ["d", "b", "rb", "c"])
         XCTAssertEqual(ThreadsPresenter.railThreads(all, filter: .design, search: "").map(\.id), ["d"])
-        XCTAssertEqual(Set(ThreadsPresenter.railThreads(all, filter: .build, search: "").map(\.id)),
+        XCTAssertEqual(Set(ThreadsPresenter.railThreads(all, filter: .code, search: "").map(\.id)),
                        ["b", "rb"])
         XCTAssertEqual(ThreadsPresenter.railThreads(all, filter: .running, search: "").map(\.id), ["rb"])
     }

@@ -11,8 +11,8 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testRequiredBuiltInIdsArePresent() {
         let required = [
-            "build_core", "build_bug_hunt", "build_gui_bug_hunt", "build_security_review",
-            "build_architecture_pressure_test", "build_release_proof",
+            "code_core", "code_bug_hunt", "code_gui_bug_hunt", "code_security_review",
+            "code_architecture_pressure_test", "code_release_proof",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
             "copy_core", "copy_landing_page"
@@ -37,7 +37,7 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testExactlyOneDefaultPerLane() {
         XCTAssertTrue(BuiltInTeams.all.lanesViolatingSingleDefault().isEmpty)
-        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .build)?.id, "build_core")
+        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .code)?.id, "code_core")
         XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .design)?.id, "design_core")
         XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .copy)?.id, "copy_core")
     }
@@ -61,9 +61,9 @@ final class BuiltInTeamsTests: XCTestCase {
     // MARK: - Headline proof: one ready CLI runs Bug Hunt High
 
     func testBugHuntHighWithOnlyOpusResolvesNineWorkersPlusWriter() {
-        let team = BuiltInTeams.team("build_bug_hunt")!
+        let team = BuiltInTeams.team("code_bug_hunt")!
         XCTAssertEqual(team.defaultEffort, .high)
-        let r = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .high, readyModels: [opus()])
+        let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: [opus()])
 
         XCTAssertTrue(r.isRunnable)
         XCTAssertNil(r.blockReason)
@@ -93,10 +93,10 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testEffortGatingChangesBugHuntWorkerCount() {
-        let team = BuiltInTeams.team("build_bug_hunt")!
+        let team = BuiltInTeams.team("code_bug_hunt")!
         let bench = [opus()]
         func answerReviewCount(_ e: EffortLevel) -> Int {
-            let r = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: e, readyModels: bench)
+            let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: e, readyModels: bench)
             return r.answerWorkers.count + r.reviewWorkers.count
         }
         XCTAssertEqual(answerReviewCount(.low), 4)
@@ -105,12 +105,12 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testGUIBugHuntCarriesRenderedProofSkills() {
-        let team = BuiltInTeams.team("build_gui_bug_hunt")!
+        let team = BuiltInTeams.team("code_gui_bug_hunt")!
         XCTAssertEqual(team.displayName, "GUI Bug Hunt")
         XCTAssertEqual(team.outputKind, .bugPacket)
         XCTAssertEqual(team.defaultEffort, .high)
 
-        let high = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .high, readyModels: [opus()])
+        let high = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: [opus()])
         XCTAssertTrue(high.isRunnable)
         XCTAssertEqual(high.planWriter?.skillId, "gui_bug_packet_writer")
         XCTAssertTrue(high.answerWorkers.contains { $0.skillId == "gui_proof_guard" })
@@ -120,8 +120,8 @@ final class BuiltInTeamsTests: XCTestCase {
     // MARK: - Works Test E: preferred Codex unavailable falls back deterministically
 
     func testRegressionGuardFallsBackFromCodexToOpus() {
-        let team = BuiltInTeams.team("build_bug_hunt")!
-        let r = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .low, readyModels: [opus()])
+        let team = BuiltInTeams.team("code_bug_hunt")!
+        let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         let regression = r.answerWorkers.first { $0.skillId == "regression_guard" }
         XCTAssertEqual(regression?.modelId, "model_opus")
         XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_chatgpt unavailable") })
@@ -130,14 +130,14 @@ final class BuiltInTeamsTests: XCTestCase {
     // MARK: - Built-in immutability via duplicate-to-customize
 
     func testDuplicateLeavesBuiltInUnchanged() {
-        let original = BuiltInTeams.team("build_bug_hunt")!
+        let original = BuiltInTeams.team("code_bug_hunt")!
         let custom = original.duplicated(newId: "mike_bug_hunt", newName: "Mike's Bug Hunt")
         XCTAssertEqual(custom.id, "mike_bug_hunt")
         XCTAssertEqual(custom.displayName, "Mike's Bug Hunt")
         XCTAssertFalse(custom.builtIn)
         XCTAssertFalse(custom.isDefaultForLane)
         // The built-in is untouched.
-        XCTAssertEqual(BuiltInTeams.team("build_bug_hunt")?.displayName, "Bug Hunt")
-        XCTAssertTrue(BuiltInTeams.team("build_bug_hunt")?.builtIn ?? false)
+        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertTrue(BuiltInTeams.team("code_bug_hunt")?.builtIn ?? false)
     }
 }

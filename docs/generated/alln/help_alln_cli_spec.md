@@ -711,11 +711,11 @@ Flags:
 - `teams_build_json` — List Build teams: `alln teams --lane build --json`
 - `skills_build_json` — List Build skills: `alln skills --lane build --json`
 - `skills_show_json` — Show a Build skill: `alln skills show bug_reproducer --json`
-- `team_preflight` — Preflight a team: `alln team preflight --lane build --team build_bug_hunt --effort high`
-- `team_basic` — Ask the team: `alln team --lane build --team build_bug_hunt "Why does run history disappear?"`
+- `team_preflight` — Preflight a team: `alln team preflight --lane build --team code_bug_hunt --effort high`
+- `team_basic` — Ask the team: `alln team --lane build --team code_bug_hunt "Why does run history disappear?"`
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
 - `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
-- `team_start_json` — Start async team run: `alln team start --json --lane build --team build_bug_hunt --effort low "tiny async sanity"`
+- `team_start_json` — Start async team run: `alln team start --json --lane build --team code_bug_hunt --effort low "tiny async sanity"`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`

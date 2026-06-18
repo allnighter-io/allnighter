@@ -34,8 +34,8 @@ final class SkillCatalogTests: XCTestCase {
     }
 
     func testLaneFilteringSeparatesBuildDesignCopy() {
-        XCTAssertTrue(SkillCatalog.skills(in: .build).contains { $0.id == "product_architect" })
-        XCTAssertFalse(SkillCatalog.skills(in: .build).contains { $0.id == "information_architect" })
+        XCTAssertTrue(SkillCatalog.skills(in: .code).contains { $0.id == "product_architect" })
+        XCTAssertFalse(SkillCatalog.skills(in: .code).contains { $0.id == "information_architect" })
         XCTAssertTrue(SkillCatalog.skills(in: .design).contains { $0.id == "design_critic" })
         XCTAssertTrue(SkillCatalog.skills(in: .copy).contains { $0.id == "objection_hunter" })
     }

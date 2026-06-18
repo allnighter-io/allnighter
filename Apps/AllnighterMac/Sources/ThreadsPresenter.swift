@@ -213,7 +213,7 @@ enum ThreadsPresenter {
     static func lane(of thread: WorkThread) -> ComposeLane? {
         if thread.turns.contains(where: { $0.kind == .designBoard }) { return .design }
         if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .workOrder || $0.kind == .dispatch }) {
-            return .build
+            return .code
         }
         return nil
     }
@@ -222,7 +222,7 @@ enum ThreadsPresenter {
         switch filter {
         case .all: return true
         case .design: return lane(of: thread) == .design
-        case .build: return lane(of: thread) == .build
+        case .code: return lane(of: thread) == .code
         case .running: return thread.isRunning
         }
     }

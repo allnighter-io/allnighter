@@ -17,7 +17,7 @@ private enum AsyncTeamTestHarness {
 
     static func testTeam() -> TeamPreset {
         TeamPreset(
-            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
             isDefaultForLane: true,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"),
@@ -56,8 +56,8 @@ private enum AsyncTeamTestHarness {
     static func startRequest(_ prompt: String = "async?", key: String? = nil) -> AsyncTeamStartRequest {
         AsyncTeamStartRequest(
             question: prompt,
-            lane: .build,
-            teamPresetId: "build_test",
+            lane: .code,
+            teamPresetId: "code_test",
             effort: .low,
             originAgent: "test-agent",
             originConversationId: "conv-1",
@@ -77,7 +77,7 @@ final class TeamStartTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stdout: AsyncTeamTestHarness.planMarkdown)])
             let service = AsyncTeamTestHarness.makeService(root: root, mock: mock)
             let outcome = await service.start(
-                AsyncTeamStartRequest(question: "x", lane: .build, teamPresetId: "missing_team", effort: .low),
+                AsyncTeamStartRequest(question: "x", lane: .code, teamPresetId: "missing_team", effort: .low),
                 origin: .cli,
                 readyModels: [AsyncTeamTestHarness.opus()]
             )

@@ -9,7 +9,7 @@ final class TeamServiceTests: XCTestCase {
     /// A tiny build catalog team: one answer worker + the build plan writer.
     private func testTeam() -> TeamPreset {
         TeamPreset(
-            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
             isDefaultForLane: true,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"),
@@ -31,7 +31,7 @@ final class TeamServiceTests: XCTestCase {
     }
 
     private func request(_ q: String) -> TeamRequest {
-        TeamRequest(question: q, lane: .build, teamPresetId: "build_test", effort: .low)
+        TeamRequest(question: q, lane: .code, teamPresetId: "code_test", effort: .low)
     }
 
     func testRunProducesCompleteResultWithPlan() async {
@@ -41,7 +41,7 @@ final class TeamServiceTests: XCTestCase {
         let result = await service.run(request("actor or queue?"), origin: .cli)
         XCTAssertEqual(result.status, .complete)
         XCTAssertEqual(result.plan, planMarkdown)
-        XCTAssertEqual(result.preset, "build_test")
+        XCTAssertEqual(result.preset, "code_test")
         XCTAssertEqual(result.origin, .cli)
         XCTAssertGreaterThan(result.invocations, 0)
     }
@@ -50,9 +50,9 @@ final class TeamServiceTests: XCTestCase {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(store: RunStore(rootDirectory: tmp))
-        // build_test has no typeTags, so any --type conflicts.
+        // code_test has no typeTags, so any --type conflicts.
         let result = await service.run(
-            TeamRequest(question: "x", lane: .build, teamPresetId: "build_test", type: "landing-page"), origin: .cli)
+            TeamRequest(question: "x", lane: .code, teamPresetId: "code_test", type: "landing-page"), origin: .cli)
         XCTAssertEqual(result.status, .failed)
         XCTAssertTrue(result.runId.isEmpty)
         XCTAssertTrue(result.note.contains("conflicts with"))
@@ -93,8 +93,8 @@ final class TeamServiceTests: XCTestCase {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("svc-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let service = makeService(store: RunStore(rootDirectory: tmp))
-        let build = await service.catalogTeams(lane: .build)
-        XCTAssertEqual(build.first?.id, "build_test")
+        let build = await service.catalogTeams(lane: .code)
+        XCTAssertEqual(build.first?.id, "code_test")
         let design = await service.catalogTeams(lane: .design)
         XCTAssertTrue(design.isEmpty)
     }

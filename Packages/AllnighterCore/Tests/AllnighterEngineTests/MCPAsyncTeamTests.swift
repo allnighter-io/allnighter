@@ -13,7 +13,7 @@ final class MCPAsyncTeamTests: XCTestCase {
 
     private static func testTeam() -> TeamPreset {
         TeamPreset(
-            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
             isDefaultForLane: true,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"),
@@ -60,8 +60,8 @@ final class MCPAsyncTeamTests: XCTestCase {
             let runtime = Self.makeRuntime(runId: "mcp-run-1", mock: mock, root: root)
             let outcome = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
                 "prompt": "mcp async",
-                "lane": "build",
-                "team": "build_test",
+                "lane": "code",
+                "team": "code_test",
                 "effort": "low",
                 "originAgent": "test-mcp",
                 "originConversationId": "conv-mcp",
@@ -87,7 +87,7 @@ final class MCPAsyncTeamTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown)])
             let runtime = Self.makeRuntime(runId: "mcp-run-2", mock: mock, root: root)
             let outcome = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
-                "prompt": "x", "lane": "build", "team": "missing_team", "effort": "low",
+                "prompt": "x", "lane": "code", "team": "missing_team", "effort": "low",
             ], defaultAgent: "mcp")
             guard case .toolError(let envelope) = outcome else {
                 return XCTFail("expected tool error")
@@ -103,7 +103,7 @@ final class MCPAsyncTeamTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown, delay: .milliseconds(250))])
             let runtime = Self.makeRuntime(runId: "mcp-run-3", mock: mock, root: root)
             _ = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
-                "prompt": "poll me", "lane": "build", "team": "build_test", "effort": "low",
+                "prompt": "poll me", "lane": "code", "team": "code_test", "effort": "low",
             ], defaultAgent: "mcp")
             let statusOutcome = await MCPAsyncTeamHandlers.status(runtime: runtime, args: ["runId": "mcp-run-3"])
             guard case .success(let statusJSON, _) = statusOutcome else {
@@ -143,7 +143,7 @@ final class MCPAsyncTeamTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown, delay: .seconds(2))])
             let runtime = Self.makeRuntime(runId: "mcp-run-4", mock: mock, root: root)
             _ = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
-                "prompt": "cancel me", "lane": "build", "team": "build_test", "effort": "low",
+                "prompt": "cancel me", "lane": "code", "team": "code_test", "effort": "low",
             ], defaultAgent: "mcp")
             let outcome = await MCPAsyncTeamHandlers.cancel(runtime: runtime, args: ["runId": "mcp-run-4"])
             guard case .success(let json, _) = outcome else {
@@ -169,7 +169,7 @@ final class MCPAsyncTeamTests: XCTestCase {
                 let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown, delay: .seconds(2))])
                 let runtime = Self.makeRuntime(runId: runId, mock: mock, root: root)
                 _ = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
-                    "prompt": "cancel me", "lane": "build", "team": "build_test", "effort": "low",
+                    "prompt": "cancel me", "lane": "code", "team": "code_test", "effort": "low",
                 ], defaultAgent: "mcp")
                 let outcome = await MCPAsyncTeamHandlers.cancel(runtime: runtime, args: ["runId": runId])
                 guard case .success(let json, _) = outcome else {

@@ -57,7 +57,7 @@ private struct HomeSidebar: View {
         switch filter {
         case .all: return "All"
         case .design: return "Design"
-        case .build: return "Build"
+        case .code: return "Build"
         case .running: return "Running"
         }
     }

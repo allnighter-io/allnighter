@@ -24,9 +24,9 @@ final class TeamDraftTests: XCTestCase {
     }
 
     private var buildBase: TeamPreset {
-        TeamCatalog.list(lane: .build).first { $0.builtIn }!
+        TeamCatalog.list(lane: .code).first { $0.builtIn }!
     }
-    private var buildSkill: String { SkillCatalog.list(lane: .build).first!.id }
+    private var buildSkill: String { SkillCatalog.list(lane: .code).first!.id }
 
     func testSeedFromBuiltInKeepsRealNameUntilSaved() {
         let d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
@@ -64,7 +64,7 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertEqual(saved?.workerSpecs.count, 1)
         XCTAssertEqual(saved?.workerSpecs.first?.skillId, buildSkill)
         XCTAssertEqual(saved?.workerSpecs.first?.preferredModelId, "model_opus", "saved by name, not Auto")
-        XCTAssertTrue(TeamCatalog.list(lane: .build).contains { $0.id == id }, "shows in the lane catalog")
+        XCTAssertTrue(TeamCatalog.list(lane: .code).contains { $0.id == id }, "shows in the lane catalog")
         XCTAssertEqual(TeamCatalog.get(buildBase.id)?.builtIn, true, "the built-in is never mutated")
     }
 
@@ -72,7 +72,7 @@ final class TeamDraftTests: XCTestCase {
         guard let designSkill = SkillCatalog.list(lane: .design).first?.id else {
             throw XCTSkip("no design skills to cross with")
         }
-        let before = TeamCatalog.list(lane: .build).count
+        let before = TeamCatalog.list(lane: .code).count
         var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
         d.rows = [.init(id: "r1", skillId: designSkill, modelId: "model_opus", purpose: .answer, minEffort: .low)]
 
@@ -81,17 +81,17 @@ final class TeamDraftTests: XCTestCase {
                 return XCTFail("expected skillLaneMismatch, got \(err)")
             }
         }
-        XCTAssertEqual(TeamCatalog.list(lane: .build).count, before,
+        XCTAssertEqual(TeamCatalog.list(lane: .code).count, before,
                        "a rejected save must not leave an orphan custom team")
     }
 
     // MARK: - S01A: save-time worker-prompt forking
 
     private func customBuildSkills() -> [Skill] {
-        SkillCatalog.list(lane: .build).filter { !$0.builtIn }
+        SkillCatalog.list(lane: .code).filter { !$0.builtIn }
     }
     private func customBuildTeams() -> [TeamPreset] {
-        TeamCatalog.list(lane: .build).filter { !$0.builtIn }
+        TeamCatalog.list(lane: .code).filter { !$0.builtIn }
     }
 
     func testEditingPromptDraftWithoutCommitWritesNothing() {
@@ -119,7 +119,7 @@ final class TeamDraftTests: XCTestCase {
 
         let fork = try XCTUnwrap(customs.first { $0.template.contains("tuned product architect") })
         XCTAssertFalse(fork.builtIn)
-        XCTAssertEqual(fork.lane, .build, "fork inherits the team lane")
+        XCTAssertEqual(fork.lane, .code, "fork inherits the team lane")
         XCTAssertEqual(fork.displayName, "\(originalName) for \(team.displayName)",
                        "<Skill> for <Team> naming — keyed to the SAVED team name (\"… (custom)\")")
         XCTAssertEqual(team.workerSpecs.first?.skillId, fork.id, "row repointed to the fork")
@@ -167,7 +167,7 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertEqual(customs.count, skillsBefore + 1, "one new skill created")
         let made = try XCTUnwrap(customs.first { $0.displayName == "My Fresh Skill" })
         XCTAssertEqual(made.template, "Brand new behavior.")
-        XCTAssertEqual(made.lane, .build, "new skill inherits the team lane")
+        XCTAssertEqual(made.lane, .code, "new skill inherits the team lane")
         XCTAssertEqual(team.workerSpecs.first { $0.id == "r_new" }?.skillId, made.id,
                        "row repointed to the new skill")
     }

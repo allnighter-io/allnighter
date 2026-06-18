@@ -23,14 +23,14 @@ final class CatalogUnifiedTests: XCTestCase {
 
     func testTeamCatalogExposesBuiltInTeams() {
         XCTAssertEqual(TeamCatalog.all.count, BuiltInTeams.all.count)
-        XCTAssertEqual(TeamCatalog.get("build_bug_hunt")?.displayName, "Bug Hunt")
-        XCTAssertEqual(TeamCatalog.list(lane: .build).count, BuiltInTeams.teams(in: .build).count)
+        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertEqual(TeamCatalog.list(lane: .code).count, BuiltInTeams.teams(in: .code).count)
         XCTAssertEqual(TeamCatalog.defaultTeam(for: .design)?.id, "design_core")
     }
 
     func testSkillCatalogListAndGetMatchBuiltIns() {
         XCTAssertFalse(SkillCatalog.list(lane: .design).isEmpty)
-        XCTAssertEqual(SkillCatalog.get("bug_reproducer")?.lane, .build)
+        XCTAssertEqual(SkillCatalog.get("bug_reproducer")?.lane, .code)
         XCTAssertEqual(SkillCatalog.get("minimal")?.lane, .design)
     }
 

@@ -2245,12 +2245,12 @@
       "title" : "Show a Build skill"
     },
     {
-      "command" : "alln team preflight --lane build --team build_bug_hunt --effort high",
+      "command" : "alln team preflight --lane build --team code_bug_hunt --effort high",
       "id" : "team_preflight",
       "title" : "Preflight a team"
     },
     {
-      "command" : "alln team --lane build --team build_bug_hunt \"Why does run history disappear?\"",
+      "command" : "alln team --lane build --team code_bug_hunt \"Why does run history disappear?\"",
       "id" : "team_basic",
       "title" : "Ask the team"
     },
@@ -2265,7 +2265,7 @@
       "title" : "Streamed team run"
     },
     {
-      "command" : "alln team start --json --lane build --team build_bug_hunt --effort low \"tiny async sanity\"",
+      "command" : "alln team start --json --lane build --team code_bug_hunt --effort low \"tiny async sanity\"",
       "id" : "team_start_json",
       "title" : "Start async team run"
     },
@@ -2333,7 +2333,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "Filter to one lane: build|design|copy (optional).",
+          "summary" : "Filter to one lane: code|design|copy (optional).",
           "type" : "string"
         }
       ],
@@ -2429,7 +2429,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "Filter to one lane: build|design|copy (optional).",
+          "summary" : "Filter to one lane: code|design|copy (optional).",
           "type" : "string"
         }
       ],
@@ -2511,13 +2511,13 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "build|design|copy.",
+          "summary" : "code|design|copy.",
           "type" : "string"
         },
         {
           "name" : "team",
           "required" : false,
-          "summary" : "Team id (e.g. build_bug_hunt).",
+          "summary" : "Team id (e.g. code_bug_hunt).",
           "type" : "string"
         },
         {
@@ -2549,7 +2549,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "build|design|copy.",
+          "summary" : "code|design|copy.",
           "type" : "string"
         },
         {
@@ -2665,7 +2665,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "build|design|copy (explicit; never inferred).",
+          "summary" : "code|design|copy (explicit; never inferred).",
           "type" : "string"
         },
         {

@@ -116,10 +116,10 @@ final class RunStoreJournalTests: XCTestCase {
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDo it.", exitCode: 0)])
         let team = TeamPreset(
-            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
-        let resolved = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .low, readyModels: [opus])
+        let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
         XCTAssertTrue(resolved.isRunnable)
 
         let log = StatusLog()
@@ -145,10 +145,10 @@ final class RunStoreJournalTests: XCTestCase {
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDo it.", exitCode: 0)])
         let team = TeamPreset(
-            id: "build_test", displayName: "Test", lane: .build, outputKind: .plan, defaultEffort: .low,
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
-        let resolved = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .low, readyModels: [opus])
+        let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
         let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
         let run = await coordinator.run(resolved: resolved, prompt: "founder prompt", models: [opus])
         let answerWorker = run.workers.first { $0.skillId == "bug_reproducer" }
@@ -174,12 +174,12 @@ final class RunStoreJournalTests: XCTestCase {
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDone.", exitCode: 0)])
-        var team = try TeamCatalog.duplicateBuiltIn("build_core", name: "Snapshot Team")
+        var team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Snapshot Team")
         team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id, purpose: .answer, minEffort: .low)]
         team.lead = TeamLeadSpec(skillId: "plan_writer_build")
         try TeamCatalog.saveCustom(team)
 
-        let resolved = TeamResolver.resolve(team: team, requestLane: .build, requestEffort: .low, readyModels: [opus])
+        let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
         let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
         let run = await coordinator.run(resolved: resolved, prompt: "question", models: [opus])
         let snapshot = run.workers.first { $0.skillId == skill.id }?.resolvedWorkerPromptSnapshot

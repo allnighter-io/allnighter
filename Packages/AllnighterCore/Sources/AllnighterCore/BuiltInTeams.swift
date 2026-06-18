@@ -51,7 +51,7 @@ public enum BuiltInTeams {
     // MARK: - Build teams
 
     static let buildCore = make(
-        id: "build_core", name: "Build Core", lane: .build, output: .plan, defaultEffort: .med, isDefault: true,
+        id: "code_core", name: "Build Core", lane: .code, output: .plan, defaultEffort: .med, isDefault: true,
         description: "Turn a rough product/build prompt into an implementable plan with scope, architecture, risks, and proof.",
         rows: [
             row("product_architect", .answer, .low),
@@ -64,7 +64,7 @@ public enum BuiltInTeams {
         ], writer: "plan_writer_build")
 
     static let buildBugHunt = make(
-        id: "build_bug_hunt", name: "Bug Hunt", lane: .build, output: .bugPacket, defaultEffort: .high,
+        id: "code_bug_hunt", name: "Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Find the real cause of broken behavior, map the blast radius, and plan the smallest correct fix.",
         rows: [
             row("bug_reproducer", .answer, .low),
@@ -79,7 +79,7 @@ public enum BuiltInTeams {
         ], writer: "bug_packet_writer")
 
     static let buildGUIBugHunt = make(
-        id: "build_gui_bug_hunt", name: "GUI Bug Hunt", lane: .build, output: .bugPacket, defaultEffort: .high,
+        id: "code_gui_bug_hunt", name: "GUI Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Fix visible native-app breakage with rendered proof, layout-watcher review, and the right truth owner.",
         rows: [
             row("gui_bug_reproducer", .answer, .low),
@@ -94,7 +94,7 @@ public enum BuiltInTeams {
         ], writer: "gui_bug_packet_writer")
 
     static let buildSecurityReview = make(
-        id: "build_security_review", name: "Security Review", lane: .build, output: .securityRegister, defaultEffort: .high,
+        id: "code_security_review", name: "Security Review", lane: .code, output: .securityRegister, defaultEffort: .high,
         description: "Evaluate privacy, credentials, permissions, exposure, and destructive operations with small-team shipping judgment.",
         rows: [
             row("boundary_mapper", .answer, .low),
@@ -107,7 +107,7 @@ public enum BuiltInTeams {
         ], writer: "security_register_writer", dissent: .riskRegister)
 
     static let buildArchitecturePressureTest = make(
-        id: "build_architecture_pressure_test", name: "Architecture Pressure Test", lane: .build,
+        id: "code_architecture_pressure_test", name: "Architecture Pressure Test", lane: .code,
         output: .architectureVerdict, defaultEffort: .med,
         description: "Pressure-test a proposed architecture before implementation hardens the wrong truth owner.",
         rows: [
@@ -120,7 +120,7 @@ public enum BuiltInTeams {
         ], writer: "architecture_verdict_writer", dissent: .compareOptions)
 
     static let buildReleaseProof = make(
-        id: "build_release_proof", name: "Release Proof", lane: .build, output: .proofPacket, defaultEffort: .high,
+        id: "code_release_proof", name: "Release Proof", lane: .code, output: .proofPacket, defaultEffort: .high,
         description: "Before a slice closes, prove that the owner-visible claim is actually true.",
         rows: [
             row("acceptance_auditor", .answer, .low),

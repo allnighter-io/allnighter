@@ -11,7 +11,7 @@ final class AgentBootstrapTests: XCTestCase {
     func testReadyBenchCanStartTeams() {
         let v = AgentReadiness.evaluate(teams: teams, readyModels: [opus()])
         XCTAssertTrue(v.canStartTeamRun)
-        XCTAssertTrue(v.readyTeams.contains { $0.team == "build_bug_hunt" })
+        XCTAssertTrue(v.readyTeams.contains { $0.team == "code_bug_hunt" })
         XCTAssertNil(v.blockedReason)
         XCTAssertEqual(v.nextAction.kind, "startTeamRun")
     }
@@ -27,10 +27,10 @@ final class AgentBootstrapTests: XCTestCase {
     // MARK: - team_preflight
 
     func testPreflightBugHuntHighOnOneModel() {
-        let r = TeamPreflight.preflight(teams: teams, lane: .build, teamId: "build_bug_hunt",
+        let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt",
                                         type: nil, effort: .high, readyModels: [opus()])
         XCTAssertTrue(r.canStart)
-        XCTAssertEqual(r.teamPresetId, "build_bug_hunt")
+        XCTAssertEqual(r.teamPresetId, "code_bug_hunt")
         XCTAssertEqual(r.effort, "high")
         XCTAssertEqual(r.outputKind, "bugPacket")
         XCTAssertEqual(r.readyWorkers.count, 10) // 9 answer/review + writer
@@ -48,7 +48,7 @@ final class AgentBootstrapTests: XCTestCase {
     }
 
     func testPreflightRejectsConflictingTeamAndType() {
-        let r = TeamPreflight.preflight(teams: teams, lane: .build, teamId: "build_bug_hunt",
+        let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt",
                                         type: "landing-page", effort: nil, readyModels: [opus()])
         XCTAssertFalse(r.canStart)
         XCTAssertTrue(r.blockedReason?.contains("conflicts with") ?? false)
@@ -64,8 +64,8 @@ final class AgentBootstrapTests: XCTestCase {
 
     func testPreflightDoesNotRunOrMutate() {
         // Preflight is pure: calling it twice yields identical results, no run id.
-        let a = TeamPreflight.preflight(teams: teams, lane: .build, teamId: "build_core", type: nil, effort: .med, readyModels: [opus()])
-        let b = TeamPreflight.preflight(teams: teams, lane: .build, teamId: "build_core", type: nil, effort: .med, readyModels: [opus()])
+        let a = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_core", type: nil, effort: .med, readyModels: [opus()])
+        let b = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_core", type: nil, effort: .med, readyModels: [opus()])
         XCTAssertEqual(a, b)
     }
 }
