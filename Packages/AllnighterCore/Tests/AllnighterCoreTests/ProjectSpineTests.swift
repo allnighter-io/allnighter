@@ -33,7 +33,7 @@ final class ProjectSpineTests: XCTestCase {
                                              status: .needsProjectAuthorization, checkedAt: t, probeKind: .silent,
                                              setupHint: "Trust the folder in Claude Code."))
         try roundTrip(ProjectContextPacket(
-            projectId: "prj_1", generatedAt: t,
+            id: "pkt_1", projectId: "prj_1", generatedAt: t,
             root: .init(localRootPath: "/Users/x/Allnighter", kind: .gitRepo, rootState: .available),
             git: .init(branch: "feat/x", head: "abc", recentCommits: ["abc tidy"]),
             docs: .init(entrypoints: ["AGENTS.md"], staleCandidates: ["OLD.md"]),

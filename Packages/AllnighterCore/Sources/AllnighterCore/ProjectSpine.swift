@@ -177,7 +177,7 @@ public struct ProjectWorkerReadiness: Codable, Sendable, Equatable {
 
 /// Compact, source-labeled summary the Manager reasons over. Regenerated each
 /// turn from owned truth; may be persisted as a receipt but is never authority.
-public struct ProjectContextPacket: Codable, Sendable, Equatable {
+public struct ProjectContextPacket: Codable, Sendable, Equatable, Identifiable {
     public struct Root: Codable, Sendable, Equatable {
         public var localRootPath: String
         public var kind: ProjectKind
@@ -245,6 +245,9 @@ public struct ProjectContextPacket: Codable, Sendable, Equatable {
         }
     }
 
+    /// Stable id so a turn can reference it (`ProjectManagerTurn.contextPacketId`)
+    /// and it can be persisted as a receipt.
+    public var id: String
     public var projectId: ProjectID
     public var generatedAt: Date
     public var root: Root
@@ -256,10 +259,10 @@ public struct ProjectContextPacket: Codable, Sendable, Equatable {
     public var proof: Proof
     public var warnings: [String]
 
-    public init(projectId: ProjectID, generatedAt: Date, root: Root, git: Git = .init(),
+    public init(id: String, projectId: ProjectID, generatedAt: Date, root: Root, git: Git = .init(),
                 docs: Docs = .init(), threads: Threads = .init(), work: Work = .init(),
                 workers: Workers, proof: Proof = .init(), warnings: [String] = []) {
-        self.projectId = projectId; self.generatedAt = generatedAt; self.root = root
+        self.id = id; self.projectId = projectId; self.generatedAt = generatedAt; self.root = root
         self.git = git; self.docs = docs; self.threads = threads; self.work = work
         self.workers = workers; self.proof = proof; self.warnings = warnings
     }

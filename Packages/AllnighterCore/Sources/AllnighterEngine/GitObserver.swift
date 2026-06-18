@@ -42,6 +42,13 @@ public struct GitObserver: Sendable {
         return Observation(kind: .gitRepo, branch: branch, head: head, remote: remote, dirtySummary: dirtySummary)
     }
 
+    /// Recent commits as `<short-sha> <subject>` lines (newest first), observed.
+    /// Empty when not a git repo or the repo has no commits.
+    public func recentCommits(rootPath: String, limit: Int = 5) -> [String] {
+        guard let out = runGit(["log", "-\(max(1, limit))", "--pretty=%h %s"], cwd: rootPath) else { return [] }
+        return out.split(separator: "\n").map(String.init)
+    }
+
     /// Run a read-only git command synchronously. Returns trimmed stdout, or `nil`
     /// on launch failure / non-zero exit. With `treatEmptyAsValue`, an empty
     /// stdout + exit 0 returns "" (so callers can tell "clean" from "failed").
