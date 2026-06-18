@@ -50,6 +50,36 @@ otherwise.
 | [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, Copy team, copy board, and later specialized copy packs. |
 | [`ios/README.md`](ios/README.md) | Parked iOS spine; deferred until macOS app is done | Future remote Project Manager specs live here so they do not block Mac delivery. `ios/03_iOS_Thread_Read_State_And_Push.md` owns future iOS unread/push. |
 
+## Execution Order
+
+Recommended order for upcoming work, foundation-first: the CLI/MCP contract is the
+product surface, so it is hardened before the GUI/iOS that present it (see the
+CLI/MCP-First rule in `docs/workflows/SSOT_Feature_Workflow.md`). With zero users,
+this is the window to build the killer foundation rather than patch later. The
+founder may reprioritize; the dependency logic is what matters.
+
+1. **MCP solidity foundation** — `Agent_First_MCP_And_Messaging_Workflows.md`
+   § MCP Solidity Plan, slices **M-A** (schemas for every tool), **M-B** (CLI<->MCP
+   parity proof), **M-C** (exit codes + error catalog). Everything agent-facing
+   depends on this; it is the "as solid as the app" priority.
+2. **Project spine** — `Project_Spine_And_Project_Manager.md` Core/CLI/MCP slices
+   (CODE RED; must land before Project Manager queue/autopropose). Projects are the
+   durable floor under runs, Pending, proposals, and work orders.
+3. **Deploy-team surface + gating** — `Agent_First_MCP_...` **M-D** (deploy-team
+   tools, the Tenet-1 product spine), **M-E** (sync-ask resolution), **M-F**
+   (provenance / client approval / entitlement gate). Built on the now-solid
+   contract and the project spine.
+4. **Stalled Work Watchdog** — `Stalled_Work_Watchdog.md` SW0–SW3. The MVP
+   replacement for admission scheduling; depends on run/Pending/Project truth
+   existing.
+5. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
+   above exist (the MCP analogue of the GUI Visual Proof Gate).
+6. **GUI/app surfaces that present the contracts** — `Team_Configuration_UX_Rescue.md`,
+   Fanout composer/team-library (`Fanout_Team_Catalog.md` S05/S06), Composer image
+   GUI, and other deferred GUI slices. The GUI presents the stabilized CLI/MCP
+   contract; it never invents parallel truth.
+7. **iOS companion** — `ios/README.md`, last (parked until the macOS app is done).
+
 ## Operating Rules
 
 - Founder input is intent. Durable semantics go through a phase doc or routed
