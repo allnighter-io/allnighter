@@ -58,27 +58,36 @@ CLI/MCP-First rule in `docs/workflows/SSOT_Feature_Workflow.md`). With zero user
 this is the window to build the killer foundation rather than patch later. The
 founder may reprioritize; the dependency logic is what matters.
 
-1. **MCP solidity foundation** — `Agent_First_MCP_And_Messaging_Workflows.md`
-   § MCP Solidity Plan, slices **M-A** (schemas for every tool), **M-B** (CLI<->MCP
-   parity proof), **M-C** (exit codes + error catalog). Everything agent-facing
-   depends on this; it is the "as solid as the app" priority.
-2. **Project spine** — `Project_Spine_And_Project_Manager.md` Core/CLI/MCP slices
-   (CODE RED; must land before Project Manager queue/autopropose). Projects are the
-   durable floor under runs, Pending, proposals, and work orders.
-3. **Deploy-team surface + gating** — `Agent_First_MCP_...` **M-D** (deploy-team
+1. **Project spine Core** — `Project_Spine_And_Project_Manager.md` slices
+   **PRJ-S00–S06** (CODE RED): Project models, ProjectStore, context packet, thread
+   + Pending binding migrations, Project worker readiness, and Project-scoped
+   send/execute. This is the durable floor under runs, Pending, proposals, and work
+   orders; it is pure Core with no MCP dependency, so it goes first. Nothing else is
+   safe without it.
+2. **MCP contract discipline (gate before any new CLI/MCP surface)** —
+   `Agent_First_MCP_And_Messaging_Workflows.md` § MCP Solidity Plan **M-A** (schemas
+   for every tool), **M-C** (exit codes + error catalog), **M-B** (CLI<->MCP parity
+   proof). Establish this standard before building new agent surfaces so they are
+   built to it, not retrofitted. The Project doc already depends on the shared error
+   envelope + exit codes, so this lands alongside / just before step 3.
+3. **Project CLI + Manager + dispatch/verify** — `Project_Spine_...` **PRJ-S07–S13**
+   (CLI Project foundation, Manager chat, proposal engine, approval/work-order,
+   handoff/dispatch, verification, MCP Project tools). Built on steps 1–2 so
+   `project_*` commands and tools meet the hardened contract discipline.
+4. **Deploy-team surface + gating** — `Agent_First_MCP_...` **M-D** (deploy-team
    tools, the Tenet-1 product spine), **M-E** (sync-ask resolution), **M-F**
-   (provenance / client approval / entitlement gate). Built on the now-solid
-   contract and the project spine.
-4. **Stalled Work Watchdog** — `Stalled_Work_Watchdog.md` SW0–SW3. The MVP
+   (provenance / client approval / entitlement gate).
+5. **Stalled Work Watchdog** — `Stalled_Work_Watchdog.md` SW0–SW3. The MVP
    replacement for admission scheduling; depends on run/Pending/Project truth
    existing.
-5. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
+6. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
    above exist (the MCP analogue of the GUI Visual Proof Gate).
-6. **GUI/app surfaces that present the contracts** — `Team_Configuration_UX_Rescue.md`,
+7. **GUI/app surfaces that present the contracts** — `Project_Spine_...`
+   **PRJ-S14–S15** (Projects rail + dogfood proof), `Team_Configuration_UX_Rescue.md`,
    Fanout composer/team-library (`Fanout_Team_Catalog.md` S05/S06), Composer image
    GUI, and other deferred GUI slices. The GUI presents the stabilized CLI/MCP
    contract; it never invents parallel truth.
-7. **iOS companion** — `ios/README.md`, last (parked until the macOS app is done).
+8. **iOS companion** — `ios/README.md`, last (parked until the macOS app is done).
 
 ## Operating Rules
 
