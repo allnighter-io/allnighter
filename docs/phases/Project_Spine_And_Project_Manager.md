@@ -1192,9 +1192,11 @@ iOS:
 
 ## Ordered Slices
 
-- [ ] PRJ-S00 - Contract packet: Core models, JSON schemas, root normalization
-  law, proposal/work-order/verification state machines, and inference-ban tests.
-  No GUI.
+- [x] PRJ-S00 - Contract packet (DONE 2026-06-18): Core models (`ProjectSpine.swift`),
+  Codable round-trip = the JSON schema, root-normalization law (`RootNormalization.swift`),
+  proposal state machine, and model-level inference-ban tests (`ProjectSpineTests.swift`).
+  No GUI. Green wall. (Public string-date JSON projection + contract-registry artifacts
+  land with the CLI in PRJ-S07.)
 - [ ] PRJ-S01 - ProjectStore: add/list/show/archive Projects with atomic local
   persistence, duplicate-root detection, rootState observation, and git metadata
   observation.
