@@ -35,6 +35,79 @@ public struct SetupBlock: Codable, Sendable, Equatable {
     }
 }
 
+/// A driver-owned, **non-mutating** probe for whether this worker can run inside
+/// a specific Project root right now (PRJ-S05). There is no universal "can this
+/// CLI work here?" command, so each driver declares its own safe probe — or
+/// declares it cannot be probed safely. A missing block, `mode: .none`, or
+/// `declaredNonMutating == false` means the worker reports `unsafeToProbe` for
+/// silent detection; readiness then only changes from an explicit user-initiated
+/// run. Probes must never accept trust prompts, log in, write vendor
+/// authorization, or configure a Project — they only observe. Additive; absent on
+/// every pre-existing manifest. See docs/phases/Project_Spine_And_Project_Manager.md §PRJ-S05.
+public struct ProjectProbe: Codable, Sendable, Equatable {
+    public enum Mode: String, Codable, Sendable {
+        /// Run a declared, bounded, non-mutating command in the Project root.
+        case safeCommand
+        /// No safe silent probe exists — always report `unsafeToProbe`.
+        case none
+    }
+
+    public var mode: Mode
+    /// Executable to run (resolved on PATH / known paths by the command runner).
+    /// `nil` when `mode == .none`.
+    public var command: String?
+    /// argv passed verbatim, each as its own element (no shell). May include a
+    /// CLI-specific safe flag (e.g. "do not require a git repo") only where safe.
+    public var args: [String]
+    public var timeoutSeconds: Int
+    /// Lowercased substring expected in stdout on a successful (exit 0) probe to
+    /// confirm `ready`. `nil` = exit 0 alone is sufficient.
+    public var readyExpectation: String?
+    /// Lowercased substrings meaning the CLI is installed but not signed in.
+    public var authErrorPatterns: [String]
+    /// Lowercased substrings meaning the CLI needs a per-Project trust/authorization
+    /// prompt completed (e.g. "do you trust the files in this folder").
+    public var projectAuthorizationPatterns: [String]
+    /// Lowercased substrings meaning the worker is otherwise blocked here
+    /// (quota exhausted, policy block, unsupported root).
+    public var blockedPatterns: [String]
+    /// MUST be true for Allnighter to run this probe silently in the background.
+    public var declaredNonMutating: Bool
+
+    public init(
+        mode: Mode,
+        command: String? = nil,
+        args: [String] = [],
+        timeoutSeconds: Int = 20,
+        readyExpectation: String? = nil,
+        authErrorPatterns: [String] = [],
+        projectAuthorizationPatterns: [String] = [],
+        blockedPatterns: [String] = [],
+        declaredNonMutating: Bool = false
+    ) {
+        self.mode = mode
+        self.command = command
+        self.args = args
+        self.timeoutSeconds = timeoutSeconds
+        self.readyExpectation = readyExpectation
+        self.authErrorPatterns = authErrorPatterns
+        self.projectAuthorizationPatterns = projectAuthorizationPatterns
+        self.blockedPatterns = blockedPatterns
+        self.declaredNonMutating = declaredNonMutating
+    }
+
+    /// True only when this declares a safe command we may run silently.
+    public var isSilentlyProbable: Bool {
+        mode == .safeCommand && declaredNonMutating && command != nil
+    }
+
+    /// A human label for the probe command, for `probeCommandLabel`.
+    public var commandLabel: String? {
+        guard let command else { return nil }
+        return ([command] + args).joined(separator: " ")
+    }
+}
+
 /// A tool's sign-in flow. Rarely a clean `foo login` — Claude Code signs in via
 /// `/login` inside an interactive `claude`; Codex prompts on first run.
 public struct LoginFlow: Codable, Sendable, Equatable {

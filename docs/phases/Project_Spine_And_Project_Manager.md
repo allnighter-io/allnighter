@@ -1209,7 +1209,8 @@ iOS:
 - [x] PRJ-S04 - Pending binding migration (Core DONE 2026-06-18; alln project pending in S07): add `projectId` to Pending items and
   queue attempts, migrate from thread/run/workingDir where possible, add
   `alln project pending`, and block unassigned Pending from drain.
-- [ ] PRJ-S05 - Project worker readiness detection: auto-detect which installed
+- [x] PRJ-S05 - Project worker readiness detection (Core DONE 2026-06-18;
+  GUI/CLI wiring + shipped-driver probes later): auto-detect which installed
   CLIs are already usable in this Project root via driver-declared
   non-mutating probes; report only the canonical statuses (`ready`,
   `notInstalled`, `authRequired`, `needsProjectAuthorization`,

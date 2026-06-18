@@ -340,16 +340,15 @@ Existing useful substrate:
 - `TeamRunJSON` exists as the public team-run output contract.
 - CLI/MCP docs already name future deployable-team discovery and run tools.
 - Signal strategy exists in `Allnighter_Public_Signal_Wedge.md`.
+- GUI surface brief exists at `docs/gui/surfaces/send-to-team/brief.md`.
 
 Current gaps:
 
 - No Core `TeamCard`/delegation projection.
 - No `signal` family/craft in the active team catalog.
-- No Mac surface brief for the browseable Send to team view.
+- No Mac production implementation for the browseable Send to team view.
 - No Project Manager team recommendation contract.
 - No typed next actions for Signal outcomes in the public run result.
-- Existing docs/code still contain old `Fan out` and `Build` language until the
-  language cutover completes.
 
 ## Truth Owner
 
@@ -483,4 +482,3 @@ surface.
 - Mutating cards require Execute approval.
 - No public surface says Fan out, Workflow, Template, or Execute mode.
 - All card labels, requirements, and next actions come from Core contracts.
-

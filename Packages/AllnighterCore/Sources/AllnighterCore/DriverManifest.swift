@@ -31,6 +31,13 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     /// manifests, in which case detection falls back to the bare `invoke.command`.
     public var setup: SetupBlock?
 
+    /// Driver-owned, non-mutating probe for per-Project worker readiness (PRJ-S05).
+    /// Additive; absent on every legacy manifest, in which case the worker reports
+    /// `unsafeToProbe` for silent detection (readiness only changes from an explicit
+    /// user-initiated run). Shipped manifests stay unprobed until a real vendor-safe
+    /// probe is confirmed — we never guess a CLI's trust-prompt behavior.
+    public var projectProbe: ProjectProbe?
+
     public init(
         id: String,
         manifestVersion: Int = 1,
@@ -43,9 +50,11 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         output: OutputSpec? = nil,
         imageGen: ImageGen? = nil,
         readsImages: Bool? = nil,
-        setup: SetupBlock? = nil
+        setup: SetupBlock? = nil,
+        projectProbe: ProjectProbe? = nil
     ) {
         self.setup = setup
+        self.projectProbe = projectProbe
         self.id = id
         self.manifestVersion = manifestVersion
         self.displayName = displayName
