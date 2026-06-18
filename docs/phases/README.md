@@ -29,6 +29,7 @@ otherwise.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Language_Cutover.md`](Language_Cutover.md) | **TOP OF LIST — cutover plan** | Hard, no-alias rename to the locked vocabulary (Chat / Delegate "Send to team" / Execute; Team; Code/Design/Copy + Signal; one `team.run` primitive). Canonical word list + rename map + slices CUT-S00–S06. Goes before the Project spine so all new work is in the final language. |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md) | **CODE RED spec** - must land before Project Manager queue/autopropose | Projects are the durable repo/folder floor above threads, runs, pending, proposals, work orders, returns, worker readiness, and verification. Regular chat inside a Project is chat with that Project's Manager. Backend/CLI/MCP slices PRJ-S00-S13 first; GUI Projects rail and dogfood proof PRJ-S14/S15 after Core/CLI. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
@@ -58,36 +59,40 @@ CLI/MCP-First rule in `docs/workflows/SSOT_Feature_Workflow.md`). With zero user
 this is the window to build the killer foundation rather than patch later. The
 founder may reprioritize; the dependency logic is what matters.
 
-1. **Project spine Core** — `Project_Spine_And_Project_Manager.md` slices
+1. **Language cutover** — `Language_Cutover.md` (CUT-S00–S06). Hard, no-alias
+   rename to the locked vocabulary (Chat / Delegate "Send to team" / Execute; Team;
+   Code/Design/Copy + Signal; one `team.run` primitive). It goes first so the
+   Project spine and everything after are written in the final language, not re-cut
+   later. CUT-S05 (effort) is gated on the one open decision in that doc.
+2. **Project spine Core** — `Project_Spine_And_Project_Manager.md` slices
    **PRJ-S00–S06** (CODE RED): Project models, ProjectStore, context packet, thread
    + Pending binding migrations, Project worker readiness, and Project-scoped
    send/execute. This is the durable floor under runs, Pending, proposals, and work
-   orders; it is pure Core with no MCP dependency, so it goes first. Nothing else is
-   safe without it.
-2. **MCP contract discipline (gate before any new CLI/MCP surface)** —
+   orders; it is pure Core with no MCP dependency, so it goes first after the
+   cutover. Nothing else is safe without it.
+3. **MCP contract discipline (gate before any new CLI/MCP surface)** —
    `Agent_First_MCP_And_Messaging_Workflows.md` § MCP Solidity Plan **M-A** (schemas
    for every tool), **M-C** (exit codes + error catalog), **M-B** (CLI<->MCP parity
    proof). Establish this standard before building new agent surfaces so they are
    built to it, not retrofitted. The Project doc already depends on the shared error
-   envelope + exit codes, so this lands alongside / just before step 3.
-3. **Project CLI + Manager + dispatch/verify** — `Project_Spine_...` **PRJ-S07–S13**
+   envelope + exit codes, so this lands alongside / just before step 4.
+4. **Project CLI + Manager + dispatch/verify** — `Project_Spine_...` **PRJ-S07–S13**
    (CLI Project foundation, Manager chat, proposal engine, approval/work-order,
-   handoff/dispatch, verification, MCP Project tools). Built on steps 1–2 so
+   handoff/dispatch, verification, MCP Project tools). Built on steps 2–3 so
    `project_*` commands and tools meet the hardened contract discipline.
-4. **Deploy-team surface + gating** — `Agent_First_MCP_...` **M-D** (deploy-team
+5. **Deploy-team surface + gating** — `Agent_First_MCP_...` **M-D** (deploy-team
    tools, the Tenet-1 product spine), **M-E** (sync-ask resolution), **M-F**
    (provenance / client approval / entitlement gate).
-5. **Stalled Work Watchdog** — `Stalled_Work_Watchdog.md` SW0–SW3. The MVP
+6. **Stalled Work Watchdog** — `Stalled_Work_Watchdog.md` SW0–SW3. The MVP
    replacement for admission scheduling; depends on run/Pending/Project truth
    existing.
-6. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
+7. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
    above exist (the MCP analogue of the GUI Visual Proof Gate).
-7. **GUI/app surfaces that present the contracts** — `Project_Spine_...`
+8. **GUI/app surfaces that present the contracts** — `Project_Spine_...`
    **PRJ-S14–S15** (Projects rail + dogfood proof), `Team_Configuration_UX_Rescue.md`,
-   Fanout composer/team-library (`Fanout_Team_Catalog.md` S05/S06), Composer image
-   GUI, and other deferred GUI slices. The GUI presents the stabilized CLI/MCP
-   contract; it never invents parallel truth.
-8. **iOS companion** — `ios/README.md`, last (parked until the macOS app is done).
+   the composer/team-library GUI, Composer image GUI, and other deferred GUI slices.
+   The GUI presents the stabilized CLI/MCP contract; it never invents parallel truth.
+9. **iOS companion** — `ios/README.md`, last (parked until the macOS app is done).
 
 ## Operating Rules
 

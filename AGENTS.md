@@ -30,6 +30,11 @@ preference compounding.
 
 Root docs are the source of truth. Read the relevant one before changing that area.
 
+- **Canonical product vocabulary (read first):** `docs/phases/Language_Cutover.md` —
+  Chat / Delegate ("Send to team") / Execute; **Team** is the noun; crafts are
+  **Code · Design · Copy** (+ **Signal** scout); machine layer is one `team.run`
+  primitive (posture + `mutating`). Retired: `Fan out`, `Build`-as-craft,
+  `Execute`-as-mode, "Move Card", `lane`=single-run. Hard cutover, no aliases.
 - **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
   (originally called Council: one prompt → parallel CLIs → plan), plus
   `docs/mvp/00_MVP_Architecture.md`.

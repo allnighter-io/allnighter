@@ -1505,3 +1505,12 @@ Expected:
   files versus requiring user/project docs?
 - Should the manager model default to a specific planner tier, and may a Project
   pin a cheaper manager model for routine chat versus proposals?
+
+## Next Items (deferred; do not block this phase)
+
+- **Assignable floor manager / default PM.** Add a UI + setting to choose the
+  default Project Manager you talk to. v1: one global go-to PM for all of Allnighter
+  (a single default `managerModelId` + persona/skill). Later: per-Project override
+  (the `Project.managerModelId` field already exists for this). The team-level
+  Team Lead already exists; this is specifically *who you talk to by default*. This
+  is additive and does not affect the locked Chat/Delegate/Execute model.
