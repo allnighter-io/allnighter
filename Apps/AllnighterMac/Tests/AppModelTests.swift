@@ -9,7 +9,8 @@ final class AppModelTests: XCTestCase {
 
     func testLoadsDefaultPanel() {
         let model = AppModel()
-        XCTAssertEqual(model.models.count, 6)
+        XCTAssertGreaterThanOrEqual(model.models.count, 14)
+        XCTAssertFalse(model.models.filter(\.enabled).isEmpty)
         XCTAssertFalse(model.isConfigurationBroken)
     }
 

@@ -154,6 +154,30 @@ Rules:
 - Project Manager triage order comes from the same Home/Project triage contract
   used by threads and notifications, not watchdog scan order.
 
+## Dependency On Project Spine
+
+The watchdog is Project Manager behavior. It should not ship as a global run
+scanner ahead of the Project floor.
+
+Minimum Project Spine dependencies:
+
+- durable Projects exist;
+- new threads and runs can resolve `projectId`;
+- Project context can include active runs and attention records;
+- Project Manager turns can carry typed `nextActions`;
+- notifications can open the linked Project/thread/turn.
+
+Rules:
+
+- Before a target can resolve `projectId`, the scanner must emit no stalled
+  episode for it. It may surface a repair/unassigned warning through the owning
+  migration path.
+- Active stalls may be summarized in `ProjectContextPacket.work`, but the
+  packet is a receipt. `StallEpisode` remains the durable stall truth.
+- Non-git folder Projects may still have stalled chat/team-run attention, but
+  recovery remains limited to safe actions. They can never gain commit-proof
+  semantics from the watchdog.
+
 ## State Distinctions
 
 The watchdog must not relabel every old item as stalled.
@@ -204,6 +228,10 @@ path for that target. For async team runs this means the same source of truth
 used by `team_status` / `team_result`. For worker chat turns this means the
 thread/run store and any existing journal finalization path.
 
+The watchdog must not create a watchdog-only result schema. Team-run refresh
+continues to project the shared async team contracts and `TeamRunJSON` result
+shape.
+
 If refresh finds terminal completion, failure, timeout, cancellation, auth
 required, or manual action required, the candidate is suppressed and routed to
 the existing owner.
@@ -253,6 +281,8 @@ Episode rules:
 - Scanner reads `snoozedUntil` from durable state. Snooze is never memory-only.
 - `lastNudgeAt` prevents duplicate Project Manager turns and notifications for
   the same episode.
+- An ignored nudge does not auto-escalate. Repeat notification requires a user
+  snooze that expires or a meaningful target state change.
 - The episode clears automatically when refresh/local truth observes a terminal
   result or a non-stall owner state such as auth/manual blocker.
 - Clearing an episode does not delete the historical Project Manager turn.
@@ -559,6 +589,17 @@ Expected:
 - none create StallEpisode;
 - existing owner attention remains intact;
 - failed/auth/manual cases do not receive duplicate stalled notifications.
+```
+
+Project binding gate:
+
+```text
+Create a stale queued/running target that has no reliable projectId.
+Run the scanner.
+Expected:
+- no StallEpisode is created;
+- no global stalled item is created;
+- the target remains in the owning migration/repair path.
 ```
 
 Refresh-before-declare:

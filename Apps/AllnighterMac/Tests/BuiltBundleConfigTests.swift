@@ -4,7 +4,7 @@ import AllnighterEngine
 @testable import AllnighterMac
 
 /// Release gate for Cause 0: the built `.app` must ship real driver manifests and
-/// the six-model bench. Source-tree tests alone cannot catch flattened resources.
+/// the model catalog/bench. Source-tree tests alone cannot catch flattened resources.
 final class BuiltBundleConfigTests: XCTestCase {
 
     func testBuiltBundleShipsDriverManifestsAtResourceRoot() {
@@ -27,10 +27,11 @@ final class BuiltBundleConfigTests: XCTestCase {
         )
     }
 
-    func testBuiltBundlePanelHasSixWorkers() {
+    func testBuiltBundlePanelHasExpectedCatalogAndBench() {
         let models = AppConfig.loadDefaultModels()
-        XCTAssertEqual(models.count, 6, "team_default defines six seats across four tools")
-        XCTAssertEqual(Set(models.map(\.driverId)).count, 4, "Six seats on four distinct drivers")
+        XCTAssertGreaterThanOrEqual(models.count, 14, "team_default defines the shipped model catalog")
+        XCTAssertFalse(models.filter(\.enabled).isEmpty, "the resolved bench should not be empty")
+        XCTAssertGreaterThanOrEqual(Set(models.map(\.driverId)).count, 4, "catalog spans the expected driver set")
     }
 
     func testConfigurationLoadsFromBundleNotEmbeddedFallback() {
@@ -42,7 +43,8 @@ final class BuiltBundleConfigTests: XCTestCase {
     func testConfigurationIsNotBrokenFromBuiltBundle() {
         let config = AppConfig.loadConfiguration()
         XCTAssertFalse(config.isBroken)
-        XCTAssertEqual(config.models.count, 6)
+        XCTAssertGreaterThanOrEqual(config.models.count, 14)
+        XCTAssertFalse(config.models.filter(\.enabled).isEmpty)
         XCTAssertGreaterThanOrEqual(config.registry.all.filter { $0.kind == .headlessCLI }.count, 4)
     }
 }
