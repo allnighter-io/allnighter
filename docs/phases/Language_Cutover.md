@@ -146,11 +146,14 @@ Docs:
   Execute route (Execute becomes the approval on a make-real card); `Build` tab +
   setup rail → `Code`; work-order filter `Build/Running` → `Code/Running`. Layout
   proof gate.
-- [ ] **CUT-S05 — Effort = reasoning level (DECIDED).** `EffortLevel` is the
-  per-worker model reasoning setting only. Remove `minEffort` / `effortPolicy` /
-  `outputCountByEffort` / `synthesisPolicyByEffort` and any effort→worker-count
-  gating; teams have a fixed lineup (size differences are separate named teams). Fix
-  the GUI tooltip to "the reasoning level the model uses." Green wall.
+- [x] **CUT-S05 — Effort = reasoning level (DONE 2026-06-18).** Ripped out
+  `minEffort`, `TeamEffortPolicy`, `effortPolicy`, `outputCountByEffort`,
+  `activeRows`, `workerCountByEffort` — all effort→worker-count gating. `EffortLevel`
+  stays as the per-worker model reasoning level only; teams have a fixed lineup
+  (built-in teams unchanged in membership, just no longer effort-gated). CLI/MCP team
+  output shows a fixed `workerCount` (was per-effort); regenerated contracts. Core +
+  Mac build/test green. Obsolete effort tests deleted. (GUI tooltip "more workers + a
+  deeper pass" and the TeamEditor/TeamStudio render proof are folded into CUT-S04.)
 - [ ] **CUT-S06 — Docs sweep.** Rewrite active forward docs to the canonical
   vocabulary; rename `Fanout_Team_Catalog.md`; Move Card → Insight; delete any
   "Proof lane". Leave mvp/archive/qa as historical. `rg` confirms no old term

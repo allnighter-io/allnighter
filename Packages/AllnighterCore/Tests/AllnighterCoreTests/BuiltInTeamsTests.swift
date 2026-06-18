@@ -92,17 +92,6 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertFalse(r.warnings.contains { $0.lowercased().contains("not enough") })
     }
 
-    func testEffortGatingChangesBugHuntWorkerCount() {
-        let team = BuiltInTeams.team("code_bug_hunt")!
-        let bench = [opus()]
-        func answerReviewCount(_ e: EffortLevel) -> Int {
-            let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: e, readyModels: bench)
-            return r.answerWorkers.count + r.reviewWorkers.count
-        }
-        XCTAssertEqual(answerReviewCount(.low), 4)
-        XCTAssertEqual(answerReviewCount(.med), 7)
-        XCTAssertEqual(answerReviewCount(.high), 9)
-    }
 
     func testGUIBugHuntCarriesRenderedProofSkills() {
         let team = BuiltInTeams.team("code_gui_bug_hunt")!

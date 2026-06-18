@@ -40,7 +40,7 @@ final class TeamDraftTests: XCTestCase {
 
     func testSavingAnUnrenamedBuiltInSuffixesCustomAtSaveTime() throws {
         var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
-        d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer, minEffort: .low)]
+        d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
         let id = try d.commit()
         XCTAssertEqual(TeamCatalog.get(id)?.displayName, "\(buildBase.displayName) (custom)",
                        "(custom) is appended only at Save, and only when the user didn't rename it")
@@ -54,7 +54,7 @@ final class TeamDraftTests: XCTestCase {
 
     func testCommitDuplicatesBuiltInToCustomAndLeavesBuiltInUntouched() throws {
         var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
-        d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer, minEffort: .low)]
+        d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
 
         let id = try d.commit()
         let saved = TeamCatalog.get(id)
@@ -74,7 +74,7 @@ final class TeamDraftTests: XCTestCase {
         }
         let before = TeamCatalog.list(lane: .code).count
         var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
-        d.rows = [.init(id: "r1", skillId: designSkill, modelId: "model_opus", purpose: .answer, minEffort: .low)]
+        d.rows = [.init(id: "r1", skillId: designSkill, modelId: "model_opus", purpose: .answer)]
 
         XCTAssertThrowsError(try d.commit()) { err in
             guard case CatalogError.skillLaneMismatch = err else {
@@ -157,7 +157,7 @@ final class TeamDraftTests: XCTestCase {
         var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
         // A brand-new skill (no source skillId), named by the user, prompt written.
         d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
-                          purpose: .answer, minEffort: .low,
+                          purpose: .answer,
                           promptDraft: "Brand new behavior.", customSkillName: "My Fresh Skill")
         let skillsBefore = customBuildSkills().count
 
@@ -188,7 +188,7 @@ final class TeamDraftTests: XCTestCase {
     func testNewSkillRowWithoutNameIsNotSavable() {
         var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
         d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
-                          purpose: .answer, minEffort: .low,
+                          purpose: .answer,
                           promptDraft: "has prompt", customSkillName: nil)
         XCTAssertFalse(d.isSavable, "a create-from-scratch row needs a name")
     }

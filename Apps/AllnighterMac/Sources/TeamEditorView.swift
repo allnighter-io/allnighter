@@ -24,7 +24,6 @@ struct TeamDraft: Equatable {
         var skillId: String
         var modelId: String?
         var purpose: TeamWorkerPurpose
-        var minEffort: EffortLevel
         /// Edited prompt for this worker. nil = use `skillId`'s template as-is (no fork).
         var promptDraft: String? = nil
         /// The skill whose template seeded `promptDraft` (so a skill change can ask
@@ -44,16 +43,16 @@ struct TeamDraft: Equatable {
         self.base = base
         self.name = base.displayName
         self.allowSubstitutions = true
-        self.rows = base.activeRows(at: base.defaultEffort).map { spec in
+        self.rows = base.workerSpecs.map { spec in
             Row(id: UUID().uuidString, skillId: spec.skillId,
                 modelId: spec.preferredModelId ?? defaultModelId,
-                purpose: spec.purpose, minEffort: spec.minEffort)
+                purpose: spec.purpose)
         }
-        // The Team Lead. Its Row.purpose/minEffort are unused (the Lead is the
-        // synthesizer, not an answer/review worker); commit() writes a TeamLeadSpec.
+        // The Team Lead. Its Row.purpose is unused (the Lead is the synthesizer,
+        // not an answer/review worker); commit() writes a TeamLeadSpec.
         self.lead = Row(id: "lead", skillId: base.lead.skillId,
                         modelId: base.lead.preferredModelId ?? defaultModelId,
-                        purpose: .answer, minEffort: .low)
+                        purpose: .answer)
     }
 
     /// A role is complete when it has a model and either an existing skill or a
@@ -120,7 +119,7 @@ struct TeamDraft: Equatable {
             let specs: [TeamWorkerSpec] = try rows.map { row in
                 TeamWorkerSpec(
                     id: row.id, skillId: try resolveSkill(row, defaultPurpose: .answer),
-                    purpose: row.purpose, minEffort: row.minEffort, preferredModelId: row.modelId,
+                    purpose: row.purpose, preferredModelId: row.modelId,
                     count: 1, fallbackPolicy: fallback, required: true
                 )
             }
@@ -348,7 +347,7 @@ struct TeamEditorView: View {
             Button {
                 let skillId = laneSkills.first?.id ?? ""
                 draft.rows.append(.init(id: UUID().uuidString, skillId: skillId,
-                                        modelId: models.first?.id, purpose: .answer, minEffort: .low))
+                                        modelId: models.first?.id, purpose: .answer))
             } label: {
                 Label("Add worker", systemImage: "plus").font(.system(size: 12, weight: .medium))
             }

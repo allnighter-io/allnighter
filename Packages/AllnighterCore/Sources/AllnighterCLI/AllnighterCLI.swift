@@ -400,9 +400,8 @@ struct AllnighterCLI {
         let lanes = opts.value("lane").flatMap(WorkLane.init(rawValue:)).map { [$0] } ?? WorkLane.allCases
         for lane in lanes {
             guard let team = runtime.teams.defaultTeam(for: lane) else { continue }
-            let counts = team.workerCountByEffort()
-            print("\(lane.rawValue) → \(team.displayName) (\(team.id)) · default \(team.defaultEffort.displayLabel) · \(team.outputKind.rawValue)")
-            print("  workers L/M/H: \(counts[.low] ?? 0)/\(counts[.med] ?? 0)/\(counts[.high] ?? 0) · lead \(team.lead.skillId)")
+            print("\(lane.rawValue) → \(team.displayName) (\(team.id)) · default effort \(team.defaultEffort.displayLabel) · \(team.outputKind.rawValue)")
+            print("  \(team.workerSpecs.count) workers · lead \(team.lead.skillId)")
         }
     }
 
@@ -413,7 +412,7 @@ struct AllnighterCLI {
         struct TeamView: Encodable {
             let id, displayName, lane, outputKind, defaultEffort: String
             let isDefaultForLane: Bool
-            let workerCountByEffort: [String: Int]
+            let workerCount: Int
         }
         struct Snapshot: Encodable {
             let schemaVersion = 1
@@ -422,11 +421,10 @@ struct AllnighterCLI {
         }
         let defaults = lanes.compactMap { lane -> TeamView? in
             guard let t = runtime.teams.defaultTeam(for: lane) else { return nil }
-            let counts = t.workerCountByEffort()
             return TeamView(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
                             outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
                             isDefaultForLane: true,
-                            workerCountByEffort: ["low": counts[.low] ?? 0, "med": counts[.med] ?? 0, "high": counts[.high] ?? 0])
+                            workerCount: t.workerSpecs.count)
         }
         return jsonString(Snapshot(contractVersion: ContractRegistry.contractVersion, defaults: defaults))
     }
@@ -444,8 +442,7 @@ struct AllnighterCLI {
         } else {
             let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
             for t in teams {
-                let c = t.workerCountByEffort()
-                print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\tL/M/H \(c[.low] ?? 0)/\(c[.med] ?? 0)/\(c[.high] ?? 0)\(t.isDefaultForLane ? "\t(default)" : "")")
+                print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.workerSpecs.count) workers\(t.isDefaultForLane ? "\t(default)" : "")")
             }
         }
     }
@@ -457,7 +454,7 @@ struct AllnighterCLI {
         struct TeamSummary: Encodable {
             let id, displayName, lane, outputKind, defaultEffort: String
             let builtIn, isDefaultForLane: Bool
-            let workerCountByEffort: [String: Int]
+            let workerCount: Int
             let disabledReason: String?
         }
         struct Catalog: Encodable {
@@ -467,11 +464,10 @@ struct AllnighterCLI {
             let teams: [TeamSummary]
         }
         let summaries = teams.map { t -> TeamSummary in
-            let c = t.workerCountByEffort()
             return TeamSummary(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
                                outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
                                builtIn: t.builtIn, isDefaultForLane: t.isDefaultForLane,
-                               workerCountByEffort: ["low": c[.low] ?? 0, "med": c[.med] ?? 0, "high": c[.high] ?? 0],
+                               workerCount: t.workerSpecs.count,
                                disabledReason: nil)
         }
         return jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, teams: summaries))
@@ -569,14 +565,14 @@ struct AllnighterCLI {
         else {
             print("\(team.id)\t\(team.displayName)\t\(team.lane.rawValue)/\(team.outputKind.rawValue)")
             for row in team.workerSpecs {
-                print("  \(row.id)\t\(row.skillId)\t\(row.purpose.rawValue)\t\(row.minEffort.rawValue)")
+                print("  \(row.id)\t\(row.skillId)\t\(row.purpose.rawValue)")
             }
         }
     }
 
     static func teamShowJSONString(_ team: TeamPreset) -> String {
         struct WorkerRow: Encodable {
-            let id, skillId, purpose, minEffort: String
+            let id, skillId, purpose: String
             let count: Int
             let required: Bool
         }
@@ -590,7 +586,7 @@ struct AllnighterCLI {
         }
         let rows = team.workerSpecs.map {
             WorkerRow(id: $0.id, skillId: $0.skillId, purpose: $0.purpose.rawValue,
-                      minEffort: $0.minEffort.rawValue, count: $0.count, required: $0.required)
+                      count: $0.count, required: $0.required)
         }
         return jsonString(Detail(
             contractVersion: ContractRegistry.contractVersion,

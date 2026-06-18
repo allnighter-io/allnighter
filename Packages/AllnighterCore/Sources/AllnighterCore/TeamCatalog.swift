@@ -21,16 +21,18 @@ public enum WorkLane: String, Codable, Sendable, CaseIterable {
     case copy
 }
 
-/// Effort bundle for a team run. Canonical machine values are `low | med | high`
-/// (no `medium`, never `quick/standard/deep`). Effort is an instruction bundle —
-/// number of workers, review depth, synthesis policy — never a runtime/cost forecast.
+/// The model's reasoning level for a run. Canonical machine values are
+/// `low | med | high` (no `medium`, never `quick/standard/deep`). Effort sets each
+/// worker model's reasoning effort where the source supports it; it NEVER changes
+/// worker count, review depth, or team shape — a bigger pass is a different (named)
+/// team. Never a runtime/cost forecast.
 public enum EffortLevel: String, Codable, Sendable, CaseIterable, Comparable {
     case low
     case med
     case high
 
-    /// Activation order: `low` activates `low` rows; `med` activates `low + med`;
-    /// `high` activates all rows.
+    /// Ordering for display/comparison only (low < med < high). Effort never gates
+    /// worker activation.
     public var rank: Int {
         switch self {
         case .low: return 0
@@ -137,8 +139,6 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var skillId: String
     public var purpose: TeamWorkerPurpose
-    /// Activation gate: a row activates when `effort >= minEffort`.
-    public var minEffort: EffortLevel
     public var preferredModelId: String?
     /// Empty means any ready model matching required capability and lane tags.
     public var allowedModelIds: [String]
@@ -153,7 +153,6 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         id: String,
         skillId: String,
         purpose: TeamWorkerPurpose = .answer,
-        minEffort: EffortLevel = .low,
         preferredModelId: String? = nil,
         allowedModelIds: [String] = [],
         requiredCapabilityTags: [ModelCapabilityTag] = [],
@@ -164,7 +163,6 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         self.id = id
         self.skillId = skillId
         self.purpose = purpose
-        self.minEffort = minEffort
         self.preferredModelId = preferredModelId
         self.allowedModelIds = allowedModelIds
         self.requiredCapabilityTags = requiredCapabilityTags
@@ -174,25 +172,7 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-// MARK: - Effort / synthesis policy
-
-/// Effort homes for a team: default effort plus optional lane-specific output
-/// count and partial-run allowance per effort. Never a forecast.
-public struct TeamEffortPolicy: Codable, Sendable, Equatable {
-    public var defaultEffort: EffortLevel
-    public var outputCountByEffort: [EffortLevel: Int]
-    public var allowPartialByEffort: [EffortLevel: Bool]
-
-    public init(
-        defaultEffort: EffortLevel = .med,
-        outputCountByEffort: [EffortLevel: Int] = [:],
-        allowPartialByEffort: [EffortLevel: Bool] = [:]
-    ) {
-        self.defaultEffort = defaultEffort
-        self.outputCountByEffort = outputCountByEffort
-        self.allowPartialByEffort = allowPartialByEffort
-    }
-}
+// MARK: - Team Lead
 
 /// The team's single **Team Lead** — the one role that reads the crew's output and
 /// writes the answer that reports back. Exactly one per team, effort-independent
@@ -238,8 +218,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var defaultEffort: EffortLevel
     public var isDefaultForLane: Bool
     public var workerSpecs: [TeamWorkerSpec]
-    public var effortPolicy: TeamEffortPolicy
-    /// The mandatory Team Lead (synthesizer). Exactly one, effort-independent.
+    /// The mandatory Team Lead (synthesizer). Exactly one.
     public var lead: TeamLeadSpec
     public var typeTags: [String]
     public var purposeTags: [String]
@@ -255,7 +234,6 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         defaultEffort: EffortLevel = .med,
         isDefaultForLane: Bool = false,
         workerSpecs: [TeamWorkerSpec],
-        effortPolicy: TeamEffortPolicy = TeamEffortPolicy(),
         lead: TeamLeadSpec,
         typeTags: [String] = [],
         purposeTags: [String] = [],
@@ -270,28 +248,11 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.defaultEffort = defaultEffort
         self.isDefaultForLane = isDefaultForLane
         self.workerSpecs = workerSpecs
-        self.effortPolicy = effortPolicy
         self.lead = lead
         self.typeTags = typeTags
         self.purposeTags = purposeTags
         self.builtIn = builtIn
         self.version = version
-    }
-
-    /// Worker rows active at `effort` (those whose `minEffort <= effort`), in
-    /// declared order.
-    public func activeRows(at effort: EffortLevel) -> [TeamWorkerSpec] {
-        workerSpecs.filter { $0.minEffort <= effort }
-    }
-
-    /// Worker count active at each effort — the catalog summary shape
-    /// (answer + review rows; the synthetic writer is separate).
-    public func workerCountByEffort() -> [EffortLevel: Int] {
-        var out: [EffortLevel: Int] = [:]
-        for effort in EffortLevel.allCases {
-            out[effort] = activeRows(at: effort).reduce(0) { $0 + max(1, $1.count) }
-        }
-        return out
     }
 
     /// A custom, editable copy of this team. Built-ins are duplicate-to-edit: the

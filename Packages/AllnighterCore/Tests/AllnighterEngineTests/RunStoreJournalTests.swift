@@ -117,7 +117,7 @@ final class RunStoreJournalTests: XCTestCase {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDo it.", exitCode: 0)])
         let team = TeamPreset(
             id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
-            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
+            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
         let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
         XCTAssertTrue(resolved.isRunnable)
@@ -146,7 +146,7 @@ final class RunStoreJournalTests: XCTestCase {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDo it.", exitCode: 0)])
         let team = TeamPreset(
             id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
-            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, minEffort: .low)],
+            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
         let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
         let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
@@ -175,7 +175,7 @@ final class RunStoreJournalTests: XCTestCase {
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDone.", exitCode: 0)])
         var team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Snapshot Team")
-        team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id, purpose: .answer, minEffort: .low)]
+        team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id, purpose: .answer)]
         team.lead = TeamLeadSpec(skillId: "plan_writer_build")
         try TeamCatalog.saveCustom(team)
 

@@ -81,8 +81,8 @@ public enum TeamResolver {
             return result
         }
 
-        // Rules 3–4: activate rows by minEffort, split answer/review (declared order).
-        let active = team.activeRows(at: effort)
+        // Rules 3-4: all worker rows are active (no effort gate); split answer/review (declared order).
+        let active = team.workerSpecs
         let answerRows = active.filter { $0.purpose == .answer }
         let reviewRows = active.filter { $0.purpose == .review }
 

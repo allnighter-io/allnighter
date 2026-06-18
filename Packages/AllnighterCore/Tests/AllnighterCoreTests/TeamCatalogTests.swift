@@ -13,12 +13,11 @@ final class TeamCatalogTests: XCTestCase {
             defaultEffort: .med,
             isDefaultForLane: isDefault,
             workerSpecs: [
-                TeamWorkerSpec(id: "row_a", skillId: "skill_a", purpose: .answer, minEffort: .low),
-                TeamWorkerSpec(id: "row_b", skillId: "skill_b", purpose: .answer, minEffort: .med),
-                TeamWorkerSpec(id: "row_c", skillId: "skill_c", purpose: .review, minEffort: .high,
+                TeamWorkerSpec(id: "row_a", skillId: "skill_a", purpose: .answer),
+                TeamWorkerSpec(id: "row_b", skillId: "skill_b", purpose: .answer),
+                TeamWorkerSpec(id: "row_c", skillId: "skill_c", purpose: .review,
                                preferredModelId: "model_opus", fallbackPolicy: .anyReady, required: false)
             ],
-            effortPolicy: TeamEffortPolicy(defaultEffort: .med, outputCountByEffort: [.low: 1, .med: 1, .high: 2]),
             lead: TeamLeadSpec(skillId: "plan_writer_build", dissentPolicy: .riskRegister),
             typeTags: ["feature"],
             builtIn: true
@@ -34,7 +33,6 @@ final class TeamCatalogTests: XCTestCase {
         XCTAssertEqual(decoded, team)
         XCTAssertEqual(decoded.lead.dissentPolicy, .riskRegister)
         XCTAssertEqual(decoded.lead.skillId, "plan_writer_build")
-        XCTAssertEqual(decoded.effortPolicy.outputCountByEffort[.high], 2)
     }
 
     func testCanonicalEffortRawValues() throws {
@@ -42,16 +40,6 @@ final class TeamCatalogTests: XCTestCase {
         // Hard cutover: no quick/standard/deep/medium anywhere in the contract.
         XCTAssertNil(EffortLevel(rawValue: "medium"))
         XCTAssertNil(EffortLevel(rawValue: "standard"))
-    }
-
-    // MARK: - Effort gating
-
-    func testActiveRowsGateByMinEffort() {
-        let team = sampleTeam()
-        XCTAssertEqual(team.activeRows(at: .low).map(\.id), ["row_a"])
-        XCTAssertEqual(team.activeRows(at: .med).map(\.id), ["row_a", "row_b"])
-        XCTAssertEqual(team.activeRows(at: .high).map(\.id), ["row_a", "row_b", "row_c"])
-        XCTAssertEqual(team.workerCountByEffort(), [.low: 1, .med: 2, .high: 3])
     }
 
     func testLeadIsEffortIndependent() {

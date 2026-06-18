@@ -23,31 +23,13 @@ final class TeamResolverTests: XCTestCase {
         )
     }
 
-    // MARK: - Effort gating
-
-    func testEffortGatingChangesActiveWorkersDeterministically() {
-        let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low),
-            TeamWorkerSpec(id: "r2", skillId: "trace_mapper", minEffort: .med),
-            TeamWorkerSpec(id: "r3", skillId: "contrarian_root_cause", purpose: .review, minEffort: .high)
-        ])
-        let bench = [opus()]
-        XCTAssertEqual(TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: bench).answerWorkers.count, 1)
-        let med = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: bench)
-        XCTAssertEqual(med.answerWorkers.count, 2)
-        XCTAssertEqual(med.reviewWorkers.count, 0)
-        let high = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .high, readyModels: bench)
-        XCTAssertEqual(high.answerWorkers.count, 2)
-        XCTAssertEqual(high.reviewWorkers.count, 1)
-    }
-
     // MARK: - Self-fusion: one model fills many rows
 
     func testOneModelFillsManyRowsWithDistinctInstanceIndices() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low),
-            TeamWorkerSpec(id: "r2", skillId: "correct_fix_planner", minEffort: .low),
-            TeamWorkerSpec(id: "r3", skillId: "regression_guard", minEffort: .low)
+            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamWorkerSpec(id: "r2", skillId: "correct_fix_planner"),
+            TeamWorkerSpec(id: "r3", skillId: "regression_guard")
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         XCTAssertTrue(r.isRunnable)
@@ -62,7 +44,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testPreferredUnavailableFallsBackAndWarns() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
         ])
         // Codex not ready; Opus is.
@@ -74,7 +56,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testPreferredUsedWhenReady() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus(), codex()])
@@ -86,8 +68,8 @@ final class TeamResolverTests: XCTestCase {
 
     func testOptionalRowDisablesWithWarningButRuns() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low),
-            TeamWorkerSpec(id: "r2", skillId: "outlier_direction", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamWorkerSpec(id: "r2", skillId: "outlier_direction",
                            requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: false)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -99,8 +81,8 @@ final class TeamResolverTests: XCTestCase {
 
     func testRequiredRowUnavailableBlocksTeam() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low),
-            TeamWorkerSpec(id: "r2", skillId: "visual_system_designer", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamWorkerSpec(id: "r2", skillId: "visual_system_designer",
                            requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: true)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -113,7 +95,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testPlanWriterUnavailableBlocksRun() {
         let t = team(
-            rows: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low)],
+            rows: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer")],
             lead: leadSpec(tags: [.image]) // no ready model has .image
         )
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -125,7 +107,7 @@ final class TeamResolverTests: XCTestCase {
     // MARK: - Lane mismatch rejects before running
 
     func testLaneMismatchBlocks() {
-        let t = team(rows: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", minEffort: .low)])
+        let t = team(rows: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer")])
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus()])
         XCTAssertFalse(r.isRunnable)
         XCTAssertTrue(r.blockReason?.contains("is a code team") ?? false)
@@ -139,7 +121,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testDisabledPreferredFallsBackWithWarning() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_sonnet", fallbackPolicy: .anyReady)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -150,7 +132,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testExactOnlyBlocksWhenPreferredDisabled() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_sonnet", allowedModelIds: ["model_sonnet"],
                            fallbackPolicy: .exactOnly)
         ])
@@ -160,7 +142,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testImageRowResolvesWhenCapableModelReady() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "visual_system_designer", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "visual_system_designer",
                            requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: true)
         ], lane: .design, lead: leadSpec("design_board_writer", tags: [.design]))
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus(), gemini()])
@@ -188,7 +170,7 @@ final class TeamResolverTests: XCTestCase {
             role: .answerer, enabled: true, registry: registry)
         let customModel = ModelCatalog.resolvedModels(registry: registry).first { $0.id == custom.id }!
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: custom.id, fallbackPolicy: .exactOnly)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [customModel])
