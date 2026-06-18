@@ -78,8 +78,8 @@ The pain points:
   see the tradeoffs and decide what to do next.
 - **No floor visibility:** the user lacks one honest view of which agents are
   ready, running, cooling down, blocked, failed, or finished.
-- **Poor async workflow:** overnight work, mobile control, and "run this when
-  Claude wakes up" are not first-class in most workflows.
+- **Poor async workflow:** long-running work, mobile control, and external-agent
+  triggers are not first-class in most workflows.
 - **Fragile agent setup:** when a CLI auth expires or an MCP client is
   misconfigured, the workflow collapses into debugging.
 - **Underused subscriptions:** users often pay for multiple tools, but do not
@@ -120,7 +120,7 @@ the user's existing agent bench act like a coordinated team.
 
 Allnighter is the floor manager for AI work.
 
-The user chooses the intent, the lane, the team, and the level of effort.
+The user chooses the intent, lane, and team. The team encodes the work shape.
 Allnighter handles coordination:
 
 - which workers should run;
@@ -155,7 +155,7 @@ Allnighter is:
 - a team-run engine;
 - a reusable expert-team system;
 - a synthesis and work-order generator;
-- a Pending work system for async/overnight execution;
+- a Project-scoped Pending system for deferred work intent;
 - a recovery-aware agent tool;
 - a Mac and iPhone floor manager;
 - an agent-first workflow primitive for MCP and messaging agents.
@@ -206,7 +206,6 @@ The durable loop:
 capture intent
 -> choose lane
 -> choose team
--> choose effort
 -> run workers
 -> collect worker answers
 -> synthesize plan/spec/board
@@ -228,11 +227,11 @@ Within each lane, the user selects a team rather than a raw model.
 Examples:
 
 ```text
-Build -> Bug Hunt -> High
-Build -> Architecture Pressure Test -> Med
-Design -> Premium Polish -> High
-Design -> Flow Doctor -> Med
-Copy -> Landing Page Team -> High
+Build -> Bug Hunt
+Build -> Architecture Pressure Test
+Design -> Premium Polish
+Design -> Flow Doctor
+Copy -> Landing Page Team
 ```
 
 This matters because the hard part is not merely calling a model. The hard part
@@ -273,7 +272,7 @@ that directly:
 voice-to-text brain dump
 -> OpenClaw/Hermes-style agent
 -> Allnighter MCP
--> team run or Pending work
+-> deployable team run or Pending work
 -> result/spec returned to chat
 ```
 
@@ -285,6 +284,7 @@ faster than opening the GUI, that is the product winning.
 Agent-first requirements:
 
 - expose the same team-run contract through MCP;
+- expose deployable team jobs through CLI/MCP before GUI-only discovery;
 - let agents start, inspect, cancel, and retrieve runs;
 - expose Pending work without leaking internal scheduler language;
 - provide full spec/result retrieval;
@@ -491,8 +491,8 @@ Allnighter benefits from several compounding forces:
 - each reusable team makes the product more personalized;
 - each run creates history, preferences, and better routing;
 - each agent integration makes Allnighter easier to invoke;
-- each Pending/overnight workflow makes the product feel like leverage, not a
-  utility;
+- each Pending item an external agent can run later makes the product feel like
+  leverage, not a utility;
 - each good synthesis saves the user from reading thousands of tokens manually.
 
 The product becomes more valuable as the user's agent bench grows.
@@ -554,10 +554,11 @@ route the next action.
 
 1. Make the `alln` CLI the stable product spine.
 2. Harden run durability so interrupted/overnight work is never silently lost.
-3. Upgrade Fan out to lane -> team -> effort, with strong built-in Build,
-   Design, and Copy teams.
+3. Upgrade Fan out to lane -> team, with strong built-in Build, Design, and
+   Copy teams. Team variants own depth.
 4. Make one-CLI self-fusion excellent so the product works on day one.
-5. Expose Pending work and resident coordination for async/overnight jobs.
+5. Expose Pending work and resident coordination for async/remote jobs without
+   native scheduling ownership.
 6. Make MCP agent-first: `mcp_hello`, doctor recovery, preflight, async run
    lifecycle, Pending, and full spec retrieval.
 7. Keep the Mac app as the visual floor manager over the same contract.

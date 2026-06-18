@@ -1,290 +1,428 @@
 # Allnighter Agent Control Loop Strategy
 
-**Status:** Strategy anchor  
-**Owner:** Founder + CTO  
-**Created:** 2026-06-14  
-**Purpose:** Preserve the product boundary so Allnighter stays focused on the
-highest-value wedge: orchestrating, planning, dispatching, and evaluating AI
-agent work across the user's existing CLIs.
+**Status:** Strategy anchor, hardened after Project Manager dogfood review
+**Owner:** Founder + CTO
+**Created:** 2026-06-14
+**Updated:** 2026-06-17
+**Purpose:** Keep Allnighter out of the IDE/coding-agent trap and focused on the
+highest-value wedge: a local Project Manager that coordinates, dispatches, and
+evaluates the agents the user already uses.
 
 ---
 
 ## 0. One-Page Brief
 
-Allnighter is not a git management product.
+Allnighter is not an IDE, coding agent, git client, terminal viewer, Jira, or
+model provider.
 
-Allnighter is the **agent control loop**:
+Allnighter is the **local agent-control loop** for a Project:
 
 ```text
-ask many agents
+know the Project floor
+-> answer or orient from current truth
+-> ask the right agents when judgment is useful
 -> synthesize what came back
--> pressure-test the plan
--> dispatch to chosen agents
--> collect what came back
--> compare/evaluate outputs
--> let the human choose, remix, or send another round
+-> shape one bounded work order
+-> dispatch to the chosen agent/CLI
+-> capture the return
+-> verify proof before calling it done
+-> recommend the next move
 ```
 
-The user's CLIs and repo process already execute work. Allnighter's job is to
-remove the high-friction coordination layer around them: copy/paste, prompt
-assembly, model selection, parallel dispatch, result collection, synthesis,
-review, and next-step routing.
-
-The strategic boundary:
+The strategic claim:
 
 ```text
-Allnighter owns orchestration, synthesis, dispatch, and evaluation.
+Cursor, Claude, Codex, Gemini, Grok, Aider, and local models do the work.
+Allnighter manages the work.
+```
+
+The dogfood bar is intentionally severe:
+
+```text
+A serious Cursor + Claude power user should still start in Allnighter because
+the Project Manager reduces the cognitive load before and after execution.
+```
+
+If Allnighter becomes another place to code, review diffs, watch terminals, or
+manage branches, it is competing on the wrong axis. If it becomes the thing that
+knows the repo, remembers the plan, asks the right agents, produces a narrow
+handoff, and verifies what came back, it has a real wedge.
+
+---
+
+## 1. The Product Boundary
+
+Allnighter owns:
+
+- Project truth orientation;
+- prompt/work-order assembly;
+- Project-scoped Pending and queue visibility;
+- model/team selection;
+- parallel fanout;
+- synthesis and dissent preservation;
+- proposal creation;
+- direct dispatch to configured agents;
+- return capture;
+- proof/verification review;
+- next-step routing;
+- Mac/iOS command surfaces over the same local contract.
+
+Agents own:
+
+- code editing;
+- file diffs;
+- local reasoning inside their execution session;
+- tool use inside their permissions;
+- implementation attempts;
+- self-reported completion, which Allnighter treats as an input, not proof.
+
+Repos own:
+
+- git history;
+- branch policy;
+- commit policy;
+- tests and proof commands;
+- durable docs;
+- CI and release gates.
+
+Strategic boundary:
+
+```text
+Allnighter owns orchestration, synthesis, dispatch, and verification.
 Agents own execution.
-Repos own git/process policy.
+Repos own durable process truth.
 ```
 
 ---
 
-## 1. Why This Matters
+## 2. Why This Still Matters
 
 The founder pain is not:
 
 ```text
+I need a worse Cursor.
+I need another chat window.
 I need a branch manager.
 ```
 
 The founder pain is:
 
 ```text
-I asked several agents.
-They came back with different plans, diffs, and suggestions.
-I need to understand the tradeoffs quickly.
-I need to send the next best prompt without copy/paste.
-I want to steer this from Mac and mobile.
+I am using several strong agents.
+They come back with different plans, diffs, suggestions, and claims.
+I need one local place that knows the Project and keeps the loop moving.
+I need the next best prompt or work order without copy/paste archaeology.
+I need proof before I believe "done."
+I want to steer this from Mac now and phone later.
 ```
 
 That is the product.
 
-Direct dispatch is core because otherwise Allnighter stops at "nice planning
-tool" and hands the time-saving moment back to the terminal. If the user already
-trusts Claude Code, Codex, Grok, Aider, Cursor, or another CLI to edit a repo,
-Allnighter should be able to send the final spec to that CLI as configured.
-
----
-
-## 2. Product Thesis
-
-Allnighter should make a developer feel like they have a bench of agents and a
-floor manager:
+The useful emotional response is:
 
 ```text
-one prompt
--> multiple expert reads
--> one synthesized plan
--> optional review pods
--> final spec
--> direct dispatch
--> returned outputs summarized and compared
--> next dispatch
+Oh good, it knows what is going on.
 ```
 
-This is especially valuable for vibe coding because the human is not trying to
-manually operate four terminals. The human is steering review:
+Not:
 
-- Which agent had the best idea?
-- Which implementation is simplest?
-- Which output is most aligned with the desired UX?
-- What did the security/maintainer/design lenses catch?
-- Should we pick one, remix two, or ask another round?
-- Which agent should execute the next step?
-
-Allnighter should compress that loop.
+```text
+Oh no, another workflow to maintain.
+```
 
 ---
 
-## 3. What Allnighter Should Be Best At
+## 3. The Winning Loop
 
-Allnighter should be excellent at:
+The default product hierarchy is:
 
-1. **Fanout** - send one prompt/spec to several configured workers in parallel.
-2. **Synthesis** - produce a decisive plan or final spec from multiple outputs.
-3. **Role review** - send the draft/final work through configurable lenses such
-   as security, design, maintainer, customer, proof/QA, and dissent-preserver.
-4. **Direct dispatch** - send the selected spec to the chosen CLI/model without
-   copy/paste.
-5. **Return review** - capture outputs/transcripts and help the human evaluate
-   what came back.
-6. **Mobile command** - let the user run the same control loop from the phone.
-7. **Process guidance** - recommend repo instructions and agent playbooks without
-   owning the repo lifecycle.
+```text
+Project
+-> Project Manager chat
+-> fanout when useful
+-> synthesis
+-> work order
+-> dispatch
+-> return review
+-> verified next move
+```
 
-The core loop is not complete until results come back and the human can compare
-them quickly.
+The Project Manager is the star. Team runs are a capability it uses, not the
+main product noun. A team run matters because it helps the Project Manager answer
+better, propose better, or verify better.
+
+The loop is complete only when the user can see:
+
+- what was asked;
+- who answered;
+- what was decided;
+- what work was approved;
+- where it ran;
+- what came back;
+- what proof passed or failed;
+- what the Project Manager recommends next.
 
 ---
 
-## 4. What Allnighter Should Not Own First
+## 4. What The Project Manager Must Be Great At
 
-Allnighter should not take on git/worktree/commit management in the MVP.
+### Project Truth
 
-The upside is currently low relative to the complexity. It pulls the product
-into:
+The Project Manager knows the selected Project's local root, git state, active
+branch, durable docs entrypoints, relevant threads, recent runs, pending work,
+approved proposals, proof commands, and known blockers.
 
-- dirty worktree state;
-- branch naming and cleanup;
-- commit policy;
-- protected paths;
-- merge conflicts;
+It does not invent truth. When docs, git, proof, and worker claims disagree, it
+names the disagreement and refuses to flatten it into fake certainty.
+
+### Next Move Selection
+
+The Project Manager answers "what should I do next?" with one bounded next move
+or one reason it cannot safely choose.
+
+It may offer alternates only when the decision is genuinely a product judgment,
+not because the system is uncertain about its own state.
+
+### Fanout As Judgment
+
+Fanout is used when the Project Manager needs judgment, options, review, or
+dissent. It is not used as ceremony around obvious work.
+
+Good fanout outputs:
+
+- agreement;
+- disagreement;
+- assumptions;
+- risks;
+- candidate work orders;
+- recommended pick/remix/rerun.
+
+Fanout is discovery, not proof.
+
+### Work-Order Shaping
+
+The Project Manager turns fuzzy intent into a bounded work order:
+
+- goal;
+- current truth;
+- scope;
+- non-goals;
+- files/areas likely involved;
+- exact constraints;
+- proof command or waiver;
+- expected return format;
+- chosen agent/worker target.
+
+Work orders must be editable before dispatch.
+
+### Return Review
+
+The Project Manager treats worker completion claims as untrusted until verified.
+
+Return review answers:
+
+- what changed;
+- what proof ran;
+- what proof failed or was missing;
+- whether the work matches the approved order;
+- whether docs/proposals/pending state should advance;
+- whether another agent should audit, fix, or continue.
+
+---
+
+## 5. Start Here, Execute Elsewhere
+
+The product should fit the user's existing tools:
+
+```text
+Start in Allnighter to decide and shape the work.
+Execute in the user's chosen agent/CLI.
+Return to Allnighter to understand and verify the result.
+```
+
+This is not a demotion. It is the wedge.
+
+Allnighter only wins if this is faster and calmer than staying inside one agent
+session and manually carrying context between windows.
+
+---
+
+## 6. Hard Non-Goals
+
+Do not prioritize:
+
+- code editor surfaces;
+- diff review as a primary product surface;
+- Allnighter-managed commits;
+- Allnighter-managed branches/worktrees;
+- global Pending/queue state as product truth;
 - landing queues;
-- revert semantics;
-- preview/test gates;
-- CI interpretation;
-- trust claims around repo safety.
+- terminal multiplexing;
+- chat aggregation for its own sake;
+- generic task/project management;
+- cloud coding service behavior;
+- model-provider behavior;
+- autonomous unapproved execution;
+- self-attested "done" states.
 
-Those are real problems, but they are not the wedge. They are also already being
-worked on by CLIs, IDE agents, repo tooling, and developer workflows.
-
-The MVP claim should be narrower and more useful:
-
-```text
-Allnighter dispatches to the CLI you selected in the working directory you chose.
-The selected CLI may edit files.
-Git behavior is controlled by that CLI, its configuration, and the prompt.
-Allnighter is not creating a worktree or managing commits.
-```
-
-That is honest, useful, and shippable.
+These may appear later only as narrow support features if the Project Manager
+loop proves demand. They must not displace the control loop.
 
 ---
 
-## 5. Levels Of Execution Support
+## 7. Levels Of Execution Support
 
-Allnighter can grow through levels without confusing the core product:
+Allnighter can grow without changing identity:
 
 ```text
-Level 1 - Copy/reveal prompt
-Level 2 - Direct CLI dispatch
-Level 3 - Recommended repo process
-Level 4 - Return review and output comparison
-Level 5 - Managed execution safety
+Level 1 - Reveal/copy an exact handoff prompt.
+Level 2 - Direct CLI dispatch in the selected Project root.
+Level 3 - Return capture and comparison.
+Level 4 - Proof-aware return review.
+Level 5 - Optional managed execution safety.
 ```
 
-### Level 1 - Copy/Reveal Prompt
+### Level 1 - Reveal/Copy
 
-Fallback for manual workers, unhealthy CLIs, or unsupported tools.
+Fallback for manual workers, unsupported tools, unhealthy CLIs, or user review.
+The value is still real if the Project Manager writes the exact handoff better
+than the user would from memory.
 
 ### Level 2 - Direct CLI Dispatch
 
-MVP requirement. Allnighter invokes the selected healthy worker with the assembled
-prompt/spec in the configured working directory and captures output where the
-driver supports capture.
+MVP requirement for the control loop. Allnighter invokes the selected healthy
+worker with the assembled work order in the configured Project root and captures
+output where the driver supports capture.
 
-### Level 3 - Recommended Repo Process
+### Level 3 - Return Capture And Comparison
 
-Allnighter can provide optional process kits:
+Allnighter records what came back, attaches it to the Project thread/proposal,
+and summarizes differences when multiple workers return.
 
-```text
-AGENTS.md template
-Execution-Playbook.md template
-CLAUDE.md / CODEX.md style agent instructions
-recommended proof commands
-repo standing orders
-closeout checklist
-commit/PR guidance
-```
+### Level 4 - Proof-Aware Return Review
 
-These are recommendations and copyable files. They help users make their repos
-agent-friendly without Allnighter owning git state.
-
-### Level 4 - Return Review And Output Comparison
-
-This is the higher-value next layer:
-
-```text
-four agents return
--> Allnighter captures outputs/transcripts
--> evaluator summarizes each result
--> design/security/maintainer lenses review the results
--> final plan writer recommends pick, remix, reject, or rerun
-```
-
-This keeps Allnighter focused on review and iteration, where the differentiation
-is strongest.
+Allnighter checks proof artifacts, commands, git state, and docs drift before
+advancing work to verified/done.
 
 ### Level 5 - Managed Execution Safety
 
-Worktrees, branch policy, protected paths, landing, preview, test gates, and
-revert can come later if user demand proves that Allnighter should own those
-claims. This should not block the MVP.
+Branch/worktree policy, landing, revert, preview gates, and protected-path
+enforcement can come later only if dogfood proves users need Allnighter to own
+those claims. This layer is not required for the wedge.
 
 ---
 
-## 6. Mobile Strategy
+## 8. Dogfood Survival Slice
 
-Mobile becomes obvious when Allnighter owns the control loop:
+The first dogfoodable loop should be:
+
+```text
+add/open Allnighter as a Project
+-> ask Project Manager "what should we do next to make you useful?"
+-> receive scoped orientation from docs/git/thread truth
+-> receive one bounded proposal
+-> approve or edit it
+-> dispatch to a chosen agent/CLI or reveal the handoff
+-> capture the return
+-> verify proof or name missing proof
+-> Project Manager recommends the next move
+```
+
+This loop must avoid hidden magic. The user should always see:
+
+- selected Project;
+- source truth used;
+- proposal kind;
+- approval state;
+- dispatch target;
+- proof expectation;
+- verification result.
+
+Passing this loop is more important than adding more teams, settings, or visual
+polish.
+
+---
+
+## 9. Product Tests
+
+Allnighter is worth continuing when dogfood shows:
+
+- the user starts in Allnighter before opening an execution agent for at least
+  one real Project task;
+- the Project Manager can answer orientation questions without producing fake
+  work orders;
+- "what next?" returns one usable bounded proposal;
+- the handoff is good enough to send to Claude/Codex/Cursor with little editing;
+- the return review catches missing proof, scope drift, or stale docs;
+- the next move is clearer after the loop than before it.
+
+Allnighter is drifting when:
+
+- the user spends more time managing Allnighter than the agents;
+- the Project Manager cannot explain which Project truth it used;
+- fanout produces more ambiguity without a recommendation;
+- proposals are broad, vague, or untestable;
+- "done" relies on a worker saying it is done;
+- the team adds IDE/git/project-board features before the loop is reliable.
+
+---
+
+## 10. Mobile Strategy
+
+Mobile becomes obvious only after the Mac Project Manager loop works.
+
+The iOS app is a remote Project Manager:
 
 ```text
 from phone:
-ask the team
-read synthesis
-dispatch implementation
-watch agents return
-compare results
-send another round
+read Project state
+ask the Project Manager
+approve/edit/postpone proposals
+dispatch bounded work to the Mac
+watch returns
+verify or request follow-up
 ```
 
-The mobile app is not just a remote terminal. It is a command surface for agent
-review and dispatch.
-
-The magic is that the user does not need to sit at the Mac babysitting CLIs. The
-Mac owns execution; the phone steers the loop.
+The phone is not a remote terminal and not a mobile IDE. The Mac owns execution
+and run truth. The phone steers the control loop.
 
 ---
 
-## 7. Strategic Position
+## 11. Near-Term Roadmap Decision
 
-Allnighter should avoid competing with every agent and IDE on repo automation.
-
-The durable wedge is:
+Prioritize:
 
 ```text
-the best way to coordinate, plan writer, dispatch, and evaluate a bench of agents
-you already use
+Projects as durable local floors
+Project Manager chat
+Project context packets
+Project-scoped Pending with explicit user/CLI/MCP/external-agent triggers
+one-next-move proposals
+editable work orders
+direct dispatch or reveal
+return capture
+proof-aware verification
+fanout/synthesis when judgment is needed
+CLI/MCP contracts that expose the same loop
 ```
 
-That path compounds as more CLIs appear. Every new CLI makes Allnighter more
-useful as the control layer above them.
-
-The product should stay opinionated:
-
-- Use the tools users already trust.
-- Make parallel review cheap.
-- Make direct dispatch immediate.
-- Make returned outputs easy to understand.
-- Make another round effortless.
-- Offer process kits, but do not require Allnighter to own git.
-
----
-
-## 8. Decision
-
-The MVP and near-term roadmap should prioritize:
-
-```text
-configurable synthesis
-review lenses / design pods
-final spec
-direct executor dispatch
-return review / comparison
-mobile control loop
-optional repo process kits
-```
-
-The MVP and near-term roadmap should not prioritize:
+Do not prioritize:
 
 ```text
 Allnighter-managed worktrees
 Allnighter-managed commits
 landing queues
+global Pending queue as product truth
 repo safety guarantees
 branch/revert ownership
+generic project boards
+terminal viewing
+diff/editor surfaces
 ```
 
-Those can return later as a managed-execution layer if they become a proven user
-pain. They should not displace the agent control loop.
+The narrow bet:
 
+```text
+The best way to use many powerful coding agents is not another coding agent.
+It is a local Project Manager that keeps the control loop honest.
+```

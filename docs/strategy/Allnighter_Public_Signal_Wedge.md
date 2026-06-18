@@ -9,8 +9,8 @@ orders without becoming an IDE, analytics SaaS, or X API reseller.
 
 ## One-Sentence Version
 
-Allnighter can turn public X conversation into a daily stack of things worth
-saying, replying to, researching, or building.
+Allnighter can turn public X conversation into evidence-backed moves a Project
+can make before the window closes.
 
 ## Executive Summary
 
@@ -38,8 +38,8 @@ Use your own Grok access to turn public signal into creative and product work.
 ```
 
 For creators, founders, indie hackers, and X-native builders, this can be worth
-$9.95/month on its own if the deployable team jobs are fast, opinionated,
-sourced, and easy to repeat.
+$9.95/month on its own if the deployable team jobs are opinionated, sourced,
+fresh, and callable through CLI/MCP.
 
 ## The Core Insight
 
@@ -54,7 +54,7 @@ Grok        = public discourse sensor
 Claude/Opus = strategist, synthesizer, editor
 Codex       = implementation worker
 Grok/Cursor = builder or alternate execution target
-Allnighter  = Project Manager, war room, scheduler, and work-order router
+Allnighter  = Project Manager, deployable-team router, and receipt keeper
 ```
 
 This creates a different product category from an IDE:
@@ -146,7 +146,7 @@ produce:
 - a Build work order;
 - a Design prompt;
 - a Project Manager proposal;
-- a Pending item for scheduled monitoring;
+- a Project-scoped Pending item an external agent can run later;
 - a reply/post/thread opportunity card.
 
 This preserves the current product model while letting Allnighter feel much
@@ -158,8 +158,8 @@ proves distinct enough.
 
 Signal should ship as **Deploy Teams** first. A Signal deployment is a
 preconfigured prompt plus team that the Project Manager can run, clarify, save,
-repeat, expose to MCP, or hand off to Copy/Fanout/Build/Design. The companion
-strategy doc is `docs/strategy/Allnighter_Deploy_Teams_Wedge.md`.
+repeat, expose to CLI/MCP, or hand off to Copy/Fanout/Build/Design. The
+companion strategy doc is `docs/strategy/Allnighter_Deploy_Teams_Wedge.md`.
 
 ## Killer Loop
 
@@ -182,7 +182,7 @@ Concrete shape:
 3. Grok Signal workers search X for accelerating conversation.
 4. Copy/strategy workers generate differentiated angles.
 5. A skeptic filters out generic or stale ideas.
-6. Project Manager returns an Opportunity Board.
+6. Project Manager returns Move Cards / an Opportunity Board.
 7. User picks one.
 8. Allnighter creates:
    - a post/thread draft,
@@ -191,7 +191,36 @@ Concrete shape:
    - or a Build/Design work order.
 ```
 
-The output is not a report. The output is a set of **moves**.
+The output is not a report. The output is a set of **moves** with receipts.
+
+## Move Timing And Freshness
+
+The Signal promise is "I am not late." That makes timing a correctness property,
+not polish.
+
+Every time-sensitive Signal card should carry:
+
+```text
+Window: open | closing | closed | uncertain
+Freshness: signal observed at <timestamp>
+```
+
+Rules:
+
+- Do not recommend action on stale data.
+- If the reply window is closed, say closed and recommend no move or a pivot.
+- If another strong account already owned the move, say so.
+- If freshness cannot be proven, mark the card uncertain.
+- "No move today" is a valid trusted result when the signal is saturated, noisy,
+  or not a fit for the Project.
+
+Every Move Card should also answer:
+
+```text
+Why is this my move?
+```
+
+Without Project fit, voice, history, or proof, the card is just a generic tip.
 
 ## The First Product Surface: Opportunity Board
 
@@ -413,35 +442,40 @@ find public posts/screenshots in a niche
 -> route to Design team
 ```
 
-## Scheduled Signal
+## External Signal Loops
 
-Scheduled Signal is where retention happens.
+Repeated Signal is where retention happens, but Allnighter should not own the
+run loop in v1.
 
-Users can run Signal:
+Allnighter can be called:
 
 - on demand;
-- every morning;
-- before a launch;
-- after a competitor ships;
-- when a watched phrase spikes;
-- when a specific account posts;
-- weekly for content planning.
+- by an external agent every morning;
+- by an external agent before a launch;
+- by an external agent after a competitor ships;
+- by an external agent when a watched phrase spikes;
+- by an external agent when a specific account posts;
+- by a human or agent for weekly content planning.
 
 This maps naturally onto Project-scoped Pending:
 
 ```text
 Project
--> Signal monitor
--> Pending scheduled run
+-> external loop owner (OpenClaw/Hermes/cron/etc.)
+-> alln CLI / MCP Signal deployment
 -> Opportunity Board
 -> user picks Copy/Fanout/Build/Design action
 ```
 
 Important boundary:
 
-Scheduled Signal may create Draft opportunities or Project Manager proposals.
-It must not auto-post, auto-reply, or auto-execute mutating work without explicit
-approval.
+Allnighter defines and runs Signal deployments. External agents may schedule,
+monitor, or trigger them through CLI/MCP. Allnighter must not become a social
+calendar, scheduler, posting tool, or owned run-loop product in v1.
+
+Signal deployments may create Draft opportunities, Project Manager proposals, or
+Project-scoped Pending items. They must not auto-post, auto-reply, or
+auto-execute mutating work without explicit approval.
 
 ## Why This Could Justify $9.95/Month
 
@@ -586,16 +620,19 @@ Minimum product:
 - configured Grok worker as Signal Scout;
 - niche/topics/handles config;
 - on-demand run;
-- Opportunity Board output;
+- Move Card / Opportunity Board output;
 - Signal -> Copy action;
 - Signal -> Fanout action;
 - Signal -> Build work-order action;
-- Project-scoped Pending item for "monitor this later";
+- Project-scoped Pending item for "run this later" by a human or external agent;
 - source/evidence receipts;
+- timing/freshness status for time-sensitive cards;
+- "no move today" as a valid output;
 - no auto-posting.
 
 Defer:
 
+- native scheduling/run loops;
 - posting to X;
 - reply automation;
 - engagement analytics;
@@ -606,73 +643,66 @@ Defer:
 - X API proxy behavior;
 - long-term historical data warehouse.
 
-## Built-In Signal Templates
+## Built-In Signal Deployments
 
-Ship a small number of excellent deployable Signal team jobs:
+Do not launch with an 18-card buffet. Ship a small number of excellent
+deployable Signal team jobs and keep the rest as later candidates.
 
-1. **Velocity Alert**
-   Find weak signals that are accelerating before they become obvious trends.
-   Output one time-sensitive move, not a generic report.
+Recommended launch roles:
 
-2. **Signal To Copy**
-   Turn live public conversation into posts, threads, and reply ideas.
+1. **Reply Window** - hook
+   Find high-leverage reply opportunities before a thread saturates, with
+   timing, fit, risk, and three reply options.
 
-3. **Signal To Fanout**
-   Explore how a public trend applies to the user's Project.
-
-4. **Signal To Build: Receipts Loop**
+2. **Receipts Loop** - moat
    Catch a live pain, create a bounded Build work order, verify proof, and draft
    the build-in-public receipt.
 
-5. **Feed-To-Feature**
-   Turn repeated public pain into product ideas and Build work orders.
-
-6. **Reply Window**
-   Find high-leverage reply opportunities before a thread saturates, with timing
-   and fit notes.
-
-7. **Demand Capture**
-   Find people expressing the exact pain the Project solves and draft useful,
-   non-spammy responses.
-
-8. **Phrase Velocity Radar**
-   Track emerging phrase clusters and category language before anyone clearly
-   owns them.
-
-9. **Gravity Radar**
+3. **Gravity Radar** - halo
    Detect unincentivized love: third-party hacks, dashboards, scrapers,
    workarounds, calculators, extensions, and fan tooling.
 
-10. **Hype Decay / Don't Post This**
-    Warn when a take is saturated, owned by another account, or likely to make
-    the user look late.
+4. **Velocity Alert** - timing engine
+   Find weak signals that are accelerating before they become obvious trends.
+   Output one time-sensitive move, not a generic report.
 
-11. **Fragmentation Synthesis**
+5. **Hype Decay / Don't Post This** - trust builder
+   Warn when a take is saturated, owned by another account, or likely to make
+   the user look late. Recommend no move or a better angle.
+
+Strong later candidates:
+
+- **Signal To Copy**
+   Turn live public conversation into posts, threads, and reply ideas.
+- **Signal To Fanout**
+   Explore how a public trend applies to the user's Project.
+- **Feed-To-Feature**
+   Turn repeated public pain into product ideas and Build work orders.
+- **Demand Capture**
+   Find people expressing the exact pain the Project solves and draft useful,
+   non-spammy responses.
+- **Phrase Velocity Radar**
+   Track emerging phrase clusters and category language before anyone clearly
+   owns them.
+- **Fragmentation Synthesis**
     Find when many strong accounts are saying fragments of one idea and create
     the unifier thread or narrative.
-
-12. **Preloaded Response Kit**
+- **Preloaded Response Kit**
     Monitor a competitor/category event and stage reply variants, Copy angles,
     Fanout prompts, and Build work orders before the narrative hardens.
-
-13. **Tension Pair Monitor**
+- **Tension Pair Monitor**
     Track category framing battles such as local-first vs cloud agent or full
     autonomy vs human coordinator.
-
-14. **Viral Deconstructor**
+- **Viral Deconstructor**
    Explain why a post worked and adapt it without copying.
-
-15. **Visual Signal Board**
+- **Visual Signal Board**
     Cluster public screenshots, demos, and visual promises in a niche, then route
     the useful patterns to Design.
-
-16. **Competitor Conversation Map**
+- **Competitor Conversation Map**
    Monitor what people praise or complain about around competitors.
-
-17. **Founder Narrative Monitor**
+- **Founder Narrative Monitor**
    Recommend the story the founder should tell this week.
-
-18. **Daily X Pulse**
+- **Daily X Pulse**
     Morning opportunity board for configured niches. Useful, but not the lead
     demo if Velocity Alert or Receipts Loop is available.
 
@@ -684,11 +714,14 @@ Recommended product words:
 Signal
 Opportunity Board
 Opportunity Card
+Move Card
+Receipt
 Signal Scout
 Signal to Copy
 Signal to Fanout
 Signal to Build
-Monitor this signal
+Run this later
+Hand to external agent
 ```
 
 Avoid:
@@ -728,8 +761,9 @@ Risk:
 We drift into scheduler/analytics/calendar features.
 
 Mitigation:
-Allnighter owns signal-to-action, not social account management. No posting or
-analytics in V1.
+Allnighter owns signal-to-action, not social account management or run-loop
+ownership. No native scheduling, posting, or analytics in V1. External agents can
+trigger Allnighter through CLI/MCP.
 
 ### Scope Creep
 
