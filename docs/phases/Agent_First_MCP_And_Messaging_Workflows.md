@@ -1517,6 +1517,73 @@ Completion gate:
 - Future billing cannot be bypassed by MCP because the preflight/start hook is
   already shared.
 
+## MCP Solidity Plan (as solid as the app)
+
+Goal: the MCP surface is held to the same contract-completeness, parity, and proof
+bar as the Mac app. With zero users this is the time to build the killer
+foundation, not patch later. Seven workstreams (M-A…M-G). M-A/M-B/M-C are the
+foundation and come first; the rest layer on. These reuse and harden the A-slices
+above rather than replace them.
+
+### M-A - Contract completeness (every tool fully specified)
+
+- Every MCP tool gets a registered argument schema, return schema, error set, and
+  idempotency rule. Today ~12 tools are name-only (`help_get`, `models_list`,
+  `run_show`, `run_export`, `history_search`, `team_show` detail, etc.).
+- Schemas are checked-in JSON Schemas in the Core registry, generated and
+  drift-gated exactly like `TeamRunJSON` (see `CLI_Implementation_Contract.md`).
+- Acceptance: a tool cannot be advertised without a registered schema; the
+  `export-contracts` drift gate is green; no tool is name-only.
+
+### M-B - CLI<->MCP parity proof
+
+- Generate a parity table mapping every MCP tool to its `alln` command handler and
+  shared schema; assert MCP never exposes a richer semantic surface than the CLI
+  (Agent-First Product Law).
+- Acceptance: a parity test fails CI if an MCP-only semantic or an unmapped tool
+  appears.
+
+### M-C - Exit codes + consolidated error catalog
+
+- Adopt the process exit-code table (0 success / 1 operational / 2 usage) from
+  `CLI_Implementation_Contract.md` and a single error-code catalog where every
+  `error_explain` code carries `remedyTier`/`whoCanFix`/doctor text.
+- Acceptance: every emitted code exists in the catalog; `error_explain` resolves
+  any emitted code; usage errors exit 2 uniformly.
+
+### M-D - Deploy-team MCP surface (Tenet-1 product spine)
+
+- Specify the currently-unspecified deployable-team tools end to end:
+  `team_deployable_list`, `team_deployable_get`, `team_deployable_preflight`,
+  `team_deploy`, `team_deploy_pending`, `team_deploy_result` — args, returns,
+  errors, idempotency, and `originAgent` provenance.
+- Acceptance: an external agent can discover, preflight, and deploy a team purely
+  from the schemas, with no app involvement.
+
+### M-E - Synchronous-ask resolution
+
+- Resolve the `team_ask` deletion gap: document that synchronous ask is CLI-only
+  after agent-first and agents use async `team_start` -> `team_status` ->
+  `team_result`. Update the Spine tool table and this doc to one stated path.
+- Acceptance: no tool is "deleted but still required"; the async path is the single
+  documented agent ask flow.
+
+### M-F - Gating layers (provenance, approval, entitlement)
+
+- Harden A2/A5/A6: `originAgent` provenance on every call, an MCP-client approval
+  handshake before first use, and a shared entitlement gate on every run-start
+  path (`team_preflight`/`team_start`/`pending_run`).
+- Acceptance: an unapproved client or over-quota call is refused with a sourced,
+  recoverable error in the standard envelope.
+
+### M-G - Proof wall
+
+- A Works Test per tool (golden request -> response fixtures), an
+  `mcp serve --stdio` smoke test, and the parity + drift gates wired into CI —
+  the MCP analogue of the GUI Visual Proof Gate.
+- Acceptance: MCP changes cannot merge without passing schema, parity, and
+  fixture-replay gates.
+
 ## Works Tests
 
 ### Works Test A - cold start self-heals Allnighter-owned state
