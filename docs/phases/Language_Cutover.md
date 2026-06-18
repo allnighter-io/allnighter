@@ -68,24 +68,24 @@ Keep (do not touch):
 - Vendor product names (e.g. a CLI literally named "Grok Build CLI" — verify before
   renaming; do not rename a vendor's product, only our craft labels).
 
-## Open Decision (must resolve before the effort slice)
+## Effort — DECIDED (2026-06-18)
 
-**Effort is the one thing not yet locked.** The built GUI tooltip says *"Higher
-effort = more workers + a deeper pass"* — that is **team depth**, which contradicts
-the rule that effort = the per-worker **model reasoning level** and depth = **named
-team variants**. Pick one before touching `EffortLevel`/`minEffort`:
+**Effort = the model's reasoning level. Full stop.** `low | med | high` is the
+per-worker **model reasoning setting** (routed Claude `--effort` / Codex
+`-c model_reasoning_effort` / Antigravity model-name variant / Grok none — already
+wired). It is the only definition that is simple and honest.
 
-- **(A) Effort = model reasoning level (recommended, matches the locked model).**
-  `EffortLevel` becomes the per-worker model reasoning setting only (routed Claude
-  `--effort` / Codex `-c model_reasoning_effort` / Antigravity variant / Grok none).
-  Worker-count/depth differences move to **named team variants** (Bug Hunt Lite /
-  Bug Hunt / Exterminator). Requires migrating `minEffort`-gates-activation out.
-- **(B) Keep effort = depth** (more workers + deeper pass) and drop the
-  "model reasoning level" framing. Simpler migration, but contradicts the locked
-  two-axis model and the founder's earlier statement.
+**Depth is not effort.** If you want a deeper/bigger pass, that is a different
+**Team** (more workers) — a named variant (Bug Hunt Lite / Bug Hunt / Exterminator),
+never an effort dial. So in CUT-S05:
 
-Everything else in this doc is locked and can proceed without this decision; the
-effort slice (CUT-S05) is gated on it.
+- `EffortLevel` stays, meaning model reasoning only.
+- Remove the worker-activation gating: `minEffort`, `effortPolicy`,
+  `outputCountByEffort`, `synthesisPolicyByEffort`, and any "effort picks how many
+  workers" path. Teams have a fixed lineup; size differences are separate teams.
+- Fix the GUI tooltip to "the reasoning level the model uses," never "more workers."
+
+This is more work and that is fine — it is the only model that makes sense.
 
 ## Surface inventory (where the old words live)
 
@@ -127,8 +127,8 @@ Docs:
 
 ## Cutover slices (ordered, green-wall after each)
 
-- [ ] **CUT-S00 — Vocabulary SSOT.** This doc is the canonical word list. Add a
-  one-line pointer from `AGENTS.md` and `docs/phases/README.md` so all agents use it.
+- [x] **CUT-S00 — Vocabulary SSOT.** This doc is the canonical word list; pointers
+  added in `AGENTS.md` and `docs/phases/README.md` (done 2026-06-18).
 - [ ] **CUT-S01 — Core craft rename.** `WorkLane.build → .code` (rawValue),
   `defaultBuildTeamId → defaultCodeTeamId`, `WorkOrder.lane` values, built-in team
   lane tags. Migrate fixtures; regenerate contracts. Green wall.
@@ -142,8 +142,11 @@ Docs:
   Execute route (Execute becomes the approval on a make-real card); `Build` tab +
   setup rail → `Code`; work-order filter `Build/Running` → `Code/Running`. Layout
   proof gate.
-- [ ] **CUT-S05 — Effort reconciliation (gated on Open Decision).** Apply (A) or (B);
-  fix the GUI tooltip; migrate `EffortLevel`/`minEffort` accordingly. Green wall.
+- [ ] **CUT-S05 — Effort = reasoning level (DECIDED).** `EffortLevel` is the
+  per-worker model reasoning setting only. Remove `minEffort` / `effortPolicy` /
+  `outputCountByEffort` / `synthesisPolicyByEffort` and any effort→worker-count
+  gating; teams have a fixed lineup (size differences are separate named teams). Fix
+  the GUI tooltip to "the reasoning level the model uses." Green wall.
 - [ ] **CUT-S06 — Docs sweep.** Rewrite active forward docs to the canonical
   vocabulary; rename `Fanout_Team_Catalog.md`; Move Card → Insight; delete any
   "Proof lane". Leave mvp/archive/qa as historical. `rg` confirms no old term
