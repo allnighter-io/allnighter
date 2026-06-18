@@ -38,8 +38,8 @@ Done when:
 7. Run deslop for hunk-level cleanup.
 8. Run Code Audit for non-trivial product or architecture changes.
 9. Update durable docs/logs only when the lesson should survive the turn.
-10. If changed work should be saved, enqueue Codex commit handoff and wait for
-    `done`.
+10. If changed work should be saved, `git add` the explicit paths and `git commit`
+    directly (see § Commits).
 
 ## Green Wall
 
@@ -81,49 +81,32 @@ touch .git/codex-write-test && rm .git/codex-write-test && echo OK
 
 Do not pass `--sandbox` to `codex exec` from drivers or scripts.
 
-## Codex Commit Handoff
+## Commits
 
-When Codex finishes work that should be saved locally, it uses the queue at
-`.wmd/commit-queue.jsonl` instead of staging or committing directly:
-
-```text
-python3 scripts/commit_handoff_queue.py request \
-  --message "<commit message>" \
-  --path <explicit-file> \
-  --path <explicit-file> \
-  --wait
-```
-
-Queue items record `id`, `repo`, expected `branch`, explicit `paths`,
-`commit_message`, `status`, timestamps, `commit_sha`, and `failure_reason`.
-Pending items are processed automatically while Cursor is open via hooks
-installed by `bash scripts/install_commit_queue_watcher.sh` (which also runs the
-Codex permissions installer above if present): `sessionStart` starts a repo-local
-poll watcher on `.wmd/commit-queue.jsonl` (2s interval); `stop` drains once
-immediately. Run the installer once per clone; restart Cursor after install.
-Manual fallback: `python3 scripts/commit_handoff_queue.py process-next`.
-
-To prove an in-progress Codex slice with the same unrelated-dirty-work
-isolation but without creating a commit:
+The commit-queue/handoff watcher is **retired** (2026-06-18). There is no
+`.wmd/commit-queue.jsonl`, no poll watcher, and no `--wait` handoff. Every agent
+(including Codex, which now has direct workspace git permissions) commits its own
+work directly:
 
 ```text
-python3 scripts/commit_handoff_queue.py check-request \
-  --path <explicit-file> \
-  --wait
+git add <explicit-path> <explicit-path>
+git commit -m "<scope>: <what changed>"
 ```
 
 Binding rules:
 
-- Cursor stages only listed paths, commits once, and never pushes.
-- Unrelated dirty files are normal and must not block handoff.
-- Pre-existing staged changes fail the handoff because `git commit` would sweep
-  them in.
-- Commit-handoff control-plane files (`scripts/commit_handoff_queue.py`,
+- Stage only the explicit paths you changed; never `git add -A`/`git add .` that
+  could sweep in unrelated dirty or pre-existing staged files.
+- Commit in small, regular increments as work lands — do not batch a whole sprint
+  into one commit and do not leave finished work uncommitted.
+- Never `git reset --hard`, force-push, or rewrite shared history on
+  `feat/design-chain`. (The retired watcher's `reset --hard` loop is why this rule
+  exists.)
+- Do not push unless the task explicitly asks for it.
+- The old control-plane scripts (`scripts/commit_handoff_queue.py`,
   `scripts/commit_queue_watcher.py`, `scripts/install_commit_queue_watcher.sh`,
-  `.cursor/hooks*`, `scripts/commit-handoff-hooks/*`) are blocked unless the
-  human explicitly requested queue maintenance and the request uses
-  `--allow-control-plane`.
-- Codex polls the queue item by `id` until `done`, `failed`, or timeout.
+  `scripts/commit-handoff-hooks/*`, `.cursor/hooks/*commit*`) are dormant and may
+  be removed; `.cursor/hooks.json` no longer registers them.
 
 ## Closeout
 
@@ -138,8 +121,8 @@ Closeout is complete when all are true:
 - Code Audit is `CLEAN`, or the reason it did not run is stated.
 - New durable lessons are logged in `DEBUGLOG`, maintainer logs, SSOT, or phase
   docs.
-- Changed work that should be saved has a Codex commit handoff item marked
-  `done`, or the save waiver/blocker is explicit.
+- Changed work that should be saved is committed directly with git (explicit
+  paths), or the save waiver/blocker is explicit.
 
 ## Phase Archive
 

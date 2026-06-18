@@ -66,7 +66,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
-| Codex sprint closeout / commit blocked | `docs/operations/Execution-Playbook.md` § Codex commit handoff |
+| Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |
 | Deslop pass (slice slop cleanup) | `docs/operations/Deslop.md` |
 | Code Audit (structural verdict at closeout) | `docs/operations/Code_Audit.md` |
 | Bug report / fix a bug / broken workflow | `docs/operations/Debugger.md` (+ `docs/operations/debugger/`) |
@@ -78,21 +78,24 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 This table is first routing only. Narrower docs named by the target phase doc,
 GUI brief, or design-system page still apply.
 
-## Codex Commit Handoff
+## Commits
 
-Hookless agents (Codex) must not `git add`/`git commit` directly at slice close.
-When changed work should be saved, closeout is not complete until a handoff item
-is `done` or the save is explicitly waived. Enqueue explicit paths:
+The commit-queue/handoff watcher is **retired** (2026-06-18). Agents commit their
+own work directly with git — there is no queue, no `.wmd/commit-queue.jsonl`, and
+no `--wait` handoff. Codex has direct workspace git permissions.
+
+At slice close, stage the explicit files you changed and commit with a clear
+message; finished work must not be left uncommitted (or the save is explicitly
+waived). Commit in small, regular increments rather than one large drop.
 
 ```text
-python3 scripts/commit_handoff_queue.py request \
-  --message "<commit message>" \
-  --path <explicit-file> \
-  --wait
+git add <explicit-path> <explicit-path>
+git commit -m "<scope>: <what changed>"
 ```
 
-One-time per clone: `bash scripts/install_commit_queue_watcher.sh`. Full rules:
-`docs/operations/Execution-Playbook.md` § Codex commit handoff.
+Never `git reset --hard` or rewrite shared history on `feat/design-chain`; never
+sweep unrelated staged/dirty files into a commit (stage explicit paths). Full
+rules: `docs/operations/Execution-Playbook.md` § Commits.
 
 ## Project Laws
 
