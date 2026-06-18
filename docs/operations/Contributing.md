@@ -31,6 +31,6 @@
 - Stage explicit paths only.
 - Do not sweep unrelated dirty files into commits.
 - Mention unrun proof and residual risk in closeout.
-- Codex agents enqueue commits through `scripts/commit_handoff_queue.py`; Cursor
-  processes the queue. See `docs/operations/Execution-Playbook.md` § Codex
-  commit handoff.
+- All agents (including Codex) commit their own work directly with git; the
+  commit-queue/handoff watcher is retired. See
+  `docs/operations/Execution-Playbook.md` § Commits.

@@ -48,8 +48,8 @@ xcodebuild test -scheme Allnighter -destination 'platform=iOS Simulator,name=iPh
 ## Agent Tooling
 
 - Cursor + Codex share the same doc router (`AGENTS.md`).
-- Codex commit handoff: `scripts/commit_handoff_queue.py` + `.cursor/hooks/`.
-- Install once per clone: `bash scripts/install_commit_queue_watcher.sh`.
+- Commits: all agents commit directly with git; the commit-queue/handoff watcher
+  is retired (2026-06-18). See `docs/operations/Execution-Playbook.md` § Commits.
 
 ## Open Technical Decisions
 

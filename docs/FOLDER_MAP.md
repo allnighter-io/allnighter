@@ -44,8 +44,9 @@ Allnighter/
 - `docs/workflows/SSOT_*.md`: founder intake and feature packet shape.
 - `docs/operations/Execution-Playbook.md`: slice process and closeout checklist.
 - `docs/operations/code-maintainer/SKILL.md`: rotating repo health loop.
-- `scripts/commit_handoff_queue.py`: Codex → Cursor commit handoff queue.
-- `.wmd/commit-queue.jsonl`: local commit queue state.
+- `scripts/commit_handoff_queue.py`: retired commit-handoff queue (dormant; agents
+  now commit directly — see `docs/operations/Execution-Playbook.md` § Commits).
+- `.wmd/commit-queue.jsonl`: stale local queue state from the retired watcher.
 
 ## Truth Placement
 
