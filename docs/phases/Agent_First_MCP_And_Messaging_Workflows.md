@@ -1528,12 +1528,31 @@ above rather than replace them.
 ### M-A - Contract completeness (every tool fully specified)
 
 - Every MCP tool gets a registered argument schema, return schema, error set, and
-  idempotency rule. Today ~12 tools are name-only (`help_get`, `models_list`,
-  `run_show`, `run_export`, `history_search`, `team_show` detail, etc.).
+  idempotency rule.
 - Schemas are checked-in JSON Schemas in the Core registry, generated and
   drift-gated exactly like `TeamRunJSON` (see `CLI_Implementation_Contract.md`).
 - Acceptance: a tool cannot be advertised without a registered schema; the
   `export-contracts` drift gate is green; no tool is name-only.
+
+Status (2026-06-18, post-cutover audit — the old "~12 name-only tools" list
+named pre-cutover tools that no longer exist; the real gaps are below):
+
+- `MCPToolSpec` (27 tools in `ContractRegistry+Milestone1.swift`) **already** has
+  an argument schema for every tool and an `outputSchema` marker; that part of
+  M-A is effectively done.
+- REAL GAP 1 — **error set**: `MCPToolSpec` has no `errors[]` listing the catalog
+  codes a tool can emit. Add it (additive), populate per tool from its handler,
+  and gate that every listed code exists in the M-C catalog.
+- REAL GAP 2 — **idempotency rule**: `MCPToolSpec` has no idempotency field. Add
+  an enum (idempotent | not-idempotent | keyed) and populate per tool.
+- REAL GAP 3 — **return schema for data-returning tools**: several tools that
+  return structured data still carry `outputSchema: .none` (e.g. `teams_list`,
+  `skills_list`, `history`, `thread_get`, `thread_status`). Either give them real
+  return schemas (new `OutputSchema` cases + hand-written JSON Schemas, like the
+  existing 5) or formally classify them as text/markdown returns. This is the
+  bulk of the remaining schema-authoring.
+- Add `testEveryMCPToolHasCompleteSpec` (arg schema present, return schema chosen,
+  ≥0 errors all valid in catalog, idempotency set) as the advertise gate.
 
 ### M-B - CLI<->MCP parity proof
 
@@ -1543,13 +1562,22 @@ above rather than replace them.
 - Acceptance: a parity test fails CI if an MCP-only semantic or an unmapped tool
   appears.
 
-### M-C - Exit codes + consolidated error catalog
+### M-C - Exit codes + consolidated error catalog — ✅ DONE (2026-06-18)
 
 - Adopt the process exit-code table (0 success / 1 operational / 2 usage) from
   `CLI_Implementation_Contract.md` and a single error-code catalog where every
-  `error_explain` code carries `remedyTier`/`whoCanFix`/doctor text.
+  `error_explain` code carries recovery metadata + doctor text.
 - Acceptance: every emitted code exists in the catalog; `error_explain` resolves
   any emitted code; usage errors exit 2 uniformly.
+- Delivered: published `ErrorSpec.exitClass` (operational|usage) + `ExitCode`
+  constants + `ContractRegistry.processExitCode(forErrorCode:)`; a single
+  `AllnighterCLI.fail(code:message:)` funnel that emits the catalog-enriched
+  envelope and exits with the catalog-derived code; miscoded sites fixed both
+  directions; 8 emitted-but-unregistered codes added (5 `MODEL_*`,
+  `THREAD_NOT_FOUND`, `THREAD_SEND_FAILED`, `INTERNAL_ERROR`); a source-scan gate
+  (`ExitCodeContractTests`) asserts every error-code literal the CLI emits exists
+  in the catalog. NOT yet done: `remedyTier`/`whoCanFix` enrichment of the
+  catalog (the doctor-side remedy taxonomy) — a separate, additive follow-up.
 
 ### M-D - Deploy-team MCP surface (Tenet-1 product spine)
 
