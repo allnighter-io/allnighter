@@ -163,12 +163,30 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
 
     /// An MCP tool — a thin projection of an `alln` command. MCP descriptors and
     /// behavior derive from these; no MCP-only schemas (contract §MCP Projection).
+    /// Whether re-invoking a tool with the same arguments is safe (M-A).
+    public enum Idempotency: String, Codable, Sendable, CaseIterable {
+        /// Read-only, or a convergent write whose repeat reaches the same end state
+        /// (set-default, save, delete).
+        case idempotent
+        /// Re-invoking may duplicate work or side effects (start a fresh run, create
+        /// a new entity).
+        case notIdempotent = "not_idempotent"
+        /// De-duplicated by a client-supplied idempotency key within a retention
+        /// window (`team_start`, `thread_send`).
+        case keyed
+    }
+
     public struct MCPToolSpec: Codable, Sendable, Equatable {
         public var name: String            // MCP tool name, e.g. "team_ask"
         public var command: String         // the alln command it projects, e.g. "team"
         public var summary: String
         public var params: [Param]
         public var outputSchema: OutputSchema
+        /// Catalog error codes this tool can surface (M-A). Every entry must exist
+        /// in the error catalog (`ContractRegistryTests` enforces this).
+        public var errors: [String]
+        /// Retry-safety contract for this tool (M-A).
+        public var idempotency: Idempotency
         public struct Param: Codable, Sendable, Equatable {
             public var name: String
             public var type: String        // "string" | "boolean" | "array" | "object"
@@ -206,9 +224,26 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
                 self.arrayItems = arrayItems
             }
         }
-        public init(_ name: String, command: String, summary: String, params: [Param] = [], outputSchema: OutputSchema = .none) {
+        public init(_ name: String, command: String, summary: String, params: [Param] = [], outputSchema: OutputSchema = .none, errors: [String] = [], idempotency: Idempotency = .notIdempotent) {
             self.name = name; self.command = command; self.summary = summary
             self.params = params; self.outputSchema = outputSchema
+            self.errors = errors; self.idempotency = idempotency
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case name, command, summary, params, outputSchema, errors, idempotency
+        }
+        // Tolerant decode: a pre-M-A artifact without `errors`/`idempotency` reads
+        // as no declared errors and not-idempotent.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            name = try c.decode(String.self, forKey: .name)
+            command = try c.decode(String.self, forKey: .command)
+            summary = try c.decode(String.self, forKey: .summary)
+            params = try c.decode([Param].self, forKey: .params)
+            outputSchema = try c.decode(OutputSchema.self, forKey: .outputSchema)
+            errors = try c.decodeIfPresent([String].self, forKey: .errors) ?? []
+            idempotency = try c.decodeIfPresent(Idempotency.self, forKey: .idempotency) ?? .notIdempotent
         }
     }
 }

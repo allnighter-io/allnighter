@@ -2429,6 +2429,10 @@
   "mcpTools" : [
     {
       "command" : "teams",
+      "errors" : [
+
+      ],
+      "idempotency" : "idempotent",
       "name" : "mcp_hello",
       "outputSchema" : "none",
       "params" : [
@@ -2443,6 +2447,10 @@
     },
     {
       "command" : "teams",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "teams_list",
       "outputSchema" : "none",
       "params" : [
@@ -2457,6 +2465,11 @@
     },
     {
       "command" : "teams show",
+      "errors" : [
+        "TEAM_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "teams_show",
       "outputSchema" : "none",
       "params" : [
@@ -2471,6 +2484,13 @@
     },
     {
       "command" : "teams duplicate",
+      "errors" : [
+        "TEAM_NOT_FOUND",
+        "TEAM_ID_COLLISION",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
       "name" : "teams_duplicate",
       "outputSchema" : "none",
       "params" : [
@@ -2491,6 +2511,15 @@
     },
     {
       "command" : "teams edit",
+      "errors" : [
+        "TEAM_INVALID",
+        "TEAM_BUILTIN_IMMUTABLE",
+        "CATALOG_ID_INVALID",
+        "SKILL_LANE_MISMATCH",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "teams_save",
       "outputSchema" : "none",
       "params" : [
@@ -2511,6 +2540,13 @@
     },
     {
       "command" : "teams set-default",
+      "errors" : [
+        "TEAM_NOT_FOUND",
+        "TEAM_DEFAULT_INVALID",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "teams_set_default",
       "outputSchema" : "none",
       "params" : [
@@ -2525,6 +2561,14 @@
     },
     {
       "command" : "teams delete",
+      "errors" : [
+        "TEAM_NOT_FOUND",
+        "TEAM_BUILTIN_IMMUTABLE",
+        "TEAM_DEFAULT_INVALID",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "teams_delete",
       "outputSchema" : "none",
       "params" : [
@@ -2539,6 +2583,10 @@
     },
     {
       "command" : "skills",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "skills_list",
       "outputSchema" : "none",
       "params" : [
@@ -2553,6 +2601,11 @@
     },
     {
       "command" : "skills show",
+      "errors" : [
+        "SKILL_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "skills_show",
       "outputSchema" : "none",
       "params" : [
@@ -2567,6 +2620,13 @@
     },
     {
       "command" : "skills duplicate",
+      "errors" : [
+        "SKILL_NOT_FOUND",
+        "SKILL_ID_COLLISION",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
       "name" : "skills_duplicate",
       "outputSchema" : "none",
       "params" : [
@@ -2587,6 +2647,14 @@
     },
     {
       "command" : "skills edit",
+      "errors" : [
+        "SKILL_INVALID",
+        "SKILL_BUILTIN_IMMUTABLE",
+        "CATALOG_ID_INVALID",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "skills_save",
       "outputSchema" : "none",
       "params" : [
@@ -2607,6 +2675,14 @@
     },
     {
       "command" : "skills delete",
+      "errors" : [
+        "SKILL_NOT_FOUND",
+        "SKILL_BUILTIN_IMMUTABLE",
+        "SKILL_IN_USE",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "skills_delete",
       "outputSchema" : "none",
       "params" : [
@@ -2621,6 +2697,13 @@
     },
     {
       "command" : "team preflight",
+      "errors" : [
+        "DEFAULT_TEAM_INVALID",
+        "TEAM_NOT_FOUND",
+        "MODEL_UNAVAILABLE",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "team_preflight",
       "outputSchema" : "none",
       "params" : [
@@ -2653,6 +2736,17 @@
     },
     {
       "command" : "team start",
+      "errors" : [
+        "DEFAULT_TEAM_INVALID",
+        "TEAM_NOT_FOUND",
+        "MODEL_UNAVAILABLE",
+        "NESTED_TEAM_BLOCKED",
+        "TEAM_GOVERNOR_BUSY",
+        "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+        "COORDINATOR_UNAVAILABLE",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "keyed",
       "name" : "team_start",
       "outputSchema" : "teamStartResponse",
       "params" : [
@@ -2727,6 +2821,11 @@
     },
     {
       "command" : "team status",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "team_status",
       "outputSchema" : "teamStatusResponse",
       "params" : [
@@ -2741,6 +2840,12 @@
     },
     {
       "command" : "team result",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "RESULT_NOT_READY",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "team_result",
       "outputSchema" : "teamRunJSON",
       "params" : [
@@ -2755,6 +2860,11 @@
     },
     {
       "command" : "team cancel",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "team_cancel",
       "outputSchema" : "teamCancelResponse",
       "params" : [
@@ -2769,6 +2879,19 @@
     },
     {
       "command" : "team",
+      "errors" : [
+        "DEFAULT_TEAM_INVALID",
+        "TEAM_NOT_FOUND",
+        "MODEL_UNAVAILABLE",
+        "TEAM_RUN_TIMEOUT",
+        "TEAM_RUN_FAILED",
+        "PLAN_WRITER_FAILED",
+        "WORKER_FAILED",
+        "NESTED_TEAM_BLOCKED",
+        "TEAM_GOVERNOR_BUSY",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
       "name" : "team_ask",
       "outputSchema" : "teamRunJSON",
       "params" : [
@@ -2813,6 +2936,10 @@
     },
     {
       "command" : "team show",
+      "errors" : [
+        "DEFAULT_TEAM_INVALID"
+      ],
+      "idempotency" : "idempotent",
       "name" : "team_show",
       "outputSchema" : "none",
       "params" : [
@@ -2822,6 +2949,10 @@
     },
     {
       "command" : "history",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "history",
       "outputSchema" : "none",
       "params" : [
@@ -2836,6 +2967,11 @@
     },
     {
       "command" : "show",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "show",
       "outputSchema" : "teamRunJSON",
       "params" : [
@@ -2856,6 +2992,10 @@
     },
     {
       "command" : "doctor",
+      "errors" : [
+        "DOCTOR_CHECK_FAILED"
+      ],
+      "idempotency" : "idempotent",
       "name" : "doctor",
       "outputSchema" : "doctorResult",
       "params" : [
@@ -2870,6 +3010,10 @@
     },
     {
       "command" : "doctor explain",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "error_explain",
       "outputSchema" : "none",
       "params" : [
@@ -2884,6 +3028,11 @@
     },
     {
       "command" : "spec",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "spec_get",
       "outputSchema" : "teamRunJSON",
       "params" : [
@@ -2904,6 +3053,22 @@
     },
     {
       "command" : "thread send",
+      "errors" : [
+        "THREAD_NOT_FOUND",
+        "THREAD_SEND_IDEMPOTENCY_CONFLICT",
+        "WORKER_FAILED",
+        "THREAD_SEND_FAILED",
+        "ATTACHMENT_TOO_MANY",
+        "ATTACHMENT_TOO_LARGE",
+        "ATTACHMENT_UNSUPPORTED_TYPE",
+        "ATTACHMENT_DECODE_FAILED",
+        "ATTACHMENT_BASE64_INVALID",
+        "ATTACHMENT_HASH_MISMATCH",
+        "ATTACHMENT_STAGE_FAILED",
+        "CONTEXT_ATTACHMENT_CAP_EXCEEDED",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "keyed",
       "name" : "thread_send",
       "outputSchema" : "none",
       "params" : [
@@ -2963,6 +3128,11 @@
     },
     {
       "command" : "thread get",
+      "errors" : [
+        "THREAD_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "thread_get",
       "outputSchema" : "none",
       "params" : [
@@ -2977,6 +3147,11 @@
     },
     {
       "command" : "thread status",
+      "errors" : [
+        "THREAD_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
       "name" : "thread_status",
       "outputSchema" : "none",
       "params" : [
