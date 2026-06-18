@@ -11,6 +11,9 @@ struct TeamDraft: Equatable {
     let base: TeamPreset
     var name: String
     var rows: [Row]
+    /// The mandatory Team Lead (synthesizer) — exactly one, never removable. Editable
+    /// like a worker (skill + model + prompt); its prompt forks on save the same way.
+    var lead: Row
     var allowSubstitutions: Bool
 
     /// One worker's pending edit state (the rescue's TeamWorkerDraft). Prompt edits
@@ -42,13 +45,19 @@ struct TeamDraft: Equatable {
                 modelId: spec.preferredModelId ?? defaultModelId,
                 purpose: spec.purpose, minEffort: spec.minEffort)
         }
+        // The Team Lead. Its Row.purpose/minEffort are unused (the Lead is the
+        // synthesizer, not an answer/review worker); commit() writes a TeamLeadSpec.
+        self.lead = Row(id: "lead", skillId: base.lead.skillId,
+                        modelId: base.lead.preferredModelId ?? defaultModelId,
+                        purpose: .answer, minEffort: .low)
     }
 
-    /// Save is allowed only when every role has a skill AND a named model.
+    /// Save is allowed only when every role — and the Lead — has a skill AND a model.
     var isSavable: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !rows.isEmpty &&
-        rows.allSatisfy { !$0.skillId.isEmpty && $0.modelId != nil }
+        rows.allSatisfy { !$0.skillId.isEmpty && $0.modelId != nil } &&
+        !lead.skillId.isEmpty && lead.modelId != nil
     }
 
     /// Persist as a custom team and return its id. Built-in base → duplicate to a
@@ -74,30 +83,39 @@ struct TeamDraft: Equatable {
             if let duplicatedTeamId { try? TeamCatalog.deleteCustom(duplicatedTeamId) }
         }
 
+        // A row's effective skill: fork its edited prompt into a custom skill (and
+        // track it for rollback), else use the skill as-is. Shared by workers + Lead.
+        func resolveSkill(_ row: Row, defaultPurpose: SkillPurpose) throws -> String {
+            guard let prompt = row.promptDraft?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty else {
+                return row.skillId
+            }
+            let source = SkillCatalog.get(row.skillId)
+            let forkName = "\(source?.displayName ?? row.skillId) for \(saveName)"
+            let custom = try SkillCatalog.createCustom(
+                lane: base.lane, name: forkName,
+                purpose: source?.purpose ?? defaultPurpose, template: prompt
+            )
+            forkedSkillIds.append(custom.id)
+            return custom.id
+        }
+
         do {
             // 1) Fork edited prompts into custom skills; build the worker specs.
             let specs: [TeamWorkerSpec] = try rows.map { row in
-                let skillId: String
-                if let prompt = row.promptDraft?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty {
-                    let source = SkillCatalog.get(row.skillId)
-                    let forkName = "\(source?.displayName ?? row.skillId) for \(saveName)"
-                    let custom = try SkillCatalog.createCustom(
-                        lane: base.lane,
-                        name: forkName,
-                        purpose: source?.purpose ?? .answer,
-                        template: prompt
-                    )
-                    forkedSkillIds.append(custom.id)
-                    skillId = custom.id
-                } else {
-                    skillId = row.skillId
-                }
-                return TeamWorkerSpec(
-                    id: row.id, skillId: skillId, purpose: row.purpose,
-                    minEffort: row.minEffort, preferredModelId: row.modelId,
+                TeamWorkerSpec(
+                    id: row.id, skillId: try resolveSkill(row, defaultPurpose: .answer),
+                    purpose: row.purpose, minEffort: row.minEffort, preferredModelId: row.modelId,
                     count: 1, fallbackPolicy: fallback, required: true
                 )
             }
+            // 1b) The Team Lead — fork its prompt the same way; carry the dissent
+            // default forward (no UI knob; the Lead's prompt drives its behavior).
+            let leadSpec = TeamLeadSpec(
+                skillId: try resolveSkill(lead, defaultPurpose: .planWriter),
+                preferredModelId: lead.modelId,
+                fallbackPolicy: fallback,
+                dissentPolicy: base.lead.dissentPolicy
+            )
 
             // 2) Save the custom team. Built-in source → duplicate to a fresh custom.
             var team: TeamPreset
@@ -111,6 +129,7 @@ struct TeamDraft: Equatable {
             }
             team.displayName = saveName
             team.workerSpecs = specs
+            team.lead = leadSpec
             try TeamCatalog.saveCustom(team)
             return team.id
         } catch {
@@ -132,6 +151,8 @@ struct TeamEditorView: View {
     /// Level-2: which worker row is open in the Customize-worker editor (nil = the
     /// team roster). The pane pushes to the worker editor and back.
     @State private var editingRow: Int?
+    /// Level-2 for the Team Lead (separate from worker rows; the Lead is pinned).
+    @State private var editingLead = false
 
     init(base: TeamPreset, lane: ComposeLane, models: [Model], readyModels: [Model],
          onRevert: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
@@ -147,15 +168,25 @@ struct TeamEditorView: View {
     private var isBuiltIn: Bool { draft.base.builtIn }
 
     private var laneSkills: [Skill] { SkillCatalog.list(lane: lane.workLane) }
+    /// The Lead picks among plan-writer skills only — it's the synthesizer, not an
+    /// answer/review worker.
+    private var leadSkills: [Skill] { laneSkills.filter { $0.purpose == .planWriter } }
 
     var body: some View {
         Group {
             if let i = editingRow, draft.rows.indices.contains(i) {
                 CustomizeWorkerView(
-                    teamName: draft.name, lane: lane, models: models, laneSkills: laneSkills,
+                    teamName: draft.name, roleLabel: "worker", lane: lane, models: models, laneSkills: laneSkills,
                     row: draft.rows[i],
                     onDone: { updated in draft.rows[i] = updated; editingRow = nil },
                     onCancel: { editingRow = nil }
+                )
+            } else if editingLead {
+                CustomizeWorkerView(
+                    teamName: draft.name, roleLabel: "Team Lead", lane: lane, models: models, laneSkills: leadSkills,
+                    row: draft.lead,
+                    onDone: { updated in draft.lead = updated; editingLead = false },
+                    onCancel: { editingLead = false }
                 )
             } else {
                 teamContent
@@ -177,6 +208,7 @@ struct TeamEditorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     nameField
+                    leadSection
                     workers
                     substitutionsToggle
                     summary
@@ -215,6 +247,51 @@ struct TeamEditorView: View {
                 .padding(.horizontal, 10).frame(height: 32)
                 .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
                 .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        }
+    }
+
+    /// The pinned Team Lead — required, can't be removed, sits above the crew.
+    private var leadSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text("TEAM LEAD").font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                    .foregroundStyle(ALColor.accentText)
+                Text("· reports back · required").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+                Spacer(minLength: 0)
+            }
+            leadRow
+            Text("Reads every worker's output and writes the single answer.")
+                .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+        }
+    }
+
+    private var leadRow: some View {
+        HStack(spacing: 8) {
+            // Skill cell opens the same level-2 editor (skill + prompt + model). No
+            // remove button — the Lead is mandatory.
+            Button { editingLead = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "megaphone.fill").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
+                    Text(skillName(draft.lead.skillId))
+                        .font(.system(size: 12, weight: .medium)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                    if draft.lead.promptDraft != nil {
+                        Circle().fill(ALColor.accent).frame(width: 5, height: 5)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
+                }
+                .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
+                .background(ALColor.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: ALRadius.md))
+                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.accent.opacity(0.4), lineWidth: 1) }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            picker(current: modelName(draft.lead.modelId) ?? "Pick a model", options: models.map { ($0.id, $0.displayName) }) {
+                draft.lead.modelId = $0
+            }
+            // Width-match the workers' × column so the model dropdowns align.
+            Color.clear.frame(width: 14, height: 1)
         }
     }
 
@@ -280,7 +357,7 @@ struct TeamEditorView: View {
     }
 
     private var summary: some View {
-        Text("\(draft.rows.count) workers · saved as a \(lane.label.lowercased()) team you can pick in the composer.")
+        Text("\(draft.rows.count) workers + 1 lead · saved as a \(lane.label.lowercased()) team you can pick in the composer.")
             .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
     }
 
@@ -335,6 +412,8 @@ struct TeamEditorView: View {
 /// in-memory team draft; the prompt is forked into a custom skill only at team Save.
 private struct CustomizeWorkerView: View {
     let teamName: String
+    /// "worker" or "Team Lead" — only affects the header copy.
+    let roleLabel: String
     let lane: ComposeLane
     let models: [Model]
     let laneSkills: [Skill]
@@ -346,9 +425,9 @@ private struct CustomizeWorkerView: View {
     @State private var modelId: String?
     @State private var promptText: String
 
-    init(teamName: String, lane: ComposeLane, models: [Model], laneSkills: [Skill],
+    init(teamName: String, roleLabel: String = "worker", lane: ComposeLane, models: [Model], laneSkills: [Skill],
          row: TeamDraft.Row, onDone: @escaping (TeamDraft.Row) -> Void, onCancel: @escaping () -> Void) {
-        self.teamName = teamName; self.lane = lane; self.models = models
+        self.teamName = teamName; self.roleLabel = roleLabel; self.lane = lane; self.models = models
         self.laneSkills = laneSkills; self.row = row; self.onDone = onDone; self.onCancel = onCancel
         _skillId = State(initialValue: row.skillId)
         _modelId = State(initialValue: row.modelId)
@@ -402,7 +481,7 @@ private struct CustomizeWorkerView: View {
             Button(action: onCancel) { Image(systemName: "arrow.left").font(.system(size: 13)) }
                 .buttonStyle(.plain).foregroundStyle(ALColor.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Customize worker").font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                Text("Customize \(roleLabel)").font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
                 Text("\(teamName) · \(skill?.displayName ?? skillId) | \(modelName(modelId))")
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
             }

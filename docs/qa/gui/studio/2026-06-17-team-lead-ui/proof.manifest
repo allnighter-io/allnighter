@@ -1,0 +1,26 @@
+# surface: studio
+# fixtures: studio-teams-build
+# watcher: PASS
+# sealed: 2026-06-17
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+1df8fa54da78b3229d0b0f7cb3c74e3c698d5e93  Apps/AllnighterMac/Sources/AllnighterMacApp.swift
+119a52242340691d845f307f10bce0379bd38947  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+939de845e21a8ab6fd512a2292326c95379d1ab8  Apps/AllnighterMac/Sources/CommandCenter.swift
+27b44d9a33c6155ac698dbe97c1887f654032325  Apps/AllnighterMac/Sources/DesignBoardView.swift
+e40cc42041d1712d18d6399fe946ddea6100c60c  Apps/AllnighterMac/Sources/DesignComponents.swift
+cd7ca70785ddddd4085f29f4e243f82cb2634b4f  Apps/AllnighterMac/Sources/DevSettingsView.swift
+208a93e62970c1fd481819e44e8e680e2b64e4f6  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+02c31c4d91f27d7ad77e3b117ea7cf6b1a5e6ae6  Apps/AllnighterMac/Sources/GUIProofGrantView.swift
+cd46489b0c0444629de0ea6ca25e8e87e044e100  Apps/AllnighterMac/Sources/HomeView.swift
+364f27ae6a4e8c9072a5922bfb1ec4ee02a1989d  Apps/AllnighterMac/Sources/ReadinessView.swift
+9559f592c939538c7af65ad2748a69d600207e2e  Apps/AllnighterMac/Sources/RootView.swift
+e2324655d41b35a1750b4d8160e6aecaa8be9efb  Apps/AllnighterMac/Sources/RoutingComposer.swift
+c485d677e6a87baaf027ea8f8beb95aa7f404870  Apps/AllnighterMac/Sources/SetupViews.swift
+de3ba5323e0f6b633b73f0c9329d718e04d5a6f6  Apps/AllnighterMac/Sources/TeamControlView.swift
+412e900d1858a19d6ad080da14b0dfdf9c86c4ba  Apps/AllnighterMac/Sources/TeamEditorView.swift
+09f30ced32a90d07114eaca196452c163c17e699  Apps/AllnighterMac/Sources/TeamStudioView.swift
+f4b644754d5451a621481e98e5c32cd735e75c3a  Apps/AllnighterMac/Sources/ThreadRailComponents.swift
+cb4273a343a814db397e5f4c461938710ba1713d  Apps/AllnighterMac/Sources/ThreadsView.swift
+f92f3a21ae111567312710a818646b4c76d9397f  Apps/AllnighterMac/Sources/ThreadView.swift
+c66492718da4e96ed75e120d5b13d4a656516546  Apps/AllnighterMac/Sources/TimelineVisibility.swift
