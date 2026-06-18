@@ -27,6 +27,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Pending", isDirectory: true)
     }
 
+    /// `…/Allnighter/Projects/` — durable Project records (the work-floor spine).
+    public static var projects: URL {
+        support.appendingPathComponent("Projects", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)
