@@ -87,7 +87,7 @@ It must not feel like:
 A worse IDE, a second issue tracker, a terminal viewer, or a new process tax.
 ```
 
-The Project Manager is the star. Team runs, fanout, pending work, dispatch,
+The Project Manager is the star. Team runs, pending work, dispatch,
 verification, and mobile control are capabilities of the Project Manager loop.
 
 ## Product Unit
@@ -185,7 +185,7 @@ Project
   docsEntrypoints[]
   proofCommands[]
   workerReadinessSummary?
-  defaultBuildTeamId?
+  defaultCodeTeamId?
   defaultDesignTeamId?
   defaultCopyTeamId?
   managerThreadId?
@@ -204,7 +204,7 @@ Rules:
 - Project archive hides the Project from the active rail; it does not delete
   threads, runs, attachments, proposals, returns, verification records, or
   commits.
-- Non-git folder Projects may support chat, fanout, reveal, and manual handoff.
+- Non-git folder Projects may support chat, team runs, reveal, and manual handoff.
   Mutating dispatch requires an explicit proof waiver and can never be marked
   commit-verified.
 
@@ -521,7 +521,7 @@ ProjectManagerTurn
   threadId
   userMessageId
   createdAt
-  mode: answer | orient | propose | fanout | handoff | dispatch | verify | wait
+  mode: answer | orient | propose | delegate | handoff | dispatch | verify | wait
   contextPacketId?
   answerMarkdown?
   proposals[]
@@ -563,9 +563,9 @@ Rules:
 - The manager model honors reasoning effort where its source supports it (the
   per-worker model reasoning level; never a team-shape control).
 - `answer`/`orient` are a single manager-model call over the packet. `propose`
-  is the manager model producing one bounded `ProjectProposal`. `fanout`
+  is the manager model producing one bounded `ProjectProposal`. `delegate`
   delegates to a real team run (`Team_Catalog.md`); the Manager does not
-  fake fanout breadth itself. `verify` runs proof + git observation (see Return
+  fake a team.s breadth itself. `verify` runs proof + git observation (see Return
   And Verification) and uses the manager model only to interpret results.
 - The manager prompt/skill is built-in catalog content snapshotted into the turn
   for audit; it is not editable prompt prose that can redefine semantics.
@@ -622,7 +622,7 @@ Rules:
   they conflict.
 - Cancelled proposals remain historical receipts.
 - `kind` is one of the Legal Proposal Kinds enum (see Readiness And Proposal Law):
-  `spec_fanout | synthesis_review | execute_slice | docs_reconcile |
+  `spec_explore | synthesis_review | execute_slice | docs_reconcile |
   verify_completion | audit | deslop | ask_user | wait`.
 - `suggestedTeamId` carries team shape (axis 2). `suggestedEffort` is the optional
   per-worker model reasoning level (axis 1: `low | med | high`) where the chosen
@@ -641,7 +641,7 @@ WorkOrder
   proposalId
   projectId
   title
-  lane: build | design | copy | none
+  lane: code | design | copy | none
   mode: reveal | dispatch
   targetWorkerId?
   targetAgent?
@@ -739,13 +739,13 @@ The Project Manager can:
 - summarize current Project state;
 - find stale docs and contradictions;
 - propose the next bounded move;
-- propose fanout when a spec is fuzzy;
-- synthesize fanout for human judgment;
+- propose sending a team when a spec is fuzzy;
+- synthesize the team.s output for human judgment;
 - shape an editable work order;
 - reveal or dispatch an approved work order;
 - verify a worker completion claim;
 - prepare a handoff prompt;
-- route approved work to Build, Design, Copy, GUI, Audit, Docs, Fanout, or
+- route approved work to Code, Design, Copy, GUI, Audit, Docs, or
   Execute paths.
 
 It must not:
@@ -753,7 +753,7 @@ It must not:
 - auto-execute unapproved work;
 - mark worker claims done without proof, commit observation, or waiver;
 - silently rewrite phase docs;
-- treat fanout discovery as machine proof;
+- treat team-run discovery as machine proof;
 - self-approve because an external agent asked;
 - invent Project truth from prompt prose;
 - hide dirty state, failed workers, missing roots, blocked proof, or Project
@@ -770,7 +770,7 @@ Decision tree:
 | --- | --- |
 | "Where are we?" | Answer from Project context. No proposal unless useful and clearly separated. |
 | "What should we do next?" | Return one bounded proposal or one visible blocker. |
-| "Explore this fuzzy idea." | Propose or run fanout, then synthesize for human judgment. |
+| "Explore this fuzzy idea." | Propose or send a team, then synthesize for human judgment. |
 | "Make this a work order." | Create/edit a dispatchable work order. Do not dispatch yet unless the user chooses dispatch. |
 | "Run it." with approved work order | Revalidate gates, then dispatch or reveal based on send mode. |
 | "Run it." without approved work order | Create a proposal/work order draft and ask for approval/edit. |
@@ -804,8 +804,8 @@ Legal proposal kinds:
 
 | Kind | Purpose | Completion evidence |
 | --- | --- | --- |
-| `spec_fanout` | Explore a fuzzy area and create candidate work orders. | Fanout synthesis + human decision. |
-| `synthesis_review` | Interpret fanout agreement/contradiction. | Human-approved decision or follow-up proposal. |
+| `spec_explore` | Explore a fuzzy area and create candidate work orders. | Fanout synthesis + human decision. |
+| `synthesis_review` | Interpret team agreement/contradiction. | Human-approved decision or follow-up proposal. |
 | `execute_slice` | Implement an execution-ready bounded slice. | Return + proof + commit observation or waiver. |
 | `docs_reconcile` | Make docs match committed truth. | Diff + stale-reference scan + proof. |
 | `verify_completion` | Check a worker's done claim. | Verification record. |
@@ -928,7 +928,7 @@ Recheck Workers
 Composer behavior:
 
 - default target is the Project Manager for the selected Project;
-- route controls may still choose Build / Design / Copy / Fan out / Execute;
+- route controls may choose Send to team (Code / Design / Copy) or Execute; Chat is the default;
 - Enter sends chat, not Build/Execute;
 - any mutating route runs against the selected Project root;
 - no mutating route is allowed with no Project selected;
@@ -1113,7 +1113,7 @@ Rules:
   Gemini, Antigravity, or any other CLI inside a Project.
 - No silent phase-doc rewriting after commits.
 - No worker self-attestation as "done."
-- No fanout output promoted to execution truth without human approval.
+- No team-run output promoted to execution truth without human approval.
 - No iOS-first implementation. iOS remains parked until Mac Project truth works.
 - No branch/worktree manager in this phase.
 - No Allnighter-managed commits in this phase.
@@ -1476,7 +1476,7 @@ Expected:
 
 ## Closed Decisions
 
-- Non-git folder Projects are allowed for chat, fanout, reveal, and manual
+- Non-git folder Projects are allowed for chat, team runs, reveal, and manual
   handoff. Mutating dispatch requires explicit proof waiver and cannot be
   commit-verified.
 - The Project Manager thread is pinned/reserved in v1 and recreated if missing.
