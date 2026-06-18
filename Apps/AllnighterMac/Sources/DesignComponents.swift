@@ -279,7 +279,7 @@ struct ALDropdown: View {
         .alPopover(isPresented: $open, arrowEdge: .bottom) {
             ScrollView {
                 VStack(spacing: 1) {
-                    ForEach(options, id: \.0) { id, label in
+                    ForEach(options.sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }, id: \.0) { id, label in
                         Button { onPick(id); open = false } label: {
                             HStack(spacing: 8) {
                                 Text(label).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
@@ -329,6 +329,9 @@ struct ALSearchableDropdown: View {
 
     @State private var open = false
     @State private var query = ""
+    /// Keyboard cursor across the filtered rows then (if shown) the create row. Top
+    /// row is highlighted by default so ↑/↓ + ⏎ selects without the mouse.
+    @State private var highlighted = 0
     @FocusState private var searchFocused: Bool
 
     private var sorted: [ALComboItem] {
@@ -344,6 +347,20 @@ struct ALSearchableDropdown: View {
         !trimmedQuery.isEmpty && items.contains { $0.label.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
     }
     private var canCreate: Bool { onCreate != nil && !trimmedQuery.isEmpty && !hasExactMatch }
+    /// Selectable rows = filtered items, plus the create row when offered.
+    private var optionCount: Int { filtered.count + (canCreate ? 1 : 0) }
+
+    private func move(_ delta: Int) {
+        guard optionCount > 0 else { return }
+        highlighted = (highlighted + delta + optionCount) % optionCount
+    }
+    private func activateHighlighted() {
+        if highlighted < filtered.count {
+            onPick(filtered[highlighted].id); close()
+        } else if canCreate {
+            onCreate?(trimmedQuery); close()
+        }
+    }
 
     var body: some View {
         Button { open.toggle() } label: {
@@ -374,7 +391,9 @@ struct ALSearchableDropdown: View {
 
                 ScrollView {
                     VStack(spacing: 1) {
-                        ForEach(filtered) { item in row(item) }
+                        ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, item in
+                            row(item, index: idx)
+                        }
                         if filtered.isEmpty && !canCreate {
                             Text("No match").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -386,6 +405,7 @@ struct ALSearchableDropdown: View {
 
                 if canCreate {
                     Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                    let createIndex = filtered.count
                     Button {
                         onCreate?(trimmedQuery); close()
                     } label: {
@@ -396,19 +416,28 @@ struct ALSearchableDropdown: View {
                             Spacer(minLength: 0)
                         }
                         .padding(.horizontal, 10).frame(height: 36).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(highlighted == createIndex ? ALColor.active : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: ALRadius.sm))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .onHover { if $0 { highlighted = createIndex } }
+                    .padding(.horizontal, 6).padding(.vertical, 6)
                 }
             }
             .frame(width: width)
             .background(ALColor.surface)
-            .onAppear { searchFocused = true }
+            .onAppear { searchFocused = true; highlighted = 0 }
+            .onChange(of: query) { _, _ in highlighted = 0 }
+            .onKeyPress(.downArrow) { move(1); return .handled }
+            .onKeyPress(.upArrow) { move(-1); return .handled }
+            .onKeyPress(.return) { activateHighlighted(); return .handled }
         }
     }
 
-    private func row(_ item: ALComboItem) -> some View {
-        Button { onPick(item.id); close() } label: {
+    private func row(_ item: ALComboItem, index: Int) -> some View {
+        let active = index == highlighted || item.label == current
+        return Button { onPick(item.id); close() } label: {
             HStack(spacing: 8) {
                 Text(item.label).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                 Spacer(minLength: 8)
@@ -424,10 +453,11 @@ struct ALSearchableDropdown: View {
             }
             .padding(.horizontal, 9).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(item.label == current ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+            .background(active ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { if $0 { highlighted = index } }
     }
 
     private func close() { open = false; query = "" }
