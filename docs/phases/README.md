@@ -36,18 +36,18 @@ otherwise.
 | [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
 | [`threads/02_Notifications.md`](threads/02_Notifications.md) | **BUILT** (NOTIF-S01–S05 + UNR-S06, 2026-06-17) | Mac local notifications for landed work and attention states; menu-bar live/needs-attention indicator; per-thread mute; debounce/quiet-hours policy. Mobile push parked in `ios/03`. |
 | [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Backend BUILT** (WIO-S00–S03, S05, 2026-06-17); WIO-S04 GUI deferred | Worker image output in chat (design continuity): chat to imageGen workers captures + commits canonical attachments (same store as user paste); prior/picked images flow into next context; WIO-S04 Mac timeline thumbnails remain. |
-| [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | Mentor review packet - proposed MVP replacement for admission scheduling | Detects old nonterminal work from local truth, creates Project Manager nudges, sends Mac notifications, and offers safe recovery actions without quota/cooldown/admission machinery. |
-| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); Pending2 drain deferred | Public `alln pending` CRUD + local Pending model/persistence. Away Mode drain, cooldown resume, and Activity Summary remain in later slices. |
+| [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | Finalized Project-scoped v1 spec | Detects stalled worker chat turns and async team runs from local truth, refreshes before declaring, creates Project Manager nudges, sends Mac notification pointers, and offers safe recovery actions without quota/cooldown/admission machinery. |
+| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); native drain/scheduling parked | Public `alln pending` CRUD + local Pending model/persistence. External agents may trigger Pending through CLI/MCP; Away Mode drain/cooldown resume are parked. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
-| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; Pending2 drain. |
-| [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Build/Design/Copy specialist team catalog substrate for Fan out: team picker, Low/Med/High effort, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
+| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; native Pending drain is parked. |
+| [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred; forward effort simplification noted | Built-in Build/Design/Copy specialist team catalog substrate for Fan out: team picker, named team variants, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
 | [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) | Founder review packet (2026-06-17) | Cleanup-first lane catalog feature: `TeamCatalog` + `SkillCatalog`, `TeamID` + `SkillID`, built-in and custom teams/skills in one catalog model, lane-first Settings, no Store vocabulary, no migration, no skill versioning. |
 | [`Model_Catalog_And_Bench_Roster.md`](Model_Catalog_And_Bench_Roster.md) | Ready CLI-first backend spec (2026-06-18) | Core `ModelCatalog` as the owner for built-in/custom per-CLI models, persistent Bench enablement, manual add/update/delete, CLI model commands, ToolRuntime/probe-label hardening, and the live-discovery seam. Model management stays inside CLIs; Bench is derived. |
 | [`Team_Configuration_UX_Rescue.md`](Team_Configuration_UX_Rescue.md) | **Contract-hardened implementation spec** (2026-06-17) | Mac team configuration rescue after first-use rejection: composer Customize wiring, primary Customize team drawer, level-2 Customize worker modal, built-ins as lazy custom drafts, TeamWorkerDraft prompt edits, save-time skill forking with rollback, visible default-team control, search-first skill picker, ready-first model picker, and proof slices. |
 | [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md) | PARTIAL: bootstrap/preflight/discovery, spec retrieval, and A0 async team loop built; Pending deferred | Agent-first workflow layer for OpenClaw/Hermes-style messaging and voice agents: bootstrap/doctor recovery loop, MCP async team tools, Pending over MCP, full spec retrieval, provenance, approval handoffs, and entitlement hooks. |
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
-| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, effort, and preset vocabulary for work-order specs. |
-| [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, effort, copy board, and later specialized copy packs. |
+| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Active language contract | Source, bench, model, skill, worker, team, lane, type, model reasoning effort, and preset vocabulary for work-order specs. |
+| [`copy/README.md`](copy/README.md) | Draft post-MVP lane | Copy work orders: prompt-first `/copy`, copy type, Copy team, copy board, and later specialized copy packs. |
 | [`ios/README.md`](ios/README.md) | Parked iOS spine; deferred until macOS app is done | Future remote Project Manager specs live here so they do not block Mac delivery. `ios/03_iOS_Thread_Read_State_And_Push.md` owns future iOS unread/push. |
 
 ## Operating Rules
@@ -79,14 +79,17 @@ otherwise.
   owns the active vocabulary contract (cleanup slice complete — see
   `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`).
 - Workers fail honestly. A failed worker is shown failed, never hidden or faked.
-- Effort is a user instruction, not an estimate.
+- Team selection owns work shape. Do not add a generic Low/Med/High team-depth
+  toggle; provider/model reasoning effort is separate worker/model config when
+  supported.
 - Do not estimate future cost, quota burn, runtime, or task complexity.
 - Capacity state is observed, sourced, timestamped, and local by default.
-- Pending separates Project-scoped user intent from worker availability;
-  queueing is internal scheduler machinery, global Pending is aggregate-only,
-  and draining must obey Project, admission, safety, and explicit policy.
-- Pending is public CLI-first: `alln pending` plus `alln serve` must exist before
-  the GUI promises app-closed execution.
+- Pending separates Project-scoped user intent from immediate execution.
+  queueing is internal machinery language, global Pending is aggregate-only, and
+  native scheduling/drain is parked unless explicitly revived.
+- Pending is public CLI-first: `alln pending` must exist before the GUI promises
+  Draft/Pending/Running state. External agents may trigger Pending through
+  CLI/MCP.
 - The Project Manager is the default chat identity inside a Project and the
   approval/verification layer above specialist lanes. It may answer, propose
   next work, and verify completion, but v1 must not auto-execute unapproved
@@ -97,13 +100,14 @@ otherwise.
   coordinator. The menu bar is status/quick controls, not the primary shell.
 - iOS is a future remote Project Manager surface. The Mac remains the execution
   and run-truth owner, and iOS must not block macOS app delivery.
-- Work-order creation stays prompt-first. Build/Design/Copy and Effort route the
+- Work-order creation stays prompt-first. Build/Design/Copy and Team route the
   work; they must not become an intake form.
 - Build, Design, and Copy are the peer creation lanes. A fourth lane requires a
   new substrate or output class; otherwise it is a type or preset inside the
   existing lanes.
 - Fan out never infers lane from prompt prose. The user chooses Build / Design /
-  Copy. Fan out targets a lane-scoped team plus effort, not a bare model.
+  Copy. Fan out targets a lane-scoped team, not a bare model or a hidden effort
+  bundle.
 - Every built-in and custom team belongs to exactly one lane. There are no
   shared or multi-lane teams; duplicate and tune a lineup when it belongs in
   another lane.
@@ -197,8 +201,8 @@ Open questions:
 | iOS remote unread / mobile push | `ios/03_iOS_Thread_Read_State_And_Push.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
-| Stalled work, stuck runs, overdue Pending, Project Manager nudges, retry/cancel/keep-waiting recovery | `Stalled_Work_Watchdog.md` |
-| Pending, Away Mode, cooldown resume, Activity Summary, drain policy | `Pending_Work_And_Drain.md` + `Mac_Standalone_App_And_Background_Coordinator.md` |
+| Stalled worker turns, stuck async team runs, Project Manager nudges, refresh/cancel/keep-waiting recovery | `Stalled_Work_Watchdog.md` |
+| Pending CRUD, Project-scoped deferred work, external-agent Pending triggers | `Pending_Work_And_Drain.md` + `Agent_First_MCP_And_Messaging_Workflows.md` |
 | Copy lane, `/copy`, copy type packs, copy board | `copy/README.md` |
 | iOS remote Project Manager | `ios/README.md` |
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |

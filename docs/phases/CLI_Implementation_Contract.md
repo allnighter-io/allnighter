@@ -3,7 +3,8 @@
 Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `serve --stdio` projects from the registry. **Pending0/1 BUILT** (2026-06-17):
 `alln pending` CRUD + `PendingItemJSON`. Remaining (still owned here): MCP
-advertising/auto-install + async tools, `pending stop`, and Pending2 drain.
+advertising/auto-install + async tools and `pending stop`. Native Pending drain
+is parked.
 Owner: Shared Core + CLI + Mac
 Updated: 2026-06-17
 
@@ -142,7 +143,7 @@ alln doctor [--json] [--quiet] [--full] [--auto-fix] [--agent <agent>]
 alln doctor explain <code|check> [--json] [--agent <agent>]
 alln models [--json]
 alln team show [--json]
-alln team [prompt] [--file <path>] [--lane <lane>] [--team <id>] [--effort <effort>] [--type <type>] [--preset <id>] [--json | --stream]
+alln team [prompt] [--file <path>] [--lane <lane>] [--team <id>] [--type <type>] [--preset <id>] [--json | --stream]
 alln show <run-id|latest> [--json]
 alln export <run-id|latest> --format md
 alln dev export-contracts [--check]
@@ -157,10 +158,15 @@ alln team status <run-id>
 alln team result <run-id>
 alln team cancel <run-id>
 alln team edit
+alln team deployables
+alln team deployable show <id>
+alln team deployable preflight <id> --project <project> [prompt]
+alln team deploy <id> --project <project> [prompt]
+alln team deploy-pending <id> --project <project> [prompt]
 alln models add
 alln work
-alln pending add [prompt]
-alln pending list
+alln pending add --project <project> [prompt]
+alln pending list (--project <project> | --all)
 alln pending show <pending-id>
 alln pending submit <pending-id>
 alln pending edit <pending-id>
@@ -176,8 +182,8 @@ alln serve
 ```
 
 `alln pending` is deferred from team-run milestone 1, but it is not optional for
-the Pending/Utilization feature. It is the first public surface for Pending and
-must land before GUI Pending promises app-closed execution.
+Project-scoped Pending. It must land before GUI Pending promises editable Draft
+and Pending state. App-closed drain/native scheduling is not a v1 promise.
 
 Deferred `alln dispatch` inherits the send-mode rule from
 `CLI_Product_Spine.md`: running the command is the explicit action. Do not add an
@@ -190,9 +196,11 @@ Parsing rules:
 - `--file` and positional prompt may not both provide body text unless the
   registry explicitly defines concatenation later.
 - New Fan out work uses `--team`; `--preset` is a deprecated compatibility alias.
-- Canonical effort values are `low`, `med`, and `high`. The registry and
-  generated artifacts must not emit `quick`, `standard`, or `deep` after the
-  Fanout Team Catalog cutover.
+- Do not expose a generic team-depth `--effort` flag in new CLI/MCP contracts.
+  If lineup, review, output count, proof bar, or research changes, choose a
+  different Team or deployable team job.
+- Provider/model reasoning effort may be added later as an explicit
+  model/worker setting. It must not mutate the team shape.
 - `--type` is optional metadata or Copy compatibility routing. It must not
   compete with `--team`; a conflicting type/team pair is rejected before running.
 - Human mode can print compact prose to stdout.
@@ -235,7 +243,7 @@ Required `teamRun` fields:
 | `originAgent` | string/null | MCP/client/agent name when known. |
 | `lane` | string/null | `build`, `design`, `copy`, or null when unspecified. |
 | `type` | string/null | Optional lane subtype metadata. Copy compatibility may populate this when type routed to a Copy team; Build/Design Fan out usually leave it null. |
-| `effort` | string/null | `low`, `med`, `high`, or null. |
+| `reasoningEffort` | string/null | Optional provider/model reasoning-depth setting, if applied uniformly or summarized for the run. It must not imply team shape. |
 | `prompt` | string | User prompt after file loading. |
 | `promptSource` | object | Positional/file/stdin provenance; no secret content. |
 | `createdAt` | string | ISO 8601 timestamp. |
@@ -410,10 +418,10 @@ Agent-first error envelope upgrade:
   "error": {
     "code": "INVALID_ENUM",
     "ruleId": "tool.input.invalid_enum",
-    "message": "Invalid effort value.",
+    "message": "Invalid team value.",
     "tool": "team_start",
-    "field": "effort",
-    "allowedValues": ["low", "med", "high"],
+    "field": "team",
+    "allowedValues": ["build_core", "build_bug_hunt", "build_release_proof"],
     "agentAction": "Retry once with one of the allowed values.",
     "remedyTier": "agent_executable",
     "whoCanFix": "agent",
@@ -472,7 +480,7 @@ Starter error catalog:
 | `DEFAULT_TEAM_INVALID` | Run `alln team show --json`; fix unavailable workers. |
 | `WORKER_FAILED` | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | Retry with a ready plan writer or export worker answers. |
-| `TEAM_RUN_TIMEOUT` | Retry with lower effort or fewer workers. |
+| `TEAM_RUN_TIMEOUT` | Retry with a smaller/simpler Team or inspect failed worker/source state. |
 | `NESTED_TEAM_BLOCKED` | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | Wait or retry after current team run completes. |
 | `PENDING_MUTATION_DEFERRED` | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
@@ -707,6 +715,12 @@ error_explain
 models_list
 teams_list
 team_show
+team_deployable_list
+team_deployable_get
+team_deployable_preflight
+team_deploy
+team_deploy_pending
+team_deploy_result
 team_preflight
 team_start
 team_status
@@ -834,7 +848,7 @@ to Pending or GUI work before the owning prerequisite is real.
 | 1 | `Serve0` coordinator skeleton | `Mac_Standalone_App_And_Background_Coordinator.md` | `alln serve --health --json` reports coordinator identity, pid, start time, journal health, and loopback state without starting work. |
 | 2 | `A0` async team loop | `Agent_First_MCP_And_Messaging_Workflows.md` | `team_start/status/result/cancel` return an immediate run id, poll from journal/coordinator truth, and retrieve `TeamRunJSON`. |
 | 3 | `Pending0`/`Pending1` | `Pending_Work_And_Drain.md` | `alln pending` can create/list/show/submit/edit/cancel local Draft/Pending items; no drain promise yet. |
-| 4 | `Pending2` | `Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md` | `alln serve` leases and drains admissible non-mutating Pending with sourced blocked reasons. |
+| 4 | `Pending2` | `Pending_Work_And_Drain.md` + parked admission policy | Parked: native drain/scheduling waits until explicitly revived. External agents may trigger Pending through CLI/MCP. |
 | 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | MCP exposes Pending without raw scheduler language and preserves CLI semantics. |
 
 `Serve0` must stay deliberately small: no LaunchAgent, no start-at-login, no GUI
@@ -847,26 +861,28 @@ contract is async: accepted run id first, status/result later, idempotency befor
 duplicate work, and orphan recovery from the incremental journal.
 
 Status note (2026-06-17): `Journal0`, `Serve0`, `A0`, and **Pending0/Pending1**
-are built. The next bridge item is **Pending2** drain from
-`Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md`; do not promise
-app-closed Pending execution until Pending2 is real.
+are built. **Pending2** drain/native scheduling is parked; do not promise
+app-closed Pending execution until that work is explicitly revived. OpenClaw,
+Hermes, cron, or another external loop owner can call CLI/MCP to run Pending
+items.
 
 ## Pending CLI Contract
 
 Authority:
 
 - `Pending_Work_And_Drain.md` owns Pending semantics.
-- `Utilization_Admission_Control.md` owns admission states and retry policy.
+- Admission states and retry policy are parked; Pending M1 must not depend on
+  admission-ledger automation.
 - This doc owns CLI grammar, JSON projection, events, and proof gates.
 
 Grammar:
 
 ```bash
-alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--submit] [--json]
-alln pending list [--json]
+alln pending add --project <project> [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--submit] [--json]
+alln pending list (--project <project> | --all) [--json]
 alln pending show <pending-id> [--json]
 alln pending submit <pending-id> [--json]
-alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--json]
+alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--json]
 alln pending reorder <pending-id> [--before <pending-id> | --after <pending-id> | --position <n>] [--json]
 alln pending cancel <pending-id> [--json]
 alln pending run <pending-id> [--json | --stream]
@@ -876,7 +892,11 @@ alln pending stop <pending-id> [--json]
 Rules:
 
 - `alln pending add` creates a Draft `PendingItem`; it does not imply the worker
-  is available and it is not eligible to drain until submitted.
+  is available and it is not runnable until submitted.
+- `alln pending add` requires `--project` unless invoked from a Project-bound
+  thread/manager command that supplies the Project.
+- `alln pending list` requires either `--project` or `--all`. `--all` is an
+  aggregate floor view grouped by Project, not a global durable queue.
 - `--submit` creates the item and immediately moves it to Pending.
 - `alln pending submit` moves Draft to Pending.
 - `alln pending edit` changes the item and returns it to Draft when it was
@@ -884,13 +904,14 @@ Rules:
 - `alln pending reorder` changes execution-lane order only. It does not edit the
   prompt, target, safety context, or lifecycle status.
 - Reorder is valid only for Pending Execute items in the same execution lane. A
-  Running item cannot be reordered.
+  Running item cannot be reordered. Cross-Project reorder is invalid.
 - Reorder is atomic: it takes a short execution-lane `editLock`, writes the new
   order, emits audit, and releases the lock. `alln serve` must not start the next
   item from that execution lane while the lock is open.
-- `--when ready` stores `drainMode: drainWhenReady`.
-- `--when away` stores `drainMode: drainAway`.
-- `--when manual` stores `drainMode: manualStart`.
+- Native `--when ready` / `--when away` scheduling flags are parked. V1 Pending
+  runs only through explicit user/CLI/GUI/MCP/external-agent triggers.
+- If a legacy `drainMode` field exists in fixtures, treat it as parked metadata
+  unless native scheduling is explicitly revived.
 - Mutating dispatch is out of Pending M1. A Pending item that would require
   unattended writes returns `PENDING_MUTATION_DEFERRED` until the dispatch phase
   owns that surface.
@@ -903,8 +924,9 @@ Rules:
   stops the active attempt, then marks the item cancelled.
 - JSON mode prints exactly one object to stdout. Stream mode prints only NDJSON
   attempt events to stdout.
-- The GUI and iOS must be able to render Pending from `alln pending list --json`
-  without field translation.
+- The GUI and iOS must be able to render Pending from
+  `alln pending list --project <project> --json` and
+  `alln pending list --all --json` without field translation.
 
 `PendingItemJSON` top-level fields:
 
@@ -927,6 +949,7 @@ Required `pendingItem` fields:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `id` | string | Stable pending id. |
+| `projectId` | string | Owning Project. Required for drainable items. |
 | `status` | enum | `draft`, `pending`, `running`, `done`, `failed`, or `cancelled`. |
 | `title` | string | User-visible row title. |
 | `kind` | enum | `workerChat`, `teamRun`, `workOrder`, `dispatch`, `returnReview`, or `followUp`. |
@@ -935,7 +958,7 @@ Required `pendingItem` fields:
 | `promptExcerpt` | string | Redacted/excerpted prompt for lists. |
 | `createdAt` | string | ISO 8601 timestamp. |
 | `updatedAt` | string | ISO 8601 timestamp. |
-| `nextWakeAt` | string/null | Observed reset or scheduled recheck time, never guessed. |
+| `nextWakeAt` | string/null | Observed reset or externally requested recheck time, never guessed. |
 | `blockedReason` | string/null | Current sourced reason when Pending cannot run yet. |
 | `needsAttention` | boolean | Derived flag from `blockedReason`/manual action; not a lifecycle status. |
 
@@ -997,8 +1020,11 @@ Pending completion gate:
 
 - `PendingItemJSON` fixture checked in.
 - Pending schema generated.
-- `alln pending list --json` contains no quota/cost/runtime/token estimates.
+- `alln pending list --project <project> --json` and
+  `alln pending list --all --json` contain no quota/cost/runtime/token estimates.
 - `alln pending add` creates Draft unless `--submit` is provided.
+- `alln pending add` stores `projectId`; unassigned migrated items are not
+  runnable.
 - Editing a Pending item returns it to Draft.
 - Reordering a Pending Execute item changes execution-lane order without changing
   lifecycle status or prompt.
@@ -1008,8 +1034,8 @@ Pending completion gate:
 - Same-execution-lane Execute fixture proves a later item reports
   `executionLaneBusy` and does not start before the head item completes or is
   cancelled.
-- `alln serve` drains eligible Pending while the GUI is closed.
-- Fake-clock test proves observed `resetAt` wakeup.
+- `alln serve` does not promise native Pending drain while the GUI is closed.
+- Fake-clock wakeup tests are parked with native scheduling.
 - Mutation-deferred test proves unattended mutating dispatch does not run through
   Pending M1.
 - `alln doctor --json` reports coordinator and admission-parser health.
@@ -1020,10 +1046,11 @@ Pending Works Test:
 
 ```bash
 alln serve
-alln pending add --worker claude --when ready --json "Review this patch when Claude is available."
+alln pending add --project Allnighter --worker claude --when ready --json "Review this patch when Claude is available."
 alln pending submit <pending-id> --json
-alln pending add --submit --worker claude --when ready --json "Continue security review."
-alln pending list --json
+alln pending add --project Allnighter --submit --worker claude --when ready --json "Continue security review."
+alln pending list --project Allnighter --json
+alln pending list --all --json
 alln pending show <pending-id> --json
 alln pending reorder <pending-id> --before <other-pending-id> --json
 alln pending run <pending-id> --json

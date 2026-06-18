@@ -117,13 +117,14 @@ Skill  = the hat/instruction
 Worker = model + skill for this run
 Team   = workers selected for this job
 Bench  = available models
+Reasoning effort = optional provider/model reasoning-depth setting
 ```
 
 CLI surfaces:
 
 ```text
 Bench/setup: alln models
-Run/customize: alln team
+Run/customize/deploy: alln team
 Work-order creation: alln work
 ```
 
@@ -158,9 +159,10 @@ show up as workers:
 ```bash
 alln team "Pressure-test this launch plan."
 alln team --file prompt.md
-alln team --lane build --team build_core --effort high "Plan this feature."
-alln team --lane copy --team copy_landing_page --effort med "Rewrite this page."
+alln team --lane build --team build_core "Plan this feature."
+alln team --lane copy --team copy_landing_page "Rewrite this page."
 alln team --lane design --image screen.png --brief "Make this calmer."
+alln team deploy reply_window --project allnighter "Find today's best opening."
 ```
 
 Core commands:
@@ -172,6 +174,11 @@ alln team status <run-id>          # show live state for a team run
 alln team result <run-id>          # show final result for a team run
 alln team show                     # show current default team
 alln team edit                     # edit team lineup
+alln team deployables              # list deployable team jobs
+alln team deployable show <id>     # inspect one deployable team job
+alln team deployable preflight <id> --project <id> [prompt] # validate without spending quota
+alln team deploy <id> --project <id> [prompt] # run a deployable team job
+alln team deploy-pending <id> --project <id> [prompt] # save a Project-scoped Pending item
 alln models                        # list ready/known models on the Bench
 alln models add                    # add/configure a model
 alln doctor                        # check sources, models, auth, coordinator
@@ -183,11 +190,12 @@ alln docs --schema                 # generated JSON/NDJSON schemas
 alln docs --examples               # generated example recipes
 alln work [prompt]                 # create a work order
 alln work from latest              # promote a plan/result into a work order
-alln pending add [prompt]          # save editable Draft work
+alln pending add --project <id> [prompt] # save editable Draft work in one Project
 alln pending submit <pending-id>   # submit Draft to Pending
 alln pending edit <pending-id>     # edit and return item to Draft
-alln pending reorder <pending-id>  # reorder Pending Execute work in one execution lane
-alln pending list                  # list Draft, Pending, and Running work
+alln pending reorder <pending-id>  # reorder Pending Execute work in one Project execution lane
+alln pending list --project <id>   # list Draft, Pending, and Running work for one Project
+alln pending list --all            # aggregate floor view grouped by Project
 alln pending show <pending-id>     # inspect one pending item
 alln pending cancel <pending-id>   # cancel pending work before it runs
 alln pending run <pending-id>      # attempt one pending item now
@@ -197,7 +205,7 @@ alln show latest                   # show one run
 alln export latest --format md     # export result bundle
 alln dispatch latest --to codex    # send a work order/spec to an execution target
 alln pair approve <device-id>      # approve iOS/Mac pairing
-alln serve                         # resident coordinator for pending/remote/long work
+alln serve                         # resident coordinator for async/remote/long work; not a scheduler
 ```
 
 Agent integration commands:
@@ -212,10 +220,13 @@ new surface (`team_ask`, not `council_ask`).
 
 `alln pending` is the public command family for Draft work, submitted Pending
 work, and Running attempts. The GUI words are **Draft**, **Pending**, and
-**Running**; "queue" is internal scheduler language. Editing Pending returns it
-to Draft. Stopping Running returns it to Pending. Because Pending must execute
-while the app window is closed, `alln serve` is pulled forward from "someday
-resident mode" into the Pending milestone.
+**Running**; "queue" is internal machinery language. Editing Pending returns it
+to Draft. Stopping Running returns it to Pending. Pending is durable Project
+intent, not a native scheduler promise: a human, GUI, CLI command, MCP client, or
+external loop owner such as OpenClaw/Hermes may trigger `pending run`.
+
+Pending is Project-scoped. `alln pending list --all` is an aggregate floor view
+grouped by Project, not a global durable queue.
 
 Do not use `alln prompt` as the primary work-order command. A prompt is the input
 object. The product object is a work order, so the command is `alln work`.
@@ -248,6 +259,12 @@ alln copy "Write a launch email."
 
 But the canonical primitive remains `team`: one prompt, selected worker lineup,
 worker answers, synthesized plan/result.
+
+Do not expose a generic Low/Med/High team-depth toggle in new CLI/MCP contracts.
+If the worker lineup, review depth, output count, proof bar, or research posture
+changes, that is a different Team or deployable team job. Provider/model
+reasoning effort may be added later as an explicit model/worker setting where
+the source supports it.
 
 ## Agent-First Quality Bar
 
@@ -380,7 +397,7 @@ Sketch:
     "origin": "cli",
     "lane": "build",
     "type": null,
-    "effort": "high",
+    "reasoningEffort": null,
     "prompt": "Pressure-test this launch plan.",
     "createdAt": "2026-06-15T22:14:00Z",
     "completedAt": "2026-06-15T22:16:08Z",
@@ -542,7 +559,7 @@ handlers:
 | Async start | `alln team start --json "..."` | `team_start` |
 | Status | `alln team status <run-id> --json` | `team_status` |
 | Result | `alln team result <run-id> --json` | `team_result` |
-| Pending work | `alln pending add/submit/edit/reorder/list/show/cancel/run/stop --json` | `pending_*` |
+| Pending work | `alln pending add --project ...`, `alln pending list --project ...`, `alln pending list --all`, `alln pending submit/edit/reorder/show/cancel/run/stop --json` | `pending_*` |
 | History/recall | `alln history --json` / `alln show <run-id>` | `team_recall` |
 | Doctor | `alln doctor --json` | `doctor` |
 
@@ -746,11 +763,11 @@ Prerequisites:
 Commands:
 
 ```bash
-alln pending add [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--submit] [--json]
+alln pending add --project <project> [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--submit] [--json]
 alln pending submit <pending-id> [--json]
-alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--cwd <path>] [--json]
+alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--json]
 alln pending reorder <pending-id> [--before <pending-id> | --after <pending-id> | --position <n>] [--json]
-alln pending list [--json]
+alln pending list (--project <project> | --all) [--json]
 alln pending show <pending-id> [--json]
 alln pending cancel <pending-id> [--json]
 alln pending run <pending-id> [--json | --stream]
@@ -762,17 +779,18 @@ Works Test:
 
 ```bash
 alln serve
-alln pending add --worker claude --when ready --json "Review this patch when Claude is available."
+alln pending add --project Allnighter --worker claude --when ready --json "Review this patch when Claude is available."
 alln pending submit <pending-id> --json
-alln pending add --submit --worker claude --when ready --json "Continue security review."
+alln pending add --project Allnighter --submit --worker claude --when ready --json "Continue security review."
 alln pending reorder <pending-id> --before <other-pending-id> --json
-alln pending list --json
+alln pending list --project Allnighter --json
+alln pending list --all --json
 alln pending show <pending-id> --json
 alln pending run <pending-id> --json
 alln pending stop <pending-id> --json
 alln doctor --json
 ```
 
-With the GUI closed, `alln serve` drains admissible Pending, holds blocked
-work with sourced admission reasons, and writes the same run/thread journal the
-GUI later renders.
+With the GUI closed, `alln serve` supports async/remote/long run coordination
+and journal health. Native Pending drain is parked; `alln pending run` remains
+an explicit user/CLI/MCP/external-agent trigger.

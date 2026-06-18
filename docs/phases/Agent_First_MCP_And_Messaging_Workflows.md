@@ -3,7 +3,7 @@
 Status: PARTIAL — bootstrap/preflight/discovery + retrieval + A0 async team loop
 BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
 (pure, no run/quota), `SpecRetrieval`; MCP tools `mcp_hello`, `teams_list`,
-`team_preflight`, `team_ask` (+lane/team/effort/type), `team_show`,
+`team_preflight`, `team_ask` (+lane/team/type), `team_show`,
 `error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
 hello|preflight|teams`, `alln spec`); async `team_start`, `team_status`,
 `team_result`, and `team_cancel` over Journal0 + Serve0. DEFERRED (needs
@@ -66,13 +66,13 @@ Allnighter gets the right team working.
 This phase assumes these backend efforts are underway or planned by their owning
 docs:
 
-- `Fanout_Team_Catalog.md`: lane-scoped teams, `low|med|high`, team resolver,
-  one-model self-fusion, `TeamRunJSON` upgrades.
+- `Fanout_Team_Catalog.md`: lane-scoped teams, named team variants, team
+  resolver, one-model self-fusion, `TeamRunJSON` upgrades.
 - `CLI_Product_Spine.md` and `CLI_Implementation_Contract.md`: generated CLI
   registry, `TeamRunJSON`, `DoctorResult`, generated docs, MCP descriptors.
 - `Pending_Work_And_Drain.md`: public Draft/Pending/Running model and
   `alln pending` command family.
-- `Utilization_Admission_Control.md`: admission, cooldown, fallback, and honest
+- `parked/Utilization_Admission_Control.md`: admission, cooldown, fallback, and honest
   waiting/blocking reasons.
 - `Mac_Standalone_App_And_Background_Coordinator.md`: `alln serve` as resident
   coordinator for long/remote/pending work.
@@ -88,7 +88,7 @@ user sends a voice-to-text brain dump to OpenClaw/Hermes
 -> agent calls Allnighter MCP `mcp_hello`
 -> agent calls `team_preflight`
 -> agent calls `team_start`
--> Allnighter starts Build / Bug Hunt / High
+-> Allnighter starts Build / Bug Hunt
 -> agent receives run id immediately
 -> agent polls or subscribes to status
 -> agent fetches final TeamRunJSON + full spec/packet
@@ -103,7 +103,7 @@ user says "put this on Claude's desk when it wakes up"
 -> agent calls `pending_add`
 -> Allnighter stores a Pending item with worker/team policy
 -> agent can list/show/cancel the Pending item
--> alln serve drains it when admission allows
+-> the external agent or user triggers `pending_run` when appropriate
 -> agent presents Activity Summary or completion packet
 ```
 
@@ -127,7 +127,9 @@ Existing useful substrate:
 - `TeamRunJSON` exists as the machine-readable result contract.
 - `DoctorResult` exists for recovery.
 - Pending has an approved CLI-first phase doc.
-- Fanout Team Catalog defines the future lane/team/effort backend.
+- Fanout Team Catalog defines the future lane/team backend. Team variants own
+  depth; model reasoning effort is separate provider configuration when
+  supported.
 - Journal0 and Serve0 are built.
 - Async team lifecycle is built for CLI/MCP:
   `team_start`, `team_status`, `team_result`, and `team_cancel`.
@@ -512,7 +514,7 @@ human reading the docs.
 {
   "code": "INVALID_ENUM",
   "tool": "team_start",
-  "field": "effort"
+  "field": "team"
 }
 ```
 
@@ -521,13 +523,13 @@ Output:
 ```json
 {
   "code": "INVALID_ENUM",
-  "title": "Invalid effort value",
-  "cause": "The effort field only accepts low, med, or high.",
+  "title": "Invalid team value",
+  "cause": "The team field must use a canonical team id.",
   "whoCanFix": "agent",
   "remedyTier": "agent_executable",
-  "allowedValues": ["low", "med", "high"],
+  "allowedValues": ["build_core", "build_bug_hunt", "build_release_proof"],
   "nextActions": [
-    {"kind": "retry", "field": "effort", "value": "med"}
+    {"kind": "retry", "field": "team", "value": "build_bug_hunt"}
   ],
   "docsRef": "alln://docs/tools/team_start",
   "traceId": "trace_..."
@@ -545,7 +547,7 @@ Truth owners:
 ```text
 AllnighterCore owns run, team, Pending, entitlement, and safety semantics.
 CLI contract registry owns command/tool descriptors and generated docs.
-AllnighterEngine owns worker attempts, admission, and drain scheduling.
+AllnighterEngine owns worker attempts, admission, and run state.
 MCP/local API are projections of Core/CLI truth.
 Mac app renders and configures; it does not own agent workflow truth.
 ```
@@ -558,7 +560,7 @@ Lie-prone layers:
 | MCP adapter | Invents private tool semantics | Generated from same registry as CLI |
 | Pending adapter | Exposes raw queue attempts as user intent | Expose Draft/Pending/Running items, not scheduler internals |
 | Result presenter | Summarizes away failed workers | Always expose failed/timed-out workers in structured result |
-| Voice UX | Hides armed mode/team/effort | Acknowledge lane/team/effort/run id clearly |
+| Voice UX | Hides armed mode/team/run id | Acknowledge lane/team/run id clearly |
 | Entitlement layer | Lets agent callers bypass paid limits | Agent-originated runs count under the same run entitlement policy |
 | Safety gate | Reuses one approval across changed action text | Approval binds to canonical action instance digest, not vague intent |
 
@@ -620,6 +622,12 @@ error_explain
 models_list
 teams_list
 team_show
+team_deployable_list
+team_deployable_get
+team_deployable_preflight
+team_deploy
+team_deploy_pending
+team_deploy_result
 team_preflight
 team_start
 team_status
@@ -660,6 +668,10 @@ doctor_explain
 error_explain
 teams_list
 team_show
+team_deployable_list
+team_deployable_get
+team_deployable_preflight
+team_deploy
 team_preflight
 team_start
 team_status
@@ -679,7 +691,7 @@ tool_selection
 schemas
 teams
 lanes
-effort
+deployables
 pending
 errors
 doctor
@@ -694,8 +706,9 @@ Tool selection rules:
 
 | User intent | Preferred tool | Notes |
 | --- | --- | --- |
-| "review this", "hunt bugs", "audit security", "give me options" | `team_preflight` then `team_start` | Use lane/team/effort explicitly. |
-| "do this later", "when Claude wakes up", "put this on Codex's desk" | `pending_add(submit: true)` | Preserve user intent without claiming it started. |
+| "run Reply Window", "run Receipts Loop", "use that saved job" | `team_deployable_preflight` then `team_deploy` | Prefer deployable teams for packaged jobs. |
+| "review this", "hunt bugs", "audit security", "give me options" | `team_preflight` then `team_start` | Use lane/team explicitly. If depth differs, choose a different team. |
+| "do this later", "put this on Codex's desk", "save this for my agent loop" | `pending_add(submit: true)` | Preserve user intent without claiming it started. |
 | "show the full plan/spec/packet" | `spec_get` | Do not overload chat summaries. |
 | "what teams can do this?" | `teams_list` / `team_show` | Return lane-scoped teams only. |
 | invalid args or failed tool call | `error_explain` | Retry once only when metadata gives an exact correction. |
@@ -711,7 +724,6 @@ canonical action digest.
 {
   "lane": "build",
   "team": "build_bug_hunt",
-  "effort": "high",
   "prompt": "optional prompt for context sizing and policy checks",
   "contextRefs": ["optional artifact/ref ids"],
   "originAgent": "openclaw",
@@ -728,7 +740,6 @@ canonical action digest.
   "lane": "build",
   "teamPresetId": "build_bug_hunt",
   "teamDisplayName": "Bug Hunt",
-  "effort": "high",
   "readyWorkers": [
     {"workerId": "w_claude", "source": "claude", "status": "ready"}
   ],
@@ -752,7 +763,7 @@ Preflight rules:
 
 - Preflight never creates a run.
 - Preflight never spends provider quota.
-- Preflight must validate lane/team/effort, team lane ownership, context caps,
+- Preflight must validate lane/team, team lane ownership, context caps,
   entitlement readiness, coordinator readiness, and source/admission state.
 - Preflight may use cached source health if `observedAt` and `staleAfter` are
   returned.
@@ -771,7 +782,6 @@ Preflight rules:
   "prompt": "string",
   "lane": "build",
   "team": "build_bug_hunt",
-  "effort": "high",
   "threadId": "optional",
   "context": "optional bounded inline context",
   "contextRefs": ["optional artifact/ref ids"],
@@ -791,7 +801,6 @@ Preflight rules:
   "lane": "build",
   "teamPresetId": "build_bug_hunt",
   "teamDisplayName": "Bug Hunt",
-  "effort": "high",
   "acceptedAt": "2026-06-16T08:00:00Z",
   "nextPollAfterMs": 2500,
   "nextActions": [
@@ -827,7 +836,6 @@ Preflight rules:
   "status": "accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted",
   "lane": "build",
   "teamPresetId": "build_bug_hunt",
-  "effort": "high",
   "currentStage": "answer|review|plan|null",
   "workers": [
     {
@@ -925,12 +933,10 @@ Example:
   "kind": "teamRun",
   "lane": "build",
   "team": "build_bug_hunt",
-  "effort": "high",
   "submit": true,
   "policy": {
-    "drainMode": "drainWhenReady",
-    "attentionMode": "away",
-    "allowPartialTeam": true
+    "triggerOwner": "externalAgent",
+    "attentionMode": "manualOrAgent"
   },
   "originAgent": "openclaw",
   "originConversationId": "telegram_chat_12345",
@@ -949,8 +955,8 @@ Example:
       "title": "Bug Hunt latest run-store issue",
       "kind": "teamRun",
       "status": "pending",
-      "blockedReason": "Claude cooling down until 2:14 AM, observed from Claude",
-      "target": {"lane": "build", "team": "build_bug_hunt", "effort": "high"}
+      "blockedReason": "Waiting for user or external agent trigger.",
+      "target": {"lane": "build", "team": "build_bug_hunt"}
     }
   ],
   "running": []
@@ -1038,14 +1044,15 @@ the run feel fast, controlled, and recoverable.
 Start acknowledgement:
 
 ```text
-Started Bug Hunt / High. Run: run_abc123.
+Started Bug Hunt. Run: run_abc123.
 I will bring back the packet when the team finishes.
 ```
 
 Pending acknowledgement:
 
 ```text
-Added to Pending for Claude. It will run when admission allows.
+Added to Pending for Claude. I will keep it on the Project desk until you or
+your agent runs it.
 Pending: pending_abc123.
 ```
 
@@ -1082,8 +1089,8 @@ This code expires in 5 minutes. Say "done" when finished and I will recheck.
 Wrong arguments recovered:
 
 ```text
-Allnighter rejected effort="medium"; valid values are low, med, high.
-I retried with med.
+Allnighter rejected team="bug-hunt"; valid ids include build_bug_hunt.
+I retried with build_bug_hunt.
 ```
 
 Entitlement blocked:
@@ -1114,7 +1121,7 @@ Approval id: approval_abc123
 Rules:
 
 - Acknowledge run id or pending id immediately.
-- Name lane/team/effort when a team run starts.
+- Name lane/team/run id when a team run starts.
 - Keep chat summaries short by default.
 - Offer full spec retrieval.
 - Do not hide failed workers.
@@ -1314,7 +1321,8 @@ Recommended future meter for the billing SSOT to consider:
 
 ```text
 Count one paid/free run when Allnighter delivers a terminal team result packet
-with synthesis, or when a Pending item drains into such a result packet.
+with synthesis, or when a Pending item is explicitly run and resolves into such a
+result packet.
 ```
 
 Recommended non-counted actions:
@@ -1327,7 +1335,7 @@ team_preflight
 teams_list / team_show / models_list
 spec_get for already-created artifacts
 pending_add(submit: false)
-pending_add(submit: true) before it starts/drains
+pending_add(submit: true) before it starts
 idempotent retry of an already-counted action
 failed starts blocked by setup/auth/admission before worker execution
 ```
@@ -1412,8 +1420,8 @@ Prerequisites:
 
 - Pending0/Pending1 are complete: local Pending model and CLI CRUD/list/show are
   real.
-- Pending2 is complete when `pending_run` or drain behavior is exposed: `alln
-  serve` owns leases and attempts, with admission-sourced blocked reasons.
+- Pending2 is parked until native drain/scheduling is explicitly revived.
+  `pending_run` may still expose a user/agent-triggered attempt through CLI/MCP.
 
 - Add `pending_add`, `pending_submit`, `pending_edit`, `pending_reorder`,
   `pending_list`, `pending_show`, `pending_cancel`, `pending_run`,
@@ -1559,17 +1567,16 @@ Assertions:
 Gesture:
 
 ```text
-Client calls team_start with effort "medium".
+Client calls team_start with team "bug-hunt".
 ```
 
 Assertions:
 
 - Error code is structured, e.g. `INVALID_ENUM`.
-- Error metadata includes `field: effort` and allowed values
-  `["low", "med", "high"]`.
+- Error metadata includes `field: team` and allowed team ids.
 - `error_explain` returns a safe retry action.
-- Retrying with `med` can pass preflight.
-- No retry is suggested for ambiguous lane/team changes.
+- Retrying with a canonical team id can pass preflight.
+- No retry is suggested for ambiguous team/lane changes.
 
 ### Works Test D - voice dump starts team run
 
@@ -1586,7 +1593,7 @@ Gesture:
 
 ```text
 Client calls team_preflight, then team_start with a long prompt, lane build,
-team build_bug_hunt, effort high, originAgent openclaw, and idempotencyKey.
+team build_bug_hunt, originAgent openclaw, and idempotencyKey.
 ```
 
 Assertions:
@@ -1705,7 +1712,7 @@ Assertions:
 
 - Tool selection guide names when to use team_start, pending_add, spec_get,
   doctor, and error_explain.
-- Schemas include valid lane/team/effort enums or refs.
+- Schemas include valid lane/team enums or refs.
 - Generated docs version matches binary contract.
 
 ## Proof Commands
