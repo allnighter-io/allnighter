@@ -14,8 +14,15 @@ Read with:
 - `docs/strategy/Allnighter-Agent-Control-Loop-Strategy.md`
 - `docs/phases/Work_Order_Team_Model.md`
 - `docs/phases/CLI_Product_Spine.md`
-- `docs/phases/CLI_Implementation_Contract.md`
+- `docs/phases/CLI_Implementation_Contract.md` (shared error envelope, exit codes,
+  contract registry)
 - `docs/phases/Persistent_Work_Threads.md`
+- `docs/phases/Pending_Work_And_Drain.md` (Pending lifecycle + always-active
+  execution-lane gate)
+- `docs/phases/Fanout_Team_Catalog.md` + `docs/phases/Team_And_Skill_Catalogs.md`
+  (teams/skills the Project Manager dispatches and runs)
+- `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` (MCP tool surface)
+- `docs/phases/Stalled_Work_Watchdog.md` (stalled-work detection over Project truth)
 - `docs/operations/Execution-Playbook.md`
 
 Durable semantics start here or in the named owning Core/CLI docs. SwiftUI,
@@ -182,6 +189,7 @@ Project
   defaultDesignTeamId?
   defaultCopyTeamId?
   managerThreadId?
+  managerModelId?
 ```
 
 Rules:
@@ -369,7 +377,13 @@ Project scope.
 Rules:
 
 - New durable threads require `projectId`.
-- Existing threads migrate from `workingDir` / run root when possible.
+- Existing threads migrate from `workingDir` / run root by a deterministic rule
+  (the same rule Pending migration uses): normalize the snapshot path, then bind
+  to the existing Project whose `normalizedRootPath` exactly equals it; else to the
+  existing Project that is the nearest ancestor root of it; else, if exactly one
+  git repo root contains the path, create/reuse a Project at that repo root; else
+  leave the thread Unassigned. Ambiguous matches (two candidate Project roots,
+  neither an ancestor of the other) resolve to Unassigned, not a guess.
 - Threads with no reliable root migrate to an explicit Unassigned state and are
   blocked from mutating dispatch until assigned.
 - A thread may reference runs, pending items, proposals, and returns, but Project
@@ -479,9 +493,14 @@ Rules:
   not move work across Projects.
 - Execution attempts derived from Project-scoped Pending items must copy
   `projectId` from the Pending item and never invent a different Project.
-- If native drain is ever revived, admission, dirty-state checks, proof roots,
-  attachment mirrors, and execution-lane serialization are evaluated per
-  Project.
+- The execution-lane serialization gate (one Running Execute per lane, FIFO,
+  head-only) is **always active in v1** per `Pending_Work_And_Drain.md` and is
+  evaluated per Project — not only if native drain is revived. Every explicit
+  Project dispatch/run trigger passes it; a non-head Execute item is refused with
+  `executionLaneBusy`.
+- If native drain is ever revived, admission, dirty-state checks, proof roots, and
+  attachment mirrors are additionally evaluated per Project (the execution-lane
+  gate above is already always-on).
 - A Project archive blocks new Pending runs for that Project unless the user
   explicitly unarchives or moves the item.
 - A missing Project root keeps that Project's Pending items Pending with a
@@ -519,6 +538,41 @@ Rules:
 - A dispatch turn must link to an approved work order.
 - A verify turn must link to a return or explicit worker completion claim.
 - `nextActions` are typed actions, not prose-only suggestions.
+
+### Project Manager Execution
+
+The Project Manager is the star, so its execution substrate is explicit: a Manager
+turn is produced by a **model invocation**, not by hand-written logic and not by a
+shell subprocess in the repo. It reuses the same worker runner and model resolution
+as team runs — there is no new execution path.
+
+```text
+ProjectManagerExecution
+  input: ProjectContextPacket + user message + thread history excerpt
+  engine: the resolved manager model (a planner-capable model)
+  output: one ProjectManagerTurn (typed)
+```
+
+Rules:
+
+- Manager model resolution: `Project.managerModelId` if set, else the strongest
+  ready planner-capable model from `ModelCatalog`/Bench (see
+  `Fanout_Team_Catalog.md`/`Model_Catalog_And_Bench_Roster.md`). If no model is
+  ready, the turn is `mode: wait` with a sourced readiness blocker — never a
+  fabricated answer.
+- The manager model honors reasoning effort where its source supports it (the
+  per-worker model reasoning level; never a team-shape control).
+- `answer`/`orient` are a single manager-model call over the packet. `propose`
+  is the manager model producing one bounded `ProjectProposal`. `fanout`
+  delegates to a real team run (`Fanout_Team_Catalog.md`); the Manager does not
+  fake fanout breadth itself. `verify` runs proof + git observation (see Return
+  And Verification) and uses the manager model only to interpret results.
+- The manager prompt/skill is built-in catalog content snapshotted into the turn
+  for audit; it is not editable prompt prose that can redefine semantics.
+- Chat/propose calls give the model the packet, not raw shell or filesystem
+  access. Only verification executes declared commands, under its own contract.
+- The Manager call is itself a worker run and is recorded as run truth (id,
+  model, transcript ref) so a Manager answer is as auditable as any worker output.
 
 ### Proposal
 
@@ -567,6 +621,13 @@ Rules:
 - Postponed proposals remain visible but should not block new proposals unless
   they conflict.
 - Cancelled proposals remain historical receipts.
+- `kind` is one of the Legal Proposal Kinds enum (see Readiness And Proposal Law):
+  `spec_fanout | synthesis_review | execute_slice | docs_reconcile |
+  verify_completion | audit | deslop | ask_user | wait`.
+- `suggestedTeamId` carries team shape (axis 2). `suggestedEffort` is the optional
+  per-worker model reasoning level (axis 1: `low | med | high`) where the chosen
+  source supports it; it is never a team-depth dial. Either may be null when the
+  Manager has no preference.
 
 ### Work Order
 
@@ -651,6 +712,24 @@ Rules:
   `verified`.
 - If no commit exists, the record can still verify proof and scope, but it must
   not claim commit verification.
+
+Proof execution:
+
+- Verification runs the Work Order's declared `proofCommands` as bounded
+  subprocesses at the Project root (`localRootPathSnapshot`). This is a real
+  capability: Allnighter executes the user-declared commands as the user's own
+  shell — it adds no implicit network access, privilege escalation, or commands
+  the user did not declare.
+- Each proof command has a timeout and captured exit code, stdout/stderr tail, and
+  duration, recorded in `VerificationRecord.proofResults[]`.
+- A non-zero exit, a timeout, or a missing command yields `notVerified` or
+  `needsHuman` (with the failure sourced), never `verified`.
+- If the user prefers not to let Allnighter run commands, proof is reveal-only and
+  the outcome is `needsHuman` or `waived` — the user runs proof themselves.
+- Proof commands never mutate git state (no commit/reset/checkout) and never clean
+  the working tree; that remains out of scope (see Non-Goals).
+- Expanding proof execution beyond declared per-Project commands (e.g. arbitrary
+  Manager-authored commands) routes through the high-risk stop policy first.
 
 ## Project Manager Responsibilities
 
@@ -756,10 +835,17 @@ Dispatch may proceed only when all required gates pass:
 
 Dirty state policy for v1:
 
-- Dirty files outside the proposal's likely scope are warnings, not automatic
-  blockers.
+- "Overlapping likely scope" is a deterministic match, not a judgment call: a
+  dirty file overlaps when its Project-root-relative path matches an entry in the
+  proposal's `likelyFilesOrAreas[]` by exact path, directory-prefix
+  (`area/` matches `area/...`), or declared glob. Matching is on normalized,
+  root-relative paths.
+- Dirty files outside the likely scope are warnings, not automatic blockers.
 - Dirty files inside or overlapping likely scope block dispatch until the user
   approves including them as preexisting context or cleans them up.
+- When `likelyFilesOrAreas[]` is empty, no overlap can be computed: all dirty files
+  are surfaced as warnings (not blockers), and the user must explicitly acknowledge
+  the dirty tree before dispatch.
 - Allnighter never cleans, resets, stashes, or deletes user changes in this
   phase.
 
@@ -936,6 +1022,30 @@ Rules:
 - Legacy thread commands may keep accepting `--working-dir` during migration,
   but new public surfaces should prefer `--project`.
 
+Errors and exit codes:
+
+Project commands use the shared error envelope and process exit-code contract from
+`CLI_Implementation_Contract.md` (`0` success / `1` operational / `2` usage). Every
+code below is registered in the shared error catalog with
+`agentAction`/`remedyTier`/`whoCanFix`/doctor text before it can be emitted:
+
+| Code | Class | Meaning |
+| --- | --- | --- |
+| `PROJECT_NOT_FOUND` | 1 | No Project matches the id/name. |
+| `NO_PROJECT_SELECTED` | 2 | A mutating action was attempted with no Project selected. |
+| `DUPLICATE_PROJECT_ROOT` | 1 | Add resolves to an existing Project's normalized root; the existing Project is returned. |
+| `PROJECT_ROOT_UNAVAILABLE` | 1 | `rootState != available` (missing/permissionDenied); mutating dispatch blocked. |
+| `PROJECT_ARCHIVED` | 1 | The Project is archived; unarchive before new runs. |
+| `THREAD_UNASSIGNED` | 1 | The thread/Pending item has no Project; assign before mutating dispatch. |
+| `WORKER_NOT_READY_IN_PROJECT` | 1 | Target worker's `ProjectWorkerReadiness.status != ready`; falls back to reveal/setup copy. |
+| `MANAGER_MODEL_UNAVAILABLE` | 1 | No ready manager model; the Manager turn is `wait` with a readiness blocker. |
+| `PROPOSAL_NOT_FOUND` | 1 | No proposal matches the id. |
+| `PROPOSAL_NOT_APPROVED` | 1 | Dispatch attempted on an unapproved proposal/work order. |
+| `BASE_HEAD_CHANGED` | 1 | Approved `baseGitHead` differs from current head; revalidate. |
+| `DIRTY_SCOPE_CONFLICT` | 1 | Dirty files overlap the proposal's likely scope; acknowledge or clean first. |
+| `DISPATCH_GATE_FAILED` | 1 | One or more dispatch gates failed; the failing gate(s) are named. |
+| `VERIFICATION_REQUIRED` | 1 | A completion claim was advanced to done without a `VerificationRecord`. |
+
 Generated artifacts for Project contracts should be added under the same
 `docs/generated/alln/` contract system named by `CLI_Implementation_Contract.md`.
 
@@ -1075,6 +1185,7 @@ iOS:
 | Global setup -> Project readiness | Project worker readiness detector | Installed/authenticated CLI can work in every Project. | Worker readiness is per Project root and driver-probed; global setup is not enough. | Claude installed globally but untrusted in Project root; dispatch blocks with setup copy. |
 | Worker return -> done | Verification engine | Worker says done, so done. | Done requires verification or waiver. | Return text says done with no proof; outcome is not verified. |
 | Project context -> truth | ProjectStore + source owners | Cached packet becomes authority. | Context packets are receipts; regenerate from git/docs/thread/pending truth. | Stale packet disagrees with git head; current git wins. |
+| Manager turn -> truth | ProjectStore + source owners | The manager model's answer is durable Project truth. | Manager turns are model outputs recorded as run truth, not Project truth; Project/git/proof win on conflict. | A Manager answer contradicting the current git head is overridden by git. |
 | Pending -> global queue | Pending store + ProjectStore | One queue owns all Projects. | Pending items require `projectId`; global views are aggregates only. | Reorder across two Projects is rejected. |
 | External agent -> approver | Approval policy | MCP caller can self-approve. | Caller, proposer, and approver are separate fields. | Agent-originated approve without policy is rejected. |
 | Non-git folder -> commit proof | Verification engine | Folder work can be commit-verified. | Non-git Projects cannot claim commit verification. | Verify folder work with no git root; outcome may be proof-only or waived, never commit-verified. |
@@ -1110,7 +1221,9 @@ iOS:
   threads/context/pending/workers/recheck-workers` plus JSON fixtures,
   generated schemas, and contract docs.
 - [ ] PRJ-S08 - Project Manager chat v1: default Project chat can answer and
-  summarize from Project context; it does not auto-create work.
+  summarize from Project context via the resolved manager model (`managerModelId`
+  or strongest ready planner); the Manager call is recorded as run truth; no ready
+  model yields a `wait` turn; it does not auto-create work.
 - [ ] PRJ-S09 - Proposal engine v1: "what next?" returns one bounded proposal or
   one visible blocker, with source-labeled rationale and no dispatch.
 - [ ] PRJ-S10 - Approval/edit/postpone + WorkOrder: proposal edits produce an
@@ -1247,6 +1360,32 @@ Expected:
 - proposal does not dispatch until approved.
 ```
 
+Project Manager execution:
+
+```text
+Open Project A with no ready manager model and send a chat message.
+Expected:
+- the turn is mode = wait with a sourced manager-model readiness blocker;
+- no answer is fabricated.
+Set a ready manager model and resend.
+Expected:
+- a typed turn is produced by a recorded manager-model run (id/model/transcript);
+- the answer is scoped to Project A truth.
+```
+
+Proof execution:
+
+```text
+Approve and dispatch a work order whose proofCommands include one passing command
+and one command that exits non-zero (and one that exceeds its timeout).
+Run verification.
+Expected:
+- proofResults capture each command's exit code, output tail, and duration;
+- the timed-out command is recorded as a timeout, not a pass;
+- outcome is notVerified or needsHuman, never verified;
+- no git mutation (commit/reset/checkout) and no working-tree cleaning occurred.
+```
+
 Dispatch gate:
 
 ```text
@@ -1326,6 +1465,10 @@ Expected:
 - Direct dispatch requires target worker readiness in the selected Project.
 - Worker returns are captured.
 - Worker completion claims are verified before done.
+- Project Manager turns are produced by a resolved manager model and recorded as
+  run truth; with no ready model the turn is `wait`, never a fabricated answer.
+- Verification runs declared proof commands as bounded subprocesses at the Project
+  root and never claims `verified` on failure, timeout, or missing proof.
 - Fanout outputs are synthesized for human judgment and are not silently
   promoted to execution truth.
 - External agents can call Project Manager tools without approval authority.
@@ -1343,14 +1486,22 @@ Expected:
   infer Project from thread id only when unambiguous.
 - Project worker readiness detection is allowed; automatic CLI configuration,
   folder authorization, trust-prompt acceptance, and login are out of scope.
+- `alln project edit <proposal-id>` accepts a JSON patch (stdin or `--patch`) for
+  deterministic agent/CLI editing. An interactive `$EDITOR` is a Mac-GUI affordance
+  only, never the agent path.
+- Dispatch to Cursor is reveal-only in v1; CLI agents (Claude Code, Codex, Grok,
+  Gemini) support direct subprocess dispatch.
+- Project Manager turns are produced by a resolved manager model
+  (`Project.managerModelId` or strongest ready planner), recorded as run truth; no
+  ready model yields a `wait` turn.
+- Verification executes the Work Order's declared proof commands as bounded
+  subprocesses at the Project root; it never mutates git or cleans the tree.
 
 ## Open Questions
 
 - What is the smallest useful stale-doc detector for PRJ-S02 without turning it
   into broad semantic search?
-- Should `alln project edit <proposal-id>` open `$EDITOR`, accept JSON patch, or
-  both?
 - Which proof commands should ProjectStore learn automatically from common repo
   files versus requiring user/project docs?
-- Should dispatch to Cursor be reveal-only in v1 while CLI agents support direct
-  subprocess dispatch?
+- Should the manager model default to a specific planner tier, and may a Project
+  pin a cheaper manager model for routine chat versus proposals?
