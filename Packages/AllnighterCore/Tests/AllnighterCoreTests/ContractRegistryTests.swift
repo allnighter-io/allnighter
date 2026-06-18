@@ -25,7 +25,9 @@ final class ContractRegistryTests: XCTestCase {
     func testM1CommandSetMatchesMilestoneBoundary() {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         XCTAssertEqual(m1, [
-            "docs", "doctor", "doctor explain", "models", "team show",
+            "docs", "doctor", "doctor explain",
+            "models", "models enable", "models disable", "models add", "models update", "models delete",
+            "team show",
             "teams", "teams show", "teams duplicate", "teams edit", "teams set-default", "teams delete",
             "skills", "skills show", "skills duplicate", "skills new", "skills edit", "skills delete",
             "team hello", "team preflight",

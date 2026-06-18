@@ -133,6 +133,31 @@ final class TeamResolverTests: XCTestCase {
 
     // MARK: - Image-capable model resolves the design row when ready
 
+    private func sonnet(enabled: Bool = true) -> Model {
+        Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .answerer, enabled: enabled)
+    }
+
+    func testDisabledPreferredFallsBackWithWarning() {
+        let t = team(rows: [
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+                           preferredModelId: "model_sonnet", fallbackPolicy: .anyReady)
+        ])
+        let r = TeamResolver.resolve(team: t, requestLane: .build, requestEffort: .low, readyModels: [opus()])
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_opus")
+        XCTAssertTrue(r.warnings.contains { $0.contains("model_sonnet") })
+    }
+
+    func testExactOnlyBlocksWhenPreferredDisabled() {
+        let t = team(rows: [
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+                           preferredModelId: "model_sonnet", allowedModelIds: ["model_sonnet"],
+                           fallbackPolicy: .exactOnly)
+        ])
+        let r = TeamResolver.resolve(team: t, requestLane: .build, requestEffort: .low, readyModels: [opus()])
+        XCTAssertFalse(r.isRunnable)
+    }
+
     func testImageRowResolvesWhenCapableModelReady() {
         let t = team(rows: [
             TeamWorkerSpec(id: "r1", skillId: "visual_system_designer", minEffort: .low,
@@ -141,5 +166,33 @@ final class TeamResolverTests: XCTestCase {
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus(), gemini()])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gemini")
         XCTAssertTrue(r.isRunnable)
+    }
+
+    func testCustomModelOnReadyDriverResolves() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        CatalogRoots.overrideForTesting(
+            teams: base.appendingPathComponent("teams", isDirectory: true),
+            skills: base.appendingPathComponent("skills", isDirectory: true),
+            models: base.appendingPathComponent("models", isDirectory: true))
+        ModelCatalog.overrideRosterForTesting(fileURL: base.appendingPathComponent("model_roster.json"))
+        defer {
+            CatalogRoots.resetTestingOverrides()
+            ModelCatalog.resetTestingOverrides()
+            try? FileManager.default.removeItem(at: base)
+        }
+        let registry = DriverRegistry([
+            DriverManifest(id: "claude_code", displayName: "Claude", kind: .headlessCLI)
+        ])
+        let custom = try ModelCatalog.createCustom(
+            driverId: "claude_code", displayName: "Fabel", modelLabel: "fabel",
+            role: .answerer, enabled: true, registry: registry)
+        let customModel = ModelCatalog.resolvedModels(registry: registry).first { $0.id == custom.id }!
+        let t = team(rows: [
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard", minEffort: .low,
+                           preferredModelId: custom.id, fallbackPolicy: .exactOnly)
+        ])
+        let r = TeamResolver.resolve(team: t, requestLane: .build, requestEffort: .low, readyModels: [customModel])
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, custom.id)
     }
 }

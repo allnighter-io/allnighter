@@ -5,6 +5,7 @@ import Foundation
 public enum CatalogKind: String, Codable, Sendable {
     case team
     case skill
+    case model
 }
 
 public struct CatalogEnvelope<T: Codable & Sendable>: Codable, Sendable {
@@ -24,6 +25,7 @@ public struct CatalogEnvelope<T: Codable & Sendable>: Codable, Sendable {
 public enum CatalogError: Error, Equatable, Sendable {
     case teamNotFound
     case skillNotFound
+    case modelNotFound
     case builtInImmutable
     case idCollision
     case idInvalid
@@ -78,6 +80,7 @@ public enum CatalogIDGenerator {
 public enum CatalogRoots {
     nonisolated(unsafe) private static var teamsOverride: URL?
     nonisolated(unsafe) private static var skillsOverride: URL?
+    nonisolated(unsafe) private static var modelsOverride: URL?
 
     public static var teams: URL {
         teamsOverride ?? defaultSupport.appendingPathComponent("Catalogs/teams", isDirectory: true)
@@ -87,20 +90,26 @@ public enum CatalogRoots {
         skillsOverride ?? defaultSupport.appendingPathComponent("Catalogs/skills", isDirectory: true)
     }
 
+    public static var models: URL {
+        modelsOverride ?? defaultSupport.appendingPathComponent("Catalogs/models", isDirectory: true)
+    }
+
     private static var defaultSupport: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base.appendingPathComponent("Allnighter", isDirectory: true)
     }
 
-    public static func overrideForTesting(teams: URL, skills: URL) {
+    public static func overrideForTesting(teams: URL, skills: URL, models: URL? = nil) {
         teamsOverride = teams
         skillsOverride = skills
+        modelsOverride = models
     }
 
     public static func resetTestingOverrides() {
         teamsOverride = nil
         skillsOverride = nil
+        modelsOverride = nil
     }
 }
 

@@ -40,9 +40,9 @@
     "ruleId" : "source.auth.expired"
   },
   {
-    "agentAction" : "Choose a ready model or run `alln models --json`.",
+    "agentAction" : "Run `alln models --json`; pick an on-Bench ready model or enable one.",
     "code" : "MODEL_UNAVAILABLE",
-    "explain" : "The requested model is not ready right now. Pick a ready model from the Bench or retry when it recovers.",
+    "explain" : "The requested model is not runnable: it may be off-Bench, its source may not be ready, or it may not exist. Use `alln models --json` to see available vs on-Bench vs ready state.",
     "requiresManual" : false,
     "retryable" : true,
     "ruleId" : "model.unavailable"

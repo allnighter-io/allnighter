@@ -605,10 +605,10 @@ final class AppModel {
         }
     }
 
-    /// Models that can run as an agent in your repo (Execute) — every model whose
+    /// Models that can run as an agent in your repo (Execute) — enabled models whose
     /// source is a headless CLI agent.
     var composeExecutorIds: Set<String> {
-        Set(models.filter { registry.manifest(for: $0)?.kind == .headlessCLI }.map(\.id))
+        Set(models.filter(\.enabled).filter { registry.manifest(for: $0)?.kind == .headlessCLI }.map(\.id))
     }
 
     func composeTeams(for lane: ComposeLane) -> [ComposeTeam] {
@@ -698,8 +698,7 @@ final class AppModel {
         let cached = setupStore.load()
         if !cached.records.isEmpty { toolStatuses = cached.records }
         isDetecting = true
-        var modelLabels: [String: String] = [:]
-        for m in models where modelLabels[m.driverId] == nil { modelLabels[m.driverId] = m.modelLabel }
+        let modelLabels = ModelCatalog.probeModelLabels(registry: registry)
         let registryCopy = registry
         let storeCopy = setupStore
         let completedAt = cached.setupCompletedAt
@@ -724,7 +723,7 @@ final class AppModel {
     /// zero — the plain probe must light the first lamp first).
     var censusAgent: Model? {
         let readyDriverIds = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
-        return models.first { readyDriverIds.contains($0.driverId) }
+        return models.first { $0.enabled && readyDriverIds.contains($0.driverId) }
     }
 
     var canRunCensus: Bool {
@@ -762,8 +761,7 @@ final class AppModel {
         guard let agent = censusAgent, !isRunningCensus, !isDetecting,
               let manifest = registry.manifest(for: agent) else { return }
         let prompt = ToolCensus.discoveryBuildOrder(for: registry.all)
-        var modelLabels: [String: String] = [:]
-        for m in models where modelLabels[m.driverId] == nil { modelLabels[m.driverId] = m.modelLabel }
+        let modelLabels = ModelCatalog.probeModelLabels(registry: registry)
         let registryCopy = registry
         let storeCopy = setupStore
         let invocations = runnerInvocations
@@ -881,7 +879,31 @@ final class AppModel {
 extension AppModel {
     /// Workers whose CLI can generate a design image headlessly (the design seats).
     var imageWorkers: [Model] {
-        models.filter { registry.manifest(for: $0)?.canGenerateImages == true }
+        models.filter(\.enabled).filter { registry.manifest(for: $0)?.canGenerateImages == true }
+    }
+
+    // MARK: - Model catalog (Bench roster backend)
+
+    func reloadModelsFromCatalog() {
+        models = ModelCatalog.resolvedModels(registry: registry)
+        reloadPresets()
+    }
+
+    func setModelEnabled(modelId: String, enabled: Bool) throws {
+        try ModelCatalog.setEnabled(modelId, enabled)
+        reloadModelsFromCatalog()
+    }
+
+    func addCustomModel(driverId: String, displayName: String, modelLabel: String, role: ModelRole = .answerer) throws {
+        _ = try ModelCatalog.createCustom(
+            driverId: driverId, displayName: displayName, modelLabel: modelLabel,
+            role: role, enabled: true, registry: registry)
+        reloadModelsFromCatalog()
+    }
+
+    func deleteCustomModel(modelId: String) throws {
+        try ModelCatalog.deleteCustom(modelId)
+        reloadModelsFromCatalog()
     }
 
     /// The current board (live from members during the run; persisted at settle).

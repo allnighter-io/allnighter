@@ -1,5 +1,4 @@
 import Foundation
-import AllnighterCore
 
 /// Holds the driver manifests workers are invoked through. Manifests are data,
 /// not code — load bundled defaults plus user overrides (overrides win by id).

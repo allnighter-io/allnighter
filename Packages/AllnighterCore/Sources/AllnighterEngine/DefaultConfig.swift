@@ -6,14 +6,10 @@ import AllnighterCore
 /// and CLI share one preset definition. User overrides under `Config/` win when
 /// present (loaded by callers).
 public enum DefaultConfig {
-    public static let models: [Model] = [
-        Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer),
-        Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both),
-        Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .answerer),
-        Model(id: "model_composer", displayName: "Composer 2.5", modelLabel: "grok-composer-2.5-fast", driverId: "grok", role: .answerer),
-        Model(id: "model_gemini", displayName: "Gemini (Antigravity)", modelLabel: "Gemini 3.5 Flash (Medium)", driverId: "antigravity", role: .answerer),
-        Model(id: "model_grok", displayName: "Grok Build", modelLabel: "grok-build", driverId: "grok", role: .answerer)
-    ]
+    /// Compatibility facade — derives from `ModelCatalog` (not a separate truth owner).
+    public static var models: [Model] {
+        ModelCatalog.resolvedModels(registry: registry)
+    }
 
     private static let manifestJSON: [String] = [
         #"{"id":"claude_code","manifestVersion":1,"displayName":"Claude Code","kind":"headless_cli","detectCommand":"claude --version","smokeTestCommand":"claude -p \"Reply with the single token ALLNIGHTER_READY\" --model {{model}}","smokeTestExpect":"ALLNIGHTER_READY","invoke":{"command":"claude","args":["-p","{{prompt}}","--model","{{model}}"],"promptVia":"arg","env":{},"workingDir":null,"timeoutSeconds":300},"output":{"capture":"stdout","stripAnsi":true,"doneSignal":"exit_code","sentinel":null}}"#,

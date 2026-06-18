@@ -253,6 +253,42 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - ModelListJSON
+
+    public static func modelListSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/model-list.schema.json",
+            "title": "ModelListJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str,
+            "models": arr(ref("ModelEntry")),
+            "diagnostics": arr(ref("ModelDiagnostic")),
+        ], required: ["schemaVersion", "contractVersion", "models", "diagnostics"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "ModelEntry": obj([
+                "id": str, "displayName": str, "modelLabel": str, "driverId": str, "driverName": str,
+                "role": str, "origin": enumStr(["built_in", "custom", "discovered"]),
+                "enabled": bool, "ready": bool,
+                "status": enumStr(["ready", "notReady", "notChecked", "driverMissing"]),
+                "state": enumStr(["onBench", "available"]),
+                "capabilities": ref("ModelCapabilities"),
+            ], required: [
+                "id", "displayName", "modelLabel", "driverId", "driverName", "role", "origin",
+                "enabled", "ready", "status", "state", "capabilities",
+            ]),
+            "ModelCapabilities": obj([
+                "laneTags": arr(str), "capabilityTags": arr(str), "strengthRank": int,
+            ], required: ["laneTags", "capabilityTags", "strengthRank"]),
+            "ModelDiagnostic": obj([
+                "code": str, "modelId": nullable("string"), "driverId": nullable("string"), "message": str,
+            ], required: ["code", "message"]),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

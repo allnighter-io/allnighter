@@ -51,12 +51,81 @@ Examples: `doctor_explain`.
 
 ### `alln models`
 
-List ready/known models on the Bench.
+List model catalog and Bench state.
 
 Flags:
-- `--json` — Structured model list.
+- `--json` — Structured ModelListJSON.
+- `--driver <driverId>` — Filter to one source.
+- `--bench` — Show only enabled Bench models.
+
+Output schema: `modelListJSON`.
 
 Examples: `models_json`.
+
+### `alln models enable`
+
+Enable a model on the Bench.
+
+Arguments:
+- `model-id` (required) — Model id to enable.
+
+Flags:
+- `--json` — Return refreshed ModelListJSON.
+
+Output schema: `modelListJSON`.
+
+### `alln models disable`
+
+Remove a model from the Bench.
+
+Arguments:
+- `model-id` (required) — Model id to disable.
+
+Flags:
+- `--json` — Return refreshed ModelListJSON.
+
+Output schema: `modelListJSON`.
+
+### `alln models add`
+
+Add a custom model for a source.
+
+Flags:
+- `--driver <driverId>` — Source driver id.
+- `--name <string>` — Display name.
+- `--model-label <string>` — Label passed to the CLI.
+- `--role <modelRole>` — answerer|planWriter|both (default answerer).
+- `--disabled` — Create off-Bench.
+- `--json` — Return refreshed ModelListJSON.
+
+Output schema: `modelListJSON`.
+
+### `alln models update`
+
+Update a custom model definition.
+
+Arguments:
+- `model-id` (required) — Custom model id.
+
+Flags:
+- `--name <string>` — New display name.
+- `--model-label <string>` — New CLI model label.
+- `--role <modelRole>` — New role.
+- `--json` — Return refreshed ModelListJSON.
+
+Output schema: `modelListJSON`.
+
+### `alln models delete`
+
+Delete a custom model definition.
+
+Arguments:
+- `model-id` (required) — Custom model id.
+
+Flags:
+- `--json` — Return refreshed ModelListJSON.
+
+Output schema: `modelListJSON`.
 
 ### `alln team show`
 
@@ -548,7 +617,6 @@ Flags:
 
 ## Commands (named but deferred)
 
-- `alln models add` — Add/configure a model.
 - `alln work` — Create a work order.
 - `alln pending stop` — Stop a running Pending item.
 - `alln dispatch` — Send a work order/spec to an execution target.
@@ -564,7 +632,7 @@ Flags:
 | `DOCTOR_CHECK_FAILED` | no | yes | Run `alln doctor --json`. |
 | `SOURCE_NOT_FOUND` | yes | no | Run `alln doctor --json`; add/configure the missing source. |
 | `SOURCE_AUTH_EXPIRED` | yes | no | Re-authenticate the named source. |
-| `MODEL_UNAVAILABLE` | no | yes | Choose a ready model or run `alln models --json`. |
+| `MODEL_UNAVAILABLE` | no | yes | Run `alln models --json`; pick an on-Bench ready model or enable one. |
 | `DEFAULT_TEAM_INVALID` | yes | no | Run `alln team show --json`; fix unavailable workers. |
 | `WORKER_FAILED` | no | yes | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | Retry with a ready plan writer or export worker answers. |
@@ -638,7 +706,7 @@ Flags:
 - `docs_all` — Generate the full reference: `alln docs`
 - `doctor_json` — Structured diagnostics: `alln doctor --json`
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
-- `models_json` — List bench models: `alln models --json`
+- `models_json` — List model catalog and Bench state: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
 - `teams_build_json` — List Build teams: `alln teams --lane build --json`
 - `skills_build_json` — List Build skills: `alln skills --lane build --json`

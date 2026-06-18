@@ -1,0 +1,160 @@
+{
+  "$defs" : {
+    "ModelCapabilities" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "capabilityTags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "laneTags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "strengthRank" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "laneTags",
+        "capabilityTags",
+        "strengthRank"
+      ],
+      "type" : "object"
+    },
+    "ModelDiagnostic" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "code" : {
+          "type" : "string"
+        },
+        "driverId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "message" : {
+          "type" : "string"
+        },
+        "modelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "code",
+        "message"
+      ],
+      "type" : "object"
+    },
+    "ModelEntry" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "capabilities" : {
+          "$ref" : "#\/$defs\/ModelCapabilities"
+        },
+        "displayName" : {
+          "type" : "string"
+        },
+        "driverId" : {
+          "type" : "string"
+        },
+        "driverName" : {
+          "type" : "string"
+        },
+        "enabled" : {
+          "type" : "boolean"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "modelLabel" : {
+          "type" : "string"
+        },
+        "origin" : {
+          "enum" : [
+            "built_in",
+            "custom",
+            "discovered"
+          ],
+          "type" : "string"
+        },
+        "ready" : {
+          "type" : "boolean"
+        },
+        "role" : {
+          "type" : "string"
+        },
+        "state" : {
+          "enum" : [
+            "onBench",
+            "available"
+          ],
+          "type" : "string"
+        },
+        "status" : {
+          "enum" : [
+            "ready",
+            "notReady",
+            "notChecked",
+            "driverMissing"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "displayName",
+        "modelLabel",
+        "driverId",
+        "driverName",
+        "role",
+        "origin",
+        "enabled",
+        "ready",
+        "status",
+        "state",
+        "capabilities"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/model-list.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "diagnostics" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ModelDiagnostic"
+      },
+      "type" : "array"
+    },
+    "models" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ModelEntry"
+      },
+      "type" : "array"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "models",
+    "diagnostics"
+  ],
+  "title" : "ModelListJSON",
+  "type" : "object"
+}

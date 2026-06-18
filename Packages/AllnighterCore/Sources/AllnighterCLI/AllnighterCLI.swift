@@ -35,7 +35,7 @@ struct AllnighterCLI {
         case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
         case "team": await runTeam(args, runtime)
-        case "models": await runModels(args, runtime)
+        case "models": await ModelsCLI.run(args, runtime: runtime)
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
         case "show": runShow(args, runtime)
@@ -163,6 +163,7 @@ struct AllnighterCLI {
         switch error {
         case .teamNotFound: return ("TEAM_NOT_FOUND", "team not found")
         case .skillNotFound: return ("SKILL_NOT_FOUND", "skill not found")
+        case .modelNotFound: return ("MODEL_NOT_FOUND", "model not found")
         case .builtInImmutable:
             return (skillContext ? "SKILL_BUILTIN_IMMUTABLE" : "TEAM_BUILTIN_IMMUTABLE", "built-in catalog entry cannot be changed")
         case .idCollision:
@@ -178,15 +179,19 @@ struct AllnighterCLI {
         }
     }
 
-    static func runModels(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        if opts.flag("json") {
-            print(jsonString(runtime.models))
-        } else {
-            for m in runtime.models {
-                print("\(m.id)\t\(m.displayName)\t\(m.driverId)\t\(m.enabled ? "on" : "off")")
-            }
+    static func modelCatalogErrorEnvelope(_ error: ModelCatalogError) -> (code: String, message: String) {
+        switch error {
+        case .notFound(let id): return ("MODEL_NOT_FOUND", "unknown model: \(id)")
+        case .builtInImmutable: return ("MODEL_BUILTIN_IMMUTABLE", "built-in model cannot be changed")
+        case .idCollision: return ("MODEL_ID_COLLISION", "model id already exists")
+        case .idInvalid: return ("MODEL_INVALID", "model id is invalid")
+        case .driverMissing(let driver): return ("MODEL_DRIVER_MISSING", "unknown driver: \(driver)")
+        case .invalid(let detail): return ("MODEL_INVALID", detail)
         }
+    }
+
+    static func runModels(_ args: [String], _ runtime: ToolRuntime) async {
+        await ModelsCLI.run(args, runtime: runtime)
     }
 
     static func runHistory(_ args: [String], _ runtime: ToolRuntime) async {
@@ -253,8 +258,7 @@ struct AllnighterCLI {
     /// Builds a `DoctorResult` — shared by `alln doctor` and the MCP `doctor` tool
     /// so both project the same contract.
     static func doctorResult(_ runtime: ToolRuntime, full: Bool) async -> DoctorResult {
-        var modelLabels: [String: String] = [:]
-        for m in runtime.models where modelLabels[m.driverId] == nil { modelLabels[m.driverId] = m.modelLabel }
+        let modelLabels = ModelCatalog.probeModelLabels(registry: runtime.registry)
         // CLI runs in the user's terminal, so resolve interactively (-lic) to see
         // the same PATH the terminal does (Track 0.1).
         let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
@@ -301,8 +305,7 @@ struct AllnighterCLI {
     /// fall back to `invoke.command` and loginFlow guidance comes from the app's
     /// bundle registry, not here.
     static func runDetect(_ runtime: ToolRuntime) async {
-        var models: [String: String] = [:]
-        for w in runtime.models where models[w.driverId] == nil { models[w.driverId] = w.modelLabel }
+        let models = ModelCatalog.probeModelLabels(registry: runtime.registry)
         let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
             .probeAll(runtime.registry.all, models: models, now: Date())
 
@@ -1074,7 +1077,10 @@ struct AllnighterCLI {
           show <run-id|latest> [--json]                             show one run
           export <run-id|latest> --format md                        export a result bundle
           history "<query>" [--json]                                search prior team runs
-          models [--json]                                           list bench models
+          models [--json] [--driver <driverId>] [--bench]              list model catalog and Bench state
+          models enable|disable <model-id> [--json]                  toggle Bench membership
+          models add --driver <id> --name <name> --model-label <l>   add a custom model
+          models update|delete <custom-model-id> [--json]            edit or remove a custom model
           doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
           doctor explain <code> [--json]                            explain an error/recovery code
           docs [topic] [--errors|--schema|--examples]               generated agent-facing reference
@@ -1106,8 +1112,8 @@ struct ToolRuntime {
 
     init() {
         ToolRuntime.applyLoginPath()
-        let models = DefaultConfig.models
         let registry = DefaultConfig.registry
+        let models = ModelCatalog.resolvedModels(registry: registry)
         let teams = TeamCatalog.all
         let config = ToolRuntime.loadConfig()
         var invs: [String: ToolInvocation] = [:]
@@ -1180,6 +1186,7 @@ struct Options {
     /// `alln team --json "prompt"` keeps "prompt" as the positional.
     static let booleanFlags: Set<String> = [
         "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix", "health", "submit",
+        "bench", "disabled",
     ]
     var positional: [String] = []
     var values: [String: String] = [:]

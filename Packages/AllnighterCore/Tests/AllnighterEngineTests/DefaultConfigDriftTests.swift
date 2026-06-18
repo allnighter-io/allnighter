@@ -32,11 +32,25 @@ final class DefaultConfigDriftTests: XCTestCase {
         }
     }
 
-    func testEmbeddedWorkersMatchPanelDefaultJSON() throws {
+    func testEmbeddedWorkersMatchModelCatalogBuiltIns() throws {
         let url = driversDir().appendingPathComponent("team_default.json")
         let bundled = try CoreJSON.decode([Model].self, from: Data(contentsOf: url))
-        XCTAssertEqual(bundled.map(\.id), DefaultConfig.models.map(\.id))
-        XCTAssertEqual(bundled.map(\.driverId), DefaultConfig.models.map(\.driverId))
-        XCTAssertEqual(bundled.map(\.modelLabel), DefaultConfig.models.map(\.modelLabel))
+        let expected = ModelCatalog.defaultFreshModels()
+        let sortByID: ([Model]) -> [Model] = { $0.sorted { $0.id < $1.id } }
+        XCTAssertEqual(sortByID(bundled).map(\.id), sortByID(expected).map(\.id))
+        XCTAssertEqual(sortByID(bundled).map(\.driverId), sortByID(expected).map(\.driverId))
+        XCTAssertEqual(sortByID(bundled).map(\.modelLabel), sortByID(expected).map(\.modelLabel))
+        XCTAssertEqual(sortByID(bundled).map(\.displayName), sortByID(expected).map(\.displayName))
+    }
+
+    func testEveryHeadlessDriverHasBuiltInModelAndProbeLabel() {
+        let registry = DefaultConfig.registry
+        for manifest in registry.all where manifest.kind == .headlessCLI {
+            let models = ModelCatalog.list(driverId: manifest.id)
+            XCTAssertFalse(models.isEmpty, "driver \(manifest.id) missing built-in models")
+            XCTAssertNotNil(
+                ModelCatalog.probeModelLabel(driverId: manifest.id),
+                "driver \(manifest.id) missing probe label")
+        }
     }
 }

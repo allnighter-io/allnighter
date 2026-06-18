@@ -58,6 +58,11 @@ public enum AllnighterPaths {
         catalogs.appendingPathComponent("skills", isDirectory: true)
     }
 
+    /// `…/Allnighter/Catalogs/models/`
+    public static var catalogModels: URL {
+        catalogs.appendingPathComponent("models", isDirectory: true)
+    }
+
     /// `…/Allnighter/ProbeScratch/` — neutral CWD for setup/health probe child
     /// processes. Setup/health probes must NOT inherit the repo or app-bundle
     /// CWD: in dev that is the checkout under `~/Documents`, so a child CLI that

@@ -148,9 +148,54 @@ public extension ContractRegistry {
             outputSchema: .errorEnvelope, exampleIds: ["doctor_explain"]
         ),
         CommandSpec(
-            "models", summary: "List ready/known models on the Bench.", milestone: .m1,
-            flags: [FlagSpec("json", summary: "Structured model list.")],
-            exampleIds: ["models_json"]
+            "models", summary: "List model catalog and Bench state.", milestone: .m1,
+            flags: [
+                FlagSpec("json", summary: "Structured ModelListJSON."),
+                FlagSpec("driver", takesValue: true, valueType: "driverId", summary: "Filter to one source."),
+                FlagSpec("bench", summary: "Show only enabled Bench models."),
+            ],
+            outputSchema: .modelListJSON, exampleIds: ["models_json"]
+        ),
+        CommandSpec(
+            "models enable", summary: "Enable a model on the Bench.", milestone: .m1,
+            args: [ArgSpec("model-id", required: true, summary: "Model id to enable.")],
+            flags: [FlagSpec("json", summary: "Return refreshed ModelListJSON.")],
+            outputSchema: .modelListJSON
+        ),
+        CommandSpec(
+            "models disable", summary: "Remove a model from the Bench.", milestone: .m1,
+            args: [ArgSpec("model-id", required: true, summary: "Model id to disable.")],
+            flags: [FlagSpec("json", summary: "Return refreshed ModelListJSON.")],
+            outputSchema: .modelListJSON
+        ),
+        CommandSpec(
+            "models add", summary: "Add a custom model for a source.", milestone: .m1,
+            flags: [
+                FlagSpec("driver", takesValue: true, valueType: "driverId", summary: "Source driver id."),
+                FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name."),
+                FlagSpec("model-label", takesValue: true, valueType: "string", summary: "Label passed to the CLI."),
+                FlagSpec("role", takesValue: true, valueType: "modelRole", summary: "answerer|planWriter|both (default answerer)."),
+                FlagSpec("disabled", summary: "Create off-Bench."),
+                FlagSpec("json", summary: "Return refreshed ModelListJSON."),
+            ],
+            outputSchema: .modelListJSON
+        ),
+        CommandSpec(
+            "models update", summary: "Update a custom model definition.", milestone: .m1,
+            args: [ArgSpec("model-id", required: true, summary: "Custom model id.")],
+            flags: [
+                FlagSpec("name", takesValue: true, valueType: "string", summary: "New display name."),
+                FlagSpec("model-label", takesValue: true, valueType: "string", summary: "New CLI model label."),
+                FlagSpec("role", takesValue: true, valueType: "modelRole", summary: "New role."),
+                FlagSpec("json", summary: "Return refreshed ModelListJSON."),
+            ],
+            outputSchema: .modelListJSON
+        ),
+        CommandSpec(
+            "models delete", summary: "Delete a custom model definition.", milestone: .m1,
+            args: [ArgSpec("model-id", required: true, summary: "Custom model id.")],
+            flags: [FlagSpec("json", summary: "Return refreshed ModelListJSON.")],
+            outputSchema: .modelListJSON
         ),
         CommandSpec(
             "team show", summary: "Show the default team for each lane.", milestone: .m1,
@@ -456,7 +501,6 @@ public extension ContractRegistry {
     // MARK: - Commands (named but deferred past M1)
 
     static let deferredCommands: [CommandSpec] = [
-        CommandSpec("models add", summary: "Add/configure a model.", milestone: .deferred),
         CommandSpec("work", summary: "Create a work order.", milestone: .deferred),
         CommandSpec("pending stop", summary: "Stop a running Pending item.", milestone: .deferred),
         CommandSpec("dispatch", summary: "Send a work order/spec to an execution target.", milestone: .deferred),
@@ -472,7 +516,7 @@ public extension ContractRegistry {
         ErrorSpec("DOCTOR_CHECK_FAILED", ruleId: "doctor.check.failed", agentAction: "Run `alln doctor --json`.", requiresManual: false, retryable: true, explain: "A required doctor check failed. Inspect the structured report and address the named check, then retry."),
         ErrorSpec("SOURCE_NOT_FOUND", ruleId: "source.not_found", agentAction: "Run `alln doctor --json`; add/configure the missing source.", requiresManual: true, retryable: false, explain: "A required source CLI/runtime was not resolved on this machine. Install or locate it, then re-probe."),
         ErrorSpec("SOURCE_AUTH_EXPIRED", ruleId: "source.auth.expired", agentAction: "Re-authenticate the named source.", requiresManual: true, retryable: false, explain: "The source resolved but its authentication is invalid or expired. Sign in via the source's own login flow."),
-        ErrorSpec("MODEL_UNAVAILABLE", ruleId: "model.unavailable", agentAction: "Choose a ready model or run `alln models --json`.", requiresManual: false, retryable: true, explain: "The requested model is not ready right now. Pick a ready model from the Bench or retry when it recovers."),
+        ErrorSpec("MODEL_UNAVAILABLE", ruleId: "model.unavailable", agentAction: "Run `alln models --json`; pick an on-Bench ready model or enable one.", requiresManual: false, retryable: true, explain: "The requested model is not runnable: it may be off-Bench, its source may not be ready, or it may not exist. Use `alln models --json` to see available vs on-Bench vs ready state."),
         ErrorSpec("DEFAULT_TEAM_INVALID", ruleId: "team.default.invalid", agentAction: "Run `alln team show --json`; fix unavailable workers.", requiresManual: true, retryable: false, explain: "The default team has no runnable workers. Inspect and repair the team lineup before running."),
         ErrorSpec("WORKER_FAILED", ruleId: "worker.failed", agentAction: "Inspect `workerId` and source error; failed worker remains visible.", requiresManual: false, retryable: true, explain: "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results."),
         ErrorSpec("PLAN_WRITER_FAILED", ruleId: "plan_writer.failed", agentAction: "Retry with a ready plan writer or export worker answers.", requiresManual: false, retryable: true, explain: "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later."),
@@ -572,7 +616,7 @@ public extension ContractRegistry {
         ExampleRecipe("docs_all", title: "Generate the full reference", command: "alln docs"),
         ExampleRecipe("doctor_json", title: "Structured diagnostics", command: "alln doctor --json"),
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
-        ExampleRecipe("models_json", title: "List bench models", command: "alln models --json"),
+        ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
         ExampleRecipe("teams_build_json", title: "List Build teams", command: "alln teams --lane build --json"),
         ExampleRecipe("skills_build_json", title: "List Build skills", command: "alln skills --lane build --json"),

@@ -1,7 +1,7 @@
 # Allnighter - Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-06-17
+Updated: 2026-06-18
 
 ## Purpose
 
@@ -30,18 +30,19 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
-| [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md) | **CODE RED spec** — must land before Project Manager queue/autopropose | Projects are the durable repo/folder floor above threads, runs, pending, approvals, and worker dispatch. Regular chat inside a Project is chat with that Project's Manager. Backend slices PRJ-S00–S07 first; GUI Projects rail PRJ-S08/S09 after Core/CLI. |
+| [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md) | **CODE RED spec** - must land before Project Manager queue/autopropose | Projects are the durable repo/folder floor above threads, runs, pending, proposals, work orders, returns, worker readiness, and verification. Regular chat inside a Project is chat with that Project's Manager. Backend/CLI/MCP slices PRJ-S00-S13 first; GUI Projects rail and dogfood proof PRJ-S14/S15 after Core/CLI. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
 | [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
 | [`threads/02_Notifications.md`](threads/02_Notifications.md) | **BUILT** (NOTIF-S01–S05 + UNR-S06, 2026-06-17) | Mac local notifications for landed work and attention states; menu-bar live/needs-attention indicator; per-thread mute; debounce/quiet-hours policy. Mobile push parked in `ios/03`. |
 | [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Backend BUILT** (WIO-S00–S03, S05, 2026-06-17); WIO-S04 GUI deferred | Worker image output in chat (design continuity): chat to imageGen workers captures + commits canonical attachments (same store as user paste); prior/picked images flow into next context; WIO-S04 Mac timeline thumbnails remain. |
-| [`Utilization_Admission_Control.md`](Utilization_Admission_Control.md) | Execution-ready for all slices | Admission control for selected workers, team runs, pending work, fallbacks, and floor visibility without quota accounting. |
+| [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | Mentor review packet - proposed MVP replacement for admission scheduling | Detects old nonterminal work from local truth, creates Project Manager nudges, sends Mac notifications, and offers safe recovery actions without quota/cooldown/admission machinery. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); Pending2 drain deferred | Public `alln pending` CRUD + local Pending model/persistence. Away Mode drain, cooldown resume, and Activity Summary remain in later slices. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; Pending2 drain. |
 | [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Build/Design/Copy specialist team catalog substrate for Fan out: team picker, Low/Med/High effort, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
 | [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) | Founder review packet (2026-06-17) | Cleanup-first lane catalog feature: `TeamCatalog` + `SkillCatalog`, `TeamID` + `SkillID`, built-in and custom teams/skills in one catalog model, lane-first Settings, no Store vocabulary, no migration, no skill versioning. |
+| [`Model_Catalog_And_Bench_Roster.md`](Model_Catalog_And_Bench_Roster.md) | Ready CLI-first backend spec (2026-06-18) | Core `ModelCatalog` as the owner for built-in/custom per-CLI models, persistent Bench enablement, manual add/update/delete, CLI model commands, ToolRuntime/probe-label hardening, and the live-discovery seam. Model management stays inside CLIs; Bench is derived. |
 | [`Team_Configuration_UX_Rescue.md`](Team_Configuration_UX_Rescue.md) | **Contract-hardened implementation spec** (2026-06-17) | Mac team configuration rescue after first-use rejection: composer Customize wiring, primary Customize team drawer, level-2 Customize worker modal, built-ins as lazy custom drafts, TeamWorkerDraft prompt edits, save-time skill forking with rollback, visible default-team control, search-first skill picker, ready-first model picker, and proof slices. |
 | [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md) | PARTIAL: bootstrap/preflight/discovery, spec retrieval, and A0 async team loop built; Pending deferred | Agent-first workflow layer for OpenClaw/Hermes-style messaging and voice agents: bootstrap/doctor recovery loop, MCP async team tools, Pending over MCP, full spec retrieval, provenance, approval handoffs, and entitlement hooks. |
 | [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_Background_Coordinator.md) | Draft forward phase | Convert the Mac shell from menu-bar-first to standalone Dock app plus explicit background coordinator/resident lifecycle. |
@@ -69,6 +70,9 @@ otherwise.
   conversation unit inside a Project. Chat is the default turn; team run, design
   board, work order, dispatch, and return review are stronger turn types inside
   the same thread.
+- Global CLI setup does not imply Project worker readiness. Allnighter may
+  auto-detect ready workers per Project root with safe probes, but must not
+  auto-configure or auto-authorize vendor CLIs.
 - The user-facing words are: project, project manager, model, skill, worker,
   team, team run, worker answer, plan, work order, thread.
 - Do not add new public `team` language. `Work_Order_Team_Model.md`
@@ -77,12 +81,10 @@ otherwise.
 - Workers fail honestly. A failed worker is shown failed, never hidden or faked.
 - Effort is a user instruction, not an estimate.
 - Do not estimate future cost, quota burn, runtime, or task complexity.
-- Utilization is admission control: can this model accept work now, and what
-  should Allnighter do next?
 - Capacity state is observed, sourced, timestamped, and local by default.
-- Pending separates user intent from worker availability; queueing is internal
-  scheduler machinery, and draining must obey admission, safety, and explicit
-  policy.
+- Pending separates Project-scoped user intent from worker availability;
+  queueing is internal scheduler machinery, global Pending is aggregate-only,
+  and draining must obey Project, admission, safety, and explicit policy.
 - Pending is public CLI-first: `alln pending` plus `alln serve` must exist before
   the GUI promises app-closed execution.
 - The Project Manager is the default chat identity inside a Project and the
@@ -179,6 +181,7 @@ Open questions:
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
 | Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
 | Fan out composer, built-in lane team packs, team resolver substrate | `Fanout_Team_Catalog.md` + `Work_Order_Team_Model.md` |
+| Model catalog, Bench enable/disable, per-CLI model lists, custom model add/update/delete, model discovery seam | `Model_Catalog_And_Bench_Roster.md` + `Work_Order_Team_Model.md` |
 | Team configuration UX rescue, first-use team management feedback, Customize worker modal, save-time skill forking, default-team UI, searchable skill picker | `Team_Configuration_UX_Rescue.md` + `Team_And_Skill_Catalogs.md` + `docs/gui/GUI_Workflow.md` |
 | Team/skill catalogs, custom team + skill editing, `alln teams`, `alln skills`, lane-first Settings | `Team_And_Skill_Catalogs.md` + `Work_Order_Team_Model.md` |
 | Team lineup edit, customize/new/duplicate team, worker rows referencing SkillID | `Team_And_Skill_Catalogs.md` first, then `CLI_Implementation_Contract.md` + `Fanout_Team_Catalog.md` |
@@ -194,8 +197,8 @@ Open questions:
 | iOS remote unread / mobile push | `ios/03_iOS_Thread_Read_State_And_Push.md` |
 | Mac token streaming / live worker output | `threads/03_Mac_Streaming.md` |
 | Source-labeled observed usage metadata | `threads/04_Observed_Usage.md` |
-| Utilization, admission control, worker availability, pending dispatch | `Utilization_Admission_Control.md` |
-| Pending, Away Mode, cooldown resume, Activity Summary, drain policy | `Pending_Work_And_Drain.md` + `Utilization_Admission_Control.md` + `Mac_Standalone_App_And_Background_Coordinator.md` |
+| Stalled work, stuck runs, overdue Pending, Project Manager nudges, retry/cancel/keep-waiting recovery | `Stalled_Work_Watchdog.md` |
+| Pending, Away Mode, cooldown resume, Activity Summary, drain policy | `Pending_Work_And_Drain.md` + `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Copy lane, `/copy`, copy type packs, copy board | `copy/README.md` |
 | iOS remote Project Manager | `ios/README.md` |
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |

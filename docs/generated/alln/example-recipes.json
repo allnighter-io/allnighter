@@ -17,7 +17,7 @@
   {
     "command" : "alln models --json",
     "id" : "models_json",
-    "title" : "List bench models"
+    "title" : "List model catalog and Bench state"
   },
   {
     "command" : "alln team show --json",

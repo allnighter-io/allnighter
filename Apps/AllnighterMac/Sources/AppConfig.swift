@@ -23,21 +23,7 @@ enum AppConfig {
     private static let minimumHeadlessDrivers = 4
 
     static func loadConfiguration() -> BundledConfiguration {
-        let bundleModels = loadModelsFromBundle()
         let bundleRegistry = loadRegistryFromBundle()
-
-        let models: [Model]
-        let modelsSource: ConfigurationSource
-        if let bundleModels, !bundleModels.isEmpty {
-            models = bundleModels
-            modelsSource = .bundleResources
-        } else if !DefaultConfig.models.isEmpty {
-            models = DefaultConfig.models
-            modelsSource = .embeddedDefaults
-        } else {
-            models = []
-            modelsSource = .embeddedDefaults
-        }
 
         let registry: DriverRegistry
         let registrySource: ConfigurationSource
@@ -51,6 +37,9 @@ enum AppConfig {
             registry = DriverRegistry()
             registrySource = .embeddedDefaults
         }
+
+        let models = ModelCatalog.resolvedModels(registry: registry)
+        let modelsSource: ConfigurationSource = models.isEmpty ? .embeddedDefaults : .bundleResources
 
         return BundledConfiguration(
             models: models,
