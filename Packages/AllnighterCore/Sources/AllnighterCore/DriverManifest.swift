@@ -130,6 +130,20 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         case stdin
     }
 
+    /// How a driver passes per-call effort as a flag (Claude `--effort medium`).
+    /// Drivers that encode effort in the model name (Antigravity) use the model's
+    /// `effortVariants` instead and carry no `effortFlag`. `nil` / absent = the
+    /// driver has no effort axis (Grok).
+    public struct EffortFlag: Codable, Sendable, Equatable {
+        public var flag: String
+        /// effort rawValue ("low"/"med"/"high") → the CLI's level token.
+        public var levels: [String: String]
+        public init(flag: String, levels: [String: String]) {
+            self.flag = flag
+            self.levels = levels
+        }
+    }
+
     public struct Invoke: Codable, Sendable, Equatable {
         public var command: String
         public var args: [String]
@@ -138,6 +152,8 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         /// MVP: `nil` (no repo). Growth seam: the lane worktree path.
         public var workingDir: String?
         public var timeoutSeconds: Int
+        /// Per-call effort flag (Claude `--effort`). Absent → no effort flag.
+        public var effortFlag: EffortFlag?
 
         public init(
             command: String,
@@ -145,7 +161,8 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
             promptVia: PromptVia = .arg,
             env: [String: String] = [:],
             workingDir: String? = nil,
-            timeoutSeconds: Int = 240
+            timeoutSeconds: Int = 240,
+            effortFlag: EffortFlag? = nil
         ) {
             self.command = command
             self.args = args
@@ -153,6 +170,7 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
             self.env = env
             self.workingDir = workingDir
             self.timeoutSeconds = timeoutSeconds
+            self.effortFlag = effortFlag
         }
     }
 
@@ -205,12 +223,15 @@ public extension DriverManifest {
         public var model: String
         public var workingDir: String?
         public var outputFile: String?
+        /// The run's effort — applied as a flag for drivers with `effortFlag`.
+        public var effort: EffortLevel
 
-        public init(prompt: String, model: String, workingDir: String? = nil, outputFile: String? = nil) {
+        public init(prompt: String, model: String, workingDir: String? = nil, outputFile: String? = nil, effort: EffortLevel = .med) {
             self.prompt = prompt
             self.model = model
             self.workingDir = workingDir
             self.outputFile = outputFile
+            self.effort = effort
         }
     }
 
@@ -220,7 +241,14 @@ public extension DriverManifest {
     /// prompt, so prompt content cannot inject additional arguments or commands.
     func resolvedArgs(_ ctx: ResolveContext) -> [String] {
         guard let invoke else { return [] }
-        return invoke.args.map { resolveStandaloneToken($0, ctx) }
+        var args = invoke.args.map { resolveStandaloneToken($0, ctx) }
+        // Append the per-call effort flag when this driver supports one and has a
+        // mapping for the run's effort (Claude `--effort medium`). Drivers without
+        // an effortFlag (Grok, or Antigravity which uses model variants) add nothing.
+        if let ef = invoke.effortFlag, let level = ef.levels[ctx.effort.rawValue] {
+            args += [ef.flag, level]
+        }
+        return args
     }
 
     /// The argv element that should be fed via stdin when `promptVia == .stdin`,

@@ -1,8 +1,16 @@
 [
-  { "id": "model_chatgpt", "displayName": "ChatGPT 5.5", "modelLabel": "gpt-5.5", "driverId": "codex", "role": "answerer", "enabled": true },
   { "id": "model_opus", "displayName": "Opus 4.8", "modelLabel": "opus", "driverId": "claude_code", "role": "both", "enabled": true },
   { "id": "model_sonnet", "displayName": "Sonnet 4.6", "modelLabel": "sonnet", "driverId": "claude_code", "role": "answerer", "enabled": true },
-  { "id": "model_composer", "displayName": "Composer 2.5", "modelLabel": "grok-composer-2.5-fast", "driverId": "grok", "role": "answerer", "enabled": true },
-  { "id": "model_gemini", "displayName": "Gemini (Antigravity)", "modelLabel": "Gemini 3.5 Flash (Medium)", "driverId": "antigravity", "role": "answerer", "enabled": true },
-  { "id": "model_grok", "displayName": "Grok Build", "modelLabel": "grok-build", "driverId": "grok", "role": "answerer", "enabled": true }
+  { "id": "model_fable", "displayName": "Fable 5", "modelLabel": "fable", "driverId": "claude_code", "role": "answerer", "enabled": false },
+  { "id": "model_chatgpt", "displayName": "ChatGPT 5.5", "modelLabel": "gpt-5.5", "driverId": "codex", "role": "answerer", "enabled": true },
+  { "id": "model_chatgpt_54", "displayName": "ChatGPT 5.4", "modelLabel": "gpt-5.4", "driverId": "codex", "role": "answerer", "enabled": false },
+  { "id": "model_chatgpt_54_mini", "displayName": "ChatGPT 5.4 mini", "modelLabel": "gpt-5.4-mini", "driverId": "codex", "role": "answerer", "enabled": false },
+  { "id": "model_codex_spark", "displayName": "Codex Spark", "modelLabel": "gpt-5.3-codex-spark", "driverId": "codex", "role": "answerer", "enabled": false },
+  { "id": "model_grok", "displayName": "Grok Build", "modelLabel": "grok-build", "driverId": "grok", "role": "answerer", "enabled": true },
+  { "id": "model_composer", "displayName": "Grok Composer 2.5 Fast", "modelLabel": "grok-composer-2.5-fast", "driverId": "grok", "role": "answerer", "enabled": false },
+  { "id": "model_gemini", "displayName": "Gemini 3.5 Flash", "modelLabel": "Gemini 3.5 Flash (Medium)", "driverId": "antigravity", "role": "answerer", "enabled": true },
+  { "id": "model_gemini_pro", "displayName": "Gemini 3.1 Pro", "modelLabel": "Gemini 3.1 Pro (High)", "driverId": "antigravity", "role": "answerer", "enabled": false },
+  { "id": "model_agy_sonnet", "displayName": "Claude Sonnet 4.6", "modelLabel": "Claude Sonnet 4.6 (Thinking)", "driverId": "antigravity", "role": "answerer", "enabled": false },
+  { "id": "model_agy_opus", "displayName": "Claude Opus 4.6", "modelLabel": "Claude Opus 4.6 (Thinking)", "driverId": "antigravity", "role": "both", "enabled": false },
+  { "id": "model_agy_gptoss", "displayName": "GPT-OSS 120B", "modelLabel": "GPT-OSS 120B (Medium)", "driverId": "antigravity", "role": "answerer", "enabled": false }
 ]

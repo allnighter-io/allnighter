@@ -18,6 +18,10 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
     public var origin: ModelOrigin
     public var defaultEnabled: Bool
     public var capabilities: ModelCapabilities
+    /// Per-effort model label overrides for CLIs that encode effort IN the model
+    /// name (Antigravity, e.g. low → "Gemini 3.5 Flash (Low)"). nil = the model
+    /// label is constant and effort (if any) is applied as a driver flag instead.
+    public var effortVariants: [EffortLevel: String]?
     public var createdAt: Date?
     public var updatedAt: Date?
 
@@ -30,6 +34,7 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         origin: ModelOrigin,
         defaultEnabled: Bool,
         capabilities: ModelCapabilities,
+        effortVariants: [EffortLevel: String]? = nil,
         createdAt: Date? = nil,
         updatedAt: Date? = nil
     ) {
@@ -41,6 +46,7 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         self.origin = origin
         self.defaultEnabled = defaultEnabled
         self.capabilities = capabilities
+        self.effortVariants = effortVariants
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

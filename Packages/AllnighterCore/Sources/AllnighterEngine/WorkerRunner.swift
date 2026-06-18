@@ -47,6 +47,7 @@ public struct WorkerRunner: Sendable {
         worker: Model,
         manifest: DriverManifest,
         prompt: String,
+        effort: EffortLevel = .med,
         workingDirectoryOverride: String? = nil,
         timeoutOverride: Duration? = nil
     ) async -> WorkerRunOutcome {
@@ -75,9 +76,10 @@ public struct WorkerRunner: Sendable {
         let spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()
         let context = DriverManifest.ResolveContext(
             prompt: prompt,
-            model: worker.modelLabel,
+            model: worker.resolvedLabel(at: effort),
             workingDir: workingDir,
-            outputFile: outputFileURL?.path
+            outputFile: outputFileURL?.path,
+            effort: effort
         )
         let args = manifest.resolvedArgs(context)
         let stdin = manifest.stdinPrompt(context)
@@ -171,9 +173,10 @@ public struct WorkerRunner: Sendable {
         assignment: Worker,
         model: Model,
         manifest: DriverManifest,
-        prompt: String
+        prompt: String,
+        effort: EffortLevel = .med
     ) async -> WorkerAnswer {
-        let outcome = await invoke(worker: model, manifest: manifest, prompt: prompt)
+        let outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort)
         return WorkerAnswer(
             workerId: assignment.id,
             modelId: model.id,

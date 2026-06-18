@@ -54,7 +54,7 @@ final class ModelCatalogCLITests: XCTestCase {
     func testDriverFilter() throws {
         let list = ModelsCLI.modelListJSON(runtime: runtime(), driverId: "claude_code")
         XCTAssertTrue(list.models.allSatisfy { $0.driverId == "claude_code" })
-        XCTAssertEqual(list.models.count, 2)
+        XCTAssertEqual(list.models.count, 3)   // opus, sonnet, fable
     }
 
     func testBenchFilterExcludesDisabled() throws {

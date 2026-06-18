@@ -62,7 +62,7 @@ public actor CatalogRunCoordinator {
         persist?(run) // durable state before any worker executes
 
         // Stage 1 — answer workers, blind and parallel.
-        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: prompt, modelByID: modelByID, runId: run.id)
+        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -70,7 +70,7 @@ public actor CatalogRunCoordinator {
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
             let reviewPrompt = prompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
-            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, modelByID: modelByID, runId: run.id)
+            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -99,7 +99,7 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Stages
 
-    private func runWorkers(_ workers: [Worker], prompt: String, modelByID: [String: Model], runId: String) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
+    private func runWorkers(_ workers: [Worker], prompt: String, effort: EffortLevel, modelByID: [String: Model], runId: String) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
         for worker in workers {
             emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
@@ -121,7 +121,7 @@ public actor CatalogRunCoordinator {
                         return WorkerAnswer(workerId: worker.id, modelId: worker.modelId, status: .failed,
                                             errorKind: .missingCLI, errorReason: "no driver manifest for \(model.driverId)")
                     }
-                    return await runner.run(assignment: worker, model: model, manifest: manifest, prompt: workerPrompt)
+                    return await runner.run(assignment: worker, model: model, manifest: manifest, prompt: workerPrompt, effort: effort)
                 }
             }
             var collected: [WorkerAnswer] = []
@@ -151,7 +151,7 @@ public actor CatalogRunCoordinator {
             return fail("plan/output writer model unavailable")
         }
         let writerPrompt = SkillCatalog.assemblePrompt(skillId: writer.skillId, founderPrompt: writerInput(resolved: resolved, run: run))
-        let outcome = await workerRunner.invoke(worker: model, manifest: manifest, prompt: writerPrompt)
+        let outcome = await workerRunner.invoke(worker: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort)
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }

@@ -33,13 +33,33 @@ public enum ModelCatalog {
     ]
 
     public static var builtIns: [ModelDefinition] {
-        [
+        // Antigravity encodes effort IN the model name, and variant availability is
+        // per-model (3.1 Pro has no Medium → route med to High; the Claude/GPT-OSS
+        // routes expose a single variant). Recognized from live `agy` switcher.
+        let flashVariants: [EffortLevel: String] = [
+            .low: "Gemini 3.5 Flash (Low)", .med: "Gemini 3.5 Flash (Medium)", .high: "Gemini 3.5 Flash (High)"]
+        let proVariants: [EffortLevel: String] = [
+            .low: "Gemini 3.1 Pro (Low)", .med: "Gemini 3.1 Pro (High)", .high: "Gemini 3.1 Pro (High)"]
+        func fixed(_ s: String) -> [EffortLevel: String] { [.low: s, .med: s, .high: s] }
+        return [
+            // Claude Code — effort via the `--effort` flag (see DefaultConfig manifest).
             def("model_opus", "Opus 4.8", "opus", "claude_code", .both, defaultEnabled: true),
             def("model_sonnet", "Sonnet 4.6", "sonnet", "claude_code", .answerer, defaultEnabled: true),
+            def("model_fable", "Fable 5", "fable", "claude_code", .answerer, defaultEnabled: false),
+            // Codex — recognized from `codex debug models` (visibility == list).
             def("model_chatgpt", "ChatGPT 5.5", "gpt-5.5", "codex", .answerer, defaultEnabled: true),
-            def("model_composer", "Composer 2.5", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: true),
+            def("model_chatgpt_54", "ChatGPT 5.4", "gpt-5.4", "codex", .answerer, defaultEnabled: false),
+            def("model_chatgpt_54_mini", "ChatGPT 5.4 mini", "gpt-5.4-mini", "codex", .answerer, defaultEnabled: false),
+            def("model_codex_spark", "Codex Spark", "gpt-5.3-codex-spark", "codex", .answerer, defaultEnabled: false),
+            // Grok — recognized from `grok models` (no effort axis).
             def("model_grok", "Grok Build", "grok-build", "grok", .answerer, defaultEnabled: true),
-            def("model_gemini", "Gemini (Antigravity)", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true),
+            def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
+            // Antigravity — a multi-model router; effort is encoded in the model name.
+            def("model_gemini", "Gemini 3.5 Flash", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),
+            def("model_gemini_pro", "Gemini 3.1 Pro", "Gemini 3.1 Pro (High)", "antigravity", .answerer, defaultEnabled: false, effortVariants: proVariants),
+            def("model_agy_sonnet", "Claude Sonnet 4.6", "Claude Sonnet 4.6 (Thinking)", "antigravity", .answerer, defaultEnabled: false, effortVariants: fixed("Claude Sonnet 4.6 (Thinking)")),
+            def("model_agy_opus", "Claude Opus 4.6", "Claude Opus 4.6 (Thinking)", "antigravity", .both, defaultEnabled: false, effortVariants: fixed("Claude Opus 4.6 (Thinking)")),
+            def("model_agy_gptoss", "GPT-OSS 120B", "GPT-OSS 120B (Medium)", "antigravity", .answerer, defaultEnabled: false, effortVariants: fixed("GPT-OSS 120B (Medium)")),
         ]
     }
 
@@ -246,12 +266,13 @@ public enum ModelCatalog {
 
     private static func def(
         _ id: String, _ name: String, _ label: String, _ driver: String, _ role: ModelRole,
-        defaultEnabled: Bool
+        defaultEnabled: Bool, effortVariants: [EffortLevel: String]? = nil
     ) -> ModelDefinition {
         ModelDefinition(
             id: id, displayName: name, modelLabel: label, driverId: driver, role: role,
             origin: .builtIn, defaultEnabled: defaultEnabled,
-            capabilities: builtInCapabilities[id] ?? ModelCapabilities())
+            capabilities: builtInCapabilities[id] ?? ModelCapabilities(),
+            effortVariants: effortVariants)
     }
 
     private static func mergedDefinitions() -> [ModelDefinition] {
@@ -284,7 +305,8 @@ public enum ModelCatalog {
                     modelLabel: def.modelLabel,
                     driverId: def.driverId,
                     role: def.role,
-                    enabled: enabled[def.id] ?? def.defaultEnabled)
+                    enabled: enabled[def.id] ?? def.defaultEnabled,
+                    effortVariants: def.effortVariants)
             }
     }
 
@@ -333,7 +355,13 @@ public enum ModelCatalog {
     }
 
     private static func fallbackCapabilities(driverId: String) -> ModelCapabilities {
-        list(driverId: driverId).first { $0.origin == .builtIn }?.capabilities ?? ModelCapabilities()
+        // Inherit the RICHEST built-in's capabilities (most tags), not the
+        // alphabetically-first — so adding a capability-less model to a driver never
+        // strips inheritance for that driver's custom models.
+        list(driverId: driverId)
+            .filter { $0.origin == .builtIn }
+            .max { $0.capabilities.capabilityTags.count < $1.capabilities.capabilityTags.count }?
+            .capabilities ?? ModelCapabilities()
     }
 }
 
