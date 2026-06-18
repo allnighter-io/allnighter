@@ -49,11 +49,61 @@ public struct GitObserver: Sendable {
         return RootNormalization.normalize(top).key
     }
 
+    /// Dirty files as normalized, **root-relative** paths (observed via
+    /// `status --porcelain`). Renames report the destination path. Empty when the
+    /// tree is clean or `rootPath` is not a git repo top level. Used by the PRJ-S06
+    /// dirty-overlap dispatch gate — never mutates the tree.
+    public func dirtyFiles(rootPath: String) -> [String] {
+        // `-uall` lists every untracked file individually instead of collapsing a
+        // new directory to one entry — overlap matching needs per-file paths.
+        // Preserve leading whitespace: porcelain's first status column is a space
+        // for unstaged-only changes (` M file`), and a blob trim would eat it.
+        guard let porcelain = runGitRaw(["status", "--porcelain", "-uall"], cwd: rootPath),
+              !porcelain.isEmpty else { return [] }
+        return porcelain.split(separator: "\n").compactMap { line in
+            // Porcelain v1: `XY <path>` or `XY <orig> -> <dest>` (rename/copy). XY is
+            // exactly 2 status columns followed by one space.
+            let entry = String(line)
+            guard entry.count > 3 else { return nil }
+            var path = String(entry.dropFirst(3))   // drop the 2 status chars + the space
+            if let arrow = path.range(of: " -> ") { path = String(path[arrow.upperBound...]) }
+            // Porcelain quotes paths with unusual chars; strip the surrounding quotes.
+            if path.hasPrefix("\"") && path.hasSuffix("\"") && path.count >= 2 {
+                path = String(path.dropFirst().dropLast())
+            }
+            let trimmed = path.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+    }
+
     /// Recent commits as `<short-sha> <subject>` lines (newest first), observed.
     /// Empty when not a git repo or the repo has no commits.
     public func recentCommits(rootPath: String, limit: Int = 5) -> [String] {
         guard let out = runGit(["log", "-\(max(1, limit))", "--pretty=%h %s"], cwd: rootPath) else { return [] }
         return out.split(separator: "\n").map(String.init)
+    }
+
+    /// Run a read-only git command, returning raw stdout with only the trailing
+    /// newline removed (leading whitespace preserved — porcelain status columns
+    /// depend on it). `nil` on launch failure / non-zero exit.
+    private func runGitRaw(_ args: [String], cwd: String) -> String? {
+        guard let git = SubprocessCommandRunner.resolveExecutable("git", env: ProcessInfo.processInfo.environment) else {
+            return nil
+        }
+        let process = Process()
+        process.executableURL = git
+        process.arguments = ["-C", cwd] + args
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = Pipe()
+        process.standardInput = FileHandle.nullDevice
+        do { try process.run() } catch { return nil }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return nil }
+        var text = String(decoding: data, as: UTF8.self)
+        while text.hasSuffix("\n") || text.hasSuffix("\r") { text.removeLast() }
+        return text
     }
 
     /// Run a read-only git command synchronously. Returns trimmed stdout, or `nil`

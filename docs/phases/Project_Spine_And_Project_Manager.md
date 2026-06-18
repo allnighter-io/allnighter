@@ -1217,9 +1217,14 @@ iOS:
   `interactiveRequired`, `unsafeToProbe`, `blocked`, `unknown`); add the
   additive driver-manifest `projectProbe` declaration; no auto-config or
   auto-authorization.
-- [ ] PRJ-S06 - Project-scoped send/execute: route worker invocation,
-  attachment staging, proof command roots, dirty-file checks, and readiness
-  gates through Project root instead of ad hoc `workingDir`.
+- [x] PRJ-S06 - Project-scoped send/execute (Core DONE 2026-06-18; call-site
+  rewiring through TeamRunCoordinator/WorkerRunner lands with dispatch in S11,
+  where execute-lane safety lives): deterministic `ProjectExecutionResolver`
+  derives worker cwd / proof cwd / attachment mirror from one Project root, and
+  the pure `ProjectDispatchGateEvaluator` blocks scope-overlapping dirt until
+  acknowledged, treats out-of-scope dirt as warnings, requires acknowledging the
+  whole dirty tree when no scope is declared, and blocks all mutating dispatch on
+  a missing root. Added `GitObserver.dirtyFiles` (root-relative) — read-only.
 - [ ] PRJ-S07 - CLI Project foundation: `alln project list/add/show/archive/
   threads/context/pending/workers/recheck-workers` plus JSON fixtures,
   generated schemas, and contract docs.
