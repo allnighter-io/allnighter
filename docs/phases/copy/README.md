@@ -26,9 +26,6 @@ Prompt
 Team
 [ Landing Page Team ]
 
-Effort
-[ Low ] [ Med ] [ High ]
-
 Run copy board
 ```
 
@@ -78,7 +75,7 @@ Worker = model + skill for this run
 Team   = the worker lineup for this work order
 Lane   = Copy
 Type   = Landing page, Email, Ads, UGC, ...
-Effort = Low / Med / High
+Reasoning effort = optional provider/model reasoning-depth setting
 ```
 
 Read `docs/phases/Work_Order_Team_Model.md` before designing Copy team controls.
@@ -86,17 +83,16 @@ Read `docs/phases/Work_Order_Team_Model.md` before designing Copy team controls.
 ## UX Laws
 
 - **One prompt is the only required input.**
-- **The user chooses the kind of work and the amount of effort. Allnighter chooses
-  the default team.**
+- **The user chooses the kind of work. Allnighter chooses the default team.**
 - **Default team first; custom team second.** Prompt-only runs use the lane/type's
   default lineup. Advanced users can customize workers one level deeper as
   `Skill | Model` rows.
 - **Copy type is routing metadata, not paperwork.** In the Fan out composer,
   Copy type packs materialize as Copy teams. CLI/slash compatibility may still
   accept type and resolve it to the default team for that type.
-- **Effort is an instruction, not a forecast.** It may change how many versions,
-  review passes, or research steps run. It must not imply predicted runtime, cost,
-  quota burn, or difficulty.
+- **Team owns depth.** If the run should create more versions, add stronger
+  review, or include research, make that a different Copy team/deployable job.
+  Do not hide it behind a generic effort toggle.
 - **No intake-form tax.** Optional context appears as lightweight chips or
   attachments. MVP chips are draft, customer, proof, and brand voice; URL/source
   chips wait until source capture exists.
@@ -118,7 +114,7 @@ MVP (`00`):
 
 - `/copy landing`;
 - prompt-only required input;
-- Low / Med / High effort;
+- default landing-page team;
 - default landing-page team, with later customization through shared team controls;
 - copy board with distinct landing-page strategies;
 - deterministic copy pack after pick;
@@ -151,8 +147,8 @@ Avoid:
 
 ## Docs
 
-- **[00_Copy_MVP.md](00_Copy_MVP.md)** - thin first slice: `/copy landing`, prompt
-  first, effort, copy board, pick, copy pack.
+- **[00_Copy_MVP.md](00_Copy_MVP.md)** - thin first slice: `/copy landing`,
+  prompt first, Copy team, copy board, pick, copy pack.
 - **[02_Copy_Apply_To_Site.md](02_Copy_Apply_To_Site.md)** - fast-follow loop
   closer: picked copy -> Build edits selected site files.
 - **[01_Copy_Roadmap.md](01_Copy_Roadmap.md)** - the full copy lane: more copy
@@ -165,7 +161,7 @@ Avoid:
 | Entry | `Build / Design / Copy`, `/copy`, hotkeys | iOS remote start, saved defaults, recent copy types |
 | Required input | Prompt only | Prompt only |
 | Copy team/type | `Landing Page Team` quality-gated first; `landing-page` type may route to it in CLI/slash paths | Email funnel, ads, UGC, lead magnet, newsletter, app store, SEO/blog, sales page teams |
-| Effort | Low / Med / High | Per-team effort maps, saved user defaults |
+| Depth | Team/deployable choice | More Copy team variants, saved user defaults |
 | Output | Copy board + deterministic picked copy pack | Apply-to-site handoff, channel exports, campaign pack |
 | Research | No public-web research in C0 | Source browser, competitor sets, customer-language library |
 | Memory | Log pick/rejection in the run | House voice, banned claims, audience memory, copy scorecards |
@@ -175,7 +171,6 @@ Avoid:
 ```text
 /copy landing
 -> prompt
--> effort
 -> copy board with several distinct versions
 -> user picks one
 -> Allnighter writes a copy pack
@@ -188,7 +183,7 @@ Read in order:
 1. `docs/phases/copy/README.md`
 2. `docs/phases/copy/00_Copy_MVP.md`
 3. `docs/phases/Work_Order_Team_Model.md` - model/skill/worker/team vocabulary
-4. `docs/phases/Utilization_Admission_Control.md` - Effort and admission rules
+4. `docs/phases/parked/Utilization_Admission_Control.md` - parked admission rules
 5. `docs/mvp/README.md` - built team-run/design-board substrate
 6. `docs/phases/copy/02_Copy_Apply_To_Site.md` for the fast-follow handoff
 7. `docs/phases/copy/01_Copy_Roadmap.md` for anything beyond the first slice

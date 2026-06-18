@@ -3,12 +3,14 @@
 Status: Strategy draft, companion to Public Signal Wedge
 Owner: Founder + product strategy
 Created: 2026-06-18
-Purpose: Define Deploy Teams as the missing product layer between Teams/Skills
-and the user's daily value, without prescribing a specific interface.
+Purpose: Define Deploy Teams as the missing CLI/MCP-first product layer between
+Teams/Skills and the user's daily value. GUI presents this contract; it must not
+invent a parallel product model.
 
 ## One-Sentence Version
 
-Allnighter lets users deploy agent teams to do useful jobs for a Project.
+Allnighter lets users deploy agent teams to make evidence-backed moves for a
+Project.
 
 ## Executive Summary
 
@@ -31,7 +33,7 @@ Find what I should build next.
 ```
 
 The product layer we are missing is a first-class way to discover, deploy, save,
-repeat, and expose these team jobs to agents.
+repeat, and expose these team jobs to agents through CLI/MCP.
 
 Public framing:
 
@@ -40,7 +42,7 @@ Deploy a Team
 ```
 
 Internal/implementation framing may still use a neutral term such as Workflow
-where helpful:
+where helpful, but only as plumbing:
 
 ```text
 Workflow = prompt + team + expected output
@@ -48,6 +50,14 @@ Workflow = prompt + team + expected output
 
 But public product language should lead with Deploy Teams. It sounds active,
 agentic, and native to Allnighter. "Workflow" sounds like Zapier forms.
+
+Sharper public spine:
+
+```text
+Deploy a team.
+Get a move.
+Keep the receipt.
+```
 
 ## Core Definition
 
@@ -68,6 +78,7 @@ Deployable Team Job
   lane affinity: signal | build | design | copy | review | project-manager
   expected output
   next actions
+  proof bar / receipt expectation
   requirements
 ```
 
@@ -80,6 +91,24 @@ Deploy the team.
 ```
 
 The danger is turning Deploy Teams into automation forms. Do not do that.
+
+## CLI / MCP First
+
+Deploy Teams is a contract before it is a view.
+
+Order of truth:
+
+```text
+Core contract
+-> alln CLI
+-> MCP tools
+-> generated agent docs/help
+-> Mac/iOS presenters
+```
+
+GUI may browse, filter, launch, and render deployable team jobs. It must not own
+hidden behavior, client-only jobs, scheduler-only semantics, or output schemas
+that CLI/MCP cannot produce.
 
 ## Deploy Teams Are Not Forms
 
@@ -108,6 +137,71 @@ The Project Manager gathers missing context only when needed.
 ```
 
 This keeps Deploy Teams feeling like superpowers, not software setup.
+
+## Deploy Teams Are Not Templates
+
+A static saved prompt is not a moat.
+
+Deployable team jobs should compound through Project judgment:
+
+- what the user picked;
+- what the user ignored;
+- what the user edited;
+- what became Copy, Fanout, Build, Design, or Pending;
+- what shipped;
+- what passed proof;
+- what produced a useful Receipt;
+- what the user marked as noise.
+
+The goal is not:
+
+```text
+I saved a prompt.
+```
+
+The goal is:
+
+```text
+My Project team is getting better at knowing which moves I make.
+```
+
+Accumulated judgment belongs primarily to the Project, not only to an individual
+deployable job. A Reply Window run should improve future Founder Thread,
+Receipts Loop, and Hype Decay judgments for the same Project.
+
+## Moves, Receipts, And Timing
+
+Deployments should return structured artifacts, not walls of text.
+
+Definitions:
+
+```text
+Move    = recommended action the Project can take now.
+Receipt = evidence/proof artifact that makes a move defensible.
+Window  = timing status for time-sensitive moves: open | closing | closed.
+```
+
+Every serious Move Card should answer:
+
+- what happened;
+- why it matters;
+- why this is the user's move;
+- whether the window is open, closing, or closed;
+- what evidence supports it;
+- what the next deployable action is;
+- what would count as proof or a receipt.
+
+No move is a valid result. A trustworthy deployment may say:
+
+```text
+No move today. The signals are saturated, stale, or not yours to make.
+```
+
+That is not failure. It is anti-slop.
+
+For time-sensitive Signal jobs, freshness is correctness. A Reply Window that is
+stale is worse than silence. If the product cannot verify freshness, the Move
+should render as uncertain or refuse to recommend action.
 
 ## Why Deploy Teams Matters
 
@@ -155,6 +249,34 @@ Project Manager decides what matters.
 Deployable team jobs are reusable things the team can do.
 Teams are how the job gets done.
 Skills are worker expertise.
+```
+
+## Teams Own Work Shape
+
+Do not add a generic deploy-time Low/Med/High knob that secretly changes worker
+count, review posture, output shape, or research depth.
+
+If the shape is different, make it a different Team:
+
+```text
+Bug Hunt Lite
+Bug Hunt
+Bug Hunt Exterminator
+Landing Page Team
+Landing Page Conversion Team
+Signal Reply Window
+Signal Receipts Loop
+```
+
+Reasoning effort may exist only as model/provider configuration for workers that
+support it. It is not the public Deploy Teams control.
+
+This keeps the product simple:
+
+```text
+Pick the team.
+Add context if needed.
+Deploy.
 ```
 
 ## Product Claim
@@ -240,9 +362,9 @@ ask only the missing questions.
 ## Agent-First Unlock
 
 This is where Allnighter can avoid competing with OpenClaw, Hermes, cron agents,
-or other schedulers.
+or other loop owners.
 
-Allnighter does not need to own every schedule in v1.
+Allnighter should not own scheduling/run loops in v1.
 
 It needs to expose great deployable team jobs.
 
@@ -251,6 +373,7 @@ Agent-first contract, product language:
 ```text
 team_deployable_list
 team_deployable_get
+team_deployable_preflight
 team_deploy
 team_deploy_pending
 team_deploy_result
@@ -261,6 +384,7 @@ CLI shape, product language:
 ```text
 alln team deployables --json
 alln team deployable show <id> --json
+alln team deployable preflight <id> --project <project> [prompt] --json
 alln team deploy <id> --project <project> [prompt] --json
 alln team deploy-pending <id> --project <project> [prompt] --json
 ```
@@ -268,7 +392,7 @@ alln team deploy-pending <id> --project <project> [prompt] --json
 If implementation keeps a lower-level `workflow_*` registry internally, it must
 project to Deploy Teams publicly.
 
-Then an external scheduler can say:
+Then an external agent can own the loop and call Allnighter:
 
 ```text
 Every morning, deploy Daily X Pulse for Project Allnighter.
@@ -277,7 +401,7 @@ When a watched account posts, deploy Preloaded Response Kit.
 ```
 
 Allnighter becomes the best place to define and execute deployable team jobs.
-Other agents can schedule or trigger them.
+Other agents can schedule, monitor, or trigger them.
 
 ## Project-Scoped By Default
 
@@ -404,24 +528,25 @@ Copy deployments:
 The current Teams already imply many of these. Deploy Teams makes them findable
 and repeatable.
 
-## Scheduling Without Owning Scheduling
+## External Loops, Not Native Scheduling
 
-Scheduled team deployments are important, but Allnighter does not have to build
-the whole scheduler first.
+Scheduled or repeated deployments are important, but Allnighter should not build
+the loop owner first.
 
 V1 posture:
 
 ```text
 Allnighter defines and runs deployable team jobs.
-Project-scoped Pending can hold team deployments.
-MCP/CLI lets external agents schedule or trigger them.
+Project-scoped Pending can hold deferred team deployments.
+MCP/CLI lets external agents schedule, monitor, and trigger them.
 ```
 
 This makes Allnighter agent-first and avoids competing with OpenClaw/Hermes as
 automation hosts.
 
-Later Allnighter can add native scheduling if demand proves it, but the product
-does not need to wait.
+Native scheduling is explicitly later and not required for the wedge. If it ever
+ships, it must be a thin projection over the same Project-scoped CLI/MCP
+contract, not a second automation product.
 
 ## Why This 10x's Allnighter
 
@@ -491,6 +616,9 @@ awkward code names, but public copy should say Deploy Teams.
   Skills, Runs, and Pending.
 - Do not create client-only deployable jobs that CLI/MCP cannot run.
 - Do not make scheduling a prerequisite for value.
+- Do not build native scheduling/run loops before the CLI/MCP trigger contract
+  is strong.
+- Do not expose a generic deploy-time effort toggle that changes team shape.
 - Do not auto-post, auto-reply, or auto-dispatch mutating work without approval.
 - Do not hide the team/worker truth when a team deployment runs.
 - Do not let marketing claim model/data access Allnighter does not own.
@@ -500,8 +628,8 @@ awkward code names, but public copy should say Deploy Teams.
 These should be answered before implementation:
 
 - Should any public surface use "Workflow" at all, or should it be internal only?
-- What is the smallest deployable job contract: prompt + team only, or prompt +
-  team + output type?
+- What is the smallest deployable job contract: prompt + team + output type, or
+  prompt + team + output type + receipt expectation?
 - Should Chat and Deploy Teams be sibling entry concepts, or should deployment
   be suggested from Project Manager chat first?
 - How should a deployment ask follow-up questions without feeling slower than a
@@ -511,7 +639,7 @@ These should be answered before implementation:
 - How much Project context does a deployment include by default?
 - Should deployable team jobs be global reusable assets, Project-local assets,
   or both?
-- How should external MCP schedulers pass runtime context safely?
+- How should external MCP agents pass runtime context safely?
 - What is the minimal proof that Deploy Teams are discoverable enough before
   interface polish?
 
@@ -533,13 +661,16 @@ Ask mentors:
 
 ## Strong Recommendation
 
-Make Deploy Teams first-class, but keep the underlying package lightweight:
+Make Deploy Teams first-class, but keep the underlying package lightweight and
+CLI/MCP-first:
 
 ```text
-Deployable Team Job = prompt + team + expected output
+Deployable Team Job = prompt + team + expected output + next actions
 ```
 
-Everything else should be optional, conversational, or derived from the Project.
+Receipts, proof bars, timing status, and accumulated judgment are how the output
+becomes defensible and compounding. They should be structured artifacts, not
+extra setup forms.
 
 The first compelling deployable family should be Signal, because it makes the
 value obvious:
@@ -549,6 +680,7 @@ public signal
 -> deploy Signal Team
 -> team run
 -> move
+-> receipt / memory
 ```
 
 The aha:
@@ -557,4 +689,3 @@ The aha:
 Allnighter is not just a place to configure teams.
 It is a place to deploy powerful agent teams for my Projects.
 ```
-

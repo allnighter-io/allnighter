@@ -3,11 +3,43 @@
 Status: Backend BUILT — S00–S05 shipped (2026-06-16, branch `feat/design-chain`).
 Core lane-scoped `TeamPreset` + `SkillCatalog`/`ModelCatalog`/`TeamResolver`/
 `TeamRequestResolver`/`BuiltInTeams` (13 teams) + Engine `CatalogRunCoordinator`
-(answer→review→output staging) + CLI `--team`/`--lane`/`--effort`/`--type` +
+(answer→review→output staging) + CLI `--team`/`--lane`/legacy `--effort`/`--type` +
 `team teams` + `TeamRunJSON` upgrades. 278 Core/Engine tests + Mac build green;
 contracts regenerated. GUI composer/team-library (S05/S06) + iOS (S07) NOT built.
 Owner: Founder + Shared Core + Mac + iOS
 Updated: 2026-06-16
+
+## Forward Simplification
+
+This doc records built M1 substrate that used Low/Med/High `effort` to activate
+different worker rows. The forward Deploy Teams model supersedes that product
+control.
+
+New docs and new GUI/MCP surfaces must use:
+
+```text
+Lane -> Team -> Prompt -> Run
+```
+
+not:
+
+```text
+Lane -> Team -> Effort -> Prompt -> Run
+```
+
+Rules:
+
+- Team names/definitions own worker count, review posture, output shape, proof
+  bar, and research posture.
+- If depth changes, create/select a different Team, such as `Bug Hunt Lite`,
+  `Bug Hunt`, or `Bug Hunt Exterminator`.
+- Provider/model reasoning effort may exist only as a worker/model setting where
+  the selected source supports it.
+- GUI presents the Core/CLI/MCP contract. It must not keep a client-only effort
+  selector alive.
+- Existing `minEffort`, `effortPolicy`, and `synthesisPolicyByEffort` references
+  below are legacy M1 implementation detail to be collapsed or migrated during a
+  cleanup slice.
 
 ## Founder Intent
 
@@ -20,17 +52,17 @@ When the user chooses Fan out, Allnighter must show:
 Build / Design / Copy
 ```
 
-Then it must show a **team**, not a model. Users should be able to select from
-pre-built and custom teams in the composer:
+Then it must show a **team**, not a model or a second effort knob. Users should
+be able to select from pre-built and custom teams in the composer:
 
 ```text
-Fan out -> Build -> Bug Hunt -> High
-Fan out -> Design -> Premium Polish -> Med
-Fan out -> Copy -> Landing Page Team -> High
+Fan out -> Build -> Bug Hunt
+Fan out -> Design -> Premium Polish
+Fan out -> Copy -> Landing Page Team
 ```
 
 The hard part is not picking the team. The hard part is creating useful teams:
-worker skills, model bindings, default effort, output shape, and review posture.
+worker skills, model bindings, output shape, and review posture.
 Allnighter should do that hard part up front with excellent built-in teams, then
 let users duplicate and customize them.
 
@@ -49,7 +81,7 @@ better than one prompt.
 
 Custom teams are the 10x upgrade to fan-out:
 
-- The composer stays fast: pick lane, team, effort, send.
+- The composer stays fast: pick lane, team, send.
 - Users get immediate value from built-in specialist teams.
 - Power users can create reusable expert units: Bug Hunt, GUI Bug Hunt,
   Security Review, Premium Polish, Conversion Studio, Architecture Pressure Test.
@@ -69,7 +101,6 @@ open composer
 -> choose Fan out
 -> choose Build / Design / Copy
 -> choose a lane-scoped team
--> choose Low / Med / High
 -> run
 -> result truthfully shows workers, skills, models, failures, and plan/board
 ```
@@ -77,7 +108,7 @@ open composer
 The first implementation slice should prove:
 
 ```text
-one ready CLI -> Build -> Bug Hunt -> High -> multiple skill workers on one model
+one ready CLI -> Build -> Bug Hunt -> multiple skill workers on one model
 ```
 
 That slice proves the most important claim: Allnighter is valuable even before
@@ -110,12 +141,13 @@ Existing useful substrate:
 Current gaps:
 
 - `TeamPreset` is not lane-scoped.
-- Effort is not represented as a durable team-selection input.
+- Legacy effort is still represented in built M1 data and should be migrated to
+  named team variants or model reasoning settings.
 - Built-in Build and Design specialist teams are not defined as product packs.
 - The main composer does not expose Fan out lane/team selection.
 - Team customization is not separated cleanly into a settings/library surface.
-- CLI grammar accepts `--lane`, `--type`, and `--effort`, but `TeamRequest`
-  currently resolves only `presetId` as the run-shaping input.
+- CLI grammar accepts `--lane`, `--type`, and legacy `--effort`, but new
+  run-shaping input should be team id / deployable team id.
 - Team display can still over-emphasize models where it should show teams and
   workers.
 
@@ -128,7 +160,7 @@ These decisions close the mentor-review ambiguity before S00 starts.
 The canonical Fan out request is:
 
 ```text
-lane + teamPresetId + effort + prompt
+lane + teamPresetId + prompt
 ```
 
 `type` is not a primary Fan out selector. It survives as optional metadata and
@@ -140,9 +172,9 @@ If a request passes both `teamPresetId` and `type`, the type must match the
 team's `typeTags`. A conflicting pair is rejected before running; it must not
 silently choose a different team.
 
-### Canonical effort values
+### Legacy effort values
 
-The canonical machine values are:
+M1 shipped canonical machine values:
 
 ```text
 low
@@ -158,12 +190,10 @@ Med
 High
 ```
 
-Do not introduce `medium` as a fourth spelling. Do not emit
-`quick | standard | deep` in new JSON, CLI help, reproduce commands, fixtures, or
-generated docs. This is a hard pre-user contract cutover: implementation must
-change the registry first, regenerate artifacts, update fixtures, then patch
-runtime behavior. There is no public compatibility promise for old local
-development runs. The new public contract is `low | med | high`.
+Do not introduce `medium` as a fourth spelling if touching legacy artifacts.
+Forward Deploy Teams work should not expose this as a generic team-depth control.
+Move worker-count/depth differences into named Team variants and reserve
+reasoning effort for provider/model settings.
 
 ### Team and preset language
 
@@ -178,9 +208,9 @@ Preset = old public word, avoid in new UI
 CLI may keep `--preset` as a hidden/deprecated compatibility alias while new
 docs and generated help prefer `--team`.
 
-### Effort has schema homes
+### Legacy effort schema homes
 
-Effort is not prose. In v1 it has these enforceable homes:
+M1 effort is not prose. In built v1 it has these enforceable homes:
 
 - each worker row has `minEffort`;
 - each team has `effortPolicy`;
@@ -190,6 +220,10 @@ Effort is not prose. In v1 it has these enforceable homes:
 Deferred from v1: independent per-effort runtime estimates, quota estimates, and
 opaque "difficulty" scoring. Admission may cap or queue work, but effort never
 becomes a forecast.
+
+Forward cleanup should collapse `minEffort`, `effortPolicy`, and
+`synthesisPolicyByEffort` into named Team variants unless the setting maps
+strictly to provider/model reasoning effort.
 
 ### Skills are catalog assets
 
@@ -254,7 +288,7 @@ rank and capability defaults. Ties break by stable model id order.
 ### Self-fusion obeys admission
 
 Multiple workers on one ready model are allowed, but they do not bypass
-`docs/phases/Utilization_Admission_Control.md`.
+`docs/phases/parked/Utilization_Admission_Control.md`.
 
 Same-source workers may run concurrently only when the driver/admission layer
 allows it. Otherwise they queue visibly as workers waiting for the same model.
@@ -288,14 +322,14 @@ TeamRunJSON projection
 ```
 
 Mac, iOS, CLI, MCP, and local API render or invoke this truth. They do not invent
-lane/team/effort rules locally.
+lane/team rules locally.
 
 ## Lie-prone Layers
 
 | Layer | Possible lie | Required guardrail |
 | --- | --- | --- |
 | Prompt classifier | Infers "copy" means Copy lane | Never infer lane from prose for Fan out |
-| Composer UI | Shows one model for a team run | Fan out target displays lane + team + effort |
+| Composer UI | Shows one model for a team run | Fan out target displays lane + team |
 | Team picker | Offers illegal teams | Filter teams by selected lane |
 | Team resolver | Disables team when only one model is ready | Resolve multiple skill workers onto one ready model when allowed |
 | Results UI | Hides repeated model usage | Show worker rows as `Skill / Model`; model count and worker count are separate |
@@ -328,9 +362,9 @@ Chat resolves to one worker. Execute resolves to one executor. Fan out resolves
 to a team.
 
 ```text
-Chat    -> worker/model + optional effort
-Fan out -> lane + team + effort
-Execute -> executor + optional effort
+Chat    -> worker/model
+Fan out -> lane + team
+Execute -> executor
 ```
 
 Only Fan out shows Build / Design / Copy.
@@ -343,7 +377,6 @@ Composer is for dispatch:
 Fan out
 Build
 Bug Hunt
-High
 Run
 ```
 
@@ -352,7 +385,7 @@ Settings is for authoring:
 ```text
 Team name
 Lane
-Default effort
+Legacy default effort (M1 only)
 Workers:
   Skill
   Model policy
@@ -445,9 +478,9 @@ from:
 Never imply repeated workers are unique models. The honest value is perspective,
 not fake vendor diversity.
 
-### 7. Effort is Low / Med / High
+### 7. Legacy effort is Low / Med / High
 
-Use industry-familiar labels:
+M1 used industry-familiar labels:
 
 ```text
 Low
@@ -457,7 +490,7 @@ High
 
 Do not use Quick / Standard / Deep in new composer UI.
 
-Effort is a bundle. For a team it may affect:
+Legacy effort is a bundle. For a team it may affect:
 
 - number of workers activated;
 - synthesis/review stage policy;
@@ -465,8 +498,10 @@ Effort is a bundle. For a team it may affect:
 - output count, where lane-specific;
 - whether fallback workers are allowed.
 
-In v1, those effects must be expressed through `minEffort`, `effortPolicy`, and
-`synthesisPolicyByEffort`. Do not add UI-only effort behavior.
+In the built M1 substrate, those effects are expressed through `minEffort`,
+`effortPolicy`, and `synthesisPolicyByEffort`. Do not add UI-only effort
+behavior. Forward Deploy Teams should replace this user-facing selector with
+named Team variants.
 
 Effort is not an estimate of runtime, quota, cost, or complexity.
 
@@ -748,21 +783,21 @@ One-model example:
 `reproduceCommand` replays intent:
 
 ```text
-alln team --lane build --team build_bug_hunt --effort high "..."
+alln team --lane build --team build_bug_hunt "..."
 ```
 
 The run snapshot is the exact historical record of the models/skills that
 actually ran. If the bench changes later, replaying the command may resolve a
-different concrete model set while preserving the same lane/team/effort intent.
+different concrete model set while preserving the same lane/team intent.
 
 ## Composer Contract
 
 Collapsed composer mode:
 
 ```text
-[ Chat v ] [ Opus 4.8 / Med v ] [ Send ]
-[ Fan out v ] [ Build ] [ Bug Hunt / High v ] [ Run team ]
-[ Execute v ] [ Codex / Med v ] [ Execute ]
+[ Chat v ] [ Opus 4.8 v ] [ Send ]
+[ Fan out v ] [ Build ] [ Bug Hunt v ] [ Run team ]
+[ Execute v ] [ Codex v ] [ Execute ]
 ```
 
 Fan out surface:
@@ -774,7 +809,7 @@ Lane:
 [ Build ] [ Design ] [ Copy ]
 
 Team:
-[ Bug Hunt / High v ]
+[ Bug Hunt v ]
 
 Prompt:
 [ ... ]
@@ -787,15 +822,13 @@ Team picker popover:
 ```text
 Build teams
 
-* Build Core          Med   Default
-  Bug Hunt            High
-  GUI Bug Hunt        High
-  Security Review     High
-  Architecture Test   Med
-  Release Proof       High
-
-Effort
-[ Low ] [ Med ] [ High ]
+* Build Core          Default
+  Bug Hunt
+  Bug Hunt Exterminator
+  GUI Bug Hunt
+  Security Review
+  Architecture Test
+  Release Proof
 
 Customize teams...
 ```
@@ -803,15 +836,12 @@ Customize teams...
 Rules:
 
 - Lane buttons are visible at rest when Fan out is selected.
-- Changing lane selects that lane's default team and default effort.
-- If the user has manually changed effort in the current compose session,
-  switching lane preserves that effort when the target team supports it; otherwise
-  it uses the new team's default effort.
-- The target chip shows team + effort, not model.
-- The popover can change lane, team, and effort.
+- Changing lane selects that lane's default team.
+- The target chip shows team, not model.
+- The popover can change lane and team.
 - The popover does not edit worker rows.
-- Effort selection may show active specialist badges, e.g. `Reproducer`,
-  `Trace`, `Regression`, to communicate depth without estimating time or cost.
+- Team selection may show active specialist badges, e.g. `Reproducer`, `Trace`,
+  `Regression`, to communicate shape without estimating time or cost.
 - If the selected lane has no team, show a clear empty state and a
   `Create team...` action.
 - If only one model is ready, do not block the team; show a compact warning.
@@ -845,11 +875,10 @@ Team editor:
 Name
 Lane
 Description
-Default effort
 Make default for lane
 
 Workers
-Skill                  Stage    Min effort   Preferred model       Fallback
+Skill                  Stage    Legacy min effort   Preferred model       Fallback
 Bug Reproducer         Answer   Low          Opus                  Strongest ready
 Trace Mapper           Answer   Med          Sonnet                Any ready
 Regression Guard       Answer   Low          Codex                 Lane capable
@@ -2004,7 +2033,7 @@ Copy -> Objection Handling Team
 Fan out composer rule:
 
 ```text
-Copy -> team -> effort
+Copy -> team
 ```
 
 Copy type is no longer a separate composer control in the Fan out picker. A copy
@@ -2029,7 +2058,6 @@ If those are not ready, the Copy lane must be disabled or clearly marked
 ```swift
 question
 lane
-effort
 teamPresetId
 type
 context
@@ -2039,10 +2067,10 @@ waitSeconds
 CLI:
 
 ```bash
-alln team --lane build --team build_bug_hunt --effort high "Find why run history disappears."
-alln team --lane design --team design_premium_polish --effort med --file prompt.md
-alln team --lane copy --team copy_landing_page --effort high "Rewrite this hero."
-alln team --lane copy --type landing-page --effort high "Rewrite this hero."  # sugar for copy_landing_page
+alln team --lane build --team build_bug_hunt "Find why run history disappears."
+alln team --lane design --team design_premium_polish --file prompt.md
+alln team --lane copy --team copy_landing_page "Rewrite this hero."
+alln team --lane copy --type landing-page "Rewrite this hero."  # sugar for copy_landing_page
 alln team teams --lane build --json
 ```
 
@@ -2113,8 +2141,9 @@ Required additions or validations:
 - `skillVersion` should be included or derivable from the run audit snapshot.
 - Repeated model workers must keep distinct worker ids.
 - `warnings` should include one-model self-fusion when relevant.
-- `reproduceCommand` should include `--lane`, `--team`, and `--effort`.
-- `effort` is always `low`, `med`, `high`, or null for legacy/no-team runs.
+- `reproduceCommand` should include `--lane` and `--team`.
+- Legacy `effort` may appear in old run records, but forward schemas should not
+  use it as a team-shape control.
 - `type` is null for Build/Design Fan out unless a future owning doc defines a
   type tag. Copy compatibility may populate it when type selected the team.
 - `reproduceCommand` replays intent. The worker snapshot is the historical truth.
@@ -2125,9 +2154,9 @@ Composer:
 
 - Collapse Chat / Fan out / Execute into one visible mode control.
 - When Fan out is selected, show lane controls.
-- Fan out target chip shows team + effort.
+- Fan out target chip shows team.
 - Team picker filters by lane.
-- Team picker shows active specialist badges for selected effort.
+- Team picker shows worker/skill badges for the selected team.
 - Enter sends chat unless the visible mode says otherwise and the user has
   explicitly armed that mode.
 
@@ -2141,8 +2170,8 @@ Settings:
 
 Results:
 
-- Show team name and effort in the run header.
-- Prefer `Build · Bug Hunt · High` in headers where space allows.
+- Show team name in the run header.
+- Prefer `Build · Bug Hunt` in headers where space allows.
 - Show worker rows as `Skill / Model`.
 - Show one-model warning honestly when all workers resolved to one model.
 - Show queued same-source workers honestly if admission serializes them.
@@ -2153,7 +2182,7 @@ iOS should use the same model:
 
 ```text
 Chat -> worker
-Fan out -> lane + team + effort
+Fan out -> lane + team
 Execute -> executor
 ```
 
@@ -2161,7 +2190,7 @@ The phone composer can remain compact:
 
 ```text
 Fan out
-Build / Bug Hunt / High
+Build / Bug Hunt
 ```
 
 Tap target opens the same conceptual picker:
@@ -2211,10 +2240,11 @@ Security Review is a planning/review team; it does not grant permissions.
 
 ## Implementation Slices
 
-### S00 - Core enums and preset metadata
+### S00 - Core enums and preset metadata (legacy M1)
 
 - Add `WorkLane`.
-- Add `EffortLevel` with `low`, `med`, `high`.
+- Add `EffortLevel` with `low`, `med`, `high` (legacy M1; forward cleanup should
+  replace user-facing team effort with named Team variants).
 - Add `TeamOutputKind`, `TeamWorkerPurpose`, `TeamEffortPolicy`,
   `TeamSynthesisPolicy`, and `ModelSelectionPolicy`.
 - Replace/extend team-catalog presets with lane, output kind, default effort,
@@ -2279,13 +2309,13 @@ copy_landing_page
   is provided.
 - Update `TeamRunJSON` reproduce command.
 
-### S05 - Mac composer fan-out picker
+### S05 - Mac composer fan-out picker (forward simplified)
 
 - Collapse send mode control.
 - Fan out shows Build / Design / Copy.
-- Fan out target chip shows team + effort.
+- Fan out target chip shows team.
 - Team picker filters by lane.
-- Team picker shows active specialist badges by effort.
+- Team picker shows worker/skill badges by team.
 - Run header shows selected team.
 
 ### S06 - Team library settings
@@ -2299,7 +2329,7 @@ copy_landing_page
 
 ### S07 - iOS read-only picker
 
-- Show Fan out lane/team/effort selector.
+- Show Fan out lane/team selector.
 - Use Mac-owned team catalog.
 - No mobile team editing in first slice.
 
@@ -2441,7 +2471,7 @@ Assertions:
 Gesture:
 
 ```text
-alln team --lane copy --type landing-page --effort high "Rewrite this hero."
+alln team --lane copy --type landing-page "Rewrite this hero."
 ```
 
 Assertions:
@@ -2522,7 +2552,8 @@ Missing proof until implementation:
 - Same-source workers obey admission caps and show queued/running truthfully.
 - Results show worker truth: skill, model, failure state, and repeated model
   usage.
-- JSON and CLI emit canonical `low|med|high`.
+- JSON and CLI may still emit legacy `low|med|high` for M1 runs, but forward
+  Deploy Teams should not expose it as a team-shape control.
 - `--team` is the public Fan out selector; `--type` is Copy-only sugar or
   metadata, never a competing selector.
-- CLI/GUI/iOS/MCP share the same lane/team/effort contract.
+- CLI/GUI/iOS/MCP share the same lane/team contract.

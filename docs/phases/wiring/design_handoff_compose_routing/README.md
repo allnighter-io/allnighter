@@ -4,9 +4,9 @@
 This handoff covers two connected changes to the **Allnighter macOS home workspace** (the conversation/work-order window):
 
 1. **Team selector (top-right).** The old `6 ready` status pill is replaced by an avatar-stack **Team** control that clearly reads as "who's on the bench → manage your team." It opens a dropdown listing bench models with readiness, plus a **Manage team** door into settings.
-2. **Composer refactor.** The three coequal mode buttons (Chat / Fan out / Execute) collapse into one **mode pill** with a `⌘1 / ⌘2 / ⌘3` shortcut affordance, and the routing target becomes an adaptive **chip** that carries both *who* and *effort*. Fan out additionally exposes an explicit **Build / Design / Copy** lane choice — the app never infers the lane from prose.
+2. **Composer refactor.** The three coequal mode buttons (Chat / Fan out / Execute) collapse into one **mode pill** with a `⌘1 / ⌘2 / ⌘3` shortcut affordance, and the routing target becomes an adaptive **chip** that carries *who*. Fan out additionally exposes an explicit **Build / Design / Copy** lane choice — the app never infers the lane from prose.
 
-The goal of the redesign: make team assembly intuitive (it was previously only reachable by clicking the `6/6 ready` status badge), and make the composer read as a sentence — **`[verb]` → `[who]` → `[effort]`**.
+The goal of the redesign: make team assembly intuitive (it was previously only reachable by clicking the `6/6 ready` status badge), and make the composer read as a sentence — **`[verb]` → `[who]`**.
 
 ## About the Design Files
 The files in this bundle are **design references created in HTML/React (via in-browser Babel)** — a clickable prototype showing the intended look and behavior. They are **not production code to copy directly.**
@@ -25,9 +25,9 @@ This product turns the AI models a user already pays for into a **team**. The me
 - **Worker** — a `skill + model` assignment in a run. A *model at work*.
 - **Team** — a saved lineup of workers for a lane. Built/edited in **settings**, never in compose.
 - **Lane** — the *kind of work*: **Build** (specs/implementation), **Design** (visual mockups), **Copy** (copywriting). A team belongs to exactly one lane.
-- **Effort** — **Low / Med / High**. For a single model it means reasoning depth; for a team it is a *bundle* (more workers + a deeper pass). One word, never two dials.
+- **Reasoning effort** — optional provider/model reasoning-depth config. It is not the primary composer control and never changes team lineup.
 
-Design principle enforced by this UI: **Compose is the touchline; settings is the locker room.** In compose you only *select* a pre-built team + effort. You never configure skills or team membership there — that lives in settings behind a `Customize…` link.
+Design principle enforced by this UI: **Compose is the touchline; settings is the locker room.** In compose you only *select* a pre-built team. You never configure skills or team membership there — that lives in settings behind a `Customize…` link.
 
 ---
 
@@ -71,21 +71,20 @@ The composer is a rounded box (`--bg-raised`, `1px solid --border-default`, `bor
 
 **b) "to" label** — mono `11px`, `--text-faint`. **Shown only for Chat and Execute** (a fan-out reads `Fan out · [lane] team`, so "to" is omitted).
 
-**c) Target chip** — adaptive routing control carrying *who* + *effort*.
+**c) Target chip** — adaptive routing control carrying *who*.
 - `inline-flex`, `gap: 7px`, `height: 31px`, padding `0 10px`, `border-radius: 8px`, `1px solid --border-default`, background `--bg-raised`, **mono** font, `white-space: nowrap`. Hover: `--bg-hover` / `--border-strong`.
 - Face:
-  - **Chat / Execute:** model glyph + model name + `· <Effort>` (the effort segment in `--text-muted`, weight 500) + chevron.
-  - **Fan out:** lane icon (in `--accent-text`; Build→`hammer`, Design→`image`, Copy→`file-text`) + `"<Lane> team"` + `· <Effort>` + chevron.
+  - **Chat / Execute:** model glyph + model name + chevron.
+  - **Fan out:** lane icon (in `--accent-text`; Build→`hammer`, Design→`image`, Copy→`file-text`) + selected team name + chevron.
 - **Click opens the target popover** (anchored above):
   - **Chat** → header "Route to model" / "One model answers this turn". List = all 6 bench models. Not-ready models are `disabled` and show a warning Badge.
   - **Execute** → header "Hand to executor" / "An agent runs it in your repo". List = executor-capable models only (`claude`, `gpt`, `grok`, `composer`).
-  - Both end with an **Effort row** (see below) noted "Higher effort = more reasoning time."
+  - Provider reasoning-effort settings, if supported, belong in advanced model/worker configuration rather than this primary popover.
   - **Fan out** → header "Send to team" / "Pick the lane, then the lineup", followed by:
     - **Lane tabs** — segmented row of **Build / Design / Copy**, each a `height: 31px` button with lane icon + label; active tab `--bg-active` + `--border-default`, icon `--accent-text`. **Switching lane re-selects that lane's default team.**
     - **Team list** — saved teams for the selected lane. Each row: lane-icon tile + name (`13px / 600`); the default team shows a `default` tag (mono 9px, bordered); a mono sub line (e.g. "4 mockups", "3 workers · custom"); a trailing `check` when selected.
     - **Footer** — a ghost **Customize…** button (`settings-2` icon) + note "Build & edit teams in settings." This is the *only* path to team configuration from compose; it navigates to settings, it does not expand inline.
-    - **Effort row** noted "Higher effort = more workers + a deeper pass."
-- **Effort row** (shared): label "EFFORT" (`10.5px / 700`, uppercase, `--text-faint`) + a segmented control pushed right (`--bg-subtle` track, `1px solid --border-subtle`, `border-radius: 8px`, `padding: 3px`) with **Low / Med / High** buttons (`height: 24px`, `11.5px / 600`); active button `--bg-active` + `--shadow-xs`. An optional full-width note line sits below (`10.5px / --text-faint`).
+    - No generic Effort row. Different worker counts/depths are different Teams.
 
 **d) Spacer**, then an **Attach image** ghost icon-button (`image-plus`), then the **Send** button (`34×34`, `border-radius: 6px`, background `--accent`, ink `--text-on-amber`, `arrow-right` 16px; hover `--accent-hover` + amber glow). The send button's `aria-label` reflects the armed verb (e.g. "Send — Execute").
 
@@ -99,7 +98,7 @@ The composer is a rounded box (`--bg-raised`, `1px solid --border-default`, `bor
 - **Lane is never inferred.** Fan out requires an explicit Build/Design/Copy choice. Default lane = the active thread's lane when it is build/design/copy, otherwise Design.
 - **Picking Fan out** auto-opens the target popover so the lane/team choice is immediate.
 - **Switching a fan-out lane** auto-selects that lane's default team (so the picker is never in an empty/illegal state).
-- **Effort + team selections persist** across thread switches (only the *verb* re-seeds), so an in-progress routing choice isn't lost.
+- **Team selections persist** across thread switches (only the *verb* re-seeds), so an in-progress routing choice isn't lost.
 - **Not-ready models** are non-selectable in the routing list and surface why (Not signed in / Not detected).
 - Keyboard shortcuts `⌘1 / ⌘2 / ⌘3` (Chat / Fan out / Execute) are surfaced in the menu as affordances — wire them to the real mode toggle in the native app.
 
@@ -107,7 +106,8 @@ The composer is a rounded box (`--bg-raised`, `1px solid --border-default`, `bor
 Per-composer state (one composer instance per thread pane + the empty state):
 - `mode`: `'chat' | 'fanout' | 'exec'` — re-seeded from the thread's default on thread change.
 - `to`: model id for chat/exec routing (e.g. `'claude'`).
-- `effort`: `'low' | 'med' | 'high'` (default `'med'`).
+- No generic composer `effort` state. Provider reasoning effort, if supported,
+  belongs to advanced model/worker configuration.
 - `lane`: `'build' | 'design' | 'copy'` (fan out) — seeded from the thread's lane.
 - `team`: selected team id for the current lane (seeded to the lane's default).
 - `pop`: which popover is open — `'mode' | 'target' | null`.
@@ -129,7 +129,7 @@ Colors (semantic → hex):
 
 Radii: `--radius-xs 4px` (kbd/tags) · `--radius-sm 6px` (send button) · `--radius-md 8px` (pill/chip/menu items) · `--radius-lg 10px` (composer box, popovers) · `--radius-pill 999px` (team control).
 
-Control heights used: pill/chip/lane-tab `31px`, team control `28px`, segmented effort buttons `24px`, send `34px`.
+Control heights used: pill/chip/lane-tab `31px`, team control `28px`, send `34px`.
 
 Typography: `--font-sans` for UI labels, `--font-mono` for the chip, sub-lines, and kbd tags. Sizes are called out inline per component above (range 9–13px for this dense control area).
 
@@ -143,7 +143,7 @@ Icons: **Lucide** line icons (`message-square`, `layers`, `hammer`, `image`, `fi
 
 ## Files
 Reference sources included in this bundle (under `reference/`):
-- `app.jsx` — **the authoritative implementation** of the composer, the `TeamControl`, the routing data (`BENCH_ROWS`, `EXEC_IDS`, `FAN_LANES`, `FAN_TEAMS`, `EFFORT_OPTS`, `MODE_INFO`), the threads data, and all popover markup. The relevant pieces are `TeamControl`, `EffortRow`, `Composer`, and the top-bar/`ThreadPane` wiring.
+- `app.jsx` — prototype reference for the composer, the `TeamControl`, the routing data (`BENCH_ROWS`, `EXEC_IDS`, `FAN_LANES`, `FAN_TEAMS`, `MODE_INFO`), the threads data, and popover markup. Any `EFFORT_OPTS` / `EffortRow` code in the prototype is superseded by the simplified contract above.
 - `home.jsx` — base composer/window CSS and the shared worker/lane/status helpers (`WK`, `WGly`, `LANE`, `Stt`). The composer-specific CSS lives in the `home-comp-css` style block inside `app.jsx`.
 
 In the live project these render via `home/index.html`. A self-contained, clickable copy of the prototype is included as `Compose Routing Prototype.html` (open it in any browser to interact with all three popovers).

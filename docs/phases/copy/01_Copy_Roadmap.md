@@ -14,7 +14,7 @@ The durable rule stays:
 
 ```text
 Prompt required.
-Copy type and Effort route the team.
+Copy type routes the default team.
 Context is optional.
 ```
 
@@ -50,7 +50,7 @@ Each pack defines:
 - generation skills;
 - review skills;
 - default team lineup;
-- effort mapping;
+- optional named team variants;
 - output sections;
 - Works Test.
 
@@ -251,17 +251,21 @@ CTA blocks
 risk reversal
 ```
 
-## Effort by Copy Type
+## Team Variants By Copy Type
 
-Effort stays simple in the UI:
+Do not add a generic Quick / Standard / Deep effort toggle.
+
+When work shape differs, make it a named Copy team or deployable job:
 
 ```text
-Quick | Standard | Deep
+Landing Page Lite
+Landing Page Team
+Landing Page Conversion Team
 ```
 
 Internal examples:
 
-| Type | Quick | Standard | Deep |
+| Type | Lighter team | Default team | Deeper team |
 | --- | --- | --- | --- |
 | Landing page | 2 versions | 4 versions + light objection review | 6 versions + research + proof review |
 | Email funnel | 1 short sequence | 1 full sequence + subject variants | 2 sequences + segmentation/rebuttal review |
@@ -388,21 +392,21 @@ Each copy type needs one owner-visible Works Test. Examples:
 /copy email
 Prompt: Write a 5-email onboarding sequence for a trial user who created a
 project but has not invited a teammate.
-Effort: Standard
+Team: Email Funnel Team
 Expected: sequence map, subjects, preheaders, full emails, segmentation notes.
 ```
 
 ```text
 /copy ugc
 Prompt: Create TikTok scripts for a Mac app that runs AI agents overnight.
-Effort: Standard
+Team: UGC Scripts Team
 Expected: hooks, scripts, shot list, on-screen text, captions, disclosure notes.
 ```
 
 ```text
 /copy ads
 Prompt: Generate Meta ad angles for a $29/month AI-agent productivity app.
-Effort: Deep
+Team: Ads Research Team
 Expected: angle map, variants, CTA, creative notes, platform-risk notes.
 ```
 
@@ -411,7 +415,7 @@ Expected: angle map, variants, CTA, creative notes, platform-risk notes.
 - Copy type packs can be added without changing the composer surface.
 - Copy type packs define skills and default teams using the shared team model.
 - Each pack has a specific output shape and Works Test.
-- Effort stays Quick / Standard / Deep in the UI.
+- Team variants own work shape; no generic Copy effort toggle is required.
 - Optional context stays optional.
 - Research is visible and source-saved.
 - Pick/reject events feed local copy memory.

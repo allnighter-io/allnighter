@@ -7,8 +7,8 @@ Updated: 2026-06-15
 ## Founder Intent
 
 Add the Copy lane without making work-order creation heavier than Claude or
-Cursor. The required input remains one prompt. Copy type and effort are fast
-routing controls, not a form.
+Cursor. The required input remains one prompt. Copy type and team routing are
+fast controls, not a form.
 
 ## Product Value
 
@@ -35,8 +35,8 @@ or
 Prompt:
 "Rewrite my pricing page so solo founders actually convert."
 
-Effort:
-Standard
+Team:
+Landing Page Team
 
 Run copy board
 -> several landing-page versions appear side by side
@@ -61,9 +61,10 @@ Run copy board
 - `docs/mvp/` owns the built team-run and design-board substrate: legacy worker
   calls, stage outputs, board-style option selection, and run artifacts.
 - `docs/phases/Work_Order_Team_Model.md` owns the product vocabulary for bench,
-  model, skill, worker, team, lane, type, effort, and preset.
-- `docs/phases/Utilization_Admission_Control.md` already defines Effort as a user
-  instruction, not an estimate.
+  model, skill, worker, team, lane, type, model reasoning effort, and preset.
+- `docs/phases/Work_Order_Team_Model.md` defines team selection as the owner of
+  worker count/review/research shape. Model reasoning effort is provider config,
+  not a Copy-depth toggle.
 - `Packages/AllnighterCore/Sources/AllnighterCore/WorkOrder.swift` already has a
   prediction-free work-order summary helper for team-run and design shapes.
 - `ThreadTurnKind` has `design_board`, but not yet `copy_board`.
@@ -73,7 +74,6 @@ Run copy board
 `AllnighterCore` owns durable semantics:
 
 - work kind: build, design, copy;
-- effort: quick, standard, deep;
 - copy type: auto, landing_page, later channel types;
 - copy skill suite and default team lineup;
 - copy board payload and chosen copy;
@@ -136,23 +136,27 @@ chips are shown for product direction, they must be disabled or marked not ready
 `Copy type` is not a sub-lane. It selects the Copy skill suite, output shape, and
 default team lineup.
 
-### 4. Effort changes work shape
+### 4. Team changes work shape
 
-UI labels:
+Do not add a generic Copy effort toggle.
 
 ```text
-Quick | Standard | Deep
+Landing Page Team
+Landing Page Lite
+Landing Page Conversion Team
 ```
 
-Copy MVP mapping:
+Copy MVP ships only the default Landing Page Team. Future variants may change
+version count, review depth, proof pressure, or research posture, but they should
+be named teams/deployable jobs:
 
-| Effort | Work shape |
+| Team | Work shape |
 | --- | --- |
-| Quick | 2 versions, no review pass by default |
-| Standard | 4 versions, light objection/proof pressure-test |
-| Deep | 6 versions, objection/proof review, no public web research in C0 |
+| Landing Page Lite | 2 versions, no review pass by default |
+| Landing Page Team | 4 versions, light objection/proof pressure-test |
+| Landing Page Conversion Team | 6 versions, objection/proof review, optional research when that feature exists |
 
-Effort never predicts time, cost, quota, or difficulty.
+Team names never predict time, cost, quota, or difficulty.
 
 ### 5. The board comes first
 
@@ -195,9 +199,9 @@ steer future runs from memory.
 
 ### 8. Research is deferred
 
-Web research can be high value for copy, but it is not part of the C0 MVP. Deep
-effort means more versions and stronger objection/proof review, not public web
-research.
+Web research can be high value for copy, but it is not part of the C0 MVP.
+Research-enabled Copy should be a different Copy team/deployable job, not a
+generic effort toggle.
 
 When research ships later, the UI shows plain concrete text:
 
@@ -207,8 +211,8 @@ When research ships later, the UI shows plain concrete text:
 
 Future research rules:
 
-- Public web research is allowed only when the selected effort/type enables it or
-  the user turns it on.
+- Public web research is allowed only when the selected team/deployable job
+  enables it or the user turns it on.
 - Sources are saved with the run.
 - Private files, repo contents, credentials, customer data, and unpublished
   product context are not sent to research surfaces unless the user attached or
@@ -220,7 +224,7 @@ Future research rules:
 
 ```text
 run_<id>/
-  copy_request.json       # prompt, copy type, effort, optional context refs
+  copy_request.json       # prompt, copy type, team, optional context refs
   copy_option_<workerId>.md # one generated direction per generator worker
   copy_board.json         # ordered board: workerId, angle, model, skill, status
   chosen_copy.json        # human pick + optional note
@@ -267,7 +271,6 @@ stays one level below the primary composer.
 Core:
 
 - Add `WorkKind.copy` if the work-kind model exists, or introduce one.
-- Add `Effort` values with UI labels Quick / Standard / Deep.
 - Add `CopyType` with `auto` and `landing_page`.
 - Add/route Copy skills as lane-tagged prompt profiles.
 - Add `ThreadTurnKind.copyBoard` or equivalent thread family mapping.
@@ -288,8 +291,8 @@ Mac:
 
 - New work order shows Build / Design / Copy.
 - Slash commands route `/copy` and `/copy landing`.
-- Hotkeys: B, D, C for work kind; 1, 2, 3 for effort.
-- Copy composer shows prompt, copy type chips, effort, optional context chips,
+- Hotkeys: B, D, C for work kind.
+- Copy composer shows prompt, copy type/team chips, optional context chips,
   and a concrete run summary.
 - Team customization, if included in C0 UI, is an advanced drawer: each row is
   `Skill | Model`. It must not be in the required path.
@@ -315,12 +318,12 @@ Auth/privacy/permissions:
 
 ## Ordered Slices
 
-- [ ] C0-S01 - Core route model: work kind, copy type, effort, copy board turn kind,
+- [ ] C0-S01 - Core route model: work kind, copy type, team, copy board turn kind,
   Codable fixtures, state-machine coverage.
 - [ ] C0-S02 - Composer routing: Build / Design / Copy chips, `/copy` commands,
   hotkeys, prompt-only run path.
 - [ ] C0-S03 - Landing-page skill suite: generation skills, review skills, default
-  team lineup, effort map, fixtures.
+  team lineup, fixtures.
 - [ ] C0-S04 - Copy fan-out: reuse text worker runner, produce copy options and
   copy board payload.
 - [ ] C0-S05 - Copy board UI: versions side by side, pick, copy/export, failed
@@ -337,7 +340,7 @@ Auth/privacy/permissions:
 Press Cmd+N, then C.
 Type:
   Rewrite my pricing page so solo founders actually convert.
-Choose Landing page and Standard effort.
+Choose Landing Page Team.
 Press Enter.
 
 Allnighter shows a concrete summary:
@@ -373,9 +376,9 @@ App proof follows `docs/operations/TechStack.md` once Mac UI code exists.
 
 - The user can start Copy from a prompt, `/copy`, or hotkey path.
 - `Prompt` is the only required field.
-- `Copy type` and `Effort` are visible and simple.
+- `Copy type` and selected Team are visible and simple.
 - Landing page has a default team so the user does not need to configure workers.
-- Standard landing-page effort produces a usable copy board.
+- Landing Page Team produces a usable copy board.
 - Picking a version creates a copy pack artifact.
 - The copy pack is rendered deterministically from structured option fields.
 - The landing-page board passes the quality gate before default enablement.

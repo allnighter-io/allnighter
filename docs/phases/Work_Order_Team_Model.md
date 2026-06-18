@@ -29,8 +29,8 @@ Worker = one model wearing one skill for this run
 Team   = the worker lineup for a work order
 Lane   = Build / Design / Copy
 Type   = optional subtype metadata inside a lane; not a Fan out selector
-Effort = Low / Med / High bundle for how big/deep the team runs
-TeamPreset = saved lane team definition with effort defaults
+Reasoning effort = optional provider/model reasoning-depth setting
+TeamPreset = saved lane team definition
 ```
 
 ## Definitions
@@ -47,8 +47,8 @@ TeamPreset = saved lane team definition with effort defaults
 | **Team** | The worker lineup for this work order. This is the user-facing word for the lineup that runs. |
 | **Lane** | The three peer creation lanes: Build, Design, Copy. |
 | **Type** | Optional subtype metadata inside a lane. Type is not a primary Fan out selector. Copy may use type as compatibility/default-team routing, e.g. `landing-page` -> `copy_landing_page`, when owned by Copy docs. |
-| **Effort** | Low / Med / High. Controls worker count, review depth, patience, and later research. Never a forecast. |
-| **TeamPreset** | Core type for a saved built-in or custom team: lane, output kind, default effort, worker lineup, and synthesis/review policy. Product UI says Team. |
+| **Reasoning effort** | Optional provider/model reasoning-depth setting. It may map to values such as low/medium/high when the selected model supports them. It must not change team lineup, output contract, review posture, scheduling, runtime promise, quota estimate, or product flavor. |
+| **TeamPreset** | Core type for a saved built-in or custom team: lane, output kind, worker lineup, and synthesis/review policy. Product UI says Team. |
 
 Shortcut:
 
@@ -191,12 +191,26 @@ Both are true:
 The main composer must stay simple:
 
 ```text
-Fan out -> Lane -> Team -> Effort -> Prompt -> Run
+Fan out -> Lane -> Team -> Prompt -> Run
 ```
 
 Do not add a separate Type picker to Fan out. Copy type packs materialize as Copy
 teams. CLI or slash-command compatibility may still accept type and resolve it to
 a team when no explicit team was selected.
+
+Do not use a generic Low/Med/High team-depth toggle as a second hidden team
+picker. If depth changes worker count, review policy, research posture, output
+shape, or proof bar, make it a different Team:
+
+```text
+Bug Hunt Lite
+Bug Hunt
+Bug Hunt Exterminator
+```
+
+Reasoning effort belongs at the model/worker layer only when the provider exposes
+that control. GUI may present it inside advanced model/worker configuration; it
+must not be the primary Deploy Team or Fan out control.
 
 Team customization is one click deeper:
 
@@ -247,18 +261,18 @@ every worker row to `Skill | Model` plus skill version.
 ```text
 Build
   Type metadata: Feature
-  Effort: High
-  Team: First Principles on Opus, Skeptic on Sonnet, Maintainer on Codex
+  Team: Bug Hunt Exterminator
+  Workers: First Principles on Opus, Skeptic on Sonnet, Maintainer on Codex
 
 Design
   Type metadata: Redesign
-  Effort: Med
-  Team: Minimal Designer on Grok Imagine, Bold Designer on ChatGPT image
+  Team: Premium Polish
+  Workers: Minimal Designer on Grok Imagine, Bold Designer on ChatGPT image
 
 Copy
   Type metadata: Landing page
-  Effort: Med
-  Team: Offer Strategist on Opus, Objection Hunter on Grok, Direct Response on Sonnet
+  Team: Landing Page Team
+  Workers: Offer Strategist on Opus, Objection Hunter on Grok, Direct Response on Sonnet
 ```
 
 Copy does **not** have multiple lanes. It has multiple types/playbooks inside the
@@ -268,8 +282,10 @@ Copy lane.
 
 - Default lineup first. Custom lineup second. Skill library in settings.
 - Work-order creation stays prompt-first.
-- Effort changes range, rigor, review, and later research. It does not create a
-  new lane.
+- Team selection changes range, rigor, review, and later research. Do not hide
+  those differences behind a generic effort toggle.
+- Reasoning effort is optional model/provider configuration, not a product-level
+  team-depth control.
 - Fan out never infers Build / Design / Copy from prompt prose. The lane is an
   explicit user choice.
 - Fan out shows a team target, not a model target.
@@ -301,9 +317,6 @@ New work order
 
 Team
 [ Landing Page Team ]
-
-Effort
-[ Low ] [ Med ] [ High ]
 
 Prompt
 [ Rewrite my pricing page so solo founders actually convert. ]

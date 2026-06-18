@@ -107,7 +107,7 @@ this feature:
 | `DesignPersonaLibrary` | Persona is old skill language and parallel design prompt truth | Fold design skills into `SkillCatalog` |
 | SwiftUI/local skill arrays or templates | GUI can drift from Core | Delete; GUI reads catalog APIs |
 | `TeamStore` / `SkillStore` doc language | Splits the mental model | Use `TeamCatalog` / `SkillCatalog` |
-| Quick / Standard / Deep in new team UI | Conflicts with canonical effort | Low / Med / High |
+| Quick / Standard / Deep or Low / Med / High as generic team-depth UI | Hides team shape behind a second selector | Named Team variants; provider reasoning effort only inside model/worker config |
 
 ## Truth Owner
 
@@ -414,8 +414,8 @@ separate MCP-only team or skill schema.
 - Remove skill `version` as required run-history truth.
 - Add `TeamID` and `SkillID` types or typealiases.
 - Rename code and docs away from `SkillStore` / `TeamStore`.
-- Replace Quick / Standard / Deep in new team UI references with Low / Med /
-  High.
+- Replace Quick / Standard / Deep or Low / Med / High team-depth UI references
+  with named Team variants.
 - Tests: every built-in skill has exactly one lane; every built-in team row
   references a same-lane skill.
 
@@ -470,7 +470,7 @@ separate MCP-only team or skill schema.
 
 - Remove skill/team template truth from view-local state except edit drafts.
 - Settings owns catalog browsing and editing.
-- Composer owns lane/team/effort selection and may open contextual team editing.
+- Composer owns lane/team selection and may open contextual team editing.
 - The GUI must never write catalog files directly.
 
 ## iOS App Impact
@@ -541,7 +541,7 @@ alln skills delete "$SKILL_ID" --json 2>&1 | grep -q SKILL_IN_USE
 ### WT-CAT05 - Run snapshot survives edit
 
 ```bash
-alln team "catalog proof" --lane build --team "$TEAM_ID" --effort low --json > /tmp/catalog_run.json
+alln team "catalog proof" --lane build --team "$TEAM_ID" --json > /tmp/catalog_run.json
 alln skills edit "$SKILL_ID" --template-file ./fixtures/skills/wt_contrarian_v2.txt --json
 RUN_ID=$(jq -r '.teamRun.id' /tmp/catalog_run.json)
 alln show "$RUN_ID" --json | jq -e '.workers[] | select(.skillId == env.SKILL_ID)'
