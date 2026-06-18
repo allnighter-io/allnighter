@@ -243,7 +243,7 @@ Required `teamRun` fields:
 | `originAgent` | string/null | MCP/client/agent name when known. |
 | `lane` | string/null | `build`, `design`, `copy`, or null when unspecified. |
 | `type` | string/null | Optional lane subtype metadata. Copy compatibility may populate this when type routed to a Copy team; Build/Design Fan out usually leave it null. |
-| `reasoningEffort` | string/null | Optional provider/model reasoning-depth setting, if applied uniformly or summarized for the run. It must not imply team shape. |
+| `reasoningEffort` | string/null | Per-worker model reasoning level (`low`/`med`/`high`) where the worker's source supports it, summarized at run level only when uniform across workers; `null` when no worker exposes it or workers differ. It is the model's reasoning setting (routed per CLI: Claude `--effort`, Codex `-c model_reasoning_effort`, Antigravity model-name variant, Grok none), never a team-shape control. |
 | `prompt` | string | User prompt after file loading. |
 | `promptSource` | object | Positional/file/stdin provenance; no secret content. |
 | `createdAt` | string | ISO 8601 timestamp. |
@@ -495,6 +495,29 @@ Starter error catalog:
 Every code must have default `agentAction`, `requiresManual`, `retryable`,
 `remedyTier`, `whoCanFix`, and doctor/error-explain text in the registry before
 it can be emitted.
+
+### Process exit codes
+
+Every `alln` invocation returns a deterministic process exit code so shells and
+non-JSON callers can branch without parsing output:
+
+| Exit code | Meaning | Examples |
+| --- | --- | --- |
+| `0` | Success. The command completed; under `--json` the envelope is a success payload. | A team run finished; `doctor` ran and reported a status; `models --json` printed the roster. |
+| `1` | Operational failure. The command was well-formed but the operation failed or the requested entity/state was unavailable. | `RUN_NOT_FOUND`, `SOURCE_NOT_FOUND`, `SOURCE_AUTH_EXPIRED`, `MODEL_UNAVAILABLE`, `WORKER_FAILED`, `TEAM_RUN_TIMEOUT`, `COORDINATOR_UNAVAILABLE`, `ENTITLEMENT_BLOCKED`. |
+| `2` | Usage error. The command, subcommand, flag, or argument was invalid before any work started. | `CLI_USAGE_ERROR`, `INVALID_ENUM`, unknown command/flag, missing required argument. |
+
+Rules:
+
+- A `doctor` run whose checks fail but which itself executed correctly exits `0`
+  with a non-`ok` `status` (doctor succeeded at diagnosing). Reserve exit `1` for
+  doctor failing to run at all.
+- Under `--json`, failures still print the full error envelope on stdout; the exit
+  code is the class, the envelope `code` is the specific reason.
+- All `CLI_USAGE_ERROR` paths must exit `2`. (The current build has a few usage
+  paths that exit `1`; normalize them to `2`.)
+- Exit codes above `2` are reserved; do not introduce new ones without updating
+  this table.
 
 ## Doctor Contract
 

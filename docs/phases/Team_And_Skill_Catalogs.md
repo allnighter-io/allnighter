@@ -199,13 +199,18 @@ id
 skillId: SkillID
 preferredModelId
 fallbackPolicy
-purpose: answer | review | planWriter
+purpose: answer | review
 minEffort: low | med | high
 required: Bool
 ```
 
 At save time and run time, `skillId` must resolve to a skill in the same lane as
 the team.
+
+A worker row's `purpose` is `answer | review` only, matching the built
+`TeamWorkerSpec.purpose` (`TeamWorkerPurpose`). The plan writer is not a worker
+purpose: it is designated by `synthesisPolicy.planWriterSkillId`, which references
+a skill whose own `purpose` is `planWriter` (skills support the third value).
 
 ### SkillDefinition
 

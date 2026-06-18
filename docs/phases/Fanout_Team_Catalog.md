@@ -635,6 +635,13 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
 Existing ad hoc/global presets can be converted during the implementation slice;
 this phase defines the final shape rather than a long-lived compatibility model.
 
+Note two distinct purpose enums (do not merge them): the catalog
+`TeamWorkerPurpose` is `{answer, review}` — the plan writer is selected separately
+via `TeamSynthesisPolicy.planWriterSkillId`, not as a worker purpose. The run-output
+worker purpose (`TeamRunJSON.WorkerPurpose`) is `{answer, plan, review}`, so the
+writer worker is surfaced with `"purpose": "plan"` in `TeamRunJSON` even though its
+catalog spec purpose is `answer`.
+
 Target shape:
 
 ```swift
@@ -663,6 +670,11 @@ public struct TeamEffortPolicy: Codable, Sendable, Equatable {
     public var defaultEffort: EffortLevel
     public var outputCountByEffort: [EffortLevel: Int]
     public var allowPartialByEffort: [EffortLevel: Bool]
+}
+
+public enum AnalysisDepth: String, Codable, Sendable, CaseIterable {
+    case combined   // analysis + plan produced in one writer pass
+    case separate   // analysis and plan produced as distinct passes
 }
 
 public struct TeamSynthesisPolicy: Codable, Sendable, Equatable {

@@ -13,6 +13,14 @@ provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-17
 
+> **Async ≠ scheduler.** "Async team loop" means a single, explicitly-triggered run
+> executes in the background of one `alln serve` process and is polled via
+> `team_status`. Allnighter does not own a scheduler or self-advancing run-loop and
+> never starts work on its own — every run is triggered by a user, the CLI, an MCP
+> client, or an external agent (OpenClaw/Hermes/cron). Pending-over-MCP and any
+> drain/admission behavior are DEFERRED/parked (see `Pending_Work_And_Drain.md`);
+> do not implement them as a v1 run-loop.
+
 ## Founder Intent
 
 Allnighter should become the default local team engine for agent-first workflows,

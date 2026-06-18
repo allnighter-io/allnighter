@@ -307,7 +307,8 @@ alln doctor --auto-fix       # apply safe Allnighter-owned fixes
 alln doctor explain <code> --json
 ```
 
-Minimum doctor JSON shape:
+Minimum doctor JSON shape (M1 schema v1; agent-first upgrades it to schema v2 —
+`CLI_Implementation_Contract.md` owns the authoritative shape):
 
 ```json
 {
@@ -477,8 +478,10 @@ Sketch:
 }
 ```
 
-Status enums must be closed and shared: queued, running, done, failed, timedOut,
-cancelled, skipped. Errors need stable `code`, human `message`, `agentAction`,
+Status enums must be closed and shared. The run-level `teamRun.status` is
+`queued, running, done, failed, timedOut, cancelled, interrupted`; `skipped` is a
+worker-level status, not a run status (`CLI_Implementation_Contract.md` owns the
+authoritative enums). Errors need stable `code`, human `message`, `agentAction`,
 `fixCommand`, `requiresManual`, `retryable`, and optional `sourceId` / `modelId`
 / `workerId`.
 
@@ -552,15 +555,19 @@ GUI/iOS:    shared command handlers or local coordinator
 Transport names may differ, but operation semantics must map to the same command
 handlers:
 
+Tool names below are the agent-first surface (see `CLI_Implementation_Contract.md`).
+`team_presets`, `team_recall`, `team_ask`, `history`, and `show` are retired/deleted
+when the agent-first tool set lands — do not reintroduce them.
+
 | Operation | CLI shape | Tool/API shape |
 | --- | --- | --- |
-| Show available teams/presets | `alln team show --json` | `team_presets` / `team_show` |
-| Synchronous ask | `alln team --json "..."` | `team_ask` |
+| Show available teams | `alln team show --json` | `teams_list` / `team_show` |
+| Synchronous ask | `alln team --json "..."` | M1 only; agent-first uses async `team_start` → `team_status` → `team_result` |
 | Async start | `alln team start --json "..."` | `team_start` |
 | Status | `alln team status <run-id> --json` | `team_status` |
 | Result | `alln team result <run-id> --json` | `team_result` |
 | Pending work | `alln pending add --project ...`, `alln pending list --project ...`, `alln pending list --all`, `alln pending submit/edit/reorder/show/cancel/run/stop --json` | `pending_*` |
-| History/recall | `alln history --json` / `alln show <run-id>` | `team_recall` |
+| History/recall | `alln history --json` / `alln show <run-id>` | `history_search` / `run_show` / `run_export` |
 | Doctor | `alln doctor --json` | `doctor` |
 
 Agent-facing tools must not expose a richer semantic surface than the CLI. MCP
