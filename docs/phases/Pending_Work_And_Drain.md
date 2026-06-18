@@ -223,6 +223,14 @@ only one explicitly triggered Execute order at a time in the same execution lane
 The execution-lane rule is submission ordering only. It is not branch strategy,
 worktree management, isolation, commit policy, or merge policy.
 
+The execution-lane serialization gate is **always active in v1**, independent of
+whether native drain is ever revived. It is enforced on every explicit run
+trigger — `alln pending run`, the GUI run action, and MCP `pending_run`: a lane
+has at most one Running Execute item, and a run request for an Execute item that
+is not the head of a busy lane is refused with reason `executionLaneBusy`. It
+never starts a second concurrent Execute in the same lane. The full gate is the
+"Execution-lane order rules" below; only that subsection is in force in v1.
+
 An execution lane is an internal scheduler grouping. It is distinct from the
 product Lane vocabulary in `Work_Order_Team_Model.md` (`Build`, `Design`,
 `Copy`) and must always be qualified as "execution lane" in docs, JSON, logs, and
@@ -328,7 +336,9 @@ Truth owner:
 
 ```text
 AllnighterCore owns Pending models and semantic rules.
-AllnighterEngine owns drain scheduling.
+AllnighterEngine owns the execution-lane serialization gate (always active in v1)
+and admission bridging for explicitly triggered runs. Native drain scheduling is
+parked; in v1 drain is triggered externally, one item at a time.
 CLI command registry owns the public alln pending grammar and JSON projection.
 Mac app backend owns local persistence, safety checks, and floor snapshots.
 ```
@@ -540,6 +550,16 @@ Derivation rules:
 - Attempt summaries copy the actual `executionLaneKey` used at lease/spawn time.
 
 ## Scheduler Drain Policy
+
+> **Parked except the execution-lane gate.** The Inputs, Default order, Fairness
+> rules, Project order rules, and Retry rules in this section describe a future
+> native or external coordinator and are **parked** until native scheduling is
+> explicitly revived (see Scope Correction). They are not a v1 promise; re-tense
+> them as "a coordinator that drains Pending MUST…" when reading. The
+> **Execution-lane order rules** below are the exception: the execution-lane
+> serialization gate (one Running Execute per lane, FIFO, head-only) is **always
+> active in v1** and enforced on every explicit run trigger (`alln pending run`,
+> GUI run, MCP `pending_run`), regardless of whether native drain exists.
 
 Inputs:
 

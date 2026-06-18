@@ -11,35 +11,55 @@ Updated: 2026-06-16
 
 ## Forward Simplification
 
-This doc records built M1 substrate that used Low/Med/High `effort` to activate
-different worker rows. The forward Deploy Teams model supersedes that product
-control.
+Effort and team shape are **two independent axes**. Do not conflate them, and do
+not remove either.
 
-New docs and new GUI/MCP surfaces must use:
+1. **Effort = per-worker model reasoning level (KEPT, user-facing).** The composer's
+   `EFFORT Low / Med / High` sets the reasoning level of each worker's model where
+   the selected source supports it. It is bound to the model (shown as
+   `<model> · Med`, "higher effort = more reasoning time"), is real model
+   configuration, and routes per CLI: Claude Code `--effort low|medium|high`; Codex
+   `-c model_reasoning_effort="…"` (with `-m <model>`); Antigravity via a model-name
+   variant; Grok has no effort axis. Effort is never removed and is never an
+   Allnighter-wide knob — it is the provider/model reasoning setting per worker.
+
+2. **Team shape = the team definition (named variants).** Worker count, review
+   posture, output shape, proof bar, and research posture belong to the Team. To run
+   deeper or lighter, select a different Team — `Bug Hunt Lite`, `Bug Hunt`,
+   `Bug Hunt Exterminator` — not a separate generic Quick/Standard/Deep depth dial
+   layered on top of the team.
+
+New GUI/MCP surfaces select shape with:
 
 ```text
 Lane -> Team -> Prompt -> Run
 ```
 
-not:
+and set effort as the chosen model/worker's reasoning level where supported. They
+must not introduce a separate generic team-depth/quality toggle:
 
 ```text
-Lane -> Team -> Effort -> Prompt -> Run
+Lane -> Team -> <generic depth toggle> -> Prompt -> Run   # banned
 ```
 
 Rules:
 
 - Team names/definitions own worker count, review posture, output shape, proof
-  bar, and research posture.
-- If depth changes, create/select a different Team, such as `Bug Hunt Lite`,
-  `Bug Hunt`, or `Bug Hunt Exterminator`.
-- Provider/model reasoning effort may exist only as a worker/model setting where
-  the selected source supports it.
-- GUI presents the Core/CLI/MCP contract. It must not keep a client-only effort
-  selector alive.
-- Existing `minEffort`, `effortPolicy`, and `synthesisPolicyByEffort` references
-  below are legacy M1 implementation detail to be collapsed or migrated during a
-  cleanup slice.
+  bar, and research posture (axis 2).
+- If team shape changes, create/select a different Team, such as `Bug Hunt Lite`,
+  `Bug Hunt`, or `Bug Hunt Exterminator` — not a generic depth toggle.
+- Reasoning effort (axis 1) is a worker/model setting where the selected source
+  supports it. It stays. The GUI surfaces it bound to the model, and it routes to
+  the real CLI flag/arg per CLI above.
+- GUI presents the Core/CLI/MCP contract. It must not introduce a *client-only*
+  toggle that fakes team shape; the EFFORT control is not client-only — it maps to
+  the model's real reasoning-level argument.
+- Built M1 substrate also used the Low/Med/High `effort` value to gate which worker
+  rows activate (`minEffort`, `effortPolicy`, `synthesisPolicyByEffort`). That
+  machinery is built, tested, and remains functional — it is not ripped out. The
+  forward, preferred way to express a different team shape is a distinct named Team
+  variant rather than an effort-gated row set; reasoning effort itself stays as
+  axis 1.
 
 ## Founder Intent
 
