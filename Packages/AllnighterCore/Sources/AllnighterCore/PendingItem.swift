@@ -257,6 +257,11 @@ public struct PendingExecutionLaneState: Codable, Sendable, Equatable {
 public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var threadId: String?
+    /// Owning Project (PRJ-S04). `nil` = Unassigned: visible in the repair bucket,
+    /// blocked from running until assigned. New Pending items require a `projectId`.
+    public var projectId: String?
+    /// Link to the WorkOrder this Pending item runs, when it is one.
+    public var workOrderId: String?
     public var title: String
     public var kind: PendingItemKind
     public var status: PendingItemStatus
@@ -283,6 +288,8 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
     public init(
         id: String,
         threadId: String? = nil,
+        projectId: String? = nil,
+        workOrderId: String? = nil,
         title: String,
         kind: PendingItemKind,
         status: PendingItemStatus,
@@ -308,6 +315,8 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
     ) {
         self.id = id
         self.threadId = threadId
+        self.projectId = projectId
+        self.workOrderId = workOrderId
         self.title = title
         self.kind = kind
         self.status = status
@@ -331,6 +340,17 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
         self.attempts = attempts
         self.expiresAt = expiresAt
     }
+}
+
+public extension PendingItem {
+    /// PRJ-S04: bound to a Project. Unassigned items (`projectId == nil`) live in
+    /// the repair bucket and are blocked from running until assigned.
+    var isProjectAssigned: Bool { projectId != nil }
+
+    /// The path to bind from when migrating — the safety working-dir receipt.
+    /// (Thread/run binding is resolved first by the migrator.) Working-directory
+    /// snapshots are receipts only, never the scope owner after migration.
+    var localRootPathSnapshot: String? { safety.workingDir }
 }
 
 /// On-disk index for Pending store ordering and execution-lane state.
