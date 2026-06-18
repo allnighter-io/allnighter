@@ -359,9 +359,9 @@ final class WorkspaceAttachmentStagingTests: XCTestCase {
     }
 }
 
-final class FanoutAttachmentMapperTests: XCTestCase {
+final class TeamRunAttachmentMapperTests: XCTestCase {
     func testDesignMapsFirstImageToScreenshotPath() {
-        let mapped = FanoutAttachmentMapper.mapForDesign(deliveries: [
+        let mapped = TeamRunAttachmentMapper.mapForDesign(deliveries: [
             IncludedAttachmentDelivery(attachmentId: "a", sequence: 0, canonicalPath: "/c/a.png", deliveredPathUsed: "a.png", storedSha256: "1"),
             IncludedAttachmentDelivery(attachmentId: "b", sequence: 1, canonicalPath: "/c/b.png", deliveredPathUsed: "b.png", storedSha256: "2"),
         ])

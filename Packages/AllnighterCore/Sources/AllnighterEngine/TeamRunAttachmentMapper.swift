@@ -3,7 +3,7 @@ import AllnighterCore
 
 /// Design fan-out maps the first image to `DesignRequest.screenshotPath`; extras
 /// stay as ordered attachment paths in the seat prompt (CIA-S07).
-public enum FanoutAttachmentMapper {
+public enum TeamRunAttachmentMapper {
     public struct MappedDesignInput: Sendable, Equatable {
         public var screenshotAbsolutePath: String?
         public var screenshotRelativePath: String?
@@ -31,7 +31,7 @@ public enum FanoutAttachmentMapper {
         readsImages: Bool
     ) -> String {
         let mapped = mapForDesign(deliveries: deliveries)
-        var prompt = FanoutAttachmentMapper.fanoutSeatPrompt(
+        var prompt = TeamRunAttachmentMapper.teamRunSeatPrompt(
             basePrompt: basePrompt,
             deliveries: mapped.seatPromptDeliveries,
             readsImages: readsImages
@@ -42,12 +42,12 @@ public enum FanoutAttachmentMapper {
         return prompt
     }
 
-    public static func fanoutSeatPrompt(
+    public static func teamRunSeatPrompt(
         basePrompt: String,
         deliveries: [IncludedAttachmentDelivery],
         readsImages: Bool
     ) -> String {
-        AttachmentDeliveryRenderer.fanoutSeatPrompt(
+        AttachmentDeliveryRenderer.teamRunSeatPrompt(
             basePrompt: basePrompt,
             deliveries: deliveries,
             readsImages: readsImages

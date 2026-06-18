@@ -44,7 +44,7 @@ public enum AttachmentDeliveryRenderer {
     }
 
     /// Per-seat fan-out prompt with vision/non-vision branching (CIA-S07 base).
-    public static func fanoutSeatPrompt(
+    public static func teamRunSeatPrompt(
         basePrompt: String,
         deliveries: [IncludedAttachmentDelivery],
         readsImages: Bool
