@@ -70,7 +70,7 @@ Do not build new UX that assumes Allnighter is menu-bar-only.
 | --- | --- | --- |
 | `Allnighter.app` | Standalone GUI: composer, team runs, threads, boards, setup, history, settings. | User launches it; may reopen windows over resident truth. |
 | `alln` | CLI command/proof surface. Foreground by default. | User/agent runs a command. |
-| Background coordinator | Resident host for long-running, resumable, remote, notification, and MCP/local API work. Owns process lifetime + durability, not product semantics. | Started on demand by work that outlives the foreground session (`team start`, Pending/Away Mode, iOS) or a pending notification; lives while it has obligations. |
+| Background coordinator | Resident host for long-running, resumable, remote, notification, and MCP/local API work. Owns process lifetime + durability, not product semantics or scheduling. | Started on demand by work that outlives the foreground session (`team start`, explicit `pending run`, iOS/MCP-triggered run) or a pending notification; lives while it has obligations. |
 | Menu bar item | Status, quick open, current-run controls, stop/pause, coordinator state. | Optional while app/coordinator is active. |
 
 **Coordinator process model (decided 2026-06-15):** the background coordinator is
@@ -109,8 +109,8 @@ process must stay alive — not a toggle the user reasons about in the abstract.
   the shipped journal is one-shot-at-end (see the journal-durability note at the
   top of `CLI_Product_Spine.md`) and must be made incremental first.
 - **The coordinator starts on demand** for any work that can outlive the
-  foreground session: `alln team start` / async runs, Pending/Away Mode,
-  iOS-initiated runs, or anything with a pending notification. A short
+  foreground session: `alln team start` / async runs, explicit Pending runs,
+  iOS/MCP-initiated runs, or anything with a pending notification. A short
   `alln team "..."` the user watches finish does not start it.
 - **The coordinator lives while it has obligations** — unfinished owned runs or
   undelivered notifications — then exits, or stays if start-at-login is enabled.
@@ -165,8 +165,8 @@ Forward Mac shell requirements:
 - menu bar status item is optional/secondary;
 - app can reopen a running session from Dock, menu bar, CLI deep link, or iOS;
 - settings include background coordinator state and start-at-login control;
-- setup explains what background mode enables: iOS, overnight runs,
-  notifications, and remote agent calls.
+- setup explains what background mode enables: long runs, iOS, notifications,
+  and remote agent calls.
 
 ## Menu Bar Role
 
@@ -246,8 +246,8 @@ a possible future consolidation, not a requirement of this phase.
 ### Serve0 - Coordinator Skeleton
 
 Goal:
-Create the smallest resident coordinator seam that later async runs, Pending,
-iOS, and local API work can share.
+Create the smallest resident coordinator seam that later async runs, explicit
+Pending runs, iOS, and local API work can share.
 
 Scope:
 

@@ -1,8 +1,16 @@
 # Utilization Admission Control
 
-Status: Execution-ready for all slices
+Status: PARKED / deferred — shelved as feature creep until real Mac usage proves
+the need for admission scheduling
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-15
+Updated: 2026-06-17
+
+Parked note:
+This packet is intentionally out of the active phase board. Do not implement
+`Utilization0`, `Pending2` drain, Away Mode, PTY probes, or admission-ledger work
+until this doc is explicitly moved back into `docs/phases/` and re-approved.
+`Pending0`/`Pending1` can stand as durable "save this for later" functionality
+without promising automated cooldown scheduling.
 
 ## Founder Intent
 

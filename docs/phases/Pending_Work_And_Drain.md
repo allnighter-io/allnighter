@@ -1,20 +1,37 @@
-# Pending Work and Drain
+# Pending Work
 
-Status: **Pending0 + Pending1 BUILT** (2026-06-17); Pending2 drain deferred
+Status: **Pending0 + Pending1 BUILT** (2026-06-17); native drain/scheduling parked
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
 Updated: 2026-06-17
 
+## Scope Correction
+
+Allnighter is **not** building a native scheduler/run-loop product in v1.
+
+Pending's active job is durable, Project-scoped work intent:
+
+```text
+write it down
+keep it editable
+keep it scoped to the Project
+let a human, CLI, GUI, MCP client, or external loop owner run it later
+```
+
+OpenClaw, Hermes, cron, or another agent may own schedules and loops, then call
+Allnighter through CLI/MCP. Allnighter should be the best place to define, hold,
+run, and inspect Project work; it should not compete to own every trigger.
+
+Any sections below that describe automatic drain, cooldown resume, scheduler
+leases, or admission-driven away mode are parked future material unless a slice
+explicitly reactivates native scheduling.
+
 ## Founder Intent
 
-Allnighter should let the user write the work now even when the best worker is
-busy, cooling down, asleep behind Mac reachability, or otherwise unavailable.
+Allnighter should let the user write the work now even when they do not want to
+run it now.
 
-The user should not have to babysit Claude's reset windows. They should be able
-to submit work to Pending, go away, and trust Allnighter to drain it when the
-selected worker or allowed fallback can accept work again.
-
-This is not an overnight-only feature. It matters just as much at 2:00 PM when
-Claude resets at 3:30 PM as it does while the user sleeps.
+The user should be able to submit work to Pending, keep it attached to the right
+Project/thread, and later run it from CLI, GUI, MCP, or an external agent loop.
 
 The product unlock:
 
@@ -25,7 +42,7 @@ Allnighter separates intent capture from worker availability.
 The brand-fit claim:
 
 ```text
-Leave work on Claude's desk. When Claude wakes up, it starts.
+Leave work on the Project desk. Run it when you or your agent are ready.
 ```
 
 This is not quota evasion. It is local, honest, user-authorized orchestration of
@@ -33,50 +50,49 @@ the subscriptions and CLIs the user already pays for.
 
 ## Product Value
 
-Allnighter's core promise is an agent factory that keeps working when the user
-steps away. A first-class Pending surface turns intermittent model availability
-into continuous useful work:
+Allnighter's core promise is an agent factory that keeps Project intent orderly
+while work moves across agents and time. A first-class Pending surface turns
+loose intentions into durable Project work:
 
 ```text
 capture intent now
 -> package it as a safe work item
--> keep it Pending when workers are unavailable
--> drain submitted work when admission passes
--> show the activity receipt when the user returns
+-> keep it Pending until a human or external agent triggers it
+-> run through the same CLI/MCP/Core contract
+-> show the activity receipt when it returns
 ```
 
-This is especially valuable around short vendor reset windows. Native model UX is
-session-attention-bound: if Claude cools down, the user usually has to remember,
-return, reconstruct context, and try again. Allnighter can keep the context,
-retry at the observed wake time, and preserve the user's priority order.
+This is especially valuable for agent-first users. A Hermes/OpenClaw-style agent
+can schedule or watch externally, then call Allnighter when it wants the Project
+team to run.
 
 Default mental model:
 
 ```text
-Pending is the next turn in a thread, not a project-management backlog.
+Pending is the next turn in a Project thread, not a global backlog.
 ```
 
-Global Pending views exist so the user can see the floor, but capture starts
-where intent is hot: the thread composer, a blocked worker reply, a completed
-team run, or a worker return that suggests a follow-up.
+Global Pending views exist so the user can see the whole floor, but they are
+aggregate views grouped by Project. The durable Pending item belongs to exactly
+one Project. Capture starts where intent is hot: the Project thread composer, a
+blocked worker reply, a completed team run, or a worker return that suggests a
+follow-up.
 
 ## Trusted Workflow Slice
 
 ```text
 user captures several work items
 -> Allnighter stores them as Pending items with explicit worker/team policy
--> scheduler admits only safe, available attempts
--> cooled-down workers are retried from observed reset signals or conservative rechecks
+-> user or external agent chooses when to run one
 -> completed, blocked, failed, and Draft suggestions appear in Activity Summary
 ```
 
 First lovable slice:
 
 ```text
-Claude cools down mid-job
--> Allnighter returns the item to Pending with a resume packet
--> observed reset time arrives
--> Allnighter asks Claude to continue from the saved context
+Project Manager proposes a follow-up
+-> user saves it as Pending instead of running now
+-> Hermes/OpenClaw or the user later calls `pending_run`
 -> the thread shows the completed follow-up or the new blocking reason
 ```
 
@@ -92,46 +108,48 @@ Claude cools down mid-job
 - No provider-native chat-history dependency.
 - No branch, worktree, commit, merge, or workspace-management ownership.
 - No automatic creation of unapproved new work from worker suggestions.
+- No native schedule/loop ownership in v1.
 
 Deferred elsewhere:
 
-- Admission states, cooldown parsing, fallback policy, and probes belong to
-  `Utilization_Admission_Control.md`.
+- Admission states, cooldown parsing, fallback policy, automatic drain, and
+  probes are parked.
 - Work-thread storage and context packets belong to `Persistent_Work_Threads.md`
   and `threads/01_Work_Threads_MLP.md`.
-- iOS reachability, sealed command inbox, and sleep/drain behavior belong to
+- iOS reachability, sealed command inbox, and sleep/remote behavior belong to
   `ios/00_iOS_Transport_Decision.md` and the iOS spine.
 - Mutating dispatch and workspace safety belong to the dispatch/work-order
-  phases. Pending v1 drains non-mutating turns only.
+  phases. Pending v1 can run explicitly requested non-mutating turns; native
+  drain remains parked.
 
 ## User-Visible Claim
 
 ```text
-Allnighter keeps work Pending and drains it when your selected workers can work.
+Allnighter keeps Project work Pending until you or your agent run it.
 ```
 
 Sharper product copy:
 
 ```text
-Keep Claude's next window full.
+Keep the Project desk loaded.
 ```
 
 Useful floor copy:
 
 ```text
 6 pending
-Claude: 3 pending - cooling down until 2:14 AM, observed from Claude
+Build: 3 pending
 Codex: running 1 item
-Gemini: 2 pending
+Copy: 2 pending
 1 dispatch needs attention - working directory changed
 ```
 
 Useful item copy:
 
 ```text
-Pending - Claude cooling until 3:30 PM, observed from Claude.
-Claude cooled down while reviewing Codex's patch. Follow-up is pending.
-Pending for any allowed reviewer: Claude preferred, Codex fallback allowed.
+Pending - ready when you or your agent run it.
+Follow-up is pending on the Project desk.
+Pending for Bug Hunt team.
 Pending - Claude is finishing the prior execute order.
 Pending - sign in needed.
 Pending - working directory changed.
@@ -152,9 +170,9 @@ Draft, Pending, Running, and queue are related, not identical.
 
 ```text
 Draft   = editable saved intent; not submitted and not eligible to run.
-Pending = submitted intent; Allnighter may run it when admission and safety allow.
+Pending = submitted intent; runnable by explicit user/CLI/GUI/MCP/external-agent trigger.
 Running = active attempt.
-Queue   = internal scheduler machinery for execution attempts.
+Queue   = internal machinery for execution attempts; not product language.
 ```
 
 A Pending item can create one or more queued attempts over time. A queue entry is
@@ -173,7 +191,8 @@ Result labels such as `replied`, `spec ready`, `board ready`, `exit 0`, and
 Edit rules:
 
 - Editing a Draft keeps it Draft.
-- Editing a Pending item moves it back to Draft, cancels scheduled wakes/leases,
+- Editing a Pending item moves it back to Draft, cancels parked wake/lease
+  metadata if present,
   and requires the user to submit it to Pending again.
 - Running items are not edited in place.
 - Stopping a Running attempt returns the item to Pending with the latest resume
@@ -193,14 +212,13 @@ not manage branches, worktrees, commits, merges, or landing.
 Execute rule:
 
 ```text
-Pending may hold a backlog of Execute orders, but it submits Execute work FIFO
-per execution lane.
+Pending may hold Execute orders, but explicit run attempts must respect FIFO per
+execution lane.
 ```
 
 An Execute order is work intended to let a target CLI act, not just answer. The
-same user can stack five Execute orders for Claude, leave the app window closed,
-and let `alln serve` keep Claude busy. Allnighter still submits only one Execute
-order at a time to the same execution lane.
+same user can stack five Execute orders for Claude, but Allnighter still starts
+only one explicitly triggered Execute order at a time in the same execution lane.
 
 The execution-lane rule is submission ordering only. It is not branch strategy,
 worktree management, isolation, commit policy, or merge policy.
@@ -218,8 +236,10 @@ Required public surfaces:
 
 ```text
 GUI: Draft/Pending/Running rows, add-to-Draft, submit-to-Pending, and reorder actions.
-CLI: alln pending add/submit/edit/reorder/list/show/cancel/run/stop, backed by the same PendingItem model.
-Resident: alln serve drains eligible Pending while the app window is closed.
+CLI: alln pending add/submit/edit/reorder/list/show/cancel/run/stop with Project
+scope, backed by the same PendingItem model.
+Resident: alln serve supports long/remote run coordination; native Pending drain
+is parked.
 ```
 
 Rules:
@@ -227,8 +247,8 @@ Rules:
 - GUI and iOS render Pending from Mac/Core truth; they do not own a separate
   Pending store.
 - `alln pending` is the first public command family for this feature.
-- `alln serve` is required before Pending can promise "runs while the app is
-  closed."
+- Do not promise "runs while the app is closed" until native drain is explicitly
+  revived.
 - Queue remains internal scheduler language except in logs, debug output, and
   schema fields that represent execution attempts.
 - Thread composer capture is the primary UX. Global Pending is a floor view, not
@@ -236,23 +256,25 @@ Rules:
 
 Examples:
 
-- User says "ask Claude to review this when it is back" -> Pending item.
-- Scheduler holds the Claude attempt until cooldown ends -> queue entry.
-- Claude cools down mid-run and the item needs continuation -> same Pending item,
-  new queued attempt with a resume packet.
+- User says "ask Claude to review this later" -> Pending item.
+- Hermes/OpenClaw decides it is time -> external agent calls `pending_run`.
+- Claude cools down mid-run and the item needs continuation -> same Pending item
+  with a resume packet, waiting for explicit retry.
 - Worker suggests "run a proof skeptic pass" -> suggested Draft item, not submitted
   until the user approves or a preset explicitly permits that suggestion class.
 
 ## Product Laws
 
-- Queueing is not failure. Queueing is how Allnighter converts intermittent
-  availability into useful work.
+- Pending is not failure. Pending is how Allnighter preserves Project intent
+  until a user or agent runs it.
 - Pending items are explicit user intent, preset intent, or approved suggestions.
+- Pending items are Project-scoped. Global Pending is an aggregate view, not a
+  global queue.
 - Admission still owns availability. Pending must not guess quota or readiness.
-- Draft items are never drained.
+- Draft items are never runnable.
 - Pending items may be blocked by admission or safety, but they stay Pending in
   public UI.
-- Execute items drain FIFO per execution lane. Later same-execution-lane Execute
+- Execute items run FIFO per execution lane. Later same-execution-lane Execute
   items stay Pending until the earlier item is finished, cancelled, or explicitly
   skipped by the user.
 - A worker reset time is used only when observed from provider/CLI output or
@@ -273,8 +295,8 @@ Existing truth owners:
 
 - `Persistent_Work_Threads.md` owns durable threads, turns, context packets, and
   run-to-thread linkage.
-- `Utilization_Admission_Control.md` owns observed availability, cooldowns,
-  fallback policy, and admission attempts.
+- Observed availability, cooldowns, fallback policy, and admission attempts are
+  parked with the admission scheduler.
 - `ios/00_iOS_Transport_Decision.md` owns phone-to-Mac command delivery,
   reachability honesty, sealed payloads, and sleep/drain behavior.
 - `Work_Order_Team_Model.md` owns worker/team/lane/type/effort vocabulary.
@@ -293,6 +315,7 @@ Missing truth:
 
 - No user-owned Pending object exists.
 - No public `alln pending` contract exists.
+- Pending0/1 predate Project binding and must be migrated before drain claims.
 - No distinction exists between durable work intent and scheduler attempts.
 - No cooldown-resume packet exists for "continue this exact job when Claude is
   available."
@@ -322,6 +345,8 @@ Lie-prone layers:
 New/changed semantic rules:
 
 - A Pending item is durable user intent; a queue entry is an execution attempt.
+- A Pending item belongs to exactly one Project; queue attempts inherit that
+  `projectId`.
 - Draft means editable and not submitted; Pending means submitted and eligible
   when admitted.
 - Cooldown resume is a continuation of the same Pending item unless the user
@@ -336,6 +361,7 @@ Duplicate truth to delete or avoid:
 - GUI-only Pending commands that cannot run through `alln pending`.
 - Driver-specific retry ledgers outside admission events.
 - Prompt-only rules that decide unattended mutation.
+- Global Pending queues that can reorder or drain across Project boundaries.
 
 ## Core Model
 
@@ -344,7 +370,9 @@ Truth owner: `AllnighterCore`.
 ```text
 PendingItem
 - id
+- projectId
 - threadId?
+- workOrderId?
 - title
 - kind: workerChat | teamRun | workOrder | dispatch | returnReview | followUp
 - status: draft | pending | running | done | failed | cancelled
@@ -382,7 +410,8 @@ PendingTarget
 PendingPolicy
 - selectedOnly | allowFallbacks | allowPartialTeam | requireFullTeam
 - attentionMode: present | away
-- drainMode: manualStart | drainWhenReady | drainAway
+- triggerMode: manual | externalAgent
+- legacy drainMode?: manualStart | drainWhenReady | drainAway
 - maxAttempts?
 - retryFloorSeconds?
 - allowDegraded: Bool
@@ -401,7 +430,8 @@ PendingExecution
 
 ```text
 PendingSafety
-- workingDir?
+- localRootPathSnapshot?
+- workingDir?   # legacy import/read-only receipt; new items derive root from Project
 - requiresTrustedDevice: Bool
 - privacyLabel?
 ```
@@ -434,6 +464,7 @@ PendingAttemptSummary
 - workerIds: [Worker.ID]
 - status: queued | running | done | failed | timedOut | cancelled | skipped | blocked
 - admissionEventIds: [CapacityEvent.ID]
+- projectId
 - executionLaneKey?
 - reason
 ```
@@ -451,6 +482,10 @@ Notes:
 
 - `PendingItem` owns user intent. It may reference thread turns and runs, but it
   does not duplicate run truth.
+- `PendingItem.projectId` is required for new items. Migrated items without a
+  reliable Project are visible for repair and are not drainable.
+- `PendingSafety.localRootPathSnapshot` is a receipt from the owning Project at
+  submit time. It is not the scope owner.
 - `PendingPolicy` composes with `AdmissionPolicy`; it does not replace it.
 - `PendingExecution.intent = execute` means "submit this as an order to the
   selected worker when allowed." It does not mean Allnighter owns the workspace.
@@ -484,20 +519,23 @@ Default `kind` -> `intent` mapping:
 Canonical execution lane key:
 
 ```text
-executionLaneKey = v1:hash(workerId, normalizedWorkingDir || "unknown-dir", sessionBinding || "unknown-session")
+executionLaneKey = v2:hash(projectId, workerId, normalizedProjectRoot || "unknown-root", sessionBinding || "unknown-session")
 ```
 
 Derivation rules:
 
+- `projectId` is always part of the execution-lane key. Same-worker Execute work
+  in different Projects must not serialize unless another policy explicitly says
+  so.
 - `workerId` is the concrete candidate worker for execution-lane head checks and
   the worker actually selected for an Execute attempt.
-- `normalizedWorkingDir` is the absolute, expanded, platform-normalized path
-  when known. If unknown or unsafe to resolve, use `unknown-dir`.
+- `normalizedProjectRoot` is the owning Project's normalized root path when
+  known. If unknown or unsafe to resolve, use `unknown-root`.
 - `sessionBinding` is the known worker session/thread binding when Allnighter has
   one. If absent, use `unknown-session`.
 - Unknown values make the key more conservative, not more permissive. Unknown
-  directory/session means same-worker Execute orders share the same conservative
-  execution lane until proven independent.
+  root/session means same-worker Execute orders in the same Project share the
+  same conservative execution lane until proven independent.
 - The key must not inspect or mutate git state.
 - Attempt summaries copy the actual `executionLaneKey` used at lease/spawn time.
 
@@ -506,6 +544,7 @@ Derivation rules:
 Inputs:
 
 - Pending items;
+- Project binding and root state;
 - derived queue entries;
 - `ModelAdmission` from utilization;
 - local concurrency slots;
@@ -532,6 +571,17 @@ Fairness rules:
 - Fallbacks run only when stored policy allows them.
 - If all selected workers are blocked and no fallback is allowed, the item stays
   Pending with the observed reason.
+
+Project order rules:
+
+- Scheduler sweeps may consider multiple Projects, but they never merge Projects
+  into one durable queue.
+- Global Pending list order is a display aggregation. It does not authorize
+  cross-Project reorder.
+- A missing, archived, or permission-denied Project blocks only that Project's
+  Pending drain.
+- Project-specific ordering and execution-lane ordering are evaluated before
+  worker admission.
 
 Execution-lane order rules:
 
@@ -599,17 +649,16 @@ Known reset    -> wake after the observed reset, with jitter.
 Failure loop   -> widen backoff and mark needs attention after the attempt limit.
 ```
 
-## Away Mode
+## Away Mode (Parked Future Work)
 
-Away Mode is the product surface for Pending intended to drain while the user is
-not actively watching. It applies at 2:00 PM, during a meeting, from iPhone, or
-overnight; time of day is not the semantic owner.
+Away Mode is parked until native scheduling/drain is explicitly revived. The
+shape below is future material, not a v1 promise.
 
 The composer can stay prompt-first:
 
 ```text
 Submit to Pending
-Run when ready
+Run later
 Claude preferred
 Fallbacks: Codex, Gemini
 Mutation: ask before writing
@@ -624,11 +673,11 @@ Away Mode must show the boundary before the user leaves:
 - what notifications will wake the user.
 
 This is close to the Allnighter brand because it makes the Mac feel like an
-active floor: not a passive queue, but a simple outbox that drains when it can.
+active floor: not a passive queue, but a simple outbox an agent can call.
 
-M1 boundary:
+Future boundary:
 
-- Away Mode drains non-mutating Pending only.
+- Away Mode would drain non-mutating Pending only.
 - Mutating dispatch stays Draft/Pending with a reason until a present user acts.
 - Pending may carry working-directory context for handoff, but it does not own
   isolation, worktrees, branches, commits, merges, or landing.
@@ -755,9 +804,15 @@ Core/package impact:
 CLI impact:
 
 - Add `alln pending` to the command registry before GUI wiring depends on it.
+- Add Project-required pending grammar or flags before any run attempt depends on Pending:
+  `alln pending add --project <project>`, `alln pending list --project <project>`,
+  and `alln project pending <project>`.
 - Emit `PendingItemJSON` from `add`, `show`, and `run`.
-- Make `alln pending list --json` the proof surface for GUI/iOS snapshots.
-- Make `alln serve` the only resident drainer for app-closed execution.
+- Make `alln pending list --project <project> --json` the Project proof surface
+  and `alln pending list --all --json` the aggregate floor proof surface for
+  GUI/iOS snapshots.
+- Keep native `alln serve` drain parked; explicit `pending run` is the runnable
+  surface.
 - First Pending milestone accepts non-mutating kinds only:
   `workerChat` and `followUp`.
 
@@ -772,11 +827,10 @@ Mac app backend impact:
 
 Engine impact:
 
-- Bridge Pending items to admission requests.
+- Bridge explicitly run Pending items to admission requests.
 - Lease items before spawning attempts so app restarts can recover cleanly.
 - Enforce FIFO execution lanes before spawning Execute attempts.
-- Use fake-clock-testable wakeups for observed reset times and conservative
-  rechecks.
+- Keep wakeup/recheck automation parked with native scheduling.
 
 iOS impact:
 
@@ -818,8 +872,9 @@ Make Pending a public command contract before building GUI-only behavior.
 
 Scope:
 
-- `alln pending add [prompt]`.
-- `alln pending list --json`.
+- `alln pending add --project <project> [prompt]`.
+- `alln pending list --project <project> --json`.
+- `alln pending list --all --json` grouped by Project.
 - `alln pending show <id> --json`.
 - `alln pending submit <id>`.
 - `alln pending edit <id>`.
@@ -834,17 +889,20 @@ Scope:
 Works Test:
 
 ```text
-Run alln pending add --worker claude "Review this patch when Claude is ready."
-Run alln pending list --json.
+Run alln pending add --project Allnighter --worker claude "Review this patch when Claude is ready."
+Run alln pending list --project Allnighter --json.
 The item appears as Draft with selected worker, policy, safety, and no guessed
 quota/cost/runtime fields.
+It includes projectId.
 Run alln pending submit <id>.
 The item becomes Pending.
-Run alln pending add --submit --worker claude "Continue security review."
+Run alln pending add --project Allnighter --submit --worker claude "Continue security review."
 The new item is created directly as Pending.
 Run alln pending reorder <second-id> --before <first-id>.
 The two items keep their lifecycle states, and only their execution-lane order
 changes.
+Attempt to reorder across Projects.
+The command is rejected.
 Run alln pending cancel <id>.
 The item becomes cancelled and is not drained by alln serve.
 ```
@@ -859,6 +917,7 @@ Store user-owned work intent separately from scheduler attempts.
 Scope:
 
 - `PendingItem`, target, policy, safety, resume, and attempt summary types.
+- Project binding for every new Pending item plus migration for existing items.
 - Local persistence beside thread/run history.
 - Link from thread turns to Pending items.
 - Basic Mac Pending list: Draft, Pending, Running, outcomes, needs attention.
@@ -884,6 +943,7 @@ without guessing availability.
 
 Scope:
 
+- Refuse to drain Pending items without `projectId`.
 - Scheduler bridge from Pending items to `AdmissionRequest`.
 - `alln serve` owns leases and attempts while running.
 - Observed reset wakeups.
@@ -986,6 +1046,7 @@ Scope:
 
 - `PendingExecution.intent = execute`.
 - Deterministic `executionLaneKey` derivation and versioning.
+- Project id and normalized Project root are part of the key.
 - FIFO execution-lane scheduler gate before admission spawn.
 - Manual reorder of Pending, not Running, Execute items inside one execution
   lane.
@@ -1023,6 +1084,7 @@ Audit records userReorderedExecutionLane.
 | Junction | Owner | Possible bad inference | Ban | Negative test |
 | --- | --- | --- | --- | --- |
 | Pending -> admission | AllnighterCore | Pending item means worker quota exists | Pending means submitted intent, not that capacity exists | A Pending Claude item with coolingDown admission remains Pending with a reason |
+| Pending -> Project | AllnighterCore | Pending can float globally until drain | Pending requires `projectId`; unassigned migrated items are repair-only and not drainable | Create Pending without Project; submit/drain is rejected |
 | Admission -> retry | AllnighterEngine | No reset time means estimate one | Unknown reset must be labeled unknown and use conservative recheck policy | UI never renders an invented reset time |
 | Worker prose -> Pending | AllnighterCore | Model suggestion creates hidden work | Suggestions are Draft until approved or preset-authorized | Worker says "run tests"; no new Pending item appears |
 | iOS command -> Mac execution | iOS remote spine | Phone sent command means Mac ran it | Sleeping/unreachable Mac queues command and reports reachability honestly | Phone shows Mac asleep; no run status is faked |
@@ -1036,15 +1098,15 @@ Audit records userReorderedExecutionLane.
 
 - The user can add work to Pending without requiring the target worker to
   be available at that moment.
+- Every runnable Pending item is bound to exactly one Project.
 - `alln pending` can create, submit, edit, reorder, list, show, cancel, run, and
   stop Pending items before any GUI-only Pending surface ships.
-- `alln serve` can drain eligible Pending while the app window is closed.
+- Native `alln serve` Pending drain remains parked.
 - Pending items preserve target worker/team, context, fallback, priority, and
   mutation policy.
-- Draft is editable and never drained; editing Pending returns it to Draft.
+- Draft is editable and never runnable; editing Pending returns it to Draft.
 - Stopping Running returns it to Pending; cancellation is explicit.
-- Scheduler drains admissible Pending and keeps blocked work Pending with sourced
-  reasons.
+- Explicit run attempts keep blocked work Pending with sourced reasons.
 - Execute work is FIFO per execution lane; later same-execution-lane work does
   not start while an earlier item is running, cooling down, stopped,
   failed-needs-attention, or safety-blocked unless the user manually reorders
