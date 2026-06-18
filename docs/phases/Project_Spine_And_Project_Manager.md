@@ -1206,7 +1206,7 @@ iOS:
 - [x] PRJ-S03 - Thread binding migration (DONE 2026-06-18): add `projectId` to `WorkThread`,
   migrate existing threads from `workingDir` / run root, preserve snapshots, and
   block mutating unassigned threads until assigned.
-- [ ] PRJ-S04 - Pending binding migration: add `projectId` to Pending items and
+- [x] PRJ-S04 - Pending binding migration (Core DONE 2026-06-18; alln project pending in S07): add `projectId` to Pending items and
   queue attempts, migrate from thread/run/workingDir where possible, add
   `alln project pending`, and block unassigned Pending from drain.
 - [ ] PRJ-S05 - Project worker readiness detection: auto-detect which installed
