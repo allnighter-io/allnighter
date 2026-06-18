@@ -30,6 +30,10 @@ struct TeamDraft: Equatable {
         /// The skill whose template seeded `promptDraft` (so a skill change can ask
         /// before discarding an edit).
         var promptBaseSkillId: String? = nil
+        /// User-chosen name for the would-be custom skill. nil = auto-name a fork
+        /// "<Skill> for <Team>". An empty `skillId` means a brand-new skill (type-to-
+        /// create) named by this; it then requires `promptDraft`.
+        var customSkillName: String? = nil
     }
 
     /// Seed from a base team. The name stays the base team's real name — selecting a
@@ -52,12 +56,21 @@ struct TeamDraft: Equatable {
                         purpose: .answer, minEffort: .low)
     }
 
-    /// Save is allowed only when every role — and the Lead — has a skill AND a model.
+    /// A role is complete when it has a model and either an existing skill or a
+    /// fully-specified new skill (name + prompt) to create on save.
+    static func rowComplete(_ r: Row) -> Bool {
+        guard r.modelId != nil else { return false }
+        guard r.skillId.isEmpty else { return true }
+        let hasName = !((r.customSkillName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        let hasPrompt = !((r.promptDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        return hasName && hasPrompt
+    }
+
+    /// Save is allowed only when every role — and the Lead — is complete.
     var isSavable: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !rows.isEmpty &&
-        rows.allSatisfy { !$0.skillId.isEmpty && $0.modelId != nil } &&
-        !lead.skillId.isEmpty && lead.modelId != nil
+        rows.allSatisfy(Self.rowComplete) && Self.rowComplete(lead)
     }
 
     /// Persist as a custom team and return its id. Built-in base → duplicate to a
@@ -83,16 +96,19 @@ struct TeamDraft: Equatable {
             if let duplicatedTeamId { try? TeamCatalog.deleteCustom(duplicatedTeamId) }
         }
 
-        // A row's effective skill: fork its edited prompt into a custom skill (and
-        // track it for rollback), else use the skill as-is. Shared by workers + Lead.
+        // A row's effective skill. Makes a custom skill when the prompt was edited
+        // (fork) OR there's no source skill (type-to-create). Otherwise the skill is
+        // used as-is. The custom name is the user's chosen name, else auto
+        // "<Skill> for <Team>". Tracked for rollback. Shared by workers + Lead.
         func resolveSkill(_ row: Row, defaultPurpose: SkillPurpose) throws -> String {
-            guard let prompt = row.promptDraft?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty else {
-                return row.skillId
-            }
+            let prompt = (row.promptDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let makesCustom = !prompt.isEmpty || row.skillId.isEmpty
+            guard makesCustom else { return row.skillId }
             let source = SkillCatalog.get(row.skillId)
-            let forkName = "\(source?.displayName ?? row.skillId) for \(saveName)"
+            let chosen = (row.customSkillName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let name = chosen.isEmpty ? "\(source?.displayName ?? row.skillId) for \(saveName)" : chosen
             let custom = try SkillCatalog.createCustom(
-                lane: base.lane, name: forkName,
+                lane: base.lane, name: name,
                 purpose: source?.purpose ?? defaultPurpose, template: prompt
             )
             forkedSkillIds.append(custom.id)
@@ -272,7 +288,7 @@ struct TeamEditorView: View {
             Button { editingLead = true } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "megaphone.fill").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
-                    Text(skillName(draft.lead.skillId))
+                    Text(skillLabel(draft.lead))
                         .font(.system(size: 12, weight: .medium)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                     if draft.lead.promptDraft != nil {
                         Circle().fill(ALColor.accent).frame(width: 5, height: 5)
@@ -304,7 +320,7 @@ struct TeamEditorView: View {
                     // prompt + model). A dot marks a worker whose prompt is tuned.
                     Button { editingRow = draft.rows.firstIndex { $0.id == row.id } } label: {
                         HStack(spacing: 6) {
-                            Text(skillName($row.wrappedValue.skillId))
+                            Text(skillLabel($row.wrappedValue))
                                 .font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                             if $row.wrappedValue.promptDraft != nil {
                                 Circle().fill(ALColor.accent).frame(width: 5, height: 5)
@@ -390,6 +406,11 @@ struct TeamEditorView: View {
     }
 
     private func skillName(_ id: String) -> String { SkillCatalog.get(id)?.displayName ?? id }
+    /// A row's display name — the chosen name for a not-yet-created skill, else the
+    /// resolved skill name.
+    private func skillLabel(_ r: TeamDraft.Row) -> String {
+        r.skillId.isEmpty ? (r.customSkillName ?? "New skill") : skillName(r.skillId)
+    }
     private func modelName(_ id: String?) -> String? {
         guard let id else { return nil }
         return models.first { $0.id == id }?.displayName ?? id
@@ -424,6 +445,10 @@ private struct CustomizeWorkerView: View {
     @State private var skillId: String
     @State private var modelId: String?
     @State private var promptText: String
+    /// Type-to-create: building a brand-new skill (no source). Name is required.
+    @State private var isNew: Bool
+    /// User-chosen name for the would-be custom skill (fork or new).
+    @State private var customName: String
 
     init(teamName: String, roleLabel: String = "worker", lane: ComposeLane, models: [Model], laneSkills: [Skill],
          row: TeamDraft.Row, onDone: @escaping (TeamDraft.Row) -> Void, onCancel: @escaping () -> Void) {
@@ -432,6 +457,8 @@ private struct CustomizeWorkerView: View {
         _skillId = State(initialValue: row.skillId)
         _modelId = State(initialValue: row.modelId)
         _promptText = State(initialValue: row.promptDraft ?? (SkillCatalog.get(row.skillId)?.template ?? ""))
+        _isNew = State(initialValue: row.skillId.isEmpty)
+        _customName = State(initialValue: row.customSkillName ?? "")
     }
 
     private var skill: Skill? { SkillCatalog.get(skillId) }
@@ -439,6 +466,25 @@ private struct CustomizeWorkerView: View {
     private var isForked: Bool {
         promptText.trimmingCharacters(in: .whitespacesAndNewlines)
             != template.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    /// True when this edit will produce a custom skill (a fork or a brand-new one).
+    private var willSaveAsCustom: Bool { isNew || isForked }
+    /// What the SKILL field + header show — the chosen name for a new skill, else
+    /// the picked skill's name.
+    private var currentSkillLabel: String {
+        if isNew { return customName.isEmpty ? "New skill" : customName }
+        return skill?.displayName ?? skillId
+    }
+    private var autoForkName: String { "\(skill?.displayName ?? skillId) for \(teamName)" }
+    /// The trimmed chosen name, or nil to let commit auto-name a fork.
+    private var chosenName: String? {
+        let t = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+    /// Done is allowed with a model, a non-empty prompt, and — for a new skill — a name.
+    private var isDone: Bool {
+        guard modelId != nil, !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return isNew ? (chosenName != nil) : true
     }
     private func modelName(_ id: String?) -> String {
         guard let id else { return "Pick a model" }
@@ -453,7 +499,7 @@ private struct CustomizeWorkerView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     field("SKILL") {
                         ALSearchableDropdown(
-                            current: skill?.displayName ?? skillId,
+                            current: currentSkillLabel,
                             items: laneSkills.map { ALComboItem(id: $0.id, label: $0.displayName,
                                                                 tag: $0.builtIn ? "built-in" : "custom") },
                             placeholder: "Search \(lane.label.lowercased()) skills…",
@@ -464,10 +510,16 @@ private struct CustomizeWorkerView: View {
                                     == template.trimmingCharacters(in: .whitespacesAndNewlines) {
                                     promptText = SkillCatalog.get(newId)?.template ?? ""
                                 }
-                                skillId = newId
+                                skillId = newId; isNew = false; customName = ""
+                            },
+                            onCreate: { typed in
+                                // Type-to-create: a brand-new skill named `typed`, empty
+                                // prompt to fill in below; persists on team Save.
+                                isNew = true; skillId = ""; customName = typed; promptText = ""
                             }
                         )
                     }
+                    if willSaveAsCustom { skillNameField }
                     field("MODEL") {
                         ALDropdown(current: modelName(modelId),
                                    options: models.map { ($0.id, $0.displayName) }) { modelId = $0 }
@@ -487,7 +539,7 @@ private struct CustomizeWorkerView: View {
                 .buttonStyle(.plain).foregroundStyle(ALColor.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Customize \(roleLabel)").font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                Text("\(teamName) · \(skill?.displayName ?? skillId) | \(modelName(modelId))")
+                Text("\(teamName) · \(currentSkillLabel) | \(modelName(modelId))")
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
             }
             Spacer(minLength: 0)
@@ -502,11 +554,32 @@ private struct CustomizeWorkerView: View {
         }
     }
 
+    /// Shown only when the edit will create a custom skill — name it (or accept the
+    /// suggested fork name).
+    private var skillNameField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("SKILL NAME").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            TextField(isNew ? "Name your new skill" : autoForkName, text: $customName)
+                .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                .padding(.horizontal, 10).frame(height: 32)
+                .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+            Text(isNew
+                 ? "Saved as a new custom \(lane.label.lowercased()) skill on Save."
+                 : "Your edit forks a custom skill — name it, or leave blank for \u{201C}\(autoForkName)\u{201D}.")
+                .font(.system(size: 10.5)).foregroundStyle(ALColor.textFaint)
+        }
+    }
+
     private var metadata: some View {
         HStack(spacing: 6) {
             chip(lane.label)
-            chip((skill?.purpose.rawValue ?? "answer"))
-            chip((skill?.builtIn ?? true) ? "from a template" : "custom")
+            if isNew {
+                chip("new")
+            } else {
+                chip(skill?.purpose.rawValue ?? "answer")
+                chip(willSaveAsCustom ? "custom" : ((skill?.builtIn ?? true) ? "from a template" : "custom"))
+            }
         }
     }
 
@@ -514,8 +587,8 @@ private struct CustomizeWorkerView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text("PROMPT").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-                if isForked {
-                    Text("· will save as a custom skill")
+                if willSaveAsCustom {
+                    Text(isNew ? "· new custom skill" : "· will save as a custom skill")
                         .font(.system(size: 10)).foregroundStyle(ALColor.accentText)
                 }
                 Spacer(minLength: 0)
@@ -541,17 +614,18 @@ private struct CustomizeWorkerView: View {
     private var footer: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
-            Button("Cancel worker changes", action: onCancel).buttonStyle(.alSecondary(small: true))
+            Button("Cancel \(roleLabel) changes", action: onCancel).buttonStyle(.alSecondary(small: true))
             Button("Done") {
                 var updated = row
-                updated.skillId = skillId
+                updated.skillId = isNew ? "" : skillId
                 updated.modelId = modelId
-                updated.promptDraft = isForked ? promptText : nil
-                updated.promptBaseSkillId = isForked ? skillId : nil
+                updated.promptDraft = willSaveAsCustom ? promptText : nil
+                updated.promptBaseSkillId = (willSaveAsCustom && !isNew) ? skillId : nil
+                updated.customSkillName = willSaveAsCustom ? chosenName : nil
                 onDone(updated)
             }
             .buttonStyle(.alPrimary(small: true))
-            .disabled(modelId == nil || promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!isDone)
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
         .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }

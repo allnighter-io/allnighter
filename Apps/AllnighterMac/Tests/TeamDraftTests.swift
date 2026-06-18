@@ -150,4 +150,46 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertEqual(customBuildTeams().count, teamsBefore,
                        "no orphan custom team")
     }
+
+    // MARK: - S03b: type-to-create + named forks
+
+    func testTypeToCreateMakesANamedCustomSkillOnSave() throws {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        // A brand-new skill (no source skillId), named by the user, prompt written.
+        d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
+                          purpose: .answer, minEffort: .low,
+                          promptDraft: "Brand new behavior.", customSkillName: "My Fresh Skill")
+        let skillsBefore = customBuildSkills().count
+
+        let teamId = try d.commit()
+        let team = try XCTUnwrap(TeamCatalog.get(teamId))
+        let customs = customBuildSkills()
+        XCTAssertEqual(customs.count, skillsBefore + 1, "one new skill created")
+        let made = try XCTUnwrap(customs.first { $0.displayName == "My Fresh Skill" })
+        XCTAssertEqual(made.template, "Brand new behavior.")
+        XCTAssertEqual(made.lane, .build, "new skill inherits the team lane")
+        XCTAssertEqual(team.workerSpecs.first { $0.id == "r_new" }?.skillId, made.id,
+                       "row repointed to the new skill")
+    }
+
+    func testNamedForkUsesChosenNameNotAuto() throws {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        let sourceId = d.rows[0].skillId
+        d.rows[0].promptDraft = "tuned"
+        d.rows[0].customSkillName = "Renamed Skill"
+
+        _ = try d.commit()
+        let made = try XCTUnwrap(customBuildSkills().first { $0.template == "tuned" })
+        XCTAssertEqual(made.displayName, "Renamed Skill",
+                       "the chosen name wins over the auto <skill> for <team> name")
+        XCTAssertNotEqual(made.id, sourceId, "a new custom skill, not the built-in")
+    }
+
+    func testNewSkillRowWithoutNameIsNotSavable() {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
+                          purpose: .answer, minEffort: .low,
+                          promptDraft: "has prompt", customSkillName: nil)
+        XCTAssertFalse(d.isSavable, "a create-from-scratch row needs a name")
+    }
 }
