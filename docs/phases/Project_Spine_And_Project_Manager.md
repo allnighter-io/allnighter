@@ -1197,13 +1197,13 @@ iOS:
   proposal state machine, and model-level inference-ban tests (`ProjectSpineTests.swift`).
   No GUI. Green wall. (Public string-date JSON projection + contract-registry artifacts
   land with the CLI in PRJ-S07.)
-- [ ] PRJ-S01 - ProjectStore: add/list/show/archive Projects with atomic local
+- [x] PRJ-S01 - ProjectStore (DONE 2026-06-18): add/list/show/archive Projects with atomic local
   persistence, duplicate-root detection, rootState observation, and git metadata
   observation.
-- [ ] PRJ-S02 - Project context packet: generate compact source-labeled packets
+- [x] PRJ-S02 - Project context packet (DONE 2026-06-18): generate compact source-labeled packets
   from ProjectStore, git, docs entrypoints, threads, pending, runs, proposals,
   returns, and proof records.
-- [ ] PRJ-S03 - Thread binding migration: add `projectId` to `WorkThread`,
+- [x] PRJ-S03 - Thread binding migration (DONE 2026-06-18): add `projectId` to `WorkThread`,
   migrate existing threads from `workingDir` / run root, preserve snapshots, and
   block mutating unassigned threads until assigned.
 - [ ] PRJ-S04 - Pending binding migration: add `projectId` to Pending items and
