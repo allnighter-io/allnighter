@@ -197,7 +197,7 @@ final class AppModel {
     // MARK: - Work shape
 
     var workOrderSummary: String {
-        WorkOrder.teamSummary(
+        WorkOrderSummary.teamSummary(
             workerCount: expandedWorkers.count,
             planWriterLabel: planWriterModel?.displayName,
             synthesis: currentSynthesis

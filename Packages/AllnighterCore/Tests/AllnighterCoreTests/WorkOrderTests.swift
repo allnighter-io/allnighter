@@ -8,11 +8,11 @@ final class WorkOrderTests: XCTestCase {
             analysisProfileId: "a",
             planProfileId: "p"
         )
-        let summary = WorkOrder.teamSummary(workerCount: 3, planWriterLabel: "Sonnet", synthesis: synthesis)
+        let summary = WorkOrderSummary.teamSummary(workerCount: 3, planWriterLabel: "Sonnet", synthesis: synthesis)
         XCTAssertEqual(summary, "3 workers · Sonnet plan writer · combined analysis + plan")
     }
 
     func testDesignSummarySingular() {
-        XCTAssertEqual(WorkOrder.designSummary(outputCount: 1, engineNames: ["Grok"]), "1 mockup · Grok")
+        XCTAssertEqual(WorkOrderSummary.designSummary(outputCount: 1, engineNames: ["Grok"]), "1 mockup · Grok")
     }
 }

@@ -78,7 +78,7 @@ struct DesignComposer: View {
     }
 
     private var shapeSummaryText: String {
-        WorkOrder.designSummary(
+        WorkOrderSummary.designSummary(
             outputCount: model.designPersonaIds.count,
             engineNames: Array(Set(model.imageWorkers.map(\.displayName))).sorted()
         )

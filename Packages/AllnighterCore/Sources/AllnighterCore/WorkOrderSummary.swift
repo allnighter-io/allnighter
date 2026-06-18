@@ -2,7 +2,7 @@ import Foundation
 
 /// Prediction-free rendering of the work order the user chose. Structural facts
 /// only — no seconds, quota, calls-as-estimate, or "est." prefix.
-public enum WorkOrder {
+public enum WorkOrderSummary {
     /// Team composer shape: workers, plan writer, analysis depth, optional lenses.
     public static func teamSummary(
         workerCount: Int,

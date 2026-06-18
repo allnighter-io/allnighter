@@ -92,14 +92,14 @@ final class PresetAndDoctorTests: XCTestCase {
             analysisProfileId: "plan_analysis_v1",
             planProfileId: "plan_writer_v1"
         )
-        let summary = WorkOrder.teamSummary(workerCount: 6, planWriterLabel: "Opus", synthesis: synthesis, lensCount: 3)
+        let summary = WorkOrderSummary.teamSummary(workerCount: 6, planWriterLabel: "Opus", synthesis: synthesis, lensCount: 3)
         XCTAssertEqual(summary, "6 workers · Opus plan writer · separate analysis + plan · 3 lenses")
         XCTAssertFalse(summary.contains("est"))
         XCTAssertFalse(summary.contains("quota"))
     }
 
     func testWorkOrderDesignSummary() {
-        let summary = WorkOrder.designSummary(outputCount: 4, engineNames: ["Grok", "Gemini"])
+        let summary = WorkOrderSummary.designSummary(outputCount: 4, engineNames: ["Grok", "Gemini"])
         XCTAssertEqual(summary, "4 mockups · Grok, Gemini")
     }
 
