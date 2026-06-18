@@ -2,6 +2,7 @@
   {
     "agentAction" : "Re-run `alln docs <command>` and fix arguments.",
     "code" : "CLI_USAGE_ERROR",
+    "exitClass" : "usage",
     "explain" : "The command was called with invalid or conflicting arguments. Consult the generated docs for the command and correct the invocation.",
     "requiresManual" : true,
     "retryable" : false,
@@ -10,6 +11,7 @@
   {
     "agentAction" : "Run `alln dev export-contracts`, then rebuild.",
     "code" : "CONTRACT_DRIFT",
+    "exitClass" : "operational",
     "explain" : "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output.",
     "requiresManual" : true,
     "retryable" : false,
@@ -18,6 +20,7 @@
   {
     "agentAction" : "Run `alln doctor --json`.",
     "code" : "DOCTOR_CHECK_FAILED",
+    "exitClass" : "operational",
     "explain" : "A required doctor check failed. Inspect the structured report and address the named check, then retry.",
     "requiresManual" : false,
     "retryable" : true,
@@ -26,6 +29,7 @@
   {
     "agentAction" : "Run `alln doctor --json`; add\/configure the missing source.",
     "code" : "SOURCE_NOT_FOUND",
+    "exitClass" : "operational",
     "explain" : "A required source CLI\/runtime was not resolved on this machine. Install or locate it, then re-probe.",
     "requiresManual" : true,
     "retryable" : false,
@@ -34,6 +38,7 @@
   {
     "agentAction" : "Re-authenticate the named source.",
     "code" : "SOURCE_AUTH_EXPIRED",
+    "exitClass" : "operational",
     "explain" : "The source resolved but its authentication is invalid or expired. Sign in via the source's own login flow.",
     "requiresManual" : true,
     "retryable" : false,
@@ -42,6 +47,7 @@
   {
     "agentAction" : "Run `alln models --json`; pick an on-Bench ready model or enable one.",
     "code" : "MODEL_UNAVAILABLE",
+    "exitClass" : "operational",
     "explain" : "The requested model is not runnable: it may be off-Bench, its source may not be ready, or it may not exist. Use `alln models --json` to see available vs on-Bench vs ready state.",
     "requiresManual" : false,
     "retryable" : true,
@@ -50,6 +56,7 @@
   {
     "agentAction" : "Run `alln team show --json`; fix unavailable workers.",
     "code" : "DEFAULT_TEAM_INVALID",
+    "exitClass" : "operational",
     "explain" : "The default team has no runnable workers. Inspect and repair the team lineup before running.",
     "requiresManual" : true,
     "retryable" : false,
@@ -58,6 +65,7 @@
   {
     "agentAction" : "Inspect `workerId` and source error; failed worker remains visible.",
     "code" : "WORKER_FAILED",
+    "exitClass" : "operational",
     "explain" : "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results.",
     "requiresManual" : false,
     "retryable" : true,
@@ -66,6 +74,7 @@
   {
     "agentAction" : "Retry with a ready plan writer or export worker answers.",
     "code" : "PLAN_WRITER_FAILED",
+    "exitClass" : "operational",
     "explain" : "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later.",
     "requiresManual" : false,
     "retryable" : true,
@@ -74,6 +83,7 @@
   {
     "agentAction" : "Retry with lower effort or fewer workers.",
     "code" : "TEAM_RUN_TIMEOUT",
+    "exitClass" : "operational",
     "explain" : "The team run exceeded its time budget. Reduce effort or the worker count and retry.",
     "requiresManual" : false,
     "retryable" : true,
@@ -82,6 +92,7 @@
   {
     "agentAction" : "Inspect failed workers and stages; retry or adjust the team.",
     "code" : "TEAM_RUN_FAILED",
+    "exitClass" : "operational",
     "explain" : "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers\/stages in the run, then retry or change the team.",
     "requiresManual" : false,
     "retryable" : true,
@@ -90,6 +101,7 @@
   {
     "agentAction" : "Do not recursively spawn teams without explicit depth budget.",
     "code" : "NESTED_TEAM_BLOCKED",
+    "exitClass" : "operational",
     "explain" : "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended.",
     "requiresManual" : true,
     "retryable" : false,
@@ -98,6 +110,7 @@
   {
     "agentAction" : "Wait or retry after current team run completes.",
     "code" : "TEAM_GOVERNOR_BUSY",
+    "exitClass" : "operational",
     "explain" : "The concurrency governor is at capacity. Wait for a slot and retry; this is a real busy state, not a fake queue.",
     "requiresManual" : false,
     "retryable" : true,
@@ -106,6 +119,7 @@
   {
     "agentAction" : "Keep item Draft\/Pending; mutating dispatch is outside Pending M1.",
     "code" : "PENDING_MUTATION_DEFERRED",
+    "exitClass" : "operational",
     "explain" : "Mutating dispatch from Pending is not enabled in this milestone. Keep the item Draft\/Pending.",
     "requiresManual" : true,
     "retryable" : false,
@@ -114,6 +128,7 @@
   {
     "agentAction" : "Keep order unchanged; reorder only Pending Execute items in the same execution lane.",
     "code" : "PENDING_REORDER_INVALID",
+    "exitClass" : "operational",
     "explain" : "Reorder is only valid among Pending Execute items in one execution lane. The requested reorder was rejected.",
     "requiresManual" : true,
     "retryable" : false,
@@ -122,6 +137,7 @@
   {
     "agentAction" : "Generate a new key or reuse the original payload.",
     "code" : "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+    "exitClass" : "operational",
     "explain" : "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request.",
     "requiresManual" : false,
     "retryable" : false,
@@ -130,6 +146,7 @@
   {
     "agentAction" : "Poll team status using nextPollAfterMs, then call team result again.",
     "code" : "RESULT_NOT_READY",
+    "exitClass" : "operational",
     "explain" : "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true.",
     "requiresManual" : false,
     "retryable" : true,
@@ -138,6 +155,7 @@
   {
     "agentAction" : "Run `alln history --json`.",
     "code" : "RUN_NOT_FOUND",
+    "exitClass" : "operational",
     "explain" : "No run matches the given id. List history and pick a valid run id or `latest`.",
     "requiresManual" : true,
     "retryable" : false,
@@ -146,6 +164,7 @@
   {
     "agentAction" : "Use foreground CLI or start resident mode when available.",
     "code" : "COORDINATOR_UNAVAILABLE",
+    "exitClass" : "operational",
     "explain" : "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available.",
     "requiresManual" : false,
     "retryable" : true,
@@ -154,6 +173,7 @@
   {
     "agentAction" : "Run `alln skills --lane <lane> --json` and pick a valid skill id.",
     "code" : "SKILL_NOT_FOUND",
+    "exitClass" : "operational",
     "explain" : "No skill matches the given id. List skills for the lane and retry with a valid SkillID.",
     "requiresManual" : true,
     "retryable" : false,
@@ -162,6 +182,7 @@
   {
     "agentAction" : "Run `alln teams --lane <lane> --json` and pick a valid team id.",
     "code" : "TEAM_NOT_FOUND",
+    "exitClass" : "operational",
     "explain" : "No team matches the given id. List teams for the lane and retry with a valid TeamID.",
     "requiresManual" : true,
     "retryable" : false,
@@ -170,6 +191,7 @@
   {
     "agentAction" : "Duplicate the built-in team, then edit the custom copy.",
     "code" : "TEAM_BUILTIN_IMMUTABLE",
+    "exitClass" : "operational",
     "explain" : "Built-in teams cannot be edited or deleted. Duplicate to a custom team and edit that copy.",
     "requiresManual" : true,
     "retryable" : false,
@@ -178,6 +200,7 @@
   {
     "agentAction" : "Duplicate the built-in skill, then edit the custom copy.",
     "code" : "SKILL_BUILTIN_IMMUTABLE",
+    "exitClass" : "operational",
     "explain" : "Built-in skills cannot be edited or deleted. Duplicate to a custom skill and edit that copy.",
     "requiresManual" : true,
     "retryable" : false,
@@ -186,6 +209,7 @@
   {
     "agentAction" : "Pick a different team id or delete the conflicting custom team.",
     "code" : "TEAM_ID_COLLISION",
+    "exitClass" : "operational",
     "explain" : "A team with this id already exists.",
     "requiresManual" : true,
     "retryable" : false,
@@ -194,6 +218,7 @@
   {
     "agentAction" : "Pick a different skill id or delete the conflicting custom skill.",
     "code" : "SKILL_ID_COLLISION",
+    "exitClass" : "operational",
     "explain" : "A skill with this id already exists.",
     "requiresManual" : true,
     "retryable" : false,
@@ -202,6 +227,7 @@
   {
     "agentAction" : "Fix the team definition and retry `alln teams edit`.",
     "code" : "TEAM_INVALID",
+    "exitClass" : "operational",
     "explain" : "The team definition is invalid (missing rows, unknown skills, or bad effort\/output kind).",
     "requiresManual" : true,
     "retryable" : false,
@@ -210,6 +236,7 @@
   {
     "agentAction" : "Fix the skill definition and retry `alln skills edit`.",
     "code" : "SKILL_INVALID",
+    "exitClass" : "operational",
     "explain" : "The skill definition is invalid (empty template, missing lane, or unknown purpose).",
     "requiresManual" : true,
     "retryable" : false,
@@ -218,6 +245,7 @@
   {
     "agentAction" : "Set another default team before deleting or changing the lane default.",
     "code" : "TEAM_DEFAULT_INVALID",
+    "exitClass" : "operational",
     "explain" : "The default-team change would leave a lane without a valid default.",
     "requiresManual" : true,
     "retryable" : false,
@@ -226,6 +254,7 @@
   {
     "agentAction" : "Remove the skill from team definitions before deleting.",
     "code" : "SKILL_IN_USE",
+    "exitClass" : "operational",
     "explain" : "The skill is still referenced by one or more team definitions.",
     "requiresManual" : true,
     "retryable" : false,
@@ -234,6 +263,7 @@
   {
     "agentAction" : "Pick a skill from the same lane as the team.",
     "code" : "SKILL_LANE_MISMATCH",
+    "exitClass" : "operational",
     "explain" : "A team row references a skill from another lane.",
     "requiresManual" : true,
     "retryable" : false,
@@ -242,6 +272,7 @@
   {
     "agentAction" : "Use a canonical lowercase id matching the catalog rules.",
     "code" : "CATALOG_ID_INVALID",
+    "exitClass" : "operational",
     "explain" : "The catalog id fails canonical ID rules.",
     "requiresManual" : true,
     "retryable" : false,
@@ -250,6 +281,7 @@
   {
     "agentAction" : "Treat as implementation bug; run export-contracts check.",
     "code" : "JSON_SCHEMA_VIOLATION",
+    "exitClass" : "operational",
     "explain" : "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check.",
     "requiresManual" : true,
     "retryable" : false,
@@ -258,6 +290,7 @@
   {
     "agentAction" : "Ask the user for the named permission.",
     "code" : "PERMISSION_REQUIRED",
+    "exitClass" : "operational",
     "explain" : "The action needs a user-granted permission that is not present. Request the named permission before retrying.",
     "requiresManual" : true,
     "retryable" : false,
@@ -266,6 +299,7 @@
   {
     "agentAction" : "Approve or configure the MCP client before retrying.",
     "code" : "MCP_CLIENT_UNAPPROVED",
+    "exitClass" : "operational",
     "explain" : "The calling MCP client is not approved. Approve or configure it, then retry.",
     "requiresManual" : true,
     "retryable" : false,
@@ -274,6 +308,7 @@
   {
     "agentAction" : "Re-ingest or re-send the attachment; do not retry with stale bytes.",
     "code" : "ATTACHMENT_HASH_MISMATCH",
+    "exitClass" : "operational",
     "explain" : "Attachment storedSha256 does not match on-disk bytes.",
     "requiresManual" : true,
     "retryable" : false,
@@ -282,6 +317,7 @@
   {
     "agentAction" : "Remove attachments until within the count cap.",
     "code" : "ATTACHMENT_TOO_MANY",
+    "exitClass" : "operational",
     "explain" : "Too many images attached for one send.",
     "requiresManual" : true,
     "retryable" : false,
@@ -290,6 +326,7 @@
   {
     "agentAction" : "Use a smaller image or fewer attachments.",
     "code" : "ATTACHMENT_TOO_LARGE",
+    "exitClass" : "operational",
     "explain" : "An attachment exceeds byte or megapixel limits.",
     "requiresManual" : true,
     "retryable" : false,
@@ -298,6 +335,7 @@
   {
     "agentAction" : "Send PNG\/JPEG\/GIF\/WebP only.",
     "code" : "ATTACHMENT_UNSUPPORTED_TYPE",
+    "exitClass" : "operational",
     "explain" : "Attachment MIME type is not allowed.",
     "requiresManual" : true,
     "retryable" : false,
@@ -306,6 +344,7 @@
   {
     "agentAction" : "Fix or replace the corrupt image file.",
     "code" : "ATTACHMENT_DECODE_FAILED",
+    "exitClass" : "operational",
     "explain" : "Image could not be decoded.",
     "requiresManual" : true,
     "retryable" : false,
@@ -314,6 +353,7 @@
   {
     "agentAction" : "Fix the base64 payload.",
     "code" : "ATTACHMENT_BASE64_INVALID",
+    "exitClass" : "operational",
     "explain" : "MCP base64 image payload is invalid.",
     "requiresManual" : true,
     "retryable" : false,
@@ -322,6 +362,7 @@
   {
     "agentAction" : "Check workingDir permissions and disk space.",
     "code" : "ATTACHMENT_STAGE_FAILED",
+    "exitClass" : "operational",
     "explain" : "Could not copy attachment into workspace mirror.",
     "requiresManual" : true,
     "retryable" : true,
@@ -330,6 +371,7 @@
   {
     "agentAction" : "Add `.allnighter\/` to gitignore or info\/exclude manually.",
     "code" : "ATTACHMENT_STAGE_UNIGNORED",
+    "exitClass" : "operational",
     "explain" : "Staged mirror but could not update git ignore rules.",
     "requiresManual" : true,
     "retryable" : false,
@@ -338,6 +380,7 @@
   {
     "agentAction" : "Reduce message or attachment count; never silently trim current send.",
     "code" : "CONTEXT_ATTACHMENT_CAP_EXCEEDED",
+    "exitClass" : "operational",
     "explain" : "Protected attachment block does not fit context cap.",
     "requiresManual" : true,
     "retryable" : false,
@@ -346,9 +389,82 @@
   {
     "agentAction" : "Use a new idempotency key or repeat the original payload.",
     "code" : "THREAD_SEND_IDEMPOTENCY_CONFLICT",
+    "exitClass" : "operational",
     "explain" : "Same idempotency key reused with a different thread send payload.",
     "requiresManual" : false,
     "retryable" : false,
     "ruleId" : "thread.send.idempotency.conflict"
+  },
+  {
+    "agentAction" : "Run `alln history --json` (or create a thread); retry with a valid thread id.",
+    "code" : "THREAD_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No thread matches the given id, or no threads exist yet. List threads and retry with a valid thread id.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "thread.not_found"
+  },
+  {
+    "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
+    "code" : "THREAD_SEND_FAILED",
+    "exitClass" : "operational",
+    "explain" : "The thread send did not complete (worker or transport failure). Inspect the detail, then retry.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "thread.send.failed"
+  },
+  {
+    "agentAction" : "Run `alln models --json` and retry with a valid model id.",
+    "code" : "MODEL_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No model matches the given id. List models and retry with a valid ModelID.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "model.not_found"
+  },
+  {
+    "agentAction" : "Duplicate the built-in model, then edit the custom copy.",
+    "code" : "MODEL_BUILTIN_IMMUTABLE",
+    "exitClass" : "operational",
+    "explain" : "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "model.builtin.immutable"
+  },
+  {
+    "agentAction" : "Pick a different model id or delete the conflicting custom model.",
+    "code" : "MODEL_ID_COLLISION",
+    "exitClass" : "operational",
+    "explain" : "A model with this id already exists.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "model.id.collision"
+  },
+  {
+    "agentAction" : "Fix the model definition and retry the edit.",
+    "code" : "MODEL_INVALID",
+    "exitClass" : "operational",
+    "explain" : "The model definition or id is invalid (bad id, missing fields, or unknown driver mapping).",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "model.invalid"
+  },
+  {
+    "agentAction" : "Reference a known driver id, or add the driver manifest first.",
+    "code" : "MODEL_DRIVER_MISSING",
+    "exitClass" : "operational",
+    "explain" : "The model references a driver that is not registered. Use a known driver id or add its manifest.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "model.driver.missing"
+  },
+  {
+    "agentAction" : "Capture the message and `traceId`; retry once, then report if it persists.",
+    "code" : "INTERNAL_ERROR",
+    "exitClass" : "operational",
+    "explain" : "An unexpected internal failure occurred (not a usage error). The detail is in the message; this is a defensive catch-all, not a routine condition.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "internal.error"
   }
 ]

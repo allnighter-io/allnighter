@@ -205,13 +205,11 @@ enum ModelsCLI {
     }
 
     private static func emitFailure(_ code: String, _ message: String) -> Never {
-        AllnighterCLI.emitFailure(code: code, message: message)
-        exit(1)
+        AllnighterCLI.fail(code: code, message: message)
     }
 
     private static func emitModelError(_ error: ModelCatalogError) -> Never {
         let (code, message) = AllnighterCLI.modelCatalogErrorEnvelope(error)
-        AllnighterCLI.emitFailure(code: code, message: message)
-        exit(1)
+        AllnighterCLI.fail(code: code, message: message)
     }
 }

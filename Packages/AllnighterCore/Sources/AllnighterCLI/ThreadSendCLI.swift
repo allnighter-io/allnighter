@@ -24,30 +24,26 @@ enum ThreadSendCLI {
     static func runSend(_ args: [String], runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let threadRef = opts.positional.first else {
-            AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln thread send <thread-id|latest> [<message>] [--image path]... [--worker id] [--idempotency-key key] [--json]")
-            exit(2)
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln thread send <thread-id|latest> [<message>] [--image path]... [--worker id] [--idempotency-key key] [--json]")
         }
         let message = opts.positional.dropFirst().joined(separator: " ")
         let images = collectImagePaths(from: args)
         guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else {
-            AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: "requires at least one of message or --image")
-            exit(2)
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "requires at least one of message or --image")
         }
 
         let store = ThreadStore()
         let threadId: String
         if threadRef == "latest" {
             guard let latest = store.list().first else {
-                AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: "no threads exist")
-                exit(1)
+                AllnighterCLI.fail(code: "THREAD_NOT_FOUND", message: "no threads exist")
             }
             threadId = latest.id
         } else {
             threadId = threadRef
         }
         guard store.get(threadId) != nil else {
-            AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: "thread not found: \(threadId)")
-            exit(1)
+            AllnighterCLI.fail(code: "THREAD_NOT_FOUND", message: "thread not found: \(threadId)")
         }
 
         var frozenInputs: [ThreadSendCoordinator.ImageInput] = []
@@ -59,8 +55,7 @@ enum ThreadSendCLI {
         for (index, path) in images.enumerated() {
             let source = URL(fileURLWithPath: path)
             guard FileManager.default.fileExists(atPath: source.path) else {
-                AllnighterCLI.emitFailure(code: "ATTACHMENT_DECODE_FAILED", message: "file unreadable: \(path)")
-                exit(1)
+                AllnighterCLI.fail(code: "ATTACHMENT_DECODE_FAILED", message: "file unreadable: \(path)")
             }
             let data = (try? Data(contentsOf: source)) ?? Data()
             imageHashes.append(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined())
@@ -84,8 +79,7 @@ enum ThreadSendCLI {
                 }
                 return
             case .conflict:
-                AllnighterCLI.emitFailure(code: "THREAD_SEND_IDEMPOTENCY_CONFLICT", message: "idempotency key reused with different payload")
-                exit(1)
+                AllnighterCLI.fail(code: "THREAD_SEND_IDEMPOTENCY_CONFLICT", message: "idempotency key reused with different payload")
             case .miss:
                 break
             }
@@ -127,14 +121,11 @@ enum ThreadSendCLI {
                 print("sent to \(result.workerId): user=\(result.userTurnId) worker=\(result.workerTurnId) attachments=\(result.attachmentIds.count) workerImages=\(result.workerAttachmentIds.count)")
             }
         } catch let error as AttachmentError {
-            AllnighterCLI.emitFailure(code: error.code, message: error.description)
-            exit(1)
+            AllnighterCLI.fail(code: error.code, message: error.description)
         } catch let error as WorkerChatCoordinator.ChatError {
-            AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: error.description)
-            exit(1)
+            AllnighterCLI.fail(code: "WORKER_FAILED", message: error.description)
         } catch {
-            AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: error.localizedDescription)
-            exit(1)
+            AllnighterCLI.fail(code: "THREAD_SEND_FAILED", message: error.localizedDescription)
         }
     }
 

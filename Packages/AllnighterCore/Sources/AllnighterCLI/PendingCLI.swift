@@ -73,8 +73,7 @@ enum PendingCLI {
         let service = makeService(runtime)
         do {
             guard let item = try service.store.load(id: id) else {
-                AllnighterCLI.emitFailure(code: "RUN_NOT_FOUND", message: "pending item not found: \(id)")
-                exit(1)
+                AllnighterCLI.fail(code: "RUN_NOT_FOUND", message: "pending item not found: \(id)")
             }
             emit(item, service: service, json: opts.flag("json"))
         } catch {
@@ -162,8 +161,7 @@ enum PendingCLI {
     private static func runRun(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         if opts.flag("json") && opts.flag("stream") {
-            AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
-            exit(2)
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
         }
         guard let id = opts.positional.first else { usageError("usage: alln pending run <pending-id> [--json]") }
         let service = makeService(runtime)
@@ -172,8 +170,7 @@ enum PendingCLI {
             emit(item, service: service, json: opts.flag("json"))
         } catch let error as PendingServiceError {
             if case .mutationDeferred = error {
-                AllnighterCLI.emitFailure(code: "PENDING_MUTATION_DEFERRED", message: "mutating dispatch is outside Pending M1")
-                exit(1)
+                AllnighterCLI.fail(code: "PENDING_MUTATION_DEFERRED", message: "mutating dispatch is outside Pending M1")
             }
             emitPendingError(error)
         } catch {
@@ -214,23 +211,26 @@ enum PendingCLI {
     }
 
     private static func emitPendingError(_ error: Error) -> Never {
+        let code: String
+        let message: String
         if let err = error as? PendingServiceError {
             switch err {
             case .notFound(let id):
-                AllnighterCLI.emitFailure(code: "RUN_NOT_FOUND", message: "pending item not found: \(id)")
+                (code, message) = ("RUN_NOT_FOUND", "pending item not found: \(id)")
             case .invalidWorker(let token):
-                AllnighterCLI.emitFailure(code: "MODEL_UNAVAILABLE", message: "unknown worker: \(token)")
+                (code, message) = ("MODEL_UNAVAILABLE", "unknown worker: \(token)")
             case .invalidState(let detail):
-                AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: detail)
+                (code, message) = ("CLI_USAGE_ERROR", detail)
             case .reorderInvalid(let detail):
-                AllnighterCLI.emitFailure(code: "PENDING_REORDER_INVALID", message: detail)
+                (code, message) = ("PENDING_REORDER_INVALID", detail)
             case .mutationDeferred:
-                AllnighterCLI.emitFailure(code: "PENDING_MUTATION_DEFERRED", message: "mutating dispatch is outside Pending M1")
+                (code, message) = ("PENDING_MUTATION_DEFERRED", "mutating dispatch is outside Pending M1")
             }
         } else {
-            AllnighterCLI.emitFailure(code: "CLI_USAGE_ERROR", message: String(describing: error))
+            (code, message) = ("INTERNAL_ERROR", String(describing: error))
         }
-        exit(1)
+        // Exit code is derived from the catalog (usage → 2, operational → 1).
+        AllnighterCLI.fail(code: code, message: message)
     }
 
     private static func usageError(_ message: String) -> Never {

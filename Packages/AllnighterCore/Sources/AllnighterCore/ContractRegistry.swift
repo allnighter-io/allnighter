@@ -89,6 +89,20 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         }
     }
 
+    /// The process exit class of an error code (M-C). Error codes only ever map to
+    /// `1` or `2`; `0` is success and carries no error code. See the exit-code table
+    /// in `docs/phases/CLI_Implementation_Contract.md` §Process exit codes.
+    public enum ErrorExitClass: String, Codable, Sendable, CaseIterable {
+        /// Well-formed command, but the operation failed or an entity was
+        /// unavailable. Exit `1`.
+        case operational
+        /// The command/subcommand/flag/argument was invalid before any work
+        /// started. Exit `2`.
+        case usage
+
+        public var processExitCode: Int32 { self == .usage ? 2 : 1 }
+    }
+
     /// One row of the error catalog. The recovery ladder reads these fields.
     public struct ErrorSpec: Codable, Sendable, Equatable {
         public var code: String
@@ -97,9 +111,28 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var requiresManual: Bool
         public var retryable: Bool
         public var explain: String
-        public init(_ code: String, ruleId: String, agentAction: String, requiresManual: Bool, retryable: Bool, explain: String) {
+        /// Process exit class for this code (M-C). Most failures are `operational`;
+        /// only pre-work argument/usage violations are `usage`.
+        public var exitClass: ErrorExitClass
+        public init(_ code: String, ruleId: String, agentAction: String, requiresManual: Bool, retryable: Bool, explain: String, exitClass: ErrorExitClass = .operational) {
             self.code = code; self.ruleId = ruleId; self.agentAction = agentAction
             self.requiresManual = requiresManual; self.retryable = retryable; self.explain = explain
+            self.exitClass = exitClass
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case code, ruleId, agentAction, requiresManual, retryable, explain, exitClass
+        }
+        // Tolerant decode: a pre-M-C artifact without `exitClass` reads as operational.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            code = try c.decode(String.self, forKey: .code)
+            ruleId = try c.decode(String.self, forKey: .ruleId)
+            agentAction = try c.decode(String.self, forKey: .agentAction)
+            requiresManual = try c.decode(Bool.self, forKey: .requiresManual)
+            retryable = try c.decode(Bool.self, forKey: .retryable)
+            explain = try c.decode(String.self, forKey: .explain)
+            exitClass = try c.decodeIfPresent(ErrorExitClass.self, forKey: .exitClass) ?? .operational
         }
     }
 

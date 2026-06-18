@@ -533,7 +533,7 @@ M1 may return schema version 1. Agent-first upgrades doctor to schema version 2.
   "docsVersionMatchesBinary": true,
   "canStartTeamRun": true,
   "readyTeams": [
-    {"lane": "build", "team": "build_core", "displayName": "Build Lab"}
+    {"lane": "code", "team": "code_core", "displayName": "Code Lab"}
   ],
   "blockedReason": null,
   "nextAction": {

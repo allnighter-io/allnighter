@@ -73,11 +73,11 @@ struct AllnighterCLI {
         let teamId = opts.value("team") ?? opts.value("preset")
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)")
         }
         let effort = opts.value("effort").flatMap(EffortLevel.init(rawValue:))
         if let raw = opts.value("effort"), effort == nil {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown effort: \(raw) (use low|med|high)"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "unknown effort: \(raw) (use low|med|high)")
         }
         let request = TeamRequest(
             question: question, lane: lane, teamPresetId: teamId, effort: effort,
@@ -146,17 +146,35 @@ struct AllnighterCLI {
         RunStore().load(runId: runId)
     }
 
-    /// Emits the shared machine failure envelope (one JSON object on stdout).
+    /// Emits the shared machine failure envelope (one JSON object on stdout). The
+    /// recovery fields (`ruleId`/`agentAction`/`requiresManual`/`retryable`) are
+    /// taken from the error catalog so the emitted envelope and `error_explain`
+    /// always agree (M-C).
     static func emitFailure(code: String, message: String) {
         struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
-        let env = ErrorEnvelope(code: code, message: message, requiresManual: code == "RUN_NOT_FOUND", retryable: false)
+        let spec = ContractRegistry.milestone1.errorSpec(for: code)
+        let env = ErrorEnvelope(
+            code: code,
+            ruleId: spec?.ruleId,
+            message: message,
+            agentAction: spec?.agentAction,
+            requiresManual: spec?.requiresManual ?? false,
+            retryable: spec?.retryable ?? false
+        )
         print(jsonString(Failure(error: env)))
+    }
+
+    /// Emits the failure envelope and exits with the catalog-derived process exit
+    /// code (usage → 2, operational → 1). The single funnel for terminal CLI
+    /// failures so the error code and its exit class can never drift apart (M-C).
+    static func fail(code: String, message: String) -> Never {
+        emitFailure(code: code, message: message)
+        exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
     }
 
     static func emitCatalogError(_ error: CatalogError, skillContext: Bool = false) -> Never {
         let (code, message) = catalogErrorEnvelope(error, skillContext: skillContext)
-        emitFailure(code: code, message: message)
-        exit(1)
+        fail(code: code, message: message)
     }
 
     static func catalogErrorEnvelope(_ error: CatalogError, skillContext: Bool = false) -> (code: String, message: String) {
@@ -435,7 +453,7 @@ struct AllnighterCLI {
         let opts = Options(args)
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)")
         }
         if opts.flag("json") {
             print(teamsCatalogJSONString(runtime, lane: lane))
@@ -478,7 +496,7 @@ struct AllnighterCLI {
         let opts = Options(args)
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)")
         }
         if opts.flag("json") {
             print(skillsCatalogJSONString(lane: lane))
@@ -494,10 +512,10 @@ struct AllnighterCLI {
     static func runSkillShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills show <skill-id> [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills show <skill-id> [--json]")
         }
         guard let skill = SkillCatalog.get(id) else {
-            emitFailure(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)"); exit(2)
+            fail(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)")
         }
         if opts.flag("json") {
             print(skillShowJSONString(skill))
@@ -556,10 +574,10 @@ struct AllnighterCLI {
     static func runTeamsShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams show <team-id> [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams show <team-id> [--json]")
         }
         guard let team = TeamCatalog.get(id) else {
-            emitFailure(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)"); exit(2)
+            fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)")
         }
         if opts.flag("json") { print(teamShowJSONString(team)) }
         else {
@@ -601,24 +619,24 @@ struct AllnighterCLI {
     static func runTeamsDuplicate(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams duplicate <team-id> [--name <name>] [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams duplicate <team-id> [--name <name>] [--json]")
         }
         do {
             let team = try TeamCatalog.duplicateBuiltIn(id, name: opts.value("name"))
             if opts.flag("json") { print(teamShowJSONString(team)) }
             else { print("duplicated \(id) → \(team.id)") }
         } catch let error as CatalogError { emitCatalogError(error) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln teams edit <team-id> [--file <path>] [--json]` — full replacement save.
     static func runTeamsEdit(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams edit <team-id> [--file <path>] [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams edit <team-id> [--file <path>] [--json]")
         }
         guard TeamCatalog.get(id) != nil else {
-            emitFailure(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)"); exit(2)
+            fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)")
         }
         do {
             let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id)
@@ -626,35 +644,35 @@ struct AllnighterCLI {
             if opts.flag("json") { print(teamShowJSONString(team)) }
             else { print("saved \(team.id)") }
         } catch let error as CatalogError { emitCatalogError(error) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln teams set-default <team-id> [--json]`
     static func runTeamsSetDefault(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams set-default <team-id> [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams set-default <team-id> [--json]")
         }
         do {
             let team = try TeamCatalog.setDefault(id)
             if opts.flag("json") { print(teamShowJSONString(team)) }
             else { print("default for \(team.lane.rawValue) → \(team.id)") }
         } catch let error as CatalogError { emitCatalogError(error) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln teams delete <team-id> [--json]`
     static func runTeamsDelete(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln teams delete <team-id> [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams delete <team-id> [--json]")
         }
         do {
             try TeamCatalog.deleteCustom(id)
             if opts.flag("json") { print(jsonString(DeleteAck(deleted: id))) }
             else { print("deleted \(id)") }
         } catch let error as CatalogError { emitCatalogError(error) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     static func loadTeamDefinition(from path: String?, expectedId: TeamID) throws -> TeamPreset {
@@ -682,48 +700,48 @@ struct AllnighterCLI {
     static func runSkillsDuplicate(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills duplicate <skill-id> [--name <name>] [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills duplicate <skill-id> [--name <name>] [--json]")
         }
         do {
             let skill = try SkillCatalog.duplicateBuiltIn(id, name: opts.value("name"))
             if opts.flag("json") { print(skillShowJSONString(skill)) }
             else { print("duplicated \(id) → \(skill.id)") }
         } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln skills new --lane <lane> --name <name> --purpose <purpose> [--template-file <path>] [--json]`
     static func runSkillsNew(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let laneRaw = opts.value("lane"), let lane = WorkLane(rawValue: laneRaw) else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills new --lane code|design|copy --name <name> --purpose answer|review|planWriter [--template-file <path>] [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills new --lane code|design|copy --name <name> --purpose answer|review|planWriter [--template-file <path>] [--json]")
         }
         guard let name = opts.value("name"), !name.isEmpty else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "--name is required"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "--name is required")
         }
         guard let purposeRaw = opts.value("purpose"), let purpose = SkillPurpose(rawValue: purposeRaw) else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "--purpose must be answer, review, or planWriter"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "--purpose must be answer, review, or planWriter")
         }
         let template: String
         do { template = try loadTemplateText(opts.value("template-file")) }
         catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
         do {
             let skill = try SkillCatalog.createCustom(lane: lane, name: name, purpose: purpose, template: template)
             if opts.flag("json") { print(skillShowJSONString(skill)) }
             else { print("created \(skill.id)") }
         } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln skills edit <skill-id> [--name <displayName>] [--template-file <path>] [--json]`
     static func runSkillsEdit(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills edit <skill-id> [--name <name>] [--template-file <path>] [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills edit <skill-id> [--name <name>] [--template-file <path>] [--json]")
         }
         guard var skill = SkillCatalog.get(id) else {
-            emitFailure(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)"); exit(2)
+            fail(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)")
         }
         if let name = opts.value("name") { skill.displayName = name }
         do {
@@ -732,21 +750,21 @@ struct AllnighterCLI {
             if opts.flag("json") { print(skillShowJSONString(skill)) }
             else { print("saved \(skill.id)") }
         } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln skills delete <skill-id> [--json]`
     static func runSkillsDelete(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "usage: alln skills delete <skill-id> [--json]"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills delete <skill-id> [--json]")
         }
         do {
             try SkillCatalog.deleteCustom(id)
             if opts.flag("json") { print(jsonString(DeleteAck(deleted: id))) }
             else { print("deleted \(id)") }
         } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
-        catch { emitFailure(code: "CLI_USAGE_ERROR", message: "\(error)"); exit(1) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     static func loadTemplateText(_ path: String?) throws -> String {
@@ -962,7 +980,7 @@ struct AllnighterCLI {
             FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json] [--full]\n".utf8)); exit(2)
         }
         guard let run = resolveRun(ref) else {
-            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
+            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
         }
         if opts.flag("json") {
             print(jsonString(TeamRunJSONMapper.map(
@@ -982,7 +1000,7 @@ struct AllnighterCLI {
         let opts = Options(args)
         let ref = opts.positional.first ?? "latest"
         guard let run = resolveRun(ref) else {
-            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
+            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
         }
         let result = specResult(run, runtime: runtime, detail: opts.value("detail"))
         if opts.flag("json") { print(jsonString(result)) }
@@ -1010,10 +1028,10 @@ struct AllnighterCLI {
         }
         let format = opts.value("format") ?? "md"
         guard format == "md" else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unsupported export format: \(format) (only md)"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "unsupported export format: \(format) (only md)")
         }
         guard let run = resolveRun(ref) else {
-            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(ref)"); exit(1)
+            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
         }
         if let dir = try? RunStore().runDirectory(forRunId: run.id),
            let bundle = try? String(contentsOf: dir.appendingPathComponent("bundle.md"), encoding: .utf8) {
@@ -1030,7 +1048,7 @@ struct AllnighterCLI {
             FileHandle.standardError.write(Data("usage: alln doctor explain <code> [--json]\n".utf8)); exit(2)
         }
         guard let spec = ContractRegistry.milestone1.errors.first(where: { $0.code == code }) else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown error code: \(code)"); exit(2)
+            fail(code: "CLI_USAGE_ERROR", message: "unknown error code: \(code)")
         }
         if opts.flag("json") {
             print(jsonString(spec))

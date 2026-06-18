@@ -671,6 +671,14 @@ Flags:
 | `ATTACHMENT_STAGE_UNIGNORED` | yes | no | Add `.allnighter/` to gitignore or info/exclude manually. |
 | `CONTEXT_ATTACHMENT_CAP_EXCEEDED` | yes | no | Reduce message or attachment count; never silently trim current send. |
 | `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | Use a new idempotency key or repeat the original payload. |
+| `THREAD_NOT_FOUND` | yes | no | Run `alln history --json` (or create a thread); retry with a valid thread id. |
+| `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
+| `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
+| `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |
+| `MODEL_ID_COLLISION` | yes | no | Pick a different model id or delete the conflicting custom model. |
+| `MODEL_INVALID` | yes | no | Fix the model definition and retry the edit. |
+| `MODEL_DRIVER_MISSING` | yes | no | Reference a known driver id, or add the driver manifest first. |
+| `INTERNAL_ERROR` | yes | no | Capture the message and `traceId`; retry once, then report if it persists. |
 
 ## NDJSON events
 
