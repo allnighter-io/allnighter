@@ -204,7 +204,7 @@ enum ThreadsPresenter {
     /// The rail's lane chips. `running` is a state, not a lane, but lives here so
     /// the rail filter is a single control.
     enum RailFilter: String, CaseIterable {
-        case all, design, build, running
+        case all, design, code, running
     }
 
     /// The lane a thread belongs to, inferred from the work it actually did (a

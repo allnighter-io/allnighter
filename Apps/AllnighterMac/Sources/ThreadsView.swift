@@ -283,7 +283,7 @@ private struct TurnRow: View {
         switch turn.family {
         case .message: messageRow
         case .reply: replyRow
-        case .team, .code: richRow
+        case .team, .build: richRow
         case .system: systemRow
         }
     }

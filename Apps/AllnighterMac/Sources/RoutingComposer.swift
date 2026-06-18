@@ -14,7 +14,7 @@ import AllnighterCore
 
 enum ComposeMode: String, CaseIterable { case chat, fanout, exec }
 enum ComposeEffort: String, CaseIterable { case low, med, high }
-enum ComposeLane: String, CaseIterable { case build, design, copy }
+enum ComposeLane: String, CaseIterable { case code, design, copy }
 
 /// Everything the composer arms when the user clicks Send.
 struct ComposeRouting: Equatable {
