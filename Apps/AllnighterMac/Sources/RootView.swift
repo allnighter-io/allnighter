@@ -38,7 +38,7 @@ struct RootView: View {
                 commands.requestedMode = .chat
                 commands.palettePresented = false
             },
-            AppCommand(id: "mode-fanout", title: "\(ComposeMode.sendToTeam.label) — a team answers", symbol: ComposeMode.sendToTeam.icon, key: "2") {
+            AppCommand(id: "mode-send-to-team", title: "\(ComposeMode.sendToTeam.label) — a team answers", symbol: ComposeMode.sendToTeam.icon, key: "2") {
                 commands.requestedMode = .sendToTeam
                 commands.palettePresented = false
             },

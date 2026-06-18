@@ -1,5 +1,5 @@
 # surface: cutover
-# fixtures: team-open-mixed compose-mode-menu readiness-mixed studio-team-editor studio-teams-build thread-team-board
+# fixtures: team-open-mixed compose-mode-menu readiness-mixed studio-team-editor studio-teams-code thread-team-board
 # watcher: PASS
 # sealed: 2026-06-18
 # Binds each proven view to its exact content hash. Re-editing any view

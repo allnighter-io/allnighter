@@ -104,10 +104,10 @@ enum GUIFixture {
     /// Which Studio page a `studio-*` fixture deep-links to.
     static var studioRoute: StudioRoute {
         switch active {
-        case "studio-teams-build", "studio-team-editor", "studio-worker-editor": return .teams(.code)
+        case "studio-teams-code", "studio-team-editor", "studio-worker-editor": return .teams(.code)
         case "studio-teams-design": return .teams(.design)
         case "studio-teams-copy": return .teams(.copy)
-        case "studio-skills-build": return .skills(.code)
+        case "studio-skills-code": return .skills(.code)
         default: return .clis
         }
     }
@@ -141,7 +141,7 @@ enum GUIFixture {
     /// Mode for the compose specimen (drives which target popover renders).
     static var composeSpecimenMode: ComposeMode {
         switch active {
-        case "compose-target-fanout": return .sendToTeam
+        case "compose-target-send-to-team": return .sendToTeam
         case "compose-target-exec": return .exec
         default: return .chat
         }
@@ -174,14 +174,14 @@ enum GUIFixture {
         ("thread-team-board", "Thread — fan-out team board"),
         ("thread-dispatch", "Thread — execute → dispatch to repo"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
-        ("studio-teams-build", "Team Studio — Build teams (detail)"),
-        ("studio-skills-build", "Team Studio — Build skills (detail)"),
+        ("studio-teams-code", "Team Studio — Code teams (detail)"),
+        ("studio-skills-code", "Team Studio — Code skills (detail)"),
         ("studio-team-editor", "Team Studio — Customize team editor"),
         ("studio-worker-editor", "Team Studio — Customize worker (skill + prompt)"),
         ("command-palette", "⌘K command palette"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
-        ("compose-target-fanout", "Compose — fan out team (native popover)"),
+        ("compose-target-send-to-team", "Compose — send to team (native popover)"),
         ("tcc-probe", "TCC / Screen Recording grant probe (forces composite path)"),
     ]
 

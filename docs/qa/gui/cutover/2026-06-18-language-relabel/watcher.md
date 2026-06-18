@@ -1,6 +1,6 @@
 # cutover — layout-watcher verdict
 
-Fixtures: team-open-mixed compose-mode-menu readiness-mixed studio-team-editor studio-teams-build thread-team-board
+Fixtures: team-open-mixed compose-mode-menu readiness-mixed studio-team-editor studio-teams-code thread-team-board
 
 Change under proof: pure vocabulary relabel + effort cutover with no layout edits —
 craft lanes "Build"→"Code", composer route "Fan out"→"Send to team", effort tooltip
@@ -17,7 +17,7 @@ A sighted layout-watcher reviewed each fixture (layout-only; CLI owns content):
 | compose-mode-menu | RoutingComposer mode menu (Chat / Send to team / Execute) | PASS |
 | readiness-mixed | ReadinessView ("Code · Design · Copy") | PASS |
 | studio-team-editor | TeamEditorView (full fixed lineup, no min-effort field) | PASS |
-| studio-teams-build | TeamStudioView (fixed "N workers" count) | PASS |
+| studio-teams-code | TeamStudioView (fixed "N workers" count) | PASS |
 | thread-team-board | ThreadView (lane inference Build→Code) | PASS |
 
 P1 — broken (blocks): none
