@@ -74,7 +74,7 @@ Allnighter gets the right team working.
 This phase assumes these backend efforts are underway or planned by their owning
 docs:
 
-- `Fanout_Team_Catalog.md`: lane-scoped teams, named team variants, team
+- `Team_Catalog.md`: lane-scoped teams, named team variants, team
   resolver, one-model self-fusion, `TeamRunJSON` upgrades.
 - `CLI_Product_Spine.md` and `CLI_Implementation_Contract.md`: generated CLI
   registry, `TeamRunJSON`, `DoctorResult`, generated docs, MCP descriptors.

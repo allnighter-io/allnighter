@@ -2,7 +2,7 @@ import Foundation
 
 /// The normalized Fan out request, shared across CLI / MCP / HTTP. The canonical
 /// Fan out selector is `lane + teamPresetId + effort + question`; `type` is Copy
-/// compatibility/routing sugar only (Fanout_Team_Catalog §Canonical Fan out request).
+/// compatibility/routing sugar only (Team_Catalog §Canonical Fan out request).
 public struct TeamRequest: Codable, Sendable, Equatable {
     public var question: String
     /// Explicit Fan out lane. Allnighter never infers it from the prompt.

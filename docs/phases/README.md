@@ -30,6 +30,7 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Language_Cutover.md`](Language_Cutover.md) | **TOP OF LIST — cutover plan** | Hard, no-alias rename to the locked vocabulary (Chat / Delegate "Send to team" / Execute; Team; Code/Design/Copy + Signal; one `team.run` primitive). Canonical word list + rename map + slices CUT-S00–S06. Goes before the Project spine so all new work is in the final language. |
+| [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft product/implementation spec | Send to team as the discoverable delegation surface: Team Card projection, Signal/Code/Design/Copy families, Project Manager recommendations, direct team send, and Execute approval for mutating work. |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md) | **CODE RED spec** - must land before Project Manager queue/autopropose | Projects are the durable repo/folder floor above threads, runs, pending, proposals, work orders, returns, worker readiness, and verification. Regular chat inside a Project is chat with that Project's Manager. Backend/CLI/MCP slices PRJ-S00-S13 first; GUI Projects rail and dogfood proof PRJ-S14/S15 after Core/CLI. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
@@ -41,7 +42,7 @@ otherwise.
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); native drain/scheduling parked | Public `alln pending` CRUD + local Pending model/persistence. External agents may trigger Pending through CLI/MCP; Away Mode drain/cooldown resume are parked. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; native Pending drain is parked. |
-| [`Fanout_Team_Catalog.md`](Fanout_Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred; forward effort simplification noted | Built-in Build/Design/Copy specialist team catalog substrate for Fan out: team picker, named team variants, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
+| [`Team_Catalog.md`](Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Code/Design/Copy specialist team catalog substrate for Send to team: team picker, named team variants, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
 | [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) | Founder review packet (2026-06-17) | Cleanup-first lane catalog feature: `TeamCatalog` + `SkillCatalog`, `TeamID` + `SkillID`, built-in and custom teams/skills in one catalog model, lane-first Settings, no Store vocabulary, no migration, no skill versioning. |
 | [`Model_Catalog_And_Bench_Roster.md`](Model_Catalog_And_Bench_Roster.md) | Ready CLI-first backend spec (2026-06-18) | Core `ModelCatalog` as the owner for built-in/custom per-CLI models, persistent Bench enablement, manual add/update/delete, CLI model commands, ToolRuntime/probe-label hardening, and the live-discovery seam. Model management stays inside CLIs; Bench is derived. |
 | [`Team_Configuration_UX_Rescue.md`](Team_Configuration_UX_Rescue.md) | **Contract-hardened implementation spec** (2026-06-17) | Mac team configuration rescue after first-use rejection: composer Customize wiring, primary Customize team drawer, level-2 Customize worker modal, built-ins as lazy custom drafts, TeamWorkerDraft prompt edits, save-time skill forking with rollback, visible default-team control, search-first skill picker, ready-first model picker, and proof slices. |
@@ -80,9 +81,10 @@ founder may reprioritize; the dependency logic is what matters.
    (CLI Project foundation, Manager chat, proposal engine, approval/work-order,
    handoff/dispatch, verification, MCP Project tools). Built on steps 2–3 so
    `project_*` commands and tools meet the hardened contract discipline.
-5. **Deploy-team surface + gating** — `Agent_First_MCP_...` **M-D** (deploy-team
-   tools, the Tenet-1 product spine), **M-E** (sync-ask resolution), **M-F**
-   (provenance / client approval / entitlement gate).
+5. **Send-to-team surface + gating** — `Team_Delegation_Surface.md` for the
+   discoverable product surface, plus `Agent_First_MCP_...` **M-D** (team
+   discovery/run tools), **M-E** (sync-ask resolution), **M-F** (provenance /
+   client approval / entitlement gate).
 6. **Stalled Work Watchdog** — `Stalled_Work_Watchdog.md` SW0–SW3. The MVP
    replacement for admission scheduling; depends on run/Pending/Project truth
    existing.
@@ -144,14 +146,13 @@ founder may reprioritize; the dependency logic is what matters.
   coordinator. The menu bar is status/quick controls, not the primary shell.
 - iOS is a future remote Project Manager surface. The Mac remains the execution
   and run-truth owner, and iOS must not block macOS app delivery.
-- Work-order creation stays prompt-first. Build/Design/Copy and Team route the
+- Work-order creation stays prompt-first. Code/Design/Copy and Team route the
   work; they must not become an intake form.
-- Build, Design, and Copy are the peer creation lanes. A fourth lane requires a
+- Code, Design, and Copy are the peer creation lanes. A fourth lane requires a
   new substrate or output class; otherwise it is a type or preset inside the
   existing lanes.
-- Fan out never infers lane from prompt prose. The user chooses Build / Design /
-  Copy. Fan out targets a lane-scoped team, not a bare model or a hidden effort
-  bundle.
+- Send to team never infers lane from prompt prose. The user chooses Code / Design /
+  Copy. Send to team targets a lane-scoped team, not a bare model.
 - Every built-in and custom team belongs to exactly one lane. There are no
   shared or multi-lane teams; duplicate and tune a lineup when it belongs in
   another lane.
@@ -222,17 +223,18 @@ Open questions:
 | --- | --- |
 | Mac launch TCC prompts, startup shell/CLI probes, process-quiet launch | **BUILT** — `docs/archive/phases/Launch_Authority_TCC_Hotfix.md`; new regressions route through `docs/operations/Debugger.md` |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
+| Send to team, Delegate surface, Team Cards, Signal/Code/Design/Copy team map | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |
 | Projects, local repo/folder roots, Project Manager chat, project-scoped threads/runs/pending/dispatch | `Project_Spine_And_Project_Manager.md` |
 | Next-item proposals, execution queue, approval gates, worker handoffs, proof verification | `Project_Spine_And_Project_Manager.md` + `docs/operations/Execution-Playbook.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` (historical cleanup: `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` |
 | CLI implementation detail, generated docs/doctor/errors/events, proof gates | `CLI_Implementation_Contract.md` |
 | Team-run JSON/schema, MCP rename, RB6 CLI cutover | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
-| Fan out composer, built-in lane team packs, team resolver substrate | `Fanout_Team_Catalog.md` + `Work_Order_Team_Model.md` |
+| Send to team composer, built-in lane team packs, team resolver substrate | `Team_Catalog.md` + `Work_Order_Team_Model.md` |
 | Model catalog, Bench enable/disable, per-CLI model lists, custom model add/update/delete, model discovery seam | `Model_Catalog_And_Bench_Roster.md` + `Work_Order_Team_Model.md` |
 | Team configuration UX rescue, first-use team management feedback, Customize worker modal, save-time skill forking, default-team UI, searchable skill picker | `Team_Configuration_UX_Rescue.md` + `Team_And_Skill_Catalogs.md` + `docs/gui/GUI_Workflow.md` |
 | Team/skill catalogs, custom team + skill editing, `alln teams`, `alln skills`, lane-first Settings | `Team_And_Skill_Catalogs.md` + `Work_Order_Team_Model.md` |
-| Team lineup edit, customize/new/duplicate team, worker rows referencing SkillID | `Team_And_Skill_Catalogs.md` first, then `CLI_Implementation_Contract.md` + `Fanout_Team_Catalog.md` |
+| Team lineup edit, customize/new/duplicate team, worker rows referencing SkillID | `Team_And_Skill_Catalogs.md` first, then `CLI_Implementation_Contract.md` + `Team_Catalog.md` |
 | OpenClaw/Hermes, messaging agents, voice-to-text workflows, doctor recovery, Pending over MCP, full spec retrieval | `Agent_First_MCP_And_Messaging_Workflows.md` + `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` + `Pending_Work_And_Drain.md` |
 | Standalone Mac app, Dock presence, menu-bar role, background coordinator, resident lifecycle | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |

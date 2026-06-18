@@ -1,7 +1,7 @@
 # Copy Lane - Work Orders That Sell
 
 Status: Draft post-MVP phase; Fan out team picker updates routed through
-`docs/phases/Fanout_Team_Catalog.md`
+`docs/phases/Team_Catalog.md`
 Owner: Founder + Shared Core + Mac
 Updated: 2026-06-16
 

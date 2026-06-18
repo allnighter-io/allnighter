@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allnighter - Send to team - PM recommended</title>
+<link rel="icon" href="../../../../design-system/assets/allnighter-icon.svg">
+<link rel="stylesheet" href="../../../../design-system/styles.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  html,body{height:100%;margin:0}
+  body{background:var(--bg-void);color:var(--text-primary);font:13px/1.45 var(--font-sans);display:flex;align-items:center;justify-content:center}
+  .window{width:min(1240px,calc(100vw - 48px));height:min(780px,calc(100vh - 48px));background:var(--bg-base);border:1px solid var(--border-default);border-radius:18px;box-shadow:var(--shadow-xl);overflow:hidden;display:grid;grid-template-columns:248px 1fr}
+  .rail{background:var(--bg-subtle);border-right:1px solid var(--border-subtle);padding:18px 14px;display:flex;flex-direction:column;gap:18px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:760;font-size:15px}
+  .brand img{width:22px;height:22px}
+  .project{border:1px solid var(--border-subtle);border-radius:10px;padding:11px;background:rgba(255,255,255,.02)}
+  .project .name{font-weight:700}.project .meta{font:11px var(--font-mono);color:var(--text-faint);margin-top:3px}
+  .nav{display:grid;gap:6px}.nav button{height:34px;border:0;border-radius:8px;background:transparent;color:var(--text-muted);display:flex;align-items:center;gap:10px;padding:0 10px;font:650 13px var(--font-sans);text-align:left}
+  .nav button.active{background:var(--bg-active);color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--border-subtle)}
+  .nav i{width:16px;height:16px;color:var(--accent-text)}
+  .main{display:grid;grid-template-rows:auto 1fr;background:var(--bg-base)}
+  .top{padding:22px 26px 16px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+  .eyebrow{font:700 11px/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin-bottom:8px}
+  h1{margin:0;font-size:28px;letter-spacing:0;font-weight:780}
+  .sub{color:var(--text-muted);margin-top:5px;max-width:680px}
+  .actions{display:flex;gap:8px;align-items:center}.btn{height:32px;border-radius:8px;border:1px solid var(--border-default);background:var(--bg-raised);color:var(--text-primary);font:700 13px var(--font-sans);padding:0 12px;display:inline-flex;align-items:center;gap:7px}.btn.primary{background:var(--accent);color:var(--text-on-amber);border-color:transparent;box-shadow:var(--glow-amber-sm)}
+  .content{padding:22px 26px 28px;overflow:auto}
+  .prompt{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-bottom:18px;padding:14px;border:1px solid var(--accent-border);background:linear-gradient(180deg,rgba(255,166,48,.06),transparent),var(--bg-surface);border-radius:14px}
+  .prompt label{display:block;font:700 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px}
+  .input{min-height:46px;border:1px solid var(--border-subtle);background:var(--bg-input);border-radius:8px;color:var(--text-secondary);padding:11px 12px;font-size:13px}
+  .recommend{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-bottom:22px}
+  .panel{border:1px solid var(--border-subtle);background:var(--bg-surface);border-radius:12px;padding:14px}
+  .panel h2{font-size:13px;margin:0 0 10px;color:var(--text-muted);font-weight:720;text-transform:uppercase;letter-spacing:.06em}
+  .rec{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;border:1px solid var(--accent-border);background:var(--bg-raised);border-radius:10px;padding:12px;margin-bottom:10px}
+  .glyph{width:42px;height:42px;border-radius:10px;background:var(--accent-surface);display:grid;place-items:center;color:var(--accent-text)}
+  .title{font-weight:760;font-size:15px}.copy{color:var(--text-muted);margin-top:3px}.mono{font:11px var(--font-mono);color:var(--text-faint)}
+  .pill{display:inline-flex;align-items:center;height:22px;border:1px solid var(--border-subtle);border-radius:999px;padding:0 8px;color:var(--text-muted);font:11px var(--font-mono);background:rgba(255,255,255,.02)}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .card{min-height:142px;border:1px solid var(--border-subtle);background:var(--bg-raised);border-radius:10px;padding:13px;display:flex;flex-direction:column;justify-content:space-between}
+  .card:hover{background:var(--bg-hover);border-color:var(--border-default)}
+  .card .head{display:flex;justify-content:space-between;gap:10px}.card i{width:18px;color:var(--accent-text)}.card h3{margin:0;font-size:15px;line-height:1.25}.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  @media(max-width:900px){.window{grid-template-columns:1fr;height:100vh;width:100vw;border-radius:0}.rail{display:none}.recommend,.grid{grid-template-columns:1fr}.top{display:block}.actions{margin-top:12px}.prompt{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <main class="window">
+    <aside class="rail">
+      <div class="brand"><img src="../../../../design-system/assets/allnighter-glyph.svg" alt="">Allnighter</div>
+      <div class="project"><div class="name">Allnighter</div><div class="meta">main / 6 ready models</div></div>
+      <nav class="nav" aria-label="Team families">
+        <button class="active"><i data-lucide="radar"></i>Recommended</button>
+        <button><i data-lucide="radio-tower"></i>Signal</button>
+        <button><i data-lucide="hammer"></i>Code</button>
+        <button><i data-lucide="image"></i>Design</button>
+        <button><i data-lucide="file-text"></i>Copy</button>
+      </nav>
+    </aside>
+    <section class="main">
+      <header class="top">
+        <div>
+          <div class="eyebrow">Send to team</div>
+          <h1>Delegate the next move</h1>
+          <div class="sub">Ask the Project Manager to choose, or send a specialist team directly. Execute appears only when a result needs approval to make real changes.</div>
+        </div>
+        <div class="actions">
+          <button class="btn"><i data-lucide="search"></i>Search</button>
+          <button class="btn primary"><i data-lucide="sparkles"></i>Ask PM</button>
+        </div>
+      </header>
+      <div class="content">
+        <section class="prompt">
+          <div>
+            <label>Current ask</label>
+            <div class="input">I saw a post about agents losing context after breaks. How does this apply to Allnighter?</div>
+          </div>
+          <button class="btn primary"><i data-lucide="send"></i>Recommend team</button>
+        </section>
+        <section class="recommend">
+          <div class="panel">
+            <h2>Recommended by Project Manager</h2>
+            <div class="rec">
+              <div class="glyph"><i data-lucide="radio-tower"></i></div>
+              <div><div class="title">Post-to-Project Signal</div><div class="copy">Scout public context, map it to this Project, return an Insight with next actions.</div></div>
+              <button class="btn primary"><i data-lucide="send"></i>Send</button>
+            </div>
+            <div class="mono">Why: the ask starts outside the repo and asks "how does this apply to us?"</div>
+          </div>
+          <div class="panel">
+            <h2>What comes back</h2>
+            <div class="copy">Insight / source receipt / internal lessons / product ideas / skeptic pass / next actions.</div>
+            <div class="tags"><span class="pill">non-mutating</span><span class="pill">freshness required</span><span class="pill">Grok scout</span></div>
+          </div>
+        </section>
+        <section class="grid">
+          <article class="card"><div><div class="head"><h3>What should we build next?</h3><i data-lucide="radio-tower"></i></div><div class="copy">Find outside-world pressure and turn it into ranked Project opportunities.</div></div><div class="tags"><span class="pill">Signal</span><span class="pill">Insight</span></div></article>
+          <article class="card"><div><div class="head"><h3>Bug Hunt</h3><i data-lucide="hammer"></i></div><div class="copy">Map the failing behavior to the truth owner and smallest correct fix.</div></div><div class="tags"><span class="pill">Code</span><span class="pill">proposal</span></div></article>
+          <article class="card"><div><div class="head"><h3>Founder Thread</h3><i data-lucide="file-text"></i></div><div class="copy">Turn the chosen angle into a sharp founder narrative in your voice.</div></div><div class="tags"><span class="pill">Copy</span><span class="pill">drafts</span></div></article>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
+

@@ -597,7 +597,7 @@ GUI slice proof additionally requires the GUI visual proof gate.
 | --- | --- |
 | Catalog semantics, custom team/skill editing, lane-first Settings | This doc |
 | Product vocabulary | `Work_Order_Team_Model.md` |
-| Existing built-in team packs | `Fanout_Team_Catalog.md` |
+| Existing built-in team packs | `Team_Catalog.md` |
 | CLI registry and generated contracts | `CLI_Implementation_Contract.md` |
 | Settings GUI implementation | `docs/gui/GUI_Workflow.md` + `GUI_Visual_Proof_Gate.md` |
 | Bench/source setup | `setup/README.md` + `wiring/design_handoff_bench_and_wiring/WIRING.md` |

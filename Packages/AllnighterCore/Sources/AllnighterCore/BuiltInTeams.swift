@@ -1,7 +1,7 @@
 import Foundation
 
 /// The built-in lane-scoped teams — product assets shipped with Allnighter
-/// (Fanout_Team_Catalog §Built-in Team Manifest Index). Built-in ids are an
+/// (Team_Catalog §Built-in Team Manifest Index). Built-in ids are an
 /// immutable public contract once used in history/reproduce commands; built-ins
 /// cannot be edited directly — users duplicate them to customize.
 public enum BuiltInTeams {

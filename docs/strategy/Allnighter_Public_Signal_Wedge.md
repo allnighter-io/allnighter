@@ -182,7 +182,7 @@ Concrete shape:
 3. Grok Signal workers search X for accelerating conversation.
 4. Copy/strategy workers generate differentiated angles.
 5. A skeptic filters out generic or stale ideas.
-6. Project Manager returns Move Cards / an Opportunity Board.
+6. Project Manager returns Insights / an Opportunity Board.
 7. User picks one.
 8. Allnighter creates:
    - a post/thread draft,
@@ -214,7 +214,7 @@ Rules:
 - "No move today" is a valid trusted result when the signal is saturated, noisy,
   or not a fit for the Project.
 
-Every Move Card should also answer:
+Every Insight should also answer:
 
 ```text
 Why is this my move?
@@ -620,7 +620,7 @@ Minimum product:
 - configured Grok worker as Signal Scout;
 - niche/topics/handles config;
 - on-demand run;
-- Move Card / Opportunity Board output;
+- Insight / Opportunity Board output;
 - Signal -> Copy action;
 - Signal -> Fanout action;
 - Signal -> Build work-order action;
@@ -714,7 +714,7 @@ Recommended product words:
 Signal
 Opportunity Board
 Opportunity Card
-Move Card
+Insight
 Receipt
 Signal Scout
 Signal to Copy

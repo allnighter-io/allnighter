@@ -226,7 +226,7 @@ Proof skeptic          Gemini
 
 Do not put team customization in the primary path.
 
-`docs/phases/Fanout_Team_Catalog.md` owns the forward phase for lane-scoped
+`docs/phases/Team_Catalog.md` owns the forward phase for lane-scoped
 custom teams, built-in Build/Design team packs, and the composer picker.
 
 ## Skill Library

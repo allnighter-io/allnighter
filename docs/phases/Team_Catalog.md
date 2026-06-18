@@ -1,4 +1,4 @@
-# Fanout Team Catalog
+# Team Catalog
 
 Status: Backend BUILT — S00–S05 shipped (2026-06-16, branch `feat/design-chain`).
 Core lane-scoped `TeamPreset` + `SkillCatalog`/`ModelCatalog`/`TeamResolver`/

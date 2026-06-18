@@ -181,7 +181,7 @@ Receipt = evidence/proof artifact that makes a move defensible.
 Window  = timing status for time-sensitive moves: open | closing | closed.
 ```
 
-Every serious Move Card should answer:
+Every serious Insight should answer:
 
 - what happened;
 - why it matters;

@@ -14,7 +14,7 @@ public typealias TeamDefinition = TeamPreset
 // MARK: - Fan out lane / effort / output
 
 /// The three peer creation lanes. Fan out always requires an explicit lane —
-/// Allnighter never infers it from the prompt (docs/phases/Fanout_Team_Catalog.md).
+/// Allnighter never infers it from the prompt (docs/phases/Team_Catalog.md).
 public enum WorkLane: String, Codable, Sendable, CaseIterable {
     case code
     case design

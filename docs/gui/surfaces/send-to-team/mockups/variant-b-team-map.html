@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allnighter - Send to team - Team map</title>
+<link rel="icon" href="../../../../design-system/assets/allnighter-icon.svg">
+<link rel="stylesheet" href="../../../../design-system/styles.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  html,body{height:100%;margin:0}
+  body{background:var(--bg-void);color:var(--text-primary);font:13px/1.45 var(--font-sans);display:flex;align-items:center;justify-content:center}
+  .window{width:min(1320px,calc(100vw - 48px));height:min(800px,calc(100vh - 48px));background:var(--bg-base);border:1px solid var(--border-default);border-radius:18px;box-shadow:var(--shadow-xl);overflow:hidden;display:grid;grid-template-rows:auto auto 1fr}
+  header{padding:22px 26px 14px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+  .eyebrow{font:700 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin-bottom:8px}
+  h1{margin:0;font-size:28px;font-weight:790;letter-spacing:0}.sub{color:var(--text-muted);max-width:720px;margin-top:5px}
+  .cmd{width:360px;border:1px solid var(--border-subtle);background:var(--bg-input);border-radius:10px;height:40px;display:flex;align-items:center;gap:9px;padding:0 12px;color:var(--text-faint)}
+  .cmd i{width:16px;height:16px;color:var(--accent-text)}
+  .strip{padding:12px 26px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--bg-subtle)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{height:30px;border:1px solid var(--border-subtle);background:var(--bg-raised);border-radius:999px;padding:0 12px;color:var(--text-muted);font-weight:680;display:inline-flex;align-items:center;gap:7px}.chip.active{border-color:var(--accent-border);color:var(--text-primary);background:var(--accent-surface)}
+  .chip i{width:15px;height:15px;color:var(--accent-text)}.meta{font:11px var(--font-mono);color:var(--text-faint)}
+  .board{padding:20px 26px 28px;overflow:auto;display:grid;grid-template-columns:repeat(4,minmax(230px,1fr));gap:14px;align-items:start}
+  .col{min-width:0}.colhead{height:34px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.coltitle{display:flex;align-items:center;gap:8px;font-weight:780;font-size:15px}.coltitle i{width:18px;color:var(--accent-text)}.count{font:11px var(--font-mono);color:var(--text-faint)}
+  .team{border:1px solid var(--border-subtle);background:var(--bg-raised);border-radius:10px;padding:12px;margin-bottom:10px;min-height:126px;display:flex;flex-direction:column;justify-content:space-between}
+  .team.hot{border-color:var(--accent-border);background:linear-gradient(180deg,rgba(255,166,48,.055),transparent 60%),var(--bg-raised)}
+  .team:hover{background:var(--bg-hover);border-color:var(--border-default)}
+  .team h2{margin:0;font-size:14px;line-height:1.25}.desc{color:var(--text-muted);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:13px}.pill{height:21px;border:1px solid var(--border-subtle);border-radius:999px;padding:0 7px;display:inline-flex;align-items:center;font:10.5px var(--font-mono);color:var(--text-faint);background:rgba(255,255,255,.02)}.pill.amber{border-color:var(--accent-border);color:var(--accent-text);background:var(--accent-surface)}
+  .send{height:28px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-primary);border-radius:7px;padding:0 9px;display:inline-flex;align-items:center;gap:6px;font:700 12px var(--font-sans)}.send.primary{background:var(--accent);color:var(--text-on-amber);border-color:transparent}
+  @media(max-width:1050px){.board{grid-template-columns:repeat(2,minmax(250px,1fr))}header{display:block}.cmd{width:auto;margin-top:14px}}@media(max-width:650px){.window{width:100vw;height:100vh;border-radius:0}.board{grid-template-columns:1fr}.strip{display:block}.meta{margin-top:10px}}
+</style>
+</head>
+<body>
+  <main class="window">
+    <header>
+      <div>
+        <div class="eyebrow">Send to team</div>
+        <h1>Team map</h1>
+        <div class="sub">Pick the team by outcome. Signal starts outside the repo; Code, Design, and Copy start from the Project.</div>
+      </div>
+      <div class="cmd"><i data-lucide="search"></i>Search teams, prompts, outcomes</div>
+    </header>
+    <section class="strip">
+      <div class="chips">
+        <span class="chip active"><i data-lucide="pin"></i>Pinned</span>
+        <span class="chip"><i data-lucide="radio-tower"></i>Signal</span>
+        <span class="chip"><i data-lucide="hammer"></i>Code</span>
+        <span class="chip"><i data-lucide="image"></i>Design</span>
+        <span class="chip"><i data-lucide="file-text"></i>Copy</span>
+      </div>
+      <div class="meta">18 teams / 6 ready models / 0 mutating without Execute</div>
+    </section>
+    <section class="board" aria-label="Team families">
+      <div class="col">
+        <div class="colhead"><div class="coltitle"><i data-lucide="radio-tower"></i>Signal</div><div class="count">7 teams</div></div>
+        <article class="team hot"><div><h2>Post-to-Project Signal</h2><div class="desc">Apply one public post, launch note, or thread to this Project.</div></div><div class="row"><span class="pill amber">recommended</span><button class="send primary"><i data-lucide="send"></i>Send</button></div></article>
+        <article class="team"><div><h2>What should we build next?</h2><div class="desc">Scout live pressure and rank Project-fit opportunities.</div></div><div class="row"><span class="pill">Insight</span><button class="send">Send</button></div></article>
+        <article class="team"><div><h2>Hype Decay</h2><div class="desc">Find whether a take is late, saturated, or not yours to make.</div></div><div class="row"><span class="pill">skeptic</span><button class="send">Send</button></div></article>
+      </div>
+      <div class="col">
+        <div class="colhead"><div class="coltitle"><i data-lucide="hammer"></i>Code</div><div class="count">5 teams</div></div>
+        <article class="team hot"><div><h2>Bug Hunt</h2><div class="desc">Name the truth owner, reproduce the bug, and plan the smallest correct fix.</div></div><div class="row"><span class="pill amber">pinned</span><button class="send">Send</button></div></article>
+        <article class="team"><div><h2>Architecture Pressure Test</h2><div class="desc">Stress a proposed architecture before implementation hardens it.</div></div><div class="row"><span class="pill">proposal</span><button class="send">Send</button></div></article>
+        <article class="team"><div><h2>Before I Believe Done</h2><div class="desc">Audit the claim, proof wall, scope, and missing verification.</div></div><div class="row"><span class="pill">review</span><button class="send">Send</button></div></article>
+      </div>
+      <div class="col">
+        <div class="colhead"><div class="coltitle"><i data-lucide="image"></i>Design</div><div class="count">4 teams</div></div>
+        <article class="team hot"><div><h2>Premium Polish</h2><div class="desc">Make a surface feel intentional, native, and quieter without changing meaning.</div></div><div class="row"><span class="pill amber">pinned</span><button class="send">Send</button></div></article>
+        <article class="team"><div><h2>Radical Directions</h2><div class="desc">Generate distinct directions before the product converges too early.</div></div><div class="row"><span class="pill">board</span><button class="send">Send</button></div></article>
+        <article class="team"><div><h2>Visual Signal Board</h2><div class="desc">Cluster public screenshots and demos, then route patterns into design.</div></div><div class="row"><span class="pill">Signal + Design</span><button class="send">Send</button></div></article>
+      </div>
+      <div class="col">
+        <div class="colhead"><div class="coltitle"><i data-lucide="file-text"></i>Copy</div><div class="count">5 teams</div></div>
+        <article class="team hot"><div><h2>Founder Thread</h2><div class="desc">Turn an Insight or product truth into a founder-native thread.</div></div><div class="row"><span class="pill amber">pinned</span><button class="send">Send</button></div></article>
+        <article class="team"><div><h2>Landing Page Team</h2><div class="desc">Rewrite the offer so the right buyer understands why now.</div></div><div class="row"><span class="pill">drafts</span><button class="send">Send</button></div></article>
+        <article class="team"><div><h2>Reply Options</h2><div class="desc">Generate useful, non-spammy replies for a live public window.</div></div><div class="row"><span class="pill">3 options</span><button class="send">Send</button></div></article>
+      </div>
+    </section>
+  </main>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
+

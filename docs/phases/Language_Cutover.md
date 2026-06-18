@@ -116,7 +116,7 @@ Generated / data:
   migrate to new rawValues; with zero users, no back-compat reader.
 
 Docs:
-- **Rename + rewrite:** `Fanout_Team_Catalog.md` (→ team catalog; drop "fanout"
+- **Rename + rewrite:** `Team_Catalog.md` (→ team catalog; drop "fanout"
   framing), and every active phase doc that says `Fan out` / `Build` lane / Execute
   mode in product copy (`CLI_Product_Spine`, `Work_Order_Team_Model`,
   `Team_And_Skill_Catalogs`, `Project_Spine_And_Project_Manager`, copy/*, wiring/*).
@@ -136,9 +136,10 @@ Docs:
   `TurnFamily.build` (execution-turn family) intentionally left for the Execute work.
   Full green wall passes (Core tests + Mac build/test); GUI gate satisfied with a
   non-visible waiver (labels still render "Build"; visible relabel is CUT-S04).
-- [ ] **CUT-S02 — Core run rename.** `Fanout*` → team-run naming; collapse run
-  entrypoints toward the single `run a team` primitive (posture + `mutating`
-  metadata). Internal only; no behavior change. Green wall.
+- [x] **CUT-S02 — Core run rename (DONE 2026-06-18).** `FanoutAttachmentMapper` →
+  `TeamRunAttachmentMapper` (+ file, `fanoutSeatPrompt` → `teamRunSeatPrompt`);
+  `TeamRunCoordinator.fanOut` → `runTeam`. Core tests green. (Deeper
+  one-`team.run`-primitive consolidation is separate MCP Solidity work.)
 - [x] **CUT-S03 — CLI + MCP surface language (DONE 2026-06-18).** Scrubbed
   user-facing `Fan out`/`fanout` from CLI/MCP surface: tool `whenToUse`, the
   `--team` flag summary ("public team selector"), and the lane-required error
@@ -148,10 +149,13 @@ Docs:
   + approval gate + MCP⊆CLI parity test is the separate MCP Solidity Plan M-A..M-D,
   not the language cutover. Internal comment refs to the doc filename are swept in
   CUT-S06 with the doc rename.)
-- [ ] **CUT-S04 — GUI labels.** Composer "Fan out" → "Send to team"; remove the
-  Execute route (Execute becomes the approval on a make-real card); `Build` tab +
-  setup rail → `Code`; work-order filter `Build/Running` → `Code/Running`. Layout
-  proof gate.
+- [~] **CUT-S04 — GUI labels (code DONE 2026-06-18; render-proof pending).** Composer
+  lane label Build→Code; `ComposeMode.fanout` → `.sendToTeam` ("Send to team"); effort
+  tooltip → "more reasoning time"; ReadinessView "Code · Design · Copy"; work-order
+  filter labels derive "Code" from rawValue. Execute route KEPT (the make-real mode,
+  per the locked model). Mac build + tests green. **Remaining:** GUI render-proof seal
+  for the changed surfaces (HomeView, RoutingComposer, ReadinessView, TeamEditorView,
+  TeamStudioView) to clear the visual-proof gate.
 - [x] **CUT-S05 — Effort = reasoning level (DONE 2026-06-18).** Ripped out
   `minEffort`, `TeamEffortPolicy`, `effortPolicy`, `outputCountByEffort`,
   `activeRows`, `workerCountByEffort` — all effort→worker-count gating. `EffortLevel`
@@ -160,10 +164,11 @@ Docs:
   output shows a fixed `workerCount` (was per-effort); regenerated contracts. Core +
   Mac build/test green. Obsolete effort tests deleted. (GUI tooltip "more workers + a
   deeper pass" and the TeamEditor/TeamStudio render proof are folded into CUT-S04.)
-- [ ] **CUT-S06 — Docs sweep.** Rewrite active forward docs to the canonical
-  vocabulary; rename `Fanout_Team_Catalog.md`; Move Card → Insight; delete any
-  "Proof lane". Leave mvp/archive/qa as historical. `rg` confirms no old term
-  remains in active product surfaces.
+- [x] **CUT-S06 — Docs sweep (DONE 2026-06-18).** Renamed `Fanout_Team_Catalog.md`
+  → `Team_Catalog.md` and updated all refs (Swift comments + active docs); Move Card →
+  Insight in the strategy wedges; README index vocab (Send to team, Code/Design/Copy);
+  no "Proof lane" exists. The `Team_Catalog.md` body still carries some legacy Fan-out/
+  effort-tier prose superseded by this doc + the code; mvp/archive/qa left as historical.
 
 ## Keep-Internal (not part of the cutover)
 

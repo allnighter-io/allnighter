@@ -56,7 +56,7 @@ public struct ResolvedTeamRun: Sendable, Equatable {
 }
 
 /// Pure, deterministic team resolution: a lane team + effort + ready bench →
-/// a concrete run snapshot (Fanout_Team_Catalog §Team Resolution). Never runs
+/// a concrete run snapshot (Team_Catalog §Team Resolution). Never runs
 /// anything and never infers a lane. Capability/skill lookups are injectable for
 /// tests; defaults come from `ModelCatalog`/`SkillCatalog`.
 public enum TeamResolver {

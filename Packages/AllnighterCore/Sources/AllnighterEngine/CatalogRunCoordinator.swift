@@ -3,7 +3,7 @@ import AllnighterCore
 
 /// Runs a resolved lane-team in the fixed catalog staging order:
 /// **answer (blind, parallel) → review (sees answers) → output writer (sees
-/// everything, preserves dissent)**. Not a generic DAG (Fanout_Team_Catalog §S05).
+/// everything, preserves dissent)**. Not a generic DAG (Team_Catalog §S05).
 /// Reuses `WorkerRunner`; emits `RunEvent`s for the live `--stream` projection.
 public actor CatalogRunCoordinator {
     private let workerRunner: WorkerRunner

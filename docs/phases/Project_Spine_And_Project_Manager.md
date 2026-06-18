@@ -19,7 +19,7 @@ Read with:
 - `docs/phases/Persistent_Work_Threads.md`
 - `docs/phases/Pending_Work_And_Drain.md` (Pending lifecycle + always-active
   execution-lane gate)
-- `docs/phases/Fanout_Team_Catalog.md` + `docs/phases/Team_And_Skill_Catalogs.md`
+- `docs/phases/Team_Catalog.md` + `docs/phases/Team_And_Skill_Catalogs.md`
   (teams/skills the Project Manager dispatches and runs)
 - `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` (MCP tool surface)
 - `docs/phases/Stalled_Work_Watchdog.md` (stalled-work detection over Project truth)
@@ -557,14 +557,14 @@ Rules:
 
 - Manager model resolution: `Project.managerModelId` if set, else the strongest
   ready planner-capable model from `ModelCatalog`/Bench (see
-  `Fanout_Team_Catalog.md`/`Model_Catalog_And_Bench_Roster.md`). If no model is
+  `Team_Catalog.md`/`Model_Catalog_And_Bench_Roster.md`). If no model is
   ready, the turn is `mode: wait` with a sourced readiness blocker — never a
   fabricated answer.
 - The manager model honors reasoning effort where its source supports it (the
   per-worker model reasoning level; never a team-shape control).
 - `answer`/`orient` are a single manager-model call over the packet. `propose`
   is the manager model producing one bounded `ProjectProposal`. `fanout`
-  delegates to a real team run (`Fanout_Team_Catalog.md`); the Manager does not
+  delegates to a real team run (`Team_Catalog.md`); the Manager does not
   fake fanout breadth itself. `verify` runs proof + git observation (see Return
   And Verification) and uses the manager model only to interpret results.
 - The manager prompt/skill is built-in catalog content snapshotted into the turn
