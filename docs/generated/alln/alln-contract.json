@@ -1039,7 +1039,7 @@
         },
         {
           "name" : "team",
-          "summary" : "Team id (the public Fan out selector).",
+          "summary" : "Team id (the public team selector).",
           "takesValue" : true,
           "valueType" : "id"
         },

@@ -33,7 +33,7 @@ public enum TeamRequestResolver {
         public var description: String {
             switch self {
             case .laneRequired:
-                return "Fan out requires a lane: pass --lane code|design|copy (or --team)."
+                return "Sending to a team requires a lane: pass --lane code|design|copy (or --team)."
             case .unknownTeam(let id):
                 return "unknown team: \(id). Run `alln teams --lane <lane> --json`."
             case .laneMismatch(let team, let teamLane, let requestLane):

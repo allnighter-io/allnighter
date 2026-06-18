@@ -28,7 +28,7 @@ public actor TeamRunCoordinator {
         self.continuation = continuation
     }
 
-    public func fanOut(
+    public func runTeam(
         prompt: String,
         teamWorkers: [Worker],
         models: [Model],

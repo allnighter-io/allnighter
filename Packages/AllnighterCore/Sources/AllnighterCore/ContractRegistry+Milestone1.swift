@@ -367,7 +367,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the prompt from a file."),
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
-                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id (the public Fan out selector)."),
+                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id (the public team selector)."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("preset", takesValue: true, valueType: "id", summary: "Deprecated alias for --team."),

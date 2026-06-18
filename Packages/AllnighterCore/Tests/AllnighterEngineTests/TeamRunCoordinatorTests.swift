@@ -38,7 +38,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let models = threeWorkers()
         let seats = TestSupport.workers(models.map(\.id))
 
-        let run = await coordinator.fanOut(prompt: "p", teamWorkers: seats, models: models, runId: "run1")
+        let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models, runId: "run1")
 
         XCTAssertEqual(run.status, .answersIn)
         XCTAssertEqual(run.answeredWorkers.count, 3)
@@ -50,7 +50,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let opus = TestSupport.worker("model_opus", driverId: "claude_code")
         let seats = WorkerSpec(modelId: "model_opus", count: 3).expand(startingIndex: 0)
 
-        let run = await coordinator.fanOut(prompt: "p", teamWorkers: seats, models: [opus], runId: "run_sf")
+        let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: [opus], runId: "run_sf")
         XCTAssertEqual(run.workerAnswers.count, 3)
         XCTAssertEqual(Set(run.workerAnswers.map(\.workerId)).count, 3)
         XCTAssertTrue(run.workerAnswers.allSatisfy { $0.modelId == "model_opus" })
@@ -66,7 +66,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let seats = TestSupport.workers(models.map(\.id))
 
         let start = Date()
-        _ = await coordinator.fanOut(prompt: "p", teamWorkers: seats, models: models)
+        _ = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models)
         let elapsed = Date().timeIntervalSince(start)
         XCTAssertLessThan(elapsed, 1.0, "fan-out should be parallel, not serial")
     }
@@ -80,7 +80,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let models = threeWorkers()
         let seats = TestSupport.workers(models.map(\.id))
 
-        let run = await coordinator.fanOut(prompt: "p", teamWorkers: seats, models: models)
+        let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models)
         XCTAssertEqual(run.status, .answersIn)
         XCTAssertEqual(run.answeredWorkers.count, 1)
         XCTAssertEqual(run.failedWorkerAnswers.count, 2)
@@ -91,7 +91,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let models = [TestSupport.worker("model_opus", driverId: "claude_code")]
         let seats = TestSupport.workers(["model_opus"])
 
-        let run = await coordinator.fanOut(prompt: "p", teamWorkers: seats, models: models)
+        let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models)
         XCTAssertEqual(run.workers.map(\.id), ["model_opus#0"])
         XCTAssertEqual(run.workerAnswers.count, 1)
     }
@@ -108,7 +108,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
             return events
         }
 
-        _ = await coordinator.fanOut(prompt: "p", teamWorkers: seats, models: models)
+        _ = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models)
         let events = await collector.value
 
         let kinds = events.map(\.kind)
@@ -127,7 +127,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let models = [TestSupport.worker("model_opus", driverId: "claude_code")]
         let seats = TestSupport.workers(["model_opus"])
 
-        let task = Task { await coordinator.fanOut(prompt: "p", teamWorkers: seats, models: models) }
+        let task = Task { await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models) }
         try? await Task.sleep(for: .milliseconds(200))
         task.cancel()
         let run = await task.value

@@ -139,9 +139,15 @@ Docs:
 - [ ] **CUT-S02 — Core run rename.** `Fanout*` → team-run naming; collapse run
   entrypoints toward the single `run a team` primitive (posture + `mutating`
   metadata). Internal only; no behavior change. Green wall.
-- [ ] **CUT-S03 — CLI + MCP surface.** Retire `Fan out`/deploy phrasing; one
-  `team.run` shape with `mutating`/approval; regenerate `docs/generated/alln/*`.
-  Parity test (MCP ⊆ CLI). Green wall.
+- [x] **CUT-S03 — CLI + MCP surface language (DONE 2026-06-18).** Scrubbed
+  user-facing `Fan out`/`fanout` from CLI/MCP surface: tool `whenToUse`, the
+  `--team` flag summary ("public team selector"), and the lane-required error
+  ("Sending to a team requires a lane…"); renamed the internal
+  `TeamRunCoordinator.fanOut` → `runTeam`; regenerated `docs/generated/alln/*`;
+  Core tests green. (The architectural one-`team.run`-primitive + posture/`mutating`
+  + approval gate + MCP⊆CLI parity test is the separate MCP Solidity Plan M-A..M-D,
+  not the language cutover. Internal comment refs to the doc filename are swept in
+  CUT-S06 with the doc rename.)
 - [ ] **CUT-S04 — GUI labels.** Composer "Fan out" → "Send to team"; remove the
   Execute route (Execute becomes the approval on a make-real card); `Build` tab +
   setup rail → `Code`; work-order filter `Build/Running` → `Code/Running`. Layout

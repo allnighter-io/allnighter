@@ -405,7 +405,7 @@ Arguments:
 Flags:
 - `--file <path>` — Read the prompt from a file.
 - `--lane <lane>` — build | design | copy.
-- `--team <id>` — Team id (the public Fan out selector).
+- `--team <id>` — Team id (the public team selector).
 - `--type <type>` — Copy-only routing sugar.
 - `--effort <effort>` — low | med | high.
 - `--preset <id>` — Deprecated alias for --team.

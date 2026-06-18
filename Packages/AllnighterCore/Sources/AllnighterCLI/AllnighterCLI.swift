@@ -766,7 +766,7 @@ struct AllnighterCLI {
         struct ToolRef: Encodable { let name: String; let schemaRef: String }
         struct Quickstart: Encodable {
             let recommendedAfterHello = "team_preflight when canStartTeamRun is true; doctor when false"
-            let whenToUseTeamStart = "Use for review, fanout, bug hunt, design, copy, or long work."
+            let whenToUseTeamStart = "Use for review, team runs, bug hunt, design, copy, or long work."
             let whenToUsePending = "Use when the user wants work later or admission blocks."
             let whenToUseSpecGet = "Use when the user asks for the full packet/spec."
         }
