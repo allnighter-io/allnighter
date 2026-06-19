@@ -231,11 +231,12 @@ public actor RunService {
             "to": .string(RunStatus.fanningOut.rawValue), "origin": .string(origin.rawValue),
             "presetId": .string(preset.id)
         ])
-        emit(RunEventKind.workerStatusChanged, [
+        var startedPayload: [String: JSONValue] = [
             "runId": .string(runId), "workerId": .string(worker.id), "modelId": .string(model.id),
-            "from": .string(WorkerAnswerStatus.queued.rawValue), "to": .string(WorkerAnswerStatus.running.rawValue),
-            "skillId": .string(skillId)
-        ])
+            "from": .string(WorkerAnswerStatus.queued.rawValue), "to": .string(WorkerAnswerStatus.running.rawValue)
+        ]
+        if let skillId { startedPayload["skillId"] = .string(skillId) }
+        emit(RunEventKind.workerStatusChanged, startedPayload)
         var run = TeamRun(
             id: runId, prompt: prompt, status: .fanningOut, origin: origin, originAgent: originAgent,
             presetId: preset.id, workers: [worker],
