@@ -20,6 +20,10 @@ not configuration.
   "works in my terminal but the app sees nothing" gap), the CLI registry, auth
   probing, auto-building the Bench/default Team, persistence, and the honesty
   rules.
+- **[02_Cursor_Agent_CLI_Support.md](02_Cursor_Agent_CLI_Support.md)** —
+  founder-input packet for adding Cursor Agent (`agent` / `cursor-agent`) as a
+  phase-2 Source: manifest shape, Composer 2.5 model handling, CLI/MCP surface,
+  auth/readiness caveats, and proof slices.
 
 Historical design handoff/mockup folders are pixel reference only. When they
 conflict with this README, `00_First_Run_Setup_Experience.md`, or
