@@ -560,7 +560,7 @@ public enum SkillCatalog {
     // MARK: - Synthetic plan/output writer skills (one per output kind)
 
     private static let writerSkills: [Skill] = [
-        writer("plan_writer_build", "Build Plan Writer", .code,
+        writer("plan_writer_build", "Code Plan Writer", .code,
                "implementable plan with scope, architecture, risks, and a proof wall"),
         writer("bug_packet_writer", "Bug Packet Writer", .code,
                "bug packet: symptom, repro, truth owner, lie-prone layer, blast radius, smallest correct fix, regression proof"),

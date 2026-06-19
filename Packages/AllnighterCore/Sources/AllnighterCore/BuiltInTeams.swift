@@ -38,19 +38,34 @@ public enum BuiltInTeams {
         id: String, name: String, lane: WorkLane, output: TeamOutputKind,
         defaultEffort: EffortLevel, isDefault: Bool = false, description: String,
         rows: [TeamWorkerSpec], writer: String, dissent: DissentPolicy = .preserveDissent,
-        typeTags: [String] = []
+        posture: TeamPosture? = nil, mutating: Bool = false, typeTags: [String] = []
     ) -> TeamPreset {
         TeamPreset(
             id: id, displayName: name, lane: lane, description: description, outputKind: output,
+            posture: posture ?? defaultPosture(for: output), mutating: mutating,
             defaultEffort: defaultEffort, isDefaultForLane: isDefault, workerSpecs: rows,
             lead: TeamLeadSpec(skillId: writer, fallbackPolicy: .strongestReady, dissentPolicy: dissent),
             typeTags: typeTags, builtIn: true, version: 1)
     }
 
+    /// Default posture for a built-in team from what it produces: drafting outputs
+    /// propose, audit/diagnostic outputs review, Signal insight scouts. None of the
+    /// current built-ins are mutating (they are advisory; Execute is a separate gate).
+    private static func defaultPosture(for output: TeamOutputKind) -> TeamPosture {
+        switch output {
+        case .plan, .designBoard, .polishBoard, .copyBoard:
+            return .propose
+        case .bugPacket, .securityRegister, .architectureVerdict, .proofPacket:
+            return .review
+        case .insight:
+            return .scout
+        }
+    }
+
     // MARK: - Build teams
 
     static let buildCore = make(
-        id: "code_core", name: "Build Core", lane: .code, output: .plan, defaultEffort: .med, isDefault: true,
+        id: "code_core", name: "Code Core", lane: .code, output: .plan, defaultEffort: .med, isDefault: true,
         description: "Turn a rough product/build prompt into an implementable plan with scope, architecture, risks, and proof.",
         rows: [
             row("product_architect", .answer),

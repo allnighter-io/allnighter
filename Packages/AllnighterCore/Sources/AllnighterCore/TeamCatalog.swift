@@ -13,12 +13,28 @@ public typealias TeamDefinition = TeamPreset
 
 // MARK: - Fan out lane / effort / output
 
-/// The three peer creation lanes. Fan out always requires an explicit lane —
-/// Allnighter never infers it from the prompt (docs/phases/Team_Catalog.md).
+/// The four peer crafts (public families). A team always declares an explicit
+/// craft — Allnighter never infers it from the prompt. `signal` is the
+/// outside-world scout craft: it runs on the SAME team-run substrate as the
+/// creation crafts, it is not a second system (see
+/// `docs/phases/Team_Delegation_Surface.md`). The public UX calls these
+/// "families"; the backend calls one a `WorkLane`/craft.
 public enum WorkLane: String, Codable, Sendable, CaseIterable {
     case code
     case design
     case copy
+    case signal
+}
+
+/// What a team is doing on a run — orthogonal to its craft. `scout` gathers and
+/// interprets (Signal); `propose` drafts a plan/board/proposal; `review` audits
+/// returned work; `execute` carries a make-real run. `execute` posture always
+/// requires Execute approval (it is the human green-light, never auto-fired).
+public enum TeamPosture: String, Codable, Sendable, CaseIterable {
+    case scout
+    case propose
+    case review
+    case execute
 }
 
 /// The model's reasoning level for a run. Canonical machine values are
@@ -67,6 +83,10 @@ public enum TeamOutputKind: String, Codable, Sendable, CaseIterable {
     case designBoard
     case polishBoard
     case copyBoard
+    /// Signal craft output: a Project-aware interpretation of outside-world signal
+    /// with source receipts, freshness, skeptic pass, and recommended next actions
+    /// (the typed `SignalInsight`, not a generic plan).
+    case insight
 }
 
 /// Stage a worker row runs in. Answer workers run blind in parallel; review
@@ -215,6 +235,13 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var lane: WorkLane
     public var description: String
     public var outputKind: TeamOutputKind
+    /// What this team is doing on a run (scout/propose/review/execute). Orthogonal
+    /// to craft; never inferred from the prompt.
+    public var posture: TeamPosture
+    /// Whether running this team can make real changes (write files, post
+    /// externally, edit state). A `mutating` team cannot complete without Execute
+    /// approval. Scout/propose/review teams are advisory and non-mutating.
+    public var mutating: Bool
     public var defaultEffort: EffortLevel
     public var isDefaultForLane: Bool
     public var workerSpecs: [TeamWorkerSpec]
@@ -231,6 +258,8 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         lane: WorkLane,
         description: String = "",
         outputKind: TeamOutputKind,
+        posture: TeamPosture = .propose,
+        mutating: Bool = false,
         defaultEffort: EffortLevel = .med,
         isDefaultForLane: Bool = false,
         workerSpecs: [TeamWorkerSpec],
@@ -245,6 +274,8 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.lane = lane
         self.description = description
         self.outputKind = outputKind
+        self.posture = posture
+        self.mutating = mutating
         self.defaultEffort = defaultEffort
         self.isDefaultForLane = isDefaultForLane
         self.workerSpecs = workerSpecs
