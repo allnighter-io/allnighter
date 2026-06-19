@@ -1089,6 +1089,9 @@ private struct TitleBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            // Leading inset clears the macOS traffic-light controls (hidden title
+            // bar overlays them at the top-left) so the toggle never collides.
+            Spacer().frame(width: ALControl.trafficLightInset)
             // Left: live mark + the Inbox | Teams workspace switch.
             LiveMark(state: model.isRunning ? .running : .idle, size: 16)
             InboxTeamsSwitch(mode: $workspaceMode, unread: unread)

@@ -1,0 +1,27 @@
+# surface: teams-launcher
+# fixtures: teams-launcher
+# watcher: PASS
+# sealed: 2026-06-19
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+1df8fa54da78b3229d0b0f7cb3c74e3c698d5e93  Apps/AllnighterMac/Sources/AllnighterMacApp.swift
+935b2cac8ffd40a1a8063a8717a9839944abd586  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+939de845e21a8ab6fd512a2292326c95379d1ab8  Apps/AllnighterMac/Sources/CommandCenter.swift
+111758b3a0a851faeec7e0b6553f327fb787d651  Apps/AllnighterMac/Sources/DesignBoardView.swift
+00ec4e9c7931a8da68dd602ef45fe90990264250  Apps/AllnighterMac/Sources/DesignComponents.swift
+cd7ca70785ddddd4085f29f4e243f82cb2634b4f  Apps/AllnighterMac/Sources/DevSettingsView.swift
+208a93e62970c1fd481819e44e8e680e2b64e4f6  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+02c31c4d91f27d7ad77e3b117ea7cf6b1a5e6ae6  Apps/AllnighterMac/Sources/GUIProofGrantView.swift
+121d601d40181656c1fcf99b14ee5758514ff363  Apps/AllnighterMac/Sources/HomeView.swift
+b476701082493e1caf2dec672fadb159c2b1f95d  Apps/AllnighterMac/Sources/ReadinessView.swift
+3a61be96db751ac7adee758a729ee3aed02c368c  Apps/AllnighterMac/Sources/RootView.swift
+92692e0edf68ab525a8d57b538c6dc307bbcc76f  Apps/AllnighterMac/Sources/RoutingComposer.swift
+c485d677e6a87baaf027ea8f8beb95aa7f404870  Apps/AllnighterMac/Sources/SetupViews.swift
+de3ba5323e0f6b633b73f0c9329d718e04d5a6f6  Apps/AllnighterMac/Sources/TeamControlView.swift
+126b8f609c482ed68f0af6b4a9eec515a12ef3f3  Apps/AllnighterMac/Sources/TeamEditorView.swift
+fc70ad66d2ce41112bff0d11478a2619df9f2b10  Apps/AllnighterMac/Sources/TeamsLauncherView.swift
+8a25c9455aeffc28fcfbdbe6b278ba621922970b  Apps/AllnighterMac/Sources/TeamStudioView.swift
+f4b644754d5451a621481e98e5c32cd735e75c3a  Apps/AllnighterMac/Sources/ThreadRailComponents.swift
+cb4273a343a814db397e5f4c461938710ba1713d  Apps/AllnighterMac/Sources/ThreadsView.swift
+49faa5a5db2e268783adc902c5993e2b20f80047  Apps/AllnighterMac/Sources/ThreadView.swift
+c66492718da4e96ed75e120d5b13d4a656516546  Apps/AllnighterMac/Sources/TimelineVisibility.swift
