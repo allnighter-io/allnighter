@@ -3,12 +3,13 @@
 Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `serve --stdio` projects from the registry. **Pending0/1 BUILT** (2026-06-17):
 `alln pending` CRUD + `PendingItemJSON`; current `pending run` records an attempt
-but does not execute/settle worker work. Remaining (still owned here): MCP
-Pending tools, `pending stop`, real Pending execution/settlement, and generated
-contract cleanup. Full Wake Ticket / Watchdog handoff is blocked until MCP
-Pending parity exposes the same Pending/Wake facts as CLI. Broad native Pending
-drain is parked; one-shot Wake Tickets are scoped by
-`Stalled_Work_Watchdog.md`.
+but does not execute/settle worker work. WTK-S00/S01a added
+`CapacityObservation`, Pending capacity JSON, and MCP Pending registry specs.
+Remaining (still owned here): live MCP Pending handlers, `pending stop`, real
+Pending execution/settlement, and generated contract cleanup. Full Wake Ticket /
+Watchdog handoff is blocked until MCP Pending parity exposes the same
+Pending/Wake facts as CLI. Broad native Pending drain is parked; one-shot Wake
+Tickets are scoped by `Stalled_Work_Watchdog.md`.
 Owner: Shared Core + CLI + Mac
 Updated: 2026-06-19
 

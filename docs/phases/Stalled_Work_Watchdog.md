@@ -1,7 +1,7 @@
 # Stalled Work Watchdog
 
 Status: Finalized prerequisite packet; **not end-to-end handoff ready** until
-WTK-S00–S02 plus A1 Pending-over-MCP land
+WTK-S01b–S02 plus live A1 Pending-over-MCP handlers land
 Owner: AllnighterCore + AllnighterEngine + Mac app backend + CLI/MCP contracts
 Updated: 2026-06-19
 
@@ -40,7 +40,13 @@ seams that must land first.
 Built substrate:
 
 - `PendingResume` already has `observedResetAt` and `wakeAfter`.
-- `PendingItemJSON` already projects `nextWakeAt` from `PendingResume`.
+- `CapacityObservation` and `CapacityClassifier` exist in Core.
+- `PendingResumeReason.providerBusy` exists, and `PendingResume` can store
+  `capacityObservation`.
+- `PendingItemJSON` projects `nextWakeAt` and `capacityObservation` from
+  `PendingResume`.
+- `pending_list`, `pending_show`, and `pending_run` MCP tool specs exist in the
+  registry contract, but live MCP handlers are not wired yet.
 - Worker chat turns have durable `projectId`, `queued`/`running` status, and
   timestamps.
 - Async team runs persist durable `TeamRun` truth through `RunStore`, including
@@ -49,29 +55,30 @@ Built substrate:
 
 Missing blockers:
 
-- No `CapacityObservation` model or classifier exists.
-- `PendingResumeReason` does not distinguish `providerBusy` from `localBusy`.
-- `WorkerRunner` currently reduces nonzero CLI exits to `errorReason` before any
-  structured capacity observation can be captured.
+- `WorkerRunner` currently reduces nonzero CLI exits to `errorReason` before
+  attaching `CapacityObservation` to `WorkerRunOutcome` / `WorkerAnswer`.
+- No worker/team/thread call site consumes a classified capacity observation yet.
 - `PendingService.run` records a queued attempt only; it does not yet execute the
   worker/team path or settle attempts.
 - `ResidentCoordinator` is health-only; it has no wake timer or watchdog scanner.
-- MCP does not expose Pending tools yet, so Pending/Wake facts are CLI/Core first.
+- MCP Pending specs exist, but `MCPServer` does not expose live Pending handlers.
 - New `alln pending add` items are not reliably Project-scoped unless the caller
   supplies/binds `projectId`; unassigned dev records are repair-only/disposable
   and must not become watchdog targets.
 
-Therefore the first implementation handoff is the Feature Packet below:
-WTK-S00 plus the classification/contract half of WTK-S01. WTK-S02 is the next
-execution blocker before real Wake Tickets can resume work; A1 Pending-over-MCP
-is the external-agent blocker before the feature is ship-ready. SWW stalled
-nudges should wait until Wake Ticket suppression truth exists, otherwise
-expected cooldown sleep will be mislabeled as stalled work.
+Therefore the next implementation handoff is WTK-S01b: wire the existing pure
+classifier into worker execution outcomes without changing Pending execution,
+scheduling, GUI, or MCP handlers. WTK-S02 is still the execution blocker before
+real Wake Tickets can resume work; A1 Pending-over-MCP live handlers remain the
+external-agent blocker before the feature is ship-ready. SWW stalled nudges
+should wait until Wake Ticket suppression truth exists, otherwise expected
+cooldown sleep will be mislabeled as stalled work.
 
 ## Feature Packet - Watchdog Prerequisite WTK-S00/S01a
 
-Status: Ready for implementation as a prerequisite slice; the full watchdog is
-not ready for end-to-end handoff.
+Status: Shipped in `b331c2ae` (`core(wtk): add CapacityObservation contract and
+classifier (WTK-S00/S01a)`). The full watchdog is not ready for end-to-end
+handoff.
 
 Founder Intent:
 
@@ -86,13 +93,19 @@ Founder Intent:
 - Non-goals: no provider probes, no GUI, no native drain, no broad scheduler, no
   invented quota/runtime/cost estimates, no migration/backcompat shims.
 
-Current State:
+Shipped:
 
-- Existing truth owners: `PendingItem`, `PendingResume`, `PendingItemJSON`,
-  `RunStore`, worker chat turns, and the registry-generated CLI contract.
-- Existing gaps: no `CapacityObservation`, no `providerBusy` resume reason, no
-  capture before `WorkerRunner` reduces failures, no real Pending execution/
-  settlement, no MCP Pending tools in the live registry/server.
+- `CapacityObservation` model and `CapacityClassifier`.
+- `PendingResumeReason.providerBusy` and optional `PendingResume.capacityObservation`.
+- Pending JSON capacity projection and fixtures.
+- MCP Pending tool specs for `pending_list`, `pending_show`, and `pending_run`.
+
+Remaining gaps:
+
+- No capture/classification in `WorkerRunner` outcomes.
+- No call-site wiring from classified worker capacity to Pending resume.
+- No real Pending execution/settlement.
+- No live MCP Pending handlers in `MCPServer`.
 
 SSOT:
 
@@ -159,20 +172,83 @@ Proof:
   forecast fields.
 - Registry/export check proves generated CLI docs and schemas match code.
 
-Done When:
+Done:
 
 - `CapacityObservation` exists in Core with fixture-tested classification.
 - Pending JSON schema/fixtures expose sourced capacity facts for CLI/MCP clients.
 - No stale migration/backcompat aliases are introduced for zero-user local data.
-- The developer reports WTK-S02 real Pending execution/settlement and A1
-  Pending-over-MCP as the remaining blockers for full Wake Ticket / Watchdog
-  handoff.
+- The developer reported WTK-S02 real Pending execution/settlement and A1
+  Pending-over-MCP live handlers as remaining blockers.
 
-## Copy-Paste Developer Prompt
+## Feature Packet - WTK-S01b Worker Output Capture
+
+Status: Ready for implementation as the next narrow prerequisite slice.
+
+Founder Intent:
+
+- Raw request: use actual CLI-to-CLI capacity notices instead of pinging stalled
+  CLIs blindly.
+- Product value: Allnighter preserves capacity facts from real worker attempts so
+  later Pending/Wake code can sleep and resume correctly.
+- Trusted workflow slice: worker CLI exits nonzero with capacity output ->
+  `WorkerRunner` classifies stdout/stderr/exit code before reducing to
+  `errorReason` -> `WorkerRunOutcome` / `WorkerAnswer` carries
+  `CapacityObservation` for later Pending resume writers.
+- Non-goals: no scheduler, no provider probes, no GUI/iOS, no live MCP handlers,
+  no real Pending execution, no retry.
+
+Current State:
+
+- Existing truth owners: `CapacityObservation`, `CapacityClassifier`,
+  `WorkerRunner`, `WorkerRunOutcome`, `WorkerAnswer`, `PendingResume`, and
+  `PendingItemJSON`.
+- Existing gaps: worker outcomes do not carry capacity observations, so team,
+  thread, and future Pending execution paths would have to scrape `errorReason`.
+
+SSOT:
+
+- Truth owner: AllnighterCore owns the observation shape/classifier;
+  AllnighterEngine owns attaching it to worker execution outcomes.
+- Lie-prone layers: `errorReason` text, UI copy, MCP adapters, and future Pending
+  resume writers.
+- New/changed semantic rule: capacity observation must be captured from raw
+  command stdout/stderr before any user-facing error reduction.
+- Duplicate truth to delete/avoid: do not add provider-specific parsing at team,
+  thread, Pending, MCP, or UI call sites.
+
+Implementation:
+
+- CLI/MCP surface: no new command or tool behavior in this slice. Existing JSON
+  contracts already include `capacityObservation`; this slice only creates the
+  Engine plumbing that future execution/settlement code will use.
+- Model/package impact: add optional `CapacityObservation` to
+  `WorkerRunOutcome` and, if needed, `WorkerAnswer`.
+- Agent driver impact: `WorkerRunner.invoke` classifies raw `CommandResult`
+  stdout/stderr/exitCode with the manifest/driver source id and runner clock.
+- Auth/privacy/permissions impact: no new permissions, credentials, network
+  calls, or provider pages.
+
+Proof:
+
+- WorkerRunner tests for Claude account limit, Claude provider busy, Codex JSONL
+  stdout, auth/manual blockers, and successful output with capacity-like prose.
+- Existing WorkerRunner behavior remains unchanged for status/errorKind/
+  errorReason/output/exitCode/timings.
+
+Done When:
+
+- Failed worker outcomes can carry sourced `CapacityObservation`.
+- No successful worker answer is reclassified as a capacity failure.
+- No scheduler, Pending execution, GUI, or MCP handler work lands.
+- WTK-S02 and A1 live MCP Pending handlers remain explicitly named as blockers.
+
+## Copy-Paste Developer Prompt - WTK-S01b
 
 ```text
-You are implementing the first Stalled Work Watchdog prerequisite slice in
-Allnighter. Do not attempt the full watchdog end to end yet.
+You are implementing WTK-S01b for Allnighter: wire the existing
+CapacityClassifier into worker execution output capture.
+
+Do not implement the full watchdog end to end.
 
 Read first:
 - AGENTS.md
@@ -184,29 +260,67 @@ Read first:
 - docs/phases/Agent_First_MCP_And_Messaging_Workflows.md
 
 Code reality to respect:
-- PendingResume already exists in Packages/AllnighterCore/Sources/AllnighterCore/PendingItem.swift.
-- PendingItemJSON nextWakeAt is already projected by PendingItemJSONMapper.
-- PendingService.run currently only records a queued attempt; do not pretend it executes work.
-- ResidentCoordinator is health-only; do not add a broad scheduler.
-- WorkerRunner currently collapses failed CLI output to errorReason; capacity observation must be captured before that reduction.
-- We have zero users: no production migration/backcompat shims. Update stale schemas/contracts directly and treat old local dev records without required truth as repair-only or disposable.
-- We are CLI/MCP-first: expose the contract through alln Pending JSON and matching MCP Pending specs before any GUI work. If live MCP Pending handlers are not added in this slice, report A1 Pending-over-MCP as an explicit blocker to full watchdog handoff.
+- WTK-S00/S01a landed in b331c2ae.
+- CapacityObservation and CapacityClassifier already exist in AllnighterCore.
+- PendingResume can store capacityObservation and PendingItemJSON projects it.
+- MCP Pending tool specs exist, but live MCPServer Pending handlers do not.
+- WorkerRunner.invoke currently gets CommandResult stdout/stderr/exitCode, then
+  reduces nonzero exits to errorReason.
+- WorkerRunOutcome and WorkerAnswer do not currently carry CapacityObservation.
+- PendingService.run still records a queued attempt only; do not turn it into real
+  execution in this slice.
+- ResidentCoordinator is health-only; do not add wake timers or scanning.
+- We have zero users: no production migrations or stale compatibility shims.
+- We are CLI/MCP-first, but this slice is Core/Engine capture plumbing only.
 
-Implement WTK-S00 and the classification/contract half of WTK-S01 only:
-1. Add a Core CapacityObservation model with kind:
-   accountRateLimit | providerBusy | cooldown | authRequired | manualRequired | unknownCapacity.
-2. Add source/sourceConfidence/rawSnippet/observedResetAt/retryAfterSeconds/wakeAfter fields.
-3. Add PendingResumeReason.providerBusy and update Codable/schema fixtures/generated artifacts directly; do not preserve stale aliases for nonexistent users.
-4. Add a pure classifier that takes worker id/source id plus stdout/stderr/JSONL/RPC-ish text/exit code and returns an optional CapacityObservation.
-5. Project capacity facts through PendingItemJSON for alln pending show/list/project pending JSON: kind, source, sourceConfidence, observedAt, observedResetAt, retryAfterSeconds, wakeAfter, and a redacted/truncated rawSnippet. No prompt bodies, secrets, tokens, cookies, or forecast fields.
-6. Keep MCP parity in the contract: pending_show/pending_list/pending_run must use the same PendingItemJSON/PendingListJSON schemas and shared error envelope. If executable MCP Pending handlers remain deferred, mark that as the A1 blocker in closeout.
-7. Fixture-test Claude rate_limit_error, Claude overloaded_error, Codex exec --json error/turn.failed usage-limit text, AGY "capacity exhausted: cooldown active until <timestamp>", auth/manual blockers, and no-estimate/no-false-positive cases.
-8. Do not run provider probes. Do not schedule wake timers. Do not change PendingService.run into real execution in this slice. Do not add GUI.
+Implement WTK-S01b only:
+1. Add optional CapacityObservation to WorkerRunOutcome.
+2. Add optional CapacityObservation to WorkerAnswer if needed so team/thread/run
+   call sites can carry the fact without scraping errorReason.
+3. In WorkerRunner.invoke, run CapacityClassifier before nonzero-exit failure
+   output is reduced to errorReason. The classifier input must include:
+   - manifest/driver id as source id
+   - worker/model id where useful
+   - stdout
+   - stderr
+   - exitCode
+   - observedAt from the same clock used by WorkerRunner
+4. Preserve current behavior for status, errorKind, errorReason, output,
+   exitCode, timings, ANSI stripping, file-capture success, launchError,
+   cancelled, timedOut, and empty-output cases.
+5. On nonzero exit, attach the optional CapacityObservation to the outcome/answer.
+6. Do not classify successful worker answers as capacity failures.
+7. Do not persist PendingResume in this slice unless there is already an existing
+   same-call-site Pending resume writer that can consume the observation without
+   inventing real Pending execution.
+8. Do not add scheduler, provider probes, GUI/iOS, live MCP handlers, broad drain,
+   real Pending execution/settlement, automatic retry, worker substitution, or
+   prompt rewriting.
 
-Proof:
-- Run the focused Swift tests for the new classifier/model.
-- Run contract/schema/export tests because the public Pending JSON contract changes.
-- Report clearly that WTK-S02 real Pending execution remains the next execution blocker and A1 Pending-over-MCP remains the external-agent blocker for full Wake Ticket / Watchdog handoff.
+Required tests:
+1. WorkerRunner nonzero Claude rate_limit_error returns failed/nonzeroExit and
+   carries CapacityObservation(accountRateLimit) while preserving errorReason.
+2. WorkerRunner nonzero Claude overloaded_error carries providerBusy.
+3. WorkerRunner nonzero Codex JSONL usage-limit text in stdout is classified.
+4. WorkerRunner auth/manual blockers classify as authRequired/manualRequired but
+   do not become Wake Tickets or retries in this slice.
+5. Successful output with capacity-like prose is not classified as a capacity
+   failure.
+6. Existing WorkerRunner tests still pass unchanged in behavior.
+
+Proof commands:
+- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'WorkerRunnerTests|CapacityClassifierTests|CapacityObservationTests'
+- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'ContractRegistryTests|MCPToolContractTests|PendingServiceTests'
+
+Closeout:
+- State that WTK-S01b landed: WorkerRunner now captures/classifies capacity
+  observations before error reduction.
+- State that no scheduler, GUI, live MCP Pending handlers, or real Pending
+  execution was added.
+- State that WTK-S02 real Pending execution/settlement remains the next execution
+  blocker.
+- State that A1 Pending-over-MCP live handlers remain the external-agent blocker.
+- Commit only explicit changed files with a clear message.
 ```
 
 ## Founder Intent
@@ -961,14 +1075,22 @@ iOS:
 
 ## Ordered Slices
 
-- [ ] WTK-S00 - Capacity observation contract: add `CapacityObservation`,
+- [x] WTK-S00 - Capacity observation contract (DONE 2026-06-19, `b331c2ae`):
+  add `CapacityObservation`,
   `providerBusy` vs `accountRateLimit` distinction, fixtures for Claude
   structured errors, Codex JSONL messages, AGY cooldown-until text, and
   no-estimate tests. Project capacity facts through Pending CLI JSON and matching
   MCP Pending specs. No scheduler yet.
-- [ ] WTK-S01 - Observation wiring: capture worker attempt stdout/stderr/JSONL/RPC
-  error before reduction to `errorReason`; map sourced capacity observations to
-  Pending attempt blocked reason + `PendingResume(wakeAfter/observedResetAt)`.
+- [x] WTK-S01a - Contract projection (DONE 2026-06-19, `b331c2ae`): add
+  `PendingResumeReason.providerBusy`, store optional `capacityObservation`, project
+  it through Pending JSON fixtures/schema, and register MCP Pending specs.
+- [ ] WTK-S01b - Worker output capture: capture worker attempt stdout/stderr/JSONL/RPC
+  error before reduction to `errorReason`; attach sourced capacity observations
+  to `WorkerRunOutcome` / `WorkerAnswer` without changing execution behavior.
+- [ ] WTK-S01c - Pending resume writer: when a real Pending/team/thread attempt
+  has a sourced capacity observation, map it to Pending attempt blocked reason +
+  `PendingResume(wakeAfter/observedResetAt)`. This may land with WTK-S02 if the
+  real Pending execution seam is the first safe writer.
 - [ ] WTK-S02 - Real Pending execution seam: make explicit `pending run` able to
   drive the same worker/team path it records, with leases/attempt settlement,
   cooldown observation on failure, and MCP `pending_run` parity. Mutating

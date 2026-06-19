@@ -6,18 +6,20 @@ BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
 `team_preflight`, `team_ask` (+lane/team/type), `team_show`,
 `error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
 hello|preflight|teams`, `alln spec`); async `team_start`, `team_status`,
-`team_result`, and `team_cancel` over Journal0 + Serve0. DEFERRED (needs
-Pending0/Pending1 plus the Wake Ticket slice): A1 Pending-over-MCP. Still
+`team_result`, and `team_cancel` over Journal0 + Serve0. Registry specs for
+`pending_list`, `pending_show`, and `pending_run` exist, but live MCP handlers
+are deferred. DEFERRED (needs Wake Ticket execution seams): A1 Pending-over-MCP. Still
 deferred: doctor schema-v2 remedy tiers/humanActions, A3 install artifacts, A4
 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-19
 
-Code reality on 2026-06-19: MCP Pending tools are not in the registry/server yet.
-Expose Pending/Wake facts over MCP from the same Core/CLI `PendingItemJSON`
-schema once it truthfully shows `nextWakeAt`, capacity observation, blocked
-reason, and settled attempt state. Full Wake Ticket / Watchdog behavior is not
-ship-ready until this Pending-over-MCP parity lands.
+Code reality on 2026-06-19: MCP Pending tool specs exist in the registry, but
+`MCPServer` does not expose live Pending handlers yet. Expose Pending/Wake facts
+over MCP from the same Core/CLI `PendingItemJSON` schema once it truthfully shows
+`nextWakeAt`, capacity observation, blocked reason, and settled attempt state.
+Full Wake Ticket / Watchdog behavior is not ship-ready until this
+Pending-over-MCP parity lands.
 
 > **Async ≠ scheduler.** "Async team loop" means a single, explicitly-triggered run
 > executes in the background of one `alln serve` process and is polled via
