@@ -49,7 +49,7 @@ struct AllnighterCLI {
         case "mcp" where args.first == "install": printMCPInstall()   // consent-gated: prints config, never edits it
         case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "serve": await runServe(args)
-        case "pending": PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
+        case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()

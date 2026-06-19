@@ -153,7 +153,8 @@ public enum PendingItemJSONMapper {
                     workerIds: attempt.workerIds,
                     status: attempt.status.rawValue,
                     executionLaneKey: attempt.executionLaneKey,
-                    reason: attempt.reason
+                    reason: attempt.reason,
+                    transcriptRef: attempt.transcriptRef
                 )
             },
             nextActions: nextActions(for: item),

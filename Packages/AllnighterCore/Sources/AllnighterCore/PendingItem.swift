@@ -202,6 +202,8 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
     public var admissionEventIds: [String]
     public var executionLaneKey: String?
     public var reason: String?
+    /// Relative path under the Pending store root for the attempt receipt transcript.
+    public var transcriptRef: String?
 
     public var id: String { attemptId }
 
@@ -214,7 +216,8 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
         status: PendingAttemptStatus,
         admissionEventIds: [String] = [],
         executionLaneKey: String? = nil,
-        reason: String? = nil
+        reason: String? = nil,
+        transcriptRef: String? = nil
     ) {
         self.attemptId = attemptId
         self.createdAt = createdAt
@@ -225,6 +228,7 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
         self.admissionEventIds = admissionEventIds
         self.executionLaneKey = executionLaneKey
         self.reason = reason
+        self.transcriptRef = transcriptRef
     }
 }
 

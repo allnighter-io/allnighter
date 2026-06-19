@@ -7,6 +7,7 @@ public enum PendingServiceError: Error, Equatable, Sendable {
     case invalidState(String)
     case reorderInvalid(String)
     case mutationDeferred
+    case unsupportedKind(String)
 }
 
 /// Pending CRUD and lifecycle rules (Pending0/Pending1). Drain/admission deferred to Pending2.
@@ -285,17 +286,16 @@ public struct PendingService: Sendable {
         return item
     }
 
-    // MARK: - Run (manual attempt, no drain)
+    // MARK: - Run (manual attempt)
 
-    public func run(id: String) throws -> PendingItem {
+    /// Validates and starts a Pending run: submits Draft items, records a running attempt, and leases to CLI.
+    public func beginRun(id: String) throws -> PendingItem {
         guard var item = try store.load(id: id) else { throw PendingServiceError.notFound(id) }
         if item.status == .draft { item = try submit(id: id) }
         guard item.status == .pending else {
             throw PendingServiceError.invalidState("only Draft or Pending items can be run")
         }
-        if item.kind == .dispatch {
-            throw PendingServiceError.mutationDeferred
-        }
+        try validateRunnableKind(item)
 
         let timestamp = now()
         let attemptId = "attempt_\(UUID().uuidString.lowercased())"
@@ -303,10 +303,11 @@ public struct PendingService: Sendable {
         let attempt = PendingAttemptSummary(
             attemptId: attemptId,
             createdAt: timestamp,
+            startedAt: timestamp,
             workerIds: workerId.isEmpty ? [] : [workerId],
-            status: .queued,
+            status: .running,
             executionLaneKey: item.execution?.executionLaneKey,
-            reason: "manualRunAwaitingAdmission"
+            reason: "workerChatRun"
         )
         item.attempts.append(attempt)
         item.status = .running
@@ -314,6 +315,116 @@ public struct PendingService: Sendable {
         item.updatedAt = timestamp
         try store.save(item)
         return item
+    }
+
+    /// Settles a started attempt from `WorkerRunOutcome` and persists the item.
+    public func settleRun(
+        id: String,
+        attemptIndex: Int,
+        outcome: WorkerRunOutcome,
+        transcriptRef: String?
+    ) throws -> PendingItem {
+        guard var item = try store.load(id: id) else { throw PendingServiceError.notFound(id) }
+        guard attemptIndex < item.attempts.count else {
+            throw PendingServiceError.invalidState("attempt index out of range")
+        }
+
+        let timestamp = now()
+        var attempt = item.attempts[attemptIndex]
+        attempt.completedAt = timestamp
+        attempt.transcriptRef = transcriptRef
+
+        switch outcome.status {
+        case .done:
+            attempt.status = .done
+            attempt.reason = nil
+            item.status = .done
+            item.resume = nil
+        case .failed:
+            if let observation = outcome.capacityObservation {
+                attempt.status = .blocked
+                attempt.reason = observation.kind.rawValue
+                item.status = .pending
+                switch observation.kind {
+                case .accountRateLimit, .cooldown, .unknownCapacity:
+                    item.resume = PendingResume(
+                        reason: .cooldown,
+                        lastAttemptId: attempt.attemptId,
+                        transcriptRef: transcriptRef,
+                        observedResetAt: observation.observedResetAt,
+                        wakeAfter: observation.wakeAfter,
+                        capacityObservation: observation
+                    )
+                case .providerBusy:
+                    item.resume = PendingResume(
+                        reason: .providerBusy,
+                        lastAttemptId: attempt.attemptId,
+                        transcriptRef: transcriptRef,
+                        observedResetAt: observation.observedResetAt,
+                        wakeAfter: observation.wakeAfter,
+                        capacityObservation: observation
+                    )
+                case .authRequired, .manualRequired:
+                    item.resume = nil
+                }
+            } else {
+                attempt.status = .failed
+                attempt.reason = outcome.errorReason
+                item.status = .failed
+                item.resume = nil
+            }
+        case .timedOut:
+            attempt.status = .timedOut
+            attempt.reason = outcome.errorReason ?? "timedOut"
+            item.status = .pending
+            item.resume = PendingResume(
+                reason: .timeout,
+                lastAttemptId: attempt.attemptId,
+                transcriptRef: transcriptRef
+            )
+        case .cancelled:
+            attempt.status = .cancelled
+            attempt.reason = outcome.errorReason ?? "cancelled"
+            item.status = .pending
+            item.resume = nil
+        case .skipped:
+            attempt.status = .failed
+            attempt.reason = "workerSkipped"
+            item.status = .failed
+            item.resume = nil
+        default:
+            attempt.status = .failed
+            attempt.reason = outcome.errorReason ?? "workerRunIncomplete"
+            item.status = .failed
+            item.resume = nil
+        }
+
+        item.attempts[attemptIndex] = attempt
+        item.lease = nil
+        item.updatedAt = timestamp
+        try store.save(item)
+        return item
+    }
+
+    /// Legacy entry point — use `PendingRunExecutor` for workerChat execution.
+    public func run(id: String) throws -> PendingItem {
+        try beginRun(id: id)
+    }
+
+    private func validateRunnableKind(_ item: PendingItem) throws {
+        switch item.kind {
+        case .workerChat:
+            return
+        case .dispatch:
+            throw PendingServiceError.mutationDeferred
+        case .workOrder:
+            if item.execution?.intent == .execute {
+                throw PendingServiceError.mutationDeferred
+            }
+            throw PendingServiceError.unsupportedKind(item.kind.rawValue)
+        case .teamRun, .returnReview, .followUp:
+            throw PendingServiceError.unsupportedKind(item.kind.rawValue)
+        }
     }
 
     // MARK: - Projection helpers

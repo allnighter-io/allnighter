@@ -78,6 +78,12 @@
         "status" : {
           "type" : "string"
         },
+        "transcriptRef" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "workerIds" : {
           "items" : {
             "type" : "string"

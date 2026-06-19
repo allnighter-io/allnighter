@@ -126,6 +126,7 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         public var status: String
         public var executionLaneKey: String?
         public var reason: String?
+        public var transcriptRef: String?
     }
 
     public struct NextAction: Codable, Equatable, Sendable {

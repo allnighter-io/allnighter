@@ -255,6 +255,7 @@ public enum ContractSchema {
                 "attemptId": str, "createdAt": str, "startedAt": nullable("string"),
                 "completedAt": nullable("string"), "workerIds": arr(str), "status": str,
                 "executionLaneKey": nullable("string"), "reason": nullable("string"),
+                "transcriptRef": nullable("string"),
             ], required: ["attemptId", "createdAt", "workerIds", "status"]),
             "NextAction": obj([
                 "kind": enumStr(["submitPending", "runPending", "showPending", "cancelPending"]),
@@ -289,10 +290,14 @@ public enum ContractSchema {
                 "status": enumStr(["ready", "notReady", "notChecked", "driverMissing"]),
                 "state": enumStr(["onBench", "available"]),
                 "capabilities": ref("ModelCapabilities"),
+                "headlessTrust": nullableRef("HeadlessTrustPolicy"),
             ], required: [
                 "id", "displayName", "modelLabel", "driverId", "driverName", "role", "origin",
                 "enabled", "ready", "status", "state", "capabilities",
             ]),
+            "HeadlessTrustPolicy": obj([
+                "required": bool, "cliFlag": str, "disclosure": str,
+            ], required: ["required", "cliFlag", "disclosure"]),
             "ModelCapabilities": obj([
                 "laneTags": arr(str), "capabilityTags": arr(str), "strengthRank": int,
             ], required: ["laneTags", "capabilityTags", "strengthRank"]),

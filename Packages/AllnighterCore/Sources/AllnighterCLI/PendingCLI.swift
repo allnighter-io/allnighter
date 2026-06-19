@@ -3,7 +3,7 @@ import AllnighterCore
 import AllnighterEngine
 
 enum PendingCLI {
-    static func run(_ subcommand: String?, _ args: [String], runtime: ToolRuntime) {
+    static func run(_ subcommand: String?, _ args: [String], runtime: ToolRuntime) async {
         switch subcommand {
         case "add": runAdd(args, runtime)
         case "list": runList(args, runtime)
@@ -12,7 +12,7 @@ enum PendingCLI {
         case "edit": runEdit(args, runtime)
         case "reorder": runReorder(args, runtime)
         case "cancel": runCancel(args, runtime)
-        case "run": runRun(args, runtime)
+        case "run": await runRun(args, runtime)
         case nil:
             FileHandle.standardError.write(Data("usage: alln pending <add|list|show|submit|edit|reorder|cancel|run> ...\n".utf8))
             exit(2)
@@ -158,19 +158,22 @@ enum PendingCLI {
         }
     }
 
-    private static func runRun(_ args: [String], _ runtime: ToolRuntime) {
+    private static func runRun(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         if opts.flag("json") && opts.flag("stream") {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
         }
         guard let id = opts.positional.first else { usageError("usage: alln pending run <pending-id> [--json]") }
-        let service = makeService(runtime)
+        let executor = makeExecutor(runtime)
         do {
-            let item = try service.run(id: id)
-            emit(item, service: service, json: opts.flag("json"))
+            let item = try await executor.run(id: id)
+            emit(item, service: executor.service, json: opts.flag("json"))
         } catch let error as PendingServiceError {
             if case .mutationDeferred = error {
                 AllnighterCLI.fail(code: "PENDING_MUTATION_DEFERRED", message: "mutating dispatch is outside Pending M1")
+            }
+            if case .unsupportedKind(let kind) = error {
+                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "pending kind \(kind) is not runnable in this milestone; only workerChat is supported")
             }
             emitPendingError(error)
         } catch {
@@ -182,6 +185,16 @@ enum PendingCLI {
 
     private static func makeService(_ runtime: ToolRuntime) -> PendingService {
         PendingService(store: PendingStore(), models: runtime.models)
+    }
+
+    private static func makeExecutor(_ runtime: ToolRuntime) -> PendingRunExecutor {
+        let service = makeService(runtime)
+        return PendingRunExecutor(
+            service: service,
+            registry: runtime.registry,
+            commandRunner: SubprocessCommandRunner(),
+            invocations: runtime.invocations
+        )
     }
 
     private static func loadPrompt(_ opts: Options) -> String {
@@ -225,6 +238,8 @@ enum PendingCLI {
                 (code, message) = ("PENDING_REORDER_INVALID", detail)
             case .mutationDeferred:
                 (code, message) = ("PENDING_MUTATION_DEFERRED", "mutating dispatch is outside Pending M1")
+            case .unsupportedKind(let kind):
+                (code, message) = ("CLI_USAGE_ERROR", "pending kind \(kind) is not runnable in this milestone; only workerChat is supported")
             }
         } else {
             (code, message) = ("INTERNAL_ERROR", String(describing: error))

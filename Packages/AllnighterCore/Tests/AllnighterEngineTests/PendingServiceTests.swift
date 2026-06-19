@@ -92,13 +92,14 @@ final class PendingServiceTests: XCTestCase {
         XCTAssertEqual(item.prompt, "Edited prompt")
     }
 
-    func testManualRunRecordsQueuedAttempt() throws {
+    func testBeginRunMarksRunningAttempt() throws {
         let item = try service.add(.init(prompt: "Run me", workerToken: "claude", submit: true))
-        let running = try service.run(id: item.id)
+        let running = try service.beginRun(id: item.id)
         XCTAssertEqual(running.status, .running)
         XCTAssertEqual(running.attempts.count, 1)
-        XCTAssertEqual(running.attempts.last?.status, .queued)
-        XCTAssertEqual(running.attempts.last?.reason, "manualRunAwaitingAdmission")
+        XCTAssertEqual(running.attempts.last?.status, .running)
+        XCTAssertEqual(running.attempts.last?.reason, "workerChatRun")
+        XCTAssertNotNil(running.lease)
     }
 
     func testListJSONProjection() throws {
