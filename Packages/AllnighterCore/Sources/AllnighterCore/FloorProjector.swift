@@ -13,6 +13,8 @@ public enum FloorProjector {
     ) -> FloorRun {
         let lanes = workerLanes(for: run)
         let lead = run.workers.first { $0.purpose == .plan }
+        let allArtifacts = lanes.flatMap { $0.artifactRefs + ($0.promptArtifactRef.map { [$0] } ?? []) }
+            + [bundleRef(for: run)]
 
         let runInfo = FloorRun.Run(
             id: run.id,
@@ -44,6 +46,7 @@ public enum FloorProjector {
             workerLanes: lanes,
             floorReturn: floorReturn(for: run, leadWorkerId: lead?.id),
             nextActions: baseNextActions(for: run),
+            artifacts: allArtifacts,
             warnings: run.warnings,
             errors: workerErrors(for: run),
             audit: FloorRun.Audit(runJournalPath: runJournalPath, traceId: traceId)
@@ -75,6 +78,31 @@ public enum FloorProjector {
     private static func workerLanes(for run: TeamRun) -> [FloorWorkerLane] {
         run.workers.map { worker in
             let answer = run.workerAnswer(workerId: worker.id)
+            let createdAt = answer?.finishedAt ?? answer?.startedAt ?? run.createdAt
+            let stem = RunArtifactRef.safeStem(worker.id)
+
+            // Metadata exists for every worker — including failed/skipped/cancelled.
+            var refs = [RunArtifactRef(
+                id: "\(run.id)_\(stem)_meta", runId: run.id, kind: .workerMetadata,
+                title: "\(worker.skillName ?? worker.id) metadata",
+                relativePath: "workers/\(stem).metadata.json", mimeType: "application/json",
+                workerId: worker.id, createdAt: createdAt)]
+            // The durable answer markdown exists only when the worker produced output.
+            if answer?.hasAnswer == true {
+                refs.append(RunArtifactRef(
+                    id: "\(run.id)_\(stem)_answer", runId: run.id, kind: .workerAnswer,
+                    title: "\(worker.skillName ?? worker.id) answer",
+                    relativePath: "workers/\(stem).answer.md", mimeType: "text/markdown",
+                    workerId: worker.id, createdAt: createdAt))
+            }
+            let promptRef: RunArtifactRef? = worker.resolvedWorkerPromptSnapshot.map { _ in
+                RunArtifactRef(
+                    id: "\(run.id)_\(stem)_prompt", runId: run.id, kind: .workerPrompt,
+                    title: "\(worker.skillName ?? worker.id) prompt",
+                    relativePath: "workers/\(stem).prompt.md", mimeType: "text/markdown",
+                    workerId: worker.id, createdAt: createdAt, localOnly: true)
+            }
+
             return FloorWorkerLane(
                 workerId: worker.id,
                 skillId: worker.skillId,
@@ -87,9 +115,17 @@ public enum FloorProjector {
                 durationMs: answer?.durationMs,
                 exitCode: answer?.exitCode,
                 summary: excerpt(answer?.output),
+                artifactRefs: refs,
+                promptArtifactRef: promptRef,
                 error: answer?.errorReason
             )
         }
+    }
+
+    private static func bundleRef(for run: TeamRun) -> RunArtifactRef {
+        RunArtifactRef(
+            id: "\(run.id)_bundle", runId: run.id, kind: .bundle, title: "Run bundle",
+            relativePath: "bundle.md", mimeType: "text/markdown", createdAt: run.createdAt)
     }
 
     private static func workerErrors(for run: TeamRun) -> [ErrorEnvelope] {

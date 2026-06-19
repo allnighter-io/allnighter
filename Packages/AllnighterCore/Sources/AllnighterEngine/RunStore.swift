@@ -68,7 +68,56 @@ public struct RunStore: Sendable {
         if !finalSpec.isEmpty {
             try Data(finalSpec.utf8).write(to: directory.appendingPathComponent("final_spec.md"))
         }
+
+        try writeWorkerArtifacts(run, in: directory)
         return directory
+    }
+
+    /// F-S01: every worker's durable return is preserved as an inspectable artifact
+    /// — `workers/<id>.answer.md` (when output exists), `workers/<id>.prompt.md`
+    /// (local-only resolved prompt), and `workers/<id>.metadata.json` for EVERY
+    /// worker including failed/skipped/cancelled (a failure is never hidden).
+    /// Derived from run.json truth on each save; relative paths match
+    /// `RunArtifactRef.safeStem` so the Floor projection resolves them.
+    private func writeWorkerArtifacts(_ run: TeamRun, in directory: URL) throws {
+        guard !run.workers.isEmpty else { return }
+        let workersDir = directory.appendingPathComponent("workers", isDirectory: true)
+        try FileManager.default.createDirectory(at: workersDir, withIntermediateDirectories: true)
+
+        struct WorkerMetadata: Encodable {
+            let workerId, modelId: String
+            let skillId, skillName: String?
+            let purpose: String?
+            let status: String
+            let startedAt, finishedAt: Date?
+            let durationMs, exitCode: Int?
+            let errorKind, errorReason: String?
+        }
+
+        for worker in run.workers {
+            let stem = RunArtifactRef.safeStem(worker.id)
+            let answer = run.workerAnswer(workerId: worker.id)
+
+            let meta = WorkerMetadata(
+                workerId: worker.id, modelId: worker.modelId,
+                skillId: worker.skillId, skillName: worker.skillName,
+                purpose: worker.purpose?.rawValue,
+                status: (answer?.status ?? .queued).rawValue,
+                startedAt: answer?.startedAt, finishedAt: answer?.finishedAt,
+                durationMs: answer?.durationMs, exitCode: answer?.exitCode,
+                errorKind: answer?.errorKind?.rawValue, errorReason: answer?.errorReason)
+            try CoreJSON.encode(meta).write(
+                to: workersDir.appendingPathComponent("\(stem).metadata.json"), options: .atomic)
+
+            if let output = answer?.output, answer?.hasAnswer == true {
+                try Data(output.utf8).write(
+                    to: workersDir.appendingPathComponent("\(stem).answer.md"), options: .atomic)
+            }
+            if let prompt = worker.resolvedWorkerPromptSnapshot, !prompt.isEmpty {
+                try Data(prompt.utf8).write(
+                    to: workersDir.appendingPathComponent("\(stem).prompt.md"), options: .atomic)
+            }
+        }
     }
 
     /// Loads one run by id, applying orphan recovery (a non-terminal run whose

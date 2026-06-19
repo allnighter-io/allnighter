@@ -16,18 +16,21 @@ public struct FloorRun: Codable, Sendable, Equatable {
     public var workerLanes: [FloorWorkerLane]
     public var floorReturn: FloorReturn?
     public var nextActions: [FloorNextAction]
+    /// Every durable run artifact, flattened (F-S01). Refs are run-relative, never
+    /// absolute paths; the app resolves them to local files.
+    public var artifacts: [RunArtifactRef]
     public var warnings: [String]
     public var errors: [ErrorEnvelope]
     public var audit: Audit
 
     public init(schemaVersion: Int = 1, run: Run, intent: Intent, team: Team,
                 workerLanes: [FloorWorkerLane] = [], floorReturn: FloorReturn? = nil,
-                nextActions: [FloorNextAction] = [], warnings: [String] = [],
-                errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
+                nextActions: [FloorNextAction] = [], artifacts: [RunArtifactRef] = [],
+                warnings: [String] = [], errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
         self.schemaVersion = schemaVersion
         self.run = run; self.intent = intent; self.team = team
         self.workerLanes = workerLanes; self.floorReturn = floorReturn
-        self.nextActions = nextActions; self.warnings = warnings
+        self.nextActions = nextActions; self.artifacts = artifacts; self.warnings = warnings
         self.errors = errors; self.audit = audit
     }
 
@@ -114,6 +117,12 @@ public struct FloorWorkerLane: Codable, Sendable, Equatable, Identifiable {
     public var durationMs: Int?
     public var exitCode: Int?
     public var summary: String?
+    /// The worker's durable answer/metadata artifacts (F-S01). The raw answer is
+    /// the artifact; `summary` is only a scan excerpt.
+    public var artifactRefs: [RunArtifactRef]
+    /// The resolved worker prompt snapshot — local-only, hidden by default, but
+    /// available for audit/debug.
+    public var promptArtifactRef: RunArtifactRef?
     public var error: String?
 
     public var id: String { workerId }
@@ -121,11 +130,50 @@ public struct FloorWorkerLane: Codable, Sendable, Equatable, Identifiable {
     public init(workerId: String, skillId: String? = nil, skillName: String? = nil,
                 modelId: String, purpose: Purpose, status: String,
                 startedAt: Date? = nil, finishedAt: Date? = nil, durationMs: Int? = nil,
-                exitCode: Int? = nil, summary: String? = nil, error: String? = nil) {
+                exitCode: Int? = nil, summary: String? = nil,
+                artifactRefs: [RunArtifactRef] = [], promptArtifactRef: RunArtifactRef? = nil,
+                error: String? = nil) {
         self.workerId = workerId; self.skillId = skillId; self.skillName = skillName
         self.modelId = modelId; self.purpose = purpose; self.status = status
         self.startedAt = startedAt; self.finishedAt = finishedAt; self.durationMs = durationMs
-        self.exitCode = exitCode; self.summary = summary; self.error = error
+        self.exitCode = exitCode; self.summary = summary
+        self.artifactRefs = artifactRefs; self.promptArtifactRef = promptArtifactRef
+        self.error = error
+    }
+}
+
+/// A stable, run-relative pointer to one durable run artifact (F-S01). Public JSON
+/// uses `relativePath` (never absolute); the app resolves it under the run dir.
+public struct RunArtifactRef: Codable, Sendable, Equatable, Identifiable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        case workerAnswer, workerPrompt, workerMetadata, stageOutput, receipt
+        case returnMarkdown, insightJSON, bundle, source
+    }
+    public var id: String
+    public var runId: String
+    public var kind: Kind
+    public var title: String
+    public var relativePath: String
+    public var mimeType: String
+    public var workerId: String?
+    public var stageId: String?
+    public var createdAt: Date
+    public var contentSHA256: String?
+    public var localOnly: Bool
+
+    public init(id: String, runId: String, kind: Kind, title: String, relativePath: String,
+                mimeType: String, workerId: String? = nil, stageId: String? = nil,
+                createdAt: Date, contentSHA256: String? = nil, localOnly: Bool = false) {
+        self.id = id; self.runId = runId; self.kind = kind; self.title = title
+        self.relativePath = relativePath; self.mimeType = mimeType
+        self.workerId = workerId; self.stageId = stageId; self.createdAt = createdAt
+        self.contentSHA256 = contentSHA256; self.localOnly = localOnly
+    }
+
+    /// A filesystem-safe stem for a worker id (e.g. `model_grok#0` → `model_grok_0`).
+    /// Shared by the artifact writer (RunStore) and the projector so paths match.
+    public static func safeStem(_ id: String) -> String {
+        String(id.map { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" ? $0 : "_" })
     }
 }
 
