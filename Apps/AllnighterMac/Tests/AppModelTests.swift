@@ -59,7 +59,7 @@ final class AppModelTests: XCTestCase {
 
     func testTeamSummaryReflectsSeatsAndDepth() {
         let model = AppModel()
-        let summary = model.workOrderSummary
+        let summary = model.runSummary
         XCTAssertTrue(summary.contains("\(model.expandedWorkers.count) worker"))
         if model.currentSynthesis.analysisDepth == .combined {
             XCTAssertTrue(summary.contains("combined analysis + plan"))

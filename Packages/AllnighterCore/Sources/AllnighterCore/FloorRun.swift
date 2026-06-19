@@ -212,9 +212,8 @@ public struct FloorReturn: Codable, Sendable, Equatable {
     }
 }
 
-/// A gate that must hold before a Floor return's make-real work can run (F-S05).
-/// Approval produces or links a WorkOrder and later a VerificationRecord; the
-/// Floor only presents the proposed move — it never auto-executes.
+/// A legacy floor projection for describing why a run cannot proceed. Unified
+/// runs do not currently project a second approval gate.
 public struct ExecuteRequirement: Codable, Sendable, Equatable {
     public var reason: String
     public var affectedScope: String?

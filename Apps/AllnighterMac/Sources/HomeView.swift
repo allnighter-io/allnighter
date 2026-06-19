@@ -25,7 +25,7 @@ struct HomeView: View {
         } else if threads.threads.isEmpty {
             HomeMarketingEmptyState()
         } else {
-            HomeNewWorkOrderPane()
+            HomeNewRunPane()
         }
     }
 }
@@ -568,7 +568,7 @@ private struct HomeMarketingEmptyState: View {
 
 // MARK: - New run (threads exist, none selected)
 
-private struct HomeNewWorkOrderPane: View {
+private struct HomeNewRunPane: View {
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(AppModel.self) private var appModel
 

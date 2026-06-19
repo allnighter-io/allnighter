@@ -465,7 +465,7 @@ private struct PresetMenu: View {
             } label: {
                 Label(model.activePresetName, systemImage: "rectangle.3.group")
             }
-            Text(model.workOrderSummary)
+            Text(model.runSummary)
                 .font(.caption).foregroundStyle(.secondary)
         }
         .alert("Save team preset", isPresented: $showSave) {

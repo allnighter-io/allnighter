@@ -487,17 +487,28 @@ private struct ThreadBoardRow: View {
     }
 }
 
-// MARK: - CR4d dispatch (Execute → repo)
+// MARK: - Mutating run row
 
-/// An executor ran (or was refused/revealed) in the repo. Renders from the durable
-/// ExecutionReturn behind the turn (runId/stageId). System notes (no run) — a
-/// missing dir, busy write lock — render as honest text, never a fake result.
+/// A mutating run in the repo. Current runs render from the durable `TeamRun`
+/// output; older dispatch-stage records still render from their `ExecutionReturn`.
 private struct ThreadDispatchRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
     let turn: ThreadTurn
 
+    private var run: TeamRun? {
+        guard let runId = turn.runId else { return nil }
+        return threads.teamRun(forRunId: runId)
+    }
     private var ret: ExecutionReturn? { threads.executionReturn(runId: turn.runId, stageId: turn.stageId) }
+    private var runOutput: String? {
+        if let markdown = run?.latestStage(.plan)?.payload?.markdown, !markdown.isEmpty { return markdown }
+        return run?.workerAnswers.first { ($0.output ?? "").isEmpty == false }?.output
+    }
+    private var workingDir: String? {
+        let dir = threads.selectedThread?.workingDir?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return dir?.isEmpty == false ? dir : nil
+    }
     private var model: ComposeBenchModel? {
         guard let id = turn.workerId else { return nil }
         return appModel.composeBench.first { $0.id == id }
@@ -527,7 +538,7 @@ private struct ThreadDispatchRow: View {
         HStack(spacing: 6) {
             Text(model?.name ?? turn.workerId ?? "Executor")
                 .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
-            Text("· executed").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            Text("· ran").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             Text(turn.createdAt, format: .dateTime.hour().minute())
                 .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
         }
@@ -541,9 +552,9 @@ private struct ThreadDispatchRow: View {
                 Text("running in the repo…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
             }
         case .failed, .timedOut:
-            // No durable return → a system note (missing dir / busy write lock /
-            // no executor). With a return, render the executor's actual outcome.
-            if ret == nil {
+            // No durable run/return means a system note such as missing dir,
+            // busy write lock, or no worker. Render it honestly.
+            if ret == nil && runOutput == nil {
                 Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The executor failed.")
                     .font(.system(size: 13)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
             } else {
@@ -587,8 +598,28 @@ private struct ThreadDispatchRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
             .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        } else if let runOutput {
+            VStack(alignment: .leading, spacing: 8) {
+                if let workingDir { workingDirRow(workingDir) }
+                HStack(spacing: 6) {
+                    Image(systemName: turn.status == .done ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(turn.status == .done ? ALPalette.green500 : ALPalette.red400)
+                    Text(turn.status == .done ? "Ran" : turn.status.rawValue.capitalized)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(turn.status == .done ? ALColor.textSecondary : ALPalette.red400)
+                }
+                Text(.init(runOutput))
+                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                    .lineSpacing(2).textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
         } else {
-            Text(turn.text ?? "Dispatched.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+            Text(turn.text ?? "Run completed.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
         }
     }
 

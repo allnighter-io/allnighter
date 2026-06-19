@@ -199,7 +199,7 @@ final class AppModel {
 
     // MARK: - Work shape
 
-    var workOrderSummary: String {
+    var runSummary: String {
         let count = expandedWorkers.count
         let noun = count == 1 ? "worker" : "workers"
         var parts = ["\(count) \(noun)"]
