@@ -364,7 +364,7 @@ private struct ThreadTurnRow: View {
 
 // MARK: - CR4c team board
 
-/// A fan-out result: the team's synthesis up top, then each model's answer as a
+/// A team run result: the team's synthesis up top, then each model's answer as a
 /// card. Renders from the durable TeamRun behind the turn's `runId` (turn → run →
 /// answers + plan), so it always shows the real path — never a faked board.
 private struct ThreadBoardRow: View {

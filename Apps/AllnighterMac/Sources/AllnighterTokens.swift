@@ -1,6 +1,6 @@
 // ============================================================
 //  AllnighterTokens.swift
-//  Token → SwiftUI mapping for the Allnighter "Council" macOS app.
+//  Token → SwiftUI mapping for the Allnighter macOS app.
 //  Dark-mode only ("amber phosphor on midnight").
 //
 //  This is the single source of truth for color, type, spacing,

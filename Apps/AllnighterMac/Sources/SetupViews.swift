@@ -4,7 +4,7 @@ import AllnighterCore
 
 // First-run Setup + Team-health UI, built pixel-exact from the setup handoff
 // (docs/phases/mockups/design_handoff_first_run_setup 3 — setup.jsx / doctor.jsx).
-// Vocabulary follows the code (council→team, seat→worker, synthesizer→plan writer).
+// Vocabulary follows the code (team/worker/plan-writer cutover complete).
 // Renders real ModelSetupStatus from AppModel.toolStatuses — never faked.
 
 // MARK: - Card model (mapped from a ToolProbeRecord by AppModel.setupCards)

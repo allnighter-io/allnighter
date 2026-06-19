@@ -335,7 +335,7 @@ private struct TurnRow: View {
         }
     }
 
-    // Council / build turn — compact card referencing its run.
+    // Team / mutating run turn — compact card referencing its run.
     private var richRow: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {

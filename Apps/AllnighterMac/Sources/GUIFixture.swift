@@ -209,7 +209,7 @@ enum GUIFixture {
         ("thread-empty", "Thread — empty run"),
         ("thread-with-turns", "Thread — user message turn"),
         ("thread-chat", "Thread — chat reply from a model"),
-        ("thread-team-board", "Thread — fan-out team board"),
+        ("thread-team-board", "Thread — team board"),
         ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
         ("studio-teams-code", "Team Studio — Code teams (detail)"),
