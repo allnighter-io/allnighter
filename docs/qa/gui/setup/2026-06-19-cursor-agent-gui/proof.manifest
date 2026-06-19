@@ -1,0 +1,12 @@
+# surface: setup
+# fixtures: readiness-cursor-ready readiness-cursor-keychain readiness-cursor-trust readiness-cursor-not-checked
+# watcher: PASS
+# live-gui-smoke: PASS
+# sealed: 2026-06-19
+218b76e108a6b81d5cde58a02e53365d567de62f  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+c38307eb36f2ec85ce51db55e8150cdc1d45ffc2  Apps/AllnighterMac/Sources/SetupViews.swift
+1078f83092c5bdd62972b0ca4068ff68c2e06a91  Apps/AllnighterMac/Sources/ReadinessView.swift
+0df87a66532d912002e48713fa88bb56a84a41d2  Apps/AllnighterMac/Sources/AppModel.swift
+e6abc623036523ef278f723c0b437f43312cf506  Apps/AllnighterMac/Sources/GUIFixture.swift
+7291d0ff9d15761c5be3bcd65cc715973ee31f37  Apps/AllnighterMac/Resources/Drivers/cursor_agent.json
+218b76e108a6b81d5cde58a02e53365d567de62f  Apps/AllnighterMac/Resources/Assets.xcassets/cursor.imageset/Contents.json

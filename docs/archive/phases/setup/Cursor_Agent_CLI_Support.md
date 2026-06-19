@@ -1,8 +1,18 @@
 # Cursor Agent CLI Support
 
-Status: Founder input packet - validated first-class CLI implementation spec
+Status: **BUILT** / archived
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
 Updated: 2026-06-19
+
+Archived: 2026-06-19
+
+Final status:
+CUR-S01 (Core manifest + model catalog), CUR-S02 (CLI/MCP projection), and
+CUR-S03 (Mac setup/GUI presentation) are built. `cursor_agent` ships as a
+first-class headless CLI with Composer 2.5 as the default team answerer and
+smoke/probe model; Auto is on-Bench by default as an opt-in router; Composer 2.5
+Fast stays off-Bench unless explicitly enabled. GUI proof:
+`docs/qa/gui/setup/2026-06-19-cursor-agent-gui/`. GUI-launched live smoke passed.
 
 ## Founder Intent
 
@@ -309,6 +319,13 @@ Implementation notes:
 Initial built-ins:
 
 ```text
+model_cursor_auto
+  displayName: Auto
+  modelLabel: auto
+  driverId: cursor_agent
+  role: answerer
+  defaultEnabled: true on fresh installs
+
 model_cursor_composer_25
   displayName: Composer 2.5
   modelLabel: composer-2.5
@@ -325,20 +342,19 @@ model_cursor_composer_25_fast
 ```
 
 Do not add every model from `agent models` as a built-in in the first slice.
-Start with Composer 2.5 and add custom models through the existing model catalog
-workflow when the user needs account-specific variants.
+Start with Auto + Composer 2.5 and add custom models through the existing model
+catalog workflow when the user needs account-specific variants.
 
-Default policy:
+Default policy (shipped):
 
-- Fresh install: `model_cursor_composer_25` is on the Bench when
-  `cursor_agent` is ready.
-- Existing install with a roster file: Cursor appears available/off-Bench until
-  the user enables it, following the global `ModelCatalog` upgrade rule.
+- Fresh install: `model_cursor_auto` and `model_cursor_composer_25` are on the
+  Bench when `cursor_agent` is ready; `model_cursor_composer_25_fast` is
+  available/off-Bench.
+- Team defaults and smoke/probe always use **Composer 2.5** (`composer-2.5`), not
+  Auto or Fast — deterministic health checks and preferred Code answerer.
 - Fast mode: `model_cursor_composer_25_fast` remains available/off-Bench for all
   users unless explicitly enabled.
-- Team defaults: update built-in Code teams so Cursor Composer 2.5 is the first
-  preferred answerer when ready. Keep higher-cost models available as reviewers,
-  plan writers, escalation workers, or custom-team choices.
+- Team defaults: built-in Code teams prefer `model_cursor_composer_25` when ready.
 
 ## Auth, Privacy, And Permissions
 
@@ -364,11 +380,12 @@ alln doctor --agent cursor_agent --json reports cursor_agent ready only after
 Then `alln models --driver cursor_agent --json` lists Composer 2.5, and a Code
 team run can include one Cursor worker whose worker answer is captured in
 TeamRunJSON.
-Fresh-install model projection shows `model_cursor_composer_25` on-Bench and
-`model_cursor_composer_25_fast` available/off-Bench.
+Fresh-install model projection shows `model_cursor_auto` and
+`model_cursor_composer_25` on-Bench and `model_cursor_composer_25_fast`
+available/off-Bench.
 ```
 
-Supporting checks:
+Supporting checks (all green):
 
 - Unit fixture for `agent` found at `~/.local/bin/agent`.
 - Unit fixture for `cursor-agent` fallback when `agent` is absent.
@@ -376,51 +393,31 @@ Supporting checks:
 - Smoke fixture where `composer-2.5` succeeds.
 - Negative fixture where `composer-2.5` is rejected and no silent fallback to
   Fast occurs.
-- Roster fixture proving regular Composer 2.5 defaults enabled on fresh install
+- Roster fixture proving Auto + Composer 2.5 default enabled on fresh install
   and Fast defaults disabled.
 - Team resolver fixture proving ready Cursor Composer 2.5 is the first default
   Code answerer candidate.
 - `ModelCatalog` test that Cursor model ids are driver-scoped.
 - Manifest round-trip test for `cursor_agent`.
 - Generated contract drift check after CLI/MCP descriptors change.
+- GUI visual proof: `docs/qa/gui/setup/2026-06-19-cursor-agent-gui/`.
+- GUI-launched live smoke: `cursor_agent` ready in `cli_setup.json` after
+  Re-check all from `open Allnighter.app` (no Keychain failure).
 
-Missing proof / waiver:
+Remaining follow-ups (not blockers):
 
-- Live Terminal and direct subprocess smoke passed. No live smoke has been run
-  from the Mac app launch context yet.
 - Official install/usage routes exist at `https://cursor.com/docs/cli/installation`
   and `https://cursor.com/docs/cli/using`; model ids and `fast=false`
   parameter semantics are live-smoked locally but still need official-doc or
   version-pinned contract verification before public support copy.
 
-## Next Slice
+## Shipped Slices (complete)
 
-CUR-S00 - Discovery packet:
+CUR-S01 - Core manifest and model catalog — **BUILT**
 
-- Verify official Cursor Agent model-id and parameter docs.
-- Run live `agent -p --model composer-2.5` from the same launch authority
-  Allnighter uses.
-- Decide `--trust` posture for smoke vs mutating Code worker runs.
+CUR-S02 - CLI/MCP projection — **BUILT**
 
-CUR-S01 - Core manifest and model catalog:
-
-- Add `cursor_agent` manifest to app resources and embedded default config.
-- Add Cursor built-in model definitions to `ModelCatalog`.
-- Set regular Composer 2.5 default-enabled on fresh installs; keep Fast disabled.
-- Update built-in Code team preferences so Cursor Composer 2.5 is the first
-  default answerer when ready.
-- Add manifest/model tests and auth classifier fixtures.
-
-CUR-S02 - CLI/MCP projection:
-
-- Expose Cursor through `alln doctor --agent`, `alln models --driver`, and
-  existing MCP doctor/model tools.
-- Regenerate generated contracts from the registry.
-
-CUR-S03 - Setup/GUI presentation:
-
-- Add Cursor setup card only after CUR-S01/CUR-S02 are green.
-- Use the existing source readiness states and model roster UI.
+CUR-S03 - Setup/GUI presentation — **BUILT**
 
 ## Open Questions
 

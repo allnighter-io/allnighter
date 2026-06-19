@@ -29,8 +29,21 @@ struct SetupCardModel: Identifiable {
     let docsURL: String?
     let shimCommand: String?       // raw `command -v` for needsPath
     let probeReason: String?
+    /// Headless mutation/trust posture from the driver manifest (e.g. Cursor `--trust`).
+    let headlessTrust: HeadlessTrustPolicy?
 
     var id: String { driverId }
+
+    /// Whether setup/repair surfaces should show the headless-trust callout.
+    var showsHeadlessTrustDisclosure: Bool {
+        guard let trust = headlessTrust, trust.required else { return false }
+        switch state {
+        case .ready, .needsLogin, .waiting, .notChecked, .installedNotProbed, .probeFailed:
+            return true
+        default:
+            return false
+        }
+    }
 
     struct WorkerSeat: Identifiable {
         let id: String
@@ -143,6 +156,33 @@ struct CmdRow: View {
         }
         .padding(.vertical, 8).padding(.leading, 12).padding(.trailing, 8)
         .background(ALColor.void, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+}
+
+// MARK: - Headless trust disclosure (driver manifest → setup/repair)
+
+struct HeadlessTrustNotice: View {
+    let policy: HeadlessTrustPolicy
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.shield")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Runs with \(policy.cliFlag)")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(ALPalette.yellow400)
+            Text(policy.disclosure)
+                .font(.system(size: 11.5))
+                .foregroundStyle(ALColor.textSecondary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 11).padding(.vertical, 10)
+        .background(ALColor.warningSurface, in: RoundedRectangle(cornerRadius: ALRadius.md))
         .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
     }
 }
@@ -309,10 +349,19 @@ struct SetupCardView: View {
     @ViewBuilder private var fixItContent: some View {
         switch card.state {
         case .ready where !compact:
-            seatsBody
+            VStack(spacing: 0) {
+                seatsBody
+                if card.showsHeadlessTrustDisclosure, let trust = card.headlessTrust {
+                    HeadlessTrustNotice(policy: trust)
+                        .padding(.horizontal, 15).padding(.bottom, 14)
+                }
+            }
         case .needsLogin, .waiting:
             fixItBody {
                 fixLine("\(card.name) is installed but not signed in. It prompts for sign-in on first run.")
+                if card.showsHeadlessTrustDisclosure, let trust = card.headlessTrust {
+                    HeadlessTrustNotice(policy: trust).padding(.bottom, 10)
+                }
                 CmdRow(text: card.loginCommand ?? card.driverId)
                 if card.state == .waiting {
                     HStack(spacing: 10) {
@@ -673,7 +722,8 @@ private func copy(_ text: String) {
         SetupCardModel(driverId: id, name: name, route: "via \(id.replacingOccurrences(of: "_", with: "-"))",
                        version: version, state: state, workers: workers,
                        loginCommand: "codex", installHint: "brew install grok",
-                       docsURL: "https://x.ai/cli", shimCommand: shim, probeReason: reason)
+                       docsURL: "https://x.ai/cli", shimCommand: shim, probeReason: reason,
+                       headlessTrust: nil)
     }
     let claude = m("claude_code", "Claude Code", .ready, version: "claude 1.2.4", workers: [
         .init(id: "o", name: "Opus 4.8", modelLabel: "opus-4.8", isPlanWriter: true),

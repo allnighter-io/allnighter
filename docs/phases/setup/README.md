@@ -20,16 +20,14 @@ not configuration.
   "works in my terminal but the app sees nothing" gap), the CLI registry, auth
   probing, auto-building the Bench/default Team, persistence, and the honesty
   rules.
-- **[02_Cursor_Agent_CLI_Support.md](02_Cursor_Agent_CLI_Support.md)** —
-  validated founder-input packet for making Cursor Agent (`agent` /
-  `cursor-agent`) a first-class default Source: manifest shape, Composer 2.5
-  default model policy, CLI/MCP surface, auth/readiness caveats, and proof
-  slices.
+- **Cursor Agent CLI support** — **BUILT** (2026-06-19); archived at
+  [`docs/archive/phases/setup/Cursor_Agent_CLI_Support.md`](../../archive/phases/setup/Cursor_Agent_CLI_Support.md).
+  GUI proof: `docs/qa/gui/setup/2026-06-19-cursor-agent-gui/`.
 
 Historical design handoff/mockup folders are pixel reference only. When they
 conflict with this README, `00_First_Run_Setup_Experience.md`,
-`01_CLI_Detection_Auth_And_Bench.md`, or routed source-specific packets such as
-`02_Cursor_Agent_CLI_Support.md`, the live setup docs win.
+`01_CLI_Detection_Auth_And_Bench.md`, or routed source-specific archived packets,
+the live setup docs win.
 
 ## Ground rules (both docs obey these)
 

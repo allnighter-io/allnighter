@@ -100,6 +100,9 @@ final class AppModel {
         // GUI Visual Proof Gate: seed deterministic mixed-health rows ONLY when a
         // fixture is requested. DEBUG builds only. See docs/phases/GUI_Visual_Proof_Gate.md.
         if GUIFixture.isActive {
+            if let seeded = GUIFixture.seededModels(base: config.models) {
+                models = seeded
+            }
             toolStatuses = GUIFixture.seededToolStatuses(for: models, now: Date())
         }
         #endif
@@ -575,7 +578,8 @@ final class AppModel {
                 state: state, workers: seats,
                 loginCommand: manifest.setup?.loginFlow?.interactiveCommand,
                 installHint: manifest.setup?.installHint, docsURL: manifest.setup?.docsURL,
-                shimCommand: shim, probeReason: reason)
+                shimCommand: shim, probeReason: reason,
+                headlessTrust: manifest.setup?.headlessTrust)
         }
     }
 
@@ -673,6 +677,9 @@ final class AppModel {
     #if DEBUG
     /// DEBUG dev panel — seed mixed-health bench state (never persisted).
     func applyDevBenchScenario(_ scenario: String) {
+        if let seeded = GUIFixture.seededModels(base: models, scenario: scenario) {
+            models = seeded
+        }
         toolStatuses = GUIFixture.seededToolStatuses(for: models, now: Date(), scenario: scenario)
     }
     #endif

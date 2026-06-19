@@ -295,6 +295,11 @@ struct BenchRepairPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, card.workers.isEmpty ? 9 : 0).padding(.bottom, 13)
 
+                if card.showsHeadlessTrustDisclosure, let trust = card.headlessTrust {
+                    HeadlessTrustNotice(policy: trust)
+                        .padding(.bottom, 13)
+                }
+
                 ForEach(Array(actions.enumerated()), id: \.offset) { idx, act in
                     repairActionRow(act, first: idx == 0)
                 }

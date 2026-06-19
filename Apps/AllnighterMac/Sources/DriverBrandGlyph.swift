@@ -10,6 +10,7 @@ enum DriverBrandAsset {
         case "antigravity": "googlegemini"
         case "grok": "grok"
         case "codex": "openai"
+        case "cursor_agent": "cursor"
         default: nil
         }
     }

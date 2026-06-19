@@ -161,7 +161,41 @@ enum GUIFixture {
     static func readinessFocusDriverId(for scenario: String?) -> String? {
         switch scenario {
         case "readiness-mixed": return "codex"
+        case "readiness-cursor-ready", "readiness-cursor-trust",
+             "readiness-cursor-keychain", "readiness-cursor-not-checked":
+            return "cursor_agent"
         default: return nil
+        }
+    }
+
+    /// Optional bench roster override for cursor setup proof fixtures.
+    static func seededModels(base: [Model]) -> [Model]? {
+        seededModels(base: base, scenario: active ?? "")
+    }
+
+    static func seededModels(base: [Model], scenario: String) -> [Model]? {
+        switch scenario {
+        case "readiness-cursor-ready", "readiness-cursor-trust", "readiness-cursor-keychain":
+            return patchCursorBench(base)
+        default:
+            return nil
+        }
+    }
+
+    private static func patchCursorBench(_ base: [Model]) -> [Model] {
+        base.map { m in
+            switch m.id {
+            case "model_cursor_auto", "model_cursor_composer_25":
+                var copy = m
+                copy.enabled = true
+                return copy
+            case "model_cursor_composer_25_fast":
+                var copy = m
+                copy.enabled = false
+                return copy
+            default:
+                return m
+            }
         }
     }
 
@@ -172,6 +206,10 @@ enum GUIFixture {
         ("doctor-open-mixed", "Mixed — CLI setup popover"),
         ("readiness-mixed", "Mixed — CLI setup page"),
         ("readiness-cold", "Cold — never scanned (CLI setup page)"),
+        ("readiness-cursor-ready", "Cursor Agent — ready (CLI setup page)"),
+        ("readiness-cursor-keychain", "Cursor Agent — Keychain/auth (CLI setup page)"),
+        ("readiness-cursor-trust", "Cursor Agent — trust disclosure (CLI setup page)"),
+        ("readiness-cursor-not-checked", "Cursor Agent — not checked (CLI setup page)"),
         ("home-with-threads", "Home — rail with conversations"),
         ("home-rail", "Home — grouped/filtered rail (CR4e)"),
         ("home-rail-th2", "Home — TH2 triage pin/unread/archive"),
@@ -243,8 +281,8 @@ enum GUIFixture {
     }
 
     static func seededToolStatuses(for models: [Model], now: Date, scenario: String) -> [ToolProbeRecord] {
-        if scenario == "readiness-cold" { return [] }
-        let drivers = orderedDrivers(in: models)
+        if scenario == "readiness-cold" || scenario == "readiness-cursor-not-checked" { return [] }
+        let drivers = probeDrivers(for: scenario, models: models)
         let name = scenario
         let allReady = name.hasPrefix("compose-") || name.hasPrefix("home-") || name.hasPrefix("thread-")
         return drivers.enumerated().map { index, driver in
@@ -265,6 +303,14 @@ enum GUIFixture {
         return out
     }
 
+    /// Setup/bench fixtures seed every supported headless CLI so roster cards never vanish.
+    private static func probeDrivers(for scenario: String, models: [Model]) -> [String] {
+        if scenario.hasPrefix("readiness-") || scenario.hasPrefix("doctor-") || scenario.hasPrefix("team-open-") {
+            return ["claude_code", "codex", "grok", "antigravity", "cursor_agent"]
+        }
+        return orderedDrivers(in: models)
+    }
+
     private static func versionString(for status: ModelSetupStatus, fixture: String, driverId: String) -> String? {
         if case .ready(let v) = status { return v }
         if fixture == "readiness-mixed" {
@@ -273,6 +319,9 @@ enum GUIFixture {
             case "antigravity": return "agy"
             default: break
             }
+        }
+        if fixture.hasPrefix("readiness-cursor") && driverId == "cursor_agent" {
+            if case .ready = status { return "cursor-agent 2.5" }
         }
         return nil
     }
@@ -303,6 +352,7 @@ enum GUIFixture {
                 rawCommandV: "agy () { … }",
                 isAmbiguous: true))
             case "grok": return .notInstalled
+            case "cursor_agent": return .ready(version: "cursor-agent 2.5")
             default: return .ready(version: "1.0.0")
             }
         case "readiness-mixed":
@@ -311,6 +361,21 @@ enum GUIFixture {
             case "antigravity": return .ready(version: "agy")
             case "codex": return .probeFailed(reason: "error: unknown flag --model (exit 2)")
             case "grok": return .notInstalled
+            case "cursor_agent": return .notInstalled
+            default: return .ready(version: "1.0.0")
+            }
+        case "readiness-cursor-ready", "readiness-cursor-trust":
+            switch driverId {
+            case "cursor_agent": return .ready(version: "cursor-agent 2.5")
+            default: return .ready(version: "1.0.0")
+            }
+        case "readiness-cursor-keychain":
+            switch driverId {
+            case "cursor_agent":
+                return .installedNotSignedIn(LoginFlow(
+                    interactiveCommand: "agent login",
+                    instructions: "Run `agent login`. SecItemCopyMatching failed — open Cursor once and retry setup."
+                ))
             default: return .ready(version: "1.0.0")
             }
         default:
@@ -560,6 +625,8 @@ enum GUIFixture {
     static var opensHomeWorkspace: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
+    static func seededModels(base: [Model]) -> [Model]? { nil }
+    static func seededModels(base: [Model], scenario: String) -> [Model]? { nil }
     static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] { [] }
     static func captureAndExitIfRequested() {}
 }

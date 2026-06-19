@@ -13,6 +13,7 @@
   { "id": "model_agy_sonnet", "displayName": "Claude Sonnet 4.6", "modelLabel": "Claude Sonnet 4.6 (Thinking)", "driverId": "antigravity", "role": "answerer", "enabled": false },
   { "id": "model_agy_opus", "displayName": "Claude Opus 4.6", "modelLabel": "Claude Opus 4.6 (Thinking)", "driverId": "antigravity", "role": "both", "enabled": false },
   { "id": "model_agy_gptoss", "displayName": "GPT-OSS 120B", "modelLabel": "GPT-OSS 120B (Medium)", "driverId": "antigravity", "role": "answerer", "enabled": false },
+  { "id": "model_cursor_auto", "displayName": "Auto", "modelLabel": "auto", "driverId": "cursor_agent", "role": "answerer", "enabled": true },
   { "id": "model_cursor_composer_25", "displayName": "Composer 2.5", "modelLabel": "composer-2.5", "driverId": "cursor_agent", "role": "answerer", "enabled": true },
   { "id": "model_cursor_composer_25_fast", "displayName": "Composer 2.5 Fast", "modelLabel": "composer-2.5-fast", "driverId": "cursor_agent", "role": "answerer", "enabled": false }
 ]

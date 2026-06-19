@@ -14,16 +14,17 @@ final class BuiltBundleConfigTests: XCTestCase {
             names.contains("claude_code"),
             "Expected claude_code.json at bundle resource root; found: \(names.sorted())"
         )
+        XCTAssertTrue(names.contains("cursor_agent"), "Expected cursor_agent.json at bundle resource root")
         XCTAssertTrue(names.contains("team_default"), "Expected team_default.json at bundle resource root")
-        XCTAssertGreaterThanOrEqual(names.count, 5, "Expected at least five JSON resources in the built bundle")
+        XCTAssertGreaterThanOrEqual(names.count, 6, "Expected at least six JSON resources in the built bundle")
     }
 
     func testBuiltBundleRegistryHasMinimumHeadlessDrivers() {
         let registry = AppConfig.loadDefaultRegistry()
         let headless = registry.all.filter { $0.kind == .headlessCLI }
         XCTAssertGreaterThanOrEqual(
-            headless.count, 4,
-            "Built bundle registry must include claude_code, codex, grok, antigravity"
+            headless.count, 5,
+            "Built bundle registry must include claude_code, codex, grok, antigravity, cursor_agent"
         )
     }
 
@@ -31,7 +32,7 @@ final class BuiltBundleConfigTests: XCTestCase {
         let models = AppConfig.loadDefaultModels()
         XCTAssertGreaterThanOrEqual(models.count, 14, "team_default defines the shipped model catalog")
         XCTAssertFalse(models.filter(\.enabled).isEmpty, "the resolved bench should not be empty")
-        XCTAssertGreaterThanOrEqual(Set(models.map(\.driverId)).count, 4, "catalog spans the expected driver set")
+        XCTAssertGreaterThanOrEqual(Set(models.map(\.driverId)).count, 5, "catalog spans the expected driver set")
     }
 
     func testConfigurationLoadsFromBundleNotEmbeddedFallback() {
@@ -45,6 +46,6 @@ final class BuiltBundleConfigTests: XCTestCase {
         XCTAssertFalse(config.isBroken)
         XCTAssertGreaterThanOrEqual(config.models.count, 14)
         XCTAssertFalse(config.models.filter(\.enabled).isEmpty)
-        XCTAssertGreaterThanOrEqual(config.registry.all.filter { $0.kind == .headlessCLI }.count, 4)
+        XCTAssertGreaterThanOrEqual(config.registry.all.filter { $0.kind == .headlessCLI }.count, 5)
     }
 }

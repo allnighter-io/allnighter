@@ -35,6 +35,10 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .fast],
             strengthRank: 85),
+        "model_cursor_auto": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .fast],
+            strengthRank: 88),
         "model_cursor_composer_25_fast": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
@@ -63,7 +67,9 @@ public enum ModelCatalog {
             // Grok — recognized from `grok models` (no effort axis).
             def("model_grok", "Grok Build", "grok-build", "grok", .answerer, defaultEnabled: true),
             def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
-            // Cursor Agent — regular Composer 2.5 is the default; Fast is explicit opt-in.
+            // Cursor Agent — Auto is the default; regular Composer 2.5 stays on-bench;
+            // Fast is explicit opt-in (6× cost).
+            def("model_cursor_auto", "Auto", "auto", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_composer_25", "Composer 2.5", "composer-2.5", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
             // Antigravity — a multi-model router; effort is encoded in the model name.
@@ -120,7 +126,7 @@ public enum ModelCatalog {
     public static func probeModelLabel(driverId: String) -> String? {
         let defs = mergedDefinitions().filter { $0.driverId == driverId }
         guard !defs.isEmpty else { return nil }
-        // Cursor smoke always targets regular Composer 2.5 — never Fast.
+        // Cursor smoke always targets regular Composer 2.5 — never Auto or Fast.
         if driverId == "cursor_agent",
            let regular = defs.first(where: { $0.id == "model_cursor_composer_25" }) {
             return regular.modelLabel

@@ -34,10 +34,14 @@ final class CursorAgentTests: XCTestCase {
         XCTAssertTrue(manifest.setup?.headlessTrust?.required ?? false)
     }
 
-    func testFreshInstallDefaultsComposerOnBenchFastOff() {
+    func testFreshInstallDefaultsAutoAndComposerOnBenchFastOff() {
         let fresh = ModelCatalog.defaultFreshModels()
+        let auto = fresh.first { $0.id == "model_cursor_auto" }
         let regular = fresh.first { $0.id == "model_cursor_composer_25" }
         let fast = fresh.first { $0.id == "model_cursor_composer_25_fast" }
+        XCTAssertEqual(auto?.driverId, "cursor_agent")
+        XCTAssertEqual(auto?.modelLabel, "auto")
+        XCTAssertTrue(auto?.enabled ?? false)
         XCTAssertEqual(regular?.driverId, "cursor_agent")
         XCTAssertEqual(regular?.modelLabel, "composer-2.5")
         XCTAssertTrue(regular?.enabled ?? false)
@@ -46,12 +50,14 @@ final class CursorAgentTests: XCTestCase {
     }
 
     func testCursorModelIdsAreDriverScoped() {
+        XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_auto" && $0.driverId == "cursor_agent" })
         XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_composer_25" && $0.driverId == "cursor_agent" })
         XCTAssertNotEqual("model_cursor_composer_25", "model_composer")
     }
 
-    func testProbeLabelNeverUsesFast() throws {
+    func testProbeLabelNeverUsesFastOrAuto() throws {
         try ModelCatalog.setEnabled("model_cursor_composer_25_fast", true)
+        try ModelCatalog.setEnabled("model_cursor_auto", true)
         XCTAssertEqual(ModelCatalog.probeModelLabel(driverId: "cursor_agent"), "composer-2.5")
     }
 
@@ -65,6 +71,8 @@ final class CursorAgentTests: XCTestCase {
     func testCodeCorePrefersCursorComposer25() {
         let team = BuiltInTeams.team("code_core")!
         let ready: [Model] = [
+            Model(id: "model_cursor_auto", displayName: "Auto", modelLabel: "auto",
+                  driverId: "cursor_agent", role: .answerer),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
                   driverId: "cursor_agent", role: .answerer),
             Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both),
