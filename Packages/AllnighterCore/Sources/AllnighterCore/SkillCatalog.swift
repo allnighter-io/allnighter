@@ -159,8 +159,16 @@ public enum SkillCatalog {
         return skill.template
     }
 
-    /// Prefix the founder prompt with the skill template for one worker.
+    /// The Default Team's worker: a true raw passthrough. The user's message reaches
+    /// the agent unmodified — no skill template glued in front — so a default run
+    /// equals running the CLI directly (never worse). Opinionated skills belong only
+    /// to presets the user explicitly picks.
+    public static let directChatSkillId = "direct_chat"
+
+    /// Prefix the founder prompt with the skill template for one worker. The Default
+    /// Team's `direct_chat` skill is passthrough — nothing is prepended.
     public static func assemblePrompt(skillId: String?, founderPrompt: String) -> String {
+        if skillId == directChatSkillId { return founderPrompt }
         guard let skillId, let skill = skill(skillId), !skill.template.isEmpty else { return founderPrompt }
         return "\(skill.template)\n\n\(founderPrompt)"
     }
@@ -178,6 +186,10 @@ public enum SkillCatalog {
         Reason from first principles before touching existing patterns. What shape would \
         the feature have if built cleanly today? Then reconcile that with the existing \
         repo and name the compromise. Prefer simple, local changes over clever systems.
+        """),
+        s("direct_chat", "Direct", .code, .answer, """
+        (Raw passthrough — the Default Team's worker. The user's message reaches the agent \
+        unmodified; this template is a marker and is never prepended. See assemblePrompt.)
         """),
         s("execution_playbook", "Execution Playbook", .code, .answer, ExecutionPlaybookPreset.prompt),
         s("code_maintainer", "Code Maintainer", .code, .answer, """

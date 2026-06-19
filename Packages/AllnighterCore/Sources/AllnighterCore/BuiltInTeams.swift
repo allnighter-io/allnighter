@@ -187,10 +187,13 @@ public enum BuiltInTeams {
         id: "default_chat", name: "Default Team", lane: .code, output: .plan, defaultEffort: .med,
         description: "Your go-to worker in the repo — talk or build, same object as any execution team.",
         rows: [
-            row("first_principles_builder", .answer, preferred: cursorPreferred, fallback: .sameSource)
+            // Raw passthrough: the user's message reaches the agent unmodified, so a
+            // default run equals running the CLI directly (never worse). No skill
+            // wrapper, no synthesis — opinionated skills are for explicitly-picked presets.
+            row(SkillCatalog.directChatSkillId, .answer, preferred: cursorPreferred, fallback: .sameSource)
         ],
-        writer: "plan_writer_build",
-        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: cursorPreferred, fallbackPolicy: .sameSource),
+        writer: SkillCatalog.directChatSkillId,
+        lead: TeamLeadSpec(skillId: SkillCatalog.directChatSkillId, preferredModelId: cursorPreferred, fallbackPolicy: .sameSource),
         mutating: true, executionSourceId: "cursor_agent",
         starters: [])
 
