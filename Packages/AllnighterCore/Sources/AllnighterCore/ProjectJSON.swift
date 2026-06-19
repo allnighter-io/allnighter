@@ -126,6 +126,20 @@ public struct ProjectProposalJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// The result of `project approve` — the now-approved proposal and the work order
+/// it produced (still `reveal` mode; dispatch is a separate S11 action).
+public struct ProjectWorkOrderJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var proposal: ProjectProposal
+    public var workOrder: WorkOrder
+    public var nextActions: [ProjectNextAction]
+    public init(schemaVersion: Int = 1, contractVersion: String, proposal: ProjectProposal, workOrder: WorkOrder, nextActions: [ProjectNextAction] = []) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.proposal = proposal; self.workOrder = workOrder; self.nextActions = nextActions
+    }
+}
+
 /// All proposals for a project — used by `project proposals`.
 public struct ProjectProposalsJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int

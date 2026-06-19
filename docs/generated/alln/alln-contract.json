@@ -1975,6 +1975,96 @@
     },
     {
       "args" : [
+        {
+          "name" : "proposal-id",
+          "required" : true,
+          "summary" : "Proposal id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "by",
+          "summary" : "Approver identity (default cli-user).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectWorkOrderJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project approve",
+      "outputSchema" : "none",
+      "summary" : "Approve a proposal: record approver\/time\/content-hash + observed base head, and derive a reveal-mode WorkOrder. Does not dispatch."
+    },
+    {
+      "args" : [
+        {
+          "name" : "proposal-id",
+          "required" : true,
+          "summary" : "Proposal id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "patch",
+          "summary" : "JSON object patch (or pipe via stdin).",
+          "takesValue" : true,
+          "valueType" : "json"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectProposalsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project edit",
+      "outputSchema" : "none",
+      "summary" : "Edit a proposal's content before approval via a JSON patch (--patch or stdin). Clears any prior approval and returns it to proposed."
+    },
+    {
+      "args" : [
+        {
+          "name" : "proposal-id",
+          "required" : true,
+          "summary" : "Proposal id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectProposalsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project postpone",
+      "outputSchema" : "none",
+      "summary" : "Postpone a proposal (stays visible; does not block new proposals unless it conflicts)."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [
@@ -2792,6 +2882,24 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "project.proposal_not_found"
+    },
+    {
+      "agentAction" : "Check the proposal's status with `alln project proposals <project> --json`; the requested transition is not legal from its current state.",
+      "code" : "PROPOSAL_INVALID_STATE",
+      "exitClass" : "operational",
+      "explain" : "The proposal cannot make the requested transition (e.g. approve\/postpone\/edit a cancelled or already-verified proposal). Proposal lifecycle: proposed → approved → running → returned → verified, with postpone\/block\/cancel branches.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.proposal_invalid_state"
+    },
+    {
+      "agentAction" : "Approve a proposal first, or list work orders; retry with a valid work-order id.",
+      "code" : "WORK_ORDER_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No work order matches the given id. An approved proposal produces a work order.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.work_order_not_found"
     },
     {
       "agentAction" : "Approve the proposal (`alln project approve <id>`) before dispatch.",

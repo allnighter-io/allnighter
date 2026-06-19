@@ -49,6 +49,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("ProjectProposals", isDirectory: true)
     }
 
+    /// `…/Allnighter/ProjectWorkOrders/` — work orders from approved proposals (PRJ-S10).
+    public static var projectWorkOrders: URL {
+        support.appendingPathComponent("ProjectWorkOrders", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)

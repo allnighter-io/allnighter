@@ -767,6 +767,38 @@ Arguments:
 Flags:
 - `--json` — Emit a ProjectProposalsJSON object.
 
+### `alln project approve`
+
+Approve a proposal: record approver/time/content-hash + observed base head, and derive a reveal-mode WorkOrder. Does not dispatch.
+
+Arguments:
+- `proposal-id` (required) — Proposal id.
+
+Flags:
+- `--by <string>` — Approver identity (default cli-user).
+- `--json` — Emit a ProjectWorkOrderJSON object.
+
+### `alln project edit`
+
+Edit a proposal's content before approval via a JSON patch (--patch or stdin). Clears any prior approval and returns it to proposed.
+
+Arguments:
+- `proposal-id` (required) — Proposal id.
+
+Flags:
+- `--patch <json>` — JSON object patch (or pipe via stdin).
+- `--json` — Emit a ProjectProposalsJSON object.
+
+### `alln project postpone`
+
+Postpone a proposal (stays visible; does not block new proposals unless it conflicts).
+
+Arguments:
+- `proposal-id` (required) — Proposal id.
+
+Flags:
+- `--json` — Emit a ProjectProposalsJSON object.
+
 ## Commands (named but deferred)
 
 - `alln work` — Create a work order.
@@ -852,6 +884,8 @@ Flags:
 | `WORKER_NOT_READY_IN_PROJECT` | yes | yes | Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
 | `MANAGER_MODEL_UNAVAILABLE` | no | yes | Run `alln models --json`; enable a ready planner-capable model. |
 | `PROPOSAL_NOT_FOUND` | yes | no | Run `alln project proposals <id> --json`; retry with a valid proposal id. |
+| `PROPOSAL_INVALID_STATE` | yes | no | Check the proposal's status with `alln project proposals <project> --json`; the requested transition is not legal from its current state. |
+| `WORK_ORDER_NOT_FOUND` | yes | no | Approve a proposal first, or list work orders; retry with a valid work-order id. |
 | `PROPOSAL_NOT_APPROVED` | yes | no | Approve the proposal (`alln project approve <id>`) before dispatch. |
 | `BASE_HEAD_CHANGED` | yes | no | Revalidate the proposal against the current head, then dispatch. |
 | `DIRTY_SCOPE_CONFLICT` | yes | no | Acknowledge including the dirty files or clean them, then dispatch. |

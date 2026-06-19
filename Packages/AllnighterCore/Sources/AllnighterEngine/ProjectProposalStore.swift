@@ -35,6 +35,20 @@ public final class ProjectProposalStore: @unchecked Sendable {
         load(projectId: projectId).first { $0.id == proposalId }
     }
 
+    /// Resolve a proposal by id across all projects (approve/edit/postpone take only
+    /// a proposal id).
+    public func find(proposalId: String) -> ProjectProposal? {
+        guard let entries = try? fileManager.contentsOfDirectory(at: rootDirectory, includingPropertiesForKeys: nil) else { return nil }
+        for url in entries where url.pathExtension == "json" {
+            if let data = try? Data(contentsOf: url),
+               let all = try? CoreJSON.decode([ProjectProposal].self, from: data),
+               let match = all.first(where: { $0.id == proposalId }) {
+                return match
+            }
+        }
+        return nil
+    }
+
     /// Append a new proposal (run truth for the propose turn).
     @discardableResult
     public func append(_ proposal: ProjectProposal) throws -> ProjectProposal {

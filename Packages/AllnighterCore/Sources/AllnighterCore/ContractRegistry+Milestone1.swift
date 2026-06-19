@@ -619,6 +619,21 @@ public extension ContractRegistry {
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")]
         ),
+        CommandSpec(
+            "project approve", summary: "Approve a proposal: record approver/time/content-hash + observed base head, and derive a reveal-mode WorkOrder. Does not dispatch.", milestone: .m1,
+            args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
+            flags: [FlagSpec("by", takesValue: true, valueType: "string", summary: "Approver identity (default cli-user)."), FlagSpec("json", summary: "Emit a ProjectWorkOrderJSON object.")]
+        ),
+        CommandSpec(
+            "project edit", summary: "Edit a proposal's content before approval via a JSON patch (--patch or stdin). Clears any prior approval and returns it to proposed.", milestone: .m1,
+            args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
+            flags: [FlagSpec("patch", takesValue: true, valueType: "json", summary: "JSON object patch (or pipe via stdin)."), FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")]
+        ),
+        CommandSpec(
+            "project postpone", summary: "Postpone a proposal (stays visible; does not block new proposals unless it conflicts).", milestone: .m1,
+            args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
@@ -709,6 +724,8 @@ public extension ContractRegistry {
         ErrorSpec("WORKER_NOT_READY_IN_PROJECT", ruleId: "project.worker_not_ready", agentAction: "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck.", requiresManual: true, retryable: true, explain: "The target worker's project readiness is not `ready` for this root. Dispatch falls back to reveal or shows setup copy until the worker is ready here."),
         ErrorSpec("MANAGER_MODEL_UNAVAILABLE", ruleId: "project.manager_model_unavailable", agentAction: "Run `alln models --json`; enable a ready planner-capable model.", requiresManual: false, retryable: true, explain: "No ready manager model is available, so the Manager turn is `wait` with a readiness blocker rather than a fabricated answer."),
         ErrorSpec("PROPOSAL_NOT_FOUND", ruleId: "project.proposal_not_found", agentAction: "Run `alln project proposals <id> --json`; retry with a valid proposal id.", requiresManual: true, retryable: false, explain: "No proposal matches the given id."),
+        ErrorSpec("PROPOSAL_INVALID_STATE", ruleId: "project.proposal_invalid_state", agentAction: "Check the proposal's status with `alln project proposals <project> --json`; the requested transition is not legal from its current state.", requiresManual: true, retryable: false, explain: "The proposal cannot make the requested transition (e.g. approve/postpone/edit a cancelled or already-verified proposal). Proposal lifecycle: proposed → approved → running → returned → verified, with postpone/block/cancel branches."),
+        ErrorSpec("WORK_ORDER_NOT_FOUND", ruleId: "project.work_order_not_found", agentAction: "Approve a proposal first, or list work orders; retry with a valid work-order id.", requiresManual: true, retryable: false, explain: "No work order matches the given id. An approved proposal produces a work order."),
         ErrorSpec("PROPOSAL_NOT_APPROVED", ruleId: "project.proposal_not_approved", agentAction: "Approve the proposal (`alln project approve <id>`) before dispatch.", requiresManual: true, retryable: false, explain: "Dispatch was attempted on an unapproved proposal or work order. Approval is required first."),
         ErrorSpec("BASE_HEAD_CHANGED", ruleId: "project.base_head_changed", agentAction: "Revalidate the proposal against the current head, then dispatch.", requiresManual: true, retryable: false, explain: "The approved baseGitHead differs from the current head. Revalidate scope before dispatching."),
         ErrorSpec("DIRTY_SCOPE_CONFLICT", ruleId: "project.dirty_scope_conflict", agentAction: "Acknowledge including the dirty files or clean them, then dispatch.", requiresManual: true, retryable: false, explain: "Dirty files overlap the proposal's likely scope. Acknowledge them as preexisting context or clean them first."),

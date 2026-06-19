@@ -657,6 +657,24 @@
     "ruleId" : "project.proposal_not_found"
   },
   {
+    "agentAction" : "Check the proposal's status with `alln project proposals <project> --json`; the requested transition is not legal from its current state.",
+    "code" : "PROPOSAL_INVALID_STATE",
+    "exitClass" : "operational",
+    "explain" : "The proposal cannot make the requested transition (e.g. approve\/postpone\/edit a cancelled or already-verified proposal). Proposal lifecycle: proposed → approved → running → returned → verified, with postpone\/block\/cancel branches.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "project.proposal_invalid_state"
+  },
+  {
+    "agentAction" : "Approve a proposal first, or list work orders; retry with a valid work-order id.",
+    "code" : "WORK_ORDER_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No work order matches the given id. An approved proposal produces a work order.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "project.work_order_not_found"
+  },
+  {
     "agentAction" : "Approve the proposal (`alln project approve <id>`) before dispatch.",
     "code" : "PROPOSAL_NOT_APPROVED",
     "exitClass" : "operational",

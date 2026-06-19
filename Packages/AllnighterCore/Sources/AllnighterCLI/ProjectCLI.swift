@@ -24,8 +24,11 @@ enum ProjectCLI {
         case "chat": await runChat(args, runtime)
         case "propose": await runPropose(args, runtime)
         case "proposals": runProposals(args)
+        case "approve": runApprove(args)
+        case "edit": runEdit(args)
+        case "postpone": runPostpone(args)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers|chat|propose|proposals> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -302,7 +305,128 @@ enum ProjectCLI {
         }
     }
 
+    /// Approve a proposal (PRJ-S10): records who/when/content-hash + the observed
+    /// base git head, then derives an editable WorkOrder. Does NOT dispatch (S11).
+    private static func runApprove(_ args: [String]) {
+        let opts = Options(args)
+        guard let pid = opts.positional.first else { usageError("usage: alln project approve <proposal-id> [--by <name>] [--json]") }
+        let proposalStore = ProjectProposalStore()
+        guard var proposal = proposalStore.find(proposalId: pid) else {
+            AllnighterCLI.fail(code: "PROPOSAL_NOT_FOUND", message: "proposal not found: \(pid)")
+        }
+        // Idempotent: an already-approved proposal returns its existing work order.
+        if proposal.status == .approved, let woId = proposal.workOrderId,
+           let existing = ProjectWorkOrderStore().find(id: woId) {
+            emitWorkOrder(proposal: proposal, order: existing, json: opts.flag("json")); return
+        }
+        guard proposal.status.canTransition(to: .approved) else {
+            AllnighterCLI.fail(code: "PROPOSAL_INVALID_STATE", message: "proposal \(pid) cannot be approved from status \(proposal.status.rawValue)")
+        }
+        guard let project = (try? ProjectStore().load(id: proposal.projectId)) ?? nil else {
+            AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found for proposal: \(proposal.projectId)")
+        }
+        let now = Date()
+        // Re-observe the base head at approval (gates re-validate against it at dispatch).
+        let head = GitObserver().observe(rootPath: project.normalizedRootPath).head ?? proposal.baseGitHead
+        proposal.baseGitHead = head
+        proposal.status = .approved
+        proposal.approval = ProjectApproval(
+            approvedBy: opts.value("by") ?? "cli-user", approvedAt: now,
+            approvedContentHash: WorkOrderBuilder.approvalContentHash(proposal))
+        let order = WorkOrderBuilder.build(from: proposal, project: project, baseGitHead: head, now: now,
+                                           idSuffix: UUID().uuidString.prefix(8).lowercased().description)
+        proposal.workOrderId = order.id
+        proposal.updatedAt = now
+        try? ProjectWorkOrderStore().upsert(order)
+        try? proposalStore.update(proposal)
+        emitWorkOrder(proposal: proposal, order: order, json: opts.flag("json"))
+    }
+
+    /// Edit a proposal's content before approval (deterministic JSON patch via
+    /// --patch or stdin). Editing clears any prior approval and returns it to proposed.
+    private static func runEdit(_ args: [String]) {
+        let opts = Options(args)
+        guard let pid = opts.positional.first else { usageError("usage: alln project edit <proposal-id> (--patch <json> | stdin) [--json]") }
+        let store = ProjectProposalStore()
+        guard var proposal = store.find(proposalId: pid) else {
+            AllnighterCLI.fail(code: "PROPOSAL_NOT_FOUND", message: "proposal not found: \(pid)")
+        }
+        guard [.proposed, .postponed, .approved].contains(proposal.status) else {
+            AllnighterCLI.fail(code: "PROPOSAL_INVALID_STATE", message: "proposal \(pid) cannot be edited from status \(proposal.status.rawValue)")
+        }
+        let raw = opts.value("patch") ?? readStdin()
+        guard let data = raw?.data(using: .utf8), !data.isEmpty,
+              let patch = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "edit requires a JSON object patch via --patch or stdin")
+        }
+        applyPatch(patch, to: &proposal)
+        // An edit invalidates a prior approval; the move must be re-approved.
+        proposal.status = .proposed
+        proposal.approval = nil
+        proposal.workOrderId = nil
+        proposal.updatedAt = Date()
+        try? store.update(proposal)
+        emitProposal(proposal, json: opts.flag("json"))
+    }
+
+    private static func runPostpone(_ args: [String]) {
+        let opts = Options(args)
+        guard let pid = opts.positional.first else { usageError("usage: alln project postpone <proposal-id> [--json]") }
+        let store = ProjectProposalStore()
+        guard var proposal = store.find(proposalId: pid) else {
+            AllnighterCLI.fail(code: "PROPOSAL_NOT_FOUND", message: "proposal not found: \(pid)")
+        }
+        guard proposal.status.canTransition(to: .postponed) else {
+            AllnighterCLI.fail(code: "PROPOSAL_INVALID_STATE", message: "proposal \(pid) cannot be postponed from status \(proposal.status.rawValue)")
+        }
+        proposal.status = .postponed
+        proposal.updatedAt = Date()
+        try? store.update(proposal)
+        emitProposal(proposal, json: opts.flag("json"))
+    }
+
     // MARK: - Helpers
+
+    private static func applyPatch(_ patch: [String: Any], to p: inout ProjectProposal) {
+        if let v = patch["title"] as? String { p.title = v }
+        if let v = patch["whyNow"] as? String { p.whyNow = v }
+        if let v = patch["userGoal"] as? String { p.userGoal = v }
+        if let v = patch["scope"] as? String { p.scope = v }
+        if let v = patch["currentTruth"] as? [String] { p.currentTruth = v }
+        if let v = patch["nonGoals"] as? [String] { p.nonGoals = v }
+        if let v = patch["likelyFilesOrAreas"] as? [String] { p.likelyFilesOrAreas = v }
+        if let v = patch["risks"] as? [String] { p.risks = v }
+        if let v = patch["blockingQuestions"] as? [String] { p.blockingQuestions = v }
+        if let v = patch["kind"] as? String, let k = ProposalKind(rawValue: v) { p.kind = k }
+        if let v = patch["suggestedLane"] as? String { p.suggestedLane = WorkLane(rawValue: v.lowercased()) }
+        if let v = patch["suggestedEffort"] as? String { p.suggestedEffort = EffortLevel(rawValue: v.lowercased()) }
+    }
+
+    private static func readStdin() -> String? {
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return s.isEmpty ? nil : s
+    }
+
+    private static func emitProposal(_ proposal: ProjectProposal, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonString(ProjectProposalsJSON(
+                contractVersion: ContractRegistry.contractVersion, projectId: proposal.projectId, proposals: [proposal])))
+        } else {
+            print("\(proposal.id)\t\(proposal.status.rawValue)\t\(proposal.kind.rawValue)\t\(proposal.title)")
+        }
+    }
+
+    private static func emitWorkOrder(proposal: ProjectProposal, order: WorkOrder, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonString(ProjectWorkOrderJSON(
+                contractVersion: ContractRegistry.contractVersion, proposal: proposal, workOrder: order,
+                nextActions: [.init(kind: .reveal, label: "Reveal handoff", command: "alln project handoff \(order.id) --json")])))
+        } else {
+            print("\(order.id)\t\(order.lane.rawValue)\t\(order.title)")
+            print("proof: \(order.proofCommands.isEmpty ? (order.proofWaiver ?? "—") : order.proofCommands.joined(separator: ", "))")
+        }
+    }
 
     private static func resolve(_ idOrName: String, _ store: ProjectStore) -> Project {
         do {
