@@ -735,6 +735,18 @@ Arguments:
 Flags:
 - `--json` — Emit a ProjectWorkersJSON object.
 
+### `alln project chat`
+
+Ask the Project Manager (a model invocation over the project context). Answers only; never auto-creates work. No ready model → a wait turn.
+
+Arguments:
+- `project` (required) — Project id or name.
+- `message` (optional) — The chat message (or use --file).
+
+Flags:
+- `--file <path>` — Read the message from a file.
+- `--json` — Emit a ProjectManagerTurnJSON object.
+
 ## Commands (named but deferred)
 
 - `alln work` — Create a work order.

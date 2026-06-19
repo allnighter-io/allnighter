@@ -3,10 +3,11 @@
 Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `serve --stdio` projects from the registry. **Pending0/1 BUILT** (2026-06-17):
 `alln pending` CRUD + `PendingItemJSON`. Remaining (still owned here): MCP
-advertising/auto-install + async tools and `pending stop`. Native Pending drain
-is parked.
+advertising/auto-install + async tools and `pending stop`. Broad native Pending
+drain is parked; one-shot Wake Tickets are scoped by
+`Stalled_Work_Watchdog.md`.
 Owner: Shared Core + CLI + Mac
-Updated: 2026-06-17
+Updated: 2026-06-19
 
 ## Authority
 
@@ -61,7 +62,7 @@ Out of scope for milestone 1:
 - dispatch that edits/kills sessions
 - `alln work`
 - standalone `alln skills`
-- lane shortcut commands such as `alln build`
+- craft shortcut commands such as `alln code`
 
 ## Existing Foundation
 
@@ -195,7 +196,8 @@ Parsing rules:
 - `--json` and `--stream` are mutually exclusive.
 - `--file` and positional prompt may not both provide body text unless the
   registry explicitly defines concatenation later.
-- New Fan out work uses `--team`; `--preset` is a deprecated compatibility alias.
+- New Send-to-team work uses `--team`; `--preset` is retired compatibility
+  language and must not be reintroduced.
 - Do not expose a generic team-depth `--effort` flag in new CLI/MCP contracts.
   If lineup, review, output count, proof bar, or research changes, choose a
   different Team or deployable team job.
@@ -241,8 +243,8 @@ Required `teamRun` fields:
 | `status` | enum | `queued`, `running`, `done`, `failed`, `timedOut`, `cancelled`, or `interrupted`. |
 | `origin` | enum | `cli`, `gui`, `mcp`, `ios`, `localApi`, or `system`. |
 | `originAgent` | string/null | MCP/client/agent name when known. |
-| `lane` | string/null | `build`, `design`, `copy`, or null when unspecified. |
-| `type` | string/null | Optional lane subtype metadata. Copy compatibility may populate this when type routed to a Copy team; Build/Design Fan out usually leave it null. |
+| `lane` | string/null | `code`, `design`, `copy`, or null when unspecified. |
+| `type` | string/null | Optional lane subtype metadata. Copy compatibility may populate this when type routed to a Copy team; Code/Design Send-to-team runs usually leave it null. |
 | `reasoningEffort` | string/null | Per-worker model reasoning level (`low`/`med`/`high`) where the worker's source supports it, summarized at run level only when uniform across workers; `null` when no worker exposes it or workers differ. It is the model's reasoning setting (routed per CLI: Claude `--effort`, Codex `-c model_reasoning_effort`, Antigravity model-name variant, Grok none), never a team-shape control. |
 | `prompt` | string | User prompt after file loading. |
 | `promptSource` | object | Positional/file/stdin provenance; no secret content. |
@@ -421,7 +423,7 @@ Agent-first error envelope upgrade:
     "message": "Invalid team value.",
     "tool": "team_start",
     "field": "team",
-    "allowedValues": ["build_core", "build_bug_hunt", "build_release_proof"],
+    "allowedValues": ["code_core", "code_bug_hunt", "code_release_proof"],
     "agentAction": "Retry once with one of the allowed values.",
     "remedyTier": "agent_executable",
     "whoCanFix": "agent",
@@ -690,7 +692,7 @@ Auto-fix must not:
   "authUrl": null,
   "userCode": null,
   "expiresAt": null,
-  "why": "Bug Hunt needs at least one ready Build worker.",
+  "why": "Bug Hunt needs at least one ready Code worker.",
   "recheckCommand": "alln doctor --agent openclaw --json",
   "relatedChecks": ["source.claude.auth"]
 }
@@ -871,8 +873,9 @@ to Pending or GUI work before the owning prerequisite is real.
 | 1 | `Serve0` coordinator skeleton | `Mac_Standalone_App_And_Background_Coordinator.md` | `alln serve --health --json` reports coordinator identity, pid, start time, journal health, and loopback state without starting work. |
 | 2 | `A0` async team loop | `Agent_First_MCP_And_Messaging_Workflows.md` | `team_start/status/result/cancel` return an immediate run id, poll from journal/coordinator truth, and retrieve `TeamRunJSON`. |
 | 3 | `Pending0`/`Pending1` | `Pending_Work_And_Drain.md` | `alln pending` can create/list/show/submit/edit/cancel local Draft/Pending items; no drain promise yet. |
-| 4 | `Pending2` | `Pending_Work_And_Drain.md` + parked admission policy | Parked: native drain/scheduling waits until explicitly revived. External agents may trigger Pending through CLI/MCP. |
-| 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | MCP exposes Pending without raw scheduler language and preserves CLI semantics. |
+| 4 | `Pending1a` Wake Tickets | `Pending_Work_And_Drain.md` + `Stalled_Work_Watchdog.md` | Capture CLI-to-CLI capacity observations, write `PendingResume`, and let `alln serve` make one same-work resume at the observed wake boundary. No broad drain. |
+| 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | MCP exposes Pending and Wake Ticket facts without raw scheduler language and preserves CLI semantics. |
+| 6 | `Pending2` | `Pending_Work_And_Drain.md` + parked admission policy | Parked: broad native drain/scheduling waits until explicitly revived. External agents may trigger Pending through CLI/MCP. |
 
 `Serve0` must stay deliberately small: no LaunchAgent, no start-at-login, no GUI
 handoff, no iOS pairing, no remote listener beyond explicit loopback health, no
@@ -883,11 +886,12 @@ health shape that A0 can depend on.
 contract is async: accepted run id first, status/result later, idempotency before
 duplicate work, and orphan recovery from the incremental journal.
 
-Status note (2026-06-17): `Journal0`, `Serve0`, `A0`, and **Pending0/Pending1**
-are built. **Pending2** drain/native scheduling is parked; do not promise
-app-closed Pending execution until that work is explicitly revived. OpenClaw,
-Hermes, cron, or another external loop owner can call CLI/MCP to run Pending
-items.
+Status note (2026-06-19): `Journal0`, `Serve0`, `A0`, and **Pending0/Pending1**
+are built. **Pending1a** Wake Tickets are the next scoped resume slice, followed
+by **A1** Pending over MCP. **Pending2** broad drain/native scheduling is parked;
+do not promise app-closed broad Pending execution until that work is explicitly
+revived. OpenClaw, Hermes, cron, or another external loop owner can call CLI/MCP
+to run Pending items.
 
 ## Pending CLI Contract
 
@@ -1057,8 +1061,10 @@ Pending completion gate:
 - Same-execution-lane Execute fixture proves a later item reports
   `executionLaneBusy` and does not start before the head item completes or is
   cancelled.
-- `alln serve` does not promise native Pending drain while the GUI is closed.
-- Fake-clock wakeup tests are parked with native scheduling.
+- `alln serve` does not promise broad native Pending drain while the GUI is
+  closed. One-shot Wake Tickets are the scoped exception.
+- Fake-clock Wake Ticket tests cover sourced cooldown resume; broader scheduler
+  wakeup tests remain parked with native scheduling.
 - Mutation-deferred test proves unattended mutating dispatch does not run through
   Pending M1.
 - `alln doctor --json` reports coordinator and admission-parser health.

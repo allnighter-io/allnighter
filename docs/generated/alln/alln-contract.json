@@ -1886,6 +1886,43 @@
     },
     {
       "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        },
+        {
+          "name" : "message",
+          "required" : false,
+          "summary" : "The chat message (or use --file)."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "file",
+          "summary" : "Read the message from a file.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectManagerTurnJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project chat",
+      "outputSchema" : "none",
+      "summary" : "Ask the Project Manager (a model invocation over the project context). Answers only; never auto-creates work. No ready model → a wait turn."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [

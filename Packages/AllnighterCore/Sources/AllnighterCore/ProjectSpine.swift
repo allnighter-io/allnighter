@@ -330,6 +330,10 @@ public struct ProjectManagerTurn: Codable, Sendable, Equatable, Identifiable {
     public var mode: ManagerTurnMode
     public var contextPacketId: String?
     public var answerMarkdown: String?
+    /// The resolved manager model that produced this turn (audit: a Manager answer
+    /// is as traceable as any worker output). Nil only for a `wait` turn with no
+    /// ready model.
+    public var modelId: String?
     public var proposals: [ProposalID]
     public var handoff: ProjectHandoff?
     public var verification: VerificationID?
@@ -345,6 +349,7 @@ public struct ProjectManagerTurn: Codable, Sendable, Equatable, Identifiable {
         mode: ManagerTurnMode,
         contextPacketId: String? = nil,
         answerMarkdown: String? = nil,
+        modelId: String? = nil,
         proposals: [ProposalID] = [],
         handoff: ProjectHandoff? = nil,
         verification: VerificationID? = nil,
@@ -354,6 +359,7 @@ public struct ProjectManagerTurn: Codable, Sendable, Equatable, Identifiable {
         self.id = id; self.projectId = projectId; self.threadId = threadId
         self.userMessageId = userMessageId; self.createdAt = createdAt; self.mode = mode
         self.contextPacketId = contextPacketId; self.answerMarkdown = answerMarkdown
+        self.modelId = modelId
         self.proposals = proposals; self.handoff = handoff; self.verification = verification
         self.warnings = warnings; self.nextActions = nextActions
     }

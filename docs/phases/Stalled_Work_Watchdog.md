@@ -1,8 +1,8 @@
 # Stalled Work Watchdog
 
-Status: Finalized Project-scoped v1 implementation spec
+Status: Finalized Project-scoped v1 implementation spec + Wake Ticket addendum
 Owner: AllnighterCore + AllnighterEngine + Mac app backend + CLI/MCP contracts
-Updated: 2026-06-18
+Updated: 2026-06-19
 
 ## Authority
 
@@ -37,15 +37,26 @@ It is:
 Did the work I asked for get stuck, and what should I do next?
 ```
 
+The better first question is:
+
+```text
+Did the worker stop because it was expected to sleep, or did work go quiet when
+it should still be moving?
+```
+
 The Project Manager should notice old nonterminal work from local truth, create
 one durable nudge in the right Project, and offer safe recovery actions without
-becoming a quota brain, global queue, or background scheduler.
+becoming a quota brain, global queue, or broad background scheduler.
+
+Expected capacity cooldown is not a stall. When a CLI says "try again at T" or
+"retry after N," Allnighter should preserve the already-authorized work, sleep
+silently until that observed boundary, and make one same-work resume attempt.
 
 ## Product Claim
 
 ```text
-The Project Manager notices when Project work stops moving and gives you one
-safe next move.
+The Project Manager notices when Project work stops moving, lets expected
+cooldowns sleep, and gives you one safe next move when human judgment is needed.
 ```
 
 It should feel like:
@@ -58,13 +69,23 @@ local truth before bothering me, and can help me refresh, wait, open, or cancel.
 It must not feel like:
 
 ```text
-A timer that nags, a second job tracker, a quota predictor, or an agent that
-silently retries work behind my back.
+A timer that nags, a second job tracker, a quota predictor, a polling loop, or
+an agent that invents new work behind my back.
 ```
 
 ## First-Principles Decision
 
 Stalled work is a recovery loop, not admission control.
+
+There are two different silences:
+
+| Silence | Meaning | Owner |
+| --- | --- | --- |
+| Sleep | A worker stopped and produced a sourced capacity/cooldown signal. | Pending Resume / Wake Ticket |
+| Stall | Work should be moving, but local truth stopped changing. | Stalled Work Watchdog |
+
+The watchdog owns unexpected silence. Wake Tickets own expected cooldown sleep.
+Do not combine them into a provider polling loop.
 
 Admission asks:
 
@@ -92,7 +113,26 @@ Therefore v1 uses only observed local truth:
 It does not estimate quota, cost, token burn, reset windows, runtime, task
 complexity, or provider capacity.
 
+Wake Tickets may use observed reset/cooldown times only when they come from a
+worker attempt, CLI structured event, JSONL event, stderr/stdout, RPC error, or
+user-entered recovery fact. They are sourced wake contracts, not capacity
+predictions.
+
 ## Trusted Workflow Slice
+
+Expected cooldown:
+
+```text
+worker attempt exits/blocks with sourced capacity signal
+-> Allnighter records a CapacityObservation
+-> the already-authorized work becomes Pending/Sleeping with PendingResume
+-> resident coordinator waits until observed reset / wakeAfter plus jitter
+-> Allnighter makes one same-work resume attempt
+-> success clears the resume ticket; a new sourced cooldown updates it
+-> repeated/unknown failure routes to Project Manager attention
+```
+
+Unexpected silence:
 
 ```text
 worker chat turn or async team run enters queued/running
@@ -111,8 +151,9 @@ V1 targets only the two cases with the clearest signal and highest user pain:
 
 | Target | Included states | Default threshold | Why v1 |
 | --- | --- | --- | --- |
+| Capacity sleep / Wake Ticket | blocked attempt with sourced capacity signal and already-authorized work | observed reset / retry-after, else conservative backoff | This is the overnight utilization unlock: do not call expected cooldown a stall; resume once at the boundary. |
 | Worker chat turn | `queued`, `running` | 30 minutes since last observable event | The user asked one worker for an answer and nothing came back. |
-| Async team run | `queued`, `running`, nonterminal worker stage | 60 minutes since last observable event | Fanout/team runs are core Allnighter value and already have status/result refresh paths. |
+| Async team run | `queued`, `running`, nonterminal worker stage | 60 minutes since last observable event | Team runs are core Allnighter value and already have status/result refresh paths. |
 
 The defaults are intentionally boring. They are product defaults, not
 predictions. They can become per-Project/user settings after real dogfood
@@ -123,15 +164,21 @@ Deferred from v1:
 - idle Pending items that have not been run;
 - approved proposals or work orders that have not been dispatched;
 - dispatch return review follow-ups;
-- native drain/scheduler loops;
-- cooldown/admission-driven resume;
+- broad native drain/scheduler loops;
+- admission ledgers, quota accounting, and capacity routing;
+- continuous provider probes or keepalive pings;
+- cooldown resume for work that was not already user-authorized;
 - worker substitution;
 - prompt rewriting;
-- silent retry.
+- retry that creates new work or changes the worker/prompt without approval.
 
 Pending may be "blocked" or "needs attention," but idle Pending is not
 stalled. Pending means work is on the Project desk until a user or external loop
 owner runs it.
+
+A Wake Ticket is not idle Pending. It is a submitted or already-running item
+that attempted real work, hit a sourced capacity/cooldown boundary, and has an
+observed or conservative wake time for one same-work resume.
 
 ## Project Law
 
@@ -186,6 +233,7 @@ The watchdog must not relabel every old item as stalled.
 | --- | --- | --- |
 | Terminal failure, timeout, cancellation, or completion | Turn/run lifecycle + notification policy | Do not create a stalled nudge. Existing failure/completion attention owns it. |
 | Auth/setup/manual-paste blocked | Worker readiness, turn state, or notification events | Surface setup/manual copy through existing attention. Do not call it stalled. |
+| Capacity sleeping | Pending resume / Wake Ticket | Suppress stalled nudges while `wakeAfter` or `observedResetAt` is in the future. |
 | Idle Pending | Pending model | Do not call it stalled. It is waiting for a user, CLI, GUI, MCP client, or external loop owner to run it. |
 | Blocked Pending | Pending model + admission/safety reason | Keep the Pending label and sourced blocker. It may need attention, but it is not stalled. |
 | True stall | Stalled Work Watchdog | Nonterminal queued/running work in one Project with no local progress past threshold after refresh. |
@@ -235,6 +283,92 @@ shape.
 If refresh finds terminal completion, failure, timeout, cancellation, auth
 required, or manual action required, the candidate is suppressed and routed to
 the existing owner.
+
+If refresh finds a future `wakeAfter` / `observedResetAt`, the candidate is
+suppressed as capacity sleeping. Cooling work is not stale just because no local
+event occurs during the sleep window.
+
+## Capacity Observation
+
+Truth owner: `AllnighterCore` model + `AllnighterEngine` driver adapters.
+
+`CapacityObservation` is the small, sourced fact that turns worker output into a
+Wake Ticket. It is not a quota ledger.
+
+```text
+CapacityObservation
+  id
+  projectId?
+  threadId?
+  runId?
+  pendingItemId?
+  attemptId?
+  workerId
+  sourceId
+  kind: accountRateLimit | providerBusy | cooldown | authRequired |
+        manualRequired | unknownCapacity
+  observedAt
+  observedResetAt?
+  retryAfterSeconds?
+  wakeAfter?
+  source: structuredEvent | jsonlEvent | rpcError | stderr | stdout |
+          exitCode | userEntered
+  sourceConfidence: high | medium | low
+  rawSnippet
+```
+
+Rules:
+
+- Prefer structured CLI/API/RPC events over message parsing.
+- Message parsing is allowed only on the worker attempt's own stdout/stderr,
+  JSONL events, or local RPC error text. No provider web scraping.
+- `observedResetAt` means the worker/provider gave the time or duration. If the
+  time is derived from local backoff, store only `wakeAfter` and label the source
+  as local policy in UI copy.
+- `providerBusy` / overload is different from `accountRateLimit`: overload may
+  use short backoff or explicit fallback; account limit preserves the same item
+  until reset.
+- `authRequired` and `manualRequired` never auto-resume.
+- `unknownCapacity` may schedule a conservative one-shot retry only when policy
+  permits; otherwise it routes to the Project Manager nudge path.
+- Keep `rawSnippet` short and sanitized. It is a receipt, not a transcript.
+
+Wake Ticket projection:
+
+```text
+CapacityObservation(accountRateLimit/cooldown, observedResetAt or retryAfter)
+-> PendingResume(reason: cooldown, observedResetAt, wakeAfter)
+-> attempt.status = blocked
+-> attempt.reason = sourced capacity reason
+-> item.status = pending
+```
+
+`providerBusy` should use a separate resume reason (`providerBusy`) rather than
+`localBusy`; local busy means the user's machine or Allnighter process capacity
+is occupied.
+
+## CLI-To-CLI Capacity Conventions
+
+These conventions are implementation fixtures, not universal promises. Adapters
+must fail closed to generic message classification when a specific version does
+not expose the expected machine signal.
+
+| Source | Preferred capture | Useful fields | Fallback |
+| --- | --- | --- | --- |
+| Claude Code CLI | Structured error JSON / nonzero attempt result. | Distinguish `rate_limit_error` from `overloaded_error`; use `retry-after` or reset text when exposed. | First non-empty stderr/stdout line containing rate/capacity/wait language. |
+| Codex CLI | `codex exec --json` JSONL `error` / `turn.failed` messages. | Classify `usage_limit_reached`, credits/spend-cap copy, and capacity messages; richer `resetsAt` lives behind app-server rate-limit notifications when available. | Nonzero exit + message classification. |
+| AGY CLI | Local server/RPC or stderr error text. | Parse `capacity exhausted: cooldown active until <timestamp>` as high-confidence cooldown. | Nonzero exit + stderr/stdout classification. |
+
+General adapter rules:
+
+- Capture both machine events and raw failure text before `WorkerRunner` reduces
+  output to `errorReason`.
+- Treat process exit as the attempt boundary. Most CLIs will not send a later
+  out-of-band notice after they stop.
+- Use the real authorized attempt as the baseline observation. Do not run
+  separate probes while cooling down.
+- Optional smoke/probe at wake time is a later policy choice, not the default
+  v1 contract.
 
 ## Core Model
 
@@ -287,12 +421,14 @@ Episode rules:
   result or a non-stall owner state such as auth/manual blocker.
 - Clearing an episode does not delete the historical Project Manager turn.
 
-No fields may represent estimated runtime, cost, quota, complexity, or reset
-windows.
+No `StallEpisode` fields may represent estimated runtime, cost, quota,
+complexity, or reset windows. Observed reset/wake facts belong to
+`CapacityObservation` / `PendingResume`, not to stalled-work truth.
 
 ## Scan Triggers
 
-This is a coarse watchdog, not a precision scheduler.
+This is a coarse watchdog, not a precision scheduler. Wake Tickets use their own
+one-shot wake timer; the watchdog does not poll providers on their behalf.
 
 Run the scanner:
 
@@ -314,12 +450,45 @@ becoming a provider polling loop.
 
 App-closed behavior:
 
-- If the resident coordinator is not running, v1 makes no app-closed stall
-  promise.
+- If the resident coordinator is not running, v1 makes no app-closed stall or
+  wake promise.
 - On next launch/resident start, the scanner refreshes before declaring stale
   work stalled.
 - Sleep/wake may make timestamps look old. Refresh-before-declare is mandatory
   to avoid a burst of false nudges.
+
+## Wake Ticket Scheduler
+
+The Wake Ticket scheduler is deliberately smaller than native Pending drain.
+
+```text
+load Pending items with PendingResume.nextWakeAt
+-> choose the earliest due item
+-> sleep until wakeAfter plus 30-90 seconds jitter
+-> reload stores and Project/thread/run truth
+-> if still eligible, make one same-work resume attempt
+-> on success, clear resume
+-> on new cooldown, replace wakeAfter from the new CapacityObservation
+-> on auth/manual/permanent failure, route to existing attention
+-> on repeated unknown failure, let SWW create a nudge
+```
+
+Rules:
+
+- During cooldown, make zero provider calls.
+- At the wake boundary, default to the real authorized work attempt. A smoke
+  probe is optional future policy only when it is cheaper/safer and fixture
+  proven for that driver.
+- Resume only work the user already authorized: submitted Pending, a user-sent
+  worker turn, or an explicitly approved work order. Do not auto-create new
+  work from model prose.
+- The scheduler may start with one item at a time: the interrupted head item.
+  Full multi-Project fairness and Away Mode remain parked.
+- Manual `pending run` may override a wake and attempt immediately.
+- A future wake suppresses stall detection. A past due wake that repeatedly
+  fails without a new sourced wake can become stalled/needs-attention.
+- Resident restart recalculates the next wake from durable Pending/attempt state;
+  in-memory timers are never authority.
 
 ## Project Manager Nudge
 
@@ -474,7 +643,8 @@ Rules:
   prediction.
 - No provider scraping.
 - No native scheduling/drain revival.
-- No automatic retry.
+- No automatic retry from stalled-work nudges. Wake Tickets may perform their
+  scoped one-shot same-work resume.
 - No silent worker substitution.
 - No prompt rewriting.
 - No cross-Project queue.
@@ -487,6 +657,9 @@ Rules:
 
 Core:
 
+- Add `CapacityObservation` fixture/schema and map it to `PendingResume`.
+- Add `PendingResumeReason.providerBusy` (or equivalent) so provider overload is
+  not mislabeled as local machine/process busy.
 - Add `StallEpisode` and deterministic candidate derivation.
 - Add fake-clock tests for thresholds, snooze, clear rules, and idempotency.
 - Derive stall attention from existing Project/thread/run truth.
@@ -494,6 +667,12 @@ Core:
 
 Engine/Mac backend:
 
+- Add driver-aware CLI-to-CLI capacity observers for worker attempts.
+- Record Wake Tickets when worker/team/Pending attempts exit with sourced
+  cooldown/capacity signals.
+- Run a one-shot wake scheduler from the resident coordinator while it is alive.
+- Resume only the same authorized work item and only once per observed wake
+  boundary.
 - Run coarse scanner when coordinator/app is alive.
 - Refresh target status before promoting a candidate to active.
 - Execute safe recovery actions through existing run/thread APIs.
@@ -504,6 +683,7 @@ ThreadStore/Project Manager:
 - Create one `ProjectManagerTurn(mode: wait)` for each active episode.
 - Link the turn to target Project/thread/run/turn.
 - Set existing `thread.needsAttention` with a stall facet.
+- Render sleeping/cooldown as sourced Pending/blocked state, not stalled state.
 - Include active stalls in Project context packets under work/attention
   summaries without making the packet authority.
 
@@ -515,6 +695,9 @@ Notifications:
 
 CLI/MCP:
 
+- Include Wake Ticket / capacity observation facts in Pending JSON where already
+  modeled (`nextWakeAt`, `blockedReason`, attempt reason) before adding new
+  commands.
 - Add read-only Project and aggregate stalled-work projections.
 - Keep action commands out of the first CLI slice unless Core recovery action
   APIs already exist and are tested.
@@ -530,7 +713,10 @@ iOS:
 | --- | --- | --- | --- | --- |
 | Old timestamp -> stall | Watchdog detector | Any old item is stalled. | Only nonterminal v1 targets with no observable progress after refresh can become active stalls. | Idle Pending older than a day is not stalled. |
 | Failure -> stall | Turn/run lifecycle | A failed turn should also get a stalled nudge. | Terminal states are not stalled. | Failed turn emits failure attention only. |
+| Cooldown -> stall | Pending Resume / Wake Ticket | A quiet cooldown window is stale work. | Future `wakeAfter` suppresses stalled-work promotion. | Pending item cooling until 2:14 AM creates no StallEpisode before 2:14 AM. |
 | Auth/setup -> stall | Worker readiness / turn state | Sign-in blocker is a stall. | Auth/setup/manual blockers route to setup/manual copy. | Auth-required turn never creates a StallEpisode. |
+| Reset copy -> estimate | CapacityObservation | If a provider does not give reset time, Allnighter may invent one. | `observedResetAt` only when sourced; local backoff uses `wakeAfter` and local-policy copy. | No-reset cooldown JSON contains no provider reset field. |
+| Wake -> new work | Pending / Project Manager | The scheduler may rewrite the prompt or create a replacement task. | Wake resumes the same authorized work only. | Model suggestion text creates no new Pending item during wake. |
 | Stalled -> retry | Project Manager / user approval | The watchdog may silently retry or pick another worker. | Watchdog actions are explicit; retry/replacement requires human approval through normal Project Manager flow. | Active episode creates no worker attempt until user approves a new run. |
 | Project A stall -> global blocker | ProjectStore + triage | One Project's stalled run blocks another Project. | Stalls are Project-scoped; aggregate views group only. | Project B can dispatch while Project A has an active stall. |
 | Nudge -> duplicate truth | ThreadStore / Project Manager | A separate stalled inbox owns attention state. | Reuse `thread.needsAttention` with a stall facet. | Menu badge count comes from existing attention derivation. |
@@ -538,6 +724,22 @@ iOS:
 
 ## Ordered Slices
 
+- [ ] WTK-S00 - Capacity observation contract: add `CapacityObservation`,
+  `providerBusy` vs `accountRateLimit` distinction, fixtures for Claude
+  structured errors, Codex JSONL messages, AGY cooldown-until text, and
+  no-estimate tests. No scheduler yet.
+- [ ] WTK-S01 - Observation wiring: capture worker attempt stdout/stderr/JSONL/RPC
+  error before reduction to `errorReason`; map sourced capacity observations to
+  Pending attempt blocked reason + `PendingResume(wakeAfter/observedResetAt)`.
+- [ ] WTK-S02 - Real Pending execution seam: make explicit `pending run` able to
+  drive the same worker/team path it records, with leases/attempt settlement and
+  cooldown observation on failure. Mutating dispatch remains deferred.
+- [ ] WTK-S03 - One-shot wake scheduler: resident coordinator loads durable
+  `nextWakeAt`, sleeps until the earliest due wake plus jitter, reloads truth,
+  and makes one same-work resume attempt; new cooldown replaces the ticket.
+- [ ] WTK-S04 - Watchdog suppression/fallback: future Wake Tickets suppress
+  `StallEpisode`; past-due/repeated unknown failures route to Project Manager
+  attention without continuous probes.
 - [ ] SWW-S00 - Contract packet: add `StallEpisode`, state distinctions,
   reason enums, JSON fixtures, idempotency rules, no-estimate field tests, and
   Project-required candidate validation. No GUI.
@@ -563,6 +765,48 @@ Manager nudge; CLI projection is proof and external-agent affordance.
 
 ## Works Tests
 
+Capacity observation:
+
+```text
+Feed adapter fixtures:
+- Claude structured `rate_limit_error` with retry-after;
+- Claude `overloaded_error`;
+- Codex `codex exec --json` `turn.failed` usage-limit message;
+- AGY `capacity exhausted: cooldown active until <timestamp>`.
+Expected:
+- account limit/cooldown produces observed reset or wakeAfter;
+- provider overload maps to providerBusy/short backoff, not account cooldown;
+- auth/manual messages do not create Wake Tickets;
+- no estimated quota/cost/runtime fields are emitted.
+```
+
+Wake Ticket:
+
+```text
+Create a submitted Pending item whose attempt fails with a sourced cooldown until
+02:14.
+Run settlement.
+Expected:
+- item returns to Pending;
+- latest attempt is blocked with sourced reason;
+- PendingResume has wakeAfter/observedResetAt;
+- `nextWakeAt` appears in Pending JSON;
+- no StallEpisode exists before 02:14.
+```
+
+One-shot resume:
+
+```text
+Start resident coordinator with fake clock.
+Create two Pending items: one cooling until 02:14 and one idle Pending.
+Advance clock to 02:14 plus jitter.
+Expected:
+- the cooling item gets exactly one resume attempt;
+- idle Pending does not run just because the timer fired;
+- if the resumed attempt returns a new cooldown, wakeAfter moves forward;
+- if it succeeds, resume clears.
+```
+
 Detector:
 
 ```text
@@ -583,12 +827,13 @@ Negative cases:
 
 ```text
 Create old turns/runs with states failed, timedOut, cancelled, completed,
-authRequired, awaitingManualPaste, idle Pending, and blocked Pending.
+authRequired, awaitingManualPaste, idle Pending, blocked Pending, and
+future-wake capacity sleeping.
 Run the scanner.
 Expected:
 - none create StallEpisode;
 - existing owner attention remains intact;
-- failed/auth/manual cases do not receive duplicate stalled notifications.
+- failed/auth/manual/cooling cases do not receive duplicate stalled notifications.
 ```
 
 Project binding gate:
@@ -698,6 +943,14 @@ bash scripts/check.sh
 
 ## Done When
 
+- Worker capacity failures can produce sourced `CapacityObservation` records.
+- Claude, Codex, and AGY CLI-to-CLI capacity conventions are fixture-tested and
+  fail closed to generic message classification.
+- Capacity cooldown produces `PendingResume` / Wake Ticket state and returns the
+  item to Pending/Sleeping instead of leaving it indefinitely Running.
+- Resident wake scheduling makes zero provider calls during cooldown and one
+  same-work resume attempt at the observed/conservative wake boundary.
+- Future Wake Tickets suppress stalled-work promotion.
 - Worker chat turns and async team runs can produce Project-scoped stall
   episodes.
 - Every active episode belongs to exactly one Project.
@@ -714,11 +967,19 @@ bash scripts/check.sh
   owner-blocked state, or successful user recovery.
 - Snooze and duplicate-nudge prevention survive app restart.
 - Read-only CLI/MCP projections mirror Core state and remain Project-scoped.
-- No quota/admission/scheduler/retry/substitution machinery is introduced.
+- No quota accounting, admission ledger, continuous probe loop, broad drain
+  scheduler, prompt rewrite, or worker substitution machinery is introduced.
 
 ## Closed Decisions
 
-- V1 targets worker chat turns and async team runs only.
+- Expected cooldown sleep is a Wake Ticket, not a stall.
+- The wake action is a same-work resume attempt, not a generic CLI ping.
+- Structured CLI-to-CLI events beat message parsing; message parsing remains the
+  fallback.
+- `accountRateLimit` and `providerBusy` are distinct capacity observations.
+- A provider-observed reset may become `observedResetAt`; local backoff may only
+  become `wakeAfter` with local-policy copy.
+- V1 targets Wake Tickets, worker chat turns, and async team runs only.
 - Refresh-before-declare is mandatory.
 - Progress means local truth changed; provider guesses are not progress signals.
 - PM turn owns durable recovery history; notification is only a pointer.

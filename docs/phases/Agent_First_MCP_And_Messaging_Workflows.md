@@ -7,19 +7,20 @@ BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
 `error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
 hello|preflight|teams`, `alln spec`); async `team_start`, `team_status`,
 `team_result`, and `team_cancel` over Journal0 + Serve0. DEFERRED (needs
-Pending0/Pending1/Pending2): A1 Pending-over-MCP. Still deferred: doctor
-schema-v2 remedy tiers/humanActions, A3 install artifacts, A4 messaging UX, A5
-provenance/safety gate, A6 entitlement hook.
+Pending0/Pending1 plus the Wake Ticket slice): A1 Pending-over-MCP. Still
+deferred: doctor schema-v2 remedy tiers/humanActions, A3 install artifacts, A4
+messaging UX, A5 provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
-Updated: 2026-06-17
+Updated: 2026-06-19
 
 > **Async ≠ scheduler.** "Async team loop" means a single, explicitly-triggered run
 > executes in the background of one `alln serve` process and is polled via
 > `team_status`. Allnighter does not own a scheduler or self-advancing run-loop and
 > never starts work on its own — every run is triggered by a user, the CLI, an MCP
 > client, or an external agent (OpenClaw/Hermes/cron). Pending-over-MCP and any
-> drain/admission behavior are DEFERRED/parked (see `Pending_Work_And_Drain.md`);
-> do not implement them as a v1 run-loop.
+> drain/admission behavior are DEFERRED/parked (see `Pending_Work_And_Drain.md`).
+> The only scoped exception is Wake Tickets: one same-work resume after a sourced
+> CLI capacity/cooldown observation. Do not implement broad drain as a v1 run-loop.
 
 ## Founder Intent
 
@@ -40,7 +41,7 @@ The aspiration:
 Voice brain dump
 -> OpenClaw/Hermes
 -> Allnighter MCP
--> Fan out / Pending / team result / full spec
+-> Team run / Pending / team result / full spec
 -> agent presents the answer back in chat
 ```
 
@@ -96,7 +97,7 @@ user sends a voice-to-text brain dump to OpenClaw/Hermes
 -> agent calls Allnighter MCP `mcp_hello`
 -> agent calls `team_preflight`
 -> agent calls `team_start`
--> Allnighter starts Build / Bug Hunt
+-> Allnighter starts Code / Bug Hunt
 -> agent receives run id immediately
 -> agent polls or subscribes to status
 -> agent fetches final TeamRunJSON + full spec/packet
@@ -135,7 +136,7 @@ Existing useful substrate:
 - `TeamRunJSON` exists as the machine-readable result contract.
 - `DoctorResult` exists for recovery.
 - Pending has an approved CLI-first phase doc.
-- Fanout Team Catalog defines the future lane/team backend. Team variants own
+- Team Catalog defines the future lane/team backend. Team variants own
   depth; model reasoning effort is separate provider configuration when
   supported.
 - Journal0 and Serve0 are built.
@@ -270,7 +271,7 @@ Output:
   "docsVersionMatchesBinary": true,
   "canStartTeamRun": true,
   "readyTeams": [
-    {"lane": "build", "team": "build_bug_hunt", "displayName": "Bug Hunt"},
+    {"lane": "code", "team": "code_bug_hunt", "displayName": "Bug Hunt"},
     {"lane": "design", "team": "design_core", "displayName": "Design Studio"}
   ],
   "blockedReason": null,
@@ -318,7 +319,7 @@ Top-level shape:
   "status": "ok|degraded|critical",
   "canStartTeamRun": true,
   "readyTeams": [
-    {"lane": "build", "team": "build_core", "displayName": "Build Lab"}
+    {"lane": "code", "team": "code_core", "displayName": "Code Lab"}
   ],
   "blockedReason": null,
   "nextAction": {
@@ -430,7 +431,7 @@ to the user without inventing instructions.
   "authUrl": null,
   "userCode": null,
   "expiresAt": null,
-  "why": "Bug Hunt needs at least one ready Build worker.",
+  "why": "Bug Hunt needs at least one ready Code worker.",
   "recheckCommand": "alln doctor --agent openclaw --json",
   "relatedChecks": ["source.claude.auth"]
 }
@@ -495,7 +496,7 @@ Required checks once this phase enters implementation:
 | `pending.storeWritable` | Pending Draft/Pending mutations can be written. |
 | `admission.parsersHealthy` | Source/admission parsers load and return sourced block reasons. |
 | `catalog.team.<team>.valid` | Selected team exists, has one lane, and resolves to startable workers. |
-| `defaultTeamValid` | The default Build/Design/Copy teams resolve. |
+| `defaultTeamValid` | The default Code/Design/Copy teams resolve. |
 | `entitlement.canStartTeamRun` | Entitlement gate would allow a team start. |
 
 Summary doctor may cache expensive checks for a short period. Full doctor must
@@ -535,9 +536,9 @@ Output:
   "cause": "The team field must use a canonical team id.",
   "whoCanFix": "agent",
   "remedyTier": "agent_executable",
-  "allowedValues": ["build_core", "build_bug_hunt", "build_release_proof"],
+  "allowedValues": ["code_core", "code_bug_hunt", "code_release_proof"],
   "nextActions": [
-    {"kind": "retry", "field": "team", "value": "build_bug_hunt"}
+    {"kind": "retry", "field": "team", "value": "code_bug_hunt"}
   ],
   "docsRef": "alln://docs/tools/team_start",
   "traceId": "trace_..."
@@ -730,8 +731,8 @@ canonical action digest.
 
 ```json
 {
-  "lane": "build",
-  "team": "build_bug_hunt",
+  "lane": "code",
+  "team": "code_bug_hunt",
   "prompt": "optional prompt for context sizing and policy checks",
   "contextRefs": ["optional artifact/ref ids"],
   "originAgent": "openclaw",
@@ -745,8 +746,8 @@ canonical action digest.
 ```json
 {
   "canStart": true,
-  "lane": "build",
-  "teamPresetId": "build_bug_hunt",
+  "lane": "code",
+  "teamPresetId": "code_bug_hunt",
   "teamDisplayName": "Bug Hunt",
   "readyWorkers": [
     {"workerId": "w_claude", "source": "claude", "status": "ready"}
@@ -755,7 +756,7 @@ canonical action digest.
   "blockedWorkers": [],
   "selfFusion": {
     "enabled": true,
-    "reason": "Only one ready Build source; prompts will run with different lenses."
+    "reason": "Only one ready Code source; prompts will run with different lenses."
   },
   "entitlement": {
     "canStartTeamRun": true,
@@ -788,8 +789,8 @@ Preflight rules:
 ```json
 {
   "prompt": "string",
-  "lane": "build",
-  "team": "build_bug_hunt",
+  "lane": "code",
+  "team": "code_bug_hunt",
   "threadId": "optional",
   "context": "optional bounded inline context",
   "contextRefs": ["optional artifact/ref ids"],
@@ -806,8 +807,8 @@ Preflight rules:
 {
   "runId": "run_...",
   "status": "accepted|running",
-  "lane": "build",
-  "teamPresetId": "build_bug_hunt",
+  "lane": "code",
+  "teamPresetId": "code_bug_hunt",
   "teamDisplayName": "Bug Hunt",
   "acceptedAt": "2026-06-16T08:00:00Z",
   "nextPollAfterMs": 2500,
@@ -842,8 +843,8 @@ Preflight rules:
 {
   "runId": "run_...",
   "status": "accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted",
-  "lane": "build",
-  "teamPresetId": "build_bug_hunt",
+  "lane": "code",
+  "teamPresetId": "code_bug_hunt",
   "currentStage": "answer|review|plan|null",
   "workers": [
     {
@@ -939,8 +940,8 @@ Example:
 {
   "prompt": "When Claude is available, have Bug Hunt inspect the latest run-store issue.",
   "kind": "teamRun",
-  "lane": "build",
-  "team": "build_bug_hunt",
+  "lane": "code",
+  "team": "code_bug_hunt",
   "submit": true,
   "policy": {
     "triggerOwner": "externalAgent",
@@ -964,7 +965,7 @@ Example:
       "kind": "teamRun",
       "status": "pending",
       "blockedReason": "Waiting for user or external agent trigger.",
-      "target": {"lane": "build", "team": "build_bug_hunt"}
+      "target": {"lane": "code", "team": "code_bug_hunt"}
     }
   ],
   "running": []
@@ -991,6 +992,8 @@ Pending MCP rules:
 - `pending_list` must accept `limit`, `cursor`, and optional status filters.
 - Every blocked Pending item must include `blockedReason`, `blockedSource`,
   `observedAt`, and, when known, `retryAfter`.
+- Every sleeping Wake Ticket item must include a sourced `nextWakeAt` or explain
+  why the wake is conservative/local rather than provider-observed.
 
 Agent phrasing rules:
 
@@ -1097,8 +1100,8 @@ This code expires in 5 minutes. Say "done" when finished and I will recheck.
 Wrong arguments recovered:
 
 ```text
-Allnighter rejected team="bug-hunt"; valid ids include build_bug_hunt.
-I retried with build_bug_hunt.
+Allnighter rejected team="bug-hunt"; valid ids include code_bug_hunt.
+I retried with code_bug_hunt.
 ```
 
 Entitlement blocked:
@@ -1428,15 +1431,20 @@ Prerequisites:
 
 - Pending0/Pending1 are complete: local Pending model and CLI CRUD/list/show are
   real.
-- Pending2 is parked until native drain/scheduling is explicitly revived.
-  `pending_run` may still expose a user/agent-triggered attempt through CLI/MCP.
+- Pending1a Wake Tickets are complete before MCP claims wake/resume behavior. A
+  Wake Ticket is a sourced capacity/cooldown resume for already-authorized work,
+  not a general scheduler queue.
+- Pending2 is not an A1 prerequisite. Broad native drain/scheduling remains
+  parked until explicitly revived; `pending_run` may still expose a user- or
+  agent-triggered attempt through CLI/MCP.
 
 - Add `pending_add`, `pending_submit`, `pending_edit`, `pending_reorder`,
   `pending_list`, `pending_show`, `pending_cancel`, `pending_run`,
   `pending_stop`.
 - Use Pending model from `Pending_Work_And_Drain.md`.
 - Expose Draft/Pending/Running; do not expose raw scheduler queue.
-- Include blocked/admission reasons, source, `observedAt`, and `retryAfter`.
+- Include blocked/admission reasons, source, `observedAt`, `retryAfter`, and
+  Wake Ticket projections such as `nextWakeAt` when they exist.
 - Add `limit` and `cursor` to `pending_list`.
 - Require idempotency support for `pending_add`.
 - Keep edit/reorder semantics identical to the CLI Pending contract.
@@ -1446,6 +1454,8 @@ Completion gate:
 - Agents can create, inspect, submit, cancel, stop, and reorder Pending work
   without learning scheduler internals.
 - A Pending item blocked by admission can be explained in one chat-safe sentence.
+- A Pending item sleeping on a CLI capacity/cooldown notice can be explained with
+  the sourced reset/wake fact and without implying broad automatic scheduling.
 
 ### A2 - Full spec retrieval
 
@@ -1654,7 +1664,7 @@ Provider device/browser flow is mocked when available.
 Gesture:
 
 ```text
-Client calls team_preflight for Build Bug Hunt.
+Client calls team_preflight for Code Bug Hunt.
 ```
 
 Assertions:
@@ -1690,15 +1700,15 @@ Setup:
 ```text
 MCP server running.
 OpenClaw/Hermes-style client can call MCP tools.
-Build Bug Hunt team exists.
+Code Bug Hunt team exists.
 Doctor reports canStartTeamRun true.
 ```
 
 Gesture:
 
 ```text
-Client calls team_preflight, then team_start with a long prompt, lane build,
-team build_bug_hunt, originAgent openclaw, and idempotencyKey.
+Client calls team_preflight, then team_start with a long prompt, lane code,
+team code_bug_hunt, originAgent openclaw, and idempotencyKey.
 ```
 
 Assertions:
@@ -1747,7 +1757,7 @@ Assertions:
 Gesture:
 
 ```text
-Client calls pending_add with submit true for Build Bug Hunt.
+Client calls pending_add with submit true for Code Bug Hunt.
 ```
 
 Assertions:

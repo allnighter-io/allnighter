@@ -40,8 +40,8 @@ otherwise.
 | [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
 | [`threads/02_Notifications.md`](threads/02_Notifications.md) | **BUILT** (NOTIF-S01–S05 + UNR-S06, 2026-06-17) | Mac local notifications for landed work and attention states; menu-bar live/needs-attention indicator; per-thread mute; debounce/quiet-hours policy. Mobile push parked in `ios/03`. |
 | [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Backend BUILT** (WIO-S00–S03, S05, 2026-06-17); WIO-S04 GUI deferred | Worker image output in chat (design continuity): chat to imageGen workers captures + commits canonical attachments (same store as user paste); prior/picked images flow into next context; WIO-S04 Mac timeline thumbnails remain. |
-| [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | Finalized Project-scoped v1 spec | Detects stalled worker chat turns and async team runs from local truth, refreshes before declaring, creates Project Manager nudges, sends Mac notification pointers, and offers safe recovery actions without quota/cooldown/admission machinery. |
-| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); native drain/scheduling parked | Public `alln pending` CRUD + local Pending model/persistence. External agents may trigger Pending through CLI/MCP; Away Mode drain/cooldown resume are parked. |
+| [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | Finalized Project-scoped v1 spec + Wake Ticket addendum | Separates expected capacity sleep from unexpected stall: Wake Tickets observe CLI-to-CLI cooldown/capacity signals and resume the same authorized work once; SWW detects true stalled worker chat turns / async team runs from local truth, refreshes before declaring, and creates Project Manager nudges. |
+| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); Wake Ticket resume ready spec; broad native drain/scheduling parked | Public `alln pending` CRUD + local Pending model/persistence. External agents may trigger Pending through CLI/MCP; one-shot Wake Tickets are scoped active prep; Away Mode, fairness drain, PTY probes, and admission ledgers remain parked. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; native Pending drain is parked. |
 | [`Team_Catalog.md`](Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Code/Design/Copy specialist team catalog substrate for Send to team: team picker, named team variants, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
@@ -91,9 +91,13 @@ founder may reprioritize; the dependency logic is what matters.
    discoverable product surface, plus `Agent_First_MCP_...` **M-D** (team
    discovery/run tools), **M-E** (sync-ask resolution), **M-F** (provenance /
    client approval / entitlement gate).
-7. **Stalled Work Watchdog** — `Stalled_Work_Watchdog.md` SW0–SW3. The MVP
-   replacement for admission scheduling; depends on run/Pending/Project truth
-   existing.
+7. **Wake Tickets + Stalled Work Watchdog** — `Stalled_Work_Watchdog.md`
+   WTK-S00–S04, then `Agent_First_MCP_...` A1, then SWW-S00–S03. First capture
+   CLI-to-CLI capacity signals and resume the same authorized work once at the
+   observed wake boundary; expose Pending/Wake facts over MCP without raw
+   scheduler language; then add stalled-work nudges for unexpected silence. This
+   is the narrow MVP replacement for admission scheduling and depends on
+   run/Pending/Project truth existing.
 8. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
    above exist (the MCP analogue of the GUI Visual Proof Gate).
 9. **GUI/app surfaces that present the contracts** — `Project_Spine_...`
@@ -138,7 +142,9 @@ founder may reprioritize; the dependency logic is what matters.
 - Capacity state is observed, sourced, timestamped, and local by default.
 - Pending separates Project-scoped user intent from immediate execution.
   queueing is internal machinery language, global Pending is aggregate-only, and
-  native scheduling/drain is parked unless explicitly revived.
+  native scheduling/drain is parked unless explicitly revived. One-shot Wake
+  Tickets are the scoped exception for already-authorized work with sourced
+  CLI capacity/cooldown output.
 - Pending is public CLI-first: `alln pending` must exist before the GUI promises
   Draft/Pending/Running state. External agents may trigger Pending through
   CLI/MCP.

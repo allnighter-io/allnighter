@@ -21,8 +21,9 @@ enum ProjectCLI {
         case "context": runContext(args)
         case "workers": runWorkers(args)
         case "recheck-workers": await runRecheck(args, runtime)
+        case "chat": await runChat(args, runtime)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers|chat> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -208,6 +209,48 @@ enum ProjectCLI {
         }
         try? ProjectWorkerReadinessStore().save(projectId: project.id, results)
         emitWorkers(project: project, workers: results, cached: false, json: opts.flag("json"))
+    }
+
+    /// Project Manager chat (PRJ-S08): one model-produced turn answered from the
+    /// project context packet. No ready model → a `wait` turn (never fabricated).
+    /// Recorded as run truth in the Manager turn log. Does not auto-create work.
+    private static func runChat(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard let idOrName = opts.positional.first else {
+            usageError("usage: alln project chat <project-id-or-name> [message] [--file <path>] [--json]")
+        }
+        let message = opts.value("message")
+            ?? opts.value("file").flatMap { try? String(contentsOfFile: $0) }
+            ?? opts.positional.dropFirst().joined(separator: " ")
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            usageError("project chat requires a message (positional or --file)")
+        }
+        let store = ProjectStore()
+        let project = resolve(idOrName, store)
+        let threads = boundThreads(projectId: project.id)
+        let pending = boundPending(projectId: project.id)
+        let packet = ProjectContextPacketBuilder.build(
+            project: project,
+            recentThreadSummaries: threads.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" },
+            pendingItems: pending.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" }
+        )
+        let service = ProjectManagerService(
+            runner: SubprocessCommandRunner(),
+            registry: runtime.registry,
+            invocations: runtime.invocations
+        )
+        let turn = await service.chat(
+            project: project, packet: packet, message: message, readyModels: runtime.readyModels
+        )
+        // Record run truth (the Manager turn log) regardless of mode.
+        try? ProjectManagerTurnStore().append(turn)
+        if opts.flag("json") {
+            print(AllnighterCLI.jsonString(ProjectManagerTurnJSON(contractVersion: ContractRegistry.contractVersion, turn: turn)))
+        } else if turn.mode == .wait {
+            for w in turn.warnings { FileHandle.standardError.write(Data("⏸ \(w)\n".utf8)) }
+        } else {
+            print(turn.answerMarkdown ?? "")
+        }
     }
 
     // MARK: - Helpers

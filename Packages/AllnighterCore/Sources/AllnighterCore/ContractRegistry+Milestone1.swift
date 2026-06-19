@@ -604,6 +604,11 @@ public extension ContractRegistry {
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")]
         ),
+        CommandSpec(
+            "project chat", summary: "Ask the Project Manager (a model invocation over the project context). Answers only; never auto-creates work. No ready model → a wait turn.", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name."), ArgSpec("message", required: false, summary: "The chat message (or use --file).")],
+            flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the message from a file."), FlagSpec("json", summary: "Emit a ProjectManagerTurnJSON object.")]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)

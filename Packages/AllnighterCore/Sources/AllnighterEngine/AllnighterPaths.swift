@@ -38,6 +38,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("ProjectReadiness", isDirectory: true)
     }
 
+    /// `…/Allnighter/ProjectManagerTurns/` — append-only Manager turn log per
+    /// project (PRJ-S08 run truth). One file per project.
+    public static var projectManagerTurns: URL {
+        support.appendingPathComponent("ProjectManagerTurns", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)

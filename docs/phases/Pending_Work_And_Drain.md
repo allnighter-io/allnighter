@@ -1,8 +1,8 @@
 # Pending Work
 
-Status: **Pending0 + Pending1 BUILT** (2026-06-17); native drain/scheduling parked
+Status: **Pending0 + Pending1 BUILT** (2026-06-17); Wake Ticket resume ready spec; broad native drain/scheduling parked
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-17
+Updated: 2026-06-19
 
 ## Scope Correction
 
@@ -21,9 +21,17 @@ OpenClaw, Hermes, cron, or another agent may own schedules and loops, then call
 Allnighter through CLI/MCP. Allnighter should be the best place to define, hold,
 run, and inspect Project work; it should not compete to own every trigger.
 
-Any sections below that describe automatic drain, cooldown resume, scheduler
-leases, or admission-driven away mode are parked future material unless a slice
-explicitly reactivates native scheduling.
+Any sections below that describe broad automatic drain, scheduler leases, or
+admission-driven away mode are parked future material unless a slice explicitly
+reactivates native scheduling. Sourced one-shot cooldown resume is only allowed
+through the Wake Ticket exception below.
+
+Exception: `Stalled_Work_Watchdog.md` owns a narrow Wake Ticket slice. A Wake
+Ticket is not general drain. It applies only after already-authorized work made a
+real attempt and the CLI returned a sourced capacity/cooldown signal. The
+resident coordinator may sleep until that observed/conservative wake and make one
+same-work resume attempt. Fairness sweeps, Away Mode, global scheduling, PTY
+probes, and admission ledgers remain parked.
 
 ## Founder Intent
 
@@ -102,18 +110,21 @@ Project Manager proposes a follow-up
 - No billing dashboard.
 - No estimated remaining quota, runtime, cost, token burn, or task complexity.
 - No provider-limit evasion, spam probing, or synthetic keepalive loops.
-- No unattended mutating dispatch in Pending v1.
+- No new unattended mutating dispatch in Pending v1. A Wake Ticket may resume an
+  already-approved mutating attempt exactly once at the sourced wake boundary.
 - No silent worker substitution.
 - No cloud-owned durable Pending store.
 - No provider-native chat-history dependency.
 - No branch, worktree, commit, merge, or workspace-management ownership.
 - No automatic creation of unapproved new work from worker suggestions.
-- No native schedule/loop ownership in v1.
+- No broad native schedule/loop ownership in v1; one-shot Wake Tickets are the
+  scoped exception.
 
 Deferred elsewhere:
 
-- Admission states, cooldown parsing, fallback policy, automatic drain, and
-  probes are parked.
+- Broad admission states, fallback policy, automatic drain, and probes are
+  parked. Sourced cooldown parsing for Wake Tickets is active implementation
+  prep in `Stalled_Work_Watchdog.md`.
 - Work-thread storage and context packets belong to `Persistent_Work_Threads.md`
   and `threads/01_Work_Threads_MLP.md`.
 - iOS reachability, sealed command inbox, and sleep/remote behavior belong to
@@ -303,8 +314,9 @@ Existing truth owners:
 
 - `Persistent_Work_Threads.md` owns durable threads, turns, context packets, and
   run-to-thread linkage.
-- Observed availability, cooldowns, fallback policy, and admission attempts are
-  parked with the admission scheduler.
+- Broad observed availability, fallback policy, and admission attempts are parked
+  with the admission scheduler. Sourced cooldown observations for Wake Tickets
+  are routed through `Stalled_Work_Watchdog.md`.
 - `ios/00_iOS_Transport_Decision.md` owns phone-to-Mac command delivery,
   reachability honesty, sealed payloads, and sleep/drain behavior.
 - `Work_Order_Team_Model.md` owns worker/team/lane/type/effort vocabulary.
@@ -312,8 +324,8 @@ Existing truth owners:
 Existing useful pieces:
 
 - Thread turns already have `queued` and `running` internal status.
-- Utilization already defines scheduler behavior for cooldowns, local slots,
-  fallbacks, present/away mode, and mutating dispatch safety.
+- Parked Utilization defines future scheduler behavior for cooldowns, local
+  slots, fallbacks, present/away mode, and mutating dispatch safety.
 - iOS docs already define "commands queue and drain on next wake" when the Mac
   is asleep.
 - `Mac_Standalone_App_And_Background_Coordinator.md` now defines `alln serve` as
@@ -321,12 +333,12 @@ Existing useful pieces:
 
 Missing truth:
 
-- No user-owned Pending object exists.
-- No public `alln pending` contract exists.
+- Pending0/1 built the user-owned Pending object and public `alln pending`
+  contract.
 - Pending0/1 predate Project binding and must be migrated before drain claims.
 - No distinction exists between durable work intent and scheduler attempts.
-- No cooldown-resume packet exists for "continue this exact job when Claude is
-  available."
+- `PendingResume` exists, but no capacity-observation / Wake Ticket wiring exists
+  yet for "continue this exact job when Claude is available."
 - No Away Mode or Activity Summary contract exists for draining user-selected work
   while the user is not actively watching.
 
@@ -448,7 +460,7 @@ PendingSafety
 
 ```text
 PendingResume
-- reason: cooldown | localBusy | timeout | stopped | appRestart | macSleep | userPaused
+- reason: cooldown | providerBusy | localBusy | timeout | stopped | appRestart | macSleep | userPaused
 - lastAttemptId?
 - transcriptRef?
 - nextInstruction
@@ -549,9 +561,45 @@ Derivation rules:
 - The key must not inspect or mutate git state.
 - Attempt summaries copy the actual `executionLaneKey` used at lease/spawn time.
 
+## Wake Tickets
+
+Truth owner: `PendingItem.resume` plus the latest attempt summary. The
+`CapacityObservation` source contract lives in `Stalled_Work_Watchdog.md`.
+
+A Wake Ticket is the smallest useful resume contract:
+
+```text
+already-authorized work attempts
+-> CLI returns sourced capacity/cooldown signal
+-> Pending item returns to Pending/Sleeping
+-> PendingResume records reason + observedResetAt/wakeAfter
+-> resident coordinator wakes once at the boundary
+-> same item gets one resume attempt
+```
+
+Rules:
+
+- Wake Tickets are not broad Pending drain. They do not sweep all runnable
+  Pending work and do not own cross-Project fairness.
+- The item must already be authorized: submitted Pending, user-sent worker turn
+  promoted to Pending, or approved work order. Worker suggestion prose cannot
+  create a Wake Ticket by itself.
+- During cooldown, Allnighter makes zero provider calls.
+- At wake time, the default action is the same real work attempt. Driver-specific
+  smoke probes may be added only when proven cheaper/safer by fixtures.
+- `observedResetAt` is stored only when sourced from the CLI/provider/user.
+  Conservative local retry policy stores `wakeAfter` without pretending the
+  provider reported a reset.
+- `providerBusy` is server-side overload/capacity saturation; `cooldown` is the
+  user's account/plan/item capacity sleep; `localBusy` is the user's machine or
+  Allnighter process capacity.
+- A new sourced cooldown replaces the Wake Ticket. Success clears it. Auth,
+  manual, or repeated unknown failure routes to attention instead of churn.
+- `PendingItemDerivation.nextWakeAt` remains the public projection point.
+
 ## Scheduler Drain Policy
 
-> **Parked except the execution-lane gate.** The Inputs, Default order, Fairness
+> **Parked except the execution-lane gate and Wake Tickets.** The Inputs, Default order, Fairness
 > rules, Project order rules, and Retry rules in this section describe a future
 > native or external coordinator and are **parked** until native scheduling is
 > explicitly revived (see Scope Correction). They are not a v1 promise; re-tense
@@ -559,7 +607,9 @@ Derivation rules:
 > **Execution-lane order rules** below are the exception: the execution-lane
 > serialization gate (one Running Execute per lane, FIFO, head-only) is **always
 > active in v1** and enforced on every explicit run trigger (`alln pending run`,
-> GUI run, MCP `pending_run`), regardless of whether native drain exists.
+> GUI run, MCP `pending_run`), regardless of whether native drain exists. Wake
+> Tickets are the other exception: one same-work wake attempt after sourced
+> capacity sleep.
 
 Inputs:
 
@@ -878,8 +928,10 @@ Implementation order note:
 
 - `Pending0`/`Pending1` may build local Draft/Pending storage and CLI CRUD before
   drain exists.
-- Do not claim app-closed execution, Away Mode drain, or "when Claude wakes up it
-  starts" until `Serve0` plus `Pending2` are built.
+- Do not claim app-closed broad execution or Away Mode drain until `Serve0` plus
+  `Pending2` are built. A narrower "Claude cooldown resumes once" claim belongs
+  to `Pending1a` / Wake Tickets and only applies to already-authorized work with
+  sourced cooldown state.
 - MCP Pending (`A1`) comes after the CLI/model semantics are real; MCP must not
   invent a separate Pending store or friendlier-but-different lifecycle.
 
@@ -953,6 +1005,35 @@ Items remain ordered, linked to the thread, and not duplicated as run truth.
 Manual run creates one queued attempt and records the attempt summary.
 Editing a Pending item moves it back to Draft and cancels scheduled wake/lease
 state.
+```
+
+### Pending1a - Wake Tickets / One-Shot Cooldown Resume
+
+Goal:
+Make capacity cooldown feel like sleep, not failure, without building broad
+native drain.
+
+Scope:
+
+- `CapacityObservation` parser/adapter fixtures live with
+  `Stalled_Work_Watchdog.md`.
+- Worker/Pending/team attempt settlement can write `PendingResume` with
+  `cooldown` or `providerBusy`.
+- Pending JSON projects `nextWakeAt`, `blockedReason`, attempt reason, and no
+  quota/cost/runtime estimates.
+- `alln serve` may wake exactly one due item and retry the same authorized work.
+- No fairness sweep, fallback routing, Away Mode, PTY probes, or admission ledger.
+
+Works Test:
+
+```text
+Create a submitted Pending item targeting Claude.
+Fake worker returns a sourced rate-limit reset at 02:14.
+Allnighter records PendingResume and returns the item to Pending.
+Fake clock reaches 02:14 plus jitter while alln serve is running.
+The same item receives exactly one resume attempt.
+If the attempt succeeds, resume clears.
+If the attempt returns a new reset, wakeAfter updates and no stall nudge appears.
 ```
 
 ### Pending2 - Serve-Owned Admission-Aware Drain
@@ -1111,7 +1192,7 @@ Audit records userReorderedExecutionLane.
 | Dispatch safety -> away drain | Mac backend | Pending dispatch permission covers any workspace state | Safety is checked at dispatch time; dirty working dir keeps item Pending | Dirty cwd blocks unattended mutating item |
 | Execution lane -> workspace ownership | AllnighterEngine | FIFO means Allnighter owns branches/worktrees/landing | FIFO controls submission order only; target worker/process owns workspace setup | Two same-execution-lane Execute items serialize, but no branch/worktree is created |
 | Manual reorder -> scheduler autonomy | AllnighterEngine | Reorder permission lets scheduler choose a better order | Only explicit user reorder can change same-execution-lane order | Scheduler cannot start Task 4 before Task 2 unless user reordered them |
-| Product Lane -> execution lane | AllnighterCore | Build/Design/Copy lane means execution serialization group | Product Lane and execution lane are separate concepts; execution lane is always qualified | A Build work order and Copy work order can still share one Claude execution lane |
+| Product Lane -> execution lane | AllnighterCore | Code/Design/Copy lane means execution serialization group | Product Lane and execution lane are separate concepts; execution lane is always qualified | A Code work order and Copy work order can still share one Claude execution lane |
 | Activity Summary -> utilization | Mac backend | Report should estimate what could have happened | Activity Summary reports actual outcomes only | Summary contains no future quota/cost/runtime claims |
 
 ## Done When
@@ -1121,7 +1202,7 @@ Audit records userReorderedExecutionLane.
 - Every runnable Pending item is bound to exactly one Project.
 - `alln pending` can create, submit, edit, reorder, list, show, cancel, run, and
   stop Pending items before any GUI-only Pending surface ships.
-- Native `alln serve` Pending drain remains parked.
+- Native `alln serve` Pending drain remains parked except one-shot Wake Tickets.
 - Pending items preserve target worker/team, context, fallback, priority, and
   mutation policy.
 - Draft is editable and never runnable; editing Pending returns it to Draft.
@@ -1133,8 +1214,8 @@ Audit records userReorderedExecutionLane.
   Pending items in that execution lane.
 - Manual reorder pauses only the edited execution lane for the edit transaction;
   unrelated execution lanes continue draining.
-- Cooldown resume can continue an interrupted worker from saved context after an
-  observed reset.
+- Wake Tickets can continue the same interrupted worker item once after an
+  observed/conservative wake boundary.
 - Away Mode makes unattended non-mutating work understandable before the user
   leaves.
 - Activity Summary reports actual outcomes across completed, blocked, failed,

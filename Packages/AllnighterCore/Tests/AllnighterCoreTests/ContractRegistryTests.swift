@@ -39,7 +39,7 @@ final class ContractRegistryTests: XCTestCase {
             "mcp serve",
             "project list", "project add", "project show", "project archive", "project unarchive",
             "project threads", "project pending", "project context",
-            "project workers", "project recheck-workers",
+            "project workers", "project recheck-workers", "project chat",
         ])
     }
 

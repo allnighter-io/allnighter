@@ -100,6 +100,18 @@ public struct ProjectWorkersJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// One Project Manager turn — used by `project chat`. The turn embeds its own
+/// `mode` (answer/wait/…), `modelId`, and `nextActions`; a `wait` turn carries a
+/// sourced readiness blocker in `warnings` and no `answerMarkdown` (never faked).
+public struct ProjectManagerTurnJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var turn: ProjectManagerTurn
+    public init(schemaVersion: Int = 1, contractVersion: String, turn: ProjectManagerTurn) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion; self.turn = turn
+    }
+}
+
 /// The on-demand context packet — used by `project context`. The packet is a
 /// receipt, regenerated from current truth on every call (never durable truth).
 public struct ProjectContextJSON: Codable, Equatable, Sendable {
