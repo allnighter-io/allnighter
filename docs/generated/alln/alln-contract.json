@@ -4048,7 +4048,7 @@
           "type" : "string"
         }
       ],
-      "summary" : "Run a Pending item now (manual attempt; records attempt until execution seam lands)."
+      "summary" : "Run a Pending workerChat item now; executes and settles like CLI pending run."
     }
   ],
   "nextActionKinds" : [

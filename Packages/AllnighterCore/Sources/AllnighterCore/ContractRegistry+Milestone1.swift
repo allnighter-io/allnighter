@@ -175,7 +175,7 @@ public extension ContractRegistry {
                     params: [.init("pendingId", required: true, summary: "Pending item id.")],
                     outputSchema: .pendingItemJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("pending_run", command: "pending run", summary: "Run a Pending item now (manual attempt; records attempt until execution seam lands).",
+        MCPToolSpec("pending_run", command: "pending run", summary: "Run a Pending workerChat item now; executes and settles like CLI pending run.",
                     params: [.init("pendingId", required: true, summary: "Pending item id.")],
                     outputSchema: .pendingItemJSON,
                     errors: ["CLI_USAGE_ERROR", "PENDING_MUTATION_DEFERRED"], idempotency: .notIdempotent),

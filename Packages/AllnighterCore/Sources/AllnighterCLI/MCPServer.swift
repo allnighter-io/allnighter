@@ -280,6 +280,12 @@ struct MCPServer {
             let running = thread.isRunning
             let status = ThreadStatusResponse(threadId: threadId, isRunning: running, needsAttention: thread.needsAttention)
             respond(id: id, result: toolText(running ? "running" : "idle", structured: AllnighterCLI.jsonString(status)))
+        case "pending_list":
+            respondPending(id: id, outcome: MCPPendingHandlers.list(runtime: runtime, args: args))
+        case "pending_show":
+            respondPending(id: id, outcome: MCPPendingHandlers.show(runtime: runtime, args: args))
+        case "pending_run":
+            await respondPending(id: id, outcome: await MCPPendingHandlers.run(runtime: runtime, args: args))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
         }
@@ -314,6 +320,15 @@ struct MCPServer {
 
     /// A tool-level failure carrying the shared `ErrorEnvelope` (no MCP-only error shape).
     private func respondAsyncTeam(id: Any?, outcome: MCPAsyncTeamHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondPending(id: Any?, outcome: MCPPendingHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))
