@@ -803,9 +803,7 @@ Output schema: `projectWorkersJSON`.
 
 ## Commands (named but deferred)
 
-- `alln work` — Create a work order.
 - `alln pending stop` — Stop a running Pending item.
-- `alln dispatch` — Send a work order/spec to an execution target.
 - `alln pair` — Approve iOS/Mac pairing.
 - `alln mcp install` — Write MCP config with user consent.
 
@@ -866,7 +864,7 @@ Output schema: `projectWorkersJSON`.
 | `FILE_REFERENCE_TOO_MANY` | yes | no | Remove file references until within the cap. |
 | `FILE_REFERENCE_SENSITIVE_BLOCKED` | yes | no | Do not attach secrets; summarize the needed config manually. |
 | `FILE_REFERENCE_LINE_RANGE_INVALID` | yes | no | Choose a valid 1-based line range inside the file. |
-| `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | yes | no | Refresh the reference and re-approve the changed file before dispatch. |
+| `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | yes | no | Refresh the reference and re-approve the changed file before running. |
 | `FILE_REFERENCE_CATALOG_STALE` | no | yes | Refresh the Project file picker and retry. |
 | `FILE_REFERENCE_WORKER_UNSUPPORTED` | yes | no | Choose a worker that can receive referenced file text or use a chat worker. |
 | `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | Use a new idempotency key or repeat the original payload. |

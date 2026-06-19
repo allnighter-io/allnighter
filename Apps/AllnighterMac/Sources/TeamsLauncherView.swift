@@ -8,7 +8,7 @@ import AllnighterCore
 /// action bar). Cards are a projection of the existing team catalog — never
 /// GUI-local content.
 struct TeamsLauncherView: View {
-    /// Called when a send is dispatched — the host switches to the Inbox and the
+    /// Called when a send starts — the host switches to the Inbox and the
     /// new running thread (sendRouting selects it).
     var onContinue: () -> Void = {}
     @Environment(ThreadsViewModel.self) private var threads

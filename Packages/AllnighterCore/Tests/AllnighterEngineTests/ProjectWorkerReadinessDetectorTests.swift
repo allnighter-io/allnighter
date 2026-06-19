@@ -51,7 +51,7 @@ final class ProjectWorkerReadinessDetectorTests: XCTestCase {
                                       setup: SetupBlock(bins: ["legacy"]))
         let r = await detect(manifest, runner: MockCommandRunner(scripts: [:]))
         XCTAssertEqual(r.status, .unsafeToProbe)
-        XCTAssertFalse(r.status.isDispatchable)
+        XCTAssertFalse(r.status.canRunInProject)
         XCTAssertNil(r.probeCommandLabel)
         XCTAssertNotNil(r.setupHint)
     }
@@ -68,7 +68,7 @@ final class ProjectWorkerReadinessDetectorTests: XCTestCase {
         let runner = MockCommandRunner(scripts: ["fakecli": .init(stdout: "all systems ready\n", exitCode: 0)])
         let r = await detect(probeDriver(), runner: runner)
         XCTAssertEqual(r.status, .ready)
-        XCTAssertTrue(r.status.isDispatchable)
+        XCTAssertTrue(r.status.canRunInProject)
         XCTAssertEqual(r.probeCommandLabel, "fakecli doctor --no-input")
         XCTAssertNil(r.lastError)
     }
@@ -77,7 +77,7 @@ final class ProjectWorkerReadinessDetectorTests: XCTestCase {
         let runner = MockCommandRunner(scripts: ["fakecli": .init(stdout: "hello\n", exitCode: 0)])
         let r = await detect(probeDriver(), runner: runner)
         XCTAssertEqual(r.status, .unknown)   // ran cleanly but did not confirm — never claim ready
-        XCTAssertFalse(r.status.isDispatchable)
+        XCTAssertFalse(r.status.canRunInProject)
     }
 
     func testReadyWhenNoExpectationDeclared() async throws {
@@ -107,7 +107,7 @@ final class ProjectWorkerReadinessDetectorTests: XCTestCase {
             stdout: "ready\nDo you trust the files in this folder?", exitCode: 0)])
         let r = await detect(probeDriver(), runner: runner)
         XCTAssertEqual(r.status, .needsProjectAuthorization)
-        XCTAssertFalse(r.status.isDispatchable)
+        XCTAssertFalse(r.status.canRunInProject)
     }
 
     func testBlockedFromQuotaPattern() async throws {

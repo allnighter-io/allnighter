@@ -1,18 +1,18 @@
 import Foundation
 
-// MARK: - PRJ-S06: Project-scoped send/execute
+// MARK: - PRJ-S06: Project-scoped mutating runs
 
 /// The resolved roots a Project-scoped run must use. Worker cwd, proof cwd, and
 /// the attachment mirror all derive from ONE Project root — never an ad hoc
-/// `workingDir`. When the root is unavailable the dispatch roots are `nil`, so a
-/// missing root structurally means no mutating dispatch.
+/// `workingDir`. When the root is unavailable the run roots are `nil`, so a
+/// missing root structurally blocks mutating runs.
 public struct ProjectExecutionScope: Equatable, Sendable {
     public var projectId: ProjectID
     /// The display Project root (expanded `~`, standardized).
     public var rootPath: String
     public var rootState: RootState
     public var kind: ProjectKind
-    /// Where the worker subprocess runs. `nil` when mutating dispatch is not allowed.
+    /// Where the worker subprocess runs. `nil` when a mutating run is not allowed.
     public var workerCwd: String?
     /// Where declared proof commands run. Same root as the worker. `nil` when blocked.
     public var proofCwd: String?
@@ -30,59 +30,59 @@ public struct ProjectExecutionScope: Equatable, Sendable {
         self.attachmentMirrorRoot = attachmentMirrorRoot
     }
 
-    public var isMutatingDispatchAllowed: Bool { workerCwd != nil }
+    public var allowsMutatingRun: Bool { workerCwd != nil }
 
     /// Build from a freshly-observed root state (the resolver supplies `rootState`).
     public init(project: Project, observedRootState: RootState) {
-        let dispatchable = observedRootState == .available && !project.archived
+        let runnable = observedRootState == .available && !project.archived
         let root = project.localRootPath
         self.init(
             projectId: project.id,
             rootPath: root,
             rootState: observedRootState,
             kind: project.kind,
-            workerCwd: dispatchable ? root : nil,
-            proofCwd: dispatchable ? root : nil,
-            attachmentMirrorRoot: dispatchable ? root : nil
+            workerCwd: runnable ? root : nil,
+            proofCwd: runnable ? root : nil,
+            attachmentMirrorRoot: runnable ? root : nil
         )
     }
 }
 
-/// Deterministic dispatch decision for a mutating Project-scoped run. Never a
+/// Deterministic gate decision for a mutating Project-scoped run. Never a
 /// judgement call — the same inputs always yield the same decision. Acknowledging
 /// dirt is the user's explicit action; Allnighter never cleans, resets, stashes,
 /// or deletes user changes.
-public enum ProjectDispatchGate: Equatable, Sendable {
-    /// May dispatch. `warnings` are dirty files outside the likely scope — shown,
+public enum ProjectMutationGate: Equatable, Sendable {
+    /// May run. `warnings` are dirty files outside the likely scope — shown,
     /// never blocking.
     case allowed(warnings: [String])
-    /// No usable Project root (missing/permission-denied/archived). No mutating dispatch.
+    /// No usable Project root (missing/permission-denied/archived). No mutating run.
     case blockedNoProjectRoot
     /// Dirty files overlap the proposal's likely scope. Block until the user
     /// approves including them as preexisting context (`dirtyAcknowledged`).
     case blockedDirtyScopeOverlap(files: [String])
     /// No likely scope was declared, so overlap cannot be computed; the dirty tree
-    /// must be explicitly acknowledged before dispatch.
+    /// must be explicitly acknowledged before a mutating run.
     case needsDirtyAcknowledgement(files: [String])
 
-    public var allowsDispatch: Bool {
+    public var allowsRun: Bool {
         if case .allowed = self { return true }
         return false
     }
 }
 
-/// Evaluates the deterministic dirty-state dispatch gate (PRJ-S06). Pure — no git,
+/// Evaluates the deterministic dirty-state mutation gate (PRJ-S06). Pure — no git,
 /// no filesystem — so the safety rule is unit-testable in isolation. The resolver
 /// supplies observed `dirtyFiles` (root-relative) and the freshly-observed
 /// `rootState`.
-public enum ProjectDispatchGateEvaluator {
+public enum ProjectMutationGateEvaluator {
     public static func evaluate(
         project: Project,
         observedRootState: RootState,
         likelyFilesOrAreas: [String],
         dirtyFiles: [String],
         dirtyAcknowledged: Bool
-    ) -> ProjectDispatchGate {
+    ) -> ProjectMutationGate {
         guard observedRootState == .available && !project.archived else {
             return .blockedNoProjectRoot
         }

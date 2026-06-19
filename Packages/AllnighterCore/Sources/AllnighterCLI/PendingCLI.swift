@@ -170,7 +170,7 @@ enum PendingCLI {
             emit(item, service: executor.service, json: opts.flag("json"))
         } catch let error as PendingServiceError {
             if case .mutationDeferred = error {
-                AllnighterCLI.fail(code: "PENDING_MUTATION_DEFERRED", message: "mutating dispatch is outside Pending M1")
+                AllnighterCLI.fail(code: "PENDING_MUTATION_DEFERRED", message: "mutating runs are outside Pending M1")
             }
             if case .unsupportedKind(let kind) = error {
                 AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "pending kind \(kind) is not runnable in this milestone; only workerChat is supported")
@@ -237,7 +237,7 @@ enum PendingCLI {
             case .reorderInvalid(let detail):
                 (code, message) = ("PENDING_REORDER_INVALID", detail)
             case .mutationDeferred:
-                (code, message) = ("PENDING_MUTATION_DEFERRED", "mutating dispatch is outside Pending M1")
+                (code, message) = ("PENDING_MUTATION_DEFERRED", "mutating runs are outside Pending M1")
             case .sourceGateBlocked(let blocker):
                 (code, message) = (blocker.code, blocker.message)
             case .unsupportedKind(let kind):

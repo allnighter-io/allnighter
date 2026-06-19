@@ -284,7 +284,7 @@ final class ThreadsViewModel {
     }
 
     /// Bind a freshly created thread to the active project (PRJ-S14). No-op when no
-    /// project is active — the thread stays Unassigned (blocked from mutating dispatch).
+    /// project is active — the thread stays Unassigned (blocked from mutating runs).
     private func stampProject(_ threadId: String) {
         guard let pid = currentProjectId else { return }
         _ = try? store.bindProject(threadId: threadId, projectId: pid)

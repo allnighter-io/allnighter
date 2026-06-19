@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Project Spine contract (PRJ-S00)
 //
 // The durable Core models for Projects (repo binding + readiness), per
-// `docs/phases/Unified_Run_Model.md`. Ceremony types (proposals, work orders,
+// `docs/phases/Unified_Run_Model.md`. Ceremony types (proposals, gated run plans,
 // verification) are deleted — runs are `TeamRun` / RunRecord.
 // (PRJ-S01), no engine (PRJ-S08+), no GUI. Public JSON projection (string dates,
 // schemaVersion) lands with the CLI in PRJ-S07. Durable models use `Date` and the
@@ -103,8 +103,8 @@ public struct Project: Codable, Sendable, Equatable, Identifiable {
         self.managerModelId = managerModelId
     }
 
-    /// Mutating dispatch requires an available root and an un-archived Project.
-    public var allowsMutatingDispatch: Bool { rootState == .available && !archived }
+    /// A mutating run requires an available root and an un-archived Project.
+    public var allowsMutatingRun: Bool { rootState == .available && !archived }
 
 }
 
@@ -122,8 +122,8 @@ public enum WorkerReadinessStatus: String, Codable, Sendable, CaseIterable {
     case blocked
     case unknown
 
-    /// Only `ready` authorizes dispatch to this worker in this Project.
-    public var isDispatchable: Bool { self == .ready }
+    /// Only `ready` authorizes a run with this worker in this Project.
+    public var canRunInProject: Bool { self == .ready }
 }
 
 /// How a readiness fact was observed.

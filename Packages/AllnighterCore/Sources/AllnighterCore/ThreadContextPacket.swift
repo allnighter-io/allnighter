@@ -2,7 +2,7 @@ import Foundation
 
 /// The exact context a worker was given for one turn — captured as truth so the
 /// user can always see "what the worker will see" before manual-paste, panel,
-/// and dispatch. This is product trust, not a debug drawer.
+/// and mutating runs. This is product trust, not a debug drawer.
 ///
 /// The packet records which turns/runs/files were included and whether the body
 /// was truncated, but never an estimated token count (no usage theater).

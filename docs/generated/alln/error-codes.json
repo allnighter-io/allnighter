@@ -417,7 +417,7 @@
     "agentAction" : "Refresh the file picker or choose an existing project file.",
     "code" : "FILE_REFERENCE_NOT_FOUND",
     "exitClass" : "operational",
-    "explain" : "The referenced file no longer exists at dispatch time.",
+    "explain" : "The referenced file no longer exists at run time.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "file.reference.not_found"
@@ -477,7 +477,7 @@
     "ruleId" : "file.reference.line_range_invalid"
   },
   {
-    "agentAction" : "Refresh the reference and re-approve the changed file before dispatch.",
+    "agentAction" : "Refresh the reference and re-approve the changed file before running.",
     "code" : "FILE_REFERENCE_CHANGED_BEFORE_INVOKE",
     "exitClass" : "operational",
     "explain" : "A delayed or pending send would read different bytes than the approved reference hash.",

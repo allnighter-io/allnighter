@@ -48,7 +48,7 @@ public struct WorkerRunner: Sendable {
     }
 
     /// Invoke a worker's CLI once and return the neutral outcome.
-    /// `workingDirectoryOverride`/`timeoutOverride` let dispatch (RB4) run in a
+    /// `workingDirectoryOverride`/`timeoutOverride` let repo-scoped runs use a
     /// chosen directory with a longer budget than the panel timeout.
     public func invoke(
         worker: Model,
@@ -76,7 +76,7 @@ public struct WorkerRunner: Sendable {
         // the checkout under ~/Documents, so the worker reading its cwd raises a
         // TCC Documents prompt attributed to the app (code red on first chat send).
         // When no explicit dir is given (chat / team runs), spawn in an
-        // Allnighter-owned neutral scratch; dispatch/explicit runs keep theirs.
+        // Allnighter-owned neutral scratch; explicit repo runs keep theirs.
         // (Launch Authority TCC hotfix neutralized setup/health probe CWDs; this
         // extends the same rule to worker runs.) The scratch is only the process
         // CWD — args still resolve against the real `workingDir` (nil → no token).

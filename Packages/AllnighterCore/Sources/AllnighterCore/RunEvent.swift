@@ -39,7 +39,7 @@ public enum RunEventKind {
     public static let synthesisCompleted = "synthesis.completed"
     public static let synthesisFailed = "synthesis.failed"
     // Generic stage events (RB1+) — one family for analysis/plan/review/final/
-    // dispatch/return; payload carries `stageId` + `purpose`. No per-kind families.
+    // Stage payload carries `stageId` + `purpose`. No per-kind families.
     public static let stageStarted = "stage.started"
     public static let stageOutput = "stage.output"
     public static let stageCompleted = "stage.completed"

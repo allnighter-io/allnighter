@@ -4,7 +4,7 @@ import AllnighterEngine
 
 /// `alln` — Team-as-Tool (RB6). The universal shell surface any terminal
 /// agent can call, plus an MCP stdio server. Judgment only: links the team
-/// engine, never dispatch/executor code. Local Fusion at zero marginal cost.
+/// engine, never worker-runner code. Local Fusion at zero marginal cost.
 @main
 struct AllnighterCLI {
     static func main() async {

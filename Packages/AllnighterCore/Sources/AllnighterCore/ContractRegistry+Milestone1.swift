@@ -203,8 +203,8 @@ public extension ContractRegistry {
                     outputSchema: .stallListJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         // Project foundation tools — repo binding + readiness (Unified Run Model).
-        // external agents are CALLERS, never approvers — approve/edit/postpone are
-        // intentionally not projected. Agent dispatch still satisfies every gate.
+        // External agents are callers, never approvers; approve/edit/postpone are
+        // intentionally not projected.
         MCPToolSpec("project_list", command: "project list", summary: "List projects (active by default).",
                     params: [.init("all", type: "boolean", summary: "Include archived projects (optional).")],
                     outputSchema: .projectListJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
@@ -629,8 +629,7 @@ public extension ContractRegistry {
             flags: [FlagSpec("stdio", summary: "Use stdio transport (default).")]
         ),
         // Project foundation (PRJ-S07). list/add/show/archive the local work
-        // floors and read the threads/pending/context bound to one. Manager chat,
-        // proposals, dispatch, and verification are PRJ-S08+.
+        // floors and read the threads/pending/context bound to one.
         CommandSpec(
             "project list", summary: "List projects (active by default; --all includes archived).", milestone: .m1,
             flags: [FlagSpec("all", summary: "Include archived projects."), FlagSpec("json", summary: "Emit a ProjectListJSON object.")],
@@ -712,9 +711,7 @@ public extension ContractRegistry {
     // MARK: - Commands (named but deferred past M1)
 
     static let deferredCommands: [CommandSpec] = [
-        CommandSpec("work", summary: "Create a work order.", milestone: .deferred),
         CommandSpec("pending stop", summary: "Stop a running Pending item.", milestone: .deferred),
-        CommandSpec("dispatch", summary: "Send a work order/spec to an execution target.", milestone: .deferred),
         CommandSpec("pair", summary: "Approve iOS/Mac pairing.", milestone: .deferred),
         CommandSpec("mcp install", summary: "Write MCP config with user consent.", milestone: .deferred),
     ]
@@ -768,14 +765,14 @@ public extension ContractRegistry {
         ErrorSpec("CONTEXT_ATTACHMENT_CAP_EXCEEDED", ruleId: "context.attachment.cap", agentAction: "Reduce message or attachment count; never silently trim current send.", requiresManual: true, retryable: false, explain: "Protected attachment block does not fit context cap."),
         ErrorSpec("FILE_REFERENCE_PROJECT_ROOT_MISSING", ruleId: "file.reference.project_root_missing", agentAction: "Bind the thread to a project/working directory, then retry.", requiresManual: true, retryable: false, explain: "File references resolve against the Mac project root. The thread has no usable root."),
         ErrorSpec("FILE_REFERENCE_OUTSIDE_PROJECT", ruleId: "file.reference.outside_project", agentAction: "Pick a path inside the project root.", requiresManual: true, retryable: false, explain: "The requested path escapes the enrolled project root, so Allnighter refused to read it."),
-        ErrorSpec("FILE_REFERENCE_NOT_FOUND", ruleId: "file.reference.not_found", agentAction: "Refresh the file picker or choose an existing project file.", requiresManual: true, retryable: false, explain: "The referenced file no longer exists at dispatch time."),
+        ErrorSpec("FILE_REFERENCE_NOT_FOUND", ruleId: "file.reference.not_found", agentAction: "Refresh the file picker or choose an existing project file.", requiresManual: true, retryable: false, explain: "The referenced file no longer exists at run time."),
         ErrorSpec("FILE_REFERENCE_UNREADABLE", ruleId: "file.reference.unreadable", agentAction: "Check file permissions or choose another file.", requiresManual: true, retryable: false, explain: "The file exists but Allnighter could not read it as a regular file."),
         ErrorSpec("FILE_REFERENCE_BINARY_UNSUPPORTED", ruleId: "file.reference.binary_unsupported", agentAction: "Reference text files only in v1.", requiresManual: true, retryable: false, explain: "File references v1 injects UTF-8 text. Binary files are not delivered."),
         ErrorSpec("FILE_REFERENCE_TOO_LARGE", ruleId: "file.reference.too_large", agentAction: "Reference a smaller file or a line range.", requiresManual: true, retryable: false, explain: "The source file exceeds the v1 per-file read cap."),
         ErrorSpec("FILE_REFERENCE_TOO_MANY", ruleId: "file.reference.too_many", agentAction: "Remove file references until within the cap.", requiresManual: true, retryable: false, explain: "The send has more file references than v1 allows."),
         ErrorSpec("FILE_REFERENCE_SENSITIVE_BLOCKED", ruleId: "file.reference.sensitive_blocked", agentAction: "Do not attach secrets; summarize the needed config manually.", requiresManual: true, retryable: false, explain: "The path looks like credentials, keys, or an environment file and was blocked."),
         ErrorSpec("FILE_REFERENCE_LINE_RANGE_INVALID", ruleId: "file.reference.line_range_invalid", agentAction: "Choose a valid 1-based line range inside the file.", requiresManual: true, retryable: false, explain: "The requested line range is empty, reversed, or past the end of the file."),
-        ErrorSpec("FILE_REFERENCE_CHANGED_BEFORE_INVOKE", ruleId: "file.reference.changed_before_invoke", agentAction: "Refresh the reference and re-approve the changed file before dispatch.", requiresManual: true, retryable: false, explain: "A delayed or pending send would read different bytes than the approved reference hash."),
+        ErrorSpec("FILE_REFERENCE_CHANGED_BEFORE_INVOKE", ruleId: "file.reference.changed_before_invoke", agentAction: "Refresh the reference and re-approve the changed file before running.", requiresManual: true, retryable: false, explain: "A delayed or pending send would read different bytes than the approved reference hash."),
         ErrorSpec("FILE_REFERENCE_CATALOG_STALE", ruleId: "file.reference.catalog_stale", agentAction: "Refresh the Project file picker and retry.", requiresManual: false, retryable: true, explain: "The search catalog was stale. The resolver remains authoritative and did not deliver stale content."),
         ErrorSpec("FILE_REFERENCE_WORKER_UNSUPPORTED", ruleId: "file.reference.worker_unsupported", agentAction: "Choose a worker that can receive referenced file text or use a chat worker.", requiresManual: true, retryable: false, explain: "The selected route cannot accept Project file references."),
         ErrorSpec("THREAD_SEND_IDEMPOTENCY_CONFLICT", ruleId: "thread.send.idempotency.conflict", agentAction: "Use a new idempotency key or repeat the original payload.", requiresManual: false, retryable: false, explain: "Same idempotency key reused with a different thread send payload."),

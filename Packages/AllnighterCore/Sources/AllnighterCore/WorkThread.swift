@@ -4,7 +4,7 @@ import Foundation
 /// without leaving Allnighter or re-explaining yourself.
 ///
 /// A thread is an ordered list of `ThreadTurn`s. It owns chat turns directly;
-/// heavy work (team/design/review/dispatch) is referenced by `runId` on a
+/// heavy work (team/design/review/mutating run) is referenced by `runId` on a
 /// turn — `TeamRun` stays the run-truth owner (see `Persistent_Work_Threads`).
 ///
 /// Liveness (running/needs-attention/last-worker/preview) is **derived** from
@@ -23,11 +23,11 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
     public var updatedAt: Date
     /// Set when the thread is pinned to the top of the triage list.
     public var pinnedAt: Date?
-    /// Context anchor and default dispatch cwd. Attached files resolve here.
+    /// Context anchor and default run cwd. Attached files resolve here.
     public var workingDir: String?
     public var projectLabel: String?
     /// The owning Project (PRJ-S03). `nil` = Unassigned: blocked from mutating
-    /// dispatch until bound. New durable threads should carry a `projectId`.
+    /// runs until bound. New durable threads should carry a `projectId`.
     public var projectId: String?
     /// Historical receipt of the path the thread migrated from. Not the owner of
     /// current Project scope — `projectId` is.
@@ -133,7 +133,7 @@ public extension WorkThread {
     var isPinned: Bool { pinnedAt != nil }
 
     /// PRJ-S03: a thread bound to a Project. Unassigned threads (`projectId == nil`)
-    /// are blocked from mutating dispatch until assigned.
+    /// are blocked from mutating runs until assigned.
     var isProjectAssigned: Bool { projectId != nil }
 
     var isArchived: Bool { status == .archived }

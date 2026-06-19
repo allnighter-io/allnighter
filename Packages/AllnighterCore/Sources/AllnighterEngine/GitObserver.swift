@@ -52,7 +52,7 @@ public struct GitObserver: Sendable {
     /// Dirty files as normalized, **root-relative** paths (observed via
     /// `status --porcelain`). Renames report the destination path. Empty when the
     /// tree is clean or `rootPath` is not a git repo top level. Used by the PRJ-S06
-    /// dirty-overlap dispatch gate — never mutates the tree.
+    /// dirty-overlap mutation gate — never mutates the tree.
     public func dirtyFiles(rootPath: String) -> [String] {
         // `-uall` lists every untracked file individually instead of collapsing a
         // new directory to one entry — overlap matching needs per-file paths.

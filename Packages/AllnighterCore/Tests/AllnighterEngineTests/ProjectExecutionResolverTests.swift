@@ -5,7 +5,7 @@ import AllnighterCore
 /// PRJ-S06 Works Test (Engine layer): worker/proof/attachment roots derive from
 /// the selected Project root; dirty files in another Project do not block this
 /// one; dirty files overlapping the proposal scope block until acknowledged; a
-/// missing root means no mutating dispatch. Real git repos, read-only observation.
+/// missing root means no mutating run. Real git repos, read-only observation.
 final class ProjectExecutionResolverTests: XCTestCase {
     private var tmp: URL!
     private var store: ProjectStore!
@@ -50,7 +50,7 @@ final class ProjectExecutionResolverTests: XCTestCase {
 
         let scope = resolver.resolve(project: pA)
         XCTAssertEqual(scope.rootState, .available)
-        XCTAssertTrue(scope.isMutatingDispatchAllowed)
+        XCTAssertTrue(scope.allowsMutatingRun)
         XCTAssertEqual(scope.workerCwd, pA.localRootPath)
         XCTAssertEqual(scope.proofCwd, pA.localRootPath)
         XCTAssertEqual(scope.attachmentMirrorRoot, pA.localRootPath)
@@ -65,7 +65,7 @@ final class ProjectExecutionResolverTests: XCTestCase {
         try writeFile("src/Engine/Run.swift", in: repoB)   // repoB is dirty inside a "src/Engine" path
 
         // Project A asks about the same-looking scope; repoB dirt is irrelevant to A.
-        let g = resolver.dispatchGate(project: pA, likelyFilesOrAreas: ["src/Engine/"])
+        let g = resolver.mutationGate(project: pA, likelyFilesOrAreas: ["src/Engine/"])
         XCTAssertEqual(g, .allowed(warnings: []))
         XCTAssertEqual(git.dirtyFiles(rootPath: repoA.path), [])   // A really is clean
     }
@@ -76,26 +76,26 @@ final class ProjectExecutionResolverTests: XCTestCase {
         try writeFile("src/Engine/Run.swift", in: repoA)   // untracked, overlaps scope
         try writeFile("docs/Notes.md", in: repoA)          // untracked, outside scope
 
-        let blocked = resolver.dispatchGate(project: pA, likelyFilesOrAreas: ["src/Engine/"])
+        let blocked = resolver.mutationGate(project: pA, likelyFilesOrAreas: ["src/Engine/"])
         guard case let .blockedDirtyScopeOverlap(files) = blocked else {
             return XCTFail("expected overlap block, got \(blocked)")
         }
         XCTAssertEqual(files, ["src/Engine/Run.swift"])
 
-        let acked = resolver.dispatchGate(project: pA, likelyFilesOrAreas: ["src/Engine/"], dirtyAcknowledged: true)
-        XCTAssertTrue(acked.allowsDispatch)
+        let acked = resolver.mutationGate(project: pA, likelyFilesOrAreas: ["src/Engine/"], dirtyAcknowledged: true)
+        XCTAssertTrue(acked.allowsRun)
     }
 
-    func testMissingRootBlocksDispatch() throws {
+    func testMissingRootBlocksMutatingRun() throws {
         let repoA = try makeGitRepo("repoA")
         let pA = try store.add(path: repoA.path)
         try FileManager.default.removeItem(at: repoA)   // root disappears after registration
 
         let scope = resolver.resolve(project: pA)
         XCTAssertEqual(scope.rootState, .missing)
-        XCTAssertFalse(scope.isMutatingDispatchAllowed)
+        XCTAssertFalse(scope.allowsMutatingRun)
         XCTAssertNil(scope.workerCwd)
-        XCTAssertEqual(resolver.dispatchGate(project: pA, likelyFilesOrAreas: []), .blockedNoProjectRoot)
+        XCTAssertEqual(resolver.mutationGate(project: pA, likelyFilesOrAreas: []), .blockedNoProjectRoot)
     }
 
     func testDirtyFilesAreRootRelative() throws {

@@ -1,7 +1,7 @@
 import Foundation
 
 /// One prompt fanned out to a panel of seats plus the stage sequence that
-/// follows (analysis → plan, and — in RB — reviews/final spec/dispatch/return).
+/// follows (analysis, plan, reviews, and final output).
 /// The Mac owns this as truth; the run-event stream (§6) is derived from it.
 public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var id: String
@@ -142,8 +142,8 @@ public extension RunStatus {
     /// Legal next states. `planning` spans the analysis + plan reduces.
     /// `reviewing`/`finalizing` are entered only by review-board presets.
     /// `failed` is reachable from any non-terminal state; `cancelled` from any
-    /// active state. Dispatch/return-review (RB4/RB5) are post-judgment stages on
-    /// a `complete` run — they are not `RunStatus` values.
+    /// active state. Mutating follow-up work is represented as a separate run,
+    /// not a `RunStatus` value.
     func allowedTransitions() -> Set<RunStatus> {
         switch self {
         case .draft:

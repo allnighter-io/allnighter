@@ -1,10 +1,10 @@
 import XCTest
 @testable import AllnighterCore
 
-/// PRJ-S06 Works Test (pure layer): the dirty-state dispatch gate is deterministic
+/// PRJ-S06 Works Test (pure layer): the dirty-state mutation gate is deterministic
 /// — scope-overlapping dirt blocks until acknowledged, out-of-scope dirt is a
 /// warning, no declared scope requires acknowledging the whole dirty tree, and no
-/// usable root means no mutating dispatch.
+/// usable root means no mutating run.
 final class ProjectExecutionGateTests: XCTestCase {
     private func project(root: String = "/work/A", archived: Bool = false) -> Project {
         Project(id: "prj_a", displayName: "A", localRootPath: root, normalizedRootPath: root,
@@ -13,8 +13,8 @@ final class ProjectExecutionGateTests: XCTestCase {
     }
 
     private func gate(scope: [String], dirty: [String], ack: Bool = false,
-                      rootState: RootState = .available, archived: Bool = false) -> ProjectDispatchGate {
-        ProjectDispatchGateEvaluator.evaluate(
+                      rootState: RootState = .available, archived: Bool = false) -> ProjectMutationGate {
+        ProjectMutationGateEvaluator.evaluate(
             project: project(archived: archived), observedRootState: rootState,
             likelyFilesOrAreas: scope, dirtyFiles: dirty, dirtyAcknowledged: ack)
     }
@@ -41,11 +41,11 @@ final class ProjectExecutionGateTests: XCTestCase {
         let dirty = ["Sources/Engine/Run.swift", "docs/README.md"]
         let blocked = gate(scope: ["Sources/Engine/"], dirty: dirty)
         XCTAssertEqual(blocked, .blockedDirtyScopeOverlap(files: ["Sources/Engine/Run.swift"]))
-        XCTAssertFalse(blocked.allowsDispatch)
+        XCTAssertFalse(blocked.allowsRun)
 
         let acked = gate(scope: ["Sources/Engine/"], dirty: dirty, ack: true)
         XCTAssertEqual(acked, .allowed(warnings: dirty))
-        XCTAssertTrue(acked.allowsDispatch)
+        XCTAssertTrue(acked.allowsRun)
     }
 
     func testEmptyScopeWithDirtNeedsAcknowledgement() {

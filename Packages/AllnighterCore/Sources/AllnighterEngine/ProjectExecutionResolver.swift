@@ -1,16 +1,12 @@
 import Foundation
 import AllnighterCore
 
-/// PRJ-S06: resolves the single Project root that a mutating send/execute must run
-/// against and evaluates the deterministic dirty-state dispatch gate. Worker cwd,
+/// PRJ-S06: resolves the single Project root that a mutating run must use
+/// and evaluates the deterministic dirty-state mutation gate. Worker cwd,
 /// proof cwd, and the attachment mirror all derive from this one root — never an
 /// ad hoc `workingDir`. Read-only: it observes the root and git state, never
 /// mutating either.
 ///
-/// The actual call-site rewiring (TeamRunCoordinator / WorkerRunner consuming the
-/// resolved cwds) lands with dispatch (PRJ-S11), which is where the execute-lane
-/// safety invariants live; this slice provides the deterministic substrate they
-/// will route through.
 public struct ProjectExecutionResolver: Sendable {
     private let git: GitObserver
 
@@ -20,25 +16,24 @@ public struct ProjectExecutionResolver: Sendable {
 
     /// Resolve the execution scope, re-observing whether the root is actually
     /// present on disk (a stored `rootState` can be stale). A missing or
-    /// unreadable root yields no dispatch roots — structurally blocking mutating
-    /// dispatch.
+    /// unreadable root yields no run roots — structurally blocking mutating runs.
     public func resolve(project: Project) -> ProjectExecutionScope {
         ProjectExecutionScope(project: project, observedRootState: observeRootState(project))
     }
 
-    /// Evaluate the dispatch gate for a mutating run. Gathers observed dirty files
+    /// Evaluate the mutation gate for a mutating run. Gathers observed dirty files
     /// for the Project root and delegates the decision to the pure Core evaluator.
-    public func dispatchGate(
+    public func mutationGate(
         project: Project,
         likelyFilesOrAreas: [String],
         dirtyAcknowledged: Bool = false
-    ) -> ProjectDispatchGate {
+    ) -> ProjectMutationGate {
         let rootState = observeRootState(project)
         guard rootState == .available && !project.archived else {
             return .blockedNoProjectRoot   // don't shell out to git on a missing root
         }
         let dirty = git.dirtyFiles(rootPath: project.localRootPath)
-        return ProjectDispatchGateEvaluator.evaluate(
+        return ProjectMutationGateEvaluator.evaluate(
             project: project,
             observedRootState: rootState,
             likelyFilesOrAreas: likelyFilesOrAreas,

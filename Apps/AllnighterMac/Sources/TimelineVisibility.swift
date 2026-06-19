@@ -2,7 +2,7 @@ import SwiftUI
 import AllnighterCore
 
 /// Which turn families may report viewport visibility for read-clear (UNR-S05).
-/// Rich team/build/dispatch cards defer to UNR-S08.
+/// Rich team/build cards defer to UNR-S08.
 enum TimelineReadClearance {
     static func countsTowardReadClear(_ turn: ThreadTurn) -> Bool {
         switch turn.kind {

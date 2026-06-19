@@ -5,7 +5,7 @@ import AllnighterCore
 /// Regression: a worker run must NOT inherit the app's process CWD (in dev that
 /// is the checkout under ~/Documents, which raised a TCC Documents prompt on the
 /// first chat send — code red). With no explicit working dir, the child spawns in
-/// an Allnighter-owned neutral scratch; an explicit dir (dispatch) is preserved.
+/// an Allnighter-owned neutral scratch; an explicit dir is preserved.
 final class WorkerRunnerCWDTests: XCTestCase {
 
     private actor CWDRecorder: CommandRunner {
@@ -47,6 +47,6 @@ final class WorkerRunnerCWDTests: XCTestCase {
             workingDirectoryOverride: "/tmp/some-repo"
         )
         let dirs = await recorder.recorded()
-        XCTAssertEqual(dirs.first ?? nil, "/tmp/some-repo", "dispatch/explicit working dir must be preserved")
+        XCTAssertEqual(dirs.first ?? nil, "/tmp/some-repo", "explicit working dir must be preserved")
     }
 }

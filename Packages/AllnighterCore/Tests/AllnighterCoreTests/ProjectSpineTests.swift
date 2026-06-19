@@ -92,10 +92,10 @@ final class ProjectSpineTests: XCTestCase {
         XCTAssertEqual(WorkerReadinessStatus.allCases.count, 8)
     }
 
-    func testMissingOrArchivedRootBlocksMutatingDispatch() {
-        XCTAssertTrue(sampleProject().allowsMutatingDispatch)
-        XCTAssertFalse(sampleProject(rootState: .missing).allowsMutatingDispatch)
-        XCTAssertFalse(sampleProject(rootState: .permissionDenied).allowsMutatingDispatch)
-        XCTAssertFalse(sampleProject(archived: true).allowsMutatingDispatch)
+    func testMissingOrArchivedRootBlocksMutatingRun() {
+        XCTAssertTrue(sampleProject().allowsMutatingRun)
+        XCTAssertFalse(sampleProject(rootState: .missing).allowsMutatingRun)
+        XCTAssertFalse(sampleProject(rootState: .permissionDenied).allowsMutatingRun)
+        XCTAssertFalse(sampleProject(archived: true).allowsMutatingRun)
     }
 }

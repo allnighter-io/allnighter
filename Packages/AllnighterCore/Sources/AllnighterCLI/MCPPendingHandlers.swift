@@ -147,7 +147,7 @@ enum MCPPendingHandlers {
         case .mutationDeferred:
             envelope = ErrorEnvelope(
                 code: "PENDING_MUTATION_DEFERRED",
-                message: "mutating dispatch is outside Pending M1",
+                message: "mutating runs are outside Pending M1",
                 requiresManual: true,
                 retryable: false
             )

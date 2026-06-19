@@ -5,7 +5,7 @@ import AllnighterCore
 /// `workingDir`, using the deterministic `ProjectBinding` rule. Threads that bind
 /// keep their old path as `localRootPathSnapshot` (a receipt). Threads with no
 /// reliable root are left Unassigned (repair bucket) — blocked from mutating
-/// dispatch until the user assigns them. One-time, idempotent (already-bound
+/// runs until the user assigns them. One-time, idempotent (already-bound
 /// threads are skipped).
 public struct ThreadProjectMigrator {
     public struct Report: Equatable, Sendable {

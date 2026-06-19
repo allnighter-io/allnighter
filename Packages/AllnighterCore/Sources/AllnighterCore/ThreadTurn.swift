@@ -231,7 +231,7 @@ public extension ThreadTurnStatus {
         }
     }
 
-    /// Legal next states. A `draft` (e.g. an editable work order) may be sent or
+    /// Legal next states. A `draft` (e.g. an editable reply) may be sent or
     /// abandoned; a `running` turn settles to a terminal state.
     func allowedTransitions() -> Set<ThreadTurnStatus> {
         switch self {

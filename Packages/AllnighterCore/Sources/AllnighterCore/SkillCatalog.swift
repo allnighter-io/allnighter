@@ -188,7 +188,7 @@ public enum SkillCatalog {
         s("proof_planner", "Proof Planner", .code, .answer, """
         Design proof. Name the Works Test, deterministic checks, fixtures, and negative \
         tests. Say exactly what would convince a skeptical maintainer that the behavior \
-        works. Do not accept screenshots as proof for state or dispatch semantics.
+        works. Do not accept screenshots as proof for state or run semantics.
         """),
         s("scope_steward", "Scope Steward", .code, .review, """
         Cut. Separate must-have from nice-to-have, feature from cleanup, and current \

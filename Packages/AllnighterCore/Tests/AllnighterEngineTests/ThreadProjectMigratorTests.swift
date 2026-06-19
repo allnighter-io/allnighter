@@ -5,7 +5,7 @@ import AllnighterCore
 /// PRJ-S03 Works Test: legacy threads with `workingDir` migrate to Projects via
 /// the deterministic binding rule — repo roots get a Project (subdirs of the same
 /// repo bind to it, not a new one), the old path is preserved as a receipt, and
-/// threads with no reliable root are left Unassigned (blocked from dispatch).
+/// threads with no reliable root are left Unassigned (blocked from runs).
 /// Migration is idempotent.
 final class ThreadProjectMigratorTests: XCTestCase {
     private var tmp: URL!

@@ -162,11 +162,11 @@ public enum ExecutionTeamSourceGate {
             SourceGateRepairOption(
                 kind: "twoStepFlow",
                 label: "Split into judgment then execution",
-                detail: "Run a mixed-source review team first, then dispatch one execution source."
+                detail: "Run a mixed-source review team first, then run one mutating source."
             ),
             SourceGateRepairOption(
                 kind: "revealOnly",
-                label: "Reveal work order without dispatch",
+                label: "Reveal handoff without running",
                 detail: "Show the handoff text without starting a mutating run."
             ),
         ]

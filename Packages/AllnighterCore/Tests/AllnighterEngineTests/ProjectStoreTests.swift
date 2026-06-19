@@ -4,7 +4,7 @@ import AllnighterCore
 
 /// PRJ-S01 ProjectStore Works Tests: add/list/archive, duplicate-root detection
 /// by the normalization key, observed git metadata vs folder kind, observed
-/// rootState (missing blocks mutating dispatch), and cross-instance persistence.
+/// rootState (missing blocks mutating runs), and cross-instance persistence.
 final class ProjectStoreTests: XCTestCase {
     private var tmp: URL!
     private var store: ProjectStore!
@@ -81,16 +81,16 @@ final class ProjectStoreTests: XCTestCase {
         XCTAssertEqual(try store.activeProjects().count, 3)   // still 3
     }
 
-    func testMissingRootChangesStateAndBlocksDispatch() throws {
+    func testMissingRootChangesStateAndBlocksMutatingRun() throws {
         let repo = try makeGitRepo("repoX")
         let p = try store.add(path: repo.path)
         XCTAssertEqual(p.rootState, .available)
-        XCTAssertTrue(p.allowsMutatingDispatch)
+        XCTAssertTrue(p.allowsMutatingRun)
 
         try FileManager.default.removeItem(at: repo)
         let refreshed = try XCTUnwrap(store.refreshObservation(id: p.id))
         XCTAssertEqual(refreshed.rootState, .missing)
-        XCTAssertFalse(refreshed.allowsMutatingDispatch)
+        XCTAssertFalse(refreshed.allowsMutatingRun)
     }
 
     func testArchiveHidesFromActiveButKeepsRecord() throws {

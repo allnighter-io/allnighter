@@ -51,7 +51,7 @@ public final class TeamGovernor: @unchecked Sendable {
 /// request (CLI / MCP / HTTP). Resolves request → team → workers, runs the fixed
 /// answer→review→output staging, and persists to the shared `Runs/` store.
 /// Recursion-guarded and governed; origin-tagged. Judgment only — it links no
-/// dispatch/executor code and writes only under `AllnighterPaths`.
+/// worker-runner code and writes only under `AllnighterPaths`.
 public actor TeamService {
     private let models: [Model]
     private let registry: DriverRegistry
