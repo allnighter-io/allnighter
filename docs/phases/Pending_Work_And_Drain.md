@@ -330,6 +330,8 @@ Existing useful pieces:
   `PendingItemJSON` already projects `nextWakeAt`.
 - `CapacityObservation` / `CapacityClassifier` exist, `PendingResume` can store
   a capacity observation, and `PendingItemJSON` can project it.
+- `WorkerRunner` now attaches classified capacity observations to
+  `WorkerRunOutcome` / `WorkerAnswer` before error reduction.
 - Public `alln pending` CRUD/list/show/submit/edit/reorder/cancel/run exists.
 - Parked Utilization defines future scheduler behavior for cooldowns, local
   slots, fallbacks, present/away mode, and mutating dispatch safety.
@@ -345,10 +347,9 @@ Missing truth:
 - New CLI-created Pending items are not reliably Project-scoped unless a caller
   supplies/binds `projectId`; with zero users, stale local dev records without
   Project truth are repair-only or disposable, not migration work.
-- Worker execution does not yet attach classified capacity observations to
-  `WorkerRunOutcome` / `WorkerAnswer`.
-- No call site writes capacity observations from worker attempts into
+- No Pending call site writes capacity observations from worker attempts into
   `PendingResume` yet for "continue this exact job when Claude is available."
+- `alln pending run` does not yet execute or settle workerChat/teamRun attempts.
 - `alln serve` is currently a health coordinator only; it does not wake or drain
   Pending items.
 - No Away Mode or Activity Summary contract exists for draining user-selected work
@@ -1032,13 +1033,16 @@ Scope:
 
 - `CapacityObservation` parser/adapter fixtures live with
   `Stalled_Work_Watchdog.md` and are built.
-- WTK-S01b must wire worker output capture before `errorReason` reduction.
+- WTK-S01b wired worker output capture before `errorReason` reduction.
+- WTK-S02a must make explicit CLI `pending run` execute and settle workerChat
+  Pending items before resident wake can retry due items.
 - Worker/Pending/team attempt settlement can write `PendingResume` with
   `cooldown` or `providerBusy`.
 - Pending JSON projects `nextWakeAt`, `blockedReason`, attempt reason, and no
   quota/cost/runtime estimates.
 - WTK-S02 must make explicit `pending run` drive and settle the same worker/team
-  path before `alln serve` can wake due items.
+  path before `alln serve` can wake due items. WTK-S02a starts with workerChat;
+  teamRun follows.
 - After WTK-S02, `alln serve` may wake exactly one due item and retry the same
   authorized work.
 - No fairness sweep, fallback routing, Away Mode, PTY probes, or admission ledger.

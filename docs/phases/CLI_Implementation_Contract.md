@@ -3,8 +3,9 @@
 Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `serve --stdio` projects from the registry. **Pending0/1 BUILT** (2026-06-17):
 `alln pending` CRUD + `PendingItemJSON`; current `pending run` records an attempt
-but does not execute/settle worker work. WTK-S00/S01a added
-`CapacityObservation`, Pending capacity JSON, and MCP Pending registry specs.
+but does not execute/settle worker work. WTK-S00/S01a/S01b added
+`CapacityObservation`, Pending capacity JSON, MCP Pending registry specs, and
+WorkerRunner capacity capture.
 Remaining (still owned here): live MCP Pending handlers, `pending stop`, real
 Pending execution/settlement, and generated contract cleanup. Full Wake Ticket /
 Watchdog handoff is blocked until MCP Pending parity exposes the same
