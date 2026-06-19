@@ -48,6 +48,17 @@ final class WorkOrderBuilderTests: XCTestCase {
         XCTAssertEqual(wo.lane, .none)
     }
 
+    func testExecutionTeamTargetsPopulateOnApprove() {
+        var p = proposal()
+        p.suggestedTeamId = "code_codex_implementation"
+        let wo = WorkOrderBuilder.build(from: p, project: project(proofCommands: ["swift test"]),
+                                        baseGitHead: nil, now: Date(timeIntervalSince1970: 9), idSuffix: "x",
+                                        teams: BuiltInTeams.all)
+        XCTAssertEqual(wo.executionTeamId, "code_codex_implementation")
+        XCTAssertEqual(wo.targetSourceId, "codex")
+        XCTAssertEqual(wo.targetAgent, "codex")
+    }
+
     func testApprovalContentHashIsStableAndContentSensitive() {
         let a = WorkOrderBuilder.approvalContentHash(proposal())
         let b = WorkOrderBuilder.approvalContentHash(proposal())

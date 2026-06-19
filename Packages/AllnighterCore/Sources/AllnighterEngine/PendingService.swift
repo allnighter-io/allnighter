@@ -8,6 +8,7 @@ public enum PendingServiceError: Error, Equatable, Sendable {
     case reorderInvalid(String)
     case mutationDeferred
     case unsupportedKind(String)
+    case sourceGateBlocked(SourceGateBlocker)
 }
 
 /// Pending CRUD and lifecycle rules (Pending0/Pending1). Drain/admission deferred to Pending2.
@@ -412,6 +413,9 @@ public struct PendingService: Sendable {
     }
 
     private func validateRunnableKind(_ item: PendingItem) throws {
+        if let blocker = PendingMutatingSourceGate.evaluate(item: item, readyModels: models) {
+            throw PendingServiceError.sourceGateBlocked(blocker)
+        }
         switch item.kind {
         case .workerChat:
             return

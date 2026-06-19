@@ -47,6 +47,37 @@ public struct ProjectExecutionResolver: Sendable {
         )
     }
 
+    /// PRJ-S11 substrate: revalidate mutating dispatch gates for a work order,
+    /// including execution-team source coherence before worker readiness.
+    public func evaluateMutatingDispatch(
+        workOrder: WorkOrder,
+        project: Project,
+        proposal: ProjectProposal?,
+        workerReadiness: [ProjectWorkerReadiness],
+        readyModels: [Model],
+        dirtyAcknowledged: Bool = false,
+        teams: [TeamPreset] = TeamCatalog.all,
+        registry: DriverRegistry? = nil
+    ) -> ProjectMutatingDispatchGate {
+        let rootState = observeRootState(project)
+        let dirty = rootState == .available && !project.archived
+            ? git.dirtyFiles(rootPath: project.localRootPath) : []
+        let head = rootState == .available ? git.observe(rootPath: project.localRootPath).head : nil
+        return ProjectMutatingDispatchEvaluator.evaluate(
+            workOrder: workOrder,
+            project: project,
+            proposal: proposal,
+            observedRootState: rootState,
+            dirtyFiles: dirty,
+            dirtyAcknowledged: dirtyAcknowledged,
+            workerReadiness: workerReadiness,
+            readyModels: readyModels,
+            currentGitHead: head,
+            teams: teams,
+            registry: registry
+        )
+    }
+
     /// Observe whether the Project root currently exists and is a readable
     /// directory. Observed, never inferred from the stored value.
     private func observeRootState(_ project: Project) -> RootState {

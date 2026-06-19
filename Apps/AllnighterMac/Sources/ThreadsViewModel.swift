@@ -426,6 +426,14 @@ final class ThreadsViewModel {
                                status: .failed, toThreadId: threadId)
             return
         }
+        let sourceRun = latestDurableTeamRun(in: threadId)
+        if let sourceRun, sourceRun.mutating, let required = sourceRun.executionSourceId,
+           model.driverId != required {
+            appendDispatchNote(
+                "This team executes on \(required) only. Pick that source for Execute, or run a non-mutating review team first.",
+                status: .failed, toThreadId: threadId)
+            return
+        }
         let dir = (store.get(threadId)?.workingDir ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !dir.isEmpty else {
             appendDispatchNote("Set a working directory on this conversation before you Execute — Allnighter won't run an agent in an unknown folder.",
@@ -436,7 +444,6 @@ final class ThreadsViewModel {
         let prompt = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
         // Dispatch the plan the team just wrote, if this thread has one; otherwise
         // the typed instruction directly. Either way the executor runs in the repo.
-        let sourceRun = latestDurableTeamRun(in: threadId)
         let brief: ImplementationBrief
         if let sourceRun, let built = BriefBuilder.build(run: sourceRun, executionWorkerId: model.id, workingDirectory: dir) {
             brief = built

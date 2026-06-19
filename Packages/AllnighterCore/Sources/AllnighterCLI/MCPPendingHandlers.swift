@@ -151,6 +151,13 @@ enum MCPPendingHandlers {
                 requiresManual: true,
                 retryable: false
             )
+        case .sourceGateBlocked(let blocker):
+            envelope = ErrorEnvelope(
+                code: blocker.code,
+                message: blocker.message,
+                requiresManual: true,
+                retryable: false
+            )
         case .unsupportedKind(let kind):
             envelope = ErrorEnvelope(
                 code: "CLI_USAGE_ERROR",

@@ -402,6 +402,10 @@ iOS:
   source conflict messaging, execution source on mutating cards.
 - [x] **ETS-S06 - Proof wall (DONE 2026-06-19).** `ExecutionTeamSourceGateTests`,
   contract export, `swift test --package-path Packages/AllnighterCore`.
+- [x] **ETS-S07 - Project dispatch substrate (DONE 2026-06-19).**
+  `ProjectMutatingDispatchEvaluator` composes source gate, dirty-state gate, and
+  per-Project worker readiness for PRJ-S11; `WorkOrderBuilder` stamps execution
+  targets; Pending and Mac Execute refuse mixed-source mutating dispatch.
 
 Until ETS-S02 and ETS-S04 are built, new mutating team-run surfaces are blocked
 from shipping. Reveal-only work orders and non-mutating mixed-source judgment

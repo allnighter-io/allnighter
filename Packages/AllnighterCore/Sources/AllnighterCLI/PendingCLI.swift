@@ -238,6 +238,8 @@ enum PendingCLI {
                 (code, message) = ("PENDING_REORDER_INVALID", detail)
             case .mutationDeferred:
                 (code, message) = ("PENDING_MUTATION_DEFERRED", "mutating dispatch is outside Pending M1")
+            case .sourceGateBlocked(let blocker):
+                (code, message) = (blocker.code, blocker.message)
             case .unsupportedKind(let kind):
                 (code, message) = ("CLI_USAGE_ERROR", "pending kind \(kind) is not runnable in this milestone; only workerChat is supported")
             }

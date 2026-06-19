@@ -13,10 +13,12 @@ public enum WorkOrderBuilder {
         project: Project,
         baseGitHead: String?,
         now: Date,
-        idSuffix: String
+        idSuffix: String,
+        teams: [TeamPreset] = TeamCatalog.all
     ) -> WorkOrder {
         let lane = proposal.suggestedLane.map(laneFor) ?? .none
         let proofCommands = project.proofCommands
+        let targets = executionTargets(from: proposal, teams: teams)
         // "Proof commands OR an explicit waiver" — never silently nothing.
         let waiver: String? = proofCommands.isEmpty
             ? "No proof commands are declared for this project. Proof is reveal-only: the user runs proof, or verification is needs-human."
@@ -28,6 +30,9 @@ public enum WorkOrderBuilder {
             title: proposal.title,
             lane: lane,
             mode: .reveal,                       // dispatch is an explicit S11 action
+            targetAgent: targets.targetAgent,
+            targetSourceId: targets.targetSourceId,
+            executionTeamId: targets.executionTeamId,
             promptBody: promptBody(for: proposal, project: project),
             scope: proposal.scope,
             nonGoals: proposal.nonGoals,
@@ -58,6 +63,20 @@ public enum WorkOrderBuilder {
     }
 
     // MARK: - Derivations
+
+    static func executionTargets(
+        from proposal: ProjectProposal, teams: [TeamPreset]
+    ) -> (executionTeamId: String?, targetSourceId: String?, targetAgent: String?) {
+        guard let teamId = proposal.suggestedTeamId,
+              let team = teams.first(where: { $0.id == teamId }) else {
+            return (nil, nil, nil)
+        }
+        guard team.mutating || team.posture == .execute else {
+            return (nil, nil, nil)
+        }
+        let source = team.executionSourceId
+        return (teamId, source, source)
+    }
 
     static func laneFor(_ lane: WorkLane) -> WorkOrderLane {
         switch lane {
