@@ -1,11 +1,11 @@
 # 00 — iOS Architecture & Trust Decision (read first)
 
-Status: **Locked for future iOS; deferred until the macOS app is done.** Every
-iOS doc obeys this one.
+Status: **Locked architecture; foundation prep may start; iOS product UI remains
+deferred.** Every iOS doc obeys this one.
 Milestone: iOS (Remote Project Manager)
 Owner: Founder
 Created: 2026-06-15
-Updated: 2026-06-17 (Mac-first reset)
+Updated: 2026-06-19 (Foundation Slice 0 reset)
 Depends on: `../../mvp/00_MVP_Architecture.md` §4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`
 
 > This fixes *how* the phone reaches the Mac and *how trust works*, so no later iOS
@@ -14,6 +14,11 @@ Depends on: `../../mvp/00_MVP_Architecture.md` §4/§6/§9, `../../mvp/RB6_Team_
 > premium "Direct Mode."** The earlier Tailscale-first drafts are superseded by this
 > file; the trust model they established is **transport-agnostic and carries over
 > unchanged** — that is exactly why the pivot is additive, not a rewrite.
+
+> **2026-06-19 reset:** start with `00a_iOS_Foundation_Slice_0.md`, not app UI.
+> The shared foundation can be prepared now because the `alln`/Core contract is
+> stable enough to harden locally. The phone product shell still waits for the Mac
+> Project Manager surface and `01` remote spine to settle.
 
 ---
 

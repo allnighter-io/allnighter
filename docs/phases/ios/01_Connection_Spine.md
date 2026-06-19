@@ -1,14 +1,15 @@
 # 01 — Connection Spine (cloud-first; the reusable core)
 
-Status: Draft — **finalized for future iOS implementation**, but deferred until
-the macOS app is done. Not a Mac blocker.
+Status: Draft — foundation spec under Slice 0 refresh; iOS product UI remains
+deferred. Not a Mac blocker.
 Milestone: iOS (Remote Project Manager)
 Owner: Mac + Shared Core
 Created: 2026-06-15
-Updated: 2026-06-17 (Mac-first reset)
-Depends on: `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
+Updated: 2026-06-19 (Foundation Slice 0 reset)
+Depends on: `00a_iOS_Foundation_Slice_0.md`, `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
 §4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`, `../CLI_Product_Spine.md`,
-`../Work_Order_Team_Model.md` (vocabulary). Historical cleanup record:
+`../Work_Order_Team_Model.md` (vocabulary),
+`../Mac_Standalone_App_And_Background_Coordinator.md`. Historical cleanup record:
 `../../archive/phases/Team_First_Vocabulary_Cleanup.md`.
 
 ## Architecture principle (carries the whole design)
@@ -30,22 +31,27 @@ Mac agent ──dials OUT──►  command inbox + events + auth ───┘
                           encrypted transient blobs (presigned, TTL)
 ```
 
-## Reality check (verified in-tree, 2026-06-15)
+## Reality check (verified in-tree, 2026-06-19)
 
-- **No agent/server exists yet.** `AllnighterCLI` currently has legacy
-  `ask/presets/recall/doctor/mcp/install-cli/mcp-install` — no cloud agent, no
-  `serve`. That legacy CLI grammar is superseded by `alln team`, `alln models`,
-  and `alln doctor`. The **outbound Mac agent** (cloud) and the **loopback
-  HTTP/WS server** (RB6-S08, reused by Direct Mode) must be built.
-- **Events are not durable.** `RunEvent` is in-process `AsyncStream`; `RunStore`
-  persists only `run.json` + Markdown. Resume needs a durable **event journal +
-  monotonic persisted `seq`** (the Mac journal is truth; the cloud mirror is
-  transient).
-- **Pre-req — freeze the event/run vocabulary.** Retire/map legacy
-  `synthesis.*` -> `stage.*` (`00_MVP_Architecture` §6) and
-  `TeamRun`/`workerAnswers`/`plan` -> `TeamRun`/`workerAnswers`/`plan`
-  **before the wire locks**. iOS should consume the same `TeamRunJSON` shape as
-  `alln team --json`; it should never see a dual vocabulary.
+- **CLI/Core foundation exists.** `alln` is the product CLI, `TeamRunJSON` is the
+  shared machine contract, async team status/result/cancel exists, Pending/Project
+  Core pieces exist, and `alln serve` exists as a resident coordinator health/wake
+  skeleton.
+- **The remote agent/server does not exist yet.** Current `alln serve` is not a
+  cloud outbound agent and not a typed command/event HTTP/WS surface. The
+  **outbound Mac agent** (cloud) and the **Direct Mode command/event server** still
+  must be built on top of the coordinator boundary.
+- **Run durability is partial.** `RunStore` now writes non-terminal `run.json`
+  snapshots + `owner.pid` and reads dead owners as `interrupted`. Resume still
+  needs a durable append-only **event journal + monotonic persisted `seq`** (the
+  Mac journal is truth; the cloud mirror is transient).
+- **Pre-req — freeze the event/run vocabulary.** Generic `stage.*` events exist,
+  but legacy `synthesis.*` constants still exist in `RunEventKind`. Retire/map
+  them before the wire locks. iOS consumes the same `TeamRunJSON` shape as
+  `alln team --json`; it never gets a dual vocabulary.
+- **iOS app target is quarantined.** `Apps/AllnighteriOS/` is still the SwiftData
+  starter scaffold. Foundation work happens in Core/Engine and proves with
+  `MockiOSClient`; no SwiftUI dependency.
 
 ## Goal
 
@@ -161,7 +167,7 @@ media_keys        { ref, deviceId, sealedKey, PRIMARY KEY(ref, deviceId) }      
 
 ## The Mac agent (outbound — the new core component)
 
-In the Mac app **and** a headless `allnighter serve --cloud`. For a closet Mac, a
+In the Mac app **and** a headless `alln serve` remote mode. For a closet Mac, a
 **launchd agent with `KeepAlive`** relaunches it across crash/reboot (a power
 assertion is not durability). The agent:
 1. **Dials out** to Supabase (authed as its `mac_agent`); heartbeat + exponential-
@@ -343,9 +349,20 @@ loopback HTTP/WS server (RB6-S08) exposed via an `ExposureProvider` (`tailscale 
 
 ## Ordered Slices
 
+**Group 0 — Foundation Slice 0 (docs + cleanup gates, no app target):**
+- [ ] iOS00a-S00 — Sync foundation docs to current repo state and route all
+  implementation through `00a`.
+- [ ] iOS00a-S01 — Freeze remote event vocabulary plan (`synthesis.*` retired or
+  private-mapped; public remote output is `run.*`/`worker.*`/`stage.*`).
+- [ ] iOS00a-S02 — Specify event journal/snapshot hardening over the current
+  incremental `run.json` snapshots.
+- [ ] iOS00a-S03 — Mark the `alln serve` coordinator boundary: health/wake exists;
+  remote typed command/event carriers still need implementation.
+- [ ] iOS00a-S04 — Quarantine the SwiftData iOS scaffold until `02`.
+
 **Group A — Core + crypto + mock (no app target, `swift test`):**
-- [ ] (pre-req) Freeze event/run vocabulary (`synthesis.*` -> `stage.*`,
-  `TeamRun` -> `TeamRun`, `plan` -> `plan`) against the CLI schema.
+- [ ] (pre-req from Group 0) Freeze event/run vocabulary (`synthesis.*` -> `stage.*`)
+  against the CLI schema.
 - [ ] iOS01-S00 — Core models above **+ the crypto contract** (two-key model, `SealedBlob`/HPKE,
   signing string incl. `deviceId`, dedupe=skew, protocol version) with **round-trip
   test vectors**; fixtures.

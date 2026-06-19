@@ -5,10 +5,10 @@
 > trust model, and the connection spine so iOS can land later without reshaping
 > the Mac product.
 
-Status: **Deferred until the macOS app is done.** Architecture decisions are
-preserved here, but iOS work must not block Mac feature delivery, Mac proofs, or
-Mac phase closeout.
-Updated: 2026-06-17 (Mac-first reset)
+Status: **Foundation prep may start; iOS product UI remains deferred.** Architecture
+decisions are preserved here, but iOS work must not block Mac feature delivery, Mac
+proofs, or Mac phase closeout.
+Updated: 2026-06-19 (Foundation Slice 0 reset)
 
 ---
 
@@ -51,14 +51,17 @@ just works.*
 
 ```text
 00   iOS Architecture & Trust Decision  (cloud-first; trust model; sign-in; E2E)  <- read first
+00a  Foundation Slice 0                 (sync, cleanup, hardening before remote code)
 01   Connection Spine                   (Supabase control + R2 media + Mac agent + trust + RemoteClient)
 01a  Pairing Ceremony                   (sign in -> tap your Mac -> approve once)
 02   iOS App Shell                      (onboarding / Home / Active / Design board / kill switch)  [deferred GUI]
 03   iOS Thread Read State And Push     (remote unread + mobile push; deferred)
 ```
 
-> iOS execution starts after the macOS app is done. When it starts, pairing
-> (`01a`) is still the first trust moment, but it is not a Mac blocker.
+> iOS **product/UI** execution starts after the macOS app is done. Foundation-only
+> work may start with `00a` when it is limited to shared Core/Engine contracts,
+> mock clients, journal/replay hardening, and docs. Pairing (`01a`) is still the
+> first trust moment, but it is not a Mac blocker.
 
 [`03_iOS_Thread_Read_State_And_Push.md`](03_iOS_Thread_Read_State_And_Push.md)
 owns remote unread state and mobile push. Do not put that acceptance burden back
@@ -66,13 +69,21 @@ on Mac thread docs.
 
 ### Known pre-reqs (do not skip)
 
-1. **The server/agent doesn't exist.** `01` builds the **outbound Mac agent** (cloud)
-   and the loopback server (Direct Mode); neither is in-tree.
-2. **Events aren't durable.** Resume needs an event journal + persisted monotonic
-   `seq` (`01` § Event durability) — Mac journal = truth, cloud mirror = transient.
+1. **The remote agent/server doesn't exist.** `alln serve` now exists as a resident
+   coordinator/health/wake skeleton, but `01` still must build the **outbound Mac
+   agent** (cloud) and the command/event HTTP/WS surface used by Direct Mode.
+2. **Run durability is partial.** `RunStore` now writes non-terminal snapshots and
+   owner markers with orphan recovery, but resume still needs an append-only event
+   journal + persisted monotonic `seq` (`01` § Event durability) — Mac journal =
+   truth, cloud mirror = transient.
 3. **Freeze the event vocabulary** (`synthesis.*` → `stage.*`) before the wire locks.
-4. **Delete the SwiftData template** at `Allnighter/Allnighter.xcodeproj`; stand up
-   `Apps/AllnighteriOS/` via XcodeGen (`02` pre-req).
+4. **Do not build on the SwiftData template.** The current
+   `Apps/AllnighteriOS/` project is still the starter scaffold (`Item.swift`,
+   persistent `ModelContainer`, hand-managed `.xcodeproj`). `00a` quarantines it;
+   `02` deletes/replaces it when UI work starts.
+5. **Do not depend on unfinished Project Manager UX.** PRJ-S00-S06 are built, but
+   PRJ-S07-S13 are still moving. Foundation can expose typed team-run commands and
+   snapshots; phone-as-Project-Manager surfaces wait.
 
 ---
 

@@ -1,13 +1,14 @@
 # 01a — Pairing Ceremony (the WOW — sign in, tap your Mac, approve once)
 
-Status: Draft — **first iOS trust foundation when iOS starts**, but deferred until
-the macOS app is done. Not a Mac blocker.
+Status: Draft — first trust foundation after Slice 0; iOS product UI remains
+deferred. Not a Mac blocker.
 Milestone: iOS (Remote Project Manager)
 Owner: Mac + Shared Core (engine) / iOS (presenter)
 Created: 2026-06-15
-Updated: 2026-06-17 (Mac-first reset)
-Depends on: `01_Connection_Spine.md` (`TrustedRemoteStore`, device assertion, the Mac
-agent), `00` (§3 trust model, §5 sign-in, §2.4 connection modes)
+Updated: 2026-06-19 (Foundation Slice 0 reset)
+Depends on: `00a_iOS_Foundation_Slice_0.md`, `01_Connection_Spine.md`
+(`TrustedRemoteStore`, device assertion, the Mac agent), `00` (§3 trust model, §5
+sign-in, §2.4 connection modes)
 
 ## Why this is its own doc, and why it is not "later"
 
@@ -61,7 +62,7 @@ The everyday path, and the simplest possible:
 3. Phone lists "Your Macs" (account-based discovery, 01 RemoteClient.macs()).
 4. Tap a Mac -> phone generates its device key, sends a pair request (device pubkey)
    via the control plane.
-5. Mac shows "Trust Mike's iPhone?" -> ONE-TAP APPROVE (or `allnighter pair approve`
+5. Mac shows "Trust Mike's iPhone?" -> ONE-TAP APPROVE (or `alln pair approve`
    / a notification if the Mac is headless).
 6. Phone lands directly on live runs. Thereafter it signs commands; the Mac verifies.
 ```
@@ -70,7 +71,7 @@ No scanning, no codes. "Same account" replaces the old "same tailnet" failure mo
 and everyone understands "use the same Apple ID."
 
 **v1 approval is Mac-only** (the human at the Mac taps Approve, or runs
-`allnighter pair approve`, or taps a Mac notification). **Adding a device while away
+`alln pair approve`, or taps a Mac notification). **Adding a device while away
 from the Mac is v1.1** — but the `approveRequest` command is **reserved in the closed
 enum now** (`01`) so v1.1 is wiring, not a wire-contract change. (Reconciles the
 earlier "approve from an already-trusted device" wording: that is v1.1, not v1.)
@@ -82,7 +83,7 @@ earlier "approve from an already-trusted device" wording: that is v1.1, not v1.)
 
 > **First-device bootstrap on a truly headless Mac** (closet mini, no display): the
 > *first* pairing **requires a monitor/keyboard once, or SSH** to run
-> `allnighter pair approve` — nothing trusted exists yet to delegate to. This is an
+> `alln pair approve` — nothing trusted exists yet to delegate to. This is an
 > unavoidable, one-time floor; device #2+ gets the ergonomic remote-approve in v1.1.
 
 ### B. Direct Mode / headless / Mac→Mac — the carrier ceremony (QR + link + code)
@@ -93,7 +94,7 @@ identity. **One ceremony, three carriers**, same payload/token/approval:
 
 | Carrier | For | How |
 | --- | --- | --- |
-| **QR (deep-link)** | enabling Direct Mode on a phone | Mac shows a QR encoding `allnighter://pair?...`; Camera opens Allnighter **mid-ceremony** — zero typing |
+| **QR (universal link)** | enabling Direct Mode on a phone | Mac shows a QR encoding an Allnighter-owned `https://.../pair?...` universal link; Camera opens Allnighter **mid-ceremony** — zero typing |
 | **Pairing link** | Mac → Mac (MacBook → headless mini) | "Copy pairing link" → open on the other Mac → it connects + requests approval |
 | **Manual 6-digit code** | terminal / QR won't scan | short code, short TTL, backoff — the only typed path |
 
@@ -136,10 +137,10 @@ when the deferred iOS phase starts, and it doubles as the Mac->Mac/headless
 approver:
 
 ```text
-allnighter pair list                       # pending + trusted devices
-allnighter pair approve <deviceId>         # the human gate (cloud-mode approval too)
-allnighter pair revoke  <deviceId>
-allnighter pair begin                      # Direct Mode: arms a window; prints deep-link + ASCII QR + 6-digit code
+alln pair list                             # pending + trusted devices
+alln pair approve <deviceId>               # the human gate (cloud-mode approval too)
+alln pair revoke  <deviceId>
+alln pair begin                            # Direct Mode: arms a window; prints universal-link QR + 6-digit code
 ```
 
 The full ceremony (both modes, device-key gen, approval, dedupe, expiry, lockout,
@@ -152,7 +153,7 @@ GUI is a thin presenter over exactly this.
 | --- | --- |
 | Account-based pairing engine (discover → request → approve) in Core + Mac agent | The SwiftUI "Your Macs → tap → waiting for approval" screen |
 | `TrustedRemoteStore`, device-key gen, signed assertion | The Mac one-tap "Trust this device?" sheet |
-| CLI approval + Direct-Mode carriers (QR/link/code) | iOS `allnighter://pair` URL-scheme + Camera handoff (Direct Mode) |
+| CLI approval + Direct-Mode carriers (QR/link/code) | Universal-link / App-Store-fallback wiring + Camera handoff (Direct Mode) |
 | `MockiOSClient` proof of the whole ceremony | Universal-link / App-Store-fallback wiring |
 
 **Sequencing:** because pairing is the trust foundation, its SwiftUI screen is **one
@@ -173,12 +174,12 @@ Cloud mode (default):
   - Two devices signed into the same account: the phone lists the Mac, taps it, the
     Mac shows "Trust this iPhone?", one tap approves, the phone lands on live runs
     -- WITHOUT typing or scanning anything -- in under ~20s.
-  - Headless Mac: approval works via `allnighter pair approve` / notification.
+  - Headless Mac: approval works via `alln pair approve` / notification.
   - Pair once, force-quit, relaunch -> reconnects automatically.
 Direct Mode / Mac->Mac:
-  - Camera at the deep-link QR opens the app mid-ceremony, approve on the Mac, P2P
-    connection established (no relay); manual code + pairing-link carriers also work;
-    resumes across a Tailscale install.
+  - Camera at the universal-link QR opens the app mid-ceremony, approve on the Mac,
+    P2P connection established (no relay); manual code + pairing-link carriers also
+    work; resumes across a Tailscale install.
 Both:
   - single-use token/request + expiry + failed-attempt lockout enforced;
   - the entire ceremony passes headless (CLI + MockiOSClient), no SwiftUI.
