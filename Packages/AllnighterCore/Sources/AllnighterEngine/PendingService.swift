@@ -232,7 +232,7 @@ public struct PendingService: Sendable {
            let laneIndex = index.executionLanes.firstIndex(where: { $0.executionLaneKey == laneKey }) {
             var lane = index.executionLanes[laneIndex]
             guard let laneFrom = lane.orderedItemIds.firstIndex(of: id) else {
-                throw PendingServiceError.reorderInvalid("item not in execution lane")
+                throw PendingServiceError.reorderInvalid("item not in serialized group")
             }
             lane.orderedItemIds.remove(at: laneFrom)
             let laneInsert: Int
@@ -242,7 +242,7 @@ public struct PendingService: Sendable {
                       otherItem.execution?.executionLaneKey == laneKey,
                       otherItem.status == .draft || otherItem.status == .pending,
                       let laneTo = lane.orderedItemIds.firstIndex(of: other) else {
-                    throw PendingServiceError.reorderInvalid("anchor must be a Pending item in the same execution lane")
+                    throw PendingServiceError.reorderInvalid("anchor must be a Pending item in the same serialized group")
                 }
                 laneInsert = laneTo
             case .after(let other):
@@ -250,7 +250,7 @@ public struct PendingService: Sendable {
                       otherItem.execution?.executionLaneKey == laneKey,
                       otherItem.status == .draft || otherItem.status == .pending,
                       let laneTo = lane.orderedItemIds.firstIndex(of: other) else {
-                    throw PendingServiceError.reorderInvalid("anchor must be a Pending item in the same execution lane")
+                    throw PendingServiceError.reorderInvalid("anchor must be a Pending item in the same serialized group")
                 }
                 laneInsert = laneTo + 1
             case .position(let pos):
