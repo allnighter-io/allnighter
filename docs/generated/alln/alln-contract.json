@@ -1625,6 +1625,221 @@
 
       ],
       "flags" : [
+        {
+          "name" : "all",
+          "summary" : "Include archived projects.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectListJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project list",
+      "outputSchema" : "none",
+      "summary" : "List projects (active by default; --all includes archived)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "summary" : "Local folder \/ git repo root."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "name",
+          "summary" : "Display name (defaults to the folder name).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project add",
+      "outputSchema" : "none",
+      "summary" : "Add (or return the existing) project for a local root. Idempotent on normalized root."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project show",
+      "outputSchema" : "none",
+      "summary" : "Show one project; re-observes root\/git so output reflects current truth."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project archive",
+      "outputSchema" : "none",
+      "summary" : "Archive a project (hides it; never deletes local files or threads)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project unarchive",
+      "outputSchema" : "none",
+      "summary" : "Restore an archived project to the active roster."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectThreadsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project threads",
+      "outputSchema" : "none",
+      "summary" : "List the work threads bound to one project."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectPendingJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project pending",
+      "outputSchema" : "none",
+      "summary" : "List the pending work bound to one project (a filtered view of the one Pending store)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectContextJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project context",
+      "outputSchema" : "none",
+      "summary" : "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth)."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
 
       ],
       "milestone" : "deferred",
@@ -2355,6 +2570,132 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "internal.error"
+    },
+    {
+      "agentAction" : "Run `alln project list --json`; retry with a valid id or name.",
+      "code" : "PROJECT_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No project matches the given id or name. List projects and retry with a valid identifier.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.not_found"
+    },
+    {
+      "agentAction" : "Select or add a project, then re-run the mutating action.",
+      "code" : "NO_PROJECT_SELECTED",
+      "exitClass" : "usage",
+      "explain" : "A mutating action was attempted with no project selected. Mutating work is always scoped to one project root.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.none_selected"
+    },
+    {
+      "agentAction" : "Use the existing project that owns this normalized root.",
+      "code" : "DUPLICATE_PROJECT_ROOT",
+      "exitClass" : "operational",
+      "explain" : "The path resolves to an existing project's normalized root; the existing project is returned rather than a duplicate.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "project.duplicate_root"
+    },
+    {
+      "agentAction" : "Restore the folder\/permissions, then `alln project show <id>` to re-observe.",
+      "code" : "PROJECT_ROOT_UNAVAILABLE",
+      "exitClass" : "operational",
+      "explain" : "The project root is missing or permission-denied (rootState != available); mutating dispatch is blocked until the root is restored.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "project.root_unavailable"
+    },
+    {
+      "agentAction" : "Run `alln project unarchive <id>` before new runs.",
+      "code" : "PROJECT_ARCHIVED",
+      "exitClass" : "operational",
+      "explain" : "The project is archived. Unarchive it before starting new runs; reads remain available.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.archived"
+    },
+    {
+      "agentAction" : "Assign the thread\/pending item to a project, then retry.",
+      "code" : "THREAD_UNASSIGNED",
+      "exitClass" : "operational",
+      "explain" : "The thread or pending item has no project. Assign it to a project before mutating dispatch.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "thread.unassigned"
+    },
+    {
+      "agentAction" : "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust\/login, then recheck.",
+      "code" : "WORKER_NOT_READY_IN_PROJECT",
+      "exitClass" : "operational",
+      "explain" : "The target worker's project readiness is not `ready` for this root. Dispatch falls back to reveal or shows setup copy until the worker is ready here.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "project.worker_not_ready"
+    },
+    {
+      "agentAction" : "Run `alln models --json`; enable a ready planner-capable model.",
+      "code" : "MANAGER_MODEL_UNAVAILABLE",
+      "exitClass" : "operational",
+      "explain" : "No ready manager model is available, so the Manager turn is `wait` with a readiness blocker rather than a fabricated answer.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "project.manager_model_unavailable"
+    },
+    {
+      "agentAction" : "Run `alln project proposals <id> --json`; retry with a valid proposal id.",
+      "code" : "PROPOSAL_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No proposal matches the given id.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.proposal_not_found"
+    },
+    {
+      "agentAction" : "Approve the proposal (`alln project approve <id>`) before dispatch.",
+      "code" : "PROPOSAL_NOT_APPROVED",
+      "exitClass" : "operational",
+      "explain" : "Dispatch was attempted on an unapproved proposal or work order. Approval is required first.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.proposal_not_approved"
+    },
+    {
+      "agentAction" : "Revalidate the proposal against the current head, then dispatch.",
+      "code" : "BASE_HEAD_CHANGED",
+      "exitClass" : "operational",
+      "explain" : "The approved baseGitHead differs from the current head. Revalidate scope before dispatching.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.base_head_changed"
+    },
+    {
+      "agentAction" : "Acknowledge including the dirty files or clean them, then dispatch.",
+      "code" : "DIRTY_SCOPE_CONFLICT",
+      "exitClass" : "operational",
+      "explain" : "Dirty files overlap the proposal's likely scope. Acknowledge them as preexisting context or clean them first.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.dirty_scope_conflict"
+    },
+    {
+      "agentAction" : "Read the named failing gate(s) and resolve each, then retry dispatch.",
+      "code" : "DISPATCH_GATE_FAILED",
+      "exitClass" : "operational",
+      "explain" : "One or more dispatch gates failed. The failing gate(s) are named in the message.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "project.dispatch_gate_failed"
+    },
+    {
+      "agentAction" : "Run `alln project verify <id>`; a worker claim cannot mark work done.",
+      "code" : "VERIFICATION_REQUIRED",
+      "exitClass" : "operational",
+      "explain" : "A completion claim was advanced to done without a VerificationRecord. Verification (proof + git observation) or an explicit waiver is required.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "project.verification_required"
     }
   ],
   "events" : [

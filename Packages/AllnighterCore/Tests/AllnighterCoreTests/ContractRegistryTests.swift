@@ -37,6 +37,8 @@ final class ContractRegistryTests: XCTestCase {
             "pending add", "pending list", "pending show", "pending submit", "pending edit",
             "pending reorder", "pending cancel", "pending run",
             "mcp serve",
+            "project list", "project add", "project show", "project archive", "project unarchive",
+            "project threads", "project pending", "project context",
         ])
     }
 

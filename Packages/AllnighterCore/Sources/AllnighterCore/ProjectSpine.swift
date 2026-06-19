@@ -295,6 +295,11 @@ public enum NextActionKind: String, Codable, Sendable, CaseIterable {
     case recheckWorkers
     case openProject
     case askUser
+    // Read/navigation actions the foundation CLI + Manager can suggest (PRJ-S07).
+    case addProject
+    case projectContext
+    case listThreads
+    case listPending
 }
 
 public struct ProjectNextAction: Codable, Sendable, Equatable {

@@ -636,6 +636,85 @@ Run the MCP stdio server.
 Flags:
 - `--stdio` — Use stdio transport (default).
 
+### `alln project list`
+
+List projects (active by default; --all includes archived).
+
+Flags:
+- `--all` — Include archived projects.
+- `--json` — Emit a ProjectListJSON object.
+
+### `alln project add`
+
+Add (or return the existing) project for a local root. Idempotent on normalized root.
+
+Arguments:
+- `path` (required) — Local folder / git repo root.
+
+Flags:
+- `--name <string>` — Display name (defaults to the folder name).
+- `--json` — Emit a ProjectJSON object.
+
+### `alln project show`
+
+Show one project; re-observes root/git so output reflects current truth.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectJSON object.
+
+### `alln project archive`
+
+Archive a project (hides it; never deletes local files or threads).
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectJSON object.
+
+### `alln project unarchive`
+
+Restore an archived project to the active roster.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectJSON object.
+
+### `alln project threads`
+
+List the work threads bound to one project.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectThreadsJSON object.
+
+### `alln project pending`
+
+List the pending work bound to one project (a filtered view of the one Pending store).
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectPendingJSON object.
+
+### `alln project context`
+
+Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectContextJSON object.
+
 ## Commands (named but deferred)
 
 - `alln work` — Create a work order.
@@ -712,6 +791,20 @@ Flags:
 | `MODEL_INVALID` | yes | no | Fix the model definition and retry the edit. |
 | `MODEL_DRIVER_MISSING` | yes | no | Reference a known driver id, or add the driver manifest first. |
 | `INTERNAL_ERROR` | yes | no | Capture the message and `traceId`; retry once, then report if it persists. |
+| `PROJECT_NOT_FOUND` | yes | no | Run `alln project list --json`; retry with a valid id or name. |
+| `NO_PROJECT_SELECTED` | yes | no | Select or add a project, then re-run the mutating action. |
+| `DUPLICATE_PROJECT_ROOT` | no | no | Use the existing project that owns this normalized root. |
+| `PROJECT_ROOT_UNAVAILABLE` | yes | yes | Restore the folder/permissions, then `alln project show <id>` to re-observe. |
+| `PROJECT_ARCHIVED` | yes | no | Run `alln project unarchive <id>` before new runs. |
+| `THREAD_UNASSIGNED` | yes | no | Assign the thread/pending item to a project, then retry. |
+| `WORKER_NOT_READY_IN_PROJECT` | yes | yes | Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
+| `MANAGER_MODEL_UNAVAILABLE` | no | yes | Run `alln models --json`; enable a ready planner-capable model. |
+| `PROPOSAL_NOT_FOUND` | yes | no | Run `alln project proposals <id> --json`; retry with a valid proposal id. |
+| `PROPOSAL_NOT_APPROVED` | yes | no | Approve the proposal (`alln project approve <id>`) before dispatch. |
+| `BASE_HEAD_CHANGED` | yes | no | Revalidate the proposal against the current head, then dispatch. |
+| `DIRTY_SCOPE_CONFLICT` | yes | no | Acknowledge including the dirty files or clean them, then dispatch. |
+| `DISPATCH_GATE_FAILED` | yes | no | Read the named failing gate(s) and resolve each, then retry dispatch. |
+| `VERIFICATION_REQUIRED` | no | no | Run `alln project verify <id>`; a worker claim cannot mark work done. |
 
 ## NDJSON events
 

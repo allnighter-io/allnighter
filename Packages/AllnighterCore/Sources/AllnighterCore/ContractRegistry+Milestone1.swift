@@ -552,6 +552,48 @@ public extension ContractRegistry {
             "mcp serve", summary: "Run the MCP stdio server.", milestone: .m1,
             flags: [FlagSpec("stdio", summary: "Use stdio transport (default).")]
         ),
+        // Project foundation (PRJ-S07). list/add/show/archive the local work
+        // floors and read the threads/pending/context bound to one. Manager chat,
+        // proposals, dispatch, and verification are PRJ-S08+.
+        CommandSpec(
+            "project list", summary: "List projects (active by default; --all includes archived).", milestone: .m1,
+            flags: [FlagSpec("all", summary: "Include archived projects."), FlagSpec("json", summary: "Emit a ProjectListJSON object.")]
+        ),
+        CommandSpec(
+            "project add", summary: "Add (or return the existing) project for a local root. Idempotent on normalized root.", milestone: .m1,
+            args: [ArgSpec("path", required: true, summary: "Local folder / git repo root.")],
+            flags: [FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name (defaults to the folder name)."), FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+        ),
+        CommandSpec(
+            "project show", summary: "Show one project; re-observes root/git so output reflects current truth.", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+        ),
+        CommandSpec(
+            "project archive", summary: "Archive a project (hides it; never deletes local files or threads).", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+        ),
+        CommandSpec(
+            "project unarchive", summary: "Restore an archived project to the active roster.", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+        ),
+        CommandSpec(
+            "project threads", summary: "List the work threads bound to one project.", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectThreadsJSON object.")]
+        ),
+        CommandSpec(
+            "project pending", summary: "List the pending work bound to one project (a filtered view of the one Pending store).", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectPendingJSON object.")]
+        ),
+        CommandSpec(
+            "project context", summary: "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectContextJSON object.")]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
@@ -631,6 +673,22 @@ public extension ContractRegistry {
         ErrorSpec("MODEL_INVALID", ruleId: "model.invalid", agentAction: "Fix the model definition and retry the edit.", requiresManual: true, retryable: false, explain: "The model definition or id is invalid (bad id, missing fields, or unknown driver mapping)."),
         ErrorSpec("MODEL_DRIVER_MISSING", ruleId: "model.driver.missing", agentAction: "Reference a known driver id, or add the driver manifest first.", requiresManual: true, retryable: false, explain: "The model references a driver that is not registered. Use a known driver id or add its manifest."),
         ErrorSpec("INTERNAL_ERROR", ruleId: "internal.error", agentAction: "Capture the message and `traceId`; retry once, then report if it persists.", requiresManual: true, retryable: false, explain: "An unexpected internal failure occurred (not a usage error). The detail is in the message; this is a defensive catch-all, not a routine condition."),
+        // Project foundation (PRJ-S07+). The full set is registered up front so the
+        // recovery ladder and doctor explain cover them as the later slices emit them.
+        ErrorSpec("PROJECT_NOT_FOUND", ruleId: "project.not_found", agentAction: "Run `alln project list --json`; retry with a valid id or name.", requiresManual: true, retryable: false, explain: "No project matches the given id or name. List projects and retry with a valid identifier."),
+        ErrorSpec("NO_PROJECT_SELECTED", ruleId: "project.none_selected", agentAction: "Select or add a project, then re-run the mutating action.", requiresManual: true, retryable: false, explain: "A mutating action was attempted with no project selected. Mutating work is always scoped to one project root.", exitClass: .usage),
+        ErrorSpec("DUPLICATE_PROJECT_ROOT", ruleId: "project.duplicate_root", agentAction: "Use the existing project that owns this normalized root.", requiresManual: false, retryable: false, explain: "The path resolves to an existing project's normalized root; the existing project is returned rather than a duplicate."),
+        ErrorSpec("PROJECT_ROOT_UNAVAILABLE", ruleId: "project.root_unavailable", agentAction: "Restore the folder/permissions, then `alln project show <id>` to re-observe.", requiresManual: true, retryable: true, explain: "The project root is missing or permission-denied (rootState != available); mutating dispatch is blocked until the root is restored."),
+        ErrorSpec("PROJECT_ARCHIVED", ruleId: "project.archived", agentAction: "Run `alln project unarchive <id>` before new runs.", requiresManual: true, retryable: false, explain: "The project is archived. Unarchive it before starting new runs; reads remain available."),
+        ErrorSpec("THREAD_UNASSIGNED", ruleId: "thread.unassigned", agentAction: "Assign the thread/pending item to a project, then retry.", requiresManual: true, retryable: false, explain: "The thread or pending item has no project. Assign it to a project before mutating dispatch."),
+        ErrorSpec("WORKER_NOT_READY_IN_PROJECT", ruleId: "project.worker_not_ready", agentAction: "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck.", requiresManual: true, retryable: true, explain: "The target worker's project readiness is not `ready` for this root. Dispatch falls back to reveal or shows setup copy until the worker is ready here."),
+        ErrorSpec("MANAGER_MODEL_UNAVAILABLE", ruleId: "project.manager_model_unavailable", agentAction: "Run `alln models --json`; enable a ready planner-capable model.", requiresManual: false, retryable: true, explain: "No ready manager model is available, so the Manager turn is `wait` with a readiness blocker rather than a fabricated answer."),
+        ErrorSpec("PROPOSAL_NOT_FOUND", ruleId: "project.proposal_not_found", agentAction: "Run `alln project proposals <id> --json`; retry with a valid proposal id.", requiresManual: true, retryable: false, explain: "No proposal matches the given id."),
+        ErrorSpec("PROPOSAL_NOT_APPROVED", ruleId: "project.proposal_not_approved", agentAction: "Approve the proposal (`alln project approve <id>`) before dispatch.", requiresManual: true, retryable: false, explain: "Dispatch was attempted on an unapproved proposal or work order. Approval is required first."),
+        ErrorSpec("BASE_HEAD_CHANGED", ruleId: "project.base_head_changed", agentAction: "Revalidate the proposal against the current head, then dispatch.", requiresManual: true, retryable: false, explain: "The approved baseGitHead differs from the current head. Revalidate scope before dispatching."),
+        ErrorSpec("DIRTY_SCOPE_CONFLICT", ruleId: "project.dirty_scope_conflict", agentAction: "Acknowledge including the dirty files or clean them, then dispatch.", requiresManual: true, retryable: false, explain: "Dirty files overlap the proposal's likely scope. Acknowledge them as preexisting context or clean them first."),
+        ErrorSpec("DISPATCH_GATE_FAILED", ruleId: "project.dispatch_gate_failed", agentAction: "Read the named failing gate(s) and resolve each, then retry dispatch.", requiresManual: true, retryable: false, explain: "One or more dispatch gates failed. The failing gate(s) are named in the message."),
+        ErrorSpec("VERIFICATION_REQUIRED", ruleId: "project.verification_required", agentAction: "Run `alln project verify <id>`; a worker claim cannot mark work done.", requiresManual: false, retryable: false, explain: "A completion claim was advanced to done without a VerificationRecord. Verification (proof + git observation) or an explicit waiver is required."),
     ]
 
     // MARK: - Doctor checks (stable names)
