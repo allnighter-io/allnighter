@@ -45,8 +45,6 @@ Arguments:
 Flags:
 - `--json` — Structured explanation.
 
-Output schema: `errorEnvelope`.
-
 Examples: `doctor_explain`.
 
 ### `alln models`
@@ -455,6 +453,8 @@ Arguments:
 Flags:
 - `--detail <detail>` (default: summary) — summary | full | artifactRefsOnly.
 - `--json` — Structured SpecRetrieval result.
+
+Output schema: `specResult`.
 
 Examples: `spec_full`.
 

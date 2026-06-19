@@ -606,7 +606,7 @@
     ],
     "idempotency" : "idempotent",
     "name" : "spec_get",
-    "outputSchema" : "teamRunJSON",
+    "outputSchema" : "specResult",
     "params" : [
       {
         "name" : "run",

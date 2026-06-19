@@ -389,6 +389,29 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - SpecRetrieval.Result (spec / spec_get)
+
+    public static func specResultSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/spec-result.schema.json",
+            "title": "SpecResult",
+        ]
+        let top = obj([
+            "schemaVersion": int, "runId": str, "status": str, "lane": nullable("string"),
+            "teamPresetId": nullable("string"), "outputKind": nullable("string"),
+            "selector": str, "detail": str, "summary": str, "full": nullable("string"),
+            "warnings": arr(str), "failedWorkers": arr(ref("FailedWorker")), "artifactRefs": arr(str),
+        ], required: ["schemaVersion", "runId", "status", "selector", "detail", "summary", "warnings", "failedWorkers", "artifactRefs"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "FailedWorker": obj([
+                "workerId": str, "skillName": nullable("string"), "reason": str,
+            ], required: ["workerId", "reason"]),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

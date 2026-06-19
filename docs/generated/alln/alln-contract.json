@@ -96,7 +96,7 @@
 
       ],
       "name" : "doctor explain",
-      "outputSchema" : "errorEnvelope",
+      "outputSchema" : "none",
       "summary" : "Explain one failure\/recovery code."
     },
     {
@@ -1170,7 +1170,7 @@
 
       ],
       "name" : "spec",
-      "outputSchema" : "none",
+      "outputSchema" : "specResult",
       "summary" : "Retrieve a run's spec\/result packet (summary|full|artifactRefsOnly)."
     },
     {
@@ -3060,7 +3060,7 @@
       ],
       "idempotency" : "idempotent",
       "name" : "spec_get",
-      "outputSchema" : "teamRunJSON",
+      "outputSchema" : "specResult",
       "params" : [
         {
           "name" : "run",

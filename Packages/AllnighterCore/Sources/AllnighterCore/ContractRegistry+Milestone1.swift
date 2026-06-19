@@ -125,7 +125,7 @@ public extension ContractRegistry {
         MCPToolSpec("spec_get", command: "spec", summary: "Retrieve a run's full spec/result packet without opening the GUI. Failed workers and warnings always included in full detail.",
                     params: [.init("run", summary: "Run id or `latest` (default latest)."),
                              .init("detail", summary: "summary | full | artifactRefsOnly (default summary).")],
-                    outputSchema: .teamRunJSON,
+                    outputSchema: .specResult,
                     errors: ["RUN_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("floor_show", command: "floor show", summary: "The inspectable Floor for one team run: worker lanes (incl. failures), durable artifact refs, typed return (Signal insight when applicable), converge timeline, and Execute requirements.",
                     params: [.init("run", summary: "Run id or `latest` (default latest).")],
@@ -179,7 +179,9 @@ public extension ContractRegistry {
             "doctor explain", summary: "Explain one failure/recovery code.", milestone: .m1,
             args: [ArgSpec("code", required: true, summary: "Error code to explain.")],
             flags: [FlagSpec("json", summary: "Structured explanation.")],
-            outputSchema: .errorEnvelope, exampleIds: ["doctor_explain"]
+            // Returns the catalog ErrorSpec row (see error-codes.json), not an
+            // ErrorEnvelope; no dedicated return schema marker.
+            exampleIds: ["doctor_explain"]
         ),
         CommandSpec(
             "models", summary: "List model catalog and Bench state.", milestone: .m1,
@@ -429,7 +431,7 @@ public extension ContractRegistry {
             args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
             flags: [FlagSpec("detail", takesValue: true, valueType: "detail", defaultValue: "summary", summary: "summary | full | artifactRefsOnly."),
                     FlagSpec("json", summary: "Structured SpecRetrieval result.")],
-            exampleIds: ["spec_full"]
+            outputSchema: .specResult, exampleIds: ["spec_full"]
         ),
         CommandSpec(
             "export", summary: "Export a result bundle.", milestone: .m1,

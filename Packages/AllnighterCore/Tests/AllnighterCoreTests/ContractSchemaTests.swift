@@ -69,6 +69,18 @@ final class ContractSchemaTests: XCTestCase {
         XCTAssertEqual(try properties(def(schema, "RunArtifactRef")), labels(artifact), "RunArtifactRef schema drifted")
     }
 
+    func testSpecResultSchemaMatchesType() throws {
+        let result = SpecRetrieval.Result(
+            runId: "r", status: "done", lane: "signal", teamPresetId: "t", outputKind: "insight",
+            selector: "latest", detail: "summary", summary: "s", full: nil, warnings: [],
+            failedWorkers: [SpecRetrieval.FailedWorker(workerId: "w", skillName: "Sk", reason: "x")],
+            artifactRefs: [])
+        let schema = ContractSchema.specResultSchema()
+        XCTAssertEqual(try properties(schema), labels(result), "SpecResult top-level schema drifted from the type")
+        let failed = try XCTUnwrap(result.failedWorkers.first)
+        XCTAssertEqual(try properties(def(schema, "FailedWorker")), labels(failed), "FailedWorker schema drifted")
+    }
+
     func testSchemasSerializeDeterministically() throws {
         XCTAssertEqual(try ContractSchema.json(ContractSchema.teamRunSchema()),
                        try ContractSchema.json(ContractSchema.teamRunSchema()))

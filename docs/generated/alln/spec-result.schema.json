@@ -1,0 +1,104 @@
+{
+  "$defs" : {
+    "FailedWorker" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "reason" : {
+          "type" : "string"
+        },
+        "skillName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "workerId",
+        "reason"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/spec-result.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "artifactRefs" : {
+      "items" : {
+        "type" : "string"
+      },
+      "type" : "array"
+    },
+    "detail" : {
+      "type" : "string"
+    },
+    "failedWorkers" : {
+      "items" : {
+        "$ref" : "#\/$defs\/FailedWorker"
+      },
+      "type" : "array"
+    },
+    "full" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "lane" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "outputKind" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "runId" : {
+      "type" : "string"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "selector" : {
+      "type" : "string"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "summary" : {
+      "type" : "string"
+    },
+    "teamPresetId" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "warnings" : {
+      "items" : {
+        "type" : "string"
+      },
+      "type" : "array"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "runId",
+    "status",
+    "selector",
+    "detail",
+    "summary",
+    "warnings",
+    "failedWorkers",
+    "artifactRefs"
+  ],
+  "title" : "SpecResult",
+  "type" : "object"
+}
