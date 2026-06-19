@@ -62,7 +62,7 @@ struct AllnighterCLI {
     static func runTeam(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let question = opts.positional.first ?? opts.value("question") else {
-            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--lane code|design|copy] [--team id] [--effort low|med|high] [--type t] [--json | --stream]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--lane code|design|copy|signal] [--team id] [--effort low|med|high] [--type t] [--json | --stream]\n".utf8)); exit(2)
         }
         // --json and --stream are mutually exclusive (checked before spending quota).
         if opts.flag("json") && opts.flag("stream") {
@@ -73,7 +73,7 @@ struct AllnighterCLI {
         let teamId = opts.value("team") ?? opts.value("preset")
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
-            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)")
+            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy|signal)")
         }
         let effort = opts.value("effort").flatMap(EffortLevel.init(rawValue:))
         if let raw = opts.value("effort"), effort == nil {
@@ -410,7 +410,7 @@ struct AllnighterCLI {
 
     // MARK: - team show / docs / show / export / doctor explain
 
-    /// `alln team show [--lane code|design|copy] [--json]` — the default team for
+    /// `alln team show [--lane code|design|copy|signal] [--json]` — the default team for
     /// each lane (or one lane). Does NOT run.
     static func runTeamShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
@@ -428,8 +428,8 @@ struct AllnighterCLI {
     static func teamShowJSONString(_ runtime: ToolRuntime, lane: WorkLane? = nil) -> String {
         let lanes = lane.map { [$0] } ?? WorkLane.allCases
         struct TeamView: Encodable {
-            let id, displayName, lane, outputKind, defaultEffort: String
-            let isDefaultForLane: Bool
+            let id, displayName, lane, outputKind, defaultEffort, posture: String
+            let mutating, isDefaultForLane: Bool
             let workerCount: Int
         }
         struct Snapshot: Encodable {
@@ -441,19 +441,20 @@ struct AllnighterCLI {
             guard let t = runtime.teams.defaultTeam(for: lane) else { return nil }
             return TeamView(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
                             outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
+                            posture: t.posture.rawValue, mutating: t.mutating,
                             isDefaultForLane: true,
                             workerCount: t.workerSpecs.count)
         }
         return jsonString(Snapshot(contractVersion: ContractRegistry.contractVersion, defaults: defaults))
     }
 
-    /// `alln teams [--lane code|design|copy] [--json]` — the lane-scoped team
+    /// `alln teams [--lane code|design|copy|signal] [--json]` — the lane-scoped team
     /// catalog summary (no full prompt templates).
     static func runTeamCatalog(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
-            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)")
+            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy|signal)")
         }
         if opts.flag("json") {
             print(teamsCatalogJSONString(runtime, lane: lane))
@@ -470,8 +471,8 @@ struct AllnighterCLI {
     static func teamsCatalogJSONString(_ runtime: ToolRuntime, lane: WorkLane?) -> String {
         let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
         struct TeamSummary: Encodable {
-            let id, displayName, lane, outputKind, defaultEffort: String
-            let builtIn, isDefaultForLane: Bool
+            let id, displayName, lane, outputKind, defaultEffort, posture: String
+            let mutating, builtIn, isDefaultForLane: Bool
             let workerCount: Int
             let disabledReason: String?
         }
@@ -484,6 +485,7 @@ struct AllnighterCLI {
         let summaries = teams.map { t -> TeamSummary in
             return TeamSummary(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
                                outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
+                               posture: t.posture.rawValue, mutating: t.mutating,
                                builtIn: t.builtIn, isDefaultForLane: t.isDefaultForLane,
                                workerCount: t.workerSpecs.count,
                                disabledReason: nil)
@@ -491,12 +493,12 @@ struct AllnighterCLI {
         return jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, teams: summaries))
     }
 
-    /// `alln skills [--lane code|design|copy] [--json]` — lane-scoped skill catalog (no templates).
+    /// `alln skills [--lane code|design|copy|signal] [--json]` — lane-scoped skill catalog (no templates).
     static func runSkillCatalog(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
-            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy)")
+            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy|signal)")
         }
         if opts.flag("json") {
             print(skillsCatalogJSONString(lane: lane))
@@ -714,7 +716,7 @@ struct AllnighterCLI {
     static func runSkillsNew(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let laneRaw = opts.value("lane"), let lane = WorkLane(rawValue: laneRaw) else {
-            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills new --lane code|design|copy --name <name> --purpose answer|review|planWriter [--template-file <path>] [--json]")
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills new --lane code|design|copy|signal --name <name> --purpose answer|review|planWriter [--template-file <path>] [--json]")
         }
         guard let name = opts.value("name"), !name.isEmpty else {
             fail(code: "CLI_USAGE_ERROR", message: "--name is required")
@@ -848,7 +850,7 @@ struct AllnighterCLI {
     static func runTeamStart(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json") else {
-            FileHandle.standardError.write(Data("usage: alln team start \"<prompt>\" --json [--lane code|design|copy] [--team id] [--effort low|med|high] [--idempotency-key key]\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln team start \"<prompt>\" --json [--lane code|design|copy|signal] [--team id] [--effort low|med|high] [--idempotency-key key]\n".utf8))
             exit(2)
         }
         guard let request = parseAsyncTeamStart(args, opts) else {

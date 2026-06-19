@@ -7,23 +7,24 @@ public enum ModelCatalog {
 
     public static let builtInCapabilities: [String: ModelCapabilities] = [
         "model_opus": ModelCapabilities(
-            laneTags: [.code, .design, .copy],
+            laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 100),
         "model_chatgpt": ModelCapabilities(
-            laneTags: [.code, .design, .copy],
+            laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security],
             strengthRank: 90),
         "model_sonnet": ModelCapabilities(
-            laneTags: [.code, .design, .copy],
+            laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .fast],
             strengthRank: 80),
         "model_gemini": ModelCapabilities(
-            laneTags: [.design, .code],
+            laneTags: [.design, .code, .signal],
             capabilityTags: [.code, .design, .image, .fast],
             strengthRank: 75),
+        // Grok is web-aware — a natural Signal scout (interprets public posts/links).
         "model_grok": ModelCapabilities(
-            laneTags: [.code, .copy],
+            laneTags: [.code, .copy, .signal],
             capabilityTags: [.code, .planner],
             strengthRank: 70),
         "model_composer": ModelCapabilities(

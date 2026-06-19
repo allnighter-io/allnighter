@@ -15,7 +15,8 @@ final class BuiltInTeamsTests: XCTestCase {
             "code_architecture_pressure_test", "code_release_proof",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
-            "copy_core", "copy_landing_page"
+            "copy_core", "copy_landing_page",
+            "signal_post_to_project", "signal_what_to_build_next"
         ]
         for id in required {
             XCTAssertNotNil(BuiltInTeams.team(id), "missing built-in team \(id)")

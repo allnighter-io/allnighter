@@ -51,8 +51,32 @@ final class CraftModelTests: XCTestCase {
         XCTAssertEqual(BuiltInTeams.team("code_core")?.displayName, "Code Core")
     }
 
-    func testSignalLaneHasNoBuiltInsYet() {
-        // CRAFT-2 adds Signal built-in teams + signal-capable models/skills.
-        XCTAssertTrue(BuiltInTeams.teams(in: .signal).isEmpty)
+    func testSignalBuiltInsAreScoutNonMutatingInsightTeams() {
+        // CRAFT-2: Signal is runnable on the same substrate — scout posture,
+        // non-mutating, insight output, on the signal craft.
+        let signalTeams = BuiltInTeams.teams(in: .signal)
+        XCTAssertEqual(Set(signalTeams.map(\.id)), ["signal_post_to_project", "signal_what_to_build_next"])
+        for team in signalTeams {
+            XCTAssertEqual(team.lane, .signal)
+            XCTAssertEqual(team.posture, .scout)
+            XCTAssertEqual(team.outputKind, .insight)
+            XCTAssertFalse(team.mutating)
+        }
+        // Exactly one signal-lane default.
+        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .signal)?.id, "signal_post_to_project")
+    }
+
+    func testSignalTeamsResolveAgainstSignalCapableModels() {
+        // Signal skills are signal-lane, and signal-capable models exist so the teams
+        // can actually resolve a worker.
+        for team in BuiltInTeams.teams(in: .signal) {
+            for row in team.workerSpecs {
+                XCTAssertEqual(SkillCatalog.skill(row.skillId)?.lane, .signal,
+                               "\(team.id) row \(row.skillId) must be a signal skill")
+            }
+            XCTAssertEqual(SkillCatalog.skill(team.lead.skillId)?.lane, .signal)
+        }
+        let signalModels = ModelCatalog.builtInCapabilities.filter { $0.value.laneTags.contains(.signal) }
+        XCTAssertFalse(signalModels.isEmpty, "no signal-capable model exists")
     }
 }

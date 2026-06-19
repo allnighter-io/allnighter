@@ -51,7 +51,7 @@ public typealias SkillDefinition = Skill
 /// reference skills by id; the resolver snapshots id/name into runs.
 public enum SkillCatalog {
     /// All built-in skills, keyed by id (first-seen wins on duplicate ids).
-    public static let builtIns: [Skill] = buildSkills + designSkills + designPanelSkills + copySkills + writerSkills
+    public static let builtIns: [Skill] = buildSkills + designSkills + designPanelSkills + copySkills + signalSkills + writerSkills
 
     private static let byID: [String: Skill] =
         Dictionary(builtIns.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -585,7 +585,63 @@ public enum SkillCatalog {
         writer("copy_board_writer", "Copy Board Writer", .copy,
                "copy board: the versions, what each optimizes for, and the recommended pick"),
         writer("landing_copy_writer", "Landing Copy Writer", .copy,
-               "landing page copy board: hero, value props, proof, objections handled, and CTAs")
+               "landing page copy board: hero, value props, proof, objections handled, and CTAs"),
+        s("insight_writer", "Insight Writer", .signal, .planWriter, """
+        You are the Signal team's Insight Writer. You are given the original signal, \
+        the independent worker reads, and the skeptic's verdict. Synthesize one \
+        decisive, Project-aware Insight. Decide; do not average. Cover, in order: what \
+        happened (observed, with source receipts), why it matters, why it matters to \
+        THIS Project, the freshness window (fresh / closing / closed / uncertain — and \
+        say uncertain when it cannot be verified), internal lessons, external product \
+        ideas, the skeptic pass (pass / caution / reject, with the reason), and the \
+        single most recommended next action. Keep observed facts and inference clearly \
+        separated. "No move today" is a complete, valid Insight when the signal is \
+        stale, saturated, or not a fit — never manufacture urgency.
+        """)
+    ]
+
+    // MARK: - Signal skills (the outside-world scout craft)
+
+    /// Signal scouts PUBLIC outside-world change and returns a Project-aware Insight
+    /// — never a social-listening product, X API proxy, scheduler, or auto-poster.
+    /// Skills interpret the public signal the user provides (pasted text or a public
+    /// URL/handle); they separate observed facts from inference and never claim
+    /// private/authenticated access.
+    private static let signalSkills: [Skill] = [
+        s("signal_source_reader", "Source Reader", .signal, .answer, """
+        Read the provided public signal faithfully (pasted post/thread/article, a \
+        public link, or a release note). Report only what the source literally says: \
+        what happened, who said it, and when, with exact quote/snippet boundaries. \
+        Separate observed facts from your inference and label each. If you cannot \
+        verify the timestamp or the source, say so plainly — never invent freshness. \
+        Public sources only; do not claim private or authenticated access.
+        """),
+        s("signal_landscape_scanner", "Landscape Scanner", .signal, .answer, """
+        Scan what has recently changed outside this Project that a small team should \
+        care about: relevant model/tool releases, competitor or ecosystem moves, and \
+        shifts in what users expect. Ground every claim in a nameable public source; \
+        if you are reasoning from prior knowledge rather than a fresh source, label it \
+        as background, not news. Prefer a few high-signal items over a long list.
+        """),
+        s("signal_project_fit", "Project Fit", .signal, .answer, """
+        Connect the signal to THIS Project. Why does it matter here specifically, not \
+        in general? Name the internal lessons (what we should learn or change) and the \
+        honest fit and risk. If the signal does not actually apply to this Project, say \
+        so — a clear "not for us" is more valuable than a forced connection.
+        """),
+        s("signal_product_ideas", "Product Ideas", .signal, .answer, """
+        From the signal, propose concrete external product moves this Project could \
+        make: features, positioning, or narrative the change opens up. Each idea names \
+        what it optimizes for and the cheapest way to test it. Stay within what the \
+        Project plausibly is; do not invent a different company.
+        """),
+        s("signal_skeptic", "Signal Skeptic", .signal, .review, """
+        Pressure-test the read before it becomes a move. Is the signal fresh or stale? \
+        Is the topic already saturated or owned by a larger account where we would just \
+        be noise? Is the supposed urgency real, or hype that decays in a day? "No move \
+        today" is a valid, useful verdict when the signal is stale, saturated, or not a \
+        Project fit. Call out anything presented as fact that is actually inference.
+        """)
     ]
 
     // MARK: - Builders

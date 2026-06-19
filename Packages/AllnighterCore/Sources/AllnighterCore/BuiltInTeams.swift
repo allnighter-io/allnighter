@@ -9,7 +9,8 @@ public enum BuiltInTeams {
     public static let all: [TeamPreset] = [
         buildCore, buildBugHunt, buildGUIBugHunt, buildSecurityReview, buildArchitecturePressureTest, buildReleaseProof,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
-        copyCore, copyLandingPage
+        copyCore, copyLandingPage,
+        signalPostToProject, signalWhatToBuildNext
     ]
 
     private static let byID: [String: TeamPreset] =
@@ -236,4 +237,33 @@ public enum BuiltInTeams {
             row("proof_skeptic", .review),
             row("brand_voice", .review)
         ], writer: "landing_copy_writer", typeTags: ["landing-page"])
+
+    // MARK: - Signal teams (the outside-world scout craft)
+
+    /// The atomic Signal card: turn one public post/thread/article/release into a
+    /// Project-aware Insight with source receipts, freshness, and a skeptic pass.
+    /// Scout posture, non-mutating; public sources only.
+    static let signalPostToProject = make(
+        id: "signal_post_to_project", name: "Post-to-Project Signal", lane: .signal, output: .insight,
+        defaultEffort: .med, isDefault: true,
+        description: "Turn a public X post, thread, article, or release note into a Project-aware Insight: what happened, why it matters here, with source receipts, freshness, and a skeptic pass.",
+        rows: [
+            row("signal_source_reader", .answer),
+            row("signal_project_fit", .answer),
+            row("signal_product_ideas", .answer),
+            row("signal_skeptic", .review)
+        ], writer: "insight_writer", dissent: .preserveDissent)
+
+    /// Scan recent outside-world change and recommend what to build next for this
+    /// Project. Scout posture, non-mutating.
+    static let signalWhatToBuildNext = make(
+        id: "signal_what_to_build_next", name: "What should we build next?", lane: .signal, output: .insight,
+        defaultEffort: .high,
+        description: "Scan what recently changed outside the repo and recommend the next build direction for this Project, with sourced reasoning, fit, and a skeptic pass.",
+        rows: [
+            row("signal_landscape_scanner", .answer),
+            row("signal_project_fit", .answer),
+            row("signal_product_ideas", .answer),
+            row("signal_skeptic", .review)
+        ], writer: "insight_writer", dissent: .compareOptions)
 }

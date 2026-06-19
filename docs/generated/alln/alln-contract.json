@@ -2457,7 +2457,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "Filter to one lane: code|design|copy (optional).",
+          "summary" : "Filter to one lane: code|design|copy|signal (optional).",
           "type" : "string"
         }
       ],
@@ -2593,7 +2593,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "Filter to one lane: code|design|copy (optional).",
+          "summary" : "Filter to one lane: code|design|copy|signal (optional).",
           "type" : "string"
         }
       ],
@@ -2710,7 +2710,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "code|design|copy.",
+          "summary" : "code|design|copy|signal.",
           "type" : "string"
         },
         {
@@ -2759,7 +2759,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "code|design|copy.",
+          "summary" : "code|design|copy|signal.",
           "type" : "string"
         },
         {
@@ -2904,7 +2904,7 @@
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "code|design|copy (explicit; never inferred).",
+          "summary" : "code|design|copy|signal (explicit; never inferred).",
           "type" : "string"
         },
         {
