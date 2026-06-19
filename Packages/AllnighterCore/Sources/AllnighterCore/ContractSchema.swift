@@ -209,7 +209,7 @@ public enum ContractSchema {
         schema["$defs"] = [
             "ItemInfo": obj([
                 "id": str, "status": enumStr(["draft", "pending", "running", "done", "failed", "cancelled"]),
-                "title": str, "kind": enumStr(["workerChat", "teamRun", "workOrder", "dispatch", "returnReview", "followUp"]),
+                "title": str, "kind": enumStr(["workerChat", "teamRun", "followUp"]),
                 "origin": enumStr(["cli", "gui", "mcp", "ios", "localApi", "system", "preset"]),
                 "threadId": nullable("string"), "promptExcerpt": str,
                 "createdAt": str, "updatedAt": str, "nextWakeAt": nullable("string"),

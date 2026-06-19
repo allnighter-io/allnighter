@@ -7,7 +7,7 @@ public enum PendingItemStatus: String, Codable, Sendable, CaseIterable {
 }
 
 public enum PendingItemKind: String, Codable, Sendable, CaseIterable {
-    case workerChat, teamRun, workOrder, dispatch, returnReview, followUp
+    case workerChat, teamRun, followUp
 }
 
 public enum PendingItemPriority: String, Codable, Sendable, CaseIterable {
@@ -15,7 +15,7 @@ public enum PendingItemPriority: String, Codable, Sendable, CaseIterable {
 }
 
 public enum PendingCreatedBy: String, Codable, Sendable, CaseIterable {
-    case user, preset, failedRun, returnReview, approvedSuggestion, remoteDevice
+    case user, preset, failedRun, approvedSuggestion, remoteDevice
 }
 
 public enum PendingOrigin: String, Codable, Sendable, CaseIterable {
@@ -267,8 +267,6 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
     /// Owning Project (PRJ-S04). `nil` = Unassigned: visible in the repair bucket,
     /// blocked from running until assigned. New Pending items require a `projectId`.
     public var projectId: String?
-    /// Link to the WorkOrder this Pending item runs, when it is one.
-    public var workOrderId: String?
     public var title: String
     public var kind: PendingItemKind
     public var status: PendingItemStatus
@@ -296,7 +294,6 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
         id: String,
         threadId: String? = nil,
         projectId: String? = nil,
-        workOrderId: String? = nil,
         title: String,
         kind: PendingItemKind,
         status: PendingItemStatus,
@@ -323,7 +320,6 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
         self.id = id
         self.threadId = threadId
         self.projectId = projectId
-        self.workOrderId = workOrderId
         self.title = title
         self.kind = kind
         self.status = status

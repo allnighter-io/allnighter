@@ -192,8 +192,8 @@ final class UnreadDerivationTests: XCTestCase {
         XCTAssertTrue(UnreadDerivation.isUnreadEligible(team))
     }
 
-    func testWorkOrderNeverUnreadEligible() {
-        let wo = turn("wo1", kind: .workOrder, status: .done, author: .user, createdAt: t1)
-        XCTAssertFalse(UnreadDerivation.isUnreadEligible(wo))
+    func testMutatingRunDoneIsUnreadEligible() {
+        let run = turn("mr1", kind: .mutatingRun, status: .done, author: .worker, createdAt: t1, completedAt: t1)
+        XCTAssertTrue(UnreadDerivation.isUnreadEligible(run))
     }
 }

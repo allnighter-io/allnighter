@@ -446,7 +446,7 @@ public struct PendingService: Sendable {
                 throw PendingServiceError.mutationDeferred
             }
             return
-        case .dispatch, .workOrder, .returnReview, .followUp:
+        case .followUp:
             throw PendingServiceError.unsupportedKind(item.kind.rawValue)
         }
     }

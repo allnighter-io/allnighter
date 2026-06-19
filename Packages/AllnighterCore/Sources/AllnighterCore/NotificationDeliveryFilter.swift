@@ -33,8 +33,6 @@ public enum NotificationDeliveryFilter {
             return policy.notifyReplies
         case .teamRunCompleted:
             return policy.notifyTeamRunComplete
-        case .dispatchReturned, .returnReviewCompleted:
-            return policy.notifyDispatchReturned
         case .turnFailed, .turnTimedOut, .turnAwaitingManualPaste, .turnAuthRequired,
              .threadNeedsAttention:
             return policy.notifyFailuresAndBlocked
@@ -71,10 +69,6 @@ public enum NotificationCopy {
             return "\(who) replied in \(quoted)"
         case .teamRunCompleted:
             return "Team run complete: \(quoted)"
-        case .dispatchReturned:
-            return "Codex returned from dispatch"
-        case .returnReviewCompleted:
-            return "Return review complete: \(quoted)"
         case .turnFailed, .threadNeedsAttention:
             return "\(workerDisplayName ?? "Worker") needs attention in \(quoted)"
         case .turnTimedOut:
@@ -88,7 +82,7 @@ public enum NotificationCopy {
 
     public static func body(candidate: NotificationCandidate) -> String {
         switch candidate.event {
-        case .turnCompleted, .teamRunCompleted, .dispatchReturned, .returnReviewCompleted:
+        case .turnCompleted, .teamRunCompleted:
             return "Open Allnighter to continue."
         case .turnFailed, .turnTimedOut, .threadNeedsAttention:
             return "A worker needs your attention."

@@ -142,7 +142,7 @@ final class ThreadsPresenterTests: XCTestCase {
     func testLaneInference() {
         XCTAssertEqual(ThreadsPresenter.lane(of: thread("d", updatedAt: t0, turns: [turn(.designBoard, .done)])), .design)
         XCTAssertEqual(ThreadsPresenter.lane(of: thread("b", updatedAt: t0, turns: [turn(.teamRun, .done)])), .code)
-        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b2", updatedAt: t0, turns: [turn(.dispatch, .done)])), .code)
+        XCTAssertEqual(ThreadsPresenter.lane(of: thread("b2", updatedAt: t0, turns: [turn(.mutatingRun, .done)])), .code)
         XCTAssertNil(ThreadsPresenter.lane(of: thread("chat", updatedAt: t0, turns: [turn(.workerChat, .done)])))
         XCTAssertNil(ThreadsPresenter.lane(of: thread("empty", updatedAt: t0)))
     }
@@ -150,7 +150,7 @@ final class ThreadsPresenterTests: XCTestCase {
     func testRailFilterByLaneAndRunning() {
         let design = thread("d", updatedAt: t0, turns: [turn(.designBoard, .done)])
         let build = thread("b", updatedAt: t0, turns: [turn(.teamRun, .done)])
-        let runningBuild = thread("rb", updatedAt: t0, turns: [turn(.dispatch, .running)])
+        let runningBuild = thread("rb", updatedAt: t0, turns: [turn(.mutatingRun, .running)])
         let chat = thread("c", updatedAt: t0, turns: [turn(.workerChat, .done)])
         let all = [design, build, runningBuild, chat]
 

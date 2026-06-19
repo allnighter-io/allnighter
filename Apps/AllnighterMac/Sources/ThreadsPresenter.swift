@@ -177,9 +177,8 @@ enum ThreadsPresenter {
         switch last.kind {
         case .workerChat where last.status == .done: return .replied
         case .designBoard, .teamRun where last.status == .done: return .boardReady
-        case .workOrder where last.status == .done: return .specReady
-        case .dispatch where last.status == .done: return .exit0
-        case .dispatch where last.status == .failed: return .exit1
+        case .mutatingRun where last.status == .done: return .exit0
+        case .mutatingRun where last.status == .failed: return .exit1
         default: return nil
         }
     }
@@ -202,7 +201,7 @@ enum ThreadsPresenter {
     /// chat-only or empty thread has no lane and shows only under All.
     static func lane(of thread: WorkThread) -> ComposeLane? {
         if thread.turns.contains(where: { $0.kind == .designBoard }) { return .design }
-        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .workOrder || $0.kind == .dispatch }) {
+        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .mutatingRun }) {
             return .code
         }
         return nil

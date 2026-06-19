@@ -57,12 +57,10 @@ public enum UnreadDerivation {
     public static func isUnreadEligible(_ turn: ThreadTurn) -> Bool {
         if isUserAuthored(turn) { return false }
         if turn.status == .cancelled { return false }
-        if turn.kind == .workOrder { return false }
-
         switch turn.kind {
-        case .userMessage, .userDecision, .workOrder:
+        case .userMessage, .userDecision:
             return false
-        case .workerChat, .teamRun, .designBoard, .reviewBoard, .dispatch, .returnReview:
+        case .workerChat, .teamRun, .designBoard, .reviewBoard, .mutatingRun:
             switch turn.status {
             case .done, .failed, .timedOut:
                 return true

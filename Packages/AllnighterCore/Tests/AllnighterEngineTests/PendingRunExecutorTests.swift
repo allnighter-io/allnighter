@@ -189,18 +189,6 @@ final class PendingRunExecutorTests: XCTestCase {
         }
     }
 
-    func testDispatchKindIsUnsupported() async throws {
-        let executor = makeExecutor(scripts: [:])
-        let item = try executor.service.add(.init(prompt: "Dispatch", kind: .dispatch, workerToken: "claude", submit: true))
-
-        do {
-            _ = try await executor.run(id: item.id)
-            XCTFail("expected unsupportedKind")
-        } catch let error as PendingServiceError {
-            XCTAssertEqual(error, .unsupportedKind("dispatch"))
-        }
-    }
-
     func testCodexJSONLUsageLimitInStdout() async throws {
         let stdout = #"{"type":"error","message":"usage_limit_reached","resetsAt":"2026-06-19T12:00:00Z"}"#
         let executor = makeExecutor(scripts: ["codex": .init(stdout: stdout, exitCode: 1)])

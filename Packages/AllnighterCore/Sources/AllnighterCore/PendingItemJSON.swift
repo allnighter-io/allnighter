@@ -63,7 +63,7 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         }
 
         public enum Kind: String, Codable, Sendable, CaseIterable {
-            case workerChat, teamRun, workOrder, dispatch, returnReview, followUp
+            case workerChat, teamRun, followUp
         }
 
         public enum Origin: String, Codable, Sendable, CaseIterable {

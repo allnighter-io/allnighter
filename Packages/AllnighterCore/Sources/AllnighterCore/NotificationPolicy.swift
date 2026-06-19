@@ -5,7 +5,6 @@ public struct NotificationPolicy: Codable, Sendable, Equatable {
     public var enabled: Bool
     public var notifyReplies: Bool
     public var notifyTeamRunComplete: Bool
-    public var notifyDispatchReturned: Bool
     public var notifyFailuresAndBlocked: Bool
     public var quietHoursEnabled: Bool
     /// Minutes from midnight for quiet-hours start (local calendar).
@@ -23,7 +22,6 @@ public struct NotificationPolicy: Codable, Sendable, Equatable {
         enabled: Bool = true,
         notifyReplies: Bool = true,
         notifyTeamRunComplete: Bool = true,
-        notifyDispatchReturned: Bool = true,
         notifyFailuresAndBlocked: Bool = true,
         quietHoursEnabled: Bool = false,
         quietHoursStartMinutes: Int = 22 * 60,
@@ -36,7 +34,6 @@ public struct NotificationPolicy: Codable, Sendable, Equatable {
         self.enabled = enabled
         self.notifyReplies = notifyReplies
         self.notifyTeamRunComplete = notifyTeamRunComplete
-        self.notifyDispatchReturned = notifyDispatchReturned
         self.notifyFailuresAndBlocked = notifyFailuresAndBlocked
         self.quietHoursEnabled = quietHoursEnabled
         self.quietHoursStartMinutes = quietHoursStartMinutes

@@ -1,7 +1,7 @@
 import Foundation
 import CryptoKit
 
-/// Derives execution-lane keys and projects internal `PendingItem` to `PendingItemJSON`.
+/// Derives serialized-run keys and projects internal `PendingItem` to `PendingItemJSON`.
 public enum PendingItemDerivation {
     public static let laneKeyVersion = "v1"
 
@@ -23,8 +23,7 @@ public enum PendingItemDerivation {
 
     public static func defaultIntent(for kind: PendingItemKind) -> PendingExecutionIntent {
         switch kind {
-        case .workerChat, .followUp, .returnReview, .teamRun: return .ask
-        case .workOrder, .dispatch: return .execute
+        case .workerChat, .followUp, .teamRun: return .ask
         }
     }
 
@@ -45,10 +44,6 @@ public enum PendingItemDerivation {
     public static func blockedReason(for item: PendingItem, laneHeadId: String?) -> String? {
         if item.status == .draft { return nil }
         if item.status == .cancelled || item.status == .done || item.status == .failed { return nil }
-        if item.kind == .dispatch || item.kind == .workOrder, item.execution?.intent == .execute {
-            // Mutating dispatch deferred from Pending M1.
-            if item.kind == .dispatch { return "mutationDeferred" }
-        }
         if let laneHeadId, laneHeadId != item.id, item.execution?.intent == .execute {
             return "executionLaneBusy"
         }

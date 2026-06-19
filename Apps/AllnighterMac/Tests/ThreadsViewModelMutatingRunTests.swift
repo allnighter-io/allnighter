@@ -6,7 +6,7 @@ import AllnighterEngine
 /// Unified Run Model: mutating runs take `RunWriteLock` per repo root. These guard
 /// the honest refuse path (busy root) and a happy mutating run via `RunService`.
 @MainActor
-final class ThreadsViewModelDispatchTests: XCTestCase {
+final class ThreadsViewModelMutatingRunTests: XCTestCase {
 
     private struct StubRunner: CommandRunner {
         func run(command: String, args: [String], stdin: String?, env: [String: String],
@@ -89,7 +89,7 @@ final class ThreadsViewModelDispatchTests: XCTestCase {
         _ = vm.newThread(title: "t", workingDir: dir)
 
         vm.sendRouting(routing(to, "edit the repo concurrently"))
-        let settled = try await firstRunTurn(vm, kind: .dispatch)
+        let settled = try await firstRunTurn(vm, kind: .mutatingRun)
         let turn = try XCTUnwrap(settled)
         XCTAssertEqual(turn.status, .failed, "a busy repo root refuses the mutating run")
         XCTAssertTrue(turn.text?.lowercased().contains("editing") == true
@@ -105,7 +105,7 @@ final class ThreadsViewModelDispatchTests: XCTestCase {
         _ = vm.newThread(title: "t", workingDir: dir)
 
         vm.sendRouting(routing(to, "add exponential backoff retry"))
-        let settled = try await firstRunTurn(vm, kind: .dispatch)
+        let settled = try await firstRunTurn(vm, kind: .mutatingRun)
         let turn = try XCTUnwrap(settled)
         XCTAssertEqual(turn.status, .done)
         let runId = try XCTUnwrap(turn.runId)
@@ -122,7 +122,7 @@ final class ThreadsViewModelDispatchTests: XCTestCase {
         _ = vm.newThread(title: "t", workingDir: dir)
 
         vm.sendRouting(routing(to, "first order"))
-        _ = try await firstRunTurn(vm, kind: .dispatch)
+        _ = try await firstRunTurn(vm, kind: .mutatingRun)
         let heldAfter = await reg.isHeld(RunWriteLock.key(repoRoot: dir))
         XCTAssertFalse(heldAfter, "the write lock must be released once the run settles")
     }

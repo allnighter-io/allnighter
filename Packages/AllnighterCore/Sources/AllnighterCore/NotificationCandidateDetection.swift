@@ -168,13 +168,9 @@ public enum NotificationCandidateDetection {
         switch turn.kind {
         case .workerChat:
             return .turnCompleted
-        case .teamRun, .designBoard, .reviewBoard:
+        case .teamRun, .designBoard, .reviewBoard, .mutatingRun:
             return .teamRunCompleted
-        case .dispatch:
-            return .dispatchReturned
-        case .returnReview:
-            return .returnReviewCompleted
-        case .userMessage, .userDecision, .workOrder, .systemEvent:
+        case .userMessage, .userDecision, .systemEvent:
             return nil
         }
     }

@@ -8,8 +8,6 @@ public enum NotificationEventKind: String, Codable, Sendable, CaseIterable {
     case turnAwaitingManualPaste = "turn.awaiting_manual_paste"
     case turnAuthRequired = "turn.auth_required"
     case threadNeedsAttention = "thread.needs_attention"
-    case dispatchReturned = "dispatch.returned"
-    case returnReviewCompleted = "return_review.completed"
     case teamRunCompleted = "team_run.completed"
 }
 

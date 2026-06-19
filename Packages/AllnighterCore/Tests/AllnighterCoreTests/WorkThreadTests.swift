@@ -102,7 +102,7 @@ final class WorkThreadTests: XCTestCase {
             .userMessage: .message, .userDecision: .message,
             .workerChat: .reply,
             .teamRun: .team, .designBoard: .team, .reviewBoard: .team,
-            .workOrder: .build, .dispatch: .build, .returnReview: .build,
+            .mutatingRun: .team,
             .systemEvent: .system,
         ]
         for kind in ThreadTurnKind.allCases {
@@ -111,7 +111,7 @@ final class WorkThreadTests: XCTestCase {
     }
 
     func testHeavyKinds() {
-        let heavy: Set<ThreadTurnKind> = [.teamRun, .designBoard, .reviewBoard, .dispatch, .returnReview]
+        let heavy: Set<ThreadTurnKind> = [.teamRun, .designBoard, .reviewBoard, .mutatingRun]
         for kind in ThreadTurnKind.allCases {
             XCTAssertEqual(kind.isHeavy, heavy.contains(kind), "Wrong heavy flag for \(kind.rawValue)")
         }

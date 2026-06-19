@@ -380,7 +380,7 @@ final class ThreadsViewModel {
         }
 
         let effort = EffortLevel(rawValue: routing.effort.rawValue) ?? preset.defaultEffort
-        let turnKind: ThreadTurnKind = preset.mutating ? .dispatch : (routing.lane == .design ? .designBoard : .teamRun)
+        let turnKind: ThreadTurnKind = preset.mutating ? .mutatingRun : (routing.lane == .design ? .designBoard : .teamRun)
         let runId = UUID().uuidString
         let startedAt = Date()
         let turn = ThreadTurn(
@@ -512,8 +512,8 @@ final class ThreadsViewModel {
             seedFixtureChatExchange()
         case "thread-team-board":
             seedFixtureTeamBoard()
-        case "thread-dispatch":
-            seedFixtureDispatch()
+        case "thread-mutating-run":
+            seedFixtureMutatingRun()
         case "home-rail":
             seedFixtureRail()
             selectedThreadId = nil
@@ -575,11 +575,11 @@ final class ThreadsViewModel {
         // Build conversation, currently running (Running filter + running pill).
         if (try? store.create(id: "rail-build", title: "Rate-limit the public API", now: base.addingTimeInterval(-120))) != nil {
             _ = try? store.appendTurn(turn("rail-build-t1", "rail-build", .teamRun, .done), toThreadId: "rail-build", now: base)
-            _ = try? store.appendTurn(turn("rail-build-t2", "rail-build", .dispatch, .running), toThreadId: "rail-build", now: base)
+            _ = try? store.appendTurn(turn("rail-build-t2", "rail-build", .mutatingRun, .running), toThreadId: "rail-build", now: base)
         }
-        // Build conversation, settled.
+        // Code conversation, settled.
         if (try? store.create(id: "rail-build2", title: "Refactor the uploader client", now: base.addingTimeInterval(-300))) != nil {
-            _ = try? store.appendTurn(turn("rail-build2-t", "rail-build2", .workOrder, .done), toThreadId: "rail-build2", now: base)
+            _ = try? store.appendTurn(turn("rail-build2-t", "rail-build2", .mutatingRun, .done), toThreadId: "rail-build2", now: base)
         }
         // Chat-only conversation (no lane → only under All).
         _ = try? store.create(id: "rail-chat", title: "Token bucket vs sliding window", now: base.addingTimeInterval(-900))
@@ -817,15 +817,15 @@ final class ThreadsViewModel {
 
     /// CR4d proof: a user instruction + a settled mutating run turn
     /// (designer-mock). Seeds a durable run carrying normal unified-run output.
-    private func seedFixtureDispatch() {
-        let id = "fixture-dispatch"
+    private func seedFixtureMutatingRun() {
+        let id = "fixture-mutating-run"
         _ = try? store.create(id: id, title: "Add retry to the upload client", now: Date(),
                               workingDir: "/Users/you/code/uploader")
         let workerId = models.first { $0.id == "model_claude_code" }?.id
             ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
             ?? models.first?.id ?? "model_claude_code"
 
-        var run = TeamRun(id: "fixture-dispatch-run", prompt: "Add retry to the upload client",
+        var run = TeamRun(id: "fixture-mutating-run-run", prompt: "Add retry to the upload client",
                           status: .complete, origin: .gui,
                           workers: [Worker(id: Worker.makeID(modelId: workerId, instanceIndex: 0),
                                            modelId: workerId, instanceIndex: 0,
@@ -840,7 +840,7 @@ final class ThreadsViewModel {
                           createdAt: Date(),
                           mutating: true)
         run.stages = [StageOutput(
-            id: "fixture-dispatch-stage", purpose: .plan, producedByWorkerId: workerId,
+            id: "fixture-mutating-run-stage", purpose: .plan, producedByWorkerId: workerId,
             status: .done,
             payload: .plan(markdown: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing."),
             startedAt: Date(), finishedAt: Date()
@@ -848,17 +848,17 @@ final class ThreadsViewModel {
         _ = try? runStore.save(run, models: models)
 
         let user = ThreadTurn(
-            id: "fixture-dispatch-user", threadId: id, kind: .userMessage, status: .done,
+            id: "fixture-mutating-run-user", threadId: id, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user,
             text: "Add exponential backoff retry to the upload client and run the tests."
         )
-        let dispatch = ThreadTurn(
-            id: "fixture-dispatch-turn", threadId: id, kind: .dispatch, status: .done,
+        let mutatingRun = ThreadTurn(
+            id: "fixture-mutating-run-turn", threadId: id, kind: .mutatingRun, status: .done,
             createdAt: Date(), completedAt: Date(), author: .worker,
-            workerId: workerId, runId: run.id, stageId: "fixture-dispatch-stage"
+            workerId: workerId, runId: run.id, stageId: "fixture-mutating-run-stage"
         )
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
-        _ = try? store.appendTurn(dispatch, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(mutatingRun, toThreadId: id, now: Date())
         reload()
         selectedThreadId = id
     }

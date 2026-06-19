@@ -200,7 +200,7 @@ private struct ThreadPaneHeader: View {
 
     private var inferredLane: ComposeLane? {
         if thread.turns.contains(where: { $0.kind == .designBoard }) { return .design }
-        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .workOrder }) { return .code }
+        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .mutatingRun }) { return .code }
         return nil
     }
 
@@ -259,8 +259,8 @@ private struct ThreadTurnTimeline: View {
     }
 }
 
-/// CR4a user messages + CR4b worker chat replies; team/dispatch turns stay
-/// honest stubs until CR4c–d.
+/// CR4a user messages + CR4b worker chat replies; team/mutating run turns render
+/// from durable run truth.
 private struct ThreadTurnRow: View {
     @Environment(AppModel.self) private var appModel
     let turn: ThreadTurn
@@ -273,8 +273,8 @@ private struct ThreadTurnRow: View {
             workerBubble
         case .teamRun, .designBoard, .reviewBoard:
             ThreadBoardRow(turn: turn)
-        case .dispatch:
-            ThreadDispatchRow(turn: turn)
+        case .mutatingRun:
+            ThreadMutatingRunRow(turn: turn)
         default:
             stubTurn
         }
@@ -490,7 +490,7 @@ private struct ThreadBoardRow: View {
 // MARK: - Mutating run row
 
 /// A mutating run in the repo. Renders from the durable `TeamRun` output.
-private struct ThreadDispatchRow: View {
+private struct ThreadMutatingRunRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
     let turn: ThreadTurn
@@ -553,7 +553,7 @@ private struct ThreadDispatchRow: View {
             // No durable run/return means a system note such as missing dir,
             // busy write lock, or no worker. Render it honestly.
             if runOutput == nil {
-                Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The executor failed.")
+                Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The run failed.")
                     .font(.system(size: 13)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
             } else {
                 resultCard

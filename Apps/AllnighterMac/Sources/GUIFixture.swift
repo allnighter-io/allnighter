@@ -210,7 +210,7 @@ enum GUIFixture {
         ("thread-with-turns", "Thread — user message turn"),
         ("thread-chat", "Thread — chat reply from a model"),
         ("thread-team-board", "Thread — fan-out team board"),
-        ("thread-dispatch", "Thread — execute → dispatch to repo"),
+        ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
         ("studio-teams-code", "Team Studio — Code teams (detail)"),
         ("studio-skills-code", "Team Studio — Code skills (detail)"),
