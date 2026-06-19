@@ -748,3 +748,25 @@ founder can overturn any of them, but implementation should assume the default.
   fail visibly before the worker can guess.
 - Delayed work revalidates file hashes before dispatch.
 - Backend tests, contract drift checks, and the Mac GUI proof seal pass.
+
+## Final Cleanup Directive: No Legacy Path
+
+Implementation is already under way, and this feature must finish cleanly. There
+are no external users to migrate, so do not preserve legacy file-reference or
+attachment compatibility paths for their own sake.
+
+Rules:
+
+- zero legacy code after the slice lands;
+- no migration layer, fallback mode, dual schema, or compatibility adapter;
+- remove old `[String]`-only file attachment/reference plumbing once the new
+  Project-scoped reference model is in place;
+- keep only additive decode defaults that are required for existing repo
+  fixtures/tests while the slice is being completed, then delete or update those
+  fixtures/tests to the new model before marking the feature done;
+- treat lingering legacy branches as cleanup blockers, not technical debt for a
+  later milestone.
+
+The final state is one Project-scoped implementation: root-relative references,
+Project-root resolution, bounded text delivery, audited packet metadata, and no
+parallel legacy path.

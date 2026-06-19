@@ -434,9 +434,7 @@ private struct ThreadBoardRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("RECOMMENDATION").font(.system(size: 9, weight: .semibold)).tracking(0.6)
                         .foregroundStyle(ALColor.accentText)
-                    Text(.init(synthesis))
-                        .font(.system(size: 13.5)).foregroundStyle(ALColor.textPrimary)
-                        .lineSpacing(2).textSelection(.enabled)
+                    MarkdownText(markdown: synthesis)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(12)
@@ -461,9 +459,7 @@ private struct ThreadBoardRow: View {
             }
             switch answer.status {
             case .done:
-                Text(.init(answer.output ?? ""))
-                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                    .lineSpacing(2).textSelection(.enabled)
+                MarkdownText(markdown: answer.output ?? "")
                     .frame(maxWidth: .infinity, alignment: .leading)
             case .failed, .timedOut:
                 Text(answer.errorReason ?? "No answer.")
