@@ -56,7 +56,7 @@ enum ThreadsPresenter {
         threads.filter(\.isArchived).sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    /// Back-compat alias used by legacy Threads sidebar.
+    /// Back-compat alias used by unit tests.
     static func triaged(_ threads: [WorkThread]) -> [WorkThread] {
         triagedActive(threads)
     }
@@ -73,20 +73,12 @@ enum ThreadsPresenter {
         return pinned ? .pinnedRecent : .recent
     }
 
-    /// Lower bucket sorts first (legacy int API for tests migrating to `ThreadTriageBucket`).
-    static func bucket(_ thread: WorkThread) -> Int {
-        triageBucket(for: thread).rawValue
-    }
-
     /// Labelled sections that mirror triage families — not broad Pinned/Recent.
     struct TriageSection: Identifiable, Equatable {
         let id: String
         let title: String
         let threads: [WorkThread]
     }
-
-    @available(*, deprecated, renamed: "TriageSection")
-    typealias RailGroup = TriageSection
 
     static func triageSections(
         _ threads: [WorkThread], filter: RailFilter, search: String
@@ -183,12 +175,7 @@ enum ThreadsPresenter {
         }
     }
 
-    /// Production rails use `triagedActive`; kept for fixtures that need a flat list.
-    static func railThreads(_ threads: [WorkThread]) -> [WorkThread] {
-        triagedActive(threads)
-    }
-
-    // MARK: - Rail filter / search / grouping (CR4e)
+    // MARK: - Rail filter / search (CR4e)
 
     /// The rail's lane chips. `running` is a state, not a lane, but lives here so
     /// the rail filter is a single control.
@@ -228,13 +215,6 @@ enum ThreadsPresenter {
     /// Triaged, filtered, and searched — the flat active-rail order.
     static func railThreads(_ threads: [WorkThread], filter: RailFilter, search: String) -> [WorkThread] {
         activeRailThreads(threads, filter: filter, search: search)
-    }
-
-    @available(*, deprecated, renamed: "triageSections(_:filter:search:)")
-    static func railGroups(_ threads: [WorkThread], filter: RailFilter, search: String) -> [RailGroup] {
-        triageSections(threads, filter: filter, search: search).map {
-            RailGroup(id: $0.id, title: $0.title, threads: $0.threads)
-        }
     }
 
     // MARK: - Project grouping (PRJ-S14)

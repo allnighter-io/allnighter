@@ -51,3 +51,4 @@ b7f33d3ea787a40946a5158fe7ec6fca51a9b75f  Apps/AllnighterMac/Sources/FactoryFloo
 4fc33a6ffa79488d06db2cf842a4af061ca4de93  Apps/AllnighterMac/Sources/TimelineVisibility.swift  # Branch GUI proof debt since baseline; hot-fix cleanup closeout — mechanical splits only, no new visual changes this slice. (2026-06-19)
 4a4623074336ab2fca1deff0cdfa62f2415db217  Apps/AllnighterMac/Sources/SetupViews.swift  # Code maintainer Batch 2: dedup setup buckets/pills/actions; no rendered output change (2026-06-19)
 6196ee67872de2dbcb3d0655ca322a2e540de128  Apps/AllnighterMac/Sources/ReadinessView.swift  # Code maintainer Batch 2: dedup setup buckets/pills/actions; no rendered output change (2026-06-19)
+a838254974dac9b8d0a42c8b5aad3e7bd97fa87e  Apps/AllnighterMac/Sources/SetupViews.swift  # Batch 3 dead weight: remove TeamHealthPopover alias only; no rendered output change (2026-06-19)

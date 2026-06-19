@@ -672,9 +672,6 @@ struct BenchHealthPopover: View {
     }
 }
 
-/// Legacy name — use `BenchHealthPopover`.
-typealias TeamHealthPopover = BenchHealthPopover
-
 // MARK: - Title-bar health badge (opens Bench health)
 
 struct BenchHealthFrameKey: PreferenceKey {

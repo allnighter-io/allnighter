@@ -14,10 +14,6 @@ final class ThreadsViewModel {
     private(set) var threads: [WorkThread] = []
     private(set) var selectedThreadId: String?
 
-    var composerText: String = ""
-    /// Per-turn worker override chosen in the composer; nil resolves the default.
-    var requestedWorkerId: String?
-
     /// The active project new threads bind to (PRJ-S14). Kept in sync from
     /// `ProjectsViewModel.activeProjectId` by RootView. Nil → threads stay Unassigned.
     var currentProjectId: String?
@@ -27,9 +23,6 @@ final class ThreadsViewModel {
     /// that editor is empty), then clear the pending. Quick capture creates a new
     /// thread by default per the threads phase spec.
     var pendingQuickCaptureText: String?
-
-    /// The context packet being revealed, if the reveal sheet is open.
-    private(set) var revealedPacket: ThreadContextPacket?
 
     let models: [Model]
     private let store: ThreadStore
@@ -157,24 +150,6 @@ final class ThreadsViewModel {
         return threads.first { $0.id == id }
     }
 
-    /// The worker the composer will reply as, given the current override + thread.
-    var resolvedComposerWorkerId: String? {
-        guard let thread = selectedThread else { return requestedWorkerId }
-        // Resolution is pure given workers/registry; mirror the coordinator rule.
-        if let requestedWorkerId, models.contains(where: { $0.id == requestedWorkerId }) {
-            return requestedWorkerId
-        }
-        if let d = thread.defaultWorkerId, models.contains(where: { $0.id == d }) { return d }
-        if let last = thread.lastWorkerId, models.contains(where: { $0.id == last }) { return last }
-        return models.first { $0.enabled && registry.manifest(for: $0)?.kind == .headlessCLI }?.id
-    }
-
-    var canSend: Bool {
-        selectedThreadId != nil &&
-        selectedThread?.isArchived != true &&
-        !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     func driverName(for workerId: String) -> String {
         guard let model = models.first(where: { $0.id == workerId }) else { return workerId }
         return registry.manifest(for: model)?.displayName ?? model.driverId
@@ -196,7 +171,6 @@ final class ThreadsViewModel {
 
     func select(_ thread: WorkThread) {
         selectedThreadId = thread.id
-        requestedWorkerId = nil
         pendingScrollToTurnId = ThreadsPresenter.firstUnreadTurnId(thread)
     }
 
@@ -507,60 +481,6 @@ final class ThreadsViewModel {
         ).apply(fixture)
         #endif
     }
-
-    // MARK: - Send
-
-    /// Sends the composer text to the resolved worker. Reloads after each store
-    /// write so the optimistic running turn appears immediately, then again when
-    /// the worker settles.
-    func send() {
-        guard let threadId = selectedThreadId else { return }
-        let message = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty else { return }
-        let requested = requestedWorkerId
-        composerText = ""
-
-        Task { @MainActor in
-            do {
-                let checkpoint = try await coordinator.beginSend(
-                    message: message, toThreadId: threadId, requestedWorkerId: requested
-                )
-                reload()
-                switch checkpoint {
-                case .finished:
-                    break
-                case .awaitingInvoke(let pending):
-                    _ = try await coordinator.completeSend(pending)
-                    reload()
-                }
-            } catch {
-                reload()
-            }
-        }
-    }
-
-    /// Completes a manual-paste turn with the user's pasted reply.
-    func completeManualPaste(workerTurnId: String, manualNoteTurnId: String?, reply: String) {
-        guard let threadId = selectedThreadId else { return }
-        Task { @MainActor in
-            _ = try? await coordinator.completeManualPaste(
-                threadId: threadId, workerTurnId: workerTurnId,
-                manualNoteTurnId: manualNoteTurnId, reply: reply
-            )
-            reload()
-        }
-    }
-
-    // MARK: - Context reveal
-
-    func revealContext(packetId: String) {
-        guard let threadId = selectedThreadId else { return }
-        Task { @MainActor in
-            revealedPacket = await coordinator.revealContext(threadId: threadId, packetId: packetId)
-        }
-    }
-
-    func dismissReveal() { revealedPacket = nil }
 
     // MARK: - Notifications (02 + UNR-S06)
 

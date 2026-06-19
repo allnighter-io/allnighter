@@ -26,7 +26,7 @@ struct ThreadsFixtureSeeder {
             seedFixtureChatExchange()
         case "thread-team-board":
             seedFixtureTeamBoard()
-        case "thread-mutating-run", "thread-dispatch":
+        case "thread-mutating-run":
             seedFixtureMutatingRun()
         case "home-rail":
             seedFixtureRail()

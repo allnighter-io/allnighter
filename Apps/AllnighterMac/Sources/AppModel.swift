@@ -603,10 +603,6 @@ final class AppModel {
 
     var hasUnresolvedSupportedTool: Bool { !unresolvedSupportedDriverIds.isEmpty }
 
-    static func unresolvedSupported(registry: DriverRegistry, toolStatuses: [ToolProbeRecord]) -> [String] {
-        AppCensusModel.unresolvedSupported(registry: registry, toolStatuses: toolStatuses)
-    }
-
     /// Tier-2 discovery: have one healthy agent run the read-only census build
     /// order to find the tools the plain probe couldn't, then VERIFY every
     /// reported path locally before trusting it (health == runs). Only upgrades

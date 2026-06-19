@@ -2,6 +2,14 @@
 
 Deltas must be explained, not minimized.
 
+## 2026-06-19 (Batch 3 — Dead weight)
+
+- Deleted legacy `ThreadsView.swift` (superseded by `HomeView` + `ThreadView`).
+- Pruned legacy `ThreadsViewModel` composer/send/reveal APIs and presenter `railGroups`/`RailGroup`.
+- Removed `TeamHealthPopover` alias, `thread-dispatch` fixture alias, `AppModel.unresolvedSupported` shim.
+- Open maintenance queue rows: 0
+- Next regular lens: TBD (queue empty)
+
 ## 2026-06-19 (Batch 2 — Duplication)
 
 - Extracted `SetupCardBuckets`, `SetupCardState` pill mapping, and `SetupActions.handle` from duplicated setup/readiness surfaces.

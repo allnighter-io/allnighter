@@ -1,6 +1,19 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-06-19 - Batch 3
+
+Scope: Dead weight lens (index 2)
+Class: Remove superseded legacy UI, stale aliases, and unused helpers after home/thread cutover
+Lens: Dead weight (index 2)
+Files touched: deleted Apps/AllnighterMac/Sources/ThreadsView.swift; Apps/AllnighterMac/Sources/{ThreadsViewModel,ThreadsPresenter,SetupViews,ThreadsFixtureSeeder,AppModel}.swift; Apps/AllnighterMac/Tests/AppModelTests.swift; AllnighterMac.xcodeproj (xcodegen); docs/operations/code-maintainer/{RUNLOG,HEALTH}.md; docs/qa/gui/WAIVERS.manifest
+Behavior guarantee: Production routes HomeView + ThreadView only; routing composer send path unchanged
+Proof: swift test --package-path Packages/AllnighterCore (639 tests, 0 failures); xcodebuild test -scheme AllnighterMac (84 tests, 0 failures); bash scripts/check.sh
+Before/after signal: Deleted legacy ThreadsView (550 LOC); removed legacy composer/send/reveal VM APIs, TeamHealthPopover alias, thread-dispatch fixture alias, deprecated railGroups/RailGroup, AppModel.unresolvedSupported shim
+Next lens: Per MAINTENANCE-QUEUE or next scheduled maintainer pass
+```
+
+```text
 ## 2026-06-19 - Batch 2
 
 Scope: Duplication lens (index 1)
