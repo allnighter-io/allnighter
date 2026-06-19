@@ -59,6 +59,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Projects, repo/folder roots, Project Manager chat/proposals | `docs/phases/Project_Spine_And_Project_Manager.md` |
+| Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Work-order vocabulary, model/skill/worker/team model | `docs/phases/Work_Order_Team_Model.md` |
 | CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
