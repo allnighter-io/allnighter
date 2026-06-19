@@ -18,6 +18,8 @@ struct TeamsLauncherView: View {
     @State private var composingTeam: TeamCard?
     /// Non-nil while the Team Editor drawer is open (hover-pencil → review/customize).
     @State private var editingTeam: TeamCard?
+    /// Browse-all family filter (nil = All). G-T1.
+    @State private var familyFilter: String?
 
     private var cards: [TeamCard] {
         TeamCardCatalogJSON.project(TeamCatalog.all, family: nil,
@@ -30,6 +32,11 @@ struct TeamsLauncherView: View {
         return appModel.models.filter { readyIds.contains($0.id) }
     }
 
+    private var filteredCards: [TeamCard] {
+        guard let f = familyFilter else { return cards }
+        return cards.filter { $0.family == f }
+    }
+
     private let columns = [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14)]
 
     var body: some View {
@@ -38,7 +45,7 @@ struct TeamsLauncherView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     header
                     LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(cards) { card in
+                        ForEach(filteredCards) { card in
                             TeamCardTile(
                                 card: card, selected: selectedTeamId == card.id,
                                 onTap: {
@@ -88,7 +95,7 @@ struct TeamsLauncherView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("TEAMS · YOUR ROSTER")
                 .font(ALFont.monoSm.weight(.semibold))
                 .tracking(1.2)
@@ -97,8 +104,50 @@ struct TeamsLauncherView: View {
                 Text("Send to team").font(.system(size: 23, weight: .bold)).foregroundStyle(ALColor.textPrimary)
                 Text("Pick the crew. Your prompt comes next.")
                     .font(ALFont.body).foregroundStyle(ALColor.textMuted)
+                Spacer()
+                benchStrip
             }
+            familyTabs
         }
+    }
+
+    /// "Your paid AIs, ready" — the bench at a glance (green dot = ready, yellow = down).
+    private var benchStrip: some View {
+        let bench = appModel.composeBench
+        let readyCount = bench.filter(\.ready).count
+        return HStack(spacing: 10) {
+            Text("BENCH").font(ALFont.monoSm.weight(.semibold)).tracking(0.8).foregroundStyle(ALColor.textFaint)
+            ForEach(bench) { m in
+                HStack(spacing: 4) {
+                    Circle().fill(m.ready ? ALColor.statusDone : ALColor.statusTimeout).frame(width: 6, height: 6)
+                    Text(m.name).font(ALFont.monoSm).foregroundStyle(m.ready ? ALColor.textMuted : ALColor.textFaint)
+                }
+            }
+            Text("\(readyCount) ready").font(ALFont.monoSm.weight(.semibold)).foregroundStyle(ALColor.statusDone)
+        }
+    }
+
+    private var familyTabs: some View {
+        HStack(spacing: 6) {
+            familyChip(nil, "All")
+            familyChip("signal", "Signal")
+            familyChip("code", "Code")
+            familyChip("design", "Design")
+            familyChip("copy", "Copy")
+        }
+    }
+
+    private func familyChip(_ family: String?, _ label: String) -> some View {
+        let active = familyFilter == family
+        return Button { familyFilter = family } label: {
+            Text(label)
+                .font(ALFont.label.weight(.medium))
+                .foregroundStyle(active ? ALColor.textPrimary : ALColor.textMuted)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(active ? ALColor.accentSurface : ALColor.subtle, in: Capsule())
+                .overlay(Capsule().strokeBorder(active ? ALColor.accentBorder : ALColor.borderSubtle, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }
 
