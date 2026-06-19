@@ -18,6 +18,10 @@ final class ThreadsViewModel {
     /// Per-turn worker override chosen in the composer; nil resolves the default.
     var requestedWorkerId: String?
 
+    /// The active project new threads bind to (PRJ-S14). Kept in sync from
+    /// `ProjectsViewModel.activeProjectId` by RootView. Nil → threads stay Unassigned.
+    var currentProjectId: String?
+
     /// Pending text from a global quick-capture hotkey (⌥⌘Space or menu "Quick capture").
     /// The currently-visible RoutingComposer will adopt it into its editor (only if
     /// that editor is empty), then clear the pending. Quick capture creates a new
@@ -268,9 +272,17 @@ final class ThreadsViewModel {
         let thread = try? store.create(
             id: UUID().uuidString, title: title, now: Date(), workingDir: workingDir
         )
+        if let thread { stampProject(thread.id) }
         reload()
         if let thread { selectedThreadId = thread.id }
         return thread
+    }
+
+    /// Bind a freshly created thread to the active project (PRJ-S14). No-op when no
+    /// project is active — the thread stays Unassigned (blocked from mutating dispatch).
+    private func stampProject(_ threadId: String) {
+        guard let pid = currentProjectId else { return }
+        _ = try? store.bindProject(threadId: threadId, projectId: pid)
     }
 
     /// Empty thread for the "Start a work order" flow.
@@ -306,6 +318,7 @@ final class ThreadsViewModel {
             guard let thread = try? store.create(
                 id: UUID().uuidString, title: Self.title(from: message), now: Date()
             ) else { return }
+            stampProject(thread.id)
             reload()
             selectedThreadId = thread.id
             threadId = thread.id
@@ -628,9 +641,39 @@ final class ThreadsViewModel {
             selectedThreadId = nil
         case "home-rail-unr":
             seedFixtureUnreadMatrix()
+        case "projects-rail":
+            seedFixtureProjectsRail()
+            reload()
+            selectedThreadId = "pr-halo-2"
         default:
             break
         }
+    }
+
+    /// PRJ-S14 proof: threads grouped under projects — a pinned cross-project row,
+    /// a project with >4 threads (so "N more" shows), an unread row, a second
+    /// project, and an Unassigned bucket. Bound to the sample project ids seeded
+    /// into `ProjectsViewModel` by RootView.
+    private func seedFixtureProjectsRail() {
+        let base = Date()
+        func mk(_ id: String, _ title: String, _ ago: TimeInterval, project: String?, pinned: Bool = false, unread: Bool = false) {
+            guard (try? store.create(id: id, title: title, now: base.addingTimeInterval(-ago))) != nil else { return }
+            if let project { _ = try? store.bindProject(threadId: id, projectId: project) }
+            if pinned { _ = try? store.setPinned(threadId: id, pinned: true, now: base) }
+            if unread {
+                let t = ThreadTurn(id: "\(id)-t", threadId: id, kind: .workerChat, status: .done,
+                                   createdAt: base, completedAt: base, author: .worker)
+                _ = try? store.appendTurn(t, toThreadId: id, now: base)
+            }
+        }
+        mk("pr-pin", "Redesign the profile screen now", 30, project: "prj_halo", pinned: true)
+        mk("pr-halo-1", "Onboarding empty states", 720, project: "prj_halo", unread: true)
+        mk("pr-halo-2", "Rate-limit the public API", 60, project: "prj_halo")
+        mk("pr-halo-3", "Dark-mode token audit", 7200, project: "prj_halo")
+        mk("pr-halo-4", "Fix the uploader client", 10000, project: "prj_halo")
+        mk("pr-halo-5", "Refactor the settings screen", 12000, project: "prj_halo")
+        mk("pr-web-1", "First page POC implementation", 300, project: "prj_web")
+        mk("pr-un-1", "Token bucket vs sliding window", 900, project: nil)
     }
 
     /// CR4e proof: a grouped rail — a pinned conversation, plus recent ones across

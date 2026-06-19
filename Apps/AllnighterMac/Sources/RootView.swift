@@ -5,6 +5,7 @@ import AllnighterEngine
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(ProjectsViewModel.self) private var projects
     @Environment(\.openWindow) private var openWindow
     @Bindable var threads: ThreadsViewModel
     @State private var showDoctor = false
@@ -263,6 +264,10 @@ struct RootView: View {
                 if GUIFixture.opensHomeWorkspace {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
                 }
+                if GUIFixture.opensProjectsRail {
+                    projects.seedForProof(ProjectsViewModel.sampleProjects(), active: "prj_halo")
+                    threads.currentProjectId = "prj_halo"
+                }
                 GUIFixture.captureAndExitIfRequested()
                 return
             }
@@ -281,6 +286,11 @@ struct RootView: View {
                 // dropdown's "Open CLI setup" + the health badge. First-run
                 // auto-open is intentionally NOT done here.
             }
+            // New threads bind to the active project (PRJ-S14).
+            threads.currentProjectId = projects.activeProjectId
+        }
+        .onChange(of: projects.activeProjectId) { _, id in
+            threads.currentProjectId = id
         }
         .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
             Button("OK", role: .cancel) {}

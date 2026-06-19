@@ -34,32 +34,27 @@ struct HomeView: View {
 
 private struct HomeSidebar: View {
     @Environment(ThreadsViewModel.self) private var threads
+    @Environment(ProjectsViewModel.self) private var projects
     @Environment(CommandCenter.self) private var commands
     @FocusState private var searchFocused: Bool
     @State private var search = ""
-    @State private var filter: ThreadsPresenter.RailFilter = .all
     @State private var renameThreadId: String?
+    @State private var collapsed: Set<String> = []
+    @State private var expanded: Set<String> = []
 
-    private var triageSections: [ThreadsPresenter.TriageSection] {
-        ThreadsPresenter.triageSections(threads.threads, filter: filter, search: search)
+    private var sections: (pinned: [WorkThread], groups: [ThreadsPresenter.ProjectGroup]) {
+        ThreadsPresenter.projectSections(threads.threads, projects: projects.projects, search: search)
     }
 
     private var archivedSections: [ThreadsPresenter.TriageSection] {
         let archived = ThreadsPresenter.triagedArchived(threads.threads)
-        let filtered = archived.filter {
-            ThreadsPresenter.matchesSearch($0, query: search)
-        }
+        let filtered = archived.filter { ThreadsPresenter.matchesSearch($0, query: search) }
         guard !filtered.isEmpty else { return [] }
         return [ThreadsPresenter.TriageSection(id: "archive", title: "Archived", threads: filtered)]
     }
 
-    private func label(for filter: ThreadsPresenter.RailFilter) -> String {
-        switch filter {
-        case .all: return "All"
-        case .design: return "Design"
-        case .code: return "Code"
-        case .running: return "Running"
-        }
+    private var isEmptyFloor: Bool {
+        projects.projects.isEmpty && threads.threads.allSatisfy { $0.isArchived }
     }
 
     var body: some View {
@@ -83,34 +78,15 @@ private struct HomeSidebar: View {
                 .padding(.horizontal, 10).frame(height: 32)
                 .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
                 .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-
-                HStack(spacing: 7) {
-                    ForEach(ThreadsPresenter.RailFilter.allCases, id: \.self) { key in
-                        Button { filter = key } label: {
-                            Text(label(for: key)).font(.system(size: 11.5, weight: .medium))
-                                .foregroundStyle(filter == key ? ALColor.textPrimary : ALColor.textMuted)
-                                .padding(.horizontal, 11).frame(height: 26)
-                                .background(filter == key ? ALColor.active : ALColor.subtle, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer(minLength: 0)
-                }
             }
-            .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 12)
+            .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 10)
 
             if threads.showingArchive {
                 archiveRail
-            } else if triageSections.isEmpty {
-                Spacer(minLength: 0)
-                if threads.threads.contains(where: { !$0.isArchived }) {
-                    noMatchHint
-                } else {
-                    emptyHint
-                }
-                Spacer(minLength: 0)
+            } else if isEmptyFloor {
+                Spacer(minLength: 0); projectsEmpty; Spacer(minLength: 0)
             } else {
-                activeRail
+                projectsRail
             }
 
             if !threads.showingArchive {
@@ -125,29 +101,93 @@ private struct HomeSidebar: View {
         .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
     }
 
-    private var activeRail: some View {
+    // MARK: Projects rail (PRJ-S14)
+
+    private var projectsRail: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
-                ForEach(triageSections) { section in
-                    Section {
-                        ForEach(section.threads) { thread in
-                            ConversationRow(
-                                thread: thread,
-                                selected: thread.id == threads.selectedThreadId,
-                                renaming: renameThreadId == thread.id,
-                                onEndRename: { renameThreadId = nil },
-                                onRename: { renameThreadId = thread.id }
-                            ) {
-                                threads.select(thread)
-                            }
+            LazyVStack(alignment: .leading, spacing: 2) {
+                if !sections.pinned.isEmpty {
+                    railSectionHeader("Pinned")
+                    ForEach(sections.pinned) { row($0) }
+                }
+                projectsSectionHeader
+                ForEach(sections.groups) { group in
+                    ProjectGroupHeader(
+                        group: group,
+                        collapsed: collapsed.contains(group.id),
+                        onToggle: { toggle(group.id) },
+                        onNewAgent: group.project.map { p in { newAgent(in: p.id) } }
+                    )
+                    if !collapsed.contains(group.id) {
+                        let shown = expanded.contains(group.id) ? group.threads : Array(group.threads.prefix(4))
+                        ForEach(shown) { row($0) }
+                        if group.threads.count > 4 && !expanded.contains(group.id) {
+                            moreRow(group.threads.count - 4, group: group.id)
                         }
-                    } header: {
-                        railSectionHeader(section.title)
+                        if group.threads.isEmpty {
+                            Text("No conversations").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                                .padding(.horizontal, 28).padding(.vertical, 3)
+                        }
                     }
                 }
             }
             .padding(.horizontal, 10).padding(.bottom, 12)
         }
+    }
+
+    private func row(_ thread: WorkThread) -> some View {
+        ProjectThreadRow(thread: thread, selected: thread.id == threads.selectedThreadId) {
+            threads.select(thread)
+        }
+    }
+
+    private var projectsSectionHeader: some View {
+        HStack {
+            Text("PROJECTS").font(.system(size: 10, weight: .semibold)).tracking(0.9)
+                .foregroundStyle(ALColor.textFaint)
+            Spacer()
+            IconButton(systemImage: "folder.badge.plus", accessibilityLabel: "New project", small: true) {
+                projects.addProjectViaPicker()
+            }
+        }
+        .padding(.horizontal, 9).padding(.top, 12).padding(.bottom, 2)
+    }
+
+    private func moreRow(_ n: Int, group: String) -> some View {
+        Button { expanded.insert(group) } label: {
+            Text("\(n) more")
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(ALColor.accentText)
+                .padding(.leading, 28).frame(height: 26)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggle(_ id: String) {
+        if collapsed.contains(id) { collapsed.remove(id) } else { collapsed.insert(id) }
+    }
+
+    private func newAgent(in projectId: String) {
+        projects.select(projectId)
+        threads.currentProjectId = projectId
+        threads.newWorkOrder()
+    }
+
+    private var projectsEmpty: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "folder.badge.plus").font(.system(size: 26)).foregroundStyle(ALColor.textFaint)
+            Text("No projects yet")
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+            Text("Add a local folder or git repo to start managing work.")
+                .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
+                .multilineTextAlignment(.center).frame(maxWidth: 200).lineSpacing(2)
+            Button { projects.addProjectViaPicker() } label: {
+                Label("Add project", systemImage: "plus").font(.system(size: 12.5, weight: .semibold))
+            }
+            .buttonStyle(.alLight)
+        }
+        .frame(maxWidth: .infinity).padding(.horizontal, 14)
     }
 
     private var archiveRail: some View {
@@ -231,30 +271,88 @@ private struct HomeSidebar: View {
             .background(ALColor.subtle)
     }
 
-    private var emptyHint: some View {
-        VStack(spacing: 8) {
-            AllnighterGlyph(size: 26)
-            Text("No conversations yet")
-                .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
-            Text("Your work orders will live here — newest on top.")
-                .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
-                .multilineTextAlignment(.center).frame(maxWidth: 210).lineSpacing(2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 14)
-    }
+}
 
-    private var noMatchHint: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "line.3.horizontal.decrease.circle").font(.system(size: 24)).foregroundStyle(ALColor.textFaint)
-            Text("No matches")
-                .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
-            Text(search.isEmpty ? "No \(label(for: filter).lowercased()) conversations." : "Nothing matches “\(search)”.")
-                .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
-                .multilineTextAlignment(.center).frame(maxWidth: 210).lineSpacing(2)
+// MARK: - Project-grouped rail rows (PRJ-S14)
+
+/// A single-line thread row: unread dot · title · time, with the active amber rail.
+/// On hover, the time is replaced by pin + archive actions.
+private struct ProjectThreadRow: View {
+    @Environment(ThreadsViewModel.self) private var threads
+    let thread: WorkThread
+    let selected: Bool
+    let onTap: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 9) {
+                Circle().fill(thread.hasUnread ? ALColor.accent : Color.clear).frame(width: 7, height: 7)
+                Text(thread.title)
+                    .font(.system(size: 13, weight: thread.hasUnread ? .semibold : (selected ? .medium : .regular)))
+                    .foregroundStyle(thread.hasUnread || selected ? ALColor.textPrimary : ALColor.textMuted)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if hovering {
+                    HStack(spacing: 2) {
+                        IconButton(systemImage: thread.isPinned ? "pin.slash" : "pin", accessibilityLabel: thread.isPinned ? "Unpin" : "Pin", small: true) {
+                            threads.togglePin(for: thread)
+                        }
+                        IconButton(systemImage: "archivebox", accessibilityLabel: "Archive", small: true) {
+                            threads.archiveThread(thread.id)
+                        }
+                    }
+                } else {
+                    Text(thread.updatedAt, format: .relative(presentation: .numeric))
+                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                }
+            }
+            .padding(.horizontal, 10).frame(height: 32)
+            .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
+                        in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay(alignment: .leading) {
+                if selected {
+                    RoundedRectangle(cornerRadius: 1.5).fill(ALColor.accent).frame(width: 2.5).padding(.vertical, 6)
+                }
+            }
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 14)
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .threadRowContextMenu(thread: thread)
+    }
+}
+
+/// A project section header: chevron · folder · name · aggregate unread dot · `+`.
+private struct ProjectGroupHeader: View {
+    let group: ThreadsPresenter.ProjectGroup
+    let collapsed: Bool
+    let onToggle: () -> Void
+    let onNewAgent: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Button(action: onToggle) {
+                HStack(spacing: 7) {
+                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .semibold)).foregroundStyle(ALColor.textFaint).frame(width: 9)
+                    Image(systemName: group.project == nil ? "tray" : "folder")
+                        .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                    Text(group.title)
+                        .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+                    if group.hasUnread {
+                        Circle().fill(ALColor.accent).frame(width: 6, height: 6)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+            if let onNewAgent {
+                IconButton(systemImage: "plus", accessibilityLabel: "New agent in project", small: true, action: onNewAgent)
+            }
+        }
+        .padding(.horizontal, 9).padding(.top, 9).padding(.bottom, 3)
     }
 }
 

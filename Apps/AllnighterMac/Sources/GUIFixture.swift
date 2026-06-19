@@ -121,7 +121,7 @@ enum GUIFixture {
     /// Home / thread conversation fixtures stay on HomeView (not the specimen).
     static var opensHomeWorkspace: Bool {
         let name = active ?? ""
-        return name.hasPrefix("home-") || name.hasPrefix("thread-") || name == "command-palette"
+        return name.hasPrefix("home-") || name.hasPrefix("thread-") || name == "command-palette" || name == "projects-rail"
     }
 
     /// UNR proof: keep selected-unread below the fold for the rail matrix capture.
@@ -135,6 +135,8 @@ enum GUIFixture {
     static var opensTeamsEditDrawer: Bool { active == "teams-edit-drawer" }
     /// Deep-link: open the Factory Floor reader over a completed sample team run.
     static var opensFloorReader: Bool { active == "floor-reader" }
+    /// Deep-link: seed the project-grouped sidebar (PRJ-S14) with sample projects.
+    static var opensProjectsRail: Bool { active == "projects-rail" }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// `compose-mode-menu` seeds the mode menu open for the proof capture.
@@ -229,6 +231,7 @@ enum GUIFixture {
         ("teams-compose-modal", "Teams — send-to-team composer modal (G-T2)"),
         ("teams-edit-drawer", "Teams — hover-edit → Team Editor drawer (#3)"),
         ("floor-reader", "Floor — team reply reader (G-T3, markdown)"),
+        ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
         ("compose-target-send-to-team", "Compose — send to team (native popover)"),
