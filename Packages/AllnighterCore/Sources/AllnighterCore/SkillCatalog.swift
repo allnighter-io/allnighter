@@ -597,6 +597,15 @@ public enum SkillCatalog {
         single most recommended next action. Keep observed facts and inference clearly \
         separated. "No move today" is a complete, valid Insight when the signal is \
         stale, saturated, or not a fit — never manufacture urgency.
+
+        After the prose, append a fenced ```signal-insight code block containing a \
+        JSON object with these keys: title, summary, whatHappened, whyItMatters, \
+        whyThisProject, window (open|closing|closed|uncertain), freshness \
+        ({observedAt, status: fresh|stale|uncertain}), internalLessons[], \
+        externalProductIdeas[], skepticPass ({verdict: pass|caution|reject|uncertain, \
+        reason}), and receipts[] (each {id, sourceKind, observedAt, relevance, \
+        evidenceRole}). Use ISO-8601 timestamps. Set freshness.status and window to \
+        uncertain when you cannot verify them — never invent freshness.
         """)
     ]
 

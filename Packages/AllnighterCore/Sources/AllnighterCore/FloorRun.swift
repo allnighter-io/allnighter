@@ -190,13 +190,17 @@ public struct FloorReturn: Codable, Sendable, Equatable {
     public var producedByWorkerId: String?
     public var stageId: String?
     public var artifactRefs: [RunArtifactRef]
+    /// The typed Signal output, present on `kind == .insight` runs when the Insight
+    /// Writer emitted a parseable structured block (F-S03).
+    public var insight: SignalInsight?
 
     public init(kind: Kind, status: String, title: String,
                 summaryMarkdown: String? = nil, producedByWorkerId: String? = nil,
-                stageId: String? = nil, artifactRefs: [RunArtifactRef] = []) {
+                stageId: String? = nil, artifactRefs: [RunArtifactRef] = [],
+                insight: SignalInsight? = nil) {
         self.kind = kind; self.status = status; self.title = title
         self.summaryMarkdown = summaryMarkdown; self.producedByWorkerId = producedByWorkerId
-        self.stageId = stageId; self.artifactRefs = artifactRefs
+        self.stageId = stageId; self.artifactRefs = artifactRefs; self.insight = insight
     }
 }
 

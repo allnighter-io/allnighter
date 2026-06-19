@@ -71,7 +71,20 @@ public struct RunStore: Sendable {
 
         try writeWorkerArtifacts(run, in: directory)
         try writeStageArtifacts(run, in: directory)
+        try writeReturnArtifacts(run, in: directory)
         return directory
+    }
+
+    /// F-S03: when a Signal run produced a parseable typed insight, persist it as
+    /// `return/insight.json` so agents can read structure without re-parsing the
+    /// markdown. Derived from run.json on each save.
+    private func writeReturnArtifacts(_ run: TeamRun, in directory: URL) throws {
+        guard run.outputKind == .insight,
+              let insight = SignalInsightParser.parse(fromWriterOutput: run.plan) else { return }
+        let returnDir = directory.appendingPathComponent("return", isDirectory: true)
+        try FileManager.default.createDirectory(at: returnDir, withIntermediateDirectories: true)
+        try CoreJSON.encode(insight).write(
+            to: returnDir.appendingPathComponent("insight.json"), options: .atomic)
     }
 
     /// F-S02: every stage that produced markdown (analysis/plan/review/final spec/

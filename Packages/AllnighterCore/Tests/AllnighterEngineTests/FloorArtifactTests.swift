@@ -73,6 +73,25 @@ final class FloorArtifactTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: stages.appendingPathComponent("stage_plan.metadata.json").path))
     }
 
+    func testSignalInsightPersistedToReturnJSON() throws {
+        let block = """
+        No move today.
+
+        ```signal-insight
+        {"title":"t","summary":"s","whatHappened":"w","whyItMatters":"m","whyThisProject":"p",
+         "window":"uncertain","freshness":{"observedAt":"2026-06-18T00:00:00Z","status":"uncertain"},
+         "skepticPass":{"verdict":"reject","reason":"stale"},"receipts":[]}
+        ```
+        """
+        var r = makeRun()
+        r.stages = [StageOutput(id: "stage_plan", purpose: .plan, status: .done, payload: .plan(markdown: block))]
+        _ = try store.save(r, models: [])
+        let insightJSON = tmp.appendingPathComponent("run_floorart1/return/insight.json")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: insightJSON.path))
+        let decoded = try CoreJSON.decode(SignalInsight.self, from: Data(contentsOf: insightJSON))
+        XCTAssertEqual(decoded.skepticPass.verdict, .reject)
+    }
+
     func testFloorProjectionCarriesMatchingArtifactRefs() {
         let floor = FloorProjector.project(makeRun())
         let laneA = floor.workerLanes.first { $0.workerId == "model_a#0" }

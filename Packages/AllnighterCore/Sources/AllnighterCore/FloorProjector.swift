@@ -162,15 +162,28 @@ public enum FloorProjector {
         let stage = returnStage(for: run)
         let markdown = stageMarkdown(stage)
         guard markdown != nil || run.status.isTerminal else { return nil }
-        let refs = stage.map { s in stageArtifacts.filter { $0.stageId == s.id } } ?? []
+        var refs = stage.map { s in stageArtifacts.filter { $0.stageId == s.id } } ?? []
+
+        // F-S03: a Signal run carries a typed insight when the writer emitted a
+        // parseable structured block; surface it + an insightJSON artifact ref.
+        let kind = returnKind(for: run.outputKind)
+        let insight = kind == .insight ? SignalInsightParser.parse(fromWriterOutput: markdown) : nil
+        if insight != nil {
+            refs.append(RunArtifactRef(
+                id: "\(run.id)_insight", runId: run.id, kind: .insightJSON, title: "Signal insight",
+                relativePath: "return/insight.json", mimeType: "application/json",
+                createdAt: stage?.finishedAt ?? run.createdAt))
+        }
+
         return FloorReturn(
-            kind: returnKind(for: run.outputKind),
+            kind: kind,
             status: status(for: run.status).rawValue,
             title: title,
             summaryMarkdown: markdown,
             producedByWorkerId: leadWorkerId,
             stageId: stage?.id,
-            artifactRefs: refs
+            artifactRefs: refs,
+            insight: insight
         )
     }
 
