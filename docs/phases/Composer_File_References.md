@@ -116,21 +116,55 @@ Rejected or deferred:
 
 ## Current State
 
-The backend is not starting from zero:
+The backend is not starting from zero. The anchors below were verified against
+the tree on 2026-06-19; treat them as the load-bearing reuse surface, not as
+prose.
 
-- `ThreadContextPacket` already has `includedFiles: [String]`, defaulting to `[]`
-  for legacy packets, and `text` stores the exact rendered context body.
-- `ThreadContextBuilder.Options.attachedFiles` already resolves absolute or
-  `workingDir`-relative paths, reads UTF-8 file contents, applies byte caps,
-  renders an "Attached files:" block, records `includedFiles`, and marks
-  truncation.
-- `ThreadSendCoordinator.Request` and `WorkerChatCoordinator` already accept
-  `contextOptions`, so chat has a canonical send-transaction path that can carry
-  attached files.
-- `GitObserver` already shells out to git safely for Project/root metadata.
-- The Mac gap is the product surface: `RoutingComposer` / `ALTextEditor` do not
-  detect `@`, do not show a picker, do not persist file chips, and do not pass
-  attached files into the send options.
+- `ThreadContextPacket` (`AllnighterCore/ThreadContextPacket.swift:18-35`)
+  already has `includedFiles: [String]` defaulting to `[]` for legacy packets,
+  and `text` stores the exact rendered context body.
+- `ThreadContextBuilder.Options.attachedFiles`
+  (`AllnighterEngine/ThreadContextBuilder.swift:11-39`, render at `:107-124`,
+  resolve at `:184-188`) already resolves absolute or `workingDir`-relative
+  paths, reads UTF-8 contents, applies byte caps, renders an "Attached files:"
+  block, records `includedFiles`, and marks truncation. **Two facts force FR-S00
+  work, not pure reuse:**
+  - **`attachedFiles` is `[String]` — whole-file only, no line ranges.** The
+    schema, prompt block, and CLI `--ref path:start-end` in this spec all assume
+    per-file ranges. FR-S00 must extend the builder input element to carry an
+    optional range (see Implementation Law §6 and the Schema reconciliation),
+    or line ranges are not deliverable. Do not pretend the existing `[String]`
+    path satisfies them.
+  - **Existing caps are chat-attachment caps, far below this spec's budget:**
+    `maxBytes` defaults to **16,000** total and `maxFileBytes` to **4,000** per
+    file. This spec's policy (64 KB/file, 256 KB total) is ~16x larger. Reusing
+    the builder as-is would silently truncate nearly every real source file to
+    4 KB. FR-S00 must set a deliberate file-reference budget (raise these
+    `Options` caps for the reference path, or pass higher per-send cap values),
+    and the Works Test must assert delivered bytes at the new cap, not the old.
+- `ThreadSendCoordinator.Request.contextOptions` and `WorkerChatCoordinator`
+  send/`beginSend` (`AllnighterEngine/ThreadSendCoordinator.swift:25-45`,
+  `WorkerChatCoordinator.swift:106-139`) already accept
+  `contextOptions: ThreadContextBuilder.Options`, so chat has a canonical
+  send-transaction path that can carry attached files. The same `Request` already
+  carries `images: [ImageInput]` — the image attachment pattern is the precedent
+  to mirror, not to reuse (see Truth Owner).
+- `GitObserver` (`AllnighterEngine/GitObserver.swift`) exposes
+  `repoTopLevel(forPath:)`, `dirtyFiles(rootPath:)`, and `recentCommits(...)` —
+  enough to seed the catalog's git path source and dirty/recency ranking without
+  new shell-outs.
+- `ProjectExecutionResolver` (`AllnighterEngine/ProjectExecutionResolver.swift`)
+  `resolve(project:) -> ProjectExecutionScope` yields `workerCwd` / `proofCwd` /
+  `attachmentMirrorRoot`; send-time ref resolution roots against this scope.
+- The Mac gap is the product surface: `RoutingComposer`
+  (`Apps/AllnighterMac/Sources/RoutingComposer.swift:97`) and `ALTextEditor`
+  (`DesignComponents.swift:735`) do not detect `@`, do not show a picker, do not
+  persist file chips, and do not pass attachments into the send options.
+  `ALTextEditor` is an `NSViewRepresentable` over a plain-text `NSTextView` that
+  exposes only `text`/`contentHeight`/`isFocused` — it exposes **no caret rect
+  or selection today**, and nothing uses `NSTextAttachment`. FR-S04 must extend
+  the editor Coordinator to surface `selectedRange`/caret rect before a
+  caret-anchored palette is possible.
 
 ## Truth Owner
 
@@ -140,12 +174,20 @@ The backend is not starting from zero:
 | `ProjectFileReferenceResolver` | Path normalization, safety, metadata, hashing, line-range validation |
 | `ThreadDraftContext.fileReferences` | Draft refs visible in the composer before send |
 | `ThreadTurn.fileReferenceRefs` | Committed ordered refs on the sent turn |
-| `ThreadContextBuilder.Options.attachedFiles` | Existing Core input used to deliver referenced file bodies |
+| `ThreadContextBuilder.Options.attachedFiles` | Existing Core input used to deliver referenced file bodies; FR-S00 extends its element to carry an optional line range and lifts its byte caps for references |
 | `ThreadContextPacket.includedFiles` | Compatibility path list of files included in the packet body |
 | `ThreadContextPacket.includedFileReferences` | Additive detailed audit: order, hash, range, delivery mode |
 | `ThreadContextPacket.text` | Exact referenced-file text delivered to the worker |
 | Worker prompt renderer | Protected referenced-files block from the saved packet |
 | Mac composer | Presents Core truth; does not invent durable refs |
+
+Mirror, do not reuse, the image attachment trio: `ThreadAttachmentStore`,
+`IncludedAttachmentDelivery`, and `AttachmentDeliveryRenderer.pathBlock()`
+(which renders "Attached images (use these paths):") are the shape precedent.
+Note the deliberate divergence: images deliver **paths** to a mirrored blob;
+file references deliver **bounded content** inline in the packet `text`. The CLI
+`thread_send` JSON `AttachmentRow` (`attachmentId` / `canonicalPath` /
+`deliveredPathUsed` / `storedSha256`) is the row precedent for `fileReferences[]`.
 
 Do not use image attachments for Project file references. Do not put absolute
 paths in user-facing chips when a root-relative path is available. Do not let
@@ -244,8 +286,10 @@ The send transaction must:
 1. lock the thread;
 2. parse any stable `@path` backing tokens from the final composer text;
 3. merge parsed tokens with draft refs, dedupe, and preserve appearance order;
-4. resolve every selected ref against the current Project root or dispatch lane
-   root through `ProjectExecutionResolver`;
+4. resolve every selected ref against the scope from
+   `ProjectExecutionResolver.resolve(project:)` — root refs at `workerCwd`, the
+   same root the worker is invoked from, so chip path and delivered path cannot
+   diverge;
 5. reject missing, escaped, binary, sensitive, oversized, or invalid line-range
    refs;
 6. hash the referenced file at send time;
@@ -286,6 +330,22 @@ context reveal. Do not estimate token cost. Workers may also receive the
 root-relative path and hash so project-aware CLIs can reopen the source, but a
 path-only instruction does not satisfy Mac v1 unless a specific worker delivery
 strategy declares it.
+
+Two builder changes are load-bearing here and belong to FR-S00, because the
+existing `attachedFiles: [String]` path cannot satisfy this section as-is:
+
+- **Line ranges.** `attachedFiles` is a flat path list. To deliver
+  `path lines 1-120`, FR-S00 extends the builder input element to an
+  `(path, lineRange?)` shape (a new `AttachedFileInput` carried by
+  `ThreadContextBuilder.Options`, keeping the bare-`String` element decoding for
+  back-compat), and the renderer slices to the validated range. If FR-S00 ships
+  whole-file only, line ranges must be removed from the v1 schema, CLI, and
+  prompt block in lockstep — not left as dead promises.
+- **Byte budget.** The reference path must use this spec's budget (below), not
+  the legacy 16 KB/4 KB chat-attachment caps. FR-S00 either raises
+  `Options.maxBytes`/`maxFileBytes` for the reference send or threads explicit
+  per-send caps. The Works Test asserts the *delivered* byte count at the new
+  budget so a silent fallback to 4 KB fails the test.
 
 ### 7. Pending and work orders revalidate
 
@@ -379,11 +439,18 @@ V1 policy defaults:
 ```text
 max references per turn: 12
 max referenced file delivery: 64 KB per file
-max referenced-file body budget: 256 KB total
+max referenced-file body budget: 256 KB total (total wins: e.g. 12 x 64 KB is
+  capped by the 256 KB body budget, dropping/truncating lowest-sequence-last)
 text only
 line ranges optional through CLI/MCP and future editor integration
 directory refs: not supported
 ```
+
+These supersede the legacy `ThreadContextBuilder.Options` defaults (16 KB total /
+4 KB per file) **on the reference delivery path only**. They are a deliberate,
+larger budget for user-selected files and must be encoded as file-reference
+policy constants in Core, not hard-coded at call sites. Plain chat attachments
+keep their existing caps unless a separate decision changes them.
 
 ## Mac Surface Contract
 
@@ -447,6 +514,13 @@ alln project files <project-id|current> [--query <text>] [--limit <n>] [--json]
 Search output includes root-relative paths and ranking metadata only. It never
 returns file contents.
 
+`alln project files` lands under the `project` command group, which does not
+exist yet — it arrives with Project Spine CLI (`PRJ-S07+`), and the README
+execution order already places that before File References (step 4 before
+step 5). FR-S03 must not invent a parallel `project` group: if the group is not
+yet present, FR-S03 is blocked on PRJ-S07, and `current` resolves through the
+active Project the same way other Project-scoped commands will.
+
 Send:
 
 ```bash
@@ -458,8 +532,10 @@ alln thread send <thread-id|latest> [<message>] \
 ```
 
 Team/project sends that accept Project context also accept `--ref` after their
-Project-scoped command forms exist. `--file` remains prompt-body input; it is not
-a file reference flag.
+Project-scoped command forms exist. `--ref` is a new flag and does not collide
+with anything today: `thread send` currently exposes `--image` (image input),
+`--worker`, `--idempotency-key`, and `--json` — there is no `--file` flag.
+`--image` stays image-only; `--ref` is the file-reference flag.
 
 JSON send output includes `fileReferences[]` with `referenceId`,
 `rootRelativePath`, `lineRange`, `storedSha256`, `byteSize`, `deliveredPathUsed`,
@@ -467,7 +543,13 @@ JSON send output includes `fileReferences[]` with `referenceId`,
 
 ## MCP Contract
 
-Add registry-derived support only. No hand-written MCP-only descriptor.
+Add registry-derived support only. No hand-written MCP-only descriptor. Params
+are added to the `MCPToolSpec` entries in
+`ContractRegistry+Milestone1.swift`; `fileReferences[]` mirrors the existing
+`images` param shape there (`type: "array"` with `arrayItems.oneOf` of a string
+and an object), so CLI flag, MCP schema, and `mcp-tools.json` stay one
+projection. `alln dev export-contracts --check` is the drift gate that must stay
+green after the registry edit.
 
 Tools:
 
@@ -513,8 +595,17 @@ Registry-owned errors only:
 | `FILE_REFERENCE_CATALOG_STALE` | Search catalog cannot guarantee freshness |
 | `FILE_REFERENCE_WORKER_UNSUPPORTED` | Selected worker cannot read Project files |
 
-Each error needs `agentAction`, `fixCommand` when applicable, `retryable`, and
-`requiresManual` where a human must choose a safer file or refresh refs.
+Each entry is an `ErrorSpec` in `ContractRegistry+Milestone1.swift` and must
+carry the real required fields: `code` (UPPER_SNAKE, as above), `ruleId`
+(dot-form, e.g. `file.reference.outside.project`), `agentAction`, `requiresManual`,
+`retryable`, `explain`, and `exitClass` (`usage` for caller-fixable input like
+outside-project / too-large / too-many / line-range-invalid / sensitive-blocked;
+`operational` for state races like `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` and
+`FILE_REFERENCE_CATALOG_STALE`). There is no `fixCommand` field on `ErrorSpec`;
+put any recovery command inline in `agentAction`. Set `requiresManual` true where
+a human must choose a safer file or refresh refs (changed-before-invoke,
+sensitive-blocked, work-order hash mismatch); `retryable` true only where an
+unmodified retry can succeed (catalog-stale).
 
 ## Privacy And Permissions
 
@@ -579,6 +670,13 @@ Assertions: @ palette opens, fuzzy search returns Project files, selecting creat
 chips, blocked files show blocked state, send creates the expected context reveal.
 ```
 
+Register `compose-file-reference` in `GUIFixture.benchScenarios`
+(`Apps/AllnighterMac/Sources/GUIFixture.swift`) alongside the existing
+`compose-*` ids (e.g. `compose-mode-menu`, `compose-target-chat`), and add the
+matching deep-link detection. The proof seal runs through
+`scripts/check_gui_proof.sh`; layout truth is the watcher's, content truth is the
+CLI's (`GUI_Visual_Proof_Gate.md`).
+
 Missing proof / waiver:
 
 ```text
@@ -590,10 +688,10 @@ proof can land first, but the Mac v1 slice is not done without a GUI proof seal.
 
 | Slice | Delivers | Status |
 | --- | --- | --- |
-| **FR-S00** | Contract hardening: reuse `ThreadContextBuilder.Options.attachedFiles`, add file-ref models, policy defaults, resolver, error codes, legacy decode defaults | Draft |
+| **FR-S00** | Contract hardening: extend `ThreadContextBuilder.Options` input element to `(path, lineRange?)` + file-reference byte budget (supersede 16 KB/4 KB on the ref path), add file-ref models, policy defaults, resolver, error codes (real `ErrorSpec` fields), legacy `[String]` + decode defaults | Draft |
 | **FR-S01** | `ProjectFileCatalog`: git/rg path source, no content index, recency/lane ranking, safety filters, recents | Draft |
 | **FR-S02** | Send transaction: parse `@` tokens before mode branch, draft refs, `includedFiles` + `includedFileReferences`, bounded content delivery, hash recheck, fake worker proof | Draft |
-| **FR-S03** | CLI/MCP: `alln project files`, `--ref`, registry schemas, MCP `fileReferences[]` | Draft |
+| **FR-S03** | CLI/MCP: `alln project files`, `--ref`, registry schemas, MCP `fileReferences[]`. **Depends on the `project` command group (PRJ-S07+)**; the `--ref`/`fileReferences[]` half on `thread send` can land first | Draft |
 | **FR-S04** | Mac `@` palette: keyboard search, chips, preview, paste path, DnD Project-local files | Draft |
 | **FR-S05** | Work Order/Pending revalidation: stored hashes, refresh action, changed/missing blockers | Draft |
 | **FR-S06** | Context reveal + history: ordered refs, delivered content/truncation, current hash status, delivery mode | Draft |
@@ -616,14 +714,28 @@ FR-S04 through FR-S07 are the Mac v1 product finish. iOS presentation is deferre
 
 ## Open Questions
 
-- Should v1 allow explicit sensitive-file override, or keep sensitive files fully
-  blocked until a permission UX exists?
-- Should line ranges ship in Mac v1 through a path suffix parser, or wait for
-  editor/open-file integration?
-- Should path-only delivery remain available as an advanced worker strategy for
-  high-context CLI agents, or should v1 always include bounded text?
-- Should FSEvents refresh land in FR-S01, or is Project activation + explicit
-  refresh enough for v1 because resolver truth is send-time?
+Each carries a recommended default so FR-S00 is not blocked on a meeting; the
+founder can overturn any of them, but implementation should assume the default.
+
+- **Sensitive-file override.** *Recommended: keep fully blocked in v1.* No
+  override path until a real permission UX exists; the error stays
+  `requiresManual`. Cheap to relax later, expensive to walk back a leak.
+- **Line ranges in Mac v1.** *Recommended: build the Core/CLI/MCP plumbing now
+  (foundation-first), expose whole-file only in the Mac `@` palette.* FR-S00
+  carries `lineRange?` end-to-end and the resolver validates it; CLI `--ref
+  path:start-end` and MCP `{path,startLine,endLine}` work immediately; the Mac
+  chip exposes ranges only once open-file/editor integration lands. This avoids
+  the dead-promise failure mode without gating the GUI on a range-picker.
+- **Path-only delivery.** *Recommended: bounded text is the only v1 delivery
+  mode; keep `projectPathBlock` in the enum but unused.* A worker may
+  additionally receive path+hash, but path-only never satisfies v1 (Inference
+  Ban: "path-only mention is enough"). Revisit only when a concrete high-context
+  CLI worker declares a path-read strategy.
+- **FSEvents refresh.** *Recommended: defer to a later slice; FR-S01 ships
+  Project-activation + explicit refresh only.* The send resolver is the
+  authority, so a stale catalog can only mislead search, never delivery
+  (`FILE_REFERENCE_CATALOG_STALE` covers the race). FSEvents is a search-latency
+  nicety, not a correctness requirement.
 
 ## Done When
 
