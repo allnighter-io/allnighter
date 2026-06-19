@@ -173,16 +173,6 @@ public enum CapacityClassifier {
     private static func classifyMessageFallback(_ text: String, input: Input) -> CapacityObservation? {
         let lower = text.lowercased()
         guard !lower.isEmpty else { return nil }
-        if matchesAny(lower, patterns: overloadPatterns) {
-            return makeObservation(
-                kind: .providerBusy,
-                input: input,
-                confidence: .messageFallback,
-                snippet: CapacityObservationSanitizer.snippet(from: firstNonEmptyLine(text) ?? "provider busy"),
-                retryAfterSeconds: providerBusyBackoffSeconds,
-                allowObservedReset: false
-            )
-        }
         if let retry = retryAfterSeconds(fromMessage: text) {
             return makeObservation(
                 kind: .accountRateLimit,
@@ -200,6 +190,16 @@ public enum CapacityClassifier {
                 confidence: .localPolicy,
                 snippet: CapacityObservationSanitizer.snippet(from: firstNonEmptyLine(text) ?? "capacity blocked"),
                 retryAfterSeconds: unknownBackoffSeconds,
+                allowObservedReset: false
+            )
+        }
+        if matchesAny(lower, patterns: overloadPatterns) {
+            return makeObservation(
+                kind: .providerBusy,
+                input: input,
+                confidence: .messageFallback,
+                snippet: CapacityObservationSanitizer.snippet(from: firstNonEmptyLine(text) ?? "provider busy"),
+                retryAfterSeconds: providerBusyBackoffSeconds,
                 allowObservedReset: false
             )
         }

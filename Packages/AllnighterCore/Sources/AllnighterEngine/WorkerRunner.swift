@@ -13,6 +13,8 @@ public struct WorkerRunOutcome: Sendable, Equatable {
     public var finishedAt: Date?
     public var durationMs: Int?
     public var exitCode: Int?
+    /// Sourced capacity/cooldown fact from raw CLI output (nonzero exit only).
+    public var capacityObservation: CapacityObservation?
 
     public var hasOutput: Bool { status == .done && (output?.isEmpty == false) }
 }
@@ -142,6 +144,16 @@ public struct WorkerRunner: Sendable {
         outcome.exitCode = result.exitCode.map(Int.init)
 
         if let code = result.exitCode, code != 0 {
+            outcome.capacityObservation = CapacityClassifier.classify(
+                CapacityClassifier.Input(
+                    workerId: worker.id,
+                    sourceId: manifest.id,
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                    exitCode: code,
+                    observedAt: finishedAt
+                )
+            )
             outcome.status = .failed
             outcome.errorKind = .nonzeroExit
             outcome.errorReason = errorReason(from: result, exitCode: code)
@@ -187,7 +199,8 @@ public struct WorkerRunner: Sendable {
             startedAt: outcome.startedAt,
             finishedAt: outcome.finishedAt,
             durationMs: outcome.durationMs,
-            exitCode: outcome.exitCode
+            exitCode: outcome.exitCode,
+            capacityObservation: outcome.capacityObservation
         )
     }
 

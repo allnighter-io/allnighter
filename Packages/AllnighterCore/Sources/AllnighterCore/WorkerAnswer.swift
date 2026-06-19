@@ -25,6 +25,8 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
     public var finishedAt: Date?
     public var durationMs: Int?
     public var exitCode: Int?
+    /// Sourced capacity/cooldown fact from the worker CLI attempt (nonzero exit only).
+    public var capacityObservation: CapacityObservation?
 
     public var id: String { workerId }
 
@@ -38,7 +40,8 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         startedAt: Date? = nil,
         finishedAt: Date? = nil,
         durationMs: Int? = nil,
-        exitCode: Int? = nil
+        exitCode: Int? = nil,
+        capacityObservation: CapacityObservation? = nil
     ) {
         self.workerId = workerId
         self.modelId = modelId
@@ -50,6 +53,7 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         self.finishedAt = finishedAt
         self.durationMs = durationMs
         self.exitCode = exitCode
+        self.capacityObservation = capacityObservation
     }
 
     public var hasAnswer: Bool {
