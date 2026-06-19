@@ -137,6 +137,8 @@ enum GUIFixture {
     static var opensFloorReader: Bool { active == "floor-reader" }
     /// Deep-link: seed the project-grouped sidebar (PRJ-S14) with sample projects.
     static var opensProjectsRail: Bool { active == "projects-rail" }
+    /// Deep-link: render the Project Manager cards (proposal/work-order/verification).
+    static var opensPMCards: Bool { active == "pm-cards" }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// `compose-mode-menu` seeds the mode menu open for the proof capture.
@@ -232,6 +234,7 @@ enum GUIFixture {
         ("teams-edit-drawer", "Teams — hover-edit → Team Editor drawer (#3)"),
         ("floor-reader", "Floor — team reply reader (G-T3, markdown)"),
         ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
+        ("pm-cards", "Project Manager — proposal/work-order/verification cards (S15)"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
         ("compose-target-send-to-team", "Compose — send to team (native popover)"),
@@ -625,6 +628,7 @@ enum GUIFixture {
     static var opensComposeSpecimen: Bool { false }
     static var opensCommandPalette: Bool { false }
     static var opensFloorReader: Bool { false }
+    static var opensPMCards: Bool { false }
     static var opensHomeWorkspace: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
