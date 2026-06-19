@@ -35,7 +35,7 @@ otherwise.
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md) | **CODE RED spec** - must land before Project Manager queue/autopropose | Projects are the durable repo/folder floor above threads, runs, pending, proposals, work orders, returns, worker readiness, and verification. Regular chat inside a Project is chat with that Project's Manager. Backend/CLI/MCP slices PRJ-S00-S13 first; GUI Projects rail and dogfood proof PRJ-S14/S15 after Core/CLI. |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
-| [`Composer_File_References.md`](Composer_File_References.md) | Draft Mac v1 feature packet | `@` file references in the composer: warmed Project file index, fast fuzzy picker, durable file chips, send-time path/hash audit, CLI/MCP `--ref`, worker "read these files first" block, and delayed dispatch revalidation. |
+| [`Composer_File_References.md`](Composer_File_References.md) | Draft Mac v1 feature packet | `@` file references in the composer: warmed Project path catalog, recency-ranked fuzzy picker, durable file chips, send-time content/hash audit, CLI/MCP `--ref`, and delayed dispatch revalidation. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router (2026-06-17); core MLP + CR4 conversation send paths delivered | Work-thread lane router: shipped thread/chat/CR4 send paths, then store hardening, unread lights, rail controls, notifications, streaming, and observed usage via child docs. |
 | [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
 | [`threads/02_Notifications.md`](threads/02_Notifications.md) | **BUILT** (NOTIF-S01–S05 + UNR-S06, 2026-06-17) | Mac local notifications for landed work and attention states; menu-bar live/needs-attention indicator; per-thread mute; debounce/quiet-hours policy. Mobile push parked in `ios/03`. |
@@ -83,10 +83,10 @@ founder may reprioritize; the dependency logic is what matters.
    handoff/dispatch, verification, MCP Project tools). Built on steps 2–3 so
    `project_*` commands and tools meet the hardened contract discipline.
 5. **Composer File References** — `Composer_File_References.md` **FR-S00–S07**
-   (Core resolver/index, CLI/MCP `--ref`, send-time audit, prompt renderer, Mac
+   (Core resolver/catalog, CLI/MCP `--ref`, send-time audit, prompt renderer, Mac
    `@` palette, chips, reveal, and delayed-dispatch revalidation). This is the
    missing context-delivery feature for Project Manager chat and Send to team:
-   agents should be told exactly which Project files to read before answering.
+   agents should receive the exact Project file contents the user selected.
 6. **Send-to-team surface + gating** — `Team_Delegation_Surface.md` for the
    discoverable product surface, plus `Agent_First_MCP_...` **M-D** (team
    discovery/run tools), **M-E** (sync-ask resolution), **M-F** (provenance /

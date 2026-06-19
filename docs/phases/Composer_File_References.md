@@ -38,8 +38,8 @@ open Project
 -> fuzzy-pick one or more Project files
 -> see stable file chips before send
 -> send chat or Send to team
--> saved context packet records the exact referenced paths and hashes
--> worker receives an explicit "read these files first" block
+-> saved context packet records the exact referenced paths, hashes, and delivered text
+-> worker receives the selected file contents in an explicit referenced-files block
 -> history can reveal what was referenced and whether files changed later
 ```
 
@@ -49,6 +49,8 @@ Non-goals for Mac v1:
 - directory references as a durable object;
 - PDF/document ingestion;
 - automatic codebase-wide retrieval;
+- code indexing, embeddings, semantic retrieval, or "related file" guessing;
+- token, quota, time, or cost estimates;
 - iOS composer UI;
 - editing files from the reference palette;
 - using file references to bypass Project root, worker readiness, or dispatch
@@ -63,10 +65,10 @@ The composer should feel like a native command palette for context:
 Project_Spine_And_Project_Manager.md
 ```
 
-Enter adds a chip. Send tells the agent:
+Enter adds a chip. Send gives the agent the referenced files:
 
 ```text
-Read these files before answering:
+Referenced files:
 1. docs/phases/Project_Spine_And_Project_Manager.md
 2. Packages/AllnighterCore/Sources/AllnighterCore/ProjectSpine.swift
 ```
@@ -84,27 +86,77 @@ If Allnighter shows a file chip in the composer and the user presses Send, then
 thread history, the context packet, the worker prompt, CLI JSON, MCP output, and
 context reveal all agree on the same ordered reference set.
 
+## Mentor Feedback Decisions
+
+Accepted:
+
+- The picker is a path picker, not a code intelligence system. Use Git and local
+  file metadata; do not add embeddings, parsing, or semantic retrieval.
+- Empty-query results should be recency-ranked: recently changed, recently
+  referenced, and files this lane already touched should appear before generic
+  alphabetical results.
+- The visible chip should have a stable backing token such as
+  `@docs/phases/Composer_File_References.md`; attributed styling is presentation,
+  not state.
+- At send/dispatch time, resolve and read the file in the correct Project/lane
+  root. Capture the delivered text in the saved context packet and make reveal
+  honest.
+- The resolver must be shared across composer surfaces: chat, Send to team,
+  direct dispatch, "Go build that" notes, and voice-note interpretation.
+
+Rejected or deferred:
+
+- No token footprint badges. The existing context code explicitly bans estimated
+  token counts and the product should not introduce usage theater.
+- No semantic-neighbor boosting in v1. A string/path heuristic can be useful;
+  inferred "related files" are retrieval, not an explicit user reference.
+- No iOS filesystem picker in v1. A later iOS picker can be a best-effort
+  mentioned-files list, clearly distinct from the Mac's authoritative Project
+  file list.
+
+## Current State
+
+The backend is not starting from zero:
+
+- `ThreadContextPacket` already has `includedFiles: [String]`, defaulting to `[]`
+  for legacy packets, and `text` stores the exact rendered context body.
+- `ThreadContextBuilder.Options.attachedFiles` already resolves absolute or
+  `workingDir`-relative paths, reads UTF-8 file contents, applies byte caps,
+  renders an "Attached files:" block, records `includedFiles`, and marks
+  truncation.
+- `ThreadSendCoordinator.Request` and `WorkerChatCoordinator` already accept
+  `contextOptions`, so chat has a canonical send-transaction path that can carry
+  attached files.
+- `GitObserver` already shells out to git safely for Project/root metadata.
+- The Mac gap is the product surface: `RoutingComposer` / `ALTextEditor` do not
+  detect `@`, do not show a picker, do not persist file chips, and do not pass
+  attached files into the send options.
+
 ## Truth Owner
 
 | Layer | Owns |
 | --- | --- |
-| `ProjectFileIndex` | Searchable, Project-scoped candidate list and ranking |
+| `ProjectFileCatalog` | Searchable, Project-scoped path list and ranking; no file-body index |
 | `ProjectFileReferenceResolver` | Path normalization, safety, metadata, hashing, line-range validation |
 | `ThreadDraftContext.fileReferences` | Draft refs visible in the composer before send |
 | `ThreadTurn.fileReferenceRefs` | Committed ordered refs on the sent turn |
-| `ThreadContextPacket.includedFileReferences` | Audit record used to render the worker prompt |
-| Worker prompt renderer | Protected "read these files first" block from the saved packet |
+| `ThreadContextBuilder.Options.attachedFiles` | Existing Core input used to deliver referenced file bodies |
+| `ThreadContextPacket.includedFiles` | Compatibility path list of files included in the packet body |
+| `ThreadContextPacket.includedFileReferences` | Additive detailed audit: order, hash, range, delivery mode |
+| `ThreadContextPacket.text` | Exact referenced-file text delivered to the worker |
+| Worker prompt renderer | Protected referenced-files block from the saved packet |
 | Mac composer | Presents Core truth; does not invent durable refs |
 
 Do not use image attachments for Project file references. Do not put absolute
 paths in user-facing chips when a root-relative path is available. Do not let
-SwiftUI own selected-file truth.
+SwiftUI own selected-file truth. Do not replace the existing `includedFiles` /
+`attachedFiles` path with a parallel GUI-only schema.
 
 ## Implementation Law
 
 ### 1. Project-scoped only
 
-Mac v1 indexes and references files under the selected Project root. A mutating
+Mac v1 catalogs and references files under the selected Project root. A mutating
 route is already blocked without a Project; file references follow the same
 floor.
 
@@ -116,34 +168,51 @@ Rules:
   roots;
 - never infer a Project from a pasted path when a Project is already selected.
 
-### 2. Search is warmed, local, and fast
+### 2. Search is a warmed path catalog, not code retrieval
 
 The `@` palette must not shell out on every keystroke.
 
-V1 indexing:
+V1 catalog warm-up:
 
 ```text
 Project selected
--> warm ProjectFileIndex in Core
--> git repo: git ls-files -co --exclude-standard
+-> warm ProjectFileCatalog in Core
+-> git repo: git ls-files -z --cached --others --exclude-standard
 -> folder Project: rg --files with default ignore semantics
 -> filter generated/cache/vendor directories
 -> classify text/binary/large/sensitive
--> update with FSEvents debounce while Project is open
+-> refresh on Project activation and cheap file-system events when available
 ```
 
-Ranking:
+The catalog stores path metadata only: root-relative path, basename, extension,
+directory depth, mtime, git dirty/untracked flags, last referenced time, and
+lane-touched markers. It never stores file contents, embeddings, ASTs, semantic
+summaries, or inferred related-file sets.
+
+Empty-query ranking:
+
+1. files already modified or returned by the current lane/thread;
+2. recently referenced in this Project/thread;
+3. dirty, staged, or untracked files from git;
+4. recently modified files;
+5. lazy last-commit-touch recency, when cheap/cached;
+6. docs entrypoints and files in the current proposal/work order scope;
+7. shallow/common entrypoints as a final tiebreaker.
+
+Typed-query ranking:
 
 1. exact basename prefix;
 2. path-segment prefix;
-3. fuzzy abbreviation;
-4. recently referenced in this Project;
-5. dirty or recently changed files;
-6. docs entrypoints and files in the current proposal/work order scope.
+3. basename contains;
+4. path contains;
+5. fuzzy abbreviation;
+6. the empty-query recency score as a tiebreaker.
 
 Palette open target: instant with recents and warm candidates; search update
-target: under 50 ms for the warmed index on ordinary repos. If the index is
+target: under 50 ms for the warmed catalog on ordinary repos. If the catalog is
 warming, the palette stays usable with recents plus exact-path validation.
+Staleness is acceptable only for search results; the send resolver is the final
+authority.
 
 ### 3. Safety filtering is default-on
 
@@ -163,51 +232,60 @@ files are blocked in v1 rather than added with a tiny warning.
 
 Each selected file receives a `sequence` when added. Chips, turn refs, context
 packet refs, and prompt blocks all sort by `sequence`. Never sort by filename,
-index completion order, modified time, or worker capability.
+catalog completion order, modified time, or worker capability.
 
 Draft refs persist with the thread draft. If the app quits before send, reopening
 the thread restores the chips or shows exact resolver failures.
 
-### 5. Send resolves and audits references
+### 5. Send resolves, reads, and audits references
 
 The send transaction must:
 
 1. lock the thread;
-2. resolve every selected ref against the current Project root;
-3. reject missing, escaped, binary, sensitive, oversized, or invalid line-range
+2. parse any stable `@path` backing tokens from the final composer text;
+3. merge parsed tokens with draft refs, dedupe, and preserve appearance order;
+4. resolve every selected ref against the current Project root or dispatch lane
+   root through `ProjectExecutionResolver`;
+5. reject missing, escaped, binary, sensitive, oversized, or invalid line-range
    refs;
-4. hash the referenced file at send time;
-5. append the user turn with ordered `fileReferenceRefs`;
-6. save `context/<packetId>.json` with `includedFileReferences`;
-7. render the worker prompt from the saved packet;
-8. invoke the worker from the selected Project root.
+6. hash the referenced file at send time;
+7. feed the ordered root-relative paths into
+   `ThreadContextBuilder.Options.attachedFiles`;
+8. append the user turn with ordered `fileReferenceRefs`;
+9. save `context/<packetId>.json` with `includedFiles`,
+   `includedFileReferences`, and packet `text`;
+10. invoke the worker from the selected Project/lane root.
 
 If a file changes between send resolution and worker invocation, fail before the
 worker starts with `FILE_REFERENCE_CHANGED_BEFORE_INVOKE`. Do not silently send
 the agent to a different file than the user selected.
 
-### 6. References are read instructions, not content snapshots
+### 6. References deliver bounded text, not a hidden file blob
 
-Mac v1 tells project-aware workers which files to read. It does not copy file
-contents into thread history as a hidden attachment.
+Mac v1 reads referenced text files at send/dispatch time and delivers bounded
+file contents through the saved context packet. The durable user-facing token is
+still a path reference; Allnighter does not create a separate file upload,
+workspace mirror, or hidden attachment store for Project files.
 
-Prompt block shape:
+Prompt block shape is renderer-owned, but it must be explicit and deterministic:
 
 ```text
-Referenced files selected by the user. Read them before answering. If a file is
-missing, unreadable, or different from the hash below, say so instead of
-guessing.
+Referenced files selected by the user. Use these contents before answering.
 
-1. docs/phases/Project_Spine_And_Project_Manager.md
-   sha256: ...
-2. Packages/AllnighterCore/Sources/AllnighterCore/ProjectSpine.swift
-   lines: 1-120
-   sha256: ...
+--- docs/phases/Project_Spine_And_Project_Manager.md
+sha256: ...
+<bounded file contents>
+
+--- Packages/AllnighterCore/Sources/AllnighterCore/ProjectSpine.swift lines 1-120
+sha256: ...
+<bounded file contents>
 ```
 
-Non-project-aware workers receive a visible warning and do not claim to have read
-files. The Project Manager and Send to team routes should prefer workers whose
-driver manifests declare Project file reading support when file refs are present.
+If a file exceeds the cap, include a visible truncation note in the packet and
+context reveal. Do not estimate token cost. Workers may also receive the
+root-relative path and hash so project-aware CLIs can reopen the source, but a
+path-only instruction does not satisfy Mac v1 unless a specific worker delivery
+strategy declares it.
 
 ### 7. Pending and work orders revalidate
 
@@ -228,8 +306,9 @@ After send, reveal shows:
 - ordered root-relative paths;
 - line range, if any;
 - hash captured at send;
+- the delivered text block or truncation note from `ThreadContextPacket.text`;
 - whether the current file still matches that hash;
-- worker delivery mode: `projectPathBlock` for v1.
+- worker delivery mode: `attachedFileBlock` for v1.
 
 History never hides a missing or changed reference. It shows the old reference
 and current status.
@@ -263,6 +342,8 @@ public struct IncludedFileReferenceDelivery: Codable, Sendable, Equatable {
     public var deliveredPathUsed: String
     public var storedSha256: String
     public var byteSize: Int
+    public var deliveredByteCount: Int
+    public var truncated: Bool
     public var languageHint: String?
     public var deliveryMode: FileReferenceDeliveryMode
 }
@@ -273,6 +354,7 @@ public struct FileLineRange: Codable, Sendable, Equatable {
 }
 
 public enum FileReferenceDeliveryMode: String, Codable, Sendable {
+    case attachedFileBlock
     case projectPathBlock
 }
 ```
@@ -283,15 +365,21 @@ Additive fields:
 // ThreadTurn - default [] for legacy decode
 public var fileReferenceRefs: [TurnFileReferenceRef] = []
 
-// ThreadContextPacket - default [] for legacy decode
+// ThreadContextPacket - keep existing includedFiles as the compatibility path list.
+// Add default [] for detailed reveal/revalidation metadata.
 public var includedFileReferences: [IncludedFileReferenceDelivery] = []
 ```
+
+`ThreadContextPacket.text` remains the exact body delivered to the worker,
+including the bounded referenced-file contents. `includedFiles` remains the
+simple path list for existing context-reveal and fixture compatibility.
 
 V1 policy defaults:
 
 ```text
 max references per turn: 12
-max referenced file size: 1 MB
+max referenced file delivery: 64 KB per file
+max referenced-file body budget: 256 KB total
 text only
 line ranges optional through CLI/MCP and future editor integration
 directory refs: not supported
@@ -303,9 +391,11 @@ Composer behavior:
 
 - pressing `@` opens the File References palette at the caret;
 - typing filters Project files immediately;
+- path fragments work (`@Sources/Project` narrows by path, not just basename);
 - `Enter` adds the highlighted file chip;
 - `Shift+Enter` or multi-select keeps the palette open;
 - `Esc` closes without changing the draft;
+- manual `@relative/path.swift` text is parsed defensively at send time;
 - pasted Project-local paths become file chips after resolver confirmation;
 - dragging Project-local text files into the composer creates file chips;
 - duplicate refs collapse to one chip unless the line range differs;
@@ -314,10 +404,17 @@ Composer behavior:
 Chip behavior:
 
 - display root-relative path with basename emphasis;
+- keep backing text copy-paste friendly as `@root/relative/path`;
+- use attributed styling / token deletion for polish, but never make the
+  `NSTextAttachment` the only durable state;
 - show compact badges for modified, large-blocked, unreadable, or changed-since-
   selected states;
-- hover or keyboard focus previews a small matched excerpt and metadata;
+- hover or keyboard focus previews a small matched excerpt and metadata such as
+  bytes and line count;
 - secondary actions: Open File, Reveal in Finder, Copy Relative Path, Remove.
+
+Do not show estimated tokens, cost, quota burn, or runtime. File size and line
+count are observed facts; token impact is a forecast.
 
 Palette copy is plain and operational:
 
@@ -334,6 +431,11 @@ Sensitive file blocked
 Do not add visible instruction text explaining how `@` works after the user is in
 the flow. The control should behave like a familiar mention/file picker.
 
+Anchoring should prefer the actual caret rect from the AppKit text view. If that
+is unstable during early implementation, a polished list pinned under the
+composer is acceptable for the first GUI proof; do not ship a jumpy popover just
+because it is caret-anchored in theory.
+
 ## CLI Contract
 
 Search:
@@ -341,6 +443,9 @@ Search:
 ```bash
 alln project files <project-id|current> [--query <text>] [--limit <n>] [--json]
 ```
+
+Search output includes root-relative paths and ranking metadata only. It never
+returns file contents.
 
 Send:
 
@@ -358,7 +463,7 @@ a file reference flag.
 
 JSON send output includes `fileReferences[]` with `referenceId`,
 `rootRelativePath`, `lineRange`, `storedSha256`, `byteSize`, `deliveredPathUsed`,
-and `deliveryMode`.
+`deliveredByteCount`, `truncated`, and `deliveryMode`.
 
 ## MCP Contract
 
@@ -405,7 +510,7 @@ Registry-owned errors only:
 | `FILE_REFERENCE_SENSITIVE_BLOCKED` | Secret-like path/content is blocked |
 | `FILE_REFERENCE_LINE_RANGE_INVALID` | Line range is empty or outside file |
 | `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | Hash changed after send resolution |
-| `FILE_REFERENCE_INDEX_STALE` | Search index cannot guarantee freshness |
+| `FILE_REFERENCE_CATALOG_STALE` | Search catalog cannot guarantee freshness |
 | `FILE_REFERENCE_WORKER_UNSUPPORTED` | Selected worker cannot read Project files |
 
 Each error needs `agentAction`, `fixCommand` when applicable, `retryable`, and
@@ -420,12 +525,30 @@ owned by Project setup.
 Rules:
 
 - search only the selected Project root;
-- never index the whole home folder;
+- never catalog the whole home folder;
+- never build embeddings, semantic summaries, or a code intelligence index;
 - never include secret-looking files by default;
 - never show absolute paths in model prompts unless the worker cannot resolve a
   root-relative path;
 - never send file references to iOS as content in v1;
 - make worker delivery visible in context reveal.
+
+## Later iOS
+
+iOS is parked and not part of Mac v1. When revived, it must not pretend to have
+the Mac filesystem.
+
+Later iOS rules:
+
+- The default iPhone `@` picker is populated from mentioned files in local thread
+  history: paths, chips, context packets, returns, and work orders.
+- Mentioned-files results are best-effort and visibly distinct from the Mac's
+  authoritative Project file list.
+- Recently mentioned files rank highest.
+- If the Mac runner is reachable, iOS may request a path-only, recency-ranked
+  file list: paths and timestamps only, never file contents.
+- Dispatch still resolves on the Mac. A missing file becomes a gentle visible
+  blocker, never a silent miss.
 
 ## Works Test
 
@@ -436,14 +559,15 @@ Create a temporary Project with three text files, one ignored file, one binary
 file, and one .env file. Open the Mac composer, press @, fuzzy-pick two allowed
 files, send to a fake Project-file-reading worker, and assert the saved context
 packet, thread turn, CLI JSON projection, and fake worker transcript all contain
-the same ordered paths and hashes. Then mutate one referenced file before a
-delayed dispatch and assert dispatch blocks with FILE_REFERENCE_CHANGED_BEFORE_INVOKE.
+the same ordered paths, hashes, and delivered file contents. Then mutate one
+referenced file before a delayed dispatch and assert dispatch blocks with
+FILE_REFERENCE_CHANGED_BEFORE_INVOKE.
 ```
 
 Proof command:
 
 ```text
-swift test --package-path Packages/AllnighterCore --filter 'ProjectFileReference|ThreadSendFileReference|ProjectFileIndex|FileReferencePromptRenderer'
+swift test --package-path Packages/AllnighterCore --filter 'ProjectFileReference|ThreadSendFileReference|ProjectFileCatalog|ThreadContextBuilder'
 bash scripts/check.sh
 ```
 
@@ -466,13 +590,13 @@ proof can land first, but the Mac v1 slice is not done without a GUI proof seal.
 
 | Slice | Delivers | Status |
 | --- | --- | --- |
-| **FR-S00** | Contract packet: Core models, policy defaults, resolver, error codes, legacy decode defaults | Draft |
-| **FR-S01** | `ProjectFileIndex`: git/rg source, FSEvents refresh, ranking, safety filters, recents | Draft |
-| **FR-S02** | Send transaction: draft refs, `includedFileReferences`, prompt renderer, hash recheck, fake worker proof | Draft |
+| **FR-S00** | Contract hardening: reuse `ThreadContextBuilder.Options.attachedFiles`, add file-ref models, policy defaults, resolver, error codes, legacy decode defaults | Draft |
+| **FR-S01** | `ProjectFileCatalog`: git/rg path source, no content index, recency/lane ranking, safety filters, recents | Draft |
+| **FR-S02** | Send transaction: parse `@` tokens before mode branch, draft refs, `includedFiles` + `includedFileReferences`, bounded content delivery, hash recheck, fake worker proof | Draft |
 | **FR-S03** | CLI/MCP: `alln project files`, `--ref`, registry schemas, MCP `fileReferences[]` | Draft |
 | **FR-S04** | Mac `@` palette: keyboard search, chips, preview, paste path, DnD Project-local files | Draft |
 | **FR-S05** | Work Order/Pending revalidation: stored hashes, refresh action, changed/missing blockers | Draft |
-| **FR-S06** | Context reveal + history: ordered refs, current hash status, delivery mode, unsupported-worker warnings | Draft |
+| **FR-S06** | Context reveal + history: ordered refs, delivered content/truncation, current hash status, delivery mode | Draft |
 | **FR-S07** | GUI proof seal + dogfood pass for Project Manager chat and Send to team | Draft |
 
 Backend/Core/CLI slices FR-S00 through FR-S03 should land before the Mac surface.
@@ -484,9 +608,11 @@ FR-S04 through FR-S07 are the Mac v1 product finish. iOS presentation is deferre
 | --- | --- | --- | --- | --- |
 | Composer chip -> durable truth | `ThreadDraftContext` | SwiftUI chip state is enough | Chips render draft refs; send reads draft truth | Kill/reopen app before send; chips restore or show resolver errors |
 | File path -> Project | `ProjectStore` + resolver | Absolute path can pick a Project | Selected Project owns resolution | Paste path from another Project while Project A selected; reject |
-| Ref -> content | Worker prompt renderer | Referenced means content copied into prompt | V1 sends read instructions and hash, not hidden content | Context packet has delivery metadata but no file body |
+| Ref -> delivery | `ThreadContextBuilder` + packet | Path-only mention is enough | V1 delivers bounded file text and records the receipt | Fake worker receives only `@foo.swift`; test fails |
+| Picker -> retrieval | `ProjectFileCatalog` | File picker should infer related files | Catalog is path/recency only; no semantic retrieval | Referencing `UserStore.swift` does not auto-add `UserStoreTests.swift` |
+| File size -> usage | Context policy | Show token/cost impact | Show observed bytes/lines only; no token estimates | UI fixture containing "+1.2k tokens" fails copy check |
 | Delayed dispatch -> current file | Work Order revalidation | Same path means same approved input | Hash must match or refresh approval | Change file after approval; dispatch blocks |
-| Search result -> safe file | `ProjectFileIndex` + resolver | Indexed means sendable | Resolver is final authority at send | Index stale with deleted file; send fails before turn commit |
+| Search result -> safe file | `ProjectFileCatalog` + resolver | Catalogued means sendable | Resolver is final authority at send | Catalog stale with deleted file; send fails before turn commit |
 
 ## Open Questions
 
@@ -494,8 +620,10 @@ FR-S04 through FR-S07 are the Mac v1 product finish. iOS presentation is deferre
   blocked until a permission UX exists?
 - Should line ranges ship in Mac v1 through a path suffix parser, or wait for
   editor/open-file integration?
-- Should small text snippets be optionally included for non-project-aware chat
-  workers, or should file refs require Project-file-reading worker capability?
+- Should path-only delivery remain available as an advanced worker strategy for
+  high-context CLI agents, or should v1 always include bounded text?
+- Should FSEvents refresh land in FR-S01, or is Project activation + explicit
+  refresh enough for v1 because resolver truth is send-time?
 
 ## Done When
 
@@ -503,8 +631,7 @@ FR-S04 through FR-S07 are the Mac v1 product finish. iOS presentation is deferre
 - File chips survive draft reload and always resolve through the selected Project.
 - Send creates one ordered reference truth across thread, packet, prompt, CLI,
   MCP, and reveal.
-- Workers receive a protected "read these files first" block from the saved
-  packet.
+- Workers receive bounded referenced-file contents from the saved packet.
 - Missing, changed, ignored, binary, oversized, sensitive, or out-of-root files
   fail visibly before the worker can guess.
 - Delayed work revalidates file hashes before dispatch.
