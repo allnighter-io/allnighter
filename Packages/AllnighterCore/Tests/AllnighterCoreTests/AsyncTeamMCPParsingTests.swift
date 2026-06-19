@@ -25,9 +25,8 @@ final class AsyncTeamMCPParsingTests: XCTestCase {
         XCTAssertEqual(req?.idempotencyKey, "key-1")
     }
 
-    func testMCPArgumentsAcceptQuestionAlias() {
-        let req = AsyncTeamStartRequest(mcpArguments: ["question": "alias ok"])
-        XCTAssertEqual(req?.question, "alias ok")
+    func testMCPArgumentsRequirePromptField() {
+        XCTAssertNil(AsyncTeamStartRequest(mcpArguments: ["question": "not accepted"]))
     }
 
     func testMCPArgumentsRejectEmptyPrompt() {

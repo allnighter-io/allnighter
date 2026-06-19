@@ -54,7 +54,7 @@ public enum BuiltInTeams {
             typeTags: typeTags, starterPrompts: starters, builtIn: true, version: 1)
     }
 
-    // MARK: - Build teams
+    // MARK: - Code teams
 
     private static let codeAnswerPreferred = "model_cursor_composer_25"
 

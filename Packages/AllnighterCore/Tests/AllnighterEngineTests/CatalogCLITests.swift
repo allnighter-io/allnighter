@@ -21,7 +21,7 @@ final class CatalogCLITests: XCTestCase {
         super.tearDown()
     }
 
-    func testSkillsBuildJSONListsOnlyBuildLane() throws {
+    func testSkillsCodeJSONListsOnlyCodeLane() throws {
         let json = AllnighterCLI.skillsCatalogJSONString(lane: .code)
         let data = try XCTUnwrap(json.data(using: .utf8))
         struct Catalog: Decodable {
@@ -41,19 +41,19 @@ final class CatalogCLITests: XCTestCase {
     }
 
     func testSkillsDuplicateAndEditRoundTrip() throws {
-        let skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "WT Build Contrarian")
+        let skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "WT Code Contrarian")
         var edited = skill
-        edited.template = "WT Build Contrarian: challenge assumptions."
+        edited.template = "WT Code Contrarian: challenge assumptions."
         try SkillCatalog.saveCustom(edited)
         let json = AllnighterCLI.skillShowJSONString(try XCTUnwrap(SkillCatalog.get(skill.id)))
-        XCTAssertTrue(json.contains("WT Build Contrarian"))
+        XCTAssertTrue(json.contains("WT Code Contrarian"))
     }
 
     func testTeamsDuplicateProducesCustomJSON() throws {
-        let team = try TeamCatalog.duplicateBuiltIn("code_core", name: "WT Build Team")
+        let team = try TeamCatalog.duplicateBuiltIn("code_core", name: "WT Code Team")
         let json = AllnighterCLI.teamShowJSONString(team)
         XCTAssertTrue(json.contains(team.id))
-        XCTAssertTrue(json.contains("WT Build Team"))
+        XCTAssertTrue(json.contains("WT Code Team"))
     }
 
     func testSkillsNewCreatesCustomSkill() throws {

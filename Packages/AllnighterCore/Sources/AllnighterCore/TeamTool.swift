@@ -1,13 +1,13 @@
 import Foundation
 
-/// The normalized Fan out request, shared across CLI / MCP / HTTP. The canonical
-/// Fan out selector is `lane + teamPresetId + effort + question`; `type` is Copy
-/// compatibility/routing sugar only (Team_Catalog §Canonical Fan out request).
+/// The normalized team request, shared across CLI / MCP / HTTP. The canonical
+/// selector is `lane + teamPresetId + effort + question`; `type` is Copy
+/// routing sugar only.
 public struct TeamRequest: Codable, Sendable, Equatable {
     public var question: String
-    /// Explicit Fan out lane. Allnighter never infers it from the prompt.
+    /// Explicit team lane. Allnighter never infers it from the prompt.
     public var lane: WorkLane?
-    /// The chosen team's id (CLI `--team`; `--preset` is a hidden alias).
+    /// The chosen team's id (CLI `--team`).
     public var teamPresetId: String?
     /// Effort bundle; nil falls back to the team's default effort.
     public var effort: EffortLevel?

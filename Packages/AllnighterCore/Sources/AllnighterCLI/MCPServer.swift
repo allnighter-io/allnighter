@@ -196,7 +196,7 @@ struct MCPServer {
             let req = TeamRequest(
                 question: q,
                 lane: (args["lane"] as? String).flatMap(WorkLane.init(rawValue:)),
-                teamPresetId: (args["team"] as? String) ?? (args["preset"] as? String),
+                teamPresetId: args["team"] as? String,
                 effort: (args["effort"] as? String).flatMap(EffortLevel.init(rawValue:)),
                 type: args["type"] as? String,
                 context: args["context"] as? String

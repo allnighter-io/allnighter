@@ -432,11 +432,10 @@ Arguments:
 
 Flags:
 - `--file <path>` — Read the prompt from a file.
-- `--lane <lane>` — build | design | copy.
+- `--lane <lane>` — code | design | copy | signal.
 - `--team <id>` — Team id (the public team selector).
 - `--type <type>` — Copy-only routing sugar.
 - `--effort <effort>` — low | med | high.
-- `--preset <id>` — Deprecated alias for --team.
 - `--json` — Emit one TeamRunJSON object.
 - `--stream` — Emit NDJSON events.
 
@@ -612,7 +611,7 @@ Output schema: `pendingItemJSON`.
 
 ### `alln pending reorder`
 
-Reorder Pending items (execution-lane or floor order).
+Reorder Pending items.
 
 Arguments:
 - `pending-id` (required) — Item to move.

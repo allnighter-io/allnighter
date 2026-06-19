@@ -34,7 +34,7 @@ enum RunCLI {
             message: message,
             repoRoot: project.normalizedRootPath,
             projectId: project.id,
-            presetId: opts.value("team") ?? opts.value("preset"),
+            presetId: opts.value("team"),
             workerId: opts.value("worker"),
             effort: effort,
             lane: lane,

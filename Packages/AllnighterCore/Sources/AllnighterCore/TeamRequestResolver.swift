@@ -1,9 +1,9 @@
 import Foundation
 
-/// Maps a Fan out request (lane / team / type / effort) onto a concrete catalog
+/// Maps a team request (lane / team / type / effort) onto a concrete catalog
 /// team before resolution. `--team` is the selector; `--type` is Copy-only sugar
 /// that routes to a team only when no team was given, and a conflicting team/type
-/// pair is rejected (Team_Catalog §Canonical Fan out request).
+/// pair is rejected.
 public enum TeamRequestResolver {
 
     public struct Resolved: Sendable, Equatable {

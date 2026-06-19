@@ -6,7 +6,7 @@ import Foundation
 /// final event is always a terminal one (`teamRunCompleted`/`teamRunFailed`).
 ///
 /// This is a faithful event log derived from the persisted run (the internal
-/// `RunEvent` stream + the post-fan-out plan stage are not exposed live by
+/// `RunEvent` stream + the post-answer plan stage are not exposed live by
 /// `TeamService` today). Live incremental streaming is a later enhancement; the
 /// emitted shape, ordering, and content are the contract here.
 public enum NDJSONStreamProjector {

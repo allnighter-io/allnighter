@@ -167,8 +167,8 @@ final class RunStoreJournalTests: XCTestCase {
             try? FileManager.default.removeItem(at: base)
         }
 
-        var skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "WT Build Contrarian")
-        skill.template = "WT Build Contrarian: challenge every assumption."
+        var skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "WT Code Contrarian")
+        skill.template = "WT Code Contrarian: challenge every assumption."
         try SkillCatalog.saveCustom(skill)
 
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
@@ -183,7 +183,7 @@ final class RunStoreJournalTests: XCTestCase {
         let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
         let run = await coordinator.run(resolved: resolved, prompt: "question", models: [opus])
         let snapshot = run.workers.first { $0.skillId == skill.id }?.resolvedWorkerPromptSnapshot
-        XCTAssertTrue(snapshot?.contains("WT Build Contrarian") == true)
+        XCTAssertTrue(snapshot?.contains("WT Code Contrarian") == true)
 
         var edited = skill
         edited.template = "Completely different template after edit."
@@ -194,7 +194,7 @@ final class RunStoreJournalTests: XCTestCase {
             run, models: [opus], manifests: registry.all,
             context: .init(runJournalPath: "/tmp/run.json", includeWorkerPromptSnapshots: true))
         let worker = full.workers.first { $0.skillId == skill.id }
-        XCTAssertTrue(worker?.resolvedWorkerPromptSnapshot?.contains("WT Build Contrarian") == true)
+        XCTAssertTrue(worker?.resolvedWorkerPromptSnapshot?.contains("WT Code Contrarian") == true)
         XCTAssertFalse(worker?.resolvedWorkerPromptSnapshot?.contains("Completely different") == true)
     }
 

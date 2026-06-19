@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Owns one team run's fan-out: builds per-worker prompts, runs every worker in
+/// Owns one team run: builds per-worker prompts, runs every worker in
 /// parallel, updates the run, and emits `RunEvent`s keyed by worker id.
 public actor TeamRunCoordinator {
     private let workerRunner: WorkerRunner

@@ -79,7 +79,7 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     /// True when this worker can read an image headlessly (build-side, Design2).
     public var canReadImages: Bool { readsImages == true }
 
-    /// How a worker's CLI generates an image headlessly — used by design fan-out
+    /// How a worker's CLI generates an image headlessly — used by design team
     /// seats and by chat turns when `ChatImageIntent` selects the `imageGen`
     /// profile. Image gen is an agentic tool call triggered by the prompt (not an
     /// `--out` flag); the image always arrives as a **local file** (PNG/JPEG,

@@ -43,7 +43,7 @@ public enum AttachmentDeliveryRenderer {
         return baseText
     }
 
-    /// Per-seat fan-out prompt with vision/non-vision branching (CIA-S07 base).
+    /// Per-worker prompt with vision/non-vision branching (CIA-S07 base).
     public static func teamRunSeatPrompt(
         basePrompt: String,
         deliveries: [IncludedAttachmentDelivery],

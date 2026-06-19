@@ -11,7 +11,7 @@ public typealias SkillID = String
 /// Catalog entry for one built-in or custom lane team (`TeamPreset` is the persisted shape).
 public typealias TeamDefinition = TeamPreset
 
-// MARK: - Fan out lane / effort / output
+// MARK: - Team lane / effort / output
 
 /// The four peer crafts (public families). A team always declares an explicit
 /// craft — Allnighter never infers it from the prompt. `signal` is the
@@ -62,7 +62,7 @@ public enum EffortLevel: String, Codable, Sendable, CaseIterable, Comparable {
 
 /// What a team produces. `outputKind` chooses the synthesis profile, result
 /// renderer, and default stage shape so a Security Review is never forced into a
-/// generic Build plan and a Design/Copy board never pretends to be a plan.
+/// generic code plan and a Design/Copy board never pretends to be a plan.
 public enum TeamOutputKind: String, Codable, Sendable, CaseIterable {
     case plan
     case bugPacket
@@ -214,10 +214,9 @@ public struct TeamLeadSpec: Codable, Sendable, Equatable {
 
 // MARK: - Lane-scoped team (catalog team)
 
-/// A lane-scoped Fan out team — the canonical `TeamPreset` the user picks. Built-in
-/// teams ship as product assets; users duplicate them to customize. Every team
-/// declares exactly one lane and one `outputKind`. (The legacy council/workflow
-/// panel-seat config is `PanelPreset`; see `PanelPreset.swift`.)
+/// A saved team preset the user can pick for a run. Built-in teams ship as
+/// product assets; users duplicate them to customize. Every team declares
+/// exactly one lane and one `outputKind`.
 public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var displayName: String
@@ -226,8 +225,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var outputKind: TeamOutputKind
     /// Whether running this team can make real changes (write files, post
     /// externally, edit state). Mutating teams run exactly one worker under the
-    /// repo-root write lock. Scout/propose/review teams are advisory and
-    /// non-mutating.
+    /// repo-root write lock; non-mutating teams can run read-only workers in parallel.
     public var mutating: Bool
     /// For source-scoped execution teams, the single CLI driver this team runs on.
     public var executionSourceId: String?

@@ -3,7 +3,7 @@ import AllnighterCore
 
 /// Reads the team-recursion depth from the environment. Model subprocesses
 /// are spawned with `ALLNIGHTER_TEAM_DEPTH` = parent + 1, so any team tool
-/// invoked from inside a team sees depth >= 1 and refuses to fan out.
+/// invoked from inside a team sees depth >= 1 and refuses nested team work.
 public enum RecursionGuard {
     public static func currentDepth(environment: [String: String] = ProcessInfo.processInfo.environment) -> Int {
         Int(environment["ALLNIGHTER_TEAM_DEPTH"] ?? "0") ?? 0
@@ -47,7 +47,7 @@ public final class TeamGovernor: @unchecked Sendable {
     }
 }
 
-/// The single normalized entry for running a lane-scoped Fan out team from a tool
+/// The single normalized entry for running a lane-scoped team from a tool
 /// request (CLI / MCP / HTTP). Resolves request → team → workers, runs the fixed
 /// answer→review→output staging, and persists to the shared `Runs/` store.
 /// Recursion-guarded and governed; origin-tagged. Judgment only — it links no
@@ -99,7 +99,7 @@ public actor TeamService {
     /// caller's responsibility; the run still fails per-worker if a CLI is missing.
     private func readyModels() -> [Model] { models.filter(\.enabled) }
 
-    /// Run a Fan out team from a tool request. `origin` tags the run; depth is read
+    /// Run a team from a tool request. `origin` tags the run; depth is read
     /// from the environment (recursion guard). Staging is fixed answer→review→output.
     public func run(_ request: TeamRequest, origin: RunOrigin, originAgent: String? = nil, events: AsyncStream<RunEvent>.Continuation? = nil) async -> TeamToolResult {
         func finishStream(failed reason: String? = nil) {

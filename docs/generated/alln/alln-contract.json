@@ -1121,7 +1121,7 @@
         },
         {
           "name" : "lane",
-          "summary" : "build | design | copy.",
+          "summary" : "code | design | copy | signal.",
           "takesValue" : true,
           "valueType" : "lane"
         },
@@ -1142,12 +1142,6 @@
           "summary" : "low | med | high.",
           "takesValue" : true,
           "valueType" : "effort"
-        },
-        {
-          "name" : "preset",
-          "summary" : "Deprecated alias for --team.",
-          "takesValue" : true,
-          "valueType" : "id"
         },
         {
           "name" : "json",
@@ -1615,7 +1609,7 @@
       ],
       "name" : "pending reorder",
       "outputSchema" : "pendingItemJSON",
-      "summary" : "Reorder Pending items (execution-lane or floor order)."
+      "summary" : "Reorder Pending items."
     },
     {
       "args" : [
@@ -3599,7 +3593,7 @@
         {
           "name" : "team",
           "required" : false,
-          "summary" : "Team id; `--preset` is a hidden alias.",
+          "summary" : "Team id.",
           "type" : "string"
         },
         {

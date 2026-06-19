@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Design fan-out maps the first image to `DesignRequest.screenshotPath`; extras
+/// Design team runs map the first image to `DesignRequest.screenshotPath`; extras
 /// stay as ordered attachment paths in the seat prompt (CIA-S07).
 public enum TeamRunAttachmentMapper {
     public struct MappedDesignInput: Sendable, Equatable {

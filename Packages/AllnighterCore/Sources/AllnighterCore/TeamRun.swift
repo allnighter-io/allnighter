@@ -1,6 +1,6 @@
 import Foundation
 
-/// One prompt fanned out to a panel of seats plus the stage sequence that
+/// One prompt sent to a team of workers plus the stage sequence that
 /// follows (analysis, plan, reviews, and final output).
 /// The Mac owns this as truth; the run-event stream (§6) is derived from it.
 public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
@@ -21,7 +21,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var stages: [StageOutput]
     public var createdAt: Date
 
-    // Catalog facts, so the persisted run is self-describing (Fan out runs set
+    // Catalog facts, so the persisted run is self-describing (catalog team runs set
     // these; legacy runs leave them nil/empty). The public projection prefers
     // these over caller-supplied context.
     public var lane: WorkLane?

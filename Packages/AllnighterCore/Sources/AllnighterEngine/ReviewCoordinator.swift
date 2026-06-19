@@ -19,11 +19,10 @@ public struct ResolvedLens: Sendable {
     }
 }
 
-/// RB2: fan a draft plan out to advisory review lenses in parallel, each producing
+/// RB2: run advisory review lenses against a draft plan in parallel, each producing
 /// a `.review` `StageOutput`. Advisory only — never mutates the plan. Partial by
 /// design: a failed/timed-out lens does not block the others. Reuses
-/// `ReduceRunner` + `StageInputBuilder` (the draft/analysis are reused inputs, no
-/// re-fan-out of the panel).
+/// `ReduceRunner` + `StageInputBuilder` (the draft/analysis are reused inputs).
 public struct ReviewCoordinator: Sendable {
     private let reduceRunner: ReduceRunner
 

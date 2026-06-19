@@ -548,7 +548,7 @@
       {
         "name" : "team",
         "required" : false,
-        "summary" : "Team id; `--preset` is a hidden alias.",
+        "summary" : "Team id.",
         "type" : "string"
       },
       {

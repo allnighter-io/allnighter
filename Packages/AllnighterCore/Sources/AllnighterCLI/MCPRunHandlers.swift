@@ -27,7 +27,7 @@ enum MCPRunHandlers {
             message: message,
             repoRoot: project.normalizedRootPath,
             projectId: project.id,
-            presetId: (args["team"] as? String) ?? (args["preset"] as? String),
+            presetId: args["team"] as? String,
             workerId: args["worker"] as? String,
             effort: effort,
             lane: lane,

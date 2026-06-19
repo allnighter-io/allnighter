@@ -112,7 +112,7 @@ public extension ContractRegistry {
         MCPToolSpec("team_ask", command: "team", summary: "Run a lane team on a prompt; returns a synthesized result + structured run.",
                     params: [.init("question", required: true, summary: "The prompt to ask the team."),
                              .init("lane", summary: "code|design|copy|signal (explicit; never inferred)."),
-                             .init("team", summary: "Team id; `--preset` is a hidden alias."),
+                             .init("team", summary: "Team id."),
                              .init("effort", summary: "low|med|high (optional)."),
                              .init("type", summary: "Copy-only routing sugar (optional)."),
                              .init("context", summary: "Bounded context snippet to consider (optional).")],
@@ -491,11 +491,10 @@ public extension ContractRegistry {
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the prompt from a file."),
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id (the public team selector)."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
-                FlagSpec("preset", takesValue: true, valueType: "id", summary: "Deprecated alias for --team."),
                 FlagSpec("json", summary: "Emit one TeamRunJSON object."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
@@ -598,7 +597,7 @@ public extension ContractRegistry {
             outputSchema: .pendingItemJSON
         ),
         CommandSpec(
-            "pending reorder", summary: "Reorder Pending items (execution-lane or floor order).", milestone: .m1,
+            "pending reorder", summary: "Reorder Pending items.", milestone: .m1,
             args: [ArgSpec("pending-id", required: true, summary: "Item to move.")],
             flags: [
                 FlagSpec("before", takesValue: true, valueType: "id", summary: "Move before another item."),

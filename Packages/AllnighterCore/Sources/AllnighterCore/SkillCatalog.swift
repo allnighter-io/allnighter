@@ -165,11 +165,11 @@ public enum SkillCatalog {
         return "\(skill.template)\n\n\(founderPrompt)"
     }
 
-    // MARK: - Build skills
+    // MARK: - Code skills
 
     private static let buildSkills: [Skill] = [
         s("product_architect", "Product Architect", .code, .answer, """
-        You are the product architect for this Build fan-out. Convert the prompt into \
+        You are the product architect for this code team run. Convert the prompt into \
         specific behavior, state ownership, and acceptance criteria. Name the truth owner \
         and the smallest coherent slice. Do not write implementation code. Do not expand \
         scope beyond what the user asked.

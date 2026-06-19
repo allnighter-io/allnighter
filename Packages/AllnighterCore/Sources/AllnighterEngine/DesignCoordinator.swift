@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Owns one design run's image fan-out (Lane 2). Mirrors `TeamRunCoordinator`:
+/// Owns one design run's parallel image generation (Lane 2). Mirrors `TeamRunCoordinator`:
 /// builds per-seat image requests (one image worker × one design persona), runs
 /// every seat in parallel via `DesignImageRunner`, writes each image into the run
 /// folder, and emits `RunEvent`s keyed by `workerId` so the board reveals
@@ -33,7 +33,7 @@ public actor DesignCoordinator {
         self.continuation = continuation
     }
 
-    /// Fans the design request out across `teamWorkers`, writing images into `runDir`,
+    /// Runs the design request across `teamWorkers`, writing images into `runDir`,
     /// and returns the settled run carrying the `board` stage. A failed seat is a
     /// gray tile, never a blocked board: the run is `complete` if every seat
     /// rendered, `partial` if some failed but ≥1 rendered, `failed` if none did.
@@ -72,7 +72,7 @@ public actor DesignCoordinator {
         let prompt = request.prompt
         let targetShape = request.targetShape
 
-        // Fan out; reflect each option onto its answer AS IT COMPLETES so the board
+        // Reflect each option onto its answer as it completes so the board
         // tile fills in progressively (the image path rides the event).
         var options: [DesignOption] = []
         await withTaskGroup(of: DesignOption.self) { group in

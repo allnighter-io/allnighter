@@ -73,8 +73,7 @@ struct AllnighterCLI {
             emitFailure(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
             exit(2)
         }
-        // `--team` is the public selector; `--preset` is a hidden compat alias.
-        let teamId = opts.value("team") ?? opts.value("preset")
+        let teamId = opts.value("team")
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
             fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy|signal)")
@@ -824,7 +823,7 @@ struct AllnighterCLI {
         return AsyncTeamStartRequest(
             question: question,
             lane: opts.value("lane").flatMap(WorkLane.init(rawValue:)),
-            teamPresetId: opts.value("team") ?? opts.value("preset"),
+            teamPresetId: opts.value("team"),
             effort: opts.value("effort").flatMap(EffortLevel.init(rawValue:)),
             type: opts.value("type"),
             context: opts.value("context"),
@@ -1106,7 +1105,7 @@ struct AllnighterCLI {
     static func printHelp() {
         print("""
         alln — local team run, callable by any agent (zero API cost)
-          team "<question>" [--preset id] [--json | --stream]        run a team (--json: TeamRunJSON; --stream: NDJSON)
+          team "<question>" [--team id] [--json | --stream]          run a team (--json: TeamRunJSON; --stream: NDJSON)
           team show [--json]                                        show the current default team
           team start "<question>" --json [--lane ...] [--team id]   start async team run (returns run id)
           team status <run-id> --json                             poll async run status

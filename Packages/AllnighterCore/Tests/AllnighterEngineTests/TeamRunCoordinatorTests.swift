@@ -68,7 +68,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let start = Date()
         _ = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models)
         let elapsed = Date().timeIntervalSince(start)
-        XCTAssertLessThan(elapsed, 1.0, "fan-out should be parallel, not serial")
+        XCTAssertLessThan(elapsed, 1.0, "workers should run in parallel, not serial")
     }
 
     func testFailedSeatDoesNotBlockRun() async {
