@@ -315,9 +315,9 @@ private struct ThreadTurnRow: View {
                 case .cancelled:
                     Text("Cancelled.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
                 case .done:
-                    Text(.init(turn.text ?? ""))
-                        .font(.system(size: 13.5)).foregroundStyle(ALColor.textPrimary)
-                        .lineSpacing(2).textSelection(.enabled)
+                    // Agent replies render through our markdown engine (block-level:
+                    // headings/lists/code/quotes/tables), not inline-only Text.
+                    MarkdownText(markdown: turn.text ?? "")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }

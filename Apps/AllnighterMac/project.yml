@@ -8,6 +8,8 @@ options:
 packages:
   AllnighterCore:
     path: ../../Packages/AllnighterCore
+  AllnighterMarkdown:
+    path: ../../Packages/AllnighterMarkdown
 
 settings:
   base:
@@ -30,6 +32,8 @@ targets:
         product: AllnighterCore
       - package: AllnighterCore
         product: AllnighterEngine
+      - package: AllnighterMarkdown
+        product: AllnighterMarkdown
     info:
       path: Sources/Info.plist
       properties:
