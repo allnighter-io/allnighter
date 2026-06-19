@@ -39,14 +39,15 @@ public enum BuiltInTeams {
         id: String, name: String, lane: WorkLane, output: TeamOutputKind,
         defaultEffort: EffortLevel, isDefault: Bool = false, description: String,
         rows: [TeamWorkerSpec], writer: String, dissent: DissentPolicy = .preserveDissent,
-        posture: TeamPosture? = nil, mutating: Bool = false, typeTags: [String] = []
+        posture: TeamPosture? = nil, mutating: Bool = false, typeTags: [String] = [],
+        starters: [String] = []
     ) -> TeamPreset {
         TeamPreset(
             id: id, displayName: name, lane: lane, description: description, outputKind: output,
             posture: posture ?? defaultPosture(for: output), mutating: mutating,
             defaultEffort: defaultEffort, isDefaultForLane: isDefault, workerSpecs: rows,
             lead: TeamLeadSpec(skillId: writer, fallbackPolicy: .strongestReady, dissentPolicy: dissent),
-            typeTags: typeTags, builtIn: true, version: 1)
+            typeTags: typeTags, starterPrompts: starters, builtIn: true, version: 1)
     }
 
     /// Default posture for a built-in team from what it produces: drafting outputs
@@ -76,7 +77,9 @@ public enum BuiltInTeams {
             row("scope_steward", .review),
             row("security_privacy_reviewer", .review),
             row("contrarian_reviewer", .review)
-        ], writer: "plan_writer_build")
+        ], writer: "plan_writer_build",
+        starters: ["Turn this rough idea into an implementable plan with scope and proof.",
+                   "Plan the smallest correct slice for <feature>."])
 
     static let buildBugHunt = make(
         id: "code_bug_hunt", name: "Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
@@ -91,7 +94,8 @@ public enum BuiltInTeams {
             row("change_impact_reviewer", .answer),
             row("user_impact_narrator", .review),
             row("contrarian_root_cause", .review)
-        ], writer: "bug_packet_writer")
+        ], writer: "bug_packet_writer",
+        starters: ["Find the real cause of <broken behavior> and plan the smallest correct fix."])
 
     static let buildGUIBugHunt = make(
         id: "code_gui_bug_hunt", name: "GUI Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
@@ -144,7 +148,8 @@ public enum BuiltInTeams {
             row("edge_case_hunter", .answer),
             row("contract_drift_checker", .answer),
             row("demo_narrator", .review)
-        ], writer: "proof_packet_writer", dissent: .riskRegister)
+        ], writer: "proof_packet_writer", dissent: .riskRegister,
+        starters: ["Prove this slice is actually done before I believe it."])
 
     // MARK: - Design teams
 
@@ -172,7 +177,8 @@ public enum BuiltInTeams {
             row("component_stylist", .answer),
             row("state_designer", .answer),
             row("polish_critic", .review)
-        ], writer: "polish_board_writer")
+        ], writer: "polish_board_writer",
+        starters: ["Give me two more polished versions of <screen> — calmer, more intentional, native."])
 
     static let designConversionStudio = make(
         id: "design_conversion_studio", name: "Conversion Studio", lane: .design, output: .designBoard, defaultEffort: .high,
@@ -223,7 +229,8 @@ public enum BuiltInTeams {
             row("cta_writer", .answer),
             row("proof_skeptic", .review),
             row("brand_voice", .review)
-        ], writer: "copy_board_writer")
+        ], writer: "copy_board_writer",
+        starters: ["Write clearer, more persuasive options for <copy>."])
 
     static let copyLandingPage = make(
         id: "copy_landing_page", name: "Landing Page Team", lane: .copy, output: .copyBoard, defaultEffort: .high,
@@ -252,7 +259,9 @@ public enum BuiltInTeams {
             row("signal_project_fit", .answer),
             row("signal_product_ideas", .answer),
             row("signal_skeptic", .review)
-        ], writer: "insight_writer", dissent: .preserveDissent)
+        ], writer: "insight_writer", dissent: .preserveDissent,
+        starters: ["Paste a public X post or article link and ask how it applies to this project.",
+                   "What does this release note mean for us?"])
 
     /// Scan recent outside-world change and recommend what to build next for this
     /// Project. Scout posture, non-mutating.
@@ -265,5 +274,6 @@ public enum BuiltInTeams {
             row("signal_project_fit", .answer),
             row("signal_product_ideas", .answer),
             row("signal_skeptic", .review)
-        ], writer: "insight_writer", dissent: .compareOptions)
+        ], writer: "insight_writer", dissent: .compareOptions,
+        starters: ["What should we build next given what changed outside the repo this week?"])
 }

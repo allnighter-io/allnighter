@@ -249,6 +249,9 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var lead: TeamLeadSpec
     public var typeTags: [String]
     public var purposeTags: [String]
+    /// Best-shot example prompts to seed the composer on the Send-to-team card.
+    /// Placeholder product copy — refined before release. Additive (default empty).
+    public var starterPrompts: [String]
     public var builtIn: Bool
     public var version: Int
 
@@ -266,6 +269,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         lead: TeamLeadSpec,
         typeTags: [String] = [],
         purposeTags: [String] = [],
+        starterPrompts: [String] = [],
         builtIn: Bool = false,
         version: Int = 1
     ) {
@@ -282,6 +286,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.lead = lead
         self.typeTags = typeTags
         self.purposeTags = purposeTags
+        self.starterPrompts = starterPrompts
         self.builtIn = builtIn
         self.version = version
     }
