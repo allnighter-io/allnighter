@@ -134,7 +134,7 @@ enum PendingCLI {
         let service = makeService(runtime)
         do {
             let item = try service.reorder(id: id, anchor: anchor)
-            emit(item, service: service, json: opts.flag("json"), userReordered: true)
+            emit(item, service: service, json: opts.flag("json"))
         } catch let error as PendingServiceError {
             if case .reorderInvalid = error {
                 AllnighterCLI.emitFailure(code: "PENDING_REORDER_INVALID", message: String(describing: error))
@@ -169,9 +169,6 @@ enum PendingCLI {
             let item = try await executor.run(id: id)
             emit(item, service: executor.service, json: opts.flag("json"))
         } catch let error as PendingServiceError {
-            if case .mutationDeferred = error {
-                AllnighterCLI.fail(code: "PENDING_MUTATION_DEFERRED", message: "mutating runs are outside Pending M1")
-            }
             if case .unsupportedKind(let kind) = error {
                 AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "pending kind \(kind) is not runnable in this milestone; only workerChat is supported")
             }
@@ -211,10 +208,10 @@ enum PendingCLI {
         }
     }
 
-    private static func emit(_ item: PendingItem, service: PendingService, json: Bool, userReordered: Bool? = nil) {
+    private static func emit(_ item: PendingItem, service: PendingService, json: Bool) {
         if json {
             do {
-                print(AllnighterCLI.jsonString(try service.mapJSON(item, userReordered: userReordered)))
+                print(AllnighterCLI.jsonString(try service.mapJSON(item)))
             } catch {
                 emitPendingError(error)
             }

@@ -22,7 +22,7 @@ public enum PendingOrigin: String, Codable, Sendable, CaseIterable {
     case cli, gui, mcp, ios, localApi, system, preset
 }
 
-// MARK: - Target / policy / execution
+// MARK: - Target / policy / safety
 
 public struct PendingTarget: Codable, Sendable, Equatable {
     public var workerIds: [String]
@@ -89,36 +89,6 @@ public struct PendingPolicy: Codable, Sendable, Equatable {
         self.allowDegraded = allowDegraded
         self.requireKnownAvailable = requireKnownAvailable
         self.createSuggestedFollowUps = createSuggestedFollowUps
-    }
-}
-
-public enum PendingExecutionIntent: String, Codable, Sendable, CaseIterable {
-    case ask, execute
-}
-
-public enum PendingExecutionLanePolicy: String, Codable, Sendable, CaseIterable {
-    case fifo, userOrdered
-}
-
-public struct PendingExecution: Codable, Sendable, Equatable {
-    public var intent: PendingExecutionIntent
-    public var executionLaneKey: String?
-    public var executionLaneKeyVersion: String?
-    public var executionLanePolicy: PendingExecutionLanePolicy
-    public var executionLaneOrder: Int?
-
-    public init(
-        intent: PendingExecutionIntent,
-        executionLaneKey: String? = nil,
-        executionLaneKeyVersion: String? = "v1",
-        executionLanePolicy: PendingExecutionLanePolicy = .fifo,
-        executionLaneOrder: Int? = nil
-    ) {
-        self.intent = intent
-        self.executionLaneKey = executionLaneKey
-        self.executionLaneKeyVersion = executionLaneKeyVersion
-        self.executionLanePolicy = executionLanePolicy
-        self.executionLaneOrder = executionLaneOrder
     }
 }
 
@@ -200,7 +170,6 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
     public var workerIds: [String]
     public var status: PendingAttemptStatus
     public var admissionEventIds: [String]
-    public var executionLaneKey: String?
     public var reason: String?
     /// Relative path under the Pending store root for the attempt receipt transcript.
     public var transcriptRef: String?
@@ -215,7 +184,6 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
         workerIds: [String] = [],
         status: PendingAttemptStatus,
         admissionEventIds: [String] = [],
-        executionLaneKey: String? = nil,
         reason: String? = nil,
         transcriptRef: String? = nil
     ) {
@@ -226,35 +194,8 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
         self.workerIds = workerIds
         self.status = status
         self.admissionEventIds = admissionEventIds
-        self.executionLaneKey = executionLaneKey
         self.reason = reason
         self.transcriptRef = transcriptRef
-    }
-}
-
-public enum PendingExecutionLanePauseReason: String, Codable, Sendable, CaseIterable {
-    case user, editLock
-}
-
-public struct PendingExecutionLaneState: Codable, Sendable, Equatable {
-    public var executionLaneKey: String
-    public var executionLanePolicy: PendingExecutionLanePolicy
-    public var pausedReason: PendingExecutionLanePauseReason?
-    public var orderedItemIds: [String]
-    public var editLease: PendingLease?
-
-    public init(
-        executionLaneKey: String,
-        executionLanePolicy: PendingExecutionLanePolicy = .fifo,
-        pausedReason: PendingExecutionLanePauseReason? = nil,
-        orderedItemIds: [String] = [],
-        editLease: PendingLease? = nil
-    ) {
-        self.executionLaneKey = executionLaneKey
-        self.executionLanePolicy = executionLanePolicy
-        self.pausedReason = pausedReason
-        self.orderedItemIds = orderedItemIds
-        self.editLease = editLease
     }
 }
 
@@ -283,7 +224,6 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
     public var stageId: String?
     public var target: PendingTarget
     public var policy: PendingPolicy
-    public var execution: PendingExecution?
     public var safety: PendingSafety
     public var resume: PendingResume?
     public var lease: PendingLease?
@@ -310,7 +250,6 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
         stageId: String? = nil,
         target: PendingTarget,
         policy: PendingPolicy,
-        execution: PendingExecution? = nil,
         safety: PendingSafety = PendingSafety(),
         resume: PendingResume? = nil,
         lease: PendingLease? = nil,
@@ -336,7 +275,6 @@ public struct PendingItem: Codable, Sendable, Equatable, Identifiable {
         self.stageId = stageId
         self.target = target
         self.policy = policy
-        self.execution = execution
         self.safety = safety
         self.resume = resume
         self.lease = lease
@@ -356,15 +294,13 @@ public extension PendingItem {
     var localRootPathSnapshot: String? { safety.workingDir }
 }
 
-/// On-disk index for Pending store ordering and execution-lane state.
+/// On-disk index for Pending store ordering.
 public struct PendingStoreIndex: Codable, Sendable, Equatable {
     public var schemaVersion: Int
     public var itemOrder: [String]
-    public var executionLanes: [PendingExecutionLaneState]
 
-    public init(schemaVersion: Int = 1, itemOrder: [String] = [], executionLanes: [PendingExecutionLaneState] = []) {
+    public init(schemaVersion: Int = 1, itemOrder: [String] = []) {
         self.schemaVersion = schemaVersion
         self.itemOrder = itemOrder
-        self.executionLanes = executionLanes
     }
 }

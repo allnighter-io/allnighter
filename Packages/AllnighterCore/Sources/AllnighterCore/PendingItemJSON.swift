@@ -8,7 +8,6 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
     public var pendingItem: ItemInfo
     public var target: TargetInfo
     public var policy: PolicyInfo
-    public var execution: ExecutionInfo
     public var safety: SafetyInfo
     public var admission: AdmissionInfo?
     public var capacityObservation: CapacityObservationJSON?
@@ -22,7 +21,6 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         pendingItem: ItemInfo,
         target: TargetInfo,
         policy: PolicyInfo,
-        execution: ExecutionInfo,
         safety: SafetyInfo,
         admission: AdmissionInfo? = nil,
         capacityObservation: CapacityObservationJSON? = nil,
@@ -35,7 +33,6 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         self.pendingItem = pendingItem
         self.target = target
         self.policy = policy
-        self.execution = execution
         self.safety = safety
         self.admission = admission
         self.capacityObservation = capacityObservation
@@ -91,17 +88,6 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         public var createSuggestedFollowUps: Bool
     }
 
-    public struct ExecutionInfo: Codable, Equatable, Sendable {
-        public var intent: String
-        public var executionLaneKey: String?
-        public var executionLaneKeyVersion: String?
-        public var executionLanePolicy: String
-        public var executionLaneOrder: Int?
-        public var executionLaneHeadItemId: String?
-        public var executionLaneBlockedByItemId: String?
-        public var executionLanePausedReason: String?
-    }
-
     public struct SafetyInfo: Codable, Equatable, Sendable {
         public var workingDir: String?
         public var requiresTrustedDevice: Bool
@@ -124,7 +110,6 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         public var completedAt: String?
         public var workerIds: [String]
         public var status: String
-        public var executionLaneKey: String?
         public var reason: String?
         public var transcriptRef: String?
     }
@@ -148,12 +133,10 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
     public struct AuditInfo: Codable, Equatable, Sendable {
         public var traceId: String
         public var pendingStorePath: String
-        public var userReorderedExecutionLane: Bool?
 
-        public init(traceId: String, pendingStorePath: String, userReorderedExecutionLane: Bool? = nil) {
+        public init(traceId: String, pendingStorePath: String) {
             self.traceId = traceId
             self.pendingStorePath = pendingStorePath
-            self.userReorderedExecutionLane = userReorderedExecutionLane
         }
     }
 }

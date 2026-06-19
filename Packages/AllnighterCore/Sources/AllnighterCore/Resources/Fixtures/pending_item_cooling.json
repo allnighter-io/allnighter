@@ -33,16 +33,6 @@
     "requireKnownAvailable": false,
     "createSuggestedFollowUps": false
   },
-  "execution": {
-    "intent": "ask",
-    "executionLaneKey": null,
-    "executionLaneKeyVersion": "v1",
-    "executionLanePolicy": "fifo",
-    "executionLaneOrder": null,
-    "executionLaneHeadItemId": null,
-    "executionLaneBlockedByItemId": null,
-    "executionLanePausedReason": null
-  },
   "safety": {
     "workingDir": null,
     "requiresTrustedDevice": false,
@@ -69,7 +59,6 @@
   ],
   "audit": {
     "traceId": "trace_pending_capacity_fixture",
-    "pendingStorePath": "/tmp/Allnighter/Pending",
-    "userReorderedExecutionLane": null
+    "pendingStorePath": "/tmp/Allnighter/Pending"
   }
 }

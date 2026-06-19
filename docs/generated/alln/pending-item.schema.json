@@ -57,12 +57,6 @@
         "createdAt" : {
           "type" : "string"
         },
-        "executionLaneKey" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
         "reason" : {
           "type" : [
             "string",
@@ -107,12 +101,6 @@
         },
         "traceId" : {
           "type" : "string"
-        },
-        "userReorderedExecutionLane" : {
-          "type" : [
-            "boolean",
-            "null"
-          ]
         }
       },
       "required" : [
@@ -178,58 +166,6 @@
         "sourceConfidence",
         "rawSnippet",
         "observedAt"
-      ],
-      "type" : "object"
-    },
-    "ExecutionInfo" : {
-      "additionalProperties" : false,
-      "properties" : {
-        "executionLaneBlockedByItemId" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "executionLaneHeadItemId" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "executionLaneKey" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "executionLaneKeyVersion" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "executionLaneOrder" : {
-          "type" : [
-            "integer",
-            "null"
-          ]
-        },
-        "executionLanePausedReason" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "executionLanePolicy" : {
-          "type" : "string"
-        },
-        "intent" : {
-          "type" : "string"
-        }
-      },
-      "required" : [
-        "intent",
-        "executionLanePolicy"
       ],
       "type" : "object"
     },
@@ -498,9 +434,6 @@
     "contractVersion" : {
       "type" : "string"
     },
-    "execution" : {
-      "$ref" : "#\/$defs\/ExecutionInfo"
-    },
     "nextActions" : {
       "items" : {
         "$ref" : "#\/$defs\/NextAction"
@@ -529,7 +462,6 @@
     "pendingItem",
     "target",
     "policy",
-    "execution",
     "safety",
     "attempts",
     "nextActions",

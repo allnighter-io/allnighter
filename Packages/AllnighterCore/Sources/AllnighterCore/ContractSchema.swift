@@ -196,14 +196,14 @@ public enum ContractSchema {
         let top = obj([
             "schemaVersion": int, "contractVersion": str,
             "pendingItem": ref("ItemInfo"), "target": ref("TargetInfo"),
-            "policy": ref("PolicyInfo"), "execution": ref("ExecutionInfo"),
+            "policy": ref("PolicyInfo"),
             "safety": ref("SafetyInfo"), "admission": nullableRef("AdmissionInfo"),
             "capacityObservation": nullableRef("CapacityObservationInfo"),
             "attempts": arr(ref("AttemptInfo")), "nextActions": arr(ref("NextAction")),
             "audit": ref("AuditInfo"),
         ], required: [
             "schemaVersion", "contractVersion", "pendingItem", "target", "policy",
-            "execution", "safety", "attempts", "nextActions", "audit",
+            "safety", "attempts", "nextActions", "audit",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
@@ -225,12 +225,6 @@ public enum ContractSchema {
                 "maxAttempts": nullable("integer"), "retryFloorSeconds": nullable("integer"),
                 "allowDegraded": bool, "requireKnownAvailable": bool, "createSuggestedFollowUps": bool,
             ], required: ["selection", "attentionMode", "drainMode", "allowDegraded", "requireKnownAvailable", "createSuggestedFollowUps"]),
-            "ExecutionInfo": obj([
-                "intent": str, "executionLaneKey": nullable("string"),
-                "executionLaneKeyVersion": nullable("string"), "executionLanePolicy": str,
-                "executionLaneOrder": nullable("integer"), "executionLaneHeadItemId": nullable("string"),
-                "executionLaneBlockedByItemId": nullable("string"), "executionLanePausedReason": nullable("string"),
-            ], required: ["intent", "executionLanePolicy"]),
             "SafetyInfo": obj([
                 "workingDir": nullable("string"), "requiresTrustedDevice": bool, "privacyLabel": nullable("string"),
             ], required: ["requiresTrustedDevice"]),
@@ -254,15 +248,14 @@ public enum ContractSchema {
             "AttemptInfo": obj([
                 "attemptId": str, "createdAt": str, "startedAt": nullable("string"),
                 "completedAt": nullable("string"), "workerIds": arr(str), "status": str,
-                "executionLaneKey": nullable("string"), "reason": nullable("string"),
-                "transcriptRef": nullable("string"),
+                "reason": nullable("string"), "transcriptRef": nullable("string"),
             ], required: ["attemptId", "createdAt", "workerIds", "status"]),
             "NextAction": obj([
                 "kind": enumStr(["submitPending", "runPending", "showPending", "cancelPending"]),
                 "command": str, "label": nullable("string"),
             ], required: ["kind", "command"]),
             "AuditInfo": obj([
-                "traceId": str, "pendingStorePath": str, "userReorderedExecutionLane": nullable("boolean"),
+                "traceId": str, "pendingStorePath": str,
             ], required: ["traceId", "pendingStorePath"]),
         ]
         return schema

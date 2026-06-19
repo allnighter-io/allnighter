@@ -72,14 +72,6 @@ public struct PendingService: Sendable {
     public func add(_ request: AddRequest) throws -> PendingItem {
         let workerIds = try resolveWorkerIds(primary: request.workerToken, fallbacks: request.fallbackTokens)
         let timestamp = now()
-        let intent = PendingItemDerivation.defaultIntent(for: request.kind)
-        var execution: PendingExecution?
-        if intent == .execute, let workerId = workerIds.preferred.first {
-            let laneKey = PendingItemDerivation.executionLaneKey(workerId: workerId, workingDir: request.workingDir)
-            execution = PendingExecution(intent: .execute, executionLaneKey: laneKey)
-        } else {
-            execution = PendingExecution(intent: intent)
-        }
 
         let item = PendingItem(
             id: idFactory(),
@@ -99,7 +91,6 @@ public struct PendingService: Sendable {
                 fallbackWorkerIds: workerIds.fallbacks
             ),
             policy: PendingPolicy(drainMode: request.drainMode),
-            execution: execution,
             safety: PendingSafety(workingDir: request.workingDir)
         )
 
@@ -107,9 +98,6 @@ public struct PendingService: Sendable {
         var (items, index) = try store.loadOrdered()
         if !index.itemOrder.contains(item.id) {
             index.itemOrder.append(item.id)
-            if let laneKey = execution?.executionLaneKey, execution?.intent == .execute {
-                upsertLane(&index, laneKey: laneKey, itemId: item.id)
-            }
             try store.saveIndex(index)
         }
         _ = items
@@ -125,13 +113,6 @@ public struct PendingService: Sendable {
         item.status = .pending
         item.submittedAt = timestamp
         item.updatedAt = timestamp
-        if item.execution?.intent == .execute, let workerId = item.target.preferredWorkerIds.first ?? item.target.workerIds.first {
-            let laneKey = PendingItemDerivation.executionLaneKey(workerId: workerId, workingDir: item.safety.workingDir)
-            item.execution?.executionLaneKey = laneKey
-            var (_, index) = try store.loadOrdered()
-            upsertLane(&index, laneKey: laneKey, itemId: item.id)
-            try store.saveIndex(index)
-        }
         try store.save(item)
         return item
     }
@@ -205,7 +186,6 @@ public struct PendingService: Sendable {
         item.lease = nil
         item.updatedAt = now()
         try store.save(item)
-        removeFromLanes(itemId: item.id)
         return item
     }
 
@@ -226,39 +206,6 @@ public struct PendingService: Sendable {
         var (_, index) = try store.loadOrdered()
         guard index.itemOrder.contains(id) else {
             throw PendingServiceError.reorderInvalid("item not in order index")
-        }
-
-        if item.execution?.intent == .execute, let laneKey = item.execution?.executionLaneKey,
-           let laneIndex = index.executionLanes.firstIndex(where: { $0.executionLaneKey == laneKey }) {
-            var lane = index.executionLanes[laneIndex]
-            guard let laneFrom = lane.orderedItemIds.firstIndex(of: id) else {
-                throw PendingServiceError.reorderInvalid("item not in serialized group")
-            }
-            lane.orderedItemIds.remove(at: laneFrom)
-            let laneInsert: Int
-            switch anchor {
-            case .before(let other):
-                guard let otherItem = try store.load(id: other),
-                      otherItem.execution?.executionLaneKey == laneKey,
-                      otherItem.status == .draft || otherItem.status == .pending,
-                      let laneTo = lane.orderedItemIds.firstIndex(of: other) else {
-                    throw PendingServiceError.reorderInvalid("anchor must be a Pending item in the same serialized group")
-                }
-                laneInsert = laneTo
-            case .after(let other):
-                guard let otherItem = try store.load(id: other),
-                      otherItem.execution?.executionLaneKey == laneKey,
-                      otherItem.status == .draft || otherItem.status == .pending,
-                      let laneTo = lane.orderedItemIds.firstIndex(of: other) else {
-                    throw PendingServiceError.reorderInvalid("anchor must be a Pending item in the same serialized group")
-                }
-                laneInsert = laneTo + 1
-            case .position(let pos):
-                laneInsert = max(0, min(pos, lane.orderedItemIds.count))
-            }
-            lane.orderedItemIds.insert(id, at: min(laneInsert, lane.orderedItemIds.count))
-            lane.executionLanePolicy = .userOrdered
-            index.executionLanes[laneIndex] = lane
         }
 
         var order = index.itemOrder
@@ -326,7 +273,6 @@ public struct PendingService: Sendable {
             startedAt: timestamp,
             workerIds: workerId.isEmpty ? [] : [workerId],
             status: .running,
-            executionLaneKey: item.execution?.executionLaneKey,
             reason: options.attemptReason
         )
         item.attempts.append(attempt)
@@ -432,7 +378,7 @@ public struct PendingService: Sendable {
         return item
     }
 
-    /// Legacy entry point — use `PendingRunExecutor` for workerChat execution.
+    /// Reserves a Pending item for direct worker execution.
     public func run(id: String) throws -> PendingItem {
         try beginRun(id: id)
     }
@@ -442,9 +388,6 @@ public struct PendingService: Sendable {
         case .workerChat:
             return
         case .teamRun:
-            if item.execution?.intent == .execute {
-                throw PendingServiceError.mutationDeferred
-            }
             return
         case .followUp:
             throw PendingServiceError.unsupportedKind(item.kind.rawValue)
@@ -546,22 +489,10 @@ public struct PendingService: Sendable {
         try store.loadOrdered().items
     }
 
-    public func executionLaneHead(for item: PendingItem, index: PendingStoreIndex) -> String? {
-        guard let laneKey = item.execution?.executionLaneKey else { return nil }
-        guard let lane = index.executionLanes.first(where: { $0.executionLaneKey == laneKey }) else { return nil }
-        return lane.orderedItemIds.first
-    }
-
-    public func mapJSON(_ item: PendingItem, userReordered: Bool? = nil) throws -> PendingItemJSON {
-        let (_, index) = try store.loadOrdered()
-        let head = executionLaneHead(for: item, index: index)
+    public func mapJSON(_ item: PendingItem) throws -> PendingItemJSON {
         return PendingItemJSONMapper.map(
             item,
-            context: .init(
-                pendingStorePath: store.rootDirectory.path,
-                executionLaneHeadItemId: head,
-                userReorderedExecutionLane: userReordered
-            )
+            context: .init(pendingStorePath: store.rootDirectory.path)
         )
     }
 
@@ -595,26 +526,6 @@ public struct PendingService: Sendable {
             return model.id
         }
         throw PendingServiceError.invalidWorker(token)
-    }
-
-    // MARK: - Private lane helpers
-
-    private func upsertLane(_ index: inout PendingStoreIndex, laneKey: String, itemId: String) {
-        if let i = index.executionLanes.firstIndex(where: { $0.executionLaneKey == laneKey }) {
-            if !index.executionLanes[i].orderedItemIds.contains(itemId) {
-                index.executionLanes[i].orderedItemIds.append(itemId)
-            }
-        } else {
-            index.executionLanes.append(PendingExecutionLaneState(executionLaneKey: laneKey, orderedItemIds: [itemId]))
-        }
-    }
-
-    private func removeFromLanes(itemId: String) {
-        guard var index = try? store.loadIndex() else { return }
-        for i in index.executionLanes.indices {
-            index.executionLanes[i].orderedItemIds.removeAll { $0 == itemId }
-        }
-        try? store.saveIndex(index)
     }
 
     private func stopRunning(_ item: PendingItem) throws -> PendingItem {
