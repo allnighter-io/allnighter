@@ -526,6 +526,7 @@ private struct HomeMarketingEmptyState: View {
                 modeCards
                 RoutingComposer(
                     big: true,
+                    showsProject: true,
                     onSend: { threads.sendRouting($0, createThread: true) }
                 )
                 .padding(.top, 4)
@@ -622,6 +623,7 @@ private struct HomeNewWorkOrderPane: View {
             Spacer(minLength: 0)
             RoutingComposer(
                 big: true,
+                showsProject: true,
                 onSend: { threads.sendRouting($0, createThread: true) }
             )
             .frame(maxWidth: 640)

@@ -644,7 +644,7 @@ final class ThreadsViewModel {
         case "projects-rail":
             seedFixtureProjectsRail()
             reload()
-            selectedThreadId = "pr-halo-2"
+            selectedThreadId = nil   // land on the home composer (shows the project chip)
         default:
             break
         }

@@ -99,6 +99,7 @@ struct RoutingComposer: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
+    @Environment(ProjectsViewModel.self) private var projects
     @Environment(CommandCenter.self) private var commands
     @State var mode: ComposeMode
     @State var to: String
@@ -118,6 +119,9 @@ struct RoutingComposer: View {
     /// Lock the turn to Send-to-team (hide the Chat/Send/Execute mode pill). Used by
     /// the launcher's team modal, where the team is already chosen.
     private let lockedSendToTeam: Bool
+    /// Show the active-project indicator (the new-work-order/home composer). A send
+    /// here is scoped to the active project root (PRJ-S14).
+    private let showsProject: Bool
     var onSend: ((ComposeRouting) -> Void)?
 
     init(
@@ -129,6 +133,7 @@ struct RoutingComposer: View {
         big: Bool = false,
         defaultMode: ComposeMode = .chat,
         lockedSendToTeam: Bool = false,
+        showsProject: Bool = false,
         onSend: ((ComposeRouting) -> Void)? = nil
     ) {
         _mode = State(initialValue: mode)
@@ -140,6 +145,7 @@ struct RoutingComposer: View {
         self.big = big
         self.defaultMode = defaultMode
         self.lockedSendToTeam = lockedSendToTeam
+        self.showsProject = showsProject
         self.onSend = onSend
         self.placeholder = big
             ? "Describe the work — a question, a screen to redesign, a change to ship…"
@@ -224,6 +230,7 @@ struct RoutingComposer: View {
 
     private var bar: some View {
         HStack(spacing: 9) {
+            if showsProject { projectChip }
             if !lockedSendToTeam { modePill }
             if mode != .sendToTeam {
                 Text("to").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
@@ -234,6 +241,36 @@ struct RoutingComposer: View {
             sendButton
         }
         .padding(.horizontal, 11).padding(.vertical, 10)
+    }
+
+    /// The active project a send runs against (PRJ-S14). Tap cycles to the next
+    /// project (switch active scope); add/manage projects from the sidebar. Mutating
+    /// routes (Execute) require a project — surfaced here, enforced by the dispatch gate.
+    private var projectChip: some View {
+        let active = projects.activeProject
+        return Button { cycleProject() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "folder").font(.system(size: 11))
+                    .foregroundStyle(active != nil ? ALColor.accentText : ALColor.textFaint)
+                Text(active?.displayName ?? "No project")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(active != nil ? ALColor.textPrimary : ALColor.textFaint).lineLimit(1)
+                if let branch = active?.gitBranch, !branch.isEmpty {
+                    Text("· \(branch)").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                }
+            }
+            .padding(.horizontal, 10).frame(height: 31)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        }
+        .buttonStyle(.plain).fixedSize()
+    }
+
+    private func cycleProject() {
+        let all = projects.projects
+        guard !all.isEmpty else { projects.addProjectViaPicker(); return }
+        let idx = all.firstIndex { $0.id == projects.activeProjectId } ?? -1
+        projects.select(all[(idx + 1) % all.count].id)
     }
 
     private var modePill: some View {
