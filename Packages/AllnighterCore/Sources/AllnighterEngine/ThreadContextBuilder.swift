@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import CryptoKit
 
 /// Assembles the exact context a worker will see for one turn, as a
 /// `ThreadContextPacket`. Pure and deterministic: file reads go through an
@@ -9,6 +10,46 @@ import AllnighterCore
 /// truncation — never an estimated token count (no usage theater).
 public struct ThreadContextBuilder: Sendable {
     public struct Options: Sendable {
+        public struct AttachedFileInput: Sendable, Equatable {
+            public var path: String
+            public var referenceId: String?
+            public var sequence: Int?
+            public var projectId: String?
+            public var rootRelativePath: String?
+            public var resolvedPath: String?
+            public var lineRange: FileLineRange?
+            public var preloadedText: String?
+            public var storedSha256: String?
+            public var byteSize: Int?
+            public var languageHint: String?
+
+            public init(
+                path: String,
+                referenceId: String? = nil,
+                sequence: Int? = nil,
+                projectId: String? = nil,
+                rootRelativePath: String? = nil,
+                resolvedPath: String? = nil,
+                lineRange: FileLineRange? = nil,
+                preloadedText: String? = nil,
+                storedSha256: String? = nil,
+                byteSize: Int? = nil,
+                languageHint: String? = nil
+            ) {
+                self.path = path
+                self.referenceId = referenceId
+                self.sequence = sequence
+                self.projectId = projectId
+                self.rootRelativePath = rootRelativePath
+                self.resolvedPath = resolvedPath
+                self.lineRange = lineRange
+                self.preloadedText = preloadedText
+                self.storedSha256 = storedSha256
+                self.byteSize = byteSize
+                self.languageHint = languageHint
+            }
+        }
+
         public var strategy: ContextStrategy
         /// Hard cap on the rendered body, in UTF-8 bytes.
         public var byteCap: Int
@@ -16,10 +57,12 @@ public struct ThreadContextBuilder: Sendable {
         public var maxTurns: Int
         /// `explicit_selection`: the turns the user chose to quote.
         public var selectedTurnIds: [String]
-        /// File paths to attach (absolute, or relative to `thread.workingDir`).
-        public var attachedFiles: [String]
+        /// File paths/text to attach (absolute, or relative to `thread.workingDir`).
+        public var attachedFiles: [AttachedFileInput]
         /// Per-file cap, in UTF-8 bytes.
         public var fileByteCap: Int
+        /// Optional total cap for all attached file contents, in UTF-8 bytes.
+        public var attachedFilesTotalByteCap: Int?
 
         public init(
             strategy: ContextStrategy = .recentTurns,
@@ -27,14 +70,17 @@ public struct ThreadContextBuilder: Sendable {
             maxTurns: Int = 12,
             selectedTurnIds: [String] = [],
             attachedFiles: [String] = [],
-            fileByteCap: Int = 4_000
+            attachedFileInputs: [AttachedFileInput] = [],
+            fileByteCap: Int = 4_000,
+            attachedFilesTotalByteCap: Int? = nil
         ) {
             self.strategy = strategy
             self.byteCap = byteCap
             self.maxTurns = maxTurns
             self.selectedTurnIds = selectedTurnIds
-            self.attachedFiles = attachedFiles
+            self.attachedFiles = attachedFileInputs + attachedFiles.map { AttachedFileInput(path: $0) }
             self.fileByteCap = fileByteCap
+            self.attachedFilesTotalByteCap = attachedFilesTotalByteCap
         }
     }
 
@@ -61,6 +107,7 @@ public struct ThreadContextBuilder: Sendable {
         var includedTurnIds: [String] = []
         var includedRunIds: [String] = []
         var includedFiles: [String] = []
+        var includedFileReferences: [IncludedFileReferenceDelivery] = []
         var truncated = false
         var notes: [String] = []
 
@@ -105,20 +152,52 @@ public struct ThreadContextBuilder: Sendable {
 
         // Attached files, resolved against workingDir and capped.
         if !options.attachedFiles.isEmpty {
-            var lines = ["Attached files:"]
-            for path in options.attachedFiles {
-                let resolved = resolve(path, workingDir: thread.workingDir)
-                guard let raw = fileReader(resolved) else {
-                    lines.append("- \(path): (unreadable)")
+            var lines = ["Referenced files:"]
+            var remainingFileBytes = options.attachedFilesTotalByteCap
+            for (offset, input) in options.attachedFiles.enumerated().sorted(by: { lhs, rhs in
+                let left = lhs.element.sequence ?? lhs.offset
+                let right = rhs.element.sequence ?? rhs.offset
+                return left == right ? lhs.offset < rhs.offset : left < right
+            }) {
+                let displayPath = input.rootRelativePath ?? input.path
+                let resolved = input.resolvedPath ?? resolve(input.path, workingDir: thread.workingDir)
+                guard let loaded = loadFileText(input: input, resolvedPath: resolved) else {
+                    lines.append("- \(displayPath): (unreadable)")
                     continue
                 }
-                let (capped, wasCut) = cap(raw, toBytes: options.fileByteCap)
+                let capLimit = min(options.fileByteCap, remainingFileBytes ?? options.fileByteCap)
+                let capResult: (String, Bool)
+                if capLimit <= 0 {
+                    capResult = ("(not delivered: file reference budget exhausted)", true)
+                } else {
+                    capResult = cap(loaded.text, toBytes: capLimit)
+                }
+                let capped = capResult.0
+                let wasCut = capResult.1
                 if wasCut {
                     truncated = true
-                    notes.append("file \(path) truncated to \(options.fileByteCap) bytes")
+                    notes.append("file \(displayPath) truncated to \(capLimit) bytes")
                 }
-                lines.append("- \(path):\n\(capped)")
-                includedFiles.append(path)
+                lines.append(fileReferenceBlockHeader(displayPath: displayPath, input: input) + "\n\(capped)")
+                if let remaining = remainingFileBytes {
+                    remainingFileBytes = max(0, remaining - min(loaded.text.utf8.count, max(0, capLimit)))
+                }
+                includedFiles.append(displayPath)
+                includedFileReferences.append(IncludedFileReferenceDelivery(
+                    referenceId: input.referenceId ?? "file-ref-\(offset)",
+                    sequence: input.sequence ?? offset,
+                    projectId: input.projectId,
+                    rootRelativePath: displayPath,
+                    lineRange: input.lineRange,
+                    resolvedAbsolutePath: resolved,
+                    deliveredPathUsed: displayPath,
+                    storedSha256: input.storedSha256 ?? sha256Hex(Data(loaded.fullText.utf8)),
+                    byteSize: input.byteSize ?? loaded.fullText.utf8.count,
+                    deliveredByteCount: capped.utf8.count,
+                    truncated: wasCut,
+                    languageHint: input.languageHint ?? languageHint(for: displayPath),
+                    deliveryMode: .attachedFileBlock
+                ))
             }
             sections.append(lines.joined(separator: "\n"))
         }
@@ -159,7 +238,8 @@ public struct ThreadContextBuilder: Sendable {
             includedFiles: includedFiles,
             text: body,
             truncated: truncated,
-            truncationNote: note
+            truncationNote: note,
+            includedFileReferences: includedFileReferences
         )
     }
 
@@ -179,6 +259,56 @@ public struct ThreadContextBuilder: Sendable {
         if let path = ref.path { parts.append(path) }
         if let excerpt = ref.excerpt, !excerpt.isEmpty { parts.append("“\(excerpt)”") }
         return parts.joined(separator: " — ")
+    }
+
+    private func fileReferenceBlockHeader(
+        displayPath: String,
+        input: Options.AttachedFileInput
+    ) -> String {
+        var suffix: [String] = []
+        if let range = input.lineRange {
+            suffix.append("lines \(range.startLine)-\(range.endLine)")
+        }
+        if let language = input.languageHint, !language.isEmpty {
+            suffix.append(language)
+        }
+        if suffix.isEmpty {
+            return "- \(displayPath):"
+        }
+        return "- \(displayPath) (\(suffix.joined(separator: ", "))):"
+    }
+
+    private struct LoadedFileText {
+        var text: String
+        var fullText: String
+    }
+
+    private func loadFileText(input: Options.AttachedFileInput, resolvedPath: String) -> LoadedFileText? {
+        if let preloaded = input.preloadedText {
+            return LoadedFileText(text: preloaded, fullText: preloaded)
+        }
+        guard let raw = fileReader(resolvedPath) else { return nil }
+        if let range = input.lineRange {
+            guard let sliced = slice(raw, lineRange: range) else { return nil }
+            return LoadedFileText(text: sliced, fullText: raw)
+        }
+        return LoadedFileText(text: raw, fullText: raw)
+    }
+
+    private func slice(_ text: String, lineRange: FileLineRange) -> String? {
+        guard lineRange.startLine >= 1, lineRange.endLine >= lineRange.startLine else { return nil }
+        let lines = text.components(separatedBy: "\n")
+        guard lineRange.endLine <= lines.count else { return nil }
+        return lines[(lineRange.startLine - 1)...(lineRange.endLine - 1)].joined(separator: "\n")
+    }
+
+    private func languageHint(for path: String) -> String? {
+        let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
+        return ext.isEmpty ? nil : ext
+    }
+
+    private func sha256Hex(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private func resolve(_ path: String, workingDir: String?) -> String {
@@ -211,10 +341,12 @@ public struct ThreadContextBuilder: Sendable {
         let header = sections.first!
         let latest = sections.last!
         let middle = Array(sections.dropFirst().dropLast())
+        let prioritized = middle.filter { $0.hasPrefix("Referenced files:") }
+            + middle.filter { !$0.hasPrefix("Referenced files:") }
         var kept: [String] = [header]
         let reserved = "\n\n".utf8.count + latest.utf8.count
         var used = header.utf8.count + reserved
-        for section in middle {
+        for section in prioritized {
             let cost = "\n\n".utf8.count + section.utf8.count
             if used + cost > byteCap { break }
             kept.append(section)

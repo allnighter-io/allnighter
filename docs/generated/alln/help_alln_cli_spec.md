@@ -157,6 +157,7 @@ Arguments:
 
 Flags:
 - `--image <path>` — Attach an image (repeatable).
+- `--ref <path[:start-end]>` — Reference a project file or line range (repeatable).
 - `--worker <string>` — Requested worker/model id.
 - `--idempotency-key <string>` — Idempotency key (24h).
 - `--json` — Structured send result.
@@ -690,6 +691,18 @@ Flags:
 | `ATTACHMENT_STAGE_FAILED` | yes | yes | Check workingDir permissions and disk space. |
 | `ATTACHMENT_STAGE_UNIGNORED` | yes | no | Add `.allnighter/` to gitignore or info/exclude manually. |
 | `CONTEXT_ATTACHMENT_CAP_EXCEEDED` | yes | no | Reduce message or attachment count; never silently trim current send. |
+| `FILE_REFERENCE_PROJECT_ROOT_MISSING` | yes | no | Bind the thread to a project/working directory, then retry. |
+| `FILE_REFERENCE_OUTSIDE_PROJECT` | yes | no | Pick a path inside the project root. |
+| `FILE_REFERENCE_NOT_FOUND` | yes | no | Refresh the file picker or choose an existing project file. |
+| `FILE_REFERENCE_UNREADABLE` | yes | no | Check file permissions or choose another file. |
+| `FILE_REFERENCE_BINARY_UNSUPPORTED` | yes | no | Reference text files only in v1. |
+| `FILE_REFERENCE_TOO_LARGE` | yes | no | Reference a smaller file or a line range. |
+| `FILE_REFERENCE_TOO_MANY` | yes | no | Remove file references until within the cap. |
+| `FILE_REFERENCE_SENSITIVE_BLOCKED` | yes | no | Do not attach secrets; summarize the needed config manually. |
+| `FILE_REFERENCE_LINE_RANGE_INVALID` | yes | no | Choose a valid 1-based line range inside the file. |
+| `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | yes | no | Refresh the reference and re-approve the changed file before dispatch. |
+| `FILE_REFERENCE_CATALOG_STALE` | no | yes | Refresh the Project file picker and retry. |
+| `FILE_REFERENCE_WORKER_UNSUPPORTED` | yes | no | Choose a worker that can receive referenced file text or use a chat worker. |
 | `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | Use a new idempotency key or repeat the original payload. |
 | `THREAD_NOT_FOUND` | yes | no | Run `alln history --json` (or create a thread); retry with a valid thread id. |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
@@ -748,7 +761,7 @@ Flags:
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`
-- `thread_send_json` — Send message with image to thread: `alln thread send latest "describe this" --image ./shot.png --json`
+- `thread_send_json` — Send message with image and file reference to thread: `alln thread send latest "describe this" --image ./shot.png --ref Sources/App.swift:10-80 --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
 - `pending_add_json` — Create a Draft Pending item: `alln pending add --worker claude --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`

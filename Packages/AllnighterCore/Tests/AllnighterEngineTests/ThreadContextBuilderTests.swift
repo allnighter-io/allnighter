@@ -85,6 +85,52 @@ final class ThreadContextBuilderTests: XCTestCase {
         XCTAssertTrue(packet.truncated)
         XCTAssertTrue(packet.text.contains("… (truncated)"))
         XCTAssertNotNil(packet.truncationNote)
+        XCTAssertEqual(packet.includedFileReferences.count, 1)
+        XCTAssertEqual(packet.includedFileReferences[0].rootRelativePath, "notes.txt")
+        XCTAssertTrue(packet.includedFileReferences[0].truncated)
+    }
+
+    func testAttachedFileInputCarriesLineRangeAndAudit() {
+        let reader: @Sendable (String) -> String? = { path in
+            path == "/wd/Sources/App.swift" ? "one\ntwo\nthree\nfour" : nil
+        }
+        let builder = ThreadContextBuilder(fileReader: reader)
+        let input = ThreadContextBuilder.Options.AttachedFileInput(
+            path: "Sources/App.swift",
+            referenceId: "ref1",
+            sequence: 2,
+            projectId: "proj1",
+            lineRange: FileLineRange(startLine: 2, endLine: 3),
+            languageHint: "swift"
+        )
+        let opts = ThreadContextBuilder.Options(attachedFileInputs: [input])
+        let packet = builder.build(thread: thread([user("u1", "hi")], workingDir: "/wd"),
+                                   latestMessage: "go", turnId: "x", packetId: "p1", now: now, options: opts)
+        XCTAssertTrue(packet.text.contains("Sources/App.swift (lines 2-3, swift):\ntwo\nthree"))
+        XCTAssertFalse(packet.text.contains("\none\n"))
+        XCTAssertEqual(packet.includedFiles, ["Sources/App.swift"])
+        XCTAssertEqual(packet.includedFileReferences[0].referenceId, "ref1")
+        XCTAssertEqual(packet.includedFileReferences[0].sequence, 2)
+        XCTAssertEqual(packet.includedFileReferences[0].projectId, "proj1")
+        XCTAssertEqual(packet.includedFileReferences[0].lineRange, FileLineRange(startLine: 2, endLine: 3))
+        XCTAssertEqual(packet.includedFileReferences[0].deliveryMode, .attachedFileBlock)
+    }
+
+    func testAttachedFileTotalBudgetTruncatesLaterFiles() {
+        let reader: @Sendable (String) -> String? = { path in
+            path == "/wd/a.txt" ? "AAAAAA" : "BBBBBB"
+        }
+        let builder = ThreadContextBuilder(fileReader: reader)
+        let opts = ThreadContextBuilder.Options(
+            attachedFiles: ["a.txt", "b.txt"],
+            fileByteCap: 10,
+            attachedFilesTotalByteCap: 6
+        )
+        let packet = builder.build(thread: thread([user("u1", "hi")], workingDir: "/wd"),
+                                   latestMessage: "go", turnId: "x", packetId: "p1", now: now, options: opts)
+        XCTAssertTrue(packet.text.contains("a.txt:\nAAAAAA"))
+        XCTAssertTrue(packet.text.contains("b.txt:\n(not delivered: file reference budget exhausted)"))
+        XCTAssertTrue(packet.includedFileReferences[1].truncated)
     }
 
     func testUnreadableFileNoted() {

@@ -387,6 +387,114 @@
     "ruleId" : "context.attachment.cap"
   },
   {
+    "agentAction" : "Bind the thread to a project\/working directory, then retry.",
+    "code" : "FILE_REFERENCE_PROJECT_ROOT_MISSING",
+    "exitClass" : "operational",
+    "explain" : "File references resolve against the Mac project root. The thread has no usable root.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.project_root_missing"
+  },
+  {
+    "agentAction" : "Pick a path inside the project root.",
+    "code" : "FILE_REFERENCE_OUTSIDE_PROJECT",
+    "exitClass" : "operational",
+    "explain" : "The requested path escapes the enrolled project root, so Allnighter refused to read it.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.outside_project"
+  },
+  {
+    "agentAction" : "Refresh the file picker or choose an existing project file.",
+    "code" : "FILE_REFERENCE_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "The referenced file no longer exists at dispatch time.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.not_found"
+  },
+  {
+    "agentAction" : "Check file permissions or choose another file.",
+    "code" : "FILE_REFERENCE_UNREADABLE",
+    "exitClass" : "operational",
+    "explain" : "The file exists but Allnighter could not read it as a regular file.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.unreadable"
+  },
+  {
+    "agentAction" : "Reference text files only in v1.",
+    "code" : "FILE_REFERENCE_BINARY_UNSUPPORTED",
+    "exitClass" : "operational",
+    "explain" : "File references v1 injects UTF-8 text. Binary files are not delivered.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.binary_unsupported"
+  },
+  {
+    "agentAction" : "Reference a smaller file or a line range.",
+    "code" : "FILE_REFERENCE_TOO_LARGE",
+    "exitClass" : "operational",
+    "explain" : "The source file exceeds the v1 per-file read cap.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.too_large"
+  },
+  {
+    "agentAction" : "Remove file references until within the cap.",
+    "code" : "FILE_REFERENCE_TOO_MANY",
+    "exitClass" : "operational",
+    "explain" : "The send has more file references than v1 allows.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.too_many"
+  },
+  {
+    "agentAction" : "Do not attach secrets; summarize the needed config manually.",
+    "code" : "FILE_REFERENCE_SENSITIVE_BLOCKED",
+    "exitClass" : "operational",
+    "explain" : "The path looks like credentials, keys, or an environment file and was blocked.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.sensitive_blocked"
+  },
+  {
+    "agentAction" : "Choose a valid 1-based line range inside the file.",
+    "code" : "FILE_REFERENCE_LINE_RANGE_INVALID",
+    "exitClass" : "operational",
+    "explain" : "The requested line range is empty, reversed, or past the end of the file.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.line_range_invalid"
+  },
+  {
+    "agentAction" : "Refresh the reference and re-approve the changed file before dispatch.",
+    "code" : "FILE_REFERENCE_CHANGED_BEFORE_INVOKE",
+    "exitClass" : "operational",
+    "explain" : "A delayed or pending send would read different bytes than the approved reference hash.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.changed_before_invoke"
+  },
+  {
+    "agentAction" : "Refresh the Project file picker and retry.",
+    "code" : "FILE_REFERENCE_CATALOG_STALE",
+    "exitClass" : "operational",
+    "explain" : "The search catalog was stale. The resolver remains authoritative and did not deliver stale content.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "file.reference.catalog_stale"
+  },
+  {
+    "agentAction" : "Choose a worker that can receive referenced file text or use a chat worker.",
+    "code" : "FILE_REFERENCE_WORKER_UNSUPPORTED",
+    "exitClass" : "operational",
+    "explain" : "The selected route cannot accept Project file references.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "file.reference.worker_unsupported"
+  },
+  {
     "agentAction" : "Use a new idempotency key or repeat the original payload.",
     "code" : "THREAD_SEND_IDEMPOTENCY_CONFLICT",
     "exitClass" : "operational",

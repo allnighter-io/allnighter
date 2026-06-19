@@ -25,6 +25,8 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
     public var artifactRefs: [ArtifactRef]
     /// Ordered chat image refs (join → `attachments.json` → canonical bytes).
     public var attachmentRefs: [TurnAttachmentRef]
+    /// Ordered file refs selected by the user for this turn.
+    public var fileReferenceRefs: [TurnFileReferenceRef]
     /// The context packet the worker was given for this turn.
     public var contextPacketId: String?
     /// An edited/re-run turn that replaces an earlier one in the timeline.
@@ -50,6 +52,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         stageId: String? = nil,
         artifactRefs: [ArtifactRef] = [],
         attachmentRefs: [TurnAttachmentRef] = [],
+        fileReferenceRefs: [TurnFileReferenceRef] = [],
         contextPacketId: String? = nil,
         supersedesTurnId: String? = nil,
         seedFromTurnId: String? = nil,
@@ -68,6 +71,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         self.stageId = stageId
         self.artifactRefs = artifactRefs
         self.attachmentRefs = attachmentRefs
+        self.fileReferenceRefs = fileReferenceRefs
         self.contextPacketId = contextPacketId
         self.supersedesTurnId = supersedesTurnId
         self.seedFromTurnId = seedFromTurnId
@@ -76,8 +80,8 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case id, threadId, kind, status, createdAt, completedAt, author, text,
-             workerId, runId, stageId, artifactRefs, attachmentRefs, contextPacketId,
-             supersedesTurnId, seedFromTurnId, systemEvent
+             workerId, runId, stageId, artifactRefs, attachmentRefs, fileReferenceRefs,
+             contextPacketId, supersedesTurnId, seedFromTurnId, systemEvent
     }
 
     public init(from decoder: Decoder) throws {
@@ -95,6 +99,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         stageId = try c.decodeIfPresent(String.self, forKey: .stageId)
         artifactRefs = try c.decodeIfPresent([ArtifactRef].self, forKey: .artifactRefs) ?? []
         attachmentRefs = try c.decodeIfPresent([TurnAttachmentRef].self, forKey: .attachmentRefs) ?? []
+        fileReferenceRefs = try c.decodeIfPresent([TurnFileReferenceRef].self, forKey: .fileReferenceRefs) ?? []
         contextPacketId = try c.decodeIfPresent(String.self, forKey: .contextPacketId)
         supersedesTurnId = try c.decodeIfPresent(String.self, forKey: .supersedesTurnId)
         seedFromTurnId = try c.decodeIfPresent(String.self, forKey: .seedFromTurnId)
@@ -116,6 +121,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         try c.encodeIfPresent(stageId, forKey: .stageId)
         try c.encode(artifactRefs, forKey: .artifactRefs)
         try c.encode(attachmentRefs, forKey: .attachmentRefs)
+        try c.encode(fileReferenceRefs, forKey: .fileReferenceRefs)
         try c.encodeIfPresent(contextPacketId, forKey: .contextPacketId)
         try c.encodeIfPresent(supersedesTurnId, forKey: .supersedesTurnId)
         try c.encodeIfPresent(seedFromTurnId, forKey: .seedFromTurnId)

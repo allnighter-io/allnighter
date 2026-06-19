@@ -10,6 +10,8 @@ enum ThreadSendCLI {
         var workerTurnId: String
         var attachmentIds: [String]
         var attachments: [AttachmentRow]
+        var fileReferenceIds: [String]
+        var fileReferences: [IncludedFileReferenceDelivery]
         var workerAttachmentIds: [String]
         var workerAttachments: [AttachmentRow]
 
@@ -24,12 +26,13 @@ enum ThreadSendCLI {
     static func runSend(_ args: [String], runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let threadRef = opts.positional.first else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln thread send <thread-id|latest> [<message>] [--image path]... [--worker id] [--idempotency-key key] [--json]")
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln thread send <thread-id|latest> [<message>] [--image path]... [--ref path[:start-end]]... [--worker id] [--idempotency-key key] [--json]")
         }
         let message = opts.positional.dropFirst().joined(separator: " ")
         let images = collectImagePaths(from: args)
-        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "requires at least one of message or --image")
+        let fileReferences = collectFileReferences(from: args)
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty || !fileReferences.isEmpty else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "requires at least one of message, --image, or --ref")
         }
 
         let store = ThreadStore()
@@ -67,7 +70,13 @@ enum ThreadSendCLI {
         }
 
         let workerId = opts.value("worker")
-        let canonical = ThreadSendCanonicalPayload(threadId: threadId, message: message, workerId: workerId, imageHashes: imageHashes)
+        let canonical = ThreadSendCanonicalPayload(
+            threadId: threadId,
+            message: message,
+            workerId: workerId,
+            imageHashes: imageHashes,
+            fileReferences: fileReferences
+        )
         let idempotency = ThreadSendIdempotencyStore()
         if let key = opts.value("idempotency-key"), !key.isEmpty {
             switch idempotency.lookup(key: key, payload: canonical) {
@@ -96,14 +105,20 @@ enum ThreadSendCLI {
 
         do {
             let result = try await coordinator.send(
-                request: ThreadSendCoordinator.Request(message: message, images: frozenInputs, requestedWorkerId: workerId),
+                request: ThreadSendCoordinator.Request(
+                    message: message,
+                    images: frozenInputs,
+                    fileReferences: fileReferences,
+                    requestedWorkerId: workerId
+                ),
                 toThreadId: threadId
             )
             if let key = opts.value("idempotency-key"), !key.isEmpty {
                 try? idempotency.record(
                     key: key, payload: canonical,
                     userTurnId: result.userTurnId, workerTurnId: result.workerTurnId,
-                    workerAttachmentIds: result.workerAttachmentIds.isEmpty ? nil : result.workerAttachmentIds
+                    workerAttachmentIds: result.workerAttachmentIds.isEmpty ? nil : result.workerAttachmentIds,
+                    fileReferenceIds: result.fileReferenceIds.isEmpty ? nil : result.fileReferenceIds
                 )
             }
             if opts.flag("json") {
@@ -113,14 +128,18 @@ enum ThreadSendCLI {
                     workerTurnId: result.workerTurnId,
                     attachmentIds: result.attachmentIds,
                     attachments: result.deliveries.map { row(from: $0) },
+                    fileReferenceIds: result.fileReferenceIds,
+                    fileReferences: result.fileReferences,
                     workerAttachmentIds: result.workerAttachmentIds,
                     workerAttachments: result.workerDeliveries.map { row(from: $0) }
                 )
                 print(AllnighterCLI.jsonString(response))
             } else {
-                print("sent to \(result.workerId): user=\(result.userTurnId) worker=\(result.workerTurnId) attachments=\(result.attachmentIds.count) workerImages=\(result.workerAttachmentIds.count)")
+                print("sent to \(result.workerId): user=\(result.userTurnId) worker=\(result.workerTurnId) attachments=\(result.attachmentIds.count) fileRefs=\(result.fileReferenceIds.count) workerImages=\(result.workerAttachmentIds.count)")
             }
         } catch let error as AttachmentError {
+            AllnighterCLI.fail(code: error.code, message: error.description)
+        } catch let error as FileReferenceError {
             AllnighterCLI.fail(code: error.code, message: error.description)
         } catch let error as WorkerChatCoordinator.ChatError {
             AllnighterCLI.fail(code: "WORKER_FAILED", message: error.description)
@@ -143,6 +162,22 @@ enum ThreadSendCLI {
         return paths
     }
 
+    private static func collectFileReferences(from args: [String]) -> [FileReferenceInput] {
+        var refs: [FileReferenceInput] = []
+        var i = 0
+        while i < args.count {
+            if args[i] == "--ref", i + 1 < args.count {
+                if let parsed = FileReferenceTokenParser.parseSpecifier(args[i + 1]) {
+                    refs.append(parsed)
+                }
+                i += 2
+            } else {
+                i += 1
+            }
+        }
+        return refs.dedupedPreservingOrder()
+    }
+
     private static func row(from delivery: IncludedAttachmentDelivery) -> Response.AttachmentRow {
         Response.AttachmentRow(
             attachmentId: delivery.attachmentId,
@@ -163,6 +198,8 @@ enum ThreadSendCLI {
             workerTurnId: entry.workerTurnId,
             attachmentIds: userTurn?.attachmentRefs.map(\.attachmentId) ?? [],
             attachments: [],
+            fileReferenceIds: entry.fileReferenceIds ?? userTurn?.fileReferenceRefs.map(\.referenceId) ?? [],
+            fileReferences: [],
             workerAttachmentIds: workerIds,
             workerAttachments: []
         )
@@ -187,15 +224,37 @@ enum MCPThreadSendHandlers {
         }
     }
 
+    static func parseFileReferences(_ raw: Any?) -> [FileReferenceInput] {
+        guard let array = raw as? [Any] else { return [] }
+        let refs = array.compactMap { item -> FileReferenceInput? in
+            if let spec = item as? String {
+                return FileReferenceTokenParser.parseSpecifier(spec)
+            }
+            guard let obj = item as? [String: Any],
+                  let path = obj["path"] as? String else {
+                return nil
+            }
+            if let start = obj["startLine"] as? Int, let end = obj["endLine"] as? Int {
+                return FileReferenceInput(path: path, lineRange: FileLineRange(startLine: start, endLine: end))
+            }
+            if let line = obj["line"] as? Int {
+                return FileReferenceInput(path: path, lineRange: FileLineRange(startLine: line, endLine: line))
+            }
+            return FileReferenceInput(path: path)
+        }
+        return refs.dedupedPreservingOrder()
+    }
+
     static func runSend(args: [String: Any], runtime: ToolRuntime) async -> SendOutcome {
         let threadRef = (args["threadId"] as? String) ?? "latest"
         let message = (args["message"] as? String) ?? ""
         let workerId = args["workerId"] as? String
         let idempotencyKey = args["idempotencyKey"] as? String
         let images = parseImages(args["images"])
+        let fileReferences = parseFileReferences(args["fileReferences"])
 
-        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else {
-            return .failure(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "requires message or images", requiresManual: true, retryable: false))
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty || !fileReferences.isEmpty else {
+            return .failure(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "requires message, images, or fileReferences", requiresManual: true, retryable: false))
         }
 
         let store = ThreadStore()
@@ -249,7 +308,13 @@ enum MCPThreadSendHandlers {
             }
         }
 
-        let canonical = ThreadSendCanonicalPayload(threadId: threadId, message: message, workerId: workerId, imageHashes: imageHashes)
+        let canonical = ThreadSendCanonicalPayload(
+            threadId: threadId,
+            message: message,
+            workerId: workerId,
+            imageHashes: imageHashes,
+            fileReferences: fileReferences
+        )
         let idempotency = ThreadSendIdempotencyStore()
         if let key = idempotencyKey, !key.isEmpty {
             switch idempotency.lookup(key: key, payload: canonical) {
@@ -265,6 +330,8 @@ enum MCPThreadSendHandlers {
                     workerTurnId: entry.workerTurnId,
                     attachmentIds: userTurn?.attachmentRefs.map(\.attachmentId) ?? [],
                     deliveries: [],
+                    fileReferenceIds: entry.fileReferenceIds ?? userTurn?.fileReferenceRefs.map(\.referenceId) ?? [],
+                    fileReferences: [],
                     workerAttachmentIds: workerIds,
                     workerDeliveries: []
                 ))
@@ -284,14 +351,20 @@ enum MCPThreadSendHandlers {
         )
         do {
             let result = try await coordinator.send(
-                request: ThreadSendCoordinator.Request(message: message, images: frozenInputs, requestedWorkerId: workerId),
+                request: ThreadSendCoordinator.Request(
+                    message: message,
+                    images: frozenInputs,
+                    fileReferences: fileReferences,
+                    requestedWorkerId: workerId
+                ),
                 toThreadId: threadId
             )
             if let key = idempotencyKey, !key.isEmpty {
                 try? idempotency.record(
                     key: key, payload: canonical,
                     userTurnId: result.userTurnId, workerTurnId: result.workerTurnId,
-                    workerAttachmentIds: result.workerAttachmentIds.isEmpty ? nil : result.workerAttachmentIds
+                    workerAttachmentIds: result.workerAttachmentIds.isEmpty ? nil : result.workerAttachmentIds,
+                    fileReferenceIds: result.fileReferenceIds.isEmpty ? nil : result.fileReferenceIds
                 )
             }
             return .success(Response(
@@ -300,10 +373,14 @@ enum MCPThreadSendHandlers {
                 workerTurnId: result.workerTurnId,
                 attachmentIds: result.attachmentIds,
                 deliveries: result.deliveries,
+                fileReferenceIds: result.fileReferenceIds,
+                fileReferences: result.fileReferences,
                 workerAttachmentIds: result.workerAttachmentIds,
                 workerDeliveries: result.workerDeliveries
             ))
         } catch let error as AttachmentError {
+            return .failure(ErrorEnvelope(code: error.code, message: error.description, requiresManual: true, retryable: false))
+        } catch let error as FileReferenceError {
             return .failure(ErrorEnvelope(code: error.code, message: error.description, requiresManual: true, retryable: false))
         } catch let error as WorkerChatCoordinator.ChatError {
             return .failure(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: error.description, requiresManual: true, retryable: false))
@@ -318,6 +395,8 @@ enum MCPThreadSendHandlers {
         var workerTurnId: String
         var attachmentIds: [String]
         var deliveries: [IncludedAttachmentDelivery]
+        var fileReferenceIds: [String]
+        var fileReferences: [IncludedFileReferenceDelivery]
         var workerAttachmentIds: [String]
         var workerDeliveries: [IncludedAttachmentDelivery]
     }

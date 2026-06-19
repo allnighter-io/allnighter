@@ -1,6 +1,6 @@
 # Composer File References
 
-Status: Draft Mac v1 feature packet
+Status: Backend/Core/CLI integrated; Mac GUI pending handoff
 Owner: AllnighterCore + Mac app + CLI/MCP contracts
 Created: 2026-06-19
 Updated: 2026-06-19
@@ -116,39 +116,55 @@ Rejected or deferred:
 
 ## Current State
 
-The backend is not starting from zero. The anchors below were verified against
-the tree on 2026-06-19; treat them as the load-bearing reuse surface, not as
-prose.
+The backend is no longer starting from zero. The anchors below were verified
+against the tree on 2026-06-19; treat them as the load-bearing reuse surface,
+not as prose. The first backend pass has landed the Core/Engine/CLI/MCP
+foundation; the Mac `@` palette and visual proof remain the product finish.
 
-- `ThreadContextPacket` (`AllnighterCore/ThreadContextPacket.swift:18-35`)
-  already has `includedFiles: [String]` defaulting to `[]` for legacy packets,
-  and `text` stores the exact rendered context body.
-- `ThreadContextBuilder.Options.attachedFiles`
-  (`AllnighterEngine/ThreadContextBuilder.swift:11-39`, render at `:107-124`,
-  resolve at `:184-188`) already resolves absolute or `workingDir`-relative
-  paths, reads UTF-8 contents, applies byte caps, renders an "Attached files:"
-  block, records `includedFiles`, and marks truncation. **Two facts force FR-S00
-  work, not pure reuse:**
-  - **`attachedFiles` is `[String]` — whole-file only, no line ranges.** The
-    schema, prompt block, and CLI `--ref path:start-end` in this spec all assume
-    per-file ranges. FR-S00 must extend the builder input element to carry an
-    optional range (see Implementation Law §6 and the Schema reconciliation),
-    or line ranges are not deliverable. Do not pretend the existing `[String]`
-    path satisfies them.
-  - **Existing caps are chat-attachment caps, far below this spec's budget:**
-    `maxBytes` defaults to **16,000** total and `maxFileBytes` to **4,000** per
-    file. This spec's policy (64 KB/file, 256 KB total) is ~16x larger. Reusing
-    the builder as-is would silently truncate nearly every real source file to
-    4 KB. FR-S00 must set a deliberate file-reference budget (raise these
-    `Options` caps for the reference path, or pass higher per-send cap values),
-    and the Works Test must assert delivered bytes at the new cap, not the old.
+- `ThreadContextPacket` now keeps `includedFiles: [String]` for compatibility
+  and adds `includedFileReferences: [IncludedFileReferenceDelivery]` for
+  ordered audit rows. Legacy packets decode both new arrays as `[]`.
+- `ThreadTurn` now carries `fileReferenceRefs: [TurnFileReferenceRef]` beside
+  image `attachmentRefs`, so committed user turns record exactly which file
+  refs were selected.
+- `ThreadContextBuilder.Options.attachedFiles` now accepts richer
+  `AttachedFileInput` values with optional line ranges and preloaded resolver
+  text, while preserving the legacy `attachedFiles: ["path"]` call pattern.
+  File references render as a `Referenced files:` block in
+  `ThreadContextPacket.text`.
+- `ProjectFileReferenceResolver` resolves Mac Project-root paths, rejects
+  root escapes, missing/unreadable files, binary content, suspicious secret
+  paths, invalid ranges, oversize sources, and too many references. It returns
+  frozen text, hashes, byte counts, line-range metadata, and builder inputs.
+- `ProjectFileCatalog` provides the non-GUI path catalog: `git ls-files`
+  tracked + untracked paths first, then a filesystem fallback, ranked by query,
+  modified time, recently referenced paths, and lane-touched paths. It is a path
+  catalog only: no embeddings, parsing, semantic retrieval, or file contents.
 - `ThreadSendCoordinator.Request.contextOptions` and `WorkerChatCoordinator`
   send/`beginSend` (`AllnighterEngine/ThreadSendCoordinator.swift:25-45`,
   `WorkerChatCoordinator.swift:106-139`) already accept
-  `contextOptions: ThreadContextBuilder.Options`, so chat has a canonical
-  send-transaction path that can carry attached files. The same `Request` already
-  carries `images: [ImageInput]` — the image attachment pattern is the precedent
-  to mirror, not to reuse (see Truth Owner).
+  `contextOptions: ThreadContextBuilder.Options`; `ThreadSendCoordinator.Request`
+  now also accepts `fileReferences: [FileReferenceInput]` and parses manual
+  `@path` tokens from message text at send time.
+- `alln thread send` now accepts repeatable `--ref path[:start-end]`; MCP
+  `thread_send` accepts `fileReferences[]` as strings or `{path,startLine,endLine}`
+  objects. `alln project files` remains deferred until the Project CLI group
+  exists.
+- Thread send JSON/MCP responses now include `fileReferenceIds` and
+  `fileReferences[]` delivery audit rows.
+- Reserved file-reference error codes live in
+  `ContractRegistry+Milestone1.swift`; surfaced send-time resolver errors are
+  registry-owned, not ad hoc strings.
+- Focused backend proofs exist in `ProjectFileReferenceResolverTests`,
+  `ThreadContextBuilderTests`, `ThreadSendFileReferenceTests`, and legacy decode
+  tests.
+- Delayed Work Order/Pending hash revalidation is not implemented yet; that is
+  FR-S05 and must block changed files with `FILE_REFERENCE_CHANGED_BEFORE_INVOKE`
+  before delayed dispatch.
+- The Mac gap is still the product surface: `RoutingComposer`
+  (`Apps/AllnighterMac/Sources/RoutingComposer.swift:97`) and `ALTextEditor`
+  (`DesignComponents.swift:735`) do not detect `@`, do not show a picker, do not
+  persist file chips, and do not pass file references into the send request.
 - `GitObserver` (`AllnighterEngine/GitObserver.swift`) exposes
   `repoTopLevel(forPath:)`, `dirtyFiles(rootPath:)`, and `recentCommits(...)` —
   enough to seed the catalog's git path source and dirty/recency ranking without
@@ -156,11 +172,7 @@ prose.
 - `ProjectExecutionResolver` (`AllnighterEngine/ProjectExecutionResolver.swift`)
   `resolve(project:) -> ProjectExecutionScope` yields `workerCwd` / `proofCwd` /
   `attachmentMirrorRoot`; send-time ref resolution roots against this scope.
-- The Mac gap is the product surface: `RoutingComposer`
-  (`Apps/AllnighterMac/Sources/RoutingComposer.swift:97`) and `ALTextEditor`
-  (`DesignComponents.swift:735`) do not detect `@`, do not show a picker, do not
-  persist file chips, and do not pass attachments into the send options.
-  `ALTextEditor` is an `NSViewRepresentable` over a plain-text `NSTextView` that
+- `ALTextEditor` is an `NSViewRepresentable` over a plain-text `NSTextView` that
   exposes only `text`/`contentHeight`/`isFocused` — it exposes **no caret rect
   or selection today**, and nothing uses `NSTextAttachment`. FR-S04 must extend
   the editor Coordinator to surface `selectedRange`/caret rect before a
@@ -583,6 +595,7 @@ Registry-owned errors only:
 
 | Code | When |
 | --- | --- |
+| `FILE_REFERENCE_PROJECT_ROOT_MISSING` | Thread has no usable Project/working directory root |
 | `FILE_REFERENCE_OUTSIDE_PROJECT` | Path escapes selected Project root |
 | `FILE_REFERENCE_NOT_FOUND` | File missing at resolution |
 | `FILE_REFERENCE_UNREADABLE` | File exists but cannot be read |
@@ -591,13 +604,13 @@ Registry-owned errors only:
 | `FILE_REFERENCE_TOO_MANY` | Turn exceeds max refs |
 | `FILE_REFERENCE_SENSITIVE_BLOCKED` | Secret-like path/content is blocked |
 | `FILE_REFERENCE_LINE_RANGE_INVALID` | Line range is empty or outside file |
-| `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | Hash changed after send resolution |
-| `FILE_REFERENCE_CATALOG_STALE` | Search catalog cannot guarantee freshness |
-| `FILE_REFERENCE_WORKER_UNSUPPORTED` | Selected worker cannot read Project files |
+| `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | Hash changed after send resolution; reserved for FR-S05 delayed dispatch |
+| `FILE_REFERENCE_CATALOG_STALE` | Search catalog cannot guarantee freshness; reserved for GUI/catalog refresh |
+| `FILE_REFERENCE_WORKER_UNSUPPORTED` | Selected worker cannot read Project files; reserved for route gating |
 
 Each entry is an `ErrorSpec` in `ContractRegistry+Milestone1.swift` and must
 carry the real required fields: `code` (UPPER_SNAKE, as above), `ruleId`
-(dot-form, e.g. `file.reference.outside.project`), `agentAction`, `requiresManual`,
+(dot-form, e.g. `file.reference.outside_project`), `agentAction`, `requiresManual`,
 `retryable`, `explain`, and `exitClass` (`usage` for caller-fixable input like
 outside-project / too-large / too-many / line-range-invalid / sensitive-blocked;
 `operational` for state races like `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` and
@@ -688,10 +701,10 @@ proof can land first, but the Mac v1 slice is not done without a GUI proof seal.
 
 | Slice | Delivers | Status |
 | --- | --- | --- |
-| **FR-S00** | Contract hardening: extend `ThreadContextBuilder.Options` input element to `(path, lineRange?)` + file-reference byte budget (supersede 16 KB/4 KB on the ref path), add file-ref models, policy defaults, resolver, error codes (real `ErrorSpec` fields), legacy `[String]` + decode defaults | Draft |
-| **FR-S01** | `ProjectFileCatalog`: git/rg path source, no content index, recency/lane ranking, safety filters, recents | Draft |
-| **FR-S02** | Send transaction: parse `@` tokens before mode branch, draft refs, `includedFiles` + `includedFileReferences`, bounded content delivery, hash recheck, fake worker proof | Draft |
-| **FR-S03** | CLI/MCP: `alln project files`, `--ref`, registry schemas, MCP `fileReferences[]`. **Depends on the `project` command group (PRJ-S07+)**; the `--ref`/`fileReferences[]` half on `thread send` can land first | Draft |
+| **FR-S00** | Contract hardening: extend `ThreadContextBuilder.Options` input element to `(path, lineRange?)` + file-reference byte budget (supersede 16 KB/4 KB on the ref path), add file-ref models, policy defaults, resolver, error codes (real `ErrorSpec` fields), legacy `[String]` + decode defaults | Backend landed |
+| **FR-S01** | `ProjectFileCatalog`: git/rg path source, no content index, recency/lane ranking, safety filters, recents | Backend catalog landed; GUI consumption pending |
+| **FR-S02** | Send transaction: parse `@` tokens before mode branch, draft refs, `includedFiles` + `includedFileReferences`, bounded content delivery, hash recheck, fake worker proof | Thread send + fake worker proof landed; delayed-dispatch hash recheck moves to FR-S05 |
+| **FR-S03** | CLI/MCP: `alln project files`, `--ref`, registry schemas, MCP `fileReferences[]`. **Depends on the `project` command group (PRJ-S07+)**; the `--ref`/`fileReferences[]` half on `thread send` can land first | `thread send --ref` + MCP `fileReferences[]` landed; `alln project files` deferred |
 | **FR-S04** | Mac `@` palette: keyboard search, chips, preview, paste path, DnD Project-local files | Draft |
 | **FR-S05** | Work Order/Pending revalidation: stored hashes, refresh action, changed/missing blockers | Draft |
 | **FR-S06** | Context reveal + history: ordered refs, delivered content/truncation, current hash status, delivery mode | Draft |

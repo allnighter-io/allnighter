@@ -85,9 +85,9 @@
     "title" : "Verify no contract drift"
   },
   {
-    "command" : "alln thread send latest \"describe this\" --image .\/shot.png --json",
+    "command" : "alln thread send latest \"describe this\" --image .\/shot.png --ref Sources\/App.swift:10-80 --json",
     "id" : "thread_send_json",
-    "title" : "Send message with image to thread"
+    "title" : "Send message with image and file reference to thread"
   },
   {
     "command" : "alln serve --health --json",

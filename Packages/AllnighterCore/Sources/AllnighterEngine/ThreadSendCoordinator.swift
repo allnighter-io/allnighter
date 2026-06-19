@@ -26,6 +26,7 @@ public struct ThreadSendCoordinator: Sendable {
         public var message: String
         public var draftIds: [String]
         public var images: [ImageInput]
+        public var fileReferences: [FileReferenceInput]
         public var requestedWorkerId: String?
         public var contextOptions: ThreadContextBuilder.Options
 
@@ -33,12 +34,14 @@ public struct ThreadSendCoordinator: Sendable {
             message: String,
             draftIds: [String] = [],
             images: [ImageInput] = [],
+            fileReferences: [FileReferenceInput] = [],
             requestedWorkerId: String? = nil,
             contextOptions: ThreadContextBuilder.Options = .init()
         ) {
             self.message = message
             self.draftIds = draftIds
             self.images = images
+            self.fileReferences = fileReferences
             self.requestedWorkerId = requestedWorkerId
             self.contextOptions = contextOptions
         }
@@ -53,6 +56,8 @@ public struct ThreadSendCoordinator: Sendable {
         /// User-send attachment ids for this turn (CIA law — unchanged meaning).
         public var attachmentIds: [String]
         public var deliveries: [IncludedAttachmentDelivery]
+        public var fileReferenceIds: [String]
+        public var fileReferences: [IncludedFileReferenceDelivery]
         /// Worker-produced image attachment ids when capture lands (WIO).
         public var workerAttachmentIds: [String]
         public var workerDeliveries: [IncludedAttachmentDelivery]
@@ -72,6 +77,8 @@ public struct ThreadSendCoordinator: Sendable {
         public var prompt: String
         public var attachmentIds: [String]
         public var deliveries: [IncludedAttachmentDelivery]
+        public var fileReferenceRefs: [TurnFileReferenceRef]
+        public var fileReferences: [IncludedFileReferenceDelivery]
         public var invokeProfile: ChatImageIntent.Profile
         public var userMessage: String
         public var workingDir: String?
@@ -165,6 +172,7 @@ public struct ThreadSendCoordinator: Sendable {
                 threadId: threadId, workerId: prepared.workerId, userTurnId: prepared.userTurnId,
                 workerTurnId: prepared.workerTurn.id, packetId: prepared.contextPacketId,
                 attachmentIds: prepared.attachmentIds, deliveries: prepared.deliveries,
+                fileReferenceRefs: prepared.fileReferenceRefs, fileReferences: prepared.fileReferences,
                 stageWarnings: prepared.stageWarnings
             )
             return .finished(result)
@@ -179,6 +187,8 @@ public struct ThreadSendCoordinator: Sendable {
             prompt: prepared.prompt,
             attachmentIds: prepared.attachmentIds,
             deliveries: prepared.deliveries,
+            fileReferenceRefs: prepared.fileReferenceRefs,
+            fileReferences: prepared.fileReferences,
             invokeProfile: prepared.invokeProfile,
             userMessage: prepared.userMessage,
             workingDir: prepared.workingDir,
@@ -206,6 +216,8 @@ public struct ThreadSendCoordinator: Sendable {
                 thread: thread, workerId: pending.workerId, userTurnId: pending.userTurnId,
                 workerTurnId: pending.workerTurn.id, contextPacketId: pending.contextPacketId,
                 attachmentIds: pending.attachmentIds, deliveries: pending.deliveries,
+                fileReferenceIds: pending.fileReferenceRefs.map(\.referenceId),
+                fileReferences: pending.fileReferences,
                 workerAttachmentIds: [], workerDeliveries: [],
                 outcome: outcome, awaitingManualPaste: false, manualNoteTurnId: nil,
                 stageWarnings: pending.stageWarnings
@@ -266,6 +278,8 @@ public struct ThreadSendCoordinator: Sendable {
                 thread: thread, workerId: pending.workerId, userTurnId: pending.userTurnId,
                 workerTurnId: pending.workerTurn.id, contextPacketId: pending.contextPacketId,
                 attachmentIds: pending.attachmentIds, deliveries: pending.deliveries,
+                fileReferenceIds: pending.fileReferenceRefs.map(\.referenceId),
+                fileReferences: pending.fileReferences,
                 workerAttachmentIds: workerAttachmentIds, workerDeliveries: workerDeliveries,
                 outcome: outcome, awaitingManualPaste: false, manualNoteTurnId: nil,
                 stageWarnings: pending.stageWarnings
@@ -283,6 +297,8 @@ public struct ThreadSendCoordinator: Sendable {
         var prompt: String
         var attachmentIds: [String]
         var deliveries: [IncludedAttachmentDelivery]
+        var fileReferenceRefs: [TurnFileReferenceRef]
+        var fileReferences: [IncludedFileReferenceDelivery]
         var invokeProfile: ChatImageIntent.Profile
         var userMessage: String
         var workingDir: String?
@@ -296,7 +312,7 @@ public struct ThreadSendCoordinator: Sendable {
 
     private func prepareSend(request: Request, toThreadId threadId: String) throws -> PreparedSend {
         let trimmed = request.message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty || !request.draftIds.isEmpty || !request.images.isEmpty else {
+        guard !trimmed.isEmpty || !request.draftIds.isEmpty || !request.images.isEmpty || !request.fileReferences.isEmpty else {
             throw AttachmentError.decodeFailed
         }
 
@@ -306,6 +322,15 @@ public struct ThreadSendCoordinator: Sendable {
         guard let workerId = resolveWorkerId(for: priorThread, requested: request.requestedWorkerId) else {
             throw WorkerChatCoordinator.ChatError.noWorkerAvailable
         }
+
+        let fileInputs = (request.fileReferences + FileReferenceTokenParser.parse(message: trimmed))
+            .dedupedPreservingOrder()
+        let resolvedFileReferences = fileInputs.isEmpty ? [] : try ProjectFileReferenceResolver().resolve(
+            inputs: fileInputs,
+            rootPath: priorThread.workingDir,
+            projectId: priorThread.projectId,
+            idFactory: idFactory
+        )
 
         let threadDir = try store.threadDirectory(forThreadId: threadId)
         let attachmentStore = ThreadAttachmentStore(threadDirectory: threadDir)
@@ -444,13 +469,26 @@ public struct ThreadSendCoordinator: Sendable {
 
         let workerTurnId = idFactory()
         let packetId = idFactory()
+        var contextOptions = request.contextOptions
+        if !resolvedFileReferences.isEmpty {
+            contextOptions.attachedFiles.append(contentsOf: resolvedFileReferences.map(\.attachedFile))
+            contextOptions.fileByteCap = max(
+                contextOptions.fileByteCap,
+                FileReferencePolicy.default.maxDeliveredBytesPerFile
+            )
+            contextOptions.byteCap = max(
+                contextOptions.byteCap,
+                FileReferencePolicy.default.maxTotalDeliveredBytes + 16_000
+            )
+            contextOptions.attachedFilesTotalByteCap = FileReferencePolicy.default.maxTotalDeliveredBytes
+        }
         var packet = contextBuilder.build(
             thread: priorThread,
             latestMessage: trimmed,
             turnId: workerTurnId,
             packetId: packetId,
             now: timestamp,
-            options: request.contextOptions
+            options: contextOptions
         )
 
         let readsImages = manifest?.canReadImages ?? false
@@ -459,7 +497,7 @@ public struct ThreadSendCoordinator: Sendable {
             baseText: packet.text,
             deliveries: deliveries,
             readsImages: invokeProfile == .imageGen ? true : readsImages,
-            byteCap: request.contextOptions.byteCap
+            byteCap: contextOptions.byteCap
         )
 
         try store.savePacket(packet)
@@ -469,7 +507,8 @@ public struct ThreadSendCoordinator: Sendable {
             id: userTurnId, threadId: threadId, kind: .userMessage, status: .done,
             createdAt: timestamp, completedAt: timestamp, author: .user,
             text: trimmed.isEmpty ? nil : trimmed,
-            attachmentRefs: refs
+            attachmentRefs: refs,
+            fileReferenceRefs: resolvedFileReferences.map(\.turnRef)
         )
         try store.appendTurn(userTurn, toThreadId: threadId, now: timestamp)
 
@@ -487,6 +526,8 @@ public struct ThreadSendCoordinator: Sendable {
             prompt: packet.text,
             attachmentIds: refs.map(\.attachmentId),
             deliveries: deliveries,
+            fileReferenceRefs: resolvedFileReferences.map(\.turnRef),
+            fileReferences: packet.includedFileReferences,
             invokeProfile: invokeProfile,
             userMessage: trimmed,
             workingDir: priorThread.workingDir,
@@ -576,6 +617,7 @@ public struct ThreadSendCoordinator: Sendable {
         threadId: String, workerId: String,
         userTurnId: String, workerTurnId: String, packetId: String,
         attachmentIds: [String], deliveries: [IncludedAttachmentDelivery],
+        fileReferenceRefs: [TurnFileReferenceRef], fileReferences: [IncludedFileReferenceDelivery],
         stageWarnings: [String]
     ) throws -> Result {
         let noteId = idFactory()
@@ -590,6 +632,7 @@ public struct ThreadSendCoordinator: Sendable {
             thread: thread, workerId: workerId, userTurnId: userTurnId,
             workerTurnId: workerTurnId, contextPacketId: packetId,
             attachmentIds: attachmentIds, deliveries: deliveries,
+            fileReferenceIds: fileReferenceRefs.map(\.referenceId), fileReferences: fileReferences,
             workerAttachmentIds: [], workerDeliveries: [],
             outcome: nil, awaitingManualPaste: true, manualNoteTurnId: noteId,
             stageWarnings: stageWarnings

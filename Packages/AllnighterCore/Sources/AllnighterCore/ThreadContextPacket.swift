@@ -23,6 +23,8 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
     public var truncationNote: String?
     /// Audit record of attachments delivered to the worker for this turn.
     public var includedAttachments: [IncludedAttachmentDelivery]
+    /// Audit record of referenced files whose text was delivered in this packet.
+    public var includedFileReferences: [IncludedFileReferenceDelivery]
 
     public init(
         id: String,
@@ -36,7 +38,8 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
         text: String,
         truncated: Bool = false,
         truncationNote: String? = nil,
-        includedAttachments: [IncludedAttachmentDelivery] = []
+        includedAttachments: [IncludedAttachmentDelivery] = [],
+        includedFileReferences: [IncludedFileReferenceDelivery] = []
     ) {
         self.id = id
         self.threadId = threadId
@@ -50,11 +53,12 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
         self.truncated = truncated
         self.truncationNote = truncationNote
         self.includedAttachments = includedAttachments
+        self.includedFileReferences = includedFileReferences
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, threadId, turnId, createdAt, strategy, includedTurnIds, includedRunIds,
-             includedFiles, text, truncated, truncationNote, includedAttachments
+             includedFiles, text, truncated, truncationNote, includedAttachments, includedFileReferences
     }
 
     public init(from decoder: Decoder) throws {
@@ -71,6 +75,7 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
         truncated = try c.decodeIfPresent(Bool.self, forKey: .truncated) ?? false
         truncationNote = try c.decodeIfPresent(String.self, forKey: .truncationNote)
         includedAttachments = try c.decodeIfPresent([IncludedAttachmentDelivery].self, forKey: .includedAttachments) ?? []
+        includedFileReferences = try c.decodeIfPresent([IncludedFileReferenceDelivery].self, forKey: .includedFileReferences) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -87,6 +92,7 @@ public struct ThreadContextPacket: Codable, Sendable, Equatable, Identifiable {
         try c.encode(truncated, forKey: .truncated)
         try c.encodeIfPresent(truncationNote, forKey: .truncationNote)
         try c.encode(includedAttachments, forKey: .includedAttachments)
+        try c.encode(includedFileReferences, forKey: .includedFileReferences)
     }
 }
 

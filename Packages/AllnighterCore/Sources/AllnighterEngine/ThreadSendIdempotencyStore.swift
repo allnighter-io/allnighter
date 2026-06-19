@@ -7,12 +7,20 @@ public struct ThreadSendCanonicalPayload: Codable, Sendable, Equatable {
     public var message: String
     public var workerId: String?
     public var imageHashes: [String]
+    public var fileReferences: [FileReferenceInput]
 
-    public init(threadId: String, message: String, workerId: String?, imageHashes: [String]) {
+    public init(
+        threadId: String,
+        message: String,
+        workerId: String?,
+        imageHashes: [String],
+        fileReferences: [FileReferenceInput] = []
+    ) {
         self.threadId = threadId
         self.message = message
         self.workerId = workerId
         self.imageHashes = imageHashes
+        self.fileReferences = fileReferences
     }
 }
 
@@ -32,6 +40,7 @@ public struct ThreadSendIdempotencyStore: Sendable {
         public var userTurnId: String
         public var workerTurnId: String
         public var workerAttachmentIds: [String]?
+        public var fileReferenceIds: [String]?
         public var acceptedAt: Date
     }
 
@@ -59,6 +68,7 @@ public struct ThreadSendIdempotencyStore: Sendable {
         userTurnId: String,
         workerTurnId: String,
         workerAttachmentIds: [String]? = nil,
+        fileReferenceIds: [String]? = nil,
         now: Date = Date()
     ) throws -> Entry {
         var file = load()
@@ -69,6 +79,7 @@ public struct ThreadSendIdempotencyStore: Sendable {
             userTurnId: userTurnId,
             workerTurnId: workerTurnId,
             workerAttachmentIds: workerAttachmentIds,
+            fileReferenceIds: fileReferenceIds,
             acceptedAt: now
         )
         file.entries.removeAll { $0.key == key }

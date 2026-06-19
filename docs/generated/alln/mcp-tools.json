@@ -657,6 +657,18 @@
       "ATTACHMENT_HASH_MISMATCH",
       "ATTACHMENT_STAGE_FAILED",
       "CONTEXT_ATTACHMENT_CAP_EXCEEDED",
+      "FILE_REFERENCE_PROJECT_ROOT_MISSING",
+      "FILE_REFERENCE_OUTSIDE_PROJECT",
+      "FILE_REFERENCE_NOT_FOUND",
+      "FILE_REFERENCE_UNREADABLE",
+      "FILE_REFERENCE_BINARY_UNSUPPORTED",
+      "FILE_REFERENCE_TOO_LARGE",
+      "FILE_REFERENCE_TOO_MANY",
+      "FILE_REFERENCE_SENSITIVE_BLOCKED",
+      "FILE_REFERENCE_LINE_RANGE_INVALID",
+      "FILE_REFERENCE_CHANGED_BEFORE_INVOKE",
+      "FILE_REFERENCE_CATALOG_STALE",
+      "FILE_REFERENCE_WORKER_UNSUPPORTED",
       "CLI_USAGE_ERROR"
     ],
     "idempotency" : "keyed",
@@ -712,6 +724,36 @@
         "name" : "images",
         "required" : false,
         "summary" : "Image paths or base64 objects.",
+        "type" : "array"
+      },
+      {
+        "arrayItems" : {
+          "oneOf" : [
+            {
+              "type" : "string"
+            },
+            {
+              "properties" : {
+                "endLine" : {
+                  "type" : "integer"
+                },
+                "path" : {
+                  "type" : "string"
+                },
+                "startLine" : {
+                  "type" : "integer"
+                }
+              },
+              "required" : [
+                "path"
+              ],
+              "type" : "object"
+            }
+          ]
+        },
+        "name" : "fileReferences",
+        "required" : false,
+        "summary" : "Project file refs as paths or objects with path\/startLine\/endLine.",
         "type" : "array"
       }
     ],
