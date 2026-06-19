@@ -328,42 +328,28 @@ struct RootView: View {
     }
 
     private func devNavigate(to screen: DevGUIScreen, scenario: String?) {
-        showDevSettings = false
-        showComposeSpecimen = false
-        if let scenario { applyDevScenario(scenario) }
-        switch screen {
-        case .compose:
-            showReadiness = false
-            showDoctor = false
-            showTeamDropdown = false
-        case .routingComposer:
-            showReadiness = false
-            showDoctor = false
-            showTeamDropdown = false
-            showComposeSpecimen = true
-        case .teamDropdown:
-            showReadiness = false
-            showDoctor = false
-            showTeamDropdown = true
-        case .cliSetupPopover:
-            showReadiness = false
-            showTeamDropdown = false
-            showDoctor = true
-        case .cliSetupPage:
-            showTeamDropdown = false
-            showDoctor = false
-            readinessFocus = GUIFixture.readinessFocusDriverId(for: scenario ?? devBenchScenario)
-            showReadiness = true
-        case .firstRunOnboarding:
-            // Re-experience first-run: clear the completion flag (so the gating
-            // would also fire on the next real launch) and open the onboarding
-            // page exactly as a brand-new user lands on it.
-            model.resetSetupCompleted()
-            showTeamDropdown = false
-            showDoctor = false
-            readinessFocus = GUIFixture.readinessFocusDriverId(for: scenario ?? devBenchScenario)
-            showReadiness = true
-        }
+        var shell = RootDebugRouting.ShellState(
+            showDevSettings: showDevSettings,
+            showComposeSpecimen: showComposeSpecimen,
+            showReadiness: showReadiness,
+            showDoctor: showDoctor,
+            showTeamDropdown: showTeamDropdown,
+            readinessFocus: readinessFocus
+        )
+        RootDebugRouting.navigate(
+            to: screen,
+            scenario: scenario,
+            devBenchScenario: devBenchScenario,
+            state: &shell,
+            applyScenario: applyDevScenario,
+            resetSetupCompleted: model.resetSetupCompleted
+        )
+        showDevSettings = shell.showDevSettings
+        showComposeSpecimen = shell.showComposeSpecimen
+        showReadiness = shell.showReadiness
+        showDoctor = shell.showDoctor
+        showTeamDropdown = shell.showTeamDropdown
+        readinessFocus = shell.readinessFocus
     }
     #else
     private var devSimLabel: String? { nil }
@@ -386,132 +372,5 @@ struct RootView: View {
             $0.state != .ready && $0.state != .notInstalled
         }?.driverId ?? model.setupCards.first { $0.state != .ready }?.driverId
         showReadiness = true
-    }
-}
-
-// MARK: - Title bar (chrome.jsx .alk-title)
-
-private struct TitleBar: View {
-    @Binding var showTeamDropdown: Bool
-    @Binding var showDoctor: Bool
-    @Binding var workspaceMode: WorkspaceMode
-    /// Inbox unread badge count. Real unread truth wires with the Projects sidebar
-    /// (G-T4); 0 until then (no fabricated count).
-    var unread: Int = 0
-    var onRepair: (String) -> Void
-    var onManageTeam: () -> Void
-    var devSimActive: String?
-    var onSettings: () -> Void
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        HStack(spacing: 10) {
-            // Leading inset clears the macOS traffic-light controls (hidden title
-            // bar overlays them at the top-left) so the toggle never collides.
-            Spacer().frame(width: ALControl.trafficLightInset)
-            // Left: live mark + the Inbox | Teams workspace switch.
-            LiveMark(state: model.isRunning ? .running : .idle, size: 16)
-            InboxTeamsSwitch(mode: $workspaceMode, unread: unread)
-            if let devSimActive {
-                Badge(text: devSimActive, tone: .warning, dot: true, mono: true)
-            }
-            Spacer()
-            // Right controls
-            HStack(spacing: 6) {
-                BenchHealthBadge(isOpen: $showDoctor)
-                TeamControlView(
-                    isOpen: $showTeamDropdown,
-                    onRepair: onRepair,
-                    onManageTeam: onManageTeam
-                )
-                IconButton(systemImage: "clock.arrow.circlepath", accessibilityLabel: "History", small: true) {}
-                IconButton(systemImage: "slider.horizontal.3", accessibilityLabel: settingsLabel, small: true, action: onSettings)
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: ALControl.titleBarHeight, alignment: .top)
-        .background(WindowDragArea())
-        .background(ALColor.surface)
-        .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
-    }
-
-    private var settingsLabel: String {
-        #if DEBUG
-        return "Developer — GUI routes"
-        #else
-        return "Settings"
-        #endif
-    }
-}
-
-/// Makes an area drag the window (hidden title bar needs an explicit drag region).
-private struct WindowDragArea: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { DragView() }
-    func updateNSView(_ nsView: NSView, context: Context) {}
-    final class DragView: NSView {
-        override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
-    }
-}
-
-// MARK: - Workspace switcher (Council ↔ Threads)
-
-/// The two top-level workspaces (Send-to-team handoff §Global shell). `inbox` is
-/// today's chat/conversation home; `teams` is the Send-to-team launcher.
-enum WorkspaceMode: String, CaseIterable {
-    case inbox, teams
-
-    var label: String { self == .inbox ? "Inbox" : "Teams" }
-    /// SF Symbol — Lucide `inbox`→`tray`, `users-round`→`person.2`.
-    var symbol: String { self == .inbox ? "tray" : "person.2" }
-}
-
-/// `Inbox | Teams` segmented top-bar control (handoff `.modeswitch`). Active
-/// segment: `bgActive` fill + inset hairline + `ink50` text; inactive: `textMuted`.
-/// Inbox carries an unread badge.
-struct InboxTeamsSwitch: View {
-    @Binding var mode: WorkspaceMode
-    var unread: Int = 0
-
-    var body: some View {
-        HStack(spacing: 3) {
-            segment(.inbox)
-            segment(.teams)
-        }
-        .padding(3)
-        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.md))
-        .overlay(RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
-    }
-
-    @ViewBuilder
-    private func segment(_ item: WorkspaceMode) -> some View {
-        let isActive = mode == item
-        Button { mode = item } label: {
-            HStack(spacing: 6) {
-                Image(systemName: item.symbol).font(.system(size: 12, weight: .medium))
-                Text(item.label).font(ALFont.label.weight(.semibold))
-                if item == .inbox, unread > 0 {
-                    Text("\(unread)")
-                        .font(ALFont.monoSm.weight(.semibold))
-                        .foregroundStyle(ALColor.accentText)
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(ALColor.accentSurface, in: Capsule())
-                }
-            }
-            .foregroundStyle(isActive ? ALColor.textPrimary : ALColor.textMuted)
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(segmentBackground(isActive))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("\(item.label) (\u{2318}\(item == .inbox ? "1" : "2"))")
-    }
-
-    @ViewBuilder
-    private func segmentBackground(_ isActive: Bool) -> some View {
-        if isActive {
-            RoundedRectangle(cornerRadius: ALRadius.sm)
-                .fill(ALColor.active)
-                .overlay(RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
-        }
     }
 }
