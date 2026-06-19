@@ -70,7 +70,37 @@ public struct RunStore: Sendable {
         }
 
         try writeWorkerArtifacts(run, in: directory)
+        try writeStageArtifacts(run, in: directory)
         return directory
+    }
+
+    /// F-S02: every stage that produced markdown (analysis/plan/review/final spec/
+    /// return review) becomes a durable `stages/<id>.<purpose>.md` +
+    /// `<id>.metadata.json`, so the inspectable path is not only `bundle.md`. Board
+    /// stages are structured (options/chosen), not markdown, and stay in run.json.
+    private func writeStageArtifacts(_ run: TeamRun, in directory: URL) throws {
+        let withMarkdown = run.stages.filter { $0.payload?.markdown != nil }
+        guard !withMarkdown.isEmpty else { return }
+        let stagesDir = directory.appendingPathComponent("stages", isDirectory: true)
+        try FileManager.default.createDirectory(at: stagesDir, withIntermediateDirectories: true)
+
+        struct StageMetadata: Encodable {
+            let stageId, purpose, status: String
+            let producedByWorkerId: String?
+            let startedAt, finishedAt: Date?
+        }
+        for stage in withMarkdown {
+            guard let md = stage.payload?.markdown else { continue }
+            let stem = RunArtifactRef.safeStem(stage.id)
+            try Data(md.utf8).write(
+                to: stagesDir.appendingPathComponent("\(stem).\(stage.purpose.rawValue).md"), options: .atomic)
+            let meta = StageMetadata(
+                stageId: stage.id, purpose: stage.purpose.rawValue, status: stage.status.rawValue,
+                producedByWorkerId: stage.producedByWorkerId,
+                startedAt: stage.startedAt, finishedAt: stage.finishedAt)
+            try CoreJSON.encode(meta).write(
+                to: stagesDir.appendingPathComponent("\(stem).metadata.json"), options: .atomic)
+        }
     }
 
     /// F-S01: every worker's durable return is preserved as an inspectable artifact

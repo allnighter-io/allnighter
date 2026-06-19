@@ -188,11 +188,15 @@ public struct FloorReturn: Codable, Sendable, Equatable {
     public var title: String
     public var summaryMarkdown: String?
     public var producedByWorkerId: String?
+    public var stageId: String?
+    public var artifactRefs: [RunArtifactRef]
 
     public init(kind: Kind, status: String, title: String,
-                summaryMarkdown: String? = nil, producedByWorkerId: String? = nil) {
+                summaryMarkdown: String? = nil, producedByWorkerId: String? = nil,
+                stageId: String? = nil, artifactRefs: [RunArtifactRef] = []) {
         self.kind = kind; self.status = status; self.title = title
         self.summaryMarkdown = summaryMarkdown; self.producedByWorkerId = producedByWorkerId
+        self.stageId = stageId; self.artifactRefs = artifactRefs
     }
 }
 

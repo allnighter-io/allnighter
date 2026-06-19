@@ -18,7 +18,7 @@ final class FloorArtifactTests: XCTestCase {
     }
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: tmp) }
 
-    private func run() -> TeamRun {
+    private func makeRun() -> TeamRun {
         let workers = [
             Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0, skillId: "signal_source_reader",
                    skillName: "Source Reader", resolvedWorkerPromptSnapshot: "PROMPT", purpose: .answer),
@@ -38,7 +38,7 @@ final class FloorArtifactTests: XCTestCase {
     }
 
     func testWorkerArtifactsWrittenOnSave() throws {
-        _ = try store.save(run(), models: [])
+        _ = try store.save(makeRun(), models: [])
         let workers = tmp.appendingPathComponent("run_floorart1/workers")
         func exists(_ p: String) -> Bool { FileManager.default.fileExists(atPath: workers.appendingPathComponent(p).path) }
 
@@ -61,8 +61,20 @@ final class FloorArtifactTests: XCTestCase {
         XCTAssertTrue(metaC.contains("auth expired"))
     }
 
+    func testStageArtifactsWrittenOnSave() throws {
+        var r = makeRun()
+        r.stages = [StageOutput(id: "stage_plan", purpose: .plan, status: .done,
+                                payload: .plan(markdown: "# Insight\nNo move today."))]
+        _ = try store.save(r, models: [])
+        let stages = tmp.appendingPathComponent("run_floorart1/stages")
+        let md = stages.appendingPathComponent("stage_plan.plan.md")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: md.path))
+        XCTAssertEqual(try String(contentsOf: md, encoding: .utf8), "# Insight\nNo move today.")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stages.appendingPathComponent("stage_plan.metadata.json").path))
+    }
+
     func testFloorProjectionCarriesMatchingArtifactRefs() {
-        let floor = FloorProjector.project(run())
+        let floor = FloorProjector.project(makeRun())
         let laneA = floor.workerLanes.first { $0.workerId == "model_a#0" }
         let laneC = floor.workerLanes.first { $0.workerId == "model_c#0" }
 

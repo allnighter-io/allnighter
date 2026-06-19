@@ -84,4 +84,14 @@ final class FloorProjectorTests: XCTestCase {
         let floor = FloorProjector.project(signalRun(status: .planning))
         XCTAssertEqual(floor.run.status, .running)
     }
+
+    func testReturnLinksToItsStageArtifact() {
+        // F-S02: the typed return points at the output stage and its artifact ref.
+        let floor = FloorProjector.project(signalRun())
+        XCTAssertEqual(floor.floorReturn?.stageId, "stage_plan")
+        XCTAssertEqual(floor.floorReturn?.artifactRefs.contains {
+            $0.kind == .stageOutput && $0.relativePath == "stages/stage_plan.plan.md"
+        }, true)
+        XCTAssertTrue(floor.artifacts.contains { $0.kind == .stageOutput && $0.stageId == "stage_plan" })
+    }
 }

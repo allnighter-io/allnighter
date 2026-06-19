@@ -13,8 +13,10 @@ public enum FloorProjector {
     ) -> FloorRun {
         let lanes = workerLanes(for: run)
         let lead = run.workers.first { $0.purpose == .plan }
+        let stageArtifacts = stageRefs(for: run)
+        let theReturn = floorReturn(for: run, leadWorkerId: lead?.id, stageArtifacts: stageArtifacts)
         let allArtifacts = lanes.flatMap { $0.artifactRefs + ($0.promptArtifactRef.map { [$0] } ?? []) }
-            + [bundleRef(for: run)]
+            + stageArtifacts + [bundleRef(for: run)]
 
         let runInfo = FloorRun.Run(
             id: run.id,
@@ -44,7 +46,7 @@ public enum FloorProjector {
             intent: FloorRun.Intent(prompt: run.prompt, threadId: run.threadId),
             team: team,
             workerLanes: lanes,
-            floorReturn: floorReturn(for: run, leadWorkerId: lead?.id),
+            floorReturn: theReturn,
             nextActions: baseNextActions(for: run),
             artifacts: allArtifacts,
             warnings: run.warnings,
@@ -142,19 +144,48 @@ public enum FloorProjector {
         }
     }
 
-    private static func floorReturn(for run: TeamRun, leadWorkerId: String?) -> FloorReturn? {
-        // F-S00 basic return: the synthesized plan markdown when present, typed by
-        // output kind. F-S02/S03 enrich (board payloads, Signal insight).
+    /// The stage that produced the user-facing return: final spec, else plan, else
+    /// board (the synthesized output the Floor's right side shows).
+    private static func returnStage(for run: TeamRun) -> StageOutput? {
+        run.latestStage(.finalSpec) ?? run.latestStage(.plan) ?? run.latestStage(.board)
+    }
+
+    private static func stageMarkdown(_ stage: StageOutput?) -> String? {
+        stage?.payload?.markdown   // board payloads are structured (options/chosen), not markdown
+    }
+
+    private static func floorReturn(for run: TeamRun, leadWorkerId: String?,
+                                    stageArtifacts: [RunArtifactRef]) -> FloorReturn? {
+        // The typed return, projected over the output stage (plan/board/final spec),
+        // typed by output kind. F-S03 specializes Signal into a typed insight.
         guard let title = run.teamDisplayName ?? run.presetId else { return nil }
-        let markdown = run.plan
+        let stage = returnStage(for: run)
+        let markdown = stageMarkdown(stage)
         guard markdown != nil || run.status.isTerminal else { return nil }
+        let refs = stage.map { s in stageArtifacts.filter { $0.stageId == s.id } } ?? []
         return FloorReturn(
             kind: returnKind(for: run.outputKind),
             status: status(for: run.status).rawValue,
             title: title,
             summaryMarkdown: markdown,
-            producedByWorkerId: leadWorkerId
+            producedByWorkerId: leadWorkerId,
+            stageId: stage?.id,
+            artifactRefs: refs
         )
+    }
+
+    /// Stage output artifact refs (F-S02): one per stage that produced markdown,
+    /// matching the `stages/<id>.<purpose>.md` files RunStore writes.
+    private static func stageRefs(for run: TeamRun) -> [RunArtifactRef] {
+        run.stages.compactMap { stage in
+            guard stageMarkdown(stage) != nil else { return nil }
+            let stem = RunArtifactRef.safeStem(stage.id)
+            return RunArtifactRef(
+                id: "\(run.id)_stage_\(stem)", runId: run.id, kind: .stageOutput,
+                title: "\(stage.purpose.rawValue) output",
+                relativePath: "stages/\(stem).\(stage.purpose.rawValue).md", mimeType: "text/markdown",
+                stageId: stage.id, createdAt: stage.finishedAt ?? run.createdAt)
+        }
     }
 
     static func returnKind(for outputKind: TeamOutputKind?) -> FloorReturn.Kind {
