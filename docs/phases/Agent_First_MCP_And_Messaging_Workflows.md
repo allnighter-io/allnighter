@@ -6,23 +6,20 @@ BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
 `team_preflight`, `team_ask` (+lane/team/type), `team_show`,
 `error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
 hello|preflight|teams`, `alln spec`); async `team_start`, `team_status`,
-`team_result`, and `team_cancel` over Journal0 + Serve0. Registry specs for
-`pending_list`, `pending_show`, and `pending_run` exist, but live MCP handlers
-are deferred. NEXT: A1/WTK-S02c Pending-over-MCP live handlers now that CLI
-workerChat `pending run` executes and settles. Still deferred: doctor schema-v2
-remedy tiers/humanActions, A3 install artifacts, A4 messaging UX, A5
-provenance/safety gate, A6 entitlement hook.
+`team_result`, and `team_cancel` over Journal0 + Serve0; A1/WTK-S02c live
+MCP handlers for `pending_list`, `pending_show`, and `pending_run`. Still
+deferred: remaining A1 Pending write tools (`pending_add`/submit/edit/reorder/
+cancel/stop), doctor schema-v2 remedy tiers/humanActions, A3 install artifacts,
+A4 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-19
 
-Code reality on 2026-06-19: MCP Pending tool specs exist in the registry, but
-`MCPServer` does not expose live Pending handlers yet. CLI `alln pending run`
-does execute and settle workerChat Pending items through `PendingRunExecutor`.
-Expose Pending/Wake facts over MCP from the same Core/CLI `PendingItemJSON` and
+Code reality on 2026-06-19: MCP `pending_list`, `pending_show`, and
+`pending_run` handlers are live and use the same Core/CLI `PendingItemJSON` and
 `PendingListJSON` schemas, including `nextWakeAt`, capacity observation, blocked
 reason, settled attempt state, and `transcriptRef` without transcript body
-content. Full Wake Ticket / Watchdog behavior is not ship-ready until this
-Pending-over-MCP parity lands.
+content. Full Wake Ticket / Watchdog behavior now depends on WTK-S03 resident
+one-shot wake scheduling, not MCP parity.
 
 > **Async ≠ scheduler.** "Async team loop" means a single, explicitly-triggered run
 > executes in the background of one `alln serve` process and is polled via
@@ -1445,6 +1442,10 @@ Completion gate:
 
 ### A1 - Pending over MCP
 
+Status: **PARTIAL BUILT** for list/show/run in `79aa7cb8`. Remaining Pending
+write/edit tools are follow-on A1 work, not blockers for WTK-S03 workerChat Wake
+Tickets.
+
 Prerequisites:
 
 - Pending0/Pending1 are complete: local Pending model and CLI CRUD/list/show are
@@ -1458,11 +1459,10 @@ Prerequisites:
   parked until explicitly revived; `pending_run` may still expose a user- or
   agent-triggered attempt through CLI/MCP.
 
-- Current implementation slice A1/WTK-S02c adds live `pending_list`,
-  `pending_show`, and `pending_run` handlers first because their registry specs
-  exist and CLI semantics are real. `pending_add`, `pending_submit`,
-  `pending_edit`, `pending_reorder`, `pending_cancel`, and `pending_stop` remain
-  follow-on A1 work unless the developer deliberately scopes them.
+- Built A1/WTK-S02c slice: live `pending_list`, `pending_show`, and
+  `pending_run` handlers. `pending_add`, `pending_submit`, `pending_edit`,
+  `pending_reorder`, `pending_cancel`, and `pending_stop` remain follow-on A1
+  work unless the developer deliberately scopes them.
 - Use Pending model from `Pending_Work_And_Drain.md`.
 - Expose Draft/Pending/Running; do not expose raw scheduler queue.
 - Include blocked/admission reasons, source, `observedAt`, `retryAfter`, and

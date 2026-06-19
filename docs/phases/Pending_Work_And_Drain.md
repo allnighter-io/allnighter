@@ -1,6 +1,6 @@
 # Pending Work
 
-Status: **Pending0 + Pending1 BUILT** (2026-06-17); WTK-S02a workerChat explicit run built; Wake Ticket resume spec; broad native drain/scheduling parked
+Status: **Pending0 + Pending1 BUILT** (2026-06-17); workerChat CLI/MCP explicit run built; WTK-S03 one-shot wake next; broad native drain/scheduling parked
 Owner: AllnighterCore + AllnighterEngine + CLI/MCP contracts + Mac app backend
 Updated: 2026-06-19
 
@@ -945,10 +945,10 @@ Implementation order note:
   `Pending2` are built. A narrower "Claude cooldown resumes once" claim belongs
   to `Pending1a` / Wake Tickets and only applies to already-authorized work with
   sourced cooldown state.
-- MCP Pending (`A1`) is part of the same CLI/MCP-first product contract. Now that
-  workerChat CLI `pending run` executes and settles, A1/WTK-S02c is the next
-  external-agent blocker. The feature is not shippable end to end until MCP
-  exposes the same Pending/Wake facts.
+- MCP Pending (`A1`) is part of the same CLI/MCP-first product contract and the
+  first live list/show/run handlers are built. Now WTK-S03 can make `alln serve`
+  resume due workerChat Wake Tickets once. This remains narrower than Pending2:
+  no broad drain, no fairness sweep, and no idle Pending scheduling.
 
 ### Pending0 - Public CLI Contract
 
@@ -1041,13 +1041,12 @@ Scope:
   `cooldown` or `providerBusy`.
 - Pending JSON projects `nextWakeAt`, `blockedReason`, attempt reason, and no
   quota/cost/runtime estimates.
-- A1/WTK-S02c must expose `pending_list`, `pending_show`, and `pending_run` over
-  MCP using the same Pending JSON before external agents can operate Wake Ticket
-  facts.
-- WTK-S02b may add teamRun Pending execution after MCP workerChat parity if that
-  remains needed before resident wake.
-- After MCP parity and the remaining execution seam, `alln serve` may wake
-  exactly one due item and retry the same authorized work.
+- A1/WTK-S02c is built: `pending_list`, `pending_show`, and `pending_run` expose
+  the same Pending JSON over MCP.
+- WTK-S03 may now wire `alln serve` to wake exactly one due workerChat item and
+  retry the same authorized work.
+- WTK-S02b may add teamRun Pending execution later; it is not required to unlock
+  the workerChat Wake Ticket loop.
 - No fairness sweep, fallback routing, Away Mode, PTY probes, or admission ledger.
 
 Works Test:

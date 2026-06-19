@@ -5,12 +5,12 @@ Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `alln pending` CRUD + `PendingItemJSON`; WTK-S02a added workerChat
 `pending run` execution/settlement through `PendingRunExecutor`. WTK-S00/S01a/S01b
 added `CapacityObservation`, Pending capacity JSON, MCP Pending registry specs,
-and WorkerRunner capacity capture.
-Remaining (still owned here): live MCP Pending handlers, `pending stop`, teamRun
-Pending execution/settlement, and generated contract cleanup. Full Wake Ticket /
-Watchdog handoff is blocked until MCP Pending parity exposes the same
-Pending/Wake facts as CLI. Broad native Pending drain is parked; one-shot Wake
-Tickets are scoped by `Stalled_Work_Watchdog.md`.
+and WorkerRunner capacity capture. A1/WTK-S02c added live MCP Pending
+`pending_list`/`pending_show`/`pending_run` handlers.
+Remaining (still owned here): WTK-S03 resident one-shot workerChat wake,
+`pending stop`, teamRun Pending execution/settlement, remaining MCP Pending write
+tools, and generated contract cleanup. Broad native Pending drain is parked;
+one-shot Wake Tickets are scoped by `Stalled_Work_Watchdog.md`.
 Owner: Shared Core + CLI + Mac
 Updated: 2026-06-19
 
@@ -888,7 +888,7 @@ to Pending or GUI work before the owning prerequisite is real.
 | 2 | `A0` async team loop | `Agent_First_MCP_And_Messaging_Workflows.md` | `team_start/status/result/cancel` return an immediate run id, poll from journal/coordinator truth, and retrieve `TeamRunJSON`. |
 | 3 | `Pending0`/`Pending1` | `Pending_Work_And_Drain.md` | `alln pending` can create/list/show/submit/edit/cancel local Draft/Pending items; no drain promise yet. |
 | 4 | `Pending1a` Wake Tickets | `Pending_Work_And_Drain.md` + `Stalled_Work_Watchdog.md` | Capture CLI-to-CLI capacity observations, update Pending JSON/schema/fixtures, write workerChat `PendingResume`, and execute/settle workerChat Pending through WTK-S02a. Live MCP parity and remaining execution seams come before `alln serve` may make one same-work wake resume. No broad drain. |
-| 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | MCP exposes Pending and Wake Ticket facts through the same schemas/error envelope as CLI. Full watchdog/Wake Ticket behavior is not ship-ready until this parity exists. |
+| 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | List/show/run handlers expose Pending and Wake Ticket facts through the same schemas/error envelope as CLI; remaining write/edit tools follow later. |
 | 6 | `Pending2` | `Pending_Work_And_Drain.md` + parked admission policy | Parked: broad native drain/scheduling waits until explicitly revived. External agents may trigger Pending through CLI/MCP. |
 
 `Serve0` must stay deliberately small: no LaunchAgent, no start-at-login, no GUI
@@ -902,10 +902,10 @@ duplicate work, and orphan recovery from the incremental journal.
 
 Status note (2026-06-19): `Journal0`, `Serve0`, `A0`, **Pending0/Pending1**, and
 WTK-S02a workerChat `pending run` execution/settlement are built. **A1/WTK-S02c**
-Pending over MCP is the next CLI/MCP-first blocker so external agents can list,
-show, and run eligible Pending items through the same JSON facts as CLI.
-**Pending2** broad drain/native scheduling is parked; do not promise app-closed
-broad Pending execution until that work is explicitly revived.
+Pending list/show/run over MCP is built. **WTK-S03** is next: `alln serve`
+should wake due workerChat Wake Tickets once through the same Pending execution
+path. **Pending2** broad drain/native scheduling is parked; do not promise
+app-closed broad Pending execution until that work is explicitly revived.
 
 ## Pending CLI Contract
 
@@ -919,9 +919,10 @@ Authority:
 Grammar:
 
 Target grammar. Code reality on 2026-06-19: workerChat `pending run` is real;
-`--project`, `--all`, `pending stop`, live MCP Pending handlers, stream attempt
-events, and teamRun/mutating Pending execution are not all implemented yet. Do
-not cite this grammar as shipped behavior without checking
+MCP `pending_list`/`pending_show`/`pending_run` are real; `--project`, `--all`,
+`pending stop`, remaining MCP Pending write/edit tools, stream attempt events,
+and teamRun/mutating Pending execution are not all implemented yet. Do not cite
+this grammar as shipped behavior without checking
 `ContractRegistry+Milestone1.swift`, `PendingCLI`, and `MCPServer`.
 
 ```bash
