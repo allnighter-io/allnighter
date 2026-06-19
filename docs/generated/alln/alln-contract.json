@@ -1647,7 +1647,7 @@
 
       ],
       "name" : "project list",
-      "outputSchema" : "none",
+      "outputSchema" : "projectListJSON",
       "summary" : "List projects (active by default; --all includes archived)."
     },
     {
@@ -1679,7 +1679,7 @@
 
       ],
       "name" : "project add",
-      "outputSchema" : "none",
+      "outputSchema" : "projectJSON",
       "summary" : "Add (or return the existing) project for a local root. Idempotent on normalized root."
     },
     {
@@ -1705,7 +1705,7 @@
 
       ],
       "name" : "project show",
-      "outputSchema" : "none",
+      "outputSchema" : "projectJSON",
       "summary" : "Show one project; re-observes root\/git so output reflects current truth."
     },
     {
@@ -1731,7 +1731,7 @@
 
       ],
       "name" : "project archive",
-      "outputSchema" : "none",
+      "outputSchema" : "projectJSON",
       "summary" : "Archive a project (hides it; never deletes local files or threads)."
     },
     {
@@ -1757,7 +1757,7 @@
 
       ],
       "name" : "project unarchive",
-      "outputSchema" : "none",
+      "outputSchema" : "projectJSON",
       "summary" : "Restore an archived project to the active roster."
     },
     {
@@ -1783,7 +1783,7 @@
 
       ],
       "name" : "project threads",
-      "outputSchema" : "none",
+      "outputSchema" : "projectThreadsJSON",
       "summary" : "List the work threads bound to one project."
     },
     {
@@ -1809,7 +1809,7 @@
 
       ],
       "name" : "project pending",
-      "outputSchema" : "none",
+      "outputSchema" : "projectPendingJSON",
       "summary" : "List the pending work bound to one project (a filtered view of the one Pending store)."
     },
     {
@@ -1893,7 +1893,7 @@
 
       ],
       "name" : "project context",
-      "outputSchema" : "none",
+      "outputSchema" : "projectContextJSON",
       "summary" : "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth)."
     },
     {
@@ -1919,7 +1919,7 @@
 
       ],
       "name" : "project workers",
-      "outputSchema" : "none",
+      "outputSchema" : "projectWorkersJSON",
       "summary" : "Show cached per-project worker readiness (read-only; never probes)."
     },
     {
@@ -1945,7 +1945,7 @@
 
       ],
       "name" : "project recheck-workers",
-      "outputSchema" : "none",
+      "outputSchema" : "projectWorkersJSON",
       "summary" : "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config\/auth."
     },
     {
@@ -1982,7 +1982,7 @@
 
       ],
       "name" : "project chat",
-      "outputSchema" : "none",
+      "outputSchema" : "projectManagerTurnJSON",
       "summary" : "Ask the Project Manager (a model invocation over the project context). Answers only; never auto-creates work. No ready model → a wait turn."
     },
     {
@@ -2008,7 +2008,7 @@
 
       ],
       "name" : "project propose",
-      "outputSchema" : "none",
+      "outputSchema" : "projectProposalJSON",
       "summary" : "Ask the Project Manager for ONE bounded next move (or one visible blocker). The model authors the proposal; Allnighter stamps the durable fields. Never dispatches or approves."
     },
     {
@@ -2034,7 +2034,7 @@
 
       ],
       "name" : "project proposals",
-      "outputSchema" : "none",
+      "outputSchema" : "projectProposalsJSON",
       "summary" : "List a project's proposals."
     },
     {
@@ -2066,7 +2066,7 @@
 
       ],
       "name" : "project approve",
-      "outputSchema" : "none",
+      "outputSchema" : "projectWorkOrderJSON",
       "summary" : "Approve a proposal: record approver\/time\/content-hash + observed base head, and derive a reveal-mode WorkOrder. Does not dispatch."
     },
     {
@@ -2098,7 +2098,7 @@
 
       ],
       "name" : "project edit",
-      "outputSchema" : "none",
+      "outputSchema" : "projectProposalsJSON",
       "summary" : "Edit a proposal's content before approval via a JSON patch (--patch or stdin). Clears any prior approval and returns it to proposed."
     },
     {
@@ -2124,7 +2124,7 @@
 
       ],
       "name" : "project postpone",
-      "outputSchema" : "none",
+      "outputSchema" : "projectProposalsJSON",
       "summary" : "Postpone a proposal (stays visible; does not block new proposals unless it conflicts)."
     },
     {
@@ -2161,7 +2161,7 @@
 
       ],
       "name" : "project handoff",
-      "outputSchema" : "none",
+      "outputSchema" : "projectHandoffJSON",
       "summary" : "Reveal the exact prompt to hand a worker for an approved work order, plus a dispatch preview (would the mutating gates pass now). Never invokes a worker."
     },
     {
@@ -2198,7 +2198,7 @@
 
       ],
       "name" : "project dispatch",
-      "outputSchema" : "none",
+      "outputSchema" : "projectDispatchJSON",
       "summary" : "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Mutates the repo via the worker's CLI; captures a WorkReturn (not proof — verify decides done)."
     },
     {
@@ -2247,7 +2247,7 @@
 
       ],
       "name" : "project verify",
-      "outputSchema" : "none",
+      "outputSchema" : "projectVerificationJSON",
       "summary" : "Verify a work order's return: run its declared proof commands as bounded subprocesses at the project root and record a VerificationRecord. Never claims verified on failure\/timeout\/missing proof; done requires verified or an explicit waiver."
     },
     {
@@ -4292,6 +4292,282 @@
         }
       ],
       "summary" : "Aggregate stalled-work episodes grouped by project."
+    },
+    {
+      "command" : "project list",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "project_list",
+      "outputSchema" : "projectListJSON",
+      "params" : [
+        {
+          "name" : "all",
+          "required" : false,
+          "summary" : "Include archived projects (optional).",
+          "type" : "boolean"
+        }
+      ],
+      "summary" : "List projects (active by default)."
+    },
+    {
+      "command" : "project show",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "project_get",
+      "outputSchema" : "projectJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Show one project; re-observes root\/git."
+    },
+    {
+      "command" : "project context",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "project_context",
+      "outputSchema" : "projectContextJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Generate the on-demand, source-labeled project context packet (a receipt)."
+    },
+    {
+      "command" : "project workers",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "project_workers",
+      "outputSchema" : "projectWorkersJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Cached per-project worker readiness (read-only; never probes)."
+    },
+    {
+      "command" : "project recheck-workers",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "project_recheck_workers",
+      "outputSchema" : "projectWorkersJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config\/auth."
+    },
+    {
+      "command" : "project proposals",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "project_proposals",
+      "outputSchema" : "projectProposalsJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "List a project's proposals."
+    },
+    {
+      "command" : "project chat",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "MANAGER_MODEL_UNAVAILABLE",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "project_chat",
+      "outputSchema" : "projectManagerTurnJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        },
+        {
+          "name" : "message",
+          "required" : true,
+          "summary" : "The chat message.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Ask the Project Manager (a model invocation over project context). Answers only; never auto-creates work."
+    },
+    {
+      "command" : "project propose",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "MANAGER_MODEL_UNAVAILABLE",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "project_propose",
+      "outputSchema" : "projectProposalJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Ask the Project Manager for ONE bounded next move (or one visible blocker). Never dispatches or approves."
+    },
+    {
+      "command" : "project handoff",
+      "errors" : [
+        "WORK_ORDER_NOT_FOUND",
+        "PROJECT_NOT_FOUND",
+        "PROPOSAL_NOT_APPROVED",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "project_handoff",
+      "outputSchema" : "projectHandoffJSON",
+      "params" : [
+        {
+          "name" : "workOrder",
+          "required" : true,
+          "summary" : "Work order id.",
+          "type" : "string"
+        },
+        {
+          "name" : "worker",
+          "required" : false,
+          "summary" : "Preview a specific ready worker\/model id (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "ackDirty",
+          "required" : false,
+          "summary" : "Acknowledge the dirty tree in the preview (optional).",
+          "type" : "boolean"
+        }
+      ],
+      "summary" : "Reveal the exact prompt for an approved work order + a dispatch preview. Never invokes a worker."
+    },
+    {
+      "command" : "project dispatch",
+      "errors" : [
+        "WORK_ORDER_NOT_FOUND",
+        "PROJECT_NOT_FOUND",
+        "PROPOSAL_NOT_APPROVED",
+        "WORKER_NOT_READY_IN_PROJECT",
+        "PROJECT_ROOT_UNAVAILABLE",
+        "BASE_HEAD_CHANGED",
+        "DIRTY_SCOPE_CONFLICT",
+        "DISPATCH_GATE_FAILED",
+        "EXECUTION_LANE_BUSY",
+        "EXECUTION_TEAM_MIXED_SOURCES",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "project_dispatch",
+      "outputSchema" : "projectDispatchJSON",
+      "params" : [
+        {
+          "name" : "workOrder",
+          "required" : true,
+          "summary" : "Work order id.",
+          "type" : "string"
+        },
+        {
+          "name" : "worker",
+          "required" : false,
+          "summary" : "Dispatch to a specific ready worker\/model id (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "ackDirty",
+          "required" : false,
+          "summary" : "Acknowledge the dirty tree before dispatch (optional).",
+          "type" : "boolean"
+        }
+      ],
+      "summary" : "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Caller, not approver."
+    },
+    {
+      "command" : "project verify",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "WORK_ORDER_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "project_verify",
+      "outputSchema" : "projectVerificationJSON",
+      "params" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name.",
+          "type" : "string"
+        },
+        {
+          "name" : "workOrder",
+          "required" : false,
+          "summary" : "Work order id (default: most recent).",
+          "type" : "string"
+        },
+        {
+          "name" : "return",
+          "required" : false,
+          "summary" : "Return id (default: latest for the work order).",
+          "type" : "string"
+        },
+        {
+          "name" : "noRun",
+          "required" : false,
+          "summary" : "Reveal-only: do not run proof (optional).",
+          "type" : "boolean"
+        },
+        {
+          "name" : "waive",
+          "required" : false,
+          "summary" : "Explicit waiver reason (marks done without running proof; optional).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Verify a work order's return by running its declared proof commands. Never claims verified on failure; done requires verified or an explicit waiver."
     }
   ],
   "nextActionKinds" : [

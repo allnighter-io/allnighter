@@ -290,6 +290,17 @@ struct MCPServer {
             respondStalled(id: id, outcome: MCPStalledHandlers.projectStalled(args: args))
         case "stalled_list":
             respondStalled(id: id, outcome: MCPStalledHandlers.stalledList(args: args))
+        case "project_list": respondProject(id: id, outcome: MCPProjectHandlers.list(args: args))
+        case "project_get": respondProject(id: id, outcome: MCPProjectHandlers.get(args: args))
+        case "project_context": respondProject(id: id, outcome: MCPProjectHandlers.context(args: args))
+        case "project_workers": respondProject(id: id, outcome: MCPProjectHandlers.workers(args: args))
+        case "project_recheck_workers": respondProject(id: id, outcome: await MCPProjectHandlers.recheckWorkers(args: args, runtime: runtime))
+        case "project_proposals": respondProject(id: id, outcome: MCPProjectHandlers.proposals(args: args))
+        case "project_chat": respondProject(id: id, outcome: await MCPProjectHandlers.chat(args: args, runtime: runtime))
+        case "project_propose": respondProject(id: id, outcome: await MCPProjectHandlers.propose(args: args, runtime: runtime))
+        case "project_handoff": respondProject(id: id, outcome: MCPProjectHandlers.handoff(args: args, runtime: runtime))
+        case "project_dispatch": respondProject(id: id, outcome: await MCPProjectHandlers.dispatch(args: args, runtime: runtime))
+        case "project_verify": respondProject(id: id, outcome: await MCPProjectHandlers.verify(args: args))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
         }
@@ -342,6 +353,15 @@ struct MCPServer {
     }
 
     private func respondStalled(id: Any?, outcome: MCPStalledHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondProject(id: Any?, outcome: MCPProjectHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))

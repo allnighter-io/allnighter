@@ -190,6 +190,52 @@ public extension ContractRegistry {
                     params: [.init("all", type: "boolean", required: true, summary: "Must be true.")],
                     outputSchema: .stallListJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+        // Project Manager tools (PRJ-S13). Same Core contracts as `alln project …`;
+        // external agents are CALLERS, never approvers — approve/edit/postpone are
+        // intentionally not projected. Agent dispatch still satisfies every gate.
+        MCPToolSpec("project_list", command: "project list", summary: "List projects (active by default).",
+                    params: [.init("all", type: "boolean", summary: "Include archived projects (optional).")],
+                    outputSchema: .projectListJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("project_get", command: "project show", summary: "Show one project; re-observes root/git.",
+                    params: [.init("project", required: true, summary: "Project id or name.")],
+                    outputSchema: .projectJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("project_context", command: "project context", summary: "Generate the on-demand, source-labeled project context packet (a receipt).",
+                    params: [.init("project", required: true, summary: "Project id or name.")],
+                    outputSchema: .projectContextJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("project_workers", command: "project workers", summary: "Cached per-project worker readiness (read-only; never probes).",
+                    params: [.init("project", required: true, summary: "Project id or name.")],
+                    outputSchema: .projectWorkersJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("project_recheck_workers", command: "project recheck-workers", summary: "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config/auth.",
+                    params: [.init("project", required: true, summary: "Project id or name.")],
+                    outputSchema: .projectWorkersJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("project_proposals", command: "project proposals", summary: "List a project's proposals.",
+                    params: [.init("project", required: true, summary: "Project id or name.")],
+                    outputSchema: .projectProposalsJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("project_chat", command: "project chat", summary: "Ask the Project Manager (a model invocation over project context). Answers only; never auto-creates work.",
+                    params: [.init("project", required: true, summary: "Project id or name."), .init("message", required: true, summary: "The chat message.")],
+                    outputSchema: .projectManagerTurnJSON, errors: ["PROJECT_NOT_FOUND", "MANAGER_MODEL_UNAVAILABLE", "CLI_USAGE_ERROR"], idempotency: .notIdempotent),
+        MCPToolSpec("project_propose", command: "project propose", summary: "Ask the Project Manager for ONE bounded next move (or one visible blocker). Never dispatches or approves.",
+                    params: [.init("project", required: true, summary: "Project id or name.")],
+                    outputSchema: .projectProposalJSON, errors: ["PROJECT_NOT_FOUND", "MANAGER_MODEL_UNAVAILABLE", "CLI_USAGE_ERROR"], idempotency: .notIdempotent),
+        MCPToolSpec("project_handoff", command: "project handoff", summary: "Reveal the exact prompt for an approved work order + a dispatch preview. Never invokes a worker.",
+                    params: [.init("workOrder", required: true, summary: "Work order id."),
+                             .init("worker", summary: "Preview a specific ready worker/model id (optional)."),
+                             .init("ackDirty", type: "boolean", summary: "Acknowledge the dirty tree in the preview (optional).")],
+                    outputSchema: .projectHandoffJSON, errors: ["WORK_ORDER_NOT_FOUND", "PROJECT_NOT_FOUND", "PROPOSAL_NOT_APPROVED", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("project_dispatch", command: "project dispatch", summary: "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Caller, not approver.",
+                    params: [.init("workOrder", required: true, summary: "Work order id."),
+                             .init("worker", summary: "Dispatch to a specific ready worker/model id (optional)."),
+                             .init("ackDirty", type: "boolean", summary: "Acknowledge the dirty tree before dispatch (optional).")],
+                    outputSchema: .projectDispatchJSON,
+                    errors: ["WORK_ORDER_NOT_FOUND", "PROJECT_NOT_FOUND", "PROPOSAL_NOT_APPROVED", "WORKER_NOT_READY_IN_PROJECT", "PROJECT_ROOT_UNAVAILABLE", "BASE_HEAD_CHANGED", "DIRTY_SCOPE_CONFLICT", "DISPATCH_GATE_FAILED", "EXECUTION_LANE_BUSY", "EXECUTION_TEAM_MIXED_SOURCES", "CLI_USAGE_ERROR"],
+                    idempotency: .notIdempotent),
+        MCPToolSpec("project_verify", command: "project verify", summary: "Verify a work order's return by running its declared proof commands. Never claims verified on failure; done requires verified or an explicit waiver.",
+                    params: [.init("project", required: true, summary: "Project id or name."),
+                             .init("workOrder", summary: "Work order id (default: most recent)."),
+                             .init("return", summary: "Return id (default: latest for the work order)."),
+                             .init("noRun", type: "boolean", summary: "Reveal-only: do not run proof (optional)."),
+                             .init("waive", summary: "Explicit waiver reason (marks done without running proof; optional).")],
+                    outputSchema: .projectVerificationJSON, errors: ["PROJECT_NOT_FOUND", "WORK_ORDER_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .notIdempotent),
     ]
 
     // MARK: - Commands (in scope)
@@ -586,37 +632,44 @@ public extension ContractRegistry {
         // proposals, dispatch, and verification are PRJ-S08+.
         CommandSpec(
             "project list", summary: "List projects (active by default; --all includes archived).", milestone: .m1,
-            flags: [FlagSpec("all", summary: "Include archived projects."), FlagSpec("json", summary: "Emit a ProjectListJSON object.")]
+            flags: [FlagSpec("all", summary: "Include archived projects."), FlagSpec("json", summary: "Emit a ProjectListJSON object.")],
+            outputSchema: .projectListJSON
         ),
         CommandSpec(
             "project add", summary: "Add (or return the existing) project for a local root. Idempotent on normalized root.", milestone: .m1,
             args: [ArgSpec("path", required: true, summary: "Local folder / git repo root.")],
-            flags: [FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name (defaults to the folder name)."), FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+            flags: [FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name (defaults to the folder name)."), FlagSpec("json", summary: "Emit a ProjectJSON object.")],
+            outputSchema: .projectJSON
         ),
         CommandSpec(
             "project show", summary: "Show one project; re-observes root/git so output reflects current truth.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")],
+            outputSchema: .projectJSON
         ),
         CommandSpec(
             "project archive", summary: "Archive a project (hides it; never deletes local files or threads).", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")],
+            outputSchema: .projectJSON
         ),
         CommandSpec(
             "project unarchive", summary: "Restore an archived project to the active roster.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectJSON object.")],
+            outputSchema: .projectJSON
         ),
         CommandSpec(
             "project threads", summary: "List the work threads bound to one project.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectThreadsJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectThreadsJSON object.")],
+            outputSchema: .projectThreadsJSON
         ),
         CommandSpec(
             "project pending", summary: "List the pending work bound to one project (a filtered view of the one Pending store).", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectPendingJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectPendingJSON object.")],
+            outputSchema: .projectPendingJSON
         ),
         CommandSpec(
             "project stalled", summary: "Read-only stalled-work episodes for one project.", milestone: .m1,
@@ -638,47 +691,56 @@ public extension ContractRegistry {
         CommandSpec(
             "project context", summary: "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectContextJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectContextJSON object.")],
+            outputSchema: .projectContextJSON
         ),
         CommandSpec(
             "project workers", summary: "Show cached per-project worker readiness (read-only; never probes).", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")],
+            outputSchema: .projectWorkersJSON
         ),
         CommandSpec(
             "project recheck-workers", summary: "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config/auth.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")],
+            outputSchema: .projectWorkersJSON
         ),
         CommandSpec(
             "project chat", summary: "Ask the Project Manager (a model invocation over the project context). Answers only; never auto-creates work. No ready model → a wait turn.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name."), ArgSpec("message", required: false, summary: "The chat message (or use --file).")],
-            flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the message from a file."), FlagSpec("json", summary: "Emit a ProjectManagerTurnJSON object.")]
+            flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the message from a file."), FlagSpec("json", summary: "Emit a ProjectManagerTurnJSON object.")],
+            outputSchema: .projectManagerTurnJSON
         ),
         CommandSpec(
             "project propose", summary: "Ask the Project Manager for ONE bounded next move (or one visible blocker). The model authors the proposal; Allnighter stamps the durable fields. Never dispatches or approves.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectProposalJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectProposalJSON object.")],
+            outputSchema: .projectProposalJSON
         ),
         CommandSpec(
             "project proposals", summary: "List a project's proposals.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")],
+            outputSchema: .projectProposalsJSON
         ),
         CommandSpec(
             "project approve", summary: "Approve a proposal: record approver/time/content-hash + observed base head, and derive a reveal-mode WorkOrder. Does not dispatch.", milestone: .m1,
             args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
-            flags: [FlagSpec("by", takesValue: true, valueType: "string", summary: "Approver identity (default cli-user)."), FlagSpec("json", summary: "Emit a ProjectWorkOrderJSON object.")]
+            flags: [FlagSpec("by", takesValue: true, valueType: "string", summary: "Approver identity (default cli-user)."), FlagSpec("json", summary: "Emit a ProjectWorkOrderJSON object.")],
+            outputSchema: .projectWorkOrderJSON
         ),
         CommandSpec(
             "project edit", summary: "Edit a proposal's content before approval via a JSON patch (--patch or stdin). Clears any prior approval and returns it to proposed.", milestone: .m1,
             args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
-            flags: [FlagSpec("patch", takesValue: true, valueType: "json", summary: "JSON object patch (or pipe via stdin)."), FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")]
+            flags: [FlagSpec("patch", takesValue: true, valueType: "json", summary: "JSON object patch (or pipe via stdin)."), FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")],
+            outputSchema: .projectProposalsJSON
         ),
         CommandSpec(
             "project postpone", summary: "Postpone a proposal (stays visible; does not block new proposals unless it conflicts).", milestone: .m1,
             args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")]
+            flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")],
+            outputSchema: .projectProposalsJSON
         ),
         CommandSpec(
             "project handoff", summary: "Reveal the exact prompt to hand a worker for an approved work order, plus a dispatch preview (would the mutating gates pass now). Never invokes a worker.", milestone: .m1,
@@ -687,7 +749,8 @@ public extension ContractRegistry {
                 FlagSpec("worker", takesValue: true, valueType: "string", summary: "Preview targeting a specific ready worker/model id."),
                 FlagSpec("ack-dirty", summary: "Acknowledge the dirty tree in the preview."),
                 FlagSpec("json", summary: "Emit a ProjectHandoffJSON object."),
-            ]
+            ],
+            outputSchema: .projectHandoffJSON
         ),
         CommandSpec(
             "project dispatch", summary: "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Mutates the repo via the worker's CLI; captures a WorkReturn (not proof — verify decides done).", milestone: .m1,
@@ -696,7 +759,8 @@ public extension ContractRegistry {
                 FlagSpec("worker", takesValue: true, valueType: "string", summary: "Dispatch to a specific ready worker/model id."),
                 FlagSpec("ack-dirty", summary: "Acknowledge the dirty tree before dispatch."),
                 FlagSpec("json", summary: "Emit a ProjectDispatchJSON object."),
-            ]
+            ],
+            outputSchema: .projectDispatchJSON
         ),
         CommandSpec(
             "project verify", summary: "Verify a work order's return: run its declared proof commands as bounded subprocesses at the project root and record a VerificationRecord. Never claims verified on failure/timeout/missing proof; done requires verified or an explicit waiver.", milestone: .m1,
@@ -707,7 +771,8 @@ public extension ContractRegistry {
                 FlagSpec("no-run", summary: "Reveal-only: do not run proof; outcome is waived or needs-human."),
                 FlagSpec("waive", takesValue: true, valueType: "string", summary: "Explicit human waiver with a reason (marks done without running proof)."),
                 FlagSpec("json", summary: "Emit a ProjectVerificationJSON object."),
-            ]
+            ],
+            outputSchema: .projectVerificationJSON
         ),
     ]
 
