@@ -624,6 +624,25 @@
     "summary" : "Retrieve a run's full spec\/result packet without opening the GUI. Failed workers and warnings always included in full detail."
   },
   {
+    "command" : "floor show",
+    "errors" : [
+      "RUN_NOT_FOUND",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "floor_show",
+    "outputSchema" : "floorRun",
+    "params" : [
+      {
+        "name" : "run",
+        "required" : false,
+        "summary" : "Run id or `latest` (default latest).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "The inspectable Floor for one team run: worker lanes (incl. failures), durable artifact refs, typed return (Signal insight when applicable), converge timeline, and Execute requirements."
+  },
+  {
     "command" : "thread send",
     "errors" : [
       "THREAD_NOT_FOUND",

@@ -46,6 +46,29 @@ final class ContractSchemaTests: XCTestCase {
         XCTAssertEqual(try properties(schema), labels(pending), "PendingItemJSON top-level schema drifted from the type")
     }
 
+    func testFloorRunSchemaMatchesType() throws {
+        // Project a representative run so the schema is tied back to the real types.
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let run = TeamRun(
+            id: "r1", prompt: "p", status: .complete, origin: .cli, presetId: "signal_post_to_project",
+            workers: [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .plan)],
+            workerAnswers: [WorkerAnswer(workerId: "w#0", modelId: "m", status: .done, output: "x", finishedAt: now)],
+            stages: [StageOutput(id: "s1", purpose: .plan, status: .done, payload: .plan(markdown: "md"))],
+            createdAt: now, lane: .signal, outputKind: .insight, posture: .scout)
+        let floor = FloorProjector.project(run)
+        let schema = ContractSchema.floorRunSchema()
+
+        XCTAssertEqual(try properties(schema), labels(floor), "FloorRun top-level schema drifted from the type")
+        XCTAssertEqual(try properties(def(schema, "FloorRunInfo")), labels(floor.run), "FloorRunInfo schema drifted")
+        XCTAssertEqual(try properties(def(schema, "FloorTeam")), labels(floor.team), "FloorTeam schema drifted")
+        let lane = try XCTUnwrap(floor.workerLanes.first)
+        XCTAssertEqual(try properties(def(schema, "FloorWorkerLane")), labels(lane), "FloorWorkerLane schema drifted")
+        let ret = try XCTUnwrap(floor.floorReturn)
+        XCTAssertEqual(try properties(def(schema, "FloorReturn")), labels(ret), "FloorReturn schema drifted")
+        let artifact = try XCTUnwrap(floor.artifacts.first)
+        XCTAssertEqual(try properties(def(schema, "RunArtifactRef")), labels(artifact), "RunArtifactRef schema drifted")
+    }
+
     func testSchemasSerializeDeterministically() throws {
         XCTAssertEqual(try ContractSchema.json(ContractSchema.teamRunSchema()),
                        try ContractSchema.json(ContractSchema.teamRunSchema()))

@@ -289,6 +289,106 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - FloorRun (Team Run Floor projection)
+
+    public static func floorRunSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/floor-run.schema.json",
+            "title": "FloorRun",
+        ]
+        let top = obj([
+            "schemaVersion": int, "run": ref("FloorRunInfo"), "intent": ref("FloorIntent"),
+            "team": ref("FloorTeam"), "workerLanes": arr(ref("FloorWorkerLane")),
+            "floorReturn": nullableRef("FloorReturn"), "nextActions": arr(ref("FloorNextAction")),
+            "artifacts": arr(ref("RunArtifactRef")), "timeline": arr(ref("FloorTimelineEvent")),
+            "executeRequirements": arr(ref("ExecuteRequirement")),
+            "warnings": arr(str), "errors": arr(ref("ErrorEnvelope")), "audit": ref("FloorAudit"),
+        ], required: [
+            "schemaVersion", "run", "intent", "team", "workerLanes", "floorReturn", "nextActions",
+            "artifacts", "timeline", "executeRequirements", "warnings", "errors", "audit",
+        ])
+        schema.merge(top) { _, new in new }
+        let floorStatus = enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled", "interrupted"])
+        schema["$defs"] = [
+            "FloorRunInfo": obj([
+                "id": str, "projectId": nullable("string"), "threadId": nullable("string"),
+                "status": floorStatus, "family": nullable("string"), "posture": nullable("string"),
+                "mutating": bool, "origin": str, "originAgent": nullable("string"),
+                "createdAt": str, "reproduceCommand": nullable("string"),
+            ], required: ["id", "status", "mutating", "origin", "createdAt"]),
+            "FloorIntent": obj(["prompt": str, "threadId": nullable("string")], required: ["prompt"]),
+            "FloorTeam": obj([
+                "teamId": nullable("string"), "displayName": nullable("string"), "family": nullable("string"),
+                "outputKind": nullable("string"), "workerCount": int, "modelCount": int,
+                "leadWorkerId": nullable("string"),
+            ], required: ["workerCount", "modelCount"]),
+            "FloorWorkerLane": obj([
+                "workerId": str, "skillId": nullable("string"), "skillName": nullable("string"),
+                "modelId": str, "purpose": enumStr(["answer", "review", "lead", "stage"]),
+                "status": str, "startedAt": nullable("string"), "finishedAt": nullable("string"),
+                "durationMs": nullable("integer"), "exitCode": nullable("integer"),
+                "summary": nullable("string"), "artifactRefs": arr(ref("RunArtifactRef")),
+                "promptArtifactRef": nullableRef("RunArtifactRef"), "error": nullable("string"),
+            ], required: ["workerId", "modelId", "purpose", "status", "artifactRefs"]),
+            "FloorReturn": obj([
+                "kind": enumStr(["insight", "plan", "board", "draft", "proposal", "workOrderDraft", "proofPacket", "audit", "executionReturn"]),
+                "status": str, "title": str, "summaryMarkdown": nullable("string"),
+                "producedByWorkerId": nullable("string"), "stageId": nullable("string"),
+                "artifactRefs": arr(ref("RunArtifactRef")), "insight": nullableRef("SignalInsight"),
+            ], required: ["kind", "status", "title", "artifactRefs"]),
+            "RunArtifactRef": obj([
+                "id": str, "runId": str,
+                "kind": enumStr(["workerAnswer", "workerPrompt", "workerMetadata", "stageOutput", "receipt", "returnMarkdown", "insightJSON", "bundle", "source"]),
+                "title": str, "relativePath": str, "mimeType": str, "workerId": nullable("string"),
+                "stageId": nullable("string"), "createdAt": str, "contentSHA256": nullable("string"), "localOnly": bool,
+            ], required: ["id", "runId", "kind", "title", "relativePath", "mimeType", "createdAt", "localOnly"]),
+            "FloorTimelineEvent": obj([
+                "id": str, "runId": str,
+                "kind": enumStr(["runQueued", "runStarted", "workerStarted", "workerReturned", "workerFailed", "stageStarted", "stageFinished", "synthesisStarted", "synthesisFinished", "runFinished"]),
+                "at": str, "workerId": nullable("string"), "stageId": nullable("string"), "status": nullable("string"),
+            ], required: ["id", "runId", "kind", "at"]),
+            "FloorNextAction": obj([
+                "id": str,
+                "kind": enumStr(["openArtifact", "copyReturn", "exportFloor", "sendTeam", "draftCopy", "createCodeProposal", "createDesignBrief", "createWorkOrder", "savePending", "execute", "ignore", "monitorExternally", "showRun", "showHistory"]),
+                "label": str, "requiresExecute": bool, "mutating": bool,
+                "command": nullable("string"), "disabledReason": nullable("string"),
+            ], required: ["id", "kind", "label", "requiresExecute", "mutating"]),
+            "ExecuteRequirement": obj([
+                "reason": str, "affectedScope": nullable("string"), "requiredApproval": bool,
+                "workOrderId": nullable("string"), "proofCommands": arr(str),
+                "proofWaiver": nullable("string"), "readinessBlockers": arr(str),
+            ], required: ["reason", "requiredApproval", "proofCommands", "readinessBlockers"]),
+            "SignalInsight": obj([
+                "title": str, "summary": str, "whatHappened": str, "whyItMatters": str, "whyThisProject": str,
+                "window": enumStr(["open", "closing", "closed", "uncertain"]), "freshness": ref("SignalFreshness"),
+                "internalLessons": arr(str), "externalProductIdeas": arr(str), "skepticPass": ref("SignalSkepticPass"),
+                "receipts": arr(ref("SignalReceipt")), "recommendedNextActionId": nullable("string"),
+            ], required: ["title", "summary", "whatHappened", "whyItMatters", "whyThisProject", "window", "freshness", "internalLessons", "externalProductIdeas", "skepticPass", "receipts"]),
+            "SignalFreshness": obj([
+                "observedAt": str, "newestSourceAt": nullable("string"), "oldestSourceAt": nullable("string"),
+                "status": enumStr(["fresh", "stale", "uncertain"]),
+            ], required: ["observedAt", "status"]),
+            "SignalSkepticPass": obj([
+                "verdict": enumStr(["pass", "caution", "reject", "uncertain"]), "reason": str,
+                "saturationRisk": nullable("boolean"), "ownedByAnotherAccount": nullable("boolean"),
+            ], required: ["verdict", "reason"]),
+            "SignalReceipt": obj([
+                "id": str, "sourceKind": enumStr(["xPost", "xThread", "article", "releaseNote", "repo", "other"]),
+                "url": nullable("string"), "sourceId": nullable("string"), "authorOrPublisher": nullable("string"),
+                "observedAt": str, "publishedAt": nullable("string"), "title": nullable("string"),
+                "snippet": nullable("string"), "relevance": str,
+                "evidenceRole": enumStr(["primary", "corroborating", "counterSignal", "saturation", "skeptic"]),
+                "artifactRef": nullable("string"),
+            ], required: ["id", "sourceKind", "observedAt", "relevance", "evidenceRole"]),
+            "FloorAudit": obj([
+                "runJournalPath": nullable("string"), "traceId": nullable("string"),
+            ], required: []),
+            "ErrorEnvelope": errorEnvelopeDef(),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

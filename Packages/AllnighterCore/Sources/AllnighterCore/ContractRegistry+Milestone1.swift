@@ -127,6 +127,10 @@ public extension ContractRegistry {
                              .init("detail", summary: "summary | full | artifactRefsOnly (default summary).")],
                     outputSchema: .teamRunJSON,
                     errors: ["RUN_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("floor_show", command: "floor show", summary: "The inspectable Floor for one team run: worker lanes (incl. failures), durable artifact refs, typed return (Signal insight when applicable), converge timeline, and Execute requirements.",
+                    params: [.init("run", summary: "Run id or `latest` (default latest).")],
+                    outputSchema: .floorRun,
+                    errors: ["RUN_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("thread_send", command: "thread send", summary: "Send a message and/or images to a work thread worker.",
                     params: [
                         .init("threadId", summary: "Thread id or `latest`."),
@@ -413,6 +417,12 @@ public extension ContractRegistry {
             flags: [FlagSpec("json", summary: "Emit the run as TeamRunJSON."),
                     FlagSpec("full", summary: "Include resolved worker prompt snapshots (audit).")],
             outputSchema: .teamRunJSON, exampleIds: ["show_latest_json"]
+        ),
+        CommandSpec(
+            "floor show", summary: "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements).", milestone: .m1,
+            args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
+            flags: [FlagSpec("json", summary: "Emit the FloorRun projection.")],
+            outputSchema: .floorRun
         ),
         CommandSpec(
             "spec", summary: "Retrieve a run's spec/result packet (summary|full|artifactRefsOnly).", milestone: .m1,

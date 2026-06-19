@@ -39,6 +39,7 @@ struct AllnighterCLI {
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
         case "show": runShow(args, runtime)
+        case "floor" where args.first == "show": runFloorShow(Array(args.dropFirst()), runtime)
         case "spec": runSpec(args, runtime)
         case "export": runExport(args, runtime)
         case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
@@ -973,6 +974,38 @@ struct AllnighterCLI {
     static func defaultRunContext(_ run: TeamRun, full: Bool = false) -> TeamRunJSONMapper.Context {
         let path = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path ?? ""
         return .init(runJournalPath: path, reproduceCommand: reproduceCommand(run), includeWorkerPromptSnapshots: full)
+    }
+
+    /// The Floor projection JSON for a persisted run — shared by `alln floor show`
+    /// and the MCP `floor_show` tool.
+    static func floorRunJSONString(_ run: TeamRun) -> String {
+        let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
+            .appendingPathComponent("run.json").path
+        let floor = FloorProjector.project(
+            run, reproduceCommand: reproduceCommand(run),
+            runJournalPath: journalPath, traceId: "trace_\(run.id)")
+        return jsonString(floor)
+    }
+
+    /// `alln floor show <run-id|latest> [--json]` — the inspectable Floor for one
+    /// team run: worker lanes, durable artifacts, typed return, timeline, and
+    /// Execute requirements.
+    static func runFloorShow(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        let ref = opts.positional.first ?? "latest"
+        guard let run = resolveRun(ref) else {
+            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+        }
+        if opts.flag("json") {
+            print(floorRunJSONString(run))
+        } else {
+            let floor = FloorProjector.project(run)
+            print("Floor \(run.id) · \(floor.run.status.rawValue) · \(floor.run.family ?? "?")")
+            for lane in floor.workerLanes {
+                print("  \(lane.purpose.rawValue)\t\(lane.workerId)\t\(lane.status)")
+            }
+            if let ret = floor.floorReturn { print("\nReturn (\(ret.kind.rawValue)): \(ret.title)") }
+        }
     }
 
     /// `alln show <run-id|latest> [--json] [--full]` — show one run.

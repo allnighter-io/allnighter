@@ -433,6 +433,18 @@ Output schema: `teamRunJSON`.
 
 Examples: `show_latest_json`.
 
+### `alln floor show`
+
+Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements).
+
+Arguments:
+- `run-id|latest` (optional) — A run id or `latest` (default latest).
+
+Flags:
+- `--json` — Emit the FloorRun projection.
+
+Output schema: `floorRun`.
+
 ### `alln spec`
 
 Retrieve a run's spec/result packet (summary|full|artifactRefsOnly).

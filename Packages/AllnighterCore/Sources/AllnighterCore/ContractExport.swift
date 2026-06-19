@@ -33,6 +33,7 @@ public enum ContractExport {
             Artifact(filename: "coordinator-health.schema.json", contents: try ContractSchema.json(ContractSchema.coordinatorHealthSchema())),
             Artifact(filename: "pending-item.schema.json", contents: try ContractSchema.json(ContractSchema.pendingItemSchema())),
             Artifact(filename: "model-list.schema.json", contents: try ContractSchema.json(ContractSchema.modelListSchema())),
+            Artifact(filename: "floor-run.schema.json", contents: try ContractSchema.json(ContractSchema.floorRunSchema())),
             Artifact(filename: "help_alln_cli_spec.md", contents: ContractDocs.markdown(registry)),
         ]
     }

@@ -1,0 +1,936 @@
+{
+  "$defs" : {
+    "ErrorEnvelope" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "agentAction" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "code" : {
+          "type" : "string"
+        },
+        "fixCommand" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "message" : {
+          "type" : "string"
+        },
+        "modelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "requiresManual" : {
+          "type" : "boolean"
+        },
+        "retryable" : {
+          "type" : "boolean"
+        },
+        "ruleId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "runId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "sourceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "traceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "code",
+        "message",
+        "requiresManual",
+        "retryable"
+      ],
+      "type" : "object"
+    },
+    "ExecuteRequirement" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "affectedScope" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "proofCommands" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "proofWaiver" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "readinessBlockers" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "reason" : {
+          "type" : "string"
+        },
+        "requiredApproval" : {
+          "type" : "boolean"
+        },
+        "workOrderId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "reason",
+        "requiredApproval",
+        "proofCommands",
+        "readinessBlockers"
+      ],
+      "type" : "object"
+    },
+    "FloorAudit" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "runJournalPath" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "traceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+
+      ],
+      "type" : "object"
+    },
+    "FloorIntent" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "prompt" : {
+          "type" : "string"
+        },
+        "threadId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "prompt"
+      ],
+      "type" : "object"
+    },
+    "FloorNextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "disabledReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "openArtifact",
+            "copyReturn",
+            "exportFloor",
+            "sendTeam",
+            "draftCopy",
+            "createCodeProposal",
+            "createDesignBrief",
+            "createWorkOrder",
+            "savePending",
+            "execute",
+            "ignore",
+            "monitorExternally",
+            "showRun",
+            "showHistory"
+          ],
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        },
+        "mutating" : {
+          "type" : "boolean"
+        },
+        "requiresExecute" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "id",
+        "kind",
+        "label",
+        "requiresExecute",
+        "mutating"
+      ],
+      "type" : "object"
+    },
+    "FloorReturn" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "artifactRefs" : {
+          "items" : {
+            "$ref" : "#\/$defs\/RunArtifactRef"
+          },
+          "type" : "array"
+        },
+        "insight" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/SignalInsight"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "kind" : {
+          "enum" : [
+            "insight",
+            "plan",
+            "board",
+            "draft",
+            "proposal",
+            "workOrderDraft",
+            "proofPacket",
+            "audit",
+            "executionReturn"
+          ],
+          "type" : "string"
+        },
+        "producedByWorkerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "stageId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "type" : "string"
+        },
+        "summaryMarkdown" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "title" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "kind",
+        "status",
+        "title",
+        "artifactRefs"
+      ],
+      "type" : "object"
+    },
+    "FloorRunInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "createdAt" : {
+          "type" : "string"
+        },
+        "family" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "mutating" : {
+          "type" : "boolean"
+        },
+        "origin" : {
+          "type" : "string"
+        },
+        "originAgent" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "posture" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "projectId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "reproduceCommand" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "interrupted"
+          ],
+          "type" : "string"
+        },
+        "threadId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "id",
+        "status",
+        "mutating",
+        "origin",
+        "createdAt"
+      ],
+      "type" : "object"
+    },
+    "FloorTeam" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "displayName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "family" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "leadWorkerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "modelCount" : {
+          "type" : "integer"
+        },
+        "outputKind" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "teamId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerCount" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "workerCount",
+        "modelCount"
+      ],
+      "type" : "object"
+    },
+    "FloorTimelineEvent" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "at" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "runQueued",
+            "runStarted",
+            "workerStarted",
+            "workerReturned",
+            "workerFailed",
+            "stageStarted",
+            "stageFinished",
+            "synthesisStarted",
+            "synthesisFinished",
+            "runFinished"
+          ],
+          "type" : "string"
+        },
+        "runId" : {
+          "type" : "string"
+        },
+        "stageId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "id",
+        "runId",
+        "kind",
+        "at"
+      ],
+      "type" : "object"
+    },
+    "FloorWorkerLane" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "artifactRefs" : {
+          "items" : {
+            "$ref" : "#\/$defs\/RunArtifactRef"
+          },
+          "type" : "array"
+        },
+        "durationMs" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "error" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "exitCode" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "finishedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "modelId" : {
+          "type" : "string"
+        },
+        "promptArtifactRef" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/RunArtifactRef"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "purpose" : {
+          "enum" : [
+            "answer",
+            "review",
+            "lead",
+            "stage"
+          ],
+          "type" : "string"
+        },
+        "skillId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "skillName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "startedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "type" : "string"
+        },
+        "summary" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "workerId",
+        "modelId",
+        "purpose",
+        "status",
+        "artifactRefs"
+      ],
+      "type" : "object"
+    },
+    "RunArtifactRef" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "contentSHA256" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "workerAnswer",
+            "workerPrompt",
+            "workerMetadata",
+            "stageOutput",
+            "receipt",
+            "returnMarkdown",
+            "insightJSON",
+            "bundle",
+            "source"
+          ],
+          "type" : "string"
+        },
+        "localOnly" : {
+          "type" : "boolean"
+        },
+        "mimeType" : {
+          "type" : "string"
+        },
+        "relativePath" : {
+          "type" : "string"
+        },
+        "runId" : {
+          "type" : "string"
+        },
+        "stageId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "title" : {
+          "type" : "string"
+        },
+        "workerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "id",
+        "runId",
+        "kind",
+        "title",
+        "relativePath",
+        "mimeType",
+        "createdAt",
+        "localOnly"
+      ],
+      "type" : "object"
+    },
+    "SignalFreshness" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "newestSourceAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "observedAt" : {
+          "type" : "string"
+        },
+        "oldestSourceAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "fresh",
+            "stale",
+            "uncertain"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "observedAt",
+        "status"
+      ],
+      "type" : "object"
+    },
+    "SignalInsight" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "externalProductIdeas" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "freshness" : {
+          "$ref" : "#\/$defs\/SignalFreshness"
+        },
+        "internalLessons" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "receipts" : {
+          "items" : {
+            "$ref" : "#\/$defs\/SignalReceipt"
+          },
+          "type" : "array"
+        },
+        "recommendedNextActionId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "skepticPass" : {
+          "$ref" : "#\/$defs\/SignalSkepticPass"
+        },
+        "summary" : {
+          "type" : "string"
+        },
+        "title" : {
+          "type" : "string"
+        },
+        "whatHappened" : {
+          "type" : "string"
+        },
+        "whyItMatters" : {
+          "type" : "string"
+        },
+        "whyThisProject" : {
+          "type" : "string"
+        },
+        "window" : {
+          "enum" : [
+            "open",
+            "closing",
+            "closed",
+            "uncertain"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "title",
+        "summary",
+        "whatHappened",
+        "whyItMatters",
+        "whyThisProject",
+        "window",
+        "freshness",
+        "internalLessons",
+        "externalProductIdeas",
+        "skepticPass",
+        "receipts"
+      ],
+      "type" : "object"
+    },
+    "SignalReceipt" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "artifactRef" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "authorOrPublisher" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "evidenceRole" : {
+          "enum" : [
+            "primary",
+            "corroborating",
+            "counterSignal",
+            "saturation",
+            "skeptic"
+          ],
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "observedAt" : {
+          "type" : "string"
+        },
+        "publishedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "relevance" : {
+          "type" : "string"
+        },
+        "snippet" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "sourceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "sourceKind" : {
+          "enum" : [
+            "xPost",
+            "xThread",
+            "article",
+            "releaseNote",
+            "repo",
+            "other"
+          ],
+          "type" : "string"
+        },
+        "title" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "url" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "id",
+        "sourceKind",
+        "observedAt",
+        "relevance",
+        "evidenceRole"
+      ],
+      "type" : "object"
+    },
+    "SignalSkepticPass" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "ownedByAnotherAccount" : {
+          "type" : [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason" : {
+          "type" : "string"
+        },
+        "saturationRisk" : {
+          "type" : [
+            "boolean",
+            "null"
+          ]
+        },
+        "verdict" : {
+          "enum" : [
+            "pass",
+            "caution",
+            "reject",
+            "uncertain"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "verdict",
+        "reason"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/floor-run.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "artifacts" : {
+      "items" : {
+        "$ref" : "#\/$defs\/RunArtifactRef"
+      },
+      "type" : "array"
+    },
+    "audit" : {
+      "$ref" : "#\/$defs\/FloorAudit"
+    },
+    "errors" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ErrorEnvelope"
+      },
+      "type" : "array"
+    },
+    "executeRequirements" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ExecuteRequirement"
+      },
+      "type" : "array"
+    },
+    "floorReturn" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/FloorReturn"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "intent" : {
+      "$ref" : "#\/$defs\/FloorIntent"
+    },
+    "nextActions" : {
+      "items" : {
+        "$ref" : "#\/$defs\/FloorNextAction"
+      },
+      "type" : "array"
+    },
+    "run" : {
+      "$ref" : "#\/$defs\/FloorRunInfo"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "team" : {
+      "$ref" : "#\/$defs\/FloorTeam"
+    },
+    "timeline" : {
+      "items" : {
+        "$ref" : "#\/$defs\/FloorTimelineEvent"
+      },
+      "type" : "array"
+    },
+    "warnings" : {
+      "items" : {
+        "type" : "string"
+      },
+      "type" : "array"
+    },
+    "workerLanes" : {
+      "items" : {
+        "$ref" : "#\/$defs\/FloorWorkerLane"
+      },
+      "type" : "array"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "run",
+    "intent",
+    "team",
+    "workerLanes",
+    "floorReturn",
+    "nextActions",
+    "artifacts",
+    "timeline",
+    "executeRequirements",
+    "warnings",
+    "errors",
+    "audit"
+  ],
+  "title" : "FloorRun",
+  "type" : "object"
+}

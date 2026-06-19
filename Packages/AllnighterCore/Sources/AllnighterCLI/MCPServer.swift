@@ -240,6 +240,13 @@ struct MCPServer {
             }
             let result = AllnighterCLI.specResult(run, runtime: runtime, detail: args["detail"] as? String)
             respond(id: id, result: toolText(result.summary, structured: AllnighterCLI.jsonString(result)))
+        case "floor_show":
+            let ref = (args["run"] as? String) ?? "latest"
+            guard let run = AllnighterCLI.resolveRun(ref) else {
+                return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+            }
+            respond(id: id, result: toolText("Floor \(run.id) · \(run.status.rawValue)",
+                                             structured: AllnighterCLI.floorRunJSONString(run)))
         case "thread_send":
             let outcome = await MCPThreadSendHandlers.runSend(args: args, runtime: runtime)
             switch outcome {

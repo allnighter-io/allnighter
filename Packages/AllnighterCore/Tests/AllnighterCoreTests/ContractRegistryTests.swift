@@ -33,7 +33,7 @@ final class ContractRegistryTests: XCTestCase {
             "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
             "thread send", "thread get", "thread status",
-            "team", "show", "spec", "history", "export", "dev export-contracts", "serve",
+            "team", "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
             "pending add", "pending list", "pending show", "pending submit", "pending edit",
             "pending reorder", "pending cancel", "pending run",
             "mcp serve",
@@ -49,7 +49,7 @@ final class ContractRegistryTests: XCTestCase {
             "skills_list", "skills_show", "skills_duplicate", "skills_save", "skills_delete",
             "team_preflight",
             "team_start", "team_status", "team_result", "team_cancel",
-            "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get",
+            "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get", "floor_show",
             "thread_send", "thread_get", "thread_status",
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
