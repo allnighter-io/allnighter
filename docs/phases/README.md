@@ -1,7 +1,7 @@
 # Allnighter - Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-06-18
+Updated: 2026-06-19
 
 ## Purpose
 
@@ -30,6 +30,7 @@ otherwise.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Language_Cutover.md`](Language_Cutover.md) | **DONE** (CUT-S00–S06, 2026-06-18; check.sh green) | Hard, no-alias rename to the locked vocabulary (Chat / Delegate "Send to team" / Execute; Team; Code/Design/Copy + Signal; effort = model reasoning level). Landed: craft Build→Code, Fan out→Send to team, effort→worker-count gating ripped out, Fanout_Team_Catalog→Team_Catalog. Stays as the canonical word list/SSOT. |
+| [`Execution_Team_Source_Gate.md`](Execution_Team_Source_Gate.md) | **CODE RED gate** - top active enforcement spec | Mixed-source teams are for judgment. Teams with `posture == execute` or `mutating == true` must resolve to one source/driver before preflight, Project dispatch, Pending run, CLI/MCP, or GUI Execute can start mutating work. Blocks new mutating team-run surfaces until Core/dispatch enforcement lands. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft product/implementation spec | Send to team as the discoverable delegation surface: Team Card projection, Signal/Code/Design/Copy families, Project Manager recommendations, direct team send, and Execute approval for mutating work. |
 | [`Team_Run_Floor.md`](Team_Run_Floor.md) | Draft backend/product spec | The inspectable Floor for every team run: worker lanes, durable per-worker artifacts, typed Return/Insight, receipts, timeline, richer next actions, and Execute requirements. |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
@@ -66,22 +67,22 @@ founder may reprioritize; the dependency logic is what matters.
    landed on `feat/design-chain`; full `check.sh` green. The locked vocabulary
    (Chat / Delegate "Send to team" / Execute; Team; Code/Design/Copy + Signal;
    effort = model reasoning level) is now the codebase reality. **Next up is step 2.**
-2. **Project spine Core** — `Project_Spine_And_Project_Manager.md` slices
-   **PRJ-S00–S06** (CODE RED): Project models, ProjectStore, context packet, thread
-   + Pending binding repair/forward schema, Project worker readiness, and Project-scoped
-   send/execute. This is the durable floor under runs, Pending, proposals, and work
-   orders; it is pure Core with no MCP dependency, so it goes first after the
-   cutover. Nothing else is safe without it.
-3. **MCP contract discipline (gate before any new CLI/MCP surface)** —
+2. **Execution team source gate** — `Execution_Team_Source_Gate.md` **ETS-S01–S04**
+   (CODE RED): mixed-source teams stay legal for judgment, but mutating teams and
+   `execute` posture must resolve to one source/driver before any worker spawn.
+   This gates Project dispatch continuation, Send-to-team mutating cards, Pending
+   run execution, and external-agent mutating team tools.
+3. **Project spine continuation** — `Project_Spine_And_Project_Manager.md`
+   **PRJ-S07–S13**: Project CLI foundation, Manager chat, proposal engine,
+   approval/work-order, handoff/reveal/dispatch, return verification, and MCP
+   Project tools. PRJ-S00–S06 are built; PRJ-S11 dispatch must satisfy the
+   execution source gate before invoking a worker.
+4. **MCP contract discipline (gate before any new CLI/MCP surface)** —
    `Agent_First_MCP_And_Messaging_Workflows.md` § MCP Solidity Plan **M-A** (schemas
    for every tool), **M-C** (exit codes + error catalog), **M-B** (CLI<->MCP parity
    proof). Establish this standard before building new agent surfaces so they are
    built to it, not retrofitted. The Project doc already depends on the shared error
-   envelope + exit codes, so this lands alongside / just before step 4.
-4. **Project CLI + Manager + dispatch/verify** — `Project_Spine_...` **PRJ-S07–S13**
-   (CLI Project foundation, Manager chat, proposal engine, approval/work-order,
-   handoff/dispatch, verification, MCP Project tools). Built on steps 2–3 so
-   `project_*` commands and tools meet the hardened contract discipline.
+   envelope + exit codes, so this lands alongside / just before Project CLI/MCP work.
 5. **Composer File References** — `Composer_File_References.md` **FR-S00–S07**
    (Core resolver/catalog, CLI/MCP `--ref`, send-time audit, prompt renderer, Mac
    `@` palette, chips, reveal, and delayed-dispatch revalidation). This is the
@@ -173,6 +174,10 @@ founder may reprioritize; the dependency logic is what matters.
   shared or multi-lane skills; similar roles (Skeptic, Contrarian, etc.) ship as
   separate lane-sharpened built-ins — duplicate and tune when a hat belongs in
   another lane.
+- Mixed-source teams are for judgment. Teams with `posture == execute` or
+  `mutating == true` must resolve to one source/driver before any mutating spawn;
+  see `Execution_Team_Source_Gate.md`. Execution lane serialization is collision
+  control, not permission to run mixed-source execution.
 - Settings navigation is **lane-first**: CLIs (lane-agnostic), then BUILD /
   DESIGN / COPY, each with Teams and Skills — not noun-first Teams | Skills with
   lane filters inside. Default: health badge → CLIs; composer Manage team → that
@@ -238,6 +243,7 @@ Open questions:
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Send to team, Delegate surface, Team Cards, Signal/Code/Design/Copy team map | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |
 | Team run Floor, inspectable worker lanes, worker artifacts, Signal Insights, run receipts | `Team_Run_Floor.md` + `CLI_Implementation_Contract.md` |
+| Execution teams, mutating team runs, dispatch/source safety | `Execution_Team_Source_Gate.md` + `Project_Spine_And_Project_Manager.md` |
 | Projects, local repo/folder roots, Project Manager chat, project-scoped threads/runs/pending/dispatch | `Project_Spine_And_Project_Manager.md` |
 | Next-item proposals, execution queue, approval gates, worker handoffs, proof verification | `Project_Spine_And_Project_Manager.md` + `docs/operations/Execution-Playbook.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` (historical cleanup: `docs/archive/phases/Team_First_Vocabulary_Cleanup.md`) |

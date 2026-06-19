@@ -35,6 +35,9 @@ Root docs are the source of truth. Read the relevant one before changing that ar
   **Code · Design · Copy** (+ **Signal** scout); machine layer is one `team.run`
   primitive (posture + `mutating`). Retired: `Fan out`, `Build`-as-craft,
   `Execute`-as-mode, "Move Card", `lane`=single-run. Hard cutover, no aliases.
+- **Execution team safety gate (read before team/run/dispatch changes):**
+  `docs/phases/Execution_Team_Source_Gate.md` — mixed-source teams are for
+  judgment; mutating/`execute` teams must resolve to one CLI/source before spawn.
 - **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
   (originally called Council: one prompt → parallel CLIs → plan), plus
   `docs/mvp/00_MVP_Architecture.md`.
@@ -61,6 +64,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Projects, repo/folder roots, Project Manager chat/proposals | `docs/phases/Project_Spine_And_Project_Manager.md` |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Work-order vocabulary, model/skill/worker/team model | `docs/phases/Work_Order_Team_Model.md` |
+| Execution teams, mutating team runs, dispatch/source safety | `docs/phases/Execution_Team_Source_Gate.md` + `docs/phases/Project_Spine_And_Project_Manager.md` |
 | CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
@@ -122,6 +126,8 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
   council / master-plan words, worktree, subprocess).
 - CLI, GUI, MCP, and iOS must share the same team-run contract; do not invent
   parallel JSON around `TeamRunJSON`.
+- Judgment teams may mix sources; mutating/`execute` teams must resolve to one
+  CLI/source and pass `Execution_Team_Source_Gate.md` before dispatch.
 - Forward Mac app work targets a standalone Dock app plus explicit background
   coordinator. The menu bar is status/quick controls, not the product shell.
 - Mac app is unsandboxed by design; still minimize privilege surface and document
