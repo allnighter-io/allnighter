@@ -9,8 +9,6 @@ public struct PromptProfile: Codable, Sendable, Equatable, Identifiable {
         case planWriter = "plan_writer"
         case reviewLens = "review_lens"
         case finalSpec = "final_spec"
-        case executionDispatch = "execution_dispatch"
-        case returnReview = "return_review"
     }
     public var id: String
     public var displayName: String
@@ -29,8 +27,7 @@ public struct PromptProfile: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// What a stage consumes. A **closed** enum (no free-form graph); RB5 adds
-/// `executionReturn`/`outcomeScore`.
+/// What a stage consumes. A **closed** enum (no free-form graph).
 public enum InputSelector: String, Codable, Sendable, CaseIterable {
     case founderPrompt = "founder_prompt"
     case workerAnswers = "worker_answers"
@@ -38,8 +35,6 @@ public enum InputSelector: String, Codable, Sendable, CaseIterable {
     case draftPlan = "draft_plan"
     case reviews
     case finalSpec = "final_spec"
-    case executionReturn = "execution_return"
-    case outcomeScore = "outcome_score"
 }
 
 /// Structured rule telling the final-spec stage how to treat reviews.
@@ -125,9 +120,9 @@ public struct WorkflowStage: Codable, Sendable, Equatable, Identifiable {
 }
 
 /// A named binding of workers, synthesis config, and the optional review/
-/// final-spec/dispatch stages. Extends `TeamPreset` (seats + synthesis) with
-/// `stages`. The only valid v1 stage order:
-/// panel_fanout -> analysis -> plan -> review_fanout? -> final_spec? -> handoff?
+/// final-spec stages. Extends `TeamPreset` (seats + synthesis) with `stages`.
+/// The only valid v1 stage order:
+/// panel_fanout -> analysis -> plan -> review_fanout? -> final_spec?
 public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var displayName: String
@@ -175,24 +170,19 @@ public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
     }
 
     /// Validates the fixed v1 order. Panel + analysis + plan are implicit (driven
-    /// by seats/synthesis); `stages` may add review(s) then at most one final_spec
-    /// then at most one dispatch, in that order.
+    /// by seats/synthesis); `stages` may add review(s) then at most one final_spec.
     public func validate() throws {
-        var seenReview = false, seenFinal = false, seenDispatch = false
+        var seenReview = false, seenFinal = false
         for stage in stages {
             switch stage.purpose {
-            case .analysis, .plan, .returnReview, .outcomeScore, .board:
+            case .analysis, .plan, .board:
                 throw ValidationError.unknownStageOrder("\(stage.purpose.rawValue) is not a configurable workflow stage")
             case .review:
-                if seenFinal || seenDispatch { throw ValidationError.unknownStageOrder("review after final/dispatch") }
+                if seenFinal { throw ValidationError.unknownStageOrder("review after final spec") }
                 seenReview = true
             case .finalSpec:
-                if seenDispatch { throw ValidationError.unknownStageOrder("final spec after dispatch") }
                 if seenFinal { throw ValidationError.unknownStageOrder("multiple final-spec stages") }
                 seenFinal = true
-            case .dispatch:
-                if seenDispatch { throw ValidationError.unknownStageOrder("multiple dispatch stages") }
-                seenDispatch = true
             }
         }
         _ = seenReview

@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 import AppKit
-import ImageIO
 import AllnighterCore
 import AllnighterEngine
 
@@ -49,22 +48,6 @@ final class AppModel {
 
     // Review board / final spec (RB2/RB3)
     private(set) var isReviewing = false
-
-    // Dispatch (RB4)
-    var dispatchWorkingDirectory: String = ""
-    var dispatchWorkerId: String?
-    var dispatchRevealOnly: Bool = false
-    private(set) var isDispatching = false
-
-    // Return review (RB5)
-    private(set) var isReturnReviewing = false
-
-    // Design council (Lane 2): attach a screenshot, fan out to image engines.
-    var designMode = false
-    var designScreenshotURL: URL?
-    var designTargetShape: TargetShape = .desktop
-    var designPersonaIds: [String] = SkillCatalog.defaultDesignPanelSkillIDs
-    private(set) var isDesigning = false
 
     private let registry: DriverRegistry
     private(set) var configurationSource: ConfigurationSource
@@ -376,111 +359,6 @@ final class AppModel {
 
     var finalSpec: FinalSpecPayload? {
         displayRun?.latestStage(.finalSpec)?.payload?.finalSpec
-    }
-
-    // MARK: - Direct dispatch (RB4)
-
-    var dispatches: [StageOutput] {
-        (displayRun?.stages ?? []).filter { $0.purpose == .dispatch }
-    }
-
-    /// Can we hand this run to an executor? (a plan or final spec exists)
-    var canDispatch: Bool { (displayRun?.plan) != nil }
-
-    /// "Implement This": build the brief and dispatch to the chosen worker in the
-    /// chosen working directory. Doctor-gated; reveal-only writes artifacts without
-    /// invoking. Never creates worktrees/commits.
-    func dispatch() {
-        guard !isDispatching, let current = run, current.plan != nil else { return }
-        let dir = dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !dir.isEmpty else { return }
-        let workerId = dispatchWorkerId ?? planWriterModel?.id
-        guard let workerId, let model = models.first(where: { $0.id == workerId }),
-              let brief = BriefBuilder.build(run: current, executionWorkerId: workerId, workingDirectory: dir) else { return }
-
-        let manifest = registry.manifest(for: model)
-        let index = current.stages.filter { $0.purpose == .dispatch }.count + 1
-        let revealOnly = dispatchRevealOnly
-        let snapshotRunId = current.id
-
-        isDispatching = true
-        // Repo write lock: never run two mutating agents in one folder, even across
-        // older debug surfaces.
-        let lockKey = RunWriteLock.key(repoRoot: dir)
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard await RunWriteLockRegistry.shared.acquire(lockKey) else {
-                // Another mutating run already holds this folder's write lock.
-                self.isDispatching = false
-                return
-            }
-            defer { self.isDispatching = false }
-            // Doctor gate: use a cached healthy result, else diagnose now.
-            var healthy = self.diagnosis(for: workerId)?.isHealthy ?? false
-            if self.diagnosis(for: workerId) == nil {
-                let d = await Doctor(commandRunner: SubprocessCommandRunner()).diagnose(model, manifest: manifest)
-                self.diagnoses[workerId] = d
-                healthy = d.isHealthy
-            }
-            let artifactsDir = (try? self.store.runDirectory(forRunId: snapshotRunId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(snapshotRunId)")
-            let dispatcher = Dispatcher(workerRunner: makeWorkerRunner())
-            let stage = await dispatcher.dispatch(
-                brief: brief, worker: model, manifest: manifest, healthy: healthy,
-                revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
-            )
-            await RunWriteLockRegistry.shared.release(lockKey)
-            guard var updated = self.run else { return }
-            updated.stages.append(stage)
-            self.run = updated
-            self.persist()
-        }
-    }
-
-    // MARK: - Return review + scoring + scorecards (RB5)
-
-    var returnReview: ReturnReviewPayload? {
-        displayRun?.latestStage(.returnReview)?.payload?.returnReview
-    }
-    var outcomeScore: EvalScore? {
-        displayRun?.latestStage(.outcomeScore)?.payload?.outcomeScore
-    }
-
-    /// Model scorecards aggregated on demand from local run history.
-    var scorecards: [WorkerScorecard] { ScorecardBuilder.build(from: history) }
-
-    /// Evaluate the latest executor return: advisory return review + an outcome
-    /// score against the spec's acceptance criteria. Closes the control loop.
-    func runReturnReview() {
-        guard !isReturnReviewing, let current = run,
-              let dispatch = current.stages.last(where: { $0.purpose == .dispatch }),
-              let ret = dispatch.payload?.executionReturn, ret.status == .done,
-              let planWriter = planWriterModel, let manifest = registry.manifest(for: planWriter) else { return }
-        let spec = current.latestStage(.finalSpec)?.payload?.markdown ?? current.plan ?? ""
-        let criteria = AcceptanceCriteria.extract(from: spec)
-
-        isReturnReviewing = true
-        runTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            let runner = makeWorkerRunner()
-            let reviewStage = await ReturnReviewer(workerRunner: runner)
-                .review(run: current, executionReturn: ret, reviewer: planWriter, manifest: manifest, profile: BuiltInProfiles.returnReview)
-            guard var updated = self.run else { self.isReturnReviewing = false; return }
-            updated.stages.append(reviewStage)
-
-            if !criteria.isEmpty {
-                let rubric = Rubric.fromAcceptanceCriteria(criteria)
-                let evalCase = EvalCase(id: current.id, prompt: current.prompt, rubric: rubric)
-                let score = await EvalHarness(workerRunner: runner).score(
-                    artifact: ret.transcriptExcerpt ?? "", mode: "execution",
-                    evalCase: evalCase, judge: planWriter, manifest: manifest,
-                    config: EvalConfig(planWriterModelId: planWriter.id, passes: 1)
-                )
-                updated.stages.append(StageOutput(id: UUID().uuidString, purpose: .outcomeScore, producedByWorkerId: planWriter.id, status: .done, payload: .outcomeScore(score)))
-            }
-            self.run = updated
-            self.persist()
-            self.isReturnReviewing = false
-        }
     }
 
     // MARK: - Derived views
@@ -886,16 +764,9 @@ final class AppModel {
 
 }
 
-// MARK: - Design council (Lane 2)
+// MARK: - Model catalog (Bench roster backend)
 
 extension AppModel {
-    /// Workers whose CLI can generate a design image headlessly (the design seats).
-    var imageWorkers: [Model] {
-        models.filter(\.enabled).filter { registry.manifest(for: $0)?.canGenerateImages == true }
-    }
-
-    // MARK: - Model catalog (Bench roster backend)
-
     func reloadModelsFromCatalog() {
         models = ModelCatalog.resolvedModels(registry: registry)
         reloadPresets()
@@ -916,207 +787,5 @@ extension AppModel {
     func deleteCustomModel(modelId: String) throws {
         try ModelCatalog.deleteCustom(modelId)
         reloadModelsFromCatalog()
-    }
-
-    /// The current board (live from members during the run; persisted at settle).
-    var board: BoardPayload? { displayRun?.latestStage(.board)?.payload?.board }
-
-    var canRunDesign: Bool {
-        !isDesigning && !isRunning && !imageWorkers.isEmpty && !designPersonaIds.isEmpty &&
-        (!prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || designScreenshotURL != nil)
-    }
-
-    func attachScreenshot(_ url: URL) {
-        designScreenshotURL = url
-        designTargetShape = inferredTargetShape(from: url) ?? designTargetShape
-    }
-
-    func clearScreenshot() { designScreenshotURL = nil }
-
-    /// The run folder on disk (idempotent create).
-    func runFolderURL(for run: TeamRun) -> URL {
-        (try? store.runDirectory(forRunId: run.id)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(run.id)")
-    }
-
-    /// Absolute URL of a seat's generated image, if it rendered.
-    func imageURL(forSeat workerId: String) -> URL? {
-        guard let run = displayRun, let member = run.workerAnswer(workerId: workerId),
-              member.status == .done, let rel = member.output, !rel.isEmpty else { return nil }
-        return runFolderURL(for: run).appendingPathComponent(rel)
-    }
-
-    /// The "before" screenshot URL (persisted path at settle, else the attachment).
-    var screenshotURL: URL? {
-        if let run = displayRun, let rel = run.latestStage(.board)?.payload?.board?.screenshotPath {
-            return runFolderURL(for: run).appendingPathComponent(rel)
-        }
-        return designScreenshotURL
-    }
-
-    func designPersona(forSeat workerId: String) -> String {
-        displayRun?.workers.first { $0.id == workerId }?.skillId ?? "minimal"
-    }
-
-    /// Build the design panel: each selected persona on an image worker
-    /// (round-robin; a worker may fill several persona seats — self-fusion).
-    private func designSeats() -> [Worker] {
-        let imgs = imageWorkers
-        guard !imgs.isEmpty else { return [] }
-        var perWorker: [String: Int] = [:]
-        return designPersonaIds.enumerated().map { i, persona in
-            let model = imgs[i % imgs.count]
-            let idx = perWorker[model.id, default: 0]
-            perWorker[model.id] = idx + 1
-            return Worker(id: "\(model.id)#\(idx)", modelId: model.id, instanceIndex: idx, skillId: persona)
-        }
-    }
-
-    /// Attach a screenshot, fan out to the image engines × personas, reveal the
-    /// board. The board is the first truth surface — no AI verdict precedes it.
-    func runDesign() {
-        guard canRunDesign else { return }
-        let seats = designSeats()
-        guard !seats.isEmpty else { return }
-        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        isDesigning = true
-        historySelection = nil
-        lastSavedDirectory = nil
-        let runId = UUID().uuidString
-        let runDir = (try? store.runDirectory(forRunId: runId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(runId)")
-        try? FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
-
-        // Copy the attached screenshot into the run folder (run-relative truth).
-        var relScreenshot: String?
-        var absScreenshot: String?
-        if let src = designScreenshotURL {
-            let dest = runDir.appendingPathComponent("screenshot.png")
-            try? FileManager.default.removeItem(at: dest)
-            if (try? FileManager.default.copyItem(at: src, to: dest)) != nil {
-                relScreenshot = "screenshot.png"
-                absScreenshot = dest.path
-            }
-        }
-
-        let request = DesignRequest(prompt: trimmed, personaIds: designPersonaIds,
-                                    screenshotPath: relScreenshot, targetShape: designTargetShape)
-        run = TeamRun(
-            id: runId, prompt: trimmed, status: .draft, origin: .gui, presetId: "design_board",
-            workers: seats, workerAnswers: seats.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
-            createdAt: Date()
-        )
-
-        let coordinator = DesignCoordinator(
-            imageRunner: DesignImageRunner(commandRunner: SubprocessCommandRunner()),
-            registry: registry
-        )
-        let stream = coordinator.events
-        let snapshotModels = models
-
-        runTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            let consumer = Task { @MainActor [weak self] in
-                for await event in stream { self?.apply(event) }
-            }
-            let settled = await coordinator.generate(
-                request: request, teamWorkers: seats, models: snapshotModels,
-                runDir: runDir, screenshotAbsolutePath: absScreenshot, runId: runId
-            )
-            await consumer.value
-            self.run = settled
-            self.persist()
-            self.isDesigning = false
-        }
-    }
-
-    /// Record the human's pick onto the latest board stage (logged for taste memory).
-    func pickOption(workerId: String, rationale: String? = nil) {
-        guard historySelection == nil, var current = run,
-              let stageIndex = current.stages.lastIndex(where: { $0.purpose == .board }),
-              var board = current.stages[stageIndex].payload?.board,
-              let option = board.options.first(where: { $0.workerId == workerId }), option.hasImage else { return }
-        let rejected = board.options.filter { $0.workerId != workerId && $0.hasImage }.map(\.workerId)
-        board.chosen = ChosenOption(workerId: workerId, persona: option.persona, rationale: rationale,
-                                    rejectedWorkerIds: rejected, chosenAt: Date())
-        current.stages[stageIndex].payload = .board(board)
-        run = current
-        persist()
-    }
-
-    private func inferredTargetShape(from url: URL) -> TargetShape? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
-              let w = props[kCGImagePropertyPixelWidth] as? Double,
-              let h = props[kCGImagePropertyPixelHeight] as? Double, h > 0 else { return nil }
-        let aspect = w / h
-        if aspect < 0.6 { return .mobile }
-        if aspect > 1.8 { return .desktop }
-        return nil
-    }
-
-    // MARK: - Build this (Design2)
-
-    /// Headless workers, image-readers (Claude Code, Codex) first — the build
-    /// implementer must see the chosen image.
-    var buildWorkers: [Model] {
-        models.filter { registry.manifest(for: $0)?.kind == .headlessCLI }
-            .sorted { (registry.manifest(for: $0)?.canReadImages == true ? 0 : 1)
-                    < (registry.manifest(for: $1)?.canReadImages == true ? 0 : 1) }
-    }
-
-    func canReadImages(_ workerId: String) -> Bool {
-        guard let m = models.first(where: { $0.id == workerId }) else { return false }
-        return registry.manifest(for: m)?.canReadImages == true
-    }
-
-    var canBuildChosen: Bool {
-        board?.chosen != nil && !isDispatching &&
-        !dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !buildWorkers.isEmpty
-    }
-
-    /// "Build this": hand the chosen image + the redesign framing to a coding agent
-    /// (reuses RB4 dispatch). The agent restyles the existing code to match.
-    func buildChosen() {
-        guard historySelection == nil, canBuildChosen, let current = run, let chosen = board?.chosen else { return }
-        let dir = dispatchWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-        let workerId = dispatchWorkerId ?? buildWorkers.first?.id
-        guard let workerId, let model = models.first(where: { $0.id == workerId }),
-              let brief = DesignBriefBuilder.build(run: current, chosenSeatId: chosen.workerId,
-                                                   executionWorkerId: workerId, workingDirectory: dir,
-                                                   runFolder: runFolderURL(for: current)) else { return }
-
-        let manifest = registry.manifest(for: model)
-        let index = current.stages.filter { $0.purpose == .dispatch }.count + 1
-        let revealOnly = dispatchRevealOnly
-        let snapshotRunId = current.id
-
-        isDispatching = true
-        // Repo write lock: a design build runs an agent in the repo too.
-        let lockKey = RunWriteLock.key(repoRoot: dir)
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard await RunWriteLockRegistry.shared.acquire(lockKey) else {
-                self.isDispatching = false
-                return
-            }
-            defer { self.isDispatching = false }
-            var healthy = self.diagnosis(for: workerId)?.isHealthy ?? false
-            if self.diagnosis(for: workerId) == nil {
-                let d = await Doctor(commandRunner: SubprocessCommandRunner()).diagnose(model, manifest: manifest)
-                self.diagnoses[workerId] = d
-                healthy = d.isHealthy
-            }
-            let artifactsDir = (try? self.store.runDirectory(forRunId: snapshotRunId)) ?? AllnighterPaths.runs.appendingPathComponent("run_\(snapshotRunId)")
-            let dispatcher = Dispatcher(workerRunner: makeWorkerRunner())
-            let stage = await dispatcher.dispatch(
-                brief: brief, worker: model, manifest: manifest, healthy: healthy,
-                revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
-            )
-            await RunWriteLockRegistry.shared.release(lockKey)
-            guard var updated = self.run else { return }
-            updated.stages.append(stage)
-            self.run = updated
-            self.persist()
-        }
     }
 }

@@ -163,7 +163,7 @@ public enum TeamRunJSONMapper {
     }
 
     /// Only `analysis`/`plan`/`review` are part of the public M1 stage set; RB
-    /// stages (finalSpec/dispatch/returnReview/outcomeScore/board) are filtered out.
+    /// stages (finalSpec/board) are filtered out.
     static func mapStage(_ stage: StageOutput) -> TeamRunJSON.StageInfo? {
         let purpose: TeamRunJSON.StagePurpose
         switch stage.purpose {

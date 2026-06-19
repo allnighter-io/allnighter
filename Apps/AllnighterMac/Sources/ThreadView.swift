@@ -489,8 +489,7 @@ private struct ThreadBoardRow: View {
 
 // MARK: - Mutating run row
 
-/// A mutating run in the repo. Current runs render from the durable `TeamRun`
-/// output; older dispatch-stage records still render from their `ExecutionReturn`.
+/// A mutating run in the repo. Renders from the durable `TeamRun` output.
 private struct ThreadDispatchRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
@@ -500,7 +499,6 @@ private struct ThreadDispatchRow: View {
         guard let runId = turn.runId else { return nil }
         return threads.teamRun(forRunId: runId)
     }
-    private var ret: ExecutionReturn? { threads.executionReturn(runId: turn.runId, stageId: turn.stageId) }
     private var runOutput: String? {
         if let markdown = run?.latestStage(.plan)?.payload?.markdown, !markdown.isEmpty { return markdown }
         return run?.workerAnswers.first { ($0.output ?? "").isEmpty == false }?.output
@@ -554,7 +552,7 @@ private struct ThreadDispatchRow: View {
         case .failed, .timedOut:
             // No durable run/return means a system note such as missing dir,
             // busy write lock, or no worker. Render it honestly.
-            if ret == nil && runOutput == nil {
+            if runOutput == nil {
                 Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The executor failed.")
                     .font(.system(size: 13)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
             } else {
@@ -568,37 +566,7 @@ private struct ThreadDispatchRow: View {
     }
 
     @ViewBuilder private var resultCard: some View {
-        if let ret {
-            VStack(alignment: .leading, spacing: 8) {
-                workingDirRow(ret.workingDirectory)
-                if ret.status == .reveal {
-                    banner(icon: "eye", tint: ALColor.textMuted,
-                           text: "Revealed the brief — not run\(ret.transcriptExcerpt.map { " (\($0))" } ?? "").")
-                } else {
-                    HStack(spacing: 6) {
-                        Image(systemName: ret.status == .done ? "checkmark.seal.fill" : "xmark.octagon.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(ret.status == .done ? ALPalette.green500 : ALPalette.red400)
-                        Text(ret.status == .done ? "Executed" : ret.status.rawValue.capitalized)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(ret.status == .done ? ALColor.textSecondary : ALPalette.red400)
-                        if let diff = ret.diffSummary, !diff.isEmpty {
-                            Text("· \(diff)").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-                        }
-                    }
-                    if let excerpt = ret.transcriptExcerpt, !excerpt.isEmpty {
-                        Text(.init(excerpt))
-                            .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                            .lineSpacing(2).textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-        } else if let runOutput {
+        if let runOutput {
             VStack(alignment: .leading, spacing: 8) {
                 if let workingDir { workingDirRow(workingDir) }
                 HStack(spacing: 6) {
@@ -630,11 +598,4 @@ private struct ThreadDispatchRow: View {
         }
     }
 
-    private func banner(icon: String, tint: Color, text: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(tint)
-            Text(text).font(.system(size: 12.5)).foregroundStyle(ALColor.textMuted)
-                .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
-        }
-    }
 }

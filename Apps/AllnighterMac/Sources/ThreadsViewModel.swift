@@ -410,7 +410,7 @@ final class ThreadsViewModel {
             switch result {
             case .success(let run):
                 settled.status = Self.turnStatus(for: run.status)
-                if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan || $0.purpose == .dispatch }) {
+                if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan }) {
                     settled.stageId = stage.id
                 }
             case .failure(let error):
@@ -433,15 +433,6 @@ final class ThreadsViewModel {
     /// The durable TeamRun behind a board turn (by `runId`), for the board view.
     func teamRun(forRunId runId: String) -> TeamRun? {
         runStore.load(runId: runId)
-    }
-
-    /// The executor's return behind a dispatch turn, for the dispatch row.
-    func executionReturn(runId: String?, stageId: String?) -> ExecutionReturn? {
-        guard let runId, let run = runStore.load(runId: runId) else { return nil }
-        if let stageId, let stage = run.stages.first(where: { $0.id == stageId }) {
-            return stage.payload?.executionReturn
-        }
-        return run.stages.last { $0.purpose == .dispatch }?.payload?.executionReturn
     }
 
     private func appendFailedRun(_ reason: String, kind: ThreadTurnKind, toThreadId threadId: String) {
@@ -824,9 +815,8 @@ final class ThreadsViewModel {
         selectedThreadId = id
     }
 
-    /// CR4d proof: a user instruction + a settled dispatch turn (designer-mock).
-    /// Seeds a durable run carrying a dispatch stage so the row renders the real
-    /// path (turn → runId/stageId → ExecutionReturn).
+    /// CR4d proof: a user instruction + a settled mutating run turn
+    /// (designer-mock). Seeds a durable run carrying normal unified-run output.
     private func seedFixtureDispatch() {
         let id = "fixture-dispatch"
         _ = try? store.create(id: id, title: "Add retry to the upload client", now: Date(),
@@ -835,18 +825,25 @@ final class ThreadsViewModel {
             ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
             ?? models.first?.id ?? "model_claude_code"
 
-        let ret = ExecutionReturn(
-            id: "fixture-exec", executionWorkerId: workerId, workingDirectory: "/Users/you/code/uploader",
-            dispatchIndex: 1, status: .done, exitCode: 0,
-            transcriptExcerpt: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing.",
-            diffSummary: "2 files changed, 47 insertions(+), 6 deletions(-)",
-            startedAt: Date(), finishedAt: Date()
-        )
         var run = TeamRun(id: "fixture-dispatch-run", prompt: "Add retry to the upload client",
-                          status: .complete, origin: .gui, createdAt: Date())
+                          status: .complete, origin: .gui,
+                          workers: [Worker(id: Worker.makeID(modelId: workerId, instanceIndex: 0),
+                                           modelId: workerId, instanceIndex: 0,
+                                           skillId: "first_principles_builder", purpose: .answer)],
+                          workerAnswers: [
+                              WorkerAnswer(
+                                  workerId: Worker.makeID(modelId: workerId, instanceIndex: 0),
+                                  modelId: workerId, status: .done,
+                                  output: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing."
+                              )
+                          ],
+                          createdAt: Date(),
+                          mutating: true)
         run.stages = [StageOutput(
-            id: "fixture-dispatch-stage", purpose: .dispatch, producedByWorkerId: workerId,
-            status: .done, payload: .dispatch(ret), startedAt: Date(), finishedAt: Date()
+            id: "fixture-dispatch-stage", purpose: .plan, producedByWorkerId: workerId,
+            status: .done,
+            payload: .plan(markdown: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing."),
+            startedAt: Date(), finishedAt: Date()
         )]
         _ = try? runStore.save(run, models: models)
 

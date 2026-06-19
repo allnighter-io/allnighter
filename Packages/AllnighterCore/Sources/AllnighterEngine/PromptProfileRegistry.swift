@@ -14,19 +14,9 @@ public enum BuiltInProfiles {
                       purpose: .planWriter, template: SynthesisInstructions.planText, builtIn: true)
     }
 
-    /// Return-review profile (RB5): advisory evaluation of an execution return.
-    public static var returnReview: PromptProfile {
-        PromptProfile(
-            id: "return_review_v1", displayName: "Return Review", purpose: .returnReview,
-            template: "You are evaluating an executor's work against the spec it was given. Be specific and advisory; do not edit the executor's output.",
-            builtIn: true
-        )
-    }
-
-    /// All built-in profiles. RB2 adds `reviewLenses`; RB3 adds `finalSpec`;
-    /// RB5 adds `returnReview`.
+    /// All built-in profiles. RB2 adds `reviewLenses`; RB3 adds `finalSpec`.
     public static var all: [PromptProfile] {
-        [planAnalysis, planWriter] + reviewLenses + [finalSpec, returnReview]
+        [planAnalysis, planWriter] + reviewLenses + [finalSpec]
     }
 }
 

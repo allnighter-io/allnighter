@@ -34,8 +34,6 @@ public enum StageInputBuilder {
                 if let final = run.latestStage(.finalSpec), let md = final.payload?.markdown {
                     sections.append("# Final spec\n\n\(md)")
                 }
-            case .executionReturn, .outcomeScore:
-                break // RB5 assembles these explicitly.
             }
         }
         return sections.joined(separator: "\n\n")

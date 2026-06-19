@@ -94,7 +94,7 @@ public enum RunMarkdown {
             lines.append("")
         }
 
-        // Reviews (RB2), final spec (RB3), return review (RB5) — canonical order.
+        // Reviews (RB2) and final spec (RB3) — canonical order.
         let reviews = run.stages.filter { $0.purpose == .review && $0.status == .done }
         if !reviews.isEmpty {
             lines.append(contentsOf: ["---", "", "## Reviews", ""])
@@ -106,10 +106,6 @@ public enum RunMarkdown {
         if let final = run.latestStage(.finalSpec)?.payload?.markdown {
             lines.append(contentsOf: ["---", "", "## Final Spec", "", final, ""])
         }
-        if let ret = run.latestStage(.returnReview)?.payload?.markdown {
-            lines.append(contentsOf: ["---", "", "## Return Review", "", ret, ""])
-        }
-
         return lines.joined(separator: "\n")
     }
 
