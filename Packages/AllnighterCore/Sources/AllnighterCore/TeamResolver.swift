@@ -22,6 +22,9 @@ public struct ResolvedTeamRun: Sendable, Equatable {
     public var teamDisplayName: String
     public var lane: WorkLane
     public var outputKind: TeamOutputKind
+    /// Carried onto the run so the Floor is self-describing after catalog changes.
+    public var posture: TeamPosture
+    public var mutating: Bool
     public var effort: EffortLevel
     public var answerWorkers: [Worker]
     public var reviewWorkers: [Worker]
@@ -40,14 +43,16 @@ public struct ResolvedTeamRun: Sendable, Equatable {
 
     public init(
         teamPresetId: String, teamDisplayName: String, lane: WorkLane,
-        outputKind: TeamOutputKind, effort: EffortLevel,
+        outputKind: TeamOutputKind, posture: TeamPosture = .propose, mutating: Bool = false,
+        effort: EffortLevel,
         answerWorkers: [Worker] = [], reviewWorkers: [Worker] = [], planWriter: Worker? = nil,
         dissentPolicy: DissentPolicy = .preserveDissent,
         disabledRows: [DisabledRow] = [], warnings: [String] = [],
         isRunnable: Bool = false, blockReason: String? = nil
     ) {
         self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
-        self.lane = lane; self.outputKind = outputKind; self.effort = effort
+        self.lane = lane; self.outputKind = outputKind
+        self.posture = posture; self.mutating = mutating; self.effort = effort
         self.answerWorkers = answerWorkers; self.reviewWorkers = reviewWorkers
         self.planWriter = planWriter; self.dissentPolicy = dissentPolicy
         self.disabledRows = disabledRows
@@ -72,7 +77,7 @@ public enum TeamResolver {
         let effort = requestEffort ?? team.defaultEffort
         var result = ResolvedTeamRun(
             teamPresetId: team.id, teamDisplayName: team.displayName, lane: team.lane,
-            outputKind: team.outputKind, effort: effort
+            outputKind: team.outputKind, posture: team.posture, mutating: team.mutating, effort: effort
         )
 
         // Rule 1: lane must match (reject before running).

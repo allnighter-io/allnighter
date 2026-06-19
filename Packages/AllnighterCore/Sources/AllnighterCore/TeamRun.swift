@@ -29,6 +29,11 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var effort: EffortLevel?
     public var teamDisplayName: String?
     public var outputKind: TeamOutputKind?
+    /// Team posture/mutating captured at run start so the Floor stays self-describing
+    /// after catalog changes. Legacy runs leave `posture` nil (→ unknown) and
+    /// `mutating` false.
+    public var posture: TeamPosture?
+    public var mutating: Bool = false
     /// Non-fatal warnings recorded at run time (one-model self-fusion, fallbacks,
     /// disabled optional rows, admission queueing). Defaulted so legacy persisted
     /// runs (no `warnings` key) still decode.
@@ -53,6 +58,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         effort: EffortLevel? = nil,
         teamDisplayName: String? = nil,
         outputKind: TeamOutputKind? = nil,
+        posture: TeamPosture? = nil,
+        mutating: Bool = false,
         warnings: [String] = [],
         threadId: String? = nil,
         originConversationId: String? = nil,
@@ -73,6 +80,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.effort = effort
         self.teamDisplayName = teamDisplayName
         self.outputKind = outputKind
+        self.posture = posture
+        self.mutating = mutating
         self.warnings = warnings
         self.threadId = threadId
         self.originConversationId = originConversationId

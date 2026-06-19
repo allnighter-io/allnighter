@@ -162,10 +162,12 @@ public actor TeamService {
         let allModels = models
         let lane = resolvedRequest.lane, type = resolvedRequest.type, effort = resolvedRequest.effort
         let teamName = resolved.teamDisplayName, outputKind = resolved.outputKind, warnings = resolved.warnings
+        let posture = resolved.posture, mutating = resolved.mutating
         @Sendable func stamped(_ run: TeamRun) -> TeamRun {
             var r = run
             r.lane = lane; r.type = type; r.effort = effort
             r.teamDisplayName = teamName; r.outputKind = outputKind; r.warnings = warnings
+            r.posture = posture; r.mutating = mutating
             return r
         }
         let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }

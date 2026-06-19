@@ -1,0 +1,173 @@
+import Foundation
+
+// MARK: - Team Run Floor (docs/phases/Team_Run_Floor.md)
+
+/// The **Floor**: the inspectable workroom and receipt for one team run, projected
+/// over a persisted `TeamRun`. A projection — never a second run store. `floor.json`
+/// is derived and regenerable from `run.json` plus artifact metadata, so later
+/// slices (artifacts, timeline, receipts, Execute requirements) add fields
+/// additively without breaking anything. F-S00 fills run/intent/team/workerLanes/
+/// return/nextActions/warnings/errors/audit.
+public struct FloorRun: Codable, Sendable, Equatable {
+    public var schemaVersion: Int
+    public var run: Run
+    public var intent: Intent
+    public var team: Team
+    public var workerLanes: [FloorWorkerLane]
+    public var floorReturn: FloorReturn?
+    public var nextActions: [FloorNextAction]
+    public var warnings: [String]
+    public var errors: [ErrorEnvelope]
+    public var audit: Audit
+
+    public init(schemaVersion: Int = 1, run: Run, intent: Intent, team: Team,
+                workerLanes: [FloorWorkerLane] = [], floorReturn: FloorReturn? = nil,
+                nextActions: [FloorNextAction] = [], warnings: [String] = [],
+                errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
+        self.schemaVersion = schemaVersion
+        self.run = run; self.intent = intent; self.team = team
+        self.workerLanes = workerLanes; self.floorReturn = floorReturn
+        self.nextActions = nextActions; self.warnings = warnings
+        self.errors = errors; self.audit = audit
+    }
+
+    /// Lifecycle of a Floor run, normalized from `RunStatus`.
+    public enum Status: String, Codable, Sendable, CaseIterable {
+        case queued, running, done, failed, timedOut, cancelled, interrupted
+    }
+
+    public struct Run: Codable, Sendable, Equatable {
+        public var id: String
+        public var projectId: String?
+        public var threadId: String?
+        public var status: Status
+        /// The public family / craft (`signal|code|design|copy`). `nil` for legacy
+        /// runs with no recorded lane.
+        public var family: String?
+        public var posture: String?
+        public var mutating: Bool
+        public var origin: String
+        public var originAgent: String?
+        public var createdAt: Date
+        public var reproduceCommand: String?
+
+        public init(id: String, projectId: String? = nil, threadId: String? = nil,
+                    status: Status, family: String? = nil, posture: String? = nil,
+                    mutating: Bool = false, origin: String, originAgent: String? = nil,
+                    createdAt: Date, reproduceCommand: String? = nil) {
+            self.id = id; self.projectId = projectId; self.threadId = threadId
+            self.status = status; self.family = family; self.posture = posture
+            self.mutating = mutating; self.origin = origin; self.originAgent = originAgent
+            self.createdAt = createdAt; self.reproduceCommand = reproduceCommand
+        }
+    }
+
+    /// What the user sent to the team — not what the team later inferred.
+    public struct Intent: Codable, Sendable, Equatable {
+        public var prompt: String
+        public var threadId: String?
+        public init(prompt: String, threadId: String? = nil) {
+            self.prompt = prompt; self.threadId = threadId
+        }
+    }
+
+    public struct Team: Codable, Sendable, Equatable {
+        public var teamId: String?
+        public var displayName: String?
+        public var family: String?
+        public var outputKind: String?
+        public var workerCount: Int
+        public var modelCount: Int
+        public var leadWorkerId: String?
+        public init(teamId: String? = nil, displayName: String? = nil, family: String? = nil,
+                    outputKind: String? = nil, workerCount: Int = 0, modelCount: Int = 0,
+                    leadWorkerId: String? = nil) {
+            self.teamId = teamId; self.displayName = displayName; self.family = family
+            self.outputKind = outputKind; self.workerCount = workerCount
+            self.modelCount = modelCount; self.leadWorkerId = leadWorkerId
+        }
+    }
+
+    public struct Audit: Codable, Sendable, Equatable {
+        public var runJournalPath: String?
+        public var traceId: String?
+        public init(runJournalPath: String? = nil, traceId: String? = nil) {
+            self.runJournalPath = runJournalPath; self.traceId = traceId
+        }
+    }
+}
+
+/// One worker's inspectable lane. Every worker answer produces a lane — including
+/// failed, timed-out, skipped, and cancelled workers (a failure is shown, never
+/// hidden). `summary` is a scan excerpt; the raw answer is the durable artifact
+/// (added in F-S01).
+public struct FloorWorkerLane: Codable, Sendable, Equatable, Identifiable {
+    public enum Purpose: String, Codable, Sendable { case answer, review, lead, stage }
+    public var workerId: String
+    public var skillId: String?
+    public var skillName: String?
+    public var modelId: String
+    public var purpose: Purpose
+    public var status: String
+    public var startedAt: Date?
+    public var finishedAt: Date?
+    public var durationMs: Int?
+    public var exitCode: Int?
+    public var summary: String?
+    public var error: String?
+
+    public var id: String { workerId }
+
+    public init(workerId: String, skillId: String? = nil, skillName: String? = nil,
+                modelId: String, purpose: Purpose, status: String,
+                startedAt: Date? = nil, finishedAt: Date? = nil, durationMs: Int? = nil,
+                exitCode: Int? = nil, summary: String? = nil, error: String? = nil) {
+        self.workerId = workerId; self.skillId = skillId; self.skillName = skillName
+        self.modelId = modelId; self.purpose = purpose; self.status = status
+        self.startedAt = startedAt; self.finishedAt = finishedAt; self.durationMs = durationMs
+        self.exitCode = exitCode; self.summary = summary; self.error = error
+    }
+}
+
+/// The typed return on the Floor's right side. Not always a generic plan — F-S02/
+/// S03 enrich this (Signal becomes `kind: insight`).
+public struct FloorReturn: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        case insight, plan, board, draft, proposal, workOrderDraft, proofPacket, audit, executionReturn
+    }
+    public var kind: Kind
+    public var status: String
+    public var title: String
+    public var summaryMarkdown: String?
+    public var producedByWorkerId: String?
+
+    public init(kind: Kind, status: String, title: String,
+                summaryMarkdown: String? = nil, producedByWorkerId: String? = nil) {
+        self.kind = kind; self.status = status; self.title = title
+        self.summaryMarkdown = summaryMarkdown; self.producedByWorkerId = producedByWorkerId
+    }
+}
+
+/// A typed Floor next action. Mutating actions must route to Execute approval
+/// (F-S05 adds Execute requirements). F-S00 emits the safe, non-mutating set.
+public struct FloorNextAction: Codable, Sendable, Equatable, Identifiable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        case openArtifact, copyReturn, exportFloor, sendTeam, draftCopy, createCodeProposal
+        case createDesignBrief, createWorkOrder, savePending, execute, ignore
+        case monitorExternally, showRun, showHistory
+    }
+    public var id: String
+    public var kind: Kind
+    public var label: String
+    public var requiresExecute: Bool
+    public var mutating: Bool
+    public var command: String?
+    public var disabledReason: String?
+
+    public init(id: String, kind: Kind, label: String, requiresExecute: Bool = false,
+                mutating: Bool = false, command: String? = nil, disabledReason: String? = nil) {
+        self.id = id; self.kind = kind; self.label = label
+        self.requiresExecute = requiresExecute; self.mutating = mutating
+        self.command = command; self.disabledReason = disabledReason
+    }
+}

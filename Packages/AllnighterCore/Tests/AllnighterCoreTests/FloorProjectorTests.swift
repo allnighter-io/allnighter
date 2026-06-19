@@ -1,0 +1,87 @@
+import XCTest
+@testable import AllnighterCore
+
+/// F-S00 Works Test (WT-FLOOR02 + worker visibility): the Floor projects over a
+/// persisted TeamRun — one worker lane per worker (including failures), the run's
+/// family/posture/mutating are surfaced, a failed worker stays visible, and the
+/// projection round-trips through CoreJSON.
+final class FloorProjectorTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_750_000_000)
+
+    private func signalRun(status: RunStatus = .complete) -> TeamRun {
+        let workers = [
+            Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+                   skillId: "signal_source_reader", skillName: "Source Reader", purpose: .answer),
+            Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+                   skillId: "signal_skeptic", skillName: "Signal Skeptic", purpose: .review),
+            Worker(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
+                   skillId: "insight_writer", skillName: "Insight Writer", purpose: .plan)
+        ]
+        let answers = [
+            WorkerAnswer(workerId: "model_grok#0", modelId: "model_grok", status: .done,
+                         output: String(repeating: "x", count: 400), startedAt: now, finishedAt: now, durationMs: 1200),
+            WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .failed,
+                         errorReason: "auth expired", startedAt: now, finishedAt: now),
+            WorkerAnswer(workerId: "model_opus#1", modelId: "model_opus", status: .done,
+                         output: "synthesized", startedAt: now, finishedAt: now)
+        ]
+        let plan = StageOutput(id: "stage_plan", purpose: .plan, status: .done,
+                               payload: .plan(markdown: "# Insight\nNo move today."))
+        return TeamRun(
+            id: "run_floor1", prompt: "interpret this post", status: status, origin: .cli,
+            originAgent: "claude-code", presetId: "signal_post_to_project",
+            workers: workers, workerAnswers: answers, stages: [plan], createdAt: now,
+            lane: .signal, effort: .med, teamDisplayName: "Post-to-Project Signal",
+            outputKind: .insight, posture: .scout, mutating: false, warnings: ["one-model self-fusion"])
+    }
+
+    func testWorkerLaneCountEqualsWorkerCount() {
+        let floor = FloorProjector.project(signalRun())
+        XCTAssertEqual(floor.workerLanes.count, 3)
+        XCTAssertEqual(Set(floor.workerLanes.map(\.workerId)),
+                       ["model_grok#0", "model_opus#0", "model_opus#1"])
+    }
+
+    func testRunCarriesFamilyPostureMutating() {
+        let floor = FloorProjector.project(signalRun(), reproduceCommand: "alln team ...")
+        XCTAssertEqual(floor.run.family, "signal")
+        XCTAssertEqual(floor.run.posture, "scout")
+        XCTAssertFalse(floor.run.mutating)
+        XCTAssertEqual(floor.run.status, .done)
+        XCTAssertEqual(floor.run.reproduceCommand, "alln team ...")
+        XCTAssertEqual(floor.team.outputKind, "insight")
+        XCTAssertEqual(floor.team.leadWorkerId, "model_opus#1")   // the .plan worker is the lead
+        XCTAssertEqual(floor.team.modelCount, 2)                   // grok + opus
+    }
+
+    func testFailedWorkerStaysVisible() {
+        let floor = FloorProjector.project(signalRun())
+        let failedLane = floor.workerLanes.first { $0.workerId == "model_opus#0" }
+        XCTAssertEqual(failedLane?.status, "failed")
+        XCTAssertEqual(failedLane?.error, "auth expired")
+        // And it surfaces as a sourced error envelope.
+        XCTAssertTrue(floor.errors.contains { $0.code == "WORKER_FAILED" && $0.workerId == "model_opus#0" })
+    }
+
+    func testReturnIsTypedInsightWithSummary() {
+        let floor = FloorProjector.project(signalRun())
+        XCTAssertEqual(floor.floorReturn?.kind, .insight)
+        XCTAssertEqual(floor.floorReturn?.producedByWorkerId, "model_opus#1")
+        XCTAssertEqual(floor.floorReturn?.summaryMarkdown, "# Insight\nNo move today.")
+        // The done worker's lane carries a scan excerpt (truncated), not the full answer.
+        let reader = floor.workerLanes.first { $0.workerId == "model_grok#0" }
+        XCTAssertEqual(reader?.summary?.hasSuffix("…"), true)
+    }
+
+    func testRoundTripsThroughCoreJSON() throws {
+        let floor = FloorProjector.project(signalRun(), runJournalPath: "/runs/run_floor1/run.json")
+        let data = try CoreJSON.encode(floor)
+        let back = try CoreJSON.decode(FloorRun.self, from: data)
+        XCTAssertEqual(back, floor)
+    }
+
+    func testActiveRunProjectsAsRunning() {
+        let floor = FloorProjector.project(signalRun(status: .planning))
+        XCTAssertEqual(floor.run.status, .running)
+    }
+}
