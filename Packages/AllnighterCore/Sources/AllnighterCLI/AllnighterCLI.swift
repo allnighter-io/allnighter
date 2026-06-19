@@ -239,7 +239,11 @@ struct AllnighterCLI {
     static func runDoctor(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         let full = opts.flag("full")
-        let result = await doctorResult(runtime, full: full)
+        let sourceId = opts.value("agent")
+        if let sourceId, runtime.registry.manifest(id: sourceId) == nil {
+            fail(code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
+        }
+        let result = await doctorResult(runtime, full: full, sourceId: sourceId)
         if opts.flag("json") {
             print(jsonString(result))   // exactly one JSON object, no prose
         } else {
@@ -277,12 +281,14 @@ struct AllnighterCLI {
 
     /// Builds a `DoctorResult` — shared by `alln doctor` and the MCP `doctor` tool
     /// so both project the same contract.
-    static func doctorResult(_ runtime: ToolRuntime, full: Bool) async -> DoctorResult {
+    static func doctorResult(_ runtime: ToolRuntime, full: Bool, sourceId: String? = nil) async -> DoctorResult {
+        let manifests = sourceId.map { id in runtime.registry.all.filter { $0.id == id } } ?? runtime.registry.all
         let modelLabels = ModelCatalog.probeModelLabels(registry: runtime.registry)
+        let labels = sourceId.map { id in modelLabels.filter { $0.key == id } } ?? modelLabels
         // CLI runs in the user's terminal, so resolve interactively (-lic) to see
         // the same PATH the terminal does (Track 0.1).
         let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
-            .probeAll(runtime.registry.all, models: modelLabels, now: Date(), smoke: full)
+            .probeAll(manifests, models: labels, now: Date(), smoke: full)
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
@@ -293,7 +299,19 @@ struct AllnighterCLI {
             coordinator: ResidentCoordinatorProbe().doctorCoordinator(),
             full: full
         )
-        return DoctorReport.build(models: runtime.models, manifests: runtime.registry.all, records: records, inputs: inputs)
+        var result = DoctorReport.build(
+            models: runtime.models,
+            manifests: manifests,
+            records: records,
+            inputs: inputs
+        )
+        if let sourceId {
+            let prefix = "source.\(sourceId)."
+            let global = Set(["binaryVersion", "docsVersion", "configDir", "runsDir", "sources"])
+            result.checks = result.checks.filter { global.contains($0.name) || $0.name.hasPrefix(prefix) }
+            result.models = result.models.filter { $0.sourceId == sourceId }
+        }
+        return result
     }
 
     private static func ensureWritable(_ url: URL) -> Bool {

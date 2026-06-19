@@ -30,6 +30,7 @@ Flags:
 - `--quiet` — Failed checks only.
 - `--full` — Deeper probes, bounded timeout.
 - `--auto-fix` — Apply safe Allnighter-owned fixes.
+- `--agent <sourceId>` — Limit probes and checks to one source (e.g. cursor_agent).
 
 Output schema: `doctorResult`.
 
@@ -816,6 +817,7 @@ Flags:
 | `DOCTOR_CHECK_FAILED` | no | yes | Run `alln doctor --json`. |
 | `SOURCE_NOT_FOUND` | yes | no | Run `alln doctor --json`; add/configure the missing source. |
 | `SOURCE_AUTH_EXPIRED` | yes | no | Re-authenticate the named source. |
+| `SOURCE_KEYCHAIN_UNAVAILABLE` | yes | yes | Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`. |
 | `MODEL_UNAVAILABLE` | no | yes | Run `alln models --json`; pick an on-Bench ready model or enable one. |
 | `DEFAULT_TEAM_INVALID` | yes | no | Run `alln team show --json`; fix unavailable workers. |
 | `WORKER_FAILED` | no | yes | Inspect `workerId` and source error; failed worker remains visible. |

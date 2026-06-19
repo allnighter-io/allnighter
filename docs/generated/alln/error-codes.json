@@ -45,6 +45,15 @@
     "ruleId" : "source.auth.expired"
   },
   {
+    "agentAction" : "Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`.",
+    "code" : "SOURCE_KEYCHAIN_UNAVAILABLE",
+    "exitClass" : "operational",
+    "explain" : "The source CLI could not read credentials from the macOS Keychain (SecItemCopyMatching failed). Common when Allnighter or the CLI is launched outside Terminal. Open the provider app, complete sign-in, then re-probe.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "source.auth.keychain"
+  },
+  {
     "agentAction" : "Run `alln models --json`; pick an on-Bench ready model or enable one.",
     "code" : "MODEL_UNAVAILABLE",
     "exitClass" : "operational",

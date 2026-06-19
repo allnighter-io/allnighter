@@ -565,7 +565,9 @@
   {
     "command" : "doctor",
     "errors" : [
-      "DOCTOR_CHECK_FAILED"
+      "SOURCE_NOT_FOUND",
+      "DOCTOR_CHECK_FAILED",
+      "CLI_USAGE_ERROR"
     ],
     "idempotency" : "idempotent",
     "name" : "doctor",
@@ -576,6 +578,12 @@
         "required" : false,
         "summary" : "Run smoke probes (spends quota).",
         "type" : "boolean"
+      },
+      {
+        "name" : "agent",
+        "required" : false,
+        "summary" : "Limit to one source id (e.g. cursor_agent).",
+        "type" : "string"
       }
     ],
     "summary" : "Diagnostics report; quota-free unless `full` is set."

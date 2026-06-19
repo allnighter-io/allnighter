@@ -1,0 +1,47 @@
+{
+  "id": "cursor_agent",
+  "manifestVersion": 1,
+  "displayName": "Cursor Agent",
+  "kind": "headless_cli",
+  "detectCommand": "agent --version",
+  "smokeTestCommand": "agent -p --output-format text --model composer-2.5 --trust \"Reply with the single token ALLNIGHTER_READY\"",
+  "smokeTestExpect": "ALLNIGHTER_READY",
+  "invoke": {
+    "command": "agent",
+    "args": [
+      "-p",
+      "--output-format",
+      "text",
+      "--model",
+      "{{model}}",
+      "--trust",
+      "--workspace",
+      "{{workingDir}}",
+      "{{prompt}}"
+    ],
+    "promptVia": "arg",
+    "env": {},
+    "workingDir": null,
+    "timeoutSeconds": 300
+  },
+  "output": {
+    "capture": "stdout",
+    "stripAnsi": true,
+    "doneSignal": "exit_code",
+    "sentinel": null
+  },
+  "setup": {
+    "bins": ["agent", "cursor-agent"],
+    "knownPaths": ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"],
+    "loginFlow": {
+      "interactiveCommand": "agent login",
+      "instructions": "Run `agent login` and complete Cursor sign-in.",
+      "authErrorPatterns": ["SecItemCopyMatching failed", "not authenticated", "not signed in", "login", "unauthorized", "401"]
+    },
+    "headlessTrust": {
+      "required": true,
+      "cliFlag": "--trust",
+      "disclosure": "Cursor Agent workers run with --trust."
+    }
+  }
+}

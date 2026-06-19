@@ -20,6 +20,8 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         public var status: String
         public var state: String
         public var capabilities: ModelCapabilities
+        /// When the source requires headless trust/mutation flags (e.g. Cursor `--trust`).
+        public var headlessTrust: HeadlessTrustPolicy?
 
         public init(
             id: ModelID,
@@ -33,7 +35,8 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             ready: Bool,
             status: String,
             state: String,
-            capabilities: ModelCapabilities
+            capabilities: ModelCapabilities,
+            headlessTrust: HeadlessTrustPolicy? = nil
         ) {
             self.id = id
             self.displayName = displayName
@@ -47,6 +50,7 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             self.status = status
             self.state = state
             self.capabilities = capabilities
+            self.headlessTrust = headlessTrust
         }
     }
 

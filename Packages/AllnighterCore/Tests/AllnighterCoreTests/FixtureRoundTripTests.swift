@@ -25,6 +25,7 @@ final class FixtureRoundTripTests: XCTestCase {
     func testManifestsRoundTrip() throws {
         try assertRoundTrips(DriverManifest.self, .manifestClaude)
         try assertRoundTrips(DriverManifest.self, .manifestGrok)
+        try assertRoundTrips(DriverManifest.self, .manifestCursor)
         try assertRoundTrips(DriverManifest.self, .manifestManual)
     }
 

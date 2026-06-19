@@ -227,7 +227,12 @@ struct MCPServer {
                 context: AllnighterCLI.defaultRunContext(run, full: full))
             respond(id: id, result: toolText("Run \(run.id) · \(run.status.rawValue)", structured: AllnighterCLI.jsonString(trj)))
         case "doctor":
-            let doc = await AllnighterCLI.doctorResult(runtime, full: (args["full"] as? Bool) ?? false)
+            let sourceId = args["agent"] as? String
+            if let sourceId, runtime.registry.manifest(id: sourceId) == nil {
+                return respondToolError(id: id, code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
+            }
+            let doc = await AllnighterCLI.doctorResult(
+                runtime, full: (args["full"] as? Bool) ?? false, sourceId: sourceId)
             respond(id: id, result: toolText("doctor: \(doc.status.rawValue)", structured: AllnighterCLI.jsonString(doc)))
         case "error_explain":
             guard let code = args["code"] as? String,

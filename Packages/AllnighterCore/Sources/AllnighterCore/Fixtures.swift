@@ -18,6 +18,7 @@ public enum Fixtures {
         case modelsSix = "models_six"
         case manifestClaude = "manifest_claude"
         case manifestGrok = "manifest_grok"
+        case manifestCursor = "manifest_cursor"
         case manifestManual = "manifest_manual"
         case runInflight = "run_inflight"
         case runComplete = "run_complete"

@@ -19,19 +19,37 @@ public struct SetupBlock: Codable, Sendable, Equatable {
     public var docsURL: String?
     /// How to authenticate, shown when `installedNotSignedIn`.
     public var loginFlow: LoginFlow?
+    /// Headless mutation/trust posture for CLIs that require flags such as
+    /// `--trust`. Surfaced in doctor and `alln models --json`, not hidden in setup.
+    public var headlessTrust: HeadlessTrustPolicy?
 
     public init(
         bins: [String],
         knownPaths: [String] = [],
         installHint: String? = nil,
         docsURL: String? = nil,
-        loginFlow: LoginFlow? = nil
+        loginFlow: LoginFlow? = nil,
+        headlessTrust: HeadlessTrustPolicy? = nil
     ) {
         self.bins = bins
         self.knownPaths = knownPaths
         self.installHint = installHint
         self.docsURL = docsURL
         self.loginFlow = loginFlow
+        self.headlessTrust = headlessTrust
+    }
+}
+
+/// Explicit headless trust/mutation posture for a source CLI (e.g. Cursor `--trust`).
+public struct HeadlessTrustPolicy: Codable, Sendable, Equatable {
+    public var required: Bool
+    public var cliFlag: String
+    public var disclosure: String
+
+    public init(required: Bool, cliFlag: String, disclosure: String) {
+        self.required = required
+        self.cliFlag = cliFlag
+        self.disclosure = disclosure
     }
 }
 

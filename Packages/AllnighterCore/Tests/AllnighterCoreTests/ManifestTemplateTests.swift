@@ -44,4 +44,5 @@ final class ManifestTemplateTests: XCTestCase {
         XCTAssertTrue(resolved!.contains("claude-sonnet-4.6"))
         XCTAssertFalse(resolved!.contains("{{model}}"))
     }
+
 }

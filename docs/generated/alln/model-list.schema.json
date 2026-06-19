@@ -1,5 +1,25 @@
 {
   "$defs" : {
+    "HeadlessTrustPolicy" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "cliFlag" : {
+          "type" : "string"
+        },
+        "disclosure" : {
+          "type" : "string"
+        },
+        "required" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "required",
+        "cliFlag",
+        "disclosure"
+      ],
+      "type" : "object"
+    },
     "ModelCapabilities" : {
       "additionalProperties" : false,
       "properties" : {
@@ -71,6 +91,16 @@
         },
         "enabled" : {
           "type" : "boolean"
+        },
+        "headlessTrust" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/HeadlessTrustPolicy"
+            },
+            {
+              "type" : "null"
+            }
+          ]
         },
         "id" : {
           "type" : "string"

@@ -30,7 +30,15 @@ public enum ModelCatalog {
         "model_composer": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
-            strengthRank: 60)
+            strengthRank: 60),
+        "model_cursor_composer_25": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .fast],
+            strengthRank: 85),
+        "model_cursor_composer_25_fast": ModelCapabilities(
+            laneTags: [.code],
+            capabilityTags: [.code, .fast],
+            strengthRank: 50)
     ]
 
     public static var builtIns: [ModelDefinition] {
@@ -55,6 +63,9 @@ public enum ModelCatalog {
             // Grok — recognized from `grok models` (no effort axis).
             def("model_grok", "Grok Build", "grok-build", "grok", .answerer, defaultEnabled: true),
             def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
+            // Cursor Agent — regular Composer 2.5 is the default; Fast is explicit opt-in.
+            def("model_cursor_composer_25", "Composer 2.5", "composer-2.5", "cursor_agent", .answerer, defaultEnabled: true),
+            def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
             // Antigravity — a multi-model router; effort is encoded in the model name.
             def("model_gemini", "Gemini 3.5 Flash", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),
             def("model_gemini_pro", "Gemini 3.1 Pro", "Gemini 3.1 Pro (High)", "antigravity", .answerer, defaultEnabled: false, effortVariants: proVariants),
@@ -109,6 +120,11 @@ public enum ModelCatalog {
     public static func probeModelLabel(driverId: String) -> String? {
         let defs = mergedDefinitions().filter { $0.driverId == driverId }
         guard !defs.isEmpty else { return nil }
+        // Cursor smoke always targets regular Composer 2.5 — never Fast.
+        if driverId == "cursor_agent",
+           let regular = defs.first(where: { $0.id == "model_cursor_composer_25" }) {
+            return regular.modelLabel
+        }
         let enabledMap = enabledModelIDs(definitions: mergedDefinitions())
         let enabled = defs.filter { enabledMap[$0.id] == true }
         if let label = selectProbeLabel(from: enabled) { return label }

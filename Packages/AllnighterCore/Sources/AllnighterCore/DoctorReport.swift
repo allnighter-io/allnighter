@@ -71,8 +71,12 @@ public enum DoctorReport {
         // Per-source checks from detection records.
         for r in records.sorted(by: { $0.driverId < $1.driverId }) {
             let name = sourceName(r.driverId)
+            let manifest = manifests.first { $0.id == r.driverId }
             checks.append(installedCheck(r, name: name))
             checks.append(authCheck(r, name: name, full: inputs.full))
+            if let trust = manifest?.setup?.headlessTrust, trust.required {
+                checks.append(headlessTrustCheck(r.driverId, trust: trust))
+            }
         }
 
         // Bench-readiness aggregate.
@@ -147,10 +151,25 @@ public enum DoctorReport {
         case .installedNotSignedIn(let flow):
             return .init(name: key, status: .degraded, detail: "\(name) is not signed in. \(flow.instructions)", fixCommand: flow.interactiveCommand, requiresManual: true)
         case .probeFailed(let reason):
+            let lower = reason.lowercased()
+            if lower.contains("secitemcopymatching failed") {
+                return .init(
+                    name: key, status: .degraded,
+                    detail: "\(name) Keychain auth unavailable (\(reason)). Open Cursor once, run `agent login`, then `alln doctor --full`.",
+                    fixCommand: "agent login", requiresManual: true)
+            }
             return .init(name: key, status: .degraded, detail: "\(name) smoke probe failed: \(reason)")
         default:
             return .init(name: key, status: .notChecked, detail: "auth not determined")
         }
+    }
+
+    private static func headlessTrustCheck(_ driverId: String, trust: HeadlessTrustPolicy) -> DoctorResult.Check {
+        .init(
+            name: "source.\(driverId).headlessTrust",
+            status: .ok,
+            detail: trust.disclosure,
+            requiresManual: true)
     }
 
     private static func journalIncrementalCheck(_ runsOK: Bool) -> DoctorResult.Check {

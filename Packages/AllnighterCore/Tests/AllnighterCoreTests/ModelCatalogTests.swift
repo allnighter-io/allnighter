@@ -32,8 +32,8 @@ final class ModelCatalogTests: XCTestCase {
     func testBuiltInsDefaultEnabledOnFreshInstall() {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        // opus, sonnet, gpt-5.5, grok-build, Gemini 3.5 Flash (composer now off).
-        XCTAssertEqual(models.filter(\.enabled).count, 5)
+        // opus, sonnet, gpt-5.5, grok-build, Gemini 3.5 Flash, Cursor Composer 2.5.
+        XCTAssertEqual(models.filter(\.enabled).count, 6)
     }
 
     func testDisableSonnetPersistsAcrossReload() throws {

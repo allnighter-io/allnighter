@@ -66,14 +66,16 @@ public enum BuiltInTeams {
 
     // MARK: - Build teams
 
+    private static let codeAnswerPreferred = "model_cursor_composer_25"
+
     static let buildCore = make(
         id: "code_core", name: "Code Core", lane: .code, output: .plan, defaultEffort: .med, isDefault: true,
         description: "Turn a rough product/build prompt into an implementable plan with scope, architecture, risks, and proof.",
         rows: [
-            row("product_architect", .answer),
-            row("proof_planner", .answer),
-            row("first_principles_builder", .answer),
-            row("code_maintainer", .answer),
+            row("product_architect", .answer, preferred: codeAnswerPreferred),
+            row("proof_planner", .answer, preferred: codeAnswerPreferred),
+            row("first_principles_builder", .answer, preferred: codeAnswerPreferred),
+            row("code_maintainer", .answer, preferred: codeAnswerPreferred),
             row("scope_steward", .review),
             row("security_privacy_reviewer", .review),
             row("contrarian_reviewer", .review)

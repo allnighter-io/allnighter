@@ -27,6 +27,7 @@ enum ModelListProjector {
                 status = "notChecked"
             }
             let driverName = registry.manifest(id: def.driverId)?.displayName ?? def.driverId
+            let headlessTrust = registry.manifest(id: def.driverId)?.setup?.headlessTrust
             return ModelListJSON.Entry(
                 id: def.id,
                 displayName: def.displayName,
@@ -39,7 +40,8 @@ enum ModelListProjector {
                 ready: ready,
                 status: status,
                 state: enabled ? "onBench" : "available",
-                capabilities: ModelCatalog.capabilities(def.id)
+                capabilities: ModelCatalog.capabilities(def.id),
+                headlessTrust: headlessTrust
             )
         }
         return ModelListJSON(

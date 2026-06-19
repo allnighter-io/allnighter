@@ -63,6 +63,12 @@
           "name" : "auto-fix",
           "summary" : "Apply safe Allnighter-owned fixes.",
           "takesValue" : false
+        },
+        {
+          "name" : "agent",
+          "summary" : "Limit probes and checks to one source (e.g. cursor_agent).",
+          "takesValue" : true,
+          "valueType" : "sourceId"
         }
       ],
       "milestone" : "m1",
@@ -2185,6 +2191,10 @@
       "name" : "source.<sourceId>.auth"
     },
     {
+      "meaning" : "Headless trust\/mutation posture is declared for sources that require it.",
+      "name" : "source.<sourceId>.headlessTrust"
+    },
+    {
       "meaning" : "Bounded smoke test when --full.",
       "name" : "source.<sourceId>.smoke"
     },
@@ -2270,6 +2280,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "source.auth.expired"
+    },
+    {
+      "agentAction" : "Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`.",
+      "code" : "SOURCE_KEYCHAIN_UNAVAILABLE",
+      "exitClass" : "operational",
+      "explain" : "The source CLI could not read credentials from the macOS Keychain (SecItemCopyMatching failed). Common when Allnighter or the CLI is launched outside Terminal. Open the provider app, complete sign-in, then re-probe.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "source.auth.keychain"
     },
     {
       "agentAction" : "Run `alln models --json`; pick an on-Bench ready model or enable one.",
@@ -3723,7 +3742,9 @@
     {
       "command" : "doctor",
       "errors" : [
-        "DOCTOR_CHECK_FAILED"
+        "SOURCE_NOT_FOUND",
+        "DOCTOR_CHECK_FAILED",
+        "CLI_USAGE_ERROR"
       ],
       "idempotency" : "idempotent",
       "name" : "doctor",
@@ -3734,6 +3755,12 @@
           "required" : false,
           "summary" : "Run smoke probes (spends quota).",
           "type" : "boolean"
+        },
+        {
+          "name" : "agent",
+          "required" : false,
+          "summary" : "Limit to one source id (e.g. cursor_agent).",
+          "type" : "string"
         }
       ],
       "summary" : "Diagnostics report; quota-free unless `full` is set."
