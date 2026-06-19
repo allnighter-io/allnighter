@@ -1,6 +1,6 @@
 import Foundation
 
-/// A named, editable instruction template for the draft master-plan synthesis.
+/// A named, editable instruction template for draft plan synthesis.
 /// The built-in default is `default_master_plan_v1`; users may add custom
 /// presets (Phase 05). A `TeamPreset` references one by id via
 /// `draftSynthesisInstructionPresetId`, and a completed run records the id (or

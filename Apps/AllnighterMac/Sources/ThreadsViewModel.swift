@@ -36,7 +36,6 @@ final class ThreadsViewModel {
     private let runStore: RunStore
     private let coordinator: WorkerChatCoordinator
     private let registry: DriverRegistry
-    private let runner: WorkerRunner
     private let commandRunner: CommandRunner
     /// Cached health truth (loaded once at launch, never probed here) — drives the
     /// ready bench the team resolver may draw from. Empty until setup has run.
@@ -128,7 +127,6 @@ final class ThreadsViewModel {
         self.registry = registry
         self.models = models
         self.toolStatuses = toolStatuses
-        self.runner = runner
         self.commandRunner = commandRunner ?? SubprocessCommandRunner()
         self.writeLock = writeLock
         self.projectStore = projectStore

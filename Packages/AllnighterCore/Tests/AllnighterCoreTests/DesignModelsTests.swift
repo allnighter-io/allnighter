@@ -1,7 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// Contract-first proof for the design council (Lane 2) Core models: the design
+/// Contract-first proof for the design team (Lane 2) Core models: the design
 /// request, the board payload/option/pick, the `board` stage, and the `imageGen`
 /// driver capability. The unit is a generated image; OCR and HTML rendering are
 /// dead (see docs/mvp/Design0).

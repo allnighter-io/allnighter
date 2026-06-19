@@ -1,7 +1,7 @@
 import Foundation
 
 /// One entry in a `WorkThread` timeline: a user message, a one-worker reply, a
-/// rich council/build turn that references a `TeamRun`, or a system note.
+/// rich team/mutating-run turn that references a `TeamRun`, or a system note.
 ///
 /// Heavy turns never copy run data — they point at `TeamRun` via `runId`
 /// (and `stageId` for a specific stage). Chat turns own their `text` directly.

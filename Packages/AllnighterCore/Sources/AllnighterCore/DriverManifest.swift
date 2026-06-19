@@ -158,7 +158,7 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         public var args: [String]
         public var promptVia: PromptVia
         public var env: [String: String]
-        /// MVP: `nil` (no repo). Growth seam: the lane worktree path.
+        /// MVP: `nil` (no repo). Growth seam: the project execution root.
         public var workingDir: String?
         public var timeoutSeconds: Int
         /// Per-call effort flag (Claude `--effort`). Absent → no effort flag.
