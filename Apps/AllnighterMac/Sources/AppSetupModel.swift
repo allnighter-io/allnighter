@@ -1,0 +1,39 @@
+import Foundation
+import AllnighterCore
+import AllnighterEngine
+
+/// Setup card mapping and cached setup state helpers for `AppModel`.
+enum AppSetupModel {
+    static func setupCards(
+        registry: DriverRegistry,
+        toolStatuses: [ToolProbeRecord],
+        models: [Model]
+    ) -> [SetupCardModel] {
+        registry.all.filter { $0.kind == .headlessCLI }.map { manifest in
+            let rec = toolStatuses.first { $0.driverId == manifest.id }
+            let seats = models.filter { $0.driverId == manifest.id }.map {
+                SetupCardModel.WorkerSeat(id: $0.id, name: $0.displayName, modelLabel: $0.modelLabel, isPlanWriter: $0.canWritePlan)
+            }
+            let route = "via " + manifest.id.replacingOccurrences(of: "_", with: "-")
+            let state: SetupCardState
+            var shim: String?
+            var reason: String?
+            switch rec?.status {
+            case .ready?: state = .ready
+            case .installedNotSignedIn?: state = .needsLogin
+            case .shimmedNeedsConfirm(let r)?: state = .needsPath; shim = r.rawCommandV
+            case .probeFailed(let r)?: state = .probeFailed; reason = r
+            case .notInstalled?: state = .notInstalled
+            case .installedNotProbed?: state = .installedNotProbed
+            case nil: state = .notChecked
+            }
+            return SetupCardModel(
+                driverId: manifest.id, name: manifest.displayName, route: route, version: rec?.version,
+                state: state, workers: seats,
+                loginCommand: manifest.setup?.loginFlow?.interactiveCommand,
+                installHint: manifest.setup?.installHint, docsURL: manifest.setup?.docsURL,
+                shimCommand: shim, probeReason: reason,
+                headlessTrust: manifest.setup?.headlessTrust)
+        }
+    }
+}

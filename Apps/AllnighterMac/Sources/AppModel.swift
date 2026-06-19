@@ -32,7 +32,7 @@ final class AppModel {
     private(set) var isDoctorRunning = false
 
     // First-run CLI detection — canonical per-tool status shared by the health
-    // badge, Council health, and Setup (docs/phases/setup/01 §5).
+    // badge, team health, and Setup (docs/phases/setup/01 §5).
     private(set) var toolStatuses: [ToolProbeRecord] = []
     private(set) var isDetecting = false
     private let setupStore: SetupStore
@@ -49,7 +49,7 @@ final class AppModel {
     // Review board / final spec (RB2/RB3)
     private(set) var isReviewing = false
 
-    private let registry: DriverRegistry
+    let registry: DriverRegistry
     private(set) var configurationSource: ConfigurationSource
     private(set) var registrySource: ConfigurationSource
     /// Blocking alert when bundle and embedded defaults both fail (§7 interim gate).
@@ -131,7 +131,7 @@ final class AppModel {
 
     // MARK: - Presets
 
-    private func reloadPresets() {
+    func reloadPresets() {
         presets = AppConfig.builtInPresets(models: models) + presetStore.load()
     }
 
@@ -438,32 +438,7 @@ final class AppModel {
     /// `.notChecked` instead of vanishing, which is what made the cold first-run
     /// page render blank.
     var setupCards: [SetupCardModel] {
-        registry.all.filter { $0.kind == .headlessCLI }.map { manifest in
-            let rec = toolStatuses.first { $0.driverId == manifest.id }
-            let seats = models.filter { $0.driverId == manifest.id }.map {
-                SetupCardModel.WorkerSeat(id: $0.id, name: $0.displayName, modelLabel: $0.modelLabel, isPlanWriter: $0.canWritePlan)
-            }
-            let route = "via " + manifest.id.replacingOccurrences(of: "_", with: "-")
-            let state: SetupCardState
-            var shim: String?
-            var reason: String?
-            switch rec?.status {
-            case .ready?: state = .ready
-            case .installedNotSignedIn?: state = .needsLogin
-            case .shimmedNeedsConfirm(let r)?: state = .needsPath; shim = r.rawCommandV
-            case .probeFailed(let r)?: state = .probeFailed; reason = r
-            case .notInstalled?: state = .notInstalled
-            case .installedNotProbed?: state = .installedNotProbed
-            case nil: state = .notChecked   // no record → never probed (cold launch)
-            }
-            return SetupCardModel(
-                driverId: manifest.id, name: manifest.displayName, route: route, version: rec?.version,
-                state: state, workers: seats,
-                loginCommand: manifest.setup?.loginFlow?.interactiveCommand,
-                installHint: manifest.setup?.installHint, docsURL: manifest.setup?.docsURL,
-                shimCommand: shim, probeReason: reason,
-                headlessTrust: manifest.setup?.headlessTrust)
-        }
+        AppSetupModel.setupCards(registry: registry, toolStatuses: toolStatuses, models: models)
     }
 
     // MARK: - Compose routing data (CR3)
@@ -625,22 +600,13 @@ final class AppModel {
     /// the agent fallback (offered only when there is actually a gap to fill, so
     /// it never fires when everything is already found — Track 0.3).
     var unresolvedSupportedDriverIds: [String] {
-        Self.unresolvedSupported(registry: registry, toolStatuses: toolStatuses)
+        AppCensusModel.unresolvedSupported(registry: registry, toolStatuses: toolStatuses)
     }
 
     var hasUnresolvedSupportedTool: Bool { !unresolvedSupportedDriverIds.isEmpty }
 
     static func unresolvedSupported(registry: DriverRegistry, toolStatuses: [ToolProbeRecord]) -> [String] {
-        let byId = Dictionary(toolStatuses.map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
-        return registry.all
-            .filter { $0.kind == .headlessCLI }
-            .map(\.id)
-            .filter { id in
-                switch byId[id]?.status {
-                case .none, .some(.notInstalled): return true   // not found / never probed
-                default: return false                            // found in some state
-                }
-            }
+        AppCensusModel.unresolvedSupported(registry: registry, toolStatuses: toolStatuses)
     }
 
     /// Tier-2 discovery: have one healthy agent run the read-only census build
@@ -674,7 +640,7 @@ final class AppModel {
             let discovered = await CLIDetector(commandRunner: SubprocessCommandRunner())
                 .ingestCensus(census, manifests: registryCopy.all, models: modelLabels, now: Date(), smoke: true)
             let before = Set(self.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
-            self.toolStatuses = Self.mergedToolStatuses(existing: self.toolStatuses, discovered: discovered)
+            self.toolStatuses = AppCensusModel.mergedToolStatuses(existing: self.toolStatuses, discovered: discovered)
             try? storeCopy.save(.init(records: self.toolStatuses, setupCompletedAt: completedAt))
             let after = Set(self.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
             let newlyReady = after.subtracting(before).count
@@ -691,14 +657,7 @@ final class AppModel {
     /// improvement (ready, or at least carries a verified invocation); brand-new
     /// drivers are appended. Existing order is preserved.
     static func mergedToolStatuses(existing: [ToolProbeRecord], discovered: [ToolProbeRecord]) -> [ToolProbeRecord] {
-        var byId = Dictionary(existing.map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
-        for rec in discovered {
-            if byId[rec.driverId]?.status.isReady == true { continue }
-            if rec.status.isReady || rec.invocation != nil { byId[rec.driverId] = rec }
-        }
-        var order = existing.map(\.driverId)
-        for rec in discovered where !order.contains(rec.driverId) { order.append(rec.driverId) }
-        return order.compactMap { byId[$0] }
+        AppCensusModel.mergedToolStatuses(existing: existing, discovered: discovered)
     }
 
     // MARK: - History
@@ -762,30 +721,4 @@ final class AppModel {
         run = current
     }
 
-}
-
-// MARK: - Model catalog (Bench roster backend)
-
-extension AppModel {
-    func reloadModelsFromCatalog() {
-        models = ModelCatalog.resolvedModels(registry: registry)
-        reloadPresets()
-    }
-
-    func setModelEnabled(modelId: String, enabled: Bool) throws {
-        try ModelCatalog.setEnabled(modelId, enabled)
-        reloadModelsFromCatalog()
-    }
-
-    func addCustomModel(driverId: String, displayName: String, modelLabel: String, role: ModelRole = .answerer) throws {
-        _ = try ModelCatalog.createCustom(
-            driverId: driverId, displayName: displayName, modelLabel: modelLabel,
-            role: role, enabled: true, registry: registry)
-        reloadModelsFromCatalog()
-    }
-
-    func deleteCustomModel(modelId: String) throws {
-        try ModelCatalog.deleteCustom(modelId)
-        reloadModelsFromCatalog()
-    }
 }
