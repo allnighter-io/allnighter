@@ -36,7 +36,6 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
             posture: .execute, mutating: true, executionSourceId: "codex",
             workerSpecs: [
                 TeamWorkerSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly),
-                TeamWorkerSpec(id: "b", skillId: "code_maintainer", purpose: .answer, preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly),
             ],
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly))
     }
@@ -80,7 +79,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
             guard case CatalogError.teamInvalid(let message) = error else {
                 return XCTFail("expected teamInvalid, got \(error)")
             }
-            XCTAssertTrue(message.contains("one CLI"))
+            XCTAssertTrue(message.contains("exactly one worker"))
         }
     }
 
