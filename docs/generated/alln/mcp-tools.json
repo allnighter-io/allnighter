@@ -796,5 +796,73 @@
       }
     ],
     "summary" : "Poll thread running\/attention state."
+  },
+  {
+    "command" : "pending list",
+    "errors" : [
+      "CLI_USAGE_ERROR",
+      "PROJECT_NOT_FOUND"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "pending_list",
+    "outputSchema" : "pendingListJSON",
+    "params" : [
+      {
+        "name" : "project",
+        "required" : false,
+        "summary" : "Project id or name (optional; omit for --all aggregate).",
+        "type" : "string"
+      },
+      {
+        "name" : "limit",
+        "required" : false,
+        "summary" : "Maximum items to return (optional).",
+        "type" : "integer"
+      },
+      {
+        "name" : "cursor",
+        "required" : false,
+        "summary" : "Pagination cursor from a prior list response (optional).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "List Pending items for one Project or the aggregate floor."
+  },
+  {
+    "command" : "pending show",
+    "errors" : [
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "pending_show",
+    "outputSchema" : "pendingItemJSON",
+    "params" : [
+      {
+        "name" : "pendingId",
+        "required" : true,
+        "summary" : "Pending item id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Show one Pending item including Wake\/capacity facts."
+  },
+  {
+    "command" : "pending run",
+    "errors" : [
+      "CLI_USAGE_ERROR",
+      "PENDING_MUTATION_DEFERRED"
+    ],
+    "idempotency" : "not_idempotent",
+    "name" : "pending_run",
+    "outputSchema" : "pendingItemJSON",
+    "params" : [
+      {
+        "name" : "pendingId",
+        "required" : true,
+        "summary" : "Pending item id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Run a Pending item now (manual attempt; records attempt until execution seam lands)."
   }
 ]

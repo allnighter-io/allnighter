@@ -31,6 +31,7 @@ public enum Fixtures {
         case doctorResult = "doctor_result"
         case errorEnvelope = "error_envelope"
         case pendingItemJSON = "pending_item"
+        case pendingItemCoolingJSON = "pending_item_cooling"
     }
 
     public static func data(_ name: Name) throws -> Data {
@@ -83,5 +84,9 @@ public enum Fixtures {
 
     public static func pendingItemJSON() throws -> PendingItemJSON {
         try decode(PendingItemJSON.self, .pendingItemJSON)
+    }
+
+    public static func pendingItemCoolingJSON() throws -> PendingItemJSON {
+        try decode(PendingItemJSON.self, .pendingItemCoolingJSON)
     }
 }

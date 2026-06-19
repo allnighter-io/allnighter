@@ -56,6 +56,7 @@ final class ContractRegistryTests: XCTestCase {
             "team_start", "team_status", "team_result", "team_cancel",
             "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get", "floor_show",
             "thread_send", "thread_get", "thread_status",
+            "pending_list", "pending_show", "pending_run",
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))

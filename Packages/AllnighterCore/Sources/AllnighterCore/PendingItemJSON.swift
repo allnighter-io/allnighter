@@ -11,6 +11,7 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
     public var execution: ExecutionInfo
     public var safety: SafetyInfo
     public var admission: AdmissionInfo?
+    public var capacityObservation: CapacityObservationJSON?
     public var attempts: [AttemptInfo]
     public var nextActions: [NextAction]
     public var audit: AuditInfo
@@ -24,6 +25,7 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         execution: ExecutionInfo,
         safety: SafetyInfo,
         admission: AdmissionInfo? = nil,
+        capacityObservation: CapacityObservationJSON? = nil,
         attempts: [AttemptInfo] = [],
         nextActions: [NextAction] = [],
         audit: AuditInfo
@@ -36,6 +38,7 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         self.execution = execution
         self.safety = safety
         self.admission = admission
+        self.capacityObservation = capacityObservation
         self.attempts = attempts
         self.nextActions = nextActions
         self.audit = audit

@@ -115,6 +115,66 @@
       ],
       "type" : "object"
     },
+    "CapacityObservationInfo" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "kind" : {
+          "enum" : [
+            "accountRateLimit",
+            "providerBusy",
+            "cooldown",
+            "authRequired",
+            "manualRequired",
+            "unknownCapacity"
+          ],
+          "type" : "string"
+        },
+        "observedAt" : {
+          "type" : "string"
+        },
+        "observedResetAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "rawSnippet" : {
+          "type" : "string"
+        },
+        "retryAfterSeconds" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "source" : {
+          "type" : "string"
+        },
+        "sourceConfidence" : {
+          "enum" : [
+            "structured",
+            "messageFallback",
+            "localPolicy",
+            "unknown"
+          ],
+          "type" : "string"
+        },
+        "wakeAfter" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "kind",
+        "source",
+        "sourceConfidence",
+        "rawSnippet",
+        "observedAt"
+      ],
+      "type" : "object"
+    },
     "ExecutionInfo" : {
       "additionalProperties" : false,
       "properties" : {
@@ -421,6 +481,16 @@
     },
     "audit" : {
       "$ref" : "#\/$defs\/AuditInfo"
+    },
+    "capacityObservation" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/CapacityObservationInfo"
+        },
+        {
+          "type" : "null"
+        }
+      ]
     },
     "contractVersion" : {
       "type" : "string"

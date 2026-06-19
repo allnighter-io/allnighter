@@ -110,6 +110,39 @@ final class PendingServiceTests: XCTestCase {
         XCTAssertFalse(blob.lowercased().contains("token"))
     }
 
+    func testCapacityObservationProjectsThroughPendingJSON() throws {
+        let resetAt = fixedNow.addingTimeInterval(9_900)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "claude_code",
+            sourceConfidence: .structured,
+            rawSnippet: "You've been rate limited",
+            observedAt: fixedNow,
+            observedResetAt: resetAt,
+            retryAfterSeconds: 9_900,
+            wakeAfter: resetAt
+        )
+        var item = try service.add(.init(prompt: "Cooling", workerToken: "claude", submit: true))
+        item.resume = PendingResume(
+            reason: .cooldown,
+            observedResetAt: resetAt,
+            wakeAfter: resetAt,
+            capacityObservation: observation
+        )
+        try service.store.save(item)
+
+        let json = try service.mapJSON(item)
+        XCTAssertNotNil(json.capacityObservation)
+        XCTAssertEqual(json.capacityObservation?.kind, "accountRateLimit")
+        XCTAssertEqual(json.capacityObservation?.source, "claude_code")
+        XCTAssertEqual(json.capacityObservation?.sourceConfidence, "structured")
+        XCTAssertEqual(json.capacityObservation?.retryAfterSeconds, 9_900)
+        XCTAssertNotNil(json.pendingItem.nextWakeAt)
+        let blob = jsonBlob(json).lowercased()
+        XCTAssertFalse(blob.contains("quota"))
+        XCTAssertFalse(blob.contains("estimated"))
+    }
+
     private func jsonBlob<T: Encodable>(_ value: T) -> String {
         String(decoding: (try? CoreJSON.encode(value)) ?? Data(), as: UTF8.self)
     }
@@ -130,5 +163,16 @@ final class PendingItemJSONFixtureTests: XCTestCase {
         let props = Set(dict.keys)
         let labels = Set(Mirror(reflecting: item).children.compactMap(\.label))
         XCTAssertEqual(props, labels)
+    }
+
+    func testCoolingFixtureHasCapacityObservationWithoutForecastFields() throws {
+        let item = try Fixtures.pendingItemCoolingJSON()
+        let obs = try XCTUnwrap(item.capacityObservation)
+        XCTAssertEqual(obs.kind, "accountRateLimit")
+        XCTAssertNotNil(obs.observedResetAt)
+        let blob = String(decoding: try CoreJSON.encode(item), as: UTF8.self).lowercased()
+        XCTAssertFalse(blob.contains("quota"))
+        XCTAssertFalse(blob.contains("cost"))
+        XCTAssertFalse(blob.contains("runtime"))
     }
 }

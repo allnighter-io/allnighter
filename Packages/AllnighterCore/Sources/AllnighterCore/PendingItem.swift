@@ -137,7 +137,7 @@ public struct PendingSafety: Codable, Sendable, Equatable {
 // MARK: - Resume / lease / attempts
 
 public enum PendingResumeReason: String, Codable, Sendable, CaseIterable {
-    case cooldown, localBusy, timeout, stopped, appRestart, macSleep, userPaused
+    case cooldown, providerBusy, localBusy, timeout, stopped, appRestart, macSleep, userPaused
 }
 
 public struct PendingResume: Codable, Sendable, Equatable {
@@ -147,6 +147,7 @@ public struct PendingResume: Codable, Sendable, Equatable {
     public var nextInstruction: String?
     public var observedResetAt: Date?
     public var wakeAfter: Date?
+    public var capacityObservation: CapacityObservation?
 
     public init(
         reason: PendingResumeReason,
@@ -154,7 +155,8 @@ public struct PendingResume: Codable, Sendable, Equatable {
         transcriptRef: String? = nil,
         nextInstruction: String? = nil,
         observedResetAt: Date? = nil,
-        wakeAfter: Date? = nil
+        wakeAfter: Date? = nil,
+        capacityObservation: CapacityObservation? = nil
     ) {
         self.reason = reason
         self.lastAttemptId = lastAttemptId
@@ -162,6 +164,7 @@ public struct PendingResume: Codable, Sendable, Equatable {
         self.nextInstruction = nextInstruction
         self.observedResetAt = observedResetAt
         self.wakeAfter = wakeAfter
+        self.capacityObservation = capacityObservation
     }
 }
 

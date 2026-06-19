@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "contractVersion": "1.0.0",
   "pendingItem": {
-    "id": "pending_20260617_1200",
+    "id": "pending_20260619_cooling",
     "status": "pending",
-    "title": "Review this patch when Claude is ready.",
+    "title": "Review patch after cooldown",
     "kind": "workerChat",
     "origin": "cli",
     "threadId": null,
-    "promptExcerpt": "Review this patch when Claude is ready.",
-    "createdAt": "2026-06-17T12:00:00Z",
-    "updatedAt": "2026-06-17T12:00:01Z",
-    "nextWakeAt": null,
-    "blockedReason": null,
-    "needsAttention": false
+    "promptExcerpt": "Review patch after cooldown",
+    "createdAt": "2026-06-19T09:15:00Z",
+    "updatedAt": "2026-06-19T09:15:01Z",
+    "nextWakeAt": "2026-06-19T12:00:00Z",
+    "blockedReason": "cooldown",
+    "needsAttention": true
   },
   "target": {
     "workerIds": ["model_opus"],
@@ -26,7 +26,7 @@
   "policy": {
     "selection": "selectedOnly",
     "attentionMode": "present",
-    "drainMode": "drainWhenReady",
+    "drainMode": "manualStart",
     "maxAttempts": null,
     "retryFloorSeconds": null,
     "allowDegraded": false,
@@ -49,27 +49,26 @@
     "privacyLabel": null
   },
   "admission": null,
-  "capacityObservation": null,
+  "capacityObservation": {
+    "kind": "accountRateLimit",
+    "source": "claude_code",
+    "sourceConfidence": "structured",
+    "rawSnippet": "You've been rate limited",
+    "observedAt": "2026-06-19T09:15:00Z",
+    "observedResetAt": "2026-06-19T12:00:00Z",
+    "retryAfterSeconds": 9900,
+    "wakeAfter": "2026-06-19T12:00:00Z"
+  },
   "attempts": [],
   "nextActions": [
     {
       "kind": "runPending",
-      "command": "alln pending run pending_20260617_1200 --json",
+      "command": "alln pending run pending_20260619_cooling --json",
       "label": "Run now"
-    },
-    {
-      "kind": "cancelPending",
-      "command": "alln pending cancel pending_20260617_1200",
-      "label": "Cancel"
-    },
-    {
-      "kind": "showPending",
-      "command": "alln pending show pending_20260617_1200 --json",
-      "label": "Show item"
     }
   ],
   "audit": {
-    "traceId": "trace_pending_fixture",
+    "traceId": "trace_pending_capacity_fixture",
     "pendingStorePath": "/tmp/Allnighter/Pending",
     "userReorderedExecutionLane": null
   }

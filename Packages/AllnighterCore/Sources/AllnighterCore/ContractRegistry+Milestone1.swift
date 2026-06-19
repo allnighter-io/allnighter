@@ -162,6 +162,22 @@ public extension ContractRegistry {
                     params: [.init("threadId", required: true, summary: "Thread id.")],
                     outputSchema: .threadStatus,
                     errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("pending_list", command: "pending list", summary: "List Pending items for one Project or the aggregate floor.",
+                    params: [
+                        .init("project", summary: "Project id or name (optional; omit for --all aggregate)."),
+                        .init("limit", type: "integer", summary: "Maximum items to return (optional)."),
+                        .init("cursor", summary: "Pagination cursor from a prior list response (optional)."),
+                    ],
+                    outputSchema: .pendingListJSON,
+                    errors: ["CLI_USAGE_ERROR", "PROJECT_NOT_FOUND"], idempotency: .idempotent),
+        MCPToolSpec("pending_show", command: "pending show", summary: "Show one Pending item including Wake/capacity facts.",
+                    params: [.init("pendingId", required: true, summary: "Pending item id.")],
+                    outputSchema: .pendingItemJSON,
+                    errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("pending_run", command: "pending run", summary: "Run a Pending item now (manual attempt; records attempt until execution seam lands).",
+                    params: [.init("pendingId", required: true, summary: "Pending item id.")],
+                    outputSchema: .pendingItemJSON,
+                    errors: ["CLI_USAGE_ERROR", "PENDING_MUTATION_DEFERRED"], idempotency: .notIdempotent),
     ]
 
     // MARK: - Commands (in scope)

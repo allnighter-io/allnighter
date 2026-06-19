@@ -141,6 +141,9 @@ public enum PendingItemJSONMapper {
                 privacyLabel: item.safety.privacyLabel
             ),
             admission: nil,
+            capacityObservation: item.resume?.capacityObservation.map {
+                CapacityObservationJSONMapper.map($0, iso: iso)
+            },
             attempts: item.attempts.map { attempt in
                 .init(
                     attemptId: attempt.attemptId,

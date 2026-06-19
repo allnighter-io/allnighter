@@ -198,6 +198,7 @@ public enum ContractSchema {
             "pendingItem": ref("ItemInfo"), "target": ref("TargetInfo"),
             "policy": ref("PolicyInfo"), "execution": ref("ExecutionInfo"),
             "safety": ref("SafetyInfo"), "admission": nullableRef("AdmissionInfo"),
+            "capacityObservation": nullableRef("CapacityObservationInfo"),
             "attempts": arr(ref("AttemptInfo")), "nextActions": arr(ref("NextAction")),
             "audit": ref("AuditInfo"),
         ], required: [
@@ -237,6 +238,19 @@ public enum ContractSchema {
                 "state": str, "source": nullable("string"), "observedAt": nullable("string"),
                 "resetAt": nullable("string"), "confidence": nullable("string"), "reason": nullable("string"),
             ], required: ["state"]),
+            "CapacityObservationInfo": obj([
+                "kind": enumStr([
+                    "accountRateLimit", "providerBusy", "cooldown", "authRequired",
+                    "manualRequired", "unknownCapacity",
+                ]),
+                "source": str,
+                "sourceConfidence": enumStr(["structured", "messageFallback", "localPolicy", "unknown"]),
+                "rawSnippet": str,
+                "observedAt": str,
+                "observedResetAt": nullable("string"),
+                "retryAfterSeconds": nullable("integer"),
+                "wakeAfter": nullable("string"),
+            ], required: ["kind", "source", "sourceConfidence", "rawSnippet", "observedAt"]),
             "AttemptInfo": obj([
                 "attemptId": str, "createdAt": str, "startedAt": nullable("string"),
                 "completedAt": nullable("string"), "workerIds": arr(str), "status": str,

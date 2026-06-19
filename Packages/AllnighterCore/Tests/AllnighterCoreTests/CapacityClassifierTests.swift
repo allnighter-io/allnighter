@@ -1,0 +1,116 @@
+import XCTest
+@testable import AllnighterCore
+
+final class CapacityClassifierTests: XCTestCase {
+    private let fixedNow = Date(timeIntervalSince1970: 1_718_800_500)
+
+    private func input(
+        sourceId: String = "claude_code",
+        stdout: String = "",
+        stderr: String = "",
+        exitCode: Int32? = 1
+    ) -> CapacityClassifier.Input {
+        CapacityClassifier.Input(
+            workerId: "model_opus",
+            sourceId: sourceId,
+            stdout: stdout,
+            stderr: stderr,
+            exitCode: exitCode,
+            observedAt: fixedNow
+        )
+    }
+
+    func testClaudeRateLimitStructured() {
+        let stderr = #"{"type":"error","error":{"type":"rate_limit_error","message":"You've been rate limited","retry_after":9900}}"#
+        let obs = CapacityClassifier.classify(input(stderr: stderr))
+        XCTAssertEqual(obs?.kind, .accountRateLimit)
+        XCTAssertEqual(obs?.source, "claude_code")
+        XCTAssertEqual(obs?.sourceConfidence, .structured)
+        XCTAssertEqual(obs?.retryAfterSeconds, 9_900)
+        XCTAssertNotNil(obs?.observedResetAt)
+        XCTAssertNotNil(obs?.wakeAfter)
+        XCTAssertFalse(obs?.rawSnippet.lowercased().contains("prompt") ?? true)
+    }
+
+    func testClaudeOverloadedStructured() {
+        let stderr = #"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#
+        let obs = CapacityClassifier.classify(input(stderr: stderr))
+        XCTAssertEqual(obs?.kind, .providerBusy)
+        XCTAssertEqual(obs?.sourceConfidence, .structured)
+        XCTAssertEqual(obs?.retryAfterSeconds, 60)
+        XCTAssertNil(obs?.observedResetAt)
+        XCTAssertEqual(obs?.wakeAfter, fixedNow.addingTimeInterval(60))
+    }
+
+    func testCodexJSONLErrorUsageLimit() {
+        let stdout = #"{"type":"error","message":"usage_limit_reached","resetsAt":"2026-06-19T12:00:00Z"}"#
+        let obs = CapacityClassifier.classify(input(sourceId: "codex", stdout: stdout))
+        XCTAssertEqual(obs?.kind, .accountRateLimit)
+        XCTAssertEqual(obs?.source, "codex")
+        XCTAssertEqual(obs?.sourceConfidence, .structured)
+        XCTAssertNotNil(obs?.observedResetAt)
+    }
+
+    func testCodexTurnFailedUsageLimit() {
+        let stdout = #"{"type":"turn.failed","error":{"message":"Usage limit reached for this billing period"}}"#
+        let obs = CapacityClassifier.classify(input(sourceId: "codex", stdout: stdout))
+        XCTAssertEqual(obs?.kind, .accountRateLimit)
+        XCTAssertEqual(obs?.sourceConfidence, .structured)
+    }
+
+    func testAGYCooldownUntilTimestamp() {
+        let stderr = "capacity exhausted: cooldown active until 2026-06-19T12:00:00Z"
+        let obs = CapacityClassifier.classify(input(sourceId: "agy", stderr: stderr))
+        XCTAssertEqual(obs?.kind, .cooldown)
+        XCTAssertEqual(obs?.sourceConfidence, .structured)
+        XCTAssertNotNil(obs?.observedResetAt)
+        XCTAssertNotNil(obs?.wakeAfter)
+    }
+
+    func testAuthRequiredBlocker() {
+        let stderr = "Error: not signed in — please run /login"
+        let obs = CapacityClassifier.classify(input(stderr: stderr))
+        XCTAssertEqual(obs?.kind, .authRequired)
+        XCTAssertEqual(obs?.sourceConfidence, .messageFallback)
+        XCTAssertNil(obs?.observedResetAt)
+        XCTAssertNil(obs?.wakeAfter)
+    }
+
+    func testManualRequiredBlocker() {
+        let stderr = "awaiting manual paste from user"
+        let obs = CapacityClassifier.classify(input(stderr: stderr))
+        XCTAssertEqual(obs?.kind, .manualRequired)
+        XCTAssertNil(obs?.wakeAfter)
+    }
+
+    func testNoEstimateUsesLocalPolicyWithoutProviderReset() {
+        let stderr = "rate limited — try again later"
+        let obs = CapacityClassifier.classify(input(stderr: stderr))
+        XCTAssertEqual(obs?.kind, .unknownCapacity)
+        XCTAssertEqual(obs?.sourceConfidence, .localPolicy)
+        XCTAssertNil(obs?.observedResetAt)
+        XCTAssertNotNil(obs?.wakeAfter)
+    }
+
+    func testNoFalsePositiveOnGenericFailure() {
+        let stderr = "weird failure: syntax error in config"
+        XCTAssertNil(CapacityClassifier.classify(input(stderr: stderr)))
+    }
+
+    func testRedactsBearerTokenInSnippet() {
+        let stderr = #"{"type":"error","error":{"type":"rate_limit_error","message":"Bearer sk-abcdefghijklmnopqrstuvwxyz123456"}}"#
+        let obs = CapacityClassifier.classify(input(stderr: stderr))
+        XCTAssertEqual(obs?.rawSnippet.contains("sk-"), false)
+        XCTAssertTrue(obs?.rawSnippet.contains("[redacted]") ?? false)
+    }
+
+    func testEmitsNoForecastFields() throws {
+        let stderr = #"{"type":"error","error":{"type":"rate_limit_error","message":"limited","retry_after":120}}"#
+        let obs = try XCTUnwrap(CapacityClassifier.classify(input(stderr: stderr)))
+        let blob = String(decoding: try CoreJSON.encode(obs), as: UTF8.self).lowercased()
+        XCTAssertFalse(blob.contains("quota"))
+        XCTAssertFalse(blob.contains("cost"))
+        XCTAssertFalse(blob.contains("runtime"))
+        XCTAssertFalse(blob.contains("token"))
+    }
+}

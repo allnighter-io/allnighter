@@ -156,5 +156,6 @@ final class FixtureRoundTripTests: XCTestCase {
 
     func testPendingItemJSONRoundTrips() throws {
         try assertRoundTrips(PendingItemJSON.self, .pendingItemJSON)
+        try assertRoundTrips(PendingItemJSON.self, .pendingItemCoolingJSON)
     }
 }
