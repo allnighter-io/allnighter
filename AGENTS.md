@@ -13,10 +13,10 @@ experiments as more authoritative than the routed source docs.
 ## Mission
 
 Allnighter turns the user's Mac into an overnight **AI-agent factory** and the
-app/iPhone into the **Project Manager** for it. It coordinates the coding agents
+app/iPhone into one bench to run them from. It coordinates the coding agents
 the user already pays for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor)
-plus local models — running tasks in parallel, generating competing options, and
-turning the user's pick into the work order.
+plus local models — chat with one in your repo, fan out to many for options, all
+on one screen. See `docs/phases/Unified_Run_Model.md` for the run model.
 
 > You already pay for the team. Allnighter makes it show up to work.
 
@@ -35,10 +35,10 @@ Root docs are the source of truth. Read the relevant one before changing that ar
   **Code · Design · Copy** (+ **Signal** scout); machine layer is one `team.run`
   primitive (posture + `mutating`). Retired: `Fan out`, `Build`-as-craft,
   `Execute`-as-mode, "Move Card", `lane`=single-run. Hard cutover, no aliases.
-- **Execution team safety law (read before team/run/dispatch changes):**
-  `docs/phases/Work_Order_Team_Model.md` + `docs/phases/Project_Spine_And_Project_Manager.md` —
-  mixed-source teams are for judgment; mutating/`execute` teams must resolve to
-  one CLI/source before spawn. Historical proof:
+- **Run model + execution safety (read before team/run changes):**
+  `docs/phases/Unified_Run_Model.md` — a run = message + optional preset + worker,
+  in the repo root. Answer teams are read-only (parallel); execution teams are one
+  worker (mutating) under the per-root write lock. Historical source-gate proof:
   `docs/archive/phases/Execution_Team_Source_Gate.md`.
 - **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
   (originally called Council: one prompt → parallel CLIs → plan), plus
@@ -63,10 +63,10 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | --- | --- |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
-| Projects, repo/folder roots, Project Manager chat/proposals | `docs/phases/Project_Spine_And_Project_Manager.md` |
+| Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
-| Work-order vocabulary, model/skill/worker/team model | `docs/phases/Work_Order_Team_Model.md` |
-| Execution teams, mutating team runs, dispatch/source safety | `docs/phases/Work_Order_Team_Model.md` + `docs/phases/Project_Spine_And_Project_Manager.md` + `docs/phases/CLI_Implementation_Contract.md` |
+| Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
+| Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
@@ -112,8 +112,8 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
 ## Project Laws
 
 - Founder/user input is intent, not final authority.
-- Projects own repo/folder scope for new work; Project Manager chat/proposals
-  route through `docs/phases/Project_Spine_And_Project_Manager.md`.
+- Projects own repo/folder scope for new work; regular chat in a project is an
+  agent running in the repo root (the Default Team) — `docs/phases/Unified_Run_Model.md`.
 - SwiftUI may render truth; it must not invent durable product truth.
 - Prompt prose may request work; it must not be the only owner of semantics.
 - Generated output (parsers, design bundle) is derived. Change the source

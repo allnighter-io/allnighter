@@ -13,10 +13,10 @@ notes, and implementation phase docs.
 > process-quiet before setup/recheck/run. Historical policy/proof:
 > [`docs/archive/phases/Launch_Authority_TCC_Hotfix.md`](../archive/phases/Launch_Authority_TCC_Hotfix.md).
 >
-> **Execution source gate is built and archived:** mixed-source teams remain for
-> judgment; mutating/`execute` teams resolve to one source/driver before spawn.
-> Active law lives in `Work_Order_Team_Model.md`, Project dispatch enforcement in
-> `Project_Spine_And_Project_Manager.md`, historical proof in
+> **Run model:** a run = message + optional preset + worker, in the repo root.
+> Answer teams are read-only (parallel); execution teams are one worker (mutating)
+> under the per-root write lock. Active law: [`Unified_Run_Model.md`](Unified_Run_Model.md).
+> Historical source-gate proof:
 > [`docs/archive/phases/Execution_Team_Source_Gate.md`](../archive/phases/Execution_Team_Source_Gate.md).
 >
 > **▶ [`setup/`](setup/README.md) — First-Run Setup ("assemble your team").**
@@ -49,7 +49,7 @@ otherwise.
 | [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | WTK-S00-S04 + SWW-S00-S03 BUILT (2026-06-19); next SWW-S04/S05 product attention loop | Separates expected capacity sleep from unexpected stall. Built: capacity observation, Wake Tickets, CLI/MCP Pending run parity, resident one-shot wake, teamRun Pending execution, detector, refresh-before-declare, and read-only CLI/MCP stalled projections. Next: Project Manager wait nudges, typed recovery actions, resident periodic stall scan, and Mac notification/menu attention. |
 | [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); workerChat/teamRun CLI/MCP run + Wake Tickets built; broad native drain parked | Public `alln pending` CRUD + local Pending model/persistence are built. CLI/MCP `pending run` executes/settles workerChat and non-mutating teamRun Pending, exposes Wake facts, and `alln serve` wakes due workerChat tickets once. FollowUp/returnReview execution and mutating work-order/dispatch paths remain separate gated follow-on work; Away Mode, fairness drain, PTY probes, and admission ledgers remain parked. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
-| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; native Pending drain is parked. |
+| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + live run-lifecycle `--stream` (not answer deltas), `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; native Pending drain is parked. |
 | [`Team_Catalog.md`](Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Code/Design/Copy specialist team catalog substrate for Send to team: team picker, named team variants, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
 | [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) | Founder review packet (2026-06-17) | Cleanup-first lane catalog feature: `TeamCatalog` + `SkillCatalog`, `TeamID` + `SkillID`, built-in and custom teams/skills in one catalog model, lane-first Settings, no Store vocabulary, no migration, no skill versioning. |
 | [`Model_Catalog_And_Bench_Roster.md`](Model_Catalog_And_Bench_Roster.md) | Ready CLI-first backend spec (2026-06-18) | Core `ModelCatalog` as the owner for built-in/custom per-CLI models, persistent Bench enablement, manual add/update/delete, CLI model commands, ToolRuntime/probe-label hardening, and the live-discovery seam. Model management stays inside CLIs; Bench is derived. |

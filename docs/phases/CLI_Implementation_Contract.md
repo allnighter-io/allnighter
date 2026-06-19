@@ -1,7 +1,8 @@
 # CLI Implementation Contract
 
-Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
-`serve --stdio` projects from the registry. **Pending0/1 BUILT** (2026-06-17):
+Status: CLI M1 BUILT (2026-06-15) — full wall green; `--stream` emits live
+run-lifecycle events, not worker answer deltas; MCP `serve --stdio` projects
+from the registry. **Pending0/1 BUILT** (2026-06-17):
 `alln pending` CRUD + `PendingItemJSON`; WTK-S02a added workerChat
 `pending run` execution/settlement through `PendingRunExecutor`. WTK-S00/S01a/S01b
 added `CapacityObservation`, Pending capacity JSON, MCP Pending registry specs,
