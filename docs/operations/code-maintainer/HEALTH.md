@@ -2,6 +2,14 @@
 
 Deltas must be explained, not minimized.
 
+## 2026-06-19 (hot-fix cleanup closeout)
+
+- Repo stage: Swift package (`Packages/AllnighterCore`) + Mac app (`Apps/AllnighterMac`) + iOS target; green wall recovered after xcodegen regen (stale `DesignBoardView.swift` reference removed).
+- Open maintenance queue rows: 0 (hot-fix cleanup slices marked done)
+- Suppressions: 0
+- Top Mac shell pressure after cleanup: `SetupViews.swift` (~748 LOC), `TeamEditorView.swift` (~706), `ReadinessView.swift` (~611), `HomeView.swift` (~608), `ThreadView.swift` (~601)
+- Next regular lens: Duplication (index 1)
+
 ## 2026-06-12 (bootstrap)
 
 - Repo stage: docs/process only; no Swift targets yet.
