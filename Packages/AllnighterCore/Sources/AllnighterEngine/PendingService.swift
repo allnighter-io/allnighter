@@ -289,8 +289,27 @@ public struct PendingService: Sendable {
 
     // MARK: - Run (manual attempt)
 
-    /// Validates and starts a Pending run: submits Draft items, records a running attempt, and leases to CLI.
-    public func beginRun(id: String) throws -> PendingItem {
+    public struct BeginRunOptions: Sendable {
+        public var leaseOwner: PendingLeaseOwner
+        public var attemptReason: String
+        public var origin: PendingOrigin?
+
+        public init(
+            leaseOwner: PendingLeaseOwner = .cli,
+            attemptReason: String = "workerChatRun",
+            origin: PendingOrigin? = nil
+        ) {
+            self.leaseOwner = leaseOwner
+            self.attemptReason = attemptReason
+            self.origin = origin
+        }
+
+        public static let cliDefault = BeginRunOptions()
+        public static let wakeTicket = BeginRunOptions(leaseOwner: .serve, attemptReason: "wakeTicket", origin: .system)
+    }
+
+    /// Validates and starts a Pending run: submits Draft items, records a running attempt, and leases.
+    public func beginRun(id: String, options: BeginRunOptions = .cliDefault) throws -> PendingItem {
         guard var item = try store.load(id: id) else { throw PendingServiceError.notFound(id) }
         if item.status == .draft { item = try submit(id: id) }
         guard item.status == .pending else {
@@ -308,11 +327,17 @@ public struct PendingService: Sendable {
             workerIds: workerId.isEmpty ? [] : [workerId],
             status: .running,
             executionLaneKey: item.execution?.executionLaneKey,
-            reason: "workerChatRun"
+            reason: options.attemptReason
         )
         item.attempts.append(attempt)
         item.status = .running
-        item.lease = PendingLease(leaseId: UUID().uuidString, owner: .cli, leasedAt: timestamp, attemptId: attemptId)
+        if let origin = options.origin { item.origin = origin }
+        item.lease = PendingLease(
+            leaseId: UUID().uuidString,
+            owner: options.leaseOwner,
+            leasedAt: timestamp,
+            attemptId: attemptId
+        )
         item.updatedAt = timestamp
         try store.save(item)
         return item
@@ -419,6 +444,11 @@ public struct PendingService: Sendable {
         switch item.kind {
         case .workerChat:
             return
+        case .teamRun:
+            if item.execution?.intent == .execute {
+                throw PendingServiceError.mutationDeferred
+            }
+            return
         case .dispatch:
             throw PendingServiceError.mutationDeferred
         case .workOrder:
@@ -426,8 +456,97 @@ public struct PendingService: Sendable {
                 throw PendingServiceError.mutationDeferred
             }
             throw PendingServiceError.unsupportedKind(item.kind.rawValue)
-        case .teamRun, .returnReview, .followUp:
+        case .returnReview, .followUp:
             throw PendingServiceError.unsupportedKind(item.kind.rawValue)
+        }
+    }
+
+    /// Settles a teamRun attempt from journal `TeamRun` truth.
+    public func settleTeamRun(
+        id: String,
+        attemptIndex: Int,
+        run: TeamRun,
+        transcriptRef: String?
+    ) throws -> PendingItem {
+        guard var item = try store.load(id: id) else { throw PendingServiceError.notFound(id) }
+        guard attemptIndex < item.attempts.count else {
+            throw PendingServiceError.invalidState("attempt index out of range")
+        }
+
+        let timestamp = now()
+        var attempt = item.attempts[attemptIndex]
+        attempt.completedAt = timestamp
+        attempt.transcriptRef = transcriptRef
+        item.runId = run.id
+
+        if let observation = dominantCapacityObservation(in: run) {
+            attempt.status = .blocked
+            attempt.reason = observation.kind.rawValue
+            item.status = .pending
+            item.resume = resume(from: observation, attemptId: attempt.attemptId, transcriptRef: transcriptRef)
+        } else {
+            switch run.status {
+            case .complete:
+                attempt.status = .done
+                attempt.reason = nil
+                item.status = .done
+                item.resume = nil
+            case .partial:
+                attempt.status = .done
+                attempt.reason = "partial"
+                item.status = .done
+                item.resume = nil
+            case .cancelled:
+                attempt.status = .cancelled
+                attempt.reason = "cancelled"
+                item.status = .pending
+                item.resume = nil
+            case .failed, .interrupted:
+                attempt.status = .failed
+                attempt.reason = run.failedWorkerAnswers.first?.errorReason ?? run.status.rawValue
+                item.status = .failed
+                item.resume = nil
+            default:
+                attempt.status = .failed
+                attempt.reason = "teamRunIncomplete"
+                item.status = .failed
+                item.resume = nil
+            }
+        }
+
+        item.attempts[attemptIndex] = attempt
+        item.lease = nil
+        item.updatedAt = timestamp
+        try store.save(item)
+        return item
+    }
+
+    private func dominantCapacityObservation(in run: TeamRun) -> CapacityObservation? {
+        run.failedWorkerAnswers.compactMap(\.capacityObservation).first
+    }
+
+    private func resume(from observation: CapacityObservation, attemptId: String, transcriptRef: String?) -> PendingResume? {
+        switch observation.kind {
+        case .accountRateLimit, .cooldown, .unknownCapacity:
+            return PendingResume(
+                reason: .cooldown,
+                lastAttemptId: attemptId,
+                transcriptRef: transcriptRef,
+                observedResetAt: observation.observedResetAt,
+                wakeAfter: observation.wakeAfter,
+                capacityObservation: observation
+            )
+        case .providerBusy:
+            return PendingResume(
+                reason: .providerBusy,
+                lastAttemptId: attemptId,
+                transcriptRef: transcriptRef,
+                observedResetAt: observation.observedResetAt,
+                wakeAfter: observation.wakeAfter,
+                capacityObservation: observation
+            )
+        case .authRequired, .manualRequired:
+            return nil
         }
     }
 

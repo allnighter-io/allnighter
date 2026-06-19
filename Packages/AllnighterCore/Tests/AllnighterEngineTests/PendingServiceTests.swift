@@ -102,6 +102,14 @@ final class PendingServiceTests: XCTestCase {
         XCTAssertNotNil(running.lease)
     }
 
+    func testBeginRunWakeTicketUsesServeLease() throws {
+        let item = try service.add(.init(prompt: "Wake", workerToken: "claude", submit: true))
+        let running = try service.beginRun(id: item.id, options: .wakeTicket)
+        XCTAssertEqual(running.lease?.owner, .serve)
+        XCTAssertEqual(running.attempts.last?.reason, "wakeTicket")
+        XCTAssertEqual(running.origin, .system)
+    }
+
     func testListJSONProjection() throws {
         _ = try service.add(.init(prompt: "Listed", workerToken: "claude", submit: true))
         let items = try service.list().map { try service.mapJSON($0) }

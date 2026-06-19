@@ -161,15 +161,31 @@ final class PendingRunExecutorTests: XCTestCase {
         XCTAssertNotNil(settled.submittedAt)
     }
 
-    func testUnsupportedTeamRunKindIsRejected() async throws {
+    func testTeamRunWithoutPresetIsRejected() async throws {
         let executor = makeExecutor(scripts: [:])
         let item = try executor.service.add(.init(prompt: "Team", kind: .teamRun, workerToken: "claude", submit: true))
 
         do {
             _ = try await executor.run(id: item.id)
+            XCTFail("expected invalidState")
+        } catch let error as PendingServiceError {
+            if case .invalidState(let detail) = error {
+                XCTAssertTrue(detail.contains("teamPresetId"))
+            } else {
+                XCTFail("unexpected \(error)")
+            }
+        }
+    }
+
+    func testUnsupportedFollowUpKindIsRejected() async throws {
+        let executor = makeExecutor(scripts: [:])
+        let item = try executor.service.add(.init(prompt: "Follow", kind: .followUp, workerToken: "claude", submit: true))
+
+        do {
+            _ = try await executor.run(id: item.id)
             XCTFail("expected unsupportedKind")
         } catch let error as PendingServiceError {
-            XCTAssertEqual(error, .unsupportedKind("teamRun"))
+            XCTAssertEqual(error, .unsupportedKind("followUp"))
         }
     }
 

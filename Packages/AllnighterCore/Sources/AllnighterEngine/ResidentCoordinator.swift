@@ -2,14 +2,34 @@ import Foundation
 import AllnighterCore
 import Darwin
 
-/// Foreground resident coordinator for `alln serve`. Owns process lifetime and
-/// health only — product semantics remain in `AllnighterCore`.
+/// Foreground resident coordinator for `alln serve`. Owns process lifetime,
+/// health, and the one-shot Wake Ticket loop.
 public final class ResidentCoordinator: @unchecked Sendable {
+    public struct WakeDependencies: Sendable {
+        public var models: [Model]
+        public var registry: DriverRegistry
+        public var commandRunner: CommandRunner
+        public var invocations: [String: ToolInvocation]
+
+        public init(
+            models: [Model],
+            registry: DriverRegistry,
+            commandRunner: CommandRunner = SubprocessCommandRunner(),
+            invocations: [String: ToolInvocation] = [:]
+        ) {
+            self.models = models
+            self.registry = registry
+            self.commandRunner = commandRunner
+            self.invocations = invocations
+        }
+    }
+
     public let binaryVersion: String
     public let contractVersion: String
     private let store: ResidentCoordinatorStore
     private let probe: ResidentCoordinatorProbe
     private let server: LoopbackHealthServer
+    private let wakeDependencies: WakeDependencies?
     private let coordinatorId: String
     private let startedAt: Date
 
@@ -17,18 +37,20 @@ public final class ResidentCoordinator: @unchecked Sendable {
         binaryVersion: String,
         contractVersion: String = ContractRegistry.contractVersion,
         store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
-        server: LoopbackHealthServer = LoopbackHealthServer()
+        server: LoopbackHealthServer = LoopbackHealthServer(),
+        wakeDependencies: WakeDependencies? = nil
     ) {
         self.binaryVersion = binaryVersion
         self.contractVersion = contractVersion
         self.store = store
         self.probe = ResidentCoordinatorProbe(store: store)
         self.server = server
+        self.wakeDependencies = wakeDependencies
         self.coordinatorId = UUID().uuidString.lowercased()
         self.startedAt = Date()
     }
 
-    /// Starts loopback health, writes durable state, and blocks until shutdown.
+    /// Starts loopback health, writes durable state, runs wake loop until shutdown.
     /// Always clears durable state on exit.
     public func run(untilShutdown: @escaping @Sendable () async -> Void) async throws {
         let healthProvider: @Sendable () -> String = { [probe, binaryVersion, contractVersion] in
@@ -51,7 +73,27 @@ public final class ResidentCoordinator: @unchecked Sendable {
             server.stop()
             store.clear()
         }
-        await untilShutdown()
+
+        let shutdown = ShutdownFlag()
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await untilShutdown()
+                shutdown.fire()
+            }
+            if let wake = wakeDependencies {
+                group.addTask {
+                    let scheduler = PendingWakeScheduler(
+                        models: wake.models,
+                        registry: wake.registry,
+                        commandRunner: wake.commandRunner,
+                        invocations: wake.invocations
+                    )
+                    await scheduler.run { shutdown.isCancelled }
+                }
+            }
+            await group.next()
+            group.cancelAll()
+        }
     }
 
     /// Blocks until SIGINT or SIGTERM.
@@ -74,6 +116,24 @@ public final class ResidentCoordinator: @unchecked Sendable {
             install(SIGINT)
             install(SIGTERM)
         }
+    }
+}
+
+/// Shared shutdown flag for health block and wake loop.
+final class ShutdownFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    func fire() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
     }
 }
 

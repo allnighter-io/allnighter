@@ -147,7 +147,7 @@ final class MCPPendingTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "nope", exitCode: 0)])
             let runtime = mcpPendingTestRuntime(root: root)
             let service = MCPPendingHandlers.makeService(runtime, store: store)
-            let item = try service.add(.init(prompt: "Team", kind: .teamRun, workerToken: "claude", submit: true))
+            let item = try service.add(.init(prompt: "Follow", kind: .followUp, workerToken: "claude", submit: true))
 
             guard case .toolError(let envelope) = await MCPPendingHandlers.run(
                 runtime: runtime,
@@ -158,7 +158,7 @@ final class MCPPendingTests: XCTestCase {
                 return XCTFail("expected unsupported kind error")
             }
             XCTAssertEqual(envelope.code, "CLI_USAGE_ERROR")
-            XCTAssertTrue(envelope.message.contains("teamRun"))
+            XCTAssertTrue(envelope.message.contains("followUp"))
         }
     }
 }

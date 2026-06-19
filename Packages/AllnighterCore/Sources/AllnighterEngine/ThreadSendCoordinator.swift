@@ -212,6 +212,12 @@ public struct ThreadSendCoordinator: Sendable {
             let thread = try settle(
                 workerTurn: pending.workerTurn, with: outcome, inThreadId: pending.threadId
             )
+            try? PendingCapacityResumeWriter.applyLinkedCapacity(
+                store: PendingStore(),
+                threadId: pending.threadId,
+                outcome: outcome,
+                now: now()
+            )
             return Result(
                 thread: thread, workerId: pending.workerId, userTurnId: pending.userTurnId,
                 workerTurnId: pending.workerTurn.id, contextPacketId: pending.contextPacketId,
