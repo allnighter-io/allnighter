@@ -489,9 +489,7 @@ final class AppModel {
     /// Per-driver invocations resolved by detection — so GUI runs spawn through the
     /// SAME plan that passed the health probe (health == runs; docs/phases/setup/01 §10).
     private var runnerInvocations: [String: ToolInvocation] {
-        var map: [String: ToolInvocation] = [:]
-        for record in toolStatuses { if let inv = record.invocation { map[record.driverId] = inv } }
-        return map
+        AppSetupModel.invocations(from: toolStatuses)
     }
 
     /// Every WorkerRunner the app spawns goes through this so runs reuse the

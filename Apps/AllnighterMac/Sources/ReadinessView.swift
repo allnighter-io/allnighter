@@ -14,12 +14,7 @@ struct TeamReadinessView: View {
     @State private var selectedId: String?
 
     private var cards: [SetupCardModel] { model.setupCards }
-    private var ready: [SetupCardModel] { cards.filter { $0.state == .ready } }
-    private var add: [SetupCardModel] { cards.filter { $0.state == .notInstalled } }
-    private var notChecked: [SetupCardModel] { cards.filter { $0.state == .notChecked } }
-    private var step: [SetupCardModel] {
-        cards.filter { $0.state != .ready && $0.state != .notInstalled && $0.state != .notChecked }
-    }
+    private var buckets: SetupCardBuckets { SetupCardBuckets(cards, splitNotChecked: true) }
 
     private var selectedCard: SetupCardModel? {
         cards.first { $0.driverId == selectedId }
@@ -47,7 +42,7 @@ struct TeamReadinessView: View {
     private func seedSelection() {
         if let focus = focusDriverId, cards.contains(where: { $0.driverId == focus }) {
             selectedId = focus
-        } else if let first = step.first?.driverId ?? add.first?.driverId ?? ready.first?.driverId {
+        } else if let first = buckets.step.first?.driverId ?? buckets.add.first?.driverId ?? buckets.ready.first?.driverId {
             selectedId = first
         }
     }
@@ -154,10 +149,10 @@ struct TeamReadinessView: View {
     private var bodyColumns: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(alignment: .leading, spacing: 9) {
-                rosterGroup("Ready", cards: ready)
-                rosterGroup("Needs a step", cards: step)
-                rosterGroup("Not checked yet", cards: notChecked)
-                rosterGroup("Add a CLI", cards: add)
+                rosterGroup("Ready", cards: buckets.ready)
+                rosterGroup("Needs a step", cards: buckets.step)
+                rosterGroup("Not checked yet", cards: buckets.notChecked)
+                rosterGroup("Add a CLI", cards: buckets.add)
                 censusFallback
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -231,15 +226,7 @@ struct TeamReadinessView: View {
 
     private func handle(_ action: SetupCardView.SetupAction, card: SetupCardModel) {
         selectedId = card.driverId
-        switch action {
-        case .openTerminal(let cmd): SetupActions.openTerminal(cmd)
-        case .copy(let text):
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-        case .openURL(let url): if let u = URL(string: url) { NSWorkspace.shared.open(u) }
-        case .rescan, .useAnyway: model.runFullSetupProbe(userInitiated: true)
-        case .locate: SetupActions.locateBinary()
-        }
+        SetupActions.handle(action, model: model)
     }
 }
 
@@ -405,16 +392,7 @@ struct BenchRepairPanel: View {
 
     private func resetAdd() { addingModel = false; newModelName = ""; newModelLabel = "" }
 
-    @ViewBuilder private var repairPill: some View {
-        switch card.state {
-        case .ready: SetupPill(kind: .ready, label: "Ready")
-        case .needsLogin, .waiting: SetupPill(kind: .step, label: "Needs sign-in")
-        case .needsPath: SetupPill(kind: .step, label: "Needs a path")
-        case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
-        case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
-        default: SetupPill(kind: .muted, label: "Needs a step")
-        }
-    }
+    @ViewBuilder private var repairPill: some View { card.state.repairPill }
 
     private var lead: String {
         switch card.state {
@@ -476,10 +454,7 @@ struct BenchRepairPanel: View {
                     model.runFullSetupProbe(userInitiated: true)
                 },
                 RepairAction(icon: "doc.text", title: "View log", subtitle: "Open the full probe transcript", button: "Open", primary: false, secondary: true) {
-                    if let reason = card.probeReason {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(reason, forType: .string)
-                    }
+                    if let reason = card.probeReason { SetupActions.copyToPasteboard(reason) }
                 },
                 RepairAction(icon: "folder", title: "Locate the binary…", subtitle: "In case the wrong binary resolved", button: "Locate", primary: false, secondary: false) {
                     SetupActions.locateBinary()

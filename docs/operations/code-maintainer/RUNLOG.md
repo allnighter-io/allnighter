@@ -1,6 +1,19 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-06-19 - Batch 2
+
+Scope: Duplication lens (index 1)
+Class: Bounded dedup — setup roster grouping, status pills, action handlers, invocation map
+Lens: Duplication (index 1)
+Files touched: Apps/AllnighterMac/Sources/{SetupViews,ReadinessView,AppSetupModel,AppModel,ThreadsViewModel}.swift; docs/operations/code-maintainer/{RUNLOG,HEALTH}.md
+Behavior guarantee: No UI restyle; same setup roster groups, pill labels, and repair actions
+Proof: swift test --package-path Packages/AllnighterCore (639 tests, 0 failures); xcodebuild test -scheme AllnighterMac (84 tests, 0 failures); bash scripts/check.sh
+Before/after signal: Extracted SetupCardBuckets, SetupCardState roster/repair pills, SetupActions.handle; AppSetupModel.invocations shared by AppModel + ThreadsViewModel
+Next lens: Dead weight (index 2)
+```
+
+```text
 ## 2026-06-19 - Batch 1
 
 Scope: Hot-fix cleanup health-check scout (Structure lens)

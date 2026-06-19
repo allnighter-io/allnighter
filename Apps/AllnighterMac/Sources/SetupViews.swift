@@ -17,6 +17,59 @@ enum SetupCardState: Sendable {
     case notChecked
 }
 
+extension SetupCardState {
+    /// Roster row / full card — one label per probe state.
+    var rosterPill: SetupPill {
+        switch self {
+        case .ready: SetupPill(kind: .ready, label: "Ready")
+        case .needsLogin: SetupPill(kind: .step, label: "Needs sign-in")
+        case .needsPath: SetupPill(kind: .step, label: "Needs a path")
+        case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
+        case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
+        case .installedNotProbed: SetupPill(kind: .muted, label: "Installed")
+        case .detecting: SetupPill(kind: .check, label: "Detecting…")
+        case .reprobing: SetupPill(kind: .check, label: "Re-checking…")
+        case .queued: SetupPill(kind: .muted, label: "Queued")
+        case .waiting: SetupPill(kind: .check, label: "Waiting for sign-in…")
+        case .notChecked: SetupPill(kind: .muted, label: "Not checked")
+        }
+    }
+
+    /// Repair panel — collapses in-progress / unknown states.
+    var repairPill: SetupPill {
+        switch self {
+        case .ready: SetupPill(kind: .ready, label: "Ready")
+        case .needsLogin, .waiting: SetupPill(kind: .step, label: "Needs sign-in")
+        case .needsPath: SetupPill(kind: .step, label: "Needs a path")
+        case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
+        case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
+        default: SetupPill(kind: .muted, label: "Needs a step")
+        }
+    }
+}
+
+/// Partitions setup cards into roster groups (popover vs full setup page).
+struct SetupCardBuckets {
+    let ready: [SetupCardModel]
+    let step: [SetupCardModel]
+    let notChecked: [SetupCardModel]
+    let add: [SetupCardModel]
+
+    init(_ cards: [SetupCardModel], splitNotChecked: Bool) {
+        ready = cards.filter { $0.state == .ready }
+        add = cards.filter { $0.state == .notInstalled }
+        if splitNotChecked {
+            notChecked = cards.filter { $0.state == .notChecked }
+            step = cards.filter {
+                $0.state != .ready && $0.state != .notInstalled && $0.state != .notChecked
+            }
+        } else {
+            notChecked = []
+            step = cards.filter { $0.state != .ready && $0.state != .notInstalled }
+        }
+    }
+}
+
 struct SetupCardModel: Identifiable {
     let driverId: String
     let name: String
@@ -152,7 +205,7 @@ struct CmdRow: View {
                 .foregroundStyle(error ? ALPalette.red400 : ALColor.textPrimary)
                 .lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            IconButton(systemImage: "doc.on.doc", accessibilityLabel: "Copy", small: true) { copy(text) }
+            IconButton(systemImage: "doc.on.doc", accessibilityLabel: "Copy", small: true) { SetupActions.copyToPasteboard(text) }
         }
         .padding(.vertical, 8).padding(.leading, 12).padding(.trailing, 8)
         .background(ALColor.void, in: RoundedRectangle(cornerRadius: ALRadius.md))
@@ -321,21 +374,7 @@ struct SetupCardView: View {
         }
     }
 
-    private var pill: SetupPill {
-        switch card.state {
-        case .ready: SetupPill(kind: .ready, label: "Ready")
-        case .needsLogin: SetupPill(kind: .step, label: "Needs sign-in")
-        case .needsPath: SetupPill(kind: .step, label: "Needs a path")
-        case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
-        case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
-        case .installedNotProbed: SetupPill(kind: .muted, label: "Installed")
-        case .detecting: SetupPill(kind: .check, label: "Detecting…")
-        case .reprobing: SetupPill(kind: .check, label: "Re-checking…")
-        case .queued: SetupPill(kind: .muted, label: "Queued")
-        case .waiting: SetupPill(kind: .check, label: "Waiting for sign-in…")
-        case .notChecked: SetupPill(kind: .muted, label: "Not checked")
-        }
-    }
+    private var pill: SetupPill { card.state.rosterPill }
 
     // body / fix-it
     @ViewBuilder private var bodyView: some View {
@@ -521,18 +560,16 @@ struct BenchHealthPopover: View {
     var maxBodyHeight: CGFloat = 420
 
     private var cards: [SetupCardModel] { model.setupCards }
-    private var ready: [SetupCardModel] { cards.filter { $0.state == .ready } }
-    private var add: [SetupCardModel] { cards.filter { $0.state == .notInstalled } }
-    private var step: [SetupCardModel] { cards.filter { $0.state != .ready && $0.state != .notInstalled } }
+    private var buckets: SetupCardBuckets { SetupCardBuckets(cards, splitNotChecked: false) }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    group("Ready", cards: ready)
-                    group("Needs a step", cards: step)
-                    group("Add a CLI", cards: add)
+                    group("Ready", cards: buckets.ready)
+                    group("Needs a step", cards: buckets.step)
+                    group("Add a CLI", cards: buckets.add)
                 }
                 .padding(.top, 4).padding(.horizontal, 13).padding(.bottom, 12)
             }
@@ -553,9 +590,9 @@ struct BenchHealthPopover: View {
 
     private var measuredContentHeight: CGFloat {
         var h: CGFloat = 16
-        if !ready.isEmpty { h += 28 + ready.reduce(0) { $0 + rosterCardHeight($1) } }
-        if !step.isEmpty { h += 28 + step.reduce(0) { $0 + rosterCardHeight($1) } }
-        if !add.isEmpty { h += 28 + add.reduce(0) { $0 + rosterCardHeight($1) } }
+        if !buckets.ready.isEmpty { h += 28 + buckets.ready.reduce(0) { $0 + rosterCardHeight($1) } }
+        if !buckets.step.isEmpty { h += 28 + buckets.step.reduce(0) { $0 + rosterCardHeight($1) } }
+        if !buckets.add.isEmpty { h += 28 + buckets.add.reduce(0) { $0 + rosterCardHeight($1) } }
         return h
     }
 
@@ -631,13 +668,7 @@ struct BenchHealthPopover: View {
     }
 
     private func handle(_ action: SetupCardView.SetupAction) {
-        switch action {
-        case .openTerminal(let cmd): SetupActions.openTerminal(cmd)
-        case .copy(let text): copy(text)
-        case .openURL(let url): if let u = URL(string: url) { NSWorkspace.shared.open(u) }
-        case .rescan, .useAnyway: model.runFullSetupProbe(userInitiated: true)
-        case .locate: SetupActions.locateBinary()
-        }
+        SetupActions.handle(action, model: model)
     }
 }
 
@@ -707,11 +738,20 @@ enum SetupActions {
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         return panel.runModal() == .OK ? panel.url : nil
     }
-}
-
-private func copy(_ text: String) {
-    NSPasteboard.general.clearContents()
-    NSPasteboard.general.setString(text, forType: .string)
+    static func copyToPasteboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+    @MainActor
+    static func handle(_ action: SetupCardView.SetupAction, model: AppModel) {
+        switch action {
+        case .openTerminal(let cmd): openTerminal(cmd)
+        case .copy(let text): copyToPasteboard(text)
+        case .openURL(let url): if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+        case .rescan, .useAnyway: model.runFullSetupProbe(userInitiated: true)
+        case .locate: locateBinary()
+        }
+    }
 }
 
 // MARK: - Preview — every card state (the handoff spec sheet)

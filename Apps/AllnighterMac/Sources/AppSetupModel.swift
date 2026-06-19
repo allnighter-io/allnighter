@@ -4,6 +4,15 @@ import AllnighterEngine
 
 /// Setup card mapping and cached setup state helpers for `AppModel`.
 enum AppSetupModel {
+    /// Per-driver invocations from probe records — shared by `AppModel` runners and `ThreadsViewModel`.
+    static func invocations(from records: [ToolProbeRecord]) -> [String: ToolInvocation] {
+        var map: [String: ToolInvocation] = [:]
+        for record in records where record.invocation != nil {
+            map[record.driverId] = record.invocation
+        }
+        return map
+    }
+
     static func setupCards(
         registry: DriverRegistry,
         toolStatuses: [ToolProbeRecord],

@@ -64,7 +64,7 @@ final class ThreadsViewModel {
         // Cached health (no probing): lets team runs resolve through the SAME
         // invocations that passed the health probe (health == runs).
         let records = SetupStore().load().records
-        let invocations = Self.invocations(from: records)
+        let invocations = AppSetupModel.invocations(from: records)
         let store: ThreadStore
         let runStore: RunStore
         #if DEBUG
@@ -140,14 +140,6 @@ final class ThreadsViewModel {
             registry: registry, models: models
         )
         reload()
-    }
-
-    private static func invocations(from records: [ToolProbeRecord]) -> [String: ToolInvocation] {
-        var map: [String: ToolInvocation] = [:]
-        for record in records where record.invocation != nil {
-            map[record.driverId] = record.invocation
-        }
-        return map
     }
 
     // MARK: - Derived
@@ -360,7 +352,7 @@ final class ThreadsViewModel {
             runStore: runStore,
             commandRunner: commandRunner,
             writeLock: writeLock,
-            invocations: Self.invocations(from: toolStatuses)
+            invocations: AppSetupModel.invocations(from: toolStatuses)
         )
     }
 

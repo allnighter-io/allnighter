@@ -2,6 +2,13 @@
 
 Deltas must be explained, not minimized.
 
+## 2026-06-19 (Batch 2 — Duplication)
+
+- Extracted `SetupCardBuckets`, `SetupCardState` pill mapping, and `SetupActions.handle` from duplicated setup/readiness surfaces.
+- Shared `AppSetupModel.invocations(from:)` between `AppModel` and `ThreadsViewModel`.
+- Open maintenance queue rows: 0
+- Next regular lens: Dead weight (index 2)
+
 ## 2026-06-19 (hot-fix cleanup closeout)
 
 - Repo stage: Swift package (`Packages/AllnighterCore`) + Mac app (`Apps/AllnighterMac`) + iOS target; green wall recovered after xcodegen regen (stale `DesignBoardView.swift` reference removed).
