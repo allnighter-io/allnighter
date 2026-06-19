@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allnighter — Composer · team picker</title>
+<link rel="icon" href="../assets/allnighter-icon.svg">
+<link rel="stylesheet" href="../styles.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  html,body{height:100%;margin:0}
+  body{background:var(--bg-void);color:var(--text-primary);
+    font:13px/1.45 var(--font-sans);letter-spacing:var(--tracking-normal);
+    display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--accent-surface)}
+  button{font-family:inherit}
+
+  .win{width:min(1360px,calc(100vw - 40px));height:min(884px,calc(100vh - 40px));
+    background:var(--bg-base);border:1px solid var(--border-default);border-radius:14px;
+    box-shadow:var(--shadow-xl);overflow:hidden;display:grid;grid-template-rows:auto 1fr}
+
+  /* top bar (shared with launcher) */
+  .topbar{display:flex;align-items:center;gap:16px;height:52px;padding:0 18px;
+    background:var(--bg-subtle);border-bottom:1px solid var(--border-subtle)}
+  .lights{display:flex;gap:8px}
+  .lights span{width:11px;height:11px;border-radius:50%}
+  .lights .r{background:#ff5f57}.lights .y{background:#febc2e}.lights .g{background:#28c840}
+  .tbglyph{width:21px;height:21px;opacity:.85;margin-left:4px}
+  .modeswitch{display:inline-flex;background:var(--bg-surface);border:1px solid var(--border-subtle);
+    border-radius:10px;padding:3px;gap:2px;margin-left:6px}
+  .modeswitch button{border:0;background:transparent;color:var(--text-muted);font:600 13px var(--font-sans);
+    padding:7px 16px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .modeswitch button i{width:15px;height:15px}
+  .modeswitch button:hover{color:var(--text-secondary)}
+  .modeswitch button.on{background:var(--bg-active);color:var(--ink-50);box-shadow:inset 0 0 0 1px var(--border-subtle)}
+  .modeswitch .badge-n{font:600 10px var(--font-mono);background:var(--accent-surface);color:var(--accent-text);border-radius:999px;padding:1px 6px;margin-left:2px}
+  .modeswitch .kbd-mini{font:600 10px var(--font-mono);color:var(--text-disabled);margin-left:4px}
+  .topbar .spacer{flex:1}
+  .topbar .proj{display:flex;align-items:center;gap:8px;font:500 12px var(--font-mono);color:var(--text-faint)}
+  .topbar .proj i{width:13px;height:13px}
+  .topbar .avatar{width:28px;height:28px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--border-default);
+    display:grid;place-items:center;color:var(--text-muted);font:600 11px var(--font-mono)}
+
+  .body{display:grid;grid-template-columns:288px 1fr;min-height:0}
+
+  /* ---------- inbox rail ---------- */
+  .inbox{background:var(--bg-subtle);border-right:1px solid var(--border-subtle);
+    display:flex;flex-direction:column;min-height:0}
+  .inbox .ihd{padding:14px 14px 10px}
+  .newchat{width:100%;height:38px;border:0;border-radius:10px;background:var(--ink-50);color:var(--bg-void);
+    font:700 13px var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .newchat:hover{background:#fff}
+  .newchat i{width:15px;height:15px}
+  .isearch{display:flex;align-items:center;gap:8px;height:34px;margin-top:10px;padding:0 10px;border-radius:9px;
+    border:1px solid var(--border-subtle);background:var(--bg-input);color:var(--text-faint)}
+  .isearch i{width:14px;height:14px}
+  .isearch input{flex:1;background:transparent;border:0;outline:0;color:var(--text-primary);font:500 12.5px var(--font-sans)}
+  .isearch input::placeholder{color:var(--text-faint)}
+  .ifilter{display:flex;gap:4px;padding:8px 14px 6px}
+  .ifilter button{border:0;background:transparent;color:var(--text-muted);font:600 11.5px var(--font-sans);
+    padding:5px 10px;border-radius:7px;cursor:pointer}
+  .ifilter button:hover{background:var(--bg-hover);color:var(--text-secondary)}
+  .ifilter button.on{background:var(--bg-active);color:var(--ink-50)}
+  .ilist{overflow:auto;padding:4px 8px 12px;flex:1;min-height:0}
+  .igrp{font:700 9.5px var(--font-mono);letter-spacing:var(--tracking-caps);text-transform:uppercase;
+    color:var(--text-faint);padding:10px 8px 6px}
+  .conv{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;padding:9px 8px;border-radius:9px;cursor:pointer}
+  .conv:hover{background:var(--bg-hover)}
+  .conv.on{background:var(--bg-active);box-shadow:inset 0 0 0 1px var(--border-subtle)}
+  .conv .ci{width:30px;height:30px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--border-default);
+    display:grid;place-items:center;color:var(--text-muted)}
+  .conv .ci svg{width:15px;height:15px}
+  .conv .ct{min-width:0}
+  .conv .cn{font-weight:600;color:var(--ink-50);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .conv.unread .cn{color:#fff}
+  .conv .cm{font:500 10.5px var(--font-mono);color:var(--text-faint);margin-top:2px;display:flex;align-items:center;gap:5px}
+  .conv .cm .rdot{width:5px;height:5px;border-radius:50%;background:var(--green-500)}
+  .conv .udot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:var(--glow-amber-sm)}
+
+  /* ---------- thread ---------- */
+  .thread{display:grid;grid-template-rows:auto 1fr auto;min-width:0;min-height:0}
+  .thd{display:flex;align-items:center;gap:11px;padding:13px 22px;border-bottom:1px solid var(--border-subtle)}
+  .thd .tt{font-size:14px;font-weight:700;color:var(--ink-50)}
+  .thd .tg{font:500 11px var(--font-mono);color:var(--text-faint);display:flex;align-items:center;gap:6px}
+  .thd .tg i{width:12px;height:12px}
+  .thd .spacer{flex:1}
+  .thd .tact{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-subtle);background:transparent;
+    color:var(--text-muted);display:grid;place-items:center;cursor:pointer}
+  .thd .tact:hover{background:var(--bg-hover);color:var(--text-secondary)}
+  .thd .tact i{width:15px;height:15px}
+
+  .stream{overflow:auto;padding:24px 22px 8px;display:flex;flex-direction:column;gap:20px;min-height:0}
+  .msg{display:grid;grid-template-columns:30px 1fr;gap:13px;max-width:760px}
+  .msg .ava{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none}
+  .msg.me .ava{background:var(--bg-surface);border:1px solid var(--border-default);color:var(--text-muted);font:600 11px var(--font-mono)}
+  .msg .mava{background:var(--bg-surface);border:1px solid var(--border-default)}
+  .msg .mava svg{width:16px;height:16px;color:var(--text-secondary)}
+  .msg .mc .mn{font-weight:700;color:var(--ink-50);font-size:12.5px;margin-bottom:5px;display:flex;align-items:center;gap:8px}
+  .msg .mc .mn .mt{font:500 10px var(--font-mono);color:var(--text-disabled);font-weight:500}
+  .msg .mc .mb{color:var(--text-secondary);line-height:1.55;text-wrap:pretty}
+  .msg .mc .mb b{color:var(--text-primary);font-weight:600}
+  .pm-hint{align-self:center;max-width:760px;width:100%;display:flex;align-items:center;gap:10px;
+    padding:11px 14px;border-radius:11px;border:1px dashed var(--accent-border);
+    background:linear-gradient(180deg,rgba(255,166,48,.05),transparent);color:var(--text-secondary)}
+  .pm-hint i{width:15px;height:15px;color:var(--accent-text);flex:none}
+  .pm-hint b{color:var(--ink-50);font-weight:600}
+  .pm-hint .go{margin-left:auto;font:600 11.5px var(--font-mono);color:var(--accent-text);white-space:nowrap}
+
+  /* ---------- composer ---------- */
+  .composer{position:relative;padding:14px 22px 16px}
+  .cwrap{border:1px solid var(--border-default);border-radius:14px;background:var(--bg-raised);box-shadow:var(--edge-top)}
+  .cwrap:focus-within{border-color:var(--border-strong)}
+  .ctext{padding:14px 16px 4px;color:var(--text-faint);font-size:14.5px;min-height:24px}
+  .ctools{display:flex;align-items:center;gap:9px;padding:10px 12px 11px}
+
+  .pillbtn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:10px;
+    border:1px solid var(--border-default);background:var(--bg-surface);color:var(--ink-50);cursor:pointer;
+    font:600 13px var(--font-sans)}
+  .pillbtn:hover{background:var(--bg-hover);border-color:var(--border-strong)}
+  .pillbtn .lead{width:18px;height:18px;color:var(--accent-text)}
+  .pillbtn .chev{width:15px;height:15px;color:var(--text-faint)}
+  .pillbtn.team .fav{width:15px;height:15px;color:var(--text-faint)}
+  .pillbtn.team .nm{font-weight:700}
+  .pillbtn.team .lineup{display:flex;align-items:center;gap:4px;margin-left:2px}
+  .pillbtn.team .mchip{width:20px;height:20px;border-radius:6px;background:var(--bg-base);border:1px solid var(--border-default);display:grid;place-items:center}
+  .pillbtn.team .mchip svg{width:12px;height:12px;color:var(--text-muted)}
+  .ctools .spacer{flex:1}
+  .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border-default);background:var(--bg-surface);
+    color:var(--text-muted);display:grid;place-items:center;cursor:pointer}
+  .iconbtn:hover{background:var(--bg-hover);color:var(--text-secondary)}
+  .iconbtn i{width:17px;height:17px}
+  .send{width:40px;height:40px;border-radius:11px;border:0;background:var(--accent);color:var(--text-on-amber);
+    box-shadow:var(--glow-amber-sm);display:grid;place-items:center;cursor:pointer}
+  .send:hover{background:var(--accent-hover);box-shadow:var(--glow-amber)}
+  .send i{width:18px;height:18px}
+  .chelp{padding:9px 4px 0;font:500 11.5px var(--font-mono);color:var(--text-faint);display:flex;align-items:center;gap:7px}
+  .chelp i{width:13px;height:13px;color:var(--text-disabled)}
+
+  /* ---------- popovers ---------- */
+  .pop{position:absolute;bottom:74px;z-index:30;border:1px solid var(--border-default);
+    background:var(--bg-raised);border-radius:14px;
+    box-shadow:var(--shadow-xl);display:none}
+  .pop.show{display:block}
+  .pop .tail{position:absolute;bottom:-7px;width:13px;height:13px;background:var(--bg-raised);
+    border-right:1px solid var(--border-default);border-bottom:1px solid var(--border-default);transform:rotate(45deg)}
+
+  /* mode popover */
+  .modepop{left:22px;width:392px;padding:8px}
+  .modepop .opt{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:start;padding:12px;border-radius:11px;cursor:pointer}
+  .modepop .opt:hover{background:var(--bg-hover)}
+  .modepop .opt.on{background:var(--bg-active)}
+  .modepop .opt .oi{width:34px;height:34px;border-radius:9px;background:var(--bg-surface);border:1px solid var(--border-default);
+    display:grid;place-items:center;color:var(--accent-text)}
+  .modepop .opt .oi i{width:17px;height:17px}
+  .modepop .opt .ot{font-size:14px;font-weight:700;color:var(--ink-50);display:flex;align-items:center;gap:8px}
+  .modepop .opt .ot .ck{width:15px;height:15px;color:var(--accent-text)}
+  .modepop .opt .od{color:var(--text-muted);font-size:12px;line-height:1.4;margin-top:3px}
+  .modepop .opt .ok{font:600 11px var(--font-mono);color:var(--text-faint)}
+
+  /* team picker popover — Recent / Favorites / Search */
+  .teampop{left:120px;width:464px;display:flex;flex-direction:column;max-height:560px}
+  .tphd{padding:14px 16px 10px}
+  .tphd .ttl{font-size:14px;font-weight:700;color:var(--ink-50)}
+  .tphd .sub{font:500 11.5px var(--font-mono);color:var(--text-faint);margin-top:2px}
+  .tpsearch{display:flex;align-items:center;gap:9px;height:40px;margin:10px 0 2px;padding:0 12px;border-radius:10px;
+    border:1px solid var(--border-default);background:var(--bg-input)}
+  .tpsearch:focus-within{border-color:var(--accent-border);box-shadow:var(--focus-ring)}
+  .tpsearch > i{width:16px;height:16px;color:var(--accent-text)}
+  .tpsearch input{flex:1;background:transparent;border:0;outline:0;color:var(--text-primary);font:500 13.5px var(--font-sans)}
+  .tpsearch input::placeholder{color:var(--text-faint)}
+  .tpsearch .kbd{font:600 10px var(--font-mono);color:var(--text-faint);border:1px solid var(--border-subtle);border-radius:5px;padding:2px 6px}
+  .tpbody{overflow:auto;padding:2px 8px 6px;flex:1;min-height:0}
+  .tpgrp{display:flex;align-items:center;gap:8px;padding:12px 8px 7px}
+  .tpgrp .g{font:700 9.5px var(--font-mono);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--text-faint)}
+  .tpgrp .g i{width:12px;height:12px;vertical-align:-2px;margin-right:5px;color:var(--accent-text)}
+  .tpgrp .ln{flex:1;height:1px;background:var(--border-subtle)}
+  .tprow{display:grid;grid-template-columns:30px 1fr auto;gap:11px;align-items:center;padding:9px 8px;border-radius:9px;cursor:pointer}
+  .tprow:hover{background:var(--bg-hover)}
+  .tprow.sel{background:linear-gradient(90deg,rgba(255,166,48,.07),transparent 70%);box-shadow:inset 2px 0 0 var(--accent)}
+  .tprow .ri{width:30px;height:30px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--border-default);
+    display:grid;place-items:center;color:var(--text-muted)}
+  .tprow .ri svg{width:15px;height:15px}
+  .tprow .rt{min-width:0}
+  .tprow .rn{font-weight:600;color:var(--ink-50);font-size:13px;display:flex;align-items:center;gap:8px}
+  .tprow .rn .kb{font:600 9.5px var(--font-mono);color:var(--text-disabled);border:1px solid var(--border-subtle);border-radius:4px;padding:1px 5px}
+  .tprow .ro{font-size:11.5px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px}
+  .tprow .ro i{width:11px;height:11px;color:var(--accent-text)}
+  .tprow .ro b{color:var(--text-secondary);font-weight:600}
+  .tprow .rr{display:flex;align-items:center;gap:10px}
+  .tprow .lineup{display:flex;align-items:center;gap:4px}
+  .tprow .mchip{width:20px;height:20px;border-radius:6px;background:var(--bg-base);border:1px solid var(--border-default);display:grid;place-items:center}
+  .tprow .mchip svg{width:12px;height:12px;color:var(--text-muted)}
+  .tprow .gate{font:600 9.5px var(--font-mono);color:var(--accent-text);display:inline-flex;align-items:center;gap:4px}
+  .tprow .gate i{width:11px;height:11px}
+  .tprow .star{color:var(--accent);display:grid}
+  .tprow .star i{width:13px;height:13px}
+  .tpfoot{border-top:1px solid var(--border-subtle);padding:10px;display:flex;gap:8px}
+  .tpfoot button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:36px;border-radius:9px;
+    border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-secondary);font:600 12px var(--font-sans);cursor:pointer}
+  .tpfoot button:hover{background:var(--bg-hover);color:var(--ink-50);border-color:var(--border-strong)}
+  .tpfoot button i{width:14px;height:14px;color:var(--text-faint)}
+  .tpfoot .browse i{color:var(--accent-text)}
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="16" fill="#0D101A"/>
+  <rect x="20" y="58" width="60" height="24" rx="7" fill="#151822" stroke="#373D51" stroke-width="1.5"/>
+  <rect x="26" y="64" width="22" height="6" rx="3" fill="#FFA630"/>
+  <circle cx="72" cy="70" r="5" fill="#FFA630"/>
+  <rect x="20" y="22" width="60" height="8" rx="4" fill="#373D51"/>
+  <rect x="20" y="36" width="40" height="8" rx="4" fill="#262B3B"/>
+</svg>
+</template>
+
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <symbol id="m-grok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="6.7" y1="17.3" x2="17.3" y2="6.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="m-claude" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/><line x1="7.5" y1="4.2" x2="16.5" y2="19.8"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16.5" y1="4.2" x2="7.5" y2="19.8"/><line x1="19.8" y1="7.5" x2="4.2" y2="16.5"/></g></symbol>
+  <symbol id="m-openai" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><ellipse cx="12" cy="12" rx="2.3" ry="9"/><ellipse cx="12" cy="12" rx="2.3" ry="9" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="2.3" ry="9" transform="rotate(120 12 12)"/></g></symbol>
+  <symbol id="m-gemini" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 Q12 12 22 12 Q12 12 12 22 Q12 12 2 12 Q12 12 12 2 Z"/></symbol>
+</svg>
+
+<main class="win">
+  <div class="topbar">
+    <div class="lights"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+    <img class="tbglyph" src="../assets/allnighter-glyph.svg" alt="Allnighter">
+    <div class="modeswitch">
+      <button class="on" title="Inbox"><i data-lucide="inbox"></i>Inbox<span class="badge-n">1</span><span class="kbd-mini">⌘1</span></button>
+      <button title="Teams"><i data-lucide="users-round"></i>Teams<span class="kbd-mini">⌘2</span></button>
+    </div>
+    <span class="spacer"></span>
+    <span class="proj"><i data-lucide="folder-git-2"></i>Allnighter / main</span>
+    <span class="avatar">JD</span>
+  </div>
+
+  <div class="body">
+    <!-- inbox rail -->
+    <aside class="inbox">
+      <div class="ihd">
+        <button class="newchat"><i data-lucide="plus"></i>New chat</button>
+        <div class="isearch"><i data-lucide="search"></i><input placeholder="Search conversations"></div>
+      </div>
+      <div class="ifilter">
+        <button class="on">All</button>
+        <button>Design</button>
+        <button>Code</button>
+        <button>Running</button>
+      </div>
+      <div class="ilist">
+        <div class="igrp">Unread</div>
+        <div class="conv unread on">
+          <span class="ci"><svg><use href="#m-openai"></use></svg></span>
+          <span class="ct"><span class="cn">Post-to-Project Signal · X thread</span><span class="cm"><span class="rdot"></span>team replied · 14m ago</span></span>
+          <span class="udot"></span>
+        </div>
+        <div class="igrp">Recent</div>
+        <div class="conv">
+          <span class="ci"><svg><use href="#m-grok"></use></svg></span>
+          <span class="ct"><span class="cn">Give me a picture of a cute cat</span><span class="cm"><span class="rdot"></span>replied · 1d ago</span></span>
+        </div>
+        <div class="conv">
+          <span class="ci"><i data-lucide="hammer"></i></span>
+          <span class="ct"><span class="cn">Bug Hunt · login race condition</span><span class="cm">ran · 1d ago</span></span>
+        </div>
+        <div class="conv">
+          <span class="ci"><svg><use href="#m-claude"></use></svg></span>
+          <span class="ct"><span class="cn">Please say hi only and nothing e…</span><span class="cm"><span class="rdot"></span>replied · 2d ago</span></span>
+        </div>
+        <div class="conv">
+          <span class="ci"><svg><use href="#m-claude"></use></svg></span>
+          <span class="ct"><span class="cn">Say hi. Nothing else.</span><span class="cm"><span class="rdot"></span>replied · 2d ago</span></span>
+        </div>
+        <div class="conv">
+          <span class="ci"><i data-lucide="file-text"></i></span>
+          <span class="ct"><span class="cn">Founder Thread · floor-manager</span><span class="cm">ran · 3d ago</span></span>
+        </div>
+        <div class="conv">
+          <span class="ci"><i data-lucide="image"></i></span>
+          <span class="ct"><span class="cn">Premium Polish · settings sheet</span><span class="cm">ran · 1w ago</span></span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- thread + composer -->
+    <section class="thread">
+      <div class="thd">
+        <span class="tt">New chat</span>
+        <span class="tg"><i data-lucide="git-branch"></i>Allnighter / main</span>
+        <span class="spacer"></span>
+        <button class="tact" title="History"><i data-lucide="history"></i></button>
+        <button class="tact" title="More"><i data-lucide="more-horizontal"></i></button>
+      </div>
+
+      <div class="stream">
+        <div class="msg me">
+          <span class="ava">JD</span>
+          <div class="mc">
+            <div class="mn">You <span class="mt">just now</span></div>
+            <div class="mb">Developers keep saying agents lose the thread after a break. Does that pain apply to us, and is there a move here?</div>
+          </div>
+        </div>
+        <div class="msg">
+          <span class="ava mava"><svg><use href="#m-openai"></use></svg></span>
+          <div class="mc">
+            <div class="mn">ChatGPT 5.5 <span class="mt">routed · Chat</span></div>
+            <div class="mb">Likely yes — it maps onto the floor-manager thesis. This is bigger than one model's take, though: it's a research question with a timing angle. <b>Want to send it to a team?</b></div>
+          </div>
+        </div>
+        <div class="pm-hint">
+          <i data-lucide="sparkles"></i>
+          <div>This looks like a <b>Signal</b> question. Switch the turn to <b>Send to team</b> and a crew will research it in parallel.</div>
+          <span class="go">picker open ↓</span>
+        </div>
+      </div>
+
+      <!-- composer -->
+      <div class="composer">
+        <!-- MODE popover -->
+        <div class="pop modepop" id="modepop">
+          <div class="opt"><span class="oi"><i data-lucide="message-square"></i></span><div><div class="ot">Chat</div><div class="od">One model answers — route the turn to anyone.</div></div><span class="ok">⌘1</span></div>
+          <div class="opt on"><span class="oi"><i data-lucide="users-round"></i></span><div><div class="ot">Send to team <i class="ck" data-lucide="check"></i></div><div class="od">A team runs in parallel → one synthesized answer.</div></div><span class="ok">⌘2</span></div>
+          <div class="opt"><span class="oi"><i data-lucide="hammer"></i></span><div><div class="ot">Execute</div><div class="od">An agent runs it in your repo and the result returns here.</div></div><span class="ok">⌘3</span></div>
+          <div class="tail" style="left:40px"></div>
+        </div>
+
+        <!-- TEAM picker popover: Recent / Favorites / Search -->
+        <div class="pop teampop show" id="teampop">
+          <div class="tphd">
+            <div class="ttl">Send to which team?</div>
+            <div class="sub">Your teams — type to filter, or browse all.</div>
+            <div class="tpsearch"><i data-lucide="search"></i><input placeholder="Search teams, outcomes, or starters…" autofocus><span class="kbd">esc</span></div>
+          </div>
+          <div class="tpbody">
+            <div class="tpgrp"><span class="g"><i data-lucide="history"></i>Recent</span><span class="ln"></span></div>
+
+            <div class="tprow sel" data-team="Post-to-Project Signal" data-icon="radio-tower" data-out="Insight · sourced">
+              <span class="ri"><i data-lucide="radio-tower"></i></span>
+              <span class="rt"><span class="rn">Post-to-Project Signal <span class="kb">⌘1</span></span><span class="ro"><i data-lucide="corner-down-right"></i>returns <b>Insight</b> · sourced</span></span>
+              <span class="rr"><span class="lineup"><span class="mchip"><svg><use href="#m-grok"></use></svg></span><span class="mchip"><svg><use href="#m-claude"></use></svg></span></span><span class="star"><i data-lucide="star"></i></span></span>
+            </div>
+            <div class="tprow" data-team="Bug Hunt" data-icon="hammer" data-out="proposal + repro">
+              <span class="ri"><i data-lucide="hammer"></i></span>
+              <span class="rt"><span class="rn">Bug Hunt <span class="kb">⌘2</span></span><span class="ro"><i data-lucide="corner-down-right"></i>returns <b>proposal</b> + repro</span></span>
+              <span class="rr"><span class="lineup"><span class="mchip"><svg><use href="#m-openai"></use></svg></span><span class="mchip"><svg><use href="#m-claude"></use></svg></span></span></span>
+            </div>
+            <div class="tprow" data-team="Founder Thread" data-icon="file-text" data-out="3 drafts">
+              <span class="ri"><i data-lucide="file-text"></i></span>
+              <span class="rt"><span class="rn">Founder Thread <span class="kb">⌘3</span></span><span class="ro"><i data-lucide="corner-down-right"></i>returns <b>3 drafts</b></span></span>
+              <span class="rr"><span class="lineup"><span class="mchip"><svg><use href="#m-claude"></use></svg></span></span><span class="star"><i data-lucide="star"></i></span></span>
+            </div>
+
+            <div class="tpgrp"><span class="g"><i data-lucide="star"></i>Favorites</span><span class="ln"></span></div>
+
+            <div class="tprow" data-team="What should we build next?" data-icon="radio-tower" data-out="ranked board">
+              <span class="ri"><i data-lucide="radio-tower"></i></span>
+              <span class="rt"><span class="rn">What should we build next?</span><span class="ro"><i data-lucide="corner-down-right"></i>returns <b>ranked board</b></span></span>
+              <span class="rr"><span class="lineup"><span class="mchip"><svg><use href="#m-grok"></use></svg></span><span class="mchip"><svg><use href="#m-claude"></use></svg></span><span class="mchip"><svg><use href="#m-gemini"></use></svg></span></span><span class="star"><i data-lucide="star"></i></span></span>
+            </div>
+            <div class="tprow" data-team="Before I Believe Done" data-icon="hammer" data-out="audit" data-gate="1">
+              <span class="ri"><i data-lucide="hammer"></i></span>
+              <span class="rt"><span class="rn">Before I Believe Done</span><span class="ro"><i data-lucide="corner-down-right"></i>returns <b>audit</b></span></span>
+              <span class="rr"><span class="gate"><i data-lucide="lock"></i>Execute</span><span class="lineup"><span class="mchip"><svg><use href="#m-claude"></use></svg></span><span class="mchip"><svg><use href="#m-openai"></use></svg></span></span><span class="star"><i data-lucide="star"></i></span></span>
+            </div>
+            <div class="tprow" data-team="Premium Polish" data-icon="image" data-out="mockups">
+              <span class="ri"><i data-lucide="image"></i></span>
+              <span class="rt"><span class="rn">Premium Polish</span><span class="ro"><i data-lucide="corner-down-right"></i>returns <b>mockups</b></span></span>
+              <span class="rr"><span class="lineup"><span class="mchip"><svg><use href="#m-claude"></use></svg></span><span class="mchip"><svg><use href="#m-gemini"></use></svg></span></span><span class="star"><i data-lucide="star"></i></span></span>
+            </div>
+          </div>
+          <div class="tpfoot">
+            <button class="browse"><i data-lucide="layout-grid"></i>Browse all 18 teams</button>
+            <button><i data-lucide="sliders-horizontal"></i>Customize…</button>
+          </div>
+          <div class="tail" style="left:140px"></div>
+        </div>
+
+        <div class="cwrap">
+          <div class="ctext">Reply, or start a new request…</div>
+          <div class="ctools">
+            <button class="pillbtn" id="modebtn"><i class="lead" data-lucide="users-round"></i>Send to team<i class="chev" data-lucide="chevron-down"></i></button>
+            <button class="pillbtn team" id="teambtn"><svg class="fav"><use href="#m-grok"></use></svg><span class="nm">Post-to-Project Signal</span><span class="lineup"><span class="mchip"><svg><use href="#m-grok"></use></svg></span><span class="mchip"><svg><use href="#m-claude"></use></svg></span></span><i class="chev" data-lucide="chevron-down"></i></button>
+            <span class="spacer"></span>
+            <button class="iconbtn" title="Attach"><i data-lucide="paperclip"></i></button>
+            <button class="iconbtn" title="Image"><i data-lucide="image"></i></button>
+            <button class="send" title="Send"><i data-lucide="arrow-up"></i></button>
+          </div>
+        </div>
+        <div class="chelp"><i data-lucide="corner-down-right"></i>A team answers in parallel → one synthesized answer lands in your Inbox.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  lucide.createIcons();
+  const modepop=document.getElementById('modepop'), teampop=document.getElementById('teampop');
+  const modebtn=document.getElementById('modebtn'), teambtn=document.getElementById('teambtn');
+  function close(){ modepop.classList.remove('show'); teampop.classList.remove('show'); }
+  modebtn.addEventListener('click',e=>{e.stopPropagation();const s=modepop.classList.contains('show');close();if(!s)modepop.classList.add('show');});
+  teambtn.addEventListener('click',e=>{e.stopPropagation();const s=teampop.classList.contains('show');close();if(!s)teampop.classList.add('show');});
+  teampop.addEventListener('click',e=>e.stopPropagation());
+  modepop.addEventListener('click',e=>e.stopPropagation());
+  document.addEventListener('click',close);
+
+  // pick a team row → update composer pill
+  document.querySelectorAll('.tprow').forEach(r=>{
+    r.addEventListener('click',()=>{
+      document.querySelectorAll('.tprow').forEach(x=>x.classList.remove('sel'));
+      r.classList.add('sel');
+      const name=r.dataset.team, icon=r.dataset.icon;
+      teambtn.querySelector('.nm').textContent=name;
+      const lineup=r.querySelector('.lineup').innerHTML;
+      teambtn.querySelector('.lineup').innerHTML=lineup;
+      // lead favicon = first lineup glyph
+      const firstUse=r.querySelector('.lineup use');
+      if(firstUse) teambtn.querySelector('.fav use').setAttribute('href',firstUse.getAttribute('href'));
+      lucide.createIcons();
+      setTimeout(close,120);
+    });
+  });
+</script>
+</body>
+</html>

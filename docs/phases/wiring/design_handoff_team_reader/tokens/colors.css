@@ -1,0 +1,109 @@
+/* ============================================================
+   Allnighter — Color tokens
+   Dark-mode only. "Amber phosphor on midnight."
+   One warm signal (amber) against a blue-tinted midnight ramp.
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Midnight / ink ramp (blue-tinted, 50 = lightest text, 950 = deepest void) --- */
+  --ink-50:  #F2F4FA;  /* highest-emphasis text, near white */
+  --ink-100: #E1E5F0;  /* primary text */
+  --ink-150: #CBD1E0;
+  --ink-200: #AEB5C9;  /* secondary text */
+  --ink-250: #99A0B6;
+  --ink-300: #7E869E;  /* muted text */
+  --ink-350: #69708A;
+  --ink-400: #555C74;  /* faint text / disabled */
+  --ink-450: #454C62;
+  --ink-500: #373D51;  /* strong divider */
+  --ink-550: #2D3344;
+  --ink-600: #252A39;  /* border strong */
+  --ink-650: #1F2331;  /* pressed surface / input active */
+  --ink-700: #1A1E2A;  /* hover surface */
+  --ink-750: #15182212;
+  --ink-750s:#151822;  /* raised: card / popover */
+  --ink-800: #111420;  /* surface: panel */
+  --ink-850: #0D101A;  /* subtle background */
+  --ink-900: #090B13;  /* app background base */
+  --ink-950: #05060C;  /* deepest void, behind everything */
+
+  /* --- Signature: amber phosphor --- */
+  --amber-300: #FFD79E;
+  --amber-400: #FFC169;
+  --amber-500: #FFA630;  /* PRIMARY brand amber */
+  --amber-600: #F08D1C;
+  --amber-700: #C26F12;
+  --amber-800: #8A4E0A;
+
+  /* --- Status hues (muted, dev-tool calm) --- */
+  --green-400: #5BDBA0;
+  --green-500: #3FD18B;  /* done / healthy / success */
+  --green-600: #2BAE71;
+  --red-400:   #FF8585;
+  --red-500:   #F76B6B;  /* failed / error / destructive */
+  --red-600:   #DA5252;
+  --blue-400:  #7DB2FF;
+  --blue-500:  #5B9DFF;  /* running / info / queued-active */
+  --blue-600:  #3F7FE0;
+  --yellow-400:#FCD66A;
+  --yellow-500:#F5C84B;  /* warning / timed-out */
+  --cyan-500:  #46D6D0;  /* secondary signal (optional) */
+
+  /* ============================================================
+     Semantic aliases — prefer these in product code
+     ============================================================ */
+
+  /* Backgrounds (deep → raised) */
+  --bg-void:    var(--ink-950);   /* outside the window */
+  --bg-base:    var(--ink-900);   /* app background */
+  --bg-subtle:  var(--ink-850);   /* sunken / sidebar */
+  --bg-surface: var(--ink-800);   /* panels, toolbars */
+  --bg-raised:  var(--ink-750s);  /* cards, popovers, menus */
+  --bg-hover:   var(--ink-700);   /* row / control hover */
+  --bg-active:  var(--ink-650);   /* pressed / selected */
+  --bg-input:   #13161F;          /* form fields */
+  --bg-overlay: rgba(5, 6, 12, 0.66); /* scrim behind modals */
+
+  /* Borders — white-alpha so they read on any surface */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.16);
+  --border-solid:   var(--ink-600); /* opaque divider when needed */
+
+  /* Text */
+  --text-primary:   var(--ink-100);
+  --text-secondary: var(--ink-200);
+  --text-muted:     var(--ink-300);
+  --text-faint:     var(--ink-400);
+  --text-disabled:  var(--ink-450);
+  --text-on-amber:  #1A1203;   /* near-black ink on amber fills */
+
+  /* Accent (amber) */
+  --accent:         var(--amber-500);
+  --accent-hover:   var(--amber-400);  /* dark-mode hover lightens */
+  --accent-press:   var(--amber-600);
+  --accent-text:    var(--amber-400);  /* amber AS text — lighter for legibility */
+  --accent-surface: rgba(255, 166, 48, 0.12);
+  --accent-border:  rgba(255, 166, 48, 0.32);
+
+  /* Status — semantic */
+  --status-queued:  var(--ink-400);
+  --status-running: var(--blue-500);
+  --status-done:    var(--green-500);
+  --status-failed:  var(--red-500);
+  --status-timeout: var(--yellow-500);
+
+  --success:        var(--green-500);
+  --success-surface:rgba(63, 209, 139, 0.12);
+  --danger:         var(--red-500);
+  --danger-surface: rgba(247, 107, 107, 0.12);
+  --info:           var(--blue-500);
+  --info-surface:   rgba(91, 157, 255, 0.12);
+  --warning:        var(--yellow-500);
+  --warning-surface:rgba(245, 200, 75, 0.12);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(255, 166, 48, 0.40);
+}

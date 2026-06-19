@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allnighter — Send to team · launcher</title>
+<link rel="icon" href="../assets/allnighter-icon.svg">
+<link rel="stylesheet" href="../styles.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg-void);color:var(--text-primary);
+    font:13px/1.45 var(--font-sans);letter-spacing:var(--tracking-normal);
+    display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent-surface)}
+  button{font-family:inherit}
+
+  .win{
+    width:min(1360px,calc(100vw - 40px));height:min(884px,calc(100vh - 40px));
+    background:var(--bg-base);border:1px solid var(--border-default);
+    border-radius:14px;box-shadow:var(--shadow-xl);overflow:hidden;
+    display:grid;grid-template-rows:auto 1fr;
+  }
+
+  /* ---------- persistent top bar: Inbox | Teams ---------- */
+  .topbar{display:flex;align-items:center;gap:16px;height:52px;padding:0 18px;
+    background:var(--bg-subtle);border-bottom:1px solid var(--border-subtle)}
+  .lights{display:flex;gap:8px}
+  .lights span{width:11px;height:11px;border-radius:50%}
+  .lights .r{background:#ff5f57}.lights .y{background:#febc2e}.lights .g{background:#28c840}
+  .tbglyph{width:21px;height:21px;opacity:.85;margin-left:4px}
+  .modeswitch{display:inline-flex;background:var(--bg-surface);border:1px solid var(--border-subtle);
+    border-radius:10px;padding:3px;gap:2px;margin-left:6px}
+  .modeswitch button{border:0;background:transparent;color:var(--text-muted);font:600 13px var(--font-sans);
+    padding:7px 16px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .modeswitch button i{width:15px;height:15px}
+  .modeswitch button:hover{color:var(--text-secondary)}
+  .modeswitch button.on{background:var(--bg-active);color:var(--ink-50);box-shadow:inset 0 0 0 1px var(--border-subtle)}
+  .modeswitch button .badge-n{font:600 10px var(--font-mono);background:var(--accent-surface);color:var(--accent-text);
+    border-radius:999px;padding:1px 6px;margin-left:2px}
+  .modeswitch button.on .kbd-mini,.modeswitch button .kbd-mini{font:600 10px var(--font-mono);color:var(--text-disabled);margin-left:4px}
+  .topbar .spacer{flex:1}
+  .topbar .proj{display:flex;align-items:center;gap:8px;font:500 12px var(--font-mono);color:var(--text-faint)}
+  .topbar .proj i{width:13px;height:13px}
+  .topbar .avatar{width:28px;height:28px;border-radius:8px;background:var(--bg-surface);
+    border:1px solid var(--border-default);display:grid;place-items:center;color:var(--text-muted);font:600 11px var(--font-mono)}
+
+  .main{display:grid;grid-template-rows:auto auto 1fr auto;min-width:0;min-height:0}
+
+  /* ---------- header ---------- */
+  .head{padding:20px 28px 16px;border-bottom:1px solid var(--border-subtle);
+    background:radial-gradient(120% 150% at 0% 0%, rgba(255,166,48,.045), transparent 46%)}
+  .eyebrow{font:600 11px/1 var(--font-mono);letter-spacing:var(--tracking-caps);text-transform:uppercase;
+    color:var(--accent-text);display:flex;align-items:center;gap:7px;margin-bottom:12px}
+  .eyebrow i{width:13px;height:13px}
+  .htitle{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+  .htitle h1{margin:0;font-size:23px;font-weight:700;letter-spacing:var(--tracking-heading);color:var(--ink-50)}
+  .htitle .sub{color:var(--text-muted);font-size:13px}
+  .htitle .sub b{color:var(--text-secondary);font-weight:600}
+
+  .cmd{display:flex;align-items:center;gap:11px;height:46px;padding:0 14px;border-radius:11px;
+    border:1px solid var(--border-default);background:var(--bg-input);box-shadow:var(--edge-top)}
+  .cmd:focus-within{border-color:var(--accent-border);box-shadow:var(--focus-ring)}
+  .cmd > i{width:18px;height:18px;color:var(--accent-text);flex:none}
+  .cmd input{flex:1;background:transparent;border:0;outline:0;color:var(--text-primary);
+    font:500 15px var(--font-sans)}
+  .cmd input::placeholder{color:var(--text-faint);font-weight:400}
+  .kbd{font:600 11px var(--font-mono);color:var(--text-faint);border:1px solid var(--border-subtle);
+    border-radius:6px;padding:3px 7px;background:rgba(255,255,255,.02)}
+
+  .underbar{display:flex;align-items:center;gap:14px;margin-top:11px}
+  .paste-hint{font:500 11.5px var(--font-mono);color:var(--text-faint);display:flex;align-items:center;gap:7px}
+  .paste-hint i{width:13px;height:13px;color:var(--text-disabled)}
+  .paste-hint em{color:var(--accent-text);font-style:normal}
+  .underbar .spacer{flex:1}
+  /* bench strip */
+  .bench{display:flex;align-items:center;gap:9px}
+  .bench .lab{font:600 10px var(--font-mono);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--text-faint)}
+  .bench .mem{display:flex;align-items:center;gap:6px;font:500 11.5px var(--font-mono);color:var(--text-muted)}
+  .bench .mem .d{width:6px;height:6px;border-radius:50%;background:var(--green-500);box-shadow:var(--glow-green)}
+  .bench .mem.down{color:var(--text-disabled)}
+  .bench .mem.down .d{background:var(--yellow-500);box-shadow:none}
+  .bench .sep{width:1px;height:14px;background:var(--border-subtle)}
+
+  /* ---------- lens bar ---------- */
+  .lensbar{padding:14px 28px;display:flex;align-items:center;gap:14px}
+  .seg{display:inline-flex;background:var(--bg-surface);border:1px solid var(--border-subtle);
+    border-radius:10px;padding:3px;gap:2px}
+  .seg button{border:0;background:transparent;color:var(--text-muted);font:600 12.5px var(--font-sans);
+    padding:7px 14px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .seg button i{width:14px;height:14px}
+  .seg button:hover{color:var(--text-secondary)}
+  .seg button.on{background:var(--bg-active);color:var(--ink-50);box-shadow:inset 0 0 0 1px var(--border-subtle)}
+  .lensbar .spacer{flex:1}
+  .lensbar .count{font:500 11.5px var(--font-mono);color:var(--text-faint)}
+
+  /* ---------- content ---------- */
+  .content{overflow:auto;padding:4px 28px 18px}
+  .panel{display:none}
+  .panel.show{display:block}
+
+  .seclab{display:flex;align-items:center;gap:9px;margin:14px 2px 12px}
+  .seclab .t{font:700 11px var(--font-mono);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--text-secondary)}
+  .seclab .t i{width:13px;height:13px;vertical-align:-2px;margin-right:6px;color:var(--accent-text)}
+  .seclab .h{font:500 11px var(--font-mono);color:var(--text-faint)}
+  .seclab .line{flex:1;height:1px;background:var(--border-subtle)}
+
+  .grid{display:grid;gap:12px}
+  .grid.g3{grid-template-columns:repeat(3,1fr)}
+  .grid.g4{grid-template-columns:repeat(4,1fr)}
+
+  /* tile card */
+  .tile{text-align:left;cursor:pointer;border:1px solid var(--border-subtle);background:
+    linear-gradient(180deg,rgba(255,255,255,.015),transparent),var(--bg-raised);
+    border-radius:12px;padding:13px 14px 12px;display:flex;flex-direction:column;gap:0;
+    min-height:138px;transition:border-color .14s,background .14s,transform .14s;box-shadow:var(--edge-top)}
+  .tile:hover{border-color:var(--border-strong);background:var(--bg-hover)}
+  .tile.sel{border-color:var(--accent-border);background:
+    linear-gradient(180deg,rgba(255,166,48,.07),transparent 42%),var(--bg-raised);
+    box-shadow:var(--edge-top),var(--glow-amber-sm)}
+  .tile .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+  .fam{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px 0 7px;border-radius:999px;
+    border:1px solid var(--border-subtle);background:rgba(255,255,255,.02);
+    color:var(--text-muted);font:600 10.5px var(--font-mono);letter-spacing:.03em}
+  .fam i{width:11px;height:11px;color:var(--text-muted)}
+  .tile .kbd{padding:2px 6px}
+  .tile.sel .kbd{color:var(--accent-text);border-color:var(--accent-border)}
+  .tname{font-size:15px;font-weight:700;color:var(--ink-50);line-height:1.25;letter-spacing:var(--tracking-normal)}
+  .tout{display:flex;align-items:center;gap:6px;color:var(--text-muted);font-size:12px;margin-top:5px}
+  .tout i{width:12px;height:12px;color:var(--accent-text)}
+  .tout b{color:var(--text-secondary);font-weight:600}
+  .tspring{flex:1;min-height:10px}
+  .crew{display:flex;align-items:center;margin:10px 0 0}
+  .crew b{width:23px;height:23px;border-radius:7px;margin-left:-6px;display:grid;place-items:center;
+    background:var(--bg-surface);border:1px solid var(--border-default);
+    font:600 10px var(--font-mono);color:var(--text-secondary);box-shadow:0 0 0 2px var(--bg-raised)}
+  .crew b:first-child{margin-left:0}
+  .tile.sel .crew b{box-shadow:0 0 0 2px var(--bg-raised)}
+  .tfoot{display:flex;align-items:center;justify-content:space-between;margin-top:11px;
+    padding-top:10px;border-top:1px solid var(--border-subtle)}
+  .tfoot .ran{font:500 10.5px var(--font-mono);color:var(--text-faint);display:flex;align-items:center;gap:6px}
+  .tfoot .ran i{width:11px;height:11px}
+  .tfoot .right{display:flex;align-items:center;gap:9px}
+  .gate{font:600 10px var(--font-mono);color:var(--accent-text);display:inline-flex;align-items:center;gap:4px}
+  .gate i{width:11px;height:11px}
+  .star{color:var(--text-disabled);cursor:pointer;display:grid}
+  .star i{width:14px;height:14px}
+  .star.on{color:var(--accent)}
+
+  /* browse list rows */
+  .browse-head{display:flex;align-items:center;gap:8px;margin:10px 2px 14px;flex-wrap:wrap}
+  .chip{height:30px;padding:0 13px;border-radius:999px;border:1px solid var(--border-subtle);
+    background:var(--bg-surface);color:var(--text-muted);font:600 12px var(--font-sans);cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px}
+  .chip i{width:13px;height:13px}
+  .chip:hover{color:var(--text-secondary);border-color:var(--border-default)}
+  .chip.on{border-color:var(--accent-border);background:var(--accent-surface);color:var(--ink-50)}
+  .chip.on i{color:var(--accent-text)}
+  .rows{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden}
+  .row{display:grid;grid-template-columns:120px 1fr auto auto;gap:16px;align-items:center;
+    padding:12px 15px;cursor:pointer;border-bottom:1px solid var(--border-subtle);transition:background .12s}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:var(--bg-hover)}
+  .row.sel{background:linear-gradient(90deg,rgba(255,166,48,.06),transparent 60%);box-shadow:inset 2px 0 0 var(--accent)}
+  .row .rname{font-weight:600;color:var(--ink-50);font-size:13.5px;display:flex;align-items:center;gap:9px}
+  .row .rout{color:var(--text-muted);font-size:12px;display:flex;align-items:center;gap:6px;justify-self:start}
+  .row .rout i{width:12px;height:12px;color:var(--accent-text)}
+  .row .rmeta{display:flex;align-items:center;gap:14px;justify-self:end}
+  .row .rran{font:500 10.5px var(--font-mono);color:var(--text-faint)}
+
+  /* ---------- bottom action bar ---------- */
+  .actionbar{border-top:1px solid var(--border-subtle);background:var(--bg-subtle);
+    padding:14px 28px;display:flex;align-items:center;gap:18px}
+  .sel-team{display:flex;align-items:center;gap:11px;min-width:0}
+  .sel-team .badge{width:38px;height:38px;border-radius:10px;background:var(--accent-surface);
+    color:var(--accent-text);display:grid;place-items:center;flex:none}
+  .sel-team .badge i{width:18px;height:18px}
+  .sel-team .meta{min-width:0}
+  .sel-team .l{font:600 9.5px var(--font-mono);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--text-faint)}
+  .sel-team .n{font-size:14.5px;font-weight:700;color:var(--ink-50);display:flex;align-items:center;gap:8px;margin-top:1px}
+  .sel-team .n .fz{font:500 11px var(--font-mono);color:var(--text-muted);font-weight:500}
+  .starters{display:flex;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden}
+  .starters .slab{font:500 11px var(--font-mono);color:var(--text-faint);flex:none}
+  .scp{height:30px;padding:0 12px;border-radius:8px;border:1px dashed var(--border-default);
+    background:transparent;color:var(--text-secondary);font-size:12px;cursor:pointer;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:7px;flex:none}
+  .scp:hover{border-style:solid;border-color:var(--border-strong);background:var(--bg-hover)}
+  .scp i{width:12px;height:12px;color:var(--text-faint)}
+  .continue{margin-left:auto;flex:none;border:0;border-radius:11px;background:var(--accent);
+    color:var(--text-on-amber);box-shadow:var(--glow-amber-sm);height:44px;padding:0 20px;cursor:pointer;
+    display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;transition:background .15s,box-shadow .15s}
+  .continue:hover{background:var(--accent-hover);box-shadow:var(--glow-amber)}
+  .continue i{width:17px;height:17px}
+  .continue .ek{font:600 11px var(--font-mono);background:rgba(26,18,3,.18);border-radius:5px;padding:2px 6px}
+
+  /* model logos + favicon + hover edit */
+  .lineup{display:flex;align-items:center;gap:7px;margin-top:10px}
+  .row .lineup{margin-top:0}
+  .mchip{width:23px;height:23px;border-radius:7px;display:grid;place-items:center;flex:none;
+    background:var(--bg-surface);border:1px solid var(--border-default)}
+  .mlogo{width:14px;height:14px;display:block;color:var(--text-muted)}
+  .wc{font:500 10.5px var(--font-mono);color:var(--text-faint);margin-left:3px}
+  .fav{display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-right:7px;color:var(--text-faint)}
+  .edit{opacity:0;flex:none;width:26px;height:26px;border-radius:7px;cursor:pointer;
+    border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-muted);
+    display:grid;place-items:center;transition:opacity .12s,background .12s,color .12s}
+  .edit i{width:13px;height:13px}
+  .tile:hover .edit,.row:hover .edit{opacity:1}
+  .edit:hover{background:var(--bg-hover);color:var(--ink-50);border-color:var(--border-strong)}
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="16" fill="#0D101A"/>
+  <rect x="24" y="26" width="52" height="11" rx="5.5" fill="#151822" stroke="#454C62" stroke-width="1.5"/>
+  <circle cx="32" cy="31.5" r="2.4" fill="#FFA630"/>
+  <rect x="24" y="46" width="24" height="20" rx="4" fill="#151822" stroke="#FFA630" stroke-width="2"/>
+  <rect x="52" y="46" width="24" height="20" rx="4" fill="#151822" stroke="#373D51" stroke-width="1.5"/>
+  <rect x="24" y="72" width="52" height="6" rx="3" fill="#373D51"/>
+</svg>
+</template>
+
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <symbol id="m-grok" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <line x1="6.7" y1="17.3" x2="17.3" y2="6.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="m-claude" viewBox="0 0 24 24">
+    <g stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/>
+      <line x1="7.5" y1="4.2" x2="16.5" y2="19.8"/>
+      <line x1="12" y1="3" x2="12" y2="21"/>
+      <line x1="16.5" y1="4.2" x2="7.5" y2="19.8"/>
+      <line x1="19.8" y1="7.5" x2="4.2" y2="16.5"/>
+    </g>
+  </symbol>
+  <symbol id="m-openai" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <ellipse cx="12" cy="12" rx="2.3" ry="9"/>
+      <ellipse cx="12" cy="12" rx="2.3" ry="9" transform="rotate(60 12 12)"/>
+      <ellipse cx="12" cy="12" rx="2.3" ry="9" transform="rotate(120 12 12)"/>
+    </g>
+  </symbol>
+  <symbol id="m-gemini" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 2 Q12 12 22 12 Q12 12 12 22 Q12 12 2 12 Q12 12 12 2 Z"/>
+  </symbol>
+</svg>
+<main class="win">
+  <div class="topbar">
+    <div class="lights"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+    <img class="tbglyph" src="../assets/allnighter-glyph.svg" alt="Allnighter">
+    <div class="modeswitch">
+      <button title="Inbox"><i data-lucide="inbox"></i>Inbox<span class="badge-n">1</span><span class="kbd-mini">⌘1</span></button>
+      <button class="on" title="Teams"><i data-lucide="users-round"></i>Teams<span class="kbd-mini">⌘2</span></button>
+    </div>
+    <span class="spacer"></span>
+    <span class="proj"><i data-lucide="folder-git-2"></i>Allnighter / main</span>
+    <span class="avatar">JD</span>
+  </div>
+
+  <section class="main">
+    <!-- header -->
+    <header class="head">
+      <div class="eyebrow"><i data-lucide="users-round"></i>Teams · your roster</div>
+      <div class="htitle">
+        <h1>Send to team</h1>
+        <span class="sub">Pick the crew. <b>Your prompt comes next.</b></span>
+      </div>
+      <div class="cmd">
+        <i data-lucide="search"></i>
+        <input type="text" placeholder="Search teams, outcomes, or starter prompts…" aria-label="Search teams">
+        <span class="kbd">⌘K</span>
+      </div>
+      <div class="underbar">
+        <span class="paste-hint"><i data-lucide="clipboard"></i>Paste a link and <em>Signal</em> teams jump to the top — nothing else waits on a model.</span>
+        <span class="spacer"></span>
+        <div class="bench">
+          <span class="lab">Bench</span>
+          <span class="mem"><span class="d"></span>Grok</span>
+          <span class="mem"><span class="d"></span>Opus</span>
+          <span class="mem"><span class="d"></span>Sonnet</span>
+          <span class="mem"><span class="d"></span>Codex</span>
+          <span class="mem down"><span class="d"></span>Gemini · auth</span>
+          <span class="sep"></span>
+          <span class="lab" style="color:var(--green-400)">4 ready</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- lens bar -->
+    <div class="lensbar">
+      <div class="seg" id="seg">
+        <button class="on" data-lens="yours"><i data-lucide="history"></i>Recent &amp; favorites</button>
+        <button data-lens="curated"><i data-lucide="sparkles"></i>Curated</button>
+        <button data-lens="browse"><i data-lucide="layout-grid"></i>Browse all</button>
+      </div>
+      <span class="spacer"></span>
+      <span class="count" id="count">3 recent · 4 favorites</span>
+    </div>
+
+    <!-- content -->
+    <div class="content">
+
+      <!-- LENS: yours -->
+      <div class="panel show" data-panel="yours">
+        <div class="seclab">
+          <span class="t"><i data-lucide="history"></i>Recent</span>
+          <span class="line"></span>
+          <span class="h">⌘1–3 to send · last team is ready</span>
+        </div>
+        <div class="grid g3">
+          <button class="tile sel" data-team="Post-to-Project Signal" data-fam="Signal" data-icon="radio-tower" data-out="Insight · sourced" data-starters="Paste an X post or link|How does this apply to Allnighter?|What's the move here?">
+            <div class="top"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="kbd">⌘1</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>Post-to-Project Signal</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>returns <b>Insight</b> · sourced</div>
+            <div class="tspring"></div>
+            <span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="wc">4 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="clock"></i>ran 2h ago</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="star on" title="Favorite"><i data-lucide="star"></i></span></span></div>
+          </button>
+
+          <button class="tile" data-team="Bug Hunt" data-fam="Code" data-icon="hammer" data-out="proposal" data-starters="Paste the failing behavior|Reproduce and find the cause|What's the smallest correct fix?">
+            <div class="top"><span class="fam"><i data-lucide="hammer"></i>Code</span><span class="kbd">⌘2</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-openai"></use></svg>Bug Hunt</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>returns <b>proposal</b> + repro</div>
+            <div class="tspring"></div>
+            <span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="wc">3 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="clock"></i>ran yesterday</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="star"><i data-lucide="star"></i></span></span></div>
+          </button>
+
+          <button class="tile" data-team="Founder Thread" data-fam="Copy" data-icon="file-text" data-out="3 drafts" data-starters="Paste the angle or Insight|Write it in my voice|Make it a thread">
+            <div class="top"><span class="fam"><i data-lucide="file-text"></i>Copy</span><span class="kbd">⌘3</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Founder Thread</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>returns <b>3 drafts</b></div>
+            <div class="tspring"></div>
+            <span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="wc">2 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="clock"></i>ran 3d ago</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="star on"><i data-lucide="star"></i></span></span></div>
+          </button>
+        </div>
+
+        <div class="seclab">
+          <span class="t"><i data-lucide="star"></i>Favorites</span>
+          <span class="line"></span>
+          <span class="h">pinned by you</span>
+        </div>
+        <div class="grid g4">
+          <button class="tile" data-team="What should we build next?" data-fam="Signal" data-icon="radio-tower" data-out="ranked opportunities" data-starters="Scout my niche|Rank by Project fit|What's accelerating?">
+            <div class="top"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="star on"><i data-lucide="star"></i></span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>What should we build next?</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>returns <b>ranked board</b></div>
+            <div class="tspring"></div>
+            <span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span><span class="wc">4 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="clock"></i>ran 5d ago</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+
+          <button class="tile" data-team="Premium Polish" data-fam="Design" data-icon="image" data-out="mockups" data-starters="Drop a screenshot|Make it feel intentional|Keep the meaning">
+            <div class="top"><span class="fam"><i data-lucide="image"></i>Design</span><span class="star on"><i data-lucide="star"></i></span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Premium Polish</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>returns <b>mockups</b></div>
+            <div class="tspring"></div>
+            <span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span><span class="wc">2 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="clock"></i>ran 1w ago</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+
+          <button class="tile" data-team="Before I Believe Done" data-fam="Code" data-icon="hammer" data-out="audit" data-starters="Paste the 'done' claim|Check the proof wall|What's unverified?">
+            <div class="top"><span class="fam"><i data-lucide="hammer"></i>Code</span><span class="star on"><i data-lucide="star"></i></span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Before I Believe Done</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>returns <b>audit</b></div>
+            <div class="tspring"></div>
+            <span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span><span class="wc">3 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="clock"></i>ran 1w ago</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+
+          <button class="tile" data-team="Landing Page Team" data-fam="Copy" data-icon="file-text" data-out="drafts" data-starters="Paste the offer|Who's the buyer?|Rewrite for 'why now'">
+            <div class="top"><span class="fam"><i data-lucide="file-text"></i>Copy</span><span class="star on"><i data-lucide="star"></i></span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Landing Page Team</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>returns <b>drafts</b></div>
+            <div class="tspring"></div>
+            <span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="wc">2 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="clock"></i>ran 2w ago</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- LENS: curated -->
+      <div class="panel" data-panel="curated">
+        <div class="seclab">
+          <span class="t"><i data-lucide="sparkles"></i>Curated starters</span>
+          <span class="line"></span>
+          <span class="h">a small, opinionated set — not the whole library</span>
+        </div>
+        <div class="grid g3">
+          <button class="tile" data-team="Post-to-Project Signal" data-fam="Signal" data-icon="radio-tower" data-out="Insight · sourced" data-starters="Paste an X post or link|How does this apply to Allnighter?">
+            <div class="top"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="star on"><i data-lucide="star"></i></span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>Post-to-Project Signal</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>apply one public post to this Project</div>
+            <div class="tspring"></div><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="wc">4 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="corner-down-right"></i>returns Insight</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+          <button class="tile" data-team="What should we build next?" data-fam="Signal" data-icon="radio-tower" data-out="ranked board" data-starters="Scout my niche|Rank by Project fit">
+            <div class="top"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>What should we build next?</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>turn outside pressure into ranked moves</div>
+            <div class="tspring"></div><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span><span class="wc">4 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="corner-down-right"></i>returns board</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+          <button class="tile" data-team="Bug Hunt" data-fam="Code" data-icon="hammer" data-out="proposal" data-starters="Paste the failing behavior|What's the smallest fix?">
+            <div class="top"><span class="fam"><i data-lucide="hammer"></i>Code</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-openai"></use></svg>Bug Hunt</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>name the cause, plan the smallest fix</div>
+            <div class="tspring"></div><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="wc">3 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="corner-down-right"></i>returns proposal</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+          <button class="tile" data-team="Before I Believe Done" data-fam="Code" data-icon="hammer" data-out="audit" data-starters="Paste the 'done' claim|What's unverified?">
+            <div class="top"><span class="fam"><i data-lucide="hammer"></i>Code</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Before I Believe Done</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>audit the claim, scope, and proof wall</div>
+            <div class="tspring"></div><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span><span class="wc">3 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="corner-down-right"></i>returns audit</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+          <button class="tile" data-team="Premium Polish" data-fam="Design" data-icon="image" data-out="mockups" data-starters="Drop a screenshot|Make it feel intentional">
+            <div class="top"><span class="fam"><i data-lucide="image"></i>Design</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Premium Polish</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>make a surface feel intentional and quiet</div>
+            <div class="tspring"></div><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span><span class="wc">2 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="corner-down-right"></i>returns mockups</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+          <button class="tile" data-team="Founder Thread" data-fam="Copy" data-icon="file-text" data-out="3 drafts" data-starters="Paste the angle|Write it in my voice">
+            <div class="top"><span class="fam"><i data-lucide="file-text"></i>Copy</span></div>
+            <div class="tname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Founder Thread</div>
+            <div class="tout"><i data-lucide="corner-down-right"></i>turn a truth into a founder-native thread</div>
+            <div class="tspring"></div><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="wc">2 workers</span></span>
+            <div class="tfoot"><span class="ran"><i data-lucide="corner-down-right"></i>returns drafts</span><span class="right"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span></span></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- LENS: browse -->
+      <div class="panel" data-panel="browse">
+        <div class="browse-head" id="chips">
+          <button class="chip on" data-fam="all"><i data-lucide="layout-grid"></i>All <span style="color:var(--text-faint);font-family:var(--font-mono);font-weight:500">18</span></button>
+          <button class="chip" data-fam="Signal"><i data-lucide="radio-tower"></i>Signal</button>
+          <button class="chip" data-fam="Code"><i data-lucide="hammer"></i>Code</button>
+          <button class="chip" data-fam="Design"><i data-lucide="image"></i>Design</button>
+          <button class="chip" data-fam="Copy"><i data-lucide="file-text"></i>Copy</button>
+        </div>
+        <div class="rows" id="rows">
+          <!-- Signal -->
+          <div class="row" data-fam="Signal" data-team="Post-to-Project Signal" data-icon="radio-tower" data-out="Insight" data-starters="Paste an X post|How does this apply?"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>Post-to-Project Signal</span><span class="rout"><i data-lucide="corner-down-right"></i>Insight · sourced</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">ran 2h ago</span></span></div>
+          <div class="row" data-fam="Signal" data-team="What should we build next?" data-icon="radio-tower" data-out="ranked board" data-starters="Scout my niche|Rank by fit"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>What should we build next?</span><span class="rout"><i data-lucide="corner-down-right"></i>ranked board</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span></span><span class="rran">ran 5d ago</span></span></div>
+          <div class="row" data-fam="Signal" data-team="Reply Window" data-icon="radio-tower" data-out="3 reply options" data-starters="Paste the thread|Find the opening"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>Reply Window</span><span class="rout"><i data-lucide="corner-down-right"></i>3 reply options + timing</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">—</span></span></div>
+          <div class="row" data-fam="Signal" data-team="Velocity Alert" data-icon="radio-tower" data-out="1 timed move" data-starters="Watch my niche|What's accelerating?"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>Velocity Alert</span><span class="rout"><i data-lucide="corner-down-right"></i>one time-sensitive move</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">—</span></span></div>
+          <div class="row" data-fam="Signal" data-team="Hype Decay" data-icon="radio-tower" data-out="skeptic call" data-starters="Paste the take|Is this late or owned?"><span class="fam"><i data-lucide="radio-tower"></i>Signal</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-grok"></use></svg>Hype Decay</span><span class="rout"><i data-lucide="corner-down-right"></i>don't-post-this call</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">—</span></span></div>
+          <!-- Code -->
+          <div class="row" data-fam="Code" data-team="Code Core" data-icon="hammer" data-out="plan + change" data-mut="1" data-starters="Describe the work|Plan and implement"><span class="fam"><i data-lucide="hammer"></i>Code</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-openai"></use></svg>Code Core</span><span class="rout"><i data-lucide="corner-down-right"></i>plan, then make it real</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="gate"><i data-lucide="lock"></i>Execute</span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">ran 4d ago</span></span></div>
+          <div class="row" data-fam="Code" data-team="Bug Hunt" data-icon="hammer" data-out="proposal" data-starters="Paste the bug|Smallest correct fix"><span class="fam"><i data-lucide="hammer"></i>Code</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-openai"></use></svg>Bug Hunt</span><span class="rout"><i data-lucide="corner-down-right"></i>proposal + repro</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">ran yesterday</span></span></div>
+          <div class="row" data-fam="Code" data-team="Architecture Pressure Test" data-icon="hammer" data-out="proposal" data-starters="Paste the design|Stress the architecture"><span class="fam"><i data-lucide="hammer"></i>Code</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Architecture Pressure Test</span><span class="rout"><i data-lucide="corner-down-right"></i>stress report</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span></span><span class="rran">—</span></span></div>
+          <div class="row" data-fam="Code" data-team="Before I Believe Done" data-icon="hammer" data-out="audit" data-starters="Paste the claim|What's unverified?"><span class="fam"><i data-lucide="hammer"></i>Code</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Before I Believe Done</span><span class="rout"><i data-lucide="corner-down-right"></i>audit</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span></span><span class="rran">ran 1w ago</span></span></div>
+          <div class="row" data-fam="Code" data-team="Release Proof" data-icon="hammer" data-out="proof packet" data-mut="1" data-starters="Point at the release|Prove it's safe to ship"><span class="fam"><i data-lucide="hammer"></i>Code</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Release Proof</span><span class="rout"><i data-lucide="corner-down-right"></i>proof packet</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="gate"><i data-lucide="lock"></i>Execute</span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-openai"></use></svg></span></span><span class="rran">—</span></span></div>
+          <!-- Design -->
+          <div class="row" data-fam="Design" data-team="Design Core" data-icon="image" data-out="directions" data-starters="Describe the surface|Explore directions"><span class="fam"><i data-lucide="image"></i>Design</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Design Core</span><span class="rout"><i data-lucide="corner-down-right"></i>directions board</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span></span><span class="rran">—</span></span></div>
+          <div class="row" data-fam="Design" data-team="Premium Polish" data-icon="image" data-out="mockups" data-starters="Drop a screenshot|Make it intentional"><span class="fam"><i data-lucide="image"></i>Design</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Premium Polish</span><span class="rout"><i data-lucide="corner-down-right"></i>mockups</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span></span><span class="rran">ran 1w ago</span></span></div>
+          <div class="row" data-fam="Design" data-team="Radical Directions" data-icon="image" data-out="board" data-starters="Describe the goal|Go wide before converging"><span class="fam"><i data-lucide="image"></i>Design</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Radical Directions</span><span class="rout"><i data-lucide="corner-down-right"></i>board · distinct options</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-gemini"></use></svg></span></span><span class="rran">—</span></span></div>
+          <div class="row" data-fam="Design" data-team="Usability Triage" data-icon="image" data-out="findings" data-starters="Drop the flow|Find the friction"><span class="fam"><i data-lucide="image"></i>Design</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Usability Triage</span><span class="rout"><i data-lucide="corner-down-right"></i>findings</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">—</span></span></div>
+          <!-- Copy -->
+          <div class="row" data-fam="Copy" data-team="Copy Core" data-icon="file-text" data-out="drafts" data-starters="Describe the message|Shape the words"><span class="fam"><i data-lucide="file-text"></i>Copy</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Copy Core</span><span class="rout"><i data-lucide="corner-down-right"></i>drafts</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">—</span></span></div>
+          <div class="row" data-fam="Copy" data-team="Founder Thread" data-icon="file-text" data-out="3 drafts" data-starters="Paste the angle|In my voice"><span class="fam"><i data-lucide="file-text"></i>Copy</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Founder Thread</span><span class="rout"><i data-lucide="corner-down-right"></i>3 drafts</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">ran 3d ago</span></span></div>
+          <div class="row" data-fam="Copy" data-team="Landing Page Team" data-icon="file-text" data-out="drafts" data-starters="Paste the offer|Rewrite for 'why now'"><span class="fam"><i data-lucide="file-text"></i>Copy</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Landing Page Team</span><span class="rout"><i data-lucide="corner-down-right"></i>drafts</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span></span><span class="rran">ran 2w ago</span></span></div>
+          <div class="row" data-fam="Copy" data-team="Reply Options" data-icon="file-text" data-out="3 options" data-starters="Paste the post|Give me 3 angles"><span class="fam"><i data-lucide="file-text"></i>Copy</span><span class="rname"><svg class="fav" viewBox="0 0 24 24"><use href="#m-claude"></use></svg>Reply Options</span><span class="rout"><i data-lucide="corner-down-right"></i>3 options</span><span class="rmeta"><span class="edit" role="button" title="Customize team"><i data-lucide="sliders-horizontal"></i></span><span class="lineup"><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-claude"></use></svg></span><span class="mchip"><svg class="mlogo" viewBox="0 0 24 24"><use href="#m-grok"></use></svg></span></span><span class="rran">—</span></span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- bottom action bar -->
+    <footer class="actionbar">
+      <div class="sel-team">
+        <span class="badge" id="abIcon"><i data-lucide="radio-tower"></i></span>
+        <div class="meta">
+          <div class="l">Selected team</div>
+          <div class="n"><span id="abName">Post-to-Project Signal</span><span class="fz" id="abOut">→ Insight · sourced</span></div>
+        </div>
+      </div>
+      <div class="starters" id="abStarters">
+        <span class="slab">Starters:</span>
+      </div>
+      <button class="continue">Continue to prompt <i data-lucide="arrow-right"></i><span class="ek">↵</span></button>
+    </footer>
+  </section>
+</main>
+
+<script>
+  lucide.createIcons();
+
+  const ICON_LABEL = { 'radio-tower':'Signal','hammer':'Code','image':'Design','file-text':'Copy' };
+
+  function refresh(){ lucide.createIcons(); }
+
+  function selectFrom(el){
+    // clear siblings within the document for both tiles and rows
+    document.querySelectorAll('.tile.sel, .row.sel').forEach(n=>n.classList.remove('sel'));
+    el.classList.add('sel');
+    const name = el.dataset.team || '';
+    const icon = el.dataset.icon || 'radio-tower';
+    const out  = el.dataset.out || '';
+    document.getElementById('abName').textContent = name;
+    document.getElementById('abOut').textContent = out ? '→ ' + out : '';
+    document.getElementById('abIcon').innerHTML = '<i data-lucide="'+icon+'"></i>';
+    const wrap = document.getElementById('abStarters');
+    const starters = (el.dataset.starters||'').split('|').filter(Boolean).slice(0,2);
+    wrap.innerHTML = '<span class="slab">Starters:</span>' +
+      starters.map(s=>'<button class="scp"><i data-lucide="corner-down-right"></i>'+s+'</button>').join('') +
+      '<button class="scp" style="border-style:solid"><i data-lucide="pencil-line"></i>type your own</button>';
+    refresh();
+  }
+
+  document.querySelectorAll('.tile, .row').forEach(el=>{
+    el.addEventListener('click', (e)=>{ if(e.target.closest('.edit')){ e.stopPropagation(); return; } if(e.target.closest('.star')){ e.stopPropagation(); e.target.closest('.star').classList.toggle('on'); refresh(); return; } selectFrom(el); });
+  });
+
+  // lens switch
+  document.querySelectorAll('#seg button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      const lens = b.dataset.lens;
+      document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('show', p.dataset.panel===lens));
+      const counts = { yours:'3 recent · 4 favorites', curated:'6 curated starters', browse:'18 teams in your library' };
+      document.getElementById('count').textContent = counts[lens];
+    });
+  });
+
+  // browse family filter
+  document.querySelectorAll('#chips .chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      document.querySelectorAll('#chips .chip').forEach(x=>x.classList.remove('on'));
+      c.classList.add('on');
+      const fam = c.dataset.fam;
+      document.querySelectorAll('#rows .row').forEach(r=>{
+        r.style.display = (fam==='all' || r.dataset.fam===fam) ? '' : 'none';
+      });
+    });
+  });
+
+  // initialize starters for default selection
+  selectFrom(document.querySelector('.tile.sel'));
+</script>
+</body>
+</html>

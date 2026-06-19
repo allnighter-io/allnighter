@@ -18,7 +18,7 @@ struct RootView: View {
     @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
     @State private var showMissingDriversAlert = false
-    @State private var workspaceMode: WorkspaceMode = .team
+    @State private var workspaceMode: WorkspaceMode = .inbox
     @State private var commands = CommandCenter()
     #if DEBUG
     @State private var showDevSettings = false
@@ -97,6 +97,7 @@ struct RootView: View {
             TitleBar(
                 showTeamDropdown: $showTeamDropdown,
                 showDoctor: $showDoctor,
+                workspaceMode: $workspaceMode,
                 onRepair: openReadiness(focus:),
                 onManageTeam: openTeamStudio,
                 devSimActive: devSimLabel,
@@ -128,6 +129,10 @@ struct RootView: View {
                             openTarget: GUIFixture.composeTargetOpen,
                             mode: GUIFixture.composeSpecimenMode
                         )
+                    } else if workspaceMode == .teams {
+                        // Teams workspace — the Send-to-team launcher (G-T1 brings
+                        // full fidelity; G-T0 wires the toggle + a real card roster).
+                        TeamsLauncherView(onContinue: { workspaceMode = .inbox })
                     } else {
                         HomeView()
                     }
@@ -234,6 +239,10 @@ struct RootView: View {
                     showTeamStudio = true
                 }
                 if GUIFixture.opensCommandPalette { commands.palettePresented = true }
+                if GUIFixture.opensTeamsLauncher {
+                    model.applyDevBenchScenario("team-open-ready")
+                    workspaceMode = .teams
+                }
                 if GUIFixture.opensHomeWorkspace {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
                 }
@@ -1068,6 +1077,10 @@ private struct DoctorRow: View {
 private struct TitleBar: View {
     @Binding var showTeamDropdown: Bool
     @Binding var showDoctor: Bool
+    @Binding var workspaceMode: WorkspaceMode
+    /// Inbox unread badge count. Real unread truth wires with the Projects sidebar
+    /// (G-T4); 0 until then (no fabricated count).
+    var unread: Int = 0
     var onRepair: (String) -> Void
     var onManageTeam: () -> Void
     var devSimActive: String?
@@ -1075,19 +1088,16 @@ private struct TitleBar: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        ZStack {
-            // Centered identity: live mark + alln · team
-            HStack(spacing: 8) {
-                LiveMark(state: model.isRunning ? .running : .idle, size: 16)
-                Text("alln").font(ALFont.label.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
-                Text("· team").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-                if let devSimActive {
-                    Badge(text: devSimActive, tone: .warning, dot: true, mono: true)
-                }
+        HStack(spacing: 10) {
+            // Left: live mark + the Inbox | Teams workspace switch.
+            LiveMark(state: model.isRunning ? .running : .idle, size: 16)
+            InboxTeamsSwitch(mode: $workspaceMode, unread: unread)
+            if let devSimActive {
+                Badge(text: devSimActive, tone: .warning, dot: true, mono: true)
             }
+            Spacer()
             // Right controls
             HStack(spacing: 6) {
-                Spacer()
                 BenchHealthBadge(isOpen: $showDoctor)
                 TeamControlView(
                     isOpen: $showTeamDropdown,
@@ -1341,27 +1351,63 @@ private struct ComposeView: View {
 
 // MARK: - Workspace switcher (Council ↔ Threads)
 
-enum WorkspaceMode: String, CaseIterable { case team, threads }
+/// The two top-level workspaces (Send-to-team handoff §Global shell). `inbox` is
+/// today's chat/conversation home; `teams` is the Send-to-team launcher.
+enum WorkspaceMode: String, CaseIterable {
+    case inbox, teams
 
-private struct WorkspaceSwitcher: View {
+    var label: String { self == .inbox ? "Inbox" : "Teams" }
+    /// SF Symbol — Lucide `inbox`→`tray`, `users-round`→`person.2`.
+    var symbol: String { self == .inbox ? "tray" : "person.2" }
+}
+
+/// `Inbox | Teams` segmented top-bar control (handoff `.modeswitch`). Active
+/// segment: `bgActive` fill + inset hairline + `ink50` text; inactive: `textMuted`.
+/// Inbox carries an unread badge.
+struct InboxTeamsSwitch: View {
     @Binding var mode: WorkspaceMode
+    var unread: Int = 0
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(WorkspaceMode.allCases, id: \.self) { item in
-                Button { mode = item } label: {
-                    Text(item == .team ? "Team" : "Threads")
-                        .font(ALFont.label.weight(.semibold))
-                        .foregroundStyle(mode == item ? ALColor.textOnAmber : ALColor.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(mode == item ? ALColor.accent : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: ALRadius.sm))
-                }
-                .buttonStyle(.plain)
-            }
+        HStack(spacing: 3) {
+            segment(.inbox)
+            segment(.teams)
         }
-        .padding(6)
-        .background(ALColor.subtle)
+        .padding(3)
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay(RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func segment(_ item: WorkspaceMode) -> some View {
+        let isActive = mode == item
+        Button { mode = item } label: {
+            HStack(spacing: 6) {
+                Image(systemName: item.symbol).font(.system(size: 12, weight: .medium))
+                Text(item.label).font(ALFont.label.weight(.semibold))
+                if item == .inbox, unread > 0 {
+                    Text("\(unread)")
+                        .font(ALFont.monoSm.weight(.semibold))
+                        .foregroundStyle(ALColor.accentText)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(ALColor.accentSurface, in: Capsule())
+                }
+            }
+            .foregroundStyle(isActive ? ALColor.textPrimary : ALColor.textMuted)
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(segmentBackground(isActive))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("\(item.label) (\u{2318}\(item == .inbox ? "1" : "2"))")
+    }
+
+    @ViewBuilder
+    private func segmentBackground(_ isActive: Bool) -> some View {
+        if isActive {
+            RoundedRectangle(cornerRadius: ALRadius.sm)
+                .fill(ALColor.active)
+                .overlay(RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
+        }
     }
 }

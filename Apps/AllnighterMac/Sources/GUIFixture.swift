@@ -127,6 +127,8 @@ enum GUIFixture {
     /// UNR proof: keep selected-unread below the fold for the rail matrix capture.
     static var suppressUnreadAutoScroll: Bool { active == "home-rail-unr" }
 
+    /// Deep-link: open the Teams workspace (Send-to-team launcher) via the toggle.
+    static var opensTeamsLauncher: Bool { active == "teams-launcher" }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// `compose-mode-menu` seeds the mode menu open for the proof capture.
@@ -179,6 +181,7 @@ enum GUIFixture {
         ("studio-team-editor", "Team Studio — Customize team editor"),
         ("studio-worker-editor", "Team Studio — Customize worker (skill + prompt)"),
         ("command-palette", "⌘K command palette"),
+        ("teams-launcher", "Teams — Send-to-team launcher (G-T0)"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
         ("compose-target-send-to-team", "Compose — send to team (native popover)"),
