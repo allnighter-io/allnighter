@@ -115,24 +115,31 @@ struct RoutingComposer: View {
     private let big: Bool
     /// Re-seeded when the active thread changes; effort/team are left alone.
     let defaultMode: ComposeMode
+    /// Lock the turn to Send-to-team (hide the Chat/Send/Execute mode pill). Used by
+    /// the launcher's team modal, where the team is already chosen.
+    private let lockedSendToTeam: Bool
     var onSend: ((ComposeRouting) -> Void)?
 
     init(
         mode: ComposeMode = .chat,
+        lane: ComposeLane = .design,
+        team: String = "",
         openModeMenu: Bool = false,
         openTarget: Bool = false,
         big: Bool = false,
         defaultMode: ComposeMode = .chat,
+        lockedSendToTeam: Bool = false,
         onSend: ((ComposeRouting) -> Void)? = nil
     ) {
         _mode = State(initialValue: mode)
         _to = State(initialValue: "")     // seeded from the real bench in onAppear
         _effort = State(initialValue: .med)
-        _lane = State(initialValue: .design)
-        _team = State(initialValue: "")   // seeded from the real catalog in onAppear
+        _lane = State(initialValue: lane)
+        _team = State(initialValue: team) // empty → seeded from the real catalog in onAppear
         _pop = State(initialValue: openModeMenu ? .mode : (openTarget ? .target : nil))
         self.big = big
         self.defaultMode = defaultMode
+        self.lockedSendToTeam = lockedSendToTeam
         self.onSend = onSend
         self.placeholder = big
             ? "Describe the work — a question, a screen to redesign, a change to ship…"
@@ -217,7 +224,7 @@ struct RoutingComposer: View {
 
     private var bar: some View {
         HStack(spacing: 9) {
-            modePill
+            if !lockedSendToTeam { modePill }
             if mode != .sendToTeam {
                 Text("to").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
