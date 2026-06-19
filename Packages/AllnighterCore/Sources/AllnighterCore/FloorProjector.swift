@@ -49,6 +49,7 @@ public enum FloorProjector {
             floorReturn: theReturn,
             nextActions: baseNextActions(for: run),
             artifacts: allArtifacts,
+            timeline: timeline(for: run),
             warnings: run.warnings,
             errors: workerErrors(for: run),
             audit: FloorRun.Audit(runJournalPath: runJournalPath, traceId: traceId)
@@ -225,6 +226,46 @@ public enum FloorProjector {
             actions.insert(FloorNextAction(id: "copy_return", kind: .copyReturn, label: "Copy return"), at: 0)
         }
         return actions
+    }
+
+    /// Derive the converge timeline from sourced timestamps only (F-S04). Never
+    /// invents a timestamp: a worker/stage with no recorded time contributes no
+    /// event. Sorted chronologically.
+    private static func timeline(for run: TeamRun) -> [FloorTimelineEvent] {
+        var events: [FloorTimelineEvent] = []
+        func add(_ kind: FloorTimelineEvent.Kind, _ at: Date?, workerId: String? = nil,
+                 stageId: String? = nil, status: String? = nil) {
+            guard let at else { return }
+            let key = [kind.rawValue, workerId, stageId].compactMap { $0 }.joined(separator: "_")
+            events.append(FloorTimelineEvent(id: "\(run.id)_\(key)", runId: run.id, kind: kind,
+                                             at: at, workerId: workerId, stageId: stageId, status: status))
+        }
+
+        add(.runQueued, run.createdAt)
+        // Run started = the first worker that actually began (a real timestamp).
+        add(.runStarted, run.workerAnswers.compactMap(\.startedAt).min())
+
+        for a in run.workerAnswers {
+            add(.workerStarted, a.startedAt, workerId: a.workerId)
+            let returned: FloorTimelineEvent.Kind = (a.status == .failed || a.status == .timedOut) ? .workerFailed : .workerReturned
+            add(returned, a.finishedAt, workerId: a.workerId, status: a.status.rawValue)
+        }
+
+        for stage in run.stages {
+            // The lead synthesis (plan / final spec) reads as synthesis; other
+            // stages read as generic stage events.
+            let isSynthesis = stage.purpose == .plan || stage.purpose == .finalSpec
+            add(isSynthesis ? .synthesisStarted : .stageStarted, stage.startedAt, stageId: stage.id, status: stage.status.rawValue)
+            add(isSynthesis ? .synthesisFinished : .stageFinished, stage.finishedAt, stageId: stage.id, status: stage.status.rawValue)
+        }
+
+        // Run finished = the last observed terminal timestamp (never invented).
+        if run.status.isTerminal {
+            let lastTimes = run.workerAnswers.compactMap(\.finishedAt) + run.stages.compactMap(\.finishedAt)
+            add(.runFinished, lastTimes.max())
+        }
+
+        return events.sorted { $0.at < $1.at }
     }
 
     private static func excerpt(_ text: String?, max: Int = 280) -> String? {

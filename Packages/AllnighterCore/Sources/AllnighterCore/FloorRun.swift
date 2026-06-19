@@ -19,6 +19,9 @@ public struct FloorRun: Codable, Sendable, Equatable {
     /// Every durable run artifact, flattened (F-S01). Refs are run-relative, never
     /// absolute paths; the app resolves them to local files.
     public var artifacts: [RunArtifactRef]
+    /// The "team worked in parallel" event list (F-S04), derived from sourced
+    /// timestamps only — missing timestamps are absent, never invented.
+    public var timeline: [FloorTimelineEvent]
     public var warnings: [String]
     public var errors: [ErrorEnvelope]
     public var audit: Audit
@@ -26,12 +29,13 @@ public struct FloorRun: Codable, Sendable, Equatable {
     public init(schemaVersion: Int = 1, run: Run, intent: Intent, team: Team,
                 workerLanes: [FloorWorkerLane] = [], floorReturn: FloorReturn? = nil,
                 nextActions: [FloorNextAction] = [], artifacts: [RunArtifactRef] = [],
-                warnings: [String] = [], errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
+                timeline: [FloorTimelineEvent] = [], warnings: [String] = [],
+                errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
         self.schemaVersion = schemaVersion
         self.run = run; self.intent = intent; self.team = team
         self.workerLanes = workerLanes; self.floorReturn = floorReturn
-        self.nextActions = nextActions; self.artifacts = artifacts; self.warnings = warnings
-        self.errors = errors; self.audit = audit
+        self.nextActions = nextActions; self.artifacts = artifacts; self.timeline = timeline
+        self.warnings = warnings; self.errors = errors; self.audit = audit
     }
 
     /// Lifecycle of a Floor run, normalized from `RunStatus`.
@@ -201,6 +205,28 @@ public struct FloorReturn: Codable, Sendable, Equatable {
         self.kind = kind; self.status = status; self.title = title
         self.summaryMarkdown = summaryMarkdown; self.producedByWorkerId = producedByWorkerId
         self.stageId = stageId; self.artifactRefs = artifactRefs; self.insight = insight
+    }
+}
+
+/// One event in the Floor's converge timeline (F-S04). Derived from run/worker/
+/// stage timestamps; an event is emitted only when its timestamp is sourced.
+public struct FloorTimelineEvent: Codable, Sendable, Equatable, Identifiable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        case runQueued, runStarted, workerStarted, workerReturned, workerFailed
+        case stageStarted, stageFinished, synthesisStarted, synthesisFinished, runFinished
+    }
+    public var id: String
+    public var runId: String
+    public var kind: Kind
+    public var at: Date
+    public var workerId: String?
+    public var stageId: String?
+    public var status: String?
+
+    public init(id: String, runId: String, kind: Kind, at: Date,
+                workerId: String? = nil, stageId: String? = nil, status: String? = nil) {
+        self.id = id; self.runId = runId; self.kind = kind; self.at = at
+        self.workerId = workerId; self.stageId = stageId; self.status = status
     }
 }
 

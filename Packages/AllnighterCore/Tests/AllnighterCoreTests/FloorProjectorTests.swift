@@ -85,6 +85,33 @@ final class FloorProjectorTests: XCTestCase {
         XCTAssertEqual(floor.run.status, .running)
     }
 
+    func testTimelineIsDerivedAndSorted() {
+        let floor = FloorProjector.project(signalRun())
+        let kinds = floor.timeline.map(\.kind)
+        XCTAssertEqual(floor.timeline.first?.kind, .runQueued)
+        XCTAssertTrue(kinds.contains(.runStarted))
+        XCTAssertTrue(kinds.contains(.workerReturned))
+        XCTAssertTrue(kinds.contains(.workerFailed))   // model_opus#0 failed
+        XCTAssertTrue(kinds.contains(.runFinished))
+        // The plan stage in the fixture has no timestamps → no synthesis events.
+        XCTAssertFalse(kinds.contains(.synthesisStarted))
+        // Sorted chronologically.
+        XCTAssertEqual(floor.timeline, floor.timeline.sorted { $0.at < $1.at })
+    }
+
+    func testTimelineNeverInventsMissingTimestamps() {
+        // WT-FLOOR04: a worker with a start but no finish yields workerStarted only.
+        var run = signalRun(status: .planning)
+        run.workerAnswers = [WorkerAnswer(workerId: "w#0", modelId: "m", status: .running, startedAt: now)]
+        run.workers = [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .answer)]
+        run.stages = []
+        let floor = FloorProjector.project(run)
+        let kinds = floor.timeline.map(\.kind)
+        XCTAssertTrue(kinds.contains(.workerStarted))
+        XCTAssertFalse(kinds.contains(.workerReturned))
+        XCTAssertFalse(kinds.contains(.runFinished))   // not terminal
+    }
+
     func testReturnLinksToItsStageArtifact() {
         // F-S02: the typed return points at the output stage and its artifact ref.
         let floor = FloorProjector.project(signalRun())
