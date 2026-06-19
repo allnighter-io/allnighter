@@ -1,6 +1,6 @@
 # Pending Work
 
-Status: **Pending0 + Pending1 BUILT** (2026-06-17); explicit run is attempt-record only; Wake Ticket resume spec; broad native drain/scheduling parked
+Status: **Pending0 + Pending1 BUILT** (2026-06-17); WTK-S02a workerChat explicit run built; Wake Ticket resume spec; broad native drain/scheduling parked
 Owner: AllnighterCore + AllnighterEngine + CLI/MCP contracts + Mac app backend
 Updated: 2026-06-19
 
@@ -939,15 +939,16 @@ Auth/privacy/permissions impact:
 
 Implementation order note:
 
-- `Pending0`/`Pending1` may build local Draft/Pending storage and CLI CRUD before
+- `Pending0`/`Pending1` built local Draft/Pending storage and CLI CRUD before
   drain exists.
 - Do not claim app-closed broad execution or Away Mode drain until `Serve0` plus
   `Pending2` are built. A narrower "Claude cooldown resumes once" claim belongs
   to `Pending1a` / Wake Tickets and only applies to already-authorized work with
   sourced cooldown state.
-- MCP Pending (`A1`) is part of the same CLI/MCP-first product contract. It may
-  land after the Core/CLI Pending semantics are real, but the feature is not
-  shippable end to end until MCP exposes the same Pending/Wake facts.
+- MCP Pending (`A1`) is part of the same CLI/MCP-first product contract. Now that
+  workerChat CLI `pending run` executes and settles, A1/WTK-S02c is the next
+  external-agent blocker. The feature is not shippable end to end until MCP
+  exposes the same Pending/Wake facts.
 
 ### Pending0 - Public CLI Contract
 
@@ -1034,17 +1035,19 @@ Scope:
 - `CapacityObservation` parser/adapter fixtures live with
   `Stalled_Work_Watchdog.md` and are built.
 - WTK-S01b wired worker output capture before `errorReason` reduction.
-- WTK-S02a must make explicit CLI `pending run` execute and settle workerChat
+- WTK-S02a is built: explicit CLI `pending run` executes and settles workerChat
   Pending items before resident wake can retry due items.
 - Worker/Pending/team attempt settlement can write `PendingResume` with
   `cooldown` or `providerBusy`.
 - Pending JSON projects `nextWakeAt`, `blockedReason`, attempt reason, and no
   quota/cost/runtime estimates.
-- WTK-S02 must make explicit `pending run` drive and settle the same worker/team
-  path before `alln serve` can wake due items. WTK-S02a starts with workerChat;
-  teamRun follows.
-- After WTK-S02, `alln serve` may wake exactly one due item and retry the same
-  authorized work.
+- A1/WTK-S02c must expose `pending_list`, `pending_show`, and `pending_run` over
+  MCP using the same Pending JSON before external agents can operate Wake Ticket
+  facts.
+- WTK-S02b may add teamRun Pending execution after MCP workerChat parity if that
+  remains needed before resident wake.
+- After MCP parity and the remaining execution seam, `alln serve` may wake
+  exactly one due item and retry the same authorized work.
 - No fairness sweep, fallback routing, Away Mode, PTY probes, or admission ledger.
 
 Works Test:

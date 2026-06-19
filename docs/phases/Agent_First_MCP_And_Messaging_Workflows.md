@@ -8,17 +8,20 @@ BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
 hello|preflight|teams`, `alln spec`); async `team_start`, `team_status`,
 `team_result`, and `team_cancel` over Journal0 + Serve0. Registry specs for
 `pending_list`, `pending_show`, and `pending_run` exist, but live MCP handlers
-are deferred. DEFERRED (needs Wake Ticket execution seams): A1 Pending-over-MCP. Still
-deferred: doctor schema-v2 remedy tiers/humanActions, A3 install artifacts, A4
-messaging UX, A5 provenance/safety gate, A6 entitlement hook.
+are deferred. NEXT: A1/WTK-S02c Pending-over-MCP live handlers now that CLI
+workerChat `pending run` executes and settles. Still deferred: doctor schema-v2
+remedy tiers/humanActions, A3 install artifacts, A4 messaging UX, A5
+provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-19
 
 Code reality on 2026-06-19: MCP Pending tool specs exist in the registry, but
-`MCPServer` does not expose live Pending handlers yet. Expose Pending/Wake facts
-over MCP from the same Core/CLI `PendingItemJSON` schema once it truthfully shows
-`nextWakeAt`, capacity observation, blocked reason, and settled attempt state.
-Full Wake Ticket / Watchdog behavior is not ship-ready until this
+`MCPServer` does not expose live Pending handlers yet. CLI `alln pending run`
+does execute and settle workerChat Pending items through `PendingRunExecutor`.
+Expose Pending/Wake facts over MCP from the same Core/CLI `PendingItemJSON` and
+`PendingListJSON` schemas, including `nextWakeAt`, capacity observation, blocked
+reason, settled attempt state, and `transcriptRef` without transcript body
+content. Full Wake Ticket / Watchdog behavior is not ship-ready until this
 Pending-over-MCP parity lands.
 
 > **Async ≠ scheduler.** "Async team loop" means a single, explicitly-triggered run
@@ -1446,16 +1449,20 @@ Prerequisites:
 
 - Pending0/Pending1 are complete: local Pending model and CLI CRUD/list/show are
   real.
-- Pending1a Wake Tickets are complete before MCP claims wake/resume behavior. A
-  Wake Ticket is a sourced capacity/cooldown resume for already-authorized work,
-  not a general scheduler queue.
+- WTK-S02a is complete: CLI `pending run` executes and settles workerChat Pending
+  items through the real Pending execution seam.
+- Pending1a Wake Tickets are complete only for the currently built workerChat
+  execution path. A Wake Ticket is a sourced capacity/cooldown resume for
+  already-authorized work, not a general scheduler queue.
 - Pending2 is not an A1 prerequisite. Broad native drain/scheduling remains
   parked until explicitly revived; `pending_run` may still expose a user- or
   agent-triggered attempt through CLI/MCP.
 
-- Add `pending_add`, `pending_submit`, `pending_edit`, `pending_reorder`,
-  `pending_list`, `pending_show`, `pending_cancel`, `pending_run`,
-  `pending_stop`.
+- Current implementation slice A1/WTK-S02c adds live `pending_list`,
+  `pending_show`, and `pending_run` handlers first because their registry specs
+  exist and CLI semantics are real. `pending_add`, `pending_submit`,
+  `pending_edit`, `pending_reorder`, `pending_cancel`, and `pending_stop` remain
+  follow-on A1 work unless the developer deliberately scopes them.
 - Use Pending model from `Pending_Work_And_Drain.md`.
 - Expose Draft/Pending/Running; do not expose raw scheduler queue.
 - Include blocked/admission reasons, source, `observedAt`, `retryAfter`, and

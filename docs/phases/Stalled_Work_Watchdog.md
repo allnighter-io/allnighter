@@ -1,7 +1,7 @@
 # Stalled Work Watchdog
 
-Status: WTK-S00/S01a/S01b built; **not end-to-end handoff ready** until
-WTK-S02 plus live A1 Pending-over-MCP handlers land
+Status: WTK-S00/S01a/S01b/S02a built; **not end-to-end handoff ready** until
+live A1 Pending-over-MCP handlers land, then WTK-S03 wake scheduling can follow
 Owner: AllnighterCore + AllnighterEngine + Mac app backend + CLI/MCP contracts
 Updated: 2026-06-19
 
@@ -50,6 +50,10 @@ Built substrate:
 - `WorkerRunner` captures raw nonzero stdout/stderr with `CapacityClassifier`
   before reducing output to `errorReason`, and propagates observations through
   `WorkerRunOutcome` / `WorkerAnswer`.
+- CLI `alln pending run <id> --json` executes and settles `workerChat` Pending
+  items end to end through `PendingRunExecutor`.
+- WorkerChat Pending attempts write transcript receipts under the Pending store
+  and expose `transcriptRef` in attempt summaries, not inline transcript content.
 - Worker chat turns have durable `projectId`, `queued`/`running` status, and
   timestamps.
 - Async team runs persist durable `TeamRun` truth through `RunStore`, including
@@ -58,22 +62,23 @@ Built substrate:
 
 Missing blockers:
 
-- `PendingService.run` records a queued attempt only; it does not yet execute the
-  worker/team path or settle attempts.
-- No Pending call site writes classified capacity observations into
-  `PendingResume` yet.
+- `teamRun`, `followUp`, `returnReview`, `workOrder`, dispatch, and mutating
+  execute Pending items do not execute through Pending yet.
+- Other non-Pending call sites may still need resume writers if they should turn
+  classified capacity observations into Pending resumes.
 - `ResidentCoordinator` is health-only; it has no wake timer or watchdog scanner.
 - MCP Pending specs exist, but `MCPServer` does not expose live Pending handlers.
 - New `alln pending add` items are not reliably Project-scoped unless the caller
   supplies/binds `projectId`; unassigned dev records are repair-only/disposable
   and must not become watchdog targets.
 
-Therefore the next implementation handoff is WTK-S02a: make explicit CLI
-`pending run` execute and settle one `workerChat` Pending item, including capacity
-resume mapping. A1 Pending-over-MCP live handlers remain the external-agent
-blocker before the feature is ship-ready. SWW stalled nudges should wait until
-Wake Ticket suppression truth exists, otherwise expected cooldown sleep will be
-mislabeled as stalled work.
+Therefore the next implementation handoff is **A1 / WTK-S02c**: wire live
+`pending_list`, `pending_show`, and `pending_run` MCP handlers to the same
+Core/Engine semantics and JSON contracts the CLI now uses. This is the
+external-agent blocker before Wake Tickets can be operated by OpenClaw, Hermes,
+or another app. WTK-S03 resident wake scheduling should wait until MCP Pending
+parity lands. SWW stalled nudges should wait until Wake Ticket suppression truth
+exists, otherwise expected cooldown sleep will be mislabeled as stalled work.
 
 ## Feature Packet - Watchdog Prerequisite WTK-S00/S01a
 
@@ -103,9 +108,11 @@ Shipped:
 
 Remaining gaps:
 
-- No capture/classification in `WorkerRunner` outcomes.
-- No call-site wiring from classified worker capacity to Pending resume.
-- No real Pending execution/settlement.
+- WorkerRunner capture/classification shipped in WTK-S01b.
+- WorkerChat Pending resume writing shipped in WTK-S02a; other team/thread call
+  sites still need a narrow audit before they can claim Wake Ticket behavior.
+- WorkerChat Pending execution/settlement shipped in WTK-S02a; teamRun and
+  mutating Pending execution remain deferred.
 - No live MCP Pending handlers in `MCPServer`.
 
 SSOT:
@@ -132,10 +139,10 @@ Implementation:
   - `alln pending list --all --json`
   - `alln project pending <project> --json`
   - These commands must project the same `PendingItemJSON` schema. WTK-S00/S01a
-    adds capacity fields to that schema and fixtures even before WTK-S02 can
-    populate them from real `pending run` execution.
+    added capacity fields to that schema and fixtures; WTK-S02a now populates
+    them from real workerChat `pending run` execution.
 - MCP tools:
-  - `pending_show`, `pending_list`, and later `pending_run` use the same
+  - `pending_show`, `pending_list`, and `pending_run` use the same
     `PendingItemJSON` / `PendingListJSON` schema and shared error envelope.
   - If live MCP handlers are not added in this first slice, the phase remains
     blocked for end-to-end watchdog handoff until A1 Pending-over-MCP lands.
@@ -178,8 +185,9 @@ Done:
 - `CapacityObservation` exists in Core with fixture-tested classification.
 - Pending JSON schema/fixtures expose sourced capacity facts for CLI/MCP clients.
 - No stale migration/backcompat aliases are introduced for zero-user local data.
-- The developer reported WTK-S02 real Pending execution/settlement and A1
-  Pending-over-MCP live handlers as remaining blockers.
+- WorkerRunner capture shipped in WTK-S01b; workerChat Pending execution and
+  resume mapping shipped in WTK-S02a.
+- A1 Pending-over-MCP live handlers remain the current external-agent blocker.
 
 ## Feature Packet - WTK-S01b Worker Output Capture
 
@@ -246,117 +254,135 @@ Done:
 
 ## Feature Packet - WTK-S02a WorkerChat Pending Execution
 
-Status: Ready for implementation as the next narrow execution slice.
+Status: Shipped in `0c4335c8` (`engine(wtk): execute and settle workerChat
+pending run (WTK-S02a)`).
+
+Shipped:
+
+- `PendingRunExecutor` executes `workerChat` Pending items from CLI
+  `alln pending run <id> --json`.
+- `PendingService.beginRun` submits Draft items, records a running attempt, and
+  applies a CLI lease.
+- Worker output is written as `attempts/<attemptId>.txt` under the Pending store;
+  `transcriptRef` is exposed on attempt summaries and generated schema.
+- `PendingService.settleRun` maps success, ordinary failure, cooldown,
+  providerBusy, auth/manual blockers, timeout, and cancellation into settled
+  Pending state before the CLI returns.
+- Capacity outcomes return the item to `pending` with `PendingResume` and
+  `capacityObservation` where appropriate.
+
+Still deferred:
+
+- Live MCP Pending handlers.
+- `teamRun` Pending execution.
+- Mutating dispatch / work-order execution.
+- Resident wake scheduler, broad drain, GUI/iOS, automatic retry, worker
+  substitution, or prompt rewriting.
+
+## Feature Packet - A1 / WTK-S02c Live MCP Pending Handlers
+
+Status: Ready for implementation as the next CLI/MCP-first slice.
 
 Founder Intent:
 
-- Raw request: after a sourced cooldown/capacity boundary, Allnighter should be
-  able to resume the exact work instead of merely recording that a run was queued.
-- Product value: `alln pending run` becomes a real manual execution seam that
-  attempts already-authorized worker chat work, settles it, and writes Wake Ticket
-  state on capacity failure.
-- Trusted workflow slice: submitted workerChat Pending item -> `alln pending run`
-  leases it -> invokes selected worker with `WorkerRunner` -> writes a local
-  attempt receipt -> settles item to `done`, `failed`, `pending` with resume, or
-  terminal timeout/cancel state.
-- Non-goals: no resident scheduler, no broad drain, no teamRun Pending execution,
-  no mutating dispatch/work order execution, no GUI/iOS, no live MCP handlers, no
-  automatic retry, no worker substitution.
+- Raw request: OpenClaw, Hermes, and other agent shells should operate
+  Allnighter through a real machine contract, not by scraping CLI text.
+- Product value: external agents can list, inspect, and explicitly run Pending
+  work through MCP with the same JSON facts as `alln pending`.
+- Trusted workflow slice: external agent calls MCP `pending_list` -> chooses a
+  submitted item -> calls MCP `pending_run` -> Allnighter invokes the same
+  `PendingRunExecutor` path as CLI -> returns settled `PendingItemJSON` with
+  capacity/wake facts when blocked.
+- Non-goals: no scheduler, wake timers, broad drain, GUI/iOS, teamRun Pending
+  execution, mutating dispatch/work-order execution, automatic retry, worker
+  substitution, prompt rewriting, or MCP-only JSON.
 
 Current State:
 
-- Existing truth owners: `PendingItem`, `PendingAttemptSummary`, `PendingLease`,
-  `PendingResume`, `CapacityObservation`, `WorkerRunner`, `PendingItemJSON`, and
-  `PendingService`.
-- Existing gaps: `PendingService.run` only appends a queued attempt and leaves the
-  item Running; there is no attempt settlement, transcript/receipt, or capacity
-  resume writer.
+- Registry specs for `pending_list`, `pending_show`, and `pending_run` exist and
+  generated `mcp-tools.json` was updated by WTK-S00/S01a.
+- CLI `pending list`, `pending show`, and workerChat `pending run` are the
+  semantic source for the MCP handlers.
+- `MCPServer` still does not expose live Pending handlers.
 
 SSOT:
 
-- Truth owner: AllnighterEngine owns the Pending execution seam; AllnighterCore
-  owns the Pending and capacity models; CLI presents the Core JSON.
-- Lie-prone layers: CLI copy, `attempt.reason`, worker `errorReason`, MCP specs,
-  and any future UI badge.
+- Truth owner: AllnighterCore owns `PendingItemJSON`, `PendingListJSON`,
+  `ErrorEnvelope`, and the MCP registry specs; AllnighterEngine owns
+  `PendingRunExecutor`; `MCPServer` is only an adapter.
+- Lie-prone layers: MCP result text, hand-written tool JSON, CLI summary copy,
+  external agent prompts, and generated docs.
 - New/changed semantic rules:
-  - `pending run` may execute only already-authorized, non-mutating
-    `workerChat` items in this slice.
-  - Every started attempt reaches a settled status before the command returns.
-  - Sourced capacity observations return the item to `pending` with
-    `PendingResume`, not stuck `running`.
-  - Successful worker output is preserved as a local receipt/transcript reference;
-    the Pending JSON may expose the reference but not inline large content.
-- Duplicate truth to delete/avoid: no provider-specific parsing in Pending
-  execution; consume `WorkerRunOutcome.capacityObservation`.
+  - MCP `pending_*` handlers must use the same Core/Engine code path and JSON
+    schemas as CLI.
+  - MCP may add human-readable result text, but the structured JSON string must
+    match `PendingItemJSON` / `PendingListJSON`.
+  - `pending_run` over MCP is explicit user/agent-triggered work, not resident
+    scheduling.
+  - `origin` is `mcp` for new MCP attempts/provenance; `originAgent` is metadata,
+    not authorization.
+- Duplicate truth to delete/avoid: no MCP-only Pending models, no separate MCP
+  cooldown parser, no transcript inlining, and no friendlier alternate JSON.
 
 Implementation:
 
-- CLI surface:
-  - `alln pending run <id> --json`
-  - No new flags are required.
-  - The command becomes async if needed; `AllnighterCLI.main` should `await` the
-    Pending CLI path.
-- MCP surface:
-  - No live MCP handler in S02a. Keep registry specs unchanged unless the public
-    Pending JSON schema changes.
-- Model/package impact:
-  - Prefer a small Engine executor (name flexible, e.g. `PendingRunExecutor`) that
-    composes `PendingStore`/`PendingService`, `WorkerRunner`, `DriverRegistry`,
-    models, invocations, and clock.
-  - Keep CRUD-only Pending behavior narrow; small lifecycle helpers in
-    `PendingService` are okay if they avoid duplicating store mutation rules.
-  - If needed, add a local attempt transcript/receipt ref to
-    `PendingAttemptSummary` / `PendingItemJSON.AttemptInfo` and regenerate schemas.
-- Settlement rules:
-  - `done`: latest attempt `done`, item `done`, lease cleared, resume cleared,
-    receipt/transcript written.
-  - `failed` without capacity: latest attempt `failed`, item `failed`, lease
-    cleared, resume cleared, reason from `errorReason`.
-  - `timedOut`: latest attempt `timedOut`, item `failed` or `pending` only if an
-    existing timeout resume rule is deliberately implemented and tested.
-  - `cancelled`: latest attempt `cancelled`, item `pending` or `cancelled` using
-    existing lifecycle semantics; do not leave `running`.
-  - `capacityObservation.kind == accountRateLimit || cooldown`: latest attempt
-    `blocked`, item returns to `pending`, lease cleared, resume reason
-    `cooldown`, `observedResetAt`/`wakeAfter` copied from observation.
-  - `capacityObservation.kind == providerBusy`: latest attempt `blocked`, item
-    returns to `pending`, lease cleared, resume reason `providerBusy`, `wakeAfter`
-    copied from observation.
-  - `authRequired` / `manualRequired`: latest attempt `blocked`, item returns to
-    `pending` with sourced reason/attention; do not create a Wake Ticket.
-- Auth/privacy/permissions impact:
-  - No new credentials, Keychain access, provider pages, network probes, or macOS
-    permissions.
-  - Receipt files are local only and must not leak prompt/body text into
-    notification copy.
+- Add live `MCPServer` handlers for `pending_list`, `pending_show`, and
+  `pending_run`.
+- `pending_list` returns `PendingListJSON` using the same mapper/service as CLI
+  list. Support the contract's `limit`, `cursor`, and status/project filters
+  where those already exist; do not invent a parallel paging model.
+- `pending_show` requires a Pending id and returns one `PendingItemJSON`.
+- `pending_run` calls the same `PendingRunExecutor` path used by CLI
+  `alln pending run`.
+- Unsupported kinds preserve current CLI semantics:
+  - workerChat executes and settles.
+  - dispatch / mutating execute returns `PENDING_MUTATION_DEFERRED`.
+  - teamRun, followUp, returnReview, and workOrder stay unsupported unless a
+    real existing safe path already handles them.
+- Use the existing MCP tool-result envelope and shared error envelope. Do not
+  expose richer capacity truth than CLI.
 
 Proof:
 
-- Pending execution tests with a mock `CommandRunner` for success, ordinary
-  nonzero failure, account cooldown, provider busy, auth/manual blocker, timeout,
-  and unsupported kind.
-- CLI test or integration-style harness proving `alln pending run <id> --json`
-  returns a settled `PendingItemJSON`, not a permanently Running queued attempt.
-- Schema/export checks if `PendingItemJSON` changes.
+- `tools/list` includes `pending_list`, `pending_show`, and `pending_run` with
+  current schemas, errors, and idempotency metadata.
+- MCP `pending_list` returns the same `PendingListJSON` shape as CLI/Core.
+- MCP `pending_show` returns one `PendingItemJSON`; not-found and usage failures
+  use the shared error envelope.
+- MCP `pending_run` on workerChat invokes `PendingRunExecutor` and returns the
+  settled item.
+- MCP `pending_run` on a capacity failure returns a pending item with
+  `PendingResume`, `capacityObservation`, and `nextWakeAt`.
+- MCP `pending_run` on unsupported kinds returns the same error semantics as CLI
+  and does not spawn a worker.
+- List/show JSON contains `transcriptRef` only, never transcript body content.
+- Existing ContractRegistry, MCP contract, PendingService, and PendingRunExecutor
+  tests remain green.
 
 Done When:
 
-- `alln pending run` for workerChat actually invokes the selected worker.
-- The Pending item and latest attempt are terminal or pending-with-resume when
-  the command returns; no successful path leaves the item Running.
-- Capacity failures write `PendingResume` and project `nextWakeAt` /
-  `capacityObservation`.
-- Worker output is preserved as a local attempt receipt/transcript reference.
-- No scheduler, GUI/iOS, teamRun Pending execution, mutating dispatch, live MCP
-  handler, automatic retry, worker substitution, or prompt rewrite lands.
+- External MCP clients can list, inspect, and run eligible workerChat Pending
+  items without scraping CLI text.
+- MCP Pending outputs are contract-parity projections of CLI/Core JSON.
+- No scheduler, GUI/iOS, teamRun Pending execution, mutating dispatch/work-order
+  execution, automatic retry, worker substitution, or prompt rewriting lands.
+- Remaining blockers are explicitly WTK-S02b teamRun Pending execution, WTK-S03
+  one-shot wake scheduler, and WTK-S01c other call-site resume writers.
 
-## Copy-Paste Developer Prompt - WTK-S02a
+## Copy-Paste Developer Prompt - A1 / WTK-S02c
 
 ```text
-You are implementing WTK-S02a for Allnighter: make explicit CLI `pending run`
-execute and settle one workerChat Pending item.
+You are implementing A1 / WTK-S02c for Allnighter: live MCP Pending handlers for
+external agents.
 
-Do not implement the full watchdog end to end.
+Goal:
+Expose the existing CLI/Core Pending behavior over MCP so OpenClaw, Hermes, and
+other agent shells can list, inspect, and run Pending items through Allnighter
+without scraping CLI text.
+
+Do not implement scheduler, wake timers, broad drain, GUI/iOS, teamRun Pending
+execution, mutating dispatch/work-order execution, automatic retry, worker
+substitution, or prompt rewriting.
 
 Read first:
 - AGENTS.md
@@ -367,88 +393,80 @@ Read first:
 - docs/phases/CLI_Implementation_Contract.md
 - docs/phases/Agent_First_MCP_And_Messaging_Workflows.md
 
-Code reality to respect:
+Code reality:
 - WTK-S00/S01a landed in b331c2ae.
 - WTK-S01b landed in 3fe9aae0.
-- CapacityObservation and CapacityClassifier already exist in AllnighterCore.
-- PendingResume can store capacityObservation and PendingItemJSON projects it.
-- WorkerRunner.invoke now attaches CapacityObservation to WorkerRunOutcome before
-  reducing nonzero output to errorReason.
-- WorkerAnswer can carry CapacityObservation.
-- PendingService.run still records a queued attempt only; replace or wrap that
-  behavior for workerChat CLI `pending run` so the attempt actually executes and
-  settles.
-- PendingCLI.run is currently synchronous and AllnighterCLI.main calls it without
-  await; make the Pending CLI path async if needed.
-- MCP Pending tool specs exist, but live MCPServer Pending handlers do not.
-- ResidentCoordinator is health-only; do not add wake timers or scanning.
+- WTK-S02a landed in 0c4335c8: CLI `alln pending run <id> --json` executes and
+  settles workerChat Pending through PendingRunExecutor.
+- Pending JSON includes capacityObservation, nextWakeAt, and attempts[].transcriptRef.
+- MCP Pending tool specs exist in the registry for pending_list, pending_show,
+  and pending_run, but MCPServer does not yet handle them.
+- Existing MCPServer has tools/list and tools/call handling for team/thread/spec
+  surfaces.
 - We have zero users: no production migrations or stale compatibility shims.
-- We are CLI/MCP-first, but this slice is CLI/Core/Engine execution plumbing only;
-  live MCP handlers come after the CLI behavior is real.
+- CLI/MCP first: MCP must call the same Core/Engine semantics, not invent
+  parallel JSON.
 
-Implement WTK-S02a only:
-1. Add a narrow Pending execution seam for `PendingItemKind.workerChat`.
-   Prefer a small Engine executor (name flexible, e.g. PendingRunExecutor) that
-   composes PendingStore/PendingService, WorkerRunner, DriverRegistry, models,
-   invocations, and clock. Small PendingService lifecycle helpers are fine.
-2. `alln pending run <id> --json` must invoke the selected worker for workerChat
-   items using item.prompt and item.safety.workingDir.
-3. A Draft item may be submitted first, preserving current behavior.
-4. Reject or cleanly block unsupported kinds in this slice: teamRun, workOrder,
-   dispatch, returnReview, followUp unless an existing safe path already handles
-   them. Mutating dispatch remains `PENDING_MUTATION_DEFERRED`.
-5. Every started attempt must settle before the command returns:
-   - done: item done, latest attempt done, lease cleared, resume cleared.
-   - ordinary failed: item failed, latest attempt failed, lease cleared, reason
-     from WorkerRunOutcome.errorReason.
-   - accountRateLimit/cooldown: item pending, latest attempt blocked, lease
-     cleared, PendingResume(reason: cooldown) with observedResetAt/wakeAfter and
-     capacityObservation.
-   - providerBusy: item pending, latest attempt blocked, lease cleared,
-     PendingResume(reason: providerBusy) with wakeAfter and capacityObservation.
-   - authRequired/manualRequired: item pending, latest attempt blocked, lease
-     cleared, sourced reason, no Wake Ticket.
-   - timedOut/cancelled: settle the attempt and clear the lease; do not leave the
-     item running.
-6. Preserve worker output as a local attempt receipt/transcript reference. If a
-   public reference field is needed on PendingAttemptSummary / Pending JSON, add
-   it deliberately with schema fixtures and generated artifacts. Do not inline
-   large transcript content into list/show JSON.
-7. `alln pending run <id> --json` must return the settled PendingItemJSON. It
-   must not return an item stuck in Running after the worker attempt is complete.
-8. Do not add resident scheduler, broad drain, provider probes, GUI/iOS, live MCP
-   Pending handlers, teamRun Pending execution, mutating dispatch/work order
-   execution, automatic retry, worker substitution, or prompt rewriting.
+Implement A1 / WTK-S02c only:
+1. Add live MCPServer handlers for:
+   - pending_list
+   - pending_show
+   - pending_run
+2. pending_list:
+   - Returns PendingListJSON using the same mapper/service as
+     `alln pending list --json`.
+   - Supports the existing contract's limit, cursor, project, and status filters.
+   - Does not inline transcript content.
+3. pending_show:
+   - Requires a Pending id.
+   - Returns the same PendingItemJSON as `alln pending show <id> --json`.
+   - Returns the shared error envelope for not found or usage errors.
+4. pending_run:
+   - Calls the same PendingRunExecutor/engine path used by CLI `pending run`.
+   - For workerChat Pending, executes and settles exactly like CLI.
+   - For unsupported kinds, returns the same error semantics as CLI.
+   - For dispatch/mutating execution, returns PENDING_MUTATION_DEFERRED.
+   - Does not spawn a background scheduler or auto-retry.
+5. Preserve provenance:
+   - origin should be `mcp` where a new attempt/origin is recorded.
+   - pass through originAgent if available.
+   - Do not treat originAgent as authorization.
+6. Ensure MCP tool outputs use the standard tool result format already used in
+   MCPServer:
+   - human text summary
+   - structured JSON string matching PendingItemJSON/PendingListJSON
+   - shared error envelope on failure
+7. Keep CLI and MCP schemas identical; no MCP-only fields or friendlier alternate
+   JSON.
 
 Required tests:
-1. Pending workerChat run success invokes the worker, writes a receipt, marks the
-   latest attempt done, marks the item done, clears lease/resume, and returns
-   settled PendingItemJSON.
-2. Ordinary nonzero failure marks attempt failed, item failed, clears lease, and
-   preserves reason.
-3. accountRateLimit/cooldown capacity observation marks attempt blocked, returns
-   item to pending, writes PendingResume(reason: cooldown), and projects
-   nextWakeAt/capacityObservation.
-4. providerBusy marks attempt blocked, returns item to pending, writes
-   PendingResume(reason: providerBusy), and projects wakeAfter/capacityObservation.
-5. authRequired/manualRequired block without creating a Wake Ticket.
-6. timedOut/cancelled paths clear the lease and do not leave Running.
-7. Unsupported kinds are rejected/blocked without spawning a worker.
-8. Existing PendingService, WorkerRunner, registry, and MCP contract tests remain
-   green.
+1. tools/list includes pending_list, pending_show, pending_run with schemas,
+   errors, and idempotency still valid.
+2. pending_list MCP handler returns the same PendingListJSON shape as CLI/Core.
+3. pending_show returns one PendingItemJSON and not-found uses the shared error
+   envelope.
+4. pending_run on workerChat invokes PendingRunExecutor and returns settled JSON.
+5. pending_run on capacity failure returns a pending item with
+   PendingResume/capacityObservation/nextWakeAt.
+6. pending_run on unsupported kind returns the same error semantics as CLI and
+   does not spawn a worker.
+7. No transcript content is in list/show JSON; transcriptRef only.
+8. Existing ContractRegistry/MCP/Pending tests remain green.
 
 Proof commands:
-- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'PendingServiceTests|WorkerRunnerTests|CapacityClassifierTests|CapacityObservationTests'
 - swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'ContractRegistryTests|MCPToolContractTests|PendingServiceTests'
+- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'PendingRunExecutor|MCPServer|Pending'
 - swift run --disable-sandbox --package-path Packages/AllnighterCore alln dev export-contracts --check
 
 Closeout:
-- State that WTK-S02a landed: CLI pending run now executes and settles workerChat
-  Pending items.
-- State that no scheduler, GUI, live MCP Pending handlers, teamRun Pending
-  execution, or mutating dispatch/work order execution was added.
-- State what remains for WTK-S02b if teamRun Pending execution is still deferred.
-- State that A1 Pending-over-MCP live handlers remain the external-agent blocker.
+- State that A1/WTK-S02c landed: live MCP Pending handlers exist for list/show/run.
+- State that MCP uses the same Pending JSON and PendingRunExecutor semantics as
+  CLI.
+- State that no scheduler, GUI/iOS, teamRun Pending execution, mutating
+  dispatch/work-order execution, automatic retry, worker substitution, or prompt
+  rewriting was added.
+- State remaining blockers: WTK-S02b teamRun Pending execution, WTK-S03 one-shot
+  wake scheduler, WTK-S01c other call-site resume writers.
 - Commit only explicit changed files with a clear message.
 ```
 
@@ -1217,18 +1235,20 @@ iOS:
   worker attempt stdout/stderr/JSONL/RPC error before reduction to `errorReason`;
   attach sourced capacity observations to `WorkerRunOutcome` / `WorkerAnswer`
   without changing execution behavior.
-- [ ] WTK-S01c - Pending resume writer: when a real Pending/team/thread attempt
-  has a sourced capacity observation, map it to Pending attempt blocked reason +
-  `PendingResume(wakeAfter/observedResetAt)`. This lands first in WTK-S02a for
-  workerChat Pending.
-- [ ] WTK-S02a - Real Pending workerChat execution seam: make explicit CLI
-  `pending run` able to drive and settle one workerChat item with leases,
-  transcript/receipt, attempt settlement, and cooldown/providerBusy resume mapping.
+- [ ] WTK-S01c - Other call-site resume writers: workerChat Pending resume
+  mapping is built in WTK-S02a. Audit team/thread paths that can produce sourced
+  `CapacityObservation` and decide whether they should map into Pending resume
+  facts before claiming Wake Ticket coverage there.
+- [x] WTK-S02a - Real Pending workerChat execution seam (DONE 2026-06-19,
+  `0c4335c8`): explicit CLI `pending run` can drive and settle one workerChat
+  item with leases, transcript/receipt, attempt settlement, and
+  cooldown/providerBusy resume mapping.
+- [ ] WTK-S02c - A1 live MCP Pending handlers (NEXT): wire `pending_list`,
+  `pending_show`, and `pending_run` in `MCPServer` with the same semantics,
+  JSON schemas, and error envelope as CLI/Core.
 - [ ] WTK-S02b - Real Pending teamRun execution seam: make explicit Pending
   teamRun execution drive the async/team path and settle attempts. Mutating
   dispatch/work orders remain deferred.
-- [ ] WTK-S02c - MCP `pending_run` parity: after CLI `pending run` is real, wire
-  live MCP Pending handlers with the same semantics and error envelope.
 - [ ] WTK-S03 - One-shot wake scheduler: resident coordinator loads durable
   `nextWakeAt`, sleeps until the earliest due wake plus jitter, reloads truth,
   and makes one same-work resume attempt; new cooldown replaces the ticket.
