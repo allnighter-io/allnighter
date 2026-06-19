@@ -490,6 +490,7 @@ Starter error catalog:
 | `TEAM_RUN_TIMEOUT` | Retry with a smaller/simpler Team or inspect failed worker/source state. |
 | `NESTED_TEAM_BLOCKED` | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | Wait or retry after current team run completes. |
+| `EXECUTION_TEAM_MIXED_SOURCES` | Choose one execution source or run a non-mutating review/proposal team first. |
 | `PENDING_MUTATION_DEFERRED` | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
 | `PENDING_REORDER_INVALID` | Keep order unchanged; reorder only Pending Execute items in the same execution lane. |
 | `RUN_NOT_FOUND` | Run `alln history --json`. |

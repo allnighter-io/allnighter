@@ -1,11 +1,24 @@
 # Execution Team Source Gate
 
-Status: **CODE RED phase gate** - must land before new mutating team execution,
-Project dispatch continuation, or external-agent mutating team tools.
+Archived: 2026-06-19
+Status: **Complete** - ETS-S00 through ETS-S07 built and archived.
 Owner: Founder + AllnighterCore + CLI/MCP + Mac app
 Updated: 2026-06-19
 
-## Authority
+Successor owners:
+
+- `docs/phases/Work_Order_Team_Model.md` owns the durable product/model law.
+- `docs/phases/Project_Spine_And_Project_Manager.md` owns mutating dispatch gates.
+- `docs/phases/CLI_Implementation_Contract.md` owns shared error-contract shape.
+- Core implementation owns `ExecutionTeamSourceGate`,
+  `ProjectMutatingDispatchEvaluator`, and related tests.
+
+## Archive Note
+
+This phase is historical proof and implementation detail. Do not route new work
+through this archived file. Use the successor owners above for active truth.
+
+## Authority At Build Time
 
 Read with:
 
@@ -407,9 +420,25 @@ iOS:
   per-Project worker readiness for PRJ-S11; `WorkOrderBuilder` stamps execution
   targets; Pending and Mac Execute refuse mixed-source mutating dispatch.
 
-Until ETS-S02 and ETS-S04 are built, new mutating team-run surfaces are blocked
-from shipping. Reveal-only work orders and non-mutating mixed-source judgment
-teams may continue.
+## Closeout
+
+The execution source gate is built and no longer a live phase:
+
+- mixed-source judgment teams still pass;
+- mutating/`execute` teams resolve to exactly one source/driver or block before
+  spawn;
+- source-scoped execution built-ins and custom-team save validation are in Core;
+- Project mutating dispatch composes the source gate before dirty-state and
+  worker-readiness gates;
+- Pending run, CLI/MCP, and Mac Execute paths surface the same blocker.
+
+Focused proof:
+
+```bash
+swift test --package-path Packages/AllnighterCore --disable-sandbox --filter 'ExecutionTeamSourceGateTests|ProjectMutatingDispatchGateTests|WorkOrderBuilderTests'
+```
+
+Result on archive closeout: 16 tests passed, 0 failures.
 
 ## Works Tests
 
@@ -516,15 +545,14 @@ Assertions:
 
 ## Proof Command
 
-Docs-only S00 proof:
+Archive closeout proof:
 
 ```bash
-git diff --check -- docs/phases/Execution_Team_Source_Gate.md docs/phases/README.md AGENTS.md
+swift test --package-path Packages/AllnighterCore --disable-sandbox --filter 'ExecutionTeamSourceGateTests|ProjectMutatingDispatchGateTests|WorkOrderBuilderTests'
+git diff --check -- AGENTS.md docs/phases/README.md docs/phases/Work_Order_Team_Model.md docs/phases/Project_Spine_And_Project_Manager.md docs/phases/CLI_Implementation_Contract.md docs/archive/phases/README.md docs/archive/phases/Execution_Team_Source_Gate.md
 ```
 
-Implementation slices add at minimum:
-
-```bash
-swift test --package-path Packages/AllnighterCore
-bash scripts/check.sh
-```
+The focused test command passed with 16 tests and 0 failures during archive
+closeout. The first attempt without `--disable-sandbox` failed before test
+execution because SwiftPM's own `sandbox-exec` was not permitted in this Codex
+sandbox.

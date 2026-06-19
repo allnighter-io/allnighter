@@ -2,7 +2,7 @@
 
 Status: Active language contract for post-MVP specs
 Owner: Founder + Shared Core + Mac
-Updated: 2026-06-16
+Updated: 2026-06-19
 
 ## Purpose
 
@@ -22,6 +22,7 @@ rather than alias it.
 Project = the local repo/folder floor where work happens
 Project Manager = the default chat/proposal/verification agent inside a Project
 Source = how Allnighter reaches a model (internal / setup detail)
+Execution source = one source/driver that owns a mutating execution run
 Bench  = the models the user has available
 Model  = the AI identity users recognize: Opus, Sonnet, Grok, Gemini, etc.
 Skill  = what hat/instruction a model wears
@@ -40,6 +41,7 @@ TeamPreset = saved lane team definition
 | **Project** | The durable local repo/folder context where work happens. Projects own the selected root, thread grouping, run/pending/proposal scope, and default Project Manager chat. |
 | **Project Manager** | The default chat identity inside a Project. It can answer, propose, verify, and route approved work, but it is not a separate lane and it does not auto-execute unapproved work. |
 | **Source** | How Allnighter reaches a model: Claude Code, Codex CLI, Gemini CLI, Grok, a local runtime. Mostly setup/internal language. |
+| **Execution source** | The single source/driver that owns a mutating or `execute` posture run. Judgment teams may mix sources; execution teams must resolve to one execution source before any worker spawns. |
 | **Bench** | The user's available models. |
 | **Model** | The AI identity users already recognize: Opus 4.8, Sonnet, Grok, Gemini, ChatGPT image, etc. A model sits on the Bench. |
 | **Skill** | A reusable prompt profile or hat: first-principles reviewer, minimal designer, offer strategist, proof skeptic. |
@@ -58,6 +60,46 @@ Model at rest. Model at work.
 
 The product promise is not "configure a lineup." It is "turn the models you
 already pay for into a working team."
+
+## Execution Source Gate
+
+Allnighter separates judgment from execution:
+
+```text
+Judgment can be mixed-source.
+Execution is single-source.
+```
+
+Teams with non-mutating `scout`, `propose`, or `review` posture may resolve to
+multiple sources. That is the point of the judgment layer: different models,
+skills, sources, blind spots, and tool affordances harden the spec before the
+work is made real.
+
+Teams with `posture == execute` or `mutating == true` must resolve to exactly one
+`sourceId`/driver before any worker spawns. `modelId` is not enough; the gate is
+source/driver coherence: one CLI runtime boundary, permission posture, Project
+readiness contract, working directory, and mutating execution owner.
+
+Rules:
+
+- Mixed-source judgment teams may return plans, options, review findings,
+  Insights, work-order drafts, and proof recommendations.
+- Mixed-source judgment teams must not write Project files, change external
+  state, or dispatch mutating subprocess work.
+- Mutating/`execute` teams are rejected before spawn when resolved workers cross
+  sources.
+- Allnighter must not silently pick the first ready source, flip the team to
+  non-mutating, create hidden isolated workspaces, or dispatch multiple CLIs and
+  call that one execution team.
+- Built-in execution teams are source-scoped variants; custom execution teams
+  cannot save when worker rows resolve across multiple sources.
+- Work Orders that mutate name one execution owner (`targetSourceId`,
+  `targetAgent`, `targetWorkerId`, and/or `executionTeamId` as applicable).
+- The shared blocker is `EXECUTION_TEAM_MIXED_SOURCES`.
+
+The historical implementation phase and proof are archived at
+`docs/archive/phases/Execution_Team_Source_Gate.md`; this section is the active
+product/model authority.
 
 ## Multiple Workers Per Model
 

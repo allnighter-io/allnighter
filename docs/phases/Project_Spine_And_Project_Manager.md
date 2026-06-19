@@ -3,7 +3,7 @@
 Status: Code red implementation spec - blocks Project Manager queue/autopropose
 work
 Owner: AllnighterCore + Mac app + CLI/MCP contracts + agent-first clients
-Updated: 2026-06-18
+Updated: 2026-06-19
 
 ## Authority
 
@@ -643,6 +643,8 @@ WorkOrder
   title
   lane: code | design | copy | none
   mode: reveal | dispatch
+  executionTeamId?
+  targetSourceId?
   targetWorkerId?
   targetAgent?
   promptBody
@@ -664,6 +666,9 @@ Rules:
 - Direct dispatch is an explicit send mode. Do not add a second confirmation
   ceremony after the user chooses dispatch from an approved work order.
 - Normal dispatch targets the selected Project root.
+- Mutating dispatch names one execution owner. If the approved Proposal points at
+  a mutating/`execute` team, `WorkOrderBuilder` stamps `executionTeamId`,
+  `targetSourceId`, and `targetAgent` where known.
 - A work order must include proof commands or an explicit waiver.
 - A work order must name the expected return format.
 
@@ -827,9 +832,10 @@ Dispatch may proceed only when all required gates pass:
 | Root available | `rootState` must be `available`. |
 | Approval present | Work order must link to an approved Proposal or an explicit user dispatch action that records approval. |
 | Base head checked | If `baseGitHead` exists and current head differs, revalidate or block. |
+| Execution source gate | Mutating/`execute` teams must resolve to one source/driver before dirty-state or readiness gates. Mixed-source execution blocks with `EXECUTION_TEAM_MIXED_SOURCES`. |
 | Dirty state reviewed | Dirty Project files are visible before dispatch. |
 | Scope bounded | Work order names scope and non-goals. |
-| Worker ready in Project | Target worker/agent has `ProjectWorkerReadiness.status == ready` for this Project root; otherwise dispatch falls back to reveal or shows setup copy. |
+| Worker ready in Project | `targetSourceId`/target worker has `ProjectWorkerReadiness.status == ready` for this Project root; otherwise dispatch falls back to reveal or shows setup copy. |
 | Proof named | Proof commands exist or waiver is explicit. |
 | Privacy unchanged | Dispatch must not change privacy, credentials, permissions, or external data policy. |
 
@@ -1037,6 +1043,7 @@ code below is registered in the shared error catalog with
 | `PROJECT_ROOT_UNAVAILABLE` | 1 | `rootState != available` (missing/permissionDenied); mutating dispatch blocked. |
 | `PROJECT_ARCHIVED` | 1 | The Project is archived; unarchive before new runs. |
 | `THREAD_UNASSIGNED` | 1 | The thread/Pending item has no Project; assign before mutating dispatch. |
+| `EXECUTION_TEAM_MIXED_SOURCES` | 1 | Mutating/`execute` team resolves to more than one source/driver; choose one execution source or run a non-mutating review/proposal first. |
 | `WORKER_NOT_READY_IN_PROJECT` | 1 | Target worker's `ProjectWorkerReadiness.status != ready`; falls back to reveal/setup copy. |
 | `MANAGER_MODEL_UNAVAILABLE` | 1 | No ready manager model; the Manager turn is `wait` with a readiness blocker. |
 | `PROPOSAL_NOT_FOUND` | 1 | No proposal matches the id. |
