@@ -111,6 +111,7 @@ public extension ContractRegistry {
                     errors: ["DEFAULT_TEAM_INVALID"], idempotency: .idempotent),
         MCPToolSpec("history", command: "history", summary: "Search prior local team runs (read-only, zero cost).",
                     params: [.init("query", required: true, summary: "Search text.")],
+                    outputSchema: .historyJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("show", command: "show", summary: "Show one run as TeamRunJSON.",
                     params: [.init("run", required: true, summary: "A run id or `latest`."),
@@ -151,6 +152,7 @@ public extension ContractRegistry {
                     errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("thread_status", command: "thread status", summary: "Poll thread running/attention state.",
                     params: [.init("threadId", required: true, summary: "Thread id.")],
+                    outputSchema: .threadStatus,
                     errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
     ]
 
@@ -271,7 +273,7 @@ public extension ContractRegistry {
             "thread status", summary: "Poll thread running/attention state.", milestone: .m1,
             args: [ArgSpec("thread-id", required: true, summary: "Thread id.")],
             flags: [FlagSpec("json", summary: "Structured status JSON.")],
-            exampleIds: ["thread_status_json"]
+            outputSchema: .threadStatus, exampleIds: ["thread_status_json"]
         ),
         CommandSpec(
             "skills", summary: "List the lane-scoped skill catalog.", milestone: .m1,
@@ -444,7 +446,8 @@ public extension ContractRegistry {
         CommandSpec(
             "history", summary: "Search prior team runs (read-only).", milestone: .m1,
             args: [ArgSpec("query", required: true, summary: "Search text.")],
-            flags: [FlagSpec("json", summary: "Structured results.")]
+            flags: [FlagSpec("json", summary: "Structured results.")],
+            outputSchema: .historyJSON
         ),
         CommandSpec(
             "dev export-contracts", summary: "Regenerate or verify generated artifacts.", milestone: .m1,

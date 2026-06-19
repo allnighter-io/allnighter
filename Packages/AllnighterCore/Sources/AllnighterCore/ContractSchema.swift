@@ -454,6 +454,40 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - Retrieval contracts (history / thread_status)
+
+    public static func historySchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/history.schema.json",
+            "title": "HistoryJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str, "query": str,
+            "results": arr(ref("RecallResult")),
+        ], required: ["schemaVersion", "contractVersion", "query", "results"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "RecallResult": obj([
+                "runId": str, "prompt": str, "createdAt": str, "planExcerpt": str,
+            ], required: ["runId", "prompt", "createdAt", "planExcerpt"]),
+        ]
+        return schema
+    }
+
+    public static func threadStatusSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/thread-status.schema.json",
+            "title": "ThreadStatusResponse",
+        ]
+        let top = obj([
+            "threadId": str, "isRunning": bool, "needsAttention": bool,
+        ], required: ["threadId", "isRunning", "needsAttention"])
+        schema.merge(top) { _, new in new }
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

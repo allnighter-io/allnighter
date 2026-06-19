@@ -1,0 +1,23 @@
+{
+  "$id" : "https:\/\/allnighter.app\/schemas\/thread-status.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "isRunning" : {
+      "type" : "boolean"
+    },
+    "needsAttention" : {
+      "type" : "boolean"
+    },
+    "threadId" : {
+      "type" : "string"
+    }
+  },
+  "required" : [
+    "threadId",
+    "isRunning",
+    "needsAttention"
+  ],
+  "title" : "ThreadStatusResponse",
+  "type" : "object"
+}

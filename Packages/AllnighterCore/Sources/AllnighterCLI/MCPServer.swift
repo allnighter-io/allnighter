@@ -211,9 +211,11 @@ struct MCPServer {
         case "team_show":
             respond(id: id, result: toolText("Current default team", structured: AllnighterCLI.teamShowJSONString(runtime)))
         case "history":
-            let hits = await service.recall(query: args["query"] as? String ?? "")
+            let query = args["query"] as? String ?? ""
+            let hits = await service.recall(query: query)
             let text = hits.isEmpty ? "(no prior team runs match)" : hits.map { "\($0.createdAt) \($0.prompt)" }.joined(separator: "\n")
-            respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(hits)))
+            let payload = HistoryJSON(contractVersion: ContractRegistry.contractVersion, query: query, results: hits)
+            respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(payload)))
         case "show":
             let ref = (args["run"] as? String) ?? "latest"
             guard let run = AllnighterCLI.resolveRun(ref) else {

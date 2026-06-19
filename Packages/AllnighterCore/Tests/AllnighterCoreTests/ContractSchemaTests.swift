@@ -95,6 +95,17 @@ final class ContractSchemaTests: XCTestCase {
         XCTAssertEqual(try properties(def(skillSchema, "SkillCatalogEntry")), labels(try XCTUnwrap(skill.skills.first)), "SkillCatalogEntry schema drifted")
     }
 
+    func testRetrievalSchemasMatchTypes() throws {
+        let history = HistoryJSON(contractVersion: "1.0.0", query: "q",
+                                  results: [RecallResult(runId: "r", prompt: "p", createdAt: Date(timeIntervalSince1970: 1), planExcerpt: "e")])
+        let hSchema = ContractSchema.historySchema()
+        XCTAssertEqual(try properties(hSchema), labels(history), "HistoryJSON top-level schema drifted")
+        XCTAssertEqual(try properties(def(hSchema, "RecallResult")), labels(try XCTUnwrap(history.results.first)), "RecallResult schema drifted")
+
+        let status = ThreadStatusResponse(threadId: "t", isRunning: true, needsAttention: false)
+        XCTAssertEqual(try properties(ContractSchema.threadStatusSchema()), labels(status), "ThreadStatusResponse schema drifted")
+    }
+
     func testSchemasSerializeDeterministically() throws {
         XCTAssertEqual(try ContractSchema.json(ContractSchema.teamRunSchema()),
                        try ContractSchema.json(ContractSchema.teamRunSchema()))

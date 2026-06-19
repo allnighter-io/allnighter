@@ -37,6 +37,8 @@ public enum ContractExport {
             Artifact(filename: "spec-result.schema.json", contents: try ContractSchema.json(ContractSchema.specResultSchema())),
             Artifact(filename: "team-catalog.schema.json", contents: try ContractSchema.json(ContractSchema.teamCatalogSchema())),
             Artifact(filename: "skill-catalog.schema.json", contents: try ContractSchema.json(ContractSchema.skillCatalogSchema())),
+            Artifact(filename: "history.schema.json", contents: try ContractSchema.json(ContractSchema.historySchema())),
+            Artifact(filename: "thread-status.schema.json", contents: try ContractSchema.json(ContractSchema.threadStatusSchema())),
             Artifact(filename: "help_alln_cli_spec.md", contents: ContractDocs.markdown(registry)),
         ]
     }

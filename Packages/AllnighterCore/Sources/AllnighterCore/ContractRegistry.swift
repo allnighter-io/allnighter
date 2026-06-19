@@ -48,7 +48,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
 
     /// Primary machine-output schema a command projects to.
     public enum OutputSchema: String, Codable, Sendable {
-        case none, teamRunJSON, doctorResult, coordinatorHealth, teamStartResponse, teamStatusResponse, teamCancelResponse, pendingItemJSON, pendingListJSON, modelListJSON, floorRun, specResult, teamCatalogJSON, skillCatalogJSON, errorEnvelope, markdown, contractDoc
+        case none, teamRunJSON, doctorResult, coordinatorHealth, teamStartResponse, teamStatusResponse, teamCancelResponse, pendingItemJSON, pendingListJSON, modelListJSON, floorRun, specResult, teamCatalogJSON, skillCatalogJSON, historyJSON, threadStatus, errorEnvelope, markdown, contractDoc
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {

@@ -459,7 +459,7 @@
 
       ],
       "name" : "thread status",
-      "outputSchema" : "none",
+      "outputSchema" : "threadStatus",
       "summary" : "Poll thread running\/attention state."
     },
     {
@@ -1224,7 +1224,7 @@
 
       ],
       "name" : "history",
-      "outputSchema" : "none",
+      "outputSchema" : "historyJSON",
       "summary" : "Search prior team runs (read-only)."
     },
     {
@@ -2980,7 +2980,7 @@
       ],
       "idempotency" : "idempotent",
       "name" : "history",
-      "outputSchema" : "none",
+      "outputSchema" : "historyJSON",
       "params" : [
         {
           "name" : "query",
@@ -3198,7 +3198,7 @@
       ],
       "idempotency" : "idempotent",
       "name" : "thread_status",
-      "outputSchema" : "none",
+      "outputSchema" : "threadStatus",
       "params" : [
         {
           "name" : "threadId",

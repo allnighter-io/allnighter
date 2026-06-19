@@ -1,0 +1,56 @@
+{
+  "$defs" : {
+    "RecallResult" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "createdAt" : {
+          "type" : "string"
+        },
+        "planExcerpt" : {
+          "type" : "string"
+        },
+        "prompt" : {
+          "type" : "string"
+        },
+        "runId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "runId",
+        "prompt",
+        "createdAt",
+        "planExcerpt"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/history.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "query" : {
+      "type" : "string"
+    },
+    "results" : {
+      "items" : {
+        "$ref" : "#\/$defs\/RecallResult"
+      },
+      "type" : "array"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "query",
+    "results"
+  ],
+  "title" : "HistoryJSON",
+  "type" : "object"
+}

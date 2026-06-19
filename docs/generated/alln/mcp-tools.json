@@ -526,7 +526,7 @@
     ],
     "idempotency" : "idempotent",
     "name" : "history",
-    "outputSchema" : "none",
+    "outputSchema" : "historyJSON",
     "params" : [
       {
         "name" : "query",
@@ -744,7 +744,7 @@
     ],
     "idempotency" : "idempotent",
     "name" : "thread_status",
-    "outputSchema" : "none",
+    "outputSchema" : "threadStatus",
     "params" : [
       {
         "name" : "threadId",

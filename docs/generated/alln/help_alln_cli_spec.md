@@ -185,6 +185,8 @@ Arguments:
 Flags:
 - `--json` — Structured status JSON.
 
+Output schema: `threadStatus`.
+
 Examples: `thread_status_json`.
 
 ### `alln skills`
@@ -485,6 +487,8 @@ Arguments:
 
 Flags:
 - `--json` — Structured results.
+
+Output schema: `historyJSON`.
 
 ### `alln dev export-contracts`
 

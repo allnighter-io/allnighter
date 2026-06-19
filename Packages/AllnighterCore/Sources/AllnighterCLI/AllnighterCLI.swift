@@ -220,7 +220,7 @@ struct AllnighterCLI {
         }
         let hits = await runtime.service().recall(query: query)
         if opts.flag("json") {
-            print(jsonString(hits))
+            print(jsonString(HistoryJSON(contractVersion: ContractRegistry.contractVersion, query: query, results: hits)))
         } else if hits.isEmpty {
             print("(no prior team runs match)")
         } else {
