@@ -1,6 +1,6 @@
 # Skills Library And Editing
 
-Status: Superseded by `Team_And_Skill_Catalogs.md`
+Status: Archived 2026-06-19; superseded by `docs/phases/Team_And_Skill_Catalogs.md`
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
 Updated: 2026-06-17
 

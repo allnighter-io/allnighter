@@ -1,6 +1,7 @@
 # Stalled Work Watchdog
 
-Status: Finalized Project-scoped v1 implementation spec + Wake Ticket addendum
+Status: Finalized prerequisite packet; **not end-to-end handoff ready** until
+WTK-S00–S02 plus A1 Pending-over-MCP land
 Owner: AllnighterCore + AllnighterEngine + Mac app backend + CLI/MCP contracts
 Updated: 2026-06-19
 
@@ -10,6 +11,8 @@ This doc owns the stalled-work detection and recovery contract.
 
 Read with:
 
+- `docs/workflows/SSOT_Founder_Input_Workflow.md`
+- `docs/workflows/SSOT_Feature_Workflow.md`
 - `docs/phases/Project_Spine_And_Project_Manager.md`
 - `docs/phases/Persistent_Work_Threads.md`
 - `docs/phases/threads/02_Notifications.md`
@@ -20,6 +23,191 @@ Read with:
 Durable semantics live in AllnighterCore and Project Manager turns. SwiftUI,
 notifications, prompt copy, CLI output, MCP output, and worker prose render or
 project this truth; they do not own it.
+
+All watchdog and Wake Ticket work is CLI/MCP-first. `alln` commands and MCP
+tools are product surfaces for OpenClaw, Hermes, scripts, and future apps; Mac
+GUI/iOS surfaces only present the same contract. With zero users, do not add
+compatibility shims or production migrations for stale local shapes. Update the
+Core contract, generated schemas, fixtures, CLI registry, and MCP specs directly;
+old dev records without required truth are repair-only or disposable.
+
+## Current Code Reality
+
+Do not hand this doc to a developer as one end-to-end implementation request yet.
+The target behavior is clear, but code inspection on 2026-06-19 found prerequisite
+seams that must land first.
+
+Built substrate:
+
+- `PendingResume` already has `observedResetAt` and `wakeAfter`.
+- `PendingItemJSON` already projects `nextWakeAt` from `PendingResume`.
+- Worker chat turns have durable `projectId`, `queued`/`running` status, and
+  timestamps.
+- Async team runs persist durable `TeamRun` truth through `RunStore`, including
+  orphan recovery to `interrupted`.
+- `ProjectManagerTurnStore` exists for durable Project Manager turns.
+
+Missing blockers:
+
+- No `CapacityObservation` model or classifier exists.
+- `PendingResumeReason` does not distinguish `providerBusy` from `localBusy`.
+- `WorkerRunner` currently reduces nonzero CLI exits to `errorReason` before any
+  structured capacity observation can be captured.
+- `PendingService.run` records a queued attempt only; it does not yet execute the
+  worker/team path or settle attempts.
+- `ResidentCoordinator` is health-only; it has no wake timer or watchdog scanner.
+- MCP does not expose Pending tools yet, so Pending/Wake facts are CLI/Core first.
+- New `alln pending add` items are not reliably Project-scoped unless the caller
+  supplies/binds `projectId`; unassigned dev records are repair-only/disposable
+  and must not become watchdog targets.
+
+Therefore the first implementation handoff is the Feature Packet below:
+WTK-S00 plus the classification/contract half of WTK-S01. WTK-S02 is the next
+execution blocker before real Wake Tickets can resume work; A1 Pending-over-MCP
+is the external-agent blocker before the feature is ship-ready. SWW stalled
+nudges should wait until Wake Ticket suppression truth exists, otherwise
+expected cooldown sleep will be mislabeled as stalled work.
+
+## Feature Packet - Watchdog Prerequisite WTK-S00/S01a
+
+Status: Ready for implementation as a prerequisite slice; the full watchdog is
+not ready for end-to-end handoff.
+
+Founder Intent:
+
+- Raw request: keep subscribed CLI agents from sitting idle after capacity
+  cooldowns, and make Allnighter operable by other agents through CLI/MCP.
+- Product value: Allnighter preserves already-authorized work, understands
+  sourced cooldown/busy notices, and exposes machine-readable sleep/blocker facts.
+- Trusted workflow slice: worker/Pending attempt hits capacity -> Allnighter
+  captures `CapacityObservation` -> Pending JSON exposes `nextWakeAt`/blocker
+  facts -> MCP Pending tools expose the same facts -> later Wake Ticket code can
+  resume the same work once.
+- Non-goals: no provider probes, no GUI, no native drain, no broad scheduler, no
+  invented quota/runtime/cost estimates, no migration/backcompat shims.
+
+Current State:
+
+- Existing truth owners: `PendingItem`, `PendingResume`, `PendingItemJSON`,
+  `RunStore`, worker chat turns, and the registry-generated CLI contract.
+- Existing gaps: no `CapacityObservation`, no `providerBusy` resume reason, no
+  capture before `WorkerRunner` reduces failures, no real Pending execution/
+  settlement, no MCP Pending tools in the live registry/server.
+
+SSOT:
+
+- Truth owner: AllnighterCore owns `CapacityObservation`, Pending resume/blocker
+  semantics, JSON schemas, fixtures, and classifier fixtures.
+- Lie-prone layers: worker prose, CLI stderr text, Mac UI badges, MCP adapters,
+  notifications, and prompt copy.
+- New semantic rules:
+  - account quota/rate limit and provider/server overload are distinct.
+  - observed provider reset is stored only when sourced by CLI/API output.
+  - local conservative retry windows use `wakeAfter`, not a fake provider reset.
+  - auth/manual/setup blockers do not create Wake Tickets or stalls.
+  - stale local/dev records without required Project truth are repair-only or
+    disposable; do not preserve aliases for them.
+- Duplicate truth to delete: any provider-specific cooldown parsing embedded
+  directly in `WorkerRunner`, CLI command handlers, MCP adapters, or UI copy.
+
+Implementation:
+
+- CLI surface:
+  - `alln pending show <id> --json`
+  - `alln pending list --project <project> --json`
+  - `alln pending list --all --json`
+  - `alln project pending <project> --json`
+  - These commands must project the same `PendingItemJSON` schema. WTK-S00/S01a
+    adds capacity fields to that schema and fixtures even before WTK-S02 can
+    populate them from real `pending run` execution.
+- MCP tools:
+  - `pending_show`, `pending_list`, and later `pending_run` use the same
+    `PendingItemJSON` / `PendingListJSON` schema and shared error envelope.
+  - If live MCP handlers are not added in this first slice, the phase remains
+    blocked for end-to-end watchdog handoff until A1 Pending-over-MCP lands.
+- JSON shape:
+  - Add a capacity observation object on the attempt/admission projection:
+    `kind`, `source`, `sourceConfidence`, `observedAt`, `observedResetAt`,
+    `retryAfterSeconds`, `wakeAfter`, and a redacted/truncated `rawSnippet`.
+  - `kind` values: `accountRateLimit`, `providerBusy`, `cooldown`,
+    `authRequired`, `manualRequired`, `unknownCapacity`.
+  - `sourceConfidence` values should distinguish structured event/header,
+    message fallback, local policy, and unknown.
+  - `rawSnippet` is diagnostic only; no prompt body, secrets, tokens, cookies,
+    or large transcripts.
+- Exit codes/errors:
+  - Read commands return exit 0 with empty arrays when no Pending/Wake facts exist.
+  - Unknown Project returns the shared project-not-found error.
+  - Unassigned Pending returns/records the existing unassigned/repair error and
+    is not runnable or watchdog-eligible.
+  - Classifier no-match is not an error; it yields no capacity observation.
+- Model/package impact: add Core model + classifier, update Codable schemas,
+  fixtures, registry docs, and generated artifacts.
+- Mac app/iOS impact: none in this slice.
+- Agent driver impact: worker driver output capture must preserve stdout/stderr/
+  JSONL/RPC-ish error text long enough for the pure classifier to run before
+  reducing failures to `errorReason`.
+- Auth/privacy/permissions impact: no new credentials, Keychain access,
+  network calls, provider pages, or macOS permissions.
+
+Proof:
+
+- Fixture tests for Claude `rate_limit_error`, Claude `overloaded_error`, Codex
+  `codex exec --json` `error`/`turn.failed` usage-limit text, AGY cooldown-until
+  text, auth/manual blockers, no-estimate, and no-false-positive cases.
+- Schema/fixture tests prove Pending JSON exposes capacity facts without
+  forecast fields.
+- Registry/export check proves generated CLI docs and schemas match code.
+
+Done When:
+
+- `CapacityObservation` exists in Core with fixture-tested classification.
+- Pending JSON schema/fixtures expose sourced capacity facts for CLI/MCP clients.
+- No stale migration/backcompat aliases are introduced for zero-user local data.
+- The developer reports WTK-S02 real Pending execution/settlement and A1
+  Pending-over-MCP as the remaining blockers for full Wake Ticket / Watchdog
+  handoff.
+
+## Copy-Paste Developer Prompt
+
+```text
+You are implementing the first Stalled Work Watchdog prerequisite slice in
+Allnighter. Do not attempt the full watchdog end to end yet.
+
+Read first:
+- AGENTS.md
+- docs/workflows/SSOT_Founder_Input_Workflow.md
+- docs/workflows/SSOT_Feature_Workflow.md
+- docs/phases/Stalled_Work_Watchdog.md
+- docs/phases/Pending_Work_And_Drain.md
+- docs/phases/CLI_Implementation_Contract.md
+- docs/phases/Agent_First_MCP_And_Messaging_Workflows.md
+
+Code reality to respect:
+- PendingResume already exists in Packages/AllnighterCore/Sources/AllnighterCore/PendingItem.swift.
+- PendingItemJSON nextWakeAt is already projected by PendingItemJSONMapper.
+- PendingService.run currently only records a queued attempt; do not pretend it executes work.
+- ResidentCoordinator is health-only; do not add a broad scheduler.
+- WorkerRunner currently collapses failed CLI output to errorReason; capacity observation must be captured before that reduction.
+- We have zero users: no production migration/backcompat shims. Update stale schemas/contracts directly and treat old local dev records without required truth as repair-only or disposable.
+- We are CLI/MCP-first: expose the contract through alln Pending JSON and matching MCP Pending specs before any GUI work. If live MCP Pending handlers are not added in this slice, report A1 Pending-over-MCP as an explicit blocker to full watchdog handoff.
+
+Implement WTK-S00 and the classification/contract half of WTK-S01 only:
+1. Add a Core CapacityObservation model with kind:
+   accountRateLimit | providerBusy | cooldown | authRequired | manualRequired | unknownCapacity.
+2. Add source/sourceConfidence/rawSnippet/observedResetAt/retryAfterSeconds/wakeAfter fields.
+3. Add PendingResumeReason.providerBusy and update Codable/schema fixtures/generated artifacts directly; do not preserve stale aliases for nonexistent users.
+4. Add a pure classifier that takes worker id/source id plus stdout/stderr/JSONL/RPC-ish text/exit code and returns an optional CapacityObservation.
+5. Project capacity facts through PendingItemJSON for alln pending show/list/project pending JSON: kind, source, sourceConfidence, observedAt, observedResetAt, retryAfterSeconds, wakeAfter, and a redacted/truncated rawSnippet. No prompt bodies, secrets, tokens, cookies, or forecast fields.
+6. Keep MCP parity in the contract: pending_show/pending_list/pending_run must use the same PendingItemJSON/PendingListJSON schemas and shared error envelope. If executable MCP Pending handlers remain deferred, mark that as the A1 blocker in closeout.
+7. Fixture-test Claude rate_limit_error, Claude overloaded_error, Codex exec --json error/turn.failed usage-limit text, AGY "capacity exhausted: cooldown active until <timestamp>", auth/manual blockers, and no-estimate/no-false-positive cases.
+8. Do not run provider probes. Do not schedule wake timers. Do not change PendingService.run into real execution in this slice. Do not add GUI.
+
+Proof:
+- Run the focused Swift tests for the new classifier/model.
+- Run contract/schema/export tests because the public Pending JSON contract changes.
+- Report clearly that WTK-S02 real Pending execution remains the next execution blocker and A1 Pending-over-MCP remains the external-agent blocker for full Wake Ticket / Watchdog handoff.
+```
 
 ## Founder Intent
 
@@ -218,7 +406,7 @@ Rules:
 
 - Before a target can resolve `projectId`, the scanner must emit no stalled
   episode for it. It may surface a repair/unassigned warning through the owning
-  migration path.
+  repair path.
 - Active stalls may be summarized in `ProjectContextPacket.work`, but the
   packet is a receipt. `StallEpisode` remains the durable stall truth.
 - Non-git folder Projects may still have stalled chat/team-run attention, but
@@ -559,7 +747,7 @@ Clear rules:
 - User cancel clears only after the target reports cancelled.
 - Keep waiting does not clear; it snoozes.
 - Opening the thread does not clear; viewing is not recovery.
-- Target deletion or migration to unassigned clears with `targetDeleted` and
+- Target deletion or loss of Project binding clears with `targetDeleted` and
   should leave a repair warning when appropriate.
 - A retry/new attempt gets a new target id or new episode; it does not mutate the
   historical episode into success.
@@ -595,8 +783,56 @@ No secrets or prompt bodies in notification text by default.
 
 ## CLI And MCP Contract
 
-CLI/MCP are proof and integration surfaces. The primary human recovery UX is the
-Project Manager nudge.
+CLI/MCP are product and integration surfaces, not afterthoughts. The Project
+Manager nudge is the primary human UX, but external agents must be able to
+inspect the same facts through `alln` and MCP without scraping GUI copy.
+
+Wake/Pending capacity projection ships through the Pending contract first:
+
+```text
+alln pending show <pending-id> --json
+alln pending list --project <project-id-or-name> --json
+alln pending list --all --json
+alln project pending <project-id-or-name> --json
+```
+
+MCP parity targets:
+
+```text
+pending_show
+pending_list
+pending_run
+```
+
+Capacity JSON must be the same shape for CLI and MCP:
+
+```json
+{
+  "kind": "accountRateLimit",
+  "source": "claude-code",
+  "sourceConfidence": "structured",
+  "observedAt": "2026-06-19T09:15:00Z",
+  "observedResetAt": "2026-06-19T12:00:00Z",
+  "retryAfterSeconds": 9900,
+  "wakeAfter": "2026-06-19T12:00:00Z",
+  "rawSnippet": "You've been rate limited..."
+}
+```
+
+Rules:
+
+- `rawSnippet` is redacted/truncated diagnostic text only. It must not include
+  prompt bodies, secrets, tokens, cookies, or large transcripts.
+- `observedResetAt` is present only when the CLI/API/source provided a reset
+  time.
+- `wakeAfter` may be a conservative local retry boundary, but copy must say it is
+  local policy rather than provider truth.
+- Auth/setup/manual blockers may be classified for attention, but they do not
+  create Wake Tickets or stalls.
+- Empty read-only lists return exit 0 with empty arrays.
+- Unknown Project returns the shared Project-not-found error.
+- Unassigned Pending/thread targets are repair-only/disposable local data and
+  are not runnable or watchdog-eligible.
 
 Project-scoped CLI:
 
@@ -621,7 +857,8 @@ Rules:
 - External loop owners may use the read-only list as a signal to message the
   user or call normal Project Manager tools. This does not make Allnighter own
   their scheduler.
-- MCP may expose `project_stalled` only as a projection of the same Core state.
+- MCP may expose `project_stalled` and `stalled_list` only as projections of the
+  same Core state.
   MCP must not invent MCP-only stall semantics or self-approve recovery.
 
 ## Privacy And Permissions
@@ -727,13 +964,15 @@ iOS:
 - [ ] WTK-S00 - Capacity observation contract: add `CapacityObservation`,
   `providerBusy` vs `accountRateLimit` distinction, fixtures for Claude
   structured errors, Codex JSONL messages, AGY cooldown-until text, and
-  no-estimate tests. No scheduler yet.
+  no-estimate tests. Project capacity facts through Pending CLI JSON and matching
+  MCP Pending specs. No scheduler yet.
 - [ ] WTK-S01 - Observation wiring: capture worker attempt stdout/stderr/JSONL/RPC
   error before reduction to `errorReason`; map sourced capacity observations to
   Pending attempt blocked reason + `PendingResume(wakeAfter/observedResetAt)`.
 - [ ] WTK-S02 - Real Pending execution seam: make explicit `pending run` able to
-  drive the same worker/team path it records, with leases/attempt settlement and
-  cooldown observation on failure. Mutating dispatch remains deferred.
+  drive the same worker/team path it records, with leases/attempt settlement,
+  cooldown observation on failure, and MCP `pending_run` parity. Mutating
+  dispatch remains deferred.
 - [ ] WTK-S03 - One-shot wake scheduler: resident coordinator loads durable
   `nextWakeAt`, sleeps until the earliest due wake plus jitter, reloads truth,
   and makes one same-work resume attempt; new cooldown replaces the ticket.
@@ -741,27 +980,29 @@ iOS:
   `StallEpisode`; past-due/repeated unknown failures route to Project Manager
   attention without continuous probes.
 - [ ] SWW-S00 - Contract packet: add `StallEpisode`, state distinctions,
-  reason enums, JSON fixtures, idempotency rules, no-estimate field tests, and
-  Project-required candidate validation. No GUI.
+  reason enums, CLI/MCP command/tool specs, JSON fixtures, idempotency rules,
+  no-estimate field tests, and Project-required candidate validation. No GUI.
 - [ ] SWW-S01 - Detector: fake-clock scanner for worker chat turns and async
   team runs, using `lastObservableEvent`, project scoping, thresholds, snooze,
   and negative cases for failed/auth/manual/Pending/fresh-running targets.
 - [ ] SWW-S02 - Refresh-before-declare: wire candidate promotion through
   existing thread/run/journal and async `team_status` / `team_result` truth.
   Terminal or owner-blocked refresh suppresses the stall.
-- [ ] SWW-S03 - Project Manager nudge and actions: create one durable
+- [ ] SWW-S03 - CLI/MCP read-only projection: `alln project stalled <project>
+  --json`, `alln stalled list --all --json`, MCP `project_stalled` and
+  `stalled_list`, all with identical Core ids, facts, cursors, exit codes, and
+  error envelope.
+- [ ] SWW-S04 - Project Manager nudge and actions: create one durable
   `ProjectManagerTurn(mode: wait)`, set `thread.needsAttention` with a stall
   facet, and implement `Check status`, `Open thread`, `Keep waiting`, `Cancel`,
   and clear rules.
-- [ ] SWW-S04 - Notifications/menu integration: local notification pointer,
+- [ ] SWW-S05 - Notifications/menu integration: local notification pointer,
   quiet-hours/mute/debounce/read suppression, one notification per episode, and
   no double-notify for failure/auth/manual blockers.
-- [ ] SWW-S05 - CLI/MCP read-only projection: `alln project stalled <project>
-  --json`, `alln stalled list --all --json`, and optional `project_stalled`
-  MCP projection with identical Core ids and facts.
 
-Backend/Core slices come before GUI polish. The user-visible win is the Project
-Manager nudge; CLI projection is proof and external-agent affordance.
+Backend/Core/CLI/MCP slices come before GUI polish. The user-visible win is the
+Project Manager nudge; the CLI/MCP contract is how agents and scripts operate
+the same truth.
 
 ## Works Tests
 
@@ -844,7 +1085,7 @@ Run the scanner.
 Expected:
 - no StallEpisode is created;
 - no global stalled item is created;
-- the target remains in the owning migration/repair path.
+- the target remains in the owning repair path.
 ```
 
 Refresh-before-declare:

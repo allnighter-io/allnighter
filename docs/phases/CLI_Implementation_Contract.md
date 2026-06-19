@@ -2,8 +2,11 @@
 
 Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `serve --stdio` projects from the registry. **Pending0/1 BUILT** (2026-06-17):
-`alln pending` CRUD + `PendingItemJSON`. Remaining (still owned here): MCP
-advertising/auto-install + async tools and `pending stop`. Broad native Pending
+`alln pending` CRUD + `PendingItemJSON`; current `pending run` records an attempt
+but does not execute/settle worker work. Remaining (still owned here): MCP
+Pending tools, `pending stop`, real Pending execution/settlement, and generated
+contract cleanup. Full Wake Ticket / Watchdog handoff is blocked until MCP
+Pending parity exposes the same Pending/Wake facts as CLI. Broad native Pending
 drain is parked; one-shot Wake Tickets are scoped by
 `Stalled_Work_Watchdog.md`.
 Owner: Shared Core + CLI + Mac
@@ -708,7 +711,14 @@ secrets/tokens/cookies, and must not be persisted beyond non-secret metadata.
 
 ## MCP Projection
 
-MCP is milestone 2 unless explicitly pulled forward. When it ships:
+MCP is a first-class product surface for agent-to-agent control. Historical M1
+work shipped CLI first, but every new capability must define its MCP tool shape
+alongside the `alln` command: arguments, JSON return shape, exit/error envelope,
+idempotency, and cursor/polling behavior. Implementation may sequence CLI before
+MCP only when the owning phase marks the feature not shippable end to end until
+MCP parity lands.
+
+MCP commands:
 
 ```bash
 alln mcp serve --stdio
@@ -847,7 +857,9 @@ alln dev export-contracts --check
 7. Add stdout/stderr and exit-code tests.
 8. Rename/remove legacy public grammar and fields.
 9. Wire GUI presenter tests to the same fixture.
-10. Project MCP from the registry only after the CLI contract is boring.
+10. Project MCP from the same registry once the CLI contract is boring; for new
+    features, the MCP spec is written with the CLI spec and blocks ship-readiness
+    until parity exists.
 11. Before agent-first MCP expansion, land `mcp_hello`, `help_get`,
     doctor schema v2, `doctor_explain`, and `error_explain`.
 12. Add `team_preflight` before async `team_start` so setup/auth/entitlement
@@ -873,8 +885,8 @@ to Pending or GUI work before the owning prerequisite is real.
 | 1 | `Serve0` coordinator skeleton | `Mac_Standalone_App_And_Background_Coordinator.md` | `alln serve --health --json` reports coordinator identity, pid, start time, journal health, and loopback state without starting work. |
 | 2 | `A0` async team loop | `Agent_First_MCP_And_Messaging_Workflows.md` | `team_start/status/result/cancel` return an immediate run id, poll from journal/coordinator truth, and retrieve `TeamRunJSON`. |
 | 3 | `Pending0`/`Pending1` | `Pending_Work_And_Drain.md` | `alln pending` can create/list/show/submit/edit/cancel local Draft/Pending items; no drain promise yet. |
-| 4 | `Pending1a` Wake Tickets | `Pending_Work_And_Drain.md` + `Stalled_Work_Watchdog.md` | Capture CLI-to-CLI capacity observations, write `PendingResume`, and let `alln serve` make one same-work resume at the observed wake boundary. No broad drain. |
-| 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | MCP exposes Pending and Wake Ticket facts without raw scheduler language and preserves CLI semantics. |
+| 4 | `Pending1a` Wake Tickets | `Pending_Work_And_Drain.md` + `Stalled_Work_Watchdog.md` | First capture CLI-to-CLI capacity observations, update Pending JSON/schema/fixtures, and write `PendingResume`; then land real Pending execution/settlement before `alln serve` may make one same-work wake resume. No broad drain. |
+| 5 | `A1` Pending over MCP | `Agent_First_MCP_And_Messaging_Workflows.md` | MCP exposes Pending and Wake Ticket facts through the same schemas/error envelope as CLI. Full watchdog/Wake Ticket behavior is not ship-ready until this parity exists. |
 | 6 | `Pending2` | `Pending_Work_And_Drain.md` + parked admission policy | Parked: broad native drain/scheduling waits until explicitly revived. External agents may trigger Pending through CLI/MCP. |
 
 `Serve0` must stay deliberately small: no LaunchAgent, no start-at-login, no GUI
@@ -887,11 +899,12 @@ contract is async: accepted run id first, status/result later, idempotency befor
 duplicate work, and orphan recovery from the incremental journal.
 
 Status note (2026-06-19): `Journal0`, `Serve0`, `A0`, and **Pending0/Pending1**
-are built. **Pending1a** Wake Tickets are the next scoped resume slice, followed
-by **A1** Pending over MCP. **Pending2** broad drain/native scheduling is parked;
-do not promise app-closed broad Pending execution until that work is explicitly
-revived. OpenClaw, Hermes, cron, or another external loop owner can call CLI/MCP
-to run Pending items.
+are built, but `pending run` is attempt-record only. **Pending1a** starts with
+`CapacityObservation` and CLI-to-CLI classifier fixtures, then must add real
+Pending execution/settlement before resident Wake Tickets. **A1** Pending over
+MCP follows those facts. **Pending2** broad drain/native scheduling is parked; do
+not promise app-closed broad Pending execution until that work is explicitly
+revived.
 
 ## Pending CLI Contract
 
@@ -903,6 +916,11 @@ Authority:
 - This doc owns CLI grammar, JSON projection, events, and proof gates.
 
 Grammar:
+
+Target grammar. Code reality on 2026-06-19: `--project`, `--all`, `pending stop`,
+MCP Pending tools, stream attempt events, and real worker/team execution from
+`pending run` are not all implemented yet. Do not cite this grammar as shipped
+behavior without checking `ContractRegistry+Milestone1.swift` and `PendingCLI`.
 
 ```bash
 alln pending add --project <project> [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--submit] [--json]
@@ -1050,14 +1068,15 @@ Pending completion gate:
 - `alln pending list --project <project> --json` and
   `alln pending list --all --json` contain no quota/cost/runtime/token estimates.
 - `alln pending add` creates Draft unless `--submit` is provided.
-- `alln pending add` stores `projectId`; unassigned migrated items are not
-  runnable.
+- `alln pending add` stores `projectId`; unassigned local/dev items are
+  repair-only/disposable and not runnable.
 - Editing a Pending item returns it to Draft.
 - Reordering a Pending Execute item changes execution-lane order without changing
   lifecycle status or prompt.
 - Invalid reorder returns `PENDING_REORDER_INVALID` and leaves order unchanged.
-- `alln pending run` returns Pending with `blockedReason` when admission blocks.
-- `alln pending stop` returns Running to Pending.
+- Current code only records a queued attempt for `alln pending run`; the
+  execution/settlement works test belongs to WTK-S02.
+- `alln pending stop` returns Running to Pending once that command lands.
 - Same-execution-lane Execute fixture proves a later item reports
   `executionLaneBusy` and does not start before the head item completes or is
   cancelled.

@@ -13,6 +13,12 @@ messaging UX, A5 provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-19
 
+Code reality on 2026-06-19: MCP Pending tools are not in the registry/server yet.
+Expose Pending/Wake facts over MCP from the same Core/CLI `PendingItemJSON`
+schema once it truthfully shows `nextWakeAt`, capacity observation, blocked
+reason, and settled attempt state. Full Wake Ticket / Watchdog behavior is not
+ship-ready until this Pending-over-MCP parity lands.
+
 > **Async ≠ scheduler.** "Async team loop" means a single, explicitly-triggered run
 > executes in the background of one `alln serve` process and is polled via
 > `team_status`. Allnighter does not own a scheduler or self-advancing run-loop and
@@ -994,6 +1000,13 @@ Pending MCP rules:
   `observedAt`, and, when known, `retryAfter`.
 - Every sleeping Wake Ticket item must include a sourced `nextWakeAt` or explain
   why the wake is conservative/local rather than provider-observed.
+- Capacity observations exposed through `pending_show`/`pending_list` must use
+  the same object as CLI Pending JSON: `kind`, `source`, `sourceConfidence`,
+  `observedAt`, `observedResetAt`, `retryAfterSeconds`, `wakeAfter`, and a
+  redacted/truncated `rawSnippet`.
+- MCP must not return richer capacity truth than CLI. If an MCP client needs more
+  detail, it should call the same spec/result retrieval surfaces, not a private
+  watchdog-only tool.
 
 Agent phrasing rules:
 

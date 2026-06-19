@@ -145,7 +145,7 @@ Flags:
 
 Output schema: `teamCatalogJSON`.
 
-Examples: `teams_build_json`.
+Examples: `teams_code_json`.
 
 ### `alln thread send`
 
@@ -200,7 +200,7 @@ Flags:
 
 Output schema: `skillCatalogJSON`.
 
-Examples: `skills_build_json`.
+Examples: `skills_code_json`.
 
 ### `alln skills show`
 
@@ -928,14 +928,14 @@ Flags:
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
-- `teams_build_json` — List Build teams: `alln teams --lane build --json`
-- `skills_build_json` — List Build skills: `alln skills --lane build --json`
-- `skills_show_json` — Show a Build skill: `alln skills show bug_reproducer --json`
-- `team_preflight` — Preflight a team: `alln team preflight --lane build --team code_bug_hunt --effort high`
-- `team_basic` — Ask the team: `alln team --lane build --team code_bug_hunt "Why does run history disappear?"`
+- `teams_code_json` — List Code teams: `alln teams --lane code --json`
+- `skills_code_json` — List Code skills: `alln skills --lane code --json`
+- `skills_show_json` — Show a Code skill: `alln skills show bug_reproducer --json`
+- `team_preflight` — Preflight a team: `alln team preflight --lane code --team code_bug_hunt --effort high`
+- `team_basic` — Ask the team: `alln team --lane code --team code_bug_hunt "Why does run history disappear?"`
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
 - `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
-- `team_start_json` — Start async team run: `alln team start --json --lane build --team code_bug_hunt --effort low "tiny async sanity"`
+- `team_start_json` — Start async team run: `alln team start --json --lane code --team code_bug_hunt --effort low "tiny async sanity"`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`

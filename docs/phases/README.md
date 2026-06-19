@@ -40,8 +40,8 @@ otherwise.
 | [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md) | **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains | Durable read cursor, Core unread derivation, `ThreadStore.markRead*`, presenter triage buckets, Mac rail light, viewport clear, notification suppression hooks, `home-rail-unr` GUI matrix. Rich-turn clear defers to S08; iOS protocol in `ios/03`. |
 | [`threads/02_Notifications.md`](threads/02_Notifications.md) | **BUILT** (NOTIF-S01–S05 + UNR-S06, 2026-06-17) | Mac local notifications for landed work and attention states; menu-bar live/needs-attention indicator; per-thread mute; debounce/quiet-hours policy. Mobile push parked in `ios/03`. |
 | [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md) | **Backend BUILT** (WIO-S00–S03, S05, 2026-06-17); WIO-S04 GUI deferred | Worker image output in chat (design continuity): chat to imageGen workers captures + commits canonical attachments (same store as user paste); prior/picked images flow into next context; WIO-S04 Mac timeline thumbnails remain. |
-| [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | Finalized Project-scoped v1 spec + Wake Ticket addendum | Separates expected capacity sleep from unexpected stall: Wake Tickets observe CLI-to-CLI cooldown/capacity signals and resume the same authorized work once; SWW detects true stalled worker chat turns / async team runs from local truth, refreshes before declaring, and creates Project Manager nudges. |
-| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); Wake Ticket resume ready spec; broad native drain/scheduling parked | Public `alln pending` CRUD + local Pending model/persistence. External agents may trigger Pending through CLI/MCP; one-shot Wake Tickets are scoped active prep; Away Mode, fairness drain, PTY probes, and admission ledgers remain parked. |
+| [`Stalled_Work_Watchdog.md`](Stalled_Work_Watchdog.md) | Finalized prerequisite packet; **not end-to-end handoff ready** until WTK-S00–S02 + A1 Pending-over-MCP land | Separates expected capacity sleep from unexpected stall. First executable slice is `CapacityObservation` + CLI-to-CLI classifier fixtures + Pending JSON/MCP contract. Real Wake Tickets still need worker-output capture before reduction, a real Pending execution/settlement seam, and MCP Pending parity before resident wake/watchdog handoff. |
+| [`Pending_Work_And_Drain.md`](Pending_Work_And_Drain.md) | **Pending0 + Pending1 BUILT** (2026-06-17); Wake Ticket resume spec; broad native drain/scheduling parked | Public `alln pending` CRUD + local Pending model/persistence are built, but code reality: `pending run` currently records a queued attempt only and does not execute worker/team work. Pending-over-MCP must expose the same Pending/Wake facts before watchdog work is ship-ready for external agents; Away Mode, fairness drain, PTY probes, and admission ledgers remain parked. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **CLI M1 BUILT** (2026-06-15) | `alln` is the first-class agent-ready contract; RB6 grammar retired. Still owns the forward spine + naming/agent-first laws. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **CLI M1 BUILT** (2026-06-15), full wall green; **Pending0/1 BUILT** (2026-06-17) | M1 shipped: `TeamRunJSON`/`DoctorResult`/`ErrorEnvelope`, Core registry + generated artifacts + drift gate, `team --json` + **live `--stream`**, `doctor --json/--full`, `docs`/`show`/`export`/`history`/`doctor explain`, MCP `serve --stdio` (registry-derived). `alln pending` add/list/show/submit/edit/reorder/cancel/run + `PendingItemJSON` fixture/schema. Still owns: MCP advertising/async tools; `pending stop`; native Pending drain is parked. |
 | [`Team_Catalog.md`](Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Code/Design/Copy specialist team catalog substrate for Send to team: team picker, named team variants, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
@@ -68,7 +68,7 @@ founder may reprioritize; the dependency logic is what matters.
    effort = model reasoning level) is now the codebase reality. **Next up is step 2.**
 2. **Project spine Core** — `Project_Spine_And_Project_Manager.md` slices
    **PRJ-S00–S06** (CODE RED): Project models, ProjectStore, context packet, thread
-   + Pending binding migrations, Project worker readiness, and Project-scoped
+   + Pending binding repair/forward schema, Project worker readiness, and Project-scoped
    send/execute. This is the durable floor under runs, Pending, proposals, and work
    orders; it is pure Core with no MCP dependency, so it goes first after the
    cutover. Nothing else is safe without it.
@@ -92,12 +92,13 @@ founder may reprioritize; the dependency logic is what matters.
    discovery/run tools), **M-E** (sync-ask resolution), **M-F** (provenance /
    client approval / entitlement gate).
 7. **Wake Tickets + Stalled Work Watchdog** — `Stalled_Work_Watchdog.md`
-   WTK-S00–S04, then `Agent_First_MCP_...` A1, then SWW-S00–S03. First capture
-   CLI-to-CLI capacity signals and resume the same authorized work once at the
-   observed wake boundary; expose Pending/Wake facts over MCP without raw
-   scheduler language; then add stalled-work nudges for unexpected silence. This
-   is the narrow MVP replacement for admission scheduling and depends on
-   run/Pending/Project truth existing.
+   WTK-S00–S01 first (`CapacityObservation` + classifier/output capture +
+   Pending JSON/MCP contract), then WTK-S02 real Pending execution/settlement +
+   MCP `pending_run` parity, then WTK-S03–S04 resident wake and suppression,
+   then SWW-S00–S03 stalled-work contract/detector/read-only CLI/MCP projection.
+   Do not hand off the whole watchdog until WTK-S00–S02 and A1 Pending-over-MCP
+   exist in code; otherwise expected cooldown sleep cannot be separated from true
+   stalls and external agents cannot operate the surface.
 8. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
    above exist (the MCP analogue of the GUI Visual Proof Gate).
 9. **GUI/app surfaces that present the contracts** — `Project_Spine_...`

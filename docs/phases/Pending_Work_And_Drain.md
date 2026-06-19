@@ -1,7 +1,7 @@
 # Pending Work
 
-Status: **Pending0 + Pending1 BUILT** (2026-06-17); Wake Ticket resume ready spec; broad native drain/scheduling parked
-Owner: AllnighterCore + AllnighterEngine + Mac app backend
+Status: **Pending0 + Pending1 BUILT** (2026-06-17); explicit run is attempt-record only; Wake Ticket resume spec; broad native drain/scheduling parked
+Owner: AllnighterCore + AllnighterEngine + CLI/MCP contracts + Mac app backend
 Updated: 2026-06-19
 
 ## Scope Correction
@@ -324,6 +324,11 @@ Existing truth owners:
 Existing useful pieces:
 
 - Thread turns already have `queued` and `running` internal status.
+- `PendingItem` separates durable work intent from `PendingAttemptSummary`
+  attempts.
+- `PendingResume` already stores `observedResetAt` and `wakeAfter`, and
+  `PendingItemJSON` already projects `nextWakeAt`.
+- Public `alln pending` CRUD/list/show/submit/edit/reorder/cancel/run exists.
 - Parked Utilization defines future scheduler behavior for cooldowns, local
   slots, fallbacks, present/away mode, and mutating dispatch safety.
 - iOS docs already define "commands queue and drain on next wake" when the Mac
@@ -333,12 +338,17 @@ Existing useful pieces:
 
 Missing truth:
 
-- Pending0/1 built the user-owned Pending object and public `alln pending`
-  contract.
-- Pending0/1 predate Project binding and must be migrated before drain claims.
-- No distinction exists between durable work intent and scheduler attempts.
+- `PendingService.run` currently records a queued attempt and marks the item
+  Running; it does not yet execute the worker/team path or settle the attempt.
+- New CLI-created Pending items are not reliably Project-scoped unless a caller
+  supplies/binds `projectId`; with zero users, stale local dev records without
+  Project truth are repair-only or disposable, not migration work.
 - `PendingResume` exists, but no capacity-observation / Wake Ticket wiring exists
   yet for "continue this exact job when Claude is available."
+- `PendingResumeReason` does not yet distinguish provider/server overload from
+  local machine/process busy.
+- `alln serve` is currently a health coordinator only; it does not wake or drain
+  Pending items.
 - No Away Mode or Activity Summary contract exists for draining user-selected work
   while the user is not actively watching.
 
@@ -932,8 +942,9 @@ Implementation order note:
   `Pending2` are built. A narrower "Claude cooldown resumes once" claim belongs
   to `Pending1a` / Wake Tickets and only applies to already-authorized work with
   sourced cooldown state.
-- MCP Pending (`A1`) comes after the CLI/model semantics are real; MCP must not
-  invent a separate Pending store or friendlier-but-different lifecycle.
+- MCP Pending (`A1`) is part of the same CLI/MCP-first product contract. It may
+  land after the Core/CLI Pending semantics are real, but the feature is not
+  shippable end to end until MCP exposes the same Pending/Wake facts.
 
 ### Pending0 - Public CLI Contract
 
@@ -989,7 +1000,9 @@ Store user-owned work intent separately from scheduler attempts.
 Scope:
 
 - `PendingItem`, target, policy, safety, resume, and attempt summary types.
-- Project binding for every new Pending item plus migration for existing items.
+- Project binding for every new Pending item; stale local dev items without
+  `projectId` are repair-only or disposable unless a later explicit repair
+  command is worth building.
 - Local persistence beside thread/run history.
 - Link from thread turns to Pending items.
 - Basic Mac Pending list: Draft, Pending, Running, outcomes, needs attention.
@@ -1021,7 +1034,10 @@ Scope:
   `cooldown` or `providerBusy`.
 - Pending JSON projects `nextWakeAt`, `blockedReason`, attempt reason, and no
   quota/cost/runtime estimates.
-- `alln serve` may wake exactly one due item and retry the same authorized work.
+- WTK-S02 must make explicit `pending run` drive and settle the same worker/team
+  path before `alln serve` can wake due items.
+- After WTK-S02, `alln serve` may wake exactly one due item and retry the same
+  authorized work.
 - No fairness sweep, fallback routing, Away Mode, PTY probes, or admission ledger.
 
 Works Test:
@@ -1185,7 +1201,7 @@ Audit records userReorderedExecutionLane.
 | Junction | Owner | Possible bad inference | Ban | Negative test |
 | --- | --- | --- | --- | --- |
 | Pending -> admission | AllnighterCore | Pending item means worker quota exists | Pending means submitted intent, not that capacity exists | A Pending Claude item with coolingDown admission remains Pending with a reason |
-| Pending -> Project | AllnighterCore | Pending can float globally until drain | Pending requires `projectId`; unassigned migrated items are repair-only and not drainable | Create Pending without Project; submit/drain is rejected |
+| Pending -> Project | AllnighterCore | Pending can float globally until drain | Pending requires `projectId`; unassigned local/dev items are repair-only/disposable and not drainable | Create Pending without Project; submit/drain is rejected |
 | Admission -> retry | AllnighterEngine | No reset time means estimate one | Unknown reset must be labeled unknown and use conservative recheck policy | UI never renders an invented reset time |
 | Worker prose -> Pending | AllnighterCore | Model suggestion creates hidden work | Suggestions are Draft until approved or preset-authorized | Worker says "run tests"; no new Pending item appears |
 | iOS command -> Mac execution | iOS remote spine | Phone sent command means Mac ran it | Sleeping/unreachable Mac queues command and reports reachability honestly | Phone shows Mac asleep; no run status is faked |
@@ -1201,7 +1217,9 @@ Audit records userReorderedExecutionLane.
   be available at that moment.
 - Every runnable Pending item is bound to exactly one Project.
 - `alln pending` can create, submit, edit, reorder, list, show, cancel, run, and
-  stop Pending items before any GUI-only Pending surface ships.
+  stop Pending items before any GUI-only Pending surface ships. Current code has
+  CRUD plus attempt-record `run`; real execution/settlement and `stop` still
+  remain.
 - Native `alln serve` Pending drain remains parked except one-shot Wake Tickets.
 - Pending items preserve target worker/team, context, fallback, priority, and
   mutation policy.

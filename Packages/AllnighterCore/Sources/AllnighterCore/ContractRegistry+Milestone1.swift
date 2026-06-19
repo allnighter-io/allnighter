@@ -255,7 +255,7 @@ public extension ContractRegistry {
             "teams", summary: "List the lane-scoped team catalog.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
-            outputSchema: .teamCatalogJSON, exampleIds: ["teams_build_json"]
+            outputSchema: .teamCatalogJSON, exampleIds: ["teams_code_json"]
         ),
         CommandSpec(
             "thread send", summary: "Send a message and/or images to a work thread.", milestone: .m1,
@@ -288,7 +288,7 @@ public extension ContractRegistry {
             "skills", summary: "List the lane-scoped skill catalog.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("json", summary: "Structured catalog summary (no templates).")],
-            outputSchema: .skillCatalogJSON, exampleIds: ["skills_build_json"]
+            outputSchema: .skillCatalogJSON, exampleIds: ["skills_code_json"]
         ),
         CommandSpec(
             "skills show", summary: "Show one skill definition including template.", milestone: .m1,
@@ -794,14 +794,14 @@ public extension ContractRegistry {
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
-        ExampleRecipe("teams_build_json", title: "List Build teams", command: "alln teams --lane build --json"),
-        ExampleRecipe("skills_build_json", title: "List Build skills", command: "alln skills --lane build --json"),
-        ExampleRecipe("skills_show_json", title: "Show a Build skill", command: "alln skills show bug_reproducer --json"),
-        ExampleRecipe("team_preflight", title: "Preflight a team", command: "alln team preflight --lane build --team code_bug_hunt --effort high"),
-        ExampleRecipe("team_basic", title: "Ask the team", command: "alln team --lane build --team code_bug_hunt \"Why does run history disappear?\""),
+        ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),
+        ExampleRecipe("skills_code_json", title: "List Code skills", command: "alln skills --lane code --json"),
+        ExampleRecipe("skills_show_json", title: "Show a Code skill", command: "alln skills show bug_reproducer --json"),
+        ExampleRecipe("team_preflight", title: "Preflight a team", command: "alln team preflight --lane code --team code_bug_hunt --effort high"),
+        ExampleRecipe("team_basic", title: "Ask the team", command: "alln team --lane code --team code_bug_hunt \"Why does run history disappear?\""),
         ExampleRecipe("team_json", title: "Machine team run", command: "alln team --json \"Give me one small naming test.\""),
         ExampleRecipe("team_stream", title: "Streamed team run", command: "alln team --stream \"Give me one tiny event-stream test.\""),
-        ExampleRecipe("team_start_json", title: "Start async team run", command: "alln team start --json --lane build --team code_bug_hunt --effort low \"tiny async sanity\""),
+        ExampleRecipe("team_start_json", title: "Start async team run", command: "alln team start --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\""),
         ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),
         ExampleRecipe("export_md", title: "Export the latest result", command: "alln export latest --format md"),

@@ -25,27 +25,27 @@
     "title" : "Show the current team"
   },
   {
-    "command" : "alln teams --lane build --json",
-    "id" : "teams_build_json",
-    "title" : "List Build teams"
+    "command" : "alln teams --lane code --json",
+    "id" : "teams_code_json",
+    "title" : "List Code teams"
   },
   {
-    "command" : "alln skills --lane build --json",
-    "id" : "skills_build_json",
-    "title" : "List Build skills"
+    "command" : "alln skills --lane code --json",
+    "id" : "skills_code_json",
+    "title" : "List Code skills"
   },
   {
     "command" : "alln skills show bug_reproducer --json",
     "id" : "skills_show_json",
-    "title" : "Show a Build skill"
+    "title" : "Show a Code skill"
   },
   {
-    "command" : "alln team preflight --lane build --team code_bug_hunt --effort high",
+    "command" : "alln team preflight --lane code --team code_bug_hunt --effort high",
     "id" : "team_preflight",
     "title" : "Preflight a team"
   },
   {
-    "command" : "alln team --lane build --team code_bug_hunt \"Why does run history disappear?\"",
+    "command" : "alln team --lane code --team code_bug_hunt \"Why does run history disappear?\"",
     "id" : "team_basic",
     "title" : "Ask the team"
   },
@@ -60,7 +60,7 @@
     "title" : "Streamed team run"
   },
   {
-    "command" : "alln team start --json --lane build --team code_bug_hunt --effort low \"tiny async sanity\"",
+    "command" : "alln team start --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\"",
     "id" : "team_start_json",
     "title" : "Start async team run"
   },
