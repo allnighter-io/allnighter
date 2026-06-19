@@ -7,10 +7,11 @@ BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
 `error_explain`, `spec_get` (registry-projected); CLI parity (`alln team
 hello|preflight|teams`, `alln spec`); async `team_start`, `team_status`,
 `team_result`, and `team_cancel` over Journal0 + Serve0; A1/WTK-S02c live
-MCP handlers for `pending_list`, `pending_show`, and `pending_run`. Still
-deferred: remaining A1 Pending write tools (`pending_add`/submit/edit/reorder/
-cancel/stop), doctor schema-v2 remedy tiers/humanActions, A3 install artifacts,
-A4 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
+MCP handlers for `pending_list`, `pending_show`, and `pending_run`; MCP
+`project_stalled` and `stalled_list` read-only projections. Still deferred:
+remaining A1 Pending write tools (`pending_add`/submit/edit/reorder/cancel/stop),
+SWW recovery action tools, doctor schema-v2 remedy tiers/humanActions, A3 install
+artifacts, A4 messaging UX, A5 provenance/safety gate, A6 entitlement hook.
 Owner: Founder + Shared Core + CLI + MCP + Mac backend
 Updated: 2026-06-19
 
@@ -18,8 +19,10 @@ Code reality on 2026-06-19: MCP `pending_list`, `pending_show`, and
 `pending_run` handlers are live and use the same Core/CLI `PendingItemJSON` and
 `PendingListJSON` schemas, including `nextWakeAt`, capacity observation, blocked
 reason, settled attempt state, and `transcriptRef` without transcript body
-content. Full Wake Ticket / Watchdog behavior now depends on WTK-S03 resident
-one-shot wake scheduling, not MCP parity.
+content. Full Wake Ticket / Watchdog product behavior now depends on SWW-S04/S05
+Project Manager nudges, recovery actions, and notifications, not MCP parity.
+WTK-S03 and read-only stalled-work MCP projection are built; remaining MCP work
+is explicit recovery/action tooling after SWW-S04 Core actions exist.
 
 > **Async ≠ scheduler.** "Async team loop" means a single, explicitly-triggered run
 > executes in the background of one `alln serve` process and is polled via

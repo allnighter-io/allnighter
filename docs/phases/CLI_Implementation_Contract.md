@@ -6,11 +6,13 @@ Status: CLI M1 BUILT (2026-06-15) — full wall green; live `--stream` real; MCP
 `pending run` execution/settlement through `PendingRunExecutor`. WTK-S00/S01a/S01b
 added `CapacityObservation`, Pending capacity JSON, MCP Pending registry specs,
 and WorkerRunner capacity capture. A1/WTK-S02c added live MCP Pending
-`pending_list`/`pending_show`/`pending_run` handlers.
-Remaining (still owned here): WTK-S03 resident one-shot workerChat wake,
-`pending stop`, teamRun Pending execution/settlement, remaining MCP Pending write
-tools, and generated contract cleanup. Broad native Pending drain is parked;
-one-shot Wake Tickets are scoped by `Stalled_Work_Watchdog.md`.
+`pending_list`/`pending_show`/`pending_run` handlers. WTK-S03/S02b/S04 and
+SWW-S00-S03 added resident one-shot wake, non-mutating teamRun Pending execution,
+stalled-work contracts/detector, and read-only CLI/MCP stalled projections.
+Remaining (still owned here): SWW-S04/S05 product attention commands/projections,
+`pending stop`, safe followUp/returnReview Pending execution, remaining MCP
+Pending write tools, and generated contract cleanup. Broad native Pending drain
+is parked; one-shot Wake Tickets are scoped by `Stalled_Work_Watchdog.md`.
 Owner: Shared Core + CLI + Mac
 Updated: 2026-06-19
 
@@ -903,9 +905,10 @@ duplicate work, and orphan recovery from the incremental journal.
 
 Status note (2026-06-19): `Journal0`, `Serve0`, `A0`, **Pending0/Pending1**, and
 WTK-S02a workerChat `pending run` execution/settlement are built. **A1/WTK-S02c**
-Pending list/show/run over MCP is built. **WTK-S03** is next: `alln serve`
-should wake due workerChat Wake Tickets once through the same Pending execution
-path. **Pending2** broad drain/native scheduling is parked; do not promise
+Pending list/show/run over MCP is built. WTK-S03/S02b/S04 and SWW-S00-S03 are
+built. Next is SWW-S04/S05 product attention: deterministic Project Manager wait
+nudges, typed actions, resident periodic stalled scans, and notification/menu
+integration. **Pending2** broad drain/native scheduling is parked; do not promise
 app-closed broad Pending execution until that work is explicitly revived.
 
 ## Pending CLI Contract

@@ -1,6 +1,6 @@
 # Pending Work
 
-Status: **Pending0 + Pending1 BUILT** (2026-06-17); workerChat CLI/MCP explicit run built; WTK-S03 one-shot wake next; broad native drain/scheduling parked
+Status: **Pending0 + Pending1 BUILT** (2026-06-17); workerChat/teamRun explicit run + Wake Tickets built; broad native drain/scheduling parked
 Owner: AllnighterCore + AllnighterEngine + CLI/MCP contracts + Mac app backend
 Updated: 2026-06-19
 
@@ -945,10 +945,10 @@ Implementation order note:
   `Pending2` are built. A narrower "Claude cooldown resumes once" claim belongs
   to `Pending1a` / Wake Tickets and only applies to already-authorized work with
   sourced cooldown state.
-- MCP Pending (`A1`) is part of the same CLI/MCP-first product contract and the
-  first live list/show/run handlers are built. Now WTK-S03 can make `alln serve`
-  resume due workerChat Wake Tickets once. This remains narrower than Pending2:
-  no broad drain, no fairness sweep, and no idle Pending scheduling.
+- MCP Pending (`A1`) is part of the same CLI/MCP-first product contract and live
+  list/show/run handlers are built. `alln serve` can resume due workerChat Wake
+  Tickets once. This remains narrower than Pending2: no broad drain, no fairness
+  sweep, and no idle Pending scheduling.
 
 ### Pending0 - Public CLI Contract
 
@@ -1043,10 +1043,12 @@ Scope:
   quota/cost/runtime estimates.
 - A1/WTK-S02c is built: `pending_list`, `pending_show`, and `pending_run` expose
   the same Pending JSON over MCP.
-- WTK-S03 may now wire `alln serve` to wake exactly one due workerChat item and
-  retry the same authorized work.
-- WTK-S02b may add teamRun Pending execution later; it is not required to unlock
-  the workerChat Wake Ticket loop.
+- WTK-S03 is built: `alln serve` wakes exactly one due workerChat item and retries
+  the same authorized work.
+- WTK-S02b is built for non-mutating teamRun Pending execution.
+- `followUp` and `returnReview` may be finished as safe non-mutating Pending
+  execution paths. Mutating work-order/dispatch execution remains gated by
+  Project approval, execution-source, and safety contracts.
 - No fairness sweep, fallback routing, Away Mode, PTY probes, or admission ledger.
 
 Works Test:

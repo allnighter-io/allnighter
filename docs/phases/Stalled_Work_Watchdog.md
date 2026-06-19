@@ -33,9 +33,11 @@ old dev records without required truth are repair-only or disposable.
 
 ## Current Code Reality
 
-Do not hand this doc to a developer as one end-to-end implementation request yet.
-The target behavior is clear, but code inspection on 2026-06-19 found prerequisite
-seams that must land first.
+The backend/CLI/MCP Watchdog MVP is built through read-only stalled-work
+projection. The remaining work is productization: create durable Project Manager
+wait turns, route active episodes through resident periodic scanning, deliver
+Mac attention notifications/menu state, and finish safe Pending follow-up
+execution without turning the feature into broad drain.
 
 Built substrate:
 
@@ -45,8 +47,8 @@ Built substrate:
   `capacityObservation`.
 - `PendingItemJSON` projects `nextWakeAt` and `capacityObservation` from
   `PendingResume`.
-- `pending_list`, `pending_show`, and `pending_run` MCP tool specs exist in the
-  registry contract, but live MCP handlers are not wired yet.
+- `pending_list`, `pending_show`, and `pending_run` MCP handlers are live and
+  share the CLI/Core Pending contract.
 - `WorkerRunner` captures raw nonzero stdout/stderr with `CapacityClassifier`
   before reducing output to `errorReason`, and propagates observations through
   `WorkerRunOutcome` / `WorkerAnswer`.
@@ -56,7 +58,8 @@ Built substrate:
   and expose `transcriptRef` in attempt summaries, not inline transcript content.
 - Live MCP handlers for `pending_list`, `pending_show`, and `pending_run` are
   wired through `MCPPendingHandlers` and dispatch from `MCPServer`.
-- `ResidentCoordinator` runs a one-shot Wake Ticket loop via `PendingWakeScheduler`.
+- `ResidentCoordinator` runs a one-shot Wake Ticket loop via
+  `PendingWakeScheduler`.
 - `PendingRunExecutor` accepts `BeginRunOptions` for lease owner / attempt reason
   (CLI default, resident wake uses `.serve` / `wakeTicket`).
 - Non-mutating `teamRun` Pending items execute through `CatalogRunCoordinator`.
@@ -66,7 +69,9 @@ Built substrate:
 Missing blockers:
 
 - `followUp`, `returnReview`, `workOrder`, dispatch, and mutating execute Pending
-  items do not execute through Pending yet.
+  items do not execute through Pending yet. Non-mutating follow-up/review paths
+  can be finished; mutating dispatch/work-order execution must stay behind the
+  existing execution/source/approval gates.
 - SWW-S04 Project Manager nudge turns and SWW-S05 notifications are not built.
 - Coarse periodic stall scanning in the resident coordinator is not wired (CLI/MCP
   read paths scan on demand).
@@ -365,7 +370,8 @@ Done When:
 
 ## Feature Packet - WTK-S03 One-Shot Wake Scheduler
 
-Status: Ready for implementation as the next narrow wake slice.
+Status: Shipped in `56d71df2` (`engine(wtk/sww): wake scheduler, teamRun
+pending, stalled detector`).
 
 Founder Intent:
 
@@ -468,20 +474,24 @@ Done When:
 - Remaining blockers are explicitly WTK-S02b teamRun Pending execution,
   WTK-S01c other call-site resume writers, and WTK-S04 suppression/fallback.
 
-## Copy-Paste Developer Prompt - WTK-S03
+## Copy-Paste Developer Prompt - Watchdog Productization Remainder
 
 ```text
-You are implementing WTK-S03 for Allnighter: a resident one-shot wake scheduler
-for due workerChat Wake Tickets.
+You are implementing the remaining Watchdog productization work for Allnighter in
+one continuous backend/CLI/MCP/Mac-attention pass.
 
 Goal:
-Make `alln serve` resume already-authorized workerChat Pending items once their
-sourced capacity/cooldown wake boundary is due.
+Turn the built Wake Ticket + stalled-work detector into the user-visible Project
+Manager attention loop: durable Manager wait nudges, typed recovery actions,
+resident periodic scanning, and Mac notification/menu integration. Also finish
+safe non-mutating Pending follow-up/review execution if the existing contracts
+make it straightforward.
 
-Do not implement broad drain, fairness sweeps, idle Pending scheduling, teamRun
-Pending execution, mutating dispatch/work-order execution, provider probes,
-GUI/iOS, automatic worker substitution, prompt rewriting, or scheduler-created
-new work.
+Do not implement broad drain, fairness sweeps, idle Pending scheduling, provider
+probes, quota polling, keepalives, capacity prediction, worker substitution,
+prompt rewriting, scheduler-created new work, cloud state, iOS, or new full GUI
+surfaces. Mutating dispatch/work-order execution must not bypass existing
+Project approval, execution source, and safety gates.
 
 Read first:
 - AGENTS.md
@@ -491,6 +501,9 @@ Read first:
 - docs/phases/Pending_Work_And_Drain.md
 - docs/phases/CLI_Implementation_Contract.md
 - docs/phases/Agent_First_MCP_And_Messaging_Workflows.md
+- docs/phases/Project_Spine_And_Project_Manager.md
+- docs/phases/threads/02_Notifications.md
+- docs/phases/Execution_Team_Source_Gate.md
 
 Code reality:
 - WTK-S00/S01a landed in b331c2ae.
@@ -498,73 +511,132 @@ Code reality:
 - WTK-S02a landed in 0c4335c8: CLI `alln pending run <id> --json` executes and
   settles workerChat Pending through PendingRunExecutor.
 - A1/WTK-S02c landed in 79aa7cb8: MCP pending_list/show/run handlers are live.
-- Pending JSON includes capacityObservation, nextWakeAt, and
-  attempts[].transcriptRef.
-- ResidentCoordinator is still health-only.
-- PendingItemDerivation.nextWakeAt already derives observedResetAt ?? wakeAfter.
-- PendingLeaseOwner has `.serve`, but PendingService.beginRun currently defaults
-  to CLI ownership.
+- WTK-S03, WTK-S02b, WTK-S01c, WTK-S04, and SWW-S00-S03 landed in 56d71df2 and
+  37ef980d:
+  - PendingWakePlanner / PendingWakeScheduler
+  - ResidentCoordinator wake loop
+  - non-mutating teamRun Pending execution
+  - PendingCapacityResumeWriter
+  - StallEpisode / StallEpisodeStore
+  - StalledWorkDetector / StalledWorkService
+  - CLI `alln project stalled`, `alln stalled list --all`
+  - MCP `project_stalled`, `stalled_list`
+- ProjectManagerTurnStore exists and can append durable Manager turns.
+- WorkThread.needsAttention is derived from turns, not stored. If stall attention
+  must affect thread triage, add a deliberate typed stall facet/system-event path
+  and tests; do not fake a mutable thread flag.
+- NotificationPolicy, NotificationDeliveryFilter, NotificationCandidateDetection,
+  NotificationPolicyStore, and MacNotificationDelivery already exist.
 - We have zero users: no production migrations or stale compatibility shims.
 
-Implement WTK-S03 only:
-1. Add a small Engine wake planner/scheduler, name flexible.
-2. Wake eligibility:
-   - item.status == pending
-   - item.kind == workerChat
-   - item.projectId is non-nil
-   - item.resume.reason is cooldown or providerBusy
-   - nextWakeAt exists and is <= now
-3. Skip, without failing, Draft/Running/Done/Failed/Cancelled items, idle Pending
-   without resume, auth/manual blockers, unsupported kinds, unassigned items, and
-   future wakes.
-4. Add a pure planner function for tests that returns:
-   - the earliest due item id, if any
-   - the next future wake deadline, if any
-   - enough reason/debug data to prove skip behavior without exposing new public
-     JSON unless necessary.
-5. Add a narrow lease/provenance seam:
-   - PendingService.beginRun and/or PendingRunExecutor should accept leaseOwner
-     and attemptReason options.
-   - Defaults must preserve current CLI/MCP behavior.
-   - Resident wake uses leaseOwner `.serve` and attemptReason `wakeTicket`.
-6. Wire the scheduler into ResidentCoordinator.run:
-   - health server/state still starts first;
-   - scheduler runs until shutdown and respects SIGINT/SIGTERM cancellation;
-   - it sleeps until the earliest wake plus small deterministic/injectable jitter;
-   - it reloads Pending truth immediately before executing;
-   - after one wake attempt, it recomputes the next deadline.
-7. Use PendingRunExecutor for execution and PendingService for settlement. Do not
-   add a separate wake queue or duplicate Pending state.
-8. Keep serve --health --json stable unless a minimal optional wake field is
-   explicitly added with contract/schema tests.
+Implement the remaining work in this order:
+
+1. SWW-S04 Project Manager nudge turns
+- Add a service/seam that consumes confirmed active StallEpisode records and
+  creates exactly one durable ProjectManagerTurn(mode: wait) per active episode
+  unless the existing lastNudgeTurnId is still valid.
+- The turn must be source-labeled and local-truth-only:
+  - projectId
+  - target thread/run/turn ids
+  - current status from refreshed local truth
+  - lastObservableEvent
+  - deadlineAnchorAt
+  - primaryAction and secondary actions
+  - stallEpisodeId, if the turn model needs a new field
+- Use typed nextActions. Add new NextActionKind values if needed:
+  checkStatus, openThread, keepWaiting, cancel, dismiss.
+- Do not ask a model to write these turns. They are deterministic Manager wait
+  turns, not generated advice.
+- Update StallEpisode.lastNudgeTurnId and lastNudgeAt when the turn is appended.
+- Avoid duplicate nudges on repeated scans.
+
+2. SWW-S04 recovery actions
+- Add Core service APIs and CLI/MCP handlers only where behavior is safe and
+  tested.
+- Required actions:
+  - Check status: refresh local truth; clear if terminal/refreshed-out; update
+    lastRefreshAt if still stalled.
+  - Open thread: projection/deep-link metadata only; no state mutation required.
+  - Keep waiting: set snoozedUntil using default threshold or supplied duration.
+  - Dismiss: clear only episode attention, not the underlying run.
+  - Cancel: call an existing safe cancel path for the target. If a target kind
+    lacks a safe cancel path, return a shared unsupported/safe-error envelope
+    rather than faking cancellation.
+- Terminal refresh clears the episode. Viewing/opening does not clear it.
+
+3. Thread attention facet
+- Make active stall nudges affect existing attention triage honestly.
+- Preferred path: add a typed system event/facet for stalled work and update
+  requiresUserAttention / notification derivation accordingly.
+- Do not store a drift-prone WorkThread.needsAttention flag.
+- Clearing/snoozing/dismissing must update the facet or derived source so
+  attention state follows durable truth.
+
+4. Resident periodic stall scanner
+- Wire StalledWorkService.scanAndRefresh into ResidentCoordinator alongside the
+  Wake Ticket loop.
+- Use an injectable interval and fake sleeper/clock for tests.
+- Run coarse periodic scans only; no tight loop and no provider probes.
+- On confirmed active episodes, run the SWW-S04 nudge service.
+- Do not create duplicate episodes or duplicate Manager turns.
+- Keep serve health stable unless adding optional fields with schema/tests.
+
+5. SWW-S05 notifications/menu integration
+- Use existing NotificationPolicyStore, NotificationDeliveryFilter, and
+  MacNotificationDelivery.
+- Emit at most one notification per active stall episode, unless a snooze expires
+  and the target is still stalled.
+- Respect global enabled flag, quiet hours, per-thread mute, debounce, and read/
+  visible suppression where existing APIs support it.
+- Do not notify on cold-start rereads.
+- Do not double-notify terminal failure, auth-required, or manual-paste blockers.
+- Notification copy must be content-light: no prompt bodies, secrets, transcripts,
+  or raw snippets.
+- Menu/status integration should reuse existing needs-attention derivation or the
+  new typed stall attention facet; do not invent a parallel badge counter.
+
+6. Safe Pending leftovers
+- Implement followUp and returnReview Pending execution only if they can reuse
+  existing non-mutating worker/team paths and settle through PendingService.
+- For workOrder and mutating dispatch Pending execution:
+  - do not implement unless existing Project approval, execution source gate,
+    safety, and dispatch APIs make the path explicit and tested;
+  - otherwise keep returning the current deferred/safe error and update docs.
+- CLI and MCP pending_run must stay semantically identical.
 
 Required tests:
-1. Planner selects the earliest due workerChat Wake Ticket.
-2. Planner returns a future deadline and performs no run when all Wake Tickets are
-   in the future.
-3. Planner skips Draft, Running, Done, Failed, Cancelled, idle Pending without
-   resume, auth/manual blockers, unsupported kinds, unassigned items, and items
-   without nextWakeAt.
-4. Due wake invokes PendingRunExecutor exactly once with leaseOwner `.serve`.
-5. Success clears resume; a new cooldown/providerBusy replaces wake facts;
-   ordinary failure settles normally.
-6. The coordinator can start health plus wake loop and shut down cleanly without
-   leaving durable coordinator state.
-7. Existing PendingRunExecutor, MCPPendingHandlers, PendingService, Coordinator,
-   ContractRegistry, and MCP contract tests remain green.
+1. One active confirmed StallEpisode creates one ProjectManagerTurn(mode: wait)
+   with typed actions and lastNudgeTurnId; repeated scans do not duplicate it.
+2. Check status clears terminal/refreshed-out episodes and preserves still-active
+   episodes without duplicate nudges.
+3. Keep waiting sets snoozedUntil; snoozed episodes suppress repeat nudges and
+   notifications until due.
+4. Dismiss clears episode attention without changing the underlying target.
+5. Cancel uses safe existing target cancel paths or returns a shared safe error.
+6. Active stall attention participates in derived thread/menu attention without a
+   stored needsAttention flag.
+7. Resident periodic scan runs with fake clock/sleeper, creates nudges, and shuts
+   down cleanly with ResidentCoordinator.
+8. Notification tests cover one-per-episode, quiet hours, mute, debounce,
+   no-cold-start noise, no double-notify for failed/auth/manual blockers, and no
+   secret/prompt text in copy.
+9. Safe Pending leftover tests prove followUp/returnReview behavior if
+   implemented, and prove workOrder/mutating dispatch remain gated/deferred if
+   not safely implementable.
 
 Proof commands:
-- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'PendingWake|ResidentCoordinator|CoordinatorTests|PendingRunExecutorTests|PendingServiceTests'
-- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'MCPPendingHandlers|MCPToolContractTests|ContractRegistryTests'
+- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'Stalled|Watchdog|StallEpisode|ProjectManager|ResidentCoordinator|CoordinatorTests'
+- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'Notification|PendingRunExecutor|PendingService|MCPStalled|MCPPending'
+- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'ContractRegistryTests|MCPToolContractTests'
 - swift run --disable-sandbox --package-path Packages/AllnighterCore alln dev export-contracts --check
 
 Closeout:
-- State that WTK-S03 landed: alln serve can resume due workerChat Wake Tickets.
-- State that no broad drain, teamRun Pending execution, mutating dispatch,
-  provider probes, GUI/iOS, worker substitution, prompt rewriting, or new work
-  creation was added.
-- State remaining blockers: WTK-S02b teamRun Pending execution, WTK-S01c other
-  call-site resume writers, and WTK-S04 watchdog suppression/fallback.
+- State what landed for SWW-S04/S05, resident periodic scanner, and safe Pending
+  leftovers.
+- State any still-deferred mutating Pending execution explicitly and why.
+- Confirm no broad drain, provider probes, worker substitution, prompt rewriting,
+  scheduler-created new work, MCP-only schema, or cloud state was added.
+- Update docs and generated contracts if public schemas/tools changed.
 - Commit only explicit changed files with a clear message.
 ```
 
