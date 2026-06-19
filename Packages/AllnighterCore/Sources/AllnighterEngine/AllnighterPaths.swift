@@ -32,6 +32,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Projects", isDirectory: true)
     }
 
+    /// `…/Allnighter/ProjectReadiness/` — cached per-Project worker readiness
+    /// (PRJ-S07b). Allnighter's own cache; never vendor config. One file per project.
+    public static var projectReadiness: URL {
+        support.appendingPathComponent("ProjectReadiness", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)

@@ -22,9 +22,10 @@ final class ExitCodeContractTests: XCTestCase {
         XCTAssertEqual(registry.processExitCode(forErrorCode: "WORKER_FAILED"), ExitCode.operationalFailure)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "THREAD_NOT_FOUND"), ExitCode.operationalFailure)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "MODEL_NOT_FOUND"), ExitCode.operationalFailure)
-        // CLI_USAGE_ERROR is the only usage-class code today.
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "NO_PROJECT_SELECTED"), ExitCode.usageError)
+        // The usage-class (exit 2) codes: bad invocation before any work started.
         let usage = registry.errors.filter { $0.exitClass == .usage }.map(\.code)
-        XCTAssertEqual(usage, ["CLI_USAGE_ERROR"])
+        XCTAssertEqual(Set(usage), ["CLI_USAGE_ERROR", "NO_PROJECT_SELECTED"])
     }
 
     func testUnknownCodeDefaultsToOperationalNeverCrashes() {

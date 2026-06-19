@@ -9,7 +9,7 @@ import AllnighterEngine
 /// (workers/recheck-workers) lands in the S07 follow-up. Every JSON envelope is a
 /// projection of Core truth via `ProjectJSON` — the registry owns the contract.
 enum ProjectCLI {
-    static func run(_ subcommand: String?, _ args: [String], runtime: ToolRuntime) {
+    static func run(_ subcommand: String?, _ args: [String], runtime: ToolRuntime) async {
         switch subcommand {
         case "list": runList(args)
         case "add": runAdd(args)
@@ -19,8 +19,10 @@ enum ProjectCLI {
         case "threads": runThreads(args)
         case "pending": runPending(args)
         case "context": runContext(args)
+        case "workers": runWorkers(args)
+        case "recheck-workers": await runRecheck(args, runtime)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -174,6 +176,40 @@ enum ProjectCLI {
         }
     }
 
+    /// Cached readiness — read-only, never probes (silent probes are background work).
+    private static func runWorkers(_ args: [String]) {
+        let opts = Options(args)
+        guard let idOrName = opts.positional.first else { usageError("usage: alln project workers <project-id-or-name> [--json]") }
+        let store = ProjectStore()
+        let project = resolve(idOrName, store)
+        let cached = ProjectWorkerReadinessStore().load(projectId: project.id)
+        emitWorkers(project: project, workers: cached, cached: true, json: opts.flag("json"))
+    }
+
+    /// Reruns only driver-declared safe probes, rewrites the cache, and reports the
+    /// fresh facts. Never accepts trust prompts, logs in, or writes vendor config.
+    private static func runRecheck(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard let idOrName = opts.positional.first else { usageError("usage: alln project recheck-workers <project-id-or-name> [--json]") }
+        let store = ProjectStore()
+        let project = resolve(idOrName, store)
+        let detector = ProjectWorkerReadinessDetector(runner: SubprocessCommandRunner())
+        let now = Date()
+        var results: [ProjectWorkerReadiness] = []
+        for manifest in runtime.registry.all.sorted(by: { $0.id < $1.id }) {
+            let r = await detector.detect(
+                projectId: project.id,
+                rootPath: project.normalizedRootPath,
+                manifest: manifest,
+                probeKind: .explicitRecheck,
+                now: now
+            )
+            results.append(r)
+        }
+        try? ProjectWorkerReadinessStore().save(projectId: project.id, results)
+        emitWorkers(project: project, workers: results, cached: false, json: opts.flag("json"))
+    }
+
     // MARK: - Helpers
 
     private static func resolve(_ idOrName: String, _ store: ProjectStore) -> Project {
@@ -217,6 +253,27 @@ enum ProjectCLI {
             print(AllnighterCLI.jsonString(payload))
         } else {
             print("\(project.id)\t\(project.archived ? "archived" : project.rootState.rawValue)\t\(project.displayName)\t\(project.localRootPath)")
+        }
+    }
+
+    private static func emitWorkers(project: Project, workers: [ProjectWorkerReadiness], cached: Bool, json: Bool) {
+        let ready = workers.filter { $0.status == .ready }.count
+        let summary = "\(ready) ready · \(workers.count - ready) blocked"
+        if json {
+            let payload = ProjectWorkersJSON(
+                contractVersion: ContractRegistry.contractVersion,
+                projectId: project.id,
+                readinessSummary: summary,
+                cached: cached,
+                workers: workers,
+                nextActions: [.init(kind: .recheckWorkers, label: "Recheck workers", command: "alln project recheck-workers \(project.id) --json")]
+            )
+            print(AllnighterCLI.jsonString(payload))
+        } else if workers.isEmpty {
+            print(cached ? "(no readiness cache — `alln project recheck-workers \(project.id)`)" : "(no workers probed)")
+        } else {
+            print("\(project.displayName) — \(summary)\(cached ? " (cached)" : "")")
+            for w in workers { print("\(w.sourceId)\t\(w.status.rawValue)\t\(w.setupHint ?? "")") }
         }
     }
 

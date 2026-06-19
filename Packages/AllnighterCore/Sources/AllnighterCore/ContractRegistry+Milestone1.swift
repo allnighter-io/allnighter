@@ -594,6 +594,16 @@ public extension ContractRegistry {
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectContextJSON object.")]
         ),
+        CommandSpec(
+            "project workers", summary: "Show cached per-project worker readiness (read-only; never probes).", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")]
+        ),
+        CommandSpec(
+            "project recheck-workers", summary: "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config/auth.", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)

@@ -50,7 +50,7 @@ struct AllnighterCLI {
         case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "serve": await runServe(args)
         case "pending": PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
-        case "project": ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
+        case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
         case "help", "--help", "-h": printHelp()

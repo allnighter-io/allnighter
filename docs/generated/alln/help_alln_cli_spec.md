@@ -715,6 +715,26 @@ Arguments:
 Flags:
 - `--json` — Emit a ProjectContextJSON object.
 
+### `alln project workers`
+
+Show cached per-project worker readiness (read-only; never probes).
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectWorkersJSON object.
+
+### `alln project recheck-workers`
+
+Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config/auth.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectWorkersJSON object.
+
 ## Commands (named but deferred)
 
 - `alln work` — Create a work order.

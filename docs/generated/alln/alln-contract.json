@@ -1834,6 +1834,58 @@
     },
     {
       "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectWorkersJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project workers",
+      "outputSchema" : "none",
+      "summary" : "Show cached per-project worker readiness (read-only; never probes)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectWorkersJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project recheck-workers",
+      "outputSchema" : "none",
+      "summary" : "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config\/auth."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [

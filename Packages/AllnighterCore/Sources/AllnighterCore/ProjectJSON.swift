@@ -82,6 +82,24 @@ public struct ProjectPendingJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// Per-project worker readiness — used by `project workers` (cached) and
+/// `project recheck-workers` (fresh probe). Only the canonical readiness facts;
+/// never vendor trust/auth state. `cached` is true for the read path.
+public struct ProjectWorkersJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var projectId: String
+    public var readinessSummary: String
+    public var cached: Bool
+    public var workers: [ProjectWorkerReadiness]
+    public var nextActions: [ProjectNextAction]
+    public init(schemaVersion: Int = 1, contractVersion: String, projectId: String, readinessSummary: String, cached: Bool, workers: [ProjectWorkerReadiness], nextActions: [ProjectNextAction] = []) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.projectId = projectId; self.readinessSummary = readinessSummary
+        self.cached = cached; self.workers = workers; self.nextActions = nextActions
+    }
+}
+
 /// The on-demand context packet — used by `project context`. The packet is a
 /// receipt, regenerated from current truth on every call (never durable truth).
 public struct ProjectContextJSON: Codable, Equatable, Sendable {
