@@ -266,9 +266,10 @@ Registry scope for v1:
   config (§2), not source setup metadata.
 - **Roster = shipped drivers only.** Today that's `claude_code`, `codex`, `grok`,
   `antigravity` (+ `manual_paste`). **Do not show ghost cards** for tools with no
-  manifest. Cursor / Aider / Gemini-CLI are **phase-2**: ship their manifests +
-  smoke contracts first, then add them to the roster. (README ground rule "real
-  detection" = no placeholder cards.)
+  manifest. Cursor Agent is promoted by `02_Cursor_Agent_CLI_Support.md` to the
+  next first-class default Source once its manifest, model catalog entries, smoke
+  contract, and proof land. Aider / Gemini-CLI remain future manifest work.
+  (README ground rule "real detection" = no placeholder cards.)
 - **Glyphs:** Simple Icons for `anthropic`, `googlegemini`, `x`, `cursor`. Simple
   Icons **removed OpenAI** (trademark) — ChatGPT/Codex uses a **neutral terminal
   chip / SF Symbol**, per `docs/design-system/readme.md`. Opus/plan-writer carries
@@ -425,4 +426,6 @@ Setup UI exists, the none-found and fix-it flows have no UI proof — say so.
 - API-key / BYOK management inside Allnighter (the CLIs own their auth).
 - Per-model editing in Setup (Scene 5 confirms; model tuning lives in Settings).
 - Custom model/source creation, and non-CLI / remote models.
-- Tools without a shipped manifest (Cursor/Aider/Gemini-CLI) — phase-2.
+- Tools without a shipped manifest remain hidden until real detection exists.
+  Cursor Agent is routed through `02_Cursor_Agent_CLI_Support.md`; Aider and
+  Gemini-CLI remain future manifest work.

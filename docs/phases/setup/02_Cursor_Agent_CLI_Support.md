@@ -1,6 +1,6 @@
 # Cursor Agent CLI Support
 
-Status: Founder input packet - draft implementation spec
+Status: Founder input packet - validated first-class CLI implementation spec
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
 Updated: 2026-06-19
 
@@ -9,15 +9,23 @@ Updated: 2026-06-19
 Raw request:
 
 - Cursor has a real CLI, exposed locally as `agent` and `cursor-agent`.
-- That is strategically important because Allnighter was missing Cursor as a
-  runnable source.
+- Cursor must become a first-class Allnighter CLI source, not an experimental
+  adapter. It should be the #1 default Code worker candidate when ready.
+- Composer 2.5 is founder-rated as highly capable and roughly 10-20x cheaper
+  than GPT 5.5 / Opus-class workers for many Code tasks. Verify exact pricing
+  before public copy, but build the product default around this cost posture.
+- Regular Composer 2.5 is the default. Founder input says Cursor Fast mode is
+  roughly 6x more expensive, so it must be explicit opt-in only.
 - Capture the discovered model/fast-mode behavior before it is lost in chat.
 
 Product value:
 
-Allnighter should treat Cursor Agent as another Source the user already pays
-for. Once ready, Cursor models can sit on the Bench and become Workers inside
-Code teams, without Cursor becoming a separate workflow or terminal viewer.
+Allnighter should treat Cursor Agent as a first-class Source the user already
+pays for. Once ready, Cursor Composer 2.5 should be the preferred default Code
+worker because it combines strong coding ability with a much better expected
+quota/cost profile. Cursor still flows through the same Source -> Model -> Skill
+-> Worker -> Team model; it must not become a separate workflow or terminal
+viewer.
 
 Trusted workflow slice:
 
@@ -26,8 +34,9 @@ run setup/recheck
 -> Allnighter finds `agent`
 -> validates Cursor auth and a headless prompt
 -> lists Cursor models in `alln models --json`
--> enables Composer 2.5 as a Cursor model
--> a Code team can use Cursor / Composer 2.5 as one worker
+-> Composer 2.5 is enabled as the default Cursor model
+-> the default Code team can use Cursor / Composer 2.5 as its first worker
+-> Composer 2.5 Fast remains available/off-Bench unless the user explicitly opts in
 ```
 
 Non-goals:
@@ -37,6 +46,8 @@ Non-goals:
 - No use of Cursor Agent cloud worker mode as a hidden coordinator.
 - No extra public noun beyond Source, Model, Skill, Worker, Team.
 - No placeholder setup card until the manifest and smoke contract ship.
+- No automatic selection of `composer-2.5-fast`.
+- No silent fallback from regular Composer 2.5 to Fast.
 
 ## Current State
 
@@ -53,6 +64,28 @@ Observed local facts:
 - Read-only planning modes exist (`--mode plan`, `--mode ask`), but worker runs
   should use the normal headless run path unless a future team explicitly wants
   review-only posture.
+
+Live proof from dev smoke:
+
+- Binary path: `agent` and `cursor-agent` are present at `~/.local/bin/`, with
+  `cursor-agent` resolving into `~/.local/share/cursor-agent/versions/<version>/`.
+- Version observed: `2026.06.16-20-30-07-a07d3ac`.
+- Auth observed in Terminal: `agent status` reports logged in on an Ultra tier
+  account.
+- `agent -p --output-format text --model composer-2.5 --trust "Reply with the
+  single token ALLNIGHTER_READY"` returned `ALLNIGHTER_READY` in about 6s.
+- `agent -p --output-format text --model composer-2.5-fast ...` returned the
+  expected smoke token for Fast.
+- `agent -p --output-format text --model 'composer-2.5[fast=false]' ...`
+  returned the expected token, confirming the bracket override path.
+- `--workspace /Users/mike/Documents/GitHub/Allnighter` correctly grounded the
+  worker in the Allnighter repo.
+- A mutating run with `--trust` successfully created a temp file under `/tmp`,
+  proving headless writes are technically viable.
+- Direct `Process` launch of `~/.local/bin/agent` returned the expected token,
+  matching the path `WorkerRunner` would use.
+- `--output-format json` returned an object with a stable-looking `result`
+  field, but v1 should still use text capture until a parser contract lands.
 
 Founder-discovered model facts:
 
@@ -86,7 +119,9 @@ Existing Allnighter hooks:
 Existing gaps:
 
 - `docs/phases/setup/01_CLI_Detection_Auth_And_Bench.md` still names Cursor as
-  phase-2 because no manifest/smoke contract has shipped.
+  phase-2 because no manifest/smoke contract had shipped when that doc was
+  written. This packet supersedes that priority: Cursor is the next first-class
+  CLI to implement.
 - There is no `cursor_agent` driver manifest.
 - There are no built-in Cursor model definitions.
 - The app has no Cursor glyph asset wired to a setup card.
@@ -116,12 +151,24 @@ Lie-prone layers:
 New semantic rules:
 
 - Cursor is a Source/driver, not a Team or lane.
+- Cursor is a first-class shipped Source once `cursor_agent` lands; it should
+  appear alongside Claude Code, Codex, Grok, and Antigravity, not behind an
+  "experimental" label.
 - Cursor models must use driver-scoped model ids, e.g.
   `model_cursor_composer_25`, not the existing generic `model_composer`.
 - `composer-2.5` and `composer-2.5-fast` are distinct built-in model definitions
   if both are shipped.
-- The default built-in Cursor model should be regular Composer 2.5 unless live
-  smoke proves that the user's account only exposes Fast.
+- The default built-in Cursor model is regular Composer 2.5 (`composer-2.5`,
+  equivalent to `fast=false`), enabled on fresh installs once the driver is ready.
+- Composer 2.5 Fast (`composer-2.5-fast`) is always off-Bench by default and may
+  be enabled only by explicit user action. It is not a "better default"; it is a
+  higher-cost explicit choice.
+- Allnighter must never silently fall back from `composer-2.5` to
+  `composer-2.5-fast`, because that changes quota/cost behavior.
+- Cursor Composer 2.5 should be the first default Code answerer candidate when
+  ready. Higher-cost GPT 5.5 / Opus-class workers remain valuable for plan
+  writing, review, escalation, or custom teams, but not as the default first
+  spend path.
 - `fast=false` is Cursor model-parameter state, not Allnighter reasoning effort.
   Do not route it through `EffortLevel`.
 - Cursor readiness requires a successful headless smoke output, not `agent
@@ -186,7 +233,7 @@ Exit/error behavior:
   specific auth/keychain check once the error catalog has one.
 - Headless smoke timeout: `probeFailed` with a retryable recovery action.
 - Model id rejected: `probeFailed` with action "try composer-2.5-fast or refresh
-  Cursor models"; do not silently fall back.
+  Cursor models"; do not silently fall back. Any Fast retry must be explicit.
 
 ## Proposed Driver Shape
 
@@ -227,7 +274,7 @@ Candidate manifest:
   },
   "setup": {
     "bins": ["agent", "cursor-agent"],
-    "knownPaths": ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "/Applications/Cursor.app/Contents/Resources/app/bin"],
+    "knownPaths": ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"],
     "installHint": "Install Cursor CLI with `curl https://cursor.com/install -fsS | bash`, then run `agent` or `agent login` if needed.",
     "docsURL": "https://cursor.com/docs/cli/installation",
     "loginFlow": {
@@ -244,14 +291,18 @@ Implementation notes:
 
 - Prefer `agent` as the command because it is what the installed shell
   integration exposes; keep `cursor-agent` as a fallback bin.
-- Confirm whether `--workspace "{{workingDir}}"` is valid when `workingDir` is
-  nil before shipping the manifest. If nil is not safe, omit the flag unless a
-  Project root is known.
-- Confirm whether `--trust` is required, sufficient, or too permissive for
-  Allnighter's safety posture. A mutating Code worker may need it; read-only
-  probes should not imply user approval for future mutation.
+- Do not include `/Applications/Cursor.app/Contents/Resources/app/bin` in
+  `knownPaths`; live proof found `cursor`/`code` there, not `agent` or
+  `cursor-agent`.
+- `--workspace ""` works but is sloppy. Omit `--workspace` unless `workingDir`
+  is non-nil, or add conditional arg expansion before shipping.
+- `--trust` is technically required for headless mutation; without it, workers
+  may stall on workspace approval. Product policy must still decide whether
+  `--trust` belongs in every mutating Code run or only after Project-specific
+  readiness/approval.
 - Prefer `--output-format text` for the first smoke. `json` or `stream-json` can
-  be added after a parser contract and fixtures exist.
+  be added after a parser contract and fixtures exist. Live JSON returned a
+  `result` field, so the follow-up parser path is viable.
 
 ## Proposed Built-In Models
 
@@ -263,7 +314,7 @@ model_cursor_composer_25
   modelLabel: composer-2.5
   driverId: cursor_agent
   role: answerer
-  defaultEnabled: false until live smoke proves reliable
+  defaultEnabled: true on fresh installs
 
 model_cursor_composer_25_fast
   displayName: Composer 2.5 Fast
@@ -277,6 +328,18 @@ Do not add every model from `agent models` as a built-in in the first slice.
 Start with Composer 2.5 and add custom models through the existing model catalog
 workflow when the user needs account-specific variants.
 
+Default policy:
+
+- Fresh install: `model_cursor_composer_25` is on the Bench when
+  `cursor_agent` is ready.
+- Existing install with a roster file: Cursor appears available/off-Bench until
+  the user enables it, following the global `ModelCatalog` upgrade rule.
+- Fast mode: `model_cursor_composer_25_fast` remains available/off-Bench for all
+  users unless explicitly enabled.
+- Team defaults: update built-in Code teams so Cursor Composer 2.5 is the first
+  preferred answerer when ready. Keep higher-cost models available as reviewers,
+  plan writers, escalation workers, or custom-team choices.
+
 ## Auth, Privacy, And Permissions
 
 - Cursor auth remains owned by Cursor.
@@ -287,6 +350,8 @@ workflow when the user needs account-specific variants.
 - Keychain failures are readiness facts, not permission prompts to auto-fix.
 - `--force`, `--yolo`, `--sandbox disabled`, `--approve-mcps`, and cloud
   `worker` mode are out of scope for the first manifest.
+- Fast mode has quota/cost implications. Do not enable it by default, do not
+  auto-switch to it, and do not hide a Fast retry behind a generic fallback.
 
 ## Proof
 
@@ -299,6 +364,8 @@ alln doctor --agent cursor_agent --json reports cursor_agent ready only after
 Then `alln models --driver cursor_agent --json` lists Composer 2.5, and a Code
 team run can include one Cursor worker whose worker answer is captured in
 TeamRunJSON.
+Fresh-install model projection shows `model_cursor_composer_25` on-Bench and
+`model_cursor_composer_25_fast` available/off-Bench.
 ```
 
 Supporting checks:
@@ -309,30 +376,39 @@ Supporting checks:
 - Smoke fixture where `composer-2.5` succeeds.
 - Negative fixture where `composer-2.5` is rejected and no silent fallback to
   Fast occurs.
+- Roster fixture proving regular Composer 2.5 defaults enabled on fresh install
+  and Fast defaults disabled.
+- Team resolver fixture proving ready Cursor Composer 2.5 is the first default
+  Code answerer candidate.
 - `ModelCatalog` test that Cursor model ids are driver-scoped.
 - Manifest round-trip test for `cursor_agent`.
 - Generated contract drift check after CLI/MCP descriptors change.
 
 Missing proof / waiver:
 
-- No live smoke has been run from the Mac app launch context yet.
+- Live Terminal and direct subprocess smoke passed. No live smoke has been run
+  from the Mac app launch context yet.
 - Official install/usage routes exist at `https://cursor.com/docs/cli/installation`
   and `https://cursor.com/docs/cli/using`; model ids and `fast=false`
-  parameter semantics still need direct verification before implementation.
+  parameter semantics are live-smoked locally but still need official-doc or
+  version-pinned contract verification before public support copy.
 
 ## Next Slice
 
 CUR-S00 - Discovery packet:
 
 - Verify official Cursor Agent model-id and parameter docs.
-- Run live `agent -p --model composer-2.5` from Terminal and from the same launch
-  authority Allnighter uses.
+- Run live `agent -p --model composer-2.5` from the same launch authority
+  Allnighter uses.
 - Decide `--trust` posture for smoke vs mutating Code worker runs.
 
 CUR-S01 - Core manifest and model catalog:
 
 - Add `cursor_agent` manifest to app resources and embedded default config.
 - Add Cursor built-in model definitions to `ModelCatalog`.
+- Set regular Composer 2.5 default-enabled on fresh installs; keep Fast disabled.
+- Update built-in Code team preferences so Cursor Composer 2.5 is the first
+  default answerer when ready.
 - Add manifest/model tests and auth classifier fixtures.
 
 CUR-S02 - CLI/MCP projection:
@@ -348,15 +424,18 @@ CUR-S03 - Setup/GUI presentation:
 
 ## Open Questions
 
-- Does Cursor Agent provide an official stable docs URL for CLI install, login,
-  model ids, and config parameters?
-- Should regular Composer 2.5 be built-in default-on after smoke, or remain
-  available/off-Bench until the user enables it?
+- Does Cursor Agent provide official, stable documentation for model ids and
+  bracket parameters such as `fast=false`, or do we treat those as version-pinned
+  smoke-tested implementation facts?
 - Is `agent -p --trust --workspace <project>` acceptable for a mutating Code
   worker, or should Allnighter require a Project-specific readiness approval
   first?
-- Can `agent -p --output-format json` provide a stable final-answer field, or is
-  text stdout the safer v1 capture?
+- Should `--workspace` be conditionally emitted only for Project-root runs, or
+  should the driver manifest learn conditional args first?
+- Can `agent -p --output-format json` be promoted after v1 with a stable
+  final-answer parser around `result`?
 - Should model refresh parse `agent models`, or should Cursor variants enter only
   through manual custom model add until a stable machine-readable model list is
   confirmed?
+- How should public copy phrase the cost advantage once current Cursor,
+  GPT 5.5, and Opus pricing is verified?
