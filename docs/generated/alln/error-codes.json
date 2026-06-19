@@ -126,19 +126,19 @@
     "ruleId" : "team.governor.busy"
   },
   {
-    "agentAction" : "Keep item Draft\/Pending; mutating dispatch is outside Pending M1.",
+    "agentAction" : "Keep item Draft\/Pending; mutating pending runs are outside Pending M1.",
     "code" : "PENDING_MUTATION_DEFERRED",
     "exitClass" : "operational",
-    "explain" : "Mutating dispatch from Pending is not enabled in this milestone. Keep the item Draft\/Pending.",
+    "explain" : "Mutating pending runs are not enabled in this milestone. Keep the item Draft\/Pending.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "pending.mutation.deferred"
   },
   {
-    "agentAction" : "Keep order unchanged; reorder only Pending Execute items in the same execution lane.",
+    "agentAction" : "Keep order unchanged; reorder only Pending items in the same serialized group.",
     "code" : "PENDING_REORDER_INVALID",
     "exitClass" : "operational",
-    "explain" : "Reorder is only valid among Pending Execute items in one execution lane. The requested reorder was rejected.",
+    "explain" : "The requested Pending reorder was rejected because the item and anchor do not share the same serialized group.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "pending.reorder.invalid"
@@ -615,7 +615,7 @@
     "agentAction" : "Restore the folder\/permissions, then `alln project show <id>` to re-observe.",
     "code" : "PROJECT_ROOT_UNAVAILABLE",
     "exitClass" : "operational",
-    "explain" : "The project root is missing or permission-denied (rootState != available); mutating dispatch is blocked until the root is restored.",
+    "explain" : "The project root is missing or permission-denied (rootState != available); mutating runs are blocked until the root is restored.",
     "requiresManual" : true,
     "retryable" : true,
     "ruleId" : "project.root_unavailable"
@@ -633,7 +633,7 @@
     "agentAction" : "Assign the thread\/pending item to a project, then retry.",
     "code" : "THREAD_UNASSIGNED",
     "exitClass" : "operational",
-    "explain" : "The thread or pending item has no project. Assign it to a project before mutating dispatch.",
+    "explain" : "The thread or pending item has no project. Assign it to a project before a mutating run.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "thread.unassigned"
@@ -642,7 +642,7 @@
     "agentAction" : "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust\/login, then recheck.",
     "code" : "WORKER_NOT_READY_IN_PROJECT",
     "exitClass" : "operational",
-    "explain" : "The target worker's project readiness is not `ready` for this root. Dispatch falls back to reveal or shows setup copy until the worker is ready here.",
+    "explain" : "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here.",
     "requiresManual" : true,
     "retryable" : true,
     "ruleId" : "project.worker_not_ready"
@@ -673,15 +673,6 @@
     "requiresManual" : true,
     "retryable" : true,
     "ruleId" : "run.worker_not_ready"
-  },
-  {
-    "agentAction" : "Wait for the running execute order on this lane to finish, then retry; never start a second concurrent execute on the same working directory.",
-    "code" : "EXECUTION_LANE_BUSY",
-    "exitClass" : "operational",
-    "explain" : "Another Execute order is already running on this execution lane (one Running per lane, keyed on the normalized working directory). Concurrent mutating dispatch to the same root is refused for safety.",
-    "requiresManual" : false,
-    "retryable" : true,
-    "ruleId" : "project.execution_lane_busy"
   },
   {
     "agentAction" : "Pick one execution source, run as non-mutating review\/propose, or split into judgment then execution.",

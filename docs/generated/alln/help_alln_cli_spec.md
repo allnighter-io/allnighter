@@ -827,8 +827,8 @@ Output schema: `projectWorkersJSON`.
 | `TEAM_RUN_FAILED` | no | yes | Inspect failed workers and stages; retry or adjust the team. |
 | `NESTED_TEAM_BLOCKED` | yes | no | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | no | yes | Wait or retry after current team run completes. |
-| `PENDING_MUTATION_DEFERRED` | yes | no | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
-| `PENDING_REORDER_INVALID` | yes | no | Keep order unchanged; reorder only Pending Execute items in the same execution lane. |
+| `PENDING_MUTATION_DEFERRED` | yes | no | Keep item Draft/Pending; mutating pending runs are outside Pending M1. |
+| `PENDING_REORDER_INVALID` | yes | no | Keep order unchanged; reorder only Pending items in the same serialized group. |
 | `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | Generate a new key or reuse the original payload. |
 | `RESULT_NOT_READY` | no | yes | Poll team status using nextPollAfterMs, then call team result again. |
 | `RUN_NOT_FOUND` | yes | no | Run `alln history --json`. |
@@ -888,7 +888,6 @@ Output schema: `projectWorkersJSON`.
 | `RUN_WRITE_LOCK_BUSY` | no | yes | Wait for the running agent on this repo root to finish, then retry. |
 | `NO_PROJECT_ROOT` | yes | yes | Restore the project folder or pick an available project root, then retry. |
 | `WORKER_NOT_READY` | yes | yes | Pick a ready worker or run setup health, then retry. |
-| `EXECUTION_LANE_BUSY` | no | yes | Wait for the running execute order on this lane to finish, then retry; never start a second concurrent execute on the same working directory. |
 | `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
 
 ## NDJSON events
