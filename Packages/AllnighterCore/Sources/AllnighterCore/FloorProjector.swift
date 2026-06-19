@@ -50,6 +50,7 @@ public enum FloorProjector {
             nextActions: baseNextActions(for: run),
             artifacts: allArtifacts,
             timeline: timeline(for: run),
+            executeRequirements: executeRequirements(for: run),
             warnings: run.warnings,
             errors: workerErrors(for: run),
             audit: FloorRun.Audit(runJournalPath: runJournalPath, traceId: traceId)
@@ -214,18 +215,53 @@ public enum FloorProjector {
     }
 
     private static func baseNextActions(for run: TeamRun) -> [FloorNextAction] {
-        // F-S00 emits only the safe, non-mutating actions. F-S05 adds Send-team,
-        // Copy/Code/Design routing, Pending, and Execute (with Execute requirements).
-        var actions: [FloorNextAction] = [
-            FloorNextAction(id: "show_run", kind: .showRun, label: "Open run",
-                            command: "alln show \(run.id) --json"),
-            FloorNextAction(id: "show_history", kind: .showHistory, label: "Search history",
-                            command: "alln history --json")
-        ]
-        if run.plan != nil {
-            actions.insert(FloorNextAction(id: "copy_return", kind: .copyReturn, label: "Copy return"), at: 0)
+        var actions: [FloorNextAction] = []
+        let hasReturn = run.plan != nil || run.latestStage(.board) != nil
+
+        if hasReturn {
+            actions.append(FloorNextAction(id: "copy_return", kind: .copyReturn, label: "Copy return"))
+            actions.append(FloorNextAction(id: "save_pending", kind: .savePending, label: "Save to Pending"))
+            // Route the result onward to another team (still shows what will run).
+            actions.append(FloorNextAction(id: "send_team", kind: .sendTeam, label: "Send to another team"))
         }
+
+        // Signal insight outcomes route to Copy/Code/Design and external monitoring
+        // (the Signal Intake next actions). All non-mutating.
+        if run.outputKind == .insight {
+            actions.append(FloorNextAction(id: "draft_copy", kind: .draftCopy, label: "Draft copy"))
+            actions.append(FloorNextAction(id: "create_code_proposal", kind: .createCodeProposal, label: "Create code proposal"))
+            actions.append(FloorNextAction(id: "create_design_brief", kind: .createDesignBrief, label: "Create design brief"))
+            actions.append(FloorNextAction(id: "monitor_externally", kind: .monitorExternally, label: "Monitor externally"))
+        }
+
+        // A make-real move is gated: the action is present but disabled until Execute
+        // approval, and routes through the Execute requirement.
+        if run.mutating {
+            actions.append(FloorNextAction(
+                id: "execute", kind: .execute, label: "Execute",
+                requiresExecute: true, mutating: true,
+                disabledReason: "Requires Execute approval before any real change."))
+        }
+
+        if hasReturn {
+            actions.append(FloorNextAction(id: "ignore", kind: .ignore, label: "Ignore"))
+        }
+
+        actions.append(FloorNextAction(id: "show_run", kind: .showRun, label: "Open run",
+                                       command: "alln show \(run.id) --json"))
+        actions.append(FloorNextAction(id: "show_history", kind: .showHistory, label: "Search history",
+                                       command: "alln history --json"))
         return actions
+    }
+
+    /// Execute requirements (F-S05): present only for a mutating run. The run alone
+    /// flags that approval is required; proof commands / work-order linkage are
+    /// filled by the Project Work Order contract at dispatch time.
+    private static func executeRequirements(for run: TeamRun) -> [ExecuteRequirement] {
+        guard run.mutating else { return [] }
+        return [ExecuteRequirement(
+            reason: "This team can make real changes (\(run.posture?.rawValue ?? "execute") posture); approve before dispatch.",
+            requiredApproval: true)]
     }
 
     /// Derive the converge timeline from sourced timestamps only (F-S04). Never

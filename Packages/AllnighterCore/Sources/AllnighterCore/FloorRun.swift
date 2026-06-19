@@ -22,6 +22,9 @@ public struct FloorRun: Codable, Sendable, Equatable {
     /// The "team worked in parallel" event list (F-S04), derived from sourced
     /// timestamps only — missing timestamps are absent, never invented.
     public var timeline: [FloorTimelineEvent]
+    /// Gates that must be satisfied before a make-real move (F-S05). Present when
+    /// the run is mutating; empty for advisory runs.
+    public var executeRequirements: [ExecuteRequirement]
     public var warnings: [String]
     public var errors: [ErrorEnvelope]
     public var audit: Audit
@@ -29,12 +32,13 @@ public struct FloorRun: Codable, Sendable, Equatable {
     public init(schemaVersion: Int = 1, run: Run, intent: Intent, team: Team,
                 workerLanes: [FloorWorkerLane] = [], floorReturn: FloorReturn? = nil,
                 nextActions: [FloorNextAction] = [], artifacts: [RunArtifactRef] = [],
-                timeline: [FloorTimelineEvent] = [], warnings: [String] = [],
-                errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
+                timeline: [FloorTimelineEvent] = [], executeRequirements: [ExecuteRequirement] = [],
+                warnings: [String] = [], errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
         self.schemaVersion = schemaVersion
         self.run = run; self.intent = intent; self.team = team
         self.workerLanes = workerLanes; self.floorReturn = floorReturn
         self.nextActions = nextActions; self.artifacts = artifacts; self.timeline = timeline
+        self.executeRequirements = executeRequirements
         self.warnings = warnings; self.errors = errors; self.audit = audit
     }
 
@@ -205,6 +209,28 @@ public struct FloorReturn: Codable, Sendable, Equatable {
         self.kind = kind; self.status = status; self.title = title
         self.summaryMarkdown = summaryMarkdown; self.producedByWorkerId = producedByWorkerId
         self.stageId = stageId; self.artifactRefs = artifactRefs; self.insight = insight
+    }
+}
+
+/// A gate that must hold before a Floor return's make-real work can run (F-S05).
+/// Approval produces or links a WorkOrder and later a VerificationRecord; the
+/// Floor only presents the proposed move — it never auto-executes.
+public struct ExecuteRequirement: Codable, Sendable, Equatable {
+    public var reason: String
+    public var affectedScope: String?
+    public var requiredApproval: Bool
+    public var workOrderId: String?
+    public var proofCommands: [String]
+    public var proofWaiver: String?
+    public var readinessBlockers: [String]
+
+    public init(reason: String, affectedScope: String? = nil, requiredApproval: Bool = true,
+                workOrderId: String? = nil, proofCommands: [String] = [], proofWaiver: String? = nil,
+                readinessBlockers: [String] = []) {
+        self.reason = reason; self.affectedScope = affectedScope
+        self.requiredApproval = requiredApproval; self.workOrderId = workOrderId
+        self.proofCommands = proofCommands; self.proofWaiver = proofWaiver
+        self.readinessBlockers = readinessBlockers
     }
 }
 

@@ -85,6 +85,34 @@ final class FloorProjectorTests: XCTestCase {
         XCTAssertEqual(floor.run.status, .running)
     }
 
+    func testSignalRunHasRoutingActionsAndNoExecuteGate() {
+        let floor = FloorProjector.project(signalRun())
+        let kinds = Set(floor.nextActions.map(\.kind))
+        XCTAssertTrue(kinds.isSuperset(of: [.copyReturn, .savePending, .sendTeam, .draftCopy,
+                                            .createCodeProposal, .createDesignBrief, .monitorExternally,
+                                            .ignore, .showRun, .showHistory]))
+        // Scout/advisory run: no Execute action and no Execute requirement.
+        XCTAssertFalse(kinds.contains(.execute))
+        XCTAssertTrue(floor.executeRequirements.isEmpty)
+        XCTAssertTrue(floor.nextActions.allSatisfy { !$0.mutating })
+    }
+
+    func testMutatingRunGatesExecute() {
+        // WT-FLOOR05: a mutating run routes to Execute approval, never auto-runs.
+        var run = signalRun()
+        run.mutating = true
+        run.posture = .execute
+        let floor = FloorProjector.project(run)
+        let execute = floor.nextActions.first { $0.kind == .execute }
+        XCTAssertNotNil(execute)
+        XCTAssertEqual(execute?.requiresExecute, true)
+        XCTAssertEqual(execute?.mutating, true)
+        XCTAssertNotNil(execute?.disabledReason)
+        XCTAssertEqual(floor.executeRequirements.count, 1)
+        XCTAssertEqual(floor.executeRequirements.first?.requiredApproval, true)
+        XCTAssertEqual(floor.run.mutating, true)
+    }
+
     func testTimelineIsDerivedAndSorted() {
         let floor = FloorProjector.project(signalRun())
         let kinds = floor.timeline.map(\.kind)
