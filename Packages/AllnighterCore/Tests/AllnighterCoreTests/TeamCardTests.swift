@@ -10,7 +10,6 @@ final class TeamCardTests: XCTestCase {
         let card = TeamCard.project(team)
         XCTAssertEqual(card.id, "signal_post_to_project")
         XCTAssertEqual(card.family, "signal")
-        XCTAssertEqual(card.posture, "scout")
         XCTAssertFalse(card.mutating)
         XCTAssertEqual(card.outputKind, "insight")
         XCTAssertEqual(card.workerCount, team.workerSpecs.count)
@@ -31,7 +30,6 @@ final class TeamCardTests: XCTestCase {
     func testMutatingCardShowsOneRepoWorkerRequirement() {
         var team = BuiltInTeams.team("code_core")!
         team.mutating = true
-        team.posture = .execute
         let card = TeamCard.project(team)
         XCTAssertTrue(card.mutating)
         XCTAssertEqual(card.workerCount, 1)

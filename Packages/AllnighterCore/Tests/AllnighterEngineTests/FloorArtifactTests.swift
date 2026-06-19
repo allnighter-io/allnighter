@@ -34,7 +34,7 @@ final class FloorArtifactTests: XCTestCase {
         ]
         return TeamRun(id: "floorart1", prompt: "p", status: .complete, origin: .cli,
                        presetId: "signal_post_to_project", workers: workers, workerAnswers: answers,
-                       createdAt: now, lane: .signal, outputKind: .insight, posture: .scout)
+                       createdAt: now, lane: .signal, outputKind: .insight)
     }
 
     func testWorkerArtifactsWrittenOnSave() throws {

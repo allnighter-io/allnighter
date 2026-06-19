@@ -54,7 +54,7 @@ final class ContractSchemaTests: XCTestCase {
             workers: [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .plan)],
             workerAnswers: [WorkerAnswer(workerId: "w#0", modelId: "m", status: .done, output: "x", finishedAt: now)],
             stages: [StageOutput(id: "s1", purpose: .plan, status: .done, payload: .plan(markdown: "md"))],
-            createdAt: now, lane: .signal, outputKind: .insight, posture: .scout)
+            createdAt: now, lane: .signal, outputKind: .insight)
         let floor = FloorProjector.project(run)
         let schema = ContractSchema.floorRunSchema()
 

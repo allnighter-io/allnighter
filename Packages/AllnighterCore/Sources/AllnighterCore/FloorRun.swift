@@ -48,7 +48,6 @@ public struct FloorRun: Codable, Sendable, Equatable {
         /// The public family / craft (`signal|code|design|copy`). `nil` for legacy
         /// runs with no recorded lane.
         public var family: String?
-        public var posture: String?
         public var mutating: Bool
         public var origin: String
         public var originAgent: String?
@@ -56,11 +55,11 @@ public struct FloorRun: Codable, Sendable, Equatable {
         public var reproduceCommand: String?
 
         public init(id: String, projectId: String? = nil, threadId: String? = nil,
-                    status: Status, family: String? = nil, posture: String? = nil,
+                    status: Status, family: String? = nil,
                     mutating: Bool = false, origin: String, originAgent: String? = nil,
                     createdAt: Date, reproduceCommand: String? = nil) {
             self.id = id; self.projectId = projectId; self.threadId = threadId
-            self.status = status; self.family = family; self.posture = posture
+            self.status = status; self.family = family
             self.mutating = mutating; self.origin = origin; self.originAgent = originAgent
             self.createdAt = createdAt; self.reproduceCommand = reproduceCommand
         }

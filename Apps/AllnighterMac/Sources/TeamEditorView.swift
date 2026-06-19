@@ -15,7 +15,6 @@ struct TeamDraft: Equatable {
     /// like a worker (skill + model + prompt); its prompt forks on save the same way.
     var lead: Row
     var allowSubstitutions: Bool
-    var posture: TeamPosture
     var mutating: Bool
 
     /// One worker's pending edit state (the rescue's TeamWorkerDraft). Prompt edits
@@ -45,7 +44,6 @@ struct TeamDraft: Equatable {
         self.base = base
         self.name = base.displayName
         self.allowSubstitutions = true
-        self.posture = base.posture
         self.mutating = base.mutating
         self.rows = base.workerSpecs.map { spec in
             Row(id: UUID().uuidString, skillId: spec.skillId,
@@ -151,9 +149,8 @@ struct TeamDraft: Equatable {
             team.displayName = saveName
             team.workerSpecs = specs
             team.lead = leadSpec
-            team.posture = posture
             team.mutating = mutating
-            if mutating || posture == .execute {
+            if mutating {
                 team.executionSourceId = try Self.resolvedExecutionSourceId(from: specs, lead: leadSpec)
             } else {
                 team.executionSourceId = nil
@@ -411,10 +408,7 @@ struct TeamEditorView: View {
             .toggleStyle(.switch).tint(ALColor.accent)
             .onChange(of: draft.mutating) { _, on in
                 if on {
-                    draft.posture = .execute
                     draft.rows = Array(draft.rows.prefix(1))
-                } else if draft.posture == .execute {
-                    draft.posture = .propose
                 }
             }
             if draft.mutating, let conflict = executionSourceConflictMessage {

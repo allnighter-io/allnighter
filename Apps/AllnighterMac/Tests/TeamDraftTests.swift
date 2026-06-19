@@ -196,7 +196,6 @@ final class TeamDraftTests: XCTestCase {
     func testMutatingMixedSourceSaveIsBlocked() {
         var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
         d.mutating = true
-        d.posture = .execute
         if d.rows.count > 1 {
             d.rows[1].modelId = "model_chatgpt"
         }

@@ -251,7 +251,7 @@ private struct TeamEditorDrawer: View {
 }
 
 /// One team tile — a faithful-enough G-T0 card (family tag · name · outcome ·
-/// lineup count · posture/mutating). G-T1 adds the deduped model-logo lineup,
+/// lineup count · mutating marker). G-T1 adds the deduped model-logo lineup,
 /// favorite star, last-run footer, and selection glow per the handoff.
 private struct TeamCardTile: View {
     let card: TeamCard
@@ -294,7 +294,9 @@ private struct TeamCardTile: View {
                 HStack {
                     Text("\(card.workerCount) workers").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                     Spacer()
-                    Text(card.posture).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                    if card.mutating {
+                        Text("mutating").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                    }
                 }
             }
             .padding(14)

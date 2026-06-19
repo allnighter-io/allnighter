@@ -33,9 +33,6 @@
         "outputKind" : {
           "type" : "string"
         },
-        "posture" : {
-          "type" : "string"
-        },
         "workerCount" : {
           "type" : "integer"
         }
@@ -46,7 +43,6 @@
         "lane",
         "outputKind",
         "defaultEffort",
-        "posture",
         "mutating",
         "builtIn",
         "isDefaultForLane",

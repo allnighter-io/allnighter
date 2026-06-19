@@ -29,7 +29,7 @@ enum FloorReaderSample {
             id: "floor_sample", prompt: "Developers keep saying agents lose the thread after a break. How does this apply to Allnighter?",
             status: .complete, origin: .gui, presetId: "signal_post_to_project",
             workers: workers, workerAnswers: answers, stages: [plan], createdAt: now,
-            lane: .signal, teamDisplayName: "Post-to-Project Signal", outputKind: .insight, posture: .scout)
+            lane: .signal, teamDisplayName: "Post-to-Project Signal", outputKind: .insight)
     }()
 
     static let lead = """

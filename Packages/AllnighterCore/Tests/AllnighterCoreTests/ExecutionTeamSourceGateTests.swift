@@ -15,7 +15,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
     private func mixedReviewTeam() -> TeamPreset {
         TeamPreset(
             id: "custom_mixed_review", displayName: "Mixed Review", lane: .code, outputKind: .plan,
-            posture: .review, mutating: false,
+            mutating: false,
             workerSpecs: [
                 TeamWorkerSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_opus"),
                 TeamWorkerSpec(id: "b", skillId: "code_maintainer", purpose: .answer, preferredModelId: "model_chatgpt"),
@@ -25,7 +25,6 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
 
     private func mixedExecutionTeam() -> TeamPreset {
         var team = mixedReviewTeam()
-        team.posture = .execute
         team.mutating = true
         return team
     }
@@ -33,7 +32,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
     private func singleSourceExecutionTeam() -> TeamPreset {
         TeamPreset(
             id: "custom_codex_execute", displayName: "Codex Execute", lane: .code, outputKind: .plan,
-            posture: .execute, mutating: true, executionSourceId: "codex",
+            mutating: true, executionSourceId: "codex",
             workerSpecs: [
                 TeamWorkerSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly),
             ],
@@ -100,7 +99,6 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
         for id in ["code_codex_implementation", "code_claude_implementation", "code_cursor_implementation"] {
             guard let team = BuiltInTeams.team(id) else { return XCTFail("missing \(id)") }
             XCTAssertTrue(team.mutating)
-            XCTAssertEqual(team.posture, .execute)
             XCTAssertNotNil(team.executionSourceId)
             let bench = ModelCatalog.list().map {
                 Model(id: $0.id, displayName: $0.displayName, modelLabel: $0.modelLabel,

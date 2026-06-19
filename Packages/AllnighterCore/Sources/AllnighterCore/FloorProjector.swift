@@ -23,7 +23,6 @@ public enum FloorProjector {
             threadId: run.threadId,
             status: status(for: run.status),
             family: run.lane?.rawValue,
-            posture: run.posture?.rawValue,
             mutating: run.mutating,
             origin: run.origin.rawValue,
             originAgent: run.originAgent,

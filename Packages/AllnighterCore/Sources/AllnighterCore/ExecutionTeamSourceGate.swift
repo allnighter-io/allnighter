@@ -1,6 +1,6 @@
 import Foundation
 
-/// Product law: judgment teams may mix sources; mutating / execute teams must
+/// Product law: judgment teams may mix sources; mutating teams must
 /// resolve to one CLI driver before spawn (`Execution_Team_Source_Gate.md`).
 public enum ExecutionSourcePolicy: String, Codable, Sendable, Equatable {
     case mixedAllowed
@@ -88,9 +88,9 @@ public enum TeamSourceFacts {
 public enum ExecutionTeamSourceGate {
     public static let mixedSourcesCode = "EXECUTION_TEAM_MIXED_SOURCES"
 
-    /// V1 gate trigger: execute posture or mutating team.
+    /// V1 gate trigger: mutating team.
     public static func applies(to resolved: ResolvedTeamRun) -> Bool {
-        resolved.posture == .execute || resolved.mutating
+        resolved.mutating
     }
 
     public static func evaluate(

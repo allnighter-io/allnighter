@@ -26,16 +26,6 @@ public enum WorkLane: String, Codable, Sendable, CaseIterable {
     case signal
 }
 
-/// What a team is doing on a run — orthogonal to its craft. `scout` gathers and
-/// interprets (Signal); `propose` drafts a plan/board; `review` audits returned
-/// work; `execute` carries a mutating one-worker run.
-public enum TeamPosture: String, Codable, Sendable, CaseIterable {
-    case scout
-    case propose
-    case review
-    case execute
-}
-
 /// The model's reasoning level for a run. Canonical machine values are
 /// `low | med | high` (no `medium`, never `quick/standard/deep`). Effort sets each
 /// worker model's reasoning effort where the source supports it; it NEVER changes
@@ -234,9 +224,6 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var lane: WorkLane
     public var description: String
     public var outputKind: TeamOutputKind
-    /// What this team is doing on a run (scout/propose/review/execute). Orthogonal
-    /// to craft; never inferred from the prompt.
-    public var posture: TeamPosture
     /// Whether running this team can make real changes (write files, post
     /// externally, edit state). Mutating teams run exactly one worker under the
     /// repo-root write lock. Scout/propose/review teams are advisory and
@@ -263,7 +250,6 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         lane: WorkLane,
         description: String = "",
         outputKind: TeamOutputKind,
-        posture: TeamPosture = .propose,
         mutating: Bool = false,
         executionSourceId: String? = nil,
         defaultEffort: EffortLevel = .med,
@@ -281,7 +267,6 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.lane = lane
         self.description = description
         self.outputKind = outputKind
-        self.posture = posture
         self.mutating = mutating
         self.executionSourceId = executionSourceId
         self.defaultEffort = defaultEffort
@@ -411,9 +396,9 @@ public enum TeamCatalog {
         try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.teams)
     }
 
-    /// Reject custom execution teams whose resolved workers cross CLI sources.
+    /// Reject custom mutating teams whose resolved workers cross CLI sources.
     public static func validateExecutionSourceGate(_ team: TeamPreset) throws {
-        guard team.mutating || team.posture == .execute else { return }
+        guard team.mutating else { return }
         let bench = catalogBenchModels()
         let resolved = TeamResolver.resolve(
             team: team, requestLane: team.lane, requestEffort: team.defaultEffort, readyModels: bench)

@@ -42,29 +42,16 @@ public enum BuiltInTeams {
         defaultEffort: EffortLevel, isDefault: Bool = false, description: String,
         rows: [TeamWorkerSpec], writer: String, dissent: DissentPolicy = .preserveDissent,
         lead: TeamLeadSpec? = nil,
-        posture: TeamPosture? = nil, mutating: Bool = false, executionSourceId: String? = nil,
+        mutating: Bool = false, executionSourceId: String? = nil,
         typeTags: [String] = [], starters: [String] = []
     ) -> TeamPreset {
         TeamPreset(
             id: id, displayName: name, lane: lane, description: description, outputKind: output,
-            posture: posture ?? defaultPosture(for: output), mutating: mutating,
+            mutating: mutating,
             executionSourceId: executionSourceId,
             defaultEffort: defaultEffort, isDefaultForLane: isDefault, workerSpecs: rows,
             lead: lead ?? TeamLeadSpec(skillId: writer, fallbackPolicy: .strongestReady, dissentPolicy: dissent),
             typeTags: typeTags, starterPrompts: starters, builtIn: true, version: 1)
-    }
-
-    /// Default posture for a built-in team from what it produces: drafting outputs
-    /// propose, audit/diagnostic outputs review, Signal insight scouts.
-    private static func defaultPosture(for output: TeamOutputKind) -> TeamPosture {
-        switch output {
-        case .plan, .designBoard, .polishBoard, .copyBoard:
-            return .propose
-        case .bugPacket, .securityRegister, .architectureVerdict, .proofPacket:
-            return .review
-        case .insight:
-            return .scout
-        }
     }
 
     // MARK: - Build teams
@@ -168,7 +155,7 @@ public enum BuiltInTeams {
             row("first_principles_builder", .answer, preferred: codexPreferred, fallback: .exactOnly),
         ], writer: "plan_writer_build",
         lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: codexPreferred, fallbackPolicy: .exactOnly),
-        posture: .execute, mutating: true, executionSourceId: "codex",
+        mutating: true, executionSourceId: "codex",
         starters: ["Implement this in the repo with proof."])
 
     static let buildClaudeImplementation = make(
@@ -179,7 +166,7 @@ public enum BuiltInTeams {
             row("first_principles_builder", .answer, preferred: claudePreferred, fallback: .exactOnly),
         ], writer: "plan_writer_build",
         lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: claudePreferred, fallbackPolicy: .exactOnly),
-        posture: .execute, mutating: true, executionSourceId: "claude_code",
+        mutating: true, executionSourceId: "claude_code",
         starters: ["Implement this in the repo with proof."])
 
     static let buildCursorImplementation = make(
@@ -190,7 +177,7 @@ public enum BuiltInTeams {
             row("first_principles_builder", .answer, preferred: cursorPreferred, fallback: .exactOnly),
         ], writer: "plan_writer_build",
         lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: cursorPreferred, fallbackPolicy: .exactOnly),
-        posture: .execute, mutating: true, executionSourceId: "cursor_agent",
+        mutating: true, executionSourceId: "cursor_agent",
         starters: ["Implement this in the repo with proof."])
 
     // MARK: - Unified run model teams
@@ -204,7 +191,7 @@ public enum BuiltInTeams {
         ],
         writer: "plan_writer_build",
         lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: cursorPreferred, fallbackPolicy: .sameSource),
-        posture: .execute, mutating: true, executionSourceId: "cursor_agent",
+        mutating: true, executionSourceId: "cursor_agent",
         starters: [])
 
     /// Execution Playbook as a built-in execution preset (docs/operations/Execution-Playbook.md).
@@ -216,7 +203,7 @@ public enum BuiltInTeams {
         ],
         writer: "plan_writer_build",
         lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: cursorPreferred, fallbackPolicy: .sameSource),
-        posture: .execute, mutating: true, executionSourceId: "cursor_agent",
+        mutating: true, executionSourceId: "cursor_agent",
         starters: [ExecutionPlaybookPreset.prompt])
 
     // MARK: - Design teams
@@ -317,7 +304,7 @@ public enum BuiltInTeams {
 
     /// The atomic Signal card: turn one public post/thread/article/release into a
     /// Project-aware Insight with source receipts, freshness, and a skeptic pass.
-    /// Scout posture, non-mutating; public sources only.
+    /// Non-mutating Signal team; public sources only.
     static let signalPostToProject = make(
         id: "signal_post_to_project", name: "Post-to-Project Signal", lane: .signal, output: .insight,
         defaultEffort: .med, isDefault: true,
@@ -332,7 +319,7 @@ public enum BuiltInTeams {
                    "What does this release note mean for us?"])
 
     /// Scan recent outside-world change and recommend what to build next for this
-    /// Project. Scout posture, non-mutating.
+    /// Project-aware Signal team; non-mutating.
     static let signalWhatToBuildNext = make(
         id: "signal_what_to_build_next", name: "What should we build next?", lane: .signal, output: .insight,
         defaultEffort: .high,

@@ -13,7 +13,6 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
         public var lane: String
         public var outputKind: String
         public var defaultEffort: String
-        public var posture: String
         public var mutating: Bool
         public var builtIn: Bool
         public var isDefaultForLane: Bool
@@ -21,10 +20,10 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
         public var disabledReason: String?
 
         public init(id: String, displayName: String, lane: String, outputKind: String,
-                    defaultEffort: String, posture: String, mutating: Bool, builtIn: Bool,
+                    defaultEffort: String, mutating: Bool, builtIn: Bool,
                     isDefaultForLane: Bool, workerCount: Int, disabledReason: String? = nil) {
             self.id = id; self.displayName = displayName; self.lane = lane; self.outputKind = outputKind
-            self.defaultEffort = defaultEffort; self.posture = posture; self.mutating = mutating
+            self.defaultEffort = defaultEffort; self.mutating = mutating
             self.builtIn = builtIn; self.isDefaultForLane = isDefaultForLane
             self.workerCount = workerCount; self.disabledReason = disabledReason
         }
@@ -43,7 +42,7 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
         TeamCatalogJSON(contractVersion: contractVersion, lane: lane?.rawValue, teams: teams.map {
             Entry(id: $0.id, displayName: $0.displayName, lane: $0.lane.rawValue,
                   outputKind: $0.outputKind.rawValue, defaultEffort: $0.defaultEffort.rawValue,
-                  posture: $0.posture.rawValue, mutating: $0.mutating, builtIn: $0.builtIn,
+                  mutating: $0.mutating, builtIn: $0.builtIn,
                   isDefaultForLane: $0.isDefaultForLane, workerCount: $0.workerSpecs.count)
         })
     }

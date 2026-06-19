@@ -68,7 +68,7 @@ final class SignalInsightTests: XCTestCase {
                           presetId: "signal_post_to_project",
                           workers: [Worker(id: "w#0", modelId: "model_grok", instanceIndex: 0, purpose: .plan)],
                           workerAnswers: [WorkerAnswer(workerId: "w#0", modelId: "model_grok", status: .done, output: "x")],
-                          stages: [plan], createdAt: now, lane: .signal, outputKind: .insight, posture: .scout)
+                          stages: [plan], createdAt: now, lane: .signal, outputKind: .insight)
         let floor = FloorProjector.project(run)
         XCTAssertEqual(floor.floorReturn?.kind, .insight)
         XCTAssertEqual(floor.floorReturn?.insight?.title, "New model release")

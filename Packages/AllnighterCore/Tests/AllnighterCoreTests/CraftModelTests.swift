@@ -1,9 +1,8 @@
 import XCTest
 @testable import AllnighterCore
 
-/// CRAFT-1: the team/craft model gains Signal as the 4th craft plus team posture
-/// and a mutating flag, on the SAME substrate (no second system). Existing teams
-/// keep correct, non-mutating postures.
+/// CRAFT-1: the team/craft model gains Signal as the 4th craft plus a mutating
+/// flag, on the SAME substrate (no second system).
 final class CraftModelTests: XCTestCase {
     func testSignalIsAFourthCraft() {
         XCTAssertEqual(WorkLane.allCases.count, 4)
@@ -11,33 +10,24 @@ final class CraftModelTests: XCTestCase {
         XCTAssertEqual(WorkLane.signal.rawValue, "signal")
     }
 
-    func testInsightOutputKindAndPostures() {
+    func testInsightOutputKind() {
         XCTAssertTrue(TeamOutputKind.allCases.contains(.insight))
-        XCTAssertEqual(Set(TeamPosture.allCases), [.scout, .propose, .review, .execute])
     }
 
-    func testTeamPresetRoundTripsPostureAndMutating() throws {
+    func testTeamPresetRoundTripsMutatingFlag() throws {
         let team = TeamPreset(
             id: "signal_demo", displayName: "Demo", lane: .signal, outputKind: .insight,
-            posture: .scout, mutating: false,
+            mutating: false,
             workerSpecs: [TeamWorkerSpec(id: "r", skillId: "s")],
             lead: TeamLeadSpec(skillId: "w"), builtIn: true)
         let data = try CoreJSON.encode(team)
         let back = try CoreJSON.decode(TeamPreset.self, from: data)
-        XCTAssertEqual(back.posture, .scout)
         XCTAssertEqual(back.mutating, false)
         XCTAssertEqual(back.lane, .signal)
         XCTAssertEqual(back.outputKind, .insight)
     }
 
-    func testExistingBuiltInsHaveCorrectNonMutatingPostures() {
-        // Drafting outputs propose; audit/diagnostic outputs review; advisory built-ins do not mutate.
-        XCTAssertEqual(BuiltInTeams.team("code_core")?.posture, .propose)
-        XCTAssertEqual(BuiltInTeams.team("design_core")?.posture, .propose)
-        XCTAssertEqual(BuiltInTeams.team("copy_core")?.posture, .propose)
-        XCTAssertEqual(BuiltInTeams.team("code_security_review")?.posture, .review)
-        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.posture, .review)
-        XCTAssertEqual(BuiltInTeams.team("code_release_proof")?.posture, .review)
+    func testExistingBuiltInsHaveCorrectMutationShape() {
         let executionIDs: Set<String> = [
             "code_codex_implementation", "code_claude_implementation", "code_cursor_implementation",
             "default_chat", "execution_playbook"
@@ -45,7 +35,6 @@ final class CraftModelTests: XCTestCase {
         for team in BuiltInTeams.all {
             if executionIDs.contains(team.id) {
                 XCTAssertTrue(team.mutating, "\(team.id) is a source-scoped execution team")
-                XCTAssertEqual(team.posture, .execute)
                 XCTAssertNotNil(team.executionSourceId)
             } else {
                 XCTAssertFalse(team.mutating, "\(team.id) must be non-mutating advisory")
@@ -62,13 +51,12 @@ final class CraftModelTests: XCTestCase {
     }
 
     func testSignalBuiltInsAreScoutNonMutatingInsightTeams() {
-        // CRAFT-2: Signal is runnable on the same substrate — scout posture,
-        // non-mutating, insight output, on the signal craft.
+        // CRAFT-2: Signal is runnable on the same substrate — non-mutating,
+        // insight output, on the signal craft.
         let signalTeams = BuiltInTeams.teams(in: .signal)
         XCTAssertEqual(Set(signalTeams.map(\.id)), ["signal_post_to_project", "signal_what_to_build_next"])
         for team in signalTeams {
             XCTAssertEqual(team.lane, .signal)
-            XCTAssertEqual(team.posture, .scout)
             XCTAssertEqual(team.outputKind, .insight)
             XCTAssertFalse(team.mutating)
         }

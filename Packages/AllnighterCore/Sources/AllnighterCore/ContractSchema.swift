@@ -331,7 +331,7 @@ public enum ContractSchema {
         schema["$defs"] = [
             "FloorRunInfo": obj([
                 "id": str, "projectId": nullable("string"), "threadId": nullable("string"),
-                "status": floorStatus, "family": nullable("string"), "posture": nullable("string"),
+                "status": floorStatus, "family": nullable("string"),
                 "mutating": bool, "origin": str, "originAgent": nullable("string"),
                 "createdAt": str, "reproduceCommand": nullable("string"),
             ], required: ["id", "status", "mutating", "origin", "createdAt"]),
@@ -441,9 +441,9 @@ public enum ContractSchema {
         schema["$defs"] = [
             "TeamCatalogEntry": obj([
                 "id": str, "displayName": str, "lane": str, "outputKind": str, "defaultEffort": str,
-                "posture": str, "mutating": bool, "builtIn": bool, "isDefaultForLane": bool,
+                "mutating": bool, "builtIn": bool, "isDefaultForLane": bool,
                 "workerCount": int, "disabledReason": nullable("string"),
-            ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "posture", "mutating", "builtIn", "isDefaultForLane", "workerCount"]),
+            ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "mutating", "builtIn", "isDefaultForLane", "workerCount"]),
         ]
         return schema
     }

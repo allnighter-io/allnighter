@@ -97,7 +97,7 @@ public struct PendingRunExecutor: Sendable {
         guard let team = teams.first(where: { $0.id == teamId }) else {
             throw PendingServiceError.invalidState("unknown team preset: \(teamId)")
         }
-        if team.mutating || team.posture == .execute {
+        if team.mutating {
             throw PendingServiceError.mutationDeferred
         }
 
@@ -129,7 +129,6 @@ public struct PendingRunExecutor: Sendable {
             copy.teamDisplayName = resolved.teamDisplayName
             copy.outputKind = resolved.outputKind
             copy.warnings = resolved.warnings
-            copy.posture = resolved.posture
             copy.mutating = resolved.mutating
             copy.executionSourceId = resolved.executionSourceId
             copy.threadId = item.threadId

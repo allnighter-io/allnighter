@@ -456,7 +456,7 @@ struct AllnighterCLI {
     static func teamShowJSONString(_ runtime: ToolRuntime, lane: WorkLane? = nil) -> String {
         let lanes = lane.map { [$0] } ?? WorkLane.allCases
         struct TeamView: Encodable {
-            let id, displayName, lane, outputKind, defaultEffort, posture: String
+            let id, displayName, lane, outputKind, defaultEffort: String
             let mutating, isDefaultForLane: Bool
             let workerCount: Int
         }
@@ -469,7 +469,7 @@ struct AllnighterCLI {
             guard let t = runtime.teams.defaultTeam(for: lane) else { return nil }
             return TeamView(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
                             outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
-                            posture: t.posture.rawValue, mutating: t.mutating,
+                            mutating: t.mutating,
                             isDefaultForLane: true,
                             workerCount: t.workerSpecs.count)
         }

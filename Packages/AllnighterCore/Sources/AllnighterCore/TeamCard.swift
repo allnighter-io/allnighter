@@ -12,7 +12,6 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     public var displayName: String
     /// Public family / craft (`signal|code|design|copy`).
     public var family: String
-    public var posture: String
     public var mutating: Bool
     public var executionSourceId: String?
     public var outputKind: String
@@ -25,13 +24,13 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     public var pinnedReason: String?
     public var lastRunAt: Date?
 
-    public init(id: String, teamId: String, displayName: String, family: String, posture: String,
+    public init(id: String, teamId: String, displayName: String, family: String,
                 mutating: Bool, executionSourceId: String? = nil, outputKind: String, workerCount: Int,
                 starterPrompts: [String] = [],
                 requirements: [String] = [], recommendedFor: [String] = [], pinned: Bool = false,
-                pinnedReason: String? = nil, lastRunAt: Date? = nil) {
+        pinnedReason: String? = nil, lastRunAt: Date? = nil) {
         self.id = id; self.teamId = teamId; self.displayName = displayName; self.family = family
-        self.posture = posture; self.mutating = mutating; self.executionSourceId = executionSourceId
+        self.mutating = mutating; self.executionSourceId = executionSourceId
         self.outputKind = outputKind
         self.workerCount = workerCount; self.starterPrompts = starterPrompts
         self.requirements = requirements; self.recommendedFor = recommendedFor
@@ -45,7 +44,7 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
                                lastRunAt: Date? = nil) -> TeamCard {
         TeamCard(
             id: team.id, teamId: team.id, displayName: team.displayName, family: team.lane.rawValue,
-            posture: team.posture.rawValue, mutating: team.mutating,
+            mutating: team.mutating,
             executionSourceId: team.executionSourceId,
             outputKind: team.outputKind.rawValue,
             workerCount: team.runShape == .execution ? 1 : team.workerSpecs.count,

@@ -3,7 +3,7 @@ import XCTest
 
 /// F-S00 Works Test (WT-FLOOR02 + worker visibility): the Floor projects over a
 /// persisted TeamRun — one worker lane per worker (including failures), the run's
-/// family/posture/mutating are surfaced, a failed worker stays visible, and the
+/// family/mutating are surfaced, a failed worker stays visible, and the
 /// projection round-trips through CoreJSON.
 final class FloorProjectorTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_750_000_000)
@@ -32,7 +32,7 @@ final class FloorProjectorTests: XCTestCase {
             originAgent: "claude-code", presetId: "signal_post_to_project",
             workers: workers, workerAnswers: answers, stages: [plan], createdAt: now,
             lane: .signal, effort: .med, teamDisplayName: "Post-to-Project Signal",
-            outputKind: .insight, posture: .scout, mutating: false, warnings: ["one-model self-fusion"])
+            outputKind: .insight, mutating: false, warnings: ["one-model self-fusion"])
     }
 
     func testWorkerLaneCountEqualsWorkerCount() {
@@ -45,7 +45,6 @@ final class FloorProjectorTests: XCTestCase {
     func testRunCarriesFamilyPostureMutating() {
         let floor = FloorProjector.project(signalRun(), reproduceCommand: "alln team ...")
         XCTAssertEqual(floor.run.family, "signal")
-        XCTAssertEqual(floor.run.posture, "scout")
         XCTAssertFalse(floor.run.mutating)
         XCTAssertEqual(floor.run.status, .done)
         XCTAssertEqual(floor.run.reproduceCommand, "alln team ...")
@@ -97,7 +96,6 @@ final class FloorProjectorTests: XCTestCase {
     func testMutatingRunDoesNotProjectSecondGate() {
         var run = signalRun()
         run.mutating = true
-        run.posture = .execute
         let floor = FloorProjector.project(run)
         XCTAssertEqual(floor.run.mutating, true)
     }

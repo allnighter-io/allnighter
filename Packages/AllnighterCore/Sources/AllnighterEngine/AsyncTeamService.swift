@@ -173,7 +173,6 @@ public actor AsyncTeamService {
             effort: resolvedRequest.effort,
             teamDisplayName: resolved.teamDisplayName,
             outputKind: resolved.outputKind,
-            posture: resolved.posture,
             mutating: resolved.mutating,
             executionSourceId: resolved.executionSourceId,
             warnings: resolved.warnings,
@@ -195,14 +194,13 @@ public actor AsyncTeamService {
         let teamName = resolved.teamDisplayName
         let outputKind = resolved.outputKind
         let warnings = resolved.warnings
-        let posture = resolved.posture
         let mutating = resolved.mutating
 
         @Sendable func stamped(_ r: TeamRun) -> TeamRun {
             var copy = r
             copy.lane = lane; copy.type = type; copy.effort = effort
             copy.teamDisplayName = teamName; copy.outputKind = outputKind; copy.warnings = warnings
-            copy.posture = posture; copy.mutating = mutating
+            copy.mutating = mutating
             copy.threadId = request.threadId
             copy.originConversationId = request.originConversationId
             copy.originMessageId = request.originMessageId
