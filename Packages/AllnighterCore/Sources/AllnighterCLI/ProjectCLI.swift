@@ -28,8 +28,9 @@ enum ProjectCLI {
         case "approve": runApprove(args)
         case "edit": runEdit(args)
         case "postpone": runPostpone(args)
+        case "handoff": runHandoff(args, runtime)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone|handoff> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -384,6 +385,79 @@ enum ProjectCLI {
         proposal.updatedAt = Date()
         try? store.update(proposal)
         emitProposal(proposal, json: opts.flag("json"))
+    }
+
+    /// Handoff/reveal (PRJ-S11a): reveal the EXACT prompt to hand a worker, plus a
+    /// dispatch preview (would the mutating gates pass now?). Reveal NEVER invokes a
+    /// worker and never mutates the repo — safe regardless of gate state.
+    private static func runHandoff(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let woId = opts.positional.first else { usageError("usage: alln project handoff <work-order-id> [--worker <id>] [--ack-dirty] [--json]") }
+        guard let order = ProjectWorkOrderStore().find(id: woId) else {
+            AllnighterCLI.fail(code: "WORK_ORDER_NOT_FOUND", message: "work order not found: \(woId)")
+        }
+        guard let project = (try? ProjectStore().load(id: order.projectId)) ?? nil else {
+            AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(order.projectId)")
+        }
+        // The proposal behind the order must still be approved (edits clear approval).
+        let proposal = ProjectProposalStore().get(projectId: order.projectId, proposalId: order.proposalId)
+        if proposal?.status != .approved {
+            AllnighterCLI.fail(code: "PROPOSAL_NOT_APPROVED", message: "the proposal behind \(woId) is not approved")
+        }
+
+        // Resolve the single execution source we'd target (informational for reveal).
+        let (sourceId, _) = resolveDispatchSource(order: order, opts: opts, readyModels: runtime.readyModels)
+
+        // Dispatch preview: evaluate the real composite gate against a dispatch-mode copy.
+        var preview = order
+        preview.mode = .dispatch
+        if let sourceId { preview.targetSourceId = sourceId }
+        let git = GitObserver()
+        let head = git.observe(rootPath: project.normalizedRootPath).head
+        let dirty = git.dirtyFiles(rootPath: project.normalizedRootPath)
+        let rootState = RootNormalization.observeRootState(key: project.normalizedRootPath)
+        let readiness = ProjectWorkerReadinessStore().load(projectId: project.id)
+        let gate = ProjectMutatingDispatchEvaluator.evaluate(
+            workOrder: preview, project: project, proposal: proposal,
+            observedRootState: rootState, dirtyFiles: dirty, dirtyAcknowledged: opts.flag("ack-dirty"),
+            workerReadiness: readiness, readyModels: runtime.readyModels,
+            currentGitHead: head, teams: runtime.teams, registry: runtime.registry)
+
+        let dispatchPreview: ProjectHandoffJSON.DispatchPreview
+        if case .allowed(_, let warnings) = gate {
+            dispatchPreview = .init(wouldDispatch: true, warnings: warnings)
+        } else {
+            dispatchPreview = .init(wouldDispatch: false, blockerCode: gate.primaryErrorCode, message: gate.message)
+        }
+        let reveal = WorkOrderBuilder.revealMarkdown(order)
+
+        if opts.flag("json") {
+            var next: [ProjectNextAction] = []
+            if dispatchPreview.wouldDispatch {
+                next.append(.init(kind: .dispatch, label: "Dispatch to a worker", command: "alln project dispatch \(order.id) --json"))
+            }
+            print(AllnighterCLI.jsonString(ProjectHandoffJSON(
+                contractVersion: ContractRegistry.contractVersion, workOrder: order,
+                revealMarkdown: reveal, resolvedSourceId: sourceId,
+                dispatchPreview: dispatchPreview, nextActions: next)))
+        } else {
+            print(reveal)
+            print("\n— dispatch preview: " + (dispatchPreview.wouldDispatch ? "ready ✓" : "blocked (\(dispatchPreview.blockerCode ?? "")) — \(dispatchPreview.message ?? "")"))
+        }
+    }
+
+    /// The single CLI source dispatch would target: explicit --worker's source, then
+    /// the work order's declared source, then the strongest ready model's source.
+    private static func resolveDispatchSource(order: WorkOrder, opts: Options, readyModels: [Model]) -> (sourceId: String?, model: Model?) {
+        if let wid = opts.value("worker"), let m = readyModels.first(where: { $0.id == wid }) {
+            return (m.driverId, m)
+        }
+        if let src = order.resolvedTargetSourceId, let m = readyModels.first(where: { $0.driverId == src }) {
+            return (src, m)
+        }
+        if let src = order.resolvedTargetSourceId { return (src, nil) }
+        let strongest = readyModels.max { ModelCatalog.capabilities($0.id).strengthRank < ModelCatalog.capabilities($1.id).strengthRank }
+        return (strongest?.driverId, strongest)
     }
 
     // MARK: - Helpers

@@ -59,6 +59,22 @@ final class WorkOrderBuilderTests: XCTestCase {
         XCTAssertEqual(wo.targetAgent, "codex")
     }
 
+    func testRevealMarkdownCarriesProofBaseHeadAndExpectedReturn() {
+        let wo = WorkOrderBuilder.build(from: proposal(), project: project(proofCommands: ["swift test"]),
+                                        baseGitHead: "abc1234567", now: Date(timeIntervalSince1970: 9), idSuffix: "x")
+        let reveal = WorkOrderBuilder.revealMarkdown(wo)
+        XCTAssertTrue(reveal.contains("Do the thing"), "the prompt body is revealed")
+        XCTAssertTrue(reveal.contains("swift test"), "proof commands are revealed")
+        XCTAssertTrue(reveal.contains("abc1234567"), "the base commit is revealed")
+        XCTAssertTrue(reveal.contains("Expected return:"))
+    }
+
+    func testRevealMarkdownShowsWaiverWhenNoProof() {
+        let wo = WorkOrderBuilder.build(from: proposal(), project: project(proofCommands: []),
+                                        baseGitHead: nil, now: Date(timeIntervalSince1970: 9), idSuffix: "x")
+        XCTAssertTrue(WorkOrderBuilder.revealMarkdown(wo).contains("Proof: No proof commands"))
+    }
+
     func testApprovalContentHashIsStableAndContentSensitive() {
         let a = WorkOrderBuilder.approvalContentHash(proposal())
         let b = WorkOrderBuilder.approvalContentHash(proposal())

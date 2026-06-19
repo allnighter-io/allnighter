@@ -62,6 +62,23 @@ public enum WorkOrderBuilder {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    /// The exact handoff a user can paste to a worker (PRJ-S11 reveal). Pure: the
+    /// work order already carries the prompt, proof, root, and base head.
+    public static func revealMarkdown(_ wo: WorkOrder) -> String {
+        var lines: [String] = [wo.promptBody, ""]
+        lines.append("---")
+        if !wo.proofCommands.isEmpty {
+            lines.append("Proof commands (run at the project root):")
+            lines.append(contentsOf: wo.proofCommands.map { "    \($0)" })
+        } else if let waiver = wo.proofWaiver {
+            lines.append("Proof: \(waiver)")
+        }
+        if let head = wo.baseGitHead, !head.isEmpty { lines.append("Base commit: \(head)") }
+        if let source = wo.resolvedTargetSourceId { lines.append("Target source: \(source)") }
+        lines.append("Expected return: \(wo.expectedReturn)")
+        return lines.joined(separator: "\n")
+    }
+
     // MARK: - Derivations
 
     static func executionTargets(

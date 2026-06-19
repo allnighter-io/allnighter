@@ -140,6 +140,37 @@ public struct ProjectWorkOrderJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// The result of `project handoff` — the exact prompt to hand a worker (reveal,
+/// never invokes) plus a dispatch preview: whether the mutating gates WOULD pass
+/// right now. Safe to call regardless of gate state.
+public struct ProjectHandoffJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var workOrder: WorkOrder
+    public var revealMarkdown: String
+    public var resolvedSourceId: String?
+    public var dispatchPreview: DispatchPreview
+    public var nextActions: [ProjectNextAction]
+
+    public struct DispatchPreview: Codable, Equatable, Sendable {
+        public var wouldDispatch: Bool
+        public var blockerCode: String?
+        public var message: String?
+        public var warnings: [String]
+        public init(wouldDispatch: Bool, blockerCode: String? = nil, message: String? = nil, warnings: [String] = []) {
+            self.wouldDispatch = wouldDispatch; self.blockerCode = blockerCode
+            self.message = message; self.warnings = warnings
+        }
+    }
+
+    public init(schemaVersion: Int = 1, contractVersion: String, workOrder: WorkOrder, revealMarkdown: String, resolvedSourceId: String?, dispatchPreview: DispatchPreview, nextActions: [ProjectNextAction] = []) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.workOrder = workOrder; self.revealMarkdown = revealMarkdown
+        self.resolvedSourceId = resolvedSourceId; self.dispatchPreview = dispatchPreview
+        self.nextActions = nextActions
+    }
+}
+
 /// All proposals for a project — used by `project proposals`.
 public struct ProjectProposalsJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int

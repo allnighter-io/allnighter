@@ -680,6 +680,15 @@ public extension ContractRegistry {
             args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")]
         ),
+        CommandSpec(
+            "project handoff", summary: "Reveal the exact prompt to hand a worker for an approved work order, plus a dispatch preview (would the mutating gates pass now). Never invokes a worker.", milestone: .m1,
+            args: [ArgSpec("work-order-id", required: true, summary: "Work order id.")],
+            flags: [
+                FlagSpec("worker", takesValue: true, valueType: "string", summary: "Preview targeting a specific ready worker/model id."),
+                FlagSpec("ack-dirty", summary: "Acknowledge the dirty tree in the preview."),
+                FlagSpec("json", summary: "Emit a ProjectHandoffJSON object."),
+            ]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
@@ -777,6 +786,7 @@ public extension ContractRegistry {
         ErrorSpec("BASE_HEAD_CHANGED", ruleId: "project.base_head_changed", agentAction: "Revalidate the proposal against the current head, then dispatch.", requiresManual: true, retryable: false, explain: "The approved baseGitHead differs from the current head. Revalidate scope before dispatching."),
         ErrorSpec("DIRTY_SCOPE_CONFLICT", ruleId: "project.dirty_scope_conflict", agentAction: "Acknowledge including the dirty files or clean them, then dispatch.", requiresManual: true, retryable: false, explain: "Dirty files overlap the proposal's likely scope. Acknowledge them as preexisting context or clean them first."),
         ErrorSpec("DISPATCH_GATE_FAILED", ruleId: "project.dispatch_gate_failed", agentAction: "Read the named failing gate(s) and resolve each, then retry dispatch.", requiresManual: true, retryable: false, explain: "One or more dispatch gates failed. The failing gate(s) are named in the message."),
+        ErrorSpec("EXECUTION_LANE_BUSY", ruleId: "project.execution_lane_busy", agentAction: "Wait for the running execute order on this lane to finish, then retry; never start a second concurrent execute on the same working directory.", requiresManual: false, retryable: true, explain: "Another Execute order is already running on this execution lane (one Running per lane, keyed on the normalized working directory). Concurrent mutating dispatch to the same root is refused for safety."),
         ErrorSpec("EXECUTION_TEAM_MIXED_SOURCES", ruleId: "execution.team.mixed_sources", agentAction: "Pick one execution source, run as non-mutating review/propose, or split into judgment then execution.", requiresManual: true, retryable: false, explain: "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn."),
         ErrorSpec("VERIFICATION_REQUIRED", ruleId: "project.verification_required", agentAction: "Run `alln project verify <id>`; a worker claim cannot mark work done.", requiresManual: false, retryable: false, explain: "A completion claim was advanced to done without a VerificationRecord. Verification (proof + git observation) or an explicit waiver is required."),
     ]

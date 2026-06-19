@@ -2129,6 +2129,43 @@
     },
     {
       "args" : [
+        {
+          "name" : "work-order-id",
+          "required" : true,
+          "summary" : "Work order id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "worker",
+          "summary" : "Preview targeting a specific ready worker\/model id.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "ack-dirty",
+          "summary" : "Acknowledge the dirty tree in the preview.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectHandoffJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project handoff",
+      "outputSchema" : "none",
+      "summary" : "Reveal the exact prompt to hand a worker for an approved work order, plus a dispatch preview (would the mutating gates pass now). Never invokes a worker."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [
@@ -3013,6 +3050,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "project.dispatch_gate_failed"
+    },
+    {
+      "agentAction" : "Wait for the running execute order on this lane to finish, then retry; never start a second concurrent execute on the same working directory.",
+      "code" : "EXECUTION_LANE_BUSY",
+      "exitClass" : "operational",
+      "explain" : "Another Execute order is already running on this execution lane (one Running per lane, keyed on the normalized working directory). Concurrent mutating dispatch to the same root is refused for safety.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "project.execution_lane_busy"
     },
     {
       "agentAction" : "Pick one execution source, run as non-mutating review\/propose, or split into judgment then execution.",

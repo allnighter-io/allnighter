@@ -720,6 +720,15 @@
     "ruleId" : "project.dispatch_gate_failed"
   },
   {
+    "agentAction" : "Wait for the running execute order on this lane to finish, then retry; never start a second concurrent execute on the same working directory.",
+    "code" : "EXECUTION_LANE_BUSY",
+    "exitClass" : "operational",
+    "explain" : "Another Execute order is already running on this execution lane (one Running per lane, keyed on the normalized working directory). Concurrent mutating dispatch to the same root is refused for safety.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "project.execution_lane_busy"
+  },
+  {
     "agentAction" : "Pick one execution source, run as non-mutating review\/propose, or split into judgment then execution.",
     "code" : "EXECUTION_TEAM_MIXED_SOURCES",
     "exitClass" : "operational",
