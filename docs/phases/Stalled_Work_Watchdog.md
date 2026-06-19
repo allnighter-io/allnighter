@@ -1,7 +1,8 @@
 # Stalled Work Watchdog
 
-Status: WTK-S00–S04 and SWW-S00–S03 built for backend/CLI/MCP; **SWW-S04/S05
-(Project Manager nudge, notifications) remain deferred**
+Status: WTK-S00–S04 and SWW-S00–S03 built for backend/CLI/MCP; **remaining
+work must align to `Unified_Run_Model.md`: run/project attention and
+notifications, not the retired manager-turn path**
 Owner: AllnighterCore + AllnighterEngine + Mac app backend + CLI/MCP contracts
 Updated: 2026-06-19
 
@@ -13,6 +14,7 @@ Read with:
 
 - `docs/workflows/SSOT_Founder_Input_Workflow.md`
 - `docs/workflows/SSOT_Feature_Workflow.md`
+- `docs/phases/Unified_Run_Model.md`
 - `docs/phases/Project_Spine_And_Project_Manager.md`
 - `docs/phases/Persistent_Work_Threads.md`
 - `docs/phases/threads/02_Notifications.md`
@@ -20,9 +22,13 @@ Read with:
 - `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md`
 - `docs/operations/Execution-Playbook.md`
 
-Durable semantics live in AllnighterCore and Project Manager turns. SwiftUI,
+Durable semantics live in AllnighterCore. `Unified_Run_Model.md` supersedes the
+old separate manager surface and retired planning/execution ceremony. From this
+point forward the watchdog must not create or depend on any of the retired
+planning/execution models named in
+`Unified_Run_Model.md`, nor on Project-context-packet truth. SwiftUI,
 notifications, prompt copy, CLI output, MCP output, and worker prose render or
-project this truth; they do not own it.
+project Core truth; they do not own it.
 
 All watchdog and Wake Ticket work is CLI/MCP-first. `alln` commands and MCP
 tools are product surfaces for OpenClaw, Hermes, scripts, and future apps; Mac
@@ -34,10 +40,11 @@ old dev records without required truth are repair-only or disposable.
 ## Current Code Reality
 
 The backend/CLI/MCP Watchdog MVP is built through read-only stalled-work
-projection. The remaining work is productization: create durable Project Manager
-wait turns, route active episodes through resident periodic scanning, deliver
-Mac attention notifications/menu state, and finish safe Pending follow-up
-execution without turning the feature into broad drain.
+projection. The remaining work is productization under the unified run model:
+derive run/project attention from active `StallEpisode` records, route active
+episodes through resident periodic scanning, deliver Mac attention
+notifications/menu state, and delete or collapse old-model Pending leftovers
+rather than expanding the retired planning path.
 
 Built substrate:
 
@@ -68,13 +75,15 @@ Built substrate:
 
 Missing blockers:
 
-- `followUp`, `returnReview`, `workOrder`, dispatch, and mutating execute Pending
-  items do not execute through Pending yet. Non-mutating follow-up/review paths
-  can be finished; mutating dispatch/work-order execution must stay behind the
-  existing execution/source/approval gates.
-- SWW-S04 Project Manager nudge turns and SWW-S05 notifications are not built.
-- Coarse periodic stall scanning in the resident coordinator is not wired (CLI/MCP
-  read paths scan on demand).
+- SWW-S04 run/project attention and typed recovery actions are not built. This
+  replaces the older manager-turn plan.
+- SWW-S05 notifications/menu integration is not built.
+- Coarse periodic stall scanning in the resident coordinator is not wired
+  (CLI/MCP read paths scan on demand).
+- Old-model Pending kinds (`followUp`, `returnReview`, and mutating legacy
+  kinds) are not Watchdog blockers. During the Unified Run Model cutover,
+  either delete them or collapse the surviving non-mutating cases into ordinary
+  runs/Pending prompts. Do not build more retired planning machinery here.
 
 ## Feature Packet - Watchdog Prerequisite WTK-S00/S01a
 
@@ -107,9 +116,11 @@ Remaining gaps:
 - WorkerRunner capture/classification shipped in WTK-S01b.
 - WorkerChat Pending resume writing shipped in WTK-S02a; other team/thread call
   sites still need a narrow audit before they can claim Wake Ticket behavior.
-- WorkerChat Pending execution/settlement shipped in WTK-S02a; teamRun and
-  mutating Pending execution remain deferred.
-- No live MCP Pending handlers in `MCPServer`.
+- WorkerChat Pending execution/settlement shipped in WTK-S02a; non-mutating
+  teamRun Pending execution shipped in WTK-S02b.
+- Live MCP Pending handlers shipped in WTK-S02c.
+- Unified Run Model cleanup remains: do not extend old mutating Pending paths as
+  part of Watchdog.
 
 SSOT:
 
@@ -248,7 +259,8 @@ Done:
 - Failed worker outcomes can carry sourced `CapacityObservation`.
 - No successful worker answer is reclassified as a capacity failure.
 - No scheduler, Pending execution, GUI, or MCP handler work lands.
-- WTK-S02 and A1 live MCP Pending handlers remain explicitly named as blockers.
+- At S01b closeout, WTK-S02 and A1 live MCP Pending handlers remained explicitly
+  named as blockers; both have since landed.
 
 ## Feature Packet - WTK-S02a WorkerChat Pending Execution
 
@@ -269,11 +281,11 @@ Shipped:
 - Capacity outcomes return the item to `pending` with `PendingResume` and
   `capacityObservation` where appropriate.
 
-Still deferred:
+At S02a closeout, still deferred:
 
 - Live MCP Pending handlers.
 - `teamRun` Pending execution.
-- Mutating dispatch / work-order execution.
+- Legacy mutating Pending execution.
 - Resident wake scheduler, broad drain, GUI/iOS, automatic retry, worker
   substitution, or prompt rewriting.
 
@@ -293,10 +305,10 @@ Founder Intent:
   `PendingRunExecutor` path as CLI -> returns settled `PendingItemJSON` with
   capacity/wake facts when blocked.
 - Non-goals: no scheduler, wake timers, broad drain, GUI/iOS, teamRun Pending
-  execution, mutating dispatch/work-order execution, automatic retry, worker
+  execution, legacy mutating Pending execution, automatic retry, worker
   substitution, prompt rewriting, or MCP-only JSON.
 
-Current State:
+Pre-implementation state:
 
 - Registry specs for `pending_list`, `pending_show`, and `pending_run` exist and
   generated `mcp-tools.json` was updated by WTK-S00/S01a.
@@ -335,9 +347,9 @@ Implementation:
   `alln pending run`.
 - Unsupported kinds preserve current CLI semantics:
   - workerChat executes and settles.
-  - dispatch / mutating execute returns `PENDING_MUTATION_DEFERRED`.
-  - teamRun, followUp, returnReview, and workOrder stay unsupported unless a
-    real existing safe path already handles them.
+  - legacy mutating kinds return `PENDING_MUTATION_DEFERRED`.
+  - teamRun, followUp, returnReview, and old planning kinds stay unsupported
+    unless a real existing safe path already handles them.
 - Use the existing MCP tool-result envelope and shared error envelope. Do not
   expose richer capacity truth than CLI.
 
@@ -363,10 +375,11 @@ Done When:
 - External MCP clients can list, inspect, and run eligible workerChat Pending
   items without scraping CLI text.
 - MCP Pending outputs are contract-parity projections of CLI/Core JSON.
-- No scheduler, GUI/iOS, teamRun Pending execution, mutating dispatch/work-order
+- No scheduler, GUI/iOS, teamRun Pending execution, legacy mutating Pending
   execution, automatic retry, worker substitution, or prompt rewriting lands.
-- Remaining blockers are explicitly WTK-S02b teamRun Pending execution, WTK-S03
-  one-shot wake scheduler, and WTK-S01c other call-site resume writers.
+- At A1 closeout, remaining blockers were WTK-S02b teamRun Pending execution,
+  WTK-S03 one-shot wake scheduler, and WTK-S01c other call-site resume writers;
+  all have since landed.
 
 ## Feature Packet - WTK-S03 One-Shot Wake Scheduler
 
@@ -385,7 +398,7 @@ Founder Intent:
   `PendingRunExecutor` attempt -> success clears resume, a new sourced cooldown
   replaces it, ordinary failure settles normally.
 - Non-goals: no broad drain, no fairness sweep, no idle Pending scheduling, no
-  teamRun Pending execution, no mutating dispatch/work-order execution, no
+  teamRun Pending execution, no legacy mutating Pending execution, no
   provider probes, no GUI/iOS, no worker substitution, no prompt rewriting, no
   scheduler-owned new work.
 
@@ -471,8 +484,8 @@ Done When:
 - The scheduler does not touch idle Pending or unsupported work.
 - The scheduler does not probe providers, rewrite prompts, switch workers, or
   create new work.
-- Remaining blockers are explicitly WTK-S02b teamRun Pending execution,
-  WTK-S01c other call-site resume writers, and WTK-S04 suppression/fallback.
+- At WTK-S03 design time, the remaining blockers were WTK-S02b, WTK-S01c, and
+  WTK-S04; all have since landed.
 
 ## Copy-Paste Developer Prompt - Watchdog Productization Remainder
 
@@ -481,29 +494,29 @@ You are implementing the remaining Watchdog productization work for Allnighter i
 one continuous backend/CLI/MCP/Mac-attention pass.
 
 Goal:
-Turn the built Wake Ticket + stalled-work detector into the user-visible Project
-Manager attention loop: durable Manager wait nudges, typed recovery actions,
-resident periodic scanning, and Mac notification/menu integration. Also finish
-safe non-mutating Pending follow-up/review execution if the existing contracts
-make it straightforward.
+Turn the built Wake Ticket + stalled-work detector into unified run/project
+attention: active StallEpisodes produce typed actions and notification/menu
+attention for the target run/project/thread, without creating a separate Project
+management surface, turn stream, or retired planning/execution ceremony.
 
 Do not implement broad drain, fairness sweeps, idle Pending scheduling, provider
 probes, quota polling, keepalives, capacity prediction, worker substitution,
 prompt rewriting, scheduler-created new work, cloud state, iOS, or new full GUI
-surfaces. Mutating dispatch/work-order execution must not bypass existing
-Project approval, execution source, and safety gates.
+surfaces. Do not extend the retired planning/execution models,
+Project-context-packet truth, or old mutating Pending paths. Those are
+old-model leftovers being deleted or collapsed by
+`Unified_Run_Model.md`.
 
 Read first:
 - AGENTS.md
 - docs/workflows/SSOT_Founder_Input_Workflow.md
 - docs/workflows/SSOT_Feature_Workflow.md
+- docs/phases/Unified_Run_Model.md
 - docs/phases/Stalled_Work_Watchdog.md
 - docs/phases/Pending_Work_And_Drain.md
 - docs/phases/CLI_Implementation_Contract.md
 - docs/phases/Agent_First_MCP_And_Messaging_Workflows.md
-- docs/phases/Project_Spine_And_Project_Manager.md
 - docs/phases/threads/02_Notifications.md
-- docs/phases/Execution_Team_Source_Gate.md
 
 Code reality:
 - WTK-S00/S01a landed in b331c2ae.
@@ -521,34 +534,38 @@ Code reality:
   - StalledWorkDetector / StalledWorkService
   - CLI `alln project stalled`, `alln stalled list --all`
   - MCP `project_stalled`, `stalled_list`
-- ProjectManagerTurnStore exists and can append durable Manager turns.
-- WorkThread.needsAttention is derived from turns, not stored. If stall attention
-  must affect thread triage, add a deliberate typed stall facet/system-event path
-  and tests; do not fake a mutable thread flag.
+- `Unified_Run_Model.md` supersedes the retired PM turns/stores/verbs. If code
+  still has manager-turn stores, `lastNudgeTurnId`, or PM UI references, treat
+  them as cleanup debt. Do not build new Watchdog behavior on them.
+- `WorkThread.needsAttention` is derived. If stall attention must affect thread
+  triage before the unified run surface is fully cut over, add a deliberate typed
+  stall facet/system-event path and tests; do not fake a mutable thread flag.
 - NotificationPolicy, NotificationDeliveryFilter, NotificationCandidateDetection,
   NotificationPolicyStore, and MacNotificationDelivery already exist.
 - We have zero users: no production migrations or stale compatibility shims.
 
 Implement the remaining work in this order:
 
-1. SWW-S04 Project Manager nudge turns
+1. SWW-S04 unified run/project attention
 - Add a service/seam that consumes confirmed active StallEpisode records and
-  creates exactly one durable ProjectManagerTurn(mode: wait) per active episode
-  unless the existing lastNudgeTurnId is still valid.
-- The turn must be source-labeled and local-truth-only:
+  derives exactly one active attention projection per episode.
+- The projection must be source-labeled and local-truth-only:
   - projectId
+  - repoRoot when available
   - target thread/run/turn ids
   - current status from refreshed local truth
   - lastObservableEvent
   - deadlineAnchorAt
   - primaryAction and secondary actions
-  - stallEpisodeId, if the turn model needs a new field
+  - stallEpisodeId
+- Store attention state on `StallEpisode` or a unified run-attention projection.
+  Do not create a manager wait turn.
 - Use typed nextActions. Add new NextActionKind values if needed:
-  checkStatus, openThread, keepWaiting, cancel, dismiss.
-- Do not ask a model to write these turns. They are deterministic Manager wait
-  turns, not generated advice.
-- Update StallEpisode.lastNudgeTurnId and lastNudgeAt when the turn is appended.
-- Avoid duplicate nudges on repeated scans.
+  checkStatus, openRun, openThread, keepWaiting, cancel, dismiss.
+- If the existing `StallEpisode` model still has `lastNudgeTurnId`/`lastNudgeAt`,
+  either rename them to attention-neutral fields in this zero-user cutover or
+  clearly mark them legacy and stop using `lastNudgeTurnId`.
+- Avoid duplicate attention on repeated scans.
 
 2. SWW-S04 recovery actions
 - Add Core service APIs and CLI/MCP handlers only where behavior is safe and
@@ -556,7 +573,8 @@ Implement the remaining work in this order:
 - Required actions:
   - Check status: refresh local truth; clear if terminal/refreshed-out; update
     lastRefreshAt if still stalled.
-  - Open thread: projection/deep-link metadata only; no state mutation required.
+  - Open run/thread: projection/deep-link metadata only; no state mutation
+    required.
   - Keep waiting: set snoozedUntil using default threshold or supplied duration.
   - Dismiss: clear only episode attention, not the underlying run.
   - Cancel: call an existing safe cancel path for the target. If a target kind
@@ -564,10 +582,12 @@ Implement the remaining work in this order:
     rather than faking cancellation.
 - Terminal refresh clears the episode. Viewing/opening does not clear it.
 
-3. Thread attention facet
-- Make active stall nudges affect existing attention triage honestly.
-- Preferred path: add a typed system event/facet for stalled work and update
-  requiresUserAttention / notification derivation accordingly.
+3. Attention derivation
+- Make active stalls affect existing run/project/thread triage honestly.
+- Preferred path: derive attention from `StallEpisode` plus the unified run
+  record. If thread UI survives during the cutover, add a typed system
+  event/facet for stalled work and update requiresUserAttention / notification
+  derivation accordingly.
 - Do not store a drift-prone WorkThread.needsAttention flag.
 - Clearing/snoozing/dismissing must update the facet or derived source so
   attention state follows durable truth.
@@ -577,8 +597,8 @@ Implement the remaining work in this order:
   Wake Ticket loop.
 - Use an injectable interval and fake sleeper/clock for tests.
 - Run coarse periodic scans only; no tight loop and no provider probes.
-- On confirmed active episodes, run the SWW-S04 nudge service.
-- Do not create duplicate episodes or duplicate Manager turns.
+- On confirmed active episodes, update unified run/project attention.
+- Do not create duplicate episodes or duplicate attention records.
 - Keep serve health stable unless adding optional fields with schema/tests.
 
 5. SWW-S05 notifications/menu integration
@@ -595,54 +615,51 @@ Implement the remaining work in this order:
 - Menu/status integration should reuse existing needs-attention derivation or the
   new typed stall attention facet; do not invent a parallel badge counter.
 
-6. Safe Pending leftovers
-- Implement followUp and returnReview Pending execution only if they can reuse
-  existing non-mutating worker/team paths and settle through PendingService.
-- For workOrder and mutating dispatch Pending execution:
-  - do not implement unless existing Project approval, execution source gate,
-    safety, and dispatch APIs make the path explicit and tested;
-  - otherwise keep returning the current deferred/safe error and update docs.
-- CLI and MCP pending_run must stay semantically identical.
+6. Old Pending leftovers
+- Do not implement old planning Pending execution in this slice.
+- If `followUp` or `returnReview` survives the unified run cutover, it should be
+  represented as an ordinary run/Pending prompt and settle through the same
+  `PendingRunExecutor` path as other eligible work.
+- Keep CLI and MCP `pending_run` semantically identical.
 
 Required tests:
-1. One active confirmed StallEpisode creates one ProjectManagerTurn(mode: wait)
-   with typed actions and lastNudgeTurnId; repeated scans do not duplicate it.
+1. One active confirmed StallEpisode creates one run/project attention projection
+   with typed actions; repeated scans do not duplicate it.
 2. Check status clears terminal/refreshed-out episodes and preserves still-active
-   episodes without duplicate nudges.
-3. Keep waiting sets snoozedUntil; snoozed episodes suppress repeat nudges and
+   episodes without duplicate attention.
+3. Keep waiting sets snoozedUntil; snoozed episodes suppress repeat attention and
    notifications until due.
 4. Dismiss clears episode attention without changing the underlying target.
 5. Cancel uses safe existing target cancel paths or returns a shared safe error.
-6. Active stall attention participates in derived thread/menu attention without a
-   stored needsAttention flag.
-7. Resident periodic scan runs with fake clock/sleeper, creates nudges, and shuts
+6. Active stall attention participates in derived run/project/thread/menu
+   attention without a stored needsAttention flag.
+7. Resident periodic scan runs with fake clock/sleeper, updates attention, and shuts
    down cleanly with ResidentCoordinator.
 8. Notification tests cover one-per-episode, quiet hours, mute, debounce,
    no-cold-start noise, no double-notify for failed/auth/manual blockers, and no
    secret/prompt text in copy.
-9. Safe Pending leftover tests prove followUp/returnReview behavior if
-   implemented, and prove workOrder/mutating dispatch remain gated/deferred if
-   not safely implementable.
+9. Regression tests prove no new manager turn, retired planning path, mutating
+   Pending path, or execution ceremony is used by Watchdog.
 
 Proof commands:
-- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'Stalled|Watchdog|StallEpisode|ProjectManager|ResidentCoordinator|CoordinatorTests'
+- swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'Stalled|Watchdog|StallEpisode|ResidentCoordinator|CoordinatorTests'
 - swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'Notification|PendingRunExecutor|PendingService|MCPStalled|MCPPending'
 - swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'ContractRegistryTests|MCPToolContractTests'
 - swift run --disable-sandbox --package-path Packages/AllnighterCore alln dev export-contracts --check
 
 Closeout:
-- State what landed for SWW-S04/S05, resident periodic scanner, and safe Pending
-  leftovers.
-- State any still-deferred mutating Pending execution explicitly and why.
+- State what landed for SWW-S04/S05 and resident periodic scanner.
+- State any old-model Pending leftovers deleted or intentionally left deferred.
 - Confirm no broad drain, provider probes, worker substitution, prompt rewriting,
-  scheduler-created new work, MCP-only schema, or cloud state was added.
+  scheduler-created new work, PM turn/store dependency, MCP-only schema, or cloud
+  state was added.
 - Update docs and generated contracts if public schemas/tools changed.
 - Commit only explicit changed files with a clear message.
 ```
 
 ## Founder Intent
 
-Allnighter should keep Project work moving after the user walks away.
+Allnighter should keep repo/project work moving after the user walks away.
 
 The important user question is not:
 
@@ -663,9 +680,10 @@ Did the worker stop because it was expected to sleep, or did work go quiet when
 it should still be moving?
 ```
 
-The Project Manager should notice old nonterminal work from local truth, create
-one durable nudge in the right Project, and offer safe recovery actions without
-becoming a quota brain, global queue, or broad background scheduler.
+Allnighter should notice old nonterminal work from local truth, attach one
+durable attention record to the right run/project, and offer safe recovery
+actions without becoming a quota brain, global queue, or broad background
+scheduler.
 
 Expected capacity cooldown is not a stall. When a CLI says "try again at T" or
 "retry after N," Allnighter should preserve the already-authorized work, sleep
@@ -674,15 +692,15 @@ silently until that observed boundary, and make one same-work resume attempt.
 ## Product Claim
 
 ```text
-The Project Manager notices when Project work stops moving, lets expected
-cooldowns sleep, and gives you one safe next move when human judgment is needed.
+Allnighter notices when project work stops moving, lets expected cooldowns
+sleep, and gives you one safe next move when human judgment is needed.
 ```
 
 It should feel like:
 
 ```text
-The Project Manager knows this Project has a run that has not moved, checked the
-local truth before bothering me, and can help me refresh, wait, open, or cancel.
+This run has not moved, Allnighter checked local truth before bothering me, and
+I can refresh, wait, open, or cancel.
 ```
 
 It must not feel like:
@@ -716,7 +734,7 @@ The watchdog asks:
 
 ```text
 Work already started or was queued for start. Has local truth stopped changing
-long enough that the Project Manager should ask the user to decide?
+long enough that Allnighter should mark the run/project as needing attention?
 ```
 
 Therefore v1 uses only observed local truth:
@@ -748,7 +766,7 @@ worker attempt exits/blocks with sourced capacity signal
 -> resident coordinator waits until observed reset / wakeAfter plus jitter
 -> Allnighter makes one same-work resume attempt
 -> success clears the resume ticket; a new sourced cooldown updates it
--> repeated/unknown failure routes to Project Manager attention
+-> repeated/unknown failure routes to run/project attention
 ```
 
 Unexpected silence:
@@ -758,8 +776,9 @@ worker chat turn or async team run enters queued/running
 -> watchdog records the last observable local event
 -> deadline passes with no new event
 -> watchdog refreshes status from existing local truth
--> if still nonterminal and still no progress, create one Project Manager nudge
--> Mac notification points to that nudge when allowed
+-> if still nonterminal and still no progress, create/update one run/project
+   attention record
+-> Mac notification points to the project/run/thread/stall episode when allowed
 -> user checks status, opens the thread, keeps waiting, or cancels
 -> stall episode clears when local truth moves terminal or user recovery ends it
 ```
@@ -781,15 +800,16 @@ evidence shows the noise shape.
 Deferred from v1:
 
 - idle Pending items that have not been run;
-- approved proposals or work orders that have not been dispatched;
-- dispatch return review follow-ups;
+- old planning/mutating Pending leftovers; those are Unified Run Model
+  cleanup, not Watchdog scope;
 - broad native drain/scheduler loops;
 - admission ledgers, quota accounting, and capacity routing;
 - continuous provider probes or keepalive pings;
 - cooldown resume for work that was not already user-authorized;
 - worker substitution;
 - prompt rewriting;
-- retry that creates new work or changes the worker/prompt without approval.
+- retry that creates new work or changes the worker/prompt without an explicit
+  user request.
 
 Pending may be "blocked" or "needs attention," but idle Pending is not
 stalled. Pending means work is on the Project desk until a user or external loop
@@ -806,40 +826,41 @@ Every stall candidate must resolve to exactly one Project.
 Rules:
 
 - A candidate without a reliable `projectId` is a repair/unassigned problem, not
-  a stalled-work nudge.
+  stalled-work attention.
 - Stalls in one Project must not block, reorder, or reprioritize another
   Project.
 - Project root truth comes from `ProjectStore`; raw `workingDir` values are
   historical receipts only.
-- The durable nudge is a `ProjectManagerTurn` for that Project with typed
-  `nextActions`.
-- The target thread receives the existing `thread.needsAttention` signal with a
-  `stallReason` facet. Do not create a parallel attention system.
+- The durable user-facing state is a `StallEpisode` / run-attention projection
+  for that Project with typed `nextActions`.
+- If the target still has a thread surface, thread attention is derived from the
+  same stall truth. Do not create a parallel inbox or mutable attention flag.
 - Global stalled views are aggregate floor views grouped by Project. They are
   not a global durable queue.
-- Project Manager triage order comes from the same Home/Project triage contract
-  used by threads and notifications, not watchdog scan order.
+- Project/run triage order comes from the same Home/Project triage contract used
+  by threads and notifications, not watchdog scan order.
 
-## Dependency On Project Spine
+## Dependency On Unified Runs
 
-The watchdog is Project Manager behavior. It should not ship as a global run
-scanner ahead of the Project floor.
+The watchdog is run/project behavior. It should not ship as a global run scanner
+outside the unified run model.
 
-Minimum Project Spine dependencies:
+Minimum dependencies:
 
 - durable Projects exist;
-- new threads and runs can resolve `projectId`;
-- Project context can include active runs and attention records;
-- Project Manager turns can carry typed `nextActions`;
-- notifications can open the linked Project/thread/turn.
+- new runs can resolve `projectId` and canonical `repoRoot`;
+- `RunRecord` / current `TeamRun` substrate can expose active runs and attention
+  records;
+- stall attention can carry typed `nextActions`;
+- notifications can open the linked Project/run/thread/episode.
 
 Rules:
 
 - Before a target can resolve `projectId`, the scanner must emit no stalled
   episode for it. It may surface a repair/unassigned warning through the owning
   repair path.
-- Active stalls may be summarized in `ProjectContextPacket.work`, but the
-  packet is a receipt. `StallEpisode` remains the durable stall truth.
+- Active stalls may be summarized in chat/run context, but any summary is a
+  receipt. `StallEpisode` remains the durable stall truth.
 - Non-git folder Projects may still have stalled chat/team-run attention, but
   recovery remains limited to safe actions. They can never gain commit-proof
   semantics from the watchdog.
@@ -850,9 +871,9 @@ The watchdog must not relabel every old item as stalled.
 
 | State | Truth owner | Watchdog role |
 | --- | --- | --- |
-| Terminal failure, timeout, cancellation, or completion | Turn/run lifecycle + notification policy | Do not create a stalled nudge. Existing failure/completion attention owns it. |
+| Terminal failure, timeout, cancellation, or completion | Turn/run lifecycle + notification policy | Do not create stalled attention. Existing failure/completion attention owns it. |
 | Auth/setup/manual-paste blocked | Worker readiness, turn state, or notification events | Surface setup/manual copy through existing attention. Do not call it stalled. |
-| Capacity sleeping | Pending resume / Wake Ticket | Suppress stalled nudges while `wakeAfter` or `observedResetAt` is in the future. |
+| Capacity sleeping | Pending resume / Wake Ticket | Suppress stalled attention while `wakeAfter` or `observedResetAt` is in the future. |
 | Idle Pending | Pending model | Do not call it stalled. It is waiting for a user, CLI, GUI, MCP client, or external loop owner to run it. |
 | Blocked Pending | Pending model + admission/safety reason | Keep the Pending label and sourced blocker. It may need attention, but it is not stalled. |
 | True stall | Stalled Work Watchdog | Nonterminal queued/running work in one Project with no local progress past threshold after refresh. |
@@ -949,7 +970,7 @@ Rules:
   until reset.
 - `authRequired` and `manualRequired` never auto-resume.
 - `unknownCapacity` may schedule a conservative one-shot retry only when policy
-  permits; otherwise it routes to the Project Manager nudge path.
+  permits; otherwise it routes to run/project attention.
 - Keep `rawSnippet` short and sanitized. It is a receipt, not a transcript.
 
 Wake Ticket projection:
@@ -1012,8 +1033,8 @@ StallEpisode
     source
     summary
   lastRefreshAt?
-  lastNudgeTurnId?
-  lastNudgeAt?
+  lastAttentionAt?
+  lastNotificationAt?
   snoozedUntil?
   clearedAt?
   clearedBy?: terminalResult | userCancel | userRetry | userDismiss |
@@ -1032,13 +1053,16 @@ Episode rules:
 - `Keep waiting` sets `status = snoozed` and `snoozedUntil`; it does not clear
   the episode.
 - Scanner reads `snoozedUntil` from durable state. Snooze is never memory-only.
-- `lastNudgeAt` prevents duplicate Project Manager turns and notifications for
-  the same episode.
-- An ignored nudge does not auto-escalate. Repeat notification requires a user
+- `lastAttentionAt` / `lastNotificationAt` prevent duplicate attention and
+  notifications for the same episode.
+- Ignored attention does not auto-escalate. Repeat notification requires a user
   snooze that expires or a meaningful target state change.
 - The episode clears automatically when refresh/local truth observes a terminal
   result or a non-stall owner state such as auth/manual blocker.
-- Clearing an episode does not delete the historical Project Manager turn.
+- Clearing an episode does not delete the historical stall receipt.
+- Existing code may still contain `lastNudgeTurnId` / `lastNudgeAt` from the
+  pre-unified plan. With zero users, rename or remove those fields during the
+  unified-run cleanup instead of preserving compatibility aliases.
 
 No `StallEpisode` fields may represent estimated runtime, cost, quota,
 complexity, or reset windows. Observed reset/wake facts belong to
@@ -1074,7 +1098,7 @@ App-closed behavior:
 - On next launch/resident start, the scanner refreshes before declaring stale
   work stalled.
 - Sleep/wake may make timestamps look old. Refresh-before-declare is mandatory
-  to avoid a burst of false nudges.
+  to avoid a burst of false attention.
 
 ## Wake Ticket Scheduler
 
@@ -1089,7 +1113,7 @@ load Pending items with PendingResume.nextWakeAt
 -> on success, clear resume
 -> on new cooldown, replace wakeAfter from the new CapacityObservation
 -> on auth/manual/permanent failure, route to existing attention
--> on repeated unknown failure, let SWW create a nudge
+-> on repeated unknown failure, let SWW create run/project attention
 ```
 
 Rules:
@@ -1099,8 +1123,7 @@ Rules:
   probe is optional future policy only when it is cheaper/safer and fixture
   proven for that driver.
 - Resume only work the user already authorized: submitted Pending, a user-sent
-  worker turn, or an explicitly approved work order. Do not auto-create new
-  work from model prose.
+  worker turn, or an existing run. Do not auto-create new work from model prose.
 - The scheduler may start with one item at a time: the interrupted head item.
   Full multi-Project fairness and Away Mode remain parked.
 - Manual `pending run` may override a wake and attempt immediately.
@@ -1109,22 +1132,27 @@ Rules:
 - Resident restart recalculates the next wake from durable Pending/attempt state;
   in-memory timers are never authority.
 
-## Project Manager Nudge
+## Run Attention
 
-A stalled nudge is a durable Project Manager turn. The notification is only a
-pointer.
+Stall attention is a durable projection of `StallEpisode` onto the unified
+run/project surface. The notification is only a pointer.
 
-Minimum `ProjectManagerTurn` projection:
+Minimum run/project attention projection:
 
 ```text
-ProjectManagerTurn
-  mode: wait
-  projectId
-  threadId: project.managerThreadId
-  contextPacketId?
-  warnings[]
-  nextActions[]
+RunAttention
   stallEpisodeId
+  projectId
+  repoRoot?
+  runId?
+  threadId?
+  targetKind
+  targetId
+  currentStatus
+  lastObservableEvent
+  deadlineAnchorAt
+  primaryAction
+  secondaryActions[]
 ```
 
 Fixed facts block:
@@ -1139,26 +1167,28 @@ Suggested next move: <one primary action>
 
 Rules:
 
-- The nudge must name the Project.
-- The nudge must link to the target thread/run/turn.
-- The nudge must be source-labeled. No provider guesses.
-- The nudge offers one primary action and demotes the rest.
-- The nudge is created only after refresh confirms the item is still eligible.
+- The attention projection must name the Project.
+- The attention projection must link to the target run/thread/turn.
+- The attention projection must be source-labeled. No provider guesses.
+- The attention projection offers one primary action and demotes the rest.
+- The attention projection is created only after refresh confirms the item is
+  still eligible.
 - If the target thread is already visible/read, local notification delivery may
-  be suppressed, but the durable nudge still exists when the episode is active.
+  be suppressed, but the durable stall attention still exists when the episode
+  is active.
 
 Primary action policy:
 
 | Reason | Primary action | Secondary actions |
 | --- | --- | --- |
-| `queuedNoStart` | `Cancel` when no worker has started, otherwise `Open thread` | `Check status`, `Keep waiting` |
-| `runningNoProgress` | `Check status` | `Open thread`, `Keep waiting`, `Cancel` |
-| `statusUnknownNoProgress` | `Open thread` | `Check status`, `Keep waiting`, `Cancel` |
+| `queuedNoStart` | `Cancel` when no worker has started, otherwise `Open run` | `Check status`, `Keep waiting` |
+| `runningNoProgress` | `Check status` | `Open run`, `Open thread`, `Keep waiting`, `Cancel` |
+| `statusUnknownNoProgress` | `Open run` | `Check status`, `Open thread`, `Keep waiting`, `Cancel` |
 
-`Retry` is not a silent watchdog action in v1. The Project Manager may help the
-user create a new proposal/work order or restart path after an explicit cancel
-or human approval, but the watchdog itself does not rewrite prompts, choose a
-new worker, or start a replacement attempt.
+`Retry` is not a silent watchdog action in v1. If the user asks chat "what now?"
+an agent can inspect repo/run/stall truth and propose or perform the next run
+according to the normal unified run contract. The watchdog itself does not
+rewrite prompts, choose a new worker, or start a replacement attempt.
 
 ## Recovery Actions
 
@@ -1166,11 +1196,11 @@ All actions are explicit and Project-scoped.
 
 | Action | Effect |
 | --- | --- |
-| `Check status` | Refresh the target from existing local truth. If terminal or owner-blocked, clear/suppress the stall. If still stalled, update `lastRefreshAt` without creating a duplicate nudge. |
-| `Open thread` | Navigate to the linked Project/thread/turn. Does not change episode state by itself. |
-| `Keep waiting` | Set `snoozedUntil` using the same default threshold as the target unless the user picks a specific duration. Keeps attention visible but suppresses repeat nudges until snooze expires or state changes. |
+| `Check status` | Refresh the target from existing local truth. If terminal or owner-blocked, clear/suppress the stall. If still stalled, update `lastRefreshAt` without creating duplicate attention. |
+| `Open run` / `Open thread` | Navigate to the linked Project/run/thread/turn. Does not change episode state by itself. |
+| `Keep waiting` | Set `snoozedUntil` using the same default threshold as the target unless the user picks a specific duration. Keeps attention visible but suppresses repeat attention until snooze expires or state changes. |
 | `Cancel` | Calls the existing safe cancel path for that target. On success, target becomes terminal `cancelled` and the episode clears. On failure, keep the episode active and show the sourced failure. |
-| `Dismiss` | Clears only the nudge/episode attention, not the underlying run. Use sparingly in UI; prefer `Keep waiting` when work may still be running. |
+| `Dismiss` | Clears only the episode attention, not the underlying run. Use sparingly in UI; prefer `Keep waiting` when work may still be running. |
 
 Clear rules:
 
@@ -1190,9 +1220,11 @@ Mac local notifications are governed by
 
 Rules:
 
-- A stalled episode emits `thread.needsAttention` with a `stallReason` facet.
-- Local notification delivery is content-light and points to the Project/thread
-  at the nudge turn.
+- A stalled episode emits run/project attention. If the thread surface still
+  exists during the cutover, thread attention is derived from the same
+  `StallEpisode` truth with a `stallReason` facet.
+- Local notification delivery is content-light and points to the
+  Project/run/thread/stall episode.
 - Respect global notification settings, quiet hours, per-thread mute, and
   debounce.
 - Emit at most one notification per stall episode unless the user snoozes and
@@ -1207,16 +1239,16 @@ Default copy examples:
 ```text
 Allnighter work may be stalled in "Fix team setup UX"
 Team run needs a decision in "Allnighter"
-Codex has not moved in "Project Manager spine"
+Codex has not moved in "Unified run cleanup"
 ```
 
 No secrets or prompt bodies in notification text by default.
 
 ## CLI And MCP Contract
 
-CLI/MCP are product and integration surfaces, not afterthoughts. The Project
-Manager nudge is the primary human UX, but external agents must be able to
-inspect the same facts through `alln` and MCP without scraping GUI copy.
+CLI/MCP are product and integration surfaces, not afterthoughts. Run/project
+attention is the primary human UX, and external agents must be able to inspect
+the same facts through `alln` and MCP without scraping GUI copy.
 
 Wake/Pending capacity projection ships through the Pending contract first:
 
@@ -1283,11 +1315,11 @@ Rules:
 - Project command output is authoritative for one Project.
 - Aggregate output groups by Project and must not become a global queue.
 - JSON mirrors the same Core `StallEpisode` ids, status, facts block, and
-  `nextActions` visible to the Project Manager.
+  `nextActions` visible in run/project attention.
 - Read-only CLI ships before mutating CLI recovery commands.
 - External loop owners may use the read-only list as a signal to message the
-  user or call normal Project Manager tools. This does not make Allnighter own
-  their scheduler.
+  user or call normal run tools. This does not make Allnighter own their
+  scheduler.
 - MCP may expose `project_stalled` and `stalled_list` only as projections of the
   same Core state.
   MCP must not invent MCP-only stall semantics or self-approve recovery.
@@ -1311,7 +1343,7 @@ Rules:
   prediction.
 - No provider scraping.
 - No native scheduling/drain revival.
-- No automatic retry from stalled-work nudges. Wake Tickets may perform their
+- No automatic retry from stalled-work attention. Wake Tickets may perform their
   scoped one-shot same-work resume.
 - No silent worker substitution.
 - No prompt rewriting.
@@ -1330,7 +1362,8 @@ Core:
   not mislabeled as local machine/process busy.
 - Add `StallEpisode` and deterministic candidate derivation.
 - Add fake-clock tests for thresholds, snooze, clear rules, and idempotency.
-- Derive stall attention from existing Project/thread/run truth.
+- Derive stall attention from existing Project/run/thread truth, with `RunRecord`
+  / current `TeamRun` as the run substrate.
 - Add Project-scoped JSON projection.
 
 Engine/Mac backend:
@@ -1344,20 +1377,23 @@ Engine/Mac backend:
 - Run coarse scanner when coordinator/app is alive.
 - Refresh target status before promoting a candidate to active.
 - Execute safe recovery actions through existing run/thread APIs.
-- Record nudge/action decisions durably.
+- Record attention/action decisions durably.
 
-ThreadStore/Project Manager:
+Run/Thread attention:
 
-- Create one `ProjectManagerTurn(mode: wait)` for each active episode.
-- Link the turn to target Project/thread/run/turn.
-- Set existing `thread.needsAttention` with a stall facet.
+- Create one run/project attention projection for each active episode.
+- Link the projection to target Project/run/thread/turn.
+- If the thread surface survives the unified-run cutover, derive
+  `thread.needsAttention` from the same stall facet instead of storing a new
+  thread flag.
 - Render sleeping/cooldown as sourced Pending/blocked state, not stalled state.
-- Include active stalls in Project context packets under work/attention
-  summaries without making the packet authority.
+- Include active stalls in chat/run context summaries when helpful without
+  making the summary authority.
 
 Notifications:
 
-- Treat active stall as a `thread.needsAttention` source.
+- Treat active stall as a run/project attention source, and as thread attention
+  only where thread UI still exists.
 - Reuse existing mute, debounce, quiet-hours, visibility/read suppression, and
   click-through behavior.
 
@@ -1380,14 +1416,14 @@ iOS:
 | Junction | Owner | Bad inference | Ban | Negative test |
 | --- | --- | --- | --- | --- |
 | Old timestamp -> stall | Watchdog detector | Any old item is stalled. | Only nonterminal v1 targets with no observable progress after refresh can become active stalls. | Idle Pending older than a day is not stalled. |
-| Failure -> stall | Turn/run lifecycle | A failed turn should also get a stalled nudge. | Terminal states are not stalled. | Failed turn emits failure attention only. |
+| Failure -> stall | Turn/run lifecycle | A failed turn should also get stalled attention. | Terminal states are not stalled. | Failed turn emits failure attention only. |
 | Cooldown -> stall | Pending Resume / Wake Ticket | A quiet cooldown window is stale work. | Future `wakeAfter` suppresses stalled-work promotion. | Pending item cooling until 2:14 AM creates no StallEpisode before 2:14 AM. |
 | Auth/setup -> stall | Worker readiness / turn state | Sign-in blocker is a stall. | Auth/setup/manual blockers route to setup/manual copy. | Auth-required turn never creates a StallEpisode. |
 | Reset copy -> estimate | CapacityObservation | If a provider does not give reset time, Allnighter may invent one. | `observedResetAt` only when sourced; local backoff uses `wakeAfter` and local-policy copy. | No-reset cooldown JSON contains no provider reset field. |
-| Wake -> new work | Pending / Project Manager | The scheduler may rewrite the prompt or create a replacement task. | Wake resumes the same authorized work only. | Model suggestion text creates no new Pending item during wake. |
-| Stalled -> retry | Project Manager / user approval | The watchdog may silently retry or pick another worker. | Watchdog actions are explicit; retry/replacement requires human approval through normal Project Manager flow. | Active episode creates no worker attempt until user approves a new run. |
-| Project A stall -> global blocker | ProjectStore + triage | One Project's stalled run blocks another Project. | Stalls are Project-scoped; aggregate views group only. | Project B can dispatch while Project A has an active stall. |
-| Nudge -> duplicate truth | ThreadStore / Project Manager | A separate stalled inbox owns attention state. | Reuse `thread.needsAttention` with a stall facet. | Menu badge count comes from existing attention derivation. |
+| Wake -> new work | Pending / RunRecord | The scheduler may rewrite the prompt or create a replacement task. | Wake resumes the same authorized work only. | Model suggestion text creates no new Pending item during wake. |
+| Stalled -> retry | RunRecord / user request | The watchdog may silently retry or pick another worker. | Watchdog actions are explicit; retry/replacement requires a new user-directed run. | Active episode creates no worker attempt until the user requests a new run. |
+| Project A stall -> global blocker | ProjectStore + triage | One Project's stalled run blocks another Project. | Stalls are Project-scoped; aggregate views group only. | Project B can run while Project A has an active stall. |
+| Attention -> duplicate truth | StallEpisode / RunRecord | A separate stalled inbox owns attention state. | Derive run/project/thread attention from `StallEpisode`. | Menu badge count comes from existing attention derivation. |
 | Refresh -> probe | Engine | Refresh may run provider quota probes. | Refresh reads existing target status/result/journal paths only. | No provider-only probe command runs during stall scan. |
 
 ## Ordered Slices
@@ -1417,8 +1453,8 @@ iOS:
   with the same semantics, JSON schemas, and error envelope as CLI/Core.
 - [x] WTK-S02b - Real Pending teamRun execution seam (DONE 2026-06-19):
   non-mutating `teamRun` Pending items execute via `CatalogRunCoordinator` and
-  settle through `PendingService.settleTeamRun`. Mutating dispatch/work orders
-  remain deferred.
+  settle through `PendingService.settleTeamRun`. Old mutating Pending paths are
+  Unified Run Model cleanup, not Watchdog scope.
 - [x] WTK-S03 - One-shot wake scheduler (DONE 2026-06-19): `PendingWakePlanner`,
   `PendingWakeScheduler`, and resident `alln serve` wake loop with `.serve` /
   `wakeTicket` provenance.
@@ -1433,17 +1469,18 @@ iOS:
 - [x] SWW-S03 - CLI/MCP read-only projection (DONE 2026-06-19):
   `alln project stalled`, `alln stalled list --all`, `project_stalled`,
   `stalled_list`.
-- [ ] SWW-S04 - Project Manager nudge and actions: create one durable
-  `ProjectManagerTurn(mode: wait)`, set `thread.needsAttention` with a stall
-  facet, and implement `Check status`, `Open thread`, `Keep waiting`, `Cancel`,
-  and clear rules.
+- [ ] SWW-S04 - Unified run attention and actions: create one durable
+  run/project attention projection per active `StallEpisode`, optionally derive
+  thread attention from the same facet while thread UI survives, and implement
+  `Check status`, `Open run/thread`, `Keep waiting`, `Cancel`, `Dismiss`, and
+  clear rules. Do not create manager turns.
 - [ ] SWW-S05 - Notifications/menu integration: local notification pointer,
   quiet-hours/mute/debounce/read suppression, one notification per episode, and
   no double-notify for failure/auth/manual blockers.
 
 Backend/Core/CLI/MCP slices come before GUI polish. The user-visible win is the
-Project Manager nudge; the CLI/MCP contract is how agents and scripts operate
-the same truth.
+run/project attention state; the CLI/MCP contract is how agents and scripts
+operate the same truth.
 
 ## Works Tests
 
@@ -1538,7 +1575,7 @@ Run the scanner.
 Expected:
 - no active StallEpisode is created;
 - any prior candidate clears as refreshedOut;
-- no Project Manager nudge or notification is emitted.
+- no run/project attention or notification is emitted.
 ```
 
 Snooze/idempotency:
@@ -1547,13 +1584,13 @@ Snooze/idempotency:
 Create one active StallEpisode.
 Run the scanner twice.
 Expected:
-- one Project Manager nudge turn exists;
+- one run/project attention projection exists;
 - one notification candidate exists before delivery policy;
 - idempotency key is stable.
 Choose Keep waiting.
 Run the scanner before snoozedUntil.
 Expected:
-- no new nudge or notification.
+- no new attention or notification.
 Advance fake clock beyond snoozedUntil while target is still stalled.
 Expected:
 - the same episode becomes active again and may notify once.
@@ -1566,7 +1603,7 @@ Create an active stalled team run.
 Choose Check status and return still running.
 Expected:
 - lastRefreshAt updates;
-- no duplicate nudge.
+- no duplicate attention.
 Choose Cancel and make cancel succeed.
 Expected:
 - target is terminal cancelled;
@@ -1574,17 +1611,19 @@ Expected:
 - thread attention no longer includes the stall facet.
 ```
 
-Project Manager nudge:
+Run attention:
 
 ```text
 Create a stalled worker turn in the Allnighter Project.
 Run promotion.
 Expected:
-- Project Manager thread receives one mode=wait turn;
+- one run/project attention projection exists;
 - facts block includes title, current status, last change, waiting since, and one
   primary action;
-- turn links to the target thread/run/turn;
-- target thread has needsAttention with stallReason.
+- projection links to the target thread/run/turn;
+- target run/project has attention;
+- target thread has derived needsAttention with stallReason only if thread UI is
+  still present.
 ```
 
 Notification:
@@ -1593,11 +1632,11 @@ Notification:
 Create an active stall in an unmuted thread that is not visible/read.
 Expected:
 - one local notification candidate is produced;
-- clicking opens the Project/thread at the nudge turn.
+- clicking opens the Project/run/thread at the stall episode.
 Mute the thread and repeat.
 Expected:
 - no local notification delivery;
-- durable Project Manager nudge still exists.
+- durable run/project attention still exists.
 ```
 
 CLI proof:
@@ -1612,7 +1651,7 @@ Expected:
 ```text
 - project command returns only Allnighter episodes;
 - aggregate command groups by Project;
-- JSON ids/facts/actions match the Project Manager-visible state;
+- JSON ids/facts/actions match the run/project attention state;
 - no estimated quota/cost/runtime fields exist.
 ```
 
@@ -1639,15 +1678,15 @@ bash scripts/check.sh
 - Detection uses local progress signals and refreshes before declaring.
 - Terminal failure/completion, auth/setup/manual blockers, and idle Pending do
   not become stalls.
-- The Project Manager creates one durable nudge per episode with a fixed facts
-  block and typed next actions.
-- `thread.needsAttention` is reused with a stall facet; no parallel attention
-  tracker ships.
-- Mac local notifications point to the nudge and respect existing mute/debounce/
-  quiet-hours rules.
+- Each active episode creates one durable run/project attention projection with
+  a fixed facts block and typed next actions.
+- Thread attention, where the thread UI still exists, is derived from the same
+  stall facet; no parallel inbox or mutable attention tracker ships.
+- Mac local notifications point to the project/run/thread/stall episode and
+  respect existing mute/debounce/quiet-hours rules.
 - Stall state clears automatically when local truth shows terminal completion,
   owner-blocked state, or successful user recovery.
-- Snooze and duplicate-nudge prevention survive app restart.
+- Snooze and duplicate-attention prevention survive app restart.
 - Read-only CLI/MCP projections mirror Core state and remain Project-scoped.
 - No quota accounting, admission ledger, continuous probe loop, broad drain
   scheduler, prompt rewrite, or worker substitution machinery is introduced.
@@ -1664,10 +1703,11 @@ bash scripts/check.sh
 - V1 targets Wake Tickets, worker chat turns, and async team runs only.
 - Refresh-before-declare is mandatory.
 - Progress means local truth changed; provider guesses are not progress signals.
-- PM turn owns durable recovery history; notification is only a pointer.
+- `StallEpisode` / run attention owns durable recovery history; notification is
+  only a pointer.
 - One primary action is shown per stall reason.
-- Retry/replacement is outside the watchdog action set unless routed through
-  explicit Project Manager approval.
+- Retry/replacement is outside the watchdog action set unless the user asks for
+  a new unified run.
 - Pending idle time is not stalled work.
 - Global stalled views are aggregate-only.
 
