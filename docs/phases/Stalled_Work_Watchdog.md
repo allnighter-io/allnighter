@@ -1,7 +1,7 @@
 # Stalled Work Watchdog
 
-Status: WTK-S00/S01a/S01b/S02a/S02c built; **next handoff is WTK-S03
-one-shot wake scheduling for workerChat Wake Tickets**
+Status: WTK-S00–S04 and SWW-S00–S03 built for backend/CLI/MCP; **SWW-S04/S05
+(Project Manager nudge, notifications) remain deferred**
 Owner: AllnighterCore + AllnighterEngine + Mac app backend + CLI/MCP contracts
 Updated: 2026-06-19
 
@@ -56,34 +56,20 @@ Built substrate:
   and expose `transcriptRef` in attempt summaries, not inline transcript content.
 - Live MCP handlers for `pending_list`, `pending_show`, and `pending_run` are
   wired through `MCPPendingHandlers` and dispatch from `MCPServer`.
-- Worker chat turns have durable `projectId`, `queued`/`running` status, and
-  timestamps.
-- Async team runs persist durable `TeamRun` truth through `RunStore`, including
-  orphan recovery to `interrupted`.
-- `ProjectManagerTurnStore` exists for durable Project Manager turns.
+- `ResidentCoordinator` runs a one-shot Wake Ticket loop via `PendingWakeScheduler`.
+- `PendingRunExecutor` accepts `BeginRunOptions` for lease owner / attempt reason
+  (CLI default, resident wake uses `.serve` / `wakeTicket`).
+- Non-mutating `teamRun` Pending items execute through `CatalogRunCoordinator`.
+- `StallEpisode` contract, `StalledWorkDetector`, and read-only CLI/MCP projections
+  (`project stalled`, `stalled list`, `project_stalled`, `stalled_list`) are live.
 
 Missing blockers:
 
-- `teamRun`, `followUp`, `returnReview`, `workOrder`, dispatch, and mutating
-  execute Pending items do not execute through Pending yet.
-- Other non-Pending call sites may still need resume writers if they should turn
-  classified capacity observations into Pending resumes.
-- `ResidentCoordinator` is still health-only; it has no wake timer or watchdog
-  scanner.
-- `PendingRunExecutor` currently enters `PendingService.beginRun` through the
-  default CLI lease owner. WTK-S03 should add a narrow owner/provenance seam so
-  resident wake attempts are leased to `serve` without changing CLI/MCP behavior.
-- New `alln pending add` items are not reliably Project-scoped unless the caller
-  supplies/binds `projectId`; unassigned dev records are repair-only/disposable
-  and must not become watchdog targets.
-
-Therefore the next implementation handoff is **WTK-S03**: add a narrow resident
-one-shot wake loop for due workerChat Wake Tickets. Do not detour into broad
-native drain or teamRun Pending execution first; CLI and MCP already expose the
-workerChat path, and the utilization unlock is making `alln serve` resume one
-due capacity-sleeping item at the sourced wake boundary. SWW stalled nudges
-should wait until Wake Ticket suppression truth exists, otherwise expected
-cooldown sleep will be mislabeled as stalled work.
+- `followUp`, `returnReview`, `workOrder`, dispatch, and mutating execute Pending
+  items do not execute through Pending yet.
+- SWW-S04 Project Manager nudge turns and SWW-S05 notifications are not built.
+- Coarse periodic stall scanning in the resident coordinator is not wired (CLI/MCP
+  read paths scan on demand).
 
 ## Feature Packet - Watchdog Prerequisite WTK-S00/S01a
 
@@ -1347,10 +1333,9 @@ iOS:
   worker attempt stdout/stderr/JSONL/RPC error before reduction to `errorReason`;
   attach sourced capacity observations to `WorkerRunOutcome` / `WorkerAnswer`
   without changing execution behavior.
-- [ ] WTK-S01c - Other call-site resume writers: workerChat Pending resume
-  mapping is built in WTK-S02a. Audit team/thread paths that can produce sourced
-  `CapacityObservation` and decide whether they should map into Pending resume
-  facts before claiming Wake Ticket coverage there.
+- [x] WTK-S01c - Other call-site resume writers (DONE 2026-06-19): thread send
+  applies `PendingCapacityResumeWriter` to linked Pending items with sourced
+  capacity observations; auth/manual blockers do not create Wake Tickets.
 - [x] WTK-S02a - Real Pending workerChat execution seam (DONE 2026-06-19,
   `0c4335c8`): explicit CLI `pending run` can drive and settle one workerChat
   item with leases, transcript/receipt, attempt settlement, and
@@ -1358,29 +1343,24 @@ iOS:
 - [x] WTK-S02c - A1 live MCP Pending handlers (DONE 2026-06-19, `79aa7cb8`):
   `pending_list`, `pending_show`, and `pending_run` are wired in `MCPServer`
   with the same semantics, JSON schemas, and error envelope as CLI/Core.
-- [ ] WTK-S02b - Real Pending teamRun execution seam: make explicit Pending
-  teamRun execution drive the async/team path and settle attempts. Mutating
-  dispatch/work orders remain deferred.
-- [ ] WTK-S03 - One-shot wake scheduler (NEXT): resident coordinator loads
-  durable workerChat Wake Tickets, sleeps until the earliest due `nextWakeAt`
-  plus jitter, reloads truth, and makes one same-work resume attempt; new
-  cooldown replaces the ticket. TeamRun and mutating Pending remain deferred.
-- [ ] WTK-S04 - Watchdog suppression/fallback: future Wake Tickets suppress
-  `StallEpisode`; past-due/repeated unknown failures route to Project Manager
-  attention without continuous probes.
-- [ ] SWW-S00 - Contract packet: add `StallEpisode`, state distinctions,
-  reason enums, CLI/MCP command/tool specs, JSON fixtures, idempotency rules,
-  no-estimate field tests, and Project-required candidate validation. No GUI.
-- [ ] SWW-S01 - Detector: fake-clock scanner for worker chat turns and async
-  team runs, using `lastObservableEvent`, project scoping, thresholds, snooze,
-  and negative cases for failed/auth/manual/Pending/fresh-running targets.
-- [ ] SWW-S02 - Refresh-before-declare: wire candidate promotion through
-  existing thread/run/journal and async `team_status` / `team_result` truth.
-  Terminal or owner-blocked refresh suppresses the stall.
-- [ ] SWW-S03 - CLI/MCP read-only projection: `alln project stalled <project>
-  --json`, `alln stalled list --all --json`, MCP `project_stalled` and
-  `stalled_list`, all with identical Core ids, facts, cursors, exit codes, and
-  error envelope.
+- [x] WTK-S02b - Real Pending teamRun execution seam (DONE 2026-06-19):
+  non-mutating `teamRun` Pending items execute via `CatalogRunCoordinator` and
+  settle through `PendingService.settleTeamRun`. Mutating dispatch/work orders
+  remain deferred.
+- [x] WTK-S03 - One-shot wake scheduler (DONE 2026-06-19): `PendingWakePlanner`,
+  `PendingWakeScheduler`, and resident `alln serve` wake loop with `.serve` /
+  `wakeTicket` provenance.
+- [x] WTK-S04 - Watchdog suppression/fallback (DONE 2026-06-19): future
+  `nextWakeAt` and idle/auth/manual Pending suppress `StallEpisode` promotion.
+- [x] SWW-S00 - Contract packet (DONE 2026-06-19): `StallEpisode` models,
+  CLI/MCP specs, registry output schemas.
+- [x] SWW-S01 - Detector (DONE 2026-06-19): fake-clock scanner for worker chat
+  turns and async team runs with project scoping and negative cases.
+- [x] SWW-S02 - Refresh-before-declare (DONE 2026-06-19): `StalledWorkService`
+  reloads thread/run truth before persisting active episodes.
+- [x] SWW-S03 - CLI/MCP read-only projection (DONE 2026-06-19):
+  `alln project stalled`, `alln stalled list --all`, `project_stalled`,
+  `stalled_list`.
 - [ ] SWW-S04 - Project Manager nudge and actions: create one durable
   `ProjectManagerTurn(mode: wait)`, set `thread.needsAttention` with a stall
   facet, and implement `Check status`, `Open thread`, `Keep waiting`, `Cancel`,

@@ -706,6 +706,29 @@ Arguments:
 Flags:
 - `--json` — Emit a ProjectPendingJSON object.
 
+### `alln project stalled`
+
+Read-only stalled-work episodes for one project.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a StallEpisodeListJSON object.
+- `--include-cleared` — Include cleared episodes.
+
+Output schema: `stallEpisodeListJSON`.
+
+### `alln stalled list`
+
+Aggregate stalled-work episodes grouped by project.
+
+Flags:
+- `--all` — Include all projects (required).
+- `--json` — Emit a StallListJSON object.
+
+Output schema: `stallListJSON`.
+
 ### `alln project context`
 
 Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).

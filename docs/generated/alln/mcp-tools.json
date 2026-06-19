@@ -858,7 +858,8 @@
     "command" : "pending run",
     "errors" : [
       "CLI_USAGE_ERROR",
-      "PENDING_MUTATION_DEFERRED"
+      "PENDING_MUTATION_DEFERRED",
+      "EXECUTION_TEAM_MIXED_SOURCES"
     ],
     "idempotency" : "not_idempotent",
     "name" : "pending_run",
@@ -871,6 +872,49 @@
         "type" : "string"
       }
     ],
-    "summary" : "Run a Pending workerChat item now; executes and settles like CLI pending run."
+    "summary" : "Run a Pending workerChat or non-mutating teamRun item; executes and settles like CLI pending run."
+  },
+  {
+    "command" : "project stalled",
+    "errors" : [
+      "CLI_USAGE_ERROR",
+      "PROJECT_NOT_FOUND"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "project_stalled",
+    "outputSchema" : "stallEpisodeListJSON",
+    "params" : [
+      {
+        "name" : "project",
+        "required" : true,
+        "summary" : "Project id or name.",
+        "type" : "string"
+      },
+      {
+        "name" : "includeCleared",
+        "required" : false,
+        "summary" : "Include cleared episodes (optional).",
+        "type" : "boolean"
+      }
+    ],
+    "summary" : "Read-only stalled-work episodes for one project."
+  },
+  {
+    "command" : "stalled list",
+    "errors" : [
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "stalled_list",
+    "outputSchema" : "stallListJSON",
+    "params" : [
+      {
+        "name" : "all",
+        "required" : true,
+        "summary" : "Must be true.",
+        "type" : "boolean"
+      }
+    ],
+    "summary" : "Aggregate stalled-work episodes grouped by project."
   }
 ]

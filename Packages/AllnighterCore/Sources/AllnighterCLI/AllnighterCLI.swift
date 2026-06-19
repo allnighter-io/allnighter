@@ -50,6 +50,7 @@ struct AllnighterCLI {
         case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "serve": await runServe(args)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
+        case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
@@ -273,7 +274,13 @@ struct AllnighterCLI {
         }
         FileHandle.standardError.write(Data("alln serve — resident coordinator (Ctrl+C to stop)\n".utf8))
         do {
-            try await ResidentCoordinator(binaryVersion: binaryVersion).runUntilSignal()
+            let runtime = ToolRuntime()
+            let wake = ResidentCoordinator.WakeDependencies(
+                models: runtime.models,
+                registry: runtime.registry,
+                invocations: runtime.invocations
+            )
+            try await ResidentCoordinator(binaryVersion: binaryVersion, wakeDependencies: wake).runUntilSignal()
         } catch {
             FileHandle.standardError.write(Data("coordinator failed: \(error)\n".utf8)); exit(1)
         }

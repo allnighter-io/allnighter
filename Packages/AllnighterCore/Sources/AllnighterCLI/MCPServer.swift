@@ -286,6 +286,10 @@ struct MCPServer {
             respondPending(id: id, outcome: MCPPendingHandlers.show(runtime: runtime, args: args))
         case "pending_run":
             await respondPending(id: id, outcome: await MCPPendingHandlers.run(runtime: runtime, args: args))
+        case "project_stalled":
+            respondStalled(id: id, outcome: MCPStalledHandlers.projectStalled(args: args))
+        case "stalled_list":
+            respondStalled(id: id, outcome: MCPStalledHandlers.stalledList(args: args))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
         }
@@ -329,6 +333,15 @@ struct MCPServer {
     }
 
     private func respondPending(id: Any?, outcome: MCPPendingHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondStalled(id: Any?, outcome: MCPStalledHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))

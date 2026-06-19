@@ -175,10 +175,21 @@ public extension ContractRegistry {
                     params: [.init("pendingId", required: true, summary: "Pending item id.")],
                     outputSchema: .pendingItemJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("pending_run", command: "pending run", summary: "Run a Pending workerChat item now; executes and settles like CLI pending run.",
+        MCPToolSpec("pending_run", command: "pending run", summary: "Run a Pending workerChat or non-mutating teamRun item; executes and settles like CLI pending run.",
                     params: [.init("pendingId", required: true, summary: "Pending item id.")],
                     outputSchema: .pendingItemJSON,
-                    errors: ["CLI_USAGE_ERROR", "PENDING_MUTATION_DEFERRED"], idempotency: .notIdempotent),
+                    errors: ["CLI_USAGE_ERROR", "PENDING_MUTATION_DEFERRED", "EXECUTION_TEAM_MIXED_SOURCES"], idempotency: .notIdempotent),
+        MCPToolSpec("project_stalled", command: "project stalled", summary: "Read-only stalled-work episodes for one project.",
+                    params: [
+                        .init("project", required: true, summary: "Project id or name."),
+                        .init("includeCleared", type: "boolean", summary: "Include cleared episodes (optional)."),
+                    ],
+                    outputSchema: .stallEpisodeListJSON,
+                    errors: ["CLI_USAGE_ERROR", "PROJECT_NOT_FOUND"], idempotency: .idempotent),
+        MCPToolSpec("stalled_list", command: "stalled list", summary: "Aggregate stalled-work episodes grouped by project.",
+                    params: [.init("all", type: "boolean", required: true, summary: "Must be true.")],
+                    outputSchema: .stallListJSON,
+                    errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
     ]
 
     // MARK: - Commands (in scope)
@@ -606,6 +617,23 @@ public extension ContractRegistry {
             "project pending", summary: "List the pending work bound to one project (a filtered view of the one Pending store).", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectPendingJSON object.")]
+        ),
+        CommandSpec(
+            "project stalled", summary: "Read-only stalled-work episodes for one project.", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [
+                FlagSpec("json", summary: "Emit a StallEpisodeListJSON object."),
+                FlagSpec("include-cleared", summary: "Include cleared episodes."),
+            ],
+            outputSchema: .stallEpisodeListJSON
+        ),
+        CommandSpec(
+            "stalled list", summary: "Aggregate stalled-work episodes grouped by project.", milestone: .m1,
+            flags: [
+                FlagSpec("all", summary: "Include all projects (required)."),
+                FlagSpec("json", summary: "Emit a StallListJSON object."),
+            ],
+            outputSchema: .stallListJSON
         ),
         CommandSpec(
             "project context", summary: "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).", milestone: .m1,

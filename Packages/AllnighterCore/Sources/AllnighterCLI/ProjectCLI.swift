@@ -18,6 +18,7 @@ enum ProjectCLI {
         case "unarchive": runUnarchive(args)
         case "threads": runThreads(args)
         case "pending": runPending(args)
+        case "stalled": runStalled(args)
         case "context": runContext(args)
         case "workers": runWorkers(args)
         case "recheck-workers": await runRecheck(args, runtime)
@@ -28,7 +29,7 @@ enum ProjectCLI {
         case "edit": runEdit(args)
         case "postpone": runPostpone(args)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))

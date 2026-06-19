@@ -161,7 +161,7 @@ enum MCPPendingHandlers {
         case .unsupportedKind(let kind):
             envelope = ErrorEnvelope(
                 code: "CLI_USAGE_ERROR",
-                message: "pending kind \(kind) is not runnable in this milestone; only workerChat is supported",
+                message: "pending kind \(kind) is not runnable in this milestone; workerChat and non-mutating teamRun are supported",
                 requiresManual: true,
                 retryable: false
             )

@@ -38,7 +38,8 @@ final class ContractRegistryTests: XCTestCase {
             "pending reorder", "pending cancel", "pending run",
             "mcp serve",
             "project list", "project add", "project show", "project archive", "project unarchive",
-            "project threads", "project pending", "project context",
+            "project threads", "project pending", "project stalled", "project context",
+            "stalled list",
             "project workers", "project recheck-workers", "project chat",
             "project propose", "project proposals",
             "project approve", "project edit", "project postpone",
@@ -57,6 +58,7 @@ final class ContractRegistryTests: XCTestCase {
             "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get", "floor_show",
             "thread_send", "thread_get", "thread_status",
             "pending_list", "pending_show", "pending_run",
+            "project_stalled", "stalled_list",
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))
