@@ -38,6 +38,15 @@ enum ProjectManagerCardsSample {
         proofCommands: ["go test ./limiter/...", "go vet ./..."], proofWaiver: nil,
         baseGitHead: "abc1234def5", localRootPathSnapshot: "/Users/jd/dev/halo-app", createdAt: now)
 
+    static let answerTurn = ProjectManagerTurn(
+        id: "mgr_ans", projectId: "prj_halo", threadId: "mgr_thread_prj_halo", userMessageId: "u1",
+        createdAt: now, mode: .answer, answerMarkdown: answer, modelId: "model_opus")
+
+    /// The seeded live-conversation timeline for the pm-live proof.
+    static var proofItems: [ProjectManagerViewModel.Item] {
+        [.answer(answerTurn), .proposal(proposal), .workOrder(order), .verification(verification)]
+    }
+
     static let verification = VerificationRecord(
         id: "ver_sample", projectId: "prj_halo", workOrderId: "wo_sample", returnId: "ret_sample",
         outcome: .verified,

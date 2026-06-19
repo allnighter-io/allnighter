@@ -24,6 +24,8 @@ struct RootView: View {
     /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
     @State private var showFloorReaderProof = false
     @State private var showPMCardsProof = false
+    @State private var showPMLiveProof = false
+    @State private var pmLiveVM = ProjectManagerViewModel()
     #if DEBUG
     @State private var showDevSettings = false
     @State private var devBenchScenario: String?
@@ -121,6 +123,15 @@ struct RootView: View {
     }
 
     @ViewBuilder
+    private var pmLiveProofView: some View {
+        #if DEBUG
+        ProjectManagerView(pm: pmLiveVM, onBack: { showPMLiveProof = false })
+        #else
+        EmptyView()
+        #endif
+    }
+
+    @ViewBuilder
     private var workspaceContent: some View {
         VStack(spacing: 0) {
             TitleBar(
@@ -140,7 +151,9 @@ struct RootView: View {
                 // open). Old Team/Threads workspace panes are superseded by the
                 // home + routing composer (CR3/CR4 wire conversations live).
                 Group {
-                    if showPMCardsProof {
+                    if showPMLiveProof {
+                        pmLiveProofView
+                    } else if showPMCardsProof {
                         pmCardsProofView
                     } else if showFloorReaderProof {
                         floorReaderProofView
@@ -283,6 +296,13 @@ struct RootView: View {
                 if GUIFixture.opensPMCards {
                     model.applyDevBenchScenario("team-open-ready")
                     showPMCardsProof = true
+                }
+                if GUIFixture.opensPMLive {
+                    model.applyDevBenchScenario("team-open-ready")
+                    if let halo = ProjectsViewModel.sampleProjects().first {
+                        pmLiveVM.seedForProof(project: halo, items: ProjectManagerCardsSample.proofItems)
+                    }
+                    showPMLiveProof = true
                 }
                 if GUIFixture.opensHomeWorkspace {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")

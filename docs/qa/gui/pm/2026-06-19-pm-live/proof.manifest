@@ -1,0 +1,31 @@
+# surface: pm
+# fixtures: pm-live
+# watcher: PASS
+# sealed: 2026-06-19
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+251806c1d2592cbe776382786bc7fa17dd54aa43  Apps/AllnighterMac/Sources/AllnighterMacApp.swift
+935b2cac8ffd40a1a8063a8717a9839944abd586  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+939de845e21a8ab6fd512a2292326c95379d1ab8  Apps/AllnighterMac/Sources/CommandCenter.swift
+111758b3a0a851faeec7e0b6553f327fb787d651  Apps/AllnighterMac/Sources/DesignBoardView.swift
+00ec4e9c7931a8da68dd602ef45fe90990264250  Apps/AllnighterMac/Sources/DesignComponents.swift
+cd7ca70785ddddd4085f29f4e243f82cb2634b4f  Apps/AllnighterMac/Sources/DevSettingsView.swift
+88405d3a7e7f65b74eb5084b3b4a789e1d16fcad  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+020e26f0da0932991d19caf360e7c5012e591bf4  Apps/AllnighterMac/Sources/FactoryFloorView.swift
+02c31c4d91f27d7ad77e3b117ea7cf6b1a5e6ae6  Apps/AllnighterMac/Sources/GUIProofGrantView.swift
+7654e9cc8b111f4f37da289462e52e9f28e5b52f  Apps/AllnighterMac/Sources/HomeView.swift
+e789615a22151252d7b681f58745a285ce5a53df  Apps/AllnighterMac/Sources/MarkdownText.swift
+e8c9ff177cbfe963239007e93f7f693ec894dc72  Apps/AllnighterMac/Sources/ProjectManagerCards.swift
+0713a5c0dccb812b9faeb327385ab400fb3bcd23  Apps/AllnighterMac/Sources/ProjectManagerView.swift
+a47ff5acfc6b38d500882e27984118b243260982  Apps/AllnighterMac/Sources/ReadinessView.swift
+f1ebfaea093a7e724074da73a6a9ca185149a68f  Apps/AllnighterMac/Sources/RootView.swift
+2918f47813e85c9ec93623a5e6044b0f84bf9591  Apps/AllnighterMac/Sources/RoutingComposer.swift
+16b92939c5cae72894141a3d17725591ff6d95f8  Apps/AllnighterMac/Sources/SetupViews.swift
+de3ba5323e0f6b633b73f0c9329d718e04d5a6f6  Apps/AllnighterMac/Sources/TeamControlView.swift
+1530ff0e679f63cad39b079ec695d9669af795fb  Apps/AllnighterMac/Sources/TeamEditorView.swift
+613e596dd019eb744d70359a6c14e46455c36a47  Apps/AllnighterMac/Sources/TeamsLauncherView.swift
+8a25c9455aeffc28fcfbdbe6b278ba621922970b  Apps/AllnighterMac/Sources/TeamStudioView.swift
+f4b644754d5451a621481e98e5c32cd735e75c3a  Apps/AllnighterMac/Sources/ThreadRailComponents.swift
+cb4273a343a814db397e5f4c461938710ba1713d  Apps/AllnighterMac/Sources/ThreadsView.swift
+a1bd9ab2a6a0f8bd5bd343a0a83390bcb57e5443  Apps/AllnighterMac/Sources/ThreadView.swift
+c66492718da4e96ed75e120d5b13d4a656516546  Apps/AllnighterMac/Sources/TimelineVisibility.swift

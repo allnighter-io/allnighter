@@ -7,10 +7,12 @@ import AllnighterCore
 
 struct HomeView: View {
     @Environment(ThreadsViewModel.self) private var threads
+    @State private var managerProject: Project?
+    @State private var pm = ProjectManagerViewModel()
 
     var body: some View {
         HStack(spacing: 0) {
-            HomeSidebar()
+            HomeSidebar(onOpenManager: openManager)
                 .frame(width: 300)
             Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
             mainPane
@@ -18,9 +20,17 @@ struct HomeView: View {
         }
     }
 
+    private func openManager(_ project: Project) {
+        managerProject = project
+        pm.open(project)
+    }
+
     @ViewBuilder
     private var mainPane: some View {
-        if threads.selectedThread != nil {
+        if let managerProject {
+            ProjectManagerView(pm: pm, onBack: { self.managerProject = nil })
+                .id(managerProject.id)
+        } else if threads.selectedThread != nil {
             ThreadView()
         } else if threads.threads.isEmpty {
             HomeMarketingEmptyState()
@@ -33,6 +43,7 @@ struct HomeView: View {
 // MARK: - Left rail
 
 private struct HomeSidebar: View {
+    let onOpenManager: (Project) -> Void
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(CommandCenter.self) private var commands
@@ -119,6 +130,7 @@ private struct HomeSidebar: View {
                         onNewAgent: group.project.map { p in { newAgent(in: p.id) } }
                     )
                     if !collapsed.contains(group.id) {
+                        if let project = group.project { managerRow(project) }
                         let shown = expanded.contains(group.id) ? group.threads : Array(group.threads.prefix(4))
                         ForEach(shown) { row($0) }
                         if group.threads.count > 4 && !expanded.contains(group.id) {
@@ -139,6 +151,21 @@ private struct HomeSidebar: View {
         ProjectThreadRow(thread: thread, selected: thread.id == threads.selectedThreadId) {
             threads.select(thread)
         }
+    }
+
+    /// The pinned Project Manager row at the top of each project group (UI Contract).
+    private func managerRow(_ project: Project) -> some View {
+        Button { onOpenManager(project) } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 10)).foregroundStyle(ALColor.accentText).frame(width: 7)
+                Text("Project Manager").font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textSecondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10).frame(height: 30)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var projectsSectionHeader: some View {

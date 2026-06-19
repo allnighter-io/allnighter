@@ -49,6 +49,7 @@ struct WorkOrderCard: View {
     let order: WorkOrder
     var onReveal: () -> Void = {}
     var onDispatch: () -> Void = {}
+    var onVerify: (() -> Void)? = nil
 
     var body: some View {
         PMCard(accent: .border) {
@@ -73,6 +74,7 @@ struct WorkOrderCard: View {
             HStack(spacing: 8) {
                 PMButton("Dispatch", primary: true, action: onDispatch)
                 PMButton("Reveal", action: onReveal)
+                if let onVerify { PMButton("Verify return", action: onVerify) }
             }
             .padding(.top, 2)
         }
