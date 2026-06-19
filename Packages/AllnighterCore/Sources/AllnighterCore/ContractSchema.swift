@@ -321,11 +321,10 @@ public enum ContractSchema {
             "team": ref("FloorTeam"), "workerLanes": arr(ref("FloorWorkerLane")),
             "floorReturn": nullableRef("FloorReturn"), "nextActions": arr(ref("FloorNextAction")),
             "artifacts": arr(ref("RunArtifactRef")), "timeline": arr(ref("FloorTimelineEvent")),
-            "executeRequirements": arr(ref("ExecuteRequirement")),
             "warnings": arr(str), "errors": arr(ref("ErrorEnvelope")), "audit": ref("FloorAudit"),
         ], required: [
             "schemaVersion", "run", "intent", "team", "workerLanes", "floorReturn", "nextActions",
-            "artifacts", "timeline", "executeRequirements", "warnings", "errors", "audit",
+            "artifacts", "timeline", "warnings", "errors", "audit",
         ])
         schema.merge(top) { _, new in new }
         let floorStatus = enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled", "interrupted"])
@@ -351,7 +350,7 @@ public enum ContractSchema {
                 "promptArtifactRef": nullableRef("RunArtifactRef"), "error": nullable("string"),
             ], required: ["workerId", "modelId", "purpose", "status", "artifactRefs"]),
             "FloorReturn": obj([
-                "kind": enumStr(["insight", "plan", "board", "draft", "proposal", "workOrderDraft", "proofPacket", "audit", "executionReturn"]),
+                "kind": enumStr(["insight", "plan", "board", "draft", "proposal", "proofPacket", "audit"]),
                 "status": str, "title": str, "summaryMarkdown": nullable("string"),
                 "producedByWorkerId": nullable("string"), "stageId": nullable("string"),
                 "artifactRefs": arr(ref("RunArtifactRef")), "insight": nullableRef("SignalInsight"),
@@ -369,15 +368,10 @@ public enum ContractSchema {
             ], required: ["id", "runId", "kind", "at"]),
             "FloorNextAction": obj([
                 "id": str,
-                "kind": enumStr(["openArtifact", "copyReturn", "exportFloor", "sendTeam", "draftCopy", "createCodeProposal", "createDesignBrief", "createWorkOrder", "savePending", "execute", "ignore", "monitorExternally", "showRun", "showHistory"]),
-                "label": str, "requiresExecute": bool, "mutating": bool,
+                "kind": enumStr(["openArtifact", "copyReturn", "exportFloor", "sendTeam", "draftCopy", "createCodeProposal", "createDesignBrief", "savePending", "ignore", "monitorExternally", "showRun", "showHistory"]),
+                "label": str, "mutating": bool,
                 "command": nullable("string"), "disabledReason": nullable("string"),
-            ], required: ["id", "kind", "label", "requiresExecute", "mutating"]),
-            "ExecuteRequirement": obj([
-                "reason": str, "affectedScope": nullable("string"), "requiredApproval": bool,
-                "workOrderId": nullable("string"), "proofCommands": arr(str),
-                "proofWaiver": nullable("string"), "readinessBlockers": arr(str),
-            ], required: ["reason", "requiredApproval", "proofCommands", "readinessBlockers"]),
+            ], required: ["id", "kind", "label", "mutating"]),
             "SignalInsight": obj([
                 "title": str, "summary": str, "whatHappened": str, "whyItMatters": str, "whyThisProject": str,
                 "window": enumStr(["open", "closing", "closed", "uncertain"]), "freshness": ref("SignalFreshness"),

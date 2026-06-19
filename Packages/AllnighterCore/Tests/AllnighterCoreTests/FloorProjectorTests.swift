@@ -85,25 +85,20 @@ final class FloorProjectorTests: XCTestCase {
         XCTAssertEqual(floor.run.status, .running)
     }
 
-    func testSignalRunHasRoutingActionsAndNoExecuteGate() {
+    func testSignalRunHasRoutingActionsOnly() {
         let floor = FloorProjector.project(signalRun())
         let kinds = Set(floor.nextActions.map(\.kind))
         XCTAssertTrue(kinds.isSuperset(of: [.copyReturn, .savePending, .sendTeam, .draftCopy,
                                             .createCodeProposal, .createDesignBrief, .monitorExternally,
                                             .ignore, .showRun, .showHistory]))
-        // Scout/advisory run: no Execute action and no Execute requirement.
-        XCTAssertFalse(kinds.contains(.execute))
-        XCTAssertTrue(floor.executeRequirements.isEmpty)
         XCTAssertTrue(floor.nextActions.allSatisfy { !$0.mutating })
     }
 
-    func testMutatingRunDoesNotProjectSecondExecuteGate() {
+    func testMutatingRunDoesNotProjectSecondGate() {
         var run = signalRun()
         run.mutating = true
         run.posture = .execute
         let floor = FloorProjector.project(run)
-        XCTAssertNil(floor.nextActions.first { $0.kind == .execute })
-        XCTAssertTrue(floor.executeRequirements.isEmpty)
         XCTAssertEqual(floor.run.mutating, true)
     }
 

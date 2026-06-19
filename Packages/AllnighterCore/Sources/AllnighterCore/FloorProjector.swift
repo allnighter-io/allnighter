@@ -2,8 +2,8 @@ import Foundation
 
 /// Projects a persisted `TeamRun` into the public `FloorRun` (F-S00). Pure and
 /// deterministic — no filesystem, no run store. Later slices enrich the result
-/// (artifacts F-S01, typed return F-S02/S03, timeline F-S04, rich next actions +
-/// Execute requirements F-S05) without changing this contract's shape.
+/// (artifacts F-S01, typed return F-S02/S03, timeline F-S04, rich next actions)
+/// without changing this contract's shape.
 public enum FloorProjector {
     public static func project(
         _ run: TeamRun,
@@ -50,7 +50,6 @@ public enum FloorProjector {
             nextActions: baseNextActions(for: run),
             artifacts: allArtifacts,
             timeline: timeline(for: run),
-            executeRequirements: executeRequirements(for: run),
             warnings: run.warnings,
             errors: workerErrors(for: run),
             audit: FloorRun.Audit(runJournalPath: runJournalPath, traceId: traceId)
@@ -243,12 +242,6 @@ public enum FloorProjector {
         actions.append(FloorNextAction(id: "show_history", kind: .showHistory, label: "Search history",
                                        command: "alln history --json"))
         return actions
-    }
-
-    /// Unified runs do not project a second approval gate. A mutating run has
-    /// already acquired the repo-root write lock before workers start.
-    private static func executeRequirements(for run: TeamRun) -> [ExecuteRequirement] {
-        []
     }
 
     /// Derive the converge timeline from sourced timestamps only (F-S04). Never

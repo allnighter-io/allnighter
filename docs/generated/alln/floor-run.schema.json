@@ -72,54 +72,6 @@
       ],
       "type" : "object"
     },
-    "ExecuteRequirement" : {
-      "additionalProperties" : false,
-      "properties" : {
-        "affectedScope" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "proofCommands" : {
-          "items" : {
-            "type" : "string"
-          },
-          "type" : "array"
-        },
-        "proofWaiver" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "readinessBlockers" : {
-          "items" : {
-            "type" : "string"
-          },
-          "type" : "array"
-        },
-        "reason" : {
-          "type" : "string"
-        },
-        "requiredApproval" : {
-          "type" : "boolean"
-        },
-        "workOrderId" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required" : [
-        "reason",
-        "requiredApproval",
-        "proofCommands",
-        "readinessBlockers"
-      ],
-      "type" : "object"
-    },
     "FloorAudit" : {
       "additionalProperties" : false,
       "properties" : {
@@ -186,9 +138,7 @@
             "draftCopy",
             "createCodeProposal",
             "createDesignBrief",
-            "createWorkOrder",
             "savePending",
-            "execute",
             "ignore",
             "monitorExternally",
             "showRun",
@@ -201,16 +151,12 @@
         },
         "mutating" : {
           "type" : "boolean"
-        },
-        "requiresExecute" : {
-          "type" : "boolean"
         }
       },
       "required" : [
         "id",
         "kind",
         "label",
-        "requiresExecute",
         "mutating"
       ],
       "type" : "object"
@@ -241,10 +187,8 @@
             "board",
             "draft",
             "proposal",
-            "workOrderDraft",
             "proofPacket",
-            "audit",
-            "executionReturn"
+            "audit"
           ],
           "type" : "string"
         },
@@ -863,12 +807,6 @@
       },
       "type" : "array"
     },
-    "executeRequirements" : {
-      "items" : {
-        "$ref" : "#\/$defs\/ExecuteRequirement"
-      },
-      "type" : "array"
-    },
     "floorReturn" : {
       "oneOf" : [
         {
@@ -926,7 +864,6 @@
     "nextActions",
     "artifacts",
     "timeline",
-    "executeRequirements",
     "warnings",
     "errors",
     "audit"

@@ -159,8 +159,8 @@ public extension WorkThread {
         turns.last { $0.text?.isEmpty == false }?.text
     }
 
-    /// One active heavy turn per thread in v1 (`team_run`, `dispatch`,
-    /// `return_review`). While one is live, new heavy actions are disabled.
+    /// One active heavy run turn per thread in v1. While one is live, new heavy
+    /// actions are disabled.
     var hasActiveHeavyTurn: Bool {
         turns.contains { $0.kind.isHeavy && ($0.status == .queued || $0.status == .running) }
     }

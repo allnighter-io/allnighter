@@ -4,10 +4,7 @@ import Foundation
 
 /// The **Floor**: the inspectable workroom and receipt for one team run, projected
 /// over a persisted `TeamRun`. A projection — never a second run store. `floor.json`
-/// is derived and regenerable from `run.json` plus artifact metadata, so later
-/// slices (artifacts, timeline, receipts, Execute requirements) add fields
-/// additively without breaking anything. F-S00 fills run/intent/team/workerLanes/
-/// return/nextActions/warnings/errors/audit.
+/// is derived and regenerable from `run.json` plus artifact metadata.
 public struct FloorRun: Codable, Sendable, Equatable {
     public var schemaVersion: Int
     public var run: Run
@@ -22,9 +19,6 @@ public struct FloorRun: Codable, Sendable, Equatable {
     /// The "team worked in parallel" event list (F-S04), derived from sourced
     /// timestamps only — missing timestamps are absent, never invented.
     public var timeline: [FloorTimelineEvent]
-    /// Gates that must be satisfied before a make-real move (F-S05). Present when
-    /// the run is mutating; empty for advisory runs.
-    public var executeRequirements: [ExecuteRequirement]
     public var warnings: [String]
     public var errors: [ErrorEnvelope]
     public var audit: Audit
@@ -32,13 +26,12 @@ public struct FloorRun: Codable, Sendable, Equatable {
     public init(schemaVersion: Int = 1, run: Run, intent: Intent, team: Team,
                 workerLanes: [FloorWorkerLane] = [], floorReturn: FloorReturn? = nil,
                 nextActions: [FloorNextAction] = [], artifacts: [RunArtifactRef] = [],
-                timeline: [FloorTimelineEvent] = [], executeRequirements: [ExecuteRequirement] = [],
+                timeline: [FloorTimelineEvent] = [],
                 warnings: [String] = [], errors: [ErrorEnvelope] = [], audit: Audit = .init()) {
         self.schemaVersion = schemaVersion
         self.run = run; self.intent = intent; self.team = team
         self.workerLanes = workerLanes; self.floorReturn = floorReturn
         self.nextActions = nextActions; self.artifacts = artifacts; self.timeline = timeline
-        self.executeRequirements = executeRequirements
         self.warnings = warnings; self.errors = errors; self.audit = audit
     }
 
@@ -189,7 +182,7 @@ public struct RunArtifactRef: Codable, Sendable, Equatable, Identifiable {
 /// S03 enrich this (Signal becomes `kind: insight`).
 public struct FloorReturn: Codable, Sendable, Equatable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
-        case insight, plan, board, draft, proposal, workOrderDraft, proofPacket, audit, executionReturn
+        case insight, plan, board, draft, proposal, proofPacket, audit
     }
     public var kind: Kind
     public var status: String
@@ -209,27 +202,6 @@ public struct FloorReturn: Codable, Sendable, Equatable {
         self.kind = kind; self.status = status; self.title = title
         self.summaryMarkdown = summaryMarkdown; self.producedByWorkerId = producedByWorkerId
         self.stageId = stageId; self.artifactRefs = artifactRefs; self.insight = insight
-    }
-}
-
-/// A legacy floor projection for describing why a run cannot proceed. Unified
-/// runs do not currently project a second approval gate.
-public struct ExecuteRequirement: Codable, Sendable, Equatable {
-    public var reason: String
-    public var affectedScope: String?
-    public var requiredApproval: Bool
-    public var workOrderId: String?
-    public var proofCommands: [String]
-    public var proofWaiver: String?
-    public var readinessBlockers: [String]
-
-    public init(reason: String, affectedScope: String? = nil, requiredApproval: Bool = true,
-                workOrderId: String? = nil, proofCommands: [String] = [], proofWaiver: String? = nil,
-                readinessBlockers: [String] = []) {
-        self.reason = reason; self.affectedScope = affectedScope
-        self.requiredApproval = requiredApproval; self.workOrderId = workOrderId
-        self.proofCommands = proofCommands; self.proofWaiver = proofWaiver
-        self.readinessBlockers = readinessBlockers
     }
 }
 
@@ -255,26 +227,25 @@ public struct FloorTimelineEvent: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// A typed Floor next action. Unified runs do not add a second approval gate;
-/// mutating work is represented by the run itself and guarded by the repo write lock.
+/// A typed Floor next action. Mutating work is represented by the run itself and
+/// guarded by the repo write lock.
 public struct FloorNextAction: Codable, Sendable, Equatable, Identifiable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
         case openArtifact, copyReturn, exportFloor, sendTeam, draftCopy, createCodeProposal
-        case createDesignBrief, createWorkOrder, savePending, execute, ignore
+        case createDesignBrief, savePending, ignore
         case monitorExternally, showRun, showHistory
     }
     public var id: String
     public var kind: Kind
     public var label: String
-    public var requiresExecute: Bool
     public var mutating: Bool
     public var command: String?
     public var disabledReason: String?
 
-    public init(id: String, kind: Kind, label: String, requiresExecute: Bool = false,
-                mutating: Bool = false, command: String? = nil, disabledReason: String? = nil) {
+    public init(id: String, kind: Kind, label: String, mutating: Bool = false,
+                command: String? = nil, disabledReason: String? = nil) {
         self.id = id; self.kind = kind; self.label = label
-        self.requiresExecute = requiresExecute; self.mutating = mutating
+        self.mutating = mutating
         self.command = command; self.disabledReason = disabledReason
     }
 }

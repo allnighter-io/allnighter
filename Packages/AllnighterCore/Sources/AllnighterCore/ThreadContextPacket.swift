@@ -138,8 +138,6 @@ public enum ArtifactKind: String, Codable, Sendable, CaseIterable {
     case plan = "master_plan"
     case finalSpec = "final_spec"
     case designBoard = "design_board"
-    case dispatchResult = "dispatch_result"
-    case returnReview = "return_review"
     case screenshot
     case file
     case diff

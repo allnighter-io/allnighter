@@ -187,7 +187,7 @@ struct FactoryFloorView: View {
 
     private var nextMove: some View {
         let actions = floor.nextActions.filter {
-            [.draftCopy, .createCodeProposal, .createDesignBrief, .savePending, .execute, .sendTeam].contains($0.kind)
+            [.draftCopy, .createCodeProposal, .createDesignBrief, .savePending, .sendTeam].contains($0.kind)
         }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -212,9 +212,6 @@ struct FactoryFloorView: View {
             Text(action.label).font(.system(size: 13, weight: primary ? .semibold : .regular))
                 .foregroundStyle(primary ? ALColor.textOnAmber : ALColor.textSecondary)
             Spacer()
-            if action.requiresExecute {
-                Label("Execute", systemImage: "lock").font(ALFont.monoSm).foregroundStyle(primary ? ALColor.textOnAmber : ALColor.accentText)
-            }
             Image(systemName: "arrow.right").font(.system(size: 12)).foregroundStyle(primary ? ALColor.textOnAmber : ALColor.textFaint)
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
