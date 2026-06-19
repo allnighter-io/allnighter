@@ -133,6 +133,8 @@ enum GUIFixture {
     static var opensTeamsComposeModal: Bool { active == "teams-compose-modal" }
     /// Deep-link: open the launcher with the Team Editor drawer up (review/customize).
     static var opensTeamsEditDrawer: Bool { active == "teams-edit-drawer" }
+    /// Deep-link: open the Factory Floor reader over a completed sample team run.
+    static var opensFloorReader: Bool { active == "floor-reader" }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// `compose-mode-menu` seeds the mode menu open for the proof capture.
@@ -188,6 +190,7 @@ enum GUIFixture {
         ("teams-launcher", "Teams — Send-to-team launcher (G-T0)"),
         ("teams-compose-modal", "Teams — send-to-team composer modal (G-T2)"),
         ("teams-edit-drawer", "Teams — hover-edit → Team Editor drawer (#3)"),
+        ("floor-reader", "Floor — team reply reader (G-T3, markdown)"),
         ("compose-mode-menu", "Compose — mode menu (native popover)"),
         ("compose-target-chat", "Compose — route to model (native popover)"),
         ("compose-target-send-to-team", "Compose — send to team (native popover)"),
@@ -553,6 +556,7 @@ enum GUIFixture {
     static var opensReadiness: Bool { false }
     static var opensComposeSpecimen: Bool { false }
     static var opensCommandPalette: Bool { false }
+    static var opensFloorReader: Bool { false }
     static var opensHomeWorkspace: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }

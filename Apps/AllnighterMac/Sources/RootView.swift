@@ -20,6 +20,8 @@ struct RootView: View {
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .inbox
     @State private var commands = CommandCenter()
+    /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
+    @State private var showFloorReaderProof = false
     #if DEBUG
     @State private var showDevSettings = false
     @State private var devBenchScenario: String?
@@ -92,6 +94,15 @@ struct RootView: View {
     }
 
     @ViewBuilder
+    private var floorReaderProofView: some View {
+        #if DEBUG
+        FactoryFloorView(run: FloorReaderSample.run, onBack: { showFloorReaderProof = false })
+        #else
+        EmptyView()
+        #endif
+    }
+
+    @ViewBuilder
     private var workspaceContent: some View {
         VStack(spacing: 0) {
             TitleBar(
@@ -111,7 +122,9 @@ struct RootView: View {
                 // open). Old Team/Threads workspace panes are superseded by the
                 // home + routing composer (CR3/CR4 wire conversations live).
                 Group {
-                    if showTeamStudio {
+                    if showFloorReaderProof {
+                        floorReaderProofView
+                    } else if showTeamStudio {
                         TeamStudioView(
                             initialRoute: studioInitialRoute,
                             customizeTeamId: studioCustomizeTeamId,
@@ -242,6 +255,10 @@ struct RootView: View {
                 if GUIFixture.opensTeamsLauncher {
                     model.applyDevBenchScenario("team-open-ready")
                     workspaceMode = .teams
+                }
+                if GUIFixture.opensFloorReader {
+                    model.applyDevBenchScenario("team-open-ready")
+                    showFloorReaderProof = true
                 }
                 if GUIFixture.opensHomeWorkspace {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")

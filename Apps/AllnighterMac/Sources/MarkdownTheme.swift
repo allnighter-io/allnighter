@@ -35,8 +35,9 @@ extension Theme {
         .blockquote { configuration in
             configuration.label
                 .padding(.leading, 14)
+                .padding(.vertical, 2)
                 .overlay(alignment: .leading) {
-                    Rectangle().fill(ALColor.accentBorder).frame(width: 2)
+                    RoundedRectangle(cornerRadius: 1.5).fill(ALColor.accent).frame(width: 3)
                 }
                 .markdownTextStyle { ForegroundColor(ALColor.textPrimary) }
         }
