@@ -15,6 +15,7 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     public var family: String
     public var posture: String
     public var mutating: Bool
+    public var executionSourceId: String?
     public var outputKind: String
     public var workerCount: Int
     public var starterPrompts: [String]
@@ -26,11 +27,13 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     public var lastRunAt: Date?
 
     public init(id: String, teamId: String, displayName: String, family: String, posture: String,
-                mutating: Bool, outputKind: String, workerCount: Int, starterPrompts: [String] = [],
+                mutating: Bool, executionSourceId: String? = nil, outputKind: String, workerCount: Int,
+                starterPrompts: [String] = [],
                 requirements: [String] = [], recommendedFor: [String] = [], pinned: Bool = false,
                 pinnedReason: String? = nil, lastRunAt: Date? = nil) {
         self.id = id; self.teamId = teamId; self.displayName = displayName; self.family = family
-        self.posture = posture; self.mutating = mutating; self.outputKind = outputKind
+        self.posture = posture; self.mutating = mutating; self.executionSourceId = executionSourceId
+        self.outputKind = outputKind
         self.workerCount = workerCount; self.starterPrompts = starterPrompts
         self.requirements = requirements; self.recommendedFor = recommendedFor
         self.pinned = pinned; self.pinnedReason = pinnedReason; self.lastRunAt = lastRunAt
@@ -43,7 +46,9 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
                                lastRunAt: Date? = nil) -> TeamCard {
         TeamCard(
             id: team.id, teamId: team.id, displayName: team.displayName, family: team.lane.rawValue,
-            posture: team.posture.rawValue, mutating: team.mutating, outputKind: team.outputKind.rawValue,
+            posture: team.posture.rawValue, mutating: team.mutating,
+            executionSourceId: team.executionSourceId,
+            outputKind: team.outputKind.rawValue,
             workerCount: team.workerSpecs.count, starterPrompts: team.starterPrompts,
             requirements: derivedRequirements(team), recommendedFor: team.typeTags + team.purposeTags,
             pinned: pinned, pinnedReason: pinnedReason, lastRunAt: lastRunAt)
@@ -54,6 +59,9 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
         var reqs = ["Needs at least one ready \(team.lane.rawValue) worker."]
         if team.mutating {
             reqs.append("Requires Execute approval before any real change.")
+            if let source = team.executionSourceId {
+                reqs.append("Runs on \(source) only.")
+            }
         }
         return reqs
     }

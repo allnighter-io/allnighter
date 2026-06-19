@@ -138,6 +138,12 @@ public actor TeamService {
             return .refused(reason: reason, code: code, preset: resolvedRequest.team.id, now: now())
         }
 
+        let sourceGate = ExecutionTeamSourceGate.evaluate(resolved: resolved, models: readyModels())
+        if let blocker = sourceGate.sourceGateBlocker {
+            finishStream(failed: blocker.message)
+            return .refused(reason: blocker.message, code: blocker.code, preset: resolvedRequest.team.id, now: now())
+        }
+
         // Governor (concurrency cap).
         guard let slot = governor.acquire() else {
             let reason = "busy: \(config.maxConcurrentTeamRuns) team runs already running"
@@ -168,6 +174,7 @@ public actor TeamService {
             r.lane = lane; r.type = type; r.effort = effort
             r.teamDisplayName = teamName; r.outputKind = outputKind; r.warnings = warnings
             r.posture = posture; r.mutating = mutating
+            r.executionSourceId = resolved.executionSourceId
             return r
         }
         let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }

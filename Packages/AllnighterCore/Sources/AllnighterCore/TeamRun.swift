@@ -34,6 +34,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// `mutating` false.
     public var posture: TeamPosture?
     public var mutating: Bool = false
+    /// When this is a mutating run, the single CLI driver that owns execution.
+    public var executionSourceId: String? = nil
     /// Non-fatal warnings recorded at run time (one-model self-fusion, fallbacks,
     /// disabled optional rows, admission queueing). Defaulted so legacy persisted
     /// runs (no `warnings` key) still decode.
@@ -60,6 +62,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         outputKind: TeamOutputKind? = nil,
         posture: TeamPosture? = nil,
         mutating: Bool = false,
+        executionSourceId: String? = nil,
         warnings: [String] = [],
         threadId: String? = nil,
         originConversationId: String? = nil,
@@ -82,6 +85,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.outputKind = outputKind
         self.posture = posture
         self.mutating = mutating
+        self.executionSourceId = executionSourceId
         self.warnings = warnings
         self.threadId = threadId
         self.originConversationId = originConversationId

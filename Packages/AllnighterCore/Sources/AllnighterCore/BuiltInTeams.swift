@@ -8,6 +8,7 @@ public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
         buildCore, buildBugHunt, buildGUIBugHunt, buildSecurityReview, buildArchitecturePressureTest, buildReleaseProof,
+        buildCodexImplementation, buildClaudeImplementation, buildCursorImplementation,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
         signalPostToProject, signalWhatToBuildNext
@@ -39,14 +40,16 @@ public enum BuiltInTeams {
         id: String, name: String, lane: WorkLane, output: TeamOutputKind,
         defaultEffort: EffortLevel, isDefault: Bool = false, description: String,
         rows: [TeamWorkerSpec], writer: String, dissent: DissentPolicy = .preserveDissent,
-        posture: TeamPosture? = nil, mutating: Bool = false, typeTags: [String] = [],
-        starters: [String] = []
+        lead: TeamLeadSpec? = nil,
+        posture: TeamPosture? = nil, mutating: Bool = false, executionSourceId: String? = nil,
+        typeTags: [String] = [], starters: [String] = []
     ) -> TeamPreset {
         TeamPreset(
             id: id, displayName: name, lane: lane, description: description, outputKind: output,
             posture: posture ?? defaultPosture(for: output), mutating: mutating,
+            executionSourceId: executionSourceId,
             defaultEffort: defaultEffort, isDefaultForLane: isDefault, workerSpecs: rows,
-            lead: TeamLeadSpec(skillId: writer, fallbackPolicy: .strongestReady, dissentPolicy: dissent),
+            lead: lead ?? TeamLeadSpec(skillId: writer, fallbackPolicy: .strongestReady, dissentPolicy: dissent),
             typeTags: typeTags, starterPrompts: starters, builtIn: true, version: 1)
     }
 
@@ -152,6 +155,49 @@ public enum BuiltInTeams {
             row("demo_narrator", .review)
         ], writer: "proof_packet_writer", dissent: .riskRegister,
         starters: ["Prove this slice is actually done before I believe it."])
+
+    private static let codexPreferred = "model_chatgpt"
+    private static let claudePreferred = "model_opus"
+    private static let cursorPreferred = "model_cursor_composer_25"
+
+    static let buildCodexImplementation = make(
+        id: "code_codex_implementation", name: "Codex Implementation Team", lane: .code,
+        output: .plan, defaultEffort: .high,
+        description: "Execute an approved work order through Codex with multiple code skills on one CLI.",
+        rows: [
+            row("first_principles_builder", .answer, preferred: codexPreferred, fallback: .exactOnly),
+            row("code_maintainer", .answer, preferred: codexPreferred, fallback: .exactOnly),
+            row("proof_planner", .review, preferred: codexPreferred, fallback: .exactOnly),
+        ], writer: "plan_writer_build",
+        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: codexPreferred, fallbackPolicy: .exactOnly),
+        posture: .execute, mutating: true, executionSourceId: "codex",
+        starters: ["Implement the approved work order with proof."])
+
+    static let buildClaudeImplementation = make(
+        id: "code_claude_implementation", name: "Claude Code Implementation Team", lane: .code,
+        output: .plan, defaultEffort: .high,
+        description: "Execute an approved work order through Claude Code with multiple code skills on one CLI.",
+        rows: [
+            row("first_principles_builder", .answer, preferred: claudePreferred, fallback: .exactOnly),
+            row("code_maintainer", .answer, preferred: claudePreferred, fallback: .exactOnly),
+            row("proof_planner", .review, preferred: claudePreferred, fallback: .exactOnly),
+        ], writer: "plan_writer_build",
+        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: claudePreferred, fallbackPolicy: .exactOnly),
+        posture: .execute, mutating: true, executionSourceId: "claude_code",
+        starters: ["Implement the approved work order with proof."])
+
+    static let buildCursorImplementation = make(
+        id: "code_cursor_implementation", name: "Cursor Implementation Team", lane: .code,
+        output: .plan, defaultEffort: .high,
+        description: "Execute an approved work order through Cursor Agent with multiple code skills on one CLI.",
+        rows: [
+            row("first_principles_builder", .answer, preferred: cursorPreferred, fallback: .exactOnly),
+            row("code_maintainer", .answer, preferred: cursorPreferred, fallback: .exactOnly),
+            row("proof_planner", .review, preferred: cursorPreferred, fallback: .exactOnly),
+        ], writer: "plan_writer_build",
+        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: cursorPreferred, fallbackPolicy: .exactOnly),
+        posture: .execute, mutating: true, executionSourceId: "cursor_agent",
+        starters: ["Implement the approved work order with proof."])
 
     // MARK: - Design teams
 

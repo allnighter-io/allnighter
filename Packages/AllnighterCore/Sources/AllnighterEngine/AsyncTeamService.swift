@@ -144,6 +144,11 @@ public actor AsyncTeamService {
             return .failure(.init(code: code, message: reason, preset: resolvedRequest.team.id))
         }
 
+        let sourceGate = ExecutionTeamSourceGate.evaluate(resolved: resolved, models: readyModels)
+        if let blocker = sourceGate.sourceGateBlocker {
+            return .failure(.init(code: blocker.code, message: blocker.message, preset: resolvedRequest.team.id))
+        }
+
         guard let slot = governor.acquire() else {
             return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
                                   preset: resolvedRequest.team.id))
@@ -170,6 +175,7 @@ public actor AsyncTeamService {
             outputKind: resolved.outputKind,
             posture: resolved.posture,
             mutating: resolved.mutating,
+            executionSourceId: resolved.executionSourceId,
             warnings: resolved.warnings,
             threadId: request.threadId,
             originConversationId: request.originConversationId,
@@ -341,6 +347,9 @@ public actor AsyncTeamService {
     }
 
     private func preflightCode(_ request: AsyncTeamStartRequest, _ preflight: TeamPreflight.Result) -> String {
+        if preflight.sourceGateStatus == SourceGateStatus.blocked.rawValue {
+            return ExecutionTeamSourceGate.mixedSourcesCode
+        }
         if case .failure(let failure) = TeamRequestResolver.resolve(
             teams: teams, lane: request.lane, teamId: request.teamPresetId,
             type: request.type, effort: request.effort) {

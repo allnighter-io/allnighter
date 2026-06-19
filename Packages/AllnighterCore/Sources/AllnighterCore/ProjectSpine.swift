@@ -521,6 +521,9 @@ public struct WorkOrder: Codable, Sendable, Equatable, Identifiable {
     public var mode: WorkSendMode
     public var targetWorkerId: String?
     public var targetAgent: String?
+    /// The single CLI driver that will own mutating dispatch.
+    public var targetSourceId: String?
+    public var executionTeamId: String?
     public var promptBody: String
     public var scope: String
     public var nonGoals: [String]
@@ -542,6 +545,8 @@ public struct WorkOrder: Codable, Sendable, Equatable, Identifiable {
         mode: WorkSendMode,
         targetWorkerId: String? = nil,
         targetAgent: String? = nil,
+        targetSourceId: String? = nil,
+        executionTeamId: String? = nil,
         promptBody: String,
         scope: String = "",
         nonGoals: [String] = [],
@@ -557,6 +562,7 @@ public struct WorkOrder: Codable, Sendable, Equatable, Identifiable {
         self.id = id; self.proposalId = proposalId; self.projectId = projectId
         self.title = title; self.lane = lane; self.mode = mode
         self.targetWorkerId = targetWorkerId; self.targetAgent = targetAgent
+        self.targetSourceId = targetSourceId; self.executionTeamId = executionTeamId
         self.promptBody = promptBody; self.scope = scope; self.nonGoals = nonGoals
         self.constraints = constraints; self.expectedReturn = expectedReturn
         self.proofCommands = proofCommands; self.proofWaiver = proofWaiver

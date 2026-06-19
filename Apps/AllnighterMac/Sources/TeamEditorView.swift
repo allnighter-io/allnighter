@@ -15,6 +15,8 @@ struct TeamDraft: Equatable {
     /// like a worker (skill + model + prompt); its prompt forks on save the same way.
     var lead: Row
     var allowSubstitutions: Bool
+    var posture: TeamPosture
+    var mutating: Bool
 
     /// One worker's pending edit state (the rescue's TeamWorkerDraft). Prompt edits
     /// live here and are forked into a custom skill ONLY at team Save — never
@@ -43,6 +45,8 @@ struct TeamDraft: Equatable {
         self.base = base
         self.name = base.displayName
         self.allowSubstitutions = true
+        self.posture = base.posture
+        self.mutating = base.mutating
         self.rows = base.workerSpecs.map { spec in
             Row(id: UUID().uuidString, skillId: spec.skillId,
                 modelId: spec.preferredModelId ?? defaultModelId,
@@ -145,12 +149,31 @@ struct TeamDraft: Equatable {
             team.displayName = saveName
             team.workerSpecs = specs
             team.lead = leadSpec
+            team.posture = posture
+            team.mutating = mutating
+            if mutating || posture == .execute {
+                team.executionSourceId = try Self.resolvedExecutionSourceId(from: specs, lead: leadSpec)
+            } else {
+                team.executionSourceId = nil
+            }
+            try TeamCatalog.validateExecutionSourceGate(team)
             try TeamCatalog.saveCustom(team)
             return team.id
         } catch {
             rollback()
             throw error
         }
+    }
+
+    private static func resolvedExecutionSourceId(from specs: [TeamWorkerSpec], lead: TeamLeadSpec) throws -> String? {
+        let bench = Dictionary(ModelCatalog.list().map { ($0.id, $0.driverId) }, uniquingKeysWith: { a, _ in a })
+        var sources = Set<String>()
+        for row in specs {
+            if let mid = row.preferredModelId, let source = bench[mid] { sources.insert(source) }
+        }
+        if let mid = lead.preferredModelId, let source = bench[mid] { sources.insert(source) }
+        guard sources.count <= 1 else { return nil }
+        return sources.first
     }
 }
 
@@ -226,6 +249,7 @@ struct TeamEditorView: View {
                     leadSection
                     workers
                     substitutionsToggle
+                    executionPostureSection
                     summary
                 }
                 .padding(20)
@@ -369,6 +393,48 @@ struct TeamEditorView: View {
             }
         }
         .toggleStyle(.switch).tint(ALColor.accent)
+    }
+
+    private var executionPostureSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("EXECUTION").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            Toggle(isOn: $draft.mutating) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Mutating team").font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textPrimary)
+                    Text("Requires Execute approval. All workers must share one CLI source.")
+                        .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                }
+            }
+            .toggleStyle(.switch).tint(ALColor.accent)
+            .onChange(of: draft.mutating) { _, on in
+                if on { draft.posture = .execute } else if draft.posture == .execute { draft.posture = .propose }
+            }
+            if draft.mutating, let conflict = executionSourceConflictMessage {
+                Text(conflict).font(.system(size: 11)).foregroundStyle(ALPalette.red400)
+            } else if draft.mutating, let source = pinnedExecutionSourceLabel {
+                Text("Execution source: \(source)").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
+            }
+        }
+    }
+
+    private var pinnedExecutionSourceLabel: String? {
+        let bench = Dictionary(models.map { ($0.id, $0.driverId) }, uniquingKeysWith: { a, _ in a })
+        var sources = Set<String>()
+        for row in draft.rows + [draft.lead] {
+            if let mid = row.modelId, let source = bench[mid] { sources.insert(source) }
+        }
+        guard sources.count == 1, let only = sources.first else { return nil }
+        return only
+    }
+
+    private var executionSourceConflictMessage: String? {
+        let bench = Dictionary(models.map { ($0.id, $0.driverId) }, uniquingKeysWith: { a, _ in a })
+        var sources = Set<String>()
+        for row in draft.rows + [draft.lead] {
+            if let mid = row.modelId, let source = bench[mid] { sources.insert(source) }
+        }
+        guard sources.count > 1 else { return nil }
+        return "Execution teams run on one CLI. Pick one source for all workers."
     }
 
     private var summary: some View {

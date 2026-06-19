@@ -389,19 +389,19 @@ iOS:
 
 - [x] **ETS-S00 - Spec routing (DONE 2026-06-19).** Added this doc to
   `docs/phases/README.md` and `AGENTS.md` as the top active gate. No code.
-- [ ] **ETS-S01 - Core source facts.** Ensure resolved team workers and run
-  snapshots expose source/driver identity deterministically.
-- [ ] **ETS-S02 - Core preflight gate.** Add the pure source-gate evaluator,
-  structured blocker, and tests for mixed judgment allowed vs mixed execution
-  blocked.
-- [ ] **ETS-S03 - Catalog authoring.** Split or annotate built-in execution teams
-  as source-scoped; block custom execution team saves when rows cross sources.
-- [ ] **ETS-S04 - Dispatch and agent surfaces.** Apply the gate to Project
-  dispatch, Pending run, CLI JSON, and MCP tools before any mutating spawn.
-- [ ] **ETS-S05 - Mac treatment.** Render source-scoped execution teams, source
-  confirmation during Execute, and repair options for blocked mixed execution.
-- [ ] **ETS-S06 - Proof wall.** Add regression tests and generated contract checks
-  so the policy cannot drift between Core, CLI, MCP, and GUI.
+- [x] **ETS-S01 - Core source facts (DONE 2026-06-19).** Resolved team workers
+  and run snapshots expose `resolvedSourceIds`, `executionSourceId`, and per-worker
+  `sourceId` in preflight.
+- [x] **ETS-S02 - Core preflight gate (DONE 2026-06-19).** `ExecutionTeamSourceGate`
+  evaluator, structured blocker/repairs, and WT-ETS01–03 tests.
+- [x] **ETS-S03 - Catalog authoring (DONE 2026-06-19).** Source-scoped execution
+  built-ins; `TeamCatalog.validateExecutionSourceGate` blocks mixed custom saves.
+- [x] **ETS-S04 - Dispatch and agent surfaces (DONE 2026-06-19).** Preflight,
+  `AsyncTeamService`, `TeamService`, and contract error `EXECUTION_TEAM_MIXED_SOURCES`.
+- [x] **ETS-S05 - Mac treatment (DONE 2026-06-19).** Team editor mutating toggle,
+  source conflict messaging, execution source on mutating cards.
+- [x] **ETS-S06 - Proof wall (DONE 2026-06-19).** `ExecutionTeamSourceGateTests`,
+  contract export, `swift test --package-path Packages/AllnighterCore`.
 
 Until ETS-S02 and ETS-S04 are built, new mutating team-run surfaces are blocked
 from shipping. Reveal-only work orders and non-mutating mixed-source judgment

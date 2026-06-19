@@ -2957,6 +2957,15 @@
       "ruleId" : "project.dispatch_gate_failed"
     },
     {
+      "agentAction" : "Pick one execution source, run as non-mutating review\/propose, or split into judgment then execution.",
+      "code" : "EXECUTION_TEAM_MIXED_SOURCES",
+      "exitClass" : "operational",
+      "explain" : "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "execution.team.mixed_sources"
+    },
+    {
       "agentAction" : "Run `alln project verify <id>`; a worker claim cannot mark work done.",
       "code" : "VERIFICATION_REQUIRED",
       "exitClass" : "operational",

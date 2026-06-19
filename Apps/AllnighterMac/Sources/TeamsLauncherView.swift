@@ -272,7 +272,12 @@ private struct TeamCardTile: View {
                     Text(card.family.capitalized).font(ALFont.monoSm)
                     if card.mutating {
                         Spacer()
-                        Label("Execute", systemImage: "lock").font(ALFont.monoSm).foregroundStyle(ALColor.accentText)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Label("Execute", systemImage: "lock").font(ALFont.monoSm).foregroundStyle(ALColor.accentText)
+                            if let source = card.executionSourceId {
+                                Text(source).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                            }
+                        }
                     }
                 }
                 .foregroundStyle(ALColor.textMuted)

@@ -35,6 +35,11 @@ public struct ResolvedTeamRun: Sendable, Equatable {
     public var warnings: [String]
     public var isRunnable: Bool
     public var blockReason: String?
+    /// Distinct `driverId` values among resolved workers (sorted). Populated by
+    /// `TeamSourceFacts.enrich` after resolution.
+    public var resolvedSourceIds: [String] = []
+    /// When exactly one source participates, the execution owner for mutating runs.
+    public var executionSourceId: String? = nil
 
     /// Answer + review + plan-writer, in execution order.
     public var allWorkers: [Worker] {
@@ -48,7 +53,8 @@ public struct ResolvedTeamRun: Sendable, Equatable {
         answerWorkers: [Worker] = [], reviewWorkers: [Worker] = [], planWriter: Worker? = nil,
         dissentPolicy: DissentPolicy = .preserveDissent,
         disabledRows: [DisabledRow] = [], warnings: [String] = [],
-        isRunnable: Bool = false, blockReason: String? = nil
+        isRunnable: Bool = false, blockReason: String? = nil,
+        resolvedSourceIds: [String] = [], executionSourceId: String? = nil
     ) {
         self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
         self.lane = lane; self.outputKind = outputKind
@@ -57,6 +63,7 @@ public struct ResolvedTeamRun: Sendable, Equatable {
         self.planWriter = planWriter; self.dissentPolicy = dissentPolicy
         self.disabledRows = disabledRows
         self.warnings = warnings; self.isRunnable = isRunnable; self.blockReason = blockReason
+        self.resolvedSourceIds = resolvedSourceIds; self.executionSourceId = executionSourceId
     }
 }
 
@@ -188,6 +195,7 @@ public enum TeamResolver {
             result.blockReason = "plan/output writer could not resolve for \(team.displayName)"
         }
         result.isRunnable = result.blockReason == nil
+        TeamSourceFacts.enrich(&result, models: readyModels)
         return result
     }
 

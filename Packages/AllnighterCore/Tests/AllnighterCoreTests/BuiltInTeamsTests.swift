@@ -13,6 +13,7 @@ final class BuiltInTeamsTests: XCTestCase {
         let required = [
             "code_core", "code_bug_hunt", "code_gui_bug_hunt", "code_security_review",
             "code_architecture_pressure_test", "code_release_proof",
+            "code_codex_implementation", "code_claude_implementation", "code_cursor_implementation",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
             "copy_core", "copy_landing_page",

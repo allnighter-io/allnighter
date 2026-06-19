@@ -31,15 +31,24 @@ final class CraftModelTests: XCTestCase {
     }
 
     func testExistingBuiltInsHaveCorrectNonMutatingPostures() {
-        // Drafting outputs propose; audit/diagnostic outputs review; none mutate.
+        // Drafting outputs propose; audit/diagnostic outputs review; advisory built-ins do not mutate.
         XCTAssertEqual(BuiltInTeams.team("code_core")?.posture, .propose)
         XCTAssertEqual(BuiltInTeams.team("design_core")?.posture, .propose)
         XCTAssertEqual(BuiltInTeams.team("copy_core")?.posture, .propose)
         XCTAssertEqual(BuiltInTeams.team("code_security_review")?.posture, .review)
         XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.posture, .review)
         XCTAssertEqual(BuiltInTeams.team("code_release_proof")?.posture, .review)
+        let executionIDs: Set<String> = [
+            "code_codex_implementation", "code_claude_implementation", "code_cursor_implementation"
+        ]
         for team in BuiltInTeams.all {
-            XCTAssertFalse(team.mutating, "\(team.id) must be non-mutating (advisory; Execute is a separate gate)")
+            if executionIDs.contains(team.id) {
+                XCTAssertTrue(team.mutating, "\(team.id) is a source-scoped execution team")
+                XCTAssertEqual(team.posture, .execute)
+                XCTAssertNotNil(team.executionSourceId)
+            } else {
+                XCTAssertFalse(team.mutating, "\(team.id) must be non-mutating advisory")
+            }
         }
     }
 

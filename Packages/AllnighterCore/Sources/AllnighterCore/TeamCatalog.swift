@@ -242,6 +242,8 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     /// externally, edit state). A `mutating` team cannot complete without Execute
     /// approval. Scout/propose/review teams are advisory and non-mutating.
     public var mutating: Bool
+    /// For source-scoped execution teams, the single CLI driver this team runs on.
+    public var executionSourceId: String?
     public var defaultEffort: EffortLevel
     public var isDefaultForLane: Bool
     public var workerSpecs: [TeamWorkerSpec]
@@ -263,6 +265,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         outputKind: TeamOutputKind,
         posture: TeamPosture = .propose,
         mutating: Bool = false,
+        executionSourceId: String? = nil,
         defaultEffort: EffortLevel = .med,
         isDefaultForLane: Bool = false,
         workerSpecs: [TeamWorkerSpec],
@@ -280,6 +283,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.outputKind = outputKind
         self.posture = posture
         self.mutating = mutating
+        self.executionSourceId = executionSourceId
         self.defaultEffort = defaultEffort
         self.isDefaultForLane = isDefaultForLane
         self.workerSpecs = workerSpecs
@@ -387,9 +391,29 @@ public enum TeamCatalog {
         guard leadSkill.lane == team.lane else {
             throw CatalogError.skillLaneMismatch(skillId: team.lead.skillId, teamId: team.id)
         }
+        try validateExecutionSourceGate(team)
         var custom = team
         custom.builtIn = false
         try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.teams)
+    }
+
+    /// Reject custom execution teams whose resolved workers cross CLI sources.
+    public static func validateExecutionSourceGate(_ team: TeamPreset) throws {
+        guard team.mutating || team.posture == .execute else { return }
+        let bench = catalogBenchModels()
+        let resolved = TeamResolver.resolve(
+            team: team, requestLane: team.lane, requestEffort: team.defaultEffort, readyModels: bench)
+        let gate = ExecutionTeamSourceGate.evaluate(resolved: resolved, models: bench)
+        if let blocker = gate.sourceGateBlocker {
+            throw CatalogError.teamInvalid(blocker.message)
+        }
+    }
+
+    private static func catalogBenchModels() -> [Model] {
+        ModelCatalog.list().map {
+            Model(id: $0.id, displayName: $0.displayName, modelLabel: $0.modelLabel,
+                  driverId: $0.driverId, role: $0.role, enabled: true)
+        }
     }
 
     public static func deleteCustom(_ id: TeamID) throws {

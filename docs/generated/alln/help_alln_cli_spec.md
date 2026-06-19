@@ -892,6 +892,7 @@ Flags:
 | `BASE_HEAD_CHANGED` | yes | no | Revalidate the proposal against the current head, then dispatch. |
 | `DIRTY_SCOPE_CONFLICT` | yes | no | Acknowledge including the dirty files or clean them, then dispatch. |
 | `DISPATCH_GATE_FAILED` | yes | no | Read the named failing gate(s) and resolve each, then retry dispatch. |
+| `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
 | `VERIFICATION_REQUIRED` | no | no | Run `alln project verify <id>`; a worker claim cannot mark work done. |
 
 ## NDJSON events

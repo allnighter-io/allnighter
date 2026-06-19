@@ -192,4 +192,19 @@ final class TeamDraftTests: XCTestCase {
                           promptDraft: "has prompt", customSkillName: nil)
         XCTAssertFalse(d.isSavable, "a create-from-scratch row needs a name")
     }
+
+    func testMutatingMixedSourceSaveIsBlocked() {
+        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        d.mutating = true
+        d.posture = .execute
+        if d.rows.count > 1 {
+            d.rows[1].modelId = "model_chatgpt"
+        }
+        XCTAssertThrowsError(try d.commit()) { error in
+            guard case CatalogError.teamInvalid(let message) = error else {
+                return XCTFail("expected teamInvalid, got \(error)")
+            }
+            XCTAssertTrue(message.contains("one CLI"))
+        }
+    }
 }
