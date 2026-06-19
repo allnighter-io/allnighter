@@ -82,6 +82,68 @@ final class ProjectManagerServiceTests: XCTestCase {
         XCTAssertTrue(turn.warnings.contains { $0.contains("not logged in") || $0.contains("did not answer") })
     }
 
+    // MARK: - Propose (PRJ-S09)
+
+    private func proposeService(_ stdout: String) -> ProjectManagerService {
+        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
+        return ProjectManagerService(
+            runner: MockCommandRunner(scripts: ["claude": .init(stdout: stdout, exitCode: 0)]),
+            registry: DriverRegistry([manifest]))
+    }
+
+    func testProposeBuildsOneBoundedProposalStampedByAllnighter() async {
+        let modelJSON = """
+        Sure, here's the move:
+        {"kind":"execute_slice","title":"Add a smoke test","whyNow":"single commit, no tests yet",
+         "scope":"one test file","nonGoals":["no CI changes"],"risks":["flaky env"],
+         "suggestedLane":"code","suggestedEffort":"med"}
+        Thanks!
+        """
+        let opus = TestSupport.worker("model_opus", driverId: "claude_code")
+        let out = await proposeService(modelJSON).propose(project: project(), packet: packet(), readyModels: [opus])
+        let p = try? XCTUnwrap(out.proposal)
+        XCTAssertEqual(p?.kind, .execute_slice)
+        XCTAssertEqual(p?.title, "Add a smoke test")
+        XCTAssertEqual(p?.suggestedLane, .code)
+        XCTAssertEqual(p?.suggestedEffort, .med)
+        XCTAssertEqual(p?.status, .proposed, "a fresh proposal is never pre-approved")
+        XCTAssertTrue(p?.id.hasPrefix("prop_") ?? false, "Allnighter stamps the id, not the model")
+        XCTAssertNil(p?.approval, "propose never approves")
+        XCTAssertNil(p?.workOrderId, "propose never dispatches")
+        XCTAssertEqual(out.turn.mode, .propose)
+        XCTAssertEqual(out.turn.proposals, [p?.id])
+        XCTAssertEqual(out.turn.modelId, "model_opus")
+    }
+
+    func testProposeBlockerYieldsWaitTurnNoProposal() async {
+        let opus = TestSupport.worker("model_opus", driverId: "claude_code")
+        let out = await proposeService("{\"blocker\":\"dirty tree overlaps likely scope\"}")
+            .propose(project: project(), packet: packet(), readyModels: [opus])
+        XCTAssertNil(out.proposal, "a blocker is not a proposal")
+        XCTAssertEqual(out.turn.mode, .wait)
+        XCTAssertTrue(out.turn.warnings.contains { $0.contains("dirty tree") })
+    }
+
+    func testProposeNoReadyModelYieldsWaitTurn() async {
+        let out = await ProjectManagerService(runner: MockCommandRunner(scripts: [:]), registry: DriverRegistry([]))
+            .propose(project: project(), packet: packet(), readyModels: [])
+        XCTAssertNil(out.proposal)
+        XCTAssertEqual(out.turn.mode, .wait)
+    }
+
+    func testProposeUnparseableOutputYieldsWaitTurn() async {
+        let opus = TestSupport.worker("model_opus", driverId: "claude_code")
+        let out = await proposeService("I think you should do something nice.")
+            .propose(project: project(), packet: packet(), readyModels: [opus])
+        XCTAssertNil(out.proposal)
+        XCTAssertEqual(out.turn.mode, .wait)
+    }
+
+    func testFirstJSONObjectExtractsBalancedObject() {
+        let s = "noise {\"a\":{\"b\":\"}\"}} trailing"
+        XCTAssertEqual(ProjectManagerService.firstJSONObject(in: s), "{\"a\":{\"b\":\"}\"}}")
+    }
+
     // MARK: - Prompt grounding
 
     func testPromptEmbedsPacketTruthAndForbidsInvention() {

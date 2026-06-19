@@ -22,8 +22,10 @@ enum ProjectCLI {
         case "workers": runWorkers(args)
         case "recheck-workers": await runRecheck(args, runtime)
         case "chat": await runChat(args, runtime)
+        case "propose": await runPropose(args, runtime)
+        case "proposals": runProposals(args)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers|chat> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|context|workers|recheck-workers|chat|propose|proposals> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -250,6 +252,53 @@ enum ProjectCLI {
             for w in turn.warnings { FileHandle.standardError.write(Data("⏸ \(w)\n".utf8)) }
         } else {
             print(turn.answerMarkdown ?? "")
+        }
+    }
+
+    /// Proposal engine (PRJ-S09): one bounded next move or one visible blocker.
+    /// No dispatch, no approval. Persists the proposal + records the propose turn.
+    private static func runPropose(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard let idOrName = opts.positional.first else { usageError("usage: alln project propose <project-id-or-name> [--json]") }
+        let store = ProjectStore()
+        let project = resolve(idOrName, store)
+        let threads = boundThreads(projectId: project.id)
+        let pending = boundPending(projectId: project.id)
+        let packet = ProjectContextPacketBuilder.build(
+            project: project,
+            recentThreadSummaries: threads.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" },
+            pendingItems: pending.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" }
+        )
+        let service = ProjectManagerService(
+            runner: SubprocessCommandRunner(), registry: runtime.registry, invocations: runtime.invocations)
+        let result = await service.propose(project: project, packet: packet, readyModels: runtime.readyModels)
+        try? ProjectManagerTurnStore().append(result.turn)
+        if let proposal = result.proposal { try? ProjectProposalStore().append(proposal) }
+        if opts.flag("json") {
+            print(AllnighterCLI.jsonString(ProjectProposalJSON(
+                contractVersion: ContractRegistry.contractVersion,
+                proposal: result.proposal, turn: result.turn, nextActions: result.turn.nextActions)))
+        } else if let p = result.proposal {
+            print("\(p.id)\t\(p.kind.rawValue)\t\(p.title)")
+            if !p.whyNow.isEmpty { print("why now: \(p.whyNow)") }
+        } else {
+            for w in result.turn.warnings { FileHandle.standardError.write(Data("⏸ \(w)\n".utf8)) }
+        }
+    }
+
+    private static func runProposals(_ args: [String]) {
+        let opts = Options(args)
+        guard let idOrName = opts.positional.first else { usageError("usage: alln project proposals <project-id-or-name> [--json]") }
+        let store = ProjectStore()
+        let project = resolve(idOrName, store)
+        let proposals = ProjectProposalStore().load(projectId: project.id)
+        if opts.flag("json") {
+            print(AllnighterCLI.jsonString(ProjectProposalsJSON(
+                contractVersion: ContractRegistry.contractVersion, projectId: project.id, proposals: proposals)))
+        } else if proposals.isEmpty {
+            print("(no proposals — `alln project propose \(project.id)`)")
+        } else {
+            for p in proposals { print("\(p.id)\t\(p.status.rawValue)\t\(p.kind.rawValue)\t\(p.title)") }
         }
     }
 

@@ -89,6 +89,143 @@ public struct ProjectManagerService: Sendable {
         )
     }
 
+    // MARK: - Propose (PRJ-S09)
+
+    /// The outcome of a propose call: at most one bounded proposal, plus the typed
+    /// turn that produced it. A blocked/declined/no-model call yields a nil proposal
+    /// and a `wait` turn with a sourced, visible blocker (never a guessed proposal).
+    public struct ProposeOutcome: Sendable, Equatable {
+        public var proposal: ProjectProposal?
+        public var turn: ProjectManagerTurn
+    }
+
+    /// "What should we do next?" → one bounded `ProjectProposal` or one visible
+    /// blocker. The model authors the proposal *content* as JSON; Allnighter stamps
+    /// the durable fields (id, status, baseGitHead, timestamps) — never the model.
+    /// This does NOT dispatch and does NOT approve (Readiness And Proposal Law).
+    public func propose(
+        project: Project,
+        packet: ProjectContextPacket,
+        readyModels: [Model],
+        userMessageId: String? = nil
+    ) async -> ProposeOutcome {
+        let at = now()
+        let turnId = "mgr_" + UUID().uuidString.prefix(8).lowercased()
+        let threadId = project.managerThreadId ?? "mgr_thread_\(project.id)"
+        let userMsgId = userMessageId ?? "umsg_" + UUID().uuidString.prefix(8).lowercased()
+
+        func waitTurn(_ warning: String) -> ProposeOutcome {
+            ProposeOutcome(proposal: nil, turn: ProjectManagerTurn(
+                id: turnId, projectId: project.id, threadId: threadId, userMessageId: userMsgId,
+                createdAt: at, mode: .wait, contextPacketId: packet.id, warnings: [warning],
+                nextActions: [.init(kind: .recheckWorkers, label: "Recheck workers", command: "alln project recheck-workers \(project.id) --json")]))
+        }
+
+        guard let model = Self.resolveManagerModel(project: project, readyModels: readyModels) else {
+            return waitTurn("No ready manager model. Enable a ready planner-capable model (`alln models --json`); no proposal will be guessed.")
+        }
+        guard let manifest = registry.manifest(for: model) else {
+            return waitTurn("Manager model \(model.id) has no driver manifest; cannot run.")
+        }
+
+        let prompt = Self.buildProposePrompt(packet: packet)
+        let outcome = await WorkerRunner(commandRunner: runner, invocations: invocations, now: now)
+            .invoke(worker: model, manifest: manifest, prompt: prompt, effort: .med)
+
+        guard outcome.hasOutput, let output = outcome.output else {
+            return waitTurn("Manager model \(model.id) did not respond (\(outcome.errorReason ?? "no output")).")
+        }
+        guard let draft = Self.parseProposalDraft(output) else {
+            return waitTurn("Manager model \(model.id) did not return a parseable proposal. Retry or ask in chat.")
+        }
+        // A model-declared blocker is a visible blocker, not a proposal.
+        if let blocker = draft.blocker?.trimmingCharacters(in: .whitespacesAndNewlines), !blocker.isEmpty {
+            return waitTurn(blocker)
+        }
+        guard let kindRaw = draft.kind, let kind = ProposalKind(rawValue: kindRaw),
+              let title = draft.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
+            return waitTurn("Manager model \(model.id) returned an incomplete proposal (missing kind/title). Retry or ask in chat.")
+        }
+
+        let proposalId = "prop_" + UUID().uuidString.prefix(8).lowercased()
+        let proposal = ProjectProposal(
+            id: proposalId, projectId: project.id, threadId: threadId, createdFromTurnId: turnId,
+            kind: kind, status: .proposed, title: title,
+            whyNow: draft.whyNow ?? "", userGoal: draft.userGoal ?? "",
+            currentTruth: draft.currentTruth ?? [], scope: draft.scope ?? "",
+            nonGoals: draft.nonGoals ?? [], likelyFilesOrAreas: draft.likelyFilesOrAreas ?? [],
+            risks: draft.risks ?? [], blockingQuestions: draft.blockingQuestions ?? [],
+            suggestedLane: draft.suggestedLane.flatMap { WorkLane(rawValue: $0.lowercased()) },
+            suggestedTeamId: draft.suggestedTeamId,
+            suggestedEffort: draft.suggestedEffort.flatMap { EffortLevel(rawValue: $0.lowercased()) },
+            baseGitHead: packet.git.head, createdAt: at, updatedAt: at)
+
+        let turn = ProjectManagerTurn(
+            id: turnId, projectId: project.id, threadId: threadId, userMessageId: userMsgId,
+            createdAt: at, mode: .propose, contextPacketId: packet.id, modelId: model.id,
+            proposals: [proposalId], warnings: packet.warnings,
+            nextActions: [
+                .init(kind: .approve, label: "Approve", command: "alln project approve \(proposalId) --json"),
+                .init(kind: .edit, label: "Edit", command: "alln project edit \(proposalId) --json"),
+                .init(kind: .postpone, label: "Postpone", command: "alln project postpone \(proposalId) --json"),
+            ])
+        return ProposeOutcome(proposal: proposal, turn: turn)
+    }
+
+    /// The model-authored proposal fields (Allnighter stamps the rest). `blocker`
+    /// lets the model honestly decline when facts don't decide or a gate is red.
+    struct ProposalDraft: Decodable {
+        var blocker: String?
+        var kind: String?
+        var title: String?
+        var whyNow: String?
+        var userGoal: String?
+        var currentTruth: [String]?
+        var scope: String?
+        var nonGoals: [String]?
+        var likelyFilesOrAreas: [String]?
+        var risks: [String]?
+        var blockingQuestions: [String]?
+        var suggestedLane: String?
+        var suggestedTeamId: String?
+        var suggestedEffort: String?
+    }
+
+    /// Extract and decode the first balanced JSON object from possibly-noisy model
+    /// output (CLIs wrap answers in prose/fences). Returns nil if none decodes.
+    static func parseProposalDraft(_ output: String) -> ProposalDraft? {
+        guard let json = firstJSONObject(in: output),
+              let data = json.data(using: .utf8),
+              let draft = try? JSONDecoder().decode(ProposalDraft.self, from: data)
+        else { return nil }
+        return draft
+    }
+
+    static func firstJSONObject(in text: String) -> String? {
+        guard let start = text.firstIndex(of: "{") else { return nil }
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var idx = start
+        while idx < text.endIndex {
+            let c = text[idx]
+            if inString {
+                if escaped { escaped = false }
+                else if c == "\\" { escaped = true }
+                else if c == "\"" { inString = false }
+            } else {
+                if c == "\"" { inString = true }
+                else if c == "{" { depth += 1 }
+                else if c == "}" {
+                    depth -= 1
+                    if depth == 0 { return String(text[start...idx]) }
+                }
+            }
+            idx = text.index(after: idx)
+        }
+        return nil
+    }
+
     // MARK: - Prompt assembly (built-in persona snapshot)
 
     /// The built-in Manager persona. Static catalog content (not editable prose
@@ -116,6 +253,44 @@ public struct ProjectManagerService: Sendable {
 
         # User message
         \(message)
+        """
+    }
+
+    /// Built-in propose persona: produce ONE bounded next move as JSON, grounded in
+    /// the context; decline with a blocker rather than guess. Legal kinds are fixed.
+    static let proposePersona = """
+    You are the Project Manager. Propose exactly ONE bounded next move for this \
+    project, grounded ONLY in the context below. Output a SINGLE JSON object and \
+    nothing else (no prose, no code fences).
+
+    Schema:
+    {
+      "kind": one of [spec_explore, synthesis_review, execute_slice, docs_reconcile, verify_completion, audit, deslop, ask_user, wait],
+      "title": short imperative title,
+      "whyNow": why this is the right next move now (cite context),
+      "userGoal": the user goal it advances,
+      "currentTruth": [source-labeled facts it builds on],
+      "scope": what is in scope (bounded),
+      "nonGoals": [explicitly out of scope],
+      "likelyFilesOrAreas": [paths/areas likely touched],
+      "risks": [risks or unknowns],
+      "blockingQuestions": [questions that must be answered first, if any],
+      "suggestedLane": one of [code, design, copy] or omit,
+      "suggestedEffort": one of [low, med, high] or omit
+    }
+
+    Rules: choose the cheapest safe move that advances the work. Do NOT invent \
+    commits, files, or status not in the context. If the facts do not decide, or a \
+    hard gate is red (dirty tree, missing root, no ready worker), instead return \
+    {"blocker": "<one clear sentence naming the blocker>"}. Never dispatch or approve.
+    """
+
+    static func buildProposePrompt(packet: ProjectContextPacket) -> String {
+        """
+        \(proposePersona)
+
+        # Project context (source-labeled; generated \(iso(packet.generatedAt)))
+        \(renderPacket(packet))
         """
     }
 

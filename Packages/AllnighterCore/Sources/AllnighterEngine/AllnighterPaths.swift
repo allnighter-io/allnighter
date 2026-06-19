@@ -44,6 +44,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("ProjectManagerTurns", isDirectory: true)
     }
 
+    /// `…/Allnighter/ProjectProposals/` — durable per-project proposals (PRJ-S09).
+    public static var projectProposals: URL {
+        support.appendingPathComponent("ProjectProposals", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)

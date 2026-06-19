@@ -1923,6 +1923,58 @@
     },
     {
       "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectProposalJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project propose",
+      "outputSchema" : "none",
+      "summary" : "Ask the Project Manager for ONE bounded next move (or one visible blocker). The model authors the proposal; Allnighter stamps the durable fields. Never dispatches or approves."
+    },
+    {
+      "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectProposalsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project proposals",
+      "outputSchema" : "none",
+      "summary" : "List a project's proposals."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [

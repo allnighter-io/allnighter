@@ -747,6 +747,26 @@ Flags:
 - `--file <path>` — Read the message from a file.
 - `--json` — Emit a ProjectManagerTurnJSON object.
 
+### `alln project propose`
+
+Ask the Project Manager for ONE bounded next move (or one visible blocker). The model authors the proposal; Allnighter stamps the durable fields. Never dispatches or approves.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectProposalJSON object.
+
+### `alln project proposals`
+
+List a project's proposals.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--json` — Emit a ProjectProposalsJSON object.
+
 ## Commands (named but deferred)
 
 - `alln work` — Create a work order.

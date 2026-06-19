@@ -112,6 +112,32 @@ public struct ProjectManagerTurnJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// The result of `project propose` — at most one bounded proposal plus the typed
+/// turn that produced it. `proposal` is nil when the turn is a `wait`/blocker.
+public struct ProjectProposalJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var proposal: ProjectProposal?
+    public var turn: ProjectManagerTurn
+    public var nextActions: [ProjectNextAction]
+    public init(schemaVersion: Int = 1, contractVersion: String, proposal: ProjectProposal?, turn: ProjectManagerTurn, nextActions: [ProjectNextAction] = []) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.proposal = proposal; self.turn = turn; self.nextActions = nextActions
+    }
+}
+
+/// All proposals for a project — used by `project proposals`.
+public struct ProjectProposalsJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var projectId: String
+    public var proposals: [ProjectProposal]
+    public init(schemaVersion: Int = 1, contractVersion: String, projectId: String, proposals: [ProjectProposal]) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.projectId = projectId; self.proposals = proposals
+    }
+}
+
 /// The on-demand context packet — used by `project context`. The packet is a
 /// receipt, regenerated from current truth on every call (never durable truth).
 public struct ProjectContextJSON: Codable, Equatable, Sendable {
