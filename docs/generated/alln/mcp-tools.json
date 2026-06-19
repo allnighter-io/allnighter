@@ -24,7 +24,7 @@
     ],
     "idempotency" : "idempotent",
     "name" : "teams_list",
-    "outputSchema" : "none",
+    "outputSchema" : "teamCatalogJSON",
     "params" : [
       {
         "name" : "lane",
@@ -160,7 +160,7 @@
     ],
     "idempotency" : "idempotent",
     "name" : "skills_list",
-    "outputSchema" : "none",
+    "outputSchema" : "skillCatalogJSON",
     "params" : [
       {
         "name" : "lane",

@@ -358,7 +358,7 @@
 
       ],
       "name" : "teams",
-      "outputSchema" : "none",
+      "outputSchema" : "teamCatalogJSON",
       "summary" : "List the lane-scoped team catalog."
     },
     {
@@ -487,7 +487,7 @@
 
       ],
       "name" : "skills",
-      "outputSchema" : "none",
+      "outputSchema" : "skillCatalogJSON",
       "summary" : "List the lane-scoped skill catalog."
     },
     {
@@ -2478,7 +2478,7 @@
       ],
       "idempotency" : "idempotent",
       "name" : "teams_list",
-      "outputSchema" : "none",
+      "outputSchema" : "teamCatalogJSON",
       "params" : [
         {
           "name" : "lane",
@@ -2614,7 +2614,7 @@
       ],
       "idempotency" : "idempotent",
       "name" : "skills_list",
-      "outputSchema" : "none",
+      "outputSchema" : "skillCatalogJSON",
       "params" : [
         {
           "name" : "lane",

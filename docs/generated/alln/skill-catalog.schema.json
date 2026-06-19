@@ -1,0 +1,62 @@
+{
+  "$defs" : {
+    "SkillCatalogEntry" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "builtIn" : {
+          "type" : "boolean"
+        },
+        "displayName" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "lane" : {
+          "type" : "string"
+        },
+        "purpose" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "displayName",
+        "lane",
+        "purpose",
+        "builtIn"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/skill-catalog.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "lane" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "skills" : {
+      "items" : {
+        "$ref" : "#\/$defs\/SkillCatalogEntry"
+      },
+      "type" : "array"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "skills"
+  ],
+  "title" : "SkillCatalogJSON",
+  "type" : "object"
+}

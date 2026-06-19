@@ -27,6 +27,7 @@ public extension ContractRegistry {
                     idempotency: .idempotent),
         MCPToolSpec("teams_list", command: "teams", summary: "Lane-scoped team catalog summary (no prompt templates).",
                     params: [.init("lane", summary: "Filter to one lane: code|design|copy|signal (optional).")],
+                    outputSchema: .teamCatalogJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("teams_show", command: "teams show", summary: "One team definition including worker rows.",
                     params: [.init("teamId", required: true, summary: "Team id.")],
@@ -47,6 +48,7 @@ public extension ContractRegistry {
                     errors: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_DEFAULT_INVALID", "CLI_USAGE_ERROR", "INTERNAL_ERROR"], idempotency: .idempotent),
         MCPToolSpec("skills_list", command: "skills", summary: "Lane-scoped skill catalog summary (no templates).",
                     params: [.init("lane", summary: "Filter to one lane: code|design|copy|signal (optional).")],
+                    outputSchema: .skillCatalogJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("skills_show", command: "skills show", summary: "One skill definition including template.",
                     params: [.init("skillId", required: true, summary: "Skill id.")],
@@ -243,7 +245,7 @@ public extension ContractRegistry {
             "teams", summary: "List the lane-scoped team catalog.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
-            exampleIds: ["teams_build_json"]
+            outputSchema: .teamCatalogJSON, exampleIds: ["teams_build_json"]
         ),
         CommandSpec(
             "thread send", summary: "Send a message and/or images to a work thread.", milestone: .m1,
@@ -275,7 +277,7 @@ public extension ContractRegistry {
             "skills", summary: "List the lane-scoped skill catalog.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("json", summary: "Structured catalog summary (no templates).")],
-            exampleIds: ["skills_build_json"]
+            outputSchema: .skillCatalogJSON, exampleIds: ["skills_build_json"]
         ),
         CommandSpec(
             "skills show", summary: "Show one skill definition including template.", milestone: .m1,

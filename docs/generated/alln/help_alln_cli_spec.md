@@ -143,6 +143,8 @@ Flags:
 - `--lane <lane>` — Filter to one lane.
 - `--json` — Structured catalog summary.
 
+Output schema: `teamCatalogJSON`.
+
 Examples: `teams_build_json`.
 
 ### `alln thread send`
@@ -192,6 +194,8 @@ List the lane-scoped skill catalog.
 Flags:
 - `--lane <lane>` — Filter to one lane.
 - `--json` — Structured catalog summary (no templates).
+
+Output schema: `skillCatalogJSON`.
 
 Examples: `skills_build_json`.
 

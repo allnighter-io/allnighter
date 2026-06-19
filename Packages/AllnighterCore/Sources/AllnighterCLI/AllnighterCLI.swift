@@ -471,27 +471,7 @@ struct AllnighterCLI {
     /// and the MCP `teams_list` tool.
     static func teamsCatalogJSONString(_ runtime: ToolRuntime, lane: WorkLane?) -> String {
         let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
-        struct TeamSummary: Encodable {
-            let id, displayName, lane, outputKind, defaultEffort, posture: String
-            let mutating, builtIn, isDefaultForLane: Bool
-            let workerCount: Int
-            let disabledReason: String?
-        }
-        struct Catalog: Encodable {
-            let schemaVersion = 1
-            let contractVersion: String
-            let lane: String?
-            let teams: [TeamSummary]
-        }
-        let summaries = teams.map { t -> TeamSummary in
-            return TeamSummary(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
-                               outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
-                               posture: t.posture.rawValue, mutating: t.mutating,
-                               builtIn: t.builtIn, isDefaultForLane: t.isDefaultForLane,
-                               workerCount: t.workerSpecs.count,
-                               disabledReason: nil)
-        }
-        return jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, teams: summaries))
+        return jsonString(TeamCatalogJSON.project(teams, lane: lane, contractVersion: ContractRegistry.contractVersion))
     }
 
     /// `alln skills [--lane code|design|copy|signal] [--json]` — lane-scoped skill catalog (no templates).
@@ -529,27 +509,9 @@ struct AllnighterCLI {
     }
 
     static func skillsCatalogJSONString(lane: WorkLane?) -> String {
-        struct SkillSummary: Encodable {
-            let id, displayName, lane, purpose: String
-            let builtIn: Bool
-        }
-        struct Catalog: Encodable {
-            let schemaVersion = 1
-            let contractVersion: String
-            let lane: String?
-            let skills: [SkillSummary]
-        }
-        let skills: [Skill]
-        if let lane {
-            skills = SkillCatalog.list(lane: lane)
-        } else {
-            skills = WorkLane.allCases.flatMap { SkillCatalog.list(lane: $0) }
-        }
-        let summaries = skills.map {
-            SkillSummary(id: $0.id, displayName: $0.displayName, lane: $0.lane.rawValue,
-                         purpose: $0.purpose.rawValue, builtIn: $0.builtIn)
-        }
-        return jsonString(Catalog(contractVersion: ContractRegistry.contractVersion, lane: lane?.rawValue, skills: summaries))
+        let skills = lane.map { SkillCatalog.list(lane: $0) }
+            ?? WorkLane.allCases.flatMap { SkillCatalog.list(lane: $0) }
+        return jsonString(SkillCatalogJSON.project(skills, lane: lane, contractVersion: ContractRegistry.contractVersion))
     }
 
     static func skillShowJSONString(_ skill: Skill) -> String {

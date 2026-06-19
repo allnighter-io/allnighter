@@ -81,6 +81,20 @@ final class ContractSchemaTests: XCTestCase {
         XCTAssertEqual(try properties(def(schema, "FailedWorker")), labels(failed), "FailedWorker schema drifted")
     }
 
+    func testCatalogSchemasMatchTypes() throws {
+        let team = TeamCatalogJSON.project(BuiltInTeams.teams(in: .signal), lane: .signal,
+                                           contractVersion: ContractRegistry.contractVersion)
+        let teamSchema = ContractSchema.teamCatalogSchema()
+        XCTAssertEqual(try properties(teamSchema), labels(team), "TeamCatalogJSON top-level schema drifted")
+        XCTAssertEqual(try properties(def(teamSchema, "TeamCatalogEntry")), labels(try XCTUnwrap(team.teams.first)), "TeamCatalogEntry schema drifted")
+
+        let skill = SkillCatalogJSON.project(SkillCatalog.list(lane: .signal), lane: .signal,
+                                             contractVersion: ContractRegistry.contractVersion)
+        let skillSchema = ContractSchema.skillCatalogSchema()
+        XCTAssertEqual(try properties(skillSchema), labels(skill), "SkillCatalogJSON top-level schema drifted")
+        XCTAssertEqual(try properties(def(skillSchema, "SkillCatalogEntry")), labels(try XCTUnwrap(skill.skills.first)), "SkillCatalogEntry schema drifted")
+    }
+
     func testSchemasSerializeDeterministically() throws {
         XCTAssertEqual(try ContractSchema.json(ContractSchema.teamRunSchema()),
                        try ContractSchema.json(ContractSchema.teamRunSchema()))

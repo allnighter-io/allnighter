@@ -1,0 +1,88 @@
+{
+  "$defs" : {
+    "TeamCatalogEntry" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "builtIn" : {
+          "type" : "boolean"
+        },
+        "defaultEffort" : {
+          "type" : "string"
+        },
+        "disabledReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "displayName" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "isDefaultForLane" : {
+          "type" : "boolean"
+        },
+        "lane" : {
+          "type" : "string"
+        },
+        "mutating" : {
+          "type" : "boolean"
+        },
+        "outputKind" : {
+          "type" : "string"
+        },
+        "posture" : {
+          "type" : "string"
+        },
+        "workerCount" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "id",
+        "displayName",
+        "lane",
+        "outputKind",
+        "defaultEffort",
+        "posture",
+        "mutating",
+        "builtIn",
+        "isDefaultForLane",
+        "workerCount"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/team-catalog.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "lane" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "teams" : {
+      "items" : {
+        "$ref" : "#\/$defs\/TeamCatalogEntry"
+      },
+      "type" : "array"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "teams"
+  ],
+  "title" : "TeamCatalogJSON",
+  "type" : "object"
+}

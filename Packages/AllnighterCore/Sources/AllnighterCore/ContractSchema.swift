@@ -412,6 +412,48 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - Catalog list contracts (teams_list / skills_list)
+
+    public static func teamCatalogSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/team-catalog.schema.json",
+            "title": "TeamCatalogJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str, "lane": nullable("string"),
+            "teams": arr(ref("TeamCatalogEntry")),
+        ], required: ["schemaVersion", "contractVersion", "teams"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "TeamCatalogEntry": obj([
+                "id": str, "displayName": str, "lane": str, "outputKind": str, "defaultEffort": str,
+                "posture": str, "mutating": bool, "builtIn": bool, "isDefaultForLane": bool,
+                "workerCount": int, "disabledReason": nullable("string"),
+            ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "posture", "mutating", "builtIn", "isDefaultForLane", "workerCount"]),
+        ]
+        return schema
+    }
+
+    public static func skillCatalogSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/skill-catalog.schema.json",
+            "title": "SkillCatalogJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str, "lane": nullable("string"),
+            "skills": arr(ref("SkillCatalogEntry")),
+        ], required: ["schemaVersion", "contractVersion", "skills"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "SkillCatalogEntry": obj([
+                "id": str, "displayName": str, "lane": str, "purpose": str, "builtIn": bool,
+            ], required: ["id", "displayName", "lane", "purpose", "builtIn"]),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {
