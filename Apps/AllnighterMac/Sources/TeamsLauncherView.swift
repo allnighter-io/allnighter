@@ -12,13 +12,22 @@ struct TeamsLauncherView: View {
     /// new running thread (sendRouting selects it).
     var onContinue: () -> Void = {}
     @Environment(ThreadsViewModel.self) private var threads
+    @Environment(AppModel.self) private var appModel
     @State private var selectedTeamId: String?
     /// Non-nil while the centered send-to-team composer modal is open.
     @State private var composingTeam: TeamCard?
+    /// Non-nil while the Team Editor drawer is open (hover-pencil → review/customize).
+    @State private var editingTeam: TeamCard?
 
     private var cards: [TeamCard] {
         TeamCardCatalogJSON.project(TeamCatalog.all, family: nil,
                                     contractVersion: ContractRegistry.contractVersion).cards
+    }
+
+    /// Ready models, mirroring Team Studio's derivation (bench-ready ids).
+    private var readyModels: [Model] {
+        let readyIds = Set(appModel.composeBench.filter(\.ready).map(\.id))
+        return appModel.models.filter { readyIds.contains($0.id) }
     }
 
     private let columns = [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14)]
@@ -30,11 +39,14 @@ struct TeamsLauncherView: View {
                     header
                     LazyVGrid(columns: columns, spacing: 14) {
                         ForEach(cards) { card in
-                            TeamCardTile(card: card, selected: selectedTeamId == card.id) {
-                                // One click = select + open the composer (fast path).
-                                selectedTeamId = card.id
-                                composingTeam = card
-                            }
+                            TeamCardTile(
+                                card: card, selected: selectedTeamId == card.id,
+                                onTap: {
+                                    // One click = select + open the composer (fast path).
+                                    selectedTeamId = card.id
+                                    composingTeam = card
+                                },
+                                onEdit: { editingTeam = card })   // hover-pencil → editor drawer
                         }
                     }
                 }
@@ -52,6 +64,13 @@ struct TeamsLauncherView: View {
                                 },
                                 onDismiss: { composingTeam = nil })  // Esc → back to Teams, card stays highlighted
             }
+
+            if let card = editingTeam, let base = TeamCatalog.get(card.teamId) {
+                TeamEditorDrawer(
+                    base: base, lane: ComposeLane(rawValue: card.family) ?? .code,
+                    models: appModel.models, readyModels: readyModels,
+                    onClose: { editingTeam = nil })
+            }
         }
         .background(ALColor.base)
         .onAppear {
@@ -60,6 +79,9 @@ struct TeamsLauncherView: View {
                 let card = cards.first { $0.id == "signal_post_to_project" } ?? cards.first
                 selectedTeamId = card?.id
                 composingTeam = card
+            }
+            if GUIFixture.opensTeamsEditDrawer, editingTeam == nil {
+                editingTeam = cards.first { $0.id == "code_core" } ?? cards.first
             }
             #endif
         }
@@ -139,6 +161,47 @@ private struct SendToTeamModal: View {
     }
 }
 
+/// The Team Editor as a right-hand drawer over the launcher (#3). Reuses the
+/// existing `TeamEditorView` (no new view) so hover-pencil → review/customize is
+/// one click from the roster. Esc / tap-scrim → close; Save → close.
+private struct TeamEditorDrawer: View {
+    let base: TeamPreset
+    let lane: ComposeLane
+    let models: [Model]
+    let readyModels: [Model]
+    var onClose: () -> Void
+    @State private var revertTick = 0
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            ALColor.overlay.ignoresSafeArea()
+                .onTapGesture(perform: onClose)
+            VStack(spacing: 0) {
+                HStack {
+                    Text("REVIEW & CUSTOMIZE").font(ALFont.monoSm.weight(.semibold)).tracking(1.0)
+                        .foregroundStyle(ALColor.textFaint)
+                    Spacer()
+                    IconButton(systemImage: "xmark", accessibilityLabel: "Close", small: true, action: onClose)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 12)
+                Divider().overlay(ALColor.borderSubtle)
+                TeamEditorView(
+                    base: base, lane: lane, models: models, readyModels: readyModels,
+                    onRevert: { revertTick += 1 },
+                    onSaved: { _ in onClose() }
+                )
+                .id("\(base.id)#\(revertTick)")
+            }
+            .frame(width: 600)
+            .frame(maxHeight: .infinity)
+            .background(ALColor.base)
+            .overlay(alignment: .leading) { Rectangle().fill(ALColor.borderDefault).frame(width: 1) }
+            .shadow(color: .black.opacity(0.45), radius: 32, x: -8)
+        }
+        .onExitCommand(perform: onClose)
+    }
+}
+
 /// One team tile — a faithful-enough G-T0 card (family tag · name · outcome ·
 /// lineup count · posture/mutating). G-T1 adds the deduped model-logo lineup,
 /// favorite star, last-run footer, and selection glow per the handoff.
@@ -146,9 +209,14 @@ private struct TeamCardTile: View {
     let card: TeamCard
     let selected: Bool
     var onTap: () -> Void
+    var onEdit: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        Button(action: onTap) {
+        // NOT a Button: the card body uses a tap gesture (compose) so the
+        // hover-revealed pencil can be its own Button (review/customize) without
+        // nesting interactive controls (the handoff's nested-button trap).
+        ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: familySymbol).font(.system(size: 11))
@@ -178,13 +246,29 @@ private struct TeamCardTile: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
-            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-            .overlay(
-                RoundedRectangle(cornerRadius: ALRadius.lg)
-                    .strokeBorder(selected ? ALColor.accentBorder : ALColor.borderSubtle, lineWidth: 1)
-            )
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onTap)
+
+            // Hover-revealed edit affordance → opens the Team Editor drawer.
+            if hovering {
+                Button(action: onEdit) {
+                    Image(systemName: "slider.horizontal.3").font(.system(size: 12))
+                        .foregroundStyle(ALColor.textSecondary)
+                        .frame(width: 26, height: 26)
+                        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                        .overlay(RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderDefault, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .help("Review & customize this team")
+                .padding(10)
+            }
         }
-        .buttonStyle(.plain)
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: ALRadius.lg)
+                .strokeBorder(selected ? ALColor.accentBorder : (hovering ? ALColor.borderStrong : ALColor.borderSubtle), lineWidth: 1)
+        )
+        .onHover { hovering = $0 }
     }
 
     private var familySymbol: String {
