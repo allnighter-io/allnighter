@@ -835,6 +835,18 @@ Flags:
 - `--ack-dirty` — Acknowledge the dirty tree in the preview.
 - `--json` — Emit a ProjectHandoffJSON object.
 
+### `alln project dispatch`
+
+Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Mutates the repo via the worker's CLI; captures a WorkReturn (not proof — verify decides done).
+
+Arguments:
+- `work-order-id` (required) — Work order id.
+
+Flags:
+- `--worker <string>` — Dispatch to a specific ready worker/model id.
+- `--ack-dirty` — Acknowledge the dirty tree before dispatch.
+- `--json` — Emit a ProjectDispatchJSON object.
+
 ## Commands (named but deferred)
 
 - `alln work` — Create a work order.

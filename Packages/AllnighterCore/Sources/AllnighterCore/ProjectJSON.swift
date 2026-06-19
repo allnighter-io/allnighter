@@ -171,6 +171,22 @@ public struct ProjectHandoffJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// The result of `project dispatch` — the captured work return + the dispatched
+/// order. A return is NOT proof; `project verify` (S12) decides done.
+public struct ProjectDispatchJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var workReturn: WorkReturn
+    public var workOrder: WorkOrder
+    public var proposalStatus: String
+    public var nextActions: [ProjectNextAction]
+    public init(schemaVersion: Int = 1, contractVersion: String, workReturn: WorkReturn, workOrder: WorkOrder, proposalStatus: String, nextActions: [ProjectNextAction] = []) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.workReturn = workReturn; self.workOrder = workOrder
+        self.proposalStatus = proposalStatus; self.nextActions = nextActions
+    }
+}
+
 /// All proposals for a project — used by `project proposals`.
 public struct ProjectProposalsJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int

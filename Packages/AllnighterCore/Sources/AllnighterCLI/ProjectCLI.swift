@@ -29,8 +29,9 @@ enum ProjectCLI {
         case "edit": runEdit(args)
         case "postpone": runPostpone(args)
         case "handoff": runHandoff(args, runtime)
+        case "dispatch": await runDispatch(args, runtime)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone|handoff> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone|handoff|dispatch> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -443,6 +444,74 @@ enum ProjectCLI {
         } else {
             print(reveal)
             print("\n— dispatch preview: " + (dispatchPreview.wouldDispatch ? "ready ✓" : "blocked (\(dispatchPreview.blockerCode ?? "")) — \(dispatchPreview.message ?? "")"))
+        }
+    }
+
+    /// Dispatch (PRJ-S11b): invoke an approved work order's worker under the
+    /// execution lane, after re-validating every mutating gate. Mutates the repo via
+    /// the worker's CLI — the gate + lane are load-bearing. Captures a WorkReturn.
+    private static func runDispatch(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard let woId = opts.positional.first else { usageError("usage: alln project dispatch <work-order-id> [--worker <id>] [--ack-dirty] [--json]") }
+        guard let order = ProjectWorkOrderStore().find(id: woId) else {
+            AllnighterCLI.fail(code: "WORK_ORDER_NOT_FOUND", message: "work order not found: \(woId)")
+        }
+        guard let project = (try? ProjectStore().load(id: order.projectId)) ?? nil else {
+            AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(order.projectId)")
+        }
+        let proposalStore = ProjectProposalStore()
+        let proposal = proposalStore.get(projectId: order.projectId, proposalId: order.proposalId)
+        guard proposal?.status == .approved else {
+            AllnighterCLI.fail(code: "PROPOSAL_NOT_APPROVED", message: "the proposal behind \(woId) is not approved")
+        }
+        // Resolve the single concrete ready worker to invoke.
+        let (sourceId, model) = resolveDispatchSource(order: order, opts: opts, readyModels: runtime.readyModels)
+        guard let targetModel = model else {
+            AllnighterCLI.fail(code: "WORKER_NOT_READY_IN_PROJECT", message: "no ready worker resolves for source \(sourceId ?? "—"); recheck workers or pass --worker")
+        }
+
+        var dispatchOrder = order
+        dispatchOrder.mode = .dispatch
+        dispatchOrder.targetSourceId = sourceId
+
+        let git = GitObserver()
+        let head = git.observe(rootPath: project.normalizedRootPath).head
+        let dirty = git.dirtyFiles(rootPath: project.normalizedRootPath)
+        let rootState = RootNormalization.observeRootState(key: project.normalizedRootPath)
+        let readiness = ProjectWorkerReadinessStore().load(projectId: project.id)
+
+        let service = ProjectDispatchService(
+            runner: SubprocessCommandRunner(), registry: runtime.registry, invocations: runtime.invocations)
+        let outcome = await service.dispatch(
+            order: dispatchOrder, project: project, proposal: proposal, targetModel: targetModel,
+            workerReadiness: readiness, readyModels: runtime.readyModels, currentGitHead: head,
+            dirtyFiles: dirty, observedRootState: rootState, dirtyAcknowledged: opts.flag("ack-dirty"),
+            teams: runtime.teams)
+
+        switch outcome {
+        case .blocked(let code, let message):
+            AllnighterCLI.fail(code: code, message: message)
+        case .laneBusy(let key):
+            AllnighterCLI.fail(code: "EXECUTION_LANE_BUSY", message: "another execute order is running on this lane (\(key)); retry when it settles")
+        case .dispatched(let workReturn):
+            try? WorkReturnStore().append(workReturn)
+            // Persist the dispatched order + advance the proposal to its end state.
+            try? ProjectWorkOrderStore().upsert(dispatchOrder)
+            if var p = proposal {
+                p.status = workReturn.status == .returned ? .returned : .blocked
+                p.updatedAt = Date()
+                try? proposalStore.update(p)
+            }
+            let proposalStatus = (workReturn.status == .returned ? "returned" : "blocked")
+            if opts.flag("json") {
+                print(AllnighterCLI.jsonString(ProjectDispatchJSON(
+                    contractVersion: ContractRegistry.contractVersion, workReturn: workReturn,
+                    workOrder: dispatchOrder, proposalStatus: proposalStatus,
+                    nextActions: [.init(kind: .verify, label: "Verify the return", command: "alln project verify \(project.id) --work-order \(order.id) --json")])))
+            } else {
+                print("\(workReturn.id)\t\(workReturn.status.rawValue)\t\(workReturn.targetWorkerId ?? "—")")
+                if let s = workReturn.summary { print(s) }
+            }
         }
     }
 

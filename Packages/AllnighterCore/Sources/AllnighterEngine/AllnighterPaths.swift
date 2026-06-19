@@ -54,6 +54,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("ProjectWorkOrders", isDirectory: true)
     }
 
+    /// `…/Allnighter/ProjectWorkReturns/` — captured returns from dispatch (PRJ-S11b).
+    public static var projectWorkReturns: URL {
+        support.appendingPathComponent("ProjectWorkReturns", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)

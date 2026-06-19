@@ -689,6 +689,15 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Emit a ProjectHandoffJSON object."),
             ]
         ),
+        CommandSpec(
+            "project dispatch", summary: "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Mutates the repo via the worker's CLI; captures a WorkReturn (not proof — verify decides done).", milestone: .m1,
+            args: [ArgSpec("work-order-id", required: true, summary: "Work order id.")],
+            flags: [
+                FlagSpec("worker", takesValue: true, valueType: "string", summary: "Dispatch to a specific ready worker/model id."),
+                FlagSpec("ack-dirty", summary: "Acknowledge the dirty tree before dispatch."),
+                FlagSpec("json", summary: "Emit a ProjectDispatchJSON object."),
+            ]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)

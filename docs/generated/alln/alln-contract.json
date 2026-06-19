@@ -2166,6 +2166,43 @@
     },
     {
       "args" : [
+        {
+          "name" : "work-order-id",
+          "required" : true,
+          "summary" : "Work order id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "worker",
+          "summary" : "Dispatch to a specific ready worker\/model id.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "ack-dirty",
+          "summary" : "Acknowledge the dirty tree before dispatch.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectDispatchJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project dispatch",
+      "outputSchema" : "none",
+      "summary" : "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Mutates the repo via the worker's CLI; captures a WorkReturn (not proof — verify decides done)."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [
