@@ -14,7 +14,7 @@ import AllnighterCore
 
 enum ComposeMode: String, CaseIterable { case chat, sendToTeam, exec }
 enum ComposeEffort: String, CaseIterable { case low, med, high }
-enum ComposeLane: String, CaseIterable { case code, design, copy }
+enum ComposeLane: String, CaseIterable { case code, design, copy, signal }
 
 /// Everything the composer arms when the user clicks Send.
 struct ComposeRouting: Equatable {
@@ -71,8 +71,8 @@ extension ComposeMode {
 extension ComposeEffort { var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() } }
 extension ComposeLane {
     var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
-    var icon: String { switch self { case .code: "hammer"; case .design: "photo"; case .copy: "doc.text" } }
-    var workLane: WorkLane { switch self { case .code: .code; case .design: .design; case .copy: .copy } }
+    var icon: String { switch self { case .code: "hammer"; case .design: "photo"; case .copy: "doc.text"; case .signal: "antenna.radiowaves.left.and.right" } }
+    var workLane: WorkLane { switch self { case .code: .code; case .design: .design; case .copy: .copy; case .signal: .signal } }
 }
 
 /// Proof/specimen container — shows the composer on the dark canvas, anchored
