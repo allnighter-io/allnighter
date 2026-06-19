@@ -4,7 +4,7 @@ import SwiftUI
 // in RootView and feeds three surfaces with no drift: the macOS menu bar (real
 // ⌘-shortcuts, discoverable), the ⌘K command palette, and the transient intents
 // the visible compose/home surface consumes. UI layer only — it routes existing
-// actions (new work order, mode select, search focus); it owns no domain truth.
+// actions (new run, mode select, search focus); it owns no domain truth.
 
 /// Transient UI intents broadcast by shortcuts / the palette. One instance is
 /// injected at `RootView`; whichever surface is on screen reads what it needs.
@@ -13,8 +13,6 @@ import SwiftUI
 final class CommandCenter {
     /// ⌘K command-palette visibility.
     var palettePresented = false
-    /// Set by ⌘1/⌘2/⌘3 (or the palette); the visible composer applies + clears.
-    var requestedMode: ComposeMode?
     /// Bumped by ⌘F; the rail's search field focuses on change.
     var focusSearchTick = 0
     /// Bumped by F2; the selected thread header title field focuses.

@@ -37,13 +37,14 @@ final class ThreadsViewModel {
     private let coordinator: WorkerChatCoordinator
     private let registry: DriverRegistry
     private let runner: WorkerRunner
+    private let commandRunner: CommandRunner
     /// Cached health truth (loaded once at launch, never probed here) — drives the
     /// ready bench the team resolver may draw from. Empty until setup has run.
     private let toolStatuses: [ToolProbeRecord]
-    /// Process-wide one-Running-per-lane gate for Execute orders (INVIOLABLE — see
-    /// [[allnighter-pending-execute-lane-safety]]). Shared so every dispatch path
-    /// (thread + legacy AppModel) serializes on the same lanes.
-    private let laneRegistry: ExecutionLaneRegistry
+    /// Process-wide mutating-run gate (Unified Run Model). Shared with `RunService`
+    /// so concurrent mutating runs on one repo root are refused honestly.
+    private let writeLock: RunWriteLockRegistry
+    private let projectStore: ProjectStore
     /// Scroll target set on thread select when unread exists (cleared after scroll).
     private(set) var pendingScrollToTurnId: String?
     private var readClearDebounceTask: Task<Void, Never>?
@@ -111,8 +112,10 @@ final class ThreadsViewModel {
         models: [Model],
         toolStatuses: [ToolProbeRecord] = [],
         runner: WorkerRunner,
+        commandRunner: CommandRunner? = nil,
         imageInvoker: WorkerImageInvoker? = nil,
-        laneRegistry: ExecutionLaneRegistry = .shared,
+        writeLock: RunWriteLockRegistry = .shared,
+        projectStore: ProjectStore = ProjectStore(),
         isAppActiveForReadClear: @escaping () -> Bool = {
             NSApplication.shared.isActive && NSApplication.shared.keyWindow != nil
         },
@@ -126,7 +129,9 @@ final class ThreadsViewModel {
         self.models = models
         self.toolStatuses = toolStatuses
         self.runner = runner
-        self.laneRegistry = laneRegistry
+        self.commandRunner = commandRunner ?? SubprocessCommandRunner()
+        self.writeLock = writeLock
+        self.projectStore = projectStore
         self.isAppActiveForReadClear = isAppActiveForReadClear
         self.floorStatus = floorStatus
         self.notificationPolicyStore = notificationPolicyStore
@@ -285,9 +290,9 @@ final class ThreadsViewModel {
         _ = try? store.bindProject(threadId: threadId, projectId: pid)
     }
 
-    /// Empty thread for the "Start a work order" flow.
-    func newWorkOrder() {
-        _ = newThread(title: "New work order")
+    /// Empty thread for the "Start a run" flow.
+    func newRun() {
+        _ = newThread(title: "New run")
     }
 
     // MARK: - Routing composer (CR4a user turn; CR4b chat runs the model)
@@ -295,20 +300,19 @@ final class ThreadsViewModel {
     /// Global quick capture (hotkey / menu bar): create a fresh thread (by default,
     /// per Persistent_Work_Threads) and stage clipboard content for the composer
     /// that will mount for it. If clipboardText is empty this still surfaces the
-    /// composer for a new work order.
+    /// composer for a new run.
     func applyQuickCapture(clipboardText: String?) {
         let clip = clipboardText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let title = clip.isEmpty ? "New work order" : Self.title(from: clip)
+        let title = clip.isEmpty ? "New run" : Self.title(from: clip)
         _ = newThread(title: title)
         if !clip.isEmpty {
             pendingQuickCaptureText = clip
         }
     }
 
-    /// Send from the routing composer. Resolves/creates the thread, then routes
-    /// by mode: Chat runs the chosen model and streams its reply back as a
-    /// `workerChat` turn (CR4b); Fan out / Execute record the user turn for now
-    /// (their runs land in CR4c/CR4d — never a faked result).
+    /// Send from the unified routing composer. Project-scoped runs go through
+    /// `RunService` in the repo root; unassigned threads fall back to single-worker
+    /// chat via the coordinator.
     func sendRouting(_ routing: ComposeRouting, createThread: Bool = false) {
         let message = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
@@ -329,18 +333,93 @@ final class ThreadsViewModel {
             return
         }
 
-        switch routing.mode {
-        case .chat:
+        if let scope = repoRoot(for: threadId) {
+            appendUserTurn(message, toThreadId: threadId)
+            runViaRunService(routing, toThreadId: threadId, projectId: scope.projectId, repoRoot: scope.root)
+        } else {
             runChat(message: message, toThreadId: threadId, workerId: routing.to)
-        case .sendToTeam:
-            // CR4c: the user's question is the first turn; the team board follows.
-            appendUserTurn(message, toThreadId: threadId)
-            runTeam(routing, toThreadId: threadId)
-        case .exec:
-            // CR4d: hand the work to an executor CLI in the repo. The execute-lane
-            // gate (one running per working dir) is INVIOLABLE — enforced in dispatch.
-            appendUserTurn(message, toThreadId: threadId)
-            dispatchExecute(routing, toThreadId: threadId)
+        }
+    }
+
+    private func repoRoot(for threadId: String) -> (projectId: String?, root: String)? {
+        guard let thread = store.get(threadId) else { return nil }
+        if let pid = thread.projectId ?? currentProjectId,
+           let project = try? projectStore.load(id: pid),
+           project.rootState == .available {
+            let root = project.normalizedRootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !root.isEmpty { return (pid, root) }
+        }
+        if let dir = thread.workingDir?.trimmingCharacters(in: .whitespacesAndNewlines), !dir.isEmpty {
+            return (thread.projectId, dir)
+        }
+        return nil
+    }
+
+    private func makeRunService() -> RunService {
+        RunService(
+            models: readyModels,
+            registry: registry,
+            runStore: runStore,
+            commandRunner: commandRunner,
+            writeLock: writeLock,
+            invocations: Self.invocations(from: toolStatuses)
+        )
+    }
+
+    /// Unified run primitive — answer teams and mutating execution share one path.
+    private func runViaRunService(
+        _ routing: ComposeRouting,
+        toThreadId threadId: String,
+        projectId: String?,
+        repoRoot: String
+    ) {
+        let preset = routing.team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
+        guard let preset else {
+            appendFailedRun("No team configured.", kind: .teamRun, toThreadId: threadId)
+            return
+        }
+
+        let effort = EffortLevel(rawValue: routing.effort.rawValue) ?? preset.defaultEffort
+        let turnKind: ThreadTurnKind = preset.mutating ? .dispatch : (routing.lane == .design ? .designBoard : .teamRun)
+        let runId = UUID().uuidString
+        let startedAt = Date()
+        let turn = ThreadTurn(
+            id: UUID().uuidString, threadId: threadId, kind: turnKind, status: .running,
+            createdAt: startedAt, author: .worker, workerId: preset.mutating ? routing.to : nil,
+            runId: runId
+        )
+        guard (try? store.appendTurn(turn, toThreadId: threadId, now: startedAt)) != nil else { return }
+        reload()
+
+        let request = RunRequest(
+            message: routing.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            repoRoot: repoRoot,
+            projectId: projectId,
+            presetId: routing.team,
+            workerId: routing.to.isEmpty ? nil : routing.to,
+            effort: effort,
+            lane: routing.lane.workLane
+        )
+        let service = makeRunService()
+        let threadStore = store
+
+        Task { @MainActor in
+            let result = await service.run(request, origin: .gui, runId: runId)
+            var settled = turn
+            settled.completedAt = Date()
+            switch result {
+            case .success(let run):
+                settled.status = Self.turnStatus(for: run.status)
+                if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan || $0.purpose == .dispatch }) {
+                    settled.stageId = stage.id
+                }
+            case .failure(let error):
+                settled.status = .failed
+                settled.text = error.description
+                settled.runId = nil
+            }
+            _ = try? threadStore.updateTurn(settled, inThreadId: threadId, now: Date())
+            reload()
         }
     }
 
@@ -349,65 +428,6 @@ final class ThreadsViewModel {
     var readyModels: [Model] {
         let readyDriverIds = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
         return models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
-    }
-
-    /// Fan out (CR4c): resolve the chosen lane-team against the ready bench, then
-    /// run it (answer → review → plan writer) via the catalog coordinator. Persists
-    /// an optimistic running board turn, keeps the `TeamRun` durable so the board
-    /// renders from `runId`, and settles the turn when the run finishes. Never fakes
-    /// a board — an unresolvable team lands an honest failed turn with the reason.
-    private func runTeam(_ routing: ComposeRouting, toThreadId threadId: String) {
-        let boardKind: ThreadTurnKind = routing.lane == .design ? .designBoard : .teamRun
-        guard let preset = BuiltInTeams.team(routing.team) else {
-            appendFailedBoard("No team selected.", kind: boardKind, toThreadId: threadId)
-            return
-        }
-        let effort = EffortLevel(rawValue: routing.effort.rawValue) ?? preset.defaultEffort
-        let resolved = TeamResolver.resolve(
-            team: preset, requestLane: routing.lane.workLane,
-            requestEffort: effort, readyModels: readyModels
-        )
-        guard resolved.isRunnable else {
-            appendFailedBoard(
-                resolved.blockReason ?? "This team can't run with the ready bench.",
-                kind: boardKind, toThreadId: threadId
-            )
-            return
-        }
-
-        let runId = UUID().uuidString
-        let startedAt = Date()
-        let board = ThreadTurn(
-            id: UUID().uuidString, threadId: threadId, kind: boardKind, status: .running,
-            createdAt: startedAt, author: .worker, runId: runId
-        )
-        guard (try? store.appendTurn(board, toThreadId: threadId, now: startedAt)) != nil else { return }
-        reload()
-
-        let prompt = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let snapshotModels = models
-        let runStore = self.runStore
-        let runner = self.runner
-        let registry = self.registry
-
-        Task { @MainActor in
-            let runTask = Task.detached { () -> TeamRun in
-                let coordinator = CatalogRunCoordinator(workerRunner: runner, registry: registry)
-                return await coordinator.run(
-                    resolved: resolved, prompt: prompt, models: snapshotModels,
-                    origin: .gui, runId: runId,
-                    persist: { run in try? runStore.save(run, models: snapshotModels) }
-                )
-            }
-            // Re-poll while the run writes incremental durability so the board can
-            // surface answers as they settle, then a final settle of the turn.
-            let finalRun = await runTask.value
-            var settled = board
-            settled.status = Self.turnStatus(for: finalRun.status)
-            settled.completedAt = Date()
-            _ = try? store.updateTurn(settled, inThreadId: threadId, now: Date())
-            reload()
-        }
     }
 
     /// The durable TeamRun behind a board turn (by `runId`), for the board view.
@@ -424,137 +444,7 @@ final class ThreadsViewModel {
         return run.stages.last { $0.purpose == .dispatch }?.payload?.executionReturn
     }
 
-    // MARK: - Execute (CR4d)
-
-    /// Hand the conversation's work to an executor CLI running IN the thread's
-    /// working directory. INVIOLABLE: the execution lane (one Running per working
-    /// dir) gates this — a second Execute order in a busy folder is REFUSED with an
-    /// honest blocked turn, never run concurrently (two agents in one repo corrupts
-    /// work). Reuses the RB4 `Dispatcher`; an unhealthy worker or non-writable dir
-    /// reveals the brief instead of inventing a result. Allnighter never makes a
-    /// worktree or commits — the CLI owns the repo.
-    private func dispatchExecute(_ routing: ComposeRouting, toThreadId threadId: String) {
-        guard let model = models.first(where: { $0.id == routing.to }) else {
-            appendDispatchNote("No executor selected. Route the turn to a coding agent first.",
-                               status: .failed, toThreadId: threadId)
-            return
-        }
-        let sourceRun = latestDurableTeamRun(in: threadId)
-        if let sourceRun, sourceRun.mutating, let required = sourceRun.executionSourceId,
-           model.driverId != required {
-            appendDispatchNote(
-                "This team executes on \(required) only. Pick that source for Execute, or run a non-mutating review team first.",
-                status: .failed, toThreadId: threadId)
-            return
-        }
-        let dir = (store.get(threadId)?.workingDir ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !dir.isEmpty else {
-            appendDispatchNote("Set a working directory on this conversation before you Execute — Allnighter won't run an agent in an unknown folder.",
-                               status: .failed, toThreadId: threadId)
-            return
-        }
-
-        let prompt = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Dispatch the plan the team just wrote, if this thread has one; otherwise
-        // the typed instruction directly. Either way the executor runs in the repo.
-        let brief: ImplementationBrief
-        if let sourceRun, let built = BriefBuilder.build(run: sourceRun, executionWorkerId: model.id, workingDirectory: dir) {
-            brief = built
-        } else {
-            brief = ImplementationBrief(
-                sourceRunId: sourceRun?.id ?? UUID().uuidString, sourceArtifact: .plan,
-                executionWorkerId: model.id, workingDirectory: dir,
-                prompt: prompt, spec: prompt, judgmentSummary: "Direct execute from conversation."
-            )
-        }
-
-        let runId = sourceRun?.id ?? UUID().uuidString
-        let laneKey = ExecutionLane.key(workingDirectory: dir)
-        let healthy = readyModels.contains { $0.id == model.id }
-        let manifest = registry.manifest(for: model)
-        let dispatchIndex = (sourceRun?.stages.filter { $0.purpose == .dispatch }.count ?? 0) + 1
-        let artifactsDir = (try? runStore.runDirectory(forRunId: runId))
-            ?? FileManager.default.temporaryDirectory.appendingPathComponent("alln-dispatch-\(runId)", isDirectory: true)
-        let runner = self.runner
-        let runStore = self.runStore
-        let snapshotModels = models
-        let laneRegistry = self.laneRegistry
-
-        Task { @MainActor in
-            // EXECUTE-LANE GATE (INVIOLABLE). Refuse, never run two in one folder.
-            guard await laneRegistry.acquire(laneKey) else {
-                appendDispatchNote("Execution lane busy — an Execute order is already running in \(dir). Allnighter runs one agent at a time per folder; let it finish or cancel it.",
-                                   status: .failed, toThreadId: threadId)
-                return
-            }
-
-            let turnId = UUID().uuidString
-            let dispatchTurn = ThreadTurn(
-                id: turnId, threadId: threadId, kind: .dispatch, status: .running,
-                createdAt: Date(), author: .worker, workerId: model.id, runId: runId
-            )
-            _ = try? store.appendTurn(dispatchTurn, toThreadId: threadId, now: Date())
-            reload()
-
-            let stage = await Task.detached { () -> StageOutput in
-                await Dispatcher(workerRunner: runner).dispatch(
-                    brief: brief, worker: model, manifest: manifest, healthy: healthy,
-                    revealOnly: false, dispatchIndex: dispatchIndex, artifactsDir: artifactsDir
-                )
-            }.value
-
-            // Release the lane the instant the order settles — before persistence —
-            // so the next queued Execute can proceed without waiting on disk I/O.
-            await laneRegistry.release(laneKey)
-
-            // Persist the dispatch stage into a durable run so the turn renders by runId.
-            var run = sourceRun ?? TeamRun(id: runId, prompt: prompt, status: .complete, origin: .gui, createdAt: Date())
-            run.stages.append(stage)
-            _ = try? runStore.save(run, models: snapshotModels)
-
-            var settled = dispatchTurn
-            settled.stageId = stage.id
-            settled.status = Self.dispatchTurnStatus(for: stage.status)
-            settled.completedAt = Date()
-            _ = try? store.updateTurn(settled, inThreadId: threadId, now: Date())
-            reload()
-        }
-    }
-
-    /// The most recent team board in this thread whose durable run carries a plan —
-    /// the spec an executor should implement (true dogfood: fan out → plan → execute).
-    private func latestDurableTeamRun(in threadId: String) -> TeamRun? {
-        guard let thread = store.get(threadId) else { return nil }
-        for turn in thread.turns.reversed()
-        where turn.kind == .teamRun || turn.kind == .designBoard {
-            if let runId = turn.runId, let run = runStore.load(runId: runId), run.plan != nil {
-                return run
-            }
-        }
-        return nil
-    }
-
-    private func appendDispatchNote(_ text: String, status: ThreadTurnStatus, toThreadId threadId: String) {
-        let turn = ThreadTurn(
-            id: UUID().uuidString, threadId: threadId, kind: .dispatch, status: status,
-            createdAt: Date(), completedAt: Date(), author: .system, text: text
-        )
-        try? store.appendTurn(turn, toThreadId: threadId, now: Date())
-        reload()
-    }
-
-    /// A reveal (worker not healthy / dir not writable) settles `done` — it is an
-    /// intentional no-run, not a failure; the dispatch row shows the reveal reason.
-    private static func dispatchTurnStatus(for status: StageStatus) -> ThreadTurnStatus {
-        switch status {
-        case .done, .skipped, .reused: return .done
-        case .failed: return .failed
-        case .timedOut: return .timedOut
-        case .queued, .running: return .running
-        }
-    }
-
-    private func appendFailedBoard(_ reason: String, kind: ThreadTurnKind, toThreadId threadId: String) {
+    private func appendFailedRun(_ reason: String, kind: ThreadTurnKind, toThreadId threadId: String) {
         let turn = ThreadTurn(
             id: UUID().uuidString, threadId: threadId, kind: kind, status: .failed,
             createdAt: Date(), completedAt: Date(), author: .system, text: reason
@@ -611,7 +501,7 @@ final class ThreadsViewModel {
     private static func title(from text: String) -> String {
         let line = text.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? text
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "New work order" }
+        guard !trimmed.isEmpty else { return "New run" }
         if trimmed.count <= 48 { return trimmed }
         return String(trimmed.prefix(45)) + "…"
     }
@@ -621,7 +511,7 @@ final class ThreadsViewModel {
     func applyFixture(_ fixture: String) {
         switch fixture {
         case "thread-empty":
-            _ = newThread(title: "New work order")
+            _ = newThread(title: "New run")
         case "home-with-threads":
             seedFixtureThreads()
             selectedThreadId = nil
@@ -922,7 +812,7 @@ final class ThreadsViewModel {
         let user = ThreadTurn(
             id: "fixture-team-user", threadId: id, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user,
-            text: "Per-user rate limiting for the public API — fan it out and recommend an approach."
+            text: "Per-user rate limiting for the public API — send it to the team and recommend an approach."
         )
         let board = ThreadTurn(
             id: "fixture-team-board", threadId: id, kind: .teamRun, status: .done,

@@ -3,16 +3,14 @@ import AllnighterCore
 
 // The clean conversation-workspace home (docs/phases/wiring compose-routing).
 // CR4a: real thread rail + send creates/opens conversations; marketing empty
-// state stays for a cold bench with no work orders yet.
+// state stays for a cold bench with no runs yet.
 
 struct HomeView: View {
     @Environment(ThreadsViewModel.self) private var threads
-    @State private var managerProject: Project?
-    @State private var pm = ProjectManagerViewModel()
 
     var body: some View {
         HStack(spacing: 0) {
-            HomeSidebar(onOpenManager: openManager)
+            HomeSidebar()
                 .frame(width: 300)
             Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
             mainPane
@@ -20,17 +18,9 @@ struct HomeView: View {
         }
     }
 
-    private func openManager(_ project: Project) {
-        managerProject = project
-        pm.open(project)
-    }
-
     @ViewBuilder
     private var mainPane: some View {
-        if let managerProject {
-            ProjectManagerView(pm: pm, onBack: { self.managerProject = nil })
-                .id(managerProject.id)
-        } else if threads.selectedThread != nil {
+        if threads.selectedThread != nil {
             ThreadView()
         } else if threads.threads.isEmpty {
             HomeMarketingEmptyState()
@@ -43,7 +33,6 @@ struct HomeView: View {
 // MARK: - Left rail
 
 private struct HomeSidebar: View {
-    let onOpenManager: (Project) -> Void
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(CommandCenter.self) private var commands
@@ -71,8 +60,8 @@ private struct HomeSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(spacing: 10) {
-                Button { threads.newWorkOrder() } label: {
-                    Label("New work order", systemImage: "plus")
+                Button { threads.newRun() } label: {
+                    Label("New run", systemImage: "plus")
                         .font(.system(size: 13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                 }
@@ -130,7 +119,6 @@ private struct HomeSidebar: View {
                         onNewAgent: group.project.map { p in { newAgent(in: p.id) } }
                     )
                     if !collapsed.contains(group.id) {
-                        if let project = group.project { managerRow(project) }
                         let shown = expanded.contains(group.id) ? group.threads : Array(group.threads.prefix(4))
                         ForEach(shown) { row($0) }
                         if group.threads.count > 4 && !expanded.contains(group.id) {
@@ -151,21 +139,6 @@ private struct HomeSidebar: View {
         ProjectThreadRow(thread: thread, selected: thread.id == threads.selectedThreadId) {
             threads.select(thread)
         }
-    }
-
-    /// The pinned Project Manager row at the top of each project group (UI Contract).
-    private func managerRow(_ project: Project) -> some View {
-        Button { onOpenManager(project) } label: {
-            HStack(spacing: 9) {
-                Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 10)).foregroundStyle(ALColor.accentText).frame(width: 7)
-                Text("Project Manager").font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textSecondary)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 10).frame(height: 30)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private var projectsSectionHeader: some View {
@@ -198,7 +171,7 @@ private struct HomeSidebar: View {
     private func newAgent(in projectId: String) {
         projects.select(projectId)
         threads.currentProjectId = projectId
-        threads.newWorkOrder()
+        threads.newRun()
     }
 
     private var projectsEmpty: some View {
@@ -504,10 +477,10 @@ private struct HomeMarketingEmptyState: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
     private var bench: [ComposeBenchModel] { appModel.composeBench }
-    private let modes: [(ComposeMode, String)] = [
-        (.chat, "Ask the bench a question — “token bucket or sliding window for rate limiting?”"),
-        (.sendToTeam, "Drop a screenshot — “make this profile feel premium and clean” → a board of options."),
-        (.exec, "Point an agent at your repo — “add the 429 + Retry-After path to the limiter.”"),
+    private let capabilities: [(icon: String, title: String, blurb: String)] = [
+        ("message", "Ask", "Ask the bench a question — “token bucket or sliding window for rate limiting?”"),
+        ("rectangle.stack", "Team", "Drop a screenshot — “make this profile feel premium and clean” → a board of options."),
+        ("hammer", "Build", "Point an agent at your repo — “add the 429 + Retry-After path to the limiter.”"),
     ]
 
     var body: some View {
@@ -565,13 +538,13 @@ private struct HomeMarketingEmptyState: View {
 
     private var modeCards: some View {
         HStack(spacing: 12) {
-            ForEach(Array(modes.enumerated()), id: \.offset) { _, item in
+            ForEach(Array(capabilities.enumerated()), id: \.offset) { _, item in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        Image(systemName: item.0.icon).font(.system(size: 15)).foregroundStyle(ALColor.accentText)
-                        Text(item.0.label).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                        Image(systemName: item.icon).font(.system(size: 15)).foregroundStyle(ALColor.accentText)
+                        Text(item.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
                     }
-                    Text(item.1).font(.system(size: 11.5)).foregroundStyle(ALColor.textMuted)
+                    Text(item.blurb).font(.system(size: 11.5)).foregroundStyle(ALColor.textMuted)
                         .lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -587,13 +560,13 @@ private struct HomeMarketingEmptyState: View {
     private var hint: some View {
         HStack(spacing: 6) {
             Image(systemName: "arrow.turn.down.right").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
-            Text("One model answers — route the turn to anyone.")
+            Text("Runs in your project repo with the selected team and worker.")
                 .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
         }
     }
 }
 
-// MARK: - New work order (threads exist, none selected)
+// MARK: - New run (threads exist, none selected)
 
 private struct HomeNewWorkOrderPane: View {
     @Environment(ThreadsViewModel.self) private var threads
@@ -607,10 +580,10 @@ private struct HomeNewWorkOrderPane: View {
             Spacer(minLength: 0)
             VStack(spacing: 12) {
                 AllnighterGlyph(size: 38)
-                Text("Start a work order")
+                Text("Start a run")
                     .font(.system(size: 25, weight: .bold)).tracking(-0.4)
                     .foregroundStyle(ALColor.textPrimary)
-                Text("One message in. Chat with a single model, fan it out to the whole bench for options, or hand it to an agent to build — and route any turn to anyone.")
+                Text("One message plus an optional team and worker, running in the selected repo root.")
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
                     .multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 486)
                 HStack(spacing: 8) {

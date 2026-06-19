@@ -172,8 +172,7 @@ private struct SendToTeamModal: View {
                     starterChips
                 }
                 RoutingComposer(
-                    mode: .sendToTeam, lane: lane, team: team.teamId, big: true,
-                    defaultMode: .sendToTeam, lockedSendToTeam: true,
+                    team: team.teamId, lane: lane, big: true, locksTeam: true,
                     onSend: onSend
                 )
             }
@@ -273,7 +272,7 @@ private struct TeamCardTile: View {
                     if card.mutating {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 2) {
-                            Label("Execute", systemImage: "lock").font(ALFont.monoSm).foregroundStyle(ALColor.accentText)
+                            Label("Writes", systemImage: "lock").font(ALFont.monoSm).foregroundStyle(ALColor.accentText)
                             if let source = card.executionSourceId {
                                 Text(source).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                             }

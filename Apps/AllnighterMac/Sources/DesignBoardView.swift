@@ -78,10 +78,9 @@ struct DesignComposer: View {
     }
 
     private var shapeSummaryText: String {
-        WorkOrderSummary.designSummary(
-            outputCount: model.designPersonaIds.count,
-            engineNames: Array(Set(model.imageWorkers.map(\.displayName))).sorted()
-        )
+        let count = model.designPersonaIds.count
+        let engines = Array(Set(model.imageWorkers.map(\.displayName))).sorted().joined(separator: ", ")
+        return "\(count) mockup\(count == 1 ? "" : "s") · \(engines)"
     }
 }
 

@@ -200,11 +200,16 @@ final class AppModel {
     // MARK: - Work shape
 
     var workOrderSummary: String {
-        WorkOrderSummary.teamSummary(
-            workerCount: expandedWorkers.count,
-            planWriterLabel: planWriterModel?.displayName,
-            synthesis: currentSynthesis
-        )
+        let count = expandedWorkers.count
+        let noun = count == 1 ? "worker" : "workers"
+        var parts = ["\(count) \(noun)"]
+        if let judge = planWriterModel?.displayName {
+            parts.append("judge: \(judge)")
+        }
+        let depth = currentSynthesis.analysisDepth == .combined
+            ? "combined analysis + plan" : "separate analysis + plan"
+        parts.append(depth)
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Running a team
@@ -399,13 +404,13 @@ final class AppModel {
         let snapshotRunId = current.id
 
         isDispatching = true
-        // Execute-lane gate (INVIOLABLE): never run two Execute orders in one folder,
-        // even across surfaces. Shares the registry with the thread dispatch path.
-        let laneKey = ExecutionLane.key(workingDirectory: dir)
+        // Repo write lock: never run two mutating agents in one folder, even across
+        // older debug surfaces.
+        let lockKey = RunWriteLock.key(repoRoot: dir)
         Task { @MainActor [weak self] in
             guard let self else { return }
-            guard await ExecutionLaneRegistry.shared.acquire(laneKey) else {
-                // Another Execute order already holds this folder's lane.
+            guard await RunWriteLockRegistry.shared.acquire(lockKey) else {
+                // Another mutating run already holds this folder's write lock.
                 self.isDispatching = false
                 return
             }
@@ -423,7 +428,7 @@ final class AppModel {
                 brief: brief, worker: model, manifest: manifest, healthy: healthy,
                 revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
             )
-            await ExecutionLaneRegistry.shared.release(laneKey)
+            await RunWriteLockRegistry.shared.release(lockKey)
             guard var updated = self.run else { return }
             updated.stages.append(stage)
             self.run = updated
@@ -609,7 +614,7 @@ final class AppModel {
         }
     }
 
-    /// Models that can run as an agent in your repo (Execute) — enabled models whose
+    /// Models that can run as an agent in your repo — enabled models whose
     /// source is a headless CLI agent.
     var composeExecutorIds: Set<String> {
         Set(models.filter(\.enabled).filter { registry.manifest(for: $0)?.kind == .headlessCLI }.map(\.id))
@@ -1086,12 +1091,11 @@ extension AppModel {
         let snapshotRunId = current.id
 
         isDispatching = true
-        // Execute-lane gate (INVIOLABLE): a design build runs an agent in the repo
-        // too — serialize it on the same folder lane as every other Execute path.
-        let laneKey = ExecutionLane.key(workingDirectory: dir)
+        // Repo write lock: a design build runs an agent in the repo too.
+        let lockKey = RunWriteLock.key(repoRoot: dir)
         Task { @MainActor [weak self] in
             guard let self else { return }
-            guard await ExecutionLaneRegistry.shared.acquire(laneKey) else {
+            guard await RunWriteLockRegistry.shared.acquire(lockKey) else {
                 self.isDispatching = false
                 return
             }
@@ -1108,7 +1112,7 @@ extension AppModel {
                 brief: brief, worker: model, manifest: manifest, healthy: healthy,
                 revealOnly: revealOnly, dispatchIndex: index, artifactsDir: artifactsDir
             )
-            await ExecutionLaneRegistry.shared.release(laneKey)
+            await RunWriteLockRegistry.shared.release(lockKey)
             guard var updated = self.run else { return }
             updated.stages.append(stage)
             self.run = updated

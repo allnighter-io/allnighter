@@ -26,7 +26,7 @@ final class CommandCenterTests: XCTestCase {
 
     func testPaletteHidesHiddenCommandsButMenuKeepsThem() {
         let all = [
-            command("new", "New work order", key: "n"),
+            command("new", "New run", key: "n"),
             command("palette", "Command palette", key: "k", hiddenInPalette: true),
         ]
         let visible = all.filter { !$0.hiddenInPalette }

@@ -57,7 +57,7 @@ final class AppModelTests: XCTestCase {
         }
     }
 
-    func testWorkOrderSummaryReflectsSeatsAndDepth() {
+    func testTeamSummaryReflectsSeatsAndDepth() {
         let model = AppModel()
         let summary = model.workOrderSummary
         XCTAssertTrue(summary.contains("\(model.expandedWorkers.count) worker"))

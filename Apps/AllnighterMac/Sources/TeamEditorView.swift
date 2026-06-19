@@ -73,6 +73,7 @@ struct TeamDraft: Equatable {
     var isSavable: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !rows.isEmpty &&
+        (!mutating || rows.count == 1) &&
         rows.allSatisfy(Self.rowComplete) && Self.rowComplete(lead)
     }
 
@@ -120,7 +121,8 @@ struct TeamDraft: Equatable {
 
         do {
             // 1) Fork edited prompts into custom skills; build the worker specs.
-            let specs: [TeamWorkerSpec] = try rows.map { row in
+            let effectiveRows = mutating ? Array(rows.prefix(1)) : rows
+            let specs: [TeamWorkerSpec] = try effectiveRows.map { row in
                 TeamWorkerSpec(
                     id: row.id, skillId: try resolveSkill(row, defaultPurpose: .answer),
                     purpose: row.purpose, preferredModelId: row.modelId,
@@ -375,6 +377,7 @@ struct TeamEditorView: View {
             } label: {
                 Label("Add worker", systemImage: "plus").font(.system(size: 12, weight: .medium))
             }
+            .disabled(draft.mutating)
             .buttonStyle(.plain).foregroundStyle(ALColor.accentText).padding(.top, 2)
         }
     }
@@ -401,13 +404,18 @@ struct TeamEditorView: View {
             Toggle(isOn: $draft.mutating) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Mutating team").font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textPrimary)
-                    Text("Requires Execute approval. All workers must share one CLI source.")
+                    Text("Runs one worker in the repo root under the write lock.")
                         .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
                 }
             }
             .toggleStyle(.switch).tint(ALColor.accent)
             .onChange(of: draft.mutating) { _, on in
-                if on { draft.posture = .execute } else if draft.posture == .execute { draft.posture = .propose }
+                if on {
+                    draft.posture = .execute
+                    draft.rows = Array(draft.rows.prefix(1))
+                } else if draft.posture == .execute {
+                    draft.posture = .propose
+                }
             }
             if draft.mutating, let conflict = executionSourceConflictMessage {
                 Text(conflict).font(.system(size: 11)).foregroundStyle(ALPalette.red400)

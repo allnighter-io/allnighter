@@ -193,7 +193,7 @@ private struct StudioTeamListView: View {
                     if !team.builtIn { miniBadge("Custom", ALColor.textMuted) }
                     Spacer(minLength: 0)
                 }
-                Text("\(team.defaultEffort.rawValue.capitalized) · \(team.workerSpecs.count) workers")
+                Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? 1 : team.workerSpecs.count) workers")
                     .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
             }
             .padding(.horizontal, 10).padding(.vertical, 8)

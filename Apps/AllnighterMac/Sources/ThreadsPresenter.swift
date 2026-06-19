@@ -152,16 +152,6 @@ enum ThreadsPresenter {
         thread.firstUnreadTurnId
     }
 
-    // MARK: - Compose routing
-
-    /// Spec ready → Execute; everything else → Chat (re-seeded on thread switch).
-    static func routingDefaultMode(for thread: WorkThread) -> ComposeMode {
-        if let last = thread.turns.last(where: { $0.kind == .workOrder }), last.status == .done {
-            return .exec
-        }
-        return .chat
-    }
-
     /// Observed conversation status for the rail pill (facts only).
     enum ConversationStatus: Equatable {
         case running, replied, boardReady, specReady, exit0, exit1
@@ -208,7 +198,7 @@ enum ThreadsPresenter {
     }
 
     /// The lane a thread belongs to, inferred from the work it actually did (a
-    /// design board → Design; a team run / work order / dispatch → Build). A
+    /// design board → Design; a team run / mutating run → Code). A
     /// chat-only or empty thread has no lane and shows only under All.
     static func lane(of thread: WorkThread) -> ComposeLane? {
         if thread.turns.contains(where: { $0.kind == .designBoard }) { return .design }

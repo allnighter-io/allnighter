@@ -23,33 +23,16 @@ struct RootView: View {
     @State private var commands = CommandCenter()
     /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
     @State private var showFloorReaderProof = false
-    @State private var showPMCardsProof = false
-    @State private var showPMLiveProof = false
-    @State private var pmLiveVM = ProjectManagerViewModel()
     #if DEBUG
     @State private var showDevSettings = false
     @State private var devBenchScenario: String?
     #endif
 
-    /// SSOT command list — feeds the Actions menu (real ⌘-shortcuts) and the ⌘K
-    /// palette. Compose-mode titles/icons read from `ComposeMode` so the menu,
-    /// palette, and composer can never disagree.
+    /// SSOT command list — feeds the Actions menu (real ⌘-shortcuts) and the ⌘K palette.
     private var appCommands: [AppCommand] {
         [
-            AppCommand(id: "new-work-order", title: "New work order", symbol: "plus", key: "n") {
-                threads.newWorkOrder()
-                commands.palettePresented = false
-            },
-            AppCommand(id: "mode-chat", title: "\(ComposeMode.chat.label) — one model answers", symbol: ComposeMode.chat.icon, key: "1") {
-                commands.requestedMode = .chat
-                commands.palettePresented = false
-            },
-            AppCommand(id: "mode-send-to-team", title: "\(ComposeMode.sendToTeam.label) — a team answers", symbol: ComposeMode.sendToTeam.icon, key: "2") {
-                commands.requestedMode = .sendToTeam
-                commands.palettePresented = false
-            },
-            AppCommand(id: "mode-exec", title: "\(ComposeMode.exec.label) — an agent builds it", symbol: ComposeMode.exec.icon, key: "3") {
-                commands.requestedMode = .exec
+            AppCommand(id: "new-run", title: "New run", symbol: "plus", key: "n") {
+                threads.newRun()
                 commands.palettePresented = false
             },
             AppCommand(id: "focus-search", title: "Search conversations", symbol: "magnifyingglass", key: "f") {
@@ -107,31 +90,6 @@ struct RootView: View {
     }
 
     @ViewBuilder
-    private var pmCardsProofView: some View {
-        #if DEBUG
-        ProjectManagerCardsView(
-            projectName: "halo-app",
-            answerMarkdown: ProjectManagerCardsSample.answer,
-            proposal: ProjectManagerCardsSample.proposal,
-            order: ProjectManagerCardsSample.order,
-            verification: ProjectManagerCardsSample.verification,
-            onBack: { showPMCardsProof = false }
-        )
-        #else
-        EmptyView()
-        #endif
-    }
-
-    @ViewBuilder
-    private var pmLiveProofView: some View {
-        #if DEBUG
-        ProjectManagerView(pm: pmLiveVM, onBack: { showPMLiveProof = false })
-        #else
-        EmptyView()
-        #endif
-    }
-
-    @ViewBuilder
     private var workspaceContent: some View {
         VStack(spacing: 0) {
             TitleBar(
@@ -151,11 +109,7 @@ struct RootView: View {
                 // open). Old Team/Threads workspace panes are superseded by the
                 // home + routing composer (CR3/CR4 wire conversations live).
                 Group {
-                    if showPMLiveProof {
-                        pmLiveProofView
-                    } else if showPMCardsProof {
-                        pmCardsProofView
-                    } else if showFloorReaderProof {
+                    if showFloorReaderProof {
                         floorReaderProofView
                     } else if showTeamStudio {
                         TeamStudioView(
@@ -170,11 +124,7 @@ struct RootView: View {
                             onAddSource: { model.markSetupCompleted(); showReadiness = false }
                         )
                     } else if showComposeSpecimen {
-                        ComposeSpecimen(
-                            openModeMenu: GUIFixture.composeMenuOpen,
-                            openTarget: GUIFixture.composeTargetOpen,
-                            mode: GUIFixture.composeSpecimenMode
-                        )
+                        ComposeSpecimen(openTarget: GUIFixture.composeTargetOpen)
                     } else if workspaceMode == .teams {
                         // Teams workspace — the Send-to-team launcher (G-T1 brings
                         // full fidelity; G-T0 wires the toggle + a real card roster).
@@ -292,17 +242,6 @@ struct RootView: View {
                 if GUIFixture.opensFloorReader {
                     model.applyDevBenchScenario("team-open-ready")
                     showFloorReaderProof = true
-                }
-                if GUIFixture.opensPMCards {
-                    model.applyDevBenchScenario("team-open-ready")
-                    showPMCardsProof = true
-                }
-                if GUIFixture.opensPMLive {
-                    model.applyDevBenchScenario("team-open-ready")
-                    if let halo = ProjectsViewModel.sampleProjects().first {
-                        pmLiveVM.seedForProof(project: halo, items: ProjectManagerCardsSample.proofItems)
-                    }
-                    showPMLiveProof = true
                 }
                 if GUIFixture.opensHomeWorkspace {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")

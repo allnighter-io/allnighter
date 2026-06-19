@@ -20,7 +20,7 @@ struct ThreadView: View {
     }
 }
 
-// MARK: - Empty thread ("Start a work order")
+// MARK: - Empty thread ("Start a run")
 
 private struct ThreadEmptyState: View {
     @Environment(ThreadsViewModel.self) private var threads
@@ -35,10 +35,10 @@ private struct ThreadEmptyState: View {
             Spacer(minLength: 0)
             VStack(spacing: 12) {
                 AllnighterGlyph(size: 38)
-                Text("Start a work order")
+                Text("Start a run")
                     .font(.system(size: 25, weight: .bold)).tracking(-0.4)
                     .foregroundStyle(ALColor.textPrimary)
-                Text("One message in. Chat with a single model, fan it out to the whole bench for options, or hand it to an agent to build — and route any turn to anyone.")
+                Text("One message plus an optional team and worker, running in the selected repo root.")
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
                     .multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 486)
                 HStack(spacing: 8) {
@@ -52,7 +52,6 @@ private struct ThreadEmptyState: View {
             Spacer(minLength: 0)
             RoutingComposer(
                 big: true,
-                defaultMode: ComposeRoutingDefaults.mode(for: thread),
                 onSend: { threads.sendRouting($0) }
             )
             .frame(maxWidth: 640)
@@ -100,7 +99,6 @@ private struct ThreadConversationPane: View {
                 archivedComposerBar
             } else {
                 RoutingComposer(
-                    defaultMode: ComposeRoutingDefaults.mode(for: thread),
                     onSend: { threads.sendRouting($0) }
                 )
                 .padding(.horizontal, 20).padding(.vertical, 14)
@@ -493,7 +491,7 @@ private struct ThreadBoardRow: View {
 
 /// An executor ran (or was refused/revealed) in the repo. Renders from the durable
 /// ExecutionReturn behind the turn (runId/stageId). System notes (no run) — a
-/// missing dir, busy execution lane — render as honest text, never a fake result.
+/// missing dir, busy write lock — render as honest text, never a fake result.
 private struct ThreadDispatchRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
@@ -543,7 +541,7 @@ private struct ThreadDispatchRow: View {
                 Text("running in the repo…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
             }
         case .failed, .timedOut:
-            // No durable return → a system note (missing dir / busy execution lane /
+            // No durable return → a system note (missing dir / busy write lock /
             // no executor). With a return, render the executor's actual outcome.
             if ret == nil {
                 Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The executor failed.")

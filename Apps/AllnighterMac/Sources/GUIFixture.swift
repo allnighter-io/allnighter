@@ -137,14 +137,8 @@ enum GUIFixture {
     static var opensFloorReader: Bool { active == "floor-reader" }
     /// Deep-link: seed the project-grouped sidebar (PRJ-S14) with sample projects.
     static var opensProjectsRail: Bool { active == "projects-rail" }
-    /// Deep-link: render the Project Manager cards (proposal/work-order/verification).
-    static var opensPMCards: Bool { active == "pm-cards" }
-    /// Deep-link: render the live Project Manager conversation view (seeded timeline).
-    static var opensPMLive: Bool { active == "pm-live" }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
-    /// `compose-mode-menu` seeds the mode menu open for the proof capture.
-    static var composeMenuOpen: Bool { active == "compose-mode-menu" }
     /// `compose-target-*` seeds the target popover open.
     static var composeTargetOpen: Bool { (active ?? "").hasPrefix("compose-target-") }
 
@@ -152,14 +146,6 @@ enum GUIFixture {
     /// Runs the composite path (so native popovers + SR are exercised) but is intended
     /// only for "does preflight + captureComposite succeed right now?" verification.
     static var isTCCProbe: Bool { (active ?? "") == "tcc-probe" }
-    /// Mode for the compose specimen (drives which target popover renders).
-    static var composeSpecimenMode: ComposeMode {
-        switch active {
-        case "compose-target-send-to-team": return .sendToTeam
-        case "compose-target-exec": return .exec
-        default: return .chat
-        }
-    }
 
     /// Which source the repair panel focuses on for readiness fixtures.
     static var readinessFocusDriverId: String? { readinessFocusDriverId(for: active) }
@@ -220,7 +206,7 @@ enum GUIFixture {
         ("home-rail", "Home — grouped/filtered rail (CR4e)"),
         ("home-rail-th2", "Home — TH2 triage pin/unread/archive"),
         ("home-rail-unr", "Home — UNR unread matrix (S07)"),
-        ("thread-empty", "Thread — empty work order"),
+        ("thread-empty", "Thread — empty run"),
         ("thread-with-turns", "Thread — user message turn"),
         ("thread-chat", "Thread — chat reply from a model"),
         ("thread-team-board", "Thread — fan-out team board"),
@@ -236,11 +222,8 @@ enum GUIFixture {
         ("teams-edit-drawer", "Teams — hover-edit → Team Editor drawer (#3)"),
         ("floor-reader", "Floor — team reply reader (G-T3, markdown)"),
         ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
-        ("pm-cards", "Project Manager — proposal/work-order/verification cards (S15)"),
-        ("pm-live", "Project Manager — live conversation view (S15 wiring)"),
-        ("compose-mode-menu", "Compose — mode menu (native popover)"),
-        ("compose-target-chat", "Compose — route to model (native popover)"),
-        ("compose-target-send-to-team", "Compose — send to team (native popover)"),
+        ("compose-target-chat", "Compose — route target popover (native popover)"),
+        ("compose-target-send-to-team", "Compose — team target popover (native popover)"),
         ("tcc-probe", "TCC / Screen Recording grant probe (forces composite path)"),
     ]
 
@@ -622,17 +605,13 @@ enum GUIFixture {
     static var isActive: Bool { false }
     static var isGrantSession: Bool { false }
     static var active: String? { nil }
-    static var composeMenuOpen: Bool { false }
     static var composeTargetOpen: Bool { false }
-    static var composeSpecimenMode: ComposeMode { .chat }
     static var opensTeamDropdown: Bool { false }
     static var opensDoctorPopover: Bool { false }
     static var opensReadiness: Bool { false }
     static var opensComposeSpecimen: Bool { false }
     static var opensCommandPalette: Bool { false }
     static var opensFloorReader: Bool { false }
-    static var opensPMCards: Bool { false }
-    static var opensPMLive: Bool { false }
     static var opensHomeWorkspace: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
