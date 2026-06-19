@@ -698,6 +698,17 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Emit a ProjectDispatchJSON object."),
             ]
         ),
+        CommandSpec(
+            "project verify", summary: "Verify a work order's return: run its declared proof commands as bounded subprocesses at the project root and record a VerificationRecord. Never claims verified on failure/timeout/missing proof; done requires verified or an explicit waiver.", milestone: .m1,
+            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
+            flags: [
+                FlagSpec("work-order", takesValue: true, valueType: "string", summary: "Work order id (default: the most recent)."),
+                FlagSpec("return", takesValue: true, valueType: "string", summary: "Return id (default: the latest for the work order)."),
+                FlagSpec("no-run", summary: "Reveal-only: do not run proof; outcome is waived or needs-human."),
+                FlagSpec("waive", takesValue: true, valueType: "string", summary: "Explicit human waiver with a reason (marks done without running proof)."),
+                FlagSpec("json", summary: "Emit a ProjectVerificationJSON object."),
+            ]
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)

@@ -30,8 +30,9 @@ enum ProjectCLI {
         case "postpone": runPostpone(args)
         case "handoff": runHandoff(args, runtime)
         case "dispatch": await runDispatch(args, runtime)
+        case "verify": await runVerify(args)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone|handoff|dispatch> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone|handoff|dispatch|verify> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -512,6 +513,70 @@ enum ProjectCLI {
                 print("\(workReturn.id)\t\(workReturn.status.rawValue)\t\(workReturn.targetWorkerId ?? "—")")
                 if let s = workReturn.summary { print(s) }
             }
+        }
+    }
+
+    /// Return review + verification (PRJ-S12): run the work order's declared proof
+    /// commands as bounded subprocesses at the project root and record a
+    /// VerificationRecord. "Done" requires verified or an explicit waiver — never a
+    /// worker's claim alone.
+    private static func runVerify(_ args: [String]) async {
+        let opts = Options(args)
+        guard let idOrName = opts.positional.first else {
+            usageError("usage: alln project verify <project-id-or-name> [--work-order <id>] [--return <id>] [--no-run] [--waive <reason>] [--json]")
+        }
+        let project = resolve(idOrName, ProjectStore())
+        let woStore = ProjectWorkOrderStore()
+        let order: WorkOrder?
+        if let woId = opts.value("work-order") {
+            order = woStore.find(id: woId)
+        } else {
+            order = woStore.load(projectId: project.id).last   // most recent work order
+        }
+        guard let workOrder = order else {
+            AllnighterCLI.fail(code: "WORK_ORDER_NOT_FOUND", message: "no work order to verify in \(project.displayName); approve one first or pass --work-order")
+        }
+        // The return under review (explicit, else the latest for this work order).
+        let returns = WorkReturnStore().load(projectId: project.id).filter { $0.workOrderId == workOrder.id }
+        let workReturn: WorkReturn?
+        if let rid = opts.value("return") { workReturn = returns.first { $0.id == rid } } else { workReturn = returns.last }
+
+        let now = Date()
+        let record: VerificationRecord
+        if let reason = opts.value("waive") {
+            // Explicit human waiver — done without running proof.
+            record = VerificationRecord(
+                id: "ver_" + UUID().uuidString.prefix(8).lowercased(), projectId: project.id,
+                workOrderId: workOrder.id, returnId: workReturn?.id, outcome: .waived,
+                proofResults: [], gitObservation: nil, scopeFindings: [], docsDriftFindings: [],
+                missingProof: [], recommendation: "Proof waived by user: \(reason)", createdAt: now)
+        } else {
+            let service = ProjectVerificationService(runner: SubprocessCommandRunner())
+            record = await service.verify(workOrder: workOrder, workReturn: workReturn, project: project, runProof: !opts.flag("no-run"))
+        }
+        try? VerificationStore().append(record)
+
+        // Only verified/waived advance the proposal to done (verified).
+        var proposalStatus: String?
+        let proposalStore = ProjectProposalStore()
+        if var proposal = proposalStore.get(projectId: project.id, proposalId: workOrder.proposalId) {
+            if record.outcome.isDone, proposal.status.canTransition(to: .verified) {
+                proposal.status = .verified
+                proposal.updatedAt = now
+                try? proposalStore.update(proposal)
+            }
+            proposalStatus = proposal.status.rawValue
+        }
+
+        if opts.flag("json") {
+            print(AllnighterCLI.jsonString(ProjectVerificationJSON(
+                contractVersion: ContractRegistry.contractVersion, verification: record,
+                proposalStatus: proposalStatus,
+                nextActions: record.outcome.isDone ? [] : [.init(kind: .askUser, label: "Resolve and re-verify", command: "alln project verify \(project.id) --work-order \(workOrder.id) --json")])))
+        } else {
+            print("\(record.id)\t\(record.outcome.rawValue)")
+            print(record.recommendation)
+            for r in record.proofResults { print("  \(r.passed ? "✓" : "✗") \(r.command)\(r.timedOut ? " (timeout)" : r.exitCode.map { " (exit \($0))" } ?? "")") }
         }
     }
 

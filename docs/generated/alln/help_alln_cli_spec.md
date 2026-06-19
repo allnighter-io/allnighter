@@ -847,6 +847,20 @@ Flags:
 - `--ack-dirty` — Acknowledge the dirty tree before dispatch.
 - `--json` — Emit a ProjectDispatchJSON object.
 
+### `alln project verify`
+
+Verify a work order's return: run its declared proof commands as bounded subprocesses at the project root and record a VerificationRecord. Never claims verified on failure/timeout/missing proof; done requires verified or an explicit waiver.
+
+Arguments:
+- `project` (required) — Project id or name.
+
+Flags:
+- `--work-order <string>` — Work order id (default: the most recent).
+- `--return <string>` — Return id (default: the latest for the work order).
+- `--no-run` — Reveal-only: do not run proof; outcome is waived or needs-human.
+- `--waive <string>` — Explicit human waiver with a reason (marks done without running proof).
+- `--json` — Emit a ProjectVerificationJSON object.
+
 ## Commands (named but deferred)
 
 - `alln work` — Create a work order.

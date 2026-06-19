@@ -43,6 +43,7 @@ final class ContractRegistryTests: XCTestCase {
             "project workers", "project recheck-workers", "project chat",
             "project propose", "project proposals",
             "project approve", "project edit", "project postpone", "project handoff", "project dispatch",
+            "project verify",
         ])
     }
 

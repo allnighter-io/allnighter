@@ -2203,6 +2203,55 @@
     },
     {
       "args" : [
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id or name."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "work-order",
+          "summary" : "Work order id (default: the most recent).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "return",
+          "summary" : "Return id (default: the latest for the work order).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "no-run",
+          "summary" : "Reveal-only: do not run proof; outcome is waived or needs-human.",
+          "takesValue" : false
+        },
+        {
+          "name" : "waive",
+          "summary" : "Explicit human waiver with a reason (marks done without running proof).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a ProjectVerificationJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "project verify",
+      "outputSchema" : "none",
+      "summary" : "Verify a work order's return: run its declared proof commands as bounded subprocesses at the project root and record a VerificationRecord. Never claims verified on failure\/timeout\/missing proof; done requires verified or an explicit waiver."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [

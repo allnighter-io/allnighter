@@ -187,6 +187,20 @@ public struct ProjectDispatchJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// The result of `project verify` — the verification record and the resulting
+/// proposal status. Only `verified`/`waived` advance the proposal to verified.
+public struct ProjectVerificationJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var verification: VerificationRecord
+    public var proposalStatus: String?
+    public var nextActions: [ProjectNextAction]
+    public init(schemaVersion: Int = 1, contractVersion: String, verification: VerificationRecord, proposalStatus: String?, nextActions: [ProjectNextAction] = []) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.verification = verification; self.proposalStatus = proposalStatus; self.nextActions = nextActions
+    }
+}
+
 /// All proposals for a project — used by `project proposals`.
 public struct ProjectProposalsJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int

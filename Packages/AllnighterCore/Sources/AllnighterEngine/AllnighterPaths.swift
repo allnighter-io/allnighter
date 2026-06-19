@@ -59,6 +59,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("ProjectWorkReturns", isDirectory: true)
     }
 
+    /// `…/Allnighter/ProjectVerifications/` — verification records (PRJ-S12).
+    public static var projectVerifications: URL {
+        support.appendingPathComponent("ProjectVerifications", isDirectory: true)
+    }
+
     /// `…/Allnighter/Config/` — workers, manifests, presets.
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)
