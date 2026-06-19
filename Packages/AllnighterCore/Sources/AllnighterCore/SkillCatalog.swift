@@ -179,6 +179,7 @@ public enum SkillCatalog {
         the feature have if built cleanly today? Then reconcile that with the existing \
         repo and name the compromise. Prefer simple, local changes over clever systems.
         """),
+        s("execution_playbook", "Execution Playbook", .code, .answer, ExecutionPlaybookPreset.prompt),
         s("code_maintainer", "Code Maintainer", .code, .answer, """
         Read the request as a maintainer. Identify likely files, coupling risk, \
         migration risk, and behavior that must not regress. Preserve existing style. \

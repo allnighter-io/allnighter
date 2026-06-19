@@ -97,19 +97,13 @@ final class FloorProjectorTests: XCTestCase {
         XCTAssertTrue(floor.nextActions.allSatisfy { !$0.mutating })
     }
 
-    func testMutatingRunGatesExecute() {
-        // WT-FLOOR05: a mutating run routes to Execute approval, never auto-runs.
+    func testMutatingRunDoesNotProjectSecondExecuteGate() {
         var run = signalRun()
         run.mutating = true
         run.posture = .execute
         let floor = FloorProjector.project(run)
-        let execute = floor.nextActions.first { $0.kind == .execute }
-        XCTAssertNotNil(execute)
-        XCTAssertEqual(execute?.requiresExecute, true)
-        XCTAssertEqual(execute?.mutating, true)
-        XCTAssertNotNil(execute?.disabledReason)
-        XCTAssertEqual(floor.executeRequirements.count, 1)
-        XCTAssertEqual(floor.executeRequirements.first?.requiredApproval, true)
+        XCTAssertNil(floor.nextActions.first { $0.kind == .execute })
+        XCTAssertTrue(floor.executeRequirements.isEmpty)
         XCTAssertEqual(floor.run.mutating, true)
     }
 

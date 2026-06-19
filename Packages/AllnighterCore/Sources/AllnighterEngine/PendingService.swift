@@ -438,9 +438,6 @@ public struct PendingService: Sendable {
     }
 
     private func validateRunnableKind(_ item: PendingItem) throws {
-        if let blocker = PendingMutatingSourceGate.evaluate(item: item, readyModels: models) {
-            throw PendingServiceError.sourceGateBlocked(blocker)
-        }
         switch item.kind {
         case .workerChat:
             return
@@ -449,14 +446,7 @@ public struct PendingService: Sendable {
                 throw PendingServiceError.mutationDeferred
             }
             return
-        case .dispatch:
-            throw PendingServiceError.mutationDeferred
-        case .workOrder:
-            if item.execution?.intent == .execute {
-                throw PendingServiceError.mutationDeferred
-            }
-            throw PendingServiceError.unsupportedKind(item.kind.rawValue)
-        case .returnReview, .followUp:
+        case .dispatch, .workOrder, .returnReview, .followUp:
             throw PendingServiceError.unsupportedKind(item.kind.rawValue)
         }
     }

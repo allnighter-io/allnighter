@@ -234,15 +234,6 @@ public enum FloorProjector {
             actions.append(FloorNextAction(id: "monitor_externally", kind: .monitorExternally, label: "Monitor externally"))
         }
 
-        // A make-real move is gated: the action is present but disabled until Execute
-        // approval, and routes through the Execute requirement.
-        if run.mutating {
-            actions.append(FloorNextAction(
-                id: "execute", kind: .execute, label: "Execute",
-                requiresExecute: true, mutating: true,
-                disabledReason: "Requires Execute approval before any real change."))
-        }
-
         if hasReturn {
             actions.append(FloorNextAction(id: "ignore", kind: .ignore, label: "Ignore"))
         }
@@ -254,14 +245,10 @@ public enum FloorProjector {
         return actions
     }
 
-    /// Execute requirements (F-S05): present only for a mutating run. The run alone
-    /// flags that approval is required; proof commands / work-order linkage are
-    /// filled by the Project Work Order contract at dispatch time.
+    /// Unified runs do not project a second approval gate. A mutating run has
+    /// already acquired the repo-root write lock before workers start.
     private static func executeRequirements(for run: TeamRun) -> [ExecuteRequirement] {
-        guard run.mutating else { return [] }
-        return [ExecuteRequirement(
-            reason: "This team can make real changes (\(run.posture?.rawValue ?? "execute") posture); approve before dispatch.",
-            requiredApproval: true)]
+        []
     }
 
     /// Derive the converge timeline from sourced timestamps only (F-S04). Never

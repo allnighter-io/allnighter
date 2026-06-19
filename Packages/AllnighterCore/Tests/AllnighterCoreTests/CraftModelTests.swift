@@ -39,7 +39,8 @@ final class CraftModelTests: XCTestCase {
         XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.posture, .review)
         XCTAssertEqual(BuiltInTeams.team("code_release_proof")?.posture, .review)
         let executionIDs: Set<String> = [
-            "code_codex_implementation", "code_claude_implementation", "code_cursor_implementation"
+            "code_codex_implementation", "code_claude_implementation", "code_cursor_implementation",
+            "default_chat", "execution_playbook"
         ]
         for team in BuiltInTeams.all {
             if executionIDs.contains(team.id) {

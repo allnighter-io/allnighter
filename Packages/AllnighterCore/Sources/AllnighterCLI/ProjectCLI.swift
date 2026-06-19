@@ -4,8 +4,7 @@ import AllnighterEngine
 
 /// `alln project …` — the Project-first CLI foundation (PRJ-S07). Boring on
 /// purpose: list/add/show/archive the local work floors, and read the threads,
-/// pending, and on-demand context bound to one Project. Manager chat, proposals,
-/// dispatch, and verification are later slices (PRJ-S08+); worker readiness
+/// pending, and on-demand context bound to one Project. Worker readiness
 /// (workers/recheck-workers) lands in the S07 follow-up. Every JSON envelope is a
 /// projection of Core truth via `ProjectJSON` — the registry owns the contract.
 enum ProjectCLI {
@@ -22,17 +21,8 @@ enum ProjectCLI {
         case "context": runContext(args)
         case "workers": runWorkers(args)
         case "recheck-workers": await runRecheck(args, runtime)
-        case "chat": await runChat(args, runtime)
-        case "propose": await runPropose(args, runtime)
-        case "proposals": runProposals(args)
-        case "approve": runApprove(args)
-        case "edit": runEdit(args)
-        case "postpone": runPostpone(args)
-        case "handoff": runHandoff(args, runtime)
-        case "dispatch": await runDispatch(args, runtime)
-        case "verify": await runVerify(args)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers|chat|propose|proposals|approve|edit|postpone|handoff|dispatch|verify> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -170,9 +160,7 @@ enum ProjectCLI {
         let project = resolve(idOrName, store)
         let threads = boundThreads(projectId: project.id)
         let pending = boundPending(projectId: project.id)
-        // Real source-labeled summaries — no fabricated activity. Runs/proposals/
-        // returns wire in later slices; the builder leaves them empty until then.
-        let packet = ProjectContextPacketBuilder.build(
+        let packet = buildContextPacket(
             project: project,
             recentThreadSummaries: threads.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" },
             pendingItems: pending.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" }
@@ -220,421 +208,44 @@ enum ProjectCLI {
         emitWorkers(project: project, workers: results, cached: false, json: opts.flag("json"))
     }
 
-    /// Project Manager chat (PRJ-S08): one model-produced turn answered from the
-    /// project context packet. No ready model → a `wait` turn (never fabricated).
-    /// Recorded as run truth in the Manager turn log. Does not auto-create work.
-    private static func runChat(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard let idOrName = opts.positional.first else {
-            usageError("usage: alln project chat <project-id-or-name> [message] [--file <path>] [--json]")
-        }
-        let message = opts.value("message")
-            ?? opts.value("file").flatMap { try? String(contentsOfFile: $0) }
-            ?? opts.positional.dropFirst().joined(separator: " ")
-        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            usageError("project chat requires a message (positional or --file)")
-        }
-        let store = ProjectStore()
-        let project = resolve(idOrName, store)
-        let threads = boundThreads(projectId: project.id)
-        let pending = boundPending(projectId: project.id)
-        let packet = ProjectContextPacketBuilder.build(
-            project: project,
-            recentThreadSummaries: threads.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" },
-            pendingItems: pending.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" }
-        )
-        let service = ProjectManagerService(
-            runner: SubprocessCommandRunner(),
-            registry: runtime.registry,
-            invocations: runtime.invocations
-        )
-        let turn = await service.chat(
-            project: project, packet: packet, message: message, readyModels: runtime.readyModels
-        )
-        // Record run truth (the Manager turn log) regardless of mode.
-        try? ProjectManagerTurnStore().append(turn)
-        if opts.flag("json") {
-            print(AllnighterCLI.jsonString(ProjectManagerTurnJSON(contractVersion: ContractRegistry.contractVersion, turn: turn)))
-        } else if turn.mode == .wait {
-            for w in turn.warnings { FileHandle.standardError.write(Data("⏸ \(w)\n".utf8)) }
-        } else {
-            print(turn.answerMarkdown ?? "")
-        }
-    }
-
-    /// Proposal engine (PRJ-S09): one bounded next move or one visible blocker.
-    /// No dispatch, no approval. Persists the proposal + records the propose turn.
-    private static func runPropose(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard let idOrName = opts.positional.first else { usageError("usage: alln project propose <project-id-or-name> [--json]") }
-        let store = ProjectStore()
-        let project = resolve(idOrName, store)
-        let threads = boundThreads(projectId: project.id)
-        let pending = boundPending(projectId: project.id)
-        let packet = ProjectContextPacketBuilder.build(
-            project: project,
-            recentThreadSummaries: threads.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" },
-            pendingItems: pending.prefix(10).map { "\($0.title) [\($0.status.rawValue)]" }
-        )
-        let service = ProjectManagerService(
-            runner: SubprocessCommandRunner(), registry: runtime.registry, invocations: runtime.invocations)
-        let result = await service.propose(project: project, packet: packet, readyModels: runtime.readyModels)
-        try? ProjectManagerTurnStore().append(result.turn)
-        if let proposal = result.proposal { try? ProjectProposalStore().append(proposal) }
-        if opts.flag("json") {
-            print(AllnighterCLI.jsonString(ProjectProposalJSON(
-                contractVersion: ContractRegistry.contractVersion,
-                proposal: result.proposal, turn: result.turn, nextActions: result.turn.nextActions)))
-        } else if let p = result.proposal {
-            print("\(p.id)\t\(p.kind.rawValue)\t\(p.title)")
-            if !p.whyNow.isEmpty { print("why now: \(p.whyNow)") }
-        } else {
-            for w in result.turn.warnings { FileHandle.standardError.write(Data("⏸ \(w)\n".utf8)) }
-        }
-    }
-
-    private static func runProposals(_ args: [String]) {
-        let opts = Options(args)
-        guard let idOrName = opts.positional.first else { usageError("usage: alln project proposals <project-id-or-name> [--json]") }
-        let store = ProjectStore()
-        let project = resolve(idOrName, store)
-        let proposals = ProjectProposalStore().load(projectId: project.id)
-        if opts.flag("json") {
-            print(AllnighterCLI.jsonString(ProjectProposalsJSON(
-                contractVersion: ContractRegistry.contractVersion, projectId: project.id, proposals: proposals)))
-        } else if proposals.isEmpty {
-            print("(no proposals — `alln project propose \(project.id)`)")
-        } else {
-            for p in proposals { print("\(p.id)\t\(p.status.rawValue)\t\(p.kind.rawValue)\t\(p.title)") }
-        }
-    }
-
-    /// Approve a proposal (PRJ-S10): records who/when/content-hash + the observed
-    /// base git head, then derives an editable WorkOrder. Does NOT dispatch (S11).
-    private static func runApprove(_ args: [String]) {
-        let opts = Options(args)
-        guard let pid = opts.positional.first else { usageError("usage: alln project approve <proposal-id> [--by <name>] [--json]") }
-        let proposalStore = ProjectProposalStore()
-        guard var proposal = proposalStore.find(proposalId: pid) else {
-            AllnighterCLI.fail(code: "PROPOSAL_NOT_FOUND", message: "proposal not found: \(pid)")
-        }
-        // Idempotent: an already-approved proposal returns its existing work order.
-        if proposal.status == .approved, let woId = proposal.workOrderId,
-           let existing = ProjectWorkOrderStore().find(id: woId) {
-            emitWorkOrder(proposal: proposal, order: existing, json: opts.flag("json")); return
-        }
-        guard proposal.status.canTransition(to: .approved) else {
-            AllnighterCLI.fail(code: "PROPOSAL_INVALID_STATE", message: "proposal \(pid) cannot be approved from status \(proposal.status.rawValue)")
-        }
-        guard let project = (try? ProjectStore().load(id: proposal.projectId)) ?? nil else {
-            AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found for proposal: \(proposal.projectId)")
-        }
-        let now = Date()
-        // Re-observe the base head at approval (gates re-validate against it at dispatch).
-        let head = GitObserver().observe(rootPath: project.normalizedRootPath).head ?? proposal.baseGitHead
-        proposal.baseGitHead = head
-        proposal.status = .approved
-        proposal.approval = ProjectApproval(
-            approvedBy: opts.value("by") ?? "cli-user", approvedAt: now,
-            approvedContentHash: WorkOrderBuilder.approvalContentHash(proposal))
-        let order = WorkOrderBuilder.build(from: proposal, project: project, baseGitHead: head, now: now,
-                                           idSuffix: UUID().uuidString.prefix(8).lowercased().description)
-        proposal.workOrderId = order.id
-        proposal.updatedAt = now
-        try? ProjectWorkOrderStore().upsert(order)
-        try? proposalStore.update(proposal)
-        emitWorkOrder(proposal: proposal, order: order, json: opts.flag("json"))
-    }
-
-    /// Edit a proposal's content before approval (deterministic JSON patch via
-    /// --patch or stdin). Editing clears any prior approval and returns it to proposed.
-    private static func runEdit(_ args: [String]) {
-        let opts = Options(args)
-        guard let pid = opts.positional.first else { usageError("usage: alln project edit <proposal-id> (--patch <json> | stdin) [--json]") }
-        let store = ProjectProposalStore()
-        guard var proposal = store.find(proposalId: pid) else {
-            AllnighterCLI.fail(code: "PROPOSAL_NOT_FOUND", message: "proposal not found: \(pid)")
-        }
-        guard [.proposed, .postponed, .approved].contains(proposal.status) else {
-            AllnighterCLI.fail(code: "PROPOSAL_INVALID_STATE", message: "proposal \(pid) cannot be edited from status \(proposal.status.rawValue)")
-        }
-        let raw = opts.value("patch") ?? readStdin()
-        guard let data = raw?.data(using: .utf8), !data.isEmpty,
-              let patch = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "edit requires a JSON object patch via --patch or stdin")
-        }
-        applyPatch(patch, to: &proposal)
-        // An edit invalidates a prior approval; the move must be re-approved.
-        proposal.status = .proposed
-        proposal.approval = nil
-        proposal.workOrderId = nil
-        proposal.updatedAt = Date()
-        try? store.update(proposal)
-        emitProposal(proposal, json: opts.flag("json"))
-    }
-
-    private static func runPostpone(_ args: [String]) {
-        let opts = Options(args)
-        guard let pid = opts.positional.first else { usageError("usage: alln project postpone <proposal-id> [--json]") }
-        let store = ProjectProposalStore()
-        guard var proposal = store.find(proposalId: pid) else {
-            AllnighterCLI.fail(code: "PROPOSAL_NOT_FOUND", message: "proposal not found: \(pid)")
-        }
-        guard proposal.status.canTransition(to: .postponed) else {
-            AllnighterCLI.fail(code: "PROPOSAL_INVALID_STATE", message: "proposal \(pid) cannot be postponed from status \(proposal.status.rawValue)")
-        }
-        proposal.status = .postponed
-        proposal.updatedAt = Date()
-        try? store.update(proposal)
-        emitProposal(proposal, json: opts.flag("json"))
-    }
-
-    /// Handoff/reveal (PRJ-S11a): reveal the EXACT prompt to hand a worker, plus a
-    /// dispatch preview (would the mutating gates pass now?). Reveal NEVER invokes a
-    /// worker and never mutates the repo — safe regardless of gate state.
-    private static func runHandoff(_ args: [String], _ runtime: ToolRuntime) {
-        let opts = Options(args)
-        guard let woId = opts.positional.first else { usageError("usage: alln project handoff <work-order-id> [--worker <id>] [--ack-dirty] [--json]") }
-        guard let order = ProjectWorkOrderStore().find(id: woId) else {
-            AllnighterCLI.fail(code: "WORK_ORDER_NOT_FOUND", message: "work order not found: \(woId)")
-        }
-        guard let project = (try? ProjectStore().load(id: order.projectId)) ?? nil else {
-            AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(order.projectId)")
-        }
-        // The proposal behind the order must still be approved (edits clear approval).
-        let proposal = ProjectProposalStore().get(projectId: order.projectId, proposalId: order.proposalId)
-        if proposal?.status != .approved {
-            AllnighterCLI.fail(code: "PROPOSAL_NOT_APPROVED", message: "the proposal behind \(woId) is not approved")
-        }
-
-        // Resolve the single execution source we'd target (informational for reveal).
-        let (sourceId, _) = resolveDispatchSource(order: order, opts: opts, readyModels: runtime.readyModels)
-
-        // Dispatch preview: evaluate the real composite gate against a dispatch-mode copy.
-        var preview = order
-        preview.mode = .dispatch
-        if let sourceId { preview.targetSourceId = sourceId }
-        let git = GitObserver()
-        let head = git.observe(rootPath: project.normalizedRootPath).head
-        let dirty = git.dirtyFiles(rootPath: project.normalizedRootPath)
-        let rootState = RootNormalization.observeRootState(key: project.normalizedRootPath)
-        let readiness = ProjectWorkerReadinessStore().load(projectId: project.id)
-        let gate = ProjectMutatingDispatchEvaluator.evaluate(
-            workOrder: preview, project: project, proposal: proposal,
-            observedRootState: rootState, dirtyFiles: dirty, dirtyAcknowledged: opts.flag("ack-dirty"),
-            workerReadiness: readiness, readyModels: runtime.readyModels,
-            currentGitHead: head, teams: runtime.teams, registry: runtime.registry)
-
-        let dispatchPreview: ProjectHandoffJSON.DispatchPreview
-        if case .allowed(_, let warnings) = gate {
-            dispatchPreview = .init(wouldDispatch: true, warnings: warnings)
-        } else {
-            dispatchPreview = .init(wouldDispatch: false, blockerCode: gate.primaryErrorCode, message: gate.message)
-        }
-        let reveal = WorkOrderBuilder.revealMarkdown(order)
-
-        if opts.flag("json") {
-            var next: [ProjectNextAction] = []
-            if dispatchPreview.wouldDispatch {
-                next.append(.init(kind: .dispatch, label: "Dispatch to a worker", command: "alln project dispatch \(order.id) --json"))
-            }
-            print(AllnighterCLI.jsonString(ProjectHandoffJSON(
-                contractVersion: ContractRegistry.contractVersion, workOrder: order,
-                revealMarkdown: reveal, resolvedSourceId: sourceId,
-                dispatchPreview: dispatchPreview, nextActions: next)))
-        } else {
-            print(reveal)
-            print("\n— dispatch preview: " + (dispatchPreview.wouldDispatch ? "ready ✓" : "blocked (\(dispatchPreview.blockerCode ?? "")) — \(dispatchPreview.message ?? "")"))
-        }
-    }
-
-    /// Dispatch (PRJ-S11b): invoke an approved work order's worker under the
-    /// execution lane, after re-validating every mutating gate. Mutates the repo via
-    /// the worker's CLI — the gate + lane are load-bearing. Captures a WorkReturn.
-    private static func runDispatch(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard let woId = opts.positional.first else { usageError("usage: alln project dispatch <work-order-id> [--worker <id>] [--ack-dirty] [--json]") }
-        guard let order = ProjectWorkOrderStore().find(id: woId) else {
-            AllnighterCLI.fail(code: "WORK_ORDER_NOT_FOUND", message: "work order not found: \(woId)")
-        }
-        guard let project = (try? ProjectStore().load(id: order.projectId)) ?? nil else {
-            AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(order.projectId)")
-        }
-        let proposalStore = ProjectProposalStore()
-        let proposal = proposalStore.get(projectId: order.projectId, proposalId: order.proposalId)
-        guard proposal?.status == .approved else {
-            AllnighterCLI.fail(code: "PROPOSAL_NOT_APPROVED", message: "the proposal behind \(woId) is not approved")
-        }
-        // Resolve the single concrete ready worker to invoke.
-        let (sourceId, model) = resolveDispatchSource(order: order, opts: opts, readyModels: runtime.readyModels)
-        guard let targetModel = model else {
-            AllnighterCLI.fail(code: "WORKER_NOT_READY_IN_PROJECT", message: "no ready worker resolves for source \(sourceId ?? "—"); recheck workers or pass --worker")
-        }
-
-        var dispatchOrder = order
-        dispatchOrder.mode = .dispatch
-        dispatchOrder.targetSourceId = sourceId
-
-        let git = GitObserver()
-        let head = git.observe(rootPath: project.normalizedRootPath).head
-        let dirty = git.dirtyFiles(rootPath: project.normalizedRootPath)
-        let rootState = RootNormalization.observeRootState(key: project.normalizedRootPath)
-        let readiness = ProjectWorkerReadinessStore().load(projectId: project.id)
-
-        let service = ProjectDispatchService(
-            runner: SubprocessCommandRunner(), registry: runtime.registry, invocations: runtime.invocations)
-        let outcome = await service.dispatch(
-            order: dispatchOrder, project: project, proposal: proposal, targetModel: targetModel,
-            workerReadiness: readiness, readyModels: runtime.readyModels, currentGitHead: head,
-            dirtyFiles: dirty, observedRootState: rootState, dirtyAcknowledged: opts.flag("ack-dirty"),
-            teams: runtime.teams)
-
-        switch outcome {
-        case .blocked(let code, let message):
-            AllnighterCLI.fail(code: code, message: message)
-        case .laneBusy(let key):
-            AllnighterCLI.fail(code: "EXECUTION_LANE_BUSY", message: "another execute order is running on this lane (\(key)); retry when it settles")
-        case .dispatched(let workReturn):
-            try? WorkReturnStore().append(workReturn)
-            // Persist the dispatched order + advance the proposal to its end state.
-            try? ProjectWorkOrderStore().upsert(dispatchOrder)
-            if var p = proposal {
-                p.status = workReturn.status == .returned ? .returned : .blocked
-                p.updatedAt = Date()
-                try? proposalStore.update(p)
-            }
-            let proposalStatus = (workReturn.status == .returned ? "returned" : "blocked")
-            if opts.flag("json") {
-                print(AllnighterCLI.jsonString(ProjectDispatchJSON(
-                    contractVersion: ContractRegistry.contractVersion, workReturn: workReturn,
-                    workOrder: dispatchOrder, proposalStatus: proposalStatus,
-                    nextActions: [.init(kind: .verify, label: "Verify the return", command: "alln project verify \(project.id) --work-order \(order.id) --json")])))
-            } else {
-                print("\(workReturn.id)\t\(workReturn.status.rawValue)\t\(workReturn.targetWorkerId ?? "—")")
-                if let s = workReturn.summary { print(s) }
-            }
-        }
-    }
-
-    /// Return review + verification (PRJ-S12): run the work order's declared proof
-    /// commands as bounded subprocesses at the project root and record a
-    /// VerificationRecord. "Done" requires verified or an explicit waiver — never a
-    /// worker's claim alone.
-    private static func runVerify(_ args: [String]) async {
-        let opts = Options(args)
-        guard let idOrName = opts.positional.first else {
-            usageError("usage: alln project verify <project-id-or-name> [--work-order <id>] [--return <id>] [--no-run] [--waive <reason>] [--json]")
-        }
-        let project = resolve(idOrName, ProjectStore())
-        let woStore = ProjectWorkOrderStore()
-        let order: WorkOrder?
-        if let woId = opts.value("work-order") {
-            order = woStore.find(id: woId)
-        } else {
-            order = woStore.load(projectId: project.id).last   // most recent work order
-        }
-        guard let workOrder = order else {
-            AllnighterCLI.fail(code: "WORK_ORDER_NOT_FOUND", message: "no work order to verify in \(project.displayName); approve one first or pass --work-order")
-        }
-        // The return under review (explicit, else the latest for this work order).
-        let returns = WorkReturnStore().load(projectId: project.id).filter { $0.workOrderId == workOrder.id }
-        let workReturn: WorkReturn?
-        if let rid = opts.value("return") { workReturn = returns.first { $0.id == rid } } else { workReturn = returns.last }
-
-        let now = Date()
-        let record: VerificationRecord
-        if let reason = opts.value("waive") {
-            // Explicit human waiver — done without running proof.
-            record = VerificationRecord(
-                id: "ver_" + UUID().uuidString.prefix(8).lowercased(), projectId: project.id,
-                workOrderId: workOrder.id, returnId: workReturn?.id, outcome: .waived,
-                proofResults: [], gitObservation: nil, scopeFindings: [], docsDriftFindings: [],
-                missingProof: [], recommendation: "Proof waived by user: \(reason)", createdAt: now)
-        } else {
-            let service = ProjectVerificationService(runner: SubprocessCommandRunner())
-            record = await service.verify(workOrder: workOrder, workReturn: workReturn, project: project, runProof: !opts.flag("no-run"))
-        }
-        try? VerificationStore().append(record)
-
-        // Only verified/waived advance the proposal to done (verified).
-        var proposalStatus: String?
-        let proposalStore = ProjectProposalStore()
-        if var proposal = proposalStore.get(projectId: project.id, proposalId: workOrder.proposalId) {
-            if record.outcome.isDone, proposal.status.canTransition(to: .verified) {
-                proposal.status = .verified
-                proposal.updatedAt = now
-                try? proposalStore.update(proposal)
-            }
-            proposalStatus = proposal.status.rawValue
-        }
-
-        if opts.flag("json") {
-            print(AllnighterCLI.jsonString(ProjectVerificationJSON(
-                contractVersion: ContractRegistry.contractVersion, verification: record,
-                proposalStatus: proposalStatus,
-                nextActions: record.outcome.isDone ? [] : [.init(kind: .askUser, label: "Resolve and re-verify", command: "alln project verify \(project.id) --work-order \(workOrder.id) --json")])))
-        } else {
-            print("\(record.id)\t\(record.outcome.rawValue)")
-            print(record.recommendation)
-            for r in record.proofResults { print("  \(r.passed ? "✓" : "✗") \(r.command)\(r.timedOut ? " (timeout)" : r.exitCode.map { " (exit \($0))" } ?? "")") }
-        }
-    }
-
-    /// The single CLI source dispatch would target: explicit --worker's source, then
-    /// the work order's declared source, then the strongest ready model's source.
-    private static func resolveDispatchSource(order: WorkOrder, opts: Options, readyModels: [Model]) -> (sourceId: String?, model: Model?) {
-        if let wid = opts.value("worker"), let m = readyModels.first(where: { $0.id == wid }) {
-            return (m.driverId, m)
-        }
-        if let src = order.resolvedTargetSourceId, let m = readyModels.first(where: { $0.driverId == src }) {
-            return (src, m)
-        }
-        if let src = order.resolvedTargetSourceId { return (src, nil) }
-        let strongest = readyModels.max { ModelCatalog.capabilities($0.id).strengthRank < ModelCatalog.capabilities($1.id).strengthRank }
-        return (strongest?.driverId, strongest)
-    }
-
     // MARK: - Helpers
 
-    private static func applyPatch(_ patch: [String: Any], to p: inout ProjectProposal) {
-        if let v = patch["title"] as? String { p.title = v }
-        if let v = patch["whyNow"] as? String { p.whyNow = v }
-        if let v = patch["userGoal"] as? String { p.userGoal = v }
-        if let v = patch["scope"] as? String { p.scope = v }
-        if let v = patch["currentTruth"] as? [String] { p.currentTruth = v }
-        if let v = patch["nonGoals"] as? [String] { p.nonGoals = v }
-        if let v = patch["likelyFilesOrAreas"] as? [String] { p.likelyFilesOrAreas = v }
-        if let v = patch["risks"] as? [String] { p.risks = v }
-        if let v = patch["blockingQuestions"] as? [String] { p.blockingQuestions = v }
-        if let v = patch["kind"] as? String, let k = ProposalKind(rawValue: v) { p.kind = k }
-        if let v = patch["suggestedLane"] as? String { p.suggestedLane = WorkLane(rawValue: v.lowercased()) }
-        if let v = patch["suggestedEffort"] as? String { p.suggestedEffort = EffortLevel(rawValue: v.lowercased()) }
-    }
-
-    private static func readStdin() -> String? {
-        let data = FileHandle.standardInput.readDataToEndOfFile()
-        let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        return s.isEmpty ? nil : s
-    }
-
-    private static func emitProposal(_ proposal: ProjectProposal, json: Bool) {
-        if json {
-            print(AllnighterCLI.jsonString(ProjectProposalsJSON(
-                contractVersion: ContractRegistry.contractVersion, projectId: proposal.projectId, proposals: [proposal])))
-        } else {
-            print("\(proposal.id)\t\(proposal.status.rawValue)\t\(proposal.kind.rawValue)\t\(proposal.title)")
-        }
-    }
-
-    private static func emitWorkOrder(proposal: ProjectProposal, order: WorkOrder, json: Bool) {
-        if json {
-            print(AllnighterCLI.jsonString(ProjectWorkOrderJSON(
-                contractVersion: ContractRegistry.contractVersion, proposal: proposal, workOrder: order,
-                nextActions: [.init(kind: .reveal, label: "Reveal handoff", command: "alln project handoff \(order.id) --json")])))
-        } else {
-            print("\(order.id)\t\(order.lane.rawValue)\t\(order.title)")
-            print("proof: \(order.proofCommands.isEmpty ? (order.proofWaiver ?? "—") : order.proofCommands.joined(separator: ", "))")
-        }
+    private static func buildContextPacket(
+        project: Project,
+        recentThreadSummaries: [String],
+        pendingItems: [String]
+    ) -> ProjectContextPacket {
+        let git = GitObserver()
+        let rootState = RootNormalization.observeRootState(key: project.normalizedRootPath)
+        let obs = git.observe(rootPath: project.normalizedRootPath)
+        let recentCommits = git.recentCommits(rootPath: project.normalizedRootPath, limit: 5)
+        let readiness = ProjectWorkerReadinessStore().load(projectId: project.id)
+        let ready = readiness.filter { $0.status == .ready }
+        let blocked = readiness.filter { $0.status != .ready }
+        let workers = ProjectContextPacket.Workers(
+            readinessSummary: "\(ready.count) ready · \(blocked.count) blocked",
+            readyWorkerIds: ready.map { $0.workerId ?? $0.sourceId },
+            blockedWorkerSummaries: blocked.map { "\($0.sourceId): \($0.status.rawValue)" }
+        )
+        var warnings: [String] = []
+        if rootState != .available { warnings.append("root \(rootState.rawValue): \(project.localRootPath)") }
+        if let dirty = obs.dirtySummary { warnings.append("dirty tree: \(dirty)") }
+        for summary in blocked { warnings.append("worker blocked — \(summary.sourceId): \(summary.status.rawValue)") }
+        return ProjectContextPacket(
+            id: "pkt_" + UUID().uuidString.prefix(8).lowercased(),
+            projectId: project.id,
+            generatedAt: Date(),
+            root: .init(localRootPath: project.localRootPath, kind: obs.kind, rootState: rootState),
+            git: .init(branch: obs.branch, head: obs.head, remote: obs.remote,
+                       dirtySummary: obs.dirtySummary, recentCommits: Array(recentCommits.prefix(10))),
+            docs: .init(entrypoints: project.docsEntrypoints),
+            threads: .init(managerThreadId: project.managerThreadId,
+                           recentThreadSummaries: Array(recentThreadSummaries.prefix(10))),
+            work: .init(pendingItems: Array(pendingItems.prefix(10))),
+            workers: workers,
+            proof: .init(commands: project.proofCommands),
+            warnings: warnings
+        )
     }
 
     private static func resolve(_ idOrName: String, _ store: ProjectStore) -> Project {

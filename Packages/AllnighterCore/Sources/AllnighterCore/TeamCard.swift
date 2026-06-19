@@ -5,8 +5,7 @@ import Foundation
 /// A read-only projection of a `TeamPreset` for the Send-to-team browse surface.
 /// NOT a new team — every field is projected from the existing team plus a little
 /// card-facing state. No "promise"/marketing line (cut as fluff); `requirements`
-/// are DERIVED gates (a ready worker for the craft; Execute approval if mutating),
-/// never authored "attach X" input asks.
+/// are DERIVED readiness facts, never authored "attach X" input asks.
 public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var teamId: String
@@ -49,7 +48,8 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
             posture: team.posture.rawValue, mutating: team.mutating,
             executionSourceId: team.executionSourceId,
             outputKind: team.outputKind.rawValue,
-            workerCount: team.workerSpecs.count, starterPrompts: team.starterPrompts,
+            workerCount: team.runShape == .execution ? 1 : team.workerSpecs.count,
+            starterPrompts: team.starterPrompts,
             requirements: derivedRequirements(team), recommendedFor: team.typeTags + team.purposeTags,
             pinned: pinned, pinnedReason: pinnedReason, lastRunAt: lastRunAt)
     }
@@ -58,7 +58,7 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     static func derivedRequirements(_ team: TeamPreset) -> [String] {
         var reqs = ["Needs at least one ready \(team.lane.rawValue) worker."]
         if team.mutating {
-            reqs.append("Requires Execute approval before any real change.")
+            reqs.append("Runs one mutating worker in the repo root.")
             if let source = team.executionSourceId {
                 reqs.append("Runs on \(source) only.")
             }

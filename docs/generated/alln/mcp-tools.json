@@ -450,6 +450,72 @@
     "summary" : "Cancel an active async team run."
   },
   {
+    "command" : "run",
+    "errors" : [
+      "PROJECT_NOT_FOUND",
+      "NO_PROJECT_ROOT",
+      "RUN_WRITE_LOCK_BUSY",
+      "DEFAULT_TEAM_INVALID",
+      "TEAM_NOT_FOUND",
+      "WORKER_NOT_READY",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "not_idempotent",
+    "name" : "team_run",
+    "outputSchema" : "teamRunJSON",
+    "params" : [
+      {
+        "name" : "message",
+        "required" : true,
+        "summary" : "The user's prompt.",
+        "type" : "string"
+      },
+      {
+        "name" : "project",
+        "required" : true,
+        "summary" : "Project id, name, or repo path.",
+        "type" : "string"
+      },
+      {
+        "name" : "team",
+        "required" : false,
+        "summary" : "Team preset id; omit for Default Team.",
+        "type" : "string"
+      },
+      {
+        "name" : "worker",
+        "required" : false,
+        "summary" : "Override worker model id (execution\/default).",
+        "type" : "string"
+      },
+      {
+        "name" : "effort",
+        "required" : false,
+        "summary" : "low|med|high (optional).",
+        "type" : "string"
+      },
+      {
+        "name" : "lane",
+        "required" : false,
+        "summary" : "code|design|copy|signal when routing answer teams.",
+        "type" : "string"
+      },
+      {
+        "name" : "type",
+        "required" : false,
+        "summary" : "Copy routing sugar (optional).",
+        "type" : "string"
+      },
+      {
+        "name" : "context",
+        "required" : false,
+        "summary" : "Bounded context snippet (optional).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Unified run: message + optional team + worker in a project repo root. Answer teams return a board; execution teams run one mutating agent."
+  },
+  {
     "command" : "team",
     "errors" : [
       "DEFAULT_TEAM_INVALID",
@@ -1010,187 +1076,5 @@
       }
     ],
     "summary" : "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config\/auth."
-  },
-  {
-    "command" : "project proposals",
-    "errors" : [
-      "PROJECT_NOT_FOUND",
-      "CLI_USAGE_ERROR"
-    ],
-    "idempotency" : "idempotent",
-    "name" : "project_proposals",
-    "outputSchema" : "projectProposalsJSON",
-    "params" : [
-      {
-        "name" : "project",
-        "required" : true,
-        "summary" : "Project id or name.",
-        "type" : "string"
-      }
-    ],
-    "summary" : "List a project's proposals."
-  },
-  {
-    "command" : "project chat",
-    "errors" : [
-      "PROJECT_NOT_FOUND",
-      "MANAGER_MODEL_UNAVAILABLE",
-      "CLI_USAGE_ERROR"
-    ],
-    "idempotency" : "not_idempotent",
-    "name" : "project_chat",
-    "outputSchema" : "projectManagerTurnJSON",
-    "params" : [
-      {
-        "name" : "project",
-        "required" : true,
-        "summary" : "Project id or name.",
-        "type" : "string"
-      },
-      {
-        "name" : "message",
-        "required" : true,
-        "summary" : "The chat message.",
-        "type" : "string"
-      }
-    ],
-    "summary" : "Ask the Project Manager (a model invocation over project context). Answers only; never auto-creates work."
-  },
-  {
-    "command" : "project propose",
-    "errors" : [
-      "PROJECT_NOT_FOUND",
-      "MANAGER_MODEL_UNAVAILABLE",
-      "CLI_USAGE_ERROR"
-    ],
-    "idempotency" : "not_idempotent",
-    "name" : "project_propose",
-    "outputSchema" : "projectProposalJSON",
-    "params" : [
-      {
-        "name" : "project",
-        "required" : true,
-        "summary" : "Project id or name.",
-        "type" : "string"
-      }
-    ],
-    "summary" : "Ask the Project Manager for ONE bounded next move (or one visible blocker). Never dispatches or approves."
-  },
-  {
-    "command" : "project handoff",
-    "errors" : [
-      "WORK_ORDER_NOT_FOUND",
-      "PROJECT_NOT_FOUND",
-      "PROPOSAL_NOT_APPROVED",
-      "CLI_USAGE_ERROR"
-    ],
-    "idempotency" : "idempotent",
-    "name" : "project_handoff",
-    "outputSchema" : "projectHandoffJSON",
-    "params" : [
-      {
-        "name" : "workOrder",
-        "required" : true,
-        "summary" : "Work order id.",
-        "type" : "string"
-      },
-      {
-        "name" : "worker",
-        "required" : false,
-        "summary" : "Preview a specific ready worker\/model id (optional).",
-        "type" : "string"
-      },
-      {
-        "name" : "ackDirty",
-        "required" : false,
-        "summary" : "Acknowledge the dirty tree in the preview (optional).",
-        "type" : "boolean"
-      }
-    ],
-    "summary" : "Reveal the exact prompt for an approved work order + a dispatch preview. Never invokes a worker."
-  },
-  {
-    "command" : "project dispatch",
-    "errors" : [
-      "WORK_ORDER_NOT_FOUND",
-      "PROJECT_NOT_FOUND",
-      "PROPOSAL_NOT_APPROVED",
-      "WORKER_NOT_READY_IN_PROJECT",
-      "PROJECT_ROOT_UNAVAILABLE",
-      "BASE_HEAD_CHANGED",
-      "DIRTY_SCOPE_CONFLICT",
-      "DISPATCH_GATE_FAILED",
-      "EXECUTION_LANE_BUSY",
-      "EXECUTION_TEAM_MIXED_SOURCES",
-      "CLI_USAGE_ERROR"
-    ],
-    "idempotency" : "not_idempotent",
-    "name" : "project_dispatch",
-    "outputSchema" : "projectDispatchJSON",
-    "params" : [
-      {
-        "name" : "workOrder",
-        "required" : true,
-        "summary" : "Work order id.",
-        "type" : "string"
-      },
-      {
-        "name" : "worker",
-        "required" : false,
-        "summary" : "Dispatch to a specific ready worker\/model id (optional).",
-        "type" : "string"
-      },
-      {
-        "name" : "ackDirty",
-        "required" : false,
-        "summary" : "Acknowledge the dirty tree before dispatch (optional).",
-        "type" : "boolean"
-      }
-    ],
-    "summary" : "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Caller, not approver."
-  },
-  {
-    "command" : "project verify",
-    "errors" : [
-      "PROJECT_NOT_FOUND",
-      "WORK_ORDER_NOT_FOUND",
-      "CLI_USAGE_ERROR"
-    ],
-    "idempotency" : "not_idempotent",
-    "name" : "project_verify",
-    "outputSchema" : "projectVerificationJSON",
-    "params" : [
-      {
-        "name" : "project",
-        "required" : true,
-        "summary" : "Project id or name.",
-        "type" : "string"
-      },
-      {
-        "name" : "workOrder",
-        "required" : false,
-        "summary" : "Work order id (default: most recent).",
-        "type" : "string"
-      },
-      {
-        "name" : "return",
-        "required" : false,
-        "summary" : "Return id (default: latest for the work order).",
-        "type" : "string"
-      },
-      {
-        "name" : "noRun",
-        "required" : false,
-        "summary" : "Reveal-only: do not run proof (optional).",
-        "type" : "boolean"
-      },
-      {
-        "name" : "waive",
-        "required" : false,
-        "summary" : "Explicit waiver reason (marks done without running proof; optional).",
-        "type" : "string"
-      }
-    ],
-    "summary" : "Verify a work order's return by running its declared proof commands. Never claims verified on failure; done requires verified or an explicit waiver."
   }
 ]

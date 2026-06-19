@@ -27,9 +27,8 @@ public enum WorkLane: String, Codable, Sendable, CaseIterable {
 }
 
 /// What a team is doing on a run — orthogonal to its craft. `scout` gathers and
-/// interprets (Signal); `propose` drafts a plan/board/proposal; `review` audits
-/// returned work; `execute` carries a make-real run. `execute` posture always
-/// requires Execute approval (it is the human green-light, never auto-fired).
+/// interprets (Signal); `propose` drafts a plan/board; `review` audits returned
+/// work; `execute` carries a mutating one-worker run.
 public enum TeamPosture: String, Codable, Sendable, CaseIterable {
     case scout
     case propose
@@ -239,8 +238,9 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     /// to craft; never inferred from the prompt.
     public var posture: TeamPosture
     /// Whether running this team can make real changes (write files, post
-    /// externally, edit state). A `mutating` team cannot complete without Execute
-    /// approval. Scout/propose/review teams are advisory and non-mutating.
+    /// externally, edit state). Mutating teams run exactly one worker under the
+    /// repo-root write lock. Scout/propose/review teams are advisory and
+    /// non-mutating.
     public var mutating: Bool
     /// For source-scoped execution teams, the single CLI driver this team runs on.
     public var executionSourceId: String?
@@ -362,6 +362,15 @@ public enum TeamCatalog {
             ?? inLane.first
     }
 
+    /// The global default for `alln run` and default chat — one worker, mutating-allowed.
+    public static func defaultRunTeam() -> TeamDefinition? {
+        if let custom = CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self)
+            .first(where: { $0.id == "default_chat" && !$0.builtIn }) {
+            return custom
+        }
+        return BuiltInTeams.defaultChat
+    }
+
     @discardableResult
     public static func duplicateBuiltIn(_ id: TeamID, name: String?) throws -> TeamDefinition {
         guard let source = BuiltInTeams.team(id) else { throw CatalogError.teamNotFound }
@@ -377,6 +386,11 @@ public enum TeamCatalog {
         if BuiltInTeams.team(team.id) != nil { throw CatalogError.idCollision }
         guard CatalogIDValidator.isValid(team.id) else { throw CatalogError.idInvalid }
         guard !team.workerSpecs.isEmpty else { throw CatalogError.teamInvalid("team must have at least one worker row") }
+        if team.mutating {
+            guard team.workerSpecs.count == 1, team.workerSpecs.first?.count == 1 else {
+                throw CatalogError.teamInvalid("mutating teams run exactly one worker")
+            }
+        }
         for row in team.workerSpecs {
             guard let skill = SkillCatalog.get(row.skillId) else {
                 throw CatalogError.teamInvalid("unknown skill \(row.skillId)")

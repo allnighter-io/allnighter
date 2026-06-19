@@ -256,8 +256,8 @@ public struct FloorTimelineEvent: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// A typed Floor next action. Mutating actions must route to Execute approval
-/// (F-S05 adds Execute requirements). F-S00 emits the safe, non-mutating set.
+/// A typed Floor next action. Unified runs do not add a second approval gate;
+/// mutating work is represented by the run itself and guarded by the repo write lock.
 public struct FloorNextAction: Codable, Sendable, Equatable, Identifiable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
         case openArtifact, copyReturn, exportFloor, sendTeam, draftCopy, createCodeProposal

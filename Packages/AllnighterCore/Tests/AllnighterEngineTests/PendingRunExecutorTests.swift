@@ -189,15 +189,15 @@ final class PendingRunExecutorTests: XCTestCase {
         }
     }
 
-    func testDispatchKindIsMutationDeferred() async throws {
+    func testDispatchKindIsUnsupported() async throws {
         let executor = makeExecutor(scripts: [:])
         let item = try executor.service.add(.init(prompt: "Dispatch", kind: .dispatch, workerToken: "claude", submit: true))
 
         do {
             _ = try await executor.run(id: item.id)
-            XCTFail("expected mutationDeferred")
+            XCTFail("expected unsupportedKind")
         } catch let error as PendingServiceError {
-            XCTAssertEqual(error, .mutationDeferred)
+            XCTAssertEqual(error, .unsupportedKind("dispatch"))
         }
     }
 

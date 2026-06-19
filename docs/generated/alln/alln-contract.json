@@ -1026,6 +1026,82 @@
     {
       "args" : [
         {
+          "name" : "message",
+          "required" : true,
+          "summary" : "The user's prompt."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "project",
+          "summary" : "Project id, name, or repo path (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "team",
+          "summary" : "Team preset id; omit for Default Team.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "worker",
+          "summary" : "Override worker model id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "effort",
+          "summary" : "low | med | high.",
+          "takesValue" : true,
+          "valueType" : "effort"
+        },
+        {
+          "name" : "lane",
+          "summary" : "code | design | copy | signal.",
+          "takesValue" : true,
+          "valueType" : "lane"
+        },
+        {
+          "name" : "type",
+          "summary" : "Copy routing sugar.",
+          "takesValue" : true,
+          "valueType" : "type"
+        },
+        {
+          "name" : "context",
+          "summary" : "Bounded context snippet.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit TeamRunJSON.",
+          "takesValue" : false
+        },
+        {
+          "name" : "stream",
+          "summary" : "Emit NDJSON events.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+        [
+          "json",
+          "stream"
+        ]
+      ],
+      "name" : "run",
+      "outputSchema" : "teamRunJSON",
+      "summary" : "Unified run: message + optional team + worker in a project repo root."
+    },
+    {
+      "args" : [
+        {
           "name" : "prompt",
           "required" : false,
           "summary" : "The prompt (or use --file)."
@@ -1950,308 +2026,6 @@
     },
     {
       "args" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name."
-        },
-        {
-          "name" : "message",
-          "required" : false,
-          "summary" : "The chat message (or use --file)."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "file",
-          "summary" : "Read the message from a file.",
-          "takesValue" : true,
-          "valueType" : "path"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectManagerTurnJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project chat",
-      "outputSchema" : "projectManagerTurnJSON",
-      "summary" : "Ask the Project Manager (a model invocation over the project context). Answers only; never auto-creates work. No ready model → a wait turn."
-    },
-    {
-      "args" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectProposalJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project propose",
-      "outputSchema" : "projectProposalJSON",
-      "summary" : "Ask the Project Manager for ONE bounded next move (or one visible blocker). The model authors the proposal; Allnighter stamps the durable fields. Never dispatches or approves."
-    },
-    {
-      "args" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectProposalsJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project proposals",
-      "outputSchema" : "projectProposalsJSON",
-      "summary" : "List a project's proposals."
-    },
-    {
-      "args" : [
-        {
-          "name" : "proposal-id",
-          "required" : true,
-          "summary" : "Proposal id."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "by",
-          "summary" : "Approver identity (default cli-user).",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectWorkOrderJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project approve",
-      "outputSchema" : "projectWorkOrderJSON",
-      "summary" : "Approve a proposal: record approver\/time\/content-hash + observed base head, and derive a reveal-mode WorkOrder. Does not dispatch."
-    },
-    {
-      "args" : [
-        {
-          "name" : "proposal-id",
-          "required" : true,
-          "summary" : "Proposal id."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "patch",
-          "summary" : "JSON object patch (or pipe via stdin).",
-          "takesValue" : true,
-          "valueType" : "json"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectProposalsJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project edit",
-      "outputSchema" : "projectProposalsJSON",
-      "summary" : "Edit a proposal's content before approval via a JSON patch (--patch or stdin). Clears any prior approval and returns it to proposed."
-    },
-    {
-      "args" : [
-        {
-          "name" : "proposal-id",
-          "required" : true,
-          "summary" : "Proposal id."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectProposalsJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project postpone",
-      "outputSchema" : "projectProposalsJSON",
-      "summary" : "Postpone a proposal (stays visible; does not block new proposals unless it conflicts)."
-    },
-    {
-      "args" : [
-        {
-          "name" : "work-order-id",
-          "required" : true,
-          "summary" : "Work order id."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "worker",
-          "summary" : "Preview targeting a specific ready worker\/model id.",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "ack-dirty",
-          "summary" : "Acknowledge the dirty tree in the preview.",
-          "takesValue" : false
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectHandoffJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project handoff",
-      "outputSchema" : "projectHandoffJSON",
-      "summary" : "Reveal the exact prompt to hand a worker for an approved work order, plus a dispatch preview (would the mutating gates pass now). Never invokes a worker."
-    },
-    {
-      "args" : [
-        {
-          "name" : "work-order-id",
-          "required" : true,
-          "summary" : "Work order id."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "worker",
-          "summary" : "Dispatch to a specific ready worker\/model id.",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "ack-dirty",
-          "summary" : "Acknowledge the dirty tree before dispatch.",
-          "takesValue" : false
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectDispatchJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project dispatch",
-      "outputSchema" : "projectDispatchJSON",
-      "summary" : "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Mutates the repo via the worker's CLI; captures a WorkReturn (not proof — verify decides done)."
-    },
-    {
-      "args" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name."
-        }
-      ],
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "work-order",
-          "summary" : "Work order id (default: the most recent).",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "return",
-          "summary" : "Return id (default: the latest for the work order).",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "no-run",
-          "summary" : "Reveal-only: do not run proof; outcome is waived or needs-human.",
-          "takesValue" : false
-        },
-        {
-          "name" : "waive",
-          "summary" : "Explicit human waiver with a reason (marks done without running proof).",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit a ProjectVerificationJSON object.",
-          "takesValue" : false
-        }
-      ],
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "project verify",
-      "outputSchema" : "projectVerificationJSON",
-      "summary" : "Verify a work order's return: run its declared proof commands as bounded subprocesses at the project root and record a VerificationRecord. Never claims verified on failure\/timeout\/missing proof; done requires verified or an explicit waiver."
-    },
-    {
-      "args" : [
 
       ],
       "exampleIds" : [
@@ -3066,76 +2840,31 @@
       "ruleId" : "project.worker_not_ready"
     },
     {
-      "agentAction" : "Run `alln models --json`; enable a ready planner-capable model.",
-      "code" : "MANAGER_MODEL_UNAVAILABLE",
+      "agentAction" : "Wait for the running agent on this repo root to finish, then retry.",
+      "code" : "RUN_WRITE_LOCK_BUSY",
       "exitClass" : "operational",
-      "explain" : "No ready manager model is available, so the Manager turn is `wait` with a readiness blocker rather than a fabricated answer.",
+      "explain" : "Another mutating run is already editing this repo root. Allnighter allows at most one mutating run per canonical repo root.",
       "requiresManual" : false,
       "retryable" : true,
-      "ruleId" : "project.manager_model_unavailable"
+      "ruleId" : "run.write_lock_busy"
     },
     {
-      "agentAction" : "Run `alln project proposals <id> --json`; retry with a valid proposal id.",
-      "code" : "PROPOSAL_NOT_FOUND",
+      "agentAction" : "Restore the project folder or pick an available project root, then retry.",
+      "code" : "NO_PROJECT_ROOT",
       "exitClass" : "operational",
-      "explain" : "No proposal matches the given id.",
+      "explain" : "The project repo root is missing or unreadable; runs require a real cwd in the repo.",
       "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "project.proposal_not_found"
+      "retryable" : true,
+      "ruleId" : "run.no_project_root"
     },
     {
-      "agentAction" : "Check the proposal's status with `alln project proposals <project> --json`; the requested transition is not legal from its current state.",
-      "code" : "PROPOSAL_INVALID_STATE",
+      "agentAction" : "Pick a ready worker or run setup health, then retry.",
+      "code" : "WORKER_NOT_READY",
       "exitClass" : "operational",
-      "explain" : "The proposal cannot make the requested transition (e.g. approve\/postpone\/edit a cancelled or already-verified proposal). Proposal lifecycle: proposed → approved → running → returned → verified, with postpone\/block\/cancel branches.",
+      "explain" : "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready).",
       "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "project.proposal_invalid_state"
-    },
-    {
-      "agentAction" : "Approve a proposal first, or list work orders; retry with a valid work-order id.",
-      "code" : "WORK_ORDER_NOT_FOUND",
-      "exitClass" : "operational",
-      "explain" : "No work order matches the given id. An approved proposal produces a work order.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "project.work_order_not_found"
-    },
-    {
-      "agentAction" : "Approve the proposal (`alln project approve <id>`) before dispatch.",
-      "code" : "PROPOSAL_NOT_APPROVED",
-      "exitClass" : "operational",
-      "explain" : "Dispatch was attempted on an unapproved proposal or work order. Approval is required first.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "project.proposal_not_approved"
-    },
-    {
-      "agentAction" : "Revalidate the proposal against the current head, then dispatch.",
-      "code" : "BASE_HEAD_CHANGED",
-      "exitClass" : "operational",
-      "explain" : "The approved baseGitHead differs from the current head. Revalidate scope before dispatching.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "project.base_head_changed"
-    },
-    {
-      "agentAction" : "Acknowledge including the dirty files or clean them, then dispatch.",
-      "code" : "DIRTY_SCOPE_CONFLICT",
-      "exitClass" : "operational",
-      "explain" : "Dirty files overlap the proposal's likely scope. Acknowledge them as preexisting context or clean them first.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "project.dirty_scope_conflict"
-    },
-    {
-      "agentAction" : "Read the named failing gate(s) and resolve each, then retry dispatch.",
-      "code" : "DISPATCH_GATE_FAILED",
-      "exitClass" : "operational",
-      "explain" : "One or more dispatch gates failed. The failing gate(s) are named in the message.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "project.dispatch_gate_failed"
+      "retryable" : true,
+      "ruleId" : "run.worker_not_ready"
     },
     {
       "agentAction" : "Wait for the running execute order on this lane to finish, then retry; never start a second concurrent execute on the same working directory.",
@@ -3154,15 +2883,6 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "execution.team.mixed_sources"
-    },
-    {
-      "agentAction" : "Run `alln project verify <id>`; a worker claim cannot mark work done.",
-      "code" : "VERIFICATION_REQUIRED",
-      "exitClass" : "operational",
-      "explain" : "A completion claim was advanced to done without a VerificationRecord. Verification (proof + git observation) or an explicit waiver is required.",
-      "requiresManual" : false,
-      "retryable" : false,
-      "ruleId" : "project.verification_required"
     }
   ],
   "events" : [
@@ -3826,6 +3546,72 @@
       "summary" : "Cancel an active async team run."
     },
     {
+      "command" : "run",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "NO_PROJECT_ROOT",
+        "RUN_WRITE_LOCK_BUSY",
+        "DEFAULT_TEAM_INVALID",
+        "TEAM_NOT_FOUND",
+        "WORKER_NOT_READY",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "team_run",
+      "outputSchema" : "teamRunJSON",
+      "params" : [
+        {
+          "name" : "message",
+          "required" : true,
+          "summary" : "The user's prompt.",
+          "type" : "string"
+        },
+        {
+          "name" : "project",
+          "required" : true,
+          "summary" : "Project id, name, or repo path.",
+          "type" : "string"
+        },
+        {
+          "name" : "team",
+          "required" : false,
+          "summary" : "Team preset id; omit for Default Team.",
+          "type" : "string"
+        },
+        {
+          "name" : "worker",
+          "required" : false,
+          "summary" : "Override worker model id (execution\/default).",
+          "type" : "string"
+        },
+        {
+          "name" : "effort",
+          "required" : false,
+          "summary" : "low|med|high (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "lane",
+          "required" : false,
+          "summary" : "code|design|copy|signal when routing answer teams.",
+          "type" : "string"
+        },
+        {
+          "name" : "type",
+          "required" : false,
+          "summary" : "Copy routing sugar (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "context",
+          "required" : false,
+          "summary" : "Bounded context snippet (optional).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Unified run: message + optional team + worker in a project repo root. Answer teams return a board; execution teams run one mutating agent."
+    },
+    {
       "command" : "team",
       "errors" : [
         "DEFAULT_TEAM_INVALID",
@@ -4386,188 +4172,6 @@
         }
       ],
       "summary" : "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config\/auth."
-    },
-    {
-      "command" : "project proposals",
-      "errors" : [
-        "PROJECT_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "project_proposals",
-      "outputSchema" : "projectProposalsJSON",
-      "params" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "List a project's proposals."
-    },
-    {
-      "command" : "project chat",
-      "errors" : [
-        "PROJECT_NOT_FOUND",
-        "MANAGER_MODEL_UNAVAILABLE",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "project_chat",
-      "outputSchema" : "projectManagerTurnJSON",
-      "params" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name.",
-          "type" : "string"
-        },
-        {
-          "name" : "message",
-          "required" : true,
-          "summary" : "The chat message.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Ask the Project Manager (a model invocation over project context). Answers only; never auto-creates work."
-    },
-    {
-      "command" : "project propose",
-      "errors" : [
-        "PROJECT_NOT_FOUND",
-        "MANAGER_MODEL_UNAVAILABLE",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "project_propose",
-      "outputSchema" : "projectProposalJSON",
-      "params" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Ask the Project Manager for ONE bounded next move (or one visible blocker). Never dispatches or approves."
-    },
-    {
-      "command" : "project handoff",
-      "errors" : [
-        "WORK_ORDER_NOT_FOUND",
-        "PROJECT_NOT_FOUND",
-        "PROPOSAL_NOT_APPROVED",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "project_handoff",
-      "outputSchema" : "projectHandoffJSON",
-      "params" : [
-        {
-          "name" : "workOrder",
-          "required" : true,
-          "summary" : "Work order id.",
-          "type" : "string"
-        },
-        {
-          "name" : "worker",
-          "required" : false,
-          "summary" : "Preview a specific ready worker\/model id (optional).",
-          "type" : "string"
-        },
-        {
-          "name" : "ackDirty",
-          "required" : false,
-          "summary" : "Acknowledge the dirty tree in the preview (optional).",
-          "type" : "boolean"
-        }
-      ],
-      "summary" : "Reveal the exact prompt for an approved work order + a dispatch preview. Never invokes a worker."
-    },
-    {
-      "command" : "project dispatch",
-      "errors" : [
-        "WORK_ORDER_NOT_FOUND",
-        "PROJECT_NOT_FOUND",
-        "PROPOSAL_NOT_APPROVED",
-        "WORKER_NOT_READY_IN_PROJECT",
-        "PROJECT_ROOT_UNAVAILABLE",
-        "BASE_HEAD_CHANGED",
-        "DIRTY_SCOPE_CONFLICT",
-        "DISPATCH_GATE_FAILED",
-        "EXECUTION_LANE_BUSY",
-        "EXECUTION_TEAM_MIXED_SOURCES",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "project_dispatch",
-      "outputSchema" : "projectDispatchJSON",
-      "params" : [
-        {
-          "name" : "workOrder",
-          "required" : true,
-          "summary" : "Work order id.",
-          "type" : "string"
-        },
-        {
-          "name" : "worker",
-          "required" : false,
-          "summary" : "Dispatch to a specific ready worker\/model id (optional).",
-          "type" : "string"
-        },
-        {
-          "name" : "ackDirty",
-          "required" : false,
-          "summary" : "Acknowledge the dirty tree before dispatch (optional).",
-          "type" : "boolean"
-        }
-      ],
-      "summary" : "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Caller, not approver."
-    },
-    {
-      "command" : "project verify",
-      "errors" : [
-        "PROJECT_NOT_FOUND",
-        "WORK_ORDER_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "project_verify",
-      "outputSchema" : "projectVerificationJSON",
-      "params" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name.",
-          "type" : "string"
-        },
-        {
-          "name" : "workOrder",
-          "required" : false,
-          "summary" : "Work order id (default: most recent).",
-          "type" : "string"
-        },
-        {
-          "name" : "return",
-          "required" : false,
-          "summary" : "Return id (default: latest for the work order).",
-          "type" : "string"
-        },
-        {
-          "name" : "noRun",
-          "required" : false,
-          "summary" : "Reveal-only: do not run proof (optional).",
-          "type" : "boolean"
-        },
-        {
-          "name" : "waive",
-          "required" : false,
-          "summary" : "Explicit waiver reason (marks done without running proof; optional).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Verify a work order's return by running its declared proof commands. Never claims verified on failure; done requires verified or an explicit waiver."
     }
   ],
   "nextActionKinds" : [

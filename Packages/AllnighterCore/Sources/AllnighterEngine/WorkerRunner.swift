@@ -29,15 +29,20 @@ public struct WorkerRunner: Sendable {
     /// health probe — so health == runs. Empty → bare `invoke.command` (legacy).
     private let invocations: [String: ToolInvocation]
     private let shellPath: String
+    /// When set, every invoke without an explicit override runs in this directory
+    /// (repo-root runs). Nil keeps legacy neutral-scratch behavior for probes.
+    private let defaultWorkingDirectory: String?
 
     public init(
         commandRunner: CommandRunner,
         invocations: [String: ToolInvocation] = [:],
+        defaultWorkingDirectory: String? = nil,
         shellPath: String? = nil,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.commandRunner = commandRunner
         self.invocations = invocations
+        self.defaultWorkingDirectory = defaultWorkingDirectory
         self.shellPath = shellPath ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         self.now = now
     }
@@ -66,7 +71,7 @@ public struct WorkerRunner: Sendable {
             : nil
         defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
 
-        let workingDir = workingDirectoryOverride ?? invoke.workingDir
+        let workingDir = workingDirectoryOverride ?? defaultWorkingDirectory ?? invoke.workingDir
         // The spawned CLI must NOT inherit the app's process CWD — in dev that is
         // the checkout under ~/Documents, so the worker reading its cwd raises a
         // TCC Documents prompt attributed to the app (code red on first chat send).

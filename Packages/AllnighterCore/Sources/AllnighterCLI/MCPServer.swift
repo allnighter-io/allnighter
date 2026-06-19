@@ -189,6 +189,8 @@ struct MCPServer {
             await respondAsyncTeam(id: id, outcome: await MCPAsyncTeamHandlers.result(runtime: runtime, args: args))
         case "team_cancel":
             await respondAsyncTeam(id: id, outcome: await MCPAsyncTeamHandlers.cancel(runtime: runtime, args: args))
+        case "team_run":
+            await respondRun(id: id, outcome: await MCPRunHandlers.run(runtime: runtime, args: args, defaultAgent: agent))
         case "team_ask":
             guard let q = args["question"] as? String else { return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "question required") }
             let req = TeamRequest(
@@ -295,12 +297,6 @@ struct MCPServer {
         case "project_context": respondProject(id: id, outcome: MCPProjectHandlers.context(args: args))
         case "project_workers": respondProject(id: id, outcome: MCPProjectHandlers.workers(args: args))
         case "project_recheck_workers": respondProject(id: id, outcome: await MCPProjectHandlers.recheckWorkers(args: args, runtime: runtime))
-        case "project_proposals": respondProject(id: id, outcome: MCPProjectHandlers.proposals(args: args))
-        case "project_chat": respondProject(id: id, outcome: await MCPProjectHandlers.chat(args: args, runtime: runtime))
-        case "project_propose": respondProject(id: id, outcome: await MCPProjectHandlers.propose(args: args, runtime: runtime))
-        case "project_handoff": respondProject(id: id, outcome: MCPProjectHandlers.handoff(args: args, runtime: runtime))
-        case "project_dispatch": respondProject(id: id, outcome: await MCPProjectHandlers.dispatch(args: args, runtime: runtime))
-        case "project_verify": respondProject(id: id, outcome: await MCPProjectHandlers.verify(args: args))
         default:
             respondError(id: id, code: -32602, message: "unknown tool: \(name)")
         }
@@ -335,6 +331,15 @@ struct MCPServer {
 
     /// A tool-level failure carrying the shared `ErrorEnvelope` (no MCP-only error shape).
     private func respondAsyncTeam(id: Any?, outcome: MCPAsyncTeamHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondRun(id: Any?, outcome: MCPRunHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))

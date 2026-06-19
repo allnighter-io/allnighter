@@ -97,6 +97,18 @@ public extension ContractRegistry {
                     params: [.init("runId", required: true, summary: "Run id from team_start.")],
                     outputSchema: .teamCancelResponse,
                     errors: ["RUN_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("team_run", command: "run", summary: "Unified run: message + optional team + worker in a project repo root. Answer teams return a board; execution teams run one mutating agent.",
+                    params: [.init("message", required: true, summary: "The user's prompt."),
+                             .init("project", required: true, summary: "Project id, name, or repo path."),
+                             .init("team", summary: "Team preset id; omit for Default Team."),
+                             .init("worker", summary: "Override worker model id (execution/default)."),
+                             .init("effort", summary: "low|med|high (optional)."),
+                             .init("lane", summary: "code|design|copy|signal when routing answer teams."),
+                             .init("type", summary: "Copy routing sugar (optional)."),
+                             .init("context", summary: "Bounded context snippet (optional).")],
+                    outputSchema: .teamRunJSON,
+                    errors: ["PROJECT_NOT_FOUND", "NO_PROJECT_ROOT", "RUN_WRITE_LOCK_BUSY", "DEFAULT_TEAM_INVALID", "TEAM_NOT_FOUND", "WORKER_NOT_READY", "CLI_USAGE_ERROR"],
+                    idempotency: .notIdempotent),
         MCPToolSpec("team_ask", command: "team", summary: "Run a lane team on a prompt; returns a synthesized result + structured run.",
                     params: [.init("question", required: true, summary: "The prompt to ask the team."),
                              .init("lane", summary: "code|design|copy|signal (explicit; never inferred)."),
@@ -190,7 +202,7 @@ public extension ContractRegistry {
                     params: [.init("all", type: "boolean", required: true, summary: "Must be true.")],
                     outputSchema: .stallListJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
-        // Project Manager tools (PRJ-S13). Same Core contracts as `alln project …`;
+        // Project foundation tools — repo binding + readiness (Unified Run Model).
         // external agents are CALLERS, never approvers — approve/edit/postpone are
         // intentionally not projected. Agent dispatch still satisfies every gate.
         MCPToolSpec("project_list", command: "project list", summary: "List projects (active by default).",
@@ -208,34 +220,6 @@ public extension ContractRegistry {
         MCPToolSpec("project_recheck_workers", command: "project recheck-workers", summary: "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config/auth.",
                     params: [.init("project", required: true, summary: "Project id or name.")],
                     outputSchema: .projectWorkersJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("project_proposals", command: "project proposals", summary: "List a project's proposals.",
-                    params: [.init("project", required: true, summary: "Project id or name.")],
-                    outputSchema: .projectProposalsJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("project_chat", command: "project chat", summary: "Ask the Project Manager (a model invocation over project context). Answers only; never auto-creates work.",
-                    params: [.init("project", required: true, summary: "Project id or name."), .init("message", required: true, summary: "The chat message.")],
-                    outputSchema: .projectManagerTurnJSON, errors: ["PROJECT_NOT_FOUND", "MANAGER_MODEL_UNAVAILABLE", "CLI_USAGE_ERROR"], idempotency: .notIdempotent),
-        MCPToolSpec("project_propose", command: "project propose", summary: "Ask the Project Manager for ONE bounded next move (or one visible blocker). Never dispatches or approves.",
-                    params: [.init("project", required: true, summary: "Project id or name.")],
-                    outputSchema: .projectProposalJSON, errors: ["PROJECT_NOT_FOUND", "MANAGER_MODEL_UNAVAILABLE", "CLI_USAGE_ERROR"], idempotency: .notIdempotent),
-        MCPToolSpec("project_handoff", command: "project handoff", summary: "Reveal the exact prompt for an approved work order + a dispatch preview. Never invokes a worker.",
-                    params: [.init("workOrder", required: true, summary: "Work order id."),
-                             .init("worker", summary: "Preview a specific ready worker/model id (optional)."),
-                             .init("ackDirty", type: "boolean", summary: "Acknowledge the dirty tree in the preview (optional).")],
-                    outputSchema: .projectHandoffJSON, errors: ["WORK_ORDER_NOT_FOUND", "PROJECT_NOT_FOUND", "PROPOSAL_NOT_APPROVED", "CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("project_dispatch", command: "project dispatch", summary: "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Caller, not approver.",
-                    params: [.init("workOrder", required: true, summary: "Work order id."),
-                             .init("worker", summary: "Dispatch to a specific ready worker/model id (optional)."),
-                             .init("ackDirty", type: "boolean", summary: "Acknowledge the dirty tree before dispatch (optional).")],
-                    outputSchema: .projectDispatchJSON,
-                    errors: ["WORK_ORDER_NOT_FOUND", "PROJECT_NOT_FOUND", "PROPOSAL_NOT_APPROVED", "WORKER_NOT_READY_IN_PROJECT", "PROJECT_ROOT_UNAVAILABLE", "BASE_HEAD_CHANGED", "DIRTY_SCOPE_CONFLICT", "DISPATCH_GATE_FAILED", "EXECUTION_LANE_BUSY", "EXECUTION_TEAM_MIXED_SOURCES", "CLI_USAGE_ERROR"],
-                    idempotency: .notIdempotent),
-        MCPToolSpec("project_verify", command: "project verify", summary: "Verify a work order's return by running its declared proof commands. Never claims verified on failure; done requires verified or an explicit waiver.",
-                    params: [.init("project", required: true, summary: "Project id or name."),
-                             .init("workOrder", summary: "Work order id (default: most recent)."),
-                             .init("return", summary: "Return id (default: latest for the work order)."),
-                             .init("noRun", type: "boolean", summary: "Reveal-only: do not run proof (optional)."),
-                             .init("waive", summary: "Explicit waiver reason (marks done without running proof; optional).")],
-                    outputSchema: .projectVerificationJSON, errors: ["PROJECT_NOT_FOUND", "WORK_ORDER_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .notIdempotent),
     ]
 
     // MARK: - Commands (in scope)
@@ -486,6 +470,23 @@ public extension ContractRegistry {
             outputSchema: .teamCancelResponse
         ),
         CommandSpec(
+            "run", summary: "Unified run: message + optional team + worker in a project repo root.", milestone: .m1,
+            args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
+            flags: [
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
+                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
+                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Override worker model id."),
+                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
+                FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy routing sugar."),
+                FlagSpec("context", takesValue: true, valueType: "string", summary: "Bounded context snippet."),
+                FlagSpec("json", summary: "Emit TeamRunJSON."),
+                FlagSpec("stream", summary: "Emit NDJSON events."),
+            ],
+            mutuallyExclusiveFlags: [["json", "stream"]],
+            outputSchema: .teamRunJSON
+        ),
+        CommandSpec(
             "team", summary: "Run a lane team on a prompt, foreground.", milestone: .m1,
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
@@ -706,74 +707,6 @@ public extension ContractRegistry {
             flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")],
             outputSchema: .projectWorkersJSON
         ),
-        CommandSpec(
-            "project chat", summary: "Ask the Project Manager (a model invocation over the project context). Answers only; never auto-creates work. No ready model → a wait turn.", milestone: .m1,
-            args: [ArgSpec("project", required: true, summary: "Project id or name."), ArgSpec("message", required: false, summary: "The chat message (or use --file).")],
-            flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the message from a file."), FlagSpec("json", summary: "Emit a ProjectManagerTurnJSON object.")],
-            outputSchema: .projectManagerTurnJSON
-        ),
-        CommandSpec(
-            "project propose", summary: "Ask the Project Manager for ONE bounded next move (or one visible blocker). The model authors the proposal; Allnighter stamps the durable fields. Never dispatches or approves.", milestone: .m1,
-            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectProposalJSON object.")],
-            outputSchema: .projectProposalJSON
-        ),
-        CommandSpec(
-            "project proposals", summary: "List a project's proposals.", milestone: .m1,
-            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")],
-            outputSchema: .projectProposalsJSON
-        ),
-        CommandSpec(
-            "project approve", summary: "Approve a proposal: record approver/time/content-hash + observed base head, and derive a reveal-mode WorkOrder. Does not dispatch.", milestone: .m1,
-            args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
-            flags: [FlagSpec("by", takesValue: true, valueType: "string", summary: "Approver identity (default cli-user)."), FlagSpec("json", summary: "Emit a ProjectWorkOrderJSON object.")],
-            outputSchema: .projectWorkOrderJSON
-        ),
-        CommandSpec(
-            "project edit", summary: "Edit a proposal's content before approval via a JSON patch (--patch or stdin). Clears any prior approval and returns it to proposed.", milestone: .m1,
-            args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
-            flags: [FlagSpec("patch", takesValue: true, valueType: "json", summary: "JSON object patch (or pipe via stdin)."), FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")],
-            outputSchema: .projectProposalsJSON
-        ),
-        CommandSpec(
-            "project postpone", summary: "Postpone a proposal (stays visible; does not block new proposals unless it conflicts).", milestone: .m1,
-            args: [ArgSpec("proposal-id", required: true, summary: "Proposal id.")],
-            flags: [FlagSpec("json", summary: "Emit a ProjectProposalsJSON object.")],
-            outputSchema: .projectProposalsJSON
-        ),
-        CommandSpec(
-            "project handoff", summary: "Reveal the exact prompt to hand a worker for an approved work order, plus a dispatch preview (would the mutating gates pass now). Never invokes a worker.", milestone: .m1,
-            args: [ArgSpec("work-order-id", required: true, summary: "Work order id.")],
-            flags: [
-                FlagSpec("worker", takesValue: true, valueType: "string", summary: "Preview targeting a specific ready worker/model id."),
-                FlagSpec("ack-dirty", summary: "Acknowledge the dirty tree in the preview."),
-                FlagSpec("json", summary: "Emit a ProjectHandoffJSON object."),
-            ],
-            outputSchema: .projectHandoffJSON
-        ),
-        CommandSpec(
-            "project dispatch", summary: "Dispatch an approved work order to one worker under the execution lane, after re-validating every mutating gate. Mutates the repo via the worker's CLI; captures a WorkReturn (not proof — verify decides done).", milestone: .m1,
-            args: [ArgSpec("work-order-id", required: true, summary: "Work order id.")],
-            flags: [
-                FlagSpec("worker", takesValue: true, valueType: "string", summary: "Dispatch to a specific ready worker/model id."),
-                FlagSpec("ack-dirty", summary: "Acknowledge the dirty tree before dispatch."),
-                FlagSpec("json", summary: "Emit a ProjectDispatchJSON object."),
-            ],
-            outputSchema: .projectDispatchJSON
-        ),
-        CommandSpec(
-            "project verify", summary: "Verify a work order's return: run its declared proof commands as bounded subprocesses at the project root and record a VerificationRecord. Never claims verified on failure/timeout/missing proof; done requires verified or an explicit waiver.", milestone: .m1,
-            args: [ArgSpec("project", required: true, summary: "Project id or name.")],
-            flags: [
-                FlagSpec("work-order", takesValue: true, valueType: "string", summary: "Work order id (default: the most recent)."),
-                FlagSpec("return", takesValue: true, valueType: "string", summary: "Return id (default: the latest for the work order)."),
-                FlagSpec("no-run", summary: "Reveal-only: do not run proof; outcome is waived or needs-human."),
-                FlagSpec("waive", takesValue: true, valueType: "string", summary: "Explicit human waiver with a reason (marks done without running proof)."),
-                FlagSpec("json", summary: "Emit a ProjectVerificationJSON object."),
-            ],
-            outputSchema: .projectVerificationJSON
-        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
@@ -803,8 +736,8 @@ public extension ContractRegistry {
         ErrorSpec("TEAM_RUN_FAILED", ruleId: "team.run.failed", agentAction: "Inspect failed workers and stages; retry or adjust the team.", requiresManual: false, retryable: true, explain: "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers/stages in the run, then retry or change the team."),
         ErrorSpec("NESTED_TEAM_BLOCKED", ruleId: "team.nested.blocked", agentAction: "Do not recursively spawn teams without explicit depth budget.", requiresManual: true, retryable: false, explain: "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended."),
         ErrorSpec("TEAM_GOVERNOR_BUSY", ruleId: "team.governor.busy", agentAction: "Wait or retry after current team run completes.", requiresManual: false, retryable: true, explain: "The concurrency governor is at capacity. Wait for a slot and retry; this is a real busy state, not a fake queue."),
-        ErrorSpec("PENDING_MUTATION_DEFERRED", ruleId: "pending.mutation.deferred", agentAction: "Keep item Draft/Pending; mutating dispatch is outside Pending M1.", requiresManual: true, retryable: false, explain: "Mutating dispatch from Pending is not enabled in this milestone. Keep the item Draft/Pending."),
-        ErrorSpec("PENDING_REORDER_INVALID", ruleId: "pending.reorder.invalid", agentAction: "Keep order unchanged; reorder only Pending Execute items in the same execution lane.", requiresManual: true, retryable: false, explain: "Reorder is only valid among Pending Execute items in one execution lane. The requested reorder was rejected."),
+        ErrorSpec("PENDING_MUTATION_DEFERRED", ruleId: "pending.mutation.deferred", agentAction: "Keep item Draft/Pending; mutating pending runs are outside Pending M1.", requiresManual: true, retryable: false, explain: "Mutating pending runs are not enabled in this milestone. Keep the item Draft/Pending."),
+        ErrorSpec("PENDING_REORDER_INVALID", ruleId: "pending.reorder.invalid", agentAction: "Keep order unchanged; reorder only Pending items in the same serialized group.", requiresManual: true, retryable: false, explain: "The requested Pending reorder was rejected because the item and anchor do not share the same serialized group."),
         ErrorSpec("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD", ruleId: "idempotency.key.reused", agentAction: "Generate a new key or reuse the original payload.", requiresManual: false, retryable: false, explain: "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request."),
         ErrorSpec("RESULT_NOT_READY", ruleId: "result.not_ready", agentAction: "Poll team status using nextPollAfterMs, then call team result again.", requiresManual: false, retryable: true, explain: "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true."),
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
@@ -859,21 +792,14 @@ public extension ContractRegistry {
         ErrorSpec("PROJECT_NOT_FOUND", ruleId: "project.not_found", agentAction: "Run `alln project list --json`; retry with a valid id or name.", requiresManual: true, retryable: false, explain: "No project matches the given id or name. List projects and retry with a valid identifier."),
         ErrorSpec("NO_PROJECT_SELECTED", ruleId: "project.none_selected", agentAction: "Select or add a project, then re-run the mutating action.", requiresManual: true, retryable: false, explain: "A mutating action was attempted with no project selected. Mutating work is always scoped to one project root.", exitClass: .usage),
         ErrorSpec("DUPLICATE_PROJECT_ROOT", ruleId: "project.duplicate_root", agentAction: "Use the existing project that owns this normalized root.", requiresManual: false, retryable: false, explain: "The path resolves to an existing project's normalized root; the existing project is returned rather than a duplicate."),
-        ErrorSpec("PROJECT_ROOT_UNAVAILABLE", ruleId: "project.root_unavailable", agentAction: "Restore the folder/permissions, then `alln project show <id>` to re-observe.", requiresManual: true, retryable: true, explain: "The project root is missing or permission-denied (rootState != available); mutating dispatch is blocked until the root is restored."),
+        ErrorSpec("PROJECT_ROOT_UNAVAILABLE", ruleId: "project.root_unavailable", agentAction: "Restore the folder/permissions, then `alln project show <id>` to re-observe.", requiresManual: true, retryable: true, explain: "The project root is missing or permission-denied (rootState != available); mutating runs are blocked until the root is restored."),
         ErrorSpec("PROJECT_ARCHIVED", ruleId: "project.archived", agentAction: "Run `alln project unarchive <id>` before new runs.", requiresManual: true, retryable: false, explain: "The project is archived. Unarchive it before starting new runs; reads remain available."),
-        ErrorSpec("THREAD_UNASSIGNED", ruleId: "thread.unassigned", agentAction: "Assign the thread/pending item to a project, then retry.", requiresManual: true, retryable: false, explain: "The thread or pending item has no project. Assign it to a project before mutating dispatch."),
-        ErrorSpec("WORKER_NOT_READY_IN_PROJECT", ruleId: "project.worker_not_ready", agentAction: "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck.", requiresManual: true, retryable: true, explain: "The target worker's project readiness is not `ready` for this root. Dispatch falls back to reveal or shows setup copy until the worker is ready here."),
-        ErrorSpec("MANAGER_MODEL_UNAVAILABLE", ruleId: "project.manager_model_unavailable", agentAction: "Run `alln models --json`; enable a ready planner-capable model.", requiresManual: false, retryable: true, explain: "No ready manager model is available, so the Manager turn is `wait` with a readiness blocker rather than a fabricated answer."),
-        ErrorSpec("PROPOSAL_NOT_FOUND", ruleId: "project.proposal_not_found", agentAction: "Run `alln project proposals <id> --json`; retry with a valid proposal id.", requiresManual: true, retryable: false, explain: "No proposal matches the given id."),
-        ErrorSpec("PROPOSAL_INVALID_STATE", ruleId: "project.proposal_invalid_state", agentAction: "Check the proposal's status with `alln project proposals <project> --json`; the requested transition is not legal from its current state.", requiresManual: true, retryable: false, explain: "The proposal cannot make the requested transition (e.g. approve/postpone/edit a cancelled or already-verified proposal). Proposal lifecycle: proposed → approved → running → returned → verified, with postpone/block/cancel branches."),
-        ErrorSpec("WORK_ORDER_NOT_FOUND", ruleId: "project.work_order_not_found", agentAction: "Approve a proposal first, or list work orders; retry with a valid work-order id.", requiresManual: true, retryable: false, explain: "No work order matches the given id. An approved proposal produces a work order."),
-        ErrorSpec("PROPOSAL_NOT_APPROVED", ruleId: "project.proposal_not_approved", agentAction: "Approve the proposal (`alln project approve <id>`) before dispatch.", requiresManual: true, retryable: false, explain: "Dispatch was attempted on an unapproved proposal or work order. Approval is required first."),
-        ErrorSpec("BASE_HEAD_CHANGED", ruleId: "project.base_head_changed", agentAction: "Revalidate the proposal against the current head, then dispatch.", requiresManual: true, retryable: false, explain: "The approved baseGitHead differs from the current head. Revalidate scope before dispatching."),
-        ErrorSpec("DIRTY_SCOPE_CONFLICT", ruleId: "project.dirty_scope_conflict", agentAction: "Acknowledge including the dirty files or clean them, then dispatch.", requiresManual: true, retryable: false, explain: "Dirty files overlap the proposal's likely scope. Acknowledge them as preexisting context or clean them first."),
-        ErrorSpec("DISPATCH_GATE_FAILED", ruleId: "project.dispatch_gate_failed", agentAction: "Read the named failing gate(s) and resolve each, then retry dispatch.", requiresManual: true, retryable: false, explain: "One or more dispatch gates failed. The failing gate(s) are named in the message."),
-        ErrorSpec("EXECUTION_LANE_BUSY", ruleId: "project.execution_lane_busy", agentAction: "Wait for the running execute order on this lane to finish, then retry; never start a second concurrent execute on the same working directory.", requiresManual: false, retryable: true, explain: "Another Execute order is already running on this execution lane (one Running per lane, keyed on the normalized working directory). Concurrent mutating dispatch to the same root is refused for safety."),
+        ErrorSpec("THREAD_UNASSIGNED", ruleId: "thread.unassigned", agentAction: "Assign the thread/pending item to a project, then retry.", requiresManual: true, retryable: false, explain: "The thread or pending item has no project. Assign it to a project before a mutating run."),
+        ErrorSpec("WORKER_NOT_READY_IN_PROJECT", ruleId: "project.worker_not_ready", agentAction: "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck.", requiresManual: true, retryable: true, explain: "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here."),
+        ErrorSpec("RUN_WRITE_LOCK_BUSY", ruleId: "run.write_lock_busy", agentAction: "Wait for the running agent on this repo root to finish, then retry.", requiresManual: false, retryable: true, explain: "Another mutating run is already editing this repo root. Allnighter allows at most one mutating run per canonical repo root."),
+        ErrorSpec("NO_PROJECT_ROOT", ruleId: "run.no_project_root", agentAction: "Restore the project folder or pick an available project root, then retry.", requiresManual: true, retryable: true, explain: "The project repo root is missing or unreadable; runs require a real cwd in the repo."),
+        ErrorSpec("WORKER_NOT_READY", ruleId: "run.worker_not_ready", agentAction: "Pick a ready worker or run setup health, then retry.", requiresManual: true, retryable: true, explain: "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready)."),
         ErrorSpec("EXECUTION_TEAM_MIXED_SOURCES", ruleId: "execution.team.mixed_sources", agentAction: "Pick one execution source, run as non-mutating review/propose, or split into judgment then execution.", requiresManual: true, retryable: false, explain: "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn."),
-        ErrorSpec("VERIFICATION_REQUIRED", ruleId: "project.verification_required", agentAction: "Run `alln project verify <id>`; a worker claim cannot mark work done.", requiresManual: false, retryable: false, explain: "A completion claim was advanced to done without a VerificationRecord. Verification (proof + git observation) or an explicit waiver is required."),
     ]
 
     // MARK: - Doctor checks (stable names)

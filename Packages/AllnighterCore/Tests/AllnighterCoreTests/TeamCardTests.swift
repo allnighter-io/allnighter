@@ -2,8 +2,8 @@ import XCTest
 @testable import AllnighterCore
 
 /// T-S00: TeamCard is a projection over the existing TeamPreset — no new team, no
-/// "promise" fluff. Requirements are DERIVED (ready worker for the craft; Execute
-/// approval if mutating), never an authored input ask (Design needs no screenshot).
+/// "promise" fluff. Requirements are DERIVED (ready worker for the craft; write-lock
+/// semantics if mutating), never an authored input ask (Design needs no screenshot).
 final class TeamCardTests: XCTestCase {
     func testCardProjectsExistingTeamFields() {
         let team = BuiltInTeams.team("signal_post_to_project")!
@@ -28,13 +28,14 @@ final class TeamCardTests: XCTestCase {
         XCTAssertFalse(design.requirements.contains { $0.lowercased().contains("screenshot") || $0.lowercased().contains("image") })
     }
 
-    func testMutatingCardRequiresExecuteApproval() {
+    func testMutatingCardShowsOneRepoWorkerRequirement() {
         var team = BuiltInTeams.team("code_core")!
         team.mutating = true
         team.posture = .execute
         let card = TeamCard.project(team)
         XCTAssertTrue(card.mutating)
-        XCTAssertTrue(card.requirements.contains { $0.contains("Execute approval") })
+        XCTAssertEqual(card.workerCount, 1)
+        XCTAssertTrue(card.requirements.contains { $0.contains("one mutating worker") })
     }
 
     func testCatalogProjectionPinsRequestedTeams() {

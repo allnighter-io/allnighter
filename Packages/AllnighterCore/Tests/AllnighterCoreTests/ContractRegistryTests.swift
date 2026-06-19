@@ -33,6 +33,7 @@ final class ContractRegistryTests: XCTestCase {
             "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
             "thread send", "thread get", "thread status",
+            "run",
             "team", "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
             "pending add", "pending list", "pending show", "pending submit", "pending edit",
             "pending reorder", "pending cancel", "pending run",
@@ -40,10 +41,7 @@ final class ContractRegistryTests: XCTestCase {
             "project list", "project add", "project show", "project archive", "project unarchive",
             "project threads", "project pending", "project stalled", "project context",
             "stalled list",
-            "project workers", "project recheck-workers", "project chat",
-            "project propose", "project proposals",
-            "project approve", "project edit", "project postpone", "project handoff", "project dispatch",
-            "project verify",
+            "project workers", "project recheck-workers",
         ])
     }
 
@@ -56,12 +54,11 @@ final class ContractRegistryTests: XCTestCase {
             "skills_list", "skills_show", "skills_duplicate", "skills_save", "skills_delete",
             "team_preflight",
             "team_start", "team_status", "team_result", "team_cancel",
-            "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get", "floor_show",
+            "team_run", "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get", "floor_show",
             "thread_send", "thread_get", "thread_status",
             "pending_list", "pending_show", "pending_run",
             "project_stalled", "stalled_list",
             "project_list", "project_get", "project_context", "project_workers", "project_recheck_workers",
-            "project_proposals", "project_chat", "project_propose", "project_handoff", "project_dispatch", "project_verify",
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))
