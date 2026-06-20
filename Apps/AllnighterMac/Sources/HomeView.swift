@@ -183,9 +183,11 @@ private struct HomeSidebar: View {
     }
 
     private func moreRow(_ n: Int, group: String) -> some View {
+        // "N more" is just older chats you probably don't care about — it must NOT
+        // scream. Neutral/muted, never amber (color is earned; this isn't it).
         Button { expanded.insert(group) } label: {
             Text("\(n) more")
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(ALColor.accentText)
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(ALColor.textMuted)
                 .padding(.leading, 28).frame(height: 26)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -347,7 +349,9 @@ private struct ProjectThreadRow: View {
             .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
                         in: RoundedRectangle(cornerRadius: ALRadius.md))
             .overlay(alignment: .leading) {
-                if selected {
+                // A draft is "nothing of importance yet" — it must stay subtle even when
+                // selected: the quiet active background marks it, never an amber rail.
+                if selected && state != .draft {
                     RoundedRectangle(cornerRadius: 1.5).fill(ALColor.accent).frame(width: 2.5).padding(.vertical, 6)
                 }
             }
@@ -378,8 +382,10 @@ private struct ProjectThreadRow: View {
     }
 
     private var titleColor: Color {
+        // A draft stays quiet even when selected — never brightened to look important.
+        if state == .draft { return ALColor.textMuted }
         if selected || state == .replied { return ALColor.textPrimary }
-        if state == .draft || state == .idle { return ALColor.textMuted }
+        if state == .idle { return ALColor.textMuted }
         return ALColor.textSecondary
     }
 }

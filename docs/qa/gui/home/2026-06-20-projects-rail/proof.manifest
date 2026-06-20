@@ -1,5 +1,5 @@
-# surface: composer
-# fixtures: compose-target-inline
+# surface: home
+# fixtures: projects-rail
 # watcher: PASS
 # sealed: 2026-06-20
 # Binds each proven view to its exact content hash. Re-editing any view

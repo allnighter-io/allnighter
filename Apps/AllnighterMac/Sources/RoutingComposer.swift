@@ -159,7 +159,7 @@ struct RoutingComposer: View {
         .onAppear(perform: updateFileSearchFromText)
         .onAppear {
             #if DEBUG
-            if GUIFixture.composeTargetInline, teamSearch.isEmpty { targetTab = .team; teamSearch = "bug" }
+            if GUIFixture.composeTargetInline, teamSearch.isEmpty { teamSearch = "bug" }
             // Deterministically open the picker over the seeded fixture root (the @Com
             // text comes from ComposeSpecimen; this fixes the query + candidates so the
             // capture never depends on trigger/project-load timing).
@@ -789,7 +789,7 @@ struct RoutingComposer: View {
                 }
             }
         }
-        .frame(maxHeight: 208)
+        .frame(minHeight: 196, maxHeight: 240)
     }
 
     private func teamPickerEmpty(_ text: String) -> some View {
@@ -819,22 +819,31 @@ struct RoutingComposer: View {
     /// pinned model below must not leave Auto looking selected too.
     private var isAutoSelected: Bool { team == nil && pinnedWorker == nil }
 
+    /// One-line row label: bold name + a quiet parenthetical — `Opus 4.8 (Claude)`,
+    /// `Code Core (7 workers)`. Collapses the old two-line name/subtitle rows.
+    private func rowLabel(_ name: String, _ detail: String, primary: Bool) -> some View {
+        HStack(spacing: 5) {
+            Text(name).font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(primary ? ALColor.textPrimary : ALColor.textMuted)
+            Text("(\(detail))").font(.system(size: 12))
+                .foregroundStyle(ALColor.textFaint)
+        }
+        .lineLimit(1)
+    }
+
     // "Auto" is pinned to the very top of the Model tab — the default, the 95% case.
+    // One line, like every other row: name + a quiet parenthetical.
     private var defaultTeamRow: some View {
         Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "infinity").font(.system(size: 13)).foregroundStyle(ALColor.textSecondary)
-                    .frame(width: 27, height: 27)
-                    .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Auto")
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                    Text("Default model").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
-                }
+            HStack(spacing: 8) {
+                Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textSecondary)
+                    .frame(width: 18, height: 18)
+                    .background(ALColor.active, in: RoundedRectangle(cornerRadius: 5))
+                rowLabel("Auto", "Default model", primary: true)
                 Spacer(minLength: 8)
                 if isAutoSelected { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             }
-            .padding(.horizontal, 9).padding(.vertical, 8)
+            .padding(.horizontal, 9).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(isAutoSelected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
             .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(isAutoSelected ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
@@ -876,14 +885,11 @@ struct RoutingComposer: View {
     }
 
     private func teamRowBody(_ t: ComposeTeam) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: t.lane.icon).font(.system(size: 14)).foregroundStyle(ALColor.textMuted)
-                .frame(width: 27, height: 27)
-                .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(t.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                Text(t.summary).font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
-            }
+        HStack(spacing: 8) {
+            Image(systemName: t.lane.icon).font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                .frame(width: 18, height: 18)
+                .background(ALColor.active, in: RoundedRectangle(cornerRadius: 5))
+            rowLabel(t.name, t.summary, primary: true)
             Spacer(minLength: 8)
             if team == t.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
         }
@@ -905,17 +911,13 @@ struct RoutingComposer: View {
                 }
             }
         }
-        .frame(maxHeight: 176)
+        .frame(minHeight: 196, maxHeight: 240)
     }
 
     private func modelRow(_ m: ComposeBenchModel) -> some View {
-        HStack(spacing: 10) {
-            DriverBrandGlyph(driverId: m.driverId, boxSize: 27, iconSize: 15, cornerRadius: 7).opacity(m.ready ? 1 : 0.5)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(m.name).font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(m.ready ? ALColor.textPrimary : ALColor.textMuted)
-                Text(m.sub).font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
-            }
+        HStack(spacing: 8) {
+            DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5).opacity(m.ready ? 1 : 0.5)
+            rowLabel(m.name, m.sub, primary: m.ready)
             Spacer(minLength: 8)
             if m.ready {
                 if pinnedWorker == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
@@ -923,7 +925,7 @@ struct RoutingComposer: View {
                 Badge(text: reason, tone: .warning)
             }
         }
-        .padding(.horizontal, 9).padding(.vertical, 8)
+        .padding(.horizontal, 9).padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(pinnedWorker == m.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
     }
