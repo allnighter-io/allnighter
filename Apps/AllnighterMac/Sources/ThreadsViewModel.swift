@@ -50,6 +50,12 @@ final class ThreadsViewModel {
 
     private static let readClearDebounceNs: UInt64 = 200_000_000
 
+    private struct FileReferenceSendContext {
+        var turnRefs: [TurnFileReferenceRef] = []
+        var contextPacketId: String?
+        var packetText: String?
+    }
+
     /// Production init: self-sufficient, loads the same config as AppModel and
     /// invokes real CLIs. GUI fixtures use an isolated temp store.
     convenience init(floorStatus: FloorManagerStatus? = nil) {
@@ -308,10 +314,36 @@ final class ThreadsViewModel {
         }
 
         if let scope = repoRoot(for: threadId) {
-            appendUserTurn(message, toThreadId: threadId)
-            runViaRunService(routing, toThreadId: threadId, projectId: scope.projectId, repoRoot: scope.root)
+            let userTurnId = UUID().uuidString
+            do {
+                let preparedRefs = try prepareFileReferenceContext(
+                    inputs: (routing.fileReferences + FileReferenceTokenParser.parse(message: message))
+                        .dedupedPreservingOrder(),
+                    message: message,
+                    threadId: threadId,
+                    userTurnId: userTurnId,
+                    projectId: scope.projectId,
+                    repoRoot: scope.root
+                )
+                appendUserTurn(
+                    message,
+                    toThreadId: threadId,
+                    id: userTurnId,
+                    fileReferenceRefs: preparedRefs.turnRefs,
+                    contextPacketId: preparedRefs.contextPacketId
+                )
+                runViaRunService(
+                    routing,
+                    toThreadId: threadId,
+                    projectId: scope.projectId,
+                    repoRoot: scope.root,
+                    context: preparedRefs.packetText
+                )
+            } catch {
+                appendFailedRun(fileReferenceFailureText(error), kind: .systemEvent, toThreadId: threadId)
+            }
         } else {
-            runChat(message: message, toThreadId: threadId, workerId: routing.to)
+            runChat(message: message, toThreadId: threadId, workerId: routing.to, fileReferences: routing.fileReferences)
         }
     }
 
@@ -345,7 +377,8 @@ final class ThreadsViewModel {
         _ routing: ComposeRouting,
         toThreadId threadId: String,
         projectId: String?,
-        repoRoot: String
+        repoRoot: String,
+        context: String? = nil
     ) {
         let preset = routing.team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
         guard let preset else {
@@ -373,7 +406,8 @@ final class ThreadsViewModel {
             presetId: routing.team,
             workerId: routing.to.isEmpty ? nil : routing.to,
             effort: effort,
-            lane: routing.lane.workLane
+            lane: routing.lane.workLane,
+            context: context
         )
         let service = makeRunService()
         let threadStore = store
@@ -459,11 +493,19 @@ final class ThreadsViewModel {
     /// persists the user turn + an optimistic running `workerChat` turn, invokes
     /// the worker through the cached invocation (health == runs), and settles the
     /// reply in place.
-    private func runChat(message: String, toThreadId threadId: String, workerId: String) {
+    private func runChat(
+        message: String,
+        toThreadId threadId: String,
+        workerId: String,
+        fileReferences: [FileReferenceInput] = []
+    ) {
         Task { @MainActor in
             do {
                 let checkpoint = try await coordinator.beginSend(
-                    message: message, toThreadId: threadId, requestedWorkerId: workerId
+                    message: message,
+                    toThreadId: threadId,
+                    requestedWorkerId: workerId,
+                    fileReferences: fileReferences
                 )
                 reload()
                 switch checkpoint {
@@ -490,10 +532,66 @@ final class ThreadsViewModel {
         }
     }
 
-    private func appendUserTurn(_ message: String, toThreadId threadId: String) {
+    private func prepareFileReferenceContext(
+        inputs: [FileReferenceInput],
+        message: String,
+        threadId: String,
+        userTurnId: String,
+        projectId: String?,
+        repoRoot: String
+    ) throws -> FileReferenceSendContext {
+        guard !inputs.isEmpty else { return FileReferenceSendContext() }
+        guard var thread = store.get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }
+
+        let resolved = try ProjectFileReferenceResolver().resolve(
+            inputs: inputs,
+            rootPath: repoRoot,
+            projectId: projectId,
+            idFactory: { UUID().uuidString }
+        )
+        var options = ThreadContextBuilder.Options(attachedFileInputs: resolved.map(\.attachedFile))
+        options.fileByteCap = FileReferencePolicy.default.maxDeliveredBytesPerFile
+        options.byteCap = FileReferencePolicy.default.maxTotalDeliveredBytes + 16_000
+        options.attachedFilesTotalByteCap = FileReferencePolicy.default.maxTotalDeliveredBytes
+
+        thread.workingDir = repoRoot
+        thread.projectId = projectId ?? thread.projectId
+        let packetId = UUID().uuidString
+        let packet = ThreadContextBuilder().build(
+            thread: thread,
+            latestMessage: message,
+            turnId: userTurnId,
+            packetId: packetId,
+            now: Date(),
+            options: options
+        )
+        try store.savePacket(packet)
+        return FileReferenceSendContext(
+            turnRefs: resolved.map(\.turnRef),
+            contextPacketId: packetId,
+            packetText: packet.text
+        )
+    }
+
+    private func fileReferenceFailureText(_ error: Error) -> String {
+        if let fileError = error as? FileReferenceError {
+            return "\(fileError.code): \(fileError.description)"
+        }
+        return error.localizedDescription
+    }
+
+    private func appendUserTurn(
+        _ message: String,
+        toThreadId threadId: String,
+        id: String = UUID().uuidString,
+        fileReferenceRefs: [TurnFileReferenceRef] = [],
+        contextPacketId: String? = nil
+    ) {
         let turn = ThreadTurn(
-            id: UUID().uuidString, threadId: threadId, kind: .userMessage, status: .done,
-            createdAt: Date(), completedAt: Date(), author: .user, text: message
+            id: id, threadId: threadId, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user, text: message,
+            fileReferenceRefs: fileReferenceRefs,
+            contextPacketId: contextPacketId
         )
         try? store.appendTurn(turn, toThreadId: threadId, now: Date())
         reload()

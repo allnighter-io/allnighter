@@ -14,12 +14,20 @@ enum ComposeEditorMetrics {
   static let maxHeight: CGFloat = 120
 }
 
+enum ALTextEditorCommand {
+    case returnKey
+    case escape
+    case moveUp
+    case moveDown
+}
+
 struct ALTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var contentHeight: CGFloat
     var isFocused: Binding<Bool>?
     var minHeight: CGFloat = ComposeEditorMetrics.minHeight
     var maxHeight: CGFloat = ComposeEditorMetrics.maxHeight
+    var onCommand: ((ALTextEditorCommand) -> Bool)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -27,7 +35,8 @@ struct ALTextEditor: NSViewRepresentable {
             contentHeight: $contentHeight,
             isFocused: isFocused,
             minHeight: minHeight,
-            maxHeight: maxHeight
+            maxHeight: maxHeight,
+            onCommand: onCommand
         )
     }
 
@@ -51,6 +60,7 @@ struct ALTextEditor: NSViewRepresentable {
         guard let textView = scroll.documentView as? NSTextView else { return }
         context.coordinator.minHeight = minHeight
         context.coordinator.maxHeight = maxHeight
+        context.coordinator.onCommand = onCommand
         style(textView)
         if textView.string != text {
             textView.string = text
@@ -88,6 +98,7 @@ struct ALTextEditor: NSViewRepresentable {
         var isFocused: Binding<Bool>?
         var minHeight: CGFloat
         var maxHeight: CGFloat
+        var onCommand: ((ALTextEditorCommand) -> Bool)?
         weak var scrollView: NSScrollView?
 
         init(
@@ -95,19 +106,36 @@ struct ALTextEditor: NSViewRepresentable {
             contentHeight: Binding<CGFloat>,
             isFocused: Binding<Bool>?,
             minHeight: CGFloat,
-            maxHeight: CGFloat
+            maxHeight: CGFloat,
+            onCommand: ((ALTextEditorCommand) -> Bool)?
         ) {
             self.text = text
             self.contentHeight = contentHeight
             self.isFocused = isFocused
             self.minHeight = minHeight
             self.maxHeight = maxHeight
+            self.onCommand = onCommand
         }
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             text.wrappedValue = textView.string
             refreshHeight()
+        }
+
+        func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.insertNewline(_:)):
+                return onCommand?(.returnKey) ?? false
+            case #selector(NSResponder.cancelOperation(_:)):
+                return onCommand?(.escape) ?? false
+            case #selector(NSResponder.moveUp(_:)):
+                return onCommand?(.moveUp) ?? false
+            case #selector(NSResponder.moveDown(_:)):
+                return onCommand?(.moveDown) ?? false
+            default:
+                return false
+            }
         }
 
         func textDidBeginEditing(_ notification: Notification) {
@@ -146,4 +174,3 @@ struct ALTextEditor: NSViewRepresentable {
         }
     }
 }
-

@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import AllnighterCore
+import AllnighterEngine
 
 // Unified routing composer (Unified Run Model). One surface: message + optional
 // team + worker + effort. Default send runs the Default Team in the project repo.
@@ -16,6 +17,7 @@ struct ComposeRouting: Equatable {
     var effort: ComposeEffort
     var lane: ComposeLane
     var text: String
+    var fileReferences: [FileReferenceInput] = []
 }
 
 /// A bench model as the composer sees it (maps from AppModel).
@@ -37,6 +39,11 @@ struct ComposeTeam: Identifiable, Equatable {
     let isFavorite: Bool
 }
 
+private struct ComposeFileReference: Identifiable, Equatable {
+    var path: String
+    var id: String { path }
+}
+
 extension ComposeEffort { var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() } }
 extension ComposeLane {
     var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
@@ -50,10 +57,12 @@ struct ComposeSpecimen: View {
     var openTarget: Bool = false
     /// Proof hook: pre-select a team so the target chip renders in team mode.
     var team: String? = nil
+    /// Proof hook: seed the composer with an active file-reference query.
+    var initialText: String = ""
     var body: some View {
         VStack {
             Spacer()
-            RoutingComposer(team: team, openTarget: openTarget, showsProject: true)
+            RoutingComposer(team: team, openTarget: openTarget, showsProject: true, initialText: initialText)
                 .frame(maxWidth: 680)
                 .padding(20)
         }
@@ -77,6 +86,11 @@ struct RoutingComposer: View {
     @State private var defaultSettings: DefaultModelSettings = .fresh
     @State private var text: String = ""
     @State private var targetOpen = false
+    @State private var fileSearchOpen = false
+    @State private var fileSearchQuery = ""
+    @State private var fileCandidates: [ProjectFileCatalog.Candidate] = []
+    @State private var highlightedFileIndex = 0
+    @State private var selectedFileReferences: [ComposeFileReference] = []
     /// Which form the route popover shows — never both at once.
     @State private var targetTab: TargetTab = .team
     enum TargetTab { case team, worker }
@@ -98,12 +112,15 @@ struct RoutingComposer: View {
         big: Bool = false,
         locksTeam: Bool = false,
         showsProject: Bool = false,
+        initialText: String = "",
         onSend: ((ComposeRouting) -> Void)? = nil
     ) {
         _team = State(initialValue: team)
         _effort = State(initialValue: .med)
         _lane = State(initialValue: lane)
         _targetOpen = State(initialValue: openTarget)
+        _text = State(initialValue: initialText)
+        _composerFocused = State(initialValue: !initialText.isEmpty)
         self.big = big
         self.locksTeam = locksTeam
         self.showsProject = showsProject
@@ -120,8 +137,15 @@ struct RoutingComposer: View {
         }
         .onAppear(perform: seedDefaults)
         .onAppear(perform: consumePendingPrefillIfNeeded)
+        .onAppear(perform: updateFileSearchFromText)
         .onChange(of: threads.pendingQuickCaptureText) { _, _ in
             consumePendingPrefillIfNeeded()
+        }
+        .onChange(of: text) { _, _ in
+            updateFileSearchFromText()
+        }
+        .onChange(of: projects.activeProjectId) { _, _ in
+            closeFileSearch()
         }
         // Switching teams drops any explicit worker pin so the chip names THAT team's
         // worker, never a stale override.
@@ -192,15 +216,145 @@ struct RoutingComposer: View {
                     text: $text,
                     contentHeight: $editorHeight,
                     isFocused: $composerFocused,
-                    maxHeight: ComposeEditorMetrics.maxHeight
+                    maxHeight: ComposeEditorMetrics.maxHeight,
+                    onCommand: handleEditorCommand
                 )
                 .padding(.horizontal, 10).padding(.top, 6)
                 .frame(height: editorHeight)
+            }
+            if !selectedFileReferences.isEmpty {
+                fileReferenceChips
+            }
+            if fileSearchOpen {
+                fileReferencePanel
             }
             bar
         }
         .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
         .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+    }
+
+    private var selectedFileInputs: [FileReferenceInput] {
+        selectedFileReferences.map { FileReferenceInput(path: $0.path) }
+    }
+
+    private var fileReferenceChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(selectedFileReferences) { ref in
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 10))
+                            .foregroundStyle(ALColor.textMuted)
+                        Text(ref.path)
+                            .font(ALFont.monoSm)
+                            .foregroundStyle(ALColor.textSecondary)
+                            .lineLimit(1)
+                        Button { removeFileReference(ref.path) } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(ALColor.textFaint)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove")
+                    }
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background(ALColor.subtle, in: Capsule())
+                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                }
+            }
+            .padding(.horizontal, 11)
+            .padding(.top, 5)
+            .padding(.bottom, 1)
+        }
+    }
+
+    private var fileReferencePanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 7) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11))
+                    .foregroundStyle(ALColor.textFaint)
+                Text("Search Project files")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(ALColor.textSecondary)
+                if !fileSearchQuery.isEmpty {
+                    Text("·")
+                        .font(ALFont.monoSm)
+                        .foregroundStyle(ALColor.textFaint)
+                    Text(fileSearchQuery)
+                        .font(ALFont.monoSm)
+                        .foregroundStyle(ALColor.textFaint)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+
+            if fileCandidates.isEmpty {
+                Text(projects.activeProject == nil ? "No Project selected" : "No matching files")
+                    .font(.system(size: 12))
+                    .foregroundStyle(ALColor.textFaint)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            } else {
+                ScrollView {
+                    VStack(spacing: 1) {
+                        ForEach(Array(fileCandidates.enumerated()), id: \.element.path) { index, candidate in
+                            fileCandidateRow(candidate, index: index)
+                        }
+                    }
+                    .padding(6)
+                }
+                .frame(maxHeight: 184)
+            }
+        }
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        .padding(.horizontal, 11)
+        .padding(.top, 5)
+    }
+
+    private func fileCandidateRow(_ candidate: ProjectFileCatalog.Candidate, index: Int) -> some View {
+        let active = index == highlightedFileIndex
+        let basename = URL(fileURLWithPath: candidate.path).lastPathComponent
+        let directory = parentPath(candidate.path)
+        return Button { selectFileReference(candidate.path) } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 12))
+                    .foregroundStyle(active ? ALColor.textSecondary : ALColor.textMuted)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(basename)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(ALColor.textPrimary)
+                        .lineLimit(1)
+                    if !directory.isEmpty {
+                        Text(directory)
+                            .font(ALFont.monoSm)
+                            .foregroundStyle(ALColor.textFaint)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                if active {
+                    Image(systemName: "return")
+                        .font(.system(size: 10))
+                        .foregroundStyle(ALColor.textFaint)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(active ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { if $0 { highlightedFileIndex = index } }
     }
 
     private var bar: some View {
@@ -304,10 +458,123 @@ struct RoutingComposer: View {
         } else {
             toSend = pinnedWorker ?? ""
         }
-        onSend?(ComposeRouting(team: team, to: toSend, effort: effort, lane: lane, text: body))
+        onSend?(ComposeRouting(
+            team: team,
+            to: toSend,
+            effort: effort,
+            lane: lane,
+            text: body,
+            fileReferences: selectedFileInputs
+        ))
         text = ""
+        selectedFileReferences = []
+        closeFileSearch()
         targetOpen = false
         editorHeight = ComposeEditorMetrics.minHeight
+    }
+
+    private func handleEditorCommand(_ command: ALTextEditorCommand) -> Bool {
+        guard fileSearchOpen else { return false }
+        switch command {
+        case .returnKey:
+            guard fileCandidates.indices.contains(highlightedFileIndex) else { return false }
+            selectFileReference(fileCandidates[highlightedFileIndex].path)
+            return true
+        case .escape:
+            closeFileSearch()
+            return true
+        case .moveUp:
+            moveFileHighlight(-1)
+            return true
+        case .moveDown:
+            moveFileHighlight(1)
+            return true
+        }
+    }
+
+    private func moveFileHighlight(_ delta: Int) {
+        guard !fileCandidates.isEmpty else { return }
+        highlightedFileIndex = (highlightedFileIndex + delta + fileCandidates.count) % fileCandidates.count
+    }
+
+    private func updateFileSearchFromText() {
+        guard let trigger = activeFileTrigger(in: text) else {
+            closeFileSearch()
+            return
+        }
+        if selectedFileReferences.contains(where: { $0.path == trigger.query }) {
+            closeFileSearch()
+            return
+        }
+        fileSearchQuery = trigger.query
+        fileSearchOpen = true
+        refreshFileCandidates()
+    }
+
+    private func refreshFileCandidates() {
+        guard let project = projects.activeProject else {
+            fileCandidates = []
+            highlightedFileIndex = 0
+            return
+        }
+        let selectedPaths = Set(selectedFileReferences.map(\.path))
+        let root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
+        fileCandidates = ProjectFileCatalog().candidates(
+            rootPath: root,
+            query: fileSearchQuery,
+            limit: 12,
+            recentlyReferenced: selectedFileReferences.map(\.path)
+        )
+        .filter { !selectedPaths.contains($0.path) }
+        highlightedFileIndex = min(highlightedFileIndex, max(fileCandidates.count - 1, 0))
+    }
+
+    private func closeFileSearch() {
+        fileSearchOpen = false
+        fileSearchQuery = ""
+        fileCandidates = []
+        highlightedFileIndex = 0
+    }
+
+    private func selectFileReference(_ path: String) {
+        if !selectedFileReferences.contains(where: { $0.path == path }) {
+            selectedFileReferences.append(ComposeFileReference(path: path))
+        }
+        if let range = activeFileTrigger(in: text)?.range {
+            text.replaceSubrange(range, with: "@\(path)")
+        } else if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            text = "@\(path)"
+        } else {
+            text += " @\(path)"
+        }
+        closeFileSearch()
+        composerFocused = true
+    }
+
+    private func removeFileReference(_ path: String) {
+        selectedFileReferences.removeAll { $0.path == path }
+        text = text.replacingOccurrences(of: "@\(path)", with: "")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        updateFileSearchFromText()
+    }
+
+    private func activeFileTrigger(in value: String) -> (range: Range<String.Index>, query: String)? {
+        var start = value.endIndex
+        while start > value.startIndex {
+            let previous = value.index(before: start)
+            if value[previous].isWhitespace { break }
+            start = previous
+        }
+        let token = value[start..<value.endIndex]
+        guard token.first == "@", !token.dropFirst().contains("@") else { return nil }
+        return (start..<value.endIndex, String(token.dropFirst()))
+    }
+
+    private func parentPath(_ path: String) -> String {
+        let parts = path.split(separator: "/")
+        guard parts.count > 1 else { return "" }
+        return parts.dropLast().joined(separator: "/")
     }
 
     // MARK: target popover

@@ -109,13 +109,15 @@ public actor WorkerChatCoordinator {
         requestedWorkerId: String? = nil,
         contextOptions: ThreadContextBuilder.Options = ThreadContextBuilder.Options(),
         draftIds: [String] = [],
-        images: [ThreadSendCoordinator.ImageInput] = []
+        images: [ThreadSendCoordinator.ImageInput] = [],
+        fileReferences: [FileReferenceInput] = []
     ) throws -> ThreadSendCoordinator.SendCheckpoint {
         try sendCoordinator.beginSend(
             request: ThreadSendCoordinator.Request(
                 message: message,
                 draftIds: draftIds,
                 images: images,
+                fileReferences: fileReferences,
                 requestedWorkerId: requestedWorkerId,
                 contextOptions: contextOptions
             ),
@@ -138,7 +140,8 @@ public actor WorkerChatCoordinator {
         requestedWorkerId: String? = nil,
         contextOptions: ThreadContextBuilder.Options = ThreadContextBuilder.Options(),
         draftIds: [String] = [],
-        images: [ThreadSendCoordinator.ImageInput] = []
+        images: [ThreadSendCoordinator.ImageInput] = [],
+        fileReferences: [FileReferenceInput] = []
     ) async throws -> ChatResult {
         switch try beginSend(
             message: message,
@@ -146,7 +149,8 @@ public actor WorkerChatCoordinator {
             requestedWorkerId: requestedWorkerId,
             contextOptions: contextOptions,
             draftIds: draftIds,
-            images: images
+            images: images,
+            fileReferences: fileReferences
         ) {
         case .finished(let result):
             return chatResult(from: result)

@@ -124,7 +124,11 @@ struct RootView: View {
                             onAddSource: { model.markSetupCompleted(); showReadiness = false }
                         )
                     } else if showComposeSpecimen {
-                        ComposeSpecimen(openTarget: GUIFixture.composeTargetOpen, team: GUIFixture.composeTeamId)
+                        ComposeSpecimen(
+                            openTarget: GUIFixture.composeTargetOpen,
+                            team: GUIFixture.composeTeamId,
+                            initialText: GUIFixture.composeFileReferenceOpen ? "@Com" : ""
+                        )
                     } else if workspaceMode == .teams {
                         // Teams workspace — the Send-to-team launcher (G-T1 brings
                         // full fidelity; G-T0 wires the toggle + a real card roster).

@@ -147,6 +147,9 @@ enum GUIFixture {
     /// (name · N workers, never a fake model · effort).
     static var composeTeamId: String? { active == "compose-team" ? "design_core" : nil }
 
+    /// `compose-file-reference` seeds an active @ query so the file picker is visible.
+    static var composeFileReferenceOpen: Bool { active == "compose-file-reference" }
+
     /// Dedicated fixture for testing the Screen Recording grant / preflight in isolation.
     /// Runs the composite path (so native popovers + SR are exercised) but is intended
     /// only for "does preflight + captureComposite succeed right now?" verification.
@@ -233,6 +236,7 @@ enum GUIFixture {
         ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
         ("compose-target-chat", "Compose — route target popover (native popover)"),
         ("compose-team", "Compose — team target (name · workers, not fake model)"),
+        ("compose-file-reference", "Compose — file reference picker"),
         ("compose-target-send-to-team", "Compose — team target popover (native popover)"),
         ("tcc-probe", "TCC / Screen Recording grant probe (forces composite path)"),
     ]
@@ -616,6 +620,7 @@ enum GUIFixture {
     static var isGrantSession: Bool { false }
     static var active: String? { nil }
     static var composeTargetOpen: Bool { false }
+    static var composeFileReferenceOpen: Bool { false }
     static var opensTeamDropdown: Bool { false }
     static var opensDoctorPopover: Bool { false }
     static var opensReadiness: Bool { false }

@@ -15,6 +15,31 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         }
     }
 
+    private final class PromptCapturingRunner: CommandRunner, @unchecked Sendable {
+        private let lock = NSLock()
+        private var prompts: [String] = []
+
+        func run(command: String, args: [String], stdin: String?, env: [String: String],
+                 workingDirectory: String?, timeout: Duration) async -> CommandResult {
+            let prompt: String
+            if let index = args.firstIndex(of: "-p"), index + 1 < args.count {
+                prompt = args[index + 1]
+            } else {
+                prompt = stdin ?? args.joined(separator: " ")
+            }
+            lock.lock()
+            prompts.append(prompt)
+            lock.unlock()
+            return CommandResult(stdout: "Read the referenced file.", exitCode: 0)
+        }
+
+        func lastPrompt() -> String? {
+            lock.lock()
+            defer { lock.unlock() }
+            return prompts.last
+        }
+    }
+
     private func tempDir() -> String {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("alln-repo-\(UUID().uuidString)", isDirectory: true)
@@ -22,26 +47,34 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         return url.path
     }
 
-    private func makeVM(toolStatuses: [ToolProbeRecord]) -> ThreadsViewModel {
+    private func makeVM(toolStatuses: [ToolProbeRecord], commandRunner: CommandRunner = StubRunner()) -> ThreadsViewModel {
         let config = AppConfig.loadConfiguration()
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("alln-tvm-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let stub = StubRunner()
         return ThreadsViewModel(
             store: ThreadStore(rootDirectory: root),
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
             registry: config.registry,
             models: config.models,
             toolStatuses: toolStatuses,
-            runner: WorkerRunner(commandRunner: stub),
-            commandRunner: stub
+            runner: WorkerRunner(commandRunner: commandRunner),
+            commandRunner: commandRunner
         )
     }
 
     private var buildTeamId: String {
         let teams = BuiltInTeams.teams(in: .code)
         return (teams.first(where: \.isDefaultForLane) ?? teams.first)?.id ?? ""
+    }
+
+    private func readyExecutorId(_ ready: [ToolProbeRecord]) -> String? {
+        let config = AppConfig.loadConfiguration()
+        let readyDrivers = Set(ready.filter { $0.status.isReady }.map(\.driverId))
+        return config.models.first {
+            $0.enabled && readyDrivers.contains($0.driverId)
+            && config.registry.manifest(for: $0)?.kind == .headlessCLI
+        }?.id
     }
 
     func testUnresolvableTeamLandsHonestFailedBoard() async throws {
@@ -92,5 +125,44 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         XCTAssertFalse(run.workerAnswers.isEmpty)
         XCTAssertTrue(run.workerAnswers.contains { $0.status == .done || $0.output != nil },
                       "the stubbed bench produces answers")
+    }
+
+    func testProjectRunDeliversComposerFileReferencesToWorkerPrompt() async throws {
+        let repo = URL(fileURLWithPath: tempDir(), isDirectory: true)
+        try FileManager.default.createDirectory(at: repo.appendingPathComponent("Sources"), withIntermediateDirectories: true)
+        try "let selectedValue = 42\n".write(
+            to: repo.appendingPathComponent("Sources/App.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let ready = GUIFixture.seededToolStatuses(for: AppConfig.loadConfiguration().models, now: Date(), scenario: "thread-ready")
+        let to = try XCTUnwrap(readyExecutorId(ready), "need a ready headless executor")
+        let capture = PromptCapturingRunner()
+        let vm = makeVM(toolStatuses: ready, commandRunner: capture)
+        _ = vm.newThread(title: "t", workingDir: repo.path)
+
+        vm.sendRouting(ComposeRouting(
+            team: nil,
+            to: to,
+            effort: .med,
+            lane: .code,
+            text: "Use the selected file.",
+            fileReferences: [FileReferenceInput(path: "Sources/App.swift")]
+        ))
+
+        for _ in 0..<300 {
+            if capture.lastPrompt() != nil { break }
+            try await Task.sleep(nanoseconds: 15_000_000)
+        }
+
+        let prompt = try XCTUnwrap(capture.lastPrompt())
+        XCTAssertTrue(prompt.contains("Referenced files:"))
+        XCTAssertTrue(prompt.contains("Sources/App.swift"))
+        XCTAssertTrue(prompt.contains("let selectedValue = 42"))
+
+        let userTurn = try XCTUnwrap(vm.selectedThread?.turns.first { $0.kind == .userMessage })
+        XCTAssertEqual(userTurn.fileReferenceRefs.count, 1)
+        XCTAssertNotNil(userTurn.contextPacketId)
     }
 }
