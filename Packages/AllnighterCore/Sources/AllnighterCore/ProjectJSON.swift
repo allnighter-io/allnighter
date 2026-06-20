@@ -41,9 +41,18 @@ public struct ProjectThreadSummary: Codable, Equatable, Sendable {
     public var pinned: Bool
     public var unread: Bool
     public var unassigned: Bool
-    public init(id: String, title: String, status: String, updatedAt: Date, pinned: Bool, unread: Bool, unassigned: Bool) {
+    /// The 4-state row treatment (draft/pending/running/replied/idle) — derived once in
+    /// Core so the GUI rows + the Pending section don't compute it.
+    public var displayState: String
+    /// True when the thread has an armed Pending item (drives the Pending section).
+    public var pending: Bool
+    /// Failed/blocked — an independent attention overlay, not part of displayState.
+    public var needsAttention: Bool
+    public init(id: String, title: String, status: String, updatedAt: Date, pinned: Bool, unread: Bool,
+                unassigned: Bool, displayState: String, pending: Bool, needsAttention: Bool) {
         self.id = id; self.title = title; self.status = status; self.updatedAt = updatedAt
         self.pinned = pinned; self.unread = unread; self.unassigned = unassigned
+        self.displayState = displayState; self.pending = pending; self.needsAttention = needsAttention
     }
 }
 

@@ -118,11 +118,12 @@ enum ProjectCLI {
         let store = ProjectStore()
         let project = resolve(idOrName, store)
         let threads = boundThreads(projectId: project.id)
+        let armed = Set(boundPending(projectId: project.id).filter { $0.status == .pending }.compactMap(\.threadId))
         if opts.flag("json") {
             let payload = ProjectThreadsJSON(
                 contractVersion: ContractRegistry.contractVersion,
                 projectId: project.id,
-                threads: threads.map(threadSummary),
+                threads: threads.map { threadSummary($0, armedPendingThreadIds: armed) },
                 nextActions: [.init(kind: .projectContext, label: "Project context", command: "alln project context \(project.id) --json")]
             )
             print(AllnighterCLI.jsonString(payload))
@@ -269,10 +270,13 @@ enum ProjectCLI {
         ((try? PendingStore().loadAll()) ?? []).filter { $0.projectId == projectId }
     }
 
-    private static func threadSummary(_ t: WorkThread) -> ProjectThreadSummary {
-        ProjectThreadSummary(
+    private static func threadSummary(_ t: WorkThread, armedPendingThreadIds: Set<String>) -> ProjectThreadSummary {
+        let hasPending = armedPendingThreadIds.contains(t.id)
+        return ProjectThreadSummary(
             id: t.id, title: t.title, status: t.status.rawValue, updatedAt: t.updatedAt,
-            pinned: t.isPinned, unread: t.hasUnread, unassigned: t.projectId == nil
+            pinned: t.isPinned, unread: t.hasUnread, unassigned: t.projectId == nil,
+            displayState: ThreadStateDerivation.displayState(thread: t, hasPendingItem: hasPending).rawValue,
+            pending: hasPending, needsAttention: t.needsAttention
         )
     }
 
