@@ -153,3 +153,34 @@ public struct PendingListJSON: Codable, Equatable, Sendable {
         self.items = items
     }
 }
+
+/// The Pending QUEUE — render-ready truth for the top-bar `N pending` pill and the
+/// Pending screen, so neither the GUI nor an agent has to group/order/count itself.
+/// Each project group is headed by the item currently running (if any) with its armed
+/// `.pending` items chained beneath, in queue order.
+public struct PendingQueueJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    /// Armed (`.pending`) item count across all projects — drives the top-bar pill
+    /// (the pill shows only when this is > 0).
+    public var totalPending: Int
+    public var projects: [ProjectQueue]
+
+    public struct ProjectQueue: Codable, Equatable, Sendable {
+        public var projectId: String        // "unassigned" for items with no project
+        public var projectName: String?
+        /// The item currently running in this project's lane (heads the queue), or nil.
+        public var running: PendingItemJSON?
+        /// Armed items chained beneath, in queue order.
+        public var pending: [PendingItemJSON]
+        public init(projectId: String, projectName: String?, running: PendingItemJSON?, pending: [PendingItemJSON]) {
+            self.projectId = projectId; self.projectName = projectName
+            self.running = running; self.pending = pending
+        }
+    }
+
+    public init(schemaVersion: Int = 1, contractVersion: String, totalPending: Int, projects: [ProjectQueue]) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.totalPending = totalPending; self.projects = projects
+    }
+}

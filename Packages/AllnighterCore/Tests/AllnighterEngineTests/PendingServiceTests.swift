@@ -48,6 +48,20 @@ final class PendingServiceTests: XCTestCase {
         XCTAssertEqual(direct.status, .pending)
     }
 
+    func testQueueJSONCountsArmedGroupsAndPreservesOrder() throws {
+        let a = try service.add(.init(prompt: "First task", workerToken: "claude", submit: true))
+        let b = try service.add(.init(prompt: "Second task", workerToken: "claude", submit: true))
+        _ = try service.add(.init(prompt: "Draft only", workerToken: "claude"))   // draft → excluded from the queue
+
+        let q = try service.queueJSON()
+        XCTAssertEqual(q.totalPending, 2, "drafts are not armed; only .pending count toward the pill")
+        XCTAssertEqual(q.projects.count, 1)
+        let group = try XCTUnwrap(q.projects.first)
+        XCTAssertEqual(group.projectId, "unassigned")
+        XCTAssertNil(group.running, "nothing running")
+        XCTAssertEqual(group.pending.map { $0.pendingItem.id }, [a.id, b.id], "queue order preserved")
+    }
+
     func testReorderPreservesLifecycleStatus() throws {
         let first = try service.add(.init(prompt: "A", workerToken: "claude", submit: true))
         let second = try service.add(.init(prompt: "B", workerToken: "claude", submit: true))

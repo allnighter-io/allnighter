@@ -187,6 +187,10 @@ public extension ContractRegistry {
                     params: [.init("pendingId", required: true, summary: "Pending item id.")],
                     outputSchema: .pendingItemJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("pending_queue", command: "pending queue", summary: "Render-ready Pending queue: armed items grouped by project (in order, each headed by its running item) + total armed count for the pending pill.",
+                    params: [],
+                    outputSchema: .pendingQueueJSON,
+                    errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("pending_run", command: "pending run", summary: "Run a Pending workerChat or non-mutating teamRun item; executes and settles like CLI pending run.",
                     params: [.init("pendingId", required: true, summary: "Pending item id.")],
                     outputSchema: .pendingItemJSON,
@@ -605,6 +609,11 @@ public extension ContractRegistry {
             flags: [FlagSpec("json", summary: "Structured PendingListJSON.")],
             outputSchema: .pendingListJSON,
             exampleIds: ["pending_list_json"]
+        ),
+        CommandSpec(
+            "pending queue", summary: "Render-ready Pending queue (armed items grouped by project, in order, headed by the running item) + total armed count for the pending pill.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Emit a PendingQueueJSON object.")],
+            outputSchema: .pendingQueueJSON
         ),
         CommandSpec(
             "pending show", summary: "Show one Pending item.", milestone: .m1,

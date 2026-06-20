@@ -476,6 +476,30 @@ public struct PendingService: Sendable {
         )
     }
 
+    /// Render-ready queue: armed/running items grouped by project (in queue order),
+    /// each group headed by its running item, plus the total armed count for the pill.
+    public func queueJSON() throws -> PendingQueueJSON {
+        let relevant = try list().filter { $0.status == .pending || $0.status == .running }
+        var order: [String] = []
+        var byProject: [String: [PendingItem]] = [:]
+        for item in relevant {
+            let key = item.projectId ?? "unassigned"
+            if byProject[key] == nil { order.append(key) }
+            byProject[key, default: []].append(item)
+        }
+        let projectStore = ProjectStore()
+        var projects: [PendingQueueJSON.ProjectQueue] = []
+        for key in order {
+            let group = byProject[key] ?? []
+            let name = key == "unassigned" ? "Unassigned" : (try? projectStore.get(key))?.displayName
+            let running = try group.first { $0.status == .running }.map { try mapJSON($0) }
+            let pending = try group.filter { $0.status == .pending }.map { try mapJSON($0) }
+            projects.append(.init(projectId: key, projectName: name, running: running, pending: pending))
+        }
+        let total = relevant.filter { $0.status == .pending }.count
+        return PendingQueueJSON(contractVersion: ContractRegistry.contractVersion, totalPending: total, projects: projects)
+    }
+
     // MARK: - Worker resolution
 
     private struct ResolvedWorkers {

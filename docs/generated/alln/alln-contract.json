@@ -1449,6 +1449,28 @@
     },
     {
       "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a PendingQueueJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pending queue",
+      "outputSchema" : "pendingQueueJSON",
+      "summary" : "Render-ready Pending queue (armed items grouped by project, in order, headed by the running item) + total armed count for the pending pill."
+    },
+    {
+      "args" : [
         {
           "name" : "pending-id",
           "required" : true,
@@ -4359,6 +4381,19 @@
         }
       ],
       "summary" : "Show one Pending item including Wake\/capacity facts."
+    },
+    {
+      "command" : "pending queue",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "pending_queue",
+      "outputSchema" : "pendingQueueJSON",
+      "params" : [
+
+      ],
+      "summary" : "Render-ready Pending queue: armed items grouped by project (in order, each headed by its running item) + total armed count for the pending pill."
     },
     {
       "command" : "pending run",

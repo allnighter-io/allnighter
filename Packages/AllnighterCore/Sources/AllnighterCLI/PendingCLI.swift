@@ -7,6 +7,7 @@ enum PendingCLI {
         switch subcommand {
         case "add": runAdd(args, runtime)
         case "list": runList(args, runtime)
+        case "queue": runQueue(args, runtime)
         case "show": runShow(args, runtime)
         case "submit": runSubmit(args, runtime)
         case "edit": runEdit(args, runtime)
@@ -60,6 +61,29 @@ enum PendingCLI {
             } else {
                 for item in items {
                     print("\(item.id)\t\(item.status.rawValue)\t\(item.title)")
+                }
+            }
+        } catch {
+            emitPendingError(error)
+        }
+    }
+
+    private static func runQueue(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        let service = makeService(runtime)
+        do {
+            let queue = try service.queueJSON()
+            if opts.flag("json") {
+                print(AllnighterCLI.jsonString(queue))
+            } else if queue.projects.isEmpty {
+                print("(no pending work)")
+            } else {
+                print("\(queue.totalPending) pending")
+                for p in queue.projects {
+                    print("\(p.projectName ?? p.projectId)\(p.running != nil ? " · running: \(p.running!.pendingItem.promptExcerpt.prefix(48))" : "")")
+                    for item in p.pending {
+                        print("  \(item.pendingItem.id)\t\(item.pendingItem.promptExcerpt.prefix(60))")
+                    }
                 }
             }
         } catch {

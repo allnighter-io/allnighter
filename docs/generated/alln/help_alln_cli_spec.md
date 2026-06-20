@@ -568,6 +568,15 @@ Output schema: `pendingListJSON`.
 
 Examples: `pending_list_json`.
 
+### `alln pending queue`
+
+Render-ready Pending queue (armed items grouped by project, in order, headed by the running item) + total armed count for the pending pill.
+
+Flags:
+- `--json` — Emit a PendingQueueJSON object.
+
+Output schema: `pendingQueueJSON`.
+
 ### `alln pending show`
 
 Show one Pending item.

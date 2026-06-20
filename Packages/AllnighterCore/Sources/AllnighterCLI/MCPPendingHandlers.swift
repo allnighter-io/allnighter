@@ -44,6 +44,17 @@ enum MCPPendingHandlers {
         }
     }
 
+    static func queue(runtime: ToolRuntime, store: PendingStore? = nil) -> Outcome {
+        let service = makeService(runtime, store: store)
+        do {
+            let payload = try service.queueJSON()
+            return .success(AllnighterCLI.jsonString(payload),
+                            summary: "\(payload.totalPending) pending · \(payload.projects.count) project(s)")
+        } catch {
+            return .toolError(internalEnvelope(error))
+        }
+    }
+
     static func show(runtime: ToolRuntime, args: [String: Any], store: PendingStore? = nil) -> Outcome {
         guard let pendingId = args["pendingId"] as? String, !pendingId.isEmpty else {
             return .toolError(ErrorEnvelope(

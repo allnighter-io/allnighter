@@ -285,6 +285,8 @@ struct MCPServer {
             respond(id: id, result: toolText(running ? "running" : "idle", structured: AllnighterCLI.jsonString(status)))
         case "pending_list":
             respondPending(id: id, outcome: MCPPendingHandlers.list(runtime: runtime, args: args))
+        case "pending_queue":
+            respondPending(id: id, outcome: MCPPendingHandlers.queue(runtime: runtime))
         case "pending_show":
             respondPending(id: id, outcome: MCPPendingHandlers.show(runtime: runtime, args: args))
         case "pending_run":
