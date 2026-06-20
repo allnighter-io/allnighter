@@ -108,6 +108,7 @@ enum GUIFixture {
         case "studio-teams-design": return .teams(.design)
         case "studio-teams-copy": return .teams(.copy)
         case "studio-skills-code": return .skills(.code)
+        case "studio-default-model": return .defaultModel
         default: return .clis
         }
     }
@@ -215,6 +216,7 @@ enum GUIFixture {
         ("thread-team-board", "Thread — team board"),
         ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
+        ("studio-default-model", "Team Studio — Default model (Auto tiers)"),
         ("studio-teams-code", "Team Studio — Code teams (detail)"),
         ("studio-skills-code", "Team Studio — Code skills (detail)"),
         ("studio-team-editor", "Team Studio — Customize team editor"),

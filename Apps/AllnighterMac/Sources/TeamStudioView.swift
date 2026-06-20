@@ -14,6 +14,7 @@ import AllnighterCore
 /// and skill belongs to exactly one lane — Work_Order_Team_Model.md).
 enum StudioRoute: Hashable {
     case clis
+    case defaultModel
     case teams(ComposeLane)
     case skills(ComposeLane)
 }
@@ -47,6 +48,8 @@ struct TeamStudioView: View {
         case .clis:
             // The shipped CLI-setup / readiness surface, embedded as the CLIs page.
             TeamReadinessView(focusDriverId: nil, onClose: onDone, onAddSource: {})
+        case .defaultModel:
+            DefaultModelView()
         case .teams(let lane):
             StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId)
         case .skills(let lane):
@@ -76,6 +79,9 @@ private struct StudioNav: View {
 
             // CLIs — lane-agnostic foundation; sources feed every lane.
             item("CLIs", icon: "terminal", target: .clis)
+            // Default model (Auto) — lane-agnostic; the model that answers when no team
+            // or model is picked, drawn from the substitution tiers.
+            item("Default model", icon: "infinity", target: .defaultModel)
 
             ForEach(ComposeLane.allCases, id: \.self) { lane in
                 laneHeader(lane)
