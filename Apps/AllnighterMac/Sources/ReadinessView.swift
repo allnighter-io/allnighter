@@ -14,7 +14,6 @@ struct TeamReadinessView: View {
     @State private var selectedId: String?
 
     private var cards: [SetupCardModel] { model.setupCards }
-    private var buckets: SetupCardBuckets { SetupCardBuckets(cards, splitNotChecked: true) }
 
     private var selectedCard: SetupCardModel? {
         cards.first { $0.driverId == selectedId }
@@ -24,7 +23,7 @@ struct TeamReadinessView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                statsRow
+                summaryLine
                 bodyColumns
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -42,7 +41,7 @@ struct TeamReadinessView: View {
     private func seedSelection() {
         if let focus = focusDriverId, cards.contains(where: { $0.driverId == focus }) {
             selectedId = focus
-        } else if let first = buckets.step.first?.driverId ?? buckets.add.first?.driverId ?? buckets.ready.first?.driverId {
+        } else if let first = (attentionCards.first ?? readyCards.first ?? dormantCards.first ?? cards.first)?.driverId {
             selectedId = first
         }
     }
@@ -55,12 +54,12 @@ struct TeamReadinessView: View {
                 Text("Setup")
                     .font(.system(size: 11, weight: .semibold)).tracking(1.1)
                     .textCase(.uppercase)
-                    .foregroundStyle(ALColor.accentText)
+                    .foregroundStyle(ALColor.textFaint)
                     .padding(.bottom, 7)
                 Text("CLI setup")
                     .font(.system(size: 24, weight: .bold)).tracking(-0.48)
                     .foregroundStyle(ALColor.textPrimary)
-                Text("Add, install, and sign in to the command-line tools on your Mac. Fix a CLI here before it can take work — the same check runs in the title bar and the team dropdown.")
+                Text("Choose which models are available across Allnighter. A CLI is just how a model gets here — turn a model on and it shows up everywhere you pick one.")
                     .font(.system(size: 13))
                     .foregroundStyle(ALColor.textMuted)
                     .lineSpacing(3)
@@ -89,70 +88,46 @@ struct TeamReadinessView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
-    // MARK: - Stats
+    // MARK: - Summary line (replaces the old 4 stat cards)
 
-    private var statsRow: some View {
-        let readyN = model.readyToolCount
-        let totalN = max(model.totalToolCount, 1)
-        return HStack(spacing: 12) {
-            statCard(
-                value: "\(readyN)",
-                suffix: "/ \(totalN)",
-                label: "CLIs ready",
-                ok: readyN == totalN
-            )
-            statCard(
-                value: "\(model.models.filter(\.enabled).count)",
-                suffix: nil,
-                label: "Models on bench",
-                ok: false
-            )
-            statCard(
-                value: "Code · Design · Copy",
-                suffix: nil,
-                label: "Lanes covered",
-                ok: false,
-                smallValue: true
-            )
-            statCard(value: "$0", suffix: nil, label: "Marginal cost", ok: true)
+    private var summaryLine: some View {
+        HStack(spacing: 8) {
+            StatusDot(color: ALPalette.green500, halo: ALPalette.green500.opacity(0.15))
+            (Text("\(model.availableModelCLICount)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
+                + Text(" CLIs").foregroundStyle(ALColor.textMuted)
+                + Text("  ·  ").foregroundStyle(ALColor.textFaint)
+                + Text("\(model.availableModels.count)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
+                + Text(" models available").foregroundStyle(ALColor.textMuted))
+                .font(.system(size: 12.5, design: .monospaced))
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 4)
-    }
-
-    private func statCard(value: String, suffix: String?, label: String, ok: Bool, smallValue: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(value)
-                    .font(.system(size: smallValue ? 16 : 24, weight: .bold)).tracking(-0.48)
-                    .foregroundStyle(ok ? ALPalette.green400 : ALColor.textPrimary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                if let suffix {
-                    Text(suffix)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(ALColor.textFaint)
-                }
-            }
-            Text(label)
-                .font(.system(size: 11.5))
-                .foregroundStyle(ALColor.textMuted)
-                .padding(.top, 6)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 15).padding(.vertical, 14)
-        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        .padding(.horizontal, 28).padding(.top, 16).padding(.bottom, 16)
+        .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
     // MARK: - Roster + repair
 
+    // Grouped CLI list (CLI-setup redesign §1): Needs attention → Ready → Dormant,
+    // sharing CLIStatusRow with the CLI dropdown. Selectable (amber focus ring).
+    private func onModelNames(for driverId: String) -> [String] {
+        model.models.filter { $0.enabled && $0.driverId == driverId }.map(\.displayName)
+    }
+    private var attentionCards: [SetupCardModel] {
+        cards.filter { CLIStatusGroup.isAttention($0.state) }
+    }
+    private var readyCards: [SetupCardModel] {
+        cards.filter { $0.state == .ready && !onModelNames(for: $0.driverId).isEmpty }
+    }
+    private var dormantCards: [SetupCardModel] {
+        cards.filter { ($0.state == .ready && onModelNames(for: $0.driverId).isEmpty) || $0.state == .notChecked }
+    }
+
     private var bodyColumns: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(alignment: .leading, spacing: 9) {
-                rosterGroup("Ready", cards: buckets.ready)
-                rosterGroup("Needs a step", cards: buckets.step)
-                rosterGroup("Not checked yet", cards: buckets.notChecked)
-                rosterGroup("Add a CLI", cards: buckets.add)
+                cliGroup("Needs attention", attentionCards, .attention)
+                cliGroup("Ready", readyCards, .ready)
+                cliGroup("Dormant", dormantCards, .dormant)
                 censusFallback
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -165,17 +140,14 @@ struct TeamReadinessView: View {
         .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 40)
     }
 
-    @ViewBuilder private func rosterGroup(_ title: String, cards: [SetupCardModel]) -> some View {
+    @ViewBuilder private func cliGroup(_ title: String, _ cards: [SetupCardModel], _ kind: CLIStatusGroup) -> some View {
         if !cards.isEmpty {
             SetupGroupLabel(title: title, count: cards.count)
             ForEach(cards) { card in
-                Button {
-                    selectedId = card.driverId
-                } label: {
-                    SetupCardView(card: card, layout: .roster) { handle($0, card: card) }
-                }
-                .buttonStyle(.plain)
-                .overlay { selectionRing(selected: card.driverId == selectedId) }
+                CLIStatusRow(
+                    card: card, onModels: onModelNames(for: card.driverId), kind: kind,
+                    interactive: true, selected: card.driverId == selectedId,
+                    onTap: { selectedId = card.driverId })
             }
         }
     }
@@ -213,21 +185,6 @@ struct TeamReadinessView: View {
         }
     }
 
-    private func selectionRing(selected: Bool) -> some View {
-        Group {
-            if selected {
-                RoundedRectangle(cornerRadius: ALRadius.lg)
-                    .strokeBorder(ALColor.accentBorder, lineWidth: 1)
-                RoundedRectangle(cornerRadius: ALRadius.lg + 4)
-                    .strokeBorder(ALColor.accentSurface, lineWidth: 4)
-            }
-        }
-    }
-
-    private func handle(_ action: SetupCardView.SetupAction, card: SetupCardModel) {
-        selectedId = card.driverId
-        SetupActions.handle(action, model: model)
-    }
 }
 
 // MARK: - Repair panel (sticky right column)
