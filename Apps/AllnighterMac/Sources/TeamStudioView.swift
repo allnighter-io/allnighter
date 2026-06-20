@@ -238,10 +238,12 @@ private struct StudioTeamListView: View {
             Button { newDraftBase = nil; selectedId = team.id } label: {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
+                        if isDefaultRun {
+                            Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                        }
                         Text(team.displayName)
                             .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
                             .lineLimit(1)
-                        if isDefaultRun { miniBadge("Default", ALColor.accent) }
                         if !team.builtIn { miniBadge("Custom", ALColor.textMuted) }
                         Spacer(minLength: 0)
                     }
@@ -264,12 +266,7 @@ private struct StudioTeamListView: View {
             .help(isDefaultRun ? "The Default Team is always featured" : (fav ? "Remove from favorites" : "Add to favorites"))
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(on ? ALColor.active : (isDefaultRun ? ALColor.accent.opacity(0.07) : .clear), in: RoundedRectangle(cornerRadius: ALRadius.md))
-        .overlay {
-            if isDefaultRun {
-                RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.accent.opacity(0.35), lineWidth: 1)
-            }
-        }
+        .background(on ? ALColor.active : .clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
     }
 
     private func miniBadge(_ t: String, _ c: Color) -> some View {

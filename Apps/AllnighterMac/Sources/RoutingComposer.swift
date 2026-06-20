@@ -183,7 +183,7 @@ struct RoutingComposer: View {
         return Button { cycleProject() } label: {
             HStack(spacing: 6) {
                 Image(systemName: "folder").font(.system(size: 11))
-                    .foregroundStyle(active != nil ? ALColor.accentText : ALColor.textFaint)
+                    .foregroundStyle(active != nil ? ALColor.textMuted : ALColor.textFaint)
                 Text(active?.displayName ?? "No project")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(active != nil ? ALColor.textPrimary : ALColor.textFaint).lineLimit(1)
@@ -205,22 +205,24 @@ struct RoutingComposer: View {
         projects.select(all[(idx + 1) % all.count].id)
     }
 
+    // Muted, Cursor-restrained: no accent color, no brand glyph, calm text. The
+    // "Auto" route gets an infinity glyph; a picked team gets its lane glyph.
     private var targetChip: some View {
         Button { targetOpen.toggle() } label: {
-            HStack(spacing: 7) {
-                Image(systemName: lane.icon).font(.system(size: 12)).foregroundStyle(ALColor.accentText)
-                Text(teamDisplayName).font(ALFont.mono).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+            HStack(spacing: 6) {
+                Image(systemName: team == nil ? "infinity" : lane.icon)
+                    .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                Text(teamDisplayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
                 if let m = appModel.composeBench.first(where: { $0.id == to }) {
                     Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-                    DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5)
-                    Text(m.name).font(ALFont.mono).foregroundStyle(ALColor.textPrimary)
+                    Text(m.name).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
                 }
-                Text("· \(effort.label)").font(ALFont.mono).foregroundStyle(ALColor.textMuted)
-                Image(systemName: "chevron.down").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
+                Text("· \(effort.label)").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+                Image(systemName: "chevron.down").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
             }
-            .padding(.horizontal, 10).frame(height: 31)
-            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+            .padding(.horizontal, 9).frame(height: 28)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
         }
         .buttonStyle(.plain)
         .fixedSize()
@@ -229,15 +231,17 @@ struct RoutingComposer: View {
 
     private var teamDisplayName: String {
         if let id = team, let preset = TeamCatalog.get(id) { return preset.displayName }
-        return TeamCatalog.defaultRunTeam()?.displayName ?? "Default team"
+        return TeamCatalog.defaultRunTeam()?.displayName ?? "Auto"
     }
 
+    // Round, small, and deliberately not bright-white — a soft circle, not a loud
+    // square. Restraint over theater (founder: "learn from the leader").
     private var sendButton: some View {
         Button(action: performSend) {
-            Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
+            Image(systemName: "arrow.up").font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(canSend ? ALColor.textOnLight : ALColor.textFaint)
-                .frame(width: 34, height: 34)
-                .background(canSend ? ALColor.actionLight : ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                .frame(width: 28, height: 28)
+                .background(canSend ? ALPalette.ink150 : ALColor.active, in: Circle())
         }
         .buttonStyle(.plain)
         .disabled(!canSend)
@@ -335,25 +339,25 @@ struct RoutingComposer: View {
         .padding(.horizontal, 6).padding(.vertical, 4)
     }
 
-    // The Default Team is pinned to the very top and amber — it's the 95% case.
+    // "Auto" is pinned to the very top — the default route, the 95% case.
     private var defaultTeamRow: some View {
         Button { team = nil; targetOpen = false } label: {
             HStack(spacing: 10) {
-                Image(systemName: "star.fill").font(.system(size: 13)).foregroundStyle(ALColor.accent)
+                Image(systemName: "infinity").font(.system(size: 13)).foregroundStyle(ALColor.textSecondary)
                     .frame(width: 27, height: 27)
-                    .background(ALColor.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: 7))
+                    .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(TeamCatalog.defaultRunTeam()?.displayName ?? "Default team")
+                    Text(TeamCatalog.defaultRunTeam()?.displayName ?? "Auto")
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                    Text("Your go-to agent — chat or build").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                    Text("The default route — your go-to agent").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
                 }
                 Spacer(minLength: 8)
-                if team == nil { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.accent) }
+                if team == nil { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             }
             .padding(.horizontal, 9).padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(ALColor.accent.opacity(team == nil ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.accent.opacity(0.45), lineWidth: 1) }
+            .background(team == nil ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(team == nil ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
         }
         .buttonStyle(.plain)
     }

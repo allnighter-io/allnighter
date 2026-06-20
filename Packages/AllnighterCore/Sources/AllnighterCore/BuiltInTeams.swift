@@ -182,10 +182,11 @@ public enum BuiltInTeams {
 
     // MARK: - Unified run model teams
 
-    /// Default chat: one worker, mutating-allowed, no special-case code path.
+    /// Auto: the default route — one agent, mutating-allowed, no special-case code
+    /// path. "Auto" because it picks your go-to agent and just runs it.
     static let defaultChat = make(
-        id: "default_chat", name: "Default Team", lane: .code, output: .plan, defaultEffort: .med,
-        description: "Your go-to worker in the repo — talk or build, same object as any execution team.",
+        id: "default_chat", name: "Auto", lane: .code, output: .plan, defaultEffort: .med,
+        description: "The default route — your go-to agent in the repo, talk or build.",
         rows: [
             // Raw passthrough: the user's message reaches the agent unmodified, so a
             // default run equals running the CLI directly (never worse). No skill
