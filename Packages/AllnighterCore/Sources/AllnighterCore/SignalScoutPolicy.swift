@@ -16,9 +16,14 @@ public enum SignalScoutPolicy {
         guard let scout = team.scout else {
             return "No scout: without an X-capable scout (Grok), this team can't grab a public X/URL link — workers only see text you paste."
         }
-        let usesGrok = scout.preferredModelId == xCapableScoutModelId
-            || scout.allowedModelIds.contains(xCapableScoutModelId)
-        guard !usesGrok else { return nil }
+        if scout.allowedModelIds.contains(xCapableScoutModelId) { return nil }
+        return scoutModelWarning(scout.preferredModelId)
+    }
+
+    /// Live warning for the editor as a scout model is picked, or nil when it's Grok.
+    /// Drives the inline warning under the Scout row in the customize-team UI.
+    public static func scoutModelWarning(_ modelId: String?) -> String? {
+        guard modelId != xCapableScoutModelId else { return nil }
         return "Grok removed from the scout role: only Grok can grab a public X post from a link. Without it the scout can't read X URLs — paste the post text instead, or keep Grok as the scout."
     }
 }
