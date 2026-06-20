@@ -717,19 +717,26 @@ topic contract for the broader agent-first workflow.
 ```text
 quickstart
 tool_selection
-schemas
-teams
-lanes
+current_setup
+setup_and_auth
+teams_and_workers
+team_run_loop
 deployables
 pending
+projects_and_threads
+schemas
 errors
 doctor
-approval
+approval_and_safety
+entitlement_and_limits
+mcp_install
 examples
 ```
 
 `help_get(topic: "tool_selection")` must return a concise, machine-readable
-decision guide. Agents should not infer this from marketing prose.
+decision guide with exact tool sequences, argument skeletons, live-check notes,
+approval/safety notes, and stable `alln://` refs. Agents should not infer this
+from marketing prose.
 
 Tool selection rules:
 
@@ -1394,8 +1401,10 @@ This slice must land before broad MCP expansion.
 
 - Add `mcp_hello`.
 - Add `help_search` and `help_get` with `quickstart`, `tool_selection`,
-  `schemas`, `errors`, `doctor`, `pending`, `approval`, and `examples` topics
-  (see `MCP_Help_System.md` for bundle/source/drift rules).
+  `current_setup`, `setup_and_auth`, `teams_and_workers`, `team_run_loop`,
+  `deployables`, `pending`, `projects_and_threads`, `schemas`, `errors`,
+  `doctor`, `approval_and_safety`, `entitlement_and_limits`, `mcp_install`, and
+  `examples` topics (see `MCP_Help_System.md` for bundle/source/drift rules).
 - Upgrade `DoctorResult` to schema version 2 with `canStartTeamRun`,
   `readyTeams`, `blockedReason`, `nextAction`, `fixes`, `appliedFixes`,
   `humanActions`, `entitlement`, `observedAt`, `staleAfter`, and `traceId`.

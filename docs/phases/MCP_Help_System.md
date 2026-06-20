@@ -80,6 +80,16 @@ fresh installed Allnighter, no source checkout
 -> agent can answer onboarding, setup, team, Pending, and schema questions
 ```
 
+In-app slice:
+
+```text
+user asks Allnighter chat "what is Pending vs running a team?"
+-> Default Team routes the question to the same installed help bundle
+-> help returns a concise answer, stable `alln://` refs, and suggested actions
+-> Mac UI can show "Add to Pending", "Run team now", or "Open help" without
+   inventing separate SwiftUI truth
+```
+
 ## Non-goals
 
 - No source-repo requirement for installed help.
@@ -116,6 +126,32 @@ installed offline help pack
 + live local state via mcp_hello/doctor/teams/models
 + optional official web fallback
 ```
+
+## Hard Decisions
+
+These decisions tighten the plan for implementation:
+
+- **`alln help` is the friendly installed guide.** It owns product usage,
+  search, topic retrieval, answer templates, and state-aware next actions.
+  **`alln docs` remains the raw generated contract reference** for exhaustive
+  command/tool/schema/error output.
+- **No separate `help_plan` tool in v1.** Keep the tool surface small:
+  `help_search` discovers, and `help_get` retrieves. Both return an ordered
+  `nextToolPlan` so host agents do not have to synthesize orchestration from
+  prose.
+- **`help_get` accepts topic ids, `alln://` refs, tool ids, and error codes.**
+  The common paths are `help_get(topic: "pending")`,
+  `help_get(ref: "alln://help/pending#when-to-use-pending")`,
+  `help_get(tool: "team_start")`, and `help_get(error: "SOURCE_AUTH_EXPIRED")`.
+- **Every high-traffic help response carries a suggested human answer.** The
+  host agent may summarize, but the returned shape should already contain a
+  short, citable, version-correct answer plus exact next action.
+- **The first screen is `tools/list` + `mcp_hello`, not the topic body.** Tool
+  descriptions, install snippets, and `mcp_hello` must repeat the help-first
+  routing law in compact language.
+- **The same help bundle powers external MCP and in-app chat.** Allnighter's own
+  Default Team must not answer product questions from prompt memory while
+  external agents get better local help.
 
 ## Current State
 
@@ -214,7 +250,13 @@ HelpTopicRegistry
 InstalledHelpBundle
   -> bundled with app/CLI
   -> version/hash reported by mcp_hello and doctor
-  -> served by alln help and MCP help tools
+  -> served by alln help, MCP help tools, and Mac in-app help
+
+HelpService
+  -> pure Core lookup/search/render API over the installed bundle
+  -> CLI adapter
+  -> MCP adapter
+  -> Mac chat/help presenter
 
 MCP help tools
   -> help_search
@@ -247,7 +289,7 @@ error_explain
 teams_list
 teams_show
 team_preflight
-models_list
+model/bench readiness tools where registered
 project_workers
 spec_get
 ```
@@ -257,8 +299,11 @@ CLI parity:
 ```bash
 alln help search "how do I send work to a team?" --json
 alln help get team_run_loop --json
+alln help get alln://help/pending#when-to-use-pending --json
+alln help get --tool team_start --json
+alln help topics --json
 alln help get tool_selection --format md
-alln help doctor --json
+alln doctor --json                  # live setup/readiness; paired with help
 alln docs                         # raw generated contract manual remains
 ```
 
@@ -274,6 +319,7 @@ Input:
 ```json
 {
   "query": "How do I put this on Codex's desk later?",
+  "kind": "search",
   "audience": "agent",
   "surface": "mcp",
   "limit": 5,
@@ -288,7 +334,13 @@ Output:
   "schemaVersion": 1,
   "contractVersion": "1.0.0",
   "helpBundleVersion": "2026.06.20",
+  "helpVersionMatchesBinary": true,
   "query": "How do I put this on Codex's desk later?",
+  "suggestedAnswer": {
+    "audience": "agent",
+    "markdown": "Use Pending when the user wants work stored for later or when Allnighter cannot start it right now. For a chat-originated request, create a Pending item with an idempotency key, then show the user the Pending id and current blocked/wake state.",
+    "refs": ["alln://help/pending#when-to-use-pending"]
+  },
   "results": [
     {
       "topicId": "pending",
@@ -303,9 +355,19 @@ Output:
       "needsLiveCheck": false
     }
   ],
+  "nextToolPlan": [
+    {
+      "order": 1,
+      "tool": "help_get",
+      "args": {"topic": "pending", "detail": "machine"},
+      "why": "Retrieve the full decision table and examples.",
+      "stopWhen": "The user only needs a short conceptual answer."
+    }
+  ],
   "nextActions": [
     {"kind": "getHelp", "tool": "help_get", "topicId": "pending"}
-  ]
+  ],
+  "stalenessWarning": null
 }
 ```
 
@@ -314,7 +376,16 @@ Rules:
 - Search only installed help content and generated contract metadata.
 - Return ranked refs, not a long answer.
 - Include `relatedTools` and `relatedCommands` from the registry.
+- Index guide prose, topic aliases, retired vocabulary redirects, tool
+  summaries, parameter names, schema names, error codes, and example titles.
+- Include `suggestedAnswer` for high-confidence hits so host agents can answer
+  without inventing wording from snippets.
+- Include `nextToolPlan` with ordered calls and stop conditions when the query
+  implies a workflow.
 - Mark `needsLiveCheck: true` when the answer depends on local state.
+- Allow an empty query or `kind: "topics"` request to enumerate the compact
+  topic sitemap; do not add a separate `help_list` tool in v1 unless host-agent
+  testing proves it is necessary.
 - Never perform a run, probe, auth flow, or network call.
 
 ### `help_get`
@@ -326,6 +397,9 @@ Input:
 ```json
 {
   "topic": "tool_selection",
+  "ref": null,
+  "tool": null,
+  "error": null,
   "section": null,
   "detail": "machine",
   "format": "json",
@@ -341,39 +415,62 @@ Output:
   "schemaVersion": 1,
   "contractVersion": "1.0.0",
   "helpBundleVersion": "2026.06.20",
+  "helpVersionMatchesBinary": true,
   "topic": {
     "id": "tool_selection",
     "title": "Tool Selection",
     "audience": "agent",
     "summary": "Choose the right Allnighter MCP tool for the user's intent.",
+    "suggestedAnswer": {
+      "markdown": "For long-running team work, call `team_preflight` first, then `team_start` with an idempotency key. Poll with `team_status` using `nextPollAfterMs`, then fetch `team_result` or `spec_get` for the full packet.",
+      "refs": ["alln://help/tool_selection#team-run"]
+    },
     "bodyMarkdown": "...",
     "machineGuide": {
       "rules": [
         {
           "intent": "start a long team run",
           "preferredTool": "team_preflight -> team_start",
+          "argsSkeleton": {
+            "team_preflight": {"lane": "code", "team": "code_bug_hunt", "prompt": "..."},
+            "team_start": {"prompt": "...", "lane": "code", "team": "code_bug_hunt", "idempotencyKey": "..."}
+          },
+          "needsLiveCheck": true,
+          "approvalNote": "Starting an answer team is allowed when preflight passes; mutating execution follows the installed approval/safety policy.",
           "notes": "Use a lane/team explicitly. Poll using nextPollAfterMs."
         }
       ]
     },
+    "nextToolPlan": [
+      {"order": 1, "tool": "mcp_hello", "args": {}, "why": "Check current readiness."},
+      {"order": 2, "tool": "team_preflight", "args": {"lane": "code", "team": "<team>", "prompt": "<prompt>"}, "why": "Validate before spending quota."}
+    ],
     "relatedTools": ["mcp_hello", "team_preflight", "team_start", "pending_add", "spec_get"],
     "relatedCommands": ["alln team preflight", "alln team start", "alln spec"],
     "schemaRefs": ["alln://schema/teamStartResponse"],
     "errorRefs": ["alln://error/CLI_USAGE_ERROR"],
     "sourceRefs": ["alln://help/tool_selection"]
-  }
+  },
+  "stalenessWarning": null
 }
 ```
 
 Rules:
 
 - `detail: summary` returns a compact human/agent answer.
-- `detail: machine` returns structured decision tables and refs.
+- `detail: machine` returns structured decision tables, argument skeletons,
+  suggested answer text, refs, and next-tool plans. It is the preferred mode for
+  agents that will act.
 - `detail: full` returns complete markdown plus generated appendices.
+- `topic`, `ref`, `tool`, and `error` are mutually exclusive selectors.
+- Unknown topics return close matches, the compact sitemap, and a suggested
+  `help_search` call instead of a dead-end error.
 - `includeSchemas` returns schema refs by default; inline schemas only when
   explicitly requested and small enough.
 - If a topic is about live setup, the topic must name the live tool to call
   rather than pretending the help bundle knows current state.
+- Every high-traffic topic must include at least one stable `alln://` ref the
+  calling agent can cite in its final answer.
 
 ## Required Topics
 
@@ -387,6 +484,7 @@ Minimum v1 installed topics:
 | `setup_and_auth` | Install, source auth, doctor, recovery ladder. | doctor checks, errors |
 | `teams_and_workers` | Teams, workers, skills, models, Default Team. | team/skill/model schemas |
 | `team_run_loop` | Preflight, start, status, result, cancel, spec retrieval. | team tools, async schemas |
+| `deployables` | Packaged team jobs and deployable-team flows. | deployable tools |
 | `pending` | Draft/Pending/Running, later work, Wake facts. | pending schemas/tools |
 | `projects_and_threads` | Project roots, work threads, project workers. | project/thread tools |
 | `file_references` | Composer `@` refs, file chips, send-time audit. | file-reference errors/tools |
@@ -395,6 +493,7 @@ Minimum v1 installed topics:
 | `errors` | Error recovery and retry ladder. | error catalog |
 | `doctor` | Doctor status, auto-fix boundaries, human actions. | doctor schema/checks |
 | `approval_and_safety` | What agents may do, approval objects, mutating boundaries. | safety errors, tool metadata |
+| `entitlement_and_limits` | Entitlement blocks, quota/billing posture, and tools still safe when blocked. | entitlement errors/tools |
 | `mcp_install` | How to install/configure the MCP server for agents. | install command/docs |
 | `mac_app` | What the app shows and when to open it. | app-facing guide prose |
 | `glossary` | Product vocabulary: Team, worker, model, skill, Pending, run. | vocabulary source refs |
@@ -402,6 +501,17 @@ Minimum v1 installed topics:
 
 Every advertised MCP tool must be reachable from at least one topic. Every
 topic that names a tool or command must reference a registry id.
+
+Topic aliases and redirects are part of v1:
+
+| User/search term | Canonical topic | Notes |
+| --- | --- | --- |
+| `approval`, `permissions`, `safe to run` | `approval_and_safety` | `approval` is an alias, not a separate topic. |
+| `fan out`, `send to team`, `delegate` | `team_run_loop` | Search should find current vocabulary while redirecting retired words. |
+| `build`, `code lane` | `teams_and_workers` / `team_run_loop` | Explain Build -> Code when needed; public output uses Code. |
+| `lane` | `glossary` | Disambiguate old lane language from current product terms. |
+| `saved job`, `recipe`, `deploy` | `deployables` | Routes to deployable-team tools when registered. |
+| `limits`, `billing`, `blocked`, `quota` | `entitlement_and_limits` | Must not estimate future spend; route to live entitlement/doctor facts. |
 
 ## State-Aware Answering Rules
 
@@ -423,6 +533,77 @@ For questions about how to use Allnighter, call help_search/help_get first.
 For questions about this Mac's current readiness, call mcp_hello or doctor.
 Do not answer Allnighter product questions from training data when these tools
 are available.
+```
+
+## Bootstrap Contract
+
+World-class help starts before the first help call. The MCP client sees
+`tools/list` and `mcp_hello` before it reads any topic body, so those surfaces
+must make the routing law unavoidable.
+
+Every generated help-aware tool description should include a short routing note:
+
+```text
+For Allnighter usage, tool-choice, setup, team, Pending, safety, schema, or
+error questions, call help_search/help_get before answering from memory.
+```
+
+`mcp_hello` must return a compact decision tree and topic sitemap:
+
+```json
+{
+  "contractVersion": "1.0.0",
+  "helpBundleVersion": "2026.06.20",
+  "helpVersionMatchesBinary": true,
+  "routingLaw": "For Allnighter product questions, call help_search/help_get before answering from memory.",
+  "topicSitemap": [
+    {"topicId": "quickstart", "title": "Quickstart", "summary": "First 5 minutes."},
+    {"topicId": "tool_selection", "title": "Tool Selection", "summary": "Which tool/command to call."},
+    {"topicId": "current_setup", "title": "Current Setup", "summary": "Use mcp_hello/doctor for live readiness."}
+  ],
+  "decisionTree": [
+    {"ifUserAsks": "how to use Allnighter", "call": "help_search -> help_get"},
+    {"ifUserAsks": "can it run right now", "call": "mcp_hello"},
+    {"ifUserAsks": "why is setup/auth blocked", "call": "doctor -> error_explain"},
+    {"ifUserAsks": "what schema/fields/errors exist", "call": "help_get(topic: schemas/errors)"}
+  ]
+}
+```
+
+If a host agent only reads one Allnighter response at session start, it should
+still know how to ask Allnighter about itself.
+
+## In-App Consumption
+
+The installed help bundle is not only for external MCP clients. The Mac app and
+Default Team should use the same `HelpService` directly or through the CLI/MCP
+adapter.
+
+Rules:
+
+- Default Team product questions route to `HelpService` before prompt-memory
+  answers.
+- In-app answers use `audience: "human"` by default: short answer first, exact
+  next action second, refs available but not noisy.
+- The Mac presenter may render suggested actions such as "Send to team",
+  "Add to Pending", "Run doctor", "Open topic", or "Copy CLI command" from the
+  returned `nextToolPlan`.
+- SwiftUI may present help; it must not own help truth, topic ids, tool-choice
+  tables, or schema facts.
+- In-app help can chain to live checks (`mcp_hello`, `doctor`, `team_preflight`)
+  when the user asks "can you do this now?".
+
+Example in-app answer shape:
+
+```json
+{
+  "answerMarkdown": "Pending is for work you want saved for later or work that cannot start yet. Running a team starts work now after preflight.",
+  "refs": ["alln://help/pending#pending-vs-running"],
+  "suggestedActions": [
+    {"kind": "addToPending", "label": "Add to Pending"},
+    {"kind": "teamPreflight", "label": "Check a team"}
+  ]
+}
 ```
 
 ## Drift Prevention
@@ -452,6 +633,24 @@ Required gates:
 - `mcp_hello` and `doctor` must report `helpBundleVersion`,
   `helpBundleHash`, and `helpVersionMatchesBinary`.
 
+Runtime stale-help behavior:
+
+| Condition | Tool behavior | Agent instruction |
+| --- | --- | --- |
+| `helpVersionMatchesBinary == true` | Normal responses. | Use help normally. |
+| Help bundle present but stale | `mcp_hello`, `doctor`, `help_search`, and `help_get` include `stalenessWarning`; schema/tool/enum answers prefer live `alln docs` / registry projections. | Warn once, avoid confident flag/enum claims from guide prose, and use generated contract refs for exact fields. |
+| Help bundle missing/corrupt | `mcp_hello` reports degraded help; `help_search/get` return a structured `HELP_BUNDLE_UNAVAILABLE` error with remediation. | Use `alln docs`/`doctor` for exact contract facts; tell the user to repair/reinstall or run the developer export command in a source checkout. |
+
+Developer remediation:
+
+```bash
+alln dev export-help --check
+alln dev export-help
+```
+
+Installed-user remediation must be phrased as an app/binary repair or update,
+not a source-repo command unless the user is explicitly in a development checkout.
+
 Generated block rule:
 
 ```text
@@ -468,6 +667,38 @@ Examples:
 - Short workflow prose is authored.
 - Product positioning and conceptual explanation are authored.
 
+## Error And Recovery Bridge
+
+Every emitted error should lead to help without a search detour.
+
+Rules:
+
+- Every `ErrorSpec` with user/agent recovery must include `helpTopicId` and
+  optional `helpSectionId` once the help registry exists.
+- `error_explain` must return `helpRef`, `helpTopicId`, and `helpSectionId`
+  alongside the catalog recovery metadata.
+- Tool-level failures should include `docsRef` / `helpRef` where safe, so a host
+  agent can call `help_get(ref: ...)` immediately.
+- `help_get(error: "SOURCE_AUTH_EXPIRED")` resolves through the error catalog,
+  not a hand-authored duplicate explanation.
+- Unknown help topics, unknown refs, and bad selectors return close matches and
+  the topic sitemap. They should not strand the agent with only
+  `CLI_USAGE_ERROR`.
+
+Example error bridge:
+
+```json
+{
+  "code": "SOURCE_AUTH_EXPIRED",
+  "agentAction": "Re-authenticate the named source.",
+  "helpRef": "alln://help/setup_and_auth#source-auth-expired",
+  "nextToolPlan": [
+    {"order": 1, "tool": "help_get", "args": {"ref": "alln://help/setup_and_auth#source-auth-expired"}},
+    {"order": 2, "tool": "doctor", "args": {"agent": "<sourceId>"}}
+  ]
+}
+```
+
 ## Privacy And Network Rules
 
 Allnighter help is local by default.
@@ -483,6 +714,16 @@ Allnighter help is local by default.
 - Help tools must not reveal secrets, prompt bodies, run transcripts, file
   contents, or provider config. They can point to `spec_get`, `doctor`, or
   project/thread tools when runtime data is needed.
+
+Privacy-safe local feedback:
+
+- Record zero-result and low-confidence help searches locally with timestamp,
+  contract version, and topic ids considered.
+- Keep raw query text local only; do not transmit it.
+- Provide a future opt-in export/redaction path for support, never automatic
+  upload.
+- Use this local gap log to add aliases, topics, examples, and golden
+  transcripts.
 
 ## Agent Install Artifacts
 
@@ -506,7 +747,30 @@ docs/generated/alln/agent-tool-selection.md
 docs/generated/alln/agent-error-recovery.md
 docs/generated/alln/help-pack.json
 docs/generated/alln/help-search-index.json
+docs/generated/alln/host-instructions/codex.md
+docs/generated/alln/host-instructions/claude.md
+docs/generated/alln/host-instructions/cursor.md
+docs/generated/alln/host-instructions/openclaw.md
+docs/generated/alln/host-instructions/hermes.md
 ```
+
+Every host instruction fragment must include the permanent routing rule:
+
+```text
+When the user asks anything about Allnighter usage, tools, teams, Pending,
+errors, setup, safety, schemas, or capabilities, call the local Allnighter MCP
+`help_search` first, or `help_get` if you already know the topic/ref/tool/error.
+Prefer the local installed help pack over training data or public web docs.
+```
+
+Generate fragments for the major host shapes:
+
+| Host | Artifact shape |
+| --- | --- |
+| Codex | Project/user instructions snippet. |
+| Claude | Project custom instructions snippet. |
+| Cursor | Rules / project instruction snippet. |
+| OpenClaw / Hermes | Messaging-agent bootstrap prompt and MCP config notes. |
 
 Optional later activation packs can mirror Cursor/Grok-style skills:
 
@@ -520,76 +784,104 @@ from the same help pack.
 
 ## Implementation Slices
 
-### H0 - Help SSOT and bundle shape
+### H0 - Help SSOT and installed bundle foundation
 
 - Add `HelpTopicRegistry` with topic ids, aliases, refs, audience, and generated
   block declarations.
 - Add `docs/help/source/*.md` for authored guide prose.
-- Add `HelpTopicReferenceTests` against `ContractRegistry`.
-- Add no-repo and banned-term tests.
-
-Completion gate:
-
-- Help topics can be generated without touching MCP runtime.
-- Every topic ref resolves.
-
-### H1 - Installed help export
-
-- Add `ContractExport` or sibling `HelpExport` artifacts:
-  `help-pack.json`, generated topic markdown, and `help-search-index.json`.
+- Add `HelpExport` artifacts: `help-pack.json`, generated topic markdown, and
+  `help-search-index.json`.
 - Add `alln dev export-help --check`.
 - Add app/CLI resource packaging for the help bundle.
 - Add `helpBundleVersion`, `helpBundleHash`, and `helpVersionMatchesBinary` to
   `mcp_hello` and doctor.
+- Add `HelpTopicReferenceTests` against `ContractRegistry`.
+- Add no-repo, banned-term, and packaging tests.
 
 Completion gate:
 
 - A built product can read its help bundle without the repo.
+- Help topics can be generated before MCP runtime handlers exist.
+- Every topic ref resolves.
 - Drift fails before release.
 
-### H2 - CLI help retrieval
+### H1 - CLI help retrieval and authoring loop
 
 - Add `alln help search <query> --json`.
-- Add `alln help get <topic> --json|--format md`.
+- Add `alln help get <topic|ref> --json|--format md`.
+- Add `alln help get --tool <tool>` and `alln help get --error <code>`.
+- Add `alln help topics --json` or equivalent topic-sitemap output.
 - Keep `alln docs` as the raw generated contract reference.
-- Add focused tests for quickstart, tool selection, schemas, and errors.
+- Add focused tests for quickstart, tool selection, schemas, errors, aliases,
+  and stale-bundle behavior.
 
 Completion gate:
 
 - A user can answer common product questions from the installed CLI alone.
+- Bad topic/ref requests return close matches and the sitemap.
 
-### H3 - MCP help retrieval
+### H2 - MCP help retrieval and bootstrap injection
 
 - Add registry specs and handlers for `help_search` and `help_get`.
-- Add schemas, error sets, output schema cases, and idempotency rules.
+- Add schemas, error sets, output schema cases, idempotency rules, and MCP
+  parity with `alln help`.
+- Add `suggestedAnswer`, `nextToolPlan`, stable refs, close matches, and
+  `stalenessWarning` to returned shapes.
+- Put the help-first routing law in MCP tool descriptions.
+- Put `topicSitemap`, decision tree, help version/hash, and routing law in
+  `mcp_hello`.
 - Add Works Test K as an MCP handler test.
-- Update MCP server instructions/descriptions to route agents to help first.
 
 Completion gate:
 
 - An MCP client can search and retrieve help without knowing topic ids.
+- A host agent that only sees `tools/list` + `mcp_hello` knows to call help.
 
-### H4 - State-aware help routing
+### H3 - State-aware plans, error bridge, and host activation
 
 - Mark topics/sections that require live state.
-- Ensure `help_search` results include `needsLiveCheck` and `nextActions`.
+- Ensure `help_search` and `help_get` include `needsLiveCheck`,
+  `nextToolPlan`, and stop conditions.
 - Add examples that combine help with `mcp_hello`, `doctor`, `teams_list`,
   `team_preflight`, and `project_workers`.
+- Add `helpTopicId`, `helpSectionId`, and `helpRef` to error recovery metadata.
+- Generate OpenClaw/Hermes/Codex/Claude/Cursor instruction snippets.
+- Add `alln mcp install --target <agent> --print` output for help-first usage.
+- Add local zero-result/low-confidence search logging.
 
 Completion gate:
 
 - Help answers do not pretend to know live setup. They route to live tools.
+- Error recovery is one call away from the failed tool result.
+- A third-party agent install has enough permanent instructions to call
+  Allnighter help before guessing.
 
-### H5 - Agent install and generated activation packs
+### H4 - In-app help consumption
 
-- Generate OpenClaw/Hermes/Codex/Claude/Cursor instruction snippets.
-- Add `alln mcp install --target <agent> --print` output for help-first usage.
-- Optionally generate skill-style offline references from the help pack.
+- Add a pure Core `HelpService` API consumed by CLI, MCP, and Mac.
+- Route Default Team / in-app product questions to the installed help bundle.
+- Add Mac presenter state for `answerMarkdown`, refs, and suggested actions.
+- Wire suggested actions to existing app flows without creating SwiftUI-owned
+  tool-choice truth.
 
 Completion gate:
 
-- A third-party agent install has enough instructions to call Allnighter help
-  before guessing.
+- A user asking Allnighter chat "how does Pending work?" gets the same truth as
+  an external MCP agent, plus app-native next actions.
+
+### H5 - Golden transcripts and quality bar
+
+- Add 10-20 golden transcripts:
+  user question -> expected tool sequence -> expected answer shape.
+- Include no-repo, Pending, auth expired, wrong team id, deployable job,
+  stale help, and in-app chat examples.
+- Grade for exact refs, next actions, banned vocabulary, live-state routing, and
+  concise human answer.
+
+Completion gate:
+
+- The first canonical questions produce crisp, citable, actionable answers in
+  CLI, MCP, and in-app paths.
 
 ### H6 - Optional official web mirror
 
@@ -696,6 +988,84 @@ Assertions:
 - If optional web fallback is disabled, result says local installed docs only.
 - No prompt/repo/config content leaves the machine.
 
+### Works Test G - simulated agent loop
+
+Gesture:
+
+```text
+help_search("put work on Codex's desk later")
+help_get(ref: <top result ref>, detail: "machine")
+mcp_hello()
+```
+
+Assertions:
+
+- The combined guidance names Pending tools when registered, or the current
+  installed alternative when not.
+- Guidance includes idempotency and live-check notes.
+- Output contains at least one stable `alln://` ref.
+- Output contains no retired public vocabulary except in alias/redirect context.
+
+### Works Test H - in-app product question
+
+Gesture:
+
+```text
+User asks Default Team chat: "What is Pending vs running a team?"
+```
+
+Assertions:
+
+- The response comes from the installed help bundle.
+- The response is short, version-correct, and uses current vocabulary.
+- Suggested actions include app-native paths such as "Add to Pending" or
+  "Check a team" where available.
+- No SwiftUI-local table owns the answer.
+
+### Works Test I - stale help degraded mode
+
+Setup:
+
+```text
+Install a mismatched help bundle for the current binary contract.
+```
+
+Assertions:
+
+- `mcp_hello` reports `helpVersionMatchesBinary: false`.
+- `help_search` / `help_get` include `stalenessWarning`.
+- Exact schema/enum questions route to current contract docs/registry refs.
+- The agent answer warns once and avoids confident claims from stale guide prose.
+
+### Works Test J - error to help bridge
+
+Gesture:
+
+```text
+Call a tool with an invalid team id, then call error_explain and help_get(ref).
+```
+
+Assertions:
+
+- Error response includes `helpRef` or error explanation returns one.
+- `help_get(ref:)` resolves without another search.
+- Final guidance includes the exact safe retry path or tells the agent to stop.
+
+### Works Test K - golden transcripts
+
+Setup:
+
+```text
+Run the golden transcript suite.
+```
+
+Assertions:
+
+- Canonical questions produce the expected tool sequence.
+- Final answers include a short human paragraph, exact next action, and stable
+  citation.
+- Wrong-tool and stale-help scenarios degrade predictably.
+
 ## Done When
 
 - Installed users can get product help through `alln help` and MCP without the
@@ -707,17 +1077,24 @@ Assertions:
 - `mcp_hello` and doctor report help bundle version/hash/drift.
 - Generated help, agent install snippets, schemas, errors, examples, and MCP
   descriptors are release-gated.
+- `mcp_hello` and generated tool descriptions teach the help-first routing law.
+- `help_search`/`help_get` return suggested human answers, stable refs, and
+  next-tool plans for high-traffic topics.
+- Stale or missing help degrades explicitly and routes exact contract questions
+  to current registry/docs truth.
+- Error responses bridge to help refs without requiring another search.
+- Allnighter's in-app chat uses the same installed help truth as external MCP
+  agents.
+- Golden transcripts pass for the canonical first questions.
 - Help distinguishes product docs from live setup state and routes to live
   tools when needed.
 - Public help output never depends on repo-only paths or model memory.
 
 ## Open Questions
 
-- Should `alln help` be a new top-level command, or should `alln docs` grow
-  `search/get` subcommands while preserving raw contract output?
 - Should production help include internal `sourceRefs` for support builds, or
   only public `alln://help/...` refs?
 - Should optional web fallback ship in v1, or stay parked until official public
   docs exist?
-- Which agent targets get generated activation snippets first: Codex, Claude,
-  Cursor, OpenClaw, Hermes, or all of them?
+- What is the retention window and UI for the local zero-result/low-confidence
+  help search log?
