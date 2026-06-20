@@ -1,6 +1,6 @@
 # Language Cutover
 
-Status: **Cutover plan — top of list, blocks new product work**
+Status: **DONE** (CUT-S00–S06, 2026-06-18) — cutover complete; the locked vocabulary is now the SSOT everywhere. Kept as the canonical word-list reference (no longer blocks work).
 Owner: AllnighterCore + CLI/MCP + Mac app + docs
 Updated: 2026-06-18
 

@@ -1,6 +1,6 @@
 # Model Catalog And Bench Roster
 
-Status: Ready for implementation - CLI-first backend spec
+Status: **BUILT** (MCBR-S01–S08, 2026-06-18) — `ModelCatalog.swift` + `alln models` + MCP shipped; doc is the historical requirements record
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
 Updated: 2026-06-18
 

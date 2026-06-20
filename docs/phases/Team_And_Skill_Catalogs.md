@@ -1,6 +1,6 @@
 # Team And Skill Catalogs
 
-Status: Draft founder packet - cleanup-first feature spec
+Status: **S00–S04 BUILT** (catalogs + IDs + custom persistence + CLI + resolver); S05 (Mac Settings lane-first nav) in progress
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
 Updated: 2026-06-17
 
