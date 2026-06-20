@@ -1,7 +1,7 @@
 # Signal Scout, Triangulation, And The Signal Graph
 
 Status: Draft backend/product spec — the next big upgrade to the Signal craft
-Owner: Signal lane (Core team-run substrate + TeamResolver + a new Signal Graph store)
+Owner: Signal lane (Core team-run substrate + TeamResolver + a new Signal Graph store + source adapters)
 Updated: 2026-06-19
 
 ## Authority
@@ -9,195 +9,275 @@ Updated: 2026-06-19
 Read with:
 
 - `docs/strategy/Allnighter_Public_Signal_Wedge.md` (why Signal is the wedge; the Grok/X premise)
+- `docs/phases/Unified_Run_Model.md` (Signal is a preset/tag/output shape over the ONE run primitive, not a separate mode)
 - `docs/phases/Team_Run_Floor.md` (owns the `SignalInsight` / `SignalReceipt` contract and the Floor projection)
 - `docs/phases/Team_Delegation_Surface.md` (owns Signal as a team family)
 - `docs/phases/Model_Catalog_And_Bench_Roster.md` (owns model lane tags + driver manifests)
+- `docs/phases/Project_Spine_And_Project_Manager.md` (owns the dispatch→verify→receipt spine the receipt loop rides)
 - `docs/phases/Language_Cutover.md` (Signal is the 4th craft; `WorkLane.signal`, `TeamOutputKind.insight`)
 
-This doc owns three things the others do not: (1) the **scout → triangulation** run
-shape for Signal, (2) **role-aware, distinct-driver model assignment** so a signal
-is read by *many minds*, not one, and (3) the **Signal Graph** — the durable
-cross-signal memory that makes every answer better than the last without anyone
-asking.
+This doc owns: (1) a **source-agnostic** Scout → triangulation run shape, (2)
+**role-aware, distinct-driver** model assignment so a signal is read by *many
+minds and many source types*, (3) the **Signal Graph** — durable cross-signal
+memory, and (4) the two laws that make this real instead of another second-brain
+graveyard: the **doubly-grounded gate** and the **receipt loop**.
+
+## The two laws (read these first — everything else serves them)
+
+A "compounding intelligence graph" on its own is the second-brain promise, and
+that graveyard is large. Two laws are what flip this from hype to something
+nobody else is positioned to build. They are the spine, not footnotes.
+
+### Law 1 — Doubly-grounded gate (intersection-or-nothing)
+
+Every Insight must stand on **two feet**:
+
+```text
+one foot on an OUTSIDE source span   (a verbatim quote, a transcript timestamp)
+one foot on PROJECT TRUTH            (a file:line, a prior decision, a prior receipt)
+```
+
+- One foot on outside-only → that is just *news*. Reject.
+- One foot on project-only → that is just *code search*. Reject.
+- The wedge IS the intersection. An LLM can summarize a podcast; it cannot know
+  "this point at 34:12 contradicts the architecture call in commit `abc3`, and
+  last time you waved off a signal like this you shipped X and it flopped." That
+  sentence is unfakeable and uncloneable because Allnighter sits on both corpora
+  at once.
+
+This is a **validity gate**, enforced on the Insight Writer's output and tested
+— not a tagline. "No move today" is always a valid, complete Insight.
+
+### Law 2 — Receipt loop (reality prunes the graph)
+
+A second-brain graph has no feedback signal, so it only ever grows (= noise
+accumulates). Allnighter's graph closes to a **receipt**:
+
+```text
+signal -> interpretation -> move -> shipped proof/receipt -> memory -> future weighting
+```
+
+- A move shipped: did it work? That outcome feeds back and the graph is *pruned
+  by reality*, not just grown. This is the difference between a compounding asset
+  and a pile.
+- Unfair advantage: Allnighter **already owns the dispatch spine** (proposal →
+  approve → dispatch → verify → receipt). A pure "signal memory" product would
+  have to build the entire agent-orchestration loop just to earn its first
+  receipt. Signal Memory is a feature riding an existing moat, not a new product
+  needing a new moat.
 
 ## Founder Intent
 
-Raw request:
+Raw request (distilled from the brainstorm):
 
 ```text
-If I paste a link to X and ask "what does this mean for my project / how does
-this apply" I expect an answer. I literally want to know the fucking answer
-right now. The insane unlock is that the answers should get better and better
-over time without asking. Every signal run should have an internal researcher /
-analyst that compares this signal to prior signals to find the true AHA given
-the Signal Graph Store.
+If I paste a link and ask "what does this mean for my project?" I want the
+answer RIGHT NOW. The insane unlock is the answers get better over time without
+asking. A signal run should NOT just be Grok: Grok distills the source WITHOUT
+judgement (raw info dump), then fans it out to several DIFFERENT CLIs so we get
+triangulation. Every run has an internal analyst that compares this signal to
+prior signals in a Signal Graph to find the true AHA.
 
-Also: a signal run should NOT just be Grok. We use Grok because it has X API
-access. A much better process: Grok (the lead) first distills the info from X
-WITHOUT passing judgement — just the raw info dump — then passes it to all the
-CLI workers (one is Grok, the others are other CLIs) so we get triangulation.
-We are missing that today and it will immediately make signal runs much more
-valuable for finding unique ideas.
+X is not "Signal" — X is one signal SOURCE. VVX transcripts are another. The
+real primitive is: outside artifact -> neutral source packet -> multi-agent
+interpretation -> project/content fit -> durable Signal Graph -> move/receipt.
+X = velocity (WHEN it's moving). Long-form video/podcast = depth (WHY it
+matters). The repo = feasibility (WHETHER we can act). VVX is ours and open
+source; we consume it almost like another CLI — something Allnighter leverages
+when a user wants to extract/evaluate a signal.
 
-This could be insanely valuable — not just for developers working on projects
-but for online influencers too, because we can surface better ideas. Their
-"repo" might just be the content they write about and how well their posts do.
+This is for developers AND online creators, whose "repo" is the content they
+write and how their posts perform.
 ```
 
 Product value:
 
 ```text
-The intersection of 10+ signals over time is where the gems are. One X post is
-a tip. Ten X posts cross-referenced against each other AND against your own
-corpus is a thesis nobody else can see. Allnighter is the only place that holds
-the signal stream, the corpus (code OR content), and a fleet of CLI minds — so
-it is the only thing that can connect them and keep connecting them as the pile
-grows.
+One artifact is a tip. Ten artifacts cross-referenced against each other AND
+against your own corpus is a thesis nobody else can see. Allnighter is the only
+place that holds the signal stream, the corpus (code OR content), AND a fleet of
+CLI minds — across both velocity and depth sources — so it is the only thing
+that can connect them, keep connecting them as the pile grows, and CLOSE the
+loop to a shipped receipt.
 ```
 
 Trusted workflow slice:
 
 ```text
-1. User pastes an X link into a Project and asks "how does this apply to us?"
-2. Grok (X-capable) distills the post + its thread/context into a NEUTRAL source
-   packet — raw facts, quotes, who/when — and passes no judgement.
+1. User drops a source (X link, YouTube/podcast URL, article) into a Project and
+   asks "how does this apply to us?"
+2. The right SOURCE ADAPTER turns it into a neutral SignalSourcePacket:
+   - X            -> read natively by an X-capable scout (Grok today)
+   - video/podcast-> VVX extracts timestamped transcript blocks + chapters,
+                     then the scout distills them. NO judgement either way.
 3. That one packet fans out to several DIFFERENT CLIs (Claude, Codex, Gemini,
-   Grok) who each interpret it independently → triangulation.
-4. An analyst compares this signal to prior signals in the Signal Graph and
+   Grok) who each interpret independently -> triangulation across minds.
+4. The Analyst compares this signal to prior signals in the Signal Graph and
    surfaces the cross-signal AHA.
-5. A skeptic pressure-tests; the Insight Writer decides.
-6. The user gets a decisive answer RIGHT NOW — plus an "in light of your last N
-   signals…" section that is richer than it could have been a month ago.
-7. The signal + packet + interpretations + edges are written to the Signal Graph
-   so the next run is smarter.
+5. The Skeptic pressure-tests; the Insight Writer DECIDES.
+6. The user gets a decisive, DOUBLY-GROUNDED answer right now — plus an "in
+   light of your prior signals…" section richer than a month ago.
+7. The signal + packet + topic tags + edges are written back to the graph; if
+   the move ships, its receipt closes the loop.
 ```
 
 Non-goals:
 
-- Do NOT hold back the answer to the user's question waiting for a cluster to
-  form. The single question is always answered now. The cross-signal AHA is
-  **additive enrichment**, never a gate. (This reverses an earlier proposal.)
-- No social-listening dashboard, X API proxy/reseller, scheduler, or auto-poster.
-- No private/authenticated X access claims. Public sources only.
-- Not a new run loop. This rides the existing `CatalogRunCoordinator` substrate.
+- Do NOT hold back the answer waiting for a cluster to form. The single question
+  is always answered now; the cross-signal AHA is **additive enrichment**.
+- No social-listening dashboard, X API proxy/reseller, scheduler, auto-poster.
+- **Do not build a video app inside Allnighter.** VVX stays an external
+  extractor we consume; Allnighter turns packets into Project-aware moves.
+- No private/authenticated source access claims. Public sources only.
+- Not a new run loop. Rides `CatalogRunCoordinator` and the existing dispatch
+  spine.
+- No standalone "clustering" subsystem (edges ARE the clusters — see below).
 
 ## Current State
 
 Useful substrate:
 
 - `WorkLane.signal` + `TeamOutputKind.insight` are live (`TeamCatalog.swift`).
-- Two built-in teams in `BuiltInTeams.swift`: `signalPostToProject`,
-  `signalWhatToBuildNext`.
-- Signal skills in `SkillCatalog.swift`: `signal_source_reader`,
+- Built-in teams `signalPostToProject`, `signalWhatToBuildNext` (`BuiltInTeams.swift`).
+- Signal skills (`SkillCatalog.swift`): `signal_source_reader`,
   `signal_landscape_scanner`, `signal_project_fit`, `signal_product_ideas`,
-  `signal_skeptic`, and the lead `insight_writer`.
-- `model_grok` carries `laneTags: [.code, .copy, .signal]` and is web-aware
-  (`ModelCatalog.swift`); its driver manifest runs `grok -p … -m … --output-format plain`.
-- `SignalInsight` / `SignalReceipt` typed output + `SignalInsightParser`
-  (`SignalInsight.swift`); surfaced via `FloorReturn.kind = .insight`.
+  `signal_skeptic`, lead `insight_writer`.
+- `model_grok`: `laneTags: [.code, .copy, .signal]`, web-aware; driver runs
+  `grok -p … -m … --output-format plain` (`ModelCatalog.swift`).
+- `SignalInsight` / `SignalReceipt` typed output + parser (`SignalInsight.swift`);
+  surfaced via `FloorReturn.kind = .insight`.
 - Run substrate `CatalogRunCoordinator.run()`: answer (blind parallel) → review
-  (sees answers) → plan (the Lead synthesizes).
+  → plan (Lead synthesizes).
+- The dispatch→verify→receipt spine exists (`ProjectDispatchService`,
+  `WorkReturnStore`, `ProjectVerificationService`) — Law 2 reuses it.
 
-Current gaps (the whole reason for this doc):
+Current gaps (the reason for this doc):
 
-1. **No scout → fan-out.** `signalPostToProject` runs `signal_source_reader`,
-   `signal_project_fit`, `signal_product_ideas` as **blind parallel** answer
-   workers. The interpreters do NOT receive the source reader's distillation —
-   they each re-read the raw input in isolation. There is no neutral source
-   packet that the interpreters share.
-2. **One mind, not many.** Every worker resolves through `fallbackPolicy:
-   .strongestReady`, which tends to pick **one** model for the whole team
-   (usually Grok). There is no policy that says "interpret this with *distinct*
-   drivers." Triangulation is the headline value and it does not exist yet.
-3. **No memory.** Each run is one-shot against the raw input. There is no
-   durable store of prior signals and no analyst that mines the intersection.
-   Answers cannot get better over time because nothing persists to learn from.
-4. **Corpus is code-shaped.** Grounding assumes a Project that is a code repo.
-   A creator's "repo" (their content + post performance) has no first-class home.
+1. **No scout → fan-out.** The three interpreters run *blind parallel* and never
+   receive the source reader's distillation — no shared neutral packet.
+2. **One mind, not many.** `fallbackPolicy: .strongestReady` tends to pick one
+   model (usually Grok) for the whole team. Triangulation does not exist.
+3. **One source type.** Only pasted text / X is contemplated. No depth source
+   (video/podcast) and no source-agnostic packet.
+4. **No memory.** Each run is one-shot. No Signal Graph, no analyst, nothing
+   persists to learn from — so answers can't compound.
+5. **No gate, no loop.** Nothing enforces double-grounding; nothing feeds a
+   shipped receipt back into signal quality.
+6. **Corpus is code-shaped.** A creator's content corpus has no home.
 
-Existing truth owners that change:
+## Decision — the upgraded Signal run shape (source-agnostic)
 
-| Concern | Owner today | Change |
-| Run staging | `CatalogRunCoordinator` | add a scout pre-stage feeding interpreters |
-| Worker→model assignment | `TeamResolver` (`.strongestReady`) | add scout-pin + distinct-driver triangulation policy |
-| Signal output | `SignalInsight` / `insight_writer` | += cross-signal section + triangulation spread |
-| Durable signal memory | *(none)* | new **Signal Graph** store |
-
-## Decision — the upgraded Signal run shape
-
-A Signal run becomes four ordered stages on the existing substrate. The new
-stage 0 (Scout) and the distinct-driver fan-out at stage 1 are the core change.
+Five ordered stages on the existing substrate. Stage 0 (Scout, fed by a source
+adapter) and the distinct-driver fan-out at Stage 1 are the core change.
 
 ```text
-Stage 0  SCOUT (one X-capable model — Grok today)
-         Distill the source. NO judgement. Output = neutral SignalSourcePacket
-         (what was said, by whom, when; exact quotes; thread/context; named
-         related public posts). A durable artifact.
+Stage 0  ADAPTER + SCOUT  (distill, NO judgement)
+         A source adapter turns the URL/text into source spans; an X-capable
+         scout (Grok today) distills them into a neutral SignalSourcePacket.
+         X: scout reads natively. Video/podcast: VVX extracts timestamped
+         transcript first, then the scout distills. Facts/quotes/timestamps
+         only — zero fit, zero ideas.
 
-Stage 1  TRIANGULATE (N interpreters, DISTINCT drivers)
+Stage 1  TRIANGULATE  (N interpreters, DISTINCT drivers)
          The same packet fans out to several different CLIs. Each runs
-         project-fit + product-ideas independently. Diversity of minds is the
-         product. Includes the Analyst (stage 1b) which reads the Signal Graph.
+         project-fit + product-ideas independently. Diversity of minds — and,
+         when several sources are in play, diversity of SOURCE TYPES — is the
+         product.
 
-Stage 1b ANALYST (cross-signal AHA)
+Stage 1b ANALYST  (cross-signal AHA)
          Query the Signal Graph for prior related signals; surface the
-         intersection ("this is the 4th signal this month pointing at X").
-         Additive — never blocks the answer.
+         intersection and propose typed edges. Additive — never blocks.
 
-Stage 2  SKEPTIC (review)
-         Fresh / stale / saturated / not-a-fit. Unchanged role, now also sees
-         the triangulation spread and the analyst's links.
+Stage 2  SKEPTIC  (review)
+         Fresh / stale / saturated / not-a-fit. Now also sees the triangulation
+         spread and the analyst's links. "No move today" is first-class.
 
-Stage 3  INSIGHT WRITER (the Lead, decides)
-         Answer the user's question NOW. Append: triangulation spread (who
-         agreed / who diverged) and "in light of your prior signals…".
-         Writes the signal + packet + edges back to the Signal Graph.
+Stage 3  INSIGHT WRITER  (the Lead, DECIDES)
+         Enforce the doubly-grounded gate. Answer the question NOW; append the
+         triangulation spread and the cross-signal AHA. Tag the topic (free —
+         it's already deciding what this is about). Write signal + packet +
+         tags + edges back to the graph. If a move dispatches, its receipt
+         later closes the loop.
 ```
 
-Mapping to substrate: Scout is a new pre-answer dependency stage whose artifact
-is injected into every interpreter's context (interpreters stay parallel, but
-their input now includes the packet instead of the raw paste). Analyst is an
-answer worker with read access to the Signal Graph. Skeptic stays a review
-worker. Insight Writer stays the Lead (`planWriter`) and gains a write-back.
+Substrate mapping: the Scout is a new pre-answer dependency stage whose packet is
+injected into every interpreter's context (interpreters stay parallel; their
+input is the packet, not the raw paste). Analyst is an answer worker with read
+access to the graph. Skeptic stays review; Insight Writer stays the Lead
+(`planWriter`) and gains the gate + write-back.
 
-## Contract — SignalSourcePacket
+## Contract — SignalSourcePacket (source-agnostic)
 
-The neutral output of the Scout. Facts only; inference is the interpreters' job.
+Neutral output of Stage 0. Facts only; inference is the interpreters' job.
 
 ```text
 SignalSourcePacket
   id
-  capturedAt                 (ISO-8601; uncertain allowed, never invented)
-  sourceKind                 (xPost | xThread | article | releaseNote | repo | other)
-  primary { url, author, postedAt, verbatimQuotes[], mediaDescribed[] }
-  threadContext[]            (surrounding posts, replies, quote-posts — verbatim)
-  relatedPublicPosts[]       (Grok-found neighbors: url, author, oneLineGist)
-  observedFacts[]            (literal, attributable)
-  unverifiable[]             (what could NOT be confirmed — timestamps, claims)
-  scoutModelId               (which model distilled this — provenance)
+  sourceKind        xPost | xThread | videoTranscript | podcastTranscript |
+                    article | releaseNote | repo | other
+  provenance        { url, author/uploader, publishedAt, capturedAt }   (uncertain allowed, never invented)
+  adapter           { name, version }      e.g. {grok-native}, {vvx, 1.x}
+  spans[]           the atomic receipts — verbatim, each carries an anchor:
+                      xPost            -> quote + postId
+                      videoTranscript  -> transcript block + timestamp + chapter
+                      article          -> quote + section
+  relatedPublic[]   neighbors the scout surfaced { url, author, oneLineGist }
+  observedFacts[]   literal, attributable
+  unverifiable[]    what could NOT be confirmed (timestamps, claims)
+  scoutModelId      which model distilled this (provenance)
 ```
 
-Hard rule: the Scout passes **no judgement** — no "why it matters," no project
-fit, no ideas. If it editorializes, the triangulation is contaminated.
+Hard rules:
+
+- The Scout passes **no judgement** — no "why it matters," no fit, no ideas. If
+  it editorializes, the triangulation is contaminated.
+- Every span is a **timestamped/anchored receipt**, not a summary. (This is why
+  VVX matters — it yields timestamped transcript blocks, so a video Insight can
+  cite "at 34:12 the speaker says X" instead of a mushy gist.)
+- How deep the scout digs is governed by **reasoning level + team size** — the
+  two existing axes. There is no separate "neighbor budget" knob.
 
 ## Contract — the Signal Graph
 
-Durable cross-signal memory. The substrate that makes answers compound.
+Durable cross-signal memory; the substrate that makes answers compound and the
+home of Law 2.
 
 ```text
 SignalGraph (per Project / per corpus)
-  signals[]      Signal { id, capturedAt, packetRef, topicTags[], insightRef }
-  edges[]        SignalEdge { fromSignalId, toSignalId, kind, rationale, byModelId }
-                 kind ∈ reinforces | contradicts | supersedes | recurs | appliesTo
-  corpusRefs[]   what a signal touched (file:line for code; postId/asset for content)
+  signals[]    Signal { id, capturedAt, packetRef, topicTags[], insightRef }
+  edges[]      SignalEdge { fromSignalId, toSignalId, kind, rationale, byModelId }
+               kind ∈ reinforces | contradicts | supersedes | recurs | appliesTo
+  receipts[]   SignalReceiptLink { signalId, moveRef, workReturnRef, outcome }
+               outcome ∈ shipped | reverted | abandoned | pending
+  corpusRefs[] what a signal touched
+               code repo     -> file:line / commit
+               content corpus-> postId / asset id
 ```
 
-- Append-only at run time; the Insight Writer writes the new signal + the
-  Analyst's edges back after each run.
-- The Analyst reads it at stage 1b. Edges are model-attributed (`byModelId`) so
-  a spurious link can be traced and pruned.
-- Corpus-agnostic: `corpusRefs` is `file:line` for a code repo and
-  `postId`/asset id for a content repo — same graph, different anchor.
+- **Append-only at run time.** The Insight Writer writes the new signal + topic
+  tags + the Analyst's edges after each run.
+- **Clusters need no algorithm.** A cluster is a *connected component* of the
+  edge graph. Topic tags (written free at synthesis) are the cheap coarse index
+  for "which priors might be relevant"; the analyst's edges are the reasoned
+  truth; components fall out of the topology. There is no separate clustering
+  pass to build or keep consistent.
+- **Edges are model-attributed** (`byModelId`) so a spurious link is traceable
+  and prunable.
+- **Receipts close the loop** (Law 2): when a Signal-derived move dispatches and
+  verifies, a `SignalReceiptLink` records the outcome, which weights future
+  reads (a cluster that already shipped is *memory*, not a fresh opportunity).
+- **Corpus-agnostic:** `corpusRefs` anchors to `file:line` for code and
+  `postId`/asset for content — same graph, different anchor.
+
+The lifecycle, in computable terms (no vibes):
+
+```text
+Insight      = one signal, doubly-grounded                       (Law 1)
+Opportunity  = a cluster that RECURS across >= N signals
+               AND touches project truth AND has NO receipt yet
+Memory       = a cluster that got actioned and carries a receipt (Law 2)
+               -> down-weights as a fresh opportunity, informs future reads
+```
 
 ## Contract — distinct-driver triangulation policy
 
@@ -205,89 +285,147 @@ New resolver policy on the Signal team preset, honored by `TeamResolver`:
 
 ```text
 TeamPreset.signalPolicy
-  scoutModelTag      = .signal + web-aware   (pins Stage 0 to an X-capable model)
+  scoutModelTag      = .signal + web-aware     (pins Stage 0 to an X-capable model; capability-selected, not hardcoded)
   interpreters       = N
-  triangulate        = distinctDrivers       (spread interpreters across distinct driverIds)
-  degradeWhenSingle  = answerAnyway + LOG    (never silently collapse to one mind)
+  triangulate        = distinctDrivers         (spread interpreters across distinct driverIds before doubling up)
+  degradeWhenSingle  = answerAnyway + LOG      (never silently collapse to one mind)
 ```
 
-- Scout pins to an X-capable model (Grok today; not hardcoded — selected by
-  capability so a future X-capable model qualifies).
-- Interpreters maximize **distinct `driverId`s** (Claude / Codex / Gemini /
-  Grok) before doubling up on any one driver.
+- Scout pins to an X-capable model by *capability* (Grok today; a future
+  X-capable model qualifies automatically).
+- Interpreters maximize distinct `driverId`s (Claude / Codex / Gemini / Grok)
+  before doubling on any driver.
 - If only one driver is ready, the run still answers — but `log()`s that
-  triangulation degraded to a single mind (per the no-silent-caps rule). Never
-  pretend a one-mind read was triangulated.
+  triangulation degraded to a single mind (no-silent-caps rule). Never pretend a
+  one-mind read was triangulated.
+- When several sources are present, triangulation also spans **source types**
+  (velocity × depth), which is a second, orthogonal axis of diversity.
+
+## Source adapters — sources behave like CLIs
+
+A `SourceAdapter` turns a URL/text into a `SignalSourcePacket`. Two shapes:
+
+```text
+native-read   the X-capable scout model reads the source directly
+              -> X / public web (Grok)
+external      an external extractor produces anchored spans, then the scout
+              distills them
+              -> video/podcast (VVX)
+```
+
+**VVX is ours and open source; we consume it almost like another CLI.** Just as
+`model_grok` is a bench driver with a manifest, a video/podcast `SourceAdapter`
+is a driver-like entry Allnighter invokes on a URL to get timestamped transcript
+blocks + chapters. Keep VVX excellent at extraction, external, and unabsorbed;
+Allnighter's job starts at the packet.
+
+Adapter discipline (avoid the adapter zoo): make the **packet contract**
+source-agnostic on day one (foundation-first), but ship exactly **two** adapters
+— X (velocity) and VVX/transcript (depth). They differ enough (snippet vs.
+timestamped block) to *prove the abstraction is right*. Reddit / blog /
+changelog wait.
 
 ## Implementation Slices
 
-### SIG-S00 — Scout/interpret split (run shape)
+### SIG-S00 — Source-agnostic packet + Scout split (run shape)
 
-- [ ] Add `SignalSourcePacket` type + parser (fenced ```signal-packet``` block),
-      mirroring `SignalInsight`.
-- [ ] Promote `signal_source_reader` to the dedicated **Scout** skill: distill
-      + named related public posts, explicitly no judgement.
+- [ ] Add `SignalSourcePacket` (source-agnostic, anchored `spans[]`) + parser
+      (fenced ```signal-packet``` block), mirroring `SignalInsight`.
+- [ ] Promote `signal_source_reader` to the dedicated **Scout** skill: distill +
+      named related public sources, explicitly no judgement.
 - [ ] `CatalogRunCoordinator`: run the Scout first; inject its packet into every
-      interpreter's `writerInput`/answer context. Interpreters read the packet,
-      not the raw paste.
-- [ ] Durable artifact: packet saved via `RunStore` alongside the insight.
+      interpreter's context. Interpreters read the packet, not the raw paste.
+- [ ] Durable packet via `RunStore` alongside the insight.
 
-Tests: a `signalPostToProject` run produces exactly one packet; interpreters'
-prompts contain the packet text; packet has no fit/ideas content.
+Tests: a `signalPostToProject` run produces exactly one packet; interpreter
+prompts contain packet text; packet carries no fit/ideas content; spans carry
+anchors.
 
-### SIG-S01 — Distinct-driver triangulation
+### SIG-S01 — Signal Graph store (memory + receipts)
+
+- [ ] New `SignalGraphStore` (per Project / corpus): `signals`, `edges`,
+      `receipts`, `corpusRefs`. Append + read APIs; JSON envelopes;
+      `SIGNAL_GRAPH_*` error catalog.
+- [ ] Clusters as connected components (no clustering pass); topic-tag index.
+- [ ] `alln signal graph show|signals|edges|clusters` CLI + MCP
+      `signal_graph_*` parity.
+
+Tests: append a signal; read it back; add an edge; clusters derive from edges;
+envelopes schema-validate.
+
+### SIG-S02 — Distinct-driver (+ cross-source) triangulation
 
 - [ ] Add `signalPolicy` to `TeamPreset`; `TeamResolver` pins the Scout to an
       X-capable model and spreads interpreters across distinct `driverId`s.
-- [ ] `degradeWhenSingle` path: answer anyway, emit a degraded-triangulation log
-      + a flag on the `TeamRun`.
+- [ ] `degradeWhenSingle`: answer anyway, emit degraded-triangulation log + a
+      flag on the `TeamRun`.
 
-Tests: with ≥2 drivers ready, interpreter workers resolve to distinct
-`driverId`s; with 1 ready, run completes and the degraded flag is set.
-
-### SIG-S02 — Signal Graph store
-
-- [ ] New `SignalGraphStore` (per Project / corpus): signals, edges, corpusRefs.
-- [ ] Append API + read API; JSON envelopes; `SIGNAL_GRAPH_*` error catalog.
-- [ ] `alln signal graph show|edges|signals` CLI + MCP `signal_graph_*` parity.
-
-Tests: append a signal, read it back; add an edge; envelopes schema-validate.
+Tests: ≥2 drivers ready → interpreters resolve to distinct `driverId`s; 1 ready
+→ run completes with degraded flag set.
 
 ### SIG-S03 — The Analyst (cross-signal AHA)
 
 - [ ] New `signal_analyst` answer skill with read access to the Signal Graph.
-- [ ] Surfaces prior related signals + proposes edges (reinforces / contradicts /
-      supersedes / recurs); output clearly separates "from prior signals" vs new.
+- [ ] Surfaces prior related signals + proposes typed edges (reinforces /
+      contradicts / supersedes / recurs); separates "from prior signals" vs new.
 - [ ] Wire into `signalPostToProject` and `signalWhatToBuildNext`.
 
-Tests: with a seeded graph, the analyst references prior signals and proposes
-typed edges; with an empty graph it degrades to "first signal — no priors yet."
+Tests: seeded graph → analyst references priors + proposes typed edges; empty
+graph → degrades to "first signal — no priors yet."
 
-### SIG-S04 — Insight Writer upgrade + answer-now contract
+### SIG-S04 — Doubly-grounded gate + Insight Writer upgrade (Law 1)
 
 - [ ] `insight_writer` consumes packet + triangulated reads + skeptic + analyst.
-- [ ] Output ALWAYS answers the user's question first; appends `triangulation`
-      (who agreed/diverged) and `crossSignal` (the AHA + edges) sections.
-- [ ] `SignalInsight` += `triangulation` + `crossSignal`; writer writes the new
-      signal + analyst edges back to the Signal Graph.
+- [ ] **Gate:** every Insight must cite ≥1 outside source span AND ≥1 project
+      corpusRef, or it is "no move today." Enforced + tested.
+- [ ] Output answers the question first; appends `triangulation` (who
+      agreed/diverged) and `crossSignal` (AHA + edges) sections.
+- [ ] Writer tags the topic at write time (free byproduct of synthesis) and
+      writes signal + tags + edges back to the graph.
+- [ ] `SignalInsight` += `groundedSpans[]`, `groundedCorpusRefs[]`,
+      `triangulation`, `crossSignal`.
 
-Tests: insight answers the prompt even with an empty graph; with priors, the
-crossSignal section is populated and edges are persisted.
+Tests: an insight with only outside grounding is rejected as "no move today";
+with both feet it ships; with priors, `crossSignal` is populated + edges
+persisted.
 
-### SIG-S05 — Generalize the grounding corpus (creators)
+### SIG-S05 — Receipt loop (Law 2)
 
-- [ ] Corpus abstraction: a Project's grounding may be a code repo OR a content
-      corpus (posts + performance). `corpusRefs` anchors accordingly.
-- [ ] Signal teams + analyst stay corpus-agnostic; no code-only assumptions in
-      prompts.
+- [ ] When a Signal-derived move dispatches via the existing
+      `ProjectDispatchService` and verifies, record a `SignalReceiptLink`
+      (outcome: shipped/reverted/abandoned/pending).
+- [ ] Receipts down-weight a cluster as a *fresh* opportunity (it becomes
+      *memory*) and inform future analyst reads.
 
-Tests: a content-corpus Project runs a signal end-to-end and anchors a corpusRef
-to a postId, not a file:line.
+Tests: dispatch + verify a move tied to a signal → a `SignalReceiptLink` lands;
+the cluster's lifecycle flips opportunity → memory.
 
-### SIG-S06 — Surface (GUI, last)
+### SIG-S06 — Source adapters: X + VVX
 
-- [ ] Insight card shows the answer now + triangulation spread (agree/diverge by
-      mind) + tappable cross-signal links to prior signals.
+- [ ] `SourceAdapter` contract (native-read | external) → `SignalSourcePacket`.
+- [ ] X adapter (native-read via the Grok scout).
+- [ ] VVX adapter (external extractor consumed like a bench driver: URL →
+      timestamped transcript blocks + chapters → scout distills). VVX stays
+      external/unabsorbed.
+
+Tests: an X URL and a YouTube URL each produce a valid packet; video spans carry
+timestamps/chapters; VVX invoked as an external adapter, not vendored UI.
+
+### SIG-S07 — Generalize the grounding corpus (creators)
+
+- [ ] Corpus abstraction: grounding may be a code repo OR a content corpus
+      (posts + performance). `corpusRefs` anchors accordingly.
+- [ ] Signal teams + analyst stay corpus-agnostic; no code-only prompt
+      assumptions.
+
+Tests: a content-corpus Project runs end-to-end and anchors a corpusRef to a
+postId, not a file:line.
+
+### SIG-S08 — Surface (GUI, last)
+
+- [ ] Insight card: the answer now + double-grounding receipts (outside span ↔
+      project ref) + triangulation spread (agree/diverge by mind) + tappable
+      cross-signal links + cluster lifecycle (opportunity vs. memory).
 - [ ] GUIFixture seal.
 
 ## Works Test
@@ -298,41 +436,52 @@ Setup:
 1. Seed a Project's Signal Graph with 3 prior signals on a shared topic.
 2. alln signal run --team signal_post_to_project --project P \
      --prompt "how does this apply to us?" --source <public X url>
+3. alln signal run --team signal_post_to_project --project P \
+     --prompt "and this talk?" --source <youtube url>      # depth source via VVX
 ```
 
 Assertions:
 
-- Exactly one `SignalSourcePacket`; it contains no fit/ideas judgement.
-- Interpreter workers resolved to ≥2 distinct `driverId`s (or a degraded log if
-  only one driver was ready).
-- The insight answers the question in its first section.
-- A `crossSignal` section references at least one of the 3 seeded priors and ≥1
-  typed edge was written back to the Signal Graph.
-- Re-running with the new signal present yields a richer crossSignal section
-  (the compounding property).
+- Each run yields exactly one `SignalSourcePacket`; no fit/ideas judgement; the
+  YouTube packet's spans carry timestamps/chapters.
+- Interpreters resolved to ≥2 distinct `driverId`s (or a degraded log).
+- The Insight answers the question in its first section and passes the
+  doubly-grounded gate (cites ≥1 outside span AND ≥1 project corpusRef) — or is a
+  clean "no move today."
+- `crossSignal` references ≥1 of the 3 seeded priors; ≥1 typed edge written back.
+- Re-running with the new signals present yields a richer `crossSignal` (the
+  compounding property).
+- Dispatching + verifying a move tied to a signal records a `SignalReceiptLink`
+  and flips its cluster opportunity → memory.
 
 Proof command:
 
 ```bash
 swift test --package-path Packages/AllnighterCore
 alln signal graph show --project P
+alln signal graph clusters --project P
 ```
 
 ## Done When
 
-- Signal runs distill once (Scout) and interpret many (distinct drivers) — never
-  one blind mind re-reading raw input.
-- Every run answers the user's question immediately AND writes to the Signal
-  Graph; the cross-signal AHA grows run over run with no extra asking.
-- The same machinery serves a code repo and a content corpus.
+- Signals distill once (Scout, source-agnostic) and interpret many (distinct
+  drivers, velocity × depth) — never one blind mind re-reading raw input.
+- Every Insight is **doubly-grounded** or a clean "no move today" (Law 1).
+- Shipped moves write **receipts** back, pruning/weighting the graph (Law 2).
+- The graph compounds run over run with no extra asking and no curation chore.
+- X + VVX both feed the same packet; VVX consumed externally like a CLI.
+- Same machinery serves a code repo and a content corpus.
 - CLI + MCP parity; no aliases, no shims; check.sh green.
 
 ## Open Questions
 
-- Edge pruning: who/what removes a stale or wrong `contradicts` edge over time —
-  a periodic analyst sweep, or only when a superseding signal lands?
-- Topic clustering: do we tag topics with a model at write time, or compute
-  clusters lazily at analyst read time? (Lazy is cheaper; write-time is faster
-  to query.)
-- Scout neighbor budget: how many `relatedPublicPosts[]` should Grok pull before
-  cost outweighs triangulation value? Start small, log, tune.
+- **Edge pruning:** does a periodic analyst sweep retire stale `contradicts`
+  edges, or only a superseding signal + a `reverted` receipt?
+- **Receipt attribution:** how tightly must a dispatched move be tied back to the
+  originating signal(s) — single link, or weighted across a cluster?
+- **Cold-start honesty:** value ramps with corpus depth (a fresh project gets
+  generic reads until it has decisions + receipts to collide against). Surface
+  the ramp in the product; don't promise day-1 magic.
+- **Second depth adapter:** after VVX proves the external-adapter shape, which
+  source earns adapter #3 (Reddit thread? competitor changelog?) — gate on
+  demand, not on enthusiasm.
