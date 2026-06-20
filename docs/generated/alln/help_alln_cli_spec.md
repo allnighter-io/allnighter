@@ -766,6 +766,43 @@ Flags:
 
 Output schema: `stallListJSON`.
 
+### `alln stalled check`
+
+Re-observe a stall episode's target; clears it if it progressed/terminated.
+
+Arguments:
+- `episode-id` (required) — Stall episode id.
+
+Flags:
+- `--json` — Emit a StallEpisodeJSON object.
+
+Output schema: `stallEpisodeJSON`.
+
+### `alln stalled wait`
+
+Snooze a stall episode's attention for N minutes (default 30).
+
+Arguments:
+- `episode-id` (required) — Stall episode id.
+
+Flags:
+- `--minutes <int>` (default: 30) — Snooze minutes.
+- `--json` — Emit a StallEpisodeJSON object.
+
+Output schema: `stallEpisodeJSON`.
+
+### `alln stalled dismiss`
+
+Dismiss a stall episode (cleared, user-dismiss). Re-surfaces on the next scan if still stalled.
+
+Arguments:
+- `episode-id` (required) — Stall episode id.
+
+Flags:
+- `--json` — Emit a StallEpisodeJSON object.
+
+Output schema: `stallEpisodeJSON`.
+
 ### `alln project context`
 
 Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).
@@ -927,6 +964,7 @@ Output schema: `helpTopicsJSON`.
 | `CONTRACT_DRIFT` | yes | no | Run `alln dev export-contracts`, then rebuild. |
 | `DEFAULTS_TIER_INVALID` | yes | no | Use one of flagship | balanced | fast. |
 | `DEFAULTS_MODEL_UNKNOWN` | yes | no | Run `alln models --json` and pass a known model id. |
+| `STALL_EPISODE_NOT_FOUND` | no | no | Run `alln stalled list --all --json` and use a current episode id. |
 | `DOCTOR_CHECK_FAILED` | no | yes | Run `alln doctor --json`. |
 | `SOURCE_NOT_FOUND` | yes | no | Run `alln doctor --json`; add/configure the missing source. |
 | `SOURCE_AUTH_EXPIRED` | yes | no | Re-authenticate the named source. |

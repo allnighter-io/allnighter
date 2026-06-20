@@ -1943,6 +1943,91 @@
     {
       "args" : [
         {
+          "name" : "episode-id",
+          "required" : true,
+          "summary" : "Stall episode id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a StallEpisodeJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "stalled check",
+      "outputSchema" : "stallEpisodeJSON",
+      "summary" : "Re-observe a stall episode's target; clears it if it progressed\/terminated."
+    },
+    {
+      "args" : [
+        {
+          "name" : "episode-id",
+          "required" : true,
+          "summary" : "Stall episode id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "defaultValue" : "30",
+          "name" : "minutes",
+          "summary" : "Snooze minutes.",
+          "takesValue" : true,
+          "valueType" : "int"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a StallEpisodeJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "stalled wait",
+      "outputSchema" : "stallEpisodeJSON",
+      "summary" : "Snooze a stall episode's attention for N minutes (default 30)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "episode-id",
+          "required" : true,
+          "summary" : "Stall episode id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a StallEpisodeJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "stalled dismiss",
+      "outputSchema" : "stallEpisodeJSON",
+      "summary" : "Dismiss a stall episode (cleared, user-dismiss). Re-surfaces on the next scan if still stalled."
+    },
+    {
+      "args" : [
+        {
           "name" : "project",
           "required" : true,
           "summary" : "Project id or name."
@@ -2461,6 +2546,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "defaults.model.unknown"
+    },
+    {
+      "agentAction" : "Run `alln stalled list --all --json` and use a current episode id.",
+      "code" : "STALL_EPISODE_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No stall episode matches the given id (it may have cleared). List stalled work and retry with a live episode id.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "stall.episode.not_found"
     },
     {
       "agentAction" : "Run `alln doctor --json`.",
@@ -4322,6 +4416,69 @@
         }
       ],
       "summary" : "Aggregate stalled-work episodes grouped by project."
+    },
+    {
+      "command" : "stalled check",
+      "errors" : [
+        "STALL_EPISODE_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "stall_check_status",
+      "outputSchema" : "stallEpisodeJSON",
+      "params" : [
+        {
+          "name" : "episodeId",
+          "required" : true,
+          "summary" : "Stall episode id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Re-observe a stall episode's target; clears it if it has progressed\/terminated, else keeps it active with a fresh refresh time."
+    },
+    {
+      "command" : "stalled wait",
+      "errors" : [
+        "STALL_EPISODE_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "stall_keep_waiting",
+      "outputSchema" : "stallEpisodeJSON",
+      "params" : [
+        {
+          "name" : "episodeId",
+          "required" : true,
+          "summary" : "Stall episode id.",
+          "type" : "string"
+        },
+        {
+          "name" : "minutes",
+          "required" : false,
+          "summary" : "Snooze minutes (default 30).",
+          "type" : "integer"
+        }
+      ],
+      "summary" : "Snooze a stall episode's attention for N minutes (default 30); it stays a real stall, just quiet."
+    },
+    {
+      "command" : "stalled dismiss",
+      "errors" : [
+        "STALL_EPISODE_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "stall_dismiss",
+      "outputSchema" : "stallEpisodeJSON",
+      "params" : [
+        {
+          "name" : "episodeId",
+          "required" : true,
+          "summary" : "Stall episode id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Dismiss a stall episode (cleared, user-dismiss). A genuinely-stalled target re-surfaces on the next scan."
     },
     {
       "command" : "project list",

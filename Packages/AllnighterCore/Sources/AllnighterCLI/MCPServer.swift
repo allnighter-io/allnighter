@@ -293,6 +293,12 @@ struct MCPServer {
             respondStalled(id: id, outcome: MCPStalledHandlers.projectStalled(args: args))
         case "stalled_list":
             respondStalled(id: id, outcome: MCPStalledHandlers.stalledList(args: args))
+        case "stall_check_status":
+            respondStalled(id: id, outcome: MCPStalledHandlers.checkStatus(args: args))
+        case "stall_keep_waiting":
+            respondStalled(id: id, outcome: MCPStalledHandlers.keepWaiting(args: args))
+        case "stall_dismiss":
+            respondStalled(id: id, outcome: MCPStalledHandlers.dismiss(args: args))
         case "defaults_get": respondDefaults(id: id, outcome: MCPDefaultsHandlers.get(runtime: runtime))
         case "help_search": respondHelp(id: id, outcome: MCPHelpHandlers.search(args: args))
         case "help_get": respondHelp(id: id, outcome: MCPHelpHandlers.get(args: args))

@@ -36,6 +36,15 @@
     "ruleId" : "defaults.model.unknown"
   },
   {
+    "agentAction" : "Run `alln stalled list --all --json` and use a current episode id.",
+    "code" : "STALL_EPISODE_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No stall episode matches the given id (it may have cleared). List stalled work and retry with a live episode id.",
+    "requiresManual" : false,
+    "retryable" : false,
+    "ruleId" : "stall.episode.not_found"
+  },
+  {
     "agentAction" : "Run `alln doctor --json`.",
     "code" : "DOCTOR_CHECK_FAILED",
     "exitClass" : "operational",

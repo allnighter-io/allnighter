@@ -99,6 +99,18 @@ public struct StallEpisode: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+/// Single-episode result for the recovery actions (check / keep-waiting / dismiss).
+public struct StallEpisodeJSON: Codable, Sendable, Equatable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var episode: StallEpisode
+    public init(schemaVersion: Int = 1, contractVersion: String, episode: StallEpisode) {
+        self.schemaVersion = schemaVersion
+        self.contractVersion = contractVersion
+        self.episode = episode
+    }
+}
+
 public struct StallEpisodeListJSON: Codable, Sendable, Equatable {
     public var schemaVersion: Int
     public var contractVersion: String

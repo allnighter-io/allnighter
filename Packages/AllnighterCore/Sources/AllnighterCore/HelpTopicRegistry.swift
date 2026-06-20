@@ -175,6 +175,7 @@ public enum HelpTopicRegistry {
             aliases: ["project", "repo", "thread", "threads", "conversation"],
             relatedToolIds: ["project_list", "project_get", "project_context", "project_workers",
                              "project_recheck_workers", "project_stalled", "stalled_list",
+                             "stall_check_status", "stall_keep_waiting", "stall_dismiss",
                              "thread_send", "thread_get", "thread_status"],
             relatedCommandNames: ["project list", "project show", "project context", "project workers",
                                   "thread send", "thread get", "stalled list"],

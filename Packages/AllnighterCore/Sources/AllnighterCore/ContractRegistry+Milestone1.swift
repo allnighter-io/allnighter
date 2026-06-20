@@ -202,6 +202,22 @@ public extension ContractRegistry {
                     params: [.init("all", type: "boolean", required: true, summary: "Must be true.")],
                     outputSchema: .stallListJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+        // Stalled-work recovery — execute an episode's recovery action (SWW-S04).
+        MCPToolSpec("stall_check_status", command: "stalled check", summary: "Re-observe a stall episode's target; clears it if it has progressed/terminated, else keeps it active with a fresh refresh time.",
+                    params: [.init("episodeId", required: true, summary: "Stall episode id.")],
+                    outputSchema: .stallEpisodeJSON,
+                    errors: ["STALL_EPISODE_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("stall_keep_waiting", command: "stalled wait", summary: "Snooze a stall episode's attention for N minutes (default 30); it stays a real stall, just quiet.",
+                    params: [
+                        .init("episodeId", required: true, summary: "Stall episode id."),
+                        .init("minutes", type: "integer", summary: "Snooze minutes (default 30)."),
+                    ],
+                    outputSchema: .stallEpisodeJSON,
+                    errors: ["STALL_EPISODE_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("stall_dismiss", command: "stalled dismiss", summary: "Dismiss a stall episode (cleared, user-dismiss). A genuinely-stalled target re-surfaces on the next scan.",
+                    params: [.init("episodeId", required: true, summary: "Stall episode id.")],
+                    outputSchema: .stallEpisodeJSON,
+                    errors: ["STALL_EPISODE_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         // Project foundation tools — repo binding + readiness (Unified Run Model).
         // External agents are callers, never approvers; approve/edit/postpone are
         // intentionally not projected.
@@ -709,6 +725,27 @@ public extension ContractRegistry {
             outputSchema: .stallListJSON
         ),
         CommandSpec(
+            "stalled check", summary: "Re-observe a stall episode's target; clears it if it progressed/terminated.", milestone: .m1,
+            args: [ArgSpec("episode-id", required: true, summary: "Stall episode id.")],
+            flags: [FlagSpec("json", summary: "Emit a StallEpisodeJSON object.")],
+            outputSchema: .stallEpisodeJSON
+        ),
+        CommandSpec(
+            "stalled wait", summary: "Snooze a stall episode's attention for N minutes (default 30).", milestone: .m1,
+            args: [ArgSpec("episode-id", required: true, summary: "Stall episode id.")],
+            flags: [
+                FlagSpec("minutes", takesValue: true, valueType: "int", defaultValue: "30", summary: "Snooze minutes."),
+                FlagSpec("json", summary: "Emit a StallEpisodeJSON object."),
+            ],
+            outputSchema: .stallEpisodeJSON
+        ),
+        CommandSpec(
+            "stalled dismiss", summary: "Dismiss a stall episode (cleared, user-dismiss). Re-surfaces on the next scan if still stalled.", milestone: .m1,
+            args: [ArgSpec("episode-id", required: true, summary: "Stall episode id.")],
+            flags: [FlagSpec("json", summary: "Emit a StallEpisodeJSON object.")],
+            outputSchema: .stallEpisodeJSON
+        ),
+        CommandSpec(
             "project context", summary: "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectContextJSON object.")],
@@ -818,6 +855,7 @@ public extension ContractRegistry {
         ErrorSpec("CONTRACT_DRIFT", ruleId: "contract.drift", agentAction: "Run `alln dev export-contracts`, then rebuild.", requiresManual: true, retryable: false, explain: "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output."),
         ErrorSpec("DEFAULTS_TIER_INVALID", ruleId: "defaults.tier.invalid", agentAction: "Use one of flagship | balanced | fast.", requiresManual: true, retryable: false, explain: "The tier name was not one of flagship, balanced, or fast.", exitClass: .usage),
         ErrorSpec("DEFAULTS_MODEL_UNKNOWN", ruleId: "defaults.model.unknown", agentAction: "Run `alln models --json` and pass a known model id.", requiresManual: true, retryable: false, explain: "The model id is not in the catalog, so it cannot be assigned to a tier. List models and use a real id."),
+        ErrorSpec("STALL_EPISODE_NOT_FOUND", ruleId: "stall.episode.not_found", agentAction: "Run `alln stalled list --all --json` and use a current episode id.", requiresManual: false, retryable: false, explain: "No stall episode matches the given id (it may have cleared). List stalled work and retry with a live episode id."),
         ErrorSpec("DOCTOR_CHECK_FAILED", ruleId: "doctor.check.failed", agentAction: "Run `alln doctor --json`.", requiresManual: false, retryable: true, explain: "A required doctor check failed. Inspect the structured report and address the named check, then retry."),
         ErrorSpec("SOURCE_NOT_FOUND", ruleId: "source.not_found", agentAction: "Run `alln doctor --json`; add/configure the missing source.", requiresManual: true, retryable: false, explain: "A required source CLI/runtime was not resolved on this machine. Install or locate it, then re-probe."),
         ErrorSpec("SOURCE_AUTH_EXPIRED", ruleId: "source.auth.expired", agentAction: "Re-authenticate the named source.", requiresManual: true, retryable: false, explain: "The source resolved but its authentication is invalid or expired. Sign in via the source's own login flow."),

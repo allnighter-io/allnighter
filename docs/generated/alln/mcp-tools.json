@@ -984,6 +984,69 @@
     "summary" : "Aggregate stalled-work episodes grouped by project."
   },
   {
+    "command" : "stalled check",
+    "errors" : [
+      "STALL_EPISODE_NOT_FOUND",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "stall_check_status",
+    "outputSchema" : "stallEpisodeJSON",
+    "params" : [
+      {
+        "name" : "episodeId",
+        "required" : true,
+        "summary" : "Stall episode id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Re-observe a stall episode's target; clears it if it has progressed\/terminated, else keeps it active with a fresh refresh time."
+  },
+  {
+    "command" : "stalled wait",
+    "errors" : [
+      "STALL_EPISODE_NOT_FOUND",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "stall_keep_waiting",
+    "outputSchema" : "stallEpisodeJSON",
+    "params" : [
+      {
+        "name" : "episodeId",
+        "required" : true,
+        "summary" : "Stall episode id.",
+        "type" : "string"
+      },
+      {
+        "name" : "minutes",
+        "required" : false,
+        "summary" : "Snooze minutes (default 30).",
+        "type" : "integer"
+      }
+    ],
+    "summary" : "Snooze a stall episode's attention for N minutes (default 30); it stays a real stall, just quiet."
+  },
+  {
+    "command" : "stalled dismiss",
+    "errors" : [
+      "STALL_EPISODE_NOT_FOUND",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "stall_dismiss",
+    "outputSchema" : "stallEpisodeJSON",
+    "params" : [
+      {
+        "name" : "episodeId",
+        "required" : true,
+        "summary" : "Stall episode id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Dismiss a stall episode (cleared, user-dismiss). A genuinely-stalled target re-surfaces on the next scan."
+  },
+  {
     "command" : "project list",
     "errors" : [
       "CLI_USAGE_ERROR"
