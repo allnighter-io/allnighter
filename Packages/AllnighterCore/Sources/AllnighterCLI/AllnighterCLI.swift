@@ -49,7 +49,7 @@ struct AllnighterCLI {
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "dev": runDev(args)
-        case "mcp" where args.first == "install": printMCPInstall()   // consent-gated: prints config, never edits it
+        case "mcp" where args.first == "install": printMCPInstall(Array(args.dropFirst()))   // consent-gated: prints config, never edits it
         case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "serve": await runServe(args)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
@@ -1107,13 +1107,26 @@ struct AllnighterCLI {
         """)
     }
 
-    static func printMCPInstall() {
+    static func printMCPInstall(_ args: [String] = []) {
+        let opts = Options(args)
         let path = CommandLine.arguments.first ?? "/path/to/alln"
+        let target = opts.value("target")?.lowercased()
+        let configHint: String
+        switch target {
+        case "claude": configHint = "Claude Code — add to ~/.claude/mcp.json (or settings):"
+        case "codex":  configHint = "Codex — add to your Codex MCP config:"
+        case "cursor": configHint = "Cursor — add to .cursor/mcp.json (project) or global settings:"
+        case "openclaw", "hermes": configHint = "Messaging agent (\(target!)) — register this MCP server in its bootstrap config:"
+        default: configHint = "Add this MCP server to your agent's config (Claude Code / Codex / Cursor), then restart the agent:"
+        }
         print("""
-        Add this MCP server to your agent's config (Claude Code / Codex / Cursor),
-        then restart the agent. Example (Claude Code ~/.claude/mcp or settings):
+        \(configHint)
           { "mcpServers": { "alln": { "command": "\(path)", "args": ["mcp"] } } }
-        Reachability check: `alln models` should list the Bench models.
+
+        Then give the agent these standing instructions (\(target ?? "any host")):
+        \(HelpService.hostInstructionBlock)
+
+        Reachability check: `alln models` should list the Bench models; call mcp_hello.
         """)
     }
 

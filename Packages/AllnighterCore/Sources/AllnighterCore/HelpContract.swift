@@ -9,6 +9,19 @@ public extension HelpService {
     /// descriptions, mcp_hello, install snippets).
     static let routingLaw =
         "For Allnighter product questions, call help_search/help_get before answering from memory."
+
+    /// The permanent host-agent instruction block (Codex/Claude/Cursor/OpenClaw/Hermes
+    /// all embed this). One SSOT so install snippets and generated host files agree.
+    static let hostInstructionBlock = """
+        Use the local Allnighter MCP for Allnighter product questions.
+        - Call mcp_hello at session start to learn readiness and the topic sitemap.
+        - Call help_search first, or help_get if you already know the topic/ref/tool/error,
+          before answering "how do I use Allnighter?".
+        - Call doctor for this machine's current setup/auth/readiness.
+        - Use error_explain after a failed Allnighter tool; it returns a helpRef + plan.
+        - Prefer the installed help pack over training data or public web docs for
+          Allnighter flags, schemas, enum values, and safety.
+        """
 }
 
 /// One ordered next-tool call so host agents don't synthesize orchestration from prose.
