@@ -49,7 +49,17 @@ enum DefaultsCLI {
         guard ModelCatalog.get(model) != nil else {
             AllnighterCLI.fail(code: "DEFAULTS_MODEL_UNKNOWN", message: "unknown model id: \(model)")
         }
-        let position: Int? = opts.flag("default") ? 0 : opts.value("position").flatMap(Int.init)
+        let position: Int?
+        if opts.flag("default") {
+            position = 0
+        } else if let raw = opts.value("position") {
+            guard let p = Int(raw) else {
+                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--position must be an integer (got: \(raw))")
+            }
+            position = p
+        } else {
+            position = nil   // append
+        }
         var s = persistence().load()
         s.tiers.assign(model, to: tier, position: position)
         save(s); emit(s, opts, runtime)

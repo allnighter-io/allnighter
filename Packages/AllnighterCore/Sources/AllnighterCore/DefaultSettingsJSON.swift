@@ -98,13 +98,18 @@ public enum DefaultSettingsProjector {
         contractVersion: String
     ) -> DefaultSettingsJSON {
         let byId = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let readyIds = Set(models.filter { $0.ready }.map(\.id))
+        // "Live" = a runnable substitute right now: ON the Bench AND its source ready.
+        // Upstream `ready` only means the driver is installed/signed-in (independent of
+        // enablement), so an OFF model with a ready driver must NOT count — otherwise
+        // Auto/substitution could resolve to a model the user turned off.
+        func isLive(_ e: ModelListJSON.Entry) -> Bool { e.ready && e.enabled }
+        let readyIds = Set(models.filter(isLive).map(\.id))
 
         func ref(_ id: ModelID, isTierDefault: Bool) -> DefaultSettingsJSON.ModelRef? {
             guard let e = byId[id] else { return nil }   // stale id (deleted custom) — drop
             return DefaultSettingsJSON.ModelRef(
                 id: e.id, displayName: e.displayName, driverId: e.driverId, driverName: e.driverName,
-                ready: e.ready, enabled: e.enabled, isTierDefault: isTierDefault,
+                ready: isLive(e), enabled: e.enabled, isTierDefault: isTierDefault,
                 tiers: settings.tiers.tiers(of: id).map(\.rawValue))
         }
 
@@ -126,7 +131,7 @@ public enum DefaultSettingsProjector {
             .map { e in
                 DefaultSettingsJSON.ModelRef(
                     id: e.id, displayName: e.displayName, driverId: e.driverId, driverName: e.driverName,
-                    ready: e.ready, enabled: e.enabled, isTierDefault: false, tiers: [])
+                    ready: isLive(e), enabled: e.enabled, isTierDefault: false, tiers: [])
             }
 
         let r = SubstitutionResolver.resolveAuto(settings: settings, readyModelIds: readyIds)

@@ -81,6 +81,24 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         XCTAssertEqual(p.auto.waitsMessage, "No model on Flagship — waits")
     }
 
+    func testOffBenchModelIsNeverLiveAndNeverResolvedByAuto() {
+        // A Flagship tier where the default (opus) is OFF-bench but its driver is
+        // "ready" upstream, and chatgpt is genuinely live. Auto must skip the off-bench
+        // default and substitute to chatgpt — never run a model the user turned off.
+        var s = DefaultModelSettings.fresh
+        s.tiers.flagship = ["model_opus", "model_chatgpt"]
+        let models = [
+            entry("model_opus", "Opus 4.8", enabled: false, ready: true),   // driver up, but OFF bench
+            entry("model_chatgpt", "ChatGPT 5.5", driver: "codex", enabled: true, ready: true),
+        ]
+        let p = DefaultSettingsProjector.build(settings: s, models: models, contractVersion: "1.0.0")
+        let opus = p.tiers[0].members.first { $0.id == "model_opus" }
+        XCTAssertEqual(opus?.ready, false, "off-bench model is not live even if its driver is up")
+        XCTAssertEqual(p.tiers[0].readyCount, 1)
+        XCTAssertEqual(p.auto.resolvedModelId, "model_chatgpt", "Auto skips the off-bench default")
+        XCTAssertTrue(p.auto.substituted)
+    }
+
     func testStaleTierIdIsDroppedFromRender() {
         var s = DefaultModelSettings.fresh
         s.tiers.flagship.append("model_ghost")   // id not in catalog
