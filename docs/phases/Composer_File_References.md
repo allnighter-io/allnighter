@@ -1,9 +1,9 @@
 # Composer File References
 
-Status: Backend/Core/CLI integrated; Mac GUI pending handoff
+Status: Backend/Core/CLI integrated; first Mac composer bridge landed; ranking/polish + GUI proof pending
 Owner: AllnighterCore + Mac app + CLI/MCP contracts
 Created: 2026-06-19
-Updated: 2026-06-19
+Updated: 2026-06-20
 Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` ->
 `docs/workflows/SSOT_Feature_Workflow.md`
 Depends on: [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md),
@@ -117,9 +117,13 @@ Rejected or deferred:
 ## Current State
 
 The backend is no longer starting from zero. The anchors below were verified
-against the tree on 2026-06-19; treat them as the load-bearing reuse surface,
-not as prose. The first backend pass has landed the Core/Engine/CLI/MCP
-foundation; the Mac `@` palette and visual proof remain the product finish.
+against the tree on 2026-06-20; treat them as the load-bearing reuse surface,
+not as prose. The first backend pass landed the Core/Engine/CLI/MCP foundation.
+Commit `b1604881` landed the first Mac composer bridge: `@` detection, an inline
+Project-file picker, selected chips, and file-reference delivery into both
+project-scoped team runs and worker chat. The Mac surface still needs ranking
+polish, matched-text highlighting, draft/paste/DnD finish, context reveal, and a
+native GUI proof seal before the feature can be called fixed.
 
 - `ThreadContextPacket` now keeps `includedFiles: [String]` for compatibility
   and adds `includedFileReferences: [IncludedFileReferenceDelivery]` for
@@ -161,10 +165,13 @@ foundation; the Mac `@` palette and visual proof remain the product finish.
 - Delayed Work Order/Pending hash revalidation is not implemented yet; that is
   FR-S05 and must block changed files with `FILE_REFERENCE_CHANGED_BEFORE_INVOKE`
   before delayed dispatch.
-- The Mac gap is still the product surface: `RoutingComposer`
-  (`Apps/AllnighterMac/Sources/RoutingComposer.swift:97`) and `ALTextEditor`
-  (`DesignComponents.swift:735`) do not detect `@`, do not show a picker, do not
-  persist file chips, and do not pass file references into the send request.
+- The Mac first bridge now lives in `RoutingComposer`
+  (`Apps/AllnighterMac/Sources/RoutingComposer.swift`) and `ALTextEditor`
+  (`Apps/AllnighterMac/Sources/AllnighterTextEditor.swift`). It should be treated
+  as implemented but visually unverified: `xcodebuild`/native proof was blocked
+  by local `sandbox-exec` package-resolution failure, and
+  `scripts/check_gui_proof.sh` correctly requires a fresh proof packet for the
+  changed composer views.
 - `GitObserver` (`AllnighterEngine/GitObserver.swift`) exposes
   `repoTopLevel(forPath:)`, `dirtyFiles(rootPath:)`, and `recentCommits(...)` —
   enough to seed the catalog's git path source and dirty/recency ranking without
@@ -250,8 +257,10 @@ Empty-query ranking:
 3. dirty, staged, or untracked files from git;
 4. recently modified files;
 5. lazy last-commit-touch recency, when cheap/cached;
-6. docs entrypoints and files in the current proposal/work order scope;
-7. shallow/common entrypoints as a final tiebreaker.
+6. human-readable document formats as a gentle tie-breaker (`.md`, `.mdx`,
+   `.txt`, `.rst`, `.adoc`) without repo-specific filename assumptions;
+7. files in the current proposal/work-order scope, when that scope exists;
+8. shallow/common entrypoints as a final tiebreaker.
 
 Typed-query ranking:
 
@@ -260,7 +269,15 @@ Typed-query ranking:
 3. basename contains;
 4. path contains;
 5. fuzzy abbreviation;
-6. the empty-query recency score as a tiebreaker.
+6. freshness/recency as a strong tiebreaker, especially among similar matches;
+7. human-readable document formats as a gentle tiebreaker only after match
+   quality and freshness.
+
+Do not encode Allnighter-specific vocabulary such as SSOT, PRD, Workflow,
+Decision, Plan, or Brief as privileged terms. Those words may rank naturally
+because the user typed them, because the file is fresh, or because the path is a
+human-readable document; they are not global product assumptions about how other
+users organize work.
 
 Palette open target: instant with recents and warm candidates; search update
 target: under 50 ms for the warmed catalog on ordinary repos. If the catalog is
@@ -495,6 +512,17 @@ Chip behavior:
 Do not show estimated tokens, cost, quota burn, or runtime. File size and line
 count are observed facts; token impact is a forecast.
 
+Picker presentation:
+
+- keep one compact list in v1; no groups for Docs / Code / Chats;
+- do not mix prior chats into `@` in v1 — files are durable Project context,
+  prior chats are a separate future memory/history primitive;
+- show root-relative path rows, not cards or previews by default;
+- highlight the exact matched characters/words in the filename/path so the eye
+  can verify the hit quickly;
+- keep metadata muted and secondary; the row's job is fast selection, not
+  explanation.
+
 Palette copy is plain and operational:
 
 ```text
@@ -705,10 +733,11 @@ proof can land first, but the Mac v1 slice is not done without a GUI proof seal.
 | **FR-S01** | `ProjectFileCatalog`: git/rg path source, no content index, recency/lane ranking, safety filters, recents | Backend catalog landed; GUI consumption pending |
 | **FR-S02** | Send transaction: parse `@` tokens before mode branch, draft refs, `includedFiles` + `includedFileReferences`, bounded content delivery, hash recheck, fake worker proof | Thread send + fake worker proof landed; delayed-dispatch hash recheck moves to FR-S05 |
 | **FR-S03** | CLI/MCP: `alln project files`, `--ref`, registry schemas, MCP `fileReferences[]`. **Depends on the `project` command group (PRJ-S07+)**; the `--ref`/`fileReferences[]` half on `thread send` can land first | `thread send --ref` + MCP `fileReferences[]` landed; `alln project files` deferred |
-| **FR-S04** | Mac `@` palette: keyboard search, chips, preview, paste path, DnD Project-local files | Draft |
+| **FR-S04** | Mac `@` palette: keyboard search, chips, preview, paste path, DnD Project-local files | First bridge landed in `b1604881`; ranking/highlight/paste/DnD/persistence + GUI proof pending |
 | **FR-S05** | Work Order/Pending revalidation: stored hashes, refresh action, changed/missing blockers | Draft |
 | **FR-S06** | Context reveal + history: ordered refs, delivered content/truncation, current hash status, delivery mode | Draft |
 | **FR-S07** | GUI proof seal + dogfood pass for Project Manager chat and Send to team | Draft |
+| **FR-S08** | Picker ranking and compact scan polish: match highlighting, freshness-weighted ranking, gentle document-format boost, no groups, no prior chats | Ready for implementation |
 
 Backend/Core/CLI slices FR-S00 through FR-S03 should land before the Mac surface.
 FR-S04 through FR-S07 are the Mac v1 product finish. iOS presentation is deferred.
