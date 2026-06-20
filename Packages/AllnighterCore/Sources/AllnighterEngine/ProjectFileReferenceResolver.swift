@@ -313,52 +313,64 @@ public struct ProjectFileCatalog {
     private static let exactTierFloor = MatchTier.basenamePrefix.rawValue
     private static let tierWeight = 1_000_000.0
 
-    public func candidates(
-        rootPath: String,
+    /// A one-time corpus scan: the project's file paths + the set of dirty/staged/
+    /// untracked paths. This is the ONLY expensive part (git subprocesses) — do it ONCE,
+    /// off the main thread, then `rank()` the cached snapshot in-memory per keystroke.
+    /// No per-file `stat` (the old code did one per file → a beachball on big repos).
+    public struct Snapshot: Sendable, Equatable {
+        public var paths: [String]
+        public var dirty: Set<String>
+        public init(paths: [String], dirty: Set<String>) {
+            self.paths = paths
+            self.dirty = dirty
+        }
+    }
+
+    public func snapshot(rootPath: String) -> Snapshot {
+        let rootURL = URL(fileURLWithPath: rootPath).standardizedFileURL
+        let paths = gitTrackedAndUntrackedFiles(rootURL: rootURL) ?? walkFiles(rootURL: rootURL)
+        return Snapshot(paths: paths, dirty: dirtyPaths(rootURL: rootURL))
+    }
+
+    /// Pure, in-memory ranking over a cached snapshot — no I/O, so it's instant per
+    /// keystroke. Match-quality tier dominates; freshness (recent ≫ dirty > touched) and
+    /// the readable-doc tiebreak only reorder within a tier. (Recently-modified/mtime is
+    /// intentionally dropped here — statting every file is what froze the UI.)
+    public func rank(
+        _ snapshot: Snapshot,
         query: String = "",
         limit: Int = 40,
         recentlyReferenced: [String] = [],
         laneTouched: [String] = []
     ) -> [Candidate] {
-        let rootURL = URL(fileURLWithPath: rootPath).standardizedFileURL
-        let paths = gitTrackedAndUntrackedFiles(rootURL: rootURL) ?? walkFiles(rootURL: rootURL)
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let recentRanks = Dictionary(uniqueKeysWithValues: recentlyReferenced.enumerated().map { ($0.element, $0.offset) })
         let laneSet = Set(laneTouched)
-        let dirtySet = dirtyPaths(rootURL: rootURL)
+        let dirtySet = snapshot.dirty
 
-        return paths.compactMap { path -> Candidate? in
+        return snapshot.paths.compactMap { path -> Candidate? in
             let lowerPath = path.lowercased()
             let basename = ((path as NSString).lastPathComponent).lowercased()
 
-            // 1) Match quality — the dominant term. Empty query ⇒ everyone at tier 0,
-            // ranked purely by freshness.
             var effectiveTier = 0
             if !q.isEmpty {
                 guard let tier = Self.matchTier(query: q, basename: basename, path: lowerPath) else { return nil }
                 effectiveTier = tier.rawValue
-                // 5) Generated/build/vendor/cache/archive sink — UNLESS the query is very
-                // exact — by demoting their tier (so they fall below clean matches).
                 if effectiveTier < Self.exactTierFloor, Self.isNoisy(lowerPath) {
                     effectiveTier = max(0, effectiveTier - 3)
                 }
             } else if Self.isNoisy(lowerPath) {
-                effectiveTier = -1 // browse mode: noise below clean files
+                effectiveTier = -1
             }
 
-            // 2) Freshness — bounded well under one tier so it only breaks ties:
-            // recently referenced ≫ dirty/staged/untracked > recently modified > touched.
-            let mtime = modifiedAt(rootURL.appendingPathComponent(path))
             var fresh = 0.0
             if let rank = recentRanks[path] { fresh += 20_000 - Double(min(rank, 99)) * 100 }
             if dirtySet.contains(path) { fresh += 8_000 }
-            if let mt = mtime { fresh += min(mt.timeIntervalSince1970 / 1_000_000, 2_000) }
             if laneSet.contains(path) { fresh += 1_000 }
-            // 3) Readable document formats — a gentle, generic within-tier tiebreaker only.
             if Self.isReadableDoc(basename) { fresh += 150 }
 
             let score = Double(effectiveTier) * Self.tierWeight + fresh
-            return Candidate(path: path, modifiedAt: mtime, rankScore: score)
+            return Candidate(path: path, modifiedAt: nil, rankScore: score)
         }
         .sorted {
             if $0.rankScore == $1.rankScore { return $0.path < $1.path }
@@ -366,6 +378,19 @@ public struct ProjectFileCatalog {
         }
         .prefix(limit)
         .map { $0 }
+    }
+
+    /// Convenience (CLI/tests): scan + rank in one call. The GUI must NOT use this on the
+    /// main thread — it scans every time. Use `snapshot()` once + `rank()` per keystroke.
+    public func candidates(
+        rootPath: String,
+        query: String = "",
+        limit: Int = 40,
+        recentlyReferenced: [String] = [],
+        laneTouched: [String] = []
+    ) -> [Candidate] {
+        rank(snapshot(rootPath: rootPath), query: query, limit: limit,
+             recentlyReferenced: recentlyReferenced, laneTouched: laneTouched)
     }
 
     /// Best match tier of `query` against the path. Order from strongest: exact basename,
@@ -453,13 +478,6 @@ public struct ProjectFileCatalog {
         return dirty
     }
 
-    /// Total referenceable files in the project — the corpus size behind the `N / total`
-    /// scope hint in the `@` picker.
-    public func fileCount(rootPath: String) -> Int {
-        let rootURL = URL(fileURLWithPath: rootPath).standardizedFileURL
-        return (gitTrackedAndUntrackedFiles(rootURL: rootURL) ?? walkFiles(rootURL: rootURL)).count
-    }
-
     private func gitTrackedAndUntrackedFiles(rootURL: URL) -> [String]? {
         let process = Process()
         process.currentDirectoryURL = rootURL
@@ -494,10 +512,6 @@ public struct ProjectFileCatalog {
             return FileManager.default.fileExists(atPath: absolute, isDirectory: &isDirectory)
                 && !isDirectory.boolValue
         }
-    }
-
-    private func modifiedAt(_ url: URL) -> Date? {
-        (try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date
     }
 }
 

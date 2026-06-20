@@ -97,6 +97,10 @@ struct RoutingComposer: View {
     @State private var fileSearchQuery = ""
     /// Project corpus size (cached per @-session) for the "N / total" scope hint.
     @State private var fileTotalCount = 0
+    /// The project file corpus, scanned ONCE (off-main) per @-session and then ranked
+    /// in-memory per keystroke — so typing never blocks on git/stat.
+    @State private var fileSnapshot: ProjectFileCatalog.Snapshot?
+    @State private var fileScanRoot: String?
     @State private var fileCandidates: [ProjectFileCatalog.Candidate] = []
     @State private var highlightedFileIndex = 0
     @State private var selectedFileReferences: [ComposeFileReference] = []
@@ -595,34 +599,45 @@ struct RoutingComposer: View {
         refreshFileCandidates()
     }
 
-    private func refreshFileCandidates() {
-        let root: String
+    private func activeFileSearchRoot() -> String? {
         #if DEBUG
-        if let fxRoot = GUIFixture.fileReferenceFixtureRoot() {
-            root = fxRoot
-        } else if let project = projects.activeProject {
-            root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
-        } else {
-            fileCandidates = []; highlightedFileIndex = 0; return
-        }
-        #else
-        guard let project = projects.activeProject else {
-            fileCandidates = []
-            highlightedFileIndex = 0
+        if let fxRoot = GUIFixture.fileReferenceFixtureRoot() { return fxRoot }
+        #endif
+        guard let project = projects.activeProject else { return nil }
+        return project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
+    }
+
+    private func refreshFileCandidates() {
+        guard let root = activeFileSearchRoot() else { fileCandidates = []; highlightedFileIndex = 0; return }
+        // Cached snapshot for this root → rank in-memory, instantly.
+        if let snap = fileSnapshot, fileScanRoot == root {
+            rankFileCandidates(snap)
             return
         }
-        let root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
-        #endif
+        // A scan for this root is already in flight — let it complete and rank.
+        if fileScanRoot == root { return }
+        // First @ in this session: scan ONCE off the main thread (git subprocesses), then
+        // hop back to the main actor to cache + rank. Typing never blocks on this.
+        fileScanRoot = root
+        Task {
+            let snap = await Task.detached(priority: .userInitiated) {
+                ProjectFileCatalog().snapshot(rootPath: root)
+            }.value
+            await MainActor.run {
+                guard fileSearchOpen || fileReferenceFixtureOpen, fileScanRoot == root else { return }
+                fileSnapshot = snap
+                fileTotalCount = snap.paths.count
+                rankFileCandidates(snap)
+            }
+        }
+    }
+
+    private func rankFileCandidates(_ snapshot: ProjectFileCatalog.Snapshot) {
         let selectedPaths = Set(selectedFileReferences.map(\.path))
-        let catalog = ProjectFileCatalog()
-        if fileTotalCount == 0 { fileTotalCount = catalog.fileCount(rootPath: root) }
-        fileCandidates = catalog.candidates(
-            rootPath: root,
-            query: fileSearchQuery,
-            limit: 12,
-            recentlyReferenced: selectedFileReferences.map(\.path)
-        )
-        .filter { !selectedPaths.contains($0.path) }
+        fileCandidates = ProjectFileCatalog()
+            .rank(snapshot, query: fileSearchQuery, limit: 12,
+                  recentlyReferenced: selectedFileReferences.map(\.path))
+            .filter { !selectedPaths.contains($0.path) }
         highlightedFileIndex = min(highlightedFileIndex, max(fileCandidates.count - 1, 0))
     }
 
@@ -631,6 +646,8 @@ struct RoutingComposer: View {
         fileSearchQuery = ""
         fileCandidates = []
         fileTotalCount = 0
+        fileSnapshot = nil
+        fileScanRoot = nil
         highlightedFileIndex = 0
     }
 
