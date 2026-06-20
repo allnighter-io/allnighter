@@ -84,7 +84,9 @@ enum GUIFixture {
     /// All other fixtures (home-*, thread-*, team-*, doctor-*, readiness-*) use an
     /// in-process main-window bitmap snapshot and need no Screen Recording permission.
     static var needsNativeOverlays: Bool {
-        (active ?? "").hasPrefix("compose-")
+        // compose-target-inline renders the picker inline (no NSPopover), so it captures
+        // in-process like the other panel fixtures.
+        (active ?? "").hasPrefix("compose-") && active != "compose-target-inline"
     }
 
     /// Deep-link: open the Team dropdown for `team-*` fixtures.
@@ -169,7 +171,9 @@ enum GUIFixture {
         return service
     }
     /// `compose-target-*` seeds the target popover open.
-    static var composeTargetOpen: Bool { (active ?? "").hasPrefix("compose-target-") }
+    static var composeTargetOpen: Bool {
+        (active ?? "").hasPrefix("compose-target-") && active != "compose-target-inline"
+    }
 
     /// `compose-team` pre-selects a team so the target chip renders in team mode
     /// (name · N workers, never a fake model · effort).
@@ -177,6 +181,10 @@ enum GUIFixture {
 
     /// `compose-file-reference` seeds an active @ query so the file picker is visible.
     static var composeFileReferenceOpen: Bool { active == "compose-file-reference" }
+
+    /// `compose-target-inline` renders the redesigned team picker panel INLINE (not as a
+    /// native NSPopover, which can't be captured in-process) seeded with a search query.
+    static var composeTargetInline: Bool { active == "compose-target-inline" }
 
     /// Dedicated fixture for testing the Screen Recording grant / preflight in isolation.
     /// Runs the composite path (so native popovers + SR are exercised) but is intended
@@ -267,6 +275,7 @@ enum GUIFixture {
         ("pending-pill", "Home — top-bar 'N pending' pill (PENDQ GUI)"),
         ("pending-review", "Pending — composer-in-modal review (PENDQ GUI)"),
         ("compose-target-chat", "Compose — route target popover (native popover)"),
+        ("compose-target-inline", "Compose — redesigned team picker panel (Auto/search/favorites)"),
         ("compose-team", "Compose — team target (name · workers, not fake model)"),
         ("compose-file-reference", "Compose — file reference picker"),
         ("compose-target-send-to-team", "Compose — team target popover (native popover)"),
@@ -652,6 +661,7 @@ enum GUIFixture {
     static var isGrantSession: Bool { false }
     static var active: String? { nil }
     static var composeTargetOpen: Bool { false }
+    static var composeTargetInline: Bool { false }
     static var composeFileReferenceOpen: Bool { false }
     static var opensTeamDropdown: Bool { false }
     static var opensDoctorPopover: Bool { false }

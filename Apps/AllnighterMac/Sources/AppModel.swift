@@ -500,7 +500,7 @@ final class AppModel {
             let n = p.workerSpecs.count
             let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
             return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)",
-                               isFavorite: favorites.contains(p.id))
+                               isFavorite: favorites.contains(p.id), lane: lane)
         }
         // Favorites first (in the user's favorite order); the rest keep catalog order.
         return teams.enumerated().sorted { a, b in
@@ -517,6 +517,41 @@ final class AppModel {
     func composeDefaultTeam(for lane: ComposeLane) -> String {
         let teams = composeTeams(for: lane)
         return (teams.first { $0.isFavorite } ?? teams.first)?.id ?? ""
+    }
+
+    /// Every team across all crafts, deduped, favorites first — the composer picker
+    /// is no longer lane-scoped (search spans the whole roster; favorites are the
+    /// default browsing surface).
+    func composeAllTeams() -> [ComposeTeam] {
+        var seen = Set<String>()
+        var all: [ComposeTeam] = []
+        for lane in ComposeLane.allCases {
+            for t in composeTeams(for: lane) where !seen.contains(t.id) {
+                seen.insert(t.id)
+                all.append(t)
+            }
+        }
+        // Favorites first (favorite order), then the rest keep aggregate order.
+        let favRank = Dictionary(uniqueKeysWithValues: favoriteTeamIds.enumerated().map { ($1, $0) })
+        return all.enumerated().sorted { a, b in
+            let ra = favRank[a.element.id], rb = favRank[b.element.id]
+            switch (ra, rb) {
+            case let (x?, y?): return x < y
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return a.offset < b.offset
+            }
+        }.map(\.element)
+    }
+
+    /// Recently selected teams (most-recent first, max 3) — drives the picker's Recent
+    /// section. In-memory: empty at launch, so the section is simply omitted until used.
+    private(set) var recentTeamIds: [String] = []
+
+    func noteRecentTeam(_ id: String) {
+        recentTeamIds.removeAll { $0 == id }
+        recentTeamIds.insert(id, at: 0)
+        if recentTeamIds.count > 3 { recentTeamIds = Array(recentTeamIds.prefix(3)) }
     }
 
     /// Toggle a team's favorite state (persisted). Reloading the observable list

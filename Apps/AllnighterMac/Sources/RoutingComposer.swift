@@ -37,6 +37,9 @@ struct ComposeTeam: Identifiable, Equatable {
     let name: String
     let summary: String
     let isFavorite: Bool
+    /// The craft this team belongs to — drives the row icon (the picker no longer
+    /// filters by lane, so each row carries its own).
+    var lane: ComposeLane = .code
 }
 
 private struct ComposeFileReference: Identifiable, Equatable {
@@ -99,6 +102,9 @@ struct RoutingComposer: View {
     @State private var editorHeight = ComposeEditorMetrics.minHeight
     /// First-edit latch — fires `onEdit` once (the Pending-review modal un-arms on edit).
     @State private var didEdit = false
+    /// Composer team picker search — empty shows Recent + Favorites, non-empty searches
+    /// the whole roster (the picker is no longer craft-filtered).
+    @State private var teamSearch = ""
 
     let placeholder: String
     private let big: Bool
@@ -148,6 +154,11 @@ struct RoutingComposer: View {
         .onAppear(perform: seedDefaults)
         .onAppear(perform: consumePendingPrefillIfNeeded)
         .onAppear(perform: updateFileSearchFromText)
+        .onAppear {
+            #if DEBUG
+            if GUIFixture.composeTargetInline, teamSearch.isEmpty { teamSearch = "bug" }
+            #endif
+        }
         .onChange(of: threads.pendingQuickCaptureText) { _, _ in
             consumePendingPrefillIfNeeded()
         }
@@ -240,6 +251,14 @@ struct RoutingComposer: View {
                 fileReferencePanel
             }
             bar
+            #if DEBUG
+            // Proof-only: the team picker is a native NSPopover (uncapturable in-process),
+            // so render the redesigned panel inline for the GUI proof.
+            if GUIFixture.composeTargetInline {
+                Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                targetPopoverPanel
+            }
+            #endif
         }
         .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
         .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
@@ -421,6 +440,15 @@ struct RoutingComposer: View {
             Text(preset.displayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
             Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
             Text(teamWorkerLabel(preset)).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
+        } else if pinnedWorker == nil {
+            // Auto: name the mode AND the model it resolves to, so the user can tell
+            // they're in Auto and not pinned to that model (founder: "Auto · <model>").
+            Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+            Text("Auto").font(ALFont.mono).foregroundStyle(ALColor.textSecondary)
+            if let name = autoModelName {
+                Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+                Text(name).font(ALFont.mono).foregroundStyle(ALColor.textMuted).lineLimit(1)
+            }
         } else {
             Text(singleModelName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
             Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
@@ -432,6 +460,13 @@ struct RoutingComposer: View {
     /// explicit pin. Equals what the run will actually execute.
     private var singleModelName: String {
         appModel.composeBench.first(where: { $0.id == selectedWorkerId })?.name ?? "Auto"
+    }
+
+    /// The model name Auto resolves to right now (nil when the tier is fully down and
+    /// Auto would wait — the chip then reads just "Auto").
+    private var autoModelName: String? {
+        guard let id = autoModelId else { return nil }
+        return appModel.composeBench.first { $0.id == id }?.name
     }
 
     /// A team's honest size: execution teams are one agent; answer teams show their
@@ -599,9 +634,9 @@ struct RoutingComposer: View {
             } else {
                 targetTabs
                 if targetTab == .team {
-                    laneTabs
                     defaultTeamRow
-                    teamList
+                    teamSearchField
+                    teamPickerBody
                     customizeFooter
                 } else {
                     modelList(appModel.composeBench.map(\.id))
@@ -642,22 +677,80 @@ struct RoutingComposer: View {
         .padding(.horizontal, 6).padding(.top, 4).padding(.bottom, 7)
     }
 
-    private var laneTabs: some View {
-        HStack(spacing: 6) {
-            ForEach(ComposeLane.allCases, id: \.self) { l in
-                Button { lane = l } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: l.icon).font(.system(size: 12)).foregroundStyle(l == lane ? ALColor.textPrimary : ALColor.textMuted)
-                        Text(l.label).font(.system(size: 12, weight: .medium)).foregroundStyle(l == lane ? ALColor.textPrimary : ALColor.textMuted)
-                    }
-                    .frame(maxWidth: .infinity).frame(height: 31)
-                    .background(l == lane ? ALColor.active : ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
-                    .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(l == lane ? ALColor.borderDefault : .clear, lineWidth: 1) }
-                }
-                .buttonStyle(.plain)
+    // Search field sits directly under Auto — answering both modes instantly: "I know
+    // what I want" (type) and "show me my bench" (Recent + Favorites below).
+    private var teamSearchField: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+            TextField("Search teams…", text: $teamSearch)
+                .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(ALColor.textPrimary)
+            if !teamSearch.isEmpty {
+                Button { teamSearch = "" } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                }.buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 6).padding(.vertical, 4)
+        .padding(.horizontal, 10).frame(height: 30)
+        .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        .padding(.horizontal, 6).padding(.top, 6).padding(.bottom, 2)
+    }
+
+    // Empty query → Recent (max 3) + Favorites. Non-empty → matches across the whole
+    // roster. Non-favorites stay hidden until searched (favorites are the default surface).
+    @ViewBuilder private var teamPickerBody: some View {
+        let q = teamSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let all = appModel.composeAllTeams()
+        ScrollView {
+            VStack(spacing: 1) {
+                if q.isEmpty {
+                    let recents = recentTeams(from: all)
+                    let recentIds = Set(recents.map(\.id))
+                    if !recents.isEmpty {
+                        teamSectionLabel("RECENT")
+                        ForEach(recents) { teamButton($0) }
+                    }
+                    teamSectionLabel("FAVORITES")
+                    let favs = all.filter { $0.isFavorite && !recentIds.contains($0.id) }
+                    if favs.isEmpty {
+                        teamPickerEmpty("No favorites yet — star a team to pin it here.")
+                    } else {
+                        ForEach(favs) { teamButton($0) }
+                    }
+                } else {
+                    let results = all.filter { matchesTeamQuery($0, q) }
+                    if results.isEmpty {
+                        teamPickerEmpty("No teams found")
+                    } else {
+                        ForEach(results) { teamButton($0) }
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: 208)
+    }
+
+    private func teamPickerEmpty(_ text: String) -> some View {
+        Text(text).font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 9).padding(.vertical, 8)
+    }
+
+    private func recentTeams(from all: [ComposeTeam]) -> [ComposeTeam] {
+        appModel.recentTeamIds.compactMap { id in all.first { $0.id == id } }
+    }
+
+    /// Match name, craft, summary, and the team's resolved worker/model — no special
+    /// boosts for any vocabulary; it ranks only because the user typed it.
+    private func matchesTeamQuery(_ t: ComposeTeam, _ q: String) -> Bool {
+        if t.name.lowercased().contains(q) { return true }
+        if t.summary.lowercased().contains(q) { return true }
+        if t.lane.label.lowercased().contains(q) { return true }
+        if let worker = resolvedWorkerId(forTeam: t.id),
+           let m = appModel.composeBench.first(where: { $0.id == worker }) {
+            if m.name.lowercased().contains(q) || m.cli.lowercased().contains(q) { return true }
+        }
+        return false
     }
 
     // "Auto" is pinned to the very top — the default route, the 95% case.
@@ -668,9 +761,9 @@ struct RoutingComposer: View {
                     .frame(width: 27, height: 27)
                     .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(TeamCatalog.defaultRunTeam()?.displayName ?? "Auto")
+                    Text("Auto")
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                    Text("The default route — your go-to agent").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                    Text("Default model").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
                 }
                 Spacer(minLength: 8)
                 if team == nil { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
@@ -683,25 +776,6 @@ struct RoutingComposer: View {
         .buttonStyle(.plain)
     }
 
-    // Favorites featured first, then the rest. The whole list is height-bounded so
-    // the popover can't balloon past the screen (the old "both forms" overflow bug).
-    private var teamList: some View {
-        let teams = appModel.composeTeams(for: lane)
-        let favs = teams.filter(\.isFavorite)
-        let rest = teams.filter { !$0.isFavorite }
-        return ScrollView {
-            VStack(spacing: 1) {
-                if !favs.isEmpty {
-                    teamSectionLabel("FAVORITES")
-                    ForEach(favs) { teamButton($0) }
-                    if !rest.isEmpty { teamSectionLabel("ALL TEAMS") }
-                }
-                ForEach(rest) { teamButton($0) }
-            }
-        }
-        .frame(maxHeight: 196)
-    }
-
     private func teamSectionLabel(_ text: String) -> some View {
         Text(text).font(.system(size: 9.5, weight: .semibold)).tracking(0.6)
             .foregroundStyle(ALColor.textFaint)
@@ -711,7 +785,7 @@ struct RoutingComposer: View {
 
     private func teamButton(_ t: ComposeTeam) -> some View {
         HStack(spacing: 6) {
-            Button { team = t.id; targetOpen = false } label: { teamRowBody(t) }.buttonStyle(.plain)
+            Button { selectTeam(t) } label: { teamRowBody(t) }.buttonStyle(.plain)
             // Star toggles favorite without selecting the team. Neutral fill — the
             // shape says "favorite", no color needed (color earns its place).
             Button { appModel.toggleFavorite(t.id) } label: {
@@ -726,9 +800,18 @@ struct RoutingComposer: View {
         .background(team == t.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
     }
 
+    /// Select a team: pin it, sync the lane to its craft (no lane tabs anymore), and
+    /// record it for the Recent section.
+    private func selectTeam(_ t: ComposeTeam) {
+        team = t.id
+        lane = t.lane
+        appModel.noteRecentTeam(t.id)
+        targetOpen = false
+    }
+
     private func teamRowBody(_ t: ComposeTeam) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: lane.icon).font(.system(size: 14)).foregroundStyle(ALColor.textMuted)
+            Image(systemName: t.lane.icon).font(.system(size: 14)).foregroundStyle(ALColor.textMuted)
                 .frame(width: 27, height: 27)
                 .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
             VStack(alignment: .leading, spacing: 1) {
