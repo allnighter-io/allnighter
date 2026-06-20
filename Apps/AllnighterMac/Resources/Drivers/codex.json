@@ -21,6 +21,16 @@
     "doneSignal": "exit_code",
     "sentinel": null
   },
+  "streaming": {
+    "supported": true,
+    "mode": "jsonl_stdout",
+    "args": ["exec", "--json", "--skip-git-repo-check", "--color", "never", "-m", "{{model}}", "{{effortArgs}}", "-o", "{{outputFile}}", "{{prompt}}"],
+    "partialOutput": false,
+    "answerDeltaPaths": ["$.item.text"],
+    "finalAnswerSource": "output_file",
+    "stripAnsi": true,
+    "visibleReasoning": false
+  },
   "imageGen": {
     "args": ["exec", "-C", "{{runDir}}", "--skip-git-repo-check", "--color", "never", "{{prompt}}"],
     "promptVia": "arg",

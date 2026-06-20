@@ -65,7 +65,9 @@ public enum WorkerStreamParsers {
         switch manifest.id {
         case "grok": return GrokStreamParser()
         case "cursor_agent": return CursorStreamParser()
-        default: return nil   // STR-S10 adds Claude/Codex.
+        case "claude_code": return ClaudeStreamParser()
+        case "codex": return CodexStreamParser()
+        default: return nil
         }
     }
 }

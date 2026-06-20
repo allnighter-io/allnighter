@@ -21,6 +21,16 @@
     "doneSignal": "exit_code",
     "sentinel": null
   },
+  "streaming": {
+    "supported": true,
+    "mode": "jsonl_stdout",
+    "args": ["-p", "{{prompt}}", "--model", "{{model}}", "{{effortArgs}}", "--output-format", "stream-json", "--include-partial-messages", "--verbose", "--permission-mode", "bypassPermissions"],
+    "partialOutput": true,
+    "answerDeltaPaths": ["$.event.delta.text"],
+    "finalAnswerSource": "event",
+    "stripAnsi": true,
+    "visibleReasoning": true
+  },
   "readsImages": true,
   "setup": {
     "bins": ["claude"],

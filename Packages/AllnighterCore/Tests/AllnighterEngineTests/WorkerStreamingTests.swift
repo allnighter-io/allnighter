@@ -104,6 +104,72 @@ final class CursorStreamParserTests: XCTestCase {
     }
 }
 
+final class ClaudeStreamParserTests: XCTestCase {
+
+    func testTextDeltasConcatenateAndThinkingStreamsSeparately() {
+        let parser = ClaudeStreamParser()
+        let ndjson = """
+        {"type":"system","subtype":"init","model":"claude-opus-4-8"}
+        {"type":"stream_event","event":{"type":"message_start","message":{"role":"assistant"}}}
+        {"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking"}}}
+        {"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me think…"}}}
+        {"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}}
+        {"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Hi"}}}
+        {"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"! What can I help with today?"}}}
+        {"type":"assistant","message":{"content":[{"type":"text","text":"Hi! What can I help with today?"}]}}
+        {"type":"result","subtype":"success","is_error":false,"result":"Hi! What can I help with today?"}
+
+        """
+        let events = parser.receiveStdout(Data(ndjson.utf8))
+        let answers = events.compactMap { e -> String? in if case .answerDelta(let t, _, _) = e { return t }; return nil }
+        let thoughts = events.compactMap { e -> String? in if case .reasoningDelta(let t, _) = e { return t }; return nil }
+        XCTAssertEqual(answers, ["Hi", "! What can I help with today?"])
+        XCTAssertEqual(thoughts, ["Let me think…"])
+        XCTAssertEqual(parser.finalAnswer(result: CommandResult(exitCode: 0), outputFileText: nil), "Hi! What can I help with today?")
+    }
+
+    func testAssistantSnapshotDoesNotDoubleRender() {
+        let parser = ClaudeStreamParser()
+        // A bare assistant snapshot (no stream_event deltas) must not produce answer text.
+        let ndjson = #"{"type":"assistant","message":{"content":[{"type":"text","text":"snapshot"}]}}"# + "\n"
+        let events = parser.receiveStdout(Data(ndjson.utf8))
+        XCTAssertTrue(events.allSatisfy { if case .answerDelta = $0 { return false }; return true })
+    }
+}
+
+final class CodexStreamParserTests: XCTestCase {
+
+    func testAgentMessageSnapshotBecomesAnswerAndDedupes() {
+        let parser = CodexStreamParser()
+        let ndjson = """
+        {"type":"thread.started","thread_id":"t"}
+        {"type":"turn.started"}
+        {"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"OK"}}
+        {"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"OK"}}
+        {"type":"turn.completed","usage":{"output_tokens":3}}
+
+        """
+        let events = parser.receiveStdout(Data(ndjson.utf8))
+        let answers = events.compactMap { e -> String? in if case .answerDelta(let t, _, _) = e { return t }; return nil }
+        XCTAssertEqual(answers, ["OK"], "duplicate item.id must not render twice")
+        // Output-file capture is canonical when present.
+        XCTAssertEqual(parser.finalAnswer(result: CommandResult(exitCode: 0), outputFileText: "OK"), "OK")
+        XCTAssertEqual(parser.finalAnswer(result: CommandResult(exitCode: 0), outputFileText: nil), "OK")
+    }
+
+    func testToolAndReasoningItemsAreNotAnswerText() {
+        let parser = CodexStreamParser()
+        let ndjson = """
+        {"type":"item.completed","item":{"id":"r0","type":"reasoning","text":"thinking about it"}}
+        {"type":"item.completed","item":{"id":"c0","type":"command_execution","exit_code":0}}
+
+        """
+        let events = parser.receiveStdout(Data(ndjson.utf8))
+        XCTAssertTrue(events.allSatisfy { if case .answerDelta = $0 { return false }; return true })
+        XCTAssertTrue(events.contains { if case .reasoningDelta(let t, _) = $0 { return t == "thinking about it" }; return false })
+    }
+}
+
 final class WorkerInvokeStreamingTests: XCTestCase {
 
     private func grokManifest() -> DriverManifest {
