@@ -1,8 +1,26 @@
 # MCP Help System
 
-Status: Draft feature packet
+Status: H0a–H3 BUILT (agent-callable + distributable); H4 reframed; H5 + installed-bundle remain
 Owner: Founder + Shared Core + CLI/MCP + Docs/Release
 Updated: 2026-06-20
+
+> **BUILD STATUS (resume here).** Slices below are partly shipped on feat/design-chain:
+>
+> | Slice | State | Where |
+> | --- | --- | --- |
+> | **H0a — Help SSOT** | **BUILT** | `HelpTopicRegistry.swift` (12 topics, aliases, registry refs) + `HelpService.swift` (lexical search + get(topic\|ref\|tool\|error) + `alln://` refs). Drift gates in `HelpTopicRegistryTests`. |
+> | **H1 — CLI** | **BUILT** | `alln help search\|get\|topics`; `HelpContract.swift` envelopes (HelpSearch/Get/TopicsJSON) + `HelpProjector` (routing law + nextToolPlan). |
+> | **H2 — MCP** | **BUILT** | `help_search`/`help_get` (MCPHelpHandlers + dispatch); routingLaw + topicSitemap + decisionTree in `mcp_hello`. |
+> | **H3a — error bridge** | **BUILT** | `error_explain`/`doctor explain` → `ErrorExplainJSON` (helpRef + recovery plan) via `ErrorHelpBridge`. |
+> | **H3b — host activation** | **BUILT** | `alln mcp install --target <agent>` prints config + `HelpService.hostInstructionBlock`. |
+> | **H0 — installed bundle** | **NOT built** | No `help-pack.json`/topic-md export, no `alln dev export-help --check`, no `helpBundleVersion`/hash in mcp_hello/doctor, no app/CLI resource packaging. Topics are compiled-in for now. |
+> | **H4 — in-app** | **REFRAMED (see below)** | NOT a separate help UI. The Default Team worker answers Allnighter questions in **normal compose** using the installed help. Mostly non-GUI wiring. |
+> | **H5 — golden transcripts** | **NOT built** | Non-GUI test suite (question → tool sequence → answer shape). |
+> | **H6 — web mirror** | parked | Optional. |
+>
+> **Generated artifacts (`docs/generated/alln/`) are regenerated + drift-gated** for the
+> contract parts (mcp-tools.json, error-codes.json, help_alln_cli_spec.md). The *help
+> bundle* export (H0) is the main missing piece.
 
 ## Founder Intent
 
@@ -856,18 +874,39 @@ Completion gate:
 - A third-party agent install has enough permanent instructions to call
   Allnighter help before guessing.
 
-### H4 - In-app help consumption
+### H4 - In-app help consumption — REFRAMED (founder, 2026-06-20)
 
-- Add a pure Core `HelpService` API consumed by CLI, MCP, and Mac.
-- Route Default Team / in-app product questions to the installed help bundle.
-- Add Mac presenter state for `answerMarkdown`, refs, and suggested actions.
-- Wire suggested actions to existing app flows without creating SwiftUI-owned
-  tool-choice truth.
+**There is no separate in-app help UI, AND the default chat must NOT be biased toward
+help.** In-app help is just regular compose: a user can ask "how does Pending work?"
+and get a good answer — but the default chat stays **raw passthrough that equals
+running the CLI raw** (the locked Unified-Run-Model law). 
 
-Completion gate:
+**DO NOT inject a help-first instruction into the Default Team worker's prompt
+(founder, 2026-06-20).** Assuming every chat is an internal-help question is wrong ~99%
+of the time, adds latency, and breaks default-run == CLI-raw. The help-first routing
+law / `hostInstructionBlock` is for **external host agents' standing config only**
+(the `alln mcp install --target …` snippet), where it is scoped to Allnighter-usage
+questions — never for Allnighter's own default chat.
 
-- A user asking Allnighter chat "how does Pending work?" gets the same truth as
-  an external MCP agent, plus app-native next actions.
+How in-app Allnighter Q&A works without bias:
+
+- The worker reaches the installed help by **tool availability, by its own judgment** —
+  i.e. the Allnighter MCP help tools (`help_search`/`help_get`/`doctor`) are reachable
+  if/when the worker chooses to call them because the *user actually asked an Allnighter
+  question*. No system-prompt mandate, no forced first call.
+- `HelpService` (Core) stays the SSOT for whatever path answers.
+- The Mac presenter only renders the normal chat reply; no dedicated help component.
+
+Open question to resolve before building H4: should Allnighter even auto-wire its own
+MCP into the default-chat worker invocation (so the worker *can* call help), or leave
+in-app Allnighter Q&A to whatever MCP the user already configured? Either way: **no
+prompt bias, default chat == CLI raw.** Keep H4 minimal until decided.
+
+Completion gate (revised):
+
+- Default chat answers a normal work question exactly as the raw CLI would (no help
+  bias, no added latency). A genuine Allnighter question *can* be answered from
+  installed help, but only when the agent chooses to reach for it. No help screen.
 
 ### H5 - Golden transcripts and quality bar
 
