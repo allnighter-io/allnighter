@@ -1,14 +1,11 @@
 # composer — layout-watcher verdict
-
 Fixtures: compose-file-reference
 Command: bash scripts/gui_proof.sh compose-file-reference
 
 ## VERDICT: PASS
+@ picker renders the seeded matches. The panel now shows whenever @ is open and NEVER
+silently empty: an honest status line ("Scanning project files…" / "Open a project to
+reference its files." / "No files match …") replaces blank nothing.
 
-Floating @ autocomplete above the composer renders identically after the perf rewrite:
-compact list, top row selected (chevron), matched chars highlighted, root-relative paths,
-scope count. The corpus is now scanned ONCE off the main thread and ranked in-memory per
-keystroke (no git/stat on the main thread → no freeze). No clipping/overlap.
-
-P1 — broken (blocks): none
+P1 — broken: none
 P2 — advisory: none

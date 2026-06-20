@@ -161,6 +161,7 @@ struct RoutingComposer: View {
     /// in-memory per keystroke — so typing never blocks on git/stat.
     @State private var fileSnapshot: ProjectFileCatalog.Snapshot?
     @State private var fileScanRoot: String?
+    @State private var fileScanning = false
     @State private var fileCandidates: [ProjectFileCatalog.Candidate] = []
     @State private var highlightedFileIndex = 0
     @State private var selectedFileReferences: [ComposeFileReference] = []
@@ -397,8 +398,17 @@ struct RoutingComposer: View {
 
     /// Show the floating suggestions only when there's something to pick — an open @
     /// query with matches. No matches ⇒ nothing floats (no empty box).
+    // Show the panel whenever an @ query is open — NEVER silently nothing. It shows the
+    // matches, or an honest status (scanning / no project / no matches).
     private var showsFileSuggestions: Bool {
-        (fileSearchOpen || fileReferenceFixtureOpen) && !fileCandidates.isEmpty
+        fileSearchOpen || fileReferenceFixtureOpen
+    }
+
+    /// Why the suggestion list is empty — so we never fail silently.
+    private var fileEmptyReason: String {
+        if fileScanning { return "Scanning project files…" }
+        if activeFileSearchRoot() == nil { return "Open a project to reference its files." }
+        return fileSearchQuery.isEmpty ? "No files in this project." : "No files match “\(fileSearchQuery)”."
     }
 
     // A floating autocomplete that sits ABOVE the composer (no search box): a compact
@@ -413,14 +423,23 @@ struct RoutingComposer: View {
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             .padding(.horizontal, 12).padding(.top, 7).padding(.bottom, 3)
-            // Hug the rows (candidates are capped at 12) — no over-expanding scroll area,
-            // so the popup stays compact like a real autocomplete.
-            VStack(spacing: 1) {
-                ForEach(Array(fileCandidates.enumerated()), id: \.element.path) { index, candidate in
-                    fileCandidateRow(candidate, index: index)
+            if fileCandidates.isEmpty {
+                HStack(spacing: 7) {
+                    if fileScanning { ProgressView().controlSize(.small) }
+                    Text(fileEmptyReason).font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                    Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+            } else {
+                // Hug the rows (candidates are capped at 12) — no over-expanding scroll
+                // area, so the popup stays compact like a real autocomplete.
+                VStack(spacing: 1) {
+                    ForEach(Array(fileCandidates.enumerated()), id: \.element.path) { index, candidate in
+                        fileCandidateRow(candidate, index: index)
+                    }
+                }
+                .padding(.horizontal, 5).padding(.bottom, 5)
             }
-            .padding(.horizontal, 5).padding(.bottom, 5)
         }
         .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
         .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
@@ -664,31 +683,39 @@ struct RoutingComposer: View {
         if let fxRoot = GUIFixture.fileReferenceFixtureRoot() { return fxRoot }
         #endif
         guard let project = projects.activeProject else { return nil }
-        return project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
+        let root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
+        // A stamped-but-wrong path resolves to nothing — treat it as no root so the
+        // honest empty state shows instead of a silent blank.
+        guard !root.isEmpty, FileManager.default.fileExists(atPath: root) else { return nil }
+        return root
     }
 
     private func refreshFileCandidates() {
-        guard let root = activeFileSearchRoot() else { fileCandidates = []; highlightedFileIndex = 0; return }
+        guard let root = activeFileSearchRoot() else {
+            fileCandidates = []; fileScanning = false; highlightedFileIndex = 0; return
+        }
         // Cached snapshot for this root → rank in-memory, instantly.
         if let snap = fileSnapshot, fileScanRoot == root {
             rankFileCandidates(snap)
             return
         }
-        // A scan for this root is already in flight — let it complete and rank.
-        if fileScanRoot == root { return }
+        // A scan for this root is already in flight — let it finish and rank.
+        if fileScanRoot == root, fileScanning { return }
         // First @ in this session: scan ONCE off the main thread (git subprocesses), then
-        // hop back to the main actor to cache + rank. Typing never blocks on this.
+        // back on the main actor cache + rank. Typing never blocks on this.
         fileScanRoot = root
-        Task {
+        fileScanning = true
+        fileCandidates = []
+        Task { @MainActor in
             let snap = await Task.detached(priority: .userInitiated) {
                 ProjectFileCatalog().snapshot(rootPath: root)
             }.value
-            await MainActor.run {
-                guard fileSearchOpen || fileReferenceFixtureOpen, fileScanRoot == root else { return }
-                fileSnapshot = snap
-                fileTotalCount = snap.paths.count
-                rankFileCandidates(snap)
-            }
+            guard fileSearchOpen || fileReferenceFixtureOpen, fileScanRoot == root else { fileScanning = false; return }
+            fileSnapshot = snap
+            fileTotalCount = snap.paths.count
+            fileScanning = false
+            FileHandle.standardError.write(Data("[@refs] root=\(root) paths=\(snap.paths.count) dirty=\(snap.dirty.count)\n".utf8))
+            rankFileCandidates(snap)
         }
     }
 
@@ -708,6 +735,7 @@ struct RoutingComposer: View {
         fileTotalCount = 0
         fileSnapshot = nil
         fileScanRoot = nil
+        fileScanning = false
         highlightedFileIndex = 0
     }
 

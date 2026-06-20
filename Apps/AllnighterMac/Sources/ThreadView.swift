@@ -322,31 +322,37 @@ private struct ThreadThinkingBlock: View {
     }
 }
 
-/// Bottom-right per-message copy button. Copy is what you reach for AFTER reading a
-/// message (founder), so it sits at the foot, not the header. Appears on hover (forced
-/// visible under the copy-footer GUI fixture). Top-right stays reserved for copy/paste
-/// code blocks, which don't exist yet.
+/// Always-visible "Copy" button at the foot of every agent answer. The markdown
+/// renderer doesn't reliably support text selection, so this is the dependable way to
+/// get an answer onto the clipboard. Shows a "Copied" confirmation.
 private struct MessageCopyFooter: View {
     let text: String?
-    let hovering: Bool
-
-    private var visible: Bool {
-        #if DEBUG
-        if GUIFixture.alwaysShowMessageCopy { return true }
-        #endif
-        return hovering
-    }
+    @State private var copied = false
 
     var body: some View {
-        if visible, let text, !text.isEmpty {
+        if let text, !text.isEmpty {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
-                IconButton(systemImage: "doc.on.doc", accessibilityLabel: "Copy", small: true) {
+                Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(text, forType: .string)
+                    copied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { copied = false }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 10, weight: .medium))
+                        Text(copied ? "Copied" : "Copy").font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(copied ? ALPalette.green500 : ALColor.textMuted)
+                    .padding(.horizontal, 8).frame(height: 24)
+                    .background(ALColor.subtle, in: Capsule())
+                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
                 }
+                .buttonStyle(.plain)
+                .help("Copy this answer")
             }
             .frame(maxWidth: .infinity)
+            .padding(.top, 3)
         }
     }
 }
@@ -440,7 +446,7 @@ private struct ThreadTurnRow: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if turn.status == .done {
-                    MessageCopyFooter(text: turn.text, hovering: hovering)
+                    MessageCopyFooter(text: turn.text)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -560,6 +566,7 @@ private struct ThreadBoardRow: View {
                         .foregroundStyle(ALColor.accentText)
                     MarkdownText(markdown: synthesis)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    MessageCopyFooter(text: synthesis)
                 }
                 .padding(12)
                 .background(ALColor.active, in: RoundedRectangle(cornerRadius: ALRadius.lg))
@@ -585,6 +592,7 @@ private struct ThreadBoardRow: View {
             case .done:
                 MarkdownText(markdown: answer.output ?? "")
                     .frame(maxWidth: .infinity, alignment: .leading)
+                MessageCopyFooter(text: answer.output)
             case .failed, .timedOut:
                 Text(answer.errorReason ?? "No answer.")
                     .font(.system(size: 12.5)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
@@ -651,7 +659,7 @@ private struct ThreadMutatingRunRow: View {
                     text: turn.reasoningText, isLatestTurn: isLastTurn,
                     isRunning: !turn.status.isTerminal, duration: thinkingDuration)
                 content
-                MessageCopyFooter(text: copyableText, hovering: hovering)
+                MessageCopyFooter(text: copyableText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)

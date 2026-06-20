@@ -1,5 +1,5 @@
-# surface: composer
-# fixtures: compose-file-reference
+# surface: thread
+# fixtures: thread-team-board
 # watcher: PASS
 # sealed: 2026-06-20
 # Binds each proven view to its exact content hash. Re-editing any view
