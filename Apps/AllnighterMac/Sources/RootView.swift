@@ -191,7 +191,9 @@ struct RootView: View {
                     let maxBody = max(160, geo.size.height - top - 190)
                     BenchHealthPopover(
                         onClose: { showDoctor = false },
-                        onOpenFull: { openReadiness() },
+                        // Open the full Settings shell at CLIs (sidebar present) so
+                        // Teams/Skills stay reachable — not the sidebarless page.
+                        onOpenFull: { showDoctor = false; openTeamStudio() },
                         maxBodyHeight: maxBody
                     )
                     .offset(
@@ -359,7 +361,9 @@ struct RootView: View {
     #else
     private var devSimLabel: String? { nil }
 
-    private func openSettings() {}
+    /// Release: the title-bar gear opens the Settings shell (sidebar: CLIs · Teams ·
+    /// Skills). Was a no-op — the regression that orphaned the whole settings page.
+    private func openSettings() { openTeamStudio() }
     #endif
 
     private func openTeamStudio() {

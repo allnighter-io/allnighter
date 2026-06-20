@@ -226,7 +226,9 @@ struct BenchDropdownPanel: View {
         HStack(spacing: 10) {
             Button {
                 isOpen = false
-                onOpenSetup()
+                // Opens the full Settings shell (sidebar: CLIs · Teams · Skills per
+                // lane), landing on CLIs — NOT the sidebarless standalone page.
+                onManageTeam()
             } label: {
                 Label("Manage in settings", systemImage: "slider.horizontal.3")
             }
