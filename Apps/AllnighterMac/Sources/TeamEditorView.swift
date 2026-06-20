@@ -14,6 +14,9 @@ struct TeamDraft: Equatable {
     /// The mandatory Team Lead (synthesizer) — exactly one, never removable. Editable
     /// like a worker (skill + model + prompt); its prompt forks on save the same way.
     var lead: Row
+    /// Optional Stage-0 scout (Signal teams). Grabs/distills the source first. nil
+    /// for teams without a scout (non-Signal, or the landscape-scan Signal team).
+    var scout: Row?
     var allowSubstitutions: Bool
     var mutating: Bool
 
@@ -38,29 +41,31 @@ struct TeamDraft: Equatable {
 
     /// Seed from a base team. The name stays the base team's real name — selecting a
     /// built-in must NOT preemptively rename it to "(custom)"; that only happens at
-    /// Save (see `commit()`). Rows pre-fill with the row's pinned model, else a
-    /// concrete default so the user starts with real names.
-    init(base: TeamPreset, defaultModelId: String?) {
+    /// Save (see `commit()`). A row keeps its pinned model; an UNPINNED row stays nil
+    /// = **Auto** (the resolver picks a ready model at run time) — we never coerce it
+    /// to a concrete model the user didn't choose. Row ids mirror the spec ids so
+    /// commit() can carry forward per-row facts (triangulation, count).
+    init(base: TeamPreset) {
         self.base = base
         self.name = base.displayName
         self.allowSubstitutions = true
         self.mutating = base.mutating
         self.rows = base.workerSpecs.map { spec in
-            Row(id: UUID().uuidString, skillId: spec.skillId,
-                modelId: spec.preferredModelId ?? defaultModelId,
-                purpose: spec.purpose)
+            Row(id: spec.id, skillId: spec.skillId, modelId: spec.preferredModelId, purpose: spec.purpose)
         }
         // The Team Lead. Its Row.purpose is unused (the Lead is the synthesizer,
         // not an answer/review worker); commit() writes a TeamLeadSpec.
         self.lead = Row(id: "lead", skillId: base.lead.skillId,
-                        modelId: base.lead.preferredModelId ?? defaultModelId,
-                        purpose: .answer)
+                        modelId: base.lead.preferredModelId, purpose: .answer)
+        // Stage-0 scout (Signal): pinned model (Grok), shown above the workers.
+        self.scout = base.scout.map { s in
+            Row(id: s.id, skillId: s.skillId, modelId: s.preferredModelId, purpose: s.purpose)
+        }
     }
 
-    /// A role is complete when it has a model and either an existing skill or a
-    /// fully-specified new skill (name + prompt) to create on save.
+    /// A role is complete when it has either an existing skill or a fully-specified
+    /// new skill (name + prompt) to create on save. The model may be nil = Auto.
     static func rowComplete(_ r: Row) -> Bool {
-        guard r.modelId != nil else { return false }
         guard r.skillId.isEmpty else { return true }
         let hasName = !((r.customSkillName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         let hasPrompt = !((r.promptDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -123,10 +128,15 @@ struct TeamDraft: Equatable {
             // 1) Fork edited prompts into custom skills; build the worker specs.
             let effectiveRows = mutating ? Array(rows.prefix(1)) : rows
             let specs: [TeamWorkerSpec] = try effectiveRows.map { row in
-                TeamWorkerSpec(
+                // Carry forward per-row facts the editor doesn't expose (triangulation,
+                // worker count) so customizing a team never silently flattens it.
+                let original = base.workerSpecs.first { $0.id == row.id }
+                return TeamWorkerSpec(
                     id: row.id, skillId: try resolveSkill(row, defaultPurpose: .answer),
                     purpose: row.purpose, preferredModelId: row.modelId,
-                    count: 1, fallbackPolicy: fallback, required: true
+                    count: original?.count ?? 1, fallbackPolicy: fallback, required: true,
+                    triangulate: original?.triangulate ?? false,
+                    triangulatePreferenceIds: original?.triangulatePreferenceIds ?? []
                 )
             }
             // 1b) The Team Lead. For an answer team this is the synthesizer (fork its
@@ -167,6 +177,15 @@ struct TeamDraft: Equatable {
             team.displayName = saveName
             team.workerSpecs = specs
             team.lead = leadSpec
+            // Preserve / write the Stage-0 scout (Signal teams). Editing it here keeps
+            // the scout role rather than silently dropping it on customize.
+            if let s = scout {
+                team.scout = TeamWorkerSpec(
+                    id: s.id, skillId: s.skillId, purpose: .answer,
+                    preferredModelId: s.modelId, fallbackPolicy: .laneCapable)
+            } else {
+                team.scout = nil
+            }
             team.mutating = mutating
             if mutating {
                 team.executionSourceId = try Self.resolvedExecutionSourceId(from: specs, lead: leadSpec)
@@ -224,7 +243,7 @@ struct TeamEditorView: View {
         self.isNew = isNew
         self.onCancel = onCancel
         self.onSaved = onSaved
-        let seed = TeamDraft(base: base, defaultModelId: readyModels.first?.id ?? models.first?.id)
+        let seed = TeamDraft(base: base)
         _draft = State(initialValue: seed)
         self.initialDraft = seed
     }
@@ -281,6 +300,7 @@ struct TeamEditorView: View {
                     // separate Lead (that split only makes sense for answer teams,
                     // where N workers feed one synthesizer).
                     if !draft.mutating { leadSection }
+                    if draft.scout != nil { scoutSection }
                     workers
                     substitutionsToggle
                     executionPostureSection
@@ -360,9 +380,7 @@ struct TeamEditorView: View {
             }
             .buttonStyle(.plain)
 
-            picker(current: modelName(draft.lead.modelId) ?? "Pick a model", options: models.map { ($0.id, $0.displayName) }) {
-                draft.lead.modelId = $0
-            }
+            modelPicker(draft.lead.modelId) { draft.lead.modelId = $0 }
             // Width-match the workers' × column so the model dropdowns align.
             Color.clear.frame(width: 14, height: 1)
         }
@@ -398,8 +416,11 @@ struct TeamEditorView: View {
                     .buttonStyle(.plain)
 
                     // Model quick-swap stays inline (rescue: fast model change on the row).
-                    picker(current: modelName($row.wrappedValue.modelId) ?? "Pick a model", options: models.map { ($0.id, $0.displayName) }) {
-                        $row.wrappedValue.modelId = $0
+                    // A triangulated row reads on several distinct CLIs — shown read-only.
+                    if isTriangulated(row.id) {
+                        triangulatedModelCell(count: triangulateCount(row.id))
+                    } else {
+                        modelPicker($row.wrappedValue.modelId) { $row.wrappedValue.modelId = $0 }
                     }
                     if !draft.mutating {
                         Button { draft.rows.removeAll { $0.id == row.id } } label: {
@@ -414,7 +435,7 @@ struct TeamEditorView: View {
             Button {
                 let skillId = laneSkills.first?.id ?? ""
                 draft.rows.append(.init(id: UUID().uuidString, skillId: skillId,
-                                        modelId: models.first?.id, purpose: .answer))
+                                        modelId: nil, purpose: .answer)) // nil = Auto
             } label: {
                 Label("Add worker", systemImage: "plus").font(.system(size: 12, weight: .medium))
             }
@@ -426,6 +447,92 @@ struct TeamEditorView: View {
     // Custom dropdown (never the native Menu — it breaks the dark UI).
     private func picker(current: String, options: [(String, String)], onPick: @escaping (String) -> Void) -> some View {
         ALDropdown(current: current, options: options, onPick: onPick)
+    }
+
+    // MARK: - Model pickers (Auto + concrete)
+
+    /// Sentinel id for the "Auto" option (nil model = resolver picks a ready model).
+    private static let autoOptionId = "__alln_auto__"
+
+    /// Model display: nil → "Auto" (never a guessed/strongest model), else the name.
+    private func modelDisplay(_ id: String?) -> String {
+        guard let id else { return "Auto" }
+        return models.first { $0.id == id }?.displayName ?? id
+    }
+
+    /// A model picker whose first option is Auto (nil). Picking Auto clears the pin.
+    private func modelPicker(_ id: String?, onPick: @escaping (String?) -> Void) -> some View {
+        let options = [(Self.autoOptionId, "Auto")] + models.map { ($0.id, $0.displayName) }
+        return picker(current: modelDisplay(id), options: options) { picked in
+            onPick(picked == Self.autoOptionId ? nil : picked)
+        }
+    }
+
+    private func isTriangulated(_ rowId: String) -> Bool {
+        draft.base.workerSpecs.first { $0.id == rowId }?.triangulate ?? false
+    }
+    private func triangulateCount(_ rowId: String) -> Int {
+        max(1, draft.base.workerSpecs.first { $0.id == rowId }?.count ?? 3)
+    }
+
+    /// Read-only model cell for a triangulated worker row — it runs on several
+    /// distinct CLIs, so there is no single model to show. (Editing the CLI set is a
+    /// later slice.)
+    private func triangulatedModelCell(count: Int) -> some View {
+        HStack(spacing: 4) {
+            Text("Auto · \(count) distinct CLIs")
+                .font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        .help("Reads the scout's source on \(count) distinct CLIs (e.g. Grok, GPT-5.5, Gemini).")
+    }
+
+    // MARK: - Scout (Signal teams)
+
+    /// Stage-0 scout: grabs the source first. Pinned to an X-capable model (Grok);
+    /// changing it off Grok shows a non-blocking warning.
+    @ViewBuilder private var scoutSection: some View {
+        if let scout = draft.scout {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("SCOUT").font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                        .foregroundStyle(ALColor.textFaint)
+                    Text("· grabs the source first · X-capable").font(.system(size: 10))
+                        .foregroundStyle(ALColor.textFaint)
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                        Text(skillName(scout.skillId))
+                            .font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
+                    .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                    .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+
+                    // Scout shows a concrete model (Grok), not Auto — its model is
+                    // load-bearing (only Grok reads X).
+                    picker(current: modelDisplay(scout.modelId),
+                           options: models.map { ($0.id, $0.displayName) }) { draft.scout?.modelId = $0 }
+                    Color.clear.frame(width: 14, height: 1)
+                }
+                Text("Grok grabs the public link/post and distills it for the workers.")
+                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                if let warning = SignalScoutPolicy.scoutModelWarning(scout.modelId) {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10)).foregroundStyle(ALPalette.amber400)
+                        Text(warning).font(.system(size: 11)).foregroundStyle(ALPalette.amber400)
+                    }
+                }
+            }
+        }
     }
 
     private var substitutionsToggle: some View {
