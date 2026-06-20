@@ -24,7 +24,7 @@ e789615a22151252d7b681f58745a285ce5a53df  Apps/AllnighterMac/Sources/MarkdownTex
 fd9997273214123fb59c4efd2315fae46bd35d5a  Apps/AllnighterMac/Sources/ReadinessView.swift
 288ce7cf6c171af7f6cd5c542cadbd6f364fb9a3  Apps/AllnighterMac/Sources/RootTitleBar.swift
 3870afd3ccc6db22a88acc1cb0d718f2a29f5f6f  Apps/AllnighterMac/Sources/RootView.swift
-adf755250fd82da5b072a9ae11c236688f24e45b  Apps/AllnighterMac/Sources/RoutingComposer.swift
+d804e482d33aa78855d3fe360d6fc32121388cda  Apps/AllnighterMac/Sources/RoutingComposer.swift
 263539f8ab7a0b2ce4a86f426390dc4c4af04b7c  Apps/AllnighterMac/Sources/SegmentedTabs.swift
 76e6de248f29ecb08a49c6c438e2cdb3773c12ac  Apps/AllnighterMac/Sources/SetupViews.swift
 b74464f9390349c53907cd6d7af83e39f868b44e  Apps/AllnighterMac/Sources/StatusPill.swift
@@ -33,7 +33,7 @@ a99e33aeeeab49b41aa38c8137cae45edd87bae6  Apps/AllnighterMac/Sources/TeamEditorV
 afc101de2521c6d0d2530be3cc6ca259e92d3e5e  Apps/AllnighterMac/Sources/TeamsLauncherView.swift
 7cf232eba231b1ee12464f00ffbc409208084f85  Apps/AllnighterMac/Sources/TeamStudioView.swift
 f4b644754d5451a621481e98e5c32cd735e75c3a  Apps/AllnighterMac/Sources/ThreadRailComponents.swift
-d74e0005a2de24c7bdc81dbcfdfcfcd8622edcfa  Apps/AllnighterMac/Sources/ThreadView.swift
+af7747563100d443cb08e1d06fd6a50b2c3f9d0f  Apps/AllnighterMac/Sources/ThreadView.swift
 4fc33a6ffa79488d06db2cf842a4af061ca4de93  Apps/AllnighterMac/Sources/TimelineVisibility.swift
 cf5f4e529158f9d31243a2843231e134f6dc9f7c  Apps/AllnighterMac/Sources/WorkerChip.swift
 18dfaf7c5b3573401a47a9861260b22dd1ba5990  Apps/AllnighterMac/Sources/WorkerGlyph.swift

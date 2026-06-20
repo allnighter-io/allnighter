@@ -704,24 +704,27 @@ struct RoutingComposer: View {
         .background(ALColor.surface)
     }
 
-    // One toggle, two forms — Team OR Worker, never both stacked (the old overflow).
+    // One toggle, two forms — Team OR Worker. Lightened from the boxed segmented control
+    // to two quiet text tabs (no outer track/border); the selected one carries a subtle
+    // pill. The WHOLE tab is the hit target — `Color.clear` isn't hit-tested, so without
+    // an explicit `contentShape` only the glyph was tappable.
     private var targetTabs: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ForEach([TargetTab.team, .worker], id: \.self) { tab in
+                let selected = tab == targetTab
                 Button { targetTab = tab } label: {
                     Text(tab == .team ? "Team" : "Worker")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(tab == targetTab ? ALColor.textPrimary : ALColor.textMuted)
-                        .frame(maxWidth: .infinity).frame(height: 28)
-                        .background(tab == targetTab ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                        .font(.system(size: 12, weight: selected ? .semibold : .medium))
+                        .foregroundStyle(selected ? ALColor.textPrimary : ALColor.textFaint)
+                        .padding(.horizontal, 11).frame(height: 24)
+                        .background(selected ? ALColor.active : Color.clear, in: Capsule())
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
+            Spacer(minLength: 0)
         }
-        .padding(3)
-        .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-        .padding(.horizontal, 6).padding(.top, 4).padding(.bottom, 7)
+        .padding(.horizontal, 6).padding(.top, 4).padding(.bottom, 6)
     }
 
     private func popHeader(_ title: String, _ sub: String) -> some View {

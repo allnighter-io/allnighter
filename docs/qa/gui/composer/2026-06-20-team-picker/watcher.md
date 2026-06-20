@@ -6,9 +6,11 @@ Command: bash scripts/gui_proof.sh compose-target-inline
 ## VERDICT: PASS
 
 All expected elements present, correct top-to-bottom order, unclipped, non-overlapping:
-chip reads "Auto · Opus 4.8" · Team/Worker tabs · Auto/Default model (checked) · search
-field with "Bug" + clear · two results (Bug Hunt, GUI Bug Hunt) with stars · Customize…
-footer · Effort row. NO craft chips anywhere.
+chip reads "Auto · Opus 4.8" · LIGHTENED Team/Worker tabs (quiet text tabs, selected
+carries a subtle pill, no boxed track/border — whole tab is the hit target via
+contentShape) · Auto/Default model (checked) · search field with "Bug" + clear · two
+results (Bug Hunt, GUI Bug Hunt) with stars · Customize… footer · Effort row. NO craft
+chips anywhere.
 
 P1 — broken (blocks):
 - none
