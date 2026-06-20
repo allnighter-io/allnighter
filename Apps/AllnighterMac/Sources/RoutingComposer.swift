@@ -157,6 +157,14 @@ struct RoutingComposer: View {
         .onAppear {
             #if DEBUG
             if GUIFixture.composeTargetInline, teamSearch.isEmpty { teamSearch = "bug" }
+            // Deterministically open the picker over the seeded fixture root (the @Com
+            // text comes from ComposeSpecimen; this fixes the query + candidates so the
+            // capture never depends on trigger/project-load timing).
+            if GUIFixture.composeFileReferenceOpen {
+                fileSearchQuery = "Com"
+                fileSearchOpen = true
+                refreshFileCandidates()
+            }
             #endif
         }
         .onChange(of: threads.pendingQuickCaptureText) { _, _ in
@@ -167,6 +175,10 @@ struct RoutingComposer: View {
             if !didEdit { didEdit = true; onEdit?() }
         }
         .onChange(of: projects.activeProjectId) { _, _ in
+            #if DEBUG
+            // Proof: keep the seeded picker populated if the project loads after mount.
+            if GUIFixture.composeFileReferenceOpen { refreshFileCandidates(); return }
+            #endif
             closeFileSearch()
         }
         // Switching teams drops any explicit worker pin so the chip names THAT team's
@@ -247,7 +259,7 @@ struct RoutingComposer: View {
             if !selectedFileReferences.isEmpty {
                 fileReferenceChips
             }
-            if fileSearchOpen {
+            if fileSearchOpen || fileReferenceFixtureOpen {
                 fileReferencePanel
             }
             bar
@@ -266,6 +278,17 @@ struct RoutingComposer: View {
 
     private var selectedFileInputs: [FileReferenceInput] {
         selectedFileReferences.map { FileReferenceInput(path: $0.path) }
+    }
+
+    /// Proof-only: force the file-reference panel rendered so its ranking/highlight can
+    /// be captured in-process (the panel is inline, but the open-state can race the
+    /// fixture's async project load).
+    private var fileReferenceFixtureOpen: Bool {
+        #if DEBUG
+        return GUIFixture.composeFileReferenceOpen
+        #else
+        return false
+        #endif
     }
 
     private var fileReferenceChips: some View {
@@ -348,28 +371,20 @@ struct RoutingComposer: View {
         .padding(.top, 5)
     }
 
+    // One compact, ungrouped row: the doc icon + the root-relative FULL path with the
+    // matched characters highlighted (Grok-Build style), middle-truncated so the
+    // basename stays visible. No cards, no two-line basename/dir, no preview.
     private func fileCandidateRow(_ candidate: ProjectFileCatalog.Candidate, index: Int) -> some View {
         let active = index == highlightedFileIndex
-        let basename = URL(fileURLWithPath: candidate.path).lastPathComponent
-        let directory = parentPath(candidate.path)
         return Button { selectFileReference(candidate.path) } label: {
             HStack(spacing: 9) {
                 Image(systemName: "doc.text")
                     .font(.system(size: 12))
                     .foregroundStyle(active ? ALColor.textSecondary : ALColor.textMuted)
                     .frame(width: 18)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(basename)
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(ALColor.textPrimary)
-                        .lineLimit(1)
-                    if !directory.isEmpty {
-                        Text(directory)
-                            .font(ALFont.monoSm)
-                            .foregroundStyle(ALColor.textFaint)
-                            .lineLimit(1)
-                    }
-                }
+                Text(highlightedPath(candidate.path, query: fileSearchQuery))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 Spacer(minLength: 8)
                 if active {
                     Image(systemName: "return")
@@ -385,6 +400,41 @@ struct RoutingComposer: View {
         }
         .buttonStyle(.plain)
         .onHover { if $0 { highlightedFileIndex = index } }
+    }
+
+    /// Root-relative path with the query's matched characters emphasized — a contiguous
+    /// substring when present, else the fuzzy subsequence (mirrors the catalog's match).
+    private func highlightedPath(_ path: String, query: String) -> AttributedString {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let matched = Set(Self.matchOffsets(query: q, in: path.lowercased()))
+        var result = AttributedString()
+        for (i, ch) in path.enumerated() {
+            var piece = AttributedString(String(ch))
+            if matched.contains(i) {
+                piece.foregroundColor = ALColor.accent
+                piece.font = .system(size: 12.5, weight: .semibold)
+            } else {
+                piece.foregroundColor = ALColor.textMuted
+                piece.font = .system(size: 12.5)
+            }
+            result += piece
+        }
+        return result
+    }
+
+    private static func matchOffsets(query q: String, in lowerPath: String) -> [Int] {
+        guard !q.isEmpty else { return [] }
+        if let r = lowerPath.range(of: q) {
+            let start = lowerPath.distance(from: lowerPath.startIndex, to: r.lowerBound)
+            return Array(start..<(start + q.count))
+        }
+        var offsets: [Int] = []
+        var qi = q.startIndex
+        for (i, ch) in lowerPath.enumerated() where qi < q.endIndex && ch == q[qi] {
+            offsets.append(i)
+            qi = q.index(after: qi)
+        }
+        return qi == q.endIndex ? offsets : []
     }
 
     private var bar: some View {
@@ -558,13 +608,24 @@ struct RoutingComposer: View {
     }
 
     private func refreshFileCandidates() {
+        let root: String
+        #if DEBUG
+        if let fxRoot = GUIFixture.fileReferenceFixtureRoot() {
+            root = fxRoot
+        } else if let project = projects.activeProject {
+            root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
+        } else {
+            fileCandidates = []; highlightedFileIndex = 0; return
+        }
+        #else
         guard let project = projects.activeProject else {
             fileCandidates = []
             highlightedFileIndex = 0
             return
         }
-        let selectedPaths = Set(selectedFileReferences.map(\.path))
         let root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
+        #endif
+        let selectedPaths = Set(selectedFileReferences.map(\.path))
         fileCandidates = ProjectFileCatalog().candidates(
             rootPath: root,
             query: fileSearchQuery,
@@ -615,12 +676,6 @@ struct RoutingComposer: View {
         let token = value[start..<value.endIndex]
         guard token.first == "@", !token.dropFirst().contains("@") else { return nil }
         return (start..<value.endIndex, String(token.dropFirst()))
-    }
-
-    private func parentPath(_ path: String) -> String {
-        let parts = path.split(separator: "/")
-        guard parts.count > 1 else { return "" }
-        return parts.dropLast().joined(separator: "/")
     }
 
     // MARK: target popover

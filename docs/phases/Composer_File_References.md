@@ -737,7 +737,7 @@ proof can land first, but the Mac v1 slice is not done without a GUI proof seal.
 | **FR-S05** | Work Order/Pending revalidation: stored hashes, refresh action, changed/missing blockers | Draft |
 | **FR-S06** | Context reveal + history: ordered refs, delivered content/truncation, current hash status, delivery mode | Draft |
 | **FR-S07** | GUI proof seal + dogfood pass for Project Manager chat and Send to team | Draft |
-| **FR-S08** | Picker ranking and compact scan polish: match highlighting, freshness-weighted ranking, gentle document-format boost, no groups, no prior chats | Ready for implementation |
+| **FR-S08** | Picker ranking and compact scan polish: match highlighting, freshness-weighted ranking, gentle document-format boost, no groups, no prior chats | **BUILT** (2026-06-20; `composer/file-reference-picker` sealed). Tiered match-quality ranking (exact / prefix / segment-prefix / contains / fuzzy-abbrev) dominates; freshness (recent ≫ dirty/staged/untracked > modified > touched) breaks ties; gentle readable-doc tiebreak (.md/.mdx/.txt/.rst/.adoc); generated/build/vendor/cache/archive sink unless very exact; no repo-specific vocab boosts. GUI: one compact ungrouped list, root-relative full paths, amber match highlighting, no prior chats. Core ranking tests + GUI proof green. |
 
 Backend/Core/CLI slices FR-S00 through FR-S03 should land before the Mac surface.
 FR-S04 through FR-S07 are the Mac v1 product finish. iOS presentation is deferred.

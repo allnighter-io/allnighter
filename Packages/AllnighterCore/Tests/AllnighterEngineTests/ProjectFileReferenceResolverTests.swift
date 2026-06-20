@@ -89,7 +89,9 @@ final class ProjectFileReferenceResolverTests: XCTestCase {
         ])
     }
 
-    func testCatalogRanksLaneTouchedAndRecency() throws {
+    func testCatalogRanksRecentAboveLaneTouched() throws {
+        // FR-S08 freshness order: recently referenced ≫ recently touched (lane). Both
+        // basename-contains "swift", so freshness alone breaks the tie → recent wins.
         let root = try makeRepo()
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root.appendingPathComponent("Sources"), withIntermediateDirectories: true)
@@ -102,8 +104,90 @@ final class ProjectFileReferenceResolverTests: XCTestCase {
             recentlyReferenced: ["Sources/B.swift"],
             laneTouched: ["Sources/A.swift"]
         )
-        XCTAssertEqual(results.first?.path, "Sources/A.swift")
-        XCTAssertTrue(results.contains { $0.path == "Sources/B.swift" })
+        XCTAssertEqual(results.first?.path, "Sources/B.swift")
+        XCTAssertTrue(results.contains { $0.path == "Sources/A.swift" })
+    }
+
+    func testExactBasenameBeatsContainsAndDocTiebreak() throws {
+        let root = try makeRepo()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "x".write(to: root.appendingPathComponent("Store.swift"), atomically: true, encoding: .utf8)
+        try "x".write(to: root.appendingPathComponent("UserStore.swift"), atomically: true, encoding: .utf8)
+
+        // Query equals the basename stem of one file → exact basename wins over contains.
+        let results = ProjectFileCatalog().candidates(rootPath: root.path, query: "store.swift")
+        XCTAssertEqual(results.first?.path, "Store.swift")
+    }
+
+    func testReadableDocIsOnlyAGentleWithinTierTiebreak() throws {
+        let root = try makeRepo()
+        defer { try? FileManager.default.removeItem(at: root) }
+        // Both contain "guide" in the basename (same tier); the .md doc edges ahead.
+        try "x".write(to: root.appendingPathComponent("guide.md"), atomically: true, encoding: .utf8)
+        try "x".write(to: root.appendingPathComponent("guide.bin"), atomically: true, encoding: .utf8)
+
+        let results = ProjectFileCatalog().candidates(rootPath: root.path, query: "guide")
+        XCTAssertEqual(results.first?.path, "guide.md")
+
+        // But a code EXACT match still wins over a doc CONTAINS match when code-shaped.
+        try "x".write(to: root.appendingPathComponent("Config.swift"), atomically: true, encoding: .utf8)
+        try "x".write(to: root.appendingPathComponent("config-notes.md"), atomically: true, encoding: .utf8)
+        let code = ProjectFileCatalog().candidates(rootPath: root.path, query: "config.swift")
+        XCTAssertEqual(code.first?.path, "Config.swift")
+    }
+
+    func testGeneratedAndVendorFilesSinkUnlessExact() throws {
+        let root = try makeRepo()
+        defer { try? FileManager.default.removeItem(at: root) }
+        // `vendor/` survives the directory walk (unlike node_modules), so it actually
+        // exercises the in-ranker noise demotion.
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("vendor"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("src"), withIntermediateDirectories: true)
+        try "x".write(to: root.appendingPathComponent("vendor/widget.js"), atomically: true, encoding: .utf8)
+        try "x".write(to: root.appendingPathComponent("src/widget.js"), atomically: true, encoding: .utf8)
+
+        // Non-exact "widget" contains both; the clean src file outranks the vendored one.
+        let contains = ProjectFileCatalog().candidates(rootPath: root.path, query: "widget")
+        XCTAssertEqual(contains.first?.path, "src/widget.js")
+    }
+
+    func testFuzzyAbbreviationMatches() throws {
+        let root = try makeRepo()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "x".write(to: root.appendingPathComponent("SSOT_Founder_Workflow.md"), atomically: true, encoding: .utf8)
+        try "x".write(to: root.appendingPathComponent("unrelated.txt"), atomically: true, encoding: .utf8)
+
+        // "ssotf" is not a substring but IS a subsequence of the doc basename.
+        let results = ProjectFileCatalog().candidates(rootPath: root.path, query: "ssotf")
+        XCTAssertEqual(results.first?.path, "SSOT_Founder_Workflow.md")
+        XCTAssertFalse(results.contains { $0.path == "unrelated.txt" })
+    }
+
+    func testNoRepoSpecificVocabularyBoost() throws {
+        let root = try makeRepo()
+        defer { try? FileManager.default.removeItem(at: root) }
+        // A "PRD"/"SSOT"-style name gets no special boost over a plain file at the same
+        // tier; with no query, recency/order decides, not the name.
+        try "x".write(to: root.appendingPathComponent("PRD.md"), atomically: true, encoding: .utf8)
+        try "x".write(to: root.appendingPathComponent("notes.md"), atomically: true, encoding: .utf8)
+        let results = ProjectFileCatalog().candidates(rootPath: root.path, query: "")
+        // Both are readable docs at tier 0 — neither is privileged by name. The set is
+        // present and order is freshness/path, not a vocabulary boost.
+        XCTAssertTrue(results.contains { $0.path == "PRD.md" })
+        XCTAssertTrue(results.contains { $0.path == "notes.md" })
+    }
+
+    func testMatchTierAndHelpers() {
+        XCTAssertEqual(ProjectFileCatalog.matchTier(query: "store.swift", basename: "store.swift", path: "store.swift"), .exactBasename)
+        XCTAssertEqual(ProjectFileCatalog.matchTier(query: "user", basename: "userstore.swift", path: "src/userstore.swift"), .basenamePrefix)
+        XCTAssertNil(ProjectFileCatalog.matchTier(query: "zzz", basename: "userstore.swift", path: "src/userstore.swift"))
+        XCTAssertTrue(ProjectFileCatalog.isSubsequence("ssotf", of: "ssot_founder.md"))
+        XCTAssertFalse(ProjectFileCatalog.isSubsequence("fsotf", of: "ssot_founder.md"))
+        XCTAssertTrue(ProjectFileCatalog.isReadableDoc("readme.md"))
+        XCTAssertFalse(ProjectFileCatalog.isReadableDoc("main.swift"))
+        XCTAssertTrue(ProjectFileCatalog.isNoisy("node_modules/x/y.js"))
+        XCTAssertTrue(ProjectFileCatalog.isNoisy("yarn.lock"))
+        XCTAssertFalse(ProjectFileCatalog.isNoisy("src/main.swift"))
     }
 
     private func makeRepo() throws -> URL {

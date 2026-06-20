@@ -294,6 +294,25 @@ public struct ProjectFileCatalog {
 
     public init() {}
 
+    // MARK: Ranking (FR-S08)
+
+    /// Match-quality tiers — these dominate the score so freshness can only reorder
+    /// WITHIN a tier, never promote a weak match over a stronger one. No repo-specific
+    /// vocabulary lives here: a path ranks only because the user typed it (match), it is
+    /// fresh, or it is a readable doc.
+    enum MatchTier: Int {
+        case fuzzyPath = 1
+        case fuzzyBasename = 2
+        case pathContains = 3
+        case basenameContains = 4
+        case pathSegmentPrefix = 5
+        case basenamePrefix = 6
+        case exactBasename = 7
+    }
+    /// At/above this tier the query is "very exact" — noisy files are NOT sunk.
+    private static let exactTierFloor = MatchTier.basenamePrefix.rawValue
+    private static let tierWeight = 1_000_000.0
+
     public func candidates(
         rootPath: String,
         query: String = "",
@@ -303,19 +322,42 @@ public struct ProjectFileCatalog {
     ) -> [Candidate] {
         let rootURL = URL(fileURLWithPath: rootPath).standardizedFileURL
         let paths = gitTrackedAndUntrackedFiles(rootURL: rootURL) ?? walkFiles(rootURL: rootURL)
-        let normalizedQuery = query.lowercased()
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let recentRanks = Dictionary(uniqueKeysWithValues: recentlyReferenced.enumerated().map { ($0.element, $0.offset) })
         let laneSet = Set(laneTouched)
+        let dirtySet = dirtyPaths(rootURL: rootURL)
 
         return paths.compactMap { path -> Candidate? in
-            if !normalizedQuery.isEmpty, !path.lowercased().contains(normalizedQuery) { return nil }
-            let mtime = modifiedAt(rootURL.appendingPathComponent(path))
-            var score = mtime.map { $0.timeIntervalSince1970 / 1_000_000 } ?? 0
-            if laneSet.contains(path) { score += 10_000 }
-            if let rank = recentRanks[path] { score += Double(1_000 - rank) }
-            if URL(fileURLWithPath: path).lastPathComponent.lowercased().hasPrefix(normalizedQuery), !normalizedQuery.isEmpty {
-                score += 500
+            let lowerPath = path.lowercased()
+            let basename = ((path as NSString).lastPathComponent).lowercased()
+
+            // 1) Match quality — the dominant term. Empty query ⇒ everyone at tier 0,
+            // ranked purely by freshness.
+            var effectiveTier = 0
+            if !q.isEmpty {
+                guard let tier = Self.matchTier(query: q, basename: basename, path: lowerPath) else { return nil }
+                effectiveTier = tier.rawValue
+                // 5) Generated/build/vendor/cache/archive sink — UNLESS the query is very
+                // exact — by demoting their tier (so they fall below clean matches).
+                if effectiveTier < Self.exactTierFloor, Self.isNoisy(lowerPath) {
+                    effectiveTier = max(0, effectiveTier - 3)
+                }
+            } else if Self.isNoisy(lowerPath) {
+                effectiveTier = -1 // browse mode: noise below clean files
             }
+
+            // 2) Freshness — bounded well under one tier so it only breaks ties:
+            // recently referenced ≫ dirty/staged/untracked > recently modified > touched.
+            let mtime = modifiedAt(rootURL.appendingPathComponent(path))
+            var fresh = 0.0
+            if let rank = recentRanks[path] { fresh += 20_000 - Double(min(rank, 99)) * 100 }
+            if dirtySet.contains(path) { fresh += 8_000 }
+            if let mt = mtime { fresh += min(mt.timeIntervalSince1970 / 1_000_000, 2_000) }
+            if laneSet.contains(path) { fresh += 1_000 }
+            // 3) Readable document formats — a gentle, generic within-tier tiebreaker only.
+            if Self.isReadableDoc(basename) { fresh += 150 }
+
+            let score = Double(effectiveTier) * Self.tierWeight + fresh
             return Candidate(path: path, modifiedAt: mtime, rankScore: score)
         }
         .sorted {
@@ -324,6 +366,91 @@ public struct ProjectFileCatalog {
         }
         .prefix(limit)
         .map { $0 }
+    }
+
+    /// Best match tier of `query` against the path. Order from strongest: exact basename,
+    /// basename prefix, any path-segment prefix, basename contains, path contains, then
+    /// fuzzy (abbreviation/subsequence) on the basename and finally the whole path.
+    static func matchTier(query q: String, basename: String, path: String) -> MatchTier? {
+        guard !q.isEmpty else { return nil }
+        if basename == q { return .exactBasename }
+        if basename.hasPrefix(q) { return .basenamePrefix }
+        if path.split(separator: "/").contains(where: { $0.hasPrefix(q) }) { return .pathSegmentPrefix }
+        if basename.contains(q) { return .basenameContains }
+        if path.contains(q) { return .pathContains }
+        if isSubsequence(q, of: basename) { return .fuzzyBasename }
+        if isSubsequence(q, of: path) { return .fuzzyPath }
+        return nil
+    }
+
+    /// Classic subsequence test — `needle`'s characters appear in order within `hay`
+    /// (the abbreviation match, e.g. "ssotf" → "ssot_founder…").
+    static func isSubsequence(_ needle: String, of hay: String) -> Bool {
+        guard !needle.isEmpty else { return false }
+        var it = hay.makeIterator()
+        for ch in needle {
+            var matched = false
+            while let h = it.next() {
+                if h == ch { matched = true; break }
+            }
+            if !matched { return false }
+        }
+        return true
+    }
+
+    private static let readableDocExtensions: Set<String> = ["md", "mdx", "txt", "rst", "adoc"]
+    static func isReadableDoc(_ basename: String) -> Bool {
+        readableDocExtensions.contains((basename as NSString).pathExtension)
+    }
+
+    /// Generated / build / vendor / cache / archive noise — sunk unless the query is very
+    /// exact. Generic patterns only; no repo-specific names.
+    private static let noisyDirSegments: Set<String> = [
+        "node_modules", ".build", "build", "dist", "out", "deriveddata", "pods", "vendor",
+        ".git", "coverage", ".cache", "__pycache__", ".next", ".nuxt", ".gradle", "target",
+        ".terraform", "bin", "obj"
+    ]
+    static func isNoisy(_ lowerPath: String) -> Bool {
+        let segments = lowerPath.split(separator: "/").map(String.init)
+        if segments.dropLast().contains(where: { noisyDirSegments.contains($0) }) { return true }
+        guard let name = segments.last else { return false }
+        if name.hasSuffix(".lock") || name.hasSuffix(".min.js") || name.hasSuffix(".min.css")
+            || name.hasSuffix(".map") || name.hasSuffix(".pyc") || name.hasSuffix(".o")
+            || name.hasSuffix(".class") { return true }
+        if ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "podfile.lock", "cargo.lock"].contains(name) {
+            return true
+        }
+        let ext = (name as NSString).pathExtension
+        return ["zip", "tar", "gz", "tgz", "bz2", "xz", "jar", "war"].contains(ext)
+    }
+
+    /// Paths git reports as staged/unstaged/untracked — a strong freshness signal. One
+    /// bounded subprocess; an empty set when not a git repo (no correctness dependency).
+    private func dirtyPaths(rootURL: URL) -> Set<String> {
+        let process = Process()
+        process.currentDirectoryURL = rootURL
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["git", "status", "--porcelain", "-z"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return []
+        }
+        guard process.terminationStatus == 0 else { return [] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let raw = String(data: data, encoding: .utf8) else { return [] }
+        var dirty = Set<String>()
+        for entry in raw.split(separator: "\0") where entry.count > 3 {
+            // Each entry is "XY <path>"; renames spill the old path into the next entry,
+            // which we harmlessly also add. Status codes are never valid paths here.
+            let path = String(entry.dropFirst(3))
+            if !path.isEmpty { dirty.insert(path) }
+        }
+        return dirty
     }
 
     private func gitTrackedAndUntrackedFiles(rootURL: URL) -> [String]? {

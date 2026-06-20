@@ -84,9 +84,10 @@ enum GUIFixture {
     /// All other fixtures (home-*, thread-*, team-*, doctor-*, readiness-*) use an
     /// in-process main-window bitmap snapshot and need no Screen Recording permission.
     static var needsNativeOverlays: Bool {
-        // compose-target-inline renders the picker inline (no NSPopover), so it captures
-        // in-process like the other panel fixtures.
-        (active ?? "").hasPrefix("compose-") && active != "compose-target-inline"
+        // These render their panels inline (no NSPopover), so they capture in-process
+        // like the other panel fixtures.
+        let inlineComposeFixtures: Set<String> = ["compose-target-inline", "compose-file-reference"]
+        return (active ?? "").hasPrefix("compose-") && !inlineComposeFixtures.contains(active ?? "")
     }
 
     /// Deep-link: open the Team dropdown for `team-*` fixtures.
@@ -189,6 +190,26 @@ enum GUIFixture {
     /// `thread-copy-footer` forces the per-message copy button (hover-only) visible so
     /// its bottom-right placement can be captured.
     static var alwaysShowMessageCopy: Bool { active == "thread-copy-footer" }
+
+    /// A real temp repo seeded with representative files so the `compose-file-reference`
+    /// fixture exercises the ACTUAL `ProjectFileCatalog` ranking (prefix > contains, doc
+    /// tiebreak, vendor sink) + highlighting, independent of the fixture project's root.
+    static func fileReferenceFixtureRoot() -> String? {
+        guard composeFileReferenceOpen else { return nil }
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-fileref-fixture", isDirectory: true)
+        let files = [
+            "Composer.swift", "ComposerView.swift", "Sources/Common.swift",
+            "docs/Composer_Guide.md", "vendor/lib-composer.js",
+        ]
+        for rel in files {
+            let url = root.appendingPathComponent(rel)
+            if FileManager.default.fileExists(atPath: url.path) { continue }
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? "// \(rel)\n".write(to: url, atomically: true, encoding: .utf8)
+        }
+        return root.path
+    }
 
     /// Dedicated fixture for testing the Screen Recording grant / preflight in isolation.
     /// Runs the composite path (so native popovers + SR are exercised) but is intended
@@ -668,6 +689,7 @@ enum GUIFixture {
     static var composeTargetOpen: Bool { false }
     static var composeTargetInline: Bool { false }
     static var alwaysShowMessageCopy: Bool { false }
+    static func fileReferenceFixtureRoot() -> String? { nil }
     static var composeFileReferenceOpen: Bool { false }
     static var opensTeamDropdown: Bool { false }
     static var opensDoctorPopover: Bool { false }
