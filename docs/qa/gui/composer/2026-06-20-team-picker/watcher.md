@@ -5,12 +5,11 @@ Command: bash scripts/gui_proof.sh compose-target-inline
 
 ## VERDICT: PASS
 
-All expected elements present, correct top-to-bottom order, unclipped, non-overlapping:
-chip reads "Auto · Opus 4.8" · LIGHTENED Team/Worker tabs (quiet text tabs, selected
-carries a subtle pill, no boxed track/border — whole tab is the hit target via
-contentShape) · Auto/Default model (checked) · search field with "Bug" + clear · two
-results (Bug Hunt, GUI Bug Hunt) with stars · Customize… footer · Effort row. NO craft
-chips anywhere.
+DECLUTTERED (2026-06-20): composer bar has two chips — target "Auto · Opus 4.8 ⌄" + a
+standalone effort chip "Med ⌄". Picker tabs renamed Model | Team (lightened quiet text
+tabs, whole tab hit-tested via contentShape). Team tab = search + team rows with stars
+only. CONFIRMED ABSENT: FAVORITES label, Customize… footer, Effort Low/Med/High row, all
+helper/explainer text, craft chips. Auto moved to the Model tab. Unclipped, non-overlapping.
 
 P1 — broken (blocks):
 - none

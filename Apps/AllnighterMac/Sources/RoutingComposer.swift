@@ -89,14 +89,17 @@ struct RoutingComposer: View {
     @State private var defaultSettings: DefaultModelSettings = .fresh
     @State private var text: String = ""
     @State private var targetOpen = false
+    @State private var effortOpen = false
     @State private var fileSearchOpen = false
     @State private var fileSearchQuery = ""
     @State private var fileCandidates: [ProjectFileCatalog.Candidate] = []
     @State private var highlightedFileIndex = 0
     @State private var selectedFileReferences: [ComposeFileReference] = []
     /// Which form the route popover shows — never both at once.
-    @State private var targetTab: TargetTab = .team
-    enum TargetTab { case team, worker }
+    // Model is the default (the 95% case: chat with a model); Team is the deliberate
+    // "delegate to a team" choice. "Model" reads clearer than the old "Worker".
+    @State private var targetTab: TargetTab = .model
+    enum TargetTab { case model, team }
 
     @State private var composerFocused = false
     @State private var editorHeight = ComposeEditorMetrics.minHeight
@@ -156,7 +159,7 @@ struct RoutingComposer: View {
         .onAppear(perform: updateFileSearchFromText)
         .onAppear {
             #if DEBUG
-            if GUIFixture.composeTargetInline, teamSearch.isEmpty { teamSearch = "bug" }
+            if GUIFixture.composeTargetInline, teamSearch.isEmpty { targetTab = .team; teamSearch = "bug" }
             // Deterministically open the picker over the seeded fixture root (the @Com
             // text comes from ComposeSpecimen; this fixes the query + candidates so the
             // capture never depends on trigger/project-load timing).
@@ -440,6 +443,7 @@ struct RoutingComposer: View {
     private var bar: some View {
         HStack(spacing: 9) {
             targetChip
+            effortChip
             Spacer(minLength: 8)
             IconButton(systemImage: "photo", accessibilityLabel: "Attach image", small: true) {}
             sendButton
@@ -683,21 +687,21 @@ struct RoutingComposer: View {
     private var targetPopoverPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             if locksTeam {
-                // Send-to-team launcher: team is fixed, so just the worker + effort.
-                popHeader("Worker", "Override the resolved worker when needed")
+                // Send-to-team launcher: team is fixed, so just override the model.
+                popHeader("Model", "Override the resolved model when needed")
                 modelList(appModel.composeBench.map(\.id))
             } else {
                 targetTabs
-                if targetTab == .team {
+                if targetTab == .model {
+                    // Auto = the default model, so it lives at the top of the Model tab.
                     defaultTeamRow
+                    modelList(appModel.composeBench.map(\.id))
+                } else {
+                    // Team tab is just teams now — no Auto row → way cleaner.
                     teamSearchField
                     teamPickerBody
-                    customizeFooter
-                } else {
-                    modelList(appModel.composeBench.map(\.id))
                 }
             }
-            effortRow(note: "Higher effort = more reasoning time.")
         }
         .padding(6)
         .frame(width: locksTeam ? 300 : 320)
@@ -710,10 +714,10 @@ struct RoutingComposer: View {
     // an explicit `contentShape` only the glyph was tappable.
     private var targetTabs: some View {
         HStack(spacing: 4) {
-            ForEach([TargetTab.team, .worker], id: \.self) { tab in
+            ForEach([TargetTab.model, .team], id: \.self) { tab in
                 let selected = tab == targetTab
                 Button { targetTab = tab } label: {
-                    Text(tab == .team ? "Team" : "Worker")
+                    Text(tab == .team ? "Team" : "Model")
                         .font(.system(size: 12, weight: selected ? .semibold : .medium))
                         .foregroundStyle(selected ? ALColor.textPrimary : ALColor.textFaint)
                         .padding(.horizontal, 11).frame(height: 24)
@@ -754,8 +758,9 @@ struct RoutingComposer: View {
         .padding(.horizontal, 6).padding(.top, 6).padding(.bottom, 2)
     }
 
-    // Empty query → Recent (max 3) + Favorites. Non-empty → matches across the whole
-    // roster. Non-favorites stay hidden until searched (favorites are the default surface).
+    // Empty query → Recent (labelled) + favorites (no label — the stars make them
+    // obvious). Non-empty → matches across the whole roster; non-favorites stay hidden
+    // until searched.
     @ViewBuilder private var teamPickerBody: some View {
         let q = teamSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let all = appModel.composeAllTeams()
@@ -768,7 +773,6 @@ struct RoutingComposer: View {
                         teamSectionLabel("RECENT")
                         ForEach(recents) { teamButton($0) }
                     }
-                    teamSectionLabel("FAVORITES")
                     let favs = all.filter { $0.isFavorite && !recentIds.contains($0.id) }
                     if favs.isEmpty {
                         teamPickerEmpty("No favorites yet — star a team to pin it here.")
@@ -811,7 +815,11 @@ struct RoutingComposer: View {
         return false
     }
 
-    // "Auto" is pinned to the very top — the default route, the 95% case.
+    /// Auto = the default model. Selected only in true Auto mode (no team, no pin) — a
+    /// pinned model below must not leave Auto looking selected too.
+    private var isAutoSelected: Bool { team == nil && pinnedWorker == nil }
+
+    // "Auto" is pinned to the very top of the Model tab — the default, the 95% case.
     private var defaultTeamRow: some View {
         Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
             HStack(spacing: 10) {
@@ -824,12 +832,12 @@ struct RoutingComposer: View {
                     Text("Default model").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
                 }
                 Spacer(minLength: 8)
-                if team == nil { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
+                if isAutoSelected { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             }
             .padding(.horizontal, 9).padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(team == nil ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(team == nil ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
+            .background(isAutoSelected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(isAutoSelected ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
         }
         .buttonStyle(.plain)
     }
@@ -883,23 +891,6 @@ struct RoutingComposer: View {
         .contentShape(Rectangle())
     }
 
-    private var customizeFooter: some View {
-        HStack(spacing: 8) {
-            Button {
-                targetOpen = false
-                let teamId = team ?? TeamCatalog.defaultRunTeam()?.id ?? ""
-                commands.customizeTeamRequest = CustomizeTeamRequest(lane: lane, teamId: teamId)
-            } label: {
-                Label("Customize…", systemImage: "slider.horizontal.3").font(.system(size: 12, weight: .medium))
-            }
-            .buttonStyle(.alGhost)
-            Text("Tune this team's workers + skills.").font(.system(size: 10.5)).foregroundStyle(ALColor.textFaint)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 6).padding(.vertical, 6)
-        .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
-    }
-
     private func modelList(_ ids: [String]) -> some View {
         ScrollView {
             VStack(spacing: 1) {
@@ -927,39 +918,53 @@ struct RoutingComposer: View {
             }
             Spacer(minLength: 8)
             if m.ready {
-                if selectedWorkerId == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
+                if pinnedWorker == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             } else if let reason = m.notReadyReason {
                 Badge(text: reason, tone: .warning)
             }
         }
         .padding(.horizontal, 9).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(selectedWorkerId == m.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .background(pinnedWorker == m.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
     }
 
-    private func effortRow(note: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Text("EFFORT").font(.system(size: 10.5, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-                Spacer(minLength: 8)
-                HStack(spacing: 0) {
-                    ForEach(ComposeEffort.allCases, id: \.self) { e in
-                        Button { effort = e } label: {
-                            Text(e.label).font(.system(size: 11.5, weight: .semibold))
-                                .foregroundStyle(e == effort ? ALColor.textPrimary : ALColor.textMuted)
-                                .frame(width: 44, height: 24)
-                                .background(e == effort ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(3)
-                .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
-                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    // Effort is its OWN axis — how hard the model reasons, not who runs — so it lives in
+    // a standalone chip beside the target chip, not crammed into the target popover.
+    private var effortChip: some View {
+        Button { effortOpen.toggle() } label: {
+            HStack(spacing: 5) {
+                Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textSecondary)
+                Image(systemName: "chevron.down").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
             }
-            Text(note).font(.system(size: 10.5)).foregroundStyle(ALColor.textFaint)
+            .padding(.horizontal, 9).frame(height: 28)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
         }
-        .padding(.horizontal, 6).padding(.top, 8).padding(.bottom, 4)
-        .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .help("Reasoning effort")
+        .alPopover(isPresented: $effortOpen, arrowEdge: .top) { effortPopover }
+    }
+
+    private var effortPopover: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(ComposeEffort.allCases, id: \.self) { e in
+                Button { effort = e; effortOpen = false } label: {
+                    HStack(spacing: 8) {
+                        Text(e.label).font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textPrimary)
+                        Spacer(minLength: 8)
+                        if e == effort { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
+                    }
+                    .padding(.horizontal, 10).frame(height: 30)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(e == effort ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .frame(width: 150)
+        .background(ALColor.surface)
     }
 }
