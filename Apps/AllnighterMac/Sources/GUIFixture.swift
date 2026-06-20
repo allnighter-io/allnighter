@@ -144,9 +144,10 @@ enum GUIFixture {
     /// Deep-link: open the Pending queue screen seeded with sample armed work.
     static var opensPending: Bool { active == "pending-queue" }
 
-    /// Seed a temp Pending store with sample armed work for the `pending-queue` fixture.
+    /// Seed a temp Pending store with sample armed work for the pending fixtures
+    /// (`pending-queue` = the screen, `pending-pill` = home + the top-bar pill).
     static func seededPendingService(models: [Model]) -> PendingService? {
-        guard active == "pending-queue" else { return nil }
+        guard active == "pending-queue" || active == "pending-pill" else { return nil }
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("alln-pending-fixture", isDirectory: true)
         try? FileManager.default.removeItem(at: root)
@@ -255,6 +256,7 @@ enum GUIFixture {
         ("floor-reader", "Floor — team reply reader (G-T3, markdown)"),
         ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
         ("pending-queue", "Pending — queued work screen (PENDQ GUI)"),
+        ("pending-pill", "Home — top-bar 'N pending' pill (PENDQ GUI)"),
         ("compose-target-chat", "Compose — route target popover (native popover)"),
         ("compose-team", "Compose — team target (name · workers, not fake model)"),
         ("compose-file-reference", "Compose — file reference picker"),

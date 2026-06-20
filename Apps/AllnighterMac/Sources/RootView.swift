@@ -21,6 +21,8 @@ struct RootView: View {
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .inbox
     @State private var showPending = false
+    /// Title-bar pending-count source (drives the conditional `N pending` pill).
+    @State private var pendingVM: PendingViewModel?
     @State private var commands = CommandCenter()
     /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
     @State private var showFloorReaderProof = false
@@ -103,12 +105,15 @@ struct RootView: View {
                 showTeamDropdown: $showTeamDropdown,
                 showDoctor: $showDoctor,
                 workspaceMode: $workspaceMode,
+                pendingCount: pendingVM?.totalPending ?? 0,
                 onRepair: openReadiness(focus:),
                 onManageTeam: openTeamStudio,
+                onOpenPending: { showPending = true },
                 devSimActive: devSimLabel,
                 onSettings: openSettings
             )
                 .zIndex(10)
+                .onAppear { if pendingVM == nil { pendingVM = PendingViewModel(service: pendingService) } }
             ZStack {
                 // The app launches into the clean conversation home. Setup (CLI
                 // readiness) and the composer specimen open OVER it on intent;
@@ -119,7 +124,10 @@ struct RootView: View {
                     if showFloorReaderProof {
                         floorReaderProofView
                     } else if GUIFixture.opensPending || showPending {
-                        PendingView(service: pendingService, onClose: { showPending = false })
+                        PendingView(service: pendingService, onClose: {
+                            showPending = false
+                            pendingVM?.refresh()
+                        })
                     } else if showTeamStudio {
                         TeamStudioView(
                             initialRoute: studioInitialRoute,
