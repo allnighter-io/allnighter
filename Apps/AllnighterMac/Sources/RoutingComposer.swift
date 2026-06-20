@@ -48,10 +48,12 @@ extension ComposeLane {
 /// proof gate + the dev GUI-routes sheet.
 struct ComposeSpecimen: View {
     var openTarget: Bool = false
+    /// Proof hook: pre-select a team so the target chip renders in team mode.
+    var team: String? = nil
     var body: some View {
         VStack {
             Spacer()
-            RoutingComposer(openTarget: openTarget)
+            RoutingComposer(team: team, openTarget: openTarget, showsProject: true)
                 .frame(maxWidth: 680)
                 .padding(20)
         }
@@ -109,9 +111,9 @@ struct RoutingComposer: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
+            if showsProject { projectScope }
             box
-            hint
         }
         .onAppear(perform: seedDefaults)
         .onAppear(perform: consumePendingPrefillIfNeeded)
@@ -188,8 +190,6 @@ struct RoutingComposer: View {
 
     private var bar: some View {
         HStack(spacing: 9) {
-            if showsProject { projectChip }
-            Text("with").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             targetChip
             Spacer(minLength: 8)
             IconButton(systemImage: "photo", accessibilityLabel: "Attach image", small: true) {}
@@ -198,46 +198,32 @@ struct RoutingComposer: View {
         .padding(.horizontal, 11).padding(.vertical, 10)
     }
 
-    private var projectChip: some View {
-        let active = projects.activeProject
-        return Button { cycleProject() } label: {
+    // Scope, not control: the active project · branch floats ABOVE the box as quiet
+    // read-only context (reflects what's active — you switch projects in the sidebar,
+    // not here). No box, no helper line restating it.
+    @ViewBuilder private var projectScope: some View {
+        if let active = projects.activeProject {
             HStack(spacing: 6) {
-                Image(systemName: "folder").font(.system(size: 11))
-                    .foregroundStyle(active != nil ? ALColor.textMuted : ALColor.textFaint)
-                Text(active?.displayName ?? "No project")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(active != nil ? ALColor.textPrimary : ALColor.textFaint).lineLimit(1)
-                if let branch = active?.gitBranch, !branch.isEmpty {
-                    Text("· \(branch)").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                Text(active.displayName).font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(ALColor.textSecondary).lineLimit(1)
+                if let branch = active.gitBranch, !branch.isEmpty {
+                    Text("·").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                    Image(systemName: "arrow.triangle.branch").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+                    Text(branch).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
                 }
             }
-            .padding(.horizontal, 10).frame(height: 31)
-            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+            .padding(.horizontal, 4)
         }
-        .buttonStyle(.plain).fixedSize()
     }
 
-    private func cycleProject() {
-        let all = projects.projects
-        guard !all.isEmpty else { projects.addProjectViaPicker(); return }
-        let idx = all.firstIndex { $0.id == projects.activeProjectId } ?? -1
-        projects.select(all[(idx + 1) % all.count].id)
-    }
-
-    // Muted, Cursor-restrained: no accent color, no brand glyph, calm text. The
-    // "Auto" route gets an infinity glyph; a picked team gets its lane glyph.
+    // Two honest modes, never crossed: a single model reads `model · effort`; a team
+    // reads its own identity — team glyph + `name · N workers` (or `1 agent`) — and
+    // never a fake model · effort that hides the worker count.
     private var targetChip: some View {
         Button { targetOpen.toggle() } label: {
             HStack(spacing: 6) {
-                Image(systemName: team == nil ? "infinity" : lane.icon)
-                    .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-                Text(teamDisplayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
-                if let m = appModel.composeBench.first(where: { $0.id == to }) {
-                    Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-                    Text(m.name).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
-                }
-                Text("· \(effort.label)").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+                targetChipContent
                 Image(systemName: "chevron.down").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
             }
             .padding(.horizontal, 9).frame(height: 28)
@@ -249,9 +235,30 @@ struct RoutingComposer: View {
         .alPopover(isPresented: $targetOpen, arrowEdge: .top) { targetPopoverPanel }
     }
 
-    private var teamDisplayName: String {
-        if let id = team, let preset = TeamCatalog.get(id) { return preset.displayName }
-        return TeamCatalog.defaultRunTeam()?.displayName ?? "Auto"
+    @ViewBuilder private var targetChipContent: some View {
+        if let id = team, let preset = TeamCatalog.get(id) {
+            Image(systemName: "person.2").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+            Text(preset.displayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+            Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+            Text(teamWorkerLabel(preset)).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
+        } else {
+            Text(singleModelName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+            Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+            Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+        }
+    }
+
+    /// The model the single-model route runs (the resolved/picked worker).
+    private var singleModelName: String {
+        appModel.composeBench.first(where: { $0.id == to })?.name ?? "Auto"
+    }
+
+    /// A team's honest size: execution teams are one agent; answer teams show their
+    /// worker count.
+    private func teamWorkerLabel(_ preset: TeamPreset) -> String {
+        if preset.runShape == .execution { return "1 agent" }
+        let n = preset.workerSpecs.count
+        return "\(n) \(n == 1 ? "worker" : "workers")"
     }
 
     // Round, small, and deliberately not bright-white — a soft circle, not a loud
@@ -276,15 +283,6 @@ struct RoutingComposer: View {
         text = ""
         targetOpen = false
         editorHeight = ComposeEditorMetrics.minHeight
-    }
-
-    private var hint: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrow.turn.down.right").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
-            Text("Runs in your project repo with the selected team and worker.")
-                .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
-        }
-        .padding(.leading, 2)
     }
 
     // MARK: target popover

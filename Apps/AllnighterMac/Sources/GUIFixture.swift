@@ -143,6 +143,10 @@ enum GUIFixture {
     /// `compose-target-*` seeds the target popover open.
     static var composeTargetOpen: Bool { (active ?? "").hasPrefix("compose-target-") }
 
+    /// `compose-team` pre-selects a team so the target chip renders in team mode
+    /// (name · N workers, never a fake model · effort).
+    static var composeTeamId: String? { active == "compose-team" ? "design_core" : nil }
+
     /// Dedicated fixture for testing the Screen Recording grant / preflight in isolation.
     /// Runs the composite path (so native popovers + SR are exercised) but is intended
     /// only for "does preflight + captureComposite succeed right now?" verification.
@@ -228,6 +232,7 @@ enum GUIFixture {
         ("floor-reader", "Floor — team reply reader (G-T3, markdown)"),
         ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
         ("compose-target-chat", "Compose — route target popover (native popover)"),
+        ("compose-team", "Compose — team target (name · workers, not fake model)"),
         ("compose-target-send-to-team", "Compose — team target popover (native popover)"),
         ("tcc-probe", "TCC / Screen Recording grant probe (forces composite path)"),
     ]
