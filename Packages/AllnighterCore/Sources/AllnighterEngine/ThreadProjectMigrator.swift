@@ -4,9 +4,8 @@ import AllnighterCore
 /// PRJ-S03: backfill `projectId` onto existing threads from their legacy
 /// `workingDir`, using the deterministic `ProjectBinding` rule. Threads that bind
 /// keep their old path as `localRootPathSnapshot` (a receipt). Threads with no
-/// reliable root are left Unassigned (repair bucket) — blocked from mutating
-/// runs until the user assigns them. One-time, idempotent (already-bound
-/// threads are skipped).
+/// reliable local root remain unbound and blocked from runs. One-time,
+/// idempotent (already-bound threads are skipped).
 public struct ThreadProjectMigrator {
     public struct Report: Equatable, Sendable {
         public var bound: Int = 0

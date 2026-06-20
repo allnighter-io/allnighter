@@ -26,8 +26,8 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
     /// Context anchor and default run cwd. Attached files resolve here.
     public var workingDir: String?
     public var projectLabel: String?
-    /// The owning Project (PRJ-S03). `nil` = Unassigned: blocked from mutating
-    /// runs until bound. New durable threads should carry a `projectId`.
+    /// The owning Project (PRJ-S03). `nil` is legacy/unbound local data and is
+    /// blocked from runs until bound. New durable threads should carry a `projectId`.
     public var projectId: String?
     /// Historical receipt of the path the thread migrated from. Not the owner of
     /// current Project scope — `projectId` is.
@@ -132,8 +132,8 @@ public extension WorkThread {
 
     var isPinned: Bool { pinnedAt != nil }
 
-    /// PRJ-S03: a thread bound to a Project. Unassigned threads (`projectId == nil`)
-    /// are blocked from mutating runs until assigned.
+    /// PRJ-S03: a thread bound to a Project. Unbound legacy threads
+    /// (`projectId == nil`) are blocked from runs until assigned.
     var isProjectAssigned: Bool { projectId != nil }
 
     var isArchived: Bool { status == .archived }

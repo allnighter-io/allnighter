@@ -219,38 +219,36 @@ enum ThreadsPresenter {
 
     // MARK: - Project grouping (PRJ-S14)
 
-    /// One project's threads in the rail. `project == nil` is the Unassigned bucket
-    /// (threads with no projectId, or one that no longer resolves).
+    /// One project's threads in the rail. Legacy/unbound threads are intentionally
+    /// not given a visible bucket; new GUI sends must bind to a Project before they run.
     struct ProjectGroup: Identifiable, Equatable {
         let id: String
-        let project: Project?
+        let project: Project
         let threads: [WorkThread]
         /// Aggregate unread dot = any thread in the group is unread.
         var hasUnread: Bool { threads.contains { $0.hasUnread } }
-        var title: String { project?.displayName ?? "Unassigned" }
+        var title: String { project.displayName }
     }
 
     /// The rail rebuilt around projects: a flat cross-project Pinned section, then
-    /// one group per project (active roster order), then an Unassigned bucket.
-    /// Search filters within; archived threads never appear.
+    /// one group per project (active roster order). Search filters within; archived
+    /// and unbound legacy threads never appear.
     static func projectSections(
         _ threads: [WorkThread], projects: [Project], search: String
     ) -> (pinned: [WorkThread], groups: [ProjectGroup]) {
-        let visible = threads.filter { !$0.isArchived && matchesSearch($0, query: search) }
+        let known = Set(projects.map(\.id))
+        let visible = threads.filter {
+            !$0.isArchived
+            && matchesSearch($0, query: search)
+            && ($0.projectId.map { known.contains($0) } ?? false)
+        }
         let pinned = visible.filter { $0.isPinned }.sorted { $0.updatedAt > $1.updatedAt }
         let unpinned = visible.filter { !$0.isPinned }
-        let known = Set(projects.map(\.id))
 
         var groups: [ProjectGroup] = []
         for project in projects {
             let ts = unpinned.filter { $0.projectId == project.id }.sorted { $0.updatedAt > $1.updatedAt }
             groups.append(ProjectGroup(id: project.id, project: project, threads: ts))
-        }
-        let unassigned = unpinned
-            .filter { $0.projectId == nil || !known.contains($0.projectId!) }
-            .sorted { $0.updatedAt > $1.updatedAt }
-        if !unassigned.isEmpty {
-            groups.append(ProjectGroup(id: "unassigned", project: nil, threads: unassigned))
         }
         return (pinned, groups)
     }

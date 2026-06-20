@@ -1,24 +1,25 @@
 import Foundation
 import AllnighterCore
 
-/// The deterministic rule that binds a legacy path (a thread/Pending `workingDir`
-/// or run root) to a Project. Shared by thread migration (PRJ-S03) and Pending
-/// migration (PRJ-S04) so both bind identically. No guessing: ambiguous cases
-/// resolve to `.unassigned`, never to a wrong Project.
+/// The deterministic rule that binds a path (a thread/Pending `workingDir` or
+/// run root) to a Project. Shared by thread migration (PRJ-S03), Pending
+/// migration (PRJ-S04), and GUI send routing so all surfaces bind identically.
 public enum ProjectBinding {
     public enum Resolution: Equatable, Sendable {
         /// Bind to this existing Project (exact root, or nearest ancestor root).
         case existing(ProjectID)
-        /// Create/reuse a Project at this git repo top level, then bind.
+        /// Create/reuse a Project at this local root, then bind.
         case repoRoot(path: String)
-        /// No reliable Project — leave Unassigned (repair bucket), blocked from mutate.
+        /// No reliable local folder/root.
         case unassigned
     }
 
-    /// Resolve `rawPath` against existing Projects, then a containing git repo root.
+    /// Resolve `rawPath` against existing Projects, then a containing git repo
+    /// root, then the available folder itself.
     ///
     /// Order (deterministic): exact normalized-key match → nearest-ancestor Project
-    /// root → the single containing git repo top level → `.unassigned`.
+    /// root → the single containing git repo top level → available folder →
+    /// `.unassigned`.
     public static func resolve(
         rawPath: String?,
         projects: [Project],
@@ -47,7 +48,13 @@ public enum ProjectBinding {
         if let top = git.repoTopLevel(forPath: key) {
             return .repoRoot(path: top)
         }
-        // 4. No reliable Project.
+        // 4. Plain local folders are valid Projects too. The ProjectStore will
+        // observe whether this is a git repo or a folder; binding only requires
+        // a real, available root.
+        if RootNormalization.observeRootState(key: key) == .available {
+            return .repoRoot(path: key)
+        }
+        // 5. No reliable Project.
         return .unassigned
     }
 

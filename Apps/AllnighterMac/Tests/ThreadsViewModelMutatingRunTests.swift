@@ -32,7 +32,8 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
             store: ThreadStore(rootDirectory: root),
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
             registry: config.registry, models: config.models, toolStatuses: toolStatuses,
-            runner: WorkerRunner(commandRunner: stub), commandRunner: stub, writeLock: writeLock
+            runner: WorkerRunner(commandRunner: stub), commandRunner: stub, writeLock: writeLock,
+            projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true))
         )
     }
 
@@ -59,21 +60,15 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
         return vm.selectedThread?.turns.first { $0.kind == kind }
     }
 
-    func testChatWithoutRepoUsesCoordinator() async throws {
+    func testChatWithoutProjectDoesNotCreateUnboundThread() async throws {
         let ready = GUIFixture.seededToolStatuses(for: AppConfig.loadConfiguration().models, now: Date(), scenario: "thread-ready")
         let vm = makeVM(toolStatuses: ready, writeLock: RunWriteLockRegistry())
-        _ = vm.newThread(title: "t")
         let to = try XCTUnwrap(readyExecutorId(ready))
-        vm.sendRouting(routing(to, "hello without a repo"))
+        vm.sendRouting(routing(to, "hello without a repo"), createThread: true)
 
-        for _ in 0..<300 {
-            if vm.selectedThread?.turns.contains(where: { $0.kind == .workerChat || $0.kind == .userMessage }) == true {
-                break
-            }
-            try await Task.sleep(nanoseconds: 15_000_000)
-        }
-        let chat = vm.selectedThread?.turns.first { $0.kind == .workerChat || $0.kind == .userMessage }
-        XCTAssertNotNil(chat, "unassigned threads fall back to coordinator chat")
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertTrue(vm.threads.isEmpty)
+        XCTAssertNil(vm.selectedThreadId)
     }
 
     func testBusyWriteLockRefusesConcurrentMutatingRun() async throws {
@@ -87,6 +82,7 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
         let vm = makeVM(toolStatuses: ready, writeLock: reg)
         let to = try XCTUnwrap(readyExecutorId(ready), "need a ready headless executor")
         _ = vm.newThread(title: "t", workingDir: dir)
+        XCTAssertNotNil(vm.selectedThread?.projectId)
 
         vm.sendRouting(routing(to, "edit the repo concurrently"))
         let settled = try await firstRunTurn(vm, kind: .mutatingRun)

@@ -3,9 +3,9 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// PRJ-S03 Works Test: legacy threads with `workingDir` migrate to Projects via
-/// the deterministic binding rule — repo roots get a Project (subdirs of the same
-/// repo bind to it, not a new one), the old path is preserved as a receipt, and
-/// threads with no reliable root are left Unassigned (blocked from runs).
+/// the deterministic binding rule — repo roots and plain folders get a Project
+/// (subdirs of the same repo bind to it, not a new one), the old path is
+/// preserved as a receipt, and threads with no reliable root stay unbound.
 /// Migration is idempotent.
 final class ThreadProjectMigratorTests: XCTestCase {
     private var tmp: URL!
@@ -39,7 +39,7 @@ final class ThreadProjectMigratorTests: XCTestCase {
         return dir
     }
 
-    func testMigratesToRepoRootsAndLeavesAmbiguousUnassigned() throws {
+    func testMigratesToLocalRootsAndLeavesOnlyRootlessUnbound() throws {
         let repoA = try makeGitRepo("repoA")
         let repoB = try makeGitRepo("repoB")
         let subA = repoA.appendingPathComponent("sub")
@@ -50,23 +50,23 @@ final class ThreadProjectMigratorTests: XCTestCase {
         _ = try threadStore.create(id: "t1", title: "T1", now: Date(), workingDir: repoA.path)
         _ = try threadStore.create(id: "t2", title: "T2", now: Date(), workingDir: subA.path)    // subdir of repoA
         _ = try threadStore.create(id: "t3", title: "T3", now: Date(), workingDir: repoB.path)
-        _ = try threadStore.create(id: "t4", title: "T4", now: Date(), workingDir: folderC.path) // non-repo
-        _ = try threadStore.create(id: "t5", title: "T5", now: Date(), workingDir: nil)           // no root
+        _ = try threadStore.create(id: "t4", title: "T4", now: Date(), workingDir: folderC.path) // plain folder
+        _ = try threadStore.create(id: "t5", title: "T5", now: Date(), workingDir: nil)          // no root
 
         let report = try ThreadProjectMigrator.migrate(threadStore: threadStore, projectStore: projectStore)
 
-        XCTAssertEqual(report.createdProjects, 2)   // repoA + repoB (subdir reuses repoA)
-        XCTAssertEqual(report.bound, 3)             // t1, t2, t3
-        XCTAssertEqual(report.unassigned, 2)        // t4 (folder), t5 (no root)
+        XCTAssertEqual(report.createdProjects, 3)   // repoA + repoB + folderC (subdir reuses repoA)
+        XCTAssertEqual(report.bound, 4)             // t1, t2, t3, t4
+        XCTAssertEqual(report.unassigned, 1)        // t5 (no root)
 
         let t1 = try XCTUnwrap(threadStore.get("t1"))
         let t2 = try XCTUnwrap(threadStore.get("t2"))
         XCTAssertNotNil(t1.projectId)
         XCTAssertEqual(t1.projectId, t2.projectId)              // same repo → same Project
         XCTAssertEqual(t1.localRootPathSnapshot, repoA.path)    // receipt preserved
-        XCTAssertFalse(try XCTUnwrap(threadStore.get("t4")).isProjectAssigned)
+        XCTAssertTrue(try XCTUnwrap(threadStore.get("t4")).isProjectAssigned)
         XCTAssertFalse(try XCTUnwrap(threadStore.get("t5")).isProjectAssigned)
-        XCTAssertEqual(try projectStore.activeProjects().count, 2)
+        XCTAssertEqual(try projectStore.activeProjects().count, 3)
     }
 
     func testMigrationIsIdempotent() throws {

@@ -11,11 +11,23 @@ final class ThreadsPresenterTests: XCTestCase {
 
     private func thread(
         _ id: String, updatedAt: Date, pinned: Bool = false, archived: Bool = false,
-        readCursor: ThreadReadCursor? = nil, turns: [ThreadTurn] = []
+        projectId: String? = nil, readCursor: ThreadReadCursor? = nil, turns: [ThreadTurn] = []
     ) -> WorkThread {
         WorkThread(id: id, title: id, status: archived ? .archived : .active,
                    createdAt: t0, updatedAt: updatedAt, pinnedAt: pinned ? t0 : nil,
-                   readCursor: readCursor, turns: turns)
+                   projectId: projectId, readCursor: readCursor, turns: turns)
+    }
+
+    private func project(_ id: String, name: String? = nil) -> Project {
+        Project(
+            id: id,
+            displayName: name ?? id,
+            localRootPath: "/tmp/\(id)",
+            normalizedRootPath: "/tmp/\(id)",
+            kind: .folder,
+            createdAt: t0,
+            lastOpenedAt: t0
+        )
     }
 
     private func turn(_ kind: ThreadTurnKind, _ status: ThreadTurnStatus, systemEvent: SystemEventKind? = nil) -> ThreadTurn {
@@ -217,5 +229,23 @@ final class ThreadsPresenterTests: XCTestCase {
                           turns: [turn(.workerChat, .failed)])
         XCTAssertEqual(ThreadsPresenter.triageBucket(for: both), .attention)
         XCTAssertTrue(ThreadsPresenter.showsUnreadLight(both))
+    }
+
+    func testProjectSectionsDoNotRenderLegacyUnboundBucket() {
+        let bound = thread("bound", updatedAt: t1, projectId: "p1")
+        let pinned = thread("pinned", updatedAt: t0, pinned: true, projectId: "p1")
+        let rootless = thread("rootless", updatedAt: t1)
+        let staleProject = thread("stale", updatedAt: t1, projectId: "missing")
+
+        let sections = ThreadsPresenter.projectSections(
+            [rootless, staleProject, bound, pinned],
+            projects: [project("p1", name: "Allnighter")],
+            search: ""
+        )
+
+        XCTAssertEqual(sections.pinned.map(\.id), ["pinned"])
+        XCTAssertEqual(sections.groups.map(\.title), ["Allnighter"])
+        XCTAssertEqual(sections.groups.first?.threads.map(\.id), ["bound"])
+        XCTAssertFalse(sections.groups.contains { $0.title == "Unassigned" })
     }
 }

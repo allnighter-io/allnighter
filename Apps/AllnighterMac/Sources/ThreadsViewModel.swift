@@ -15,7 +15,7 @@ final class ThreadsViewModel {
     private(set) var selectedThreadId: String?
 
     /// The active project new threads bind to (PRJ-S14). Kept in sync from
-    /// `ProjectsViewModel.activeProjectId` by RootView. Nil → threads stay Unassigned.
+    /// `ProjectsViewModel.activeProjectId` by RootView.
     var currentProjectId: String?
 
     /// Pending text from a global quick-capture hotkey (⌥⌘Space or menu "Quick capture").
@@ -254,21 +254,86 @@ final class ThreadsViewModel {
 
     @discardableResult
     func newThread(title: String = "New thread", workingDir: String? = nil) -> WorkThread? {
+        guard let scope = projectScope(fallbackWorkingDir: workingDir) else {
+            #if DEBUG
+            if GUIFixture.isActive {
+                return fixtureThread(title: title, workingDir: workingDir)
+            }
+            #endif
+            return nil
+        }
         let thread = try? store.create(
-            id: UUID().uuidString, title: title, now: Date(), workingDir: workingDir
+            id: UUID().uuidString, title: title, now: Date(), workingDir: scope.root
         )
-        if let thread { stampProject(thread.id) }
+        if let thread {
+            bindThread(thread.id, to: scope, snapshot: workingDir)
+        }
         reload()
         if let thread { selectedThreadId = thread.id }
         return thread
     }
 
-    /// Bind a freshly created thread to the active project (PRJ-S14). No-op when no
-    /// project is active — the thread stays Unassigned (blocked from mutating runs).
-    private func stampProject(_ threadId: String) {
-        guard let pid = currentProjectId else { return }
-        _ = try? store.bindProject(threadId: threadId, projectId: pid)
+    private struct ProjectScope {
+        var projectId: String
+        var root: String
     }
+
+    private func bindThread(_ threadId: String, to scope: ProjectScope, snapshot: String? = nil) {
+        _ = try? store.bindProject(
+            threadId: threadId,
+            projectId: scope.projectId,
+            localRootPathSnapshot: snapshot
+        )
+    }
+
+    private func projectScope(preferredProjectId: String? = nil, fallbackWorkingDir: String? = nil) -> ProjectScope? {
+        if let preferredProjectId, let scope = scope(forProjectId: preferredProjectId) {
+            return scope
+        }
+
+        if let rawPath = fallbackWorkingDir?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawPath.isEmpty,
+           let projects = try? projectStore.activeProjects() {
+            switch ProjectBinding.resolve(rawPath: rawPath, projects: projects) {
+            case .existing(let projectId):
+                if let scope = scope(forProjectId: projectId) { return scope }
+            case .repoRoot(let path):
+                guard let project = try? projectStore.add(path: path), project.rootState == .available else {
+                    return nil
+                }
+                currentProjectId = project.id
+                return ProjectScope(projectId: project.id, root: project.normalizedRootPath)
+            case .unassigned:
+                break
+            }
+        }
+
+        if let projectId = currentProjectId {
+            if let scope = scope(forProjectId: projectId) { return scope }
+        }
+        return nil
+    }
+
+    private func scope(forProjectId projectId: String) -> ProjectScope? {
+        guard let project = try? projectStore.load(id: projectId),
+              project.rootState == .available else {
+            return nil
+        }
+        let root = project.normalizedRootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !root.isEmpty else { return nil }
+        return ProjectScope(projectId: project.id, root: root)
+    }
+
+    #if DEBUG
+    private func fixtureThread(title: String, workingDir: String?) -> WorkThread? {
+        let thread = try? store.create(
+            id: UUID().uuidString, title: title, now: Date(), workingDir: workingDir
+        )
+        reload()
+        if let thread { selectedThreadId = thread.id }
+        return thread
+    }
+    #endif
 
     /// Empty thread for the "Start a run" flow.
     func newRun() {
@@ -290,21 +355,15 @@ final class ThreadsViewModel {
         }
     }
 
-    /// Send from the unified routing composer. Project-scoped runs go through
-    /// `RunService` in the repo root; unassigned threads fall back to single-worker
-    /// chat via the coordinator.
+    /// Send from the unified routing composer. Runs go through `RunService` in a
+    /// bound Project root; rootless legacy threads are refused honestly.
     func sendRouting(_ routing: ComposeRouting, createThread: Bool = false) {
         let message = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
 
         let threadId: String
         if createThread || selectedThreadId == nil {
-            guard let thread = try? store.create(
-                id: UUID().uuidString, title: Self.title(from: message), now: Date()
-            ) else { return }
-            stampProject(thread.id)
-            reload()
-            selectedThreadId = thread.id
+            guard let thread = newThread(title: Self.title(from: message)) else { return }
             threadId = thread.id
         } else if let id = selectedThreadId {
             guard store.get(id)?.isArchived != true else { return }
@@ -343,22 +402,19 @@ final class ThreadsViewModel {
                 appendFailedRun(fileReferenceFailureText(error), kind: .systemEvent, toThreadId: threadId)
             }
         } else {
-            runChat(message: message, toThreadId: threadId, workerId: routing.to, fileReferences: routing.fileReferences)
+            appendFailedRun("Select a project with an available local root before starting a run.", kind: .systemEvent, toThreadId: threadId)
         }
     }
 
     private func repoRoot(for threadId: String) -> (projectId: String?, root: String)? {
         guard let thread = store.get(threadId) else { return nil }
-        if let pid = thread.projectId ?? currentProjectId,
-           let project = try? projectStore.load(id: pid),
-           project.rootState == .available {
-            let root = project.normalizedRootPath.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !root.isEmpty { return (pid, root) }
+        guard let scope = projectScope(preferredProjectId: thread.projectId, fallbackWorkingDir: thread.workingDir) else {
+            return nil
         }
-        if let dir = thread.workingDir?.trimmingCharacters(in: .whitespacesAndNewlines), !dir.isEmpty {
-            return (thread.projectId, dir)
+        if thread.projectId != scope.projectId {
+            bindThread(threadId, to: scope, snapshot: thread.workingDir)
         }
-        return nil
+        return (scope.projectId, scope.root)
     }
 
     private func makeRunService() -> RunService {

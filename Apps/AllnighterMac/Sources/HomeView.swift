@@ -59,7 +59,7 @@ private struct HomeSidebar: View {
     }
 
     private var isEmptyFloor: Bool {
-        projects.projects.isEmpty && threads.threads.allSatisfy { $0.isArchived }
+        projects.projects.isEmpty
     }
 
     var body: some View {
@@ -131,7 +131,7 @@ private struct HomeSidebar: View {
                         group: group,
                         collapsed: collapsed.contains(group.id),
                         onToggle: { toggle(group.id) },
-                        onNewAgent: group.project.map { p in { newAgent(in: p.id) } }
+                        onNewAgent: { newAgent(in: group.project.id) }
                     )
                     if !collapsed.contains(group.id) {
                         let shown = expanded.contains(group.id) ? group.threads : Array(group.threads.prefix(4))
@@ -397,7 +397,7 @@ private struct ProjectGroupHeader: View {
                 HStack(spacing: 7) {
                     Image(systemName: collapsed ? "chevron.right" : "chevron.down")
                         .font(.system(size: 9, weight: .semibold)).foregroundStyle(ALColor.textFaint).frame(width: 9)
-                    Image(systemName: group.project == nil ? "tray" : "folder")
+                    Image(systemName: "folder")
                         .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
                     Text(group.title)
                         .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textSecondary).lineLimit(1)

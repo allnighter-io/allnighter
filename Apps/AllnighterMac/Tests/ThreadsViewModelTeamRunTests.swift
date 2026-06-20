@@ -59,7 +59,8 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
             models: config.models,
             toolStatuses: toolStatuses,
             runner: WorkerRunner(commandRunner: commandRunner),
-            commandRunner: commandRunner
+            commandRunner: commandRunner,
+            projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true))
         )
     }
 
@@ -141,6 +142,7 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         let capture = PromptCapturingRunner()
         let vm = makeVM(toolStatuses: ready, commandRunner: capture)
         _ = vm.newThread(title: "t", workingDir: repo.path)
+        XCTAssertNotNil(vm.selectedThread?.projectId)
 
         vm.sendRouting(ComposeRouting(
             team: nil,

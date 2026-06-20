@@ -63,3 +63,15 @@ Fix boundary: Do not request a Documents entitlement. Spawn worker runs in an Al
 Fix: WorkerRunner.invoke computes `spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()` and passes it as the process CWD.
 Proof: WorkerRunnerCWDTests (no-dir run spawns in probeScratch; explicit dir preserved); full AllnighterCore suite green; chat send verified on the founder's machine (Grok Build → "Hi!") with no Documents prompt after the fix.
 Pattern candidate: Any spawned child process (probe OR run) must use an owned neutral CWD unless an explicit, user-chosen dir is given — never inherit the app's process CWD, which in dev is under ~/Documents and trips TCC.
+
+## 2026-06-20 - Apps/AllnighterMac home rail + visible "Unassigned" project bucket + rootless thread fallback
+
+Tier: T2 SSOT
+Symptom: Home sidebar could show an "Unassigned" project group and rootless GUI sends could fall back to worker chat instead of the unified Project-root run path.
+Truth owner: `ProjectStore` plus `WorkThread.projectId`; folder/repo binding is owned by `ProjectBinding`.
+Lie-prone layer: `ThreadsPresenter.projectSections` synthesized a user-visible repair bucket, and `ThreadsViewModel.repoRoot(for:)` treated legacy `workingDir` as a run root without binding it to a Project.
+RCA: PRJ-era repair-bucket semantics survived the Unified Run Model. The binder auto-created Projects for git roots but not plain available folders, while the GUI still tolerated nil-project threads.
+Fix boundary: Bind available folders as Projects, require GUI sends/new threads to resolve a Project root, hide unbound legacy records from the project rail, and remove the rootless worker-chat fallback.
+Proof: `swift test --disable-sandbox --package-path Packages/AllnighterCore` (747 tests, 0 failures).
+Deferred proof: Mac `xcodebuild` tests and GUI `projects-rail` render are blocked in this sandbox because Xcode still writes SwiftPM diagnostics to `/Users/mike/Library/Caches/org.swift.swiftpm/...` (Operation not permitted), even with tmp DerivedData/package cache overrides.
+Pattern candidate: GUI run surfaces must not create a user-visible repair bucket for missing `projectId`; a local folder is enough Project truth, and rootless legacy records are hidden or refused until bound.
