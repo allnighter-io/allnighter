@@ -220,7 +220,7 @@ Evaluated on 2026-06-19 from installed CLI help plus current driver manifests.
 | Source | Current invoke | Stream mode found | V1 posture |
 | --- | --- | --- | --- |
 | Codex | `codex exec ... -o {{outputFile}} {{prompt}}` | `codex exec --json` prints JSONL events to stdout. | Supported after parser as completed-message snapshots, not token deltas. Keep `-o {{outputFile}}` for canonical final answer; parse JSONL stdout for `agent_message` snapshots/status/tool activity. |
-| Claude Code | `claude -p {{prompt}} --model {{model}}` | `claude -p --output-format stream-json`; help also exposes `--include-partial-messages`. | Supported after parser. Use `--output-format stream-json --include-partial-messages`; parse only assistant text deltas into visible answer. |
+| Claude Code | `claude -p {{prompt}} --model {{model}}` | `claude -p --output-format stream-json`; real CLI v2.1.183 sample requires `--verbose` and `--include-partial-messages` for text deltas. | Supported after parser with true incremental `text_delta` output. Use `--output-format stream-json --include-partial-messages --verbose`; parse only assistant text deltas into visible answer. |
 | Cursor Agent | `agent -p --output-format text ...` | `agent -p --output-format stream-json`; help also exposes `--stream-partial-output`. | Supported after parser. Use `--output-format stream-json --stream-partial-output`; parse text deltas. |
 | Grok Build | `grok -p {{prompt}} ... --output-format plain` | Help exposes `--output-format streaming-json` for headless mode. | Likely supported after parser. Verify event schema with a tiny real run before claiming product support. |
 | Antigravity | `agy --print {{prompt}} ...` | Current `agy --help` shows no structured output/stream flag. | Not V1 stream-capable unless the CLI confirms a hidden or newer stream mode. Final-output fallback only. |
@@ -277,24 +277,64 @@ Invocation candidate:
 
 ```text
 claude -p {{prompt}} --model {{model}} {{effortArgs}}
-  --output-format stream-json --include-partial-messages
+  --output-format stream-json --include-partial-messages --verbose
+  --permission-mode bypassPermissions
 ```
 
 Parser requirements:
 
 - Treat stdout as JSONL.
-- Extract only assistant message content intended for the user.
-- Ignore hook events unless a future debug surface opts in.
-- Handle partial-message chunks and final message events without duplicating text.
-- Final answer can come from parser accumulator or a terminal result event.
+- `-p` + `--output-format stream-json` requires `--verbose` on Claude Code
+  v2.1.183; without it the CLI hard-errors.
+- `--include-partial-messages` enables streaming deltas. Without it, the stream
+  includes only final messages.
+- Permission-safe headless runs should use `--permission-mode bypassPermissions`
+  or `--dangerously-skip-permissions` so tool prompts cannot block the run.
+- Consider `--bare` for clean scripted calls when Allnighter does not want hooks,
+  skills, plugins, `CLAUDE.md`, MCP auto-discovery, or keychain reads.
+- Visible live text deltas are at
+  `$.type == "stream_event"`, `$.event.type == "content_block_delta"`,
+  `$.event.delta.type == "text_delta"`, then `$.event.delta.text`.
+- Bucket streamed text by `$.event.index`; concatenate `text_delta.text` in
+  order per content block.
+- Final visible snapshots are at `$.type == "assistant"` and
+  `$.message.content[i].type == "text"` / `$.message.content[i].text`.
+- `$.type == "result"` includes terminal summary, usage, cost, and a full
+  `$.result` snapshot.
+- Dedupe strategy: stream `text_delta` into the running turn, then suppress the
+  later `assistant`/`result` snapshots for rendering. Use them only to reconcile
+  or repair missing stream text.
+- Do not render as chat answer text: `content_block_start`,
+  `content_block_stop`, `message_start`, `message_delta`, `message_stop`,
+  `input_json_delta`, `signature_delta`, thinking blocks, `user` tool-result
+  events, `system.*`, or `rate_limit_event`.
+- Tool input appears as `$.event.delta.type == "input_json_delta"` with
+  `$.event.delta.partial_json`; accumulate/parse for tool UI only, not answer
+  text.
+- Terminal event is always one final `$.type == "result"`. Success uses
+  `subtype: "success"`, `is_error: false`, and `terminal_reason: "completed"`.
+- Handled API errors may still exit `0`; rely on the in-band `result` event
+  (`subtype: "error"`, `is_error: true`, `api_error_status`, `result`) for
+  run-truth failure. Reserve non-zero exit handling for startup/invocation errors
+  such as bad flags or auth failures before `system/init`.
+- Retryable API failures emit `system` / `subtype: "api_retry"` events before
+  retry or terminal error.
+- Claude answer reported no per-call effort flag despite current local help and
+  the manifest exposing `--effort`; verify on the target CLI version before
+  changing effort mapping.
 
-Need from CLI if parser cannot be derived safely:
+Tiny verified sequence:
 
-```text
-Please provide the `claude -p --output-format stream-json --include-partial-messages`
-event schema. Which event types and fields are visible assistant text deltas,
-which are complete assistant messages, and how should clients dedupe partials
-against final messages?
+```json
+{"type":"system","subtype":"init","session_id":"ee6f...","model":"claude-opus-4-8[1m]","permissionMode":"bypassPermissions","tools":["Bash","Read","Edit"],"claude_code_version":"2.1.183","uuid":"..."}
+{"type":"system","subtype":"status","status":"requesting","session_id":"ee6f...","uuid":"..."}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_019...","role":"assistant","content":[],"stop_reason":null,"usage":{"input_tokens":2655,"output_tokens":3}}},"ttft_ms":1136,"uuid":"..."}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}},"uuid":"..."}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hi"}},"uuid":"..."}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"! What can I help with today?"}},"uuid":"..."}
+{"type":"assistant","message":{"id":"msg_019...","role":"assistant","content":[{"type":"text","text":"Hi! What can I help with today?"}],"stop_reason":"end_turn","usage":{"input_tokens":2655,"output_tokens":18}},"request_id":"req_...","uuid":"..."}
+{"type":"stream_event","event":{"type":"message_stop"},"uuid":"..."}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":1504,"ttft_ms":1439,"num_turns":1,"result":"Hi! What can I help with today?","stop_reason":"end_turn","total_cost_usd":0.087828,"usage":{"input_tokens":2655,"output_tokens":18,"cache_read_input_tokens":15626},"terminal_reason":"completed","uuid":"..."}
 ```
 
 ### Cursor Agent Parser
