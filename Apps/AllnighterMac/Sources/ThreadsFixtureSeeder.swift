@@ -28,6 +28,8 @@ struct ThreadsFixtureSeeder {
             seedFixtureTeamBoard()
         case "thread-mutating-run":
             seedFixtureMutatingRun()
+        case "thread-streaming":
+            seedFixtureStreamingChat()
         case "home-rail":
             seedFixtureRail()
             setSelectedThreadId(nil)
@@ -247,6 +249,28 @@ struct ThreadsFixtureSeeder {
             text: "**Token bucket.** It allows short bursts (up to the bucket size) while holding the long-run average to the refill rate — which is what per-user API limits actually want. Sliding-window log is more precise but stores every timestamp per user (memory + GC churn); sliding-window counter approximates it but still smooths bursts away. For rate limiting, allow the burst: token bucket, refill = your sustained rate, capacity = your burst budget.",
             workerId: workerId
         )
+        _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    /// A worker_chat turn mid-stream: status `.running` with partial text already
+    /// flowed in (STR-S08). Proves the live render — partial text + a streaming
+    /// affordance — vs. the bare "running…" placeholder.
+    private func seedFixtureStreamingChat() {
+        let id = "fixture-streaming"
+        _ = try? store.create(id: id, title: "Explain backpressure", now: Date())
+        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        let user = ThreadTurn(
+            id: "fixture-streaming-user", threadId: id, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user,
+            text: "Explain backpressure in streaming systems in two sentences.")
+        let reply = ThreadTurn(
+            id: "fixture-streaming-reply", threadId: id, kind: .workerChat, status: .running,
+            createdAt: Date(), author: .worker,
+            text: "Backpressure is how a fast producer is slowed to a rate its slower consumer can actually keep up with, so queues don't grow without bound. The consumer signals demand upstream — pull-based or via a bounded buffer that blocks the produc",
+            workerId: workerId)
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
         reload()

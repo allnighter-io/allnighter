@@ -445,7 +445,18 @@ final class ThreadsViewModel {
                 case .finished:
                     break
                 case .awaitingInvoke(let pending):
+                    // While the worker streams, poll-reload so the running turn's
+                    // partial text updates live; cancel + final reload at settlement.
+                    let livePoll = Task { @MainActor in
+                        while !Task.isCancelled {
+                            try? await Task.sleep(for: .milliseconds(150))
+                            if Task.isCancelled { break }
+                            reload()
+                        }
+                    }
+                    defer { livePoll.cancel() }
                     _ = try await coordinator.completeSend(pending)
+                    livePoll.cancel()
                     reload()
                 }
             } catch {
