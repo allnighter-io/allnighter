@@ -23,6 +23,12 @@ not configuration.
 - **Cursor Agent CLI support** — **BUILT** (2026-06-19); archived at
   [`docs/archive/phases/setup/Cursor_Agent_CLI_Support.md`](../../archive/phases/setup/Cursor_Agent_CLI_Support.md).
   GUI proof: `docs/qa/gui/setup/2026-06-19-cursor-agent-gui/`.
+- **[Antigravity CLI support](Antigravity_CLI_Support.md)** — headless
+  final-output contract recorded (2026-06-19). Current `agy --print` / `agy -p`
+  has no streaming or structured event mode.
+- **[Grok Build CLI support](Grok_Build_CLI_Support.md)** — headless
+  `streaming-json` contract verified (2026-06-19); final visible-text extraction
+  is wired, with live UI updates pending the shared streaming runner.
 
 Historical design handoff/mockup folders are pixel reference only. When they
 conflict with this README, `00_First_Run_Setup_Experience.md`,

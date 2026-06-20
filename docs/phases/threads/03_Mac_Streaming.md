@@ -223,7 +223,7 @@ Evaluated on 2026-06-19 from installed CLI help plus current driver manifests.
 | Claude Code | `claude -p {{prompt}} --model {{model}}` | `claude -p --output-format stream-json`; real CLI v2.1.183 sample requires `--verbose` and `--include-partial-messages` for text deltas. | Supported after parser with true incremental `text_delta` output. Use `--output-format stream-json --include-partial-messages --verbose`; parse only assistant text deltas into visible answer. |
 | Cursor Agent | `agent -p --output-format text ...` | `agent -p --output-format stream-json`; live runs confirm `--stream-partial-output` emits character-level assistant deltas plus duplicate flushes. | Supported after parser with true incremental assistant deltas. Use `--output-format stream-json --stream-partial-output`; append only delta-form assistant events and reconcile with `result.result`. |
 | Grok Build | `grok -p {{prompt}} ... --output-format streaming-json` | Local docs and live captures confirm `text` / `thought` / `end` / `error` NDJSON. | Supported after parser with true incremental `text.data` output. Current runtime extracts final visible text after process exit; live UI updates still require the V1 streaming runner. |
-| Antigravity | `agy --print {{prompt}} ...` | Current `agy --help` shows no structured output/stream flag. | Not V1 stream-capable unless the CLI confirms a hidden or newer stream mode. Final-output fallback only. |
+| Antigravity | `agy --print {{prompt}} ...` | Antigravity CLI answer confirms no streaming, JSONL, or machine-readable event mode in current `agy --print` / `agy -p`. | Not V1 stream-capable. Final-output fallback only; stdout is clean final answer text, logs/errors go to stderr or Antigravity logs. |
 | Manual paste | no process | none | Not applicable. |
 
 ### Codex Parser
@@ -456,15 +456,34 @@ Full Grok reference: `docs/phases/setup/Grok_Build_CLI_Support.md`.
 
 ### Antigravity Parser
 
-No V1 parser until the CLI exposes a stream mode.
+No V1 parser until the CLI exposes a stream mode. Current Antigravity answer
+confirms `agy --print` / `agy -p` has no token streaming, JSONL, or structured
+event output.
 
-Need from CLI:
+Fallback invocation:
 
 ```text
-Does `agy --print` support a streaming or JSONL output mode? If yes, provide the
-exact flags, event schema, answer-delta fields, terminal event, and whether the
-final answer is also emitted as a complete message.
+agy --print {{prompt}} --model {{model}} --dangerously-skip-permissions
 ```
+
+Optional flags:
+
+- `--print-timeout <duration>` for longer headless runs; default is currently
+  `5m0s`, and image generation uses `10m` in the manifest.
+- `--add-dir <path>` when the run needs additional context outside the workspace.
+
+Parser/runtime requirements:
+
+- Treat stdout as the final answer text, not an event stream.
+- Keep `stripAnsi: true`.
+- Diagnostics, warnings, and errors are expected on stderr or in Antigravity's
+  persistent logs, defaulting under `~/.gemini/antigravity-cli/logs` unless
+  `--log-file` overrides it.
+- Terminal signal is process exit. Non-zero exit means failure; error context is
+  stderr/log output.
+- Product capability should say "final answer only" rather than "streams live."
+
+Full Antigravity reference: `docs/phases/setup/Antigravity_CLI_Support.md`.
 
 ## Implementation Slices
 
