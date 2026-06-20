@@ -55,6 +55,57 @@ enum MCPPendingHandlers {
         }
     }
 
+    // MARK: - Write tools (parity with `alln pending submit|edit|reorder|cancel`)
+
+    private static func itemOutcome(_ service: PendingService, _ build: (PendingService) throws -> PendingItem) -> Outcome {
+        do {
+            let item = try build(service)
+            return .success(AllnighterCLI.jsonString(try service.mapJSON(item)), summary: "\(item.id): \(item.status.rawValue)")
+        } catch {
+            return .toolError(internalEnvelope(error))
+        }
+    }
+
+    private static func requireId(_ args: [String: Any]) -> String? {
+        (args["pendingId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    private static func usage(_ message: String) -> Outcome {
+        .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: message, requiresManual: true, retryable: false))
+    }
+
+    static func submit(runtime: ToolRuntime, args: [String: Any], store: PendingStore? = nil) -> Outcome {
+        guard let id = requireId(args) else { return usage("pendingId required") }
+        return itemOutcome(makeService(runtime, store: store)) { try $0.submit(id: id) }
+    }
+
+    static func cancel(runtime: ToolRuntime, args: [String: Any], store: PendingStore? = nil) -> Outcome {
+        guard let id = requireId(args) else { return usage("pendingId required") }
+        return itemOutcome(makeService(runtime, store: store)) { try $0.cancel(id: id) }
+    }
+
+    static func edit(runtime: ToolRuntime, args: [String: Any], store: PendingStore? = nil) -> Outcome {
+        guard let id = requireId(args) else { return usage("pendingId required") }
+        let req = PendingService.EditRequest(
+            prompt: args["prompt"] as? String,
+            workerToken: args["worker"] as? String,
+            teamPresetId: args["team"] as? String,
+            fallbackTokens: (args["fallback"] as? String).map { [$0] },
+            drainMode: (args["when"] as? String).flatMap(PendingDrainMode.init(rawValue:)),
+            workingDir: args["cwd"] as? String)
+        return itemOutcome(makeService(runtime, store: store)) { try $0.edit(id: id, req) }
+    }
+
+    static func reorder(runtime: ToolRuntime, args: [String: Any], store: PendingStore? = nil) -> Outcome {
+        guard let id = requireId(args) else { return usage("pendingId required") }
+        let anchor: PendingService.ReorderAnchor
+        if let before = args["before"] as? String, !before.isEmpty { anchor = .before(before) }
+        else if let after = args["after"] as? String, !after.isEmpty { anchor = .after(after) }
+        else if let pos = intArg(args["position"]) { anchor = .position(pos) }
+        else { return usage("one of before, after, or position is required") }
+        return itemOutcome(makeService(runtime, store: store)) { try $0.reorder(id: id, anchor: anchor) }
+    }
+
     static func show(runtime: ToolRuntime, args: [String: Any], store: PendingStore? = nil) -> Outcome {
         guard let pendingId = args["pendingId"] as? String, !pendingId.isEmpty else {
             return .toolError(ErrorEnvelope(

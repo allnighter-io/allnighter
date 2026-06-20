@@ -159,8 +159,10 @@ public enum HelpTopicRegistry {
                 .init("when-to-use-pending", "When to use Pending", "Use Pending when the user wants work done later, or when Allnighter cannot start it right now."),
                 .init("pending-vs-running", "Pending vs running a team", "Pending stores work for later; running a team starts work now after preflight."),
             ],
-            relatedToolIds: ["pending_list", "pending_queue", "pending_show", "pending_run"],
-            relatedCommandNames: ["pending add", "pending list", "pending queue", "pending show", "pending run"],
+            relatedToolIds: ["pending_list", "pending_queue", "pending_show", "pending_run",
+                             "pending_submit", "pending_edit", "pending_reorder", "pending_cancel"],
+            relatedCommandNames: ["pending add", "pending list", "pending queue", "pending show", "pending run",
+                                  "pending submit", "pending edit", "pending reorder", "pending cancel"],
             schemaRefs: ["pendingItemJSON", "pendingListJSON"],
             needsLiveCheck: false),
 

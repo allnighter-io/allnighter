@@ -4396,6 +4396,127 @@
       "summary" : "Render-ready Pending queue: armed items grouped by project (in order, each headed by its running item) + total armed count for the pending pill."
     },
     {
+      "command" : "pending submit",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "pending_submit",
+      "outputSchema" : "pendingItemJSON",
+      "params" : [
+        {
+          "name" : "pendingId",
+          "required" : true,
+          "summary" : "Pending item id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Arm a Draft item (Draft → Pending)."
+    },
+    {
+      "command" : "pending edit",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "pending_edit",
+      "outputSchema" : "pendingItemJSON",
+      "params" : [
+        {
+          "name" : "pendingId",
+          "required" : true,
+          "summary" : "Pending item id.",
+          "type" : "string"
+        },
+        {
+          "name" : "prompt",
+          "required" : false,
+          "summary" : "Replacement prompt text.",
+          "type" : "string"
+        },
+        {
+          "name" : "worker",
+          "required" : false,
+          "summary" : "Target worker id or alias.",
+          "type" : "string"
+        },
+        {
+          "name" : "team",
+          "required" : false,
+          "summary" : "Team preset id.",
+          "type" : "string"
+        },
+        {
+          "name" : "fallback",
+          "required" : false,
+          "summary" : "Fallback worker id.",
+          "type" : "string"
+        },
+        {
+          "name" : "when",
+          "required" : false,
+          "summary" : "ready | away | manual.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Edit a Pending\/Draft item's prompt or target. A Pending item returns to Draft (un-arms); re-submit to re-arm."
+    },
+    {
+      "command" : "pending reorder",
+      "errors" : [
+        "CLI_USAGE_ERROR",
+        "PENDING_REORDER_INVALID"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "pending_reorder",
+      "outputSchema" : "pendingItemJSON",
+      "params" : [
+        {
+          "name" : "pendingId",
+          "required" : true,
+          "summary" : "Item to move.",
+          "type" : "string"
+        },
+        {
+          "name" : "before",
+          "required" : false,
+          "summary" : "Move before this item id.",
+          "type" : "string"
+        },
+        {
+          "name" : "after",
+          "required" : false,
+          "summary" : "Move after this item id.",
+          "type" : "string"
+        },
+        {
+          "name" : "position",
+          "required" : false,
+          "summary" : "Move to a 0-based position.",
+          "type" : "integer"
+        }
+      ],
+      "summary" : "Reorder a Pending item within its serialized group (before\/after another, or to a position)."
+    },
+    {
+      "command" : "pending cancel",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "pending_cancel",
+      "outputSchema" : "pendingItemJSON",
+      "params" : [
+        {
+          "name" : "pendingId",
+          "required" : true,
+          "summary" : "Pending item id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Cancel a Draft or Pending item (remove from queue)."
+    },
+    {
       "command" : "pending run",
       "errors" : [
         "CLI_USAGE_ERROR",

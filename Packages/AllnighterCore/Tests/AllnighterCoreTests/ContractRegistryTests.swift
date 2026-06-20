@@ -60,6 +60,7 @@ final class ContractRegistryTests: XCTestCase {
             "team_run", "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get", "floor_show",
             "thread_send", "thread_get", "thread_status",
             "pending_list", "pending_queue", "pending_show", "pending_run",
+            "pending_submit", "pending_edit", "pending_reorder", "pending_cancel",
             "project_stalled", "stalled_list", "stall_check_status", "stall_keep_waiting", "stall_dismiss",
             "project_list", "project_get", "project_context", "project_workers", "project_recheck_workers",
             "defaults_get",

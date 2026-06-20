@@ -287,6 +287,14 @@ struct MCPServer {
             respondPending(id: id, outcome: MCPPendingHandlers.list(runtime: runtime, args: args))
         case "pending_queue":
             respondPending(id: id, outcome: MCPPendingHandlers.queue(runtime: runtime))
+        case "pending_submit":
+            respondPending(id: id, outcome: MCPPendingHandlers.submit(runtime: runtime, args: args))
+        case "pending_edit":
+            respondPending(id: id, outcome: MCPPendingHandlers.edit(runtime: runtime, args: args))
+        case "pending_reorder":
+            respondPending(id: id, outcome: MCPPendingHandlers.reorder(runtime: runtime, args: args))
+        case "pending_cancel":
+            respondPending(id: id, outcome: MCPPendingHandlers.cancel(runtime: runtime, args: args))
         case "pending_show":
             respondPending(id: id, outcome: MCPPendingHandlers.show(runtime: runtime, args: args))
         case "pending_run":
