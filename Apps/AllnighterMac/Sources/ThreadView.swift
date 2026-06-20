@@ -173,19 +173,12 @@ private struct ThreadPaneHeader: View {
                     .foregroundStyle(ALColor.textMuted)
                     .buttonStyle(.plain)
             }
-            if !routedWorkerIds.isEmpty {
-                HStack(spacing: 6) {
-                    Text("routed across")
-                        .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-                    HStack(spacing: -4) {
-                        ForEach(routedWorkerIds.prefix(4), id: \.self) { workerId in
-                            if let model = appModel.composeBench.first(where: { $0.id == workerId }) {
-                                DriverBrandGlyph(driverId: model.driverId, boxSize: 18, iconSize: 10, cornerRadius: 5)
-                                    .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(ALColor.surface, lineWidth: 1.5) }
-                            }
-                        }
-                    }
-                }
+            // Who you're talking to — the model name(s), not a CLI logo. The name is
+            // what actually tells you who answered (founder: "10x more valuable").
+            if !routedModelNames.isEmpty {
+                let names = routedModelNames
+                Text(names.prefix(2).joined(separator: " · ") + (names.count > 2 ? " +\(names.count - 2)" : ""))
+                    .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
@@ -200,15 +193,29 @@ private struct ThreadPaneHeader: View {
         threads.renameThread(thread.id, title: trimmed)
     }
 
+    // A normal chat/code run gets NO lane chip — it's just a conversation (founder).
+    // Only the genuinely distinct Design surface (an image board) is badged.
     private var inferredLane: ComposeLane? {
         if thread.turns.contains(where: { $0.kind == .designBoard }) { return .design }
-        if thread.turns.contains(where: { $0.kind == .teamRun || $0.kind == .mutatingRun }) { return .code }
         return nil
     }
 
     private var routedWorkerIds: [String] {
         var seen = Set<String>()
         return thread.turns.compactMap(\.workerId).filter { seen.insert($0).inserted }
+    }
+
+    /// Distinct model display names that have answered in this thread. A worker id is
+    /// `modelId#instanceIndex` (Worker.makeID), so strip the suffix before resolving.
+    /// Resolve against the full model catalog (not just the live bench) so the name
+    /// shows even for a model that isn't currently benched — and dedupe by name.
+    private var routedModelNames: [String] {
+        var seen = Set<String>()
+        return routedWorkerIds.compactMap { wid -> String? in
+            let modelId = wid.split(separator: "#").first.map(String.init) ?? wid
+            guard let name = appModel.models.first(where: { $0.id == modelId })?.displayName else { return nil }
+            return seen.insert(name).inserted ? name : nil
+        }
     }
 
     private func laneChip(_ lane: ComposeLane) -> some View {

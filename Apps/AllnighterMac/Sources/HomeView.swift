@@ -41,6 +41,7 @@ private struct HomeSidebar: View {
     @State private var renameThreadId: String?
     @State private var collapsed: Set<String> = []
     @State private var expanded: Set<String> = []
+    @State private var newChatHover = false
 
     private var sections: (pinned: [WorkThread], groups: [ThreadsPresenter.ProjectGroup]) {
         ThreadsPresenter.projectSections(threads.threads, projects: projects.projects, search: search)
@@ -59,13 +60,21 @@ private struct HomeSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(spacing: 10) {
+            VStack(spacing: 2) {
+                // Quiet compose row — same calm weight as Search below it, not a loud
+                // filled CTA (founder: "10x more muted, like Search").
                 Button { threads.newRun() } label: {
-                    Label("New Chat", systemImage: "plus")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(maxWidth: .infinity)
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.pencil").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+                        Text("New chat").font(.system(size: 12.5, weight: .medium)).foregroundStyle(ALColor.textSecondary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10).frame(height: 32)
+                    .background(newChatHover ? ALColor.hover : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.alLight)
+                .buttonStyle(.plain)
+                .onHover { newChatHover = $0 }
 
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").font(.system(size: 13)).foregroundStyle(ALColor.textFaint)
