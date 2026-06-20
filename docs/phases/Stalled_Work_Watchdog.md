@@ -1,10 +1,30 @@
 # Stalled Work Watchdog
 
-Status: WTK-S00–S04 and SWW-S00–S03 built for backend/CLI/MCP; **remaining
-work must align to `Unified_Run_Model.md`: run/project attention and
-notifications, not the retired manager-turn path**
+Status: WTK-S00–S04, SWW-S00–S03, **and SWW-S04 recovery (S04b+c) BUILT** for
+backend/CLI/MCP; **remaining work must align to `Unified_Run_Model.md`: run/project
+attention and notifications, not the retired manager-turn path**
 Owner: AllnighterCore + AllnighterEngine + Mac app backend + CLI/MCP contracts
-Updated: 2026-06-19
+Updated: 2026-06-20
+
+> **SWW-S04 RECOVERY BUILT (2026-06-20, resume here).** The detector's action labels
+> are now executable + agent-callable:
+> - `StallRecoveryService` (AllnighterEngine): `keepWaiting(minutes)` (snooze),
+>   `dismiss()` (cleared/userDismiss), `checkStatus()` (re-observe → clear if progressed,
+>   else refresh). No run-invocation (cancelling a live run is a separate gated slice).
+> - CLI `alln stalled check|wait [--minutes N]|dismiss <episode-id>` + MCP
+>   `stall_check_status`/`stall_keep_waiting`/`stall_dismiss` → `StallEpisodeJSON`.
+>   `STALL_EPISODE_NOT_FOUND` error. 5 Core tests; full suite green.
+>
+> **Remaining SWW-S04/S05:**
+> - **S04a — periodic resident stall-scan loop** (non-GUI): wire
+>   `StalledWorkService.scanAndRefresh()` into `ResidentCoordinator` parallel to
+>   `PendingWakeScheduler` (injected clock/sleeper) so detection is unattended. NOTE:
+>   mostly benefits the notification path (S05); on-demand scan already works via CLI/MCP.
+> - **S04d — run/project attention projection** (non-GUI): map active `StallEpisode` →
+>   run/project attention facet for unified triage. Also feeds S05.
+> - **S05 — Mac notification + menu/badge attention** (GUI): the user-facing surface.
+>   This is the GUI piece; the non-GUI recovery + on-demand detection are done.
+> - `cancel` recovery action (mutates a live run) — deferred, needs the run-cancel path.
 
 ## Authority
 
