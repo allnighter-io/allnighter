@@ -150,4 +150,29 @@ public enum DefaultSettingsProjector {
             allowHealthySubstitutions: settings.allowHealthySubstitutions,
             tiers: tierViews, unassigned: unassigned, auto: auto)
     }
+
+    /// Convenience for callers that hold raw `[Model]` rather than pre-built
+    /// `ModelListJSON.Entry` rows (e.g. the Mac app, which imports Core but not the
+    /// CLI's `ModelListProjector`). `sourceReadyModelIds` = ids whose SOURCE CLI is
+    /// installed + signed-in (independent of enablement); the projector still gates a
+    /// model's "live" status on enablement. Produces the same projection as `build`.
+    public static func build(
+        settings: DefaultModelSettings,
+        benchModels: [Model],
+        sourceReadyModelIds: Set<ModelID>,
+        driverDisplayName: (String) -> String,
+        contractVersion: String
+    ) -> DefaultSettingsJSON {
+        let entries = benchModels.map { m in
+            ModelListJSON.Entry(
+                id: m.id, displayName: m.displayName, modelLabel: m.modelLabel,
+                driverId: m.driverId, driverName: driverDisplayName(m.driverId),
+                role: m.role.rawValue, origin: "builtIn", enabled: m.enabled,
+                ready: sourceReadyModelIds.contains(m.id),
+                status: sourceReadyModelIds.contains(m.id) ? "ready" : "notReady",
+                state: m.enabled ? "onBench" : "available",
+                capabilities: ModelCatalog.capabilities(m.id))
+        }
+        return build(settings: settings, models: entries, contractVersion: contractVersion)
+    }
 }

@@ -99,6 +99,26 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         XCTAssertTrue(p.auto.substituted)
     }
 
+    func testBuildFromRawModelsMatchesEntryBuild() {
+        // The [Model] convenience (used by the Mac app) gates "live" on enablement just
+        // like the [Entry] path: an off-bench model whose source is "ready" is not live.
+        let models = [
+            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both, enabled: true),
+            Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt", driverId: "codex", role: .answerer, enabled: false),
+        ]
+        var s = DefaultModelSettings.fresh
+        s.tiers.flagship = ["model_opus", "model_chatgpt"]
+        let p = DefaultSettingsProjector.build(
+            settings: s, benchModels: models,
+            sourceReadyModelIds: ["model_opus", "model_chatgpt"],   // both sources up
+            driverDisplayName: { $0 }, contractVersion: "1.0.0")
+        let opus = p.tiers[0].members.first { $0.id == "model_opus" }
+        let gpt = p.tiers[0].members.first { $0.id == "model_chatgpt" }
+        XCTAssertEqual(opus?.ready, true)
+        XCTAssertEqual(gpt?.ready, false, "off-bench → not live even though its source is up")
+        XCTAssertEqual(p.auto.resolvedModelId, "model_opus")
+    }
+
     func testStaleTierIdIsDroppedFromRender() {
         var s = DefaultModelSettings.fresh
         s.tiers.flagship.append("model_ghost")   // id not in catalog
