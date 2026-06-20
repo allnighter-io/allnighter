@@ -53,6 +53,7 @@ otherwise.
 | [`Team_Catalog.md`](Team_Catalog.md) | Backend BUILT (S00-S05); GUI/iOS deferred | Built-in Code/Design/Copy specialist team catalog substrate for Send to team: team picker, named team variants, and one-CLI multi-skill self-fusion. Custom catalog editing is owned by `Team_And_Skill_Catalogs.md`. |
 | [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) | Founder review packet (2026-06-17) | Cleanup-first lane catalog feature: `TeamCatalog` + `SkillCatalog`, `TeamID` + `SkillID`, built-in and custom teams/skills in one catalog model, lane-first Settings, no Store vocabulary, no migration, no skill versioning. |
 | [`Model_Catalog_And_Bench_Roster.md`](Model_Catalog_And_Bench_Roster.md) | Ready CLI-first backend spec (2026-06-18) | Core `ModelCatalog` as the owner for built-in/custom per-CLI models, persistent Bench enablement, manual add/update/delete, CLI model commands, ToolRuntime/probe-label hardening, and the live-discovery seam. Model management stays inside CLIs; Bench is derived. |
+| [`Substitution_Bench_Default_Settings.md`](Substitution_Bench_Default_Settings.md) | Draft CLI/MCP-first feature packet (2026-06-20) | Global Default Settings for `Auto on <shelf>` plus user-governed Flagship/Balanced/Fast substitution shelves. Healthy substitution is same-shelf only, can cross CLIs, and waits when the shelf has no ready Bench model. CLI/MCP contract required before GUI. |
 | [`Team_Configuration_UX_Rescue.md`](Team_Configuration_UX_Rescue.md) | **Contract-hardened implementation spec** (2026-06-17) | Mac team configuration rescue after first-use rejection: composer Customize wiring, primary Customize team drawer, level-2 Customize worker modal, built-ins as lazy custom drafts, TeamWorkerDraft prompt edits, save-time skill forking with rollback, visible default-team control, search-first skill picker, ready-first model picker, and proof slices. |
 | [`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md) | PARTIAL: bootstrap/preflight/discovery, spec retrieval, and A0 async team loop built; Pending deferred | Agent-first workflow layer for OpenClaw/Hermes-style messaging and voice agents: bootstrap/doctor recovery loop, MCP async team tools, Pending over MCP, full spec retrieval, provenance, approval handoffs, and entitlement hooks. |
 | [`MCP_Help_System.md`](MCP_Help_System.md) | Draft feature packet | Installed, repo-free Allnighter help for users and agents: local help pack, `help_search`/`help_get`, generated contract inserts, state-aware doctor routing, agent install snippets, and release drift gates. |
@@ -102,11 +103,15 @@ founder may reprioritize; the dependency logic is what matters.
    mutating Pending execution.
 7. **MCP proof wall** — `Agent_First_MCP_...` **M-G**, wired into CI once the tools
    above exist (the MCP analogue of the GUI Visual Proof Gate).
-8. **GUI/app surfaces that present the contracts** — `Project_Spine_...`
+8. **Default Settings + Substitution Bench** — `Substitution_Bench_Default_Settings.md`
+   after `Model_Catalog_And_Bench_Roster.md`: define `Auto on <shelf>`,
+   Flagship/Balanced/Fast shelf membership, CLI/MCP settings tools, and
+   same-shelf resolver proof before Mac Settings renders the controls.
+9. **GUI/app surfaces that present the contracts** — `Project_Spine_...`
    **PRJ-S14–S15** (Projects rail + dogfood proof), `Team_Configuration_UX_Rescue.md`,
    the composer/team-library GUI, Composer image GUI, and other deferred GUI slices.
    The GUI presents the stabilized CLI/MCP contract; it never invents parallel truth.
-9. **iOS companion** — `ios/README.md`, last (parked until the macOS app is done).
+10. **iOS companion** — `ios/README.md`, last (parked until the macOS app is done).
 
 ## Operating Rules
 
@@ -140,6 +145,10 @@ founder may reprioritize; the dependency logic is what matters.
 - Team selection owns work shape. Do not add a generic Low/Med/High team-depth
   toggle; provider/model reasoning effort is separate worker/model config when
   supported.
+- Healthy model substitution is same-shelf only. The shelves are user-governed
+  Flagship/Balanced/Fast groups from `Substitution_Bench_Default_Settings.md`;
+  substitution may cross CLIs inside a shelf, but never silently upgrades,
+  downgrades, or leaves the selected shelf.
 - Do not estimate future cost, quota burn, runtime, or task complexity.
 - Capacity state is observed, sourced, timestamped, and local by default.
 - Pending separates Project-scoped user intent from immediate execution.
@@ -255,6 +264,7 @@ Open questions:
 | Team configuration UX rescue, first-use team management feedback, Customize worker modal, save-time skill forking, default-team UI, searchable skill picker | `Team_Configuration_UX_Rescue.md` + `Team_And_Skill_Catalogs.md` + `docs/gui/GUI_Workflow.md` |
 | Team/skill catalogs, custom team + skill editing, `alln teams`, `alln skills`, lane-first Settings | `Team_And_Skill_Catalogs.md` + `Work_Order_Team_Model.md` |
 | Team lineup edit, customize/new/duplicate team, worker rows referencing SkillID | `Team_And_Skill_Catalogs.md` first, then `CLI_Implementation_Contract.md` + `Team_Catalog.md` |
+| Default Settings, global default model, `Auto` shelf, healthy substitutions, Flagship/Balanced/Fast model shelves | `Substitution_Bench_Default_Settings.md` + `Model_Catalog_And_Bench_Roster.md` + `CLI_Implementation_Contract.md` |
 | Composer `@` file references, Project file search, file chips, prompt file-read blocks | `Composer_File_References.md` + `Project_Spine_And_Project_Manager.md` + `CLI_Implementation_Contract.md` |
 | OpenClaw/Hermes, messaging agents, voice-to-text workflows, doctor recovery, Pending over MCP, full spec retrieval | `Agent_First_MCP_And_Messaging_Workflows.md` + `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` + `Pending_Work_And_Drain.md` |
 | Installed Allnighter help, MCP help search/get, repo-free product docs, agent help routing, generated help drift gates | `MCP_Help_System.md` + `Agent_First_MCP_And_Messaging_Workflows.md` + `CLI_Implementation_Contract.md` |
