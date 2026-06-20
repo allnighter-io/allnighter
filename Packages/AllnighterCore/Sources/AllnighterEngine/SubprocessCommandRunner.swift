@@ -52,12 +52,26 @@ private final class EndReason: @unchecked Sendable {
     }
 }
 
+/// Holds a `Process` so it can cross a `@Sendable` boundary (kill closures). The
+/// process is only ever touched for `isRunning`/kill, guarded by the OS.
+private final class ProcessBox: @unchecked Sendable {
+    let process: Process
+    init(_ process: Process) { self.process = process }
+}
+
 /// Runs commands as real child processes. Each command runs in **its own process
 /// group** so the whole tree can be killed on timeout/cancel. The prompt is
 /// passed as argv elements or via stdin — never concatenated into a shell
 /// string — so prompt content cannot inject commands.
-public struct SubprocessCommandRunner: CommandRunner {
+///
+/// Implements both the request/response `CommandRunner` and the streaming
+/// `StreamingCommandRunner`; both paths share the SAME executable resolution, env
+/// scrubbing, stdin policy, working-directory, process-group kill, and timeout
+/// rules via `configureProcess` / `launch`.
+public struct SubprocessCommandRunner: CommandRunner, StreamingCommandRunner {
     public init() {}
+
+    // MARK: - Non-streaming (unchanged contract)
 
     public func run(
         command: String,
@@ -67,65 +81,21 @@ public struct SubprocessCommandRunner: CommandRunner {
         workingDirectory: String?,
         timeout: Duration
     ) async -> CommandResult {
-        guard let executableURL = Self.resolveExecutable(command, env: env) else {
-            return CommandResult(launchError: "command not found: \(command)")
-        }
-
-        let process = Process()
-        process.executableURL = executableURL
-        process.arguments = args
-
-        var environment = ProcessInfo.processInfo.environment
-        for (key, value) in env { environment[key] = value }
-        // Recursion guard (RB6): every spawned worker carries depth+1, so a worker
-        // that invokes the team tool sees it is already inside one and refuses.
-        let currentDepth = Int(environment["ALLNIGHTER_TEAM_DEPTH"] ?? "0") ?? 0
-        environment["ALLNIGHTER_TEAM_DEPTH"] = String(currentDepth + 1)
-        // Scrub the loopback tool token so a deep worker can't authenticate to the
-        // running HTTP server.
-        environment["ALLNIGHTER_TOOL_TOKEN"] = nil
-        process.environment = environment
-
-        if let workingDirectory {
-            process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
-        }
-
-        // Launch in a new process group so we can kill the whole tree.
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-        // Always give the child a defined stdin: a pipe when we have input, else
-        // /dev/null so CLIs (e.g. `claude -p`) don't block waiting on a TTY.
-        process.standardInput = stdin != nil ? Pipe() : FileHandle.nullDevice
-
         let outBuffer = LockedBuffer()
         let errBuffer = LockedBuffer()
-        (process.standardOutput as! Pipe).fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            if !chunk.isEmpty { outBuffer.append(chunk) }
-        }
-        (process.standardError as! Pipe).fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            if !chunk.isEmpty { errBuffer.append(chunk) }
+        let configured = Self.configureProcess(command: command, args: args, env: env,
+                                               workingDirectory: workingDirectory, hasStdin: stdin != nil,
+                                               outBuffer: outBuffer, errBuffer: errBuffer)
+        guard let process = configured.process else {
+            return CommandResult(launchError: configured.launchError ?? "command not found: \(command)")
         }
 
-        process.qualityOfService = .userInitiated
-
-        do {
-            try process.run()
-            // Put the child in its own process group (best-effort) so a kill of
-            // the negative pid reaches any grandchildren the CLI spawns.
-            setpgid(process.processIdentifier, process.processIdentifier)
-        } catch {
-            return CommandResult(launchError: "failed to launch \(command): \(error.localizedDescription)")
-        }
-
-        if let stdin, let inputPipe = process.standardInput as? Pipe {
-            let handle = inputPipe.fileHandleForWriting
-            handle.write(Data(stdin.utf8))
-            try? handle.close()
+        if let launchError = Self.launch(process, command: command, stdin: stdin) {
+            return CommandResult(launchError: launchError)
         }
 
         let endReason = EndReason()
+        let box = ProcessBox(process)
 
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<CommandResult, Never>) in
@@ -151,16 +121,172 @@ public struct SubprocessCommandRunner: CommandRunner {
                 // Timeout watchdog.
                 Task {
                     try? await Task.sleep(for: timeout)
-                    if process.isRunning {
+                    if box.process.isRunning {
                         endReason.set(.timeout)
-                        Self.killGroup(process)
+                        Self.killGroup(box.process)
                     }
                 }
             }
         } onCancel: {
             endReason.set(.cancel)
-            Self.killGroup(process)
+            Self.killGroup(box.process)
         }
+    }
+
+    // MARK: - Streaming (STR-S03)
+
+    public func runStreaming(
+        command: String,
+        args: [String],
+        stdin: String?,
+        env: [String: String],
+        workingDirectory: String?,
+        timeout: Duration
+    ) -> AsyncThrowingStream<CommandEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let outBuffer = LockedBuffer()
+            let errBuffer = LockedBuffer()
+            // Readability handlers append to the full buffers (so the terminal
+            // CommandResult carries everything) AND forward each raw chunk live.
+            let configured = Self.configureProcess(
+                command: command, args: args, env: env,
+                workingDirectory: workingDirectory, hasStdin: stdin != nil,
+                outBuffer: outBuffer, errBuffer: errBuffer,
+                onStdout: { continuation.yield(.stdout($0)) },
+                onStderr: { continuation.yield(.stderr($0)) }
+            )
+            guard let process = configured.process else {
+                continuation.yield(.failed(launchError: configured.launchError ?? "command not found: \(command)"))
+                continuation.finish()
+                return
+            }
+
+            let endReason = EndReason()
+            let resumer = ResumeOnce()
+            let box = ProcessBox(process)
+
+            // Terminal event — set BEFORE launch so a fast-exiting process can't
+            // slip past us. Emits exactly one of completed/timedOut/cancelled.
+            process.terminationHandler = { proc in
+                (proc.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil
+                (proc.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil
+                guard resumer.claim() else { return }
+                switch endReason.get() {
+                case .normal:
+                    continuation.yield(.completed(CommandResult(
+                        stdout: String(decoding: outBuffer.snapshot(), as: UTF8.self),
+                        stderr: String(decoding: errBuffer.snapshot(), as: UTF8.self),
+                        exitCode: proc.terminationStatus)))
+                case .timeout:
+                    continuation.yield(.timedOut(partialStdout: outBuffer.snapshot(),
+                                                 partialStderr: errBuffer.snapshot()))
+                case .cancel:
+                    continuation.yield(.cancelled(partialStdout: outBuffer.snapshot(),
+                                                  partialStderr: errBuffer.snapshot()))
+                }
+                continuation.finish()
+            }
+
+            // Consumer cancelled/broke the stream → kill the process group; the
+            // termination handler then emits `.cancelled` with partial buffers.
+            continuation.onTermination = { @Sendable termination in
+                if case .cancelled = termination, box.process.isRunning {
+                    endReason.set(.cancel)
+                    Self.killGroup(box.process)
+                }
+            }
+
+            if let launchError = Self.launch(process, command: command, stdin: stdin) {
+                continuation.yield(.failed(launchError: launchError))
+                continuation.finish()
+                return
+            }
+            continuation.yield(.started(startedAt: Date()))
+
+            // Timeout watchdog.
+            Task {
+                try? await Task.sleep(for: timeout)
+                if box.process.isRunning {
+                    endReason.set(.timeout)
+                    Self.killGroup(box.process)
+                }
+            }
+        }
+    }
+
+    // MARK: - Shared plumbing
+
+    /// Builds and configures (but does NOT launch) the child: executable
+    /// resolution, env (depth guard + token scrub), cwd, stdin policy, and
+    /// stdout/stderr pipes whose readability handlers append to `outBuffer`/
+    /// `errBuffer` AND forward each chunk to the optional callbacks. Returns the
+    /// launch-error string on resolve failure.
+    private static func configureProcess(
+        command: String, args: [String], env: [String: String],
+        workingDirectory: String?, hasStdin: Bool,
+        outBuffer: LockedBuffer, errBuffer: LockedBuffer,
+        onStdout: (@Sendable (Data) -> Void)? = nil,
+        onStderr: (@Sendable (Data) -> Void)? = nil
+    ) -> (process: Process?, launchError: String?) {
+        guard let executableURL = resolveExecutable(command, env: env) else {
+            return (nil, "command not found: \(command)")
+        }
+
+        let process = Process()
+        process.executableURL = executableURL
+        process.arguments = args
+
+        var environment = ProcessInfo.processInfo.environment
+        for (key, value) in env { environment[key] = value }
+        // Recursion guard (RB6): every spawned worker carries depth+1, so a worker
+        // that invokes the team tool sees it is already inside one and refuses.
+        let currentDepth = Int(environment["ALLNIGHTER_TEAM_DEPTH"] ?? "0") ?? 0
+        environment["ALLNIGHTER_TEAM_DEPTH"] = String(currentDepth + 1)
+        // Scrub the loopback tool token so a deep worker can't authenticate to the
+        // running HTTP server.
+        environment["ALLNIGHTER_TOOL_TOKEN"] = nil
+        process.environment = environment
+
+        if let workingDirectory {
+            process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
+        }
+
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        // Always give the child a defined stdin: a pipe when we have input, else
+        // /dev/null so CLIs (e.g. `claude -p`) don't block waiting on a TTY.
+        process.standardInput = hasStdin ? Pipe() : FileHandle.nullDevice
+
+        (process.standardOutput as! Pipe).fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if !chunk.isEmpty { outBuffer.append(chunk); onStdout?(chunk) }
+        }
+        (process.standardError as! Pipe).fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if !chunk.isEmpty { errBuffer.append(chunk); onStderr?(chunk) }
+        }
+
+        process.qualityOfService = .userInitiated
+        return (process, nil)
+    }
+
+    /// Launches the configured process in its own group and writes stdin. Returns a
+    /// launch-error string on spawn failure, else nil.
+    private static func launch(_ process: Process, command: String, stdin: String?) -> String? {
+        do {
+            try process.run()
+            // Put the child in its own process group (best-effort) so a kill of
+            // the negative pid reaches any grandchildren the CLI spawns.
+            setpgid(process.processIdentifier, process.processIdentifier)
+        } catch {
+            return "failed to launch \(command): \(error.localizedDescription)"
+        }
+        if let stdin, let inputPipe = process.standardInput as? Pipe {
+            let handle = inputPipe.fileHandleForWriting
+            handle.write(Data(stdin.utf8))
+            try? handle.close()
+        }
+        return nil
     }
 
     /// Resolves a command to an executable URL: absolute/relative paths are used
