@@ -4,6 +4,24 @@ Status: Draft CLI/MCP-first feature packet
 Owner: AllnighterCore + AllnighterCLI + MCP + Mac GUI
 Updated: 2026-06-20
 
+> **⚠️ SHIPPED REALITY (SBDS-S01/S02) supersedes the pre-cutover body below.**
+> The implementation is the SSOT (`DefaultModelSettings.swift`, `DefaultSettingsJSON.swift`).
+> Where this doc and the code disagree, the code wins. Cutover deltas:
+> - **No `pinned` global default.** The global default is ALWAYS Auto-on-a-tier; a
+>   concrete model is only ever a per-chat (composer) pick. `DefaultModelSelection`
+>   does not exist.
+> - **Tier membership is many-to-many.** A model may belong to 0–3 tiers (a model with
+>   compute to burn can sit in all three). "Unassigned" = in zero tiers. The "a model
+>   belongs to at most one shelf" rule is RETIRED.
+> - **Vocabulary: tier**, not "shelf" (flagship / balanced / fast).
+> - **The toggle gates Auto.** `allowHealthySubstitutions` OFF → Auto uses only the
+>   tier's index-0 default and waits if it's down; ON → first ready model in tier
+>   order. Substitution is same-tier-only, never downgrades, Unassigned never
+>   substitutes.
+> - **Shipped surface:** CLI `alln defaults show|tier|assign|unassign|substitutions|reset`;
+>   MCP `defaults_get` (read only — agents read, the owner configures). One
+>   `DefaultSettingsJSON` projection renders CLI/MCP/GUI.
+
 ## Founder Intent
 
 Raw request:
@@ -157,7 +175,7 @@ New/changed semantic rules:
 - Built-in shelves are `flagship`, `balanced`, and `fast`.
 - Allnighter ships default shelf membership for built-in models.
 - Users can override a model's shelf membership.
-- A model may belong to at most one built-in substitution shelf in v1.
+- ~~A model may belong to at most one built-in substitution shelf in v1.~~ **RETIRED — see banner: tier membership is many-to-many (0–3 tiers).**
 - Off-Bench models may have shelf membership, but only ready Bench models are
   runnable candidates.
 - Healthy substitution means same shelf only.
@@ -237,7 +255,7 @@ Rules:
 
 - If no state file exists, built-in default assignments apply.
 - Once a state file exists, it is the complete shelf membership overlay.
-- A model ID can appear in at most one shelf.
+- ~~A model ID can appear in at most one shelf.~~ **RETIRED — many-to-many; a model ID can appear in any number of tiers (de-duped only within a tier).**
 - Unknown model IDs are ignored for resolution and diagnosed.
 - New built-in/custom models get Allnighter's default assignment only when no
   state file exists; after the user customizes shelves, new models appear
