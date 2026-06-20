@@ -211,6 +211,7 @@ enum GUIFixture {
         ("thread-chat", "Thread — chat reply from a model"),
         ("thread-streaming", "Thread — live streaming reply"),
         ("thread-streaming-build", "Thread — live streaming build run"),
+        ("thread-thinking-history", "Thread — thinking collapse on prior turns"),
         ("thread-team-board", "Thread — team board"),
         ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),

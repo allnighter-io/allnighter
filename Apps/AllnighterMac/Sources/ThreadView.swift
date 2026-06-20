@@ -239,7 +239,7 @@ private struct ThreadTurnTimeline: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(thread.turns) { turn in
-                        ThreadTurnRow(turn: turn)
+                        ThreadTurnRow(turn: turn, isLastTurn: turn.id == thread.turns.last?.id)
                             .id(turn.id)
                             .timelineTurnFrame(turnId: turn.id)
                     }
@@ -270,23 +270,49 @@ private struct ThreadTurnTimeline: View {
 
 /// CR4a user messages + CR4b worker chat replies; team/mutating run turns render
 /// from durable run truth.
-/// Live "thinking" surface — the model's reasoning streamed while it works, kept
-/// visually distinct from (and above) the answer. Renders nothing when there's no
-/// reasoning. Plain muted text in a subtle card; never the final answer.
+/// The model's reasoning, kept above (and visually under) the answer. Never removed.
+/// Expanded by default on the LATEST turn (or while running) so you can watch — and
+/// pause — live; collapsed to a one-line "Thought for Ns" on prior turns so old
+/// threads stay skimmable. A click toggles either way.
 private struct ThreadThinkingBlock: View {
     let text: String?
+    var isLatestTurn: Bool = false
+    var isRunning: Bool = false
+    var duration: TimeInterval? = nil
+    /// nil = follow the default (latest/running → expanded); set by a manual toggle.
+    @State private var userExpanded: Bool? = nil
+
+    private var expanded: Bool { userExpanded ?? (isLatestTurn || isRunning) }
+
+    private var headerLabel: String {
+        if isRunning { return "Thinking" }
+        if let duration, duration >= 1 { return "Thought for \(Int(duration.rounded()))s" }
+        return "Thought process"
+    }
 
     var body: some View {
         if let text, !text.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 5) {
-                    Image(systemName: "brain").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
-                    Text("Thinking").font(.system(size: 10, weight: .semibold)).tracking(0.4)
-                        .foregroundStyle(ALColor.textFaint)
+            VStack(alignment: .leading, spacing: expanded ? 4 : 0) {
+                Button { userExpanded = !expanded } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 8, weight: .semibold)).foregroundStyle(ALColor.textFaint)
+                        Image(systemName: "brain").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+                        Text(headerLabel).font(.system(size: 10, weight: .semibold)).tracking(0.4)
+                            .foregroundStyle(ALColor.textFaint)
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
                 }
-                Text(text)
-                    .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
-                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
+
+                if expanded {
+                    Text(text)
+                        .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)   // wrap, grow down
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.horizontal, 9).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -299,6 +325,12 @@ private struct ThreadThinkingBlock: View {
 private struct ThreadTurnRow: View {
     @Environment(AppModel.self) private var appModel
     let turn: ThreadTurn
+    var isLastTurn: Bool = false
+
+    /// How long the model spent before settling (for the collapsed "Thought for Ns").
+    private var thinkingDuration: TimeInterval? {
+        turn.completedAt.map { $0.timeIntervalSince(turn.createdAt) }
+    }
 
     var body: some View {
         switch turn.kind {
@@ -309,7 +341,7 @@ private struct ThreadTurnRow: View {
         case .teamRun, .designBoard, .reviewBoard:
             ThreadBoardRow(turn: turn)
         case .mutatingRun:
-            ThreadMutatingRunRow(turn: turn)
+            ThreadMutatingRunRow(turn: turn, isLastTurn: isLastTurn)
         default:
             stubTurn
         }
@@ -334,32 +366,34 @@ private struct ThreadTurnRow: View {
                     Text(turn.createdAt, format: .dateTime.hour().minute())
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                 }
+                // Thinking persists across running → done (never removed → no jump);
+                // expanded on the latest turn, collapsed to one line on prior turns.
+                ThreadThinkingBlock(
+                    text: turn.reasoningText, isLatestTurn: isLastTurn,
+                    isRunning: !turn.status.isTerminal, duration: thinkingDuration)
                 switch turn.status {
                 case .running, .queued, .draft:
-                    VStack(alignment: .leading, spacing: 8) {
-                        // Live "thinking" — the model's reasoning while it works.
-                        ThreadThinkingBlock(text: turn.reasoningText)
-                        if let partial = turn.text, !partial.isEmpty {
-                            // Live streaming text — PLAIN while running so malformed
-                            // in-progress Markdown can't break layout; the settled .done
-                            // state re-renders through the Markdown engine.
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(partial)
-                                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                HStack(spacing: 6) {
-                                    ProgressView().controlSize(.small)
-                                    Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
-                                        .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
-                                }
-                            }
-                        } else {
+                    if let partial = turn.text, !partial.isEmpty {
+                        // Live streaming text — PLAIN while running so malformed
+                        // in-progress Markdown can't break layout; the settled .done
+                        // state re-renders through the Markdown engine.
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(partial)
+                                .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             HStack(spacing: 6) {
                                 ProgressView().controlSize(.small)
-                                Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "running…")
-                                    .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                                Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
+                                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
                             }
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "running…")
+                                .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
                         }
                     }
                 case .failed, .timedOut:
@@ -376,6 +410,7 @@ private struct ThreadTurnRow: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
         }
     }
@@ -551,7 +586,12 @@ private struct ThreadMutatingRunRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
     let turn: ThreadTurn
+    var isLastTurn: Bool = false
     @State private var hovering = false
+
+    private var thinkingDuration: TimeInterval? {
+        turn.completedAt.map { $0.timeIntervalSince(turn.createdAt) }
+    }
 
     private var run: TeamRun? {
         guard let runId = turn.runId else { return nil }
@@ -571,8 +611,14 @@ private struct ThreadMutatingRunRow: View {
             glyph
             VStack(alignment: .leading, spacing: 6) {
                 header
+                // Persistent thinking surface — expanded on the latest turn, collapsed
+                // to one line on prior turns. Never removed (no jump at settlement).
+                ThreadThinkingBlock(
+                    text: turn.reasoningText, isLatestTurn: isLastTurn,
+                    isRunning: !turn.status.isTerminal, duration: thinkingDuration)
                 content
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
         }
         .onHover { hovering = $0 }
@@ -606,27 +652,26 @@ private struct ThreadMutatingRunRow: View {
     @ViewBuilder private var content: some View {
         switch turn.status {
         case .running, .queued, .draft:
-            VStack(alignment: .leading, spacing: 8) {
-                ThreadThinkingBlock(text: turn.reasoningText)
-                if let partial = turn.text, !partial.isEmpty {
-                    // Live streamed text — plain while in flight so in-progress Markdown
-                    // can't break layout; the settled state re-renders via Markdown.
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(partial)
-                            .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                            .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
-                                .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
-                        }
-                    }
-                } else {
+            if let partial = turn.text, !partial.isEmpty {
+                // Live streamed text — plain while in flight so in-progress Markdown
+                // can't break layout; the settled state re-renders via Markdown.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(partial)
+                        .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.small)
-                        Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "Working…")
-                            .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                        Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
+                            .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
                     }
+                }
+            } else {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "Working…")
+                        .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
                 }
             }
         case .failed, .timedOut:

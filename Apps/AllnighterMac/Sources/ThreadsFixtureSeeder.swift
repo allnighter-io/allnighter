@@ -32,6 +32,8 @@ struct ThreadsFixtureSeeder {
             seedFixtureStreamingChat()
         case "thread-streaming-build":
             seedFixtureStreamingBuild()
+        case "thread-thinking-history":
+            seedFixtureThinkingHistory()
         case "home-rail":
             seedFixtureRail()
             setSelectedThreadId(nil)
@@ -299,6 +301,41 @@ struct ThreadsFixtureSeeder {
         run.reasoningText = "The user wants a /health endpoint returning 200. Let me find the router — likely app/server.swift. I should match the existing handler style and add a test so I don't regress the suite. Checking how routes are registered first…"
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(run, toThreadId: id, now: Date())
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    /// Two reasoning turns: a PRIOR completed turn (thinking collapsed to one line)
+    /// and the LATEST running turn (thinking expanded + streaming). Proves the
+    /// collapse-on-prior / expand-on-latest rule.
+    private func seedFixtureThinkingHistory() {
+        let id = "fixture-thinking-history"
+        _ = try? store.create(id: id, title: "Rate limiting", now: Date())
+        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        let now = Date()
+
+        let q1 = ThreadTurn(id: "th-u1", threadId: id, kind: .userMessage, status: .done,
+                            createdAt: now.addingTimeInterval(-60), completedAt: now.addingTimeInterval(-60),
+                            author: .user, text: "Token bucket or sliding window?")
+        var a1 = ThreadTurn(id: "th-a1", threadId: id, kind: .workerChat, status: .done,
+                            createdAt: now.addingTimeInterval(-58), completedAt: now.addingTimeInterval(-55),
+                            author: .worker,
+                            text: "**Token bucket** — it allows short bursts while holding the long-run average to the refill rate.",
+                            workerId: workerId)
+        a1.reasoningText = "Per-user rate limiting. Trade-off is burst tolerance vs memory; sliding-window log stores every timestamp, token bucket is O(1) and allows bursts…"
+
+        let q2 = ThreadTurn(id: "th-u2", threadId: id, kind: .userMessage, status: .done,
+                            createdAt: now.addingTimeInterval(-8), completedAt: now.addingTimeInterval(-8),
+                            author: .user, text: "What refill rate should I pick?")
+        var a2 = ThreadTurn(id: "th-a2", threadId: id, kind: .workerChat, status: .running,
+                            createdAt: now.addingTimeInterval(-6), author: .worker,
+                            text: "Set the refill rate to your sustained per-user limit and the bucket capacity to the burst you're willing to al",
+                            workerId: workerId)
+        a2.reasoningText = "Refill rate = sustained rate. Capacity = burst budget. I'll give concrete numbers so they can map it to their SLOs…"
+
+        for turn in [q1, a1, q2, a2] {
+            _ = try? store.appendTurn(turn, toThreadId: id, now: turn.createdAt)
+        }
         reload()
         setSelectedThreadId(id)
     }
