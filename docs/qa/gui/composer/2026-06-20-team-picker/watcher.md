@@ -5,11 +5,10 @@ Command: bash scripts/gui_proof.sh compose-target-inline
 
 ## VERDICT: PASS
 
-Model tab (default): one-line rows — bold model name + quiet parenthetical CLI display
-name (e.g. "ChatGPT 5.5 (codex)", "Opus 4.8 (claude-code)") with a smaller provider
-glyph; Auto = "Auto (Default model)". List has a comfortable min-height (stable, not
-collapsing). Two chips on the bar (target + standalone effort). No FAVORITES label, no
-Customize, no Effort row, no helper text.
+Team tab, empty query: the list is NEVER blank — Favorites first (Code Core, filled
+star), then featured built-in starters (Bug Hunt, GUI Bug Hunt, Security Review,
+Architecture Pressure, Release Proof) each as one-line "Name (N workers)" rows with a
+small lane glyph + star. Fills the min-height. No clipping/overlap.
 
 P1 — broken (blocks): none
 P2 — advisory: none

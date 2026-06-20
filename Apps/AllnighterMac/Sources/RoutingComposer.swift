@@ -40,6 +40,9 @@ struct ComposeTeam: Identifiable, Equatable {
     /// The craft this team belongs to — drives the row icon (the picker no longer
     /// filters by lane, so each row carries its own).
     var lane: ComposeLane = .code
+    /// Curated starter team (built-in). Ranks above the plain A–Z tail so the picker is
+    /// never blank on cold-start. (Until a real curation flag exists, built-in = featured.)
+    var isFeatured: Bool = false
 }
 
 private struct ComposeFileReference: Identifiable, Equatable {
@@ -159,7 +162,7 @@ struct RoutingComposer: View {
         .onAppear(perform: updateFileSearchFromText)
         .onAppear {
             #if DEBUG
-            if GUIFixture.composeTargetInline, teamSearch.isEmpty { teamSearch = "bug" }
+            if GUIFixture.composeTargetInline { targetTab = .team }
             // Deterministically open the picker over the seeded fixture root (the @Com
             // text comes from ComposeSpecimen; this fixes the query + candidates so the
             // capture never depends on trigger/project-load timing).
@@ -758,26 +761,21 @@ struct RoutingComposer: View {
         .padding(.horizontal, 6).padding(.top, 6).padding(.bottom, 2)
     }
 
-    // Empty query → Recent (labelled) + favorites (no label — the stars make them
-    // obvious). Non-empty → matches across the whole roster; non-favorites stay hidden
-    // until searched.
+    // Empty query → the full roster, ranked so it's NEVER blank: Favorites → Recent →
+    // Featured (built-in starters) → the rest A–Z, deduped, with one quiet divider before
+    // the A–Z tail. No per-tier labels (stars + order do the work). Non-empty → matches
+    // across the whole roster.
     @ViewBuilder private var teamPickerBody: some View {
         let q = teamSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let all = appModel.composeAllTeams()
         ScrollView {
             VStack(spacing: 1) {
                 if q.isEmpty {
-                    let recents = recentTeams(from: all)
-                    let recentIds = Set(recents.map(\.id))
-                    if !recents.isEmpty {
-                        teamSectionLabel("RECENT")
-                        ForEach(recents) { teamButton($0) }
-                    }
-                    let favs = all.filter { $0.isFavorite && !recentIds.contains($0.id) }
-                    if favs.isEmpty {
-                        teamPickerEmpty("No favorites yet — star a team to pin it here.")
-                    } else {
-                        ForEach(favs) { teamButton($0) }
+                    let ranked = rankedTeams(all)
+                    ForEach(ranked.top) { teamButton($0) }
+                    if !ranked.rest.isEmpty {
+                        Divider().overlay(ALColor.borderSubtle).padding(.horizontal, 9).padding(.vertical, 5)
+                        ForEach(ranked.rest) { teamButton($0) }
                     }
                 } else {
                     let results = all.filter { matchesTeamQuery($0, q) }
@@ -790,6 +788,20 @@ struct RoutingComposer: View {
             }
         }
         .frame(minHeight: 196, maxHeight: 240)
+    }
+
+    /// Default ordering: Favorites → Recent → Featured (curated built-ins), then the
+    /// remaining teams A–Z. `top` is the ranked cluster, `rest` is the A–Z tail (rendered
+    /// below a divider). Deduped — each team appears once, in its highest tier.
+    private func rankedTeams(_ all: [ComposeTeam]) -> (top: [ComposeTeam], rest: [ComposeTeam]) {
+        let favs = all.filter(\.isFavorite)
+        var used = Set(favs.map(\.id))
+        let recents = recentTeams(from: all).filter { used.insert($0.id).inserted }
+        let featured = all.filter { $0.isFeatured && used.insert($0.id).inserted }
+        let rest = all
+            .filter { !used.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return (favs + recents + featured, rest)
     }
 
     private func teamPickerEmpty(_ text: String) -> some View {

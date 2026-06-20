@@ -500,7 +500,8 @@ final class AppModel {
             let n = p.workerSpecs.count
             let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
             return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)",
-                               isFavorite: favorites.contains(p.id), lane: lane)
+                               isFavorite: favorites.contains(p.id), lane: lane,
+                               isFeatured: BuiltInTeams.team(p.id) != nil)
         }
         // Favorites first (in the user's favorite order); the rest keep catalog order.
         return teams.enumerated().sorted { a, b in

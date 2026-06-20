@@ -1,7 +1,7 @@
 {
   "id": "codex",
   "manifestVersion": 1,
-  "displayName": "Codex / ChatGPT 5.5",
+  "displayName": "Codex / ChatGPT",
   "kind": "headless_cli",
   "detectCommand": "codex --version",
   "smokeTestCommand": "codex exec --skip-git-repo-check --color never \"Reply with the single token ALLNIGHTER_READY\"",
