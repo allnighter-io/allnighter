@@ -186,7 +186,9 @@ struct RootView: View {
                     let origin = geo.frame(in: .global).origin
                     let top = badgeFrame.maxY - origin.y - 1
                     // home/doctor.jsx: popover trailing edge inset 13px from window.
-                    let maxBody = max(160, geo.size.height - top - 150)
+                    // Leave generous bottom room so the footer button + last row
+                    // always clear the window edge (no cramped half-row).
+                    let maxBody = max(160, geo.size.height - top - 190)
                     BenchHealthPopover(
                         onClose: { showDoctor = false },
                         onOpenFull: { openReadiness() },

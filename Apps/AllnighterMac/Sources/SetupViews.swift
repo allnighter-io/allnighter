@@ -560,16 +560,34 @@ struct BenchHealthPopover: View {
     var maxBodyHeight: CGFloat = 420
 
     private var cards: [SetupCardModel] { model.setupCards }
-    private var buckets: SetupCardBuckets { SetupCardBuckets(cards, splitNotChecked: false) }
+
+    // CLI-setup redesign §2: grouped, NON-interactive CLI rows — Needs attention →
+    // Ready → Dormant. Ready = installed + signed in + ≥1 model ON; Dormant = ready
+    // CLI with 0 models on (not an error); Needs attention = genuinely broken.
+    private var attentionCards: [SetupCardModel] {
+        cards.filter { CLIStatusGroup.isAttention($0.state) }
+    }
+    private var readyCards: [SetupCardModel] {
+        cards.filter { $0.state == .ready && !onModelNames(for: $0.driverId).isEmpty }
+    }
+    private var dormantCards: [SetupCardModel] {
+        cards.filter { ($0.state == .ready && onModelNames(for: $0.driverId).isEmpty) || $0.state == .notChecked }
+    }
+
+    private func onModelNames(for driverId: String) -> [String] {
+        model.models
+            .filter { $0.enabled && $0.driverId == driverId }
+            .map(\.displayName)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    group("Ready", cards: buckets.ready)
-                    group("Needs a step", cards: buckets.step)
-                    group("Add a CLI", cards: buckets.add)
+                    group("Needs attention", cards: attentionCards, kind: .attention)
+                    group("Ready", cards: readyCards, kind: .ready)
+                    group("Dormant", cards: dormantCards, kind: .dormant)
                 }
                 .padding(.top, 4).padding(.horizontal, 13).padding(.bottom, 12)
             }
@@ -578,97 +596,207 @@ struct BenchHealthPopover: View {
             footer
         }
         .frame(width: 404)
-        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.xl))
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.xl))
         .overlay { RoundedRectangle(cornerRadius: ALRadius.xl).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
         .shadow(color: .black.opacity(0.66), radius: 30, y: 24)
     }
 
-    /// Roster rows: title + optional chip row + pill.
-    private func rosterCardHeight(_ card: SetupCardModel) -> CGFloat {
-        66 + (card.workers.isEmpty ? 0 : 28)
-    }
-
-    private var measuredContentHeight: CGFloat {
-        var h: CGFloat = 16
-        if !buckets.ready.isEmpty { h += 28 + buckets.ready.reduce(0) { $0 + rosterCardHeight($1) } }
-        if !buckets.step.isEmpty { h += 28 + buckets.step.reduce(0) { $0 + rosterCardHeight($1) } }
-        if !buckets.add.isEmpty { h += 28 + buckets.add.reduce(0) { $0 + rosterCardHeight($1) } }
-        return h
-    }
-
-    /// ScrollView needs an explicit height — same collapse class as the Team dropdown.
     private var bodyHeight: CGFloat {
-        let content = measuredContentHeight
-        guard content > 0 else { return 0 }
-        return min(max(content, 80), maxBodyHeight)
+        var h: CGFloat = 16
+        for count in [attentionCards.count, readyCards.count, dormantCards.count] where count > 0 {
+            h += 26 + CGFloat(count) * 70
+        }
+        return min(max(h, 80), maxBodyHeight)
     }
 
-    @ViewBuilder private func group(_ title: String, cards: [SetupCardModel]) -> some View {
+    @ViewBuilder private func group(_ title: String, cards: [SetupCardModel], kind: CLIStatusGroup) -> some View {
         if !cards.isEmpty {
             SetupGroupLabel(title: title, count: cards.count)
             ForEach(cards) { card in
-                SetupCardView(card: card, layout: .roster) { handle($0) }
+                CLIStatusRow(card: card, onModels: onModelNames(for: card.driverId), kind: kind, interactive: false)
             }
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 9) {
-                RoundedRectangle(cornerRadius: 8).fill(ALColor.active).frame(width: 26, height: 26)
-                    .overlay { Image(systemName: "shield").font(.system(size: 15)).foregroundStyle(ALColor.accentText) }
-                Text("CLI setup").font(.system(size: 14, weight: .semibold)).tracking(-0.14)
+                Image(systemName: "checkmark.shield").font(.system(size: 17)).foregroundStyle(ALColor.accentText)
+                Text("CLIs").font(.system(size: 15, weight: .bold))
                     .foregroundStyle(ALColor.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 IconButton(systemImage: "xmark", accessibilityLabel: "Close", small: true) { onClose() }
             }
-            HStack(spacing: 8) {
-                (Text("\(model.readyToolCount)").font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                    + Text(" of ").font(.system(size: 12.5, weight: .semibold))
-                    + Text("\(model.totalToolCount)").font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                    + Text(" CLIs ready").font(.system(size: 12.5, weight: .semibold)))
-                    .foregroundStyle(ALColor.textPrimary)
-                Text("· \(model.readyWorkerCount) models").font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(ALColor.textFaint)
-                Spacer()
-                HStack(spacing: 5) {
-                    Image(systemName: "clock").font(.system(size: 12))
-                    Text(checkedAgo).font(.system(size: 10.5, design: .monospaced))
-                }.foregroundStyle(ALColor.textFaint)
-            }
-            .padding(.top, 11)
+            summaryLine
         }
-        .padding(.top, 13).padding(.horizontal, 13).padding(.bottom, 12)
+        .padding(.top, 13).padding(.horizontal, 16).padding(.bottom, 12)
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
-    private var footer: some View {
-        Button(action: onOpenFull) {
-            HStack(spacing: 7) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 12))
-                Text("Open CLI setup").font(.system(size: 12, weight: .medium))
+    private var summaryLine: some View {
+        let attention = attentionCards.count
+        return HStack(spacing: 0) {
+            if attention > 0 {
+                Text("\(attention) needs attention")
+                    .foregroundStyle(ALColor.accentText).fontWeight(.semibold)
+                Text(" · ").foregroundStyle(ALColor.textFaint)
             }
-            .foregroundStyle(ALColor.textMuted)
-            .padding(.horizontal, 8).padding(.vertical, 4)
+            Text("\(readyCards.count) ready").foregroundStyle(ALColor.textSecondary)
+            Text(" · ").foregroundStyle(ALColor.textFaint)
+            Text("\(model.availableModels.count) models on").foregroundStyle(ALColor.textSecondary)
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
+        .font(.system(size: 12, weight: .medium, design: .monospaced))
+    }
+
+    private var footer: some View {
+        Button {
+            onOpenFull()
+        } label: {
+            Label("Open CLI setup", systemImage: "arrow.up.left.and.arrow.down.right")
+        }
+        .buttonStyle(.alSecondary(small: true))
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 12).padding(.vertical, 10)
         .background(ALColor.surface)
         .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
-    private var checkedAgo: String {
-        guard let last = model.toolStatuses.map(\.lastProbeAt).max() else { return "not checked" }
-        let secs = Int(Date().timeIntervalSince(last))
-        if model.isDetecting { return "checking…" }
-        if secs < 5 { return "checked just now" }
-        if secs < 60 { return "checked \(secs)s ago" }
-        return "checked \(secs / 60)m ago"
+}
+
+// MARK: - Shared CLI status row (CLI-setup redesign §CLI row)
+
+/// Which redesign group a CLI row belongs to — drives the status dot, content, and
+/// dormant dimming. Shared by the CLI dropdown (non-interactive) and the CLI setup
+/// page (selectable).
+enum CLIStatusGroup {
+    case attention, ready, dormant
+
+    /// A genuinely broken state (vs. dormant, which is not an error).
+    static func isAttention(_ state: SetupCardState) -> Bool {
+        switch state {
+        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .waiting: return true
+        case .ready, .notChecked, .installedNotProbed, .detecting, .reprobing, .queued: return false
+        }
+    }
+}
+
+/// One CLI row: glyph tile · name · (ON-model chips / failure reason / dormant
+/// caption) · status dot. Reused verbatim in the CLI dropdown and the setup list.
+struct CLIStatusRow: View {
+    let card: SetupCardModel
+    let onModels: [String]
+    let kind: CLIStatusGroup
+    var interactive: Bool = false
+    var selected: Bool = false
+    var onTap: () -> Void = {}
+    @State private var hover = false
+
+    var body: some View {
+        HStack(spacing: 14) {
+            DriverBrandGlyph(driverId: card.driverId, boxSize: 40, iconSize: 22, cornerRadius: 10)
+                .opacity(kind == .dormant ? 0.55 : 1)
+            VStack(alignment: .leading, spacing: 7) {
+                Text(card.name)
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundStyle(kind == .dormant ? ALColor.textMuted : ALColor.textPrimary)
+                content
+            }
+            Spacer(minLength: 8)
+            statusDot
+        }
+        .padding(.horizontal, 13).padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(rowBackground, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.lg)
+                .strokeBorder(selected ? ALColor.accentBorder : (kind == .dormant ? .clear : (hover ? ALColor.borderDefault : ALColor.borderSubtle)),
+                              lineWidth: 1)
+        }
+        .overlay {
+            if selected {
+                RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.accent.opacity(0.12), lineWidth: 4)
+            }
+        }
+        .contentShape(Rectangle())
+        .onHover { if interactive { hover = $0 } }
+        .onTapGesture { if interactive { onTap() } }
     }
 
-    private func handle(_ action: SetupCardView.SetupAction) {
-        SetupActions.handle(action, model: model)
+    private var rowBackground: Color {
+        if kind == .dormant { return .clear }
+        return hover && interactive ? ALColor.hover : ALColor.raised
+    }
+
+    @ViewBuilder private var content: some View {
+        switch kind {
+        case .ready:
+            ChipRow(items: onModels)
+        case .attention:
+            Text(attentionReason)
+                .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        case .dormant:
+            Text("No models on — dormant")
+                .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(ALColor.textFaint)
+        }
+    }
+
+    @ViewBuilder private var statusDot: some View {
+        switch kind {
+        case .ready: StatusDot(color: ALPalette.green500, halo: ALPalette.green500.opacity(0.15))
+        case .dormant: StatusDot(color: ALPalette.ink450, halo: nil)
+        case .attention: StatusDot(color: ALPalette.amber500, halo: ALPalette.amber500.opacity(0.18))
+        }
+    }
+
+    private var attentionReason: String {
+        if let r = card.probeReason, !r.isEmpty { return r }
+        switch card.state {
+        case .needsLogin, .waiting: return "Installed but signed out — sign in to use its models."
+        case .needsPath: return "Installed but not on PATH — locate it to use its models."
+        case .notInstalled: return "Not installed."
+        case .probeFailed: return "Health check failed — re-check or fix."
+        default: return "Needs a step."
+        }
+    }
+}
+
+/// A simple non-wrapping chip row (ON models). Most CLIs expose 1–2 on models; caps
+/// at 4 visible with a "+N" overflow so it never pushes the row width.
+private struct ChipRow: View {
+    let items: [String]
+    private var visible: [String] { Array(items.prefix(4)) }
+    private var overflow: Int { max(0, items.count - 4) }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(visible, id: \.self) { chip($0) }
+            if overflow > 0 { chip("+\(overflow)") }
+        }
+    }
+
+    private func chip(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12)).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+            .padding(.horizontal, 10).padding(.vertical, 3)
+            .background(ALColor.active, in: Capsule())
+            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+}
+
+/// Status dot with an optional soft halo ring (Ready/Needs-attention have a halo;
+/// Dormant does not).
+struct StatusDot: View {
+    let color: Color
+    var halo: Color?
+
+    var body: some View {
+        Circle().fill(color).frame(width: 9, height: 9)
+            .overlay {
+                if let halo { Circle().stroke(halo, lineWidth: 3).frame(width: 13, height: 13) }
+            }
     }
 }
 
