@@ -1,8 +1,8 @@
 # 03 - Mac Streaming
 
-Status: V1 implementation spec - solo worker chat first
+Status: Ready for implementation - V1 solo worker chat first
 Owner: AllnighterEngine + Mac app backend
-Updated: 2026-06-19
+Updated: 2026-06-20
 
 ## Goal
 
@@ -58,6 +58,26 @@ reply on completion.
 No product copy may claim streaming for a source until a real-driver Works Test
 has shown text before process exit.
 
+## Implementation Readiness
+
+This doc is ready to build from.
+
+Resolved decisions:
+
+- V1 streams only shipped, first-class Allnighter drivers with verified contracts:
+  Codex, Claude Code, Cursor Agent, and Grok Build.
+- Antigravity is first-class but final-output-only until `agy` exposes a real
+  stream or structured event mode.
+- Aider is not a V1 streaming target. It is a coding harness/model router whose
+  behavior depends on the selected model/provider. Future OpenRouter, DeepSeek,
+  Moonshot/Kimi, Ollama, LM Studio, or OpenAI-compatible support should land as
+  direct API/router sources with Allnighter-owned adapters, not as hidden Aider
+  sub-modes.
+- Manual paste remains non-process fallback.
+
+Implementation should start with the shared streaming command/worker seam, then
+land one real parser end to end before broadening to every stream-capable driver.
+
 ## Scope
 
 In:
@@ -75,6 +95,8 @@ Out:
 - Plan/synthesis/review streaming.
 - Image generation streaming.
 - iOS partial streaming.
+- Aider/model-router/provider adapters, including OpenRouter, DeepSeek,
+  Moonshot/Kimi, Ollama/LM Studio, and generic OpenAI-compatible APIs.
 - Token-rate charts or usage parsing from streams.
 - Workspace rollback/discard affordances after cancellation.
 
@@ -139,6 +161,38 @@ Rules:
   preserve them for audit/debug only unless a later product decision explicitly
   adds a visible reasoning surface.
 
+Command stream rules:
+
+- A CLI process emits zero or more `stdout`/`stderr` chunks, then exactly one
+  terminal command event: `completed`, `failed`, `timedOut`, or `cancelled`.
+- Non-zero CLI exits are not thrown stream errors. They produce a terminal
+  `CommandResult` so existing `WorkerRunOutcome` normalization still owns
+  success/failure truth.
+- `failed(launchError)` is for spawn failure before a process exists.
+- `completed(CommandResult)` includes complete stdout/stderr buffers, even when
+  chunks were already emitted.
+- `stderr` chunks are diagnostic input only; driver parsers must opt into any
+  visible mapping. Default chat answer text comes only from parsed stdout answer
+  events.
+
+Parser seam:
+
+```text
+WorkerStreamParser
+- receiveStdout(Data) -> [WorkerStreamEvent]
+- receiveStderr(Data) -> [WorkerStreamEvent]
+- finish(CommandResult) -> WorkerRunOutcome
+```
+
+Parser rules:
+
+- Parsers own UTF-8 and JSONL framing. A byte chunk is not necessarily a full
+  character or JSON object.
+- Parser state is per process invocation; never share buffers across runs.
+- Parser errors degrade streaming but do not kill the process by themselves.
+- `finish` must reconcile with the same final-output source used by non-streaming
+  `WorkerRunner.invoke` (`stdout`, `{{outputFile}}`, or parser accumulator).
+
 ## Thread Storage
 
 V1 stores partial text on the running `ThreadTurn.text` so SwiftUI can render the
@@ -159,13 +213,24 @@ Rules:
   failure state separately; do not overwrite a real partial with only an error
   string.
 
-Open implementation choice:
+V1 data-model choice:
 
 ```text
-Either add ThreadTurn.partialOutputTruncated: Bool, or encode truncation in a
-small artifact/system field. Do not put user-visible bookkeeping prose inside
-the answer text.
+Add ThreadTurn.partialOutputTruncated: Bool with a default of false.
 ```
+
+Rationale:
+
+- `ThreadTurn.text` already owns one-worker chat text.
+- `ThreadStore.updateTurn` permits same-status `running -> running` updates, so
+  partial flushes can update the existing optimistic worker turn.
+- A dedicated boolean keeps truncation metadata out of user-visible answer text
+  and avoids inventing a sidecar before V1 needs one.
+- Terminal settlement must load the latest stored worker turn before replacing
+  text. On success, replace partial text with the complete normalized final
+  answer. On failure/timeout/cancel, preserve non-empty partial text and surface
+  the error state separately; only use `errorReason` as turn text when no partial
+  answer ever arrived.
 
 ## Mac UI
 
@@ -181,6 +246,9 @@ V1 rendering behavior:
   a scary error.
 - If a source does not support streaming, keep today's running state and final
   answer behavior.
+- Running/failed/timed-out/cancelled worker rows must render existing
+  `ThreadTurn.text` when present. The status affordance communicates failure or
+  cancellation; it must not hide useful partial text.
 
 ## Driver Capability
 
@@ -210,6 +278,15 @@ Manifest rule:
 
 - Keep the current non-streaming `invoke` path.
 - Add `streaming.args` only for workers with a verified stream mode.
+- `streaming.args` uses the same token resolver as `invoke.args`
+  (`{{prompt}}`, `{{model}}`, `{{workingDir}}`, `{{outputFile}}`,
+  `{{effortArgs}}`) and the same detected invocation plan. Do not reintroduce
+  shell-string prompt interpolation.
+- Add `streaming` to `DriverManifest` as an optional Codable block with a nil /
+  unsupported default so existing manifests and fixtures continue decoding.
+- The streaming command uses `invoke.command`, `invoke.env`, `invoke.promptVia`,
+  and `invoke.timeoutSeconds` unless the manifest schema explicitly adds and
+  tests an override.
 - Setup/Doctor reports stream capability separately from readiness.
 - A source can be ready but not stream-capable.
 
@@ -225,6 +302,14 @@ Evaluated on 2026-06-19 from installed CLI help plus current driver manifests.
 | Grok Build | `grok -p {{prompt}} ... --output-format streaming-json` | Local docs and live captures confirm `text` / `thought` / `end` / `error` NDJSON. | Supported after parser with true incremental `text.data` output. Current runtime extracts final visible text after process exit; live UI updates still require the V1 streaming runner. |
 | Antigravity | `agy --print {{prompt}} ...` | Antigravity CLI answer confirms no streaming, JSONL, or machine-readable event mode in current `agy --print` / `agy -p`. | Not V1 stream-capable. Final-output fallback only; stdout is clean final answer text, logs/errors go to stderr or Antigravity logs. |
 | Manual paste | no process | none | Not applicable. |
+
+Explicitly excluded from V1 streaming:
+
+- Aider: not a shipped first-class driver today, and not a single source-level
+  stream contract. It routes models/providers; supporting its ecosystem belongs
+  in future API/router adapters rather than this CLI streaming pass.
+- Direct OpenRouter, DeepSeek, Moonshot/Kimi, Ollama/LM Studio, and generic
+  OpenAI-compatible APIs: future source class, not subprocess CLI streaming.
 
 ### Codex Parser
 
@@ -487,22 +572,31 @@ Full Antigravity reference: `docs/phases/setup/Antigravity_CLI_Support.md`.
 
 ## Implementation Slices
 
-- [ ] STR-S01 - Add `CommandEvent` + `StreamingCommandRunner` protocol and tests.
-- [ ] STR-S02 - Implement streaming in `SubprocessCommandRunner` with shared
-      launch/kill/timeout behavior.
-- [ ] STR-S03 - Add `WorkerStreamEvent` and `WorkerRunner.invokeStreaming`.
-- [ ] STR-S04 - Add one real parser first, preferably Claude or Cursor because
-      both advertise partial-message flags.
-- [ ] STR-S05 - Persist throttled partial text onto the running `worker_chat`
-      turn with a 64 KB cap.
-- [ ] STR-S06 - Wire `ThreadSendCoordinator.completeSend` to use streaming when
-      the selected driver supports it, falling back to `invoke`.
-- [ ] STR-S07 - Render running worker turn text live in the Mac timeline.
-- [ ] STR-S08 - Add Codex parser while preserving output-file final capture.
-- [ ] STR-S09 - Add Cursor/Claude/Grok parsers as their schemas are verified.
-- [ ] STR-S10 - Add Doctor/Setup capability copy: ready vs streams live.
-- [ ] STR-S11 - Decide whether CLI/MCP thread send needs `--stream` parity in V1
-      or can wait until Mac chat proves the engine path.
+- [ ] STR-S01 - Add optional `DriverManifest.Streaming` schema, enum decoding,
+      default unsupported behavior, fixture round-trip tests, and bundled +
+      embedded manifest drift tests.
+- [ ] STR-S02 - Add `CommandEvent` + `StreamingCommandRunner` protocol tests.
+- [ ] STR-S03 - Implement streaming in `SubprocessCommandRunner` with shared
+      launch/env/stdin/working-dir/process-group-kill/timeout behavior.
+- [ ] STR-S04 - Add `WorkerStreamEvent`, `WorkerStreamParser`, and
+      `WorkerRunner.invokeStreaming`.
+- [ ] STR-S05 - Land Grok parser first for the lowest-risk end-to-end live proof:
+      the manifest already emits `streaming-json`, the schema is tiny, and final
+      visible-text extraction is already fenced to the Grok driver.
+- [ ] STR-S06 - Persist throttled partial text onto the running `worker_chat`
+      turn with a 64 KB cap and `ThreadTurn.partialOutputTruncated`.
+- [ ] STR-S07 - Wire `ThreadSendCoordinator.completeSend`/Mac chat pending path
+      to use streaming when the selected driver supports it, falling back to
+      `invoke`.
+- [ ] STR-S08 - Render running and terminal-with-partial worker turn text live in
+      the Mac timeline.
+- [ ] STR-S09 - Add Claude and Cursor parsers with their dedupe/reconcile rules.
+- [ ] STR-S10 - Add Codex parser while preserving output-file final capture.
+- [ ] STR-S11 - Keep Antigravity/manual-paste on final-output fallback and add a
+      Works Test proving non-streaming fallback remains honest.
+- [ ] STR-S12 - Add Doctor/Setup capability copy: ready vs streams live.
+- [ ] STR-S13 - Defer CLI/MCP `thread send --stream` parity until Mac chat proves
+      the engine path; do not block V1 on public NDJSON output.
 
 ## Team Streaming V2
 
@@ -566,6 +660,16 @@ swift test --package-path Packages/AllnighterCore
 bash scripts/check.sh
 ```
 
+If SwiftPM's sandbox cannot nest inside the active agent sandbox, rerun the same
+package proof with:
+
+```text
+swift test --disable-sandbox --package-path Packages/AllnighterCore
+```
+
+Name that environment limitation in closeout rather than treating it as product
+proof.
+
 Focused tests for implementation:
 
 - streaming command runner emits chunks before completion;
@@ -574,6 +678,8 @@ Focused tests for implementation:
 - parser dedupe prevents final-message duplication;
 - `ThreadSendCoordinator` falls back cleanly for `streaming.supported == false`;
 - partial persistence is throttled and capped;
+- settlement reloads the latest running turn and does not erase partial text on
+  failure, timeout, or cancel;
 - final settlement preserves current success/failure semantics.
 
 ## Done When
