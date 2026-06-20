@@ -20,9 +20,11 @@ public enum SubstitutionTier: String, Codable, Sendable, CaseIterable {
 }
 
 /// Ordered model-id membership per tier. **Index 0 of each list is that tier's
-/// DEFAULT** — what Auto runs and what substitutes lead with. A model absent from
-/// all three lists is **Unassigned** (hand-pickable, never used by Auto, never a
-/// substitute).
+/// DEFAULT** — what Auto runs and what substitutes lead with. Membership is
+/// **many-to-many**: a model may belong to any number of tiers (0–3). Putting one
+/// model in all three tiers is a first-class move — it's how you soak up a plan with
+/// compute to burn (e.g. a ChatGPT-max or unused-Opus month). A model in **zero**
+/// tiers is **Unassigned** (hand-pickable, never used by Auto, never a substitute).
 public struct TierMembership: Codable, Sendable, Equatable {
     public var flagship: [ModelID]
     public var balanced: [ModelID]
@@ -51,26 +53,39 @@ public struct TierMembership: Codable, Sendable, Equatable {
         }
     }
 
-    /// The tier a model is assigned to, or nil if Unassigned.
-    public func tier(of modelId: ModelID) -> SubstitutionTier? {
-        SubstitutionTier.allCases.first { self[$0].contains(modelId) }
+    /// Every tier a model belongs to, ordered Flagship → Balanced → Fast. Empty =
+    /// Unassigned. (Membership is many-to-many — a model can be in several tiers.)
+    public func tiers(of modelId: ModelID) -> [SubstitutionTier] {
+        SubstitutionTier.allCases.filter { self[$0].contains(modelId) }
     }
+
+    /// The highest-quality tier a model belongs to (Flagship > Balanced > Fast), or
+    /// nil if Unassigned. Used to substitute a down pinned model without downgrading.
+    public func highestTier(of modelId: ModelID) -> SubstitutionTier? {
+        tiers(of: modelId).first
+    }
+
+    public func isUnassigned(_ modelId: ModelID) -> Bool { tiers(of: modelId).isEmpty }
 
     public var assignedModelIds: Set<ModelID> { Set(flagship + balanced + fast) }
 
-    /// Enforces the invariant that a model appears in at most one tier and not twice
-    /// within a tier — first occurrence wins. Returns the cleaned membership plus the
-    /// ids that were de-duplicated, for diagnostics.
+    /// Cleans only **intra-tier** duplicates (a model listed twice in the *same* tier
+    /// — first occurrence wins). Cross-tier membership is intentionally preserved: a
+    /// model may live in several tiers. Returns the cleaned membership plus the ids
+    /// that were de-duplicated within a tier, for diagnostics.
     public func normalized() -> (membership: TierMembership, duplicates: [ModelID]) {
-        var seen = Set<ModelID>()
         var duplicates: [ModelID] = []
-        func clean(_ ids: [ModelID]) -> [ModelID] {
-            ids.filter { id in
-                if seen.contains(id) { duplicates.append(id); return false }
-                seen.insert(id); return true
+        func dedupeWithinTier(_ ids: [ModelID]) -> [ModelID] {
+            var seen = Set<ModelID>()
+            var out: [ModelID] = []
+            for id in ids {
+                if seen.contains(id) { duplicates.append(id) } else { seen.insert(id); out.append(id) }
             }
+            return out
         }
-        return (TierMembership(flagship: clean(flagship), balanced: clean(balanced), fast: clean(fast)), duplicates)
+        return (TierMembership(flagship: dedupeWithinTier(flagship),
+                               balanced: dedupeWithinTier(balanced),
+                               fast: dedupeWithinTier(fast)), duplicates)
     }
 }
 
@@ -104,16 +119,19 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         self.updatedAt = updatedAt
     }
 
-    /// Fresh-install seed: a FEW sensible models tiered (so Auto-on-Flagship works on
-    /// day 1), everything else Unassigned. Seed only — fully user-overridable; the
-    /// intra-tier order is the default order (index 0 runs first).
+    /// Fresh-install seed: 3 models per tier across multiple CLIs, so substitution
+    /// always has somewhere to go even when a user has only one or two CLIs. Each
+    /// tier's default (index 0) is on-by-default, so Auto works day-one. Demonstrates
+    /// many-to-many membership: the cheap-but-flagship-grade Composer (Grok route)
+    /// sits in Flagship (backup) AND Balanced (value), and Gemini Flash spans
+    /// Balanced + Fast. Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
         defaultTier: .flagship,
         allowHealthySubstitutions: true,
         tiers: TierMembership(
-            flagship: ["model_opus", "model_chatgpt"],
-            balanced: ["model_sonnet"],
-            fast: ["model_gemini"]))
+            flagship: ["model_opus", "model_chatgpt", "model_composer"],
+            balanced: ["model_sonnet", "model_composer", "model_gemini"],
+            fast: ["model_cursor_auto", "model_grok", "model_gemini"]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
     public func tierDefault(_ tier: SubstitutionTier) -> ModelID? { tiers[tier].first }
@@ -163,24 +181,25 @@ public enum SubstitutionResolver {
     }
 
     /// Healthy substitution for an explicitly-requested model (a per-chat pick or a
-    /// team worker). Ready → run it. Down + substitutions ON + in a tier → first
-    /// ready model in that SAME tier. Down + substitutions OFF, or Unassigned →
-    /// wait. Never crosses tiers/shelves.
+    /// team worker). Ready → run it. Down + substitutions ON + assigned → first ready
+    /// model in the requested model's **highest** tier (so a down pin never
+    /// downgrades, and a multi-tier model resolves deterministically). Down +
+    /// substitutions OFF, or Unassigned → wait. Never crosses into a lower tier.
     public static func resolveRequested(modelId: ModelID, settings: DefaultModelSettings, readyModelIds: Set<ModelID>) -> Resolution {
-        let tier = settings.tiers.tier(of: modelId)
+        let highest = settings.tiers.highestTier(of: modelId)
         if readyModelIds.contains(modelId) {
-            return Resolution(resolvedModelId: modelId, requestedModelId: modelId, substituted: false, tier: tier, blockedReason: nil)
+            return Resolution(resolvedModelId: modelId, requestedModelId: modelId, substituted: false, tier: highest, blockedReason: nil)
         }
         guard settings.allowHealthySubstitutions else {
-            return Resolution(resolvedModelId: nil, requestedModelId: modelId, substituted: false, tier: tier, blockedReason: .shelfEmpty)
+            return Resolution(resolvedModelId: nil, requestedModelId: modelId, substituted: false, tier: highest, blockedReason: .shelfEmpty)
         }
-        guard let tier else {
+        guard let highest else {
             return Resolution(resolvedModelId: nil, requestedModelId: modelId, substituted: false, tier: nil, blockedReason: .unassigned)
         }
-        if let ready = settings.tiers[tier].first(where: { readyModelIds.contains($0) }) {
-            return Resolution(resolvedModelId: ready, requestedModelId: modelId, substituted: true, tier: tier, blockedReason: nil)
+        if let ready = settings.tiers[highest].first(where: { readyModelIds.contains($0) }) {
+            return Resolution(resolvedModelId: ready, requestedModelId: modelId, substituted: true, tier: highest, blockedReason: nil)
         }
-        return Resolution(resolvedModelId: nil, requestedModelId: modelId, substituted: false, tier: tier, blockedReason: .shelfEmpty)
+        return Resolution(resolvedModelId: nil, requestedModelId: modelId, substituted: false, tier: highest, blockedReason: .shelfEmpty)
     }
 }
 
