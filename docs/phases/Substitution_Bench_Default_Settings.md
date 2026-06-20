@@ -537,6 +537,40 @@ Default Settings screen:
   - explain that work waits unless the user changes settings or explicitly
     routes this run elsewhere.
 
+Model pickers — `Auto` pinned on top:
+
+Every surface that lets a user choose a worker shows **`Auto` pinned at the top** as
+the first, clearly-marked default, then **all concrete models A→Z**. This applies to:
+
+- the title-bar **Models dropdown** (CLI-setup redesign §3); and
+- the composer **Worker** picker (the `[Team | Worker]` route popover — not yet
+  redesigned; this is its target shape);
+- and any future model-select surface (team-worker selects, iOS).
+
+`Auto` row:
+
+- ∞ `Auto` mark, amber-tinted card, `DEFAULT` badge, and a check when `Auto` is the
+  active selection.
+- One-line truth: `Best ready model on <Tier> · now <ModelName>` — the tier comes from
+  `DefaultModelSelection.auto.shelfId`; `<ModelName>` is whatever the resolver
+  currently resolves `Auto` to (e.g. "Flagship · now Opus 4.8"). When the selected
+  tier has no ready model, read `Flagship · waiting` — never fabricate a model name.
+- Selecting it routes the turn (or sets the default) to `Auto`-on-its-tier; it does
+  NOT pin a concrete model.
+
+Concrete model rows (below an `OR PICK A SPECIFIC MODEL` divider), sorted **A→Z by
+display name**:
+
+- glyph · name · `slug · <Tier>` sub-label (e.g. `codex · Flagship`,
+  `cursor · Unassigned`) · ready dot.
+- `<Tier>` is the model's substitution-shelf label (`Flagship` / `Balanced` / `Fast`)
+  or `Unassigned`. Per the Default-Settings law, `Unassigned` models are hand-pickable
+  but `Auto` never uses them and they never substitute.
+- Only ON + ready models appear (same `availableModels` set as today).
+
+Every picker reads the same `DefaultSettingsJSON`-equivalent projection (the resolved
+`Auto` model + each model's tier); none derives `Auto`/tier locally.
+
 Team editor cleanup:
 
 - Existing "Allow healthy substitutions" must use the same Core resolver
