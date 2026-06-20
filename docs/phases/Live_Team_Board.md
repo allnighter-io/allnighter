@@ -44,8 +44,9 @@ Send to team
 -> each assigned worker has a sourced row
 -> started workers show a live indicator
 -> stream-capable workers may show real answer deltas, capped to a few lines
--> completed workers expose their real answer when the contract carries it
--> the full Floor remains the inspectable receipt
+-> completed workers expose that a real answer exists when the contract carries it
+-> terminal thread card routes to the Factory Floor
+-> the Floor owns full result reading and the inspectable receipt
 ```
 
 ## Non-Goals
@@ -61,6 +62,9 @@ Send to team
 - Do not create a new run schema for the Mac app. GUI presents `RunEvent`,
   `TeamStatusResponse`, `TeamRun`, `TeamRunJSON`, and eventually `FloorRun`.
 - Do not make the board a replacement for the Factory Floor / Floor receipt.
+- Do not dump full worker answers or the full synthesized result into the thread
+  as the primary terminal experience. The thread is the live cockpit; the Floor
+  is the reader and receipt.
 
 ## Current State
 
@@ -147,6 +151,28 @@ worker row can open that real answer. Failed workers remain visible as failed.
 No copy may claim "streaming for every model" until the team-run path emits
 per-worker answer deltas for the relevant workers.
 
+## Result Landing Decision
+
+The thread timeline must not become the team-result reader.
+
+Ownership split:
+
+```text
+Thread Live Team Board = compact live progress, sourced worker states, small
+                         live excerpts, terminal counts, Open Floor action.
+Factory Floor          = full worker answers, full synthesis, artifacts,
+                         prompts where allowed, receipts, and next actions.
+```
+
+When a team run reaches a terminal state, the thread card settles into a compact
+receipt row/card. It may show sourced counts and a short sourced preview, but the
+primary action is `Open Floor`. Full worker answers and the full synthesized
+result belong in the Factory Floor.
+
+The current observed behavior - terminal results appearing directly in the
+thread instead of landing in the Factory Floor - is a product bug against this
+decision.
+
 ## Field Ownership Ledger
 
 | GUI field | Owner field | Source | States | Notes |
@@ -210,7 +236,8 @@ Rule: any GUI field not listed here needs a contract owner before it ships.
 
 - Show concrete counts: done, failed, timed out, cancelled.
 - Failed workers stay visible even if the run produced a usable synthesis.
-- The full Floor remains one click away for the complete receipt.
+- The terminal thread card stays compact and points to `Open Floor`.
+- The full Floor is the complete result-reading and receipt surface.
 
 ## CLI / MCP Surface
 
@@ -271,10 +298,12 @@ Contract gaps before the Live Team Board is fully honest:
   worker.
 - Non-streaming workers show status only.
 
-### LTB-S04 — Floor handoff
+### LTB-S04 — Floor landing
 
-- Add `Open Floor` and row-level open actions that land on the existing
-  Factory Floor / Floor receipt.
+- Add `Open Floor` and row-level open actions that land on the existing Factory
+  Floor / Floor receipt.
+- Ensure terminal team results do not render as full answers inside the thread
+  timeline.
 - The Floor owns full reading, artifacts, prompts where allowed, and synthesis.
 
 ## Works Test
@@ -315,7 +344,8 @@ timeline surface.
 - Per-worker streaming appears only for workers that emit answer deltas.
 - Per-worker final answers open only when final output is present.
 - Failed and timed-out workers remain visible.
-- The same run can open in the Floor for full receipt inspection.
+- Terminal results land in the Factory Floor; the thread keeps a compact receipt
+  card with `Open Floor`.
 - CLI/MCP/iOS have a path to the same facts; no Mac-only durable schema exists.
 
 ## Open Questions
