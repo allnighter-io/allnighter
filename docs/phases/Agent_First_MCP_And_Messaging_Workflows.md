@@ -635,6 +635,7 @@ Required tools:
 
 ```text
 mcp_hello
+help_search
 help_get
 doctor
 doctor_explain
@@ -682,6 +683,7 @@ First demo minimum:
 
 ```text
 mcp_hello
+help_search
 help_get
 doctor
 doctor_explain
@@ -702,6 +704,13 @@ spec_get
 
 Pending tools should ship in the same phase immediately after the async team
 loop, because Pending is the agent-first "put it on the desk later" unlock.
+
+Detailed installed-help architecture, schemas, bundle/drift gates, and no-repo
+requirements live in `MCP_Help_System.md`. This section keeps only the first-demo
+topic contract for the broader agent-first workflow.
+
+`help_search` lets agents discover the right topic without guessing an id.
+`help_get` retrieves the selected topic or section.
 
 `help_get` topics:
 
@@ -1384,8 +1393,9 @@ later.
 This slice must land before broad MCP expansion.
 
 - Add `mcp_hello`.
-- Add `help_get` with `quickstart`, `tool_selection`, `schemas`, `errors`,
-  `doctor`, `pending`, `approval`, and `examples` topics.
+- Add `help_search` and `help_get` with `quickstart`, `tool_selection`,
+  `schemas`, `errors`, `doctor`, `pending`, `approval`, and `examples` topics
+  (see `MCP_Help_System.md` for bundle/source/drift rules).
 - Upgrade `DoctorResult` to schema version 2 with `canStartTeamRun`,
   `readyTeams`, `blockedReason`, `nextAction`, `fixes`, `appliedFixes`,
   `humanActions`, `entitlement`, `observedAt`, `staleAfter`, and `traceId`.
@@ -1845,7 +1855,8 @@ Assertions:
 Gesture:
 
 ```text
-Client calls help_get(topic: "tool_selection") and help_get(topic: "schemas").
+Client calls help_search("which Allnighter tool should I use?"),
+help_get(topic: "tool_selection"), and help_get(topic: "schemas").
 ```
 
 Assertions:

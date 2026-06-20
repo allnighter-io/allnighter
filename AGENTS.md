@@ -68,6 +68,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
 | Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
+| Installed help MCP, repo-free product docs, agent help routing | `docs/phases/MCP_Help_System.md` + `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
