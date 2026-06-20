@@ -14,6 +14,59 @@ final class ManifestTemplateTests: XCTestCase {
         XCTAssertEqual(argv.filter { $0 == nasty }.count, 1)
     }
 
+    // MARK: - STR-S01: optional streaming block
+
+    func testStreamingBlockRoundTrips() throws {
+        let s = DriverManifest.Streaming(
+            supported: true, mode: .jsonlStdout,
+            args: ["-p", "{{prompt}}", "--output-format", "streaming-json"],
+            partialOutput: true, answerDeltaPaths: ["$.data"],
+            finalAnswerSource: .parserAccumulator, stripAnsi: true, visibleReasoning: false)
+        let m = DriverManifest(id: "x", displayName: "X", kind: .headlessCLI, streaming: s)
+        let data = try JSONEncoder().encode(m)
+        let back = try JSONDecoder().decode(DriverManifest.self, from: data)
+        XCTAssertEqual(back.streaming, s)
+        XCTAssertTrue(back.canStream)
+    }
+
+    func testManifestWithoutStreamingDecodesToNil() throws {
+        // A legacy manifest JSON (no `streaming` key) must still decode.
+        let json = #"{"id":"legacy","manifestVersion":1,"displayName":"Legacy","kind":"headless_cli"}"#
+        let m = try JSONDecoder().decode(DriverManifest.self, from: Data(json.utf8))
+        XCTAssertNil(m.streaming)
+        XCTAssertFalse(m.canStream)
+    }
+
+    func testCanStreamFalseWhenModeNoneOrUnsupported() {
+        let unsupported = DriverManifest(id: "a", displayName: "A", kind: .headlessCLI,
+                                         streaming: .init(supported: false, mode: .jsonlStdout))
+        XCTAssertFalse(unsupported.canStream)
+        let modeNone = DriverManifest(id: "b", displayName: "B", kind: .headlessCLI,
+                                      streaming: .init(supported: true, mode: .none))
+        XCTAssertFalse(modeNone.canStream)
+    }
+
+    func testResolvedStreamingArgsFallBackToInvokeArgs() throws {
+        // No streaming.args → reuse invoke.args, resolved injection-safely.
+        let manifest = try Fixtures.manifest(.manifestGrok)
+        var m = manifest
+        m.streaming = .init(supported: true, mode: .jsonlStdout, args: [])
+        let ctx = DriverManifest.ResolveContext(prompt: "hi", model: "Grok")
+        XCTAssertEqual(m.resolvedStreamingArgs(ctx), m.resolvedArgs(ctx))
+    }
+
+    func testResolvedStreamingArgsUseStreamingArgsWhenPresent() throws {
+        let manifest = try Fixtures.manifest(.manifestGrok)
+        var m = manifest
+        m.streaming = .init(supported: true, mode: .jsonlStdout,
+                            args: ["-p", "{{prompt}}", "--output-format", "streaming-json"])
+        let nasty = "a; rm -rf / \"x\""
+        let ctx = DriverManifest.ResolveContext(prompt: nasty, model: "Grok")
+        let argv = m.resolvedStreamingArgs(ctx)
+        XCTAssertEqual(argv, ["-p", nasty, "--output-format", "streaming-json"])
+        XCTAssertEqual(argv.filter { $0 == nasty }.count, 1)
+    }
+
     func testModelTokenSubstitutesInline() throws {
         let manifest = try Fixtures.manifest(.manifestGrok)
         let ctx = DriverManifest.ResolveContext(prompt: "hi", model: "Grok Composer 2.5 Fast")

@@ -38,6 +38,11 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     /// probe is confirmed — we never guess a CLI's trust-prompt behavior.
     public var projectProbe: ProjectProbe?
 
+    /// How this worker exposes live output (03_Mac_Streaming). Additive and OPTIONAL:
+    /// absent / `supported == false` ⇒ final-output-only via the existing `invoke`
+    /// path. Only set once a real-driver Works Test shows text before process exit.
+    public var streaming: Streaming?
+
     public init(
         id: String,
         manifestVersion: Int = 1,
@@ -51,7 +56,8 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         imageGen: ImageGen? = nil,
         readsImages: Bool? = nil,
         setup: SetupBlock? = nil,
-        projectProbe: ProjectProbe? = nil
+        projectProbe: ProjectProbe? = nil,
+        streaming: Streaming? = nil
     ) {
         self.setup = setup
         self.projectProbe = projectProbe
@@ -66,7 +72,11 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         self.output = output
         self.imageGen = imageGen
         self.readsImages = readsImages
+        self.streaming = streaming
     }
+
+    /// Whether this worker can stream live partial text (a real, verified mode).
+    public var canStream: Bool { streaming?.supported == true && streaming?.mode != DriverManifest.Streaming.Mode.none }
 
     /// True when this worker can generate a design image headlessly (design seats).
     public var canGenerateImages: Bool { imageGen != nil }
@@ -212,6 +222,68 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
             self.sentinel = sentinel
         }
     }
+
+    /// How a worker's CLI exposes live output (03_Mac_Streaming §Driver Capability).
+    /// Additive and OPTIONAL: a `nil` `streaming` block (or `supported == false`)
+    /// means the worker is final-output-only and runs through the existing
+    /// non-streaming `invoke` path. A source can be ready but not stream-capable.
+    public struct Streaming: Codable, Sendable, Equatable {
+        /// Shape of the live stream. `none` keeps the worker final-output-only even
+        /// if a block is present.
+        public enum Mode: String, Codable, Sendable {
+            case none
+            case plainStdout = "plain_stdout"
+            case jsonlStdout = "jsonl_stdout"
+            case jsonlStderr = "jsonl_stderr"
+            case outputFileTail = "output_file_tail"
+        }
+
+        /// Where the canonical FINAL answer is read at settlement — independent of
+        /// the live deltas, which may be lossy.
+        public enum FinalAnswerSource: String, Codable, Sendable {
+            case stdout
+            case outputFile = "output_file"
+            case event
+            case parserAccumulator = "parser_accumulator"
+        }
+
+        public var supported: Bool
+        public var mode: Mode
+        /// Streaming-specific argv. Uses the SAME token resolver as `invoke.args`
+        /// (`{{prompt}}`, `{{model}}`, `{{workingDir}}`, `{{outputFile}}`,
+        /// `{{effortArgs}}`). Empty → reuse `invoke.args`.
+        public var args: [String]
+        /// Whether this driver emits incremental partial text (vs. final-only events).
+        public var partialOutput: Bool
+        /// JSON paths the parser reads for visible answer deltas (documentation /
+        /// parser config; concrete parsers may hardcode these per driver).
+        public var answerDeltaPaths: [String]
+        public var finalAnswerSource: FinalAnswerSource
+        public var stripAnsi: Bool
+        /// Whether reasoning/thought events should ever surface as visible answer
+        /// text. V1 is always false — reasoning is audit-only.
+        public var visibleReasoning: Bool
+
+        public init(
+            supported: Bool = false,
+            mode: Mode = .none,
+            args: [String] = [],
+            partialOutput: Bool = false,
+            answerDeltaPaths: [String] = [],
+            finalAnswerSource: FinalAnswerSource = .stdout,
+            stripAnsi: Bool = true,
+            visibleReasoning: Bool = false
+        ) {
+            self.supported = supported
+            self.mode = mode
+            self.args = args
+            self.partialOutput = partialOutput
+            self.answerDeltaPaths = answerDeltaPaths
+            self.finalAnswerSource = finalAnswerSource
+            self.stripAnsi = stripAnsi
+            self.visibleReasoning = visibleReasoning
+        }
+    }
 }
 
 // MARK: - Injection-safe template resolution
@@ -257,6 +329,16 @@ public extension DriverManifest {
         // `{{effortArgs}}` expands to 0–2 args at its position; every other element
         // resolves 1:1. Effort flags only appear where the manifest places the token.
         return invoke.args.flatMap { element -> [String] in
+            element == Token.effortArgs.rawValue ? effortFlagArgs(ctx) : [resolveStandaloneToken(element, ctx)]
+        }
+    }
+
+    /// Resolves the STREAMING argv (`streaming.args`) the same injection-safe way as
+    /// `resolvedArgs`. Falls back to `invoke.args` when the streaming block carries no
+    /// args of its own, so a driver can opt into a mode without re-listing argv.
+    func resolvedStreamingArgs(_ ctx: ResolveContext) -> [String] {
+        let template = (streaming?.args.isEmpty == false) ? streaming!.args : (invoke?.args ?? [])
+        return template.flatMap { element -> [String] in
             element == Token.effortArgs.rawValue ? effortFlagArgs(ctx) : [resolveStandaloneToken(element, ctx)]
         }
     }
