@@ -453,6 +453,13 @@ public struct ProjectFileCatalog {
         return dirty
     }
 
+    /// Total referenceable files in the project — the corpus size behind the `N / total`
+    /// scope hint in the `@` picker.
+    public func fileCount(rootPath: String) -> Int {
+        let rootURL = URL(fileURLWithPath: rootPath).standardizedFileURL
+        return (gitTrackedAndUntrackedFiles(rootURL: rootURL) ?? walkFiles(rootURL: rootURL)).count
+    }
+
     private func gitTrackedAndUntrackedFiles(rootURL: URL) -> [String]? {
         let process = Process()
         process.currentDirectoryURL = rootURL

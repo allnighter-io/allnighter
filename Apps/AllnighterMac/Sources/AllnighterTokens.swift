@@ -199,7 +199,7 @@ enum ALControl {
     static let height:   CGFloat = 30   // default button / input
     static let heightLg: CGFloat = 36
     static let sidebarWidth: CGFloat = 264
-    static let titleBarHeight: CGFloat = 44
+    static let titleBarHeight: CGFloat = 36
     /// Leading inset to clear the macOS traffic-light controls in the hidden title bar.
     static let trafficLightInset: CGFloat = 70
     static let readingMax: CGFloat = 680 // composer column cap

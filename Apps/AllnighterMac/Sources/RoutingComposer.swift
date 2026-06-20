@@ -95,6 +95,8 @@ struct RoutingComposer: View {
     @State private var effortOpen = false
     @State private var fileSearchOpen = false
     @State private var fileSearchQuery = ""
+    /// Project corpus size (cached per @-session) for the "N / total" scope hint.
+    @State private var fileTotalCount = 0
     @State private var fileCandidates: [ProjectFileCatalog.Candidate] = []
     @State private var highlightedFileIndex = 0
     @State private var selectedFileReferences: [ComposeFileReference] = []
@@ -155,6 +157,9 @@ struct RoutingComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             if showsProject { projectScope }
+            // @-file suggestions FLOAT above the composer (autocomplete, not a search
+            // box): top row selected, ↑/↓ to move, ⏎ to insert, Esc to dismiss.
+            if showsFileSuggestions { fileSuggestions }
             box
         }
         .onAppear(perform: seedDefaults)
@@ -265,9 +270,6 @@ struct RoutingComposer: View {
             if !selectedFileReferences.isEmpty {
                 fileReferenceChips
             }
-            if fileSearchOpen || fileReferenceFixtureOpen {
-                fileReferencePanel
-            }
             bar
             #if DEBUG
             // Proof-only: the team picker is a native NSPopover (uncapturable in-process),
@@ -329,77 +331,56 @@ struct RoutingComposer: View {
         }
     }
 
-    private var fileReferencePanel: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11))
-                    .foregroundStyle(ALColor.textFaint)
-                Text("Search Project files")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(ALColor.textSecondary)
-                if !fileSearchQuery.isEmpty {
-                    Text("·")
-                        .font(ALFont.monoSm)
-                        .foregroundStyle(ALColor.textFaint)
-                    Text(fileSearchQuery)
-                        .font(ALFont.monoSm)
-                        .foregroundStyle(ALColor.textFaint)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 32)
-            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
-
-            if fileCandidates.isEmpty {
-                Text(projects.activeProject == nil ? "No Project selected" : "No matching files")
-                    .font(.system(size: 12))
-                    .foregroundStyle(ALColor.textFaint)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            } else {
-                ScrollView {
-                    VStack(spacing: 1) {
-                        ForEach(Array(fileCandidates.enumerated()), id: \.element.path) { index, candidate in
-                            fileCandidateRow(candidate, index: index)
-                        }
-                    }
-                    .padding(6)
-                }
-                .frame(maxHeight: 184)
-            }
-        }
-        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.md))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
-        .padding(.horizontal, 11)
-        .padding(.top, 5)
+    /// Show the floating suggestions only when there's something to pick — an open @
+    /// query with matches. No matches ⇒ nothing floats (no empty box).
+    private var showsFileSuggestions: Bool {
+        (fileSearchOpen || fileReferenceFixtureOpen) && !fileCandidates.isEmpty
     }
 
-    // One compact, ungrouped row: the doc icon + the root-relative FULL path with the
-    // matched characters highlighted (Grok-Build style), middle-truncated so the
-    // basename stays visible. No cards, no two-line basename/dir, no preview.
+    // A floating autocomplete that sits ABOVE the composer (no search box): a compact
+    // list of root-relative paths with matched chars highlighted, the top row selected,
+    // ↑/↓ to move, ⏎ to insert, Esc to dismiss — exactly the editor-grade @ pattern.
+    private var fileSuggestions: some View {
+        VStack(spacing: 0) {
+            // Quiet scope count, top-right (e.g. "6 / 1469" of project files).
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Text(fileSearchQuery.isEmpty ? "\(fileCandidates.count)" : "\(fileCandidates.count) / \(fileTotalCount)")
+                    .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 12).padding(.top, 7).padding(.bottom, 3)
+            // Hug the rows (candidates are capped at 12) — no over-expanding scroll area,
+            // so the popup stays compact like a real autocomplete.
+            VStack(spacing: 1) {
+                ForEach(Array(fileCandidates.enumerated()), id: \.element.path) { index, candidate in
+                    fileCandidateRow(candidate, index: index)
+                }
+            }
+            .padding(.horizontal, 5).padding(.bottom, 5)
+        }
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
+    }
+
+    // One compact row: a chevron marks the selected row, then the root-relative FULL path
+    // with the matched characters highlighted (Grok-Build style), middle-truncated so the
+    // basename stays visible. No icon, no card, no preview.
     private func fileCandidateRow(_ candidate: ProjectFileCatalog.Candidate, index: Int) -> some View {
         let active = index == highlightedFileIndex
         return Button { selectFileReference(candidate.path) } label: {
-            HStack(spacing: 9) {
-                Image(systemName: "doc.text")
-                    .font(.system(size: 12))
-                    .foregroundStyle(active ? ALColor.textSecondary : ALColor.textMuted)
-                    .frame(width: 18)
+            HStack(spacing: 7) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(active ? ALColor.textSecondary : .clear)
+                    .frame(width: 10)
                 Text(highlightedPath(candidate.path, query: fileSearchQuery))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 8)
-                if active {
-                    Image(systemName: "return")
-                        .font(.system(size: 10))
-                        .foregroundStyle(ALColor.textFaint)
-                }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 9)
+            .frame(height: 26)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(active ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
             .contentShape(Rectangle())
@@ -633,7 +614,9 @@ struct RoutingComposer: View {
         let root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
         #endif
         let selectedPaths = Set(selectedFileReferences.map(\.path))
-        fileCandidates = ProjectFileCatalog().candidates(
+        let catalog = ProjectFileCatalog()
+        if fileTotalCount == 0 { fileTotalCount = catalog.fileCount(rootPath: root) }
+        fileCandidates = catalog.candidates(
             rootPath: root,
             query: fileSearchQuery,
             limit: 12,
@@ -647,6 +630,7 @@ struct RoutingComposer: View {
         fileSearchOpen = false
         fileSearchQuery = ""
         fileCandidates = []
+        fileTotalCount = 0
         highlightedFileIndex = 0
     }
 
@@ -851,7 +835,7 @@ struct RoutingComposer: View {
                 Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textSecondary)
                     .frame(width: 18, height: 18)
                     .background(ALColor.active, in: RoundedRectangle(cornerRadius: 5))
-                rowLabel("Auto", "Default model", primary: true)
+                rowLabel("Auto", autoModelName ?? "Default model", primary: true)
                 Spacer(minLength: 8)
                 if isAutoSelected { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             }

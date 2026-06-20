@@ -41,7 +41,7 @@ struct TitleBar: View {
             }
         }
         .padding(.horizontal, 14)
-        .frame(minHeight: ALControl.titleBarHeight, alignment: .top)
+        .frame(height: ALControl.titleBarHeight)
         .background(WindowDragArea())
         .background(ALColor.surface)
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
