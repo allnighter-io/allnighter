@@ -11,8 +11,11 @@ struct TeamsLauncherView: View {
     /// Called when a send starts — the host switches to the Inbox and the
     /// new running thread (sendRouting selects it).
     var onContinue: () -> Void = {}
+    /// Open the team editor to create a new team.
+    var onAddTeam: () -> Void = {}
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(AppModel.self) private var appModel
+    @State private var searchText = ""
     @State private var selectedTeamId: String?
     /// Non-nil while the centered send-to-team composer modal is open.
     @State private var composingTeam: TeamCard?
@@ -33,8 +36,16 @@ struct TeamsLauncherView: View {
     }
 
     private var filteredCards: [TeamCard] {
-        guard let f = familyFilter else { return cards }
-        return cards.filter { $0.family == f }
+        var result = familyFilter.map { f in cards.filter { $0.family == f } } ?? cards
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return result }
+        result = result.filter { card in
+            card.displayName.lowercased().contains(q)
+                || card.family.lowercased().contains(q)
+                || card.starterPrompts.contains { $0.lowercased().contains(q) }
+                || card.recommendedFor.contains { $0.lowercased().contains(q) }
+        }
+        return result
     }
 
     private let columns = [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14)]
@@ -105,25 +116,37 @@ struct TeamsLauncherView: View {
                 Text("Pick the crew. Your prompt comes next.")
                     .font(ALFont.body).foregroundStyle(ALColor.textMuted)
                 Spacer()
-                benchStrip
             }
+            searchRow
             familyTabs
         }
     }
 
-    /// "Your paid AIs, ready" — the bench at a glance (green dot = ready, yellow = down).
-    private var benchStrip: some View {
-        let bench = appModel.composeBench
-        let readyCount = bench.filter(\.ready).count
-        return HStack(spacing: 10) {
-            Text("BENCH").font(ALFont.monoSm.weight(.semibold)).tracking(0.8).foregroundStyle(ALColor.textFaint)
-            ForEach(bench) { m in
-                HStack(spacing: 4) {
-                    Circle().fill(m.ready ? ALColor.statusDone : ALColor.statusTimeout).frame(width: 6, height: 6)
-                    Text(m.name).font(ALFont.monoSm).foregroundStyle(m.ready ? ALColor.textMuted : ALColor.textFaint)
+    /// Search teams + an Add team action. (The bench is shown in the title bar, so
+    /// it isn't repeated here.)
+    private var searchRow: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").font(.system(size: 13)).foregroundStyle(ALColor.textFaint)
+                TextField("Search teams, outcomes, or starter prompts…", text: $searchText)
+                    .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            Text("\(readyCount) ready").font(ALFont.monoSm.weight(.semibold)).foregroundStyle(ALColor.statusDone)
+            .padding(.horizontal, 12).frame(height: 40)
+            .frame(maxWidth: .infinity)
+            .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+
+            Button(action: onAddTeam) {
+                Label("Add team", systemImage: "plus").font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, 14).frame(height: 40)
+            }
+            .buttonStyle(.alPrimary)
         }
     }
 

@@ -128,7 +128,10 @@ struct RootView: View {
                     } else if workspaceMode == .teams {
                         // Teams workspace — the Send-to-team launcher (G-T1 brings
                         // full fidelity; G-T0 wires the toggle + a real card roster).
-                        TeamsLauncherView(onContinue: { workspaceMode = .inbox })
+                        TeamsLauncherView(
+                            onContinue: { workspaceMode = .inbox },
+                            onAddTeam: { workspaceMode = .inbox; openTeamStudio() }
+                        )
                     } else {
                         HomeView()
                     }
