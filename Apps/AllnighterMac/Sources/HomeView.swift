@@ -1,5 +1,6 @@
 import SwiftUI
 import AllnighterCore
+import AllnighterEngine
 
 // The clean conversation-workspace home (docs/phases/wiring compose-routing).
 // CR4a: real thread rail + send creates/opens conversations; marketing empty
@@ -36,12 +37,15 @@ private struct HomeSidebar: View {
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(CommandCenter.self) private var commands
+    @Environment(AppModel.self) private var appModel
     @FocusState private var searchFocused: Bool
     @State private var search = ""
     @State private var renameThreadId: String?
     @State private var collapsed: Set<String> = []
     @State private var expanded: Set<String> = []
     @State private var newChatHover = false
+    /// Thread ids with an armed Pending item — drives the neutral pending row dot.
+    @State private var armedPendingThreadIds: Set<String> = []
 
     private var sections: (pinned: [WorkThread], groups: [ThreadsPresenter.ProjectGroup]) {
         ThreadsPresenter.projectSections(threads.threads, projects: projects.projects, search: search)
@@ -108,6 +112,8 @@ private struct HomeSidebar: View {
             if let id = threads.selectedThreadId { renameThreadId = id }
         }
         .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
+        .onAppear(perform: refreshArmedPending)
+        .onChange(of: threads.threads.count) { _, _ in refreshArmedPending() }
     }
 
     // MARK: Projects rail (PRJ-S14)
@@ -145,9 +151,23 @@ private struct HomeSidebar: View {
     }
 
     private func row(_ thread: WorkThread) -> some View {
-        ProjectThreadRow(thread: thread, selected: thread.id == threads.selectedThreadId) {
+        ProjectThreadRow(
+            thread: thread,
+            selected: thread.id == threads.selectedThreadId,
+            armedPending: armedPendingThreadIds.contains(thread.id)
+        ) {
             threads.select(thread)
         }
+    }
+
+    /// Read the armed (.pending) items from the Pending store and collect their bound
+    /// thread ids — the same `PendingQueueJSON` the CLI/MCP project, no GUI-local truth.
+    private func refreshArmedPending() {
+        let service = PendingService(store: PendingStore(), models: appModel.models)
+        let queue = try? service.queueJSON()
+        armedPendingThreadIds = Set(
+            (queue?.projects ?? []).flatMap { $0.pending }.compactMap { $0.pendingItem.threadId }
+        )
     }
 
     private var projectsSectionHeader: some View {
@@ -290,16 +310,23 @@ private struct ProjectThreadRow: View {
     @Environment(ThreadsViewModel.self) private var threads
     let thread: WorkThread
     let selected: Bool
+    /// True when an armed Pending item targets this thread (neutral dot, not amber).
+    var armedPending: Bool = false
     let onTap: () -> Void
     @State private var hovering = false
+
+    /// The single SSOT row state (shared with CLI/MCP via `ThreadStateDerivation`).
+    private var state: ThreadDisplayState {
+        ThreadStateDerivation.displayState(thread: thread, hasPendingItem: armedPending)
+    }
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 9) {
-                Circle().fill(thread.hasUnread ? ALColor.accent : Color.clear).frame(width: 7, height: 7)
+                stateDot
                 Text(thread.title)
-                    .font(.system(size: 13, weight: thread.hasUnread ? .semibold : .regular))
-                    .foregroundStyle(thread.hasUnread || selected ? ALColor.textPrimary : ALColor.textMuted)
+                    .font(.system(size: 13, weight: state == .replied ? .semibold : .regular))
+                    .foregroundStyle(titleColor)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 if hovering {
@@ -329,6 +356,31 @@ private struct ProjectThreadRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .threadRowContextMenu(thread: thread)
+    }
+
+    /// 4-state leading dot. Color is earned: amber ONLY for a replied/unread thread,
+    /// blue ONLY for a live run; a draft is a quiet dotted ring (nothing has happened),
+    /// pending is a neutral filled dot, idle is empty.
+    @ViewBuilder private var stateDot: some View {
+        switch state {
+        case .draft:
+            Circle().strokeBorder(ALColor.textFaint, style: StrokeStyle(lineWidth: 1, dash: [2, 1.6]))
+                .frame(width: 7, height: 7)
+        case .pending:
+            Circle().fill(ALColor.textMuted).frame(width: 7, height: 7)
+        case .running:
+            Circle().fill(ALPalette.blue500).frame(width: 7, height: 7)
+        case .replied:
+            Circle().fill(ALColor.accent).frame(width: 7, height: 7)
+        case .idle:
+            Circle().fill(Color.clear).frame(width: 7, height: 7)
+        }
+    }
+
+    private var titleColor: Color {
+        if selected || state == .replied { return ALColor.textPrimary }
+        if state == .draft || state == .idle { return ALColor.textMuted }
+        return ALColor.textSecondary
     }
 }
 

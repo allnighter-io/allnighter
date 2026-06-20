@@ -34,6 +34,9 @@ struct ThreadsFixtureSeeder {
             seedFixtureStreamingBuild()
         case "thread-thinking-history":
             seedFixtureThinkingHistory()
+        case "home-thread-states":
+            seedFixtureThreadStates()
+            setSelectedThreadId(nil)
         case "home-rail":
             seedFixtureRail()
             setSelectedThreadId(nil)
@@ -71,6 +74,28 @@ struct ThreadsFixtureSeeder {
         mk("pr-halo-5", "Refactor the settings screen", 12000, project: "prj_halo")
         mk("pr-web-1", "First page POC implementation", 300, project: "prj_web")
         mk("pr-un-1", "Token bucket vs sliding window", 900, project: nil)
+    }
+
+    /// The 4 row states side by side: Draft (quiet dotted, no bold/amber) · Running
+    /// (blue) · Replied/unread (the only amber, bold). Pending's neutral dot needs an
+    /// armed item bound to a thread (production path), so it isn't seeded here.
+    private func seedFixtureThreadStates() {
+        let base = Date()
+        // Draft — created via "+", never sent. Nothing has happened: dotted ring only.
+        _ = try? store.create(id: "st-draft", title: "Testing this out", now: base.addingTimeInterval(-30))
+        // Running — a mutating run in flight (blue, the only motion).
+        if (try? store.create(id: "st-running", title: "Rate-limit the public API", now: base.addingTimeInterval(-120))) != nil {
+            let t = ThreadTurn(id: "st-running-t", threadId: "st-running", kind: .mutatingRun, status: .running,
+                               createdAt: base, completedAt: nil, author: .worker)
+            _ = try? store.appendTurn(t, toThreadId: "st-running", now: base)
+        }
+        // Replied — an unread worker reply (the only amber, bold title).
+        if (try? store.create(id: "st-replied", title: "Unread worker reply", now: base.addingTimeInterval(-60))) != nil {
+            let t = ThreadTurn(id: "st-replied-t", threadId: "st-replied", kind: .workerChat, status: .done,
+                               createdAt: base, completedAt: base, author: .worker)
+            _ = try? store.appendTurn(t, toThreadId: "st-replied", now: base)
+        }
+        reload()
     }
 
     private func seedFixtureRail() {

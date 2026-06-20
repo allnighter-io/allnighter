@@ -239,6 +239,7 @@ enum GUIFixture {
         ("readiness-cursor-trust", "Cursor Agent — trust disclosure (CLI setup page)"),
         ("readiness-cursor-not-checked", "Cursor Agent — not checked (CLI setup page)"),
         ("home-with-threads", "Home — rail with conversations"),
+        ("home-thread-states", "Home — 4-state rows: Draft/Running/Replied (PENDQ GUI)"),
         ("home-rail", "Home — grouped/filtered rail (CR4e)"),
         ("home-rail-th2", "Home — TH2 triage pin/unread/archive"),
         ("home-rail-unr", "Home — UNR unread matrix (S07)"),
