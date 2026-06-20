@@ -18,6 +18,24 @@
     "ruleId" : "contract.drift"
   },
   {
+    "agentAction" : "Use one of flagship | balanced | fast.",
+    "code" : "DEFAULTS_TIER_INVALID",
+    "exitClass" : "usage",
+    "explain" : "The tier name was not one of flagship, balanced, or fast.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "defaults.tier.invalid"
+  },
+  {
+    "agentAction" : "Run `alln models --json` and pass a known model id.",
+    "code" : "DEFAULTS_MODEL_UNKNOWN",
+    "exitClass" : "operational",
+    "explain" : "The model id is not in the catalog, so it cannot be assigned to a tier. List models and use a real id.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "defaults.model.unknown"
+  },
+  {
     "agentAction" : "Run `alln doctor --json`.",
     "code" : "DOCTOR_CHECK_FAILED",
     "exitClass" : "operational",

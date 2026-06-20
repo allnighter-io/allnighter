@@ -51,6 +51,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case none, teamRunJSON, doctorResult, coordinatorHealth, teamStartResponse, teamStatusResponse, teamCancelResponse, pendingItemJSON, pendingListJSON, stallEpisodeListJSON, stallListJSON, modelListJSON, floorRun, specResult, teamCatalogJSON, skillCatalogJSON, historyJSON, threadStatus, errorEnvelope, markdown, contractDoc
         case projectJSON, projectListJSON, projectContextJSON, projectWorkersJSON
         case projectThreadsJSON, projectPendingJSON
+        case defaultSettingsJSON
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {

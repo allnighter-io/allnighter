@@ -220,6 +220,11 @@ public extension ContractRegistry {
         MCPToolSpec("project_recheck_workers", command: "project recheck-workers", summary: "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config/auth.",
                     params: [.init("project", required: true, summary: "Project id or name.")],
                     outputSchema: .projectWorkersJSON, errors: ["PROJECT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        // Default model & Substitutions — agents are readers here. Setting the Auto
+        // tier, the rosters, and the substitution toggle is the owner's config call
+        // (mirrors project approve/edit being human-only); only the read is projected.
+        MCPToolSpec("defaults_get", command: "defaults show", summary: "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness).",
+                    outputSchema: .defaultSettingsJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
     ]
 
     // MARK: - Commands (in scope)
@@ -705,6 +710,53 @@ public extension ContractRegistry {
             flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")],
             outputSchema: .projectWorkersJSON
         ),
+        // Default model & Substitutions — the Auto tier, the per-tier rosters
+        // (many-to-many membership), and the healthy-substitution toggle. Every
+        // command returns the whole DefaultSettingsJSON (with live readiness) so a
+        // caller always gets the resolved truth back.
+        CommandSpec(
+            "defaults show", summary: "Show the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Emit a DefaultSettingsJSON object.")],
+            outputSchema: .defaultSettingsJSON
+        ),
+        CommandSpec(
+            "defaults tier", summary: "Set which tier Auto draws from (flagship|balanced|fast).", milestone: .m1,
+            args: [ArgSpec("tier", required: true, summary: "flagship | balanced | fast.")],
+            flags: [FlagSpec("json", summary: "Emit a DefaultSettingsJSON object.")],
+            outputSchema: .defaultSettingsJSON
+        ),
+        CommandSpec(
+            "defaults assign", summary: "Add a model to a tier (or move it within that tier). Membership is many-to-many — assigning to one tier never removes it from another.", milestone: .m1,
+            args: [ArgSpec("model", required: true, summary: "Model id (see `alln models --json`).")],
+            flags: [
+                FlagSpec("tier", takesValue: true, valueType: "tier", summary: "flagship | balanced | fast (required)."),
+                FlagSpec("default", summary: "Place at the top of the tier (make it that tier's default)."),
+                FlagSpec("position", takesValue: true, valueType: "int", summary: "0-based index within the tier (default: append)."),
+                FlagSpec("json", summary: "Emit a DefaultSettingsJSON object."),
+            ],
+            mutuallyExclusiveFlags: [["default", "position"]],
+            outputSchema: .defaultSettingsJSON
+        ),
+        CommandSpec(
+            "defaults unassign", summary: "Remove a model from one tier (--tier) or from all tiers (default). Removing from every tier benches it from Auto & substitution.", milestone: .m1,
+            args: [ArgSpec("model", required: true, summary: "Model id.")],
+            flags: [
+                FlagSpec("tier", takesValue: true, valueType: "tier", summary: "Limit removal to one tier; omit to remove from all."),
+                FlagSpec("json", summary: "Emit a DefaultSettingsJSON object."),
+            ],
+            outputSchema: .defaultSettingsJSON
+        ),
+        CommandSpec(
+            "defaults substitutions", summary: "Turn healthy substitutions on or off. ON: a down model falls back to a ready model on the same tier. OFF: Auto uses only the tier default and waits if it's down.", milestone: .m1,
+            args: [ArgSpec("state", required: true, summary: "on | off.")],
+            flags: [FlagSpec("json", summary: "Emit a DefaultSettingsJSON object.")],
+            outputSchema: .defaultSettingsJSON
+        ),
+        CommandSpec(
+            "defaults reset", summary: "Restore the fresh-install tier seed and substitutions ON.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Emit a DefaultSettingsJSON object.")],
+            outputSchema: .defaultSettingsJSON
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
@@ -720,6 +772,8 @@ public extension ContractRegistry {
     static let m1Errors: [ErrorSpec] = [
         ErrorSpec("CLI_USAGE_ERROR", ruleId: "cli.usage.error", agentAction: "Re-run `alln docs <command>` and fix arguments.", requiresManual: true, retryable: false, explain: "The command was called with invalid or conflicting arguments. Consult the generated docs for the command and correct the invocation.", exitClass: .usage),
         ErrorSpec("CONTRACT_DRIFT", ruleId: "contract.drift", agentAction: "Run `alln dev export-contracts`, then rebuild.", requiresManual: true, retryable: false, explain: "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output."),
+        ErrorSpec("DEFAULTS_TIER_INVALID", ruleId: "defaults.tier.invalid", agentAction: "Use one of flagship | balanced | fast.", requiresManual: true, retryable: false, explain: "The tier name was not one of flagship, balanced, or fast.", exitClass: .usage),
+        ErrorSpec("DEFAULTS_MODEL_UNKNOWN", ruleId: "defaults.model.unknown", agentAction: "Run `alln models --json` and pass a known model id.", requiresManual: true, retryable: false, explain: "The model id is not in the catalog, so it cannot be assigned to a tier. List models and use a real id."),
         ErrorSpec("DOCTOR_CHECK_FAILED", ruleId: "doctor.check.failed", agentAction: "Run `alln doctor --json`.", requiresManual: false, retryable: true, explain: "A required doctor check failed. Inspect the structured report and address the named check, then retry."),
         ErrorSpec("SOURCE_NOT_FOUND", ruleId: "source.not_found", agentAction: "Run `alln doctor --json`; add/configure the missing source.", requiresManual: true, retryable: false, explain: "A required source CLI/runtime was not resolved on this machine. Install or locate it, then re-probe."),
         ErrorSpec("SOURCE_AUTH_EXPIRED", ruleId: "source.auth.expired", agentAction: "Re-authenticate the named source.", requiresManual: true, retryable: false, explain: "The source resolved but its authentication is invalid or expired. Sign in via the source's own login flow."),

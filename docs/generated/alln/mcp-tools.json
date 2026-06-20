@@ -1076,5 +1076,18 @@
       }
     ],
     "summary" : "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config\/auth."
+  },
+  {
+    "command" : "defaults show",
+    "errors" : [
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "defaults_get",
+    "outputSchema" : "defaultSettingsJSON",
+    "params" : [
+
+    ],
+    "summary" : "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness)."
   }
 ]

@@ -37,6 +37,7 @@ struct AllnighterCLI {
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
         case "team": await runTeam(args, runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
+        case "defaults": await DefaultsCLI.run(args, runtime: runtime)
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
         case "show": runShow(args, runtime)

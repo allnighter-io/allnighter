@@ -69,6 +69,26 @@ public struct TierMembership: Codable, Sendable, Equatable {
 
     public var assignedModelIds: Set<ModelID> { Set(flagship + balanced + fast) }
 
+    /// Add `id` to `tier` at `position` (clamped; nil = append), or move it within the
+    /// tier if already present. Other tiers are untouched — membership is many-to-many.
+    /// `position == 0` makes it that tier's default.
+    public mutating func assign(_ id: ModelID, to tier: SubstitutionTier, position: Int? = nil) {
+        var list = self[tier].filter { $0 != id }
+        let idx = position.map { Swift.max(0, Swift.min($0, list.count)) } ?? list.count
+        list.insert(id, at: idx)
+        self[tier] = list
+    }
+
+    /// Remove `id` from one tier, or from every tier (`tier == nil`). Removing from all
+    /// tiers benches the model from Auto & substitution (back to Unassigned).
+    public mutating func unassign(_ id: ModelID, from tier: SubstitutionTier? = nil) {
+        if let tier {
+            self[tier] = self[tier].filter { $0 != id }
+        } else {
+            for t in SubstitutionTier.allCases { self[t] = self[t].filter { $0 != id } }
+        }
+    }
+
     /// Cleans only **intra-tier** duplicates (a model listed twice in the *same* tier
     /// — first occurrence wins). Cross-tier membership is intentionally preserved: a
     /// model may live in several tiers. Returns the cleaned membership plus the ids

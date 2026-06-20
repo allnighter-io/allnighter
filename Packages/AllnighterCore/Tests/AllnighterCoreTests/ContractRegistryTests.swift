@@ -42,6 +42,8 @@ final class ContractRegistryTests: XCTestCase {
             "project threads", "project pending", "project stalled", "project context",
             "stalled list",
             "project workers", "project recheck-workers",
+            "defaults show", "defaults tier", "defaults assign", "defaults unassign",
+            "defaults substitutions", "defaults reset",
         ])
     }
 
@@ -59,6 +61,7 @@ final class ContractRegistryTests: XCTestCase {
             "pending_list", "pending_show", "pending_run",
             "project_stalled", "stalled_list",
             "project_list", "project_get", "project_context", "project_workers", "project_recheck_workers",
+            "defaults_get",
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))

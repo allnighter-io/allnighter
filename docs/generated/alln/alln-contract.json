@@ -2026,6 +2026,180 @@
 
       ],
       "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a DefaultSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "defaults show",
+      "outputSchema" : "defaultSettingsJSON",
+      "summary" : "Show the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now."
+    },
+    {
+      "args" : [
+        {
+          "name" : "tier",
+          "required" : true,
+          "summary" : "flagship | balanced | fast."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a DefaultSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "defaults tier",
+      "outputSchema" : "defaultSettingsJSON",
+      "summary" : "Set which tier Auto draws from (flagship|balanced|fast)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "model",
+          "required" : true,
+          "summary" : "Model id (see `alln models --json`)."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "tier",
+          "summary" : "flagship | balanced | fast (required).",
+          "takesValue" : true,
+          "valueType" : "tier"
+        },
+        {
+          "name" : "default",
+          "summary" : "Place at the top of the tier (make it that tier's default).",
+          "takesValue" : false
+        },
+        {
+          "name" : "position",
+          "summary" : "0-based index within the tier (default: append).",
+          "takesValue" : true,
+          "valueType" : "int"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a DefaultSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+        [
+          "default",
+          "position"
+        ]
+      ],
+      "name" : "defaults assign",
+      "outputSchema" : "defaultSettingsJSON",
+      "summary" : "Add a model to a tier (or move it within that tier). Membership is many-to-many — assigning to one tier never removes it from another."
+    },
+    {
+      "args" : [
+        {
+          "name" : "model",
+          "required" : true,
+          "summary" : "Model id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "tier",
+          "summary" : "Limit removal to one tier; omit to remove from all.",
+          "takesValue" : true,
+          "valueType" : "tier"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a DefaultSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "defaults unassign",
+      "outputSchema" : "defaultSettingsJSON",
+      "summary" : "Remove a model from one tier (--tier) or from all tiers (default). Removing from every tier benches it from Auto & substitution."
+    },
+    {
+      "args" : [
+        {
+          "name" : "state",
+          "required" : true,
+          "summary" : "on | off."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a DefaultSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "defaults substitutions",
+      "outputSchema" : "defaultSettingsJSON",
+      "summary" : "Turn healthy substitutions on or off. ON: a down model falls back to a ready model on the same tier. OFF: Auto uses only the tier default and waits if it's down."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a DefaultSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "defaults reset",
+      "outputSchema" : "defaultSettingsJSON",
+      "summary" : "Restore the fresh-install tier seed and substitutions ON."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
 
       ],
       "milestone" : "deferred",
@@ -2166,6 +2340,24 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "contract.drift"
+    },
+    {
+      "agentAction" : "Use one of flagship | balanced | fast.",
+      "code" : "DEFAULTS_TIER_INVALID",
+      "exitClass" : "usage",
+      "explain" : "The tier name was not one of flagship, balanced, or fast.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "defaults.tier.invalid"
+    },
+    {
+      "agentAction" : "Run `alln models --json` and pass a known model id.",
+      "code" : "DEFAULTS_MODEL_UNKNOWN",
+      "exitClass" : "operational",
+      "explain" : "The model id is not in the catalog, so it cannot be assigned to a tier. List models and use a real id.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "defaults.model.unknown"
     },
     {
       "agentAction" : "Run `alln doctor --json`.",
@@ -4121,6 +4313,19 @@
         }
       ],
       "summary" : "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config\/auth."
+    },
+    {
+      "command" : "defaults show",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "defaults_get",
+      "outputSchema" : "defaultSettingsJSON",
+      "params" : [
+
+      ],
+      "summary" : "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness)."
     }
   ],
   "nextActionKinds" : [

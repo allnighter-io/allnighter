@@ -800,6 +800,78 @@ Flags:
 
 Output schema: `projectWorkersJSON`.
 
+### `alln defaults show`
+
+Show the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now.
+
+Flags:
+- `--json` — Emit a DefaultSettingsJSON object.
+
+Output schema: `defaultSettingsJSON`.
+
+### `alln defaults tier`
+
+Set which tier Auto draws from (flagship|balanced|fast).
+
+Arguments:
+- `tier` (required) — flagship | balanced | fast.
+
+Flags:
+- `--json` — Emit a DefaultSettingsJSON object.
+
+Output schema: `defaultSettingsJSON`.
+
+### `alln defaults assign`
+
+Add a model to a tier (or move it within that tier). Membership is many-to-many — assigning to one tier never removes it from another.
+
+Arguments:
+- `model` (required) — Model id (see `alln models --json`).
+
+Flags:
+- `--tier <tier>` — flagship | balanced | fast (required).
+- `--default` — Place at the top of the tier (make it that tier's default).
+- `--position <int>` — 0-based index within the tier (default: append).
+- `--json` — Emit a DefaultSettingsJSON object.
+
+Mutually exclusive: `--default`, `--position`.
+
+Output schema: `defaultSettingsJSON`.
+
+### `alln defaults unassign`
+
+Remove a model from one tier (--tier) or from all tiers (default). Removing from every tier benches it from Auto & substitution.
+
+Arguments:
+- `model` (required) — Model id.
+
+Flags:
+- `--tier <tier>` — Limit removal to one tier; omit to remove from all.
+- `--json` — Emit a DefaultSettingsJSON object.
+
+Output schema: `defaultSettingsJSON`.
+
+### `alln defaults substitutions`
+
+Turn healthy substitutions on or off. ON: a down model falls back to a ready model on the same tier. OFF: Auto uses only the tier default and waits if it's down.
+
+Arguments:
+- `state` (required) — on | off.
+
+Flags:
+- `--json` — Emit a DefaultSettingsJSON object.
+
+Output schema: `defaultSettingsJSON`.
+
+### `alln defaults reset`
+
+Restore the fresh-install tier seed and substitutions ON.
+
+Flags:
+- `--json` — Emit a DefaultSettingsJSON object.
+
+Output schema: `defaultSettingsJSON`.
+
 ## Commands (named but deferred)
 
 - `alln pending stop` — Stop a running Pending item.
@@ -812,6 +884,8 @@ Output schema: `projectWorkersJSON`.
 | --- | --- | --- | --- |
 | `CLI_USAGE_ERROR` | yes | no | Re-run `alln docs <command>` and fix arguments. |
 | `CONTRACT_DRIFT` | yes | no | Run `alln dev export-contracts`, then rebuild. |
+| `DEFAULTS_TIER_INVALID` | yes | no | Use one of flagship | balanced | fast. |
+| `DEFAULTS_MODEL_UNKNOWN` | yes | no | Run `alln models --json` and pass a known model id. |
 | `DOCTOR_CHECK_FAILED` | no | yes | Run `alln doctor --json`. |
 | `SOURCE_NOT_FOUND` | yes | no | Run `alln doctor --json`; add/configure the missing source. |
 | `SOURCE_AUTH_EXPIRED` | yes | no | Re-authenticate the named source. |
