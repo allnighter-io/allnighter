@@ -575,9 +575,25 @@ private struct ThreadMutatingRunRow: View {
     @ViewBuilder private var content: some View {
         switch turn.status {
         case .running, .queued, .draft:
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                Text("Working…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+            if let partial = turn.text, !partial.isEmpty {
+                // Live streamed text from the running worker — plain while in flight so
+                // in-progress Markdown can't break layout; the settled state re-renders
+                // through the Markdown engine.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(partial)
+                        .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
+                            .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                    }
+                }
+            } else {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Working…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                }
             }
         case .failed, .timedOut:
             // No durable run/return means a system note such as missing dir,

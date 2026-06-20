@@ -35,6 +35,9 @@ public enum RunEventKind {
     public static let runStatusChanged = "run.status_changed"
     public static let workerStatusChanged = "worker.status_changed"
     public static let workerOutput = "worker.output"
+    /// Live streaming partial: the FULL accumulated visible answer text so far for a
+    /// worker (03_Mac_Streaming). Payload: `runId`, `workerId`, `text`, `truncated`.
+    public static let workerAnswerDelta = "worker.answer_delta"
     public static let synthesisStarted = "synthesis.started"
     public static let synthesisCompleted = "synthesis.completed"
     public static let synthesisFailed = "synthesis.failed"

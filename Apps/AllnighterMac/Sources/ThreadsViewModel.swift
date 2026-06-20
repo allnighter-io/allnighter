@@ -376,10 +376,27 @@ final class ThreadsViewModel {
         )
         let service = makeRunService()
         let threadStore = store
+        let turnId = turn.id
 
         Task { @MainActor in
-            let result = await service.run(request, origin: .gui, runId: runId)
-            var settled = turn
+            // Consume live answer-delta events so the running turn shows streamed text
+            // before the worker exits (mirrors the worker_chat streaming path).
+            let (events, continuation) = AsyncStream<RunEvent>.makeStream()
+            let consumer = Task { @MainActor in
+                for await event in events where event.kind == RunEventKind.workerAnswerDelta {
+                    guard let text = event.payload["text"]?.stringValue,
+                          var running = threadStore.get(threadId)?.turn(id: turnId),
+                          running.status == .running else { continue }
+                    running.text = text
+                    running.partialOutputTruncated = event.payload["truncated"]?.boolValue ?? false
+                    _ = try? threadStore.updateTurn(running, inThreadId: threadId, now: Date())
+                    reload()
+                }
+            }
+            let result = await service.run(request, origin: .gui, runId: runId, events: continuation)
+            await consumer.value
+
+            var settled = threadStore.get(threadId)?.turn(id: turnId) ?? turn
             settled.completedAt = Date()
             switch result {
             case .success(let run):

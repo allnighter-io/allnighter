@@ -85,3 +85,4 @@ docs/qa/gui/_captures/
 # Contract export writes to docs/generated/alln/ (repo root). Ignore accidental
 # package-cwd duplicates from `swift run alln dev export-contracts` inside Packages/.
 Packages/AllnighterCore/docs/
+.aider*

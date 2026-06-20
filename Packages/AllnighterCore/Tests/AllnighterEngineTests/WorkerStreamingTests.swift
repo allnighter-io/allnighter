@@ -66,6 +66,44 @@ final class GrokStreamParserTests: XCTestCase {
     }
 }
 
+final class CursorStreamParserTests: XCTestCase {
+
+    func testOnlyDeltaFormAssistantEventsBecomeAnswerText() {
+        let parser = CursorStreamParser()
+        // The spec's verified sequence: five character-level deltas (timestamp_ms,
+        // no model_call_id), then a duplicate full end-of-turn flush (no timestamp_ms),
+        // then the canonical result.
+        let ndjson = """
+        {"type":"system","subtype":"init","session_id":"s","model":"Composer 2.5"}
+        {"type":"user","message":{"role":"user","content":[{"type":"text","text":"Count 1-3"}]}}
+        {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"1"}]},"timestamp_ms":1}
+        {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"\\n"}]},"timestamp_ms":2}
+        {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"2"}]},"timestamp_ms":3}
+        {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"\\n"}]},"timestamp_ms":4}
+        {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"3"}]},"timestamp_ms":5}
+        {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"1\\n2\\n3"}]}}
+        {"type":"result","subtype":"success","is_error":false,"result":"1\\n2\\n3"}
+
+        """
+        let events = parser.receiveStdout(Data(ndjson.utf8))
+        let deltas = events.compactMap { event -> String? in
+            if case .answerDelta(let text, _, _) = event { return text }
+            return nil
+        }
+        // Five incremental deltas; the no-timestamp flush + result are NOT deltas.
+        XCTAssertEqual(deltas, ["1", "\n", "2", "\n", "3"])
+        // Canonical final answer comes from result.result.
+        XCTAssertEqual(parser.finalAnswer(result: CommandResult(exitCode: 0), outputFileText: nil), "1\n2\n3")
+    }
+
+    func testBufferedFlushWithModelCallIdIsSkipped() {
+        let parser = CursorStreamParser()
+        let ndjson = #"{"type":"assistant","message":{"content":[{"type":"text","text":"X"}]},"timestamp_ms":1,"model_call_id":"mc"}"# + "\n"
+        let events = parser.receiveStdout(Data(ndjson.utf8))
+        XCTAssertFalse(events.contains { if case .answerDelta = $0 { return true }; return false })
+    }
+}
+
 final class WorkerInvokeStreamingTests: XCTestCase {
 
     private func grokManifest() -> DriverManifest {

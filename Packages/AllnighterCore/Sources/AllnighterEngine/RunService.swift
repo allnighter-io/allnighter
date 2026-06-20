@@ -247,10 +247,49 @@ public actor RunService {
         )
         try? runStore.save(run, models: models)
 
-        let outcome = await runner.invoke(
-            worker: model, manifest: manifest, prompt: assembled, effort: effort,
-            workingDirectoryOverride: repoRoot
-        )
+        // Stream the single execution worker live when it can: emit the accumulated
+        // visible answer as `workerAnswerDelta` events so the timeline updates before
+        // the process exits. Otherwise the one-shot invoke. Same terminal outcome.
+        let outcome: WorkerRunOutcome
+        if manifest.canStream, runner.supportsStreaming,
+           let parser = WorkerStreamParsers.make(for: manifest) {
+            var buffer = StreamingPartialBuffer()
+            var terminal: WorkerRunOutcome?
+            do {
+                for try await streamEvent in runner.invokeStreaming(
+                    worker: model, manifest: manifest, prompt: assembled, parser: parser,
+                    effort: effort, workingDirectoryOverride: repoRoot
+                ) {
+                    switch streamEvent {
+                    case .answerDelta(let text, _, _):
+                        if buffer.append(text) {
+                            emit(RunEventKind.workerAnswerDelta, [
+                                "runId": .string(runId), "workerId": .string(worker.id),
+                                "text": .string(buffer.visibleText),
+                                "truncated": .bool(buffer.isTruncated),
+                            ])
+                        }
+                    case .completed(let o), .failed(let o):
+                        terminal = o
+                    case .started, .rawEvent, .toolActivity:
+                        break
+                    }
+                }
+            } catch { /* terminal handled below */ }
+            // Flush the final accumulated text before settlement.
+            emit(RunEventKind.workerAnswerDelta, [
+                "runId": .string(runId), "workerId": .string(worker.id),
+                "text": .string(buffer.visibleText), "truncated": .bool(buffer.isTruncated),
+            ])
+            outcome = terminal ?? WorkerRunOutcome(
+                status: .failed, errorKind: .emptyOutput,
+                errorReason: "stream ended without a terminal event")
+        } else {
+            outcome = await runner.invoke(
+                worker: model, manifest: manifest, prompt: assembled, effort: effort,
+                workingDirectoryOverride: repoRoot
+            )
+        }
         let answer = WorkerAnswer(
             workerId: worker.id, modelId: model.id, status: outcome.status, output: outcome.output,
             errorKind: outcome.errorKind, errorReason: outcome.errorReason,

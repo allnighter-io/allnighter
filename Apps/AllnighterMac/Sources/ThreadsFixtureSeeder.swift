@@ -30,6 +30,8 @@ struct ThreadsFixtureSeeder {
             seedFixtureMutatingRun()
         case "thread-streaming":
             seedFixtureStreamingChat()
+        case "thread-streaming-build":
+            seedFixtureStreamingBuild()
         case "home-rail":
             seedFixtureRail()
             setSelectedThreadId(nil)
@@ -273,6 +275,29 @@ struct ThreadsFixtureSeeder {
             workerId: workerId)
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    /// A mutating (Auto/execution) run mid-stream: the `mutatingRun` turn is
+    /// `.running` with partial text already streamed in — the path the default Auto
+    /// run actually takes (RunService), proving the live render vs. bare "Working…".
+    private func seedFixtureStreamingBuild() {
+        let id = "fixture-streaming-build"
+        _ = try? store.create(id: id, title: "Add a health endpoint", now: Date(),
+                              workingDir: "/Users/you/code/app")
+        let workerId = models.first { $0.id == "model_cursor_composer_25" }?.id ?? models.first?.id ?? "model_cursor_composer_25"
+        let user = ThreadTurn(
+            id: "fixture-streaming-build-user", threadId: id, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user,
+            text: "Add a /health endpoint that returns 200 OK and run the tests.")
+        let run = ThreadTurn(
+            id: "fixture-streaming-build-turn", threadId: id, kind: .mutatingRun, status: .running,
+            createdAt: Date(), author: .worker,
+            text: "I'll add a `/health` route. Looking at the router setup in `app/server.swift`… adding a handler that returns `Response(status: .ok, body: \"OK\")`, wiring it into the route table, then I'll run `swift test` to confir",
+            workerId: workerId, runId: "fixture-streaming-build-run")
+        _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+        _ = try? store.appendTurn(run, toThreadId: id, now: Date())
         reload()
         setSelectedThreadId(id)
     }

@@ -30,6 +30,27 @@
     "doneSignal": "exit_code",
     "sentinel": null
   },
+  "streaming": {
+    "supported": true,
+    "mode": "jsonl_stdout",
+    "args": [
+      "-p",
+      "--output-format",
+      "stream-json",
+      "--stream-partial-output",
+      "--model",
+      "{{model}}",
+      "--trust",
+      "--workspace",
+      "{{workingDir}}",
+      "{{prompt}}"
+    ],
+    "partialOutput": true,
+    "answerDeltaPaths": ["$.message.content[*].text"],
+    "finalAnswerSource": "event",
+    "stripAnsi": true,
+    "visibleReasoning": false
+  },
   "setup": {
     "bins": ["agent", "cursor-agent"],
     "knownPaths": ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"],
