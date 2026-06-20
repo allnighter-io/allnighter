@@ -92,6 +92,9 @@ struct RoutingComposer: View {
     @State private var defaultSettings: DefaultModelSettings = .fresh
     @State private var text: String = ""
     @State private var targetOpen = false
+    /// Keyboard/hover navigation in the target popover: which visible row is highlighted.
+    @State private var targetHighlight = 0
+    @FocusState private var targetKeyFocus: Bool
     @State private var effortOpen = false
     @State private var fileSearchOpen = false
     @State private var fileSearchQuery = ""
@@ -492,9 +495,9 @@ struct RoutingComposer: View {
                 Text(name).font(ALFont.mono).foregroundStyle(ALColor.textMuted).lineLimit(1)
             }
         } else {
+            // Pinned model: just the model name. Effort lives in its own chip now — do
+            // NOT repeat it here (that produced the "… · Med   Med ⌄" duplicate).
             Text(singleModelName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
-            Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-            Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textFaint)
         }
     }
 
@@ -710,6 +713,18 @@ struct RoutingComposer: View {
         .padding(6)
         .frame(width: locksTeam ? 300 : 320)
         .background(ALColor.surface)
+        // Keyboard nav: ↑/↓ move the highlight, ⏎ picks it. The panel is focusable so it
+        // receives keys even on the Model tab (no text field); on the Team tab the single-
+        // line search field passes up/down through to here.
+        .focusable()
+        .focused($targetKeyFocus)
+        .focusEffectDisabled()
+        .onAppear { targetHighlight = 0; targetKeyFocus = true }
+        .onChange(of: targetTab) { _, _ in targetHighlight = 0 }
+        .onChange(of: teamSearch) { _, _ in targetHighlight = 0 }
+        .onKeyPress(.downArrow) { moveTargetHighlight(1); return .handled }
+        .onKeyPress(.upArrow) { moveTargetHighlight(-1); return .handled }
+        .onKeyPress(.return) { activateHighlightedTarget(); return .handled }
     }
 
     // One toggle, two forms — Team OR Worker. Lightened from the boxed segmented control
@@ -832,6 +847,56 @@ struct RoutingComposer: View {
     /// pinned model below must not leave Auto looking selected too.
     private var isAutoSelected: Bool { team == nil && pinnedWorker == nil }
 
+    // MARK: target keyboard / hover navigation
+
+    /// One navigable target row.
+    enum TargetItem: Equatable { case auto, model(String), team(String) }
+
+    /// The teams shown in the Team tab, in render order (ranked, or search results).
+    private var visibleTeams: [ComposeTeam] {
+        let all = appModel.composeAllTeams()
+        let q = teamSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.isEmpty { let r = rankedTeams(all); return r.top + r.rest }
+        return all.filter { matchesTeamQuery($0, q) }
+    }
+
+    /// The flat, ordered list of selectable rows for the current tab — the index space
+    /// that ↑/↓ and hover move through.
+    private var targetItems: [TargetItem] {
+        if locksTeam { return appModel.composeBench.map { .model($0.id) } }
+        if targetTab == .model { return [.auto] + appModel.composeBench.map { .model($0.id) } }
+        return visibleTeams.map { .team($0.id) }
+    }
+
+    private var highlightedTargetItem: TargetItem? {
+        targetItems.indices.contains(targetHighlight) ? targetItems[targetHighlight] : nil
+    }
+
+    private func highlightTarget(_ item: TargetItem) {
+        if let i = targetItems.firstIndex(of: item) { targetHighlight = i }
+    }
+
+    private func moveTargetHighlight(_ delta: Int) {
+        let n = targetItems.count
+        guard n > 0 else { return }
+        targetHighlight = (targetHighlight + delta + n) % n
+    }
+
+    private func activateHighlightedTarget() {
+        switch highlightedTargetItem {
+        case .auto:
+            team = nil; pinnedWorker = nil; targetOpen = false
+        case .model(let id):
+            if let m = appModel.composeBench.first(where: { $0.id == id }), m.ready {
+                pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false
+            }
+        case .team(let id):
+            if let t = appModel.composeAllTeams().first(where: { $0.id == id }) { selectTeam(t) }
+        case nil:
+            break
+        }
+    }
+
     /// One-line row label: bold name + a quiet parenthetical — `Opus 4.8 (Claude)`,
     /// `Code Core (7 workers)`. Collapses the old two-line name/subtitle rows.
     private func rowLabel(_ name: String, _ detail: String, primary: Bool) -> some View {
@@ -847,7 +912,8 @@ struct RoutingComposer: View {
     // "Auto" is pinned to the very top of the Model tab — the default, the 95% case.
     // One line, like every other row: name + a quiet parenthetical.
     private var defaultTeamRow: some View {
-        Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
+        let highlighted = highlightedTargetItem == .auto
+        return Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
             HStack(spacing: 8) {
                 Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textSecondary)
                     .frame(width: 18, height: 18)
@@ -858,10 +924,12 @@ struct RoutingComposer: View {
             }
             .padding(.horizontal, 9).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isAutoSelected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(isAutoSelected ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
+            .background(highlighted ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(highlighted ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { if $0 { highlightTarget(.auto) } }
     }
 
     private func teamSectionLabel(_ text: String) -> some View {
@@ -885,7 +953,8 @@ struct RoutingComposer: View {
             .help(t.isFavorite ? "Remove from favorites" : "Add to favorites")
         }
         .padding(.horizontal, 9).padding(.vertical, 8)
-        .background(team == t.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .background(highlightedTargetItem == .team(t.id) ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .onHover { if $0 { highlightTarget(.team(t.id)) } }
     }
 
     /// Select a team: pin it, sync the lane to its craft (no lane tabs anymore), and
@@ -940,7 +1009,9 @@ struct RoutingComposer: View {
         }
         .padding(.horizontal, 9).padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(pinnedWorker == m.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .background(highlightedTargetItem == .model(m.id) ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .contentShape(Rectangle())
+        .onHover { if m.ready, $0 { highlightTarget(.model(m.id)) } }
     }
 
     // Effort is its OWN axis — how hard the model reasons, not who runs — so it lives in

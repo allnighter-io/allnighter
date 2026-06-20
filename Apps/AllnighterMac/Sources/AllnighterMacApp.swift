@@ -15,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !Self.isTesting else { return }   // stay accessory under XCTest
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // LSUIElement apps promoted to .regular get NO main menu from SwiftUI — so the
+        // standard Edit menu is absent and ⌘V/⌘C/⌘X/⌘Z have no item to route to (they
+        // just beep in text fields). Install a real menu bar so editing shortcuts work.
+        installMainMenu()
         MacNotificationDelivery.shared.configure()
         #if DEBUG
         // Grant fixture: request Screen Recording at launch, before SwiftUI paints.
@@ -27,6 +31,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ))
         }
         #endif
+    }
+
+    /// Build a standard AppKit main menu (App · Edit · Window). The Edit items use the
+    /// first-responder editing selectors (`paste:`, `copy:`, …) so they route to whatever
+    /// text view is focused — which is exactly what was missing.
+    private func installMainMenu() {
+        let appName = ProcessInfo.processInfo.processName
+        let mainMenu = NSMenu()
+
+        // App menu
+        let appItem = NSMenuItem()
+        mainMenu.addItem(appItem)
+        let appMenu = NSMenu()
+        appItem.submenu = appMenu
+        appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthers = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Quit \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        // Edit menu — the part that fixes the beep.
+        let editItem = NSMenuItem()
+        mainMenu.addItem(editItem)
+        let editMenu = NSMenu(title: "Edit")
+        editItem.submenu = editMenu
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        // Window menu (standard).
+        let windowItem = NSMenuItem()
+        mainMenu.addItem(windowItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowItem.submenu = windowMenu
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        NSApp.windowsMenu = windowMenu
+
+        NSApp.mainMenu = mainMenu
     }
 }
 

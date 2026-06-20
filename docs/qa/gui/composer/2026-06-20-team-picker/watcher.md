@@ -5,10 +5,11 @@ Command: bash scripts/gui_proof.sh compose-target-inline
 
 ## VERDICT: PASS
 
-Team tab, empty query: the list is NEVER blank — Favorites first (Code Core, filled
-star), then featured built-in starters (Bug Hunt, GUI Bug Hunt, Security Review,
-Architecture Pressure, Release Proof) each as one-line "Name (N workers)" rows with a
-small lane glyph + star. Fills the min-height. No clipping/overlap.
+Target popover Team tab: the top row (Code Core) is highlighted by DEFAULT — the new
+keyboard/hover navigation highlight (↑/↓ move it, hover follows, ⏎ picks; wired like the
+existing skill-picker). Checkmark still marks the actual selection separately. Effort
+chip "Med" present; the target chip no longer repeats effort (no "· Med  Med" duplicate).
+One-line rows, never-blank ranked list. No clipping/overlap.
 
 P1 — broken (blocks): none
-P2 — advisory: none
+P2 — advisory: arrow-key handling relies on NSPopover focus — verify live.
