@@ -97,13 +97,19 @@ struct RoutingComposer: View {
 
     @State private var composerFocused = false
     @State private var editorHeight = ComposeEditorMetrics.minHeight
+    /// First-edit latch — fires `onEdit` once (the Pending-review modal un-arms on edit).
+    @State private var didEdit = false
 
     let placeholder: String
     private let big: Bool
     /// Lock the team (Send-to-team launcher modal — team already chosen).
     private let locksTeam: Bool
     private let showsProject: Bool
+    /// Editor grow ceiling before it scrolls internally. Taller in the Pending modal.
+    private let editorMaxHeight: CGFloat
     var onSend: ((ComposeRouting) -> Void)?
+    /// Fired once on the first user edit (Pending review modal un-arms Pending→Draft).
+    var onEdit: (() -> Void)?
 
     init(
         team: String? = nil,
@@ -113,7 +119,9 @@ struct RoutingComposer: View {
         locksTeam: Bool = false,
         showsProject: Bool = false,
         initialText: String = "",
-        onSend: ((ComposeRouting) -> Void)? = nil
+        editorMaxHeight: CGFloat = ComposeEditorMetrics.maxHeight,
+        onSend: ((ComposeRouting) -> Void)? = nil,
+        onEdit: (() -> Void)? = nil
     ) {
         _team = State(initialValue: team)
         _effort = State(initialValue: .med)
@@ -124,7 +132,9 @@ struct RoutingComposer: View {
         self.big = big
         self.locksTeam = locksTeam
         self.showsProject = showsProject
+        self.editorMaxHeight = editorMaxHeight
         self.onSend = onSend
+        self.onEdit = onEdit
         self.placeholder = big
             ? "Describe the work — a question, a screen to redesign, a change to ship…"
             : "Reply, or start the next turn…"
@@ -143,6 +153,7 @@ struct RoutingComposer: View {
         }
         .onChange(of: text) { _, _ in
             updateFileSearchFromText()
+            if !didEdit { didEdit = true; onEdit?() }
         }
         .onChange(of: projects.activeProjectId) { _, _ in
             closeFileSearch()
@@ -216,7 +227,7 @@ struct RoutingComposer: View {
                     text: $text,
                     contentHeight: $editorHeight,
                     isFocused: $composerFocused,
-                    maxHeight: ComposeEditorMetrics.maxHeight,
+                    maxHeight: editorMaxHeight,
                     onCommand: handleEditorCommand
                 )
                 .padding(.horizontal, 10).padding(.top, 6)

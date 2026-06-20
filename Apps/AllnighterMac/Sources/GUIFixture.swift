@@ -142,22 +142,29 @@ enum GUIFixture {
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// Deep-link: open the Pending queue screen seeded with sample armed work.
-    static var opensPending: Bool { active == "pending-queue" }
+    static var opensPending: Bool { active == "pending-queue" || active == "pending-review" }
+
+    /// Open the composer-in-modal review over the first pending item.
+    static var opensPendingReview: Bool { active == "pending-review" }
 
     /// Seed a temp Pending store with sample armed work for the pending fixtures
     /// (`pending-queue` = the screen, `pending-pill` = home + the top-bar pill).
     static func seededPendingService(models: [Model]) -> PendingService? {
-        guard active == "pending-queue" || active == "pending-pill" else { return nil }
+        guard active == "pending-queue" || active == "pending-pill" || active == "pending-review" else { return nil }
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("alln-pending-fixture", isDirectory: true)
-        try? FileManager.default.removeItem(at: root)
         let service = PendingService(store: PendingStore(rootDirectory: root), models: models)
-        for prompt in [
-            "Add a dark-mode toggle to the settings panel and wire it to the theme store.",
-            "Audit the auth redirect loop on sign-in and propose a fix.",
-            "Draft release notes for the 0.7 build from the recent commits.",
-        ] {
-            _ = try? service.add(.init(prompt: prompt, workerToken: "claude", submit: true))
+        // Seed once per store. RootView builds the service for the screen AND the
+        // title-bar count, so this runs more than once — re-deleting would mint new
+        // ids each call and break id-keyed lookups (e.g. the review modal's prompt).
+        if (try? service.list().isEmpty) ?? true {
+            for prompt in [
+                "Add a dark-mode toggle to the settings panel and wire it to the theme store.",
+                "Audit the auth redirect loop on sign-in and propose a fix.",
+                "Draft release notes for the 0.7 build from the recent commits.",
+            ] {
+                _ = try? service.add(.init(prompt: prompt, workerToken: "claude", submit: true))
+            }
         }
         return service
     }
@@ -257,6 +264,7 @@ enum GUIFixture {
         ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
         ("pending-queue", "Pending — queued work screen (PENDQ GUI)"),
         ("pending-pill", "Home — top-bar 'N pending' pill (PENDQ GUI)"),
+        ("pending-review", "Pending — composer-in-modal review (PENDQ GUI)"),
         ("compose-target-chat", "Compose — route target popover (native popover)"),
         ("compose-team", "Compose — team target (name · workers, not fake model)"),
         ("compose-file-reference", "Compose — file reference picker"),
@@ -651,6 +659,7 @@ enum GUIFixture {
     static var opensCommandPalette: Bool { false }
     static var opensFloorReader: Bool { false }
     static var opensPending: Bool { false }
+    static var opensPendingReview: Bool { false }
     static var opensHomeWorkspace: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
     static func seededPendingService(models: [Model]) -> PendingService? { nil }

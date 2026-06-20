@@ -8,11 +8,21 @@ import AllnighterEngine
 /// (→ `PendingService`). Color is earned: amber only on the count + the running dot.
 struct PendingView: View {
     @State private var viewModel: PendingViewModel
+    /// The pending item under review — opens the composer in a modal.
+    @State private var reviewTarget: ReviewTarget?
     var onClose: () -> Void
 
     init(service: PendingService, onClose: @escaping () -> Void) {
         _viewModel = State(initialValue: PendingViewModel(service: service))
         self.onClose = onClose
+    }
+
+    /// A pending row opened for review (composer-in-modal).
+    struct ReviewTarget: Identifiable, Equatable {
+        let item: PendingItemJSON
+        let position: Int
+        let projectName: String
+        var id: String { item.pendingItem.id }
     }
 
     var body: some View {
@@ -36,6 +46,37 @@ struct PendingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(ALColor.base)
+        .onAppear {
+            #if DEBUG
+            if GUIFixture.opensPendingReview, reviewTarget == nil,
+               let group = viewModel.queue.projects.first, let first = group.pending.first {
+                reviewTarget = ReviewTarget(item: first, position: 1, projectName: group.projectName ?? "Unassigned")
+            }
+            #endif
+        }
+        .overlay {
+            if let target = reviewTarget {
+                PendingReviewModal(
+                    target: target,
+                    initialPrompt: viewModel.prompt(for: target.item.pendingItem.id),
+                    onEdit: { viewModel.unarm(target.item.pendingItem.id) },
+                    onResubmit: { routing in
+                        viewModel.rearm(
+                            target.item.pendingItem.id,
+                            prompt: routing.text,
+                            team: routing.team,
+                            worker: routing.team == nil ? routing.to : nil
+                        )
+                        reviewTarget = nil
+                    },
+                    onRemove: {
+                        viewModel.remove(target.item.pendingItem.id)
+                        reviewTarget = nil
+                    },
+                    onClose: { reviewTarget = nil }
+                )
+            }
+        }
     }
 
     // MARK: - Header
@@ -90,6 +131,14 @@ struct PendingView: View {
             }
             ForEach(Array(group.pending.enumerated()), id: \.element.pendingItem.id) { idx, item in
                 queueRow(item, position: idx + 1, running: false)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        reviewTarget = ReviewTarget(
+                            item: item,
+                            position: idx + 1,
+                            projectName: group.projectName ?? "Unassigned"
+                        )
+                    }
             }
         }
     }
@@ -133,5 +182,78 @@ struct PendingView: View {
         if let team = target.teamPresetId, !team.isEmpty { return team }
         if let worker = target.preferredWorkerIds.first ?? target.workerIds.first { return worker }
         return "auto"
+    }
+}
+
+/// Reviewing a pending item opens the **composer in a modal** (founder: "don't build a
+/// review drawer — open the composer in the panel"). Slim header naming its place in
+/// line + project; the real `RoutingComposer` prefilled (taller, scrolls internally);
+/// footer Remove-from-queue on the left, the composer's own send = re-submit on the
+/// right. Editing un-arms (Pending→Draft); sending re-arms.
+private struct PendingReviewModal: View {
+    let target: PendingView.ReviewTarget
+    let initialPrompt: String
+    let onEdit: () -> Void
+    let onResubmit: (ComposeRouting) -> Void
+    let onRemove: () -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55).ignoresSafeArea().onTapGesture(perform: onClose)
+            VStack(spacing: 0) {
+                header
+                Divider().overlay(ALColor.borderSubtle)
+                RoutingComposer(
+                    team: target.item.target.teamPresetId,
+                    big: true,
+                    showsProject: false,
+                    initialText: initialPrompt,
+                    editorMaxHeight: 360,
+                    onSend: onResubmit,
+                    onEdit: onEdit
+                )
+                .padding(16)
+                footer
+            }
+            .frame(maxWidth: 640)
+            .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+            .overlay(RoundedRectangle(cornerRadius: ALRadius.lg).stroke(ALColor.borderDefault, lineWidth: 1))
+            .shadow(color: .black.opacity(0.45), radius: 32, y: 14)
+            .padding(40)
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Text("#\(target.position) in line").font(ALFont.mono(12, .semibold)).foregroundStyle(ALColor.textSecondary)
+            Text("·").foregroundStyle(ALColor.textFaint)
+            Text(target.projectName).font(ALFont.sans(12)).foregroundStyle(ALColor.textMuted)
+            Spacer()
+            Button(action: onClose) {
+                Image(systemName: "xmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textMuted)
+                    .frame(width: 26, height: 26)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(ALColor.active))
+            }
+            .buttonStyle(.plain).help("Close")
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+    }
+
+    private var footer: some View {
+        HStack {
+            Button(action: onRemove) {
+                HStack(spacing: 5) {
+                    Image(systemName: "trash").font(.system(size: 11))
+                    Text("Remove from queue").font(ALFont.sans(12, .medium))
+                }
+                .foregroundStyle(ALColor.textMuted)
+            }
+            .buttonStyle(.plain).help("Remove this item from the queue")
+            Spacer()
+            Text("Send re-submits to the queue").font(ALFont.sans(11)).foregroundStyle(ALColor.textFaint)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 }
