@@ -221,7 +221,7 @@ Evaluated on 2026-06-19 from installed CLI help plus current driver manifests.
 | --- | --- | --- | --- |
 | Codex | `codex exec ... -o {{outputFile}} {{prompt}}` | `codex exec --json` prints JSONL events to stdout. | Supported after parser as completed-message snapshots, not token deltas. Keep `-o {{outputFile}}` for canonical final answer; parse JSONL stdout for `agent_message` snapshots/status/tool activity. |
 | Claude Code | `claude -p {{prompt}} --model {{model}}` | `claude -p --output-format stream-json`; real CLI v2.1.183 sample requires `--verbose` and `--include-partial-messages` for text deltas. | Supported after parser with true incremental `text_delta` output. Use `--output-format stream-json --include-partial-messages --verbose`; parse only assistant text deltas into visible answer. |
-| Cursor Agent | `agent -p --output-format text ...` | `agent -p --output-format stream-json`; help also exposes `--stream-partial-output`. | Supported after parser. Use `--output-format stream-json --stream-partial-output`; parse text deltas. |
+| Cursor Agent | `agent -p --output-format text ...` | `agent -p --output-format stream-json`; live runs confirm `--stream-partial-output` emits character-level assistant deltas plus duplicate flushes. | Supported after parser with true incremental assistant deltas. Use `--output-format stream-json --stream-partial-output`; append only delta-form assistant events and reconcile with `result.result`. |
 | Grok Build | `grok -p {{prompt}} ... --output-format plain` | Help exposes `--output-format streaming-json` for headless mode. | Likely supported after parser. Verify event schema with a tiny real run before claiming product support. |
 | Antigravity | `agy --print {{prompt}} ...` | Current `agy --help` shows no structured output/stream flag. | Not V1 stream-capable unless the CLI confirms a hidden or newer stream mode. Final-output fallback only. |
 | Manual paste | no process | none | Not applicable. |
@@ -349,17 +349,63 @@ agent -p --output-format stream-json --stream-partial-output
 Parser requirements:
 
 - Treat stdout as JSONL.
-- Extract streamed partial output as visible text deltas.
-- Do not render tool-call details as answer text.
-- Handle sessions that emit a final JSON object after partials without
-  duplicating the final answer.
+- Recommended headless invocation is `agent -p --output-format stream-json
+  --stream-partial-output --model {{model}} --trust --workspace {{workingDir}}
+  {{prompt}}`.
+- `--trust` auto-trusts the workspace in headless mode; `--force`/`--yolo`
+  auto-allow shell commands and are separate from trust.
+- `--approve-mcps` auto-approves MCP servers when needed.
+- Event types seen/expected: `system` / `subtype: "init"` for session metadata,
+  `user` for prompt echo, `assistant` for visible text/delta/flush events,
+  `tool_call` / `subtype: "started"|"completed"` for tool activity, `result` /
+  `subtype: "success"` for terminal success. Official docs say `thinking` is
+  suppressed in print mode.
+- Visible assistant text path is `$.message.content[*].text` where
+  `$.message.content[*].type == "text"`.
+- With `--stream-partial-output`, append only `$.type == "assistant"` events
+  where `$.timestamp_ms` is present and `$.model_call_id` is absent. These are
+  small incremental deltas, not growing prefixes.
+- Skip `assistant` events where `$.timestamp_ms` and `$.model_call_id` are both
+  present; live/forum evidence classifies these as duplicate buffered flushes
+  before tool calls.
+- Skip `assistant` events where `$.timestamp_ms` is absent; these are duplicate
+  full end-of-turn flushes when partial output is enabled.
+- Without `--stream-partial-output`, `assistant` events at the same text path are
+  full message segments between tool calls, not deltas.
+- Canonical final answer is `$.type == "result"` / `$.result`; it concatenates
+  all assistant segments across the run, including text before and after tool
+  calls.
+- Dedupe strategy: stream delta-form `assistant` events into the running turn,
+  skip duplicate flushes, then use `result.result` to verify/replace/repair the
+  accumulated text at terminal settlement. Do not append `result.result` as one
+  more delta.
+- Do not render as chat answer text: `system`, `user`, `tool_call` started or
+  completed payloads, `thinking`, `result` as a delta, `assistant` duplicate
+  flushes, or tool-result payloads such as
+  `tool_call.readToolCall.result.success.content`.
+- Success terminal event is `$.type == "result"`, `$.subtype == "success"`,
+  `$.is_error == false`, with `duration_ms`, `duration_api_ms`, `session_id`,
+  optional `request_id`, and `usage` fields such as `inputTokens`,
+  `outputTokens`, `cacheReadTokens`, and `cacheWriteTokens`.
+- There is no documented guaranteed in-band stream error event. Startup/auth/flag
+  errors and run failures exit non-zero, usually `1`, write to stderr, and may
+  end the stream without a `result` event. Treat missing terminal `result` plus
+  non-zero exit as failure.
+- `call_id` correlates `tool_call` started/completed pairs. `session_id` is
+  stable for the whole run.
 
-Need from CLI if parser cannot be derived safely:
+Tiny verified sequence:
 
-```text
-Please provide the Cursor Agent `--output-format stream-json --stream-partial-output`
-event schema. Which fields carry visible text deltas, which events describe tool
-activity, and how should clients dedupe partial text from the final result?
+```json
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/Users/mike/Documents/GitHub/Allnighter","session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6","model":"Composer 2.5","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Count from 1 to 3, one per line."}]},"session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"1"}]},"session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6","timestamp_ms":1781919755021}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"\n"}]},"session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6","timestamp_ms":1781919755024}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"2"}]},"session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6","timestamp_ms":1781919755024}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"\n"}]},"session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6","timestamp_ms":1781919755024}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"3"}]},"session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6","timestamp_ms":1781919755025}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"1\n2\n3"}]},"session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6"}
+{"type":"result","subtype":"success","duration_ms":3467,"duration_api_ms":3467,"is_error":false,"result":"1\n2\n3","session_id":"33e43ce1-14de-4f70-9676-d49007e36ac6","request_id":"28f2e6bd-623b-4f0f-9451-629817984d30","usage":{"inputTokens":28481,"outputTokens":36,"cacheReadTokens":1161,"cacheWriteTokens":0}}
 ```
 
 ### Grok Parser
