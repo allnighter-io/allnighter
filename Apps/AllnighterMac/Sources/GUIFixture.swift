@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import AllnighterCore
+import AllnighterEngine
 @preconcurrency import ScreenCaptureKit
 
 #if DEBUG
@@ -140,6 +141,25 @@ enum GUIFixture {
     static var opensProjectsRail: Bool { active == "projects-rail" }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
+    /// Deep-link: open the Pending queue screen seeded with sample armed work.
+    static var opensPending: Bool { active == "pending-queue" }
+
+    /// Seed a temp Pending store with sample armed work for the `pending-queue` fixture.
+    static func seededPendingService(models: [Model]) -> PendingService? {
+        guard active == "pending-queue" else { return nil }
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-pending-fixture", isDirectory: true)
+        try? FileManager.default.removeItem(at: root)
+        let service = PendingService(store: PendingStore(rootDirectory: root), models: models)
+        for prompt in [
+            "Add a dark-mode toggle to the settings panel and wire it to the theme store.",
+            "Audit the auth redirect loop on sign-in and propose a fix.",
+            "Draft release notes for the 0.7 build from the recent commits.",
+        ] {
+            _ = try? service.add(.init(prompt: prompt, workerToken: "claude", submit: true))
+        }
+        return service
+    }
     /// `compose-target-*` seeds the target popover open.
     static var composeTargetOpen: Bool { (active ?? "").hasPrefix("compose-target-") }
 
@@ -234,6 +254,7 @@ enum GUIFixture {
         ("teams-edit-drawer", "Teams — hover-edit → Team Editor drawer (#3)"),
         ("floor-reader", "Floor — team reply reader (G-T3, markdown)"),
         ("projects-rail", "Home — project-grouped sidebar (PRJ-S14)"),
+        ("pending-queue", "Pending — queued work screen (PENDQ GUI)"),
         ("compose-target-chat", "Compose — route target popover (native popover)"),
         ("compose-team", "Compose — team target (name · workers, not fake model)"),
         ("compose-file-reference", "Compose — file reference picker"),
@@ -627,8 +648,10 @@ enum GUIFixture {
     static var opensComposeSpecimen: Bool { false }
     static var opensCommandPalette: Bool { false }
     static var opensFloorReader: Bool { false }
+    static var opensPending: Bool { false }
     static var opensHomeWorkspace: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
+    static func seededPendingService(models: [Model]) -> PendingService? { nil }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
     static func seededModels(base: [Model]) -> [Model]? { nil }
     static func seededModels(base: [Model], scenario: String) -> [Model]? { nil }

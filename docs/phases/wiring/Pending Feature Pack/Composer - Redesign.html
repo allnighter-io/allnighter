@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Composer — Redesign</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg-void);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    min-width: max-content;
+    min-height: 100vh;
+    padding: 56px 64px 96px;
+  }
+
+  .stack { display: flex; flex-direction: column; gap: 60px; width: max-content; }
+  .frame { display: flex; flex-direction: column; gap: 18px; }
+  .frame__lbl { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); letter-spacing: .01em; display: flex; align-items: baseline; gap: 12px; }
+  .frame__lbl b { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+  .frame__lbl .a { color: var(--text-muted); }
+  .frame__note { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); line-height: 1.7; max-width: 760px; }
+  .frame__note b { color: var(--text-secondary); font-weight: 600; }
+  .frame__note s { color: var(--text-disabled); }
+
+  /* the chat-area shell the composer lives at the bottom of */
+  .shell { width: 980px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: var(--radius-window); padding: 30px 50px 34px; display: flex; justify-content: center; box-shadow: var(--shadow-lg); }
+
+  /* ───────── shared composer module ───────── */
+  .composer { width: 860px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* scope — read-only active context (NOT switchable) */
+  .scope { display: flex; align-items: center; gap: 8px; padding: 0 8px; flex-wrap: nowrap; white-space: nowrap; }
+  .scope__proj { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .scope__proj svg { width: 13px; height: 13px; color: var(--text-muted); }
+  .scope__sep { color: var(--text-disabled); font-size: 12px; }
+  .scope__branch { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+  .scope__branch svg { width: 12px; height: 12px; }
+
+  /* input box */
+  .box { background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-xl); padding: 17px 17px 13px; transition: border-color var(--duration-fast) var(--ease-out); }
+  .box.is-focus { border-color: var(--border-strong); }
+  .box__text { font-size: 15px; line-height: 1.5; min-height: 50px; }
+  .box__text.ph { color: var(--text-faint); }
+  .box__row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+  .box__sp { flex: 1; }
+
+  /* target picker — worker (model · effort) OR team (name · workers) */
+  .target { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: var(--radius-pill); background: var(--bg-active); border: 1px solid var(--border-default); font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); cursor: pointer; transition: var(--transition-control); white-space: nowrap; }
+  .target:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .target__ic { display: flex; align-items: center; color: var(--text-muted); margin-left: -3px; }
+  .target__ic svg { width: 14px; height: 14px; }
+  .target__nm { color: var(--text-primary); font-weight: 600; }
+  .target .s { color: var(--text-disabled); }
+  .target__sub { color: var(--text-muted); }
+  .target__chev { width: 13px; height: 13px; color: var(--text-muted); margin-left: 1px; }
+
+  .ibtn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; transition: var(--transition-control); }
+  .ibtn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+  .ibtn svg { width: 18px; height: 18px; }
+
+  .send { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-default); color: var(--text-disabled); cursor: default; transition: var(--transition-control); }
+  .send svg { width: 16px; height: 16px; }
+  .send.is-ready { background: var(--accent); color: var(--text-on-amber); border-color: transparent; cursor: pointer; }
+  .send.is-ready:hover { background: var(--accent-hover); box-shadow: var(--glow-amber-sm); }
+
+  /* pending strip — replaces the helper line; current project only; conditional */
+  .strip { display: flex; align-items: center; gap: 9px; padding: 1px 9px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: color var(--duration-fast) var(--ease-out); }
+  .strip:hover { color: var(--text-secondary); }
+  .strip__arr { width: 14px; height: 14px; color: var(--text-faint); flex: none; }
+  .strip b { color: var(--text-secondary); font-weight: 600; }
+  .strip .sep { color: var(--text-disabled); }
+  .strip__next { color: var(--text-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .strip__view { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--text-faint); flex: none; }
+  .strip__view svg { width: 12px; height: 12px; }
+
+  /* tiny pending dots that lead the strip — neutral, just enough to read as a stack */
+  .strip__dots { display: inline-flex; gap: 3px; align-items: center; flex: none; }
+  .strip__dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-400); display: block; }
+
+  /* ───────── "today" baseline ───────── */
+  .old-box { width: 860px; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-xl); padding: 16px 16px 13px; }
+  .old-text { font-size: 15px; color: var(--text-faint); min-height: 30px; }
+  .old-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  .old-proj { display: inline-flex; align-items: center; gap: 9px; height: 34px; padding: 0 13px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); font-size: 14px; white-space: nowrap; }
+  .old-proj svg { width: 15px; height: 15px; color: var(--text-muted); }
+  .old-proj b { color: var(--text-primary); font-weight: 700; }
+  .old-proj .sep { color: var(--text-disabled); }
+  .old-proj .br { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); }
+  .old-with { font-size: 14px; color: var(--text-muted); }
+  .old-target { display: inline-flex; align-items: center; gap: 9px; height: 34px; padding: 0 13px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+  .old-target svg.inf { width: 15px; height: 15px; color: var(--text-secondary); }
+  .old-target b { color: var(--text-primary); font-weight: 600; }
+  .old-target .sep { color: var(--text-disabled); }
+  .old-target svg.chev { width: 14px; height: 14px; color: var(--text-muted); }
+  .old-help { display: flex; align-items: center; gap: 9px; padding: 11px 8px 0; font-size: 12.5px; color: var(--text-faint); }
+  .old-help svg { width: 14px; height: 14px; color: var(--text-disabled); }
+</style>
+</head>
+<body>
+<div class="stack">
+
+  <!-- ══════════ FRAME 1 — TODAY ══════════ -->
+  <section class="frame" data-screen-label="Composer — today">
+    <div class="frame__lbl"><b>Today</b> — what we're simplifying</div>
+    <div class="frame__note">The bordered <b>project</b> chip sits inside the box doing the same job as the helper line beneath it (<s>“Runs in your project repo…”</s>). The target reads <b>worker · model · effort</b> — and a <b>team</b> wrongly renders the same way, hiding its worker count.</div>
+
+    <div class="shell" style="padding-top:40px;padding-bottom:40px;">
+      <div style="width:860px;">
+        <div class="old-box">
+          <div class="old-text">Describe the work — a question, a screen to redesign, a change to ship…</div>
+          <div class="old-row">
+            <div class="old-proj"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h6l2 2h10v9H3z"/></svg><b>Allnighter</b><span class="sep">·</span><span class="br">feat/design-chain</span></div>
+            <span class="old-with">with</span>
+            <div class="old-target"><svg class="inf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/></svg><b>Auto</b><span class="sep">·</span>Composer 2.5<span class="sep">·</span>Med<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="box__sp"></div>
+            <div class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+            <div class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div>
+          </div>
+        </div>
+        <div class="old-help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 7v6a3 3 0 0 0 3 3h7"/><path d="M14 13l3 3-3 3"/></svg> Runs in your project repo with the selected team and worker.</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════ FRAME 2 — NEW (worker run, queue building) ══════════ -->
+  <section class="frame" data-screen-label="Composer — new, worker run">
+    <div class="frame__lbl"><b>New</b> — scope above, compose, the line below · <span class="a">three honest tiers</span></div>
+    <div class="frame__note">Project · branch float <b>above</b> as quiet read-only context (it reflects what's active — nothing to switch). The helper line is gone; in its place sits the <b>pending strip</b> for this project, so you can see you're adding to a line. Submit lands your item at the back of it.</div>
+
+    <div class="shell">
+      <div class="composer">
+        <!-- read-only scope -->
+        <div class="scope">
+          <span class="scope__proj"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h6l2 2h10v9H3z"/></svg> Allnighter</span>
+          <span class="scope__sep">·</span>
+          <span class="scope__branch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M18 10.5c0 4-6 1.5-6 5.5"/></svg> feat/design-chain</span>
+        </div>
+
+        <!-- input -->
+        <div class="box is-focus">
+          <div class="box__text">Add a dark-mode toggle to the settings panel and wire it to the existing theme store.</div>
+          <div class="box__row">
+            <div class="target"><span class="target__nm">Composer 2.5</span><span class="s">·</span><span class="target__sub">Med</span><svg class="target__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="box__sp"></div>
+            <div class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+            <div class="send is-ready"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div>
+          </div>
+        </div>
+
+        <!-- pending strip (this project, conditional) -->
+        <div class="strip">
+          <span class="strip__dots"><i></i><i></i><i></i></span>
+          <b>3 pending</b> in Allnighter <span class="sep">·</span> next <span class="strip__next">“Add the missing test for the redirect fix”</span>
+          <span class="strip__view">View queue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════ FRAME 3 — NEW (team selected) ══════════ -->
+  <section class="frame" data-screen-label="Composer — new, team run">
+    <div class="frame__lbl"><b>New</b> — a team is selected · <span class="a">the bug, fixed</span></div>
+    <div class="frame__note">Pick a team and the target switches modes: <b>name · workers</b> with a team glyph — never a fake <s>model · effort</s>. It's the exact pill the item will carry on the Pending screen, so the composer and the queue speak one language. Empty box → the send button rests, disabled.</div>
+
+    <div class="shell">
+      <div class="composer">
+        <div class="scope">
+          <span class="scope__proj"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h6l2 2h10v9H3z"/></svg> X</span>
+          <span class="scope__sep">·</span>
+          <span class="scope__branch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M18 10.5c0 4-6 1.5-6 5.5"/></svg> main</span>
+        </div>
+
+        <div class="box">
+          <div class="box__text ph">Describe the work — a question, a screen to redesign, a change to ship…</div>
+          <div class="box__row">
+            <div class="target"><span class="target__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M16 6a3 3 0 0 1 0 6"/></svg></span><span class="target__nm">Design Core</span><span class="s">·</span><span class="target__sub">4 workers</span><svg class="target__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="box__sp"></div>
+            <div class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+            <div class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div>
+          </div>
+        </div>
+
+        <div class="strip">
+          <span class="strip__dots"><i></i><i></i></span>
+          <b>2 pending</b> in X <span class="sep">·</span> next <span class="strip__next">“Run the visual-regression proof on the new nav”</span>
+          <span class="strip__view">View queue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

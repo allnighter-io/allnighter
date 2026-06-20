@@ -20,6 +20,7 @@ struct RootView: View {
     @State private var didLoadCachedSetup = false
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .inbox
+    @State private var showPending = false
     @State private var commands = CommandCenter()
     /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
     @State private var showFloorReaderProof = false
@@ -64,6 +65,12 @@ struct RootView: View {
                 commands.palettePresented.toggle()
             },
         ]
+    }
+
+    /// Pending screen data source — the fixture's seeded store under proof, else real.
+    private var pendingService: PendingService {
+        GUIFixture.seededPendingService(models: model.models)
+            ?? PendingService(store: PendingStore(), models: model.models)
     }
 
     var body: some View {
@@ -111,6 +118,8 @@ struct RootView: View {
                 Group {
                     if showFloorReaderProof {
                         floorReaderProofView
+                    } else if GUIFixture.opensPending || showPending {
+                        PendingView(service: pendingService, onClose: { showPending = false })
                     } else if showTeamStudio {
                         TeamStudioView(
                             initialRoute: studioInitialRoute,
