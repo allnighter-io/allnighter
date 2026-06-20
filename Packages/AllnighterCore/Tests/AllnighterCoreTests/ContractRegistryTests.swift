@@ -44,6 +44,7 @@ final class ContractRegistryTests: XCTestCase {
             "project workers", "project recheck-workers",
             "defaults show", "defaults tier", "defaults assign", "defaults unassign",
             "defaults substitutions", "defaults reset",
+            "help search", "help get", "help topics",
         ])
     }
 

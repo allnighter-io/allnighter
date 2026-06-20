@@ -872,6 +872,45 @@ Flags:
 
 Output schema: `defaultSettingsJSON`.
 
+### `alln help search`
+
+Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.
+
+Arguments:
+- `query` (required) — Natural-language question or keywords.
+
+Flags:
+- `--limit <int>` (default: 5) — Max results.
+- `--json` — Emit a HelpSearchJSON object.
+
+Output schema: `helpSearchJSON`.
+
+### `alln help get`
+
+Retrieve one help topic by id, alln:// ref, --tool, or --error. Unknown selectors return close matches + the sitemap.
+
+Arguments:
+- `topic` (optional) — Topic id or alln:// ref (omit when using --tool/--error).
+
+Flags:
+- `--tool <string>` — Find the topic that documents this MCP tool.
+- `--error <string>` — Find the topic for this error code.
+- `--format <format>` (default: json) — json | md.
+- `--json` — Emit a HelpGetJSON object.
+
+Mutually exclusive: `--tool`, `--error`.
+
+Output schema: `helpGetJSON`.
+
+### `alln help topics`
+
+List the installed help topic sitemap + the help-first routing law.
+
+Flags:
+- `--json` — Emit a HelpTopicsJSON object.
+
+Output schema: `helpTopicsJSON`.
+
 ## Commands (named but deferred)
 
 - `alln pending stop` — Stop a running Pending item.

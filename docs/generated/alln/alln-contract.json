@@ -2194,6 +2194,109 @@
     },
     {
       "args" : [
+        {
+          "name" : "query",
+          "required" : true,
+          "summary" : "Natural-language question or keywords."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "defaultValue" : "5",
+          "name" : "limit",
+          "summary" : "Max results.",
+          "takesValue" : true,
+          "valueType" : "int"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a HelpSearchJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "help search",
+      "outputSchema" : "helpSearchJSON",
+      "summary" : "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan."
+    },
+    {
+      "args" : [
+        {
+          "name" : "topic",
+          "required" : false,
+          "summary" : "Topic id or alln:\/\/ ref (omit when using --tool\/--error)."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "tool",
+          "summary" : "Find the topic that documents this MCP tool.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "error",
+          "summary" : "Find the topic for this error code.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "defaultValue" : "json",
+          "name" : "format",
+          "summary" : "json | md.",
+          "takesValue" : true,
+          "valueType" : "format"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a HelpGetJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+        [
+          "tool",
+          "error"
+        ]
+      ],
+      "name" : "help get",
+      "outputSchema" : "helpGetJSON",
+      "summary" : "Retrieve one help topic by id, alln:\/\/ ref, --tool, or --error. Unknown selectors return close matches + the sitemap."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a HelpTopicsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "help topics",
+      "outputSchema" : "helpTopicsJSON",
+      "summary" : "List the installed help topic sitemap + the help-first routing law."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [

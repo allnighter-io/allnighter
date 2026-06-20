@@ -757,6 +757,34 @@ public extension ContractRegistry {
             flags: [FlagSpec("json", summary: "Emit a DefaultSettingsJSON object.")],
             outputSchema: .defaultSettingsJSON
         ),
+        // MCP Help System — the installed product guide. `alln help` answers usage; `alln
+        // docs` stays the raw generated contract reference.
+        CommandSpec(
+            "help search", summary: "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.", milestone: .m1,
+            args: [ArgSpec("query", required: true, summary: "Natural-language question or keywords.")],
+            flags: [
+                FlagSpec("limit", takesValue: true, valueType: "int", defaultValue: "5", summary: "Max results."),
+                FlagSpec("json", summary: "Emit a HelpSearchJSON object."),
+            ],
+            outputSchema: .helpSearchJSON
+        ),
+        CommandSpec(
+            "help get", summary: "Retrieve one help topic by id, alln:// ref, --tool, or --error. Unknown selectors return close matches + the sitemap.", milestone: .m1,
+            args: [ArgSpec("topic", required: false, summary: "Topic id or alln:// ref (omit when using --tool/--error).")],
+            flags: [
+                FlagSpec("tool", takesValue: true, valueType: "string", summary: "Find the topic that documents this MCP tool."),
+                FlagSpec("error", takesValue: true, valueType: "string", summary: "Find the topic for this error code."),
+                FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "json", summary: "json | md."),
+                FlagSpec("json", summary: "Emit a HelpGetJSON object."),
+            ],
+            mutuallyExclusiveFlags: [["tool", "error"]],
+            outputSchema: .helpGetJSON
+        ),
+        CommandSpec(
+            "help topics", summary: "List the installed help topic sitemap + the help-first routing law.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Emit a HelpTopicsJSON object.")],
+            outputSchema: .helpTopicsJSON
+        ),
     ]
 
     // MARK: - Commands (named but deferred past M1)
