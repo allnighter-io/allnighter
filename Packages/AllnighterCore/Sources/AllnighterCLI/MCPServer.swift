@@ -293,6 +293,8 @@ struct MCPServer {
         case "stalled_list":
             respondStalled(id: id, outcome: MCPStalledHandlers.stalledList(args: args))
         case "defaults_get": respondDefaults(id: id, outcome: MCPDefaultsHandlers.get(runtime: runtime))
+        case "help_search": respondHelp(id: id, outcome: MCPHelpHandlers.search(args: args))
+        case "help_get": respondHelp(id: id, outcome: MCPHelpHandlers.get(args: args))
         case "project_list": respondProject(id: id, outcome: MCPProjectHandlers.list(args: args))
         case "project_get": respondProject(id: id, outcome: MCPProjectHandlers.get(args: args))
         case "project_context": respondProject(id: id, outcome: MCPProjectHandlers.context(args: args))
@@ -368,6 +370,15 @@ struct MCPServer {
     }
 
     private func respondDefaults(id: Any?, outcome: MCPDefaultsHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondHelp(id: Any?, outcome: MCPHelpHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))

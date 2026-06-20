@@ -63,6 +63,7 @@ final class ContractRegistryTests: XCTestCase {
             "project_stalled", "stalled_list",
             "project_list", "project_get", "project_context", "project_workers", "project_recheck_workers",
             "defaults_get",
+            "help_search", "help_get",
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))

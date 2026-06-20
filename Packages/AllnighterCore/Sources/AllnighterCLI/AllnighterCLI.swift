@@ -781,6 +781,7 @@ struct AllnighterCLI {
             let whenToUsePending = "Use when the user wants work later or admission blocks."
             let whenToUseSpecGet = "Use when the user asks for the full packet/spec."
         }
+        struct DecisionStep: Encodable { let ifUserAsks: String; let call: String }
         struct Hello: Encodable {
             let schemaVersion = 1
             let contractVersion: String
@@ -792,6 +793,16 @@ struct AllnighterCLI {
             let nextAction: AgentNextAction
             let tools: [ToolRef]
             let quickstart = Quickstart()
+            // Help-first routing so an agent that only reads mcp_hello knows to ask
+            // Allnighter about itself instead of guessing from memory.
+            let routingLaw = HelpService.routingLaw
+            let helpTopics = HelpService.sitemap()
+            let decisionTree = [
+                DecisionStep(ifUserAsks: "how to use Allnighter", call: "help_search -> help_get"),
+                DecisionStep(ifUserAsks: "can it run right now", call: "mcp_hello"),
+                DecisionStep(ifUserAsks: "why is setup/auth blocked", call: "doctor -> error_explain"),
+                DecisionStep(ifUserAsks: "what schema/fields/errors exist", call: "help_get(topic: schemas/errors)"),
+            ]
         }
         let tools = ContractRegistry.milestone1.mcpTools.map { ToolRef(name: $0.name, schemaRef: "tool://\($0.name).schema.json") }
         return jsonString(Hello(

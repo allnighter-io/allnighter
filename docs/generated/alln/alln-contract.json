@@ -4429,6 +4429,66 @@
 
       ],
       "summary" : "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness)."
+    },
+    {
+      "command" : "help search",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "help_search",
+      "outputSchema" : "helpSearchJSON",
+      "params" : [
+        {
+          "name" : "query",
+          "required" : true,
+          "summary" : "Natural-language question or keywords.",
+          "type" : "string"
+        },
+        {
+          "name" : "limit",
+          "required" : false,
+          "summary" : "Max results (default 5).",
+          "type" : "integer"
+        }
+      ],
+      "summary" : "Search installed Allnighter help for a product question. Call this before answering 'how do I use Allnighter?' from memory. Returns ranked topics, a suggested answer, refs, and an ordered next-tool plan."
+    },
+    {
+      "command" : "help get",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "help_get",
+      "outputSchema" : "helpGetJSON",
+      "params" : [
+        {
+          "name" : "topic",
+          "required" : false,
+          "summary" : "Topic id or alln:\/\/ ref.",
+          "type" : "string"
+        },
+        {
+          "name" : "ref",
+          "required" : false,
+          "summary" : "An alln:\/\/ ref (help\/tool\/schema\/error).",
+          "type" : "string"
+        },
+        {
+          "name" : "tool",
+          "required" : false,
+          "summary" : "Find the topic documenting this MCP tool.",
+          "type" : "string"
+        },
+        {
+          "name" : "error",
+          "required" : false,
+          "summary" : "Find the topic for this error code.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Retrieve one Allnighter help topic by id, alln:\/\/ ref, tool, or error code. Unknown selectors return close matches + the topic sitemap, never a dead end."
     }
   ],
   "nextActionKinds" : [

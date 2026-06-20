@@ -225,6 +225,23 @@ public extension ContractRegistry {
         // (mirrors project approve/edit being human-only); only the read is projected.
         MCPToolSpec("defaults_get", command: "defaults show", summary: "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness).",
                     outputSchema: .defaultSettingsJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+        // MCP Help System — the help-first surface. For Allnighter usage/tool-choice/
+        // setup/team/Pending/safety/schema/error questions, call these before answering
+        // from memory; call mcp_hello/doctor for this machine's live state.
+        MCPToolSpec("help_search", command: "help search", summary: "Search installed Allnighter help for a product question. Call this before answering 'how do I use Allnighter?' from memory. Returns ranked topics, a suggested answer, refs, and an ordered next-tool plan.",
+                    params: [
+                        .init("query", required: true, summary: "Natural-language question or keywords."),
+                        .init("limit", type: "integer", summary: "Max results (default 5)."),
+                    ],
+                    outputSchema: .helpSearchJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("help_get", command: "help get", summary: "Retrieve one Allnighter help topic by id, alln:// ref, tool, or error code. Unknown selectors return close matches + the topic sitemap, never a dead end.",
+                    params: [
+                        .init("topic", summary: "Topic id or alln:// ref."),
+                        .init("ref", summary: "An alln:// ref (help/tool/schema/error)."),
+                        .init("tool", summary: "Find the topic documenting this MCP tool."),
+                        .init("error", summary: "Find the topic for this error code."),
+                    ],
+                    outputSchema: .helpGetJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
     ]
 
     // MARK: - Commands (in scope)

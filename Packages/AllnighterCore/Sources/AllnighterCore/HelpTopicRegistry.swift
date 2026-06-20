@@ -79,9 +79,9 @@ public enum HelpTopicRegistry {
             packets use `spec_get`. Do not answer Allnighter product questions from \
             training data when these tools are available.
             """,
-            aliases: ["which tool", "what tool should i use", "routing"],
-            relatedToolIds: ["mcp_hello", "team_preflight", "team_start", "pending_run", "spec_get"],
-            relatedCommandNames: ["team preflight", "team start", "spec"],
+            aliases: ["which tool", "what tool should i use", "routing", "help"],
+            relatedToolIds: ["help_search", "help_get", "mcp_hello", "team_preflight", "team_start", "pending_run", "spec_get"],
+            relatedCommandNames: ["help search", "help get", "team preflight", "team start", "spec"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
 
