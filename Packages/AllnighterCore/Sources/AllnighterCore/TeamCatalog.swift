@@ -246,6 +246,11 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var executionSourceId: String?
     public var defaultEffort: EffortLevel
     public var isDefaultForLane: Bool
+    /// Optional Stage-0 scout that runs FIRST and distills the raw source (e.g. an
+    /// X-capable model grabbing a post's content) into neutral context the rest of
+    /// the team reads. nil = no scout (the team reads the prompt directly). Used by
+    /// Signal teams so workers reason over the same distilled source.
+    public var scout: TeamWorkerSpec?
     public var workerSpecs: [TeamWorkerSpec]
     /// The mandatory Team Lead (synthesizer). Exactly one.
     public var lead: TeamLeadSpec
@@ -267,6 +272,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         executionSourceId: String? = nil,
         defaultEffort: EffortLevel = .med,
         isDefaultForLane: Bool = false,
+        scout: TeamWorkerSpec? = nil,
         workerSpecs: [TeamWorkerSpec],
         lead: TeamLeadSpec,
         typeTags: [String] = [],
@@ -284,6 +290,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.executionSourceId = executionSourceId
         self.defaultEffort = defaultEffort
         self.isDefaultForLane = isDefaultForLane
+        self.scout = scout
         self.workerSpecs = workerSpecs
         self.lead = lead
         self.typeTags = typeTags

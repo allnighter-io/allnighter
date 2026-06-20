@@ -45,7 +45,8 @@ public actor CatalogRunCoordinator {
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> TeamRun {
         let modelByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let answerAndReview = resolved.answerWorkers + resolved.reviewWorkers
+        let scoutList = resolved.scoutWorker.map { [$0] } ?? []
+        let seeded = scoutList + resolved.answerWorkers + resolved.reviewWorkers
 
         var run = TeamRun(
             id: runId ?? idFactory(),
@@ -55,21 +56,36 @@ public actor CatalogRunCoordinator {
             originAgent: originAgent,
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
-            workerAnswers: answerAndReview.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
+            workerAnswers: seeded.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
             createdAt: now()
         )
         run = transition(run, to: .fanningOut)
         persist?(run) // durable state before any worker executes
 
-        // Stage 1 — answer workers, blind and parallel.
-        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
+        // Stage 0 — the scout (e.g. an X-capable model) distills the raw source FIRST.
+        // Its output is injected into every downstream worker's context so the whole
+        // crew reasons over the same distilled packet (the crux of triangulation).
+        var downstreamPrompt = prompt
+        if let scout = resolved.scoutWorker {
+            let (scoutAnswers, scoutSnapshots) = await runWorkers([scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
+            applySnapshots(scoutSnapshots, to: &run)
+            merge(scoutAnswers, into: &run)
+            if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
+                let label = scout.skillName ?? scout.skillId ?? "scout"
+                downstreamPrompt = prompt + "\n\n# Source (distilled by \(label))\n\n" + text
+            }
+            persist?(run)
+        }
+
+        // Stage 1 — answer workers, blind and parallel, over the distilled source.
+        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
 
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
-            let reviewPrompt = prompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
+            let reviewPrompt = downstreamPrompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
             let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
@@ -83,7 +99,7 @@ public actor CatalogRunCoordinator {
         if let writer = resolved.planWriter, !run.answeredWorkers.isEmpty {
             run = transition(run, to: .planning)
             persist?(run)
-            let (stage, writerSnapshot) = await runWriter(writer, resolved: resolved, run: run, modelByID: modelByID)
+            let (stage, writerSnapshot) = await runWriter(writer, resolved: resolved, run: run, basePrompt: downstreamPrompt, modelByID: modelByID)
             if let writerSnapshot { applySnapshots([writer.id: writerSnapshot], to: &run) }
             run.stages.append(stage)
             run = transition(run, to: stage.status == .done ? .complete : .partial)
@@ -135,7 +151,7 @@ public actor CatalogRunCoordinator {
         return (answers, snapshots)
     }
 
-    private func runWriter(_ writer: Worker, resolved: ResolvedTeamRun, run: TeamRun, modelByID: [String: Model]) async -> (stage: StageOutput, promptSnapshot: String?) {
+    private func runWriter(_ writer: Worker, resolved: ResolvedTeamRun, run: TeamRun, basePrompt: String, modelByID: [String: Model]) async -> (stage: StageOutput, promptSnapshot: String?) {
         let stageId = idFactory()
         let startedAt = now()
         emitStage(RunEventKind.stageStarted, runId: run.id, stageId: stageId, workerId: writer.id)
@@ -150,7 +166,7 @@ public actor CatalogRunCoordinator {
         guard let model = modelByID[writer.modelId], let manifest = registry.manifest(for: model), manifest.kind == .headlessCLI else {
             return fail("plan/output writer model unavailable")
         }
-        let writerPrompt = SkillCatalog.assemblePrompt(skillId: writer.skillId, founderPrompt: writerInput(resolved: resolved, run: run))
+        let writerPrompt = SkillCatalog.assemblePrompt(skillId: writer.skillId, founderPrompt: writerInput(resolved: resolved, run: run, basePrompt: basePrompt))
         let outcome = await workerRunner.invoke(worker: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort)
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {
             return fail(outcome.errorReason ?? "plan writer produced no output")
@@ -177,12 +193,13 @@ public actor CatalogRunCoordinator {
 
     /// The writer sees the prompt, the answers, the reviews, and a dissent
     /// instruction derived from the synthesis policy.
-    private func writerInput(resolved: ResolvedTeamRun, run: TeamRun) -> String {
+    private func writerInput(resolved: ResolvedTeamRun, run: TeamRun, basePrompt: String) -> String {
         let answerIds = Set(resolved.answerWorkers.map(\.id))
         let reviewIds = Set(resolved.reviewWorkers.map(\.id))
         let answers = run.workerAnswers.filter { answerIds.contains($0.workerId) }
         let reviews = run.workerAnswers.filter { reviewIds.contains($0.workerId) }
-        var parts = [run.prompt, "# Worker answers\n\n" + answersBlock(answers, workers: resolved.answerWorkers)]
+        // basePrompt carries the scout-distilled source so the Lead sees it too.
+        var parts = [basePrompt, "# Worker answers\n\n" + answersBlock(answers, workers: resolved.answerWorkers)]
         if !reviews.isEmpty {
             parts.append("# Reviews\n\n" + answersBlock(reviews, workers: resolved.reviewWorkers))
         }

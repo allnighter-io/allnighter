@@ -24,6 +24,8 @@ public struct ResolvedTeamRun: Sendable, Equatable {
     public var outputKind: TeamOutputKind
     public var mutating: Bool
     public var effort: EffortLevel
+    /// Optional Stage-0 scout that runs first and distills the source for the crew.
+    public var scoutWorker: Worker?
     public var answerWorkers: [Worker]
     public var reviewWorkers: [Worker]
     public var planWriter: Worker?
@@ -39,15 +41,16 @@ public struct ResolvedTeamRun: Sendable, Equatable {
     /// When exactly one source participates, the execution owner for mutating runs.
     public var executionSourceId: String? = nil
 
-    /// Answer + review + plan-writer, in execution order.
+    /// Scout + answer + review + plan-writer, in execution order.
     public var allWorkers: [Worker] {
-        answerWorkers + reviewWorkers + (planWriter.map { [$0] } ?? [])
+        (scoutWorker.map { [$0] } ?? []) + answerWorkers + reviewWorkers + (planWriter.map { [$0] } ?? [])
     }
 
     public init(
         teamPresetId: String, teamDisplayName: String, lane: WorkLane,
         outputKind: TeamOutputKind, mutating: Bool = false,
         effort: EffortLevel,
+        scoutWorker: Worker? = nil,
         answerWorkers: [Worker] = [], reviewWorkers: [Worker] = [], planWriter: Worker? = nil,
         dissentPolicy: DissentPolicy = .preserveDissent,
         disabledRows: [DisabledRow] = [], warnings: [String] = [],
@@ -57,6 +60,7 @@ public struct ResolvedTeamRun: Sendable, Equatable {
         self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
         self.lane = lane; self.outputKind = outputKind
         self.mutating = mutating; self.effort = effort
+        self.scoutWorker = scoutWorker
         self.answerWorkers = answerWorkers; self.reviewWorkers = reviewWorkers
         self.planWriter = planWriter; self.dissentPolicy = dissentPolicy
         self.disabledRows = disabledRows
@@ -177,6 +181,25 @@ public enum TeamResolver {
         let answerWorkers = resolveRows(answerRows, stage: .answer)
         let reviewWorkers = resolveRows(reviewRows, stage: .review)
 
+        // Stage 0 scout (optional): distills the source for the crew. Resolved like a
+        // single non-triangulate row; prefers its declared model (e.g. Grok for X).
+        var scoutWorker: Worker?
+        if let scoutSpec = team.scout {
+            let scoutSkillName = skill(scoutSpec.skillId)?.displayName ?? scoutSpec.skillId
+            if let model = selectModel(
+                preferredModelId: scoutSpec.preferredModelId, allowedModelIds: scoutSpec.allowedModelIds,
+                requiredTags: scoutSpec.requiredCapabilityTags, fallback: scoutSpec.fallbackPolicy,
+                lane: team.lane, ready: readyModels, capabilities: capabilities
+            ) {
+                if let pref = scoutSpec.preferredModelId, pref != model.id {
+                    warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.displayName).")
+                }
+                scoutWorker = makeWorker(model, row: scoutSpec, skillName: scoutSkillName, stage: .scout)
+            } else {
+                disable(scoutSpec, scoutSkillName, "no ready model for scout in lane \(team.lane.rawValue)")
+            }
+        }
+
         // Rule 9: the mandatory Team Lead (synthesizer) — exactly one worker, from
         // `team.lead` (effort-independent). Resolves its model by name like a row.
         result.dissentPolicy = lead.dissentPolicy
@@ -210,6 +233,7 @@ public enum TeamResolver {
 
         // Runnable gate (rules 7, 10): a required row blocks; need ≥1 answer worker
         // and a resolved plan writer.
+        result.scoutWorker = scoutWorker
         result.answerWorkers = answerWorkers
         result.reviewWorkers = reviewWorkers
         result.planWriter = planWriter

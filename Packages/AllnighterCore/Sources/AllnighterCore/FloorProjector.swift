@@ -70,6 +70,7 @@ public enum FloorProjector {
 
     private static func lanePurpose(_ stage: WorkerStage?) -> FloorWorkerLane.Purpose {
         switch stage {
+        case .scout: return .answer // scout distills the source; projects as an answer lane
         case .answer: return .answer
         case .review: return .review
         case .plan: return .lead

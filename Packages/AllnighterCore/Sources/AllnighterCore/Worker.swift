@@ -1,10 +1,13 @@
 import Foundation
 
-/// The stage a resolved worker runs in. Answer workers run blind in parallel;
-/// review workers run after answers and may see them; `plan` is the synthetic
-/// plan/output writer that runs last. (Catalog rows are only answer/review;
-/// `plan` exists only for the synthetic writer.)
+/// The stage a resolved worker runs in. The optional `scout` runs FIRST and
+/// distills the raw source (e.g. an X-capable model grabbing a post) into context
+/// the rest of the team reads. Answer workers then run blind in parallel; review
+/// workers run after answers and may see them; `plan` is the synthetic plan/output
+/// writer that runs last. (Catalog answer/review rows map to `answer`/`review`; the
+/// scout is a separate `TeamPreset.scout` spec; `plan` is only the synthetic writer.)
 public enum WorkerStage: String, Codable, Sendable, CaseIterable {
+    case scout
     case answer
     case review
     case plan

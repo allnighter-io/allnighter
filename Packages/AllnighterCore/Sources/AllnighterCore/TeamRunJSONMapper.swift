@@ -149,7 +149,7 @@ public enum TeamRunJSONMapper {
         switch stage {
         case .review: return .review
         case .plan: return .plan
-        case .answer, nil: return .answer
+        case .scout, .answer, nil: return .answer // scout projects as an answer worker
         }
     }
 
