@@ -186,6 +186,10 @@ enum GUIFixture {
     /// native NSPopover, which can't be captured in-process) seeded with a search query.
     static var composeTargetInline: Bool { active == "compose-target-inline" }
 
+    /// `thread-copy-footer` forces the per-message copy button (hover-only) visible so
+    /// its bottom-right placement can be captured.
+    static var alwaysShowMessageCopy: Bool { active == "thread-copy-footer" }
+
     /// Dedicated fixture for testing the Screen Recording grant / preflight in isolation.
     /// Runs the composite path (so native popovers + SR are exercised) but is intended
     /// only for "does preflight + captureComposite succeed right now?" verification.
@@ -248,6 +252,7 @@ enum GUIFixture {
         ("readiness-cursor-not-checked", "Cursor Agent — not checked (CLI setup page)"),
         ("home-with-threads", "Home — rail with conversations"),
         ("home-thread-states", "Home — 4-state rows: Draft/Running/Replied (PENDQ GUI)"),
+        ("thread-copy-footer", "Thread — per-message copy button at bottom-right"),
         ("home-rail", "Home — grouped/filtered rail (CR4e)"),
         ("home-rail-th2", "Home — TH2 triage pin/unread/archive"),
         ("home-rail-unr", "Home — UNR unread matrix (S07)"),
@@ -662,6 +667,7 @@ enum GUIFixture {
     static var active: String? { nil }
     static var composeTargetOpen: Bool { false }
     static var composeTargetInline: Bool { false }
+    static var alwaysShowMessageCopy: Bool { false }
     static var composeFileReferenceOpen: Bool { false }
     static var opensTeamDropdown: Bool { false }
     static var opensDoctorPopover: Bool { false }

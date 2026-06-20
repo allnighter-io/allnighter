@@ -322,10 +322,40 @@ private struct ThreadThinkingBlock: View {
     }
 }
 
+/// Bottom-right per-message copy button. Copy is what you reach for AFTER reading a
+/// message (founder), so it sits at the foot, not the header. Appears on hover (forced
+/// visible under the copy-footer GUI fixture). Top-right stays reserved for copy/paste
+/// code blocks, which don't exist yet.
+private struct MessageCopyFooter: View {
+    let text: String?
+    let hovering: Bool
+
+    private var visible: Bool {
+        #if DEBUG
+        if GUIFixture.alwaysShowMessageCopy { return true }
+        #endif
+        return hovering
+    }
+
+    var body: some View {
+        if visible, let text, !text.isEmpty {
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                IconButton(systemImage: "doc.on.doc", accessibilityLabel: "Copy", small: true) {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
 private struct ThreadTurnRow: View {
     @Environment(AppModel.self) private var appModel
     let turn: ThreadTurn
     var isLastTurn: Bool = false
+    @State private var hovering = false
 
     /// How long the model spent before settling (for the collapsed "Thought for Ns").
     private var thinkingDuration: TimeInterval? {
@@ -409,10 +439,14 @@ private struct ThreadTurnRow: View {
                     MarkdownText(markdown: turn.text ?? "")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                if turn.status == .done {
+                    MessageCopyFooter(text: turn.text, hovering: hovering)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
         }
+        .onHover { hovering = $0 }
     }
 
     private var userBubble: some View {
@@ -617,11 +651,20 @@ private struct ThreadMutatingRunRow: View {
                     text: turn.reasoningText, isLatestTurn: isLastTurn,
                     isRunning: !turn.status.isTerminal, duration: thinkingDuration)
                 content
+                MessageCopyFooter(text: copyableText, hovering: hovering)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
         }
         .onHover { hovering = $0 }
+    }
+
+    /// Best copyable text for this worker message — a run's plan/answer, else the turn's
+    /// own settled text.
+    private var copyableText: String? {
+        if let out = runOutput, !out.isEmpty { return out }
+        if let t = turn.text, !t.isEmpty { return t }
+        return nil
     }
 
     @ViewBuilder private var glyph: some View {
@@ -640,12 +683,6 @@ private struct ThreadMutatingRunRow: View {
             Text(turn.createdAt, format: .dateTime.hour().minute())
                 .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             Spacer(minLength: 8)
-            if hovering, let out = runOutput, !out.isEmpty {
-                IconButton(systemImage: "doc.on.doc", accessibilityLabel: "Copy", small: true) {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(out, forType: .string)
-                }
-            }
         }
     }
 

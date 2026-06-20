@@ -22,7 +22,7 @@ struct ThreadsFixtureSeeder {
             setSelectedThreadId(nil)
         case "thread-with-turns":
             seedFixtureThreadWithTurns()
-        case "thread-chat":
+        case "thread-chat", "thread-copy-footer":
             seedFixtureChatExchange()
         case "thread-team-board":
             seedFixtureTeamBoard()
