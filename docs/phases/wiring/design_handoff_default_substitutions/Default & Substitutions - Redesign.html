@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Default & Substitutions — Redesign</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg-void);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    min-width: max-content;
+    min-height: 100vh;
+    padding: 48px;
+  }
+  .canvas { display: flex; align-items: flex-start; gap: 56px; width: max-content; }
+  .frame { flex: none; display: flex; flex-direction: column; gap: 14px; }
+  .frame__label { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); letter-spacing: .02em; }
+  .frame__label b { color: var(--text-secondary); font-weight: 600; }
+  .frame__note { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); line-height: 1.7; max-width: 560px; }
+  .frame__note .k { color: var(--green-400); }
+  .frame__note .a { color: var(--accent-text); }
+
+  /* window chrome */
+  .win { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-xl, 0 24px 60px rgba(0,0,0,.5)); }
+  .titlebar { height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 14px; background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); }
+  .lights { display: flex; gap: 8px; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .tc { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .tc .nm { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .tc .sub { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); }
+
+  .page { width: 1080px; }
+  .hd { padding: 26px 30px 20px; border-bottom: 1px solid var(--border-subtle); }
+  .hd__eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 8px; }
+  .hd__t { font-size: 27px; font-weight: 800; letter-spacing: -.02em; }
+  .hd__s { color: var(--text-muted); font-size: 13px; margin-top: 8px; max-width: 620px; line-height: 1.55; }
+  .hd__s b { color: var(--text-secondary); font-weight: 600; }
+
+  .body { padding: 24px 30px 34px; display: flex; flex-direction: column; gap: 26px; }
+  .sec__lbl { display: flex; align-items: center; gap: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 13px; }
+  .sec__lbl .ln { flex: 1; height: 1px; background: var(--border-subtle); }
+
+  /* DEFAULT card */
+  .def { display: flex; align-items: center; gap: 18px; padding: 20px 22px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: 14px; }
+  .def__inf { width: 52px; height: 52px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--accent-surface); border: 1px solid var(--accent-border); color: var(--accent-text); }
+  .def__inf svg { width: 26px; height: 26px; }
+  .def__main { flex: 1; min-width: 0; }
+  .def__row1 { display: flex; align-items: center; gap: 10px; }
+  .def__auto { font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
+  .def__pill { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--accent-text); background: var(--accent-surface); border: 1px solid var(--accent-border); border-radius: 999px; padding: 2px 9px; text-transform: uppercase; letter-spacing: .06em; }
+  .def__expl { font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+  .def__expl b { color: var(--text-secondary); font-weight: 600; }
+  .def__sub { font-size: 13px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .def__model { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); background: var(--bg-active); border: 1px solid var(--border-subtle); border-radius: 999px; padding: 4px 13px; margin-left: 4px; }
+  .def__model .def__tier { color: var(--text-faint); font-weight: 500; margin-left: 7px; }
+  .def__model.wait { color: var(--amber-400); }
+  .seg-block { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: none; }
+  .seg-lbl { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: .01em; }
+  .def__resolved { display: inline-flex; align-items: center; gap: 7px; margin-left: 2px; }
+  .def__resolved img { width: 15px; height: 15px; vertical-align: -2px; }
+  .def__resolved .g { width: 7px; height: 7px; border-radius: 50%; background: var(--green-500); box-shadow: 0 0 0 3px rgba(63,209,139,.16); }
+  .def__resolved.wait .g { background: var(--amber-500); box-shadow: 0 0 0 3px rgba(255,166,48,.18); }
+  .def__resolved.wait b { color: var(--amber-400) !important; }
+
+  /* tier segmented control */
+  .seg { display: flex; flex: none; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button { font-family: var(--font-sans); font-size: 13px; font-weight: 600; color: var(--text-muted); background: transparent; border: none; border-radius: 7px; padding: 8px 15px; cursor: pointer; transition: background .14s, color .14s; }
+  .seg button:hover { color: var(--text-secondary); }
+  .seg button.on { background: var(--accent); color: var(--text-on-amber); }
+
+  /* substitution toggle row */
+  .sub { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: 12px; }
+  .sub__m { flex: 1; }
+  .sub__t { font-size: 14.5px; font-weight: 700; }
+  .sub__d { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+  .sub__d b { color: var(--text-secondary); font-weight: 600; }
+  .tg { width: 42px; height: 24px; border-radius: 999px; background: var(--ink-600); position: relative; cursor: pointer; flex: none; transition: background .16s; }
+  .tg::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink-200); transition: transform .16s, background .16s; }
+  .tg.on { background: var(--accent); }
+  .tg.on::after { transform: translateX(18px); background: #fff; }
+
+  /* TIER ROSTERS */
+  .tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tier { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 14px; display: flex; flex-direction: column; min-height: 200px; transition: border-color .14s, background .14s; }
+  .tier.drop { border-color: var(--accent-border); background: var(--accent-surface); }
+  .tier__hd { padding: 15px 16px 12px; border-bottom: 1px solid var(--border-subtle); }
+  .tier__top { display: flex; align-items: center; gap: 9px; }
+  .tier__name { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+  .tier__ct { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); margin-left: auto; }
+  .tier__cap { font-size: 12px; color: var(--text-muted); margin-top: 5px; line-height: 1.45; }
+  .tier__star { color: var(--accent-text); display: flex; }
+  .tier__star svg { width: 15px; height: 15px; }
+  .tier__list { padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+
+  .mcard { display: flex; align-items: center; gap: 11px; padding: 10px 12px; background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: 10px; cursor: grab; transition: border-color .12s, box-shadow .12s, opacity .12s; }
+  .mcard:hover { border-color: var(--border-default); }
+  .mcard:active { cursor: grabbing; }
+  .mcard.dragging { opacity: .4; }
+  .mcard__g { width: 30px; height: 30px; border-radius: 8px; background: var(--bg-active); display: flex; align-items: center; justify-content: center; flex: none; }
+  .mcard__g img { width: 17px; height: 17px; }
+  .mcard__g svg { width: 16px; height: 16px; fill: var(--text-secondary); }
+  .mcard__m { flex: 1; min-width: 0; }
+  .mcard__n { font-size: 13.5px; font-weight: 700; }
+  .mcard__s { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .mcard__lead { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); background: var(--accent-surface); border-radius: 5px; padding: 2px 6px; flex: none; }
+  .mcard__grip { color: var(--text-disabled); display: flex; flex: none; }
+  .mcard__grip svg { width: 15px; height: 15px; }
+
+  .tier__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 20px; text-align: center; }
+  .tier__empty .ic { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,166,48,.12); display: flex; align-items: center; justify-content: center; color: var(--amber-400); }
+  .tier__empty .ic svg { width: 16px; height: 16px; }
+  .tier__empty .t { font-size: 12.5px; font-weight: 600; color: var(--amber-400); }
+  .tier__empty .d { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); line-height: 1.5; }
+
+  .legend { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 9px; margin-top: 2px; }
+  .legend .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-disabled); }
+
+  /* models dropdown w/ Auto pinned */
+  .dd { width: 440px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-xl, 0 24px 60px rgba(0,0,0,.55)); }
+  .dd__hd { display: flex; align-items: baseline; gap: 10px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border-subtle); }
+  .dd__hd .t { font-size: 16px; font-weight: 700; }
+  .dd__hd .c { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-faint); }
+  .dd-auto { display: flex; align-items: center; gap: 13px; padding: 13px 18px; margin: 7px; border-radius: 12px; background: var(--accent-surface); border: 1px solid var(--accent-border); cursor: pointer; }
+  .dd-auto__inf { width: 36px; height: 36px; border-radius: 9px; flex: none; display: flex; align-items: center; justify-content: center; color: var(--accent-text); background: rgba(255,166,48,.14); }
+  .dd-auto__inf svg { width: 20px; height: 20px; }
+  .dd-auto__m { flex: 1; min-width: 0; }
+  .dd-auto__n { font-size: 14.5px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .dd-auto__n .pill { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; color: var(--accent-text); border: 1px solid var(--accent-border); border-radius: 999px; padding: 1px 7px; text-transform: uppercase; letter-spacing: .05em; }
+  .dd-auto__s { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .dd-auto__s b { color: var(--text-secondary); font-weight: 600; }
+  .dd-auto__chk { color: var(--accent-text); display: flex; }
+  .dd-auto__chk svg { width: 18px; height: 18px; }
+  .dd-divlbl { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); padding: 8px 20px 4px; }
+  .dd-row { display: flex; align-items: center; gap: 13px; padding: 10px 20px; cursor: pointer; }
+  .dd-row:hover { background: var(--bg-hover); }
+  .dd-row__g { width: 32px; height: 32px; border-radius: 8px; background: var(--bg-active); display: flex; align-items: center; justify-content: center; flex: none; }
+  .dd-row__g img { width: 18px; height: 18px; }
+  .dd-row__g svg { width: 17px; height: 17px; fill: var(--text-secondary); }
+  .dd-row__m { flex: 1; min-width: 0; }
+  .dd-row__n { font-size: 14px; font-weight: 700; }
+  .dd-row__sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); margin-top: 1px; display: flex; align-items: center; gap: 7px; }
+  .dd-row__tier { color: var(--text-disabled); }
+  .dd-row__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-500); box-shadow: 0 0 0 3px rgba(63,209,139,.15); flex: none; }
+
+  /* add affordances */
+  .manage-link { margin-top: 11px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--accent-text); background: transparent; border: none; cursor: pointer; padding: 0; }
+  .manage-link:hover { text-decoration: underline; }
+  .manage-link svg { width: 14px; height: 14px; }
+  .addbtn { margin-left: 8px; width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--bg-active); border: 1px solid var(--border-subtle); cursor: pointer; flex: none; }
+  .addbtn:hover { color: var(--text-secondary); border-color: var(--border-default); }
+  .addbtn svg { width: 14px; height: 14px; }
+  .tier__empty .addbtn-lg { margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent-text); background: var(--accent-surface); border: 1px solid var(--accent-border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .addbtn-lg svg { width: 13px; height: 13px; }
+
+  /* untiered shelf */
+  .untier { margin-top: 14px; border: 1px dashed var(--border-default); border-radius: 12px; padding: 13px 15px; transition: border-color .14s, background .14s; }
+  .untier.drop { border-color: var(--accent-border); background: var(--accent-surface); }
+  .untier__hd { display: flex; align-items: center; gap: 9px; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 11px; }
+  .untier__hd .ct { font-family: var(--font-mono); letter-spacing: 0; }
+  .untier__hd .cap { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--font-mono); color: var(--text-disabled); margin-left: auto; }
+  .untier__list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .untier__list .mcard { width: 248px; }
+  .untier__empty { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+
+  /* modal */
+  .scrim { position: fixed; inset: 0; background: rgba(5,6,12,.66); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .scrim[hidden] { display: none; }
+  .modal { width: 540px; max-height: 82vh; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: 18px; box-shadow: var(--shadow-xl, 0 24px 60px rgba(0,0,0,.6)); display: flex; flex-direction: column; overflow: hidden; }
+  .modal__hd { padding: 18px 20px 15px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: flex-start; gap: 12px; }
+  .modal__star { color: var(--accent-text); display: flex; margin-top: 1px; }
+  .modal__star svg { width: 19px; height: 19px; }
+  .modal__id { flex: 1; min-width: 0; }
+  .modal__t { font-size: 16px; font-weight: 800; }
+  .modal__s { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+  .modal__x { color: var(--text-faint); cursor: pointer; display: flex; }
+  .modal__x svg { width: 18px; height: 18px; }
+  .modal__bd { padding: 4px 20px 16px; overflow: auto; }
+  .modal__grp { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); margin: 17px 0 6px; }
+  .mm-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--border-subtle); }
+  .mm-row:last-child { border-bottom: none; }
+  .mm-row__g { width: 30px; height: 30px; border-radius: 8px; background: var(--bg-active); display: flex; align-items: center; justify-content: center; flex: none; }
+  .mm-row__g img { width: 17px; height: 17px; }
+  .mm-row__g svg { width: 16px; height: 16px; fill: var(--text-secondary); }
+  .mm-row__m { flex: 1; min-width: 0; }
+  .mm-row__n { font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .mm-row__s { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .mm-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent-text); border: 1px solid var(--accent-border); border-radius: 5px; padding: 2px 6px; }
+  .mm-list { display: flex; flex-direction: column; min-height: 10px; border-radius: 10px; transition: box-shadow .14s, background .14s; }
+  .mm-list.drop { box-shadow: inset 0 0 0 1px var(--accent-border); background: var(--accent-surface); }
+  .mm-row { cursor: grab; }
+  .mm-row:active { cursor: grabbing; }
+  .mm-row.dragging { opacity: .4; }
+  .mm-grip { color: var(--text-disabled); display: flex; flex: none; }
+  .mm-grip svg { width: 14px; height: 14px; }
+  .mm-r { display: flex; align-items: center; gap: 6px; flex: none; }
+  .mm-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: var(--bg-active); border: 1px solid var(--border-subtle); color: var(--text-muted); cursor: pointer; }
+  .mm-icon:hover { color: var(--text-secondary); border-color: var(--border-default); background: var(--bg-hover); }
+  .mm-icon svg { width: 15px; height: 15px; }
+  .mm-setdef { font-family: var(--font-sans); font-size: 11.5px; font-weight: 600; color: var(--text-muted); background: transparent; border: none; cursor: pointer; padding: 4px 7px; border-radius: 6px; }
+  .mm-setdef:hover { color: var(--text-secondary); background: var(--bg-hover); }
+  .auto-mini { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent-text); border: 1px solid var(--accent-border); border-radius: 999px; padding: 1px 7px; margin-left: 8px; }
+  .tier__auto { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); background: var(--accent-surface); border: 1px solid var(--accent-border); border-radius: 999px; padding: 2px 8px; margin-left: 8px; }
+  .modal__ft { padding: 13px 20px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; }
+  .modal__ft .hint { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+  .modal__done { background: var(--bg-active); border: 1px solid var(--border-default); color: var(--text-primary); font-weight: 600; font-size: 13px; border-radius: 8px; padding: 9px 18px; cursor: pointer; }
+  .modal__done:hover { background: var(--bg-hover); }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#090B13"/>
+    <path d="M30 50c0-7 6-13 13-13s13 13 13 13 6 13 13 13 13-6 13-13-6-13-13-13-13 13-13 13-6 13-13 13-13-6-13-13z" fill="none" stroke="#FFA630" stroke-width="5"/>
+  </svg>
+</template>
+
+<div class="canvas">
+
+  <!-- DEFAULT SETTINGS -->
+  <div class="frame">
+    <div class="frame__label"><b>Default &amp; Substitutions</b> — global Default (Auto + tier) · honest substitution rule · drag models between tier rosters</div>
+    <div class="win page" data-screen-label="Default and substitutions">
+      <div class="titlebar">
+        <div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+        <div class="tc"><span class="nm">allnighter</span><span class="sub">· settings · default</span></div>
+        <div style="width:54px"></div>
+      </div>
+
+      <div class="hd">
+        <div class="hd__eyebrow">Default</div>
+        <div class="hd__t">Default model</div>
+        <div class="hd__s">What answers when you don't pick a team or a model. Every chat starts here unless you say otherwise.</div>
+      </div>
+
+      <div class="body">
+        <!-- the default -->
+        <div>
+          <div class="def">
+            <div class="def__inf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16c3.5 0 4.5-8 8-8a4 4 0 0 1 0 8c-3.5 0-4.5-8-8-8a4 4 0 0 0 0 8z"/></svg></div>
+            <div class="def__main">
+              <div class="def__row1"><span class="def__auto">Auto</span><span class="def__pill">Default</span></div>
+              <div class="def__sub">Your go-to model used in chat by default. <span class="def__model" id="defModel"></span></div>
+            </div>
+            <div class="seg-block">
+              <span class="seg-lbl">Pick the tier</span>
+              <div class="seg" id="tierSeg">
+                <button data-t="Flagship" class="on">Flagship</button>
+                <button data-t="Balanced">Balanced</button>
+                <button data-t="Fast">Fast</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- substitutions -->
+        <div>
+          <div class="sec__lbl">Substitutions<span class="ln"></span></div>
+          <div class="sub">
+            <div class="sub__m">
+              <div class="sub__t">Allow healthy substitutions</div>
+              <div class="sub__d">If your model is down, fall back to another ready model <b>on the same tier</b> — across any CLI. Never upgrades, never downgrades.</div>
+            </div>
+            <div class="tg on" id="subTg"></div>
+          </div>
+        </div>
+
+        <!-- tier rosters -->
+        <div>
+          <div class="sec__lbl">Default model per tier<span class="ln"></span></div>
+          <div class="tiers" id="tiers"></div>
+          <div class="untier" id="untier" data-drop="untiered"></div>
+          <div class="legend"><span class="dot"></span>The top model in each tier is its <b style="color:var(--text-secondary);font-weight:600">default</b> — what Auto picks and what substitutes lead with. Drag to reorder; drag across tiers to move.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODELS DROPDOWN W/ AUTO PINNED -->
+  <div class="frame">
+    <div class="frame__label"><b>Models dropdown</b> — Auto pinned on top · pick it and chats use your default</div>
+    <div class="dd" data-screen-label="Models dropdown with auto">
+      <div class="dd__hd"><span class="t">Models</span><span class="c">7 available · 5 CLIs</span></div>
+      <div class="dd-auto" id="ddAuto"></div>
+      <div class="dd-divlbl">Or pick a specific model</div>
+      <div id="ddList"></div>
+    </div>
+    <div class="frame__note">
+      The title-bar picker is the one place you both <span class="a">see</span> and <span class="a">set</span> your default.
+      <span class="a">Auto</span> sits on top; below it, the same flat A→Z list of models you've turned on,
+      now tagged with the tier each one sits on.
+    </div>
+  </div>
+
+</div>
+
+<!-- ROSTER MODAL -->
+<div class="scrim" id="scrim" hidden>
+  <div class="modal">
+    <div class="modal__hd">
+      <span class="modal__star" id="mStar"></span>
+      <span class="modal__id"><div class="modal__t" id="mTitle"></div><div class="modal__s" id="mSub"></div></span>
+      <span class="modal__x" id="mClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+    </div>
+    <div class="modal__bd" id="mBody"></div>
+    <div class="modal__ft"><span class="hint" id="mHint"></span><button class="modal__done" id="mDone">Done</button></div>
+  </div>
+</div>
+
+<script>
+const G = {
+  anthropic: '<img src="https://cdn.simpleicons.org/anthropic/FFA630" alt="">',
+  x:         '<img src="https://cdn.simpleicons.org/x/E1E5F0" alt="">',
+  gemini:    '<img src="https://cdn.simpleicons.org/googlegemini/E1E5F0" alt="">',
+  codex:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="fill:none;color:var(--text-secondary)"><path d="M4 17l5-5-5-5"/><path d="M12 19h8"/></svg>',
+  hex:       '<svg viewBox="0 0 24 24"><path d="M12 2l8.7 5v10L12 22l-8.7-5V7z"/></svg>',
+  spark:     '<svg viewBox="0 0 24 24"><path d="M12 1.5l2.3 7.2 7.2 2.3-7.2 2.3L12 22.5l-2.3-7.2L2.5 11l7.2-2.3z"/></svg>',
+};
+
+// 7 available models. Tier is a ROSTER (membership), not a property of the model.
+// MOST models start UNASSIGNED — we don't pre-sort everything into tiers (there are too many).
+// tier:null = "Unassigned" — pickable by hand, but Auto never uses it and it never substitutes.
+let MODELS = [
+  { id:'opus-4.8',     n:'Opus 4.8',         glyph:'anthropic', slug:'claude-code', tier:'Flagship' },
+  { id:'gpt-5.5',      n:'ChatGPT 5.5',      glyph:'codex',     slug:'codex',       tier:'Flagship' },
+  { id:'sonnet-4.6',   n:'Sonnet 4.6',       glyph:'anthropic', slug:'claude-code', tier:'Balanced' },
+  { id:'gem-flash',    n:'Gemini 3.5 Flash', glyph:'gemini',    slug:'antigravity', tier:'Fast' },
+  { id:'composer-2.5', n:'Composer 2.5',     glyph:'hex',       slug:'cursor',      tier:null },
+  { id:'grok-build',   n:'Grok Build',       glyph:'x',         slug:'grok',        tier:null },
+  { id:'grok-compose', n:'Grok Compose',     glyph:'x',         slug:'grok',        tier:null },
+];
+
+const TIERS = [
+  { name:'Flagship', cap:'Your best. Slowest and priciest — use when only the smartest will do.', star:true },
+  { name:'Balanced', cap:'Strong all-rounders. The everyday workhorses.' },
+  { name:'Fast',     cap:'Quick and cheap. Great for simple, high-volume work.' },
+];
+
+let DEFAULT_TIER = 'Flagship';
+let SUBS_ON = true;
+
+const ti = t => { const i = ['Flagship','Balanced','Fast'].indexOf(t); return i<0 ? 3 : i; };
+const inTier = t => MODELS.filter(m=>m.tier===t);
+const untiered = () => MODELS.filter(m=>!m.tier);
+// Auto resolves to the DEFAULT (first/top) model on the chosen tier
+const defaultOf = t => inTier(t)[0] || null;
+const normalize = () => { MODELS = [...MODELS].sort((a,b)=> ti(a.tier)-ti(b.tier)); };
+function moveModel(id, tier, beforeId){
+  const m = MODELS.find(x=>x.id===id); if(!m) return;
+  m.tier = tier;
+  let arr = MODELS.filter(x=>x.id!==id);
+  if(beforeId){ const i = arr.findIndex(x=>x.id===beforeId); arr.splice(i<0?arr.length:i,0,m); }
+  else arr.push(m);
+  MODELS = arr; normalize(); rerender();
+}
+function afterId(container, y, sel){
+  const els = [...container.querySelectorAll(sel+':not(.dragging)')];
+  for(const el of els){ const box = el.getBoundingClientRect(); if(y < box.top + box.height/2) return el.dataset.id; }
+  return null;
+}
+
+function rerender(){ renderTiers(); renderUntiered(); renderDefault(); renderDropdown(); if(MODAL_TIER) renderModal(); }
+
+function renderDefault(){
+  const def = defaultOf(DEFAULT_TIER);
+  const pill = document.getElementById('defModel');
+  if(def){
+    pill.className = 'def__model';
+    pill.innerHTML = `${def.n}<span class="def__tier">${DEFAULT_TIER}</span>`;
+  } else {
+    pill.className = 'def__model wait';
+    pill.textContent = `No model on ${DEFAULT_TIER} — waits`;
+  }
+  document.getElementById('ddAuto').innerHTML = `
+    <div class="dd-auto__inf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16c3.5 0 4.5-8 8-8a4 4 0 0 1 0 8c-3.5 0-4.5-8-8-8a4 4 0 0 0 0 8z"/></svg></div>
+    <div class="dd-auto__m">
+      <div class="dd-auto__n">Auto <span class="pill">Default</span></div>
+      <div class="dd-auto__s">${def ? `Best ready model on <b>${DEFAULT_TIER}</b> · now ${def.n}` : `No model on ${DEFAULT_TIER} — chats wait`}</div>
+    </div>
+    <div class="dd-auto__chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>`;
+}
+
+const gripSVG = `<span class="mcard__grip"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>`;
+const plusSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`;
+
+function renderTiers(){
+  document.getElementById('tiers').innerHTML = TIERS.map(t=>{
+    const items = inTier(t.name);
+    let inner;
+    if(items.length){
+      inner = items.map((m,i)=>`<div class="mcard" draggable="true" data-id="${m.id}">
+        <span class="mcard__g">${G[m.glyph]}</span>
+        <span class="mcard__m"><div class="mcard__n">${m.n}</div><div class="mcard__s">${m.slug}</div></span>
+        ${i===0 ? `<span class="mcard__lead">Default</span>` : ``}
+        ${gripSVG}
+      </div>`).join('');
+    } else {
+      inner = `<div class="tier__empty">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <span class="t">Empty — work waits</span>
+        <span class="d">Nothing can stand in here.</span>
+        <button class="addbtn-lg" data-add="${t.name}">${plusSVG}Add a model</button>
+      </div>`;
+    }
+    return `<div class="tier" data-drop="${t.name}">
+      <div class="tier__hd">
+        <div class="tier__top">
+          ${t.star ? `<span class="tier__star"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z"/></svg></span>` : ``}
+          <span class="tier__name">${t.name}</span>
+          ${t.name===DEFAULT_TIER ? `<span class="tier__auto">Auto</span>` : ``}
+          <span class="tier__ct">${items.length}</span>
+          <button class="addbtn" data-add="${t.name}" title="Add a model to ${t.name}">${plusSVG}</button>
+        </div>
+        <div class="tier__cap">${t.cap}</div>
+      </div>
+      <div class="tier__list">${inner}</div>
+    </div>`;
+  }).join('');
+  wireAdd(); wireDrag();
+}
+
+function renderUntiered(){
+  const items = untiered();
+  document.getElementById('untier').innerHTML = `
+    <div class="untier__hd">Unassigned<span class="ct">${items.length}</span><span class="cap">pickable by hand · Auto never uses these · they never substitute</span></div>
+    ${items.length
+      ? `<div class="untier__list">${items.map(m=>`<div class="mcard" draggable="true" data-id="${m.id}">
+          <span class="mcard__g">${G[m.glyph]}</span>
+          <span class="mcard__m"><div class="mcard__n">${m.n}</div><div class="mcard__s">${m.slug}</div></span>
+          ${gripSVG}</div>`).join('')}</div>`
+      : `<div class="untier__empty">Every model is on a tier. Drag one here to bench it from Auto &amp; substitution.</div>`}`;
+  wireDrag();
+}
+
+function wireDrag(){
+  let dragId=null;
+  document.querySelectorAll('.mcard').forEach(c=>{
+    c.addEventListener('dragstart',()=>{ dragId=c.dataset.id; c.classList.add('dragging'); });
+    c.addEventListener('dragend',()=>{ c.classList.remove('dragging'); document.querySelectorAll('[data-drop]').forEach(t=>t.classList.remove('drop')); });
+  });
+  document.querySelectorAll('[data-drop]').forEach(col=>{
+    col.addEventListener('dragover',e=>{ e.preventDefault(); col.classList.add('drop'); });
+    col.addEventListener('dragleave',()=>col.classList.remove('drop'));
+    col.addEventListener('drop',e=>{
+      e.preventDefault(); col.classList.remove('drop');
+      const d = col.dataset.drop, tier = (d==='untiered') ? null : d;
+      const cont = col.querySelector('.tier__list, .untier__list') || col;
+      const before = afterId(cont, e.clientY, '.mcard');
+      if(dragId) moveModel(dragId, tier, before);
+    });
+  });
+}
+
+function wireAdd(){
+  document.querySelectorAll('[data-add]').forEach(b=> b.onclick = ()=> openModal(b.dataset.add));
+}
+
+function renderDropdown(){
+  const rows = [...MODELS].sort((a,b)=>a.n.localeCompare(b.n));
+  document.getElementById('ddList').innerHTML = rows.map(m=>`<div class="dd-row">
+    <span class="dd-row__g">${G[m.glyph]}</span>
+    <span class="dd-row__m"><div class="dd-row__n">${m.n}</div>
+      <div class="dd-row__sub">${m.slug}<span class="dd-row__tier">· ${m.tier || 'Unassigned'}</span></div></span>
+    <span class="dd-row__dot"></span>
+  </div>`).join('');
+}
+
+/* ---- shared roster modal: add/remove models on a tier (= Auto's substitutes) ---- */
+let MODAL_TIER = null;
+function openModal(tier){ MODAL_TIER = tier; document.getElementById('scrim').hidden = false; renderModal(); }
+function closeModal(){ MODAL_TIER = null; document.getElementById('scrim').hidden = true; }
+
+function setTier(id, tier){ const m = MODELS.find(x=>x.id===id); if(m){ m.tier = tier; normalize(); rerender(); } }
+function makeDefault(id){
+  const m = MODELS.find(x=>x.id===id); if(!m) return;
+  const rest = MODELS.filter(x=>x.id!==id);
+  const at = rest.findIndex(x=>x.tier===m.tier);
+  if(at<0) rest.push(m); else rest.splice(at,0,m);
+  MODELS = rest; rerender();
+}
+
+function renderModal(){
+  const t = TIERS.find(x=>x.name===MODAL_TIER);
+  const on = inTier(MODAL_TIER);
+  const bench = untiered();
+  document.getElementById('mStar').innerHTML = t && t.star
+    ? `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z"/></svg>` : '';
+  document.getElementById('mTitle').textContent = `Manage ${MODAL_TIER}`;
+  document.getElementById('mSub').innerHTML = `Pick healthy substitutes for this tier.`;
+  document.getElementById('mHint').textContent = `Drag to the top to set the default · ＋ / × to add and remove · adds come from unassigned only.`;
+
+  const row = (m, kind, i)=>`<div class="mm-row" draggable="true" data-id="${m.id}">
+      <span class="mm-grip"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
+      <span class="mm-row__g">${G[m.glyph]}</span>
+      <span class="mm-row__m"><div class="mm-row__n">${m.n} ${kind==='on'&&i===0?'<span class="mm-tag">Default</span>':''}</div><div class="mm-row__s">${m.slug}</div></span>
+      <span class="mm-r">
+        ${kind==='on'
+          ? `<button class="mm-icon" data-rm="${m.id}" title="Remove from ${MODAL_TIER}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`
+          : `<button class="mm-icon" data-add2="${m.id}" title="Add to ${MODAL_TIER}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>`}
+      </span>
+    </div>`;
+
+  const onRows = on.length ? on.map((m,i)=>row(m,'on',i)).join('') : `<div class="untier__empty" style="padding:12px 2px">Empty — drag a model in from below, or this tier can't run.</div>`;
+  const benchRows = bench.length ? bench.map(m=>row(m,'bench')).join('') : `<div class="untier__empty" style="padding:12px 2px">No unassigned models. Remove one from a tier to free it up.</div>`;
+
+  document.getElementById('mBody').innerHTML =
+    `<div class="modal__grp">On ${MODAL_TIER} · ${on.length}</div>
+     <div class="mm-list" data-mdrop="${MODAL_TIER}">${onRows}</div>
+     <div class="modal__grp">Unassigned · ${bench.length}</div>
+     <div class="mm-list" data-mdrop="unassigned">${benchRows}</div>`;
+
+  document.querySelectorAll('[data-add2]').forEach(b=> b.onclick=()=>setTier(b.dataset.add2, MODAL_TIER));
+  document.querySelectorAll('[data-rm]').forEach(b=> b.onclick=()=>setTier(b.dataset.rm, null));
+  document.querySelectorAll('[data-def]').forEach(b=> b.onclick=()=>makeDefault(b.dataset.def));
+  wireModalDrag();
+}
+
+function wireModalDrag(){
+  let dragId=null;
+  document.querySelectorAll('.mm-row').forEach(c=>{
+    c.addEventListener('dragstart',()=>{ dragId=c.dataset.id; c.classList.add('dragging'); });
+    c.addEventListener('dragend',()=>{ c.classList.remove('dragging'); document.querySelectorAll('[data-mdrop]').forEach(l=>l.classList.remove('drop')); });
+  });
+  document.querySelectorAll('[data-mdrop]').forEach(z=>{
+    z.addEventListener('dragover',e=>{ e.preventDefault(); z.classList.add('drop'); });
+    z.addEventListener('dragleave',()=>z.classList.remove('drop'));
+    z.addEventListener('drop',e=>{
+      e.preventDefault(); z.classList.remove('drop');
+      const d = z.dataset.mdrop, tier = (d==='unassigned')?null:d;
+      const before = afterId(z, e.clientY, '.mm-row');
+      if(dragId) moveModel(dragId, tier, before);
+    });
+  });
+}
+
+document.getElementById('tierSeg').addEventListener('click',e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  DEFAULT_TIER = b.dataset.t;
+  document.querySelectorAll('#tierSeg button').forEach(x=>x.classList.toggle('on', x===b));
+  renderTiers(); renderDefault();
+});
+document.getElementById('subTg').addEventListener('click',function(){
+  SUBS_ON=!SUBS_ON; this.classList.toggle('on',SUBS_ON); renderDefault();
+});
+document.getElementById('mClose').addEventListener('click',closeModal);
+document.getElementById('mDone').addEventListener('click',closeModal);
+document.getElementById('scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeModal(); });
+
+normalize(); renderTiers(); renderUntiered(); renderDefault(); renderDropdown();
+</script>
+</body>
+</html>

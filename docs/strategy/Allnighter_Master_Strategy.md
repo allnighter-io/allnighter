@@ -605,7 +605,7 @@ That is the shift Allnighter exists to make.
 - CLI product spine:
   `docs/phases/CLI_Product_Spine.md`
 - Fanout team catalog:
-  `docs/phases/Team_Catalog.md`
+  `docs/archive/phases/Team_Catalog.md`
 - Agent-first MCP and messaging:
   `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md`
 - iOS floor manager:
