@@ -30,6 +30,23 @@ final class WorkerRunnerTests: XCTestCase {
         XCTAssertEqual(response.output, "red answer")
     }
 
+    func testGrokStreamingJsonExtractsOnlyVisibleTextDeltas() async {
+        let manifest = TestSupport.headlessManifest(id: "grok", command: "grok")
+        let worker = TestSupport.worker("w", driverId: "grok")
+        let streaming = """
+{"type":"thought","data":"Analyzing..."}
+{"type":"text","data":"Hello"}
+{"type":"text","data":" from Grok"}
+{"type":"end","stopReason":"EndTurn","sessionId":"s1","requestId":"r1"}
+"""
+        let run = runner(["grok": .init(stdout: streaming, exitCode: 0)])
+
+        let response = await run.invoke(worker: worker, manifest: manifest, prompt: "hi")
+        XCTAssertEqual(response.status, .done)
+        XCTAssertEqual(response.output, "Hello from Grok")
+        XCTAssertEqual(response.exitCode, 0)
+    }
+
     func testEmptyOutputIsFailure() async {
         let manifest = TestSupport.headlessManifest(id: "codex", command: "codex")
         let worker = TestSupport.worker("w", driverId: "codex")

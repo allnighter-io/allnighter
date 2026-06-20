@@ -8,7 +8,7 @@
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "grok",
-    "args": ["-p", "{{prompt}}", "-m", "{{model}}", "--output-format", "plain"],
+    "args": ["-p", "{{prompt}}", "-m", "{{model}}", "--output-format", "streaming-json", "--always-approve", "--no-wait-for-background", "--no-subagents", "--disable-web-search", "--cwd", "{{workingDir}}"],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,

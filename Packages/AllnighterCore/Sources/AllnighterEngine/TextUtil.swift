@@ -19,6 +19,31 @@ enum TextUtil {
         }
         return output
     }
+
+    /// Extracts visible assistant text from Grok's `--output-format streaming-json`
+    /// (and any future driver using the same NDJSON envelope).
+    ///
+    /// - Only `{"type":"text","data":"<delta>"}` chunks are collected (incremental deltas).
+    /// - `thought`, `end`, `error`, and any other events are ignored (not part of chat answer text).
+    /// - Deltas are concatenated in encounter order to form the final visible answer.
+    /// - If no `type:text` events are found, returns the original input unchanged (plain output path).
+    static func extractStreamingVisibleText(_ input: String) -> String {
+        var collected: [String] = []
+        for rawLine in input.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty, line.first == "{" else { continue }
+            guard let data = line.data(using: .utf8) else { continue }
+            guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            guard let type = obj["type"] as? String, type == "text" else { continue }
+            if let delta = obj["data"] as? String {
+                collected.append(delta)
+            }
+        }
+        if collected.isEmpty {
+            return input
+        }
+        return collected.joined()
+    }
 }
 
 /// Splits a trusted command-line string (from a driver manifest's

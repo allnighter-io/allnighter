@@ -172,7 +172,8 @@ public struct WorkerRunner: Sendable {
             rawOutput = result.stdout
         }
 
-        let cleaned = output(from: rawOutput, manifest: manifest)
+        let stripped = output(from: rawOutput, manifest: manifest)
+        let cleaned = TextUtil.extractStreamingVisibleText(stripped)
         if cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             outcome.status = .failed
             outcome.errorKind = .emptyOutput
