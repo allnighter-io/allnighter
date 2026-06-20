@@ -1,0 +1,139 @@
+import XCTest
+import AllnighterCore
+@testable import AllnighterEngine
+
+/// A scripted streaming runner: replays a fixed CommandEvent sequence, optionally
+/// pacing chunks so timing-sensitive behavior can be exercised.
+final class MockStreamingCommandRunner: StreamingCommandRunner, @unchecked Sendable {
+    let events: [CommandEvent]
+    init(_ events: [CommandEvent]) { self.events = events }
+
+    func runStreaming(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) -> AsyncThrowingStream<CommandEvent, Error> {
+        let events = self.events
+        return AsyncThrowingStream { continuation in
+            for event in events { continuation.yield(event) }
+            continuation.finish()
+        }
+    }
+}
+
+final class GrokStreamParserTests: XCTestCase {
+
+    private func collect(_ parser: GrokStreamParser, _ ndjson: String) -> [WorkerStreamEvent] {
+        parser.receiveStdout(Data(ndjson.utf8))
+    }
+
+    func testTextEventsBecomeAnswerDeltasReasoningDoesNot() {
+        let parser = GrokStreamParser()
+        let events = collect(parser, """
+        {"type":"thought","data":"The user asked for one word.\\n"}
+        {"type":"text","data":"P"}
+        {"type":"text","data":"ONG"}
+        {"type":"end","stopReason":"EndTurn","sessionId":"s","requestId":"r"}
+
+        """)
+        let deltas = events.compactMap { event -> String? in
+            if case .answerDelta(let text, _, _) = event { return text }
+            return nil
+        }
+        // Only the two text events are deltas; thought + end never produce answer text.
+        XCTAssertEqual(deltas, ["P", "ONG"])
+        XCTAssertEqual(deltas.count, events.filter { if case .answerDelta = $0 { return true }; return false }.count)
+        XCTAssertEqual(parser.finalAnswer(result: CommandResult(exitCode: 0), outputFileText: nil), "PONG")
+    }
+
+    func testLineSplitAcrossChunksStillParses() {
+        let parser = GrokStreamParser()
+        // First chunk cuts a JSON object mid-way; the second completes it.
+        let first = parser.receiveStdout(Data(#"{"type":"text","da"#.utf8))
+        XCTAssertTrue(first.isEmpty, "partial line must not emit yet")
+        let second = parser.receiveStdout(Data("ta\":\"Hi\"}\n".utf8))
+        guard case .answerDelta(let text, _, _)? = second.first else {
+            return XCTFail("expected an answer delta once the line completes")
+        }
+        XCTAssertEqual(text, "Hi")
+    }
+
+    func testDegradedStreamFallsBackToPostExitExtraction() {
+        // No deltas streamed; finalAnswer extracts from the full stdout buffer.
+        let parser = GrokStreamParser()
+        let full = #"{"type":"text","data":"Recovered"}"# + "\n"
+        let answer = parser.finalAnswer(result: CommandResult(stdout: full, exitCode: 0), outputFileText: nil)
+        XCTAssertEqual(answer, "Recovered")
+    }
+}
+
+final class WorkerInvokeStreamingTests: XCTestCase {
+
+    private func grokManifest() -> DriverManifest {
+        var m = TestSupport.headlessManifest(id: "grok", command: "grok")
+        m.streaming = .init(supported: true, mode: .jsonlStdout,
+                            args: ["-p", "{{prompt}}", "--output-format", "streaming-json"],
+                            partialOutput: true, finalAnswerSource: .parserAccumulator)
+        return m
+    }
+
+    func testInvokeStreamingEmitsDeltasThenDoneOutcome() async {
+        let manifest = grokManifest()
+        let worker = TestSupport.worker("model_grok", driverId: "grok")
+        let ndjson = """
+        {"type":"text","data":"Hello"}
+        {"type":"text","data":" world"}
+        {"type":"end","stopReason":"EndTurn"}
+
+        """
+        let streamingRunner = MockStreamingCommandRunner([
+            .started(startedAt: Date()),
+            .stdout(Data(ndjson.utf8)),
+            .completed(CommandResult(stdout: ndjson, exitCode: 0)),
+        ])
+        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [:]),
+                                  streamingCommandRunner: streamingRunner)
+
+        var deltas: [String] = []
+        var terminal: WorkerRunOutcome?
+        var sawStarted = false
+        do {
+            for try await event in runner.invokeStreaming(
+                worker: worker, manifest: manifest, prompt: "hi",
+                parser: WorkerStreamParsers.make(for: manifest)!) {
+                switch event {
+                case .started: sawStarted = true
+                case .answerDelta(let text, _, _): deltas.append(text)
+                case .completed(let outcome): terminal = outcome
+                case .failed(let outcome): terminal = outcome
+                default: break
+                }
+            }
+        } catch { XCTFail("threw: \(error)") }
+
+        XCTAssertTrue(sawStarted)
+        XCTAssertEqual(deltas, ["Hello", " world"])
+        XCTAssertEqual(terminal?.status, .done)
+        XCTAssertEqual(terminal?.output, "Hello world")
+    }
+
+    func testInvokeStreamingNonzeroExitIsFailedTerminal() async {
+        let manifest = grokManifest()
+        let worker = TestSupport.worker("model_grok", driverId: "grok")
+        let streamingRunner = MockStreamingCommandRunner([
+            .started(startedAt: Date()),
+            .completed(CommandResult(stdout: "", stderr: "boom", exitCode: 1)),
+        ])
+        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [:]),
+                                  streamingCommandRunner: streamingRunner)
+        var terminal: WorkerRunOutcome?
+        do {
+            for try await event in runner.invokeStreaming(
+                worker: worker, manifest: manifest, prompt: "hi",
+                parser: WorkerStreamParsers.make(for: manifest)!) {
+                if case .failed(let outcome) = event { terminal = outcome }
+            }
+        } catch { XCTFail("threw: \(error)") }
+        XCTAssertEqual(terminal?.status, .failed)
+        XCTAssertEqual(terminal?.exitCode, 1)
+    }
+}

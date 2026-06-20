@@ -23,6 +23,10 @@ public struct WorkerRunOutcome: Sendable, Equatable {
 /// The coordinator runs many of these in parallel.
 public struct WorkerRunner: Sendable {
     private let commandRunner: CommandRunner
+    /// Streaming sibling for `invokeStreaming` (03_Mac_Streaming). Defaults to the
+    /// `commandRunner` when it also conforms (SubprocessCommandRunner does), so the
+    /// app gets streaming for free.
+    private let streamingCommandRunner: StreamingCommandRunner?
     private let now: @Sendable () -> Date
     /// Per-driver invocation resolved by detection (docs/phases/setup/01 §4.3).
     /// When present, the worker spawns through the SAME plan that passed the
@@ -35,12 +39,14 @@ public struct WorkerRunner: Sendable {
 
     public init(
         commandRunner: CommandRunner,
+        streamingCommandRunner: StreamingCommandRunner? = nil,
         invocations: [String: ToolInvocation] = [:],
         defaultWorkingDirectory: String? = nil,
         shellPath: String? = nil,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.commandRunner = commandRunner
+        self.streamingCommandRunner = streamingCommandRunner ?? (commandRunner as? StreamingCommandRunner)
         self.invocations = invocations
         self.defaultWorkingDirectory = defaultWorkingDirectory
         self.shellPath = shellPath ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
@@ -95,21 +101,7 @@ public struct WorkerRunner: Sendable {
 
         // health == runs: spawn through the SAME invocation detection resolved
         // (docs/phases/setup/01 §4.3, §10), not the bare command on the ambient PATH.
-        let spawnCommand: String
-        let spawnArgs: [String]
-        switch invocations[manifest.id] {
-        case .direct(let path), .shim(let path):
-            spawnCommand = path
-            spawnArgs = args
-        case .loginShell(let name):
-            // Resolve an alias/function via the login shell; argv flows through
-            // "$@" — never concatenated into the shell string (no injection).
-            spawnCommand = shellPath
-            spawnArgs = ["-lic", "\(name) \"$@\"", name] + args
-        case nil:
-            spawnCommand = invoke.command
-            spawnArgs = args
-        }
+        let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
 
         let startedAt = now()
         let result = await commandRunner.run(
@@ -121,14 +113,48 @@ public struct WorkerRunner: Sendable {
             timeout: timeoutOverride ?? .seconds(invoke.timeoutSeconds)
         )
         let finishedAt = now()
-        let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
-
-        var outcome = WorkerRunOutcome(
-            status: .running,
-            startedAt: startedAt,
-            finishedAt: finishedAt,
-            durationMs: durationMs
+        return finalize(
+            result: result, worker: worker, manifest: manifest, invoke: invoke,
+            outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: finishedAt
         )
+    }
+
+    /// Maps resolved argv to the actual spawn (command, args), honoring the detected
+    /// invocation plan (direct path / shim / login-shell alias). Shared by `invoke`
+    /// and `invokeStreaming` so both spawn through health==runs detection.
+    func resolveSpawn(manifest: DriverManifest, invoke: DriverManifest.Invoke, args: [String]) -> (command: String, args: [String]) {
+        switch invocations[manifest.id] {
+        case .direct(let path), .shim(let path):
+            return (path, args)
+        case .loginShell(let name):
+            // Resolve an alias/function via the login shell; argv flows through
+            // "$@" — never concatenated into the shell string (no injection).
+            return (shellPath, ["-lic", "\(name) \"$@\"", name] + args)
+        case nil:
+            return (invoke.command, args)
+        }
+    }
+
+    /// Shared terminal normalization for `invoke` and `invokeStreaming`:
+    /// launch/cancel/timeout/exit-code → status, capacity classification, ANSI strip
+    /// + empty check. When `overrideFinalText` is non-nil (a streaming parser's
+    /// already-reconciled visible answer) it is used as the answer instead of reading
+    /// the manifest capture, and driver-specific stream extraction is skipped (the
+    /// parser already produced visible text). On cancel/timeout a non-empty partial
+    /// is preserved on the outcome.
+    func finalize(
+        result: CommandResult, worker: Model, manifest: DriverManifest, invoke: DriverManifest.Invoke,
+        outputFileURL: URL?, startedAt: Date, finishedAt: Date, overrideFinalText: String? = nil
+    ) -> WorkerRunOutcome {
+        let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
+        var outcome = WorkerRunOutcome(
+            status: .running, startedAt: startedAt, finishedAt: finishedAt, durationMs: durationMs)
+
+        func preservedPartial() -> String? {
+            guard let t = overrideFinalText,
+                  !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return t
+        }
 
         if let launchError = result.launchError {
             outcome.status = .failed
@@ -139,12 +165,14 @@ public struct WorkerRunner: Sendable {
         if result.cancelled {
             outcome.status = .cancelled
             outcome.errorKind = .cancelled
+            outcome.output = preservedPartial()
             return outcome
         }
         if result.timedOut {
             outcome.status = .timedOut
             outcome.errorKind = .timedOut
             outcome.errorReason = "no output for \(invoke.timeoutSeconds)s"
+            outcome.output = preservedPartial()
             return outcome
         }
 
@@ -164,18 +192,23 @@ public struct WorkerRunner: Sendable {
             outcome.status = .failed
             outcome.errorKind = .nonzeroExit
             outcome.errorReason = errorReason(from: result, exitCode: code)
+            outcome.output = preservedPartial()
             return outcome
         }
 
         let rawOutput: String
-        if let outputFileURL, let fileText = try? String(contentsOf: outputFileURL, encoding: .utf8) {
+        if let overrideFinalText {
+            rawOutput = overrideFinalText
+        } else if let outputFileURL, let fileText = try? String(contentsOf: outputFileURL, encoding: .utf8) {
             rawOutput = fileText
         } else {
             rawOutput = result.stdout
         }
 
         let stripped = output(from: rawOutput, manifest: manifest)
-        let cleaned = manifest.id == "grok"
+        // The streaming parser already produced visible text; only the non-streaming
+        // path needs Grok's post-exit NDJSON extraction.
+        let cleaned = (overrideFinalText == nil && manifest.id == "grok")
             ? TextUtil.extractGrokStreamingVisibleText(stripped)
             : stripped
         if cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -188,6 +221,105 @@ public struct WorkerRunner: Sendable {
         outcome.status = .done
         outcome.output = cleaned
         return outcome
+    }
+
+    /// Streaming sibling of `invoke`: spawns the worker's CLI with its STREAMING
+    /// argv and drives `parser`, yielding `WorkerStreamEvent`s live. Terminal
+    /// normalization is shared with `invoke` via `finalize`. Yields a skipped
+    /// terminal when the worker is manual-paste or no streaming runner is wired —
+    /// callers should check `manifest.canStream` before choosing this path.
+    public func invokeStreaming(
+        worker: Model,
+        manifest: DriverManifest,
+        prompt: String,
+        parser: WorkerStreamParser,
+        effort: EffortLevel = .med,
+        workingDirectoryOverride: String? = nil,
+        timeoutOverride: Duration? = nil
+    ) -> AsyncThrowingStream<WorkerStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            guard manifest.kind == .headlessCLI, let invoke = manifest.invoke,
+                  let streamingRunner = streamingCommandRunner else {
+                continuation.yield(.completed(WorkerRunOutcome(status: .skipped)))
+                continuation.finish()
+                return
+            }
+
+            let capturesFile = manifest.output?.capture == .file
+            let outputFileURL: URL? = capturesFile
+                ? FileManager.default.temporaryDirectory.appendingPathComponent("alln-\(UUID().uuidString).txt")
+                : nil
+
+            let workingDir = workingDirectoryOverride ?? defaultWorkingDirectory ?? invoke.workingDir
+            let spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()
+            let driverWorkingDir = workingDir ?? spawnWorkingDir
+            let context = DriverManifest.ResolveContext(
+                prompt: prompt, model: worker.resolvedLabel(at: effort),
+                workingDir: driverWorkingDir, outputFile: outputFileURL?.path, effort: effort)
+            let args = manifest.resolvedStreamingArgs(context)
+            let stdin = manifest.stdinPrompt(context)
+            let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
+
+            let startedAt = now()
+            continuation.yield(.started(workerId: worker.id, modelId: worker.id, sourceId: manifest.id))
+
+            let consume = Task { [self] in
+                defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
+                do {
+                    for try await event in streamingRunner.runStreaming(
+                        command: spawnCommand, args: spawnArgs, stdin: stdin,
+                        env: invoke.env, workingDirectory: spawnWorkingDir,
+                        timeout: timeoutOverride ?? .seconds(invoke.timeoutSeconds)
+                    ) {
+                        switch event {
+                        case .started:
+                            break
+                        case .stdout(let data):
+                            for streamEvent in parser.receiveStdout(data) { continuation.yield(streamEvent) }
+                        case .stderr(let data):
+                            for streamEvent in parser.receiveStderr(data) { continuation.yield(streamEvent) }
+                        case .completed(let result):
+                            let fileText = outputFileURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+                            let finalText = parser.finalAnswer(result: result, outputFileText: fileText)
+                            let outcome = finalize(
+                                result: result, worker: worker, manifest: manifest, invoke: invoke,
+                                outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
+                                overrideFinalText: finalText)
+                            continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
+                        case .failed(let launchError):
+                            var outcome = WorkerRunOutcome(status: .failed, startedAt: startedAt, finishedAt: now())
+                            outcome.errorKind = .missingCLI
+                            outcome.errorReason = launchError
+                            continuation.yield(.failed(outcome))
+                        case .timedOut(let partialOut, let partialErr):
+                            let result = CommandResult(
+                                stdout: String(decoding: partialOut, as: UTF8.self),
+                                stderr: String(decoding: partialErr, as: UTF8.self), timedOut: true)
+                            let finalText = parser.finalAnswer(result: result, outputFileText: nil)
+                            let outcome = finalize(
+                                result: result, worker: worker, manifest: manifest, invoke: invoke,
+                                outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
+                                overrideFinalText: finalText)
+                            continuation.yield(.failed(outcome))
+                        case .cancelled(let partialOut, let partialErr):
+                            let result = CommandResult(
+                                stdout: String(decoding: partialOut, as: UTF8.self),
+                                stderr: String(decoding: partialErr, as: UTF8.self), cancelled: true)
+                            let finalText = parser.finalAnswer(result: result, outputFileText: nil)
+                            let outcome = finalize(
+                                result: result, worker: worker, manifest: manifest, invoke: invoke,
+                                outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
+                                overrideFinalText: finalText)
+                            continuation.yield(.failed(outcome))
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { @Sendable _ in consume.cancel() }
+        }
     }
 
     /// Run a worker and return its `WorkerAnswer` (keyed by `workerId`).
