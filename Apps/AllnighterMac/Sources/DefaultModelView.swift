@@ -41,7 +41,7 @@ struct DefaultModelView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("DEFAULT").font(ALFont.sans(11, .bold)).tracking(1.3).foregroundStyle(ALColor.accent)
             Text("Default model").font(ALFont.sans(27, .heavy)).tracking(-0.5).foregroundStyle(ALColor.textPrimary)
-            Text("What answers when you don’t pick a team or a model. Every chat starts here unless you say otherwise.")
+            Text("What runs when you don’t pick a team or model.")
                 .font(ALFont.sans(13)).foregroundStyle(ALColor.textMuted).frame(maxWidth: 620, alignment: .leading)
             Divider().overlay(ALColor.borderSubtle).padding(.top, 8)
         }
@@ -132,7 +132,7 @@ struct DefaultModelView: View {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Allow healthy substitutions").font(ALFont.sans(14.5, .bold)).foregroundStyle(ALColor.textPrimary)
-                    Text("If your model is down, fall back to another ready model on the same tier — across any CLI. Never upgrades, never downgrades.")
+                    Text("If your model is down, swap to a ready one in the same tier.")
                         .font(ALFont.sans(12.5)).foregroundStyle(ALColor.textMuted).frame(maxWidth: 560, alignment: .leading)
                 }
                 Spacer(minLength: 0)
@@ -237,11 +237,11 @@ struct DefaultModelView: View {
             HStack(spacing: 8) {
                 Text("UNASSIGNED").font(ALFont.mono(10.5, .bold)).tracking(1.0).foregroundStyle(ALColor.textFaint)
                 Text("\(items.count)").font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
-                Text("· pickable by hand · Auto never uses these · they never substitute.")
+                Text("· Hand-pick only. Auto skips these.")
                     .font(ALFont.sans(12)).foregroundStyle(ALColor.textMuted)
             }
             if items.isEmpty {
-                Text("Every on model is on a tier.").font(ALFont.sans(12)).foregroundStyle(ALColor.textFaint)
+                Text("Every model is on a tier.").font(ALFont.sans(12)).foregroundStyle(ALColor.textFaint)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 248), spacing: 10)], alignment: .leading, spacing: 10) {
                     ForEach(items, id: \.id) { m in unassignedCard(m) }
@@ -307,9 +307,9 @@ struct DefaultModelView: View {
 
     private func caption(_ tier: SubstitutionTier) -> String {
         switch tier {
-        case .flagship: "Your best. Slowest and priciest — use when only the smartest will do."
-        case .balanced: "Strong all-rounders. The everyday workhorses."
-        case .fast: "Quick and cheap. Great for simple, high-volume work."
+        case .flagship: "Smartest. Slow and pricey."
+        case .balanced: "Everyday workhorses."
+        case .fast: "Quick and cheap."
         }
     }
 }
