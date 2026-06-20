@@ -205,12 +205,23 @@ public struct ThreadSendCoordinator: Sendable {
 
         switch pending.invokeProfile {
         case .regularText:
-            let outcome = await runner.invoke(
-                worker: model, manifest: manifest, prompt: pending.prompt,
-                workingDirectoryOverride: pending.workingDir
-            )
-            let thread = try settle(
-                workerTurn: pending.workerTurn, with: outcome, inThreadId: pending.threadId
+            let outcome: WorkerRunOutcome
+            // STR-S07: stream live partials onto the running turn when the worker is
+            // stream-capable and a parser exists; otherwise the existing one-shot
+            // invoke. Settlement reloads the latest turn either way.
+            if manifest.canStream, runner.supportsStreaming,
+               let parser = WorkerStreamParsers.make(for: manifest) {
+                outcome = await runStreamingText(
+                    pending: pending, model: model, manifest: manifest, parser: parser)
+            } else {
+                outcome = await runner.invoke(
+                    worker: model, manifest: manifest, prompt: pending.prompt,
+                    workingDirectoryOverride: pending.workingDir
+                )
+            }
+            let thread = try settleStreamingAware(
+                turnId: pending.workerTurn.id, fallback: pending.workerTurn,
+                with: outcome, inThreadId: pending.threadId
             )
             try? PendingCapacityResumeWriter.applyLinkedCapacity(
                 store: PendingStore(),
@@ -604,6 +615,87 @@ public struct ThreadSendCoordinator: Sendable {
             }
         case .failed, .timedOut, .cancelled: settled.text = outcome.errorReason
         case .draft, .queued, .running: break
+        }
+        return try store.updateTurn(settled, inThreadId: threadId, now: now())
+    }
+
+    /// Drives `invokeStreaming`, flushing visible partial text onto the running
+    /// worker turn at a throttled cadence (≥2 KB OR ≥~150 ms), and returns the
+    /// terminal outcome. The buffer caps visible text at 64 KB. Each flush RELOADS
+    /// the latest running turn before writing so a concurrent settle can't be lost.
+    private func runStreamingText(
+        pending: PendingSend, model: Model, manifest: DriverManifest, parser: WorkerStreamParser
+    ) async -> WorkerRunOutcome {
+        var buffer = StreamingPartialBuffer()
+        var lastFlush = now()
+        let flushInterval: TimeInterval = 0.15
+        var terminal: WorkerRunOutcome?
+
+        func flush() {
+            guard let latest = store.get(pending.threadId)?.turn(id: pending.workerTurn.id),
+                  latest.status == .running else { return }
+            var updated = latest
+            updated.text = buffer.visibleText
+            updated.partialOutputTruncated = buffer.isTruncated
+            _ = try? store.updateTurn(updated, inThreadId: pending.threadId, now: now())
+            buffer.markFlushed()
+            lastFlush = now()
+        }
+
+        do {
+            for try await event in runner.invokeStreaming(
+                worker: model, manifest: manifest, prompt: pending.prompt,
+                parser: parser, workingDirectoryOverride: pending.workingDir
+            ) {
+                switch event {
+                case .answerDelta(let text, _, _):
+                    let byteDue = buffer.append(text)
+                    let timeDue = now().timeIntervalSince(lastFlush) >= flushInterval
+                    if byteDue || timeDue { flush() }
+                case .completed(let outcome), .failed(let outcome):
+                    terminal = outcome
+                case .started, .rawEvent, .toolActivity:
+                    break
+                }
+            }
+        } catch {
+            // A stream-level throw is not run-truth; settle from the terminal we have
+            // (or a generic failure) and keep whatever partial was flushed.
+        }
+        // Final flush so the last sub-threshold delta is visible before settlement.
+        flush()
+        return terminal ?? WorkerRunOutcome(
+            status: .failed, errorKind: .emptyOutput,
+            errorReason: "stream ended without a terminal event")
+    }
+
+    /// Settles a worker turn by RELOADING the latest stored turn first (the
+    /// stale-turn trap): a streamed run has already persisted partial text on the
+    /// running turn, so we must not settle the stale optimistic copy. On success the
+    /// complete normalized answer replaces the partial; on failure/timeout/cancel a
+    /// real non-empty partial is preserved (the status conveys the error) and the
+    /// error string is only used as text when no partial ever arrived. For the
+    /// non-streaming path the reloaded turn equals the optimistic turn, so behavior
+    /// is unchanged.
+    private func settleStreamingAware(
+        turnId: String, fallback: ThreadTurn, with outcome: WorkerRunOutcome, inThreadId threadId: String
+    ) throws -> WorkThread {
+        var settled = store.get(threadId)?.turn(id: turnId) ?? fallback
+        let partial = settled.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        settled.status = chatStatus(for: outcome.status)
+        settled.completedAt = outcome.finishedAt ?? now()
+        switch settled.status {
+        case .done:
+            settled.text = outcome.output
+            settled.partialOutputTruncated = false
+        case .failed, .timedOut, .cancelled:
+            if let partial, !partial.isEmpty {
+                // Keep the real partial; the terminal status communicates the error.
+            } else {
+                settled.text = outcome.output ?? outcome.errorReason
+            }
+        case .draft, .queued, .running:
+            break
         }
         return try store.updateTurn(settled, inThreadId: threadId, now: now())
     }

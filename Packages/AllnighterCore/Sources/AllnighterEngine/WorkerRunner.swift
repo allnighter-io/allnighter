@@ -53,6 +53,10 @@ public struct WorkerRunner: Sendable {
         self.now = now
     }
 
+    /// Whether this runner can actually stream (a streaming command runner is wired).
+    /// Callers should gate the streaming path on this AND `manifest.canStream`.
+    public var supportsStreaming: Bool { streamingCommandRunner != nil }
+
     /// Invoke a worker's CLI once and return the neutral outcome.
     /// `workingDirectoryOverride`/`timeoutOverride` let repo-scoped runs use a
     /// chosen directory with a longer budget than the panel timeout.

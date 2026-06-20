@@ -20,6 +20,16 @@
     "doneSignal": "exit_code",
     "sentinel": null
   },
+  "streaming": {
+    "supported": true,
+    "mode": "jsonl_stdout",
+    "args": [],
+    "partialOutput": true,
+    "answerDeltaPaths": ["$.data"],
+    "finalAnswerSource": "parser_accumulator",
+    "stripAnsi": true,
+    "visibleReasoning": false
+  },
   "imageGen": {
     "args": ["-p", "{{prompt}}", "--yolo", "--output-format", "json", "--cwd", "{{runDir}}"],
     "promptVia": "arg",
