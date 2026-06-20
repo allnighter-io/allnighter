@@ -78,7 +78,7 @@ struct TeamControlView: View {
         Button { isOpen.toggle() } label: {
             HStack(spacing: 8) {
                 avatarStack
-                Text("Team")
+                Text("Models")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(ALColor.textSecondary)
                 Circle().fill(statusDotColor).frame(width: 7, height: 7)
@@ -160,9 +160,6 @@ struct BenchDropdownPanel: View {
     var onManageTeam: () -> Void = {}
     var onOpenSetup: () -> Void = {}
 
-    private var rows: [BenchDropdownRow] { appModel.benchDropdownRows }
-    private var readyCount: Int { rows.filter(\.isReady).count }
-
     private var panelShape: UnevenRoundedRectangle {
         if attached {
             UnevenRoundedRectangle(
@@ -181,13 +178,17 @@ struct BenchDropdownPanel: View {
         }
     }
 
+    /// CLI-setup redesign §Models Dropdown: only ON + ready models, flat A→Z. OFF or
+    /// not-ready models never appear here — they live on the CLI setup page.
+    private var availableModels: [Model] { appModel.availableModels }
+
     var body: some View {
         VStack(spacing: 0) {
             header
             rowList
             footer
         }
-        .frame(width: 306)
+        .frame(width: 360)
         .background(ALColor.surface)
         .clipShape(panelShape)
         .overlay { panelShape.stroke(ALColor.borderDefault, lineWidth: 1) }
@@ -195,75 +196,84 @@ struct BenchDropdownPanel: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("Your bench")
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(ALColor.textPrimary)
-            Text("\(readyCount) of \(rows.count) models ready")
-                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+        HStack(spacing: 8) {
+            Text("Models")
+                .font(.system(size: 15, weight: .bold)).foregroundStyle(ALColor.textPrimary)
+            Text("\(availableModels.count) available · \(appModel.availableModelCLICount) CLIs")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 9)
+        .padding(.horizontal, 16).padding(.top, 13).padding(.bottom, 11)
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
 
     private var rowList: some View {
         // ScrollView needs an explicit height here — without it the list collapses to
         // zero inside the attached popover VStack (header + footer only).
-        let height = min(CGFloat(rows.count) * 43 + 12, 248)
+        let height = min(CGFloat(availableModels.count) * 46 + 12, 322)
         return ScrollView {
-            VStack(spacing: 0) {
-                ForEach(rows) { row in
-                    BenchDropdownRowView(row: row) {
-                        isOpen = false
-                        onRepair(row.driverId)
-                    }
-                }
+            VStack(spacing: 1) {
+                ForEach(availableModels) { ModelDropdownRow(model: $0) }
             }
             .padding(6)
         }
-        .frame(height: max(height, rows.isEmpty ? 0 : 43))
+        .frame(height: max(height, availableModels.isEmpty ? 40 : 46))
     }
 
     private var footer: some View {
-        VStack(spacing: 9) {
-            // Setup affordance is state-driven (Track B): when everything is
-            // ready the dropdown stays clutter-free — no re-check here (re-check
-            // lives on the CLI setup page + the health-badge popover, where a
-            // full re-check that spends quota / can flip a tool belongs). When
-            // anything is NOT ready, point the user to the setup page to fix it.
-            // (The agent census is NOT offered here — onboarding/setup only.)
-            if !appModel.allToolsReady {
-                Button {
-                    isOpen = false
-                    onOpenSetup()
-                } label: {
-                    Label("Open CLI setup", systemImage: "wrench.and.screwdriver")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.alPrimary(small: true))
-                .help("Install, sign in to, or locate the CLIs that aren't ready yet.")
+        HStack(spacing: 10) {
+            Button {
+                isOpen = false
+                onOpenSetup()
+            } label: {
+                Label("Manage in settings", systemImage: "slider.horizontal.3")
             }
-
-            HStack(spacing: 9) {
-                Button {
-                    isOpen = false
-                    onManageTeam()
-                } label: {
-                    Label("Manage team", systemImage: "slider.horizontal.3")
-                }
-                .buttonStyle(.alSecondary(small: true))
-                Text("Add models & build teams in settings.")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(ALColor.textFaint)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            .buttonStyle(.alSecondary(small: true))
+            Text("Only models you've turned on appear here.")
+                .font(.system(size: 11))
+                .foregroundStyle(ALColor.textFaint)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .background(ALColor.surface)
         .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+}
+
+/// One model row in the Models dropdown: source-CLI glyph · name · CLI slug · green
+/// dot. (Available models are ON + ready, so the dot is always green — broken/repair
+/// states live in the CLI dropdown, not here.)
+private struct ModelDropdownRow: View {
+    let model: Model
+    @State private var hover = false
+
+    private var slug: String {
+        model.driverId
+            .replacingOccurrences(of: "_agent", with: "")
+            .replacingOccurrences(of: "_", with: "-")
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            DriverBrandGlyph(driverId: model.driverId, boxSize: 34, iconSize: 17, cornerRadius: 8)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.displayName)
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                Text(slug)
+                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(ALColor.textFaint).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Circle().fill(ALPalette.green500).frame(width: 8, height: 8)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(hover ? ALColor.hover : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+        .onHover { hover = $0 }
     }
 }
 

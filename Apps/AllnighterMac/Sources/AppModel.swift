@@ -436,6 +436,22 @@ final class AppModel {
         return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }.count
     }
 
+    /// The single source of truth for every model picker (CLI-setup redesign): a
+    /// model is *available* only when it is ON (enabled — the default) AND its CLI is
+    /// ready. Sorted A→Z by display name. OFF or not-ready models never appear in the
+    /// Models dropdown or the title bar — they live only on the CLI setup page.
+    var availableModels: [Model] {
+        let readyDrivers = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        return models
+            .filter { $0.enabled && readyDrivers.contains($0.driverId) }
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
+
+    /// Distinct ready CLIs backing the available models (for "N available · M CLIs").
+    var availableModelCLICount: Int {
+        Set(availableModels.map(\.driverId)).count
+    }
+
     /// Per-tool cards for the Team-health popover + Setup window. One card per
     /// SUPPORTED headless-CLI driver (not just per cached record) so onboarding
     /// always lists every CLI we support — a driver we've never probed shows as

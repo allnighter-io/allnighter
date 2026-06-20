@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CLI Setup — Redesign</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg-void);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    min-width: max-content;
+    min-height: 100vh;
+    padding: 48px;
+  }
+  .canvas { display: flex; align-items: flex-start; gap: 56px; width: max-content; }
+  .frame { flex: none; display: flex; flex-direction: column; gap: 14px; }
+  .frame__label { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); letter-spacing: .02em; }
+  .frame__label b { color: var(--text-secondary); font-weight: 600; }
+  .frame__note { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); line-height: 1.6; max-width: 520px; margin-top: 2px; }
+  .frame__note .k { color: var(--green-400); }
+
+  /* ---------- window chrome ---------- */
+  .win { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: var(--radius-window, 12px); overflow: hidden; box-shadow: var(--shadow-xl, 0 24px 60px rgba(0,0,0,.5)); }
+  .titlebar { height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 14px; background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); }
+  .lights { display: flex; gap: 8px; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .tc { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .tc .nm { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .tc .sub { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); }
+
+  /* ---------- setup page ---------- */
+  .setup { width: 1100px; }
+  .s-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 26px 30px 18px; }
+  .s-hd__eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 8px; }
+  .s-hd__t { font-size: 27px; font-weight: 800; letter-spacing: -.02em; color: var(--text-primary); }
+  .s-hd__s { color: var(--text-muted); font-size: 13px; margin-top: 8px; max-width: 560px; line-height: 1.55; }
+  .s-hd__s b { color: var(--text-secondary); font-weight: 600; }
+  .s-hd__r { display: flex; gap: 9px; flex: none; align-items: center; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-sans); font-size: 13px; font-weight: 600; border-radius: var(--radius-md, 8px); padding: 8px 13px; cursor: pointer; border: 1px solid transparent; transition: background .14s, border-color .14s; }
+  .btn svg { width: 14px; height: 14px; }
+  .btn--secondary { background: var(--bg-raised); border-color: var(--border-default); color: var(--text-secondary); }
+  .btn--secondary:hover { background: var(--bg-hover); }
+  .btn--primary { background: var(--accent); color: var(--text-on-amber); }
+  .btn--primary:hover { background: var(--accent-hover); }
+  .btn--ghost { background: transparent; color: var(--text-secondary); }
+  .btn--ghost:hover { background: var(--bg-hover); }
+  .iconbtn { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; color: var(--text-muted); cursor: pointer; }
+  .iconbtn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+  .iconbtn svg { width: 16px; height: 16px; }
+
+  /* summary line — replaces the 4 stat cards */
+  .s-sum { display: flex; align-items: center; gap: 10px; padding: 0 30px 18px; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); }
+  .s-sum .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green-500); box-shadow: 0 0 0 3px rgba(63,209,139,.16); }
+  .s-sum b { color: var(--text-secondary); font-weight: 600; }
+  .s-sum .sep { color: var(--text-disabled); }
+
+  .s-body { display: grid; grid-template-columns: 1fr 372px; gap: 26px; padding: 22px 30px 36px; align-items: start; }
+  .s-list { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+
+  .grouplbl { display: flex; align-items: center; gap: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); padding: 14px 2px 4px; }
+  .grouplbl:first-child { padding-top: 2px; }
+  .grouplbl .ct { font-family: var(--font-mono); letter-spacing: 0; }
+  .grouplbl .ln { flex: 1; height: 1px; background: var(--border-subtle); }
+
+  /* a CLI row */
+  .cli { display: flex; align-items: center; gap: 14px; padding: 13px 15px; background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg, 10px); cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+  .cli:hover { border-color: var(--border-default); }
+  .cli.sel { box-shadow: 0 0 0 1px var(--accent-border), 0 0 0 4px var(--accent-surface); border-color: transparent; }
+  .cli.dormant { background: transparent; }
+  .cli.dormant .cli__name { color: var(--text-muted); }
+  .glyph { width: 40px; height: 40px; border-radius: 10px; background: var(--bg-active); display: flex; align-items: center; justify-content: center; flex: none; }
+  .glyph img { width: 22px; height: 22px; }
+  .glyph svg { width: 21px; height: 21px; fill: var(--text-secondary); }
+  .cli.dormant .glyph { opacity: .55; }
+  .cli__main { flex: 1; min-width: 0; }
+  .cli__top { display: flex; align-items: center; gap: 9px; }
+  .cli__name { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+  .cli__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { font-size: 12px; color: var(--text-secondary); background: var(--bg-active); border: 1px solid var(--border-subtle); border-radius: 999px; padding: 3px 10px; }
+  .cli__empty { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); margin-top: 7px; }
+  .cli__fix { font-size: 12px; color: var(--text-muted); margin-top: 7px; }
+  .cli__r { flex: none; display: flex; align-items: center; gap: 12px; }
+
+  .sdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .sdot--green { background: var(--green-500); box-shadow: 0 0 0 3px rgba(63,209,139,.15); }
+  .sdot--grey { background: var(--ink-450); }
+  .sdot--amber { background: var(--amber-500); box-shadow: 0 0 0 3px rgba(255,166,48,.18); }
+
+  /* detail panel */
+  .panel { position: sticky; top: 14px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: var(--radius-xl, 14px); overflow: hidden; }
+  .panel__hd { display: flex; align-items: center; gap: 12px; padding: 16px 16px 14px; border-bottom: 1px solid var(--border-subtle); }
+  .panel__id { flex: 1; min-width: 0; }
+  .panel__n { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .panel__r { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); margin-top: 3px; }
+  .panel__bd { padding: 14px 16px 16px; }
+  .panel__colhd { display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+  .mrow { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--border-subtle); }
+  .mrow:last-of-type { border-bottom: none; }
+  .mrow__m { flex: 1; min-width: 0; }
+  .mrow__n { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+  .mrow__id { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .mrow.off .mrow__n { color: var(--text-muted); }
+
+  /* toggle */
+  .tg { width: 38px; height: 22px; border-radius: 999px; background: var(--ink-600); position: relative; cursor: pointer; flex: none; transition: background .16s; }
+  .tg::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--ink-200); transition: transform .16s, background .16s; }
+  .tg.on { background: var(--accent); }
+  .tg.on::after { transform: translateX(16px); background: #fff; }
+
+  .panel__add { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--accent-text); cursor: pointer; margin-top: 14px; }
+  .panel__add svg { width: 15px; height: 15px; }
+  .panel__foot { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); margin-top: 16px; display: flex; align-items: center; gap: 8px; }
+  .panel__foot .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green-500); }
+
+  /* ---------- dropdown ---------- */
+  .dd-host { width: 440px; }
+  .dd { width: 440px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-xl, 0 24px 60px rgba(0,0,0,.55)); }
+  .dd__hd { display: flex; align-items: baseline; gap: 10px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border-subtle); }
+  .dd__hd .t { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .dd__hd .c { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-faint); }
+  .dd__list { padding: 6px 0; }
+  .dd-row { display: flex; align-items: center; gap: 14px; padding: 11px 20px; cursor: pointer; }
+  .dd-row:hover { background: var(--bg-hover); }
+  .dd-row .glyph { width: 36px; height: 36px; border-radius: 9px; }
+  .dd-row .glyph img { width: 20px; height: 20px; }
+  .dd-row .glyph svg { width: 19px; height: 19px; }
+  .dd-row__m { flex: 1; min-width: 0; }
+  .dd-row__n { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+  .dd-row__sub { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+  .dd__foot { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-top: 1px solid var(--border-subtle); }
+  .dd__foot .ft-note { font-size: 12px; color: var(--text-faint); }
+
+  /* ---------- snapshot popover (title-bar CLI glance) ---------- */
+  .snap-host { width: 470px; }
+  .snap { width: 470px; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-xl, 0 24px 60px rgba(0,0,0,.55)); }
+  .snap__hd { display: flex; align-items: center; gap: 11px; padding: 15px 18px 0; }
+  .snap__hd .ic { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--accent-text); }
+  .snap__hd .ic svg { width: 18px; height: 18px; }
+  .snap__hd .t { flex: 1; font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .snap__hd .x { color: var(--text-faint); cursor: pointer; display: flex; }
+  .snap__hd .x svg { width: 16px; height: 16px; }
+  .snap__sum { padding: 6px 18px 12px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--border-subtle); }
+  .snap__sum b { color: var(--text-secondary); font-weight: 600; }
+  .snap__sum .warn { color: var(--amber-400); font-weight: 600; }
+  .snap__sum .sep { color: var(--text-disabled); }
+  .snap__list { padding: 12px 14px 8px; display: flex; flex-direction: column; gap: 7px; max-height: 460px; overflow: auto; }
+  .snap .cli { cursor: default; }
+  .snap .cli:hover { border-color: var(--border-subtle); }
+  .snap__foot { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; border-top: 1px solid var(--border-subtle); font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+  .snap__foot:hover { background: var(--bg-hover); }
+  .snap__foot svg { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#090B13"/>
+    <path d="M50 24l3.6 11.4L65 39l-11.4 3.6L50 54l-3.6-11.4L35 39l11.4-3.6z" fill="#FFA630"/>
+    <circle cx="50" cy="72" r="4" fill="#3FD18B"/>
+  </svg>
+</template>
+<div class="canvas">
+
+  <!-- ============ SETUP PAGE ============ -->
+  <div class="frame">
+    <div class="frame__label"><b>CLI setup</b> — top cruft removed · CLIs grouped Ready / Dormant / Needs attention · models toggled on the right</div>
+    <div class="win setup" data-screen-label="CLI setup redesign">
+      <div class="titlebar">
+        <div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+        <div class="tc"><span class="nm">allnighter</span><span class="sub">· setup</span></div>
+        <div style="width:54px"></div>
+      </div>
+
+      <div class="s-hd">
+        <div>
+          <div class="s-hd__eyebrow">Setup</div>
+          <div class="s-hd__t">CLI setup</div>
+          <div class="s-hd__s">Choose which models are available across Allnighter. A <b>CLI</b> is just how a model gets here — turn a model on and it shows up everywhere you pick one.</div>
+        </div>
+        <div class="s-hd__r">
+          <button class="btn btn--secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Re-check all</button>
+          <button class="btn btn--primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add CLI</button>
+        </div>
+      </div>
+
+      <div class="s-sum">
+        <span class="dot"></span>
+        <span><b>5</b> CLIs</span><span class="sep">·</span><span><b>7</b> models available</span>
+      </div>
+
+      <div class="s-body">
+        <div class="s-list" id="cliList"></div>
+        <div id="panelHost"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DROPDOWN ============ -->
+  <div class="frame dd-host">
+    <div class="frame__label"><b>CLI / model dropdown</b> — flat A→Z, CLI icon + name, only models that are on</div>
+    <div class="dd" data-screen-label="Models dropdown redesign">
+      <div class="dd__hd">
+        <span class="t">Models</span>
+        <span class="c">7 available · 5 CLIs</span>
+      </div>
+      <div class="dd__list" id="ddList"></div>
+      <div class="dd__foot">
+        <button class="btn btn--secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Manage in settings</button>
+        <span class="ft-note">Only models you've turned on appear here.</span>
+      </div>
+    </div>
+    <div class="frame__note">
+      What changed: header reads <span class="k">Models</span>, not "Your bench." Every row is a model
+      you actually turned on — capability chips are gone. Dormant &amp; broken CLIs never appear.
+      This same list feeds the title bar and every worker picker.
+    </div>
+  </div>
+
+  <!-- ============ CLI SNAPSHOT POPOVER (title-bar glance) ============ -->
+  <div class="frame snap-host">
+    <div class="frame__label"><b>CLI health</b> — the title-bar glance · a mini snapshot of the same list</div>
+    <div class="snap" data-screen-label="CLI snapshot popover redesign">
+      <div class="snap__hd">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+        <span class="t">CLIs</span>
+        <span class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+      </div>
+      <div class="snap__sum" id="snapSum"></div>
+      <div class="snap__list" id="snapList"></div>
+      <div class="snap__foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>Open CLI setup</div>
+    </div>
+    <div class="frame__note">Exactly the main view's list, shrunk. One row component everywhere — same icons,
+      same on-chips, same dots. A glance tells you what's on and whether anything's wrong; the <span class="k">Fix</span>
+      lives on the full page.</div>
+  </div>
+
+</div>
+
+<script>
+// ---- glyphs --------------------------------------------------------------
+const G = {
+  anthropic: '<img src="https://cdn.simpleicons.org/anthropic/FFA630" alt="">',
+  codex:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="fill:none;color:var(--text-secondary)"><path d="M4 17l5-5-5-5"/><path d="M12 19h8"/></svg>',
+  x:         '<img src="https://cdn.simpleicons.org/x/E1E5F0" alt="">',
+  gemini:    '<img src="https://cdn.simpleicons.org/googlegemini/E1E5F0" alt="">',
+  ollama:    '<img src="https://cdn.simpleicons.org/ollama/E1E5F0" alt="">',
+  // simple geometric marks for products without a clean brand glyph
+  spark:  '<svg viewBox="0 0 24 24"><path d="M12 1.5l2.3 7.2 7.2 2.3-7.2 2.3L12 22.5l-2.3-7.2L2.5 11l7.2-2.3z"/></svg>',
+  hex:    '<svg viewBox="0 0 24 24"><path d="M12 2l8.7 5v10L12 22l-8.7-5V7z"/></svg>',
+};
+
+// ---- data: CLIs and their models ----------------------------------------
+// status: ready (>=1 model on) | dormant (0 on) | attention (broken)
+const CLIS = [
+  { id:'agy',    name:'Antigravity',    glyph:'spark',     slug:'antigravity', route:'1.0.10 · via antigravity', status:'ready',
+    models:[ {n:'Claude Opus 4.6', id:'claude-opus-4.6', on:false}, {n:'Claude Sonnet 4.6', id:'claude-sonnet-4.6', on:false},
+             {n:'Gemini 3.1 Pro', id:'gemini-3.1-pro', on:false}, {n:'Gemini 3.5 Flash', id:'gemini-3.5-flash', on:true},
+             {n:'GPT-OSS 120B', id:'gpt-oss-120b', on:false} ] },
+  { id:'claude', name:'Claude Code',    glyph:'anthropic', slug:'claude-code', route:'1.2.4 · via claude-code', status:'ready',
+    models:[ {n:'Opus 4.8', id:'opus-4.8', on:true}, {n:'Sonnet 4.6', id:'sonnet-4.6', on:true}, {n:'Fable 5', id:'fable-5', on:false} ] },
+  { id:'codex',  name:'Codex',          glyph:'codex',     slug:'codex', route:'0.9.1 · via codex', status:'ready',
+    models:[ {n:'ChatGPT 5.5', id:'gpt-5.5', on:true}, {n:'ChatGPT 5.4', id:'gpt-5.4', on:false}, {n:'ChatGPT 5.4 mini', id:'gpt-5.4-mini', on:false}, {n:'Codex Spark', id:'codex-spark', on:false} ] },
+  { id:'cursor', name:'Cursor Agent',   glyph:'hex',       slug:'cursor', route:'2.5 · via cursor', status:'ready',
+    models:[ {n:'Composer 2.5', id:'composer-2.5', on:true}, {n:'Composer 2.5 Fast', id:'composer-2.5-fast', on:false} ] },
+  { id:'grok',   name:'Grok Build CLI', glyph:'x',         slug:'grok', route:'via grok', status:'ready',
+    models:[ {n:'Grok Build', id:'grok-build', on:true}, {n:'Grok Compose', id:'grok-compose', on:true} ] },
+  { id:'ollama', name:'Ollama',         glyph:'ollama',    slug:'ollama', route:'0.5.4 · via ollama', status:'dormant',
+    models:[ {n:'Llama 3.3 70B', id:'llama-3.3', on:false}, {n:'Qwen 3 Coder', id:'qwen-3', on:false}, {n:'DeepSeek V3', id:'deepseek-v3', on:false} ] },
+  { id:'gemcli', name:'Gemini CLI',     glyph:'gemini',    slug:'gemini', route:'via gemini', status:'attention',
+    fix:'Installed but signed out — sign in to use its models.',
+    models:[ {n:'Gemini 2.5 Pro', id:'gem-2.5-pro', on:false} ] },
+];
+
+const dot = s => `<span class="sdot sdot--${ s==='ready'?'green':s==='dormant'?'grey':'amber' }"></span>`;
+const onModels = c => c.models.filter(m=>m.on);
+
+// ---- shared CLI row (used by the main list AND the snapshot popover) ------
+function cliRowBody(c){
+  const on = onModels(c);
+  if(c.status==='attention') return `<div class="cli__fix">${c.fix}</div>`;
+  if(!on.length)             return `<div class="cli__empty">No models on — dormant</div>`;
+  return `<div class="cli__chips">${on.map(m=>`<span class="chip">${m.n}</span>`).join('')}</div>`;
+}
+function cliRowHTML(c, selectable){
+  return `<div class="cli ${c.status==='dormant'?'dormant':''} ${selectable&&SELECTED===c.id?'sel':''}" data-id="${c.id}">
+    <span class="glyph">${G[c.glyph]}</span>
+    <span class="cli__main"><div class="cli__top"><span class="cli__name">${c.name}</span></div>${cliRowBody(c)}</span>
+    <span class="cli__r">${dot(c.status)}</span>
+  </div>`;
+}
+function cliGroupsHTML(selectable){
+  const groups = [
+    ['Needs attention', CLIS.filter(c=>c.status==='attention')],
+    ['Ready',           CLIS.filter(c=>c.status==='ready')],
+    ['Dormant',         CLIS.filter(c=>c.status==='dormant')],
+  ];
+  let h='';
+  for(const [label, items] of groups){
+    if(!items.length) continue;
+    h += `<div class="grouplbl">${label}<span class="ct">${items.length}</span><span class="ln"></span></div>`;
+    for(const c of items) h += cliRowHTML(c, selectable);
+  }
+  return h;
+}
+
+// ---- left CLI list -------------------------------------------------------
+let SELECTED = 'agy';
+function renderList(){
+  document.getElementById('cliList').innerHTML = cliGroupsHTML(true);
+  document.querySelectorAll('#cliList .cli').forEach(el=>el.onclick=()=>{ SELECTED=el.dataset.id; renderList(); renderPanel(); });
+}
+
+// ---- snapshot popover: same rows, no detail panel ------------------------
+function renderSnapshot(){
+  const ready = CLIS.filter(c=>c.status==='ready').length;
+  const attn  = CLIS.filter(c=>c.status==='attention').length;
+  const totalOn = CLIS.reduce((a,c)=>a+onModels(c).length,0);
+  document.getElementById('snapSum').innerHTML = attn
+    ? `<span class="warn">${attn} need${attn>1?'':'s'} attention</span><span class="sep">·</span><b>${ready}</b> ready<span class="sep">·</span><b>${totalOn}</b> models on`
+    : `<b>${ready}</b> CLIs ready<span class="sep">·</span><b>${totalOn}</b> models on`;
+  document.getElementById('snapList').innerHTML = cliGroupsHTML(false);
+}
+
+// ---- right detail panel --------------------------------------------------
+function renderPanel(){
+  const c = CLIS.find(x=>x.id===SELECTED);
+  const onCount = onModels(c).length;
+  let foot;
+  if(c.status==='attention') foot = `<div class="panel__foot" style="color:var(--amber-400)"><span class="dot" style="background:var(--amber-500)"></span>${c.fix}</div>`;
+  else if(c.status==='dormant') foot = `<div class="panel__foot"><span class="dot" style="background:var(--ink-450)"></span>Dormant — no models on. That's fine; turn one on to use this CLI.</div>`;
+  else foot = `<div class="panel__foot"><span class="dot"></span>${onCount} model${onCount>1?'s':''} on · available everywhere you pick a model.</div>`;
+
+  document.getElementById('panelHost').innerHTML = `<div class="panel">
+    <div class="panel__hd">
+      <span class="glyph">${G[c.glyph]}</span>
+      <span class="panel__id"><div class="panel__n">${c.name}</div><div class="panel__r">${c.route}</div></span>
+      ${dot(c.status)}
+    </div>
+    <div class="panel__bd">
+      <div class="panel__colhd"><span>Models on this CLI</span><span>On</span></div>
+      ${c.models.map(m=>`<div class="mrow ${m.on?'':'off'}">
+        <span class="mrow__m"><div class="mrow__n">${m.n}</div><div class="mrow__id">${m.id}</div></span>
+        <span class="tg ${m.on?'on':''}" data-cli="${c.id}" data-m="${m.id}"></span>
+      </div>`).join('')}
+      <div class="panel__add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add model</div>
+      ${foot}
+    </div>
+  </div>`;
+  document.querySelectorAll('.tg').forEach(t=>t.onclick=()=>{
+    const cli=CLIS.find(x=>x.id===t.dataset.cli); const m=cli.models.find(x=>x.id===t.dataset.m);
+    m.on=!m.on;
+    // a CLI flips dormant<->ready as its on-count crosses zero (attention stays attention)
+    if(cli.status!=='attention') cli.status = onModels(cli).length ? 'ready' : 'dormant';
+    renderList(); renderPanel(); renderDropdown(); renderSnapshot();
+  });
+}
+
+// ---- dropdown: flat A→Z of every ON model --------------------------------
+function renderDropdown(){
+  const rows=[];
+  for(const c of CLIS) for(const m of c.models) if(m.on) rows.push({ n:m.n, cli:c });
+  rows.sort((a,b)=>a.n.localeCompare(b.n));
+  document.querySelector('#ddList').innerHTML = rows.map(r=>`<div class="dd-row">
+    <span class="glyph">${G[r.cli.glyph]}</span>
+    <span class="dd-row__m"><div class="dd-row__n">${r.n}</div><div class="dd-row__sub">${r.cli.slug}</div></span>
+    <span class="sdot sdot--green"></span>
+  </div>`).join('');
+  document.querySelector('.dd__hd .c').textContent = `${rows.length} available · 5 CLIs`;
+}
+
+renderList(); renderPanel(); renderDropdown(); renderSnapshot();
+</script>
+</body>
+</html>
