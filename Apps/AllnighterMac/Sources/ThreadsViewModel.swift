@@ -359,7 +359,8 @@ final class ThreadsViewModel {
         let startedAt = Date()
         let turn = ThreadTurn(
             id: UUID().uuidString, threadId: threadId, kind: turnKind, status: .running,
-            createdAt: startedAt, author: .worker, workerId: preset.mutating ? routing.to : nil,
+            createdAt: startedAt, author: .worker,
+            workerId: preset.mutating && !routing.to.isEmpty ? routing.to : nil,
             runId: runId
         )
         guard (try? store.appendTurn(turn, toThreadId: threadId, now: startedAt)) != nil else { return }

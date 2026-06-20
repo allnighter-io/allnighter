@@ -68,9 +68,13 @@ struct RoutingComposer: View {
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(CommandCenter.self) private var commands
     @State var team: String?
-    @State var to: String
+    /// An EXPLICIT worker override. `nil` (with no team) = **Auto** — the run resolves
+    /// the Default-model tier and substitutes across CLIs.
+    @State private var pinnedWorker: String?
     @State var effort: ComposeEffort
     @State var lane: ComposeLane
+    /// Cached Default-model settings (refreshed on appear) — Auto's tier preview.
+    @State private var defaultSettings: DefaultModelSettings = .fresh
     @State private var text: String = ""
     @State private var targetOpen = false
     /// Which form the route popover shows — never both at once.
@@ -97,7 +101,6 @@ struct RoutingComposer: View {
         onSend: ((ComposeRouting) -> Void)? = nil
     ) {
         _team = State(initialValue: team)
-        _to = State(initialValue: "")
         _effort = State(initialValue: .med)
         _lane = State(initialValue: lane)
         _targetOpen = State(initialValue: openTarget)
@@ -120,11 +123,9 @@ struct RoutingComposer: View {
         .onChange(of: threads.pendingQuickCaptureText) { _, _ in
             consumePendingPrefillIfNeeded()
         }
-        // Picking a different team re-points the worker to THAT team's worker, so
-        // the chip never drifts from the team it names.
-        .onChange(of: team) { _, newTeam in
-            if let w = resolvedWorkerId(forTeam: newTeam) { to = w }
-        }
+        // Switching teams drops any explicit worker pin so the chip names THAT team's
+        // worker, never a stale override.
+        .onChange(of: team) { _, _ in pinnedWorker = nil }
     }
 
     private var canSend: Bool {
@@ -132,17 +133,32 @@ struct RoutingComposer: View {
     }
 
     private func seedDefaults() {
-        let bench = appModel.composeBench
-        // SSOT: the worker shown is the SELECTED team's configured worker (what
-        // Settings shows), not an arbitrary first-ready model. Only fall back to a
-        // ready bench model if the team pins no worker.
-        if to.isEmpty || !bench.contains(where: { $0.id == to }) {
-            to = resolvedWorkerId(forTeam: team)
-                ?? bench.first(where: \.ready)?.id ?? bench.first?.id ?? ""
-        }
+        defaultSettings = DefaultModelSettingsPersistence().load()
         if !locksTeam, team == nil, let preset = TeamCatalog.defaultRunTeam() {
             lane = ComposeLane(rawValue: preset.lane.rawValue) ?? lane
         }
+    }
+
+    // MARK: Auto resolution (the chip preview == what the run will do)
+
+    /// Model ids whose source CLI is signed-in + ready right now (live).
+    private var sourceReadyIds: Set<ModelID> {
+        let readyDrivers = Set(appModel.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        return Set(appModel.models.filter { readyDrivers.contains($0.driverId) }.map(\.id))
+    }
+
+    /// What Auto resolves to now — the tier default, or a same-tier substitute when a
+    /// CLI is down. nil = the tier is fully down (Auto would wait).
+    private var autoModelId: String? {
+        SubstitutionResolver.resolveAuto(settings: defaultSettings, readyModelIds: sourceReadyIds).resolvedModelId
+    }
+
+    /// The worker the route currently runs: an explicit pin, else the team's worker,
+    /// else the tier-resolved Auto model.
+    private var selectedWorkerId: String? {
+        if let pinnedWorker { return pinnedWorker }
+        if team != nil { return resolvedWorkerId(forTeam: team) }
+        return autoModelId
     }
 
     /// The model a team actually runs — its first worker's pinned model (or the
@@ -248,9 +264,10 @@ struct RoutingComposer: View {
         }
     }
 
-    /// The model the single-model route runs (the resolved/picked worker).
+    /// The model the single-model route runs — the tier-resolved Auto model, or an
+    /// explicit pin. Equals what the run will actually execute.
     private var singleModelName: String {
-        appModel.composeBench.first(where: { $0.id == to })?.name ?? "Auto"
+        appModel.composeBench.first(where: { $0.id == selectedWorkerId })?.name ?? "Auto"
     }
 
     /// A team's honest size: execution teams are one agent; answer teams show their
@@ -279,7 +296,16 @@ struct RoutingComposer: View {
     private func performSend() {
         let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
-        onSend?(ComposeRouting(team: team, to: to, effort: effort, lane: lane, text: body))
+        // Auto (no team, no pin) sends an EMPTY worker so the run resolves the tier
+        // default and substitutes across CLIs. A team or an explicit pin sends a
+        // concrete worker (exact, no substitution).
+        let toSend: String
+        if team != nil {
+            toSend = (pinnedWorker ?? resolvedWorkerId(forTeam: team)) ?? ""
+        } else {
+            toSend = pinnedWorker ?? ""
+        }
+        onSend?(ComposeRouting(team: team, to: toSend, effort: effort, lane: lane, text: body))
         text = ""
         targetOpen = false
         editorHeight = ComposeEditorMetrics.minHeight
@@ -359,7 +385,7 @@ struct RoutingComposer: View {
 
     // "Auto" is pinned to the very top — the default route, the 95% case.
     private var defaultTeamRow: some View {
-        Button { team = nil; targetOpen = false } label: {
+        Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
             HStack(spacing: 10) {
                 Image(systemName: "infinity").font(.system(size: 13)).foregroundStyle(ALColor.textSecondary)
                     .frame(width: 27, height: 27)
@@ -461,7 +487,9 @@ struct RoutingComposer: View {
             VStack(spacing: 1) {
                 ForEach(ids, id: \.self) { id in
                     if let m = appModel.composeBench.first(where: { $0.id == id }) {
-                        Button { if m.ready { to = id; targetOpen = false } } label: { modelRow(m) }
+                        Button {
+                            if m.ready { pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false }
+                        } label: { modelRow(m) }
                             .buttonStyle(.plain)
                             .disabled(!m.ready)
                     }
@@ -481,14 +509,14 @@ struct RoutingComposer: View {
             }
             Spacer(minLength: 8)
             if m.ready {
-                if to == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
+                if selectedWorkerId == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             } else if let reason = m.notReadyReason {
                 Badge(text: reason, tone: .warning)
             }
         }
         .padding(.horizontal, 9).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(to == m.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .background(selectedWorkerId == m.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
     }
 
     private func effortRow(note: String) -> some View {
