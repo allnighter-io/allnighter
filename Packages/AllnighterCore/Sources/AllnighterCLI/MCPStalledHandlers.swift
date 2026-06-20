@@ -28,7 +28,7 @@ enum MCPStalledHandlers {
         }
         let includeCleared = boolArg(args["includeCleared"]) ?? false
         let service = StalledWorkService()
-        _ = try? service.scanAndRefresh()
+        _ = try? service.scanAndRefresh()   // best-effort refresh; on failure we return last-known episodes
         let payload = service.projectStalledJSON(projectId: project.id, includeCleared: includeCleared)
         let json = AllnighterCLI.jsonString(payload)
         return .success(json, summary: "\(payload.episodes.count) stalled episode(s) in \(project.displayName)")
@@ -44,7 +44,7 @@ enum MCPStalledHandlers {
             ))
         }
         let service = StalledWorkService()
-        _ = try? service.scanAndRefresh()
+        _ = try? service.scanAndRefresh()   // best-effort refresh; on failure we return last-known episodes
         let payload = service.aggregateStalledJSON()
         let json = AllnighterCLI.jsonString(payload)
         let count = payload.projects.reduce(0) { $0 + $1.episodes.count }

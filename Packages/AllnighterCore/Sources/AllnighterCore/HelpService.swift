@@ -29,6 +29,8 @@ public enum HelpRef {
         guard parts.count == 2, !parts[1].isEmpty else { return nil }
         switch parts[0] {
         case "help":
+            // parts[1] is non-empty (guarded above), so split always yields ≥1 element →
+            // hp[0] is safe. Keep this guarantee if this is ever refactored.
             let hp = parts[1].split(separator: "#", maxSplits: 1).map(String.init)
             return .topic(hp[0], section: hp.count > 1 ? hp[1] : nil)
         case "tool": return .tool(parts[1])

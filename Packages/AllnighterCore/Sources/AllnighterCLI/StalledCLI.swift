@@ -50,7 +50,7 @@ enum StalledCLI {
             usageError("usage: alln stalled list --all [--json]")
         }
         let service = StalledWorkService()
-        _ = try? service.scanAndRefresh()
+        _ = try? service.scanAndRefresh()   // best-effort refresh; on failure we list last-known episodes
         let payload = service.aggregateStalledJSON()
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(payload))
@@ -81,7 +81,7 @@ extension ProjectCLI {
             AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(idOrName)")
         }
         let service = StalledWorkService()
-        _ = try? service.scanAndRefresh()
+        _ = try? service.scanAndRefresh()   // best-effort refresh; on failure we list last-known episodes
         let payload = service.projectStalledJSON(
             projectId: project.id,
             includeCleared: opts.flag("include-cleared")

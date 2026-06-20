@@ -180,6 +180,19 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertNotNil(loaded.updatedAt)
     }
 
+    func testCorruptFileIsBackedUpNotSilentlyDiscarded() throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("dms-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("default_model_settings.json")
+        try Data("{ this is not valid json".utf8).write(to: file)
+
+        let loaded = DefaultModelSettingsPersistence(fileURL: file).load()
+        XCTAssertEqual(loaded.defaultTier, .flagship, "falls back to the seed")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: file.appendingPathExtension("corrupt").path),
+                      "corrupt file preserved for recovery, not silently dropped")
+    }
+
     func testResetRestoresFreshSeed() throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("dms-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }

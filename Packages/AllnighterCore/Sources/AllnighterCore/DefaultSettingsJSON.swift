@@ -163,6 +163,10 @@ public enum DefaultSettingsProjector {
         driverDisplayName: (String) -> String,
         contractVersion: String
     ) -> DefaultSettingsJSON {
+        // Map [Model] → Entry, setting Entry.ready = SOURCE-ready (driver up). The
+        // canonical "live" gate (ready AND enabled) is applied ONCE inside the [Entry]
+        // build (isLive); do not re-gate enablement here, so "ready" has a single
+        // definition across both overloads.
         let entries = benchModels.map { m in
             ModelListJSON.Entry(
                 id: m.id, displayName: m.displayName, modelLabel: m.modelLabel,

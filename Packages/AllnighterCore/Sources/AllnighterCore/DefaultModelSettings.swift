@@ -235,10 +235,17 @@ public struct DefaultModelSettingsPersistence {
         self.fileURL = fileURL ?? ModelCatalogPaths.config.appendingPathComponent("default_model_settings.json")
     }
 
-    /// Load saved settings (normalized) or the fresh-install seed when absent/unreadable.
+    /// Load saved settings (normalized), or the fresh seed. A MISSING file is the normal
+    /// first-run path (silent seed). A PRESENT-but-undecodable file is NOT silently
+    /// discarded — it's backed up to `<file>.corrupt` and a warning is emitted, so a
+    /// corrupt config can't quietly wipe the user's tiers on the next save.
     public func load() -> DefaultModelSettings {
-        guard let data = try? Data(contentsOf: fileURL),
-              var settings = try? CoreJSON.decode(DefaultModelSettings.self, from: data) else {
+        guard let data = try? Data(contentsOf: fileURL) else { return .fresh }   // missing → seed
+        guard var settings = try? CoreJSON.decode(DefaultModelSettings.self, from: data) else {
+            let backup = fileURL.appendingPathExtension("corrupt")
+            try? data.write(to: backup, options: .atomic)
+            FileHandle.standardError.write(Data(
+                "warning: \(fileURL.lastPathComponent) is unreadable; backed up to \(backup.lastPathComponent), using defaults\n".utf8))
             return .fresh
         }
         settings.tiers = settings.tiers.normalized().membership
