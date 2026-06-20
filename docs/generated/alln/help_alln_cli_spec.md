@@ -929,9 +929,10 @@ Output schema: `helpSearchJSON`.
 Retrieve one help topic by id, alln:// ref, --tool, or --error. Unknown selectors return close matches + the sitemap.
 
 Arguments:
-- `topic` (optional) — Topic id or alln:// ref (omit when using --tool/--error).
+- `topic` (optional) — Topic id or alln:// ref (omit when using --ref/--tool/--error).
 
 Flags:
+- `--ref <string>` — An alln:// ref (help/tool/schema/error).
 - `--tool <string>` — Find the topic that documents this MCP tool.
 - `--error <string>` — Find the topic for this error code.
 - `--format <format>` (default: json) — json | md.

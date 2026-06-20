@@ -53,8 +53,8 @@ enum DefaultsCLI {
         if opts.flag("default") {
             position = 0
         } else if let raw = opts.value("position") {
-            guard let p = Int(raw) else {
-                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--position must be an integer (got: \(raw))")
+            guard let p = Int(raw), p >= 0 else {
+                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--position must be a non-negative integer (got: \(raw)); use --default for the top")
             }
             position = p
         } else {

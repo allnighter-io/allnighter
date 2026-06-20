@@ -2315,13 +2315,19 @@
         {
           "name" : "topic",
           "required" : false,
-          "summary" : "Topic id or alln:\/\/ ref (omit when using --tool\/--error)."
+          "summary" : "Topic id or alln:\/\/ ref (omit when using --ref\/--tool\/--error)."
         }
       ],
       "exampleIds" : [
 
       ],
       "flags" : [
+        {
+          "name" : "ref",
+          "summary" : "An alln:\/\/ ref (help\/tool\/schema\/error).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
         {
           "name" : "tool",
           "summary" : "Find the topic that documents this MCP tool.",

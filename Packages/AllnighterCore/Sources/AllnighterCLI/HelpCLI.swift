@@ -40,7 +40,7 @@ enum HelpCLI {
         let opts = Options(args)
         let topic = opts.positional.first
         let json = HelpProjector.get(
-            topic: topic, tool: opts.value("tool"), error: opts.value("error"), contractVersion: cv)
+            topic: topic, ref: opts.value("ref"), tool: opts.value("tool"), error: opts.value("error"), contractVersion: cv)
 
         if opts.flag("json") { print(AllnighterCLI.jsonString(json)); return }
 

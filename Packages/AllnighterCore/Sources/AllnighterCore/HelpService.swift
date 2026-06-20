@@ -86,6 +86,7 @@ public enum HelpService {
     // MARK: - Search
 
     public static func search(_ query: String, limit: Int = 5) -> HelpSearchResult {
+        let limit = max(1, limit)   // a degenerate limit must not yield an answer with zero hits
         let tokens = tokenize(query)
         let phrase = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let aliasHit = HelpTopicRegistry.canonicalTopicId(for: phrase)

@@ -161,7 +161,9 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
 /// crosses tiers. Determinism comes from the user's intra-tier order, not rank.
 public enum SubstitutionResolver {
     public enum BlockReason: String, Sendable, Equatable {
-        /// The required tier has assigned models, but none is ready → wait.
+        /// No runnable model for the required slot → wait. Either the tier's ready
+        /// members are exhausted, OR — with substitutions OFF — the tier's default model
+        /// itself is down (other ready members are deliberately not used).
         case shelfEmpty
         /// The required tier has no assigned models at all → wait.
         case tierEmpty

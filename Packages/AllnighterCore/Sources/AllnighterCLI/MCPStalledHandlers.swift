@@ -63,6 +63,8 @@ enum MCPStalledHandlers {
             return .success(AllnighterCLI.jsonString(payload), summary: "\(episode.id): \(episode.status.rawValue)")
         } catch StallRecoveryService.RecoveryError.episodeNotFound(let missing) {
             return .toolError(ErrorEnvelope(code: "STALL_EPISODE_NOT_FOUND", message: "no stall episode: \(missing)", requiresManual: false, retryable: false))
+        } catch StallRecoveryService.RecoveryError.invalidMinutes {
+            return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "minutes must be a positive integer", requiresManual: true, retryable: false))
         } catch {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: error.localizedDescription, requiresManual: true, retryable: false))
         }

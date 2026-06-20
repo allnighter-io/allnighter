@@ -88,6 +88,12 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertNotNil(r.suggestedAnswerMarkdown)
     }
 
+    func testSearchClampsDegenerateLimit() {
+        let r = HelpService.search("team", limit: 0)
+        XCTAssertFalse(r.results.isEmpty, "limit 0 is clamped to 1 — no answer without supporting hits")
+        XCTAssertNotNil(r.suggestedAnswerMarkdown)
+    }
+
     func testSearchFindsRetiredVocabularyViaAlias() {
         XCTAssertEqual(HelpService.search("fan out").results.first?.topicId, "team_run_loop")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "later"), "pending")
