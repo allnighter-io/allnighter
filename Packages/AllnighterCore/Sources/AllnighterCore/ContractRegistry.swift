@@ -53,6 +53,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case projectThreadsJSON, projectPendingJSON
         case defaultSettingsJSON
         case helpSearchJSON, helpGetJSON, helpTopicsJSON
+        case errorExplainJSON
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {

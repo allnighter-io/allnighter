@@ -135,9 +135,9 @@ public extension ContractRegistry {
                              .init("agent", summary: "Limit to one source id (e.g. cursor_agent).")],
                     outputSchema: .doctorResult,
                     errors: ["SOURCE_NOT_FOUND", "DOCTOR_CHECK_FAILED", "CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("error_explain", command: "doctor explain", summary: "Explain an error/recovery code: cause, who can fix it, and the next action.",
+        MCPToolSpec("error_explain", command: "doctor explain", summary: "Explain an error/recovery code: cause, who can fix it, the next action, and the help topic to read.",
                     params: [.init("code", required: true, summary: "The error code to explain, e.g. SOURCE_AUTH_EXPIRED.")],
-                    errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
+                    outputSchema: .errorExplainJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("spec_get", command: "spec", summary: "Retrieve a run's full spec/result packet without opening the GUI. Failed workers and warnings always included in full detail.",
                     params: [.init("run", summary: "Run id or `latest` (default latest)."),
                              .init("detail", summary: "summary | full | artifactRefsOnly (default summary).")],
@@ -269,11 +269,10 @@ public extension ContractRegistry {
             outputSchema: .doctorResult, exampleIds: ["doctor_json"]
         ),
         CommandSpec(
-            "doctor explain", summary: "Explain one failure/recovery code.", milestone: .m1,
+            "doctor explain", summary: "Explain one failure/recovery code, bridged to the help topic that documents it.", milestone: .m1,
             args: [ArgSpec("code", required: true, summary: "Error code to explain.")],
-            flags: [FlagSpec("json", summary: "Structured explanation.")],
-            // Returns the catalog ErrorSpec row (see error-codes.json), not an
-            // ErrorEnvelope; no dedicated return schema marker.
+            flags: [FlagSpec("json", summary: "Structured explanation (ErrorExplainJSON: the catalog row + helpRef + recovery plan).")],
+            outputSchema: .errorExplainJSON,
             exampleIds: ["doctor_explain"]
         ),
         CommandSpec(

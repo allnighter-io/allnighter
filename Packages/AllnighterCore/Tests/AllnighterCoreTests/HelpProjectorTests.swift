@@ -39,6 +39,22 @@ final class HelpProjectorTests: XCTestCase {
         XCTAssertTrue(j.topics.contains { $0.topicId == "quickstart" })
     }
 
+    func testErrorBridgeResolvesHelpTopicAndPlan() {
+        let spec = ContractRegistry.milestone1.errors.first { $0.code == "SOURCE_AUTH_EXPIRED" }!
+        let b = ErrorHelpBridge.explain(spec, contractVersion: "1.0.0")
+        XCTAssertEqual(b.helpTopicId, "setup_and_auth")
+        XCTAssertEqual(b.helpRef, "alln://help/setup_and_auth")
+        XCTAssertEqual(b.nextToolPlan.first?.tool, "help_get")
+        XCTAssertTrue(b.nextToolPlan.contains { $0.tool == "doctor" }, "source.* errors route to a re-probe")
+    }
+
+    func testErrorBridgeWithoutAHelpTopicStillReturns() {
+        let spec = ContractRegistry.milestone1.errors.first { $0.code == "CONTRACT_DRIFT" }!
+        let b = ErrorHelpBridge.explain(spec, contractVersion: "1.0.0")
+        XCTAssertNil(b.helpTopicId)
+        XCTAssertNil(b.helpRef)
+    }
+
     func testEnvelopesRoundTripCodable() throws {
         let s = HelpProjector.search("pending", limit: 3, contractVersion: "1.0.0")
         XCTAssertEqual(try CoreJSON.decode(HelpSearchJSON.self, from: CoreJSON.encode(s)), s)

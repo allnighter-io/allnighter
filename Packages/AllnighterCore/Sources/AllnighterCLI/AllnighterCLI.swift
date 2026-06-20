@@ -1086,13 +1086,15 @@ struct AllnighterCLI {
         guard let spec = ContractRegistry.milestone1.errors.first(where: { $0.code == code }) else {
             fail(code: "CLI_USAGE_ERROR", message: "unknown error code: \(code)")
         }
+        let bridged = ErrorHelpBridge.explain(spec, contractVersion: ContractRegistry.contractVersion)
         if opts.flag("json") {
-            print(jsonString(spec))
+            print(jsonString(bridged))
         } else {
             print("\(spec.code)  (\(spec.ruleId))")
             print("  requiresManual: \(spec.requiresManual) · retryable: \(spec.retryable)")
             print("  action: \(spec.agentAction)")
             print("  \(spec.explain)")
+            if let ref = bridged.helpRef { print("  help: \(ref)") }
         }
     }
 

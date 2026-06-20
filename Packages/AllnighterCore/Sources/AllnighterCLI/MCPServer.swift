@@ -241,7 +241,8 @@ struct MCPServer {
                   let spec = ContractRegistry.milestone1.errors.first(where: { $0.code == code }) else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "unknown error code: \(args["code"] as? String ?? "")")
             }
-            respond(id: id, result: toolText("\(spec.code): \(spec.agentAction)", structured: AllnighterCLI.jsonString(spec)))
+            let bridged = ErrorHelpBridge.explain(spec, contractVersion: ContractRegistry.contractVersion)
+            respond(id: id, result: toolText("\(spec.code): \(spec.agentAction)", structured: AllnighterCLI.jsonString(bridged)))
         case "spec_get":
             let ref = (args["run"] as? String) ?? "latest"
             guard let run = AllnighterCLI.resolveRun(ref) else {

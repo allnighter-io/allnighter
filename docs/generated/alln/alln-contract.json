@@ -93,7 +93,7 @@
       "flags" : [
         {
           "name" : "json",
-          "summary" : "Structured explanation.",
+          "summary" : "Structured explanation (ErrorExplainJSON: the catalog row + helpRef + recovery plan).",
           "takesValue" : false
         }
       ],
@@ -102,8 +102,8 @@
 
       ],
       "name" : "doctor explain",
-      "outputSchema" : "none",
-      "summary" : "Explain one failure\/recovery code."
+      "outputSchema" : "errorExplainJSON",
+      "summary" : "Explain one failure\/recovery code, bridged to the help topic that documents it."
     },
     {
       "args" : [
@@ -4001,7 +4001,7 @@
       ],
       "idempotency" : "idempotent",
       "name" : "error_explain",
-      "outputSchema" : "none",
+      "outputSchema" : "errorExplainJSON",
       "params" : [
         {
           "name" : "code",
@@ -4010,7 +4010,7 @@
           "type" : "string"
         }
       ],
-      "summary" : "Explain an error\/recovery code: cause, who can fix it, and the next action."
+      "summary" : "Explain an error\/recovery code: cause, who can fix it, the next action, and the help topic to read."
     },
     {
       "command" : "spec",

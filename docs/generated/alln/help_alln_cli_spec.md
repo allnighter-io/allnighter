@@ -38,13 +38,15 @@ Examples: `doctor_json`.
 
 ### `alln doctor explain`
 
-Explain one failure/recovery code.
+Explain one failure/recovery code, bridged to the help topic that documents it.
 
 Arguments:
 - `code` (required) — Error code to explain.
 
 Flags:
-- `--json` — Structured explanation.
+- `--json` — Structured explanation (ErrorExplainJSON: the catalog row + helpRef + recovery plan).
+
+Output schema: `errorExplainJSON`.
 
 Examples: `doctor_explain`.
 

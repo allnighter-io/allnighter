@@ -661,7 +661,7 @@
     ],
     "idempotency" : "idempotent",
     "name" : "error_explain",
-    "outputSchema" : "none",
+    "outputSchema" : "errorExplainJSON",
     "params" : [
       {
         "name" : "code",
@@ -670,7 +670,7 @@
         "type" : "string"
       }
     ],
-    "summary" : "Explain an error\/recovery code: cause, who can fix it, and the next action."
+    "summary" : "Explain an error\/recovery code: cause, who can fix it, the next action, and the help topic to read."
   },
   {
     "command" : "spec",

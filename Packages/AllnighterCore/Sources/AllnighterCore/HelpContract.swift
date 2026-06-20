@@ -72,6 +72,40 @@ public struct HelpTopicsJSON: Codable, Sendable, Equatable {
     }
 }
 
+/// `error_explain` / `doctor explain` output, bridged to help: the catalog recovery
+/// metadata PLUS the help topic that documents this error and a next-tool plan, so a
+/// failed tool is one call away from recovery (no extra search).
+public struct ErrorExplainJSON: Codable, Sendable, Equatable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var error: ContractRegistry.ErrorSpec
+    public var helpTopicId: String?
+    public var helpRef: String?
+    public var nextToolPlan: [HelpNextToolStep]
+    public init(schemaVersion: Int = 1, contractVersion: String, error: ContractRegistry.ErrorSpec,
+                helpTopicId: String?, helpRef: String?, nextToolPlan: [HelpNextToolStep]) {
+        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
+        self.error = error; self.helpTopicId = helpTopicId; self.helpRef = helpRef
+        self.nextToolPlan = nextToolPlan
+    }
+}
+
+public enum ErrorHelpBridge {
+    /// Derive the help topic for an error from `HelpTopicRegistry` (no per-ErrorSpec
+    /// hand-authoring) and build the recovery plan.
+    public static func explain(_ spec: ContractRegistry.ErrorSpec, contractVersion: String) -> ErrorExplainJSON {
+        let topic = HelpTopicRegistry.topics.first { $0.errorRefs.contains(spec.code) }
+        let ref = topic.map { HelpRef.help($0.id) }
+        var plan: [HelpNextToolStep] = []
+        if let ref { plan.append(HelpNextToolStep(order: 1, tool: "help_get", args: ["ref": ref], why: "Read the recovery topic.")) }
+        if spec.ruleId.hasPrefix("source.") {
+            plan.append(HelpNextToolStep(order: plan.count + 1, tool: "doctor", why: "Re-probe the affected source for live state."))
+        }
+        return ErrorExplainJSON(contractVersion: contractVersion, error: spec,
+                                helpTopicId: topic?.id, helpRef: ref, nextToolPlan: plan)
+    }
+}
+
 /// Pure builder of the help contract envelopes (adds contractVersion + routing law +
 /// next-tool plans over `HelpService`). No IO.
 public enum HelpProjector {
