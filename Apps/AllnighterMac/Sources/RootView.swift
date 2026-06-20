@@ -31,7 +31,7 @@ struct RootView: View {
     /// SSOT command list — feeds the Actions menu (real ⌘-shortcuts) and the ⌘K palette.
     private var appCommands: [AppCommand] {
         [
-            AppCommand(id: "new-run", title: "New run", symbol: "plus", key: "n") {
+            AppCommand(id: "new-run", title: "New Chat", symbol: "plus", key: "n") {
                 threads.newRun()
                 commands.palettePresented = false
             },

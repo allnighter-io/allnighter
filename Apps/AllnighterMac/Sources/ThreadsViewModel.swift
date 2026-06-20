@@ -172,6 +172,16 @@ final class ThreadsViewModel {
     func select(_ thread: WorkThread) {
         selectedThreadId = thread.id
         pendingScrollToTurnId = ThreadsPresenter.firstUnreadTurnId(thread)
+        // Cursor-style: opening a thread clears its unread dot immediately. A reply
+        // that lands while it's already open is cleared by the timeline-visibility path.
+        markReadOnOpen(thread)
+    }
+
+    private func markReadOnOpen(_ thread: WorkThread) {
+        guard let lastTurnId = thread.turns.last?.id else { return }
+        let before = store.get(thread.id)
+        guard let updated = try? store.markRead(threadId: thread.id, throughTurnId: lastTurnId, now: Date()) else { return }
+        if before?.readCursor != updated.readCursor || before?.hasUnread != updated.hasUnread { reload() }
     }
 
     /// Consumes the pending first-unread scroll target after the timeline mounts.
@@ -256,7 +266,7 @@ final class ThreadsViewModel {
 
     /// Empty thread for the "Start a run" flow.
     func newRun() {
-        _ = newThread(title: "New run")
+        _ = newThread(title: "New Chat")
     }
 
     // MARK: - Routing composer (CR4a user turn; CR4b chat runs the model)
@@ -267,7 +277,7 @@ final class ThreadsViewModel {
     /// composer for a new run.
     func applyQuickCapture(clipboardText: String?) {
         let clip = clipboardText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let title = clip.isEmpty ? "New run" : Self.title(from: clip)
+        let title = clip.isEmpty ? "New Chat" : Self.title(from: clip)
         _ = newThread(title: title)
         if !clip.isEmpty {
             pendingQuickCaptureText = clip
@@ -456,7 +466,7 @@ final class ThreadsViewModel {
     private static func title(from text: String) -> String {
         let line = text.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? text
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "New run" }
+        guard !trimmed.isEmpty else { return "New Chat" }
         if trimmed.count <= 48 { return trimmed }
         return String(trimmed.prefix(45)) + "…"
     }
@@ -466,7 +476,7 @@ final class ThreadsViewModel {
     func applyFixture(_ fixture: String) {
         #if DEBUG
         if fixture == "thread-empty" {
-            _ = newThread(title: "New run")
+            _ = newThread(title: "New Chat")
             return
         }
         ThreadsFixtureSeeder(

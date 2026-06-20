@@ -219,7 +219,7 @@ Evaluated on 2026-06-19 from installed CLI help plus current driver manifests.
 
 | Source | Current invoke | Stream mode found | V1 posture |
 | --- | --- | --- | --- |
-| Codex | `codex exec ... -o {{outputFile}} {{prompt}}` | `codex exec --json` prints JSONL events to stdout. | Supported after parser. Keep `-o {{outputFile}}` for final answer; parse JSONL stdout for answer deltas/status/tool activity. |
+| Codex | `codex exec ... -o {{outputFile}} {{prompt}}` | `codex exec --json` prints JSONL events to stdout. | Supported after parser as completed-message snapshots, not token deltas. Keep `-o {{outputFile}}` for canonical final answer; parse JSONL stdout for `agent_message` snapshots/status/tool activity. |
 | Claude Code | `claude -p {{prompt}} --model {{model}}` | `claude -p --output-format stream-json`; help also exposes `--include-partial-messages`. | Supported after parser. Use `--output-format stream-json --include-partial-messages`; parse only assistant text deltas into visible answer. |
 | Cursor Agent | `agent -p --output-format text ...` | `agent -p --output-format stream-json`; help also exposes `--stream-partial-output`. | Supported after parser. Use `--output-format stream-json --stream-partial-output`; parse text deltas. |
 | Grok Build | `grok -p {{prompt}} ... --output-format plain` | Help exposes `--output-format streaming-json` for headless mode. | Likely supported after parser. Verify event schema with a tiny real run before claiming product support. |
@@ -240,18 +240,35 @@ Parser requirements:
 - Treat stdout as JSONL.
 - Buffer by newline; ignore empty lines.
 - Parse every JSON object into a raw audit event.
-- Extract visible assistant answer deltas only from event types that represent
-  final assistant output.
-- Do not render reasoning summaries, tool-call args, command output, or internal
-  status as answer text.
-- On process exit, prefer `{{outputFile}}` for final answer exactly as today.
+- Visible assistant answer text is a completed message snapshot at
+  `$.type == "item.completed"`, `$.item.type == "agent_message"`, and
+  `$.item.text`.
+- `$.item.text` is a full completed message snapshot, not an incremental delta.
+  Store by `$.item.id` and do not render the same item twice.
+- `codex exec --json` does not expose token-by-token visible text deltas; internal
+  `item/agentMessage/delta` belongs to the app-server protocol, not this JSONL
+  stream.
+- Do not render reasoning, `command_execution.aggregated_output`,
+  `mcp_tool_call.result`, `web_search`, `file_change`, `todo_list`, top-level
+  `error`, `turn.failed.error`, or item `type: "error"` as chat answer text.
+- Successful terminal event is `turn.completed`, followed by process exit `0`.
+- Failure terminal event is `turn.failed` with `error.message`, or top-level
+  `error` followed by failed/interrupted turn handling. Current fatal/failed
+  paths exit non-zero, specifically `1`.
+- Per-tool command exit codes may appear at
+  `$.item.type == "command_execution"` / `$.item.exit_code`; they are not the
+  Codex process exit code.
+- On process exit, prefer `{{outputFile}}` for canonical final answer exactly as
+  today. Do not append the file to already-rendered `agent_message` text unless
+  repairing a missing stream.
 
-Need from CLI if parser cannot be derived safely:
+Tiny verified sequence:
 
-```text
-Please provide the JSONL event schema for `codex exec --json`, specifically:
-which event types carry visible final-answer text deltas, which carry reasoning,
-which carry tool calls/tool output, and which terminal event indicates completion.
+```json
+{"type":"thread.started","thread_id":"0199a213-81c0-7800-8aa1-bbab2a035a53"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"OK"}}
+{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":0,"output_tokens":3,"reasoning_output_tokens":0}}
 ```
 
 ### Claude Code Parser

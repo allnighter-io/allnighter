@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import AllnighterCore
 
 // Conversation thread pane (docs/phases/wiring/compose-routing, reference/app.jsx
@@ -494,6 +495,7 @@ private struct ThreadMutatingRunRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
     let turn: ThreadTurn
+    @State private var hovering = false
 
     private var run: TeamRun? {
         guard let runId = turn.runId else { return nil }
@@ -503,10 +505,6 @@ private struct ThreadMutatingRunRow: View {
         if let markdown = run?.latestStage(.plan)?.payload?.markdown, !markdown.isEmpty { return markdown }
         return run?.workerAnswers.first { ($0.output ?? "").isEmpty == false }?.output
     }
-    private var workingDir: String? {
-        let dir = threads.selectedThread?.workingDir?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return dir?.isEmpty == false ? dir : nil
-    }
     private var model: ComposeBenchModel? {
         guard let id = turn.workerId else { return nil }
         return appModel.composeBench.first { $0.id == id }
@@ -515,12 +513,13 @@ private struct ThreadMutatingRunRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             glyph
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 header
                 content
             }
             Spacer(minLength: 0)
         }
+        .onHover { hovering = $0 }
     }
 
     @ViewBuilder private var glyph: some View {
@@ -534,11 +533,17 @@ private struct ThreadMutatingRunRow: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text(model?.name ?? turn.workerId ?? "Executor")
+            Text(model?.name ?? turn.workerId ?? "Assistant")
                 .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
-            Text("· ran").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             Text(turn.createdAt, format: .dateTime.hour().minute())
                 .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+            Spacer(minLength: 8)
+            if hovering, let out = runOutput, !out.isEmpty {
+                IconButton(systemImage: "doc.on.doc", accessibilityLabel: "Copy", small: true) {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(out, forType: .string)
+                }
+            }
         }
     }
 
@@ -547,7 +552,7 @@ private struct ThreadMutatingRunRow: View {
         case .running, .queued, .draft:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
-                Text("running in the repo…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                Text("Working…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
             }
         case .failed, .timedOut:
             // No durable run/return means a system note such as missing dir,
@@ -565,36 +570,13 @@ private struct ThreadMutatingRunRow: View {
         }
     }
 
+    // Clean assistant message in the flow — no status card, no "Ran" badge.
     @ViewBuilder private var resultCard: some View {
         if let runOutput {
-            VStack(alignment: .leading, spacing: 8) {
-                if let workingDir { workingDirRow(workingDir) }
-                HStack(spacing: 6) {
-                    Image(systemName: turn.status == .done ? "checkmark.seal.fill" : "xmark.octagon.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(turn.status == .done ? ALPalette.green500 : ALPalette.red400)
-                    Text(turn.status == .done ? "Ran" : turn.status.rawValue.capitalized)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(turn.status == .done ? ALColor.textSecondary : ALPalette.red400)
-                }
-                Text(.init(runOutput))
-                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                    .lineSpacing(2).textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+            MarkdownText(markdown: runOutput)
+                .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            Text(turn.text ?? "Run completed.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
-        }
-    }
-
-    private func workingDirRow(_ dir: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "folder.fill").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
-            Text(dir).font(ALFont.monoSm).foregroundStyle(ALColor.textMuted).lineLimit(1).truncationMode(.middle)
+            Text(turn.text ?? "Done.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
         }
     }
 

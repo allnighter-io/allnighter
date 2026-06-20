@@ -61,7 +61,7 @@ private struct HomeSidebar: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(spacing: 10) {
                 Button { threads.newRun() } label: {
-                    Label("New run", systemImage: "plus")
+                    Label("New Chat", systemImage: "plus")
                         .font(.system(size: 13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                 }
