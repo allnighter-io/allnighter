@@ -57,7 +57,7 @@ struct AllnighterCLI {
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "install-cli": printInstallCLI()
         case "mcp-install": printMCPInstall()
-        case "help", "--help", "-h": printHelp()
+        case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
             FileHandle.standardError.write(Data("unknown command: \(command)\n".utf8)); printHelp(); exit(2)
         }
@@ -211,10 +211,6 @@ struct AllnighterCLI {
         case .driverMissing(let driver): return ("MODEL_DRIVER_MISSING", "unknown driver: \(driver)")
         case .invalid(let detail): return ("MODEL_INVALID", detail)
         }
-    }
-
-    static func runModels(_ args: [String], _ runtime: ToolRuntime) async {
-        await ModelsCLI.run(args, runtime: runtime)
     }
 
     static func runHistory(_ args: [String], _ runtime: ToolRuntime) async {

@@ -317,28 +317,8 @@ public struct PendingService: Sendable {
                 attempt.status = .blocked
                 attempt.reason = observation.kind.rawValue
                 item.status = .pending
-                switch observation.kind {
-                case .accountRateLimit, .cooldown, .unknownCapacity:
-                    item.resume = PendingResume(
-                        reason: .cooldown,
-                        lastAttemptId: attempt.attemptId,
-                        transcriptRef: transcriptRef,
-                        observedResetAt: observation.observedResetAt,
-                        wakeAfter: observation.wakeAfter,
-                        capacityObservation: observation
-                    )
-                case .providerBusy:
-                    item.resume = PendingResume(
-                        reason: .providerBusy,
-                        lastAttemptId: attempt.attemptId,
-                        transcriptRef: transcriptRef,
-                        observedResetAt: observation.observedResetAt,
-                        wakeAfter: observation.wakeAfter,
-                        capacityObservation: observation
-                    )
-                case .authRequired, .manualRequired:
-                    item.resume = nil
-                }
+                // Single capacity→resume policy (shared with settleTeamRun via resume(from:)).
+                item.resume = resume(from: observation, attemptId: attempt.attemptId, transcriptRef: transcriptRef)
             } else {
                 attempt.status = .failed
                 attempt.reason = outcome.errorReason

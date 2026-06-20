@@ -25,9 +25,11 @@ final class DefaultModelViewModel {
         reproject()
     }
 
-    private func reproject() {
+    private func reproject() { project(from: persistence.load()) }
+
+    private func project(from settings: DefaultModelSettings) {
         projection = DefaultSettingsProjector.build(
-            settings: persistence.load(),
+            settings: settings,
             benchModels: benchModels,
             sourceReadyModelIds: sourceReadyIds,
             driverDisplayName: driverName,
@@ -38,7 +40,7 @@ final class DefaultModelViewModel {
         var s = persistence.load()
         change(&s)
         try? persistence.save(s)
-        reproject()
+        project(from: s)   // reuse the in-memory settings; no second disk read
     }
 
     // MARK: - Mutations (mirror `alln defaults …`)

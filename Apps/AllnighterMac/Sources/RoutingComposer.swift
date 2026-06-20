@@ -141,11 +141,10 @@ struct RoutingComposer: View {
 
     // MARK: Auto resolution (the chip preview == what the run will do)
 
-    /// Model ids whose source CLI is signed-in + ready right now (live).
-    private var sourceReadyIds: Set<ModelID> {
-        let readyDrivers = Set(appModel.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
-        return Set(appModel.models.filter { readyDrivers.contains($0.driverId) }.map(\.id))
-    }
+    /// Model ids runnable right now — reuse AppModel's canonical availability (ON-bench
+    /// AND source ready), the same gate the run path applies, so the Auto chip never
+    /// previews a model the run would skip (e.g. an off-bench model whose CLI is up).
+    private var sourceReadyIds: Set<ModelID> { Set(appModel.availableModels.map(\.id)) }
 
     /// What Auto resolves to now — the tier default, or a same-tier substitute when a
     /// CLI is down. nil = the tier is fully down (Auto would wait).
