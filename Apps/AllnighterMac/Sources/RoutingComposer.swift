@@ -118,6 +118,11 @@ struct RoutingComposer: View {
         .onChange(of: threads.pendingQuickCaptureText) { _, _ in
             consumePendingPrefillIfNeeded()
         }
+        // Picking a different team re-points the worker to THAT team's worker, so
+        // the chip never drifts from the team it names.
+        .onChange(of: team) { _, newTeam in
+            if let w = resolvedWorkerId(forTeam: newTeam) { to = w }
+        }
     }
 
     private var canSend: Bool {
@@ -126,12 +131,27 @@ struct RoutingComposer: View {
 
     private func seedDefaults() {
         let bench = appModel.composeBench
+        // SSOT: the worker shown is the SELECTED team's configured worker (what
+        // Settings shows), not an arbitrary first-ready model. Only fall back to a
+        // ready bench model if the team pins no worker.
         if to.isEmpty || !bench.contains(where: { $0.id == to }) {
-            to = bench.first(where: \.ready)?.id ?? bench.first?.id ?? ""
+            to = resolvedWorkerId(forTeam: team)
+                ?? bench.first(where: \.ready)?.id ?? bench.first?.id ?? ""
         }
         if !locksTeam, team == nil, let preset = TeamCatalog.defaultRunTeam() {
             lane = ComposeLane(rawValue: preset.lane.rawValue) ?? lane
         }
+    }
+
+    /// The model a team actually runs — its first worker's pinned model (or the
+    /// lead's). This is the SSOT the composer chip must mirror, exactly as the Team
+    /// Studio editor shows it. Returns nil only if the team pins nothing.
+    private func resolvedWorkerId(forTeam team: String?) -> String? {
+        let preset = team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
+        guard let id = preset?.workerSpecs.first?.preferredModelId ?? preset?.lead.preferredModelId else { return nil }
+        // Only honor it if it's actually on the bench (else the chip would show a
+        // model the user can't run); otherwise the ready-fallback applies.
+        return appModel.composeBench.contains(where: { $0.id == id }) ? id : nil
     }
 
     private func consumePendingPrefillIfNeeded() {
@@ -326,7 +346,7 @@ struct RoutingComposer: View {
             ForEach(ComposeLane.allCases, id: \.self) { l in
                 Button { lane = l } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: l.icon).font(.system(size: 12)).foregroundStyle(l == lane ? ALColor.accentText : ALColor.textMuted)
+                        Image(systemName: l.icon).font(.system(size: 12)).foregroundStyle(l == lane ? ALColor.textPrimary : ALColor.textMuted)
                         Text(l.label).font(.system(size: 12, weight: .medium)).foregroundStyle(l == lane ? ALColor.textPrimary : ALColor.textMuted)
                     }
                     .frame(maxWidth: .infinity).frame(height: 31)
@@ -391,10 +411,11 @@ struct RoutingComposer: View {
     private func teamButton(_ t: ComposeTeam) -> some View {
         HStack(spacing: 6) {
             Button { team = t.id; targetOpen = false } label: { teamRowBody(t) }.buttonStyle(.plain)
-            // Star toggles favorite without selecting the team.
+            // Star toggles favorite without selecting the team. Neutral fill — the
+            // shape says "favorite", no color needed (color earns its place).
             Button { appModel.toggleFavorite(t.id) } label: {
                 Image(systemName: t.isFavorite ? "star.fill" : "star").font(.system(size: 12))
-                    .foregroundStyle(t.isFavorite ? ALColor.accent : ALColor.textFaint)
+                    .foregroundStyle(t.isFavorite ? ALColor.textSecondary : ALColor.textFaint)
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)
@@ -406,7 +427,7 @@ struct RoutingComposer: View {
 
     private func teamRowBody(_ t: ComposeTeam) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: lane.icon).font(.system(size: 14)).foregroundStyle(ALColor.accentText)
+            Image(systemName: lane.icon).font(.system(size: 14)).foregroundStyle(ALColor.textMuted)
                 .frame(width: 27, height: 27)
                 .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
             VStack(alignment: .leading, spacing: 1) {
@@ -414,7 +435,7 @@ struct RoutingComposer: View {
                 Text(t.summary).font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 8)
-            if team == t.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.accentText) }
+            if team == t.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
@@ -462,7 +483,7 @@ struct RoutingComposer: View {
             }
             Spacer(minLength: 8)
             if m.ready {
-                if to == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.accentText) }
+                if to == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             } else if let reason = m.notReadyReason {
                 Badge(text: reason, tone: .warning)
             }

@@ -276,7 +276,8 @@ private struct TeamEditorDrawer: View {
                 Divider().overlay(ALColor.borderSubtle)
                 TeamEditorView(
                     base: base, lane: lane, models: models, readyModels: readyModels,
-                    onRevert: { revertTick += 1 },
+                    // In the modal drawer, Cancel discards and closes (matches the X).
+                    onCancel: onClose,
                     onSaved: { _ in onClose() }
                 )
                 .id("\(base.id)#\(revertTick)")
@@ -346,7 +347,7 @@ private struct TeamCardTile: View {
                     if isFavorite || isDefaultRun || hovering {
                         Button(action: onToggleFavorite) {
                             Image(systemName: (isFavorite || isDefaultRun) ? "star.fill" : "star").font(.system(size: 12))
-                                .foregroundStyle((isFavorite || isDefaultRun) ? ALColor.accent : ALColor.textMuted)
+                                .foregroundStyle((isFavorite || isDefaultRun) ? ALColor.textSecondary : ALColor.textMuted)
                         }
                         .buttonStyle(.plain)
                         .disabled(isDefaultRun)

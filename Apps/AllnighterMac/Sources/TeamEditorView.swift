@@ -200,12 +200,16 @@ struct TeamEditorView: View {
     /// True when editing a brand-new (not-yet-saved) team — the footer reads
     /// "Create team" rather than "Duplicate Team" / "Save changes".
     let isNew: Bool
-    /// Drop the in-memory edits and rebuild a fresh draft from the base team.
-    var onRevert: () -> Void
+    /// Cancel: for a new team, the parent removes the form; for an existing team it
+    /// discards unsaved edits (or, in a modal drawer, closes it).
+    var onCancel: () -> Void
     var onSaved: (TeamID) -> Void
 
     @State private var draft: TeamDraft
     @State private var errorText: String?
+    /// The draft as first loaded — compared against `draft` to know if anything was
+    /// actually edited (so Cancel only appears when there's something to cancel).
+    private let initialDraft: TeamDraft
     /// Level-2: which worker row is open in the Customize-worker editor (nil = the
     /// team roster). The pane pushes to the worker editor and back.
     @State private var editingRow: Int?
@@ -214,14 +218,19 @@ struct TeamEditorView: View {
 
     init(base: TeamPreset, lane: ComposeLane, models: [Model], readyModels: [Model],
          isNew: Bool = false,
-         onRevert: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
+         onCancel: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
         self.lane = lane
         self.models = models
         self.isNew = isNew
-        self.onRevert = onRevert
+        self.onCancel = onCancel
         self.onSaved = onSaved
-        _draft = State(initialValue: TeamDraft(base: base, defaultModelId: readyModels.first?.id ?? models.first?.id))
+        let seed = TeamDraft(base: base, defaultModelId: readyModels.first?.id ?? models.first?.id)
+        _draft = State(initialValue: seed)
+        self.initialDraft = seed
     }
+
+    /// Has the user changed anything since the editor opened?
+    private var isDirty: Bool { draft != initialDraft }
 
     /// True until this team has been forked to a custom — Save creates a copy and
     /// the built-in source is never mutated.
@@ -285,7 +294,7 @@ struct TeamEditorView: View {
 
     private var headerBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(ALColor.accent)
+            Image(systemName: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(ALColor.textMuted)
             VStack(alignment: .leading, spacing: 2) {
                 Text(draft.name).font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(ALColor.textPrimary).lineLimit(1)
@@ -319,7 +328,7 @@ struct TeamEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Text("TEAM LEAD").font(.system(size: 10, weight: .semibold)).tracking(0.6)
-                    .foregroundStyle(ALColor.accentText)
+                    .foregroundStyle(ALColor.textFaint)
                 Text("· reports back · required").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
                 Spacer(minLength: 0)
             }
@@ -335,18 +344,18 @@ struct TeamEditorView: View {
             // remove button — the Lead is mandatory.
             Button { editingLead = true } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "megaphone.fill").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
+                    Image(systemName: "megaphone.fill").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
                     Text(skillLabel(draft.lead))
                         .font(.system(size: 12, weight: .medium)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                     if draft.lead.promptDraft != nil {
-                        Circle().fill(ALColor.accent).frame(width: 5, height: 5)
+                        Circle().fill(ALColor.textMuted).frame(width: 5, height: 5)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
                 }
                 .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
-                .background(ALColor.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: ALRadius.md))
-                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.accent.opacity(0.4), lineWidth: 1) }
+                .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -362,7 +371,7 @@ struct TeamEditorView: View {
     private var workers: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(draft.mutating ? "AGENT" : "WORKERS")
-                .font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(draft.mutating ? ALColor.accentText : ALColor.textFaint)
+                .font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
             if draft.mutating {
                 Text("One agent does the work in the repo root — no separate lead.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
@@ -376,7 +385,7 @@ struct TeamEditorView: View {
                             Text(skillLabel($row.wrappedValue))
                                 .font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                             if $row.wrappedValue.promptDraft != nil {
-                                Circle().fill(ALColor.accent).frame(width: 5, height: 5)
+                                Circle().fill(ALColor.textMuted).frame(width: 5, height: 5)
                             }
                             Spacer(minLength: 0)
                             Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
@@ -410,7 +419,7 @@ struct TeamEditorView: View {
                 Label("Add worker", systemImage: "plus").font(.system(size: 12, weight: .medium))
             }
             .disabled(draft.mutating)
-            .buttonStyle(.plain).foregroundStyle(ALColor.accentText).padding(.top, 2)
+            .buttonStyle(.plain).foregroundStyle(ALColor.textSecondary).padding(.top, 2)
         }
     }
 
@@ -449,7 +458,7 @@ struct TeamEditorView: View {
             if draft.mutating, let conflict = executionSourceConflictMessage {
                 Text(conflict).font(.system(size: 11)).foregroundStyle(ALPalette.red400)
             } else if draft.mutating, let source = pinnedExecutionSourceLabel {
-                Text("Execution source: \(source)").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
+                Text("Execution source: \(source)").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
             }
         }
     }
@@ -495,9 +504,15 @@ struct TeamEditorView: View {
             }
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
-                Button("Revert", action: onRevert).buttonStyle(.alSecondary(small: true))
+                // Cancel only when there's something to cancel: a new team (removes
+                // the form) or unsaved edits (discards them). Nothing to cancel → no
+                // dangling button.
+                if isNew || isDirty {
+                    Button("Cancel", action: onCancel).buttonStyle(.alSecondary(small: true))
+                }
                 Button(isNew ? "Create team" : (isBuiltIn ? "Duplicate Team" : "Save changes"), action: save)
-                    .buttonStyle(.alPrimary(small: true)).disabled(!draft.isSavable)
+                    .buttonStyle(.alPrimary(small: true))
+                    .disabled(!draft.isSavable || (!isNew && !isBuiltIn && !isDirty))
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 14)

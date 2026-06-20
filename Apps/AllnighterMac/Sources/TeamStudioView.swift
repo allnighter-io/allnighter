@@ -196,7 +196,9 @@ private struct StudioTeamListView: View {
                     TeamEditorView(
                         base: team, lane: lane, models: appModel.models, readyModels: readyModels,
                         isNew: newDraftBase != nil,
-                        onRevert: { revertTick += 1 },
+                        // Cancel: drop the new-team form (back to the prior selection),
+                        // or discard edits by rebuilding the draft from the base.
+                        onCancel: { newDraftBase = nil; revertTick += 1 },
                         onSaved: { id in newDraftBase = nil; selectedId = id; revertTick += 1 }
                     )
                     .id("\(newDraftBase != nil ? "new" : team.id)#\(revertTick)")
@@ -258,7 +260,7 @@ private struct StudioTeamListView: View {
             // Default Team is implicitly a favorite and can't be unstarred.
             Button { if !isDefaultRun { appModel.toggleFavorite(team.id) } } label: {
                 Image(systemName: (fav || isDefaultRun) ? "star.fill" : "star").font(.system(size: 12))
-                    .foregroundStyle((fav || isDefaultRun) ? ALColor.accent : ALColor.textFaint)
+                    .foregroundStyle((fav || isDefaultRun) ? ALColor.textSecondary : ALColor.textFaint)
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)

@@ -572,8 +572,10 @@ private struct HomeNewRunPane: View {
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(AppModel.self) private var appModel
 
-    private var readyCount: Int { appModel.composeBench.filter(\.ready).count }
-    private var benchTotal: Int { appModel.composeBench.count }
+    // One readiness number, CLI-based — the same source as the title-bar badge, so
+    // "N ready" never disagrees between the header and the empty state.
+    private var readyCount: Int { appModel.readyToolCount }
+    private var totalCount: Int { appModel.totalToolCount }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -587,8 +589,8 @@ private struct HomeNewRunPane: View {
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
                     .multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 486)
                 HStack(spacing: 8) {
-                    Circle().fill(ALPalette.green500).frame(width: 6, height: 6)
-                    Text("\(benchTotal) models on the bench · \(readyCount) ready")
+                    Circle().fill(readyCount > 0 ? ALPalette.green500 : ALColor.textFaint).frame(width: 6, height: 6)
+                    Text(readyCount == totalCount ? "\(readyCount) CLIs ready" : "\(readyCount)/\(totalCount) CLIs ready")
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textMuted)
                 }
             }
