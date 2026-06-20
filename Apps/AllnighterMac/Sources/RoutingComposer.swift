@@ -50,6 +50,62 @@ private struct ComposeFileReference: Identifiable, Equatable {
     var id: String { path }
 }
 
+enum PopoverKeyAction { case up, down, enter, escape }
+
+/// Forwards ↑/↓/⏎/esc inside an NSPopover via a local NSEvent monitor — reliable where
+/// SwiftUI `.onKeyPress` doesn't fire, and (unlike a first-responder catcher) it does NOT
+/// steal focus, so a search field in the same popover keeps working. The handler returns
+/// true to consume the event; other keys pass through (so typing still reaches the field).
+struct PopoverKeyCatcher: NSViewRepresentable {
+    var handle: (PopoverKeyAction) -> Bool
+
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.handle = handle
+        context.coordinator.install()
+        let view = NSView()
+        view.setFrameSize(.zero)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.handle = handle
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.remove()
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var handle: ((PopoverKeyAction) -> Bool)?
+        private var monitor: Any?
+
+        func install() {
+            remove()
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self else { return event }
+                let action: PopoverKeyAction?
+                switch event.keyCode {
+                case 126: action = .up
+                case 125: action = .down
+                case 36, 76: action = .enter
+                case 53: action = .escape
+                default: action = nil
+                }
+                if let action, self.handle?(action) == true { return nil }
+                return event
+            }
+        }
+
+        func remove() {
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+        }
+
+        deinit { remove() }
+    }
+}
+
 extension ComposeEffort { var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() } }
 extension ComposeLane {
     var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
@@ -94,8 +150,9 @@ struct RoutingComposer: View {
     @State private var targetOpen = false
     /// Keyboard/hover navigation in the target popover: which visible row is highlighted.
     @State private var targetHighlight = 0
-    @FocusState private var targetKeyFocus: Bool
     @State private var effortOpen = false
+    /// Hover highlight in the effort popover (nil = show the current selection).
+    @State private var effortHighlight: ComposeEffort?
     @State private var fileSearchOpen = false
     @State private var fileSearchQuery = ""
     /// Project corpus size (cached per @-session) for the "N / total" scope hint.
@@ -713,18 +770,45 @@ struct RoutingComposer: View {
         .padding(6)
         .frame(width: locksTeam ? 300 : 320)
         .background(ALColor.surface)
-        // Keyboard nav: ↑/↓ move the highlight, ⏎ picks it. The panel is focusable so it
-        // receives keys even on the Model tab (no text field); on the Team tab the single-
-        // line search field passes up/down through to here.
-        .focusable()
-        .focused($targetKeyFocus)
-        .focusEffectDisabled()
-        .onAppear { targetHighlight = 0; targetKeyFocus = true }
+        // ↑/↓/⏎ are handled by an AppKit key monitor (SwiftUI key focus doesn't fire
+        // inside an NSPopover). Hover + the default top-row highlight come from `targetHighlight`.
+        .overlay(targetKeyMonitor.allowsHitTesting(false))
+        .onAppear { targetHighlight = 0 }
         .onChange(of: targetTab) { _, _ in targetHighlight = 0 }
         .onChange(of: teamSearch) { _, _ in targetHighlight = 0 }
-        .onKeyPress(.downArrow) { moveTargetHighlight(1); return .handled }
-        .onKeyPress(.upArrow) { moveTargetHighlight(-1); return .handled }
-        .onKeyPress(.return) { activateHighlightedTarget(); return .handled }
+    }
+
+    /// AppKit key catcher — reliably receives ↑/↓/⏎/esc inside the NSPopover (which
+    /// SwiftUI's `.onKeyPress` does not). Captures value snapshots each render so the
+    /// AppKit callback never reads SwiftUI environment.
+    private var targetKeyMonitor: some View {
+        let items = targetItems
+        let count = items.count
+        let bench = appModel.composeBench
+        let teams = appModel.composeAllTeams()
+        return PopoverKeyCatcher { action in
+            switch action {
+            case .up:
+                if count > 0 { targetHighlight = (targetHighlight - 1 + count) % count }
+            case .down:
+                if count > 0 { targetHighlight = (targetHighlight + 1) % count }
+            case .escape:
+                targetOpen = false
+            case .enter:
+                guard items.indices.contains(targetHighlight) else { return true }
+                switch items[targetHighlight] {
+                case .auto:
+                    team = nil; pinnedWorker = nil; targetOpen = false
+                case .model(let id):
+                    if bench.first(where: { $0.id == id })?.ready == true {
+                        pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false
+                    }
+                case .team(let id):
+                    if let t = teams.first(where: { $0.id == id }) { selectTeam(t) }
+                }
+            }
+            return true
+        }
     }
 
     // One toggle, two forms — Team OR Worker. Lightened from the boxed segmented control
@@ -876,26 +960,6 @@ struct RoutingComposer: View {
         if let i = targetItems.firstIndex(of: item) { targetHighlight = i }
     }
 
-    private func moveTargetHighlight(_ delta: Int) {
-        let n = targetItems.count
-        guard n > 0 else { return }
-        targetHighlight = (targetHighlight + delta + n) % n
-    }
-
-    private func activateHighlightedTarget() {
-        switch highlightedTargetItem {
-        case .auto:
-            team = nil; pinnedWorker = nil; targetOpen = false
-        case .model(let id):
-            if let m = appModel.composeBench.first(where: { $0.id == id }), m.ready {
-                pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false
-            }
-        case .team(let id):
-            if let t = appModel.composeAllTeams().first(where: { $0.id == id }) { selectTeam(t) }
-        case nil:
-            break
-        }
-    }
 
     /// One-line row label: bold name + a quiet parenthetical — `Opus 4.8 (Claude)`,
     /// `Code Core (7 workers)`. Collapses the old two-line name/subtitle rows.
@@ -1035,6 +1099,8 @@ struct RoutingComposer: View {
     private var effortPopover: some View {
         VStack(alignment: .leading, spacing: 1) {
             ForEach(ComposeEffort.allCases, id: \.self) { e in
+                // Highlight follows hover; with no hover, the current effort is highlighted.
+                let highlighted = (effortHighlight ?? effort) == e
                 Button { effort = e; effortOpen = false } label: {
                     HStack(spacing: 8) {
                         Text(e.label).font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textPrimary)
@@ -1043,14 +1109,16 @@ struct RoutingComposer: View {
                     }
                     .padding(.horizontal, 10).frame(height: 30)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(e == effort ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                    .background(highlighted ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .onHover { if $0 { effortHighlight = e } }
             }
         }
         .padding(6)
         .frame(width: 150)
         .background(ALColor.surface)
+        .onAppear { effortHighlight = nil }
     }
 }

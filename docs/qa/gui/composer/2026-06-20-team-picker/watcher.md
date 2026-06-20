@@ -5,11 +5,11 @@ Command: bash scripts/gui_proof.sh compose-target-inline
 
 ## VERDICT: PASS
 
-Target popover Team tab: the top row (Code Core) is highlighted by DEFAULT — the new
-keyboard/hover navigation highlight (↑/↓ move it, hover follows, ⏎ picks; wired like the
-existing skill-picker). Checkmark still marks the actual selection separately. Effort
-chip "Med" present; the target chip no longer repeats effort (no "· Med  Med" duplicate).
-One-line rows, never-blank ranked list. No clipping/overlap.
+Target popover renders cleanly with the (invisible) AppKit key catcher in place: top row
+highlighted by default, hover moves it, ↑/↓/⏎/esc handled via a local NSEvent monitor
+(doesn't steal search-field focus). Effort chip present, no duplicate effort in the chip.
+The composer NSTextView is now a ComposerTextView subclass that routes Cmd+V/C/X/A/Z
+itself (paste no longer depends on a main-menu Edit menu). No clipping/overlap.
 
 P1 — broken (blocks): none
-P2 — advisory: arrow-key handling relies on NSPopover focus — verify live.
+P2 — advisory: paste + key behavior are runtime — verify live.

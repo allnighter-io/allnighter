@@ -21,6 +21,30 @@ enum ALTextEditorCommand {
     case moveDown
 }
 
+/// NSTextView that routes the standard editing shortcuts itself. Cmd+V/C/X/A/Z are key
+/// *equivalents* — normally ONLY the main-menu Edit menu maps them to `paste:` etc. This
+/// app is `LSUIElement` promoted to `.regular`, so it has no reliable Edit menu, which is
+/// why paste only beeped. Handling them here makes editing work regardless of the menu.
+final class ComposerTextView: NSTextView {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        if flags == .command {
+            switch key {
+            case "v": paste(nil); return true
+            case "c": copy(nil); return true
+            case "x": cut(nil); return true
+            case "a": selectAll(nil); return true
+            case "z": undoManager?.undo(); return true
+            default: break
+            }
+        } else if flags == [.command, .shift], key == "z" {
+            undoManager?.redo(); return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 struct ALTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var contentHeight: CGFloat
@@ -41,16 +65,26 @@ struct ALTextEditor: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSTextView.scrollableTextView()
+        let scroll = NSScrollView()
         scroll.drawsBackground = false
         scroll.borderType = .noBorder
         scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
-        if let textView = scroll.documentView as? NSTextView {
-            style(textView)
-            textView.delegate = context.coordinator
-            textView.string = text
-        }
+
+        let textView = ComposerTextView(frame: .zero)
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.allowsUndo = true
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        style(textView)
+        textView.delegate = context.coordinator
+        textView.string = text
+        scroll.documentView = textView
+
         context.coordinator.scrollView = scroll
         DispatchQueue.main.async { context.coordinator.refreshHeight() }
         return scroll
