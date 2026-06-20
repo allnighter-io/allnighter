@@ -10,26 +10,25 @@ enum WorkspaceMode: String, CaseIterable {
     var symbol: String { self == .inbox ? "tray" : "person.2" }
 }
 
-/// `Inbox | Teams` segmented top-bar control (handoff `.modeswitch`). Active
-/// segment: `bgActive` fill + inset hairline + `ink50` text; inactive: `textMuted`.
-/// Inbox carries an unread badge.
+/// `Inbox | Teams` top-bar control (handoff `.modeswitch`). Flat — no container box
+/// and no selected fill. The active workspace reads as **brighter text**; a subtle
+/// box appears only on hover. Inbox carries an unread badge.
 struct InboxTeamsSwitch: View {
     @Binding var mode: WorkspaceMode
     var unread: Int = 0
+    @State private var hovered: WorkspaceMode?
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             segment(.inbox)
             segment(.teams)
         }
-        .padding(3)
-        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.md))
-        .overlay(RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
     }
 
     @ViewBuilder
     private func segment(_ item: WorkspaceMode) -> some View {
         let isActive = mode == item
+        let isHovered = hovered == item
         Button { mode = item } label: {
             HStack(spacing: 6) {
                 Image(systemName: item.symbol).font(.system(size: 12, weight: .medium))
@@ -44,19 +43,13 @@ struct InboxTeamsSwitch: View {
             }
             .foregroundStyle(isActive ? ALColor.textPrimary : ALColor.textMuted)
             .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(segmentBackground(isActive))
+            .background(
+                RoundedRectangle(cornerRadius: ALRadius.sm)
+                    .fill(isHovered ? ALColor.hover : Color.clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering in hovered = hovering ? item : (hovered == item ? nil : hovered) }
         .help("\(item.label) (\u{2318}\(item == .inbox ? "1" : "2"))")
-    }
-
-    @ViewBuilder
-    private func segmentBackground(_ isActive: Bool) -> some View {
-        if isActive {
-            RoundedRectangle(cornerRadius: ALRadius.sm)
-                .fill(ALColor.active)
-                .overlay(RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
-        }
     }
 }
