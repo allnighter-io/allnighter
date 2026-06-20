@@ -291,11 +291,12 @@ struct ThreadsFixtureSeeder {
             id: "fixture-streaming-build-user", threadId: id, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user,
             text: "Add a /health endpoint that returns 200 OK and run the tests.")
-        let run = ThreadTurn(
+        var run = ThreadTurn(
             id: "fixture-streaming-build-turn", threadId: id, kind: .mutatingRun, status: .running,
             createdAt: Date(), author: .worker,
             text: "I'll add a `/health` route. Looking at the router setup in `app/server.swift`… adding a handler that returns `Response(status: .ok, body: \"OK\")`, wiring it into the route table, then I'll run `swift test` to confir",
             workerId: workerId, runId: "fixture-streaming-build-run")
+        run.reasoningText = "The user wants a /health endpoint returning 200. Let me find the router — likely app/server.swift. I should match the existing handler style and add a test so I don't regress the suite. Checking how routes are registered first…"
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(run, toThreadId: id, now: Date())
         reload()

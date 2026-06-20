@@ -270,6 +270,32 @@ private struct ThreadTurnTimeline: View {
 
 /// CR4a user messages + CR4b worker chat replies; team/mutating run turns render
 /// from durable run truth.
+/// Live "thinking" surface — the model's reasoning streamed while it works, kept
+/// visually distinct from (and above) the answer. Renders nothing when there's no
+/// reasoning. Plain muted text in a subtle card; never the final answer.
+private struct ThreadThinkingBlock: View {
+    let text: String?
+
+    var body: some View {
+        if let text, !text.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Image(systemName: "brain").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+                    Text("Thinking").font(.system(size: 10, weight: .semibold)).tracking(0.4)
+                        .foregroundStyle(ALColor.textFaint)
+                }
+                Text(text)
+                    .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 9).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        }
+    }
+}
+
 private struct ThreadTurnRow: View {
     @Environment(AppModel.self) private var appModel
     let turn: ThreadTurn
@@ -310,25 +336,30 @@ private struct ThreadTurnRow: View {
                 }
                 switch turn.status {
                 case .running, .queued, .draft:
-                    if let partial = turn.text, !partial.isEmpty {
-                        // Live streaming text — rendered as PLAIN text while running so
-                        // malformed in-progress Markdown can't break layout; the settled
-                        // .done state re-renders it through the Markdown engine.
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(partial)
-                                .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Live "thinking" — the model's reasoning while it works.
+                        ThreadThinkingBlock(text: turn.reasoningText)
+                        if let partial = turn.text, !partial.isEmpty {
+                            // Live streaming text — PLAIN while running so malformed
+                            // in-progress Markdown can't break layout; the settled .done
+                            // state re-renders through the Markdown engine.
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(partial)
+                                    .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                HStack(spacing: 6) {
+                                    ProgressView().controlSize(.small)
+                                    Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
+                                        .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                                }
+                            }
+                        } else {
                             HStack(spacing: 6) {
                                 ProgressView().controlSize(.small)
-                                Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
-                                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                                Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "running…")
+                                    .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
                             }
-                        }
-                    } else {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text("running…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
                         }
                     }
                 case .failed, .timedOut:
@@ -575,24 +606,27 @@ private struct ThreadMutatingRunRow: View {
     @ViewBuilder private var content: some View {
         switch turn.status {
         case .running, .queued, .draft:
-            if let partial = turn.text, !partial.isEmpty {
-                // Live streamed text from the running worker — plain while in flight so
-                // in-progress Markdown can't break layout; the settled state re-renders
-                // through the Markdown engine.
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(partial)
-                        .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 8) {
+                ThreadThinkingBlock(text: turn.reasoningText)
+                if let partial = turn.text, !partial.isEmpty {
+                    // Live streamed text — plain while in flight so in-progress Markdown
+                    // can't break layout; the settled state re-renders via Markdown.
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(partial)
+                            .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                            .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
+                                .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                        }
+                    }
+                } else {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.small)
-                        Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
-                            .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                        Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "Working…")
+                            .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
                     }
-                }
-            } else {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text("Working…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
                 }
             }
         case .failed, .timedOut:

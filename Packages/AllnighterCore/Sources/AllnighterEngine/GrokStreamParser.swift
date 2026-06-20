@@ -10,6 +10,7 @@ public final class GrokStreamParser: WorkerStreamParser, @unchecked Sendable {
     private let lines = LineAssembler()
     private var accumulator = ""
     private var sequence = 0
+    private var reasoningSeq = 0
 
     public init() {}
 
@@ -40,8 +41,10 @@ public final class GrokStreamParser: WorkerStreamParser, @unchecked Sendable {
             sequence += 1
             return [.answerDelta(text: text, sequence: sequence, isMarkdown: true)]
         case "thought":
-            // Reasoning — preserved for audit only; never visible answer text.
-            return [.rawEvent(sourceId: "grok", json: trimmed)]
+            // Reasoning — streamed to the live "thinking" surface (never answer text).
+            guard let text = event.data, !text.isEmpty else { return [] }
+            reasoningSeq += 1
+            return [.reasoningDelta(text: text, sequence: reasoningSeq)]
         default:
             // end / error / max_turns_reached / auto_compact_* / unknown.
             return [.rawEvent(sourceId: "grok", json: trimmed)]

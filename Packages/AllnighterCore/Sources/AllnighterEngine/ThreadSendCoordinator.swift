@@ -627,8 +627,9 @@ public struct ThreadSendCoordinator: Sendable {
         pending: PendingSend, model: Model, manifest: DriverManifest, parser: WorkerStreamParser
     ) async -> WorkerRunOutcome {
         var buffer = StreamingPartialBuffer()
+        var reasoning = ""
         var lastFlush = now()
-        let flushInterval: TimeInterval = 0.15
+        let flushInterval: TimeInterval = 0.1
         var terminal: WorkerRunOutcome?
 
         func flush() {
@@ -637,6 +638,7 @@ public struct ThreadSendCoordinator: Sendable {
             var updated = latest
             updated.text = buffer.visibleText
             updated.partialOutputTruncated = buffer.isTruncated
+            if !reasoning.isEmpty { updated.reasoningText = reasoning }
             _ = try? store.updateTurn(updated, inThreadId: pending.threadId, now: now())
             buffer.markFlushed()
             lastFlush = now()
@@ -650,8 +652,10 @@ public struct ThreadSendCoordinator: Sendable {
                 switch event {
                 case .answerDelta(let text, _, _):
                     let byteDue = buffer.append(text)
-                    let timeDue = now().timeIntervalSince(lastFlush) >= flushInterval
-                    if byteDue || timeDue { flush() }
+                    if byteDue || now().timeIntervalSince(lastFlush) >= flushInterval { flush() }
+                case .reasoningDelta(let text, _):
+                    reasoning += text
+                    if now().timeIntervalSince(lastFlush) >= flushInterval { flush() }
                 case .completed(let outcome), .failed(let outcome):
                     terminal = outcome
                 case .started, .rawEvent, .toolActivity:
@@ -664,9 +668,18 @@ public struct ThreadSendCoordinator: Sendable {
         }
         // Final flush so the last sub-threshold delta is visible before settlement.
         flush()
-        return terminal ?? WorkerRunOutcome(
+        var outcome = terminal ?? WorkerRunOutcome(
             status: .failed, errorKind: .emptyOutput,
             errorReason: "stream ended without a terminal event")
+        // Robustness: streaming produced no usable answer → retry non-streaming so the
+        // worker still replies (matches the proven invoke path).
+        if outcome.status != .done, (outcome.output ?? "").isEmpty {
+            StreamDebugLog.log("FALLBACK source=\(manifest.id): streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
+            outcome = await runner.invoke(
+                worker: model, manifest: manifest, prompt: pending.prompt,
+                workingDirectoryOverride: pending.workingDir)
+        }
+        return outcome
     }
 
     /// Settles a worker turn by RELOADING the latest stored turn first (the

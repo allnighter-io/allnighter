@@ -247,14 +247,32 @@ public actor RunService {
         )
         try? runStore.save(run, models: models)
 
-        // Stream the single execution worker live when it can: emit the accumulated
-        // visible answer as `workerAnswerDelta` events so the timeline updates before
-        // the process exits. Otherwise the one-shot invoke. Same terminal outcome.
-        let outcome: WorkerRunOutcome
+        // Stream the single execution worker live when it can: emit accumulated
+        // visible answer (`workerAnswerDelta`) AND reasoning (`workerReasoningDelta`)
+        // on a time cadence so even short replies visibly stream. If streaming yields
+        // nothing usable, FALL BACK to the proven one-shot invoke so the worker always
+        // answers.
+        var outcome: WorkerRunOutcome
         if manifest.canStream, runner.supportsStreaming,
            let parser = WorkerStreamParsers.make(for: manifest) {
-            var buffer = StreamingPartialBuffer()
+            var answer = StreamingPartialBuffer()
+            var reasoning = ""
+            var lastAnswerEmit = now()
+            var lastReasoningEmit = now()
             var terminal: WorkerRunOutcome?
+            func emitAnswer() {
+                emit(RunEventKind.workerAnswerDelta, [
+                    "runId": .string(runId), "workerId": .string(worker.id),
+                    "text": .string(answer.visibleText), "truncated": .bool(answer.isTruncated),
+                ])
+                lastAnswerEmit = now()
+            }
+            func emitReasoning() {
+                emit(RunEventKind.workerReasoningDelta, [
+                    "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning),
+                ])
+                lastReasoningEmit = now()
+            }
             do {
                 for try await streamEvent in runner.invokeStreaming(
                     worker: model, manifest: manifest, prompt: assembled, parser: parser,
@@ -262,13 +280,11 @@ public actor RunService {
                 ) {
                     switch streamEvent {
                     case .answerDelta(let text, _, _):
-                        if buffer.append(text) {
-                            emit(RunEventKind.workerAnswerDelta, [
-                                "runId": .string(runId), "workerId": .string(worker.id),
-                                "text": .string(buffer.visibleText),
-                                "truncated": .bool(buffer.isTruncated),
-                            ])
-                        }
+                        let byteDue = answer.append(text)
+                        if byteDue || now().timeIntervalSince(lastAnswerEmit) >= 0.1 { emitAnswer() }
+                    case .reasoningDelta(let text, _):
+                        reasoning += text
+                        if now().timeIntervalSince(lastReasoningEmit) >= 0.1 { emitReasoning() }
                     case .completed(let o), .failed(let o):
                         terminal = o
                     case .started, .rawEvent, .toolActivity:
@@ -276,14 +292,18 @@ public actor RunService {
                     }
                 }
             } catch { /* terminal handled below */ }
-            // Flush the final accumulated text before settlement.
-            emit(RunEventKind.workerAnswerDelta, [
-                "runId": .string(runId), "workerId": .string(worker.id),
-                "text": .string(buffer.visibleText), "truncated": .bool(buffer.isTruncated),
-            ])
+            emitAnswer()
+            if !reasoning.isEmpty { emitReasoning() }
             outcome = terminal ?? WorkerRunOutcome(
                 status: .failed, errorKind: .emptyOutput,
                 errorReason: "stream ended without a terminal event")
+            // Robustness: if streaming produced no usable answer, retry non-streaming.
+            if outcome.status != .done, (outcome.output ?? "").isEmpty {
+                StreamDebugLog.log("FALLBACK source=\(manifest.id): streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
+                outcome = await runner.invoke(
+                    worker: model, manifest: manifest, prompt: assembled, effort: effort,
+                    workingDirectoryOverride: repoRoot)
+            }
         } else {
             outcome = await runner.invoke(
                 worker: model, manifest: manifest, prompt: assembled, effort: effort,

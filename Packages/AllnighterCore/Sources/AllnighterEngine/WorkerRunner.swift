@@ -266,6 +266,7 @@ public struct WorkerRunner: Sendable {
 
             let startedAt = now()
             continuation.yield(.started(workerId: worker.id, modelId: worker.id, sourceId: manifest.id))
+            StreamDebugLog.log("──── RUN START source=\(manifest.id) model=\(worker.id) cmd=\(spawnCommand) args=\(spawnArgs.joined(separator: " "))")
 
             let consume = Task { [self] in
                 defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
@@ -279,8 +280,11 @@ public struct WorkerRunner: Sendable {
                         case .started:
                             break
                         case .stdout(let data):
-                            for streamEvent in parser.receiveStdout(data) { continuation.yield(streamEvent) }
+                            StreamDebugLog.log("STDOUT \(StreamDebugLog.clip(String(decoding: data, as: UTF8.self)))")
+                            let parsed = parser.receiveStdout(data)
+                            for streamEvent in parsed { StreamDebugLog.log("  → \(Self.describe(streamEvent))"); continuation.yield(streamEvent) }
                         case .stderr(let data):
+                            StreamDebugLog.log("STDERR \(StreamDebugLog.clip(String(decoding: data, as: UTF8.self)))")
                             for streamEvent in parser.receiveStderr(data) { continuation.yield(streamEvent) }
                         case .completed(let result):
                             let fileText = outputFileURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
@@ -289,11 +293,13 @@ public struct WorkerRunner: Sendable {
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
                                 overrideFinalText: finalText)
+                            StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1)")
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
                         case .failed(let launchError):
                             var outcome = WorkerRunOutcome(status: .failed, startedAt: startedAt, finishedAt: now())
                             outcome.errorKind = .missingCLI
                             outcome.errorReason = launchError
+                            StreamDebugLog.log("OUTCOME launch-failed: \(launchError)")
                             continuation.yield(.failed(outcome))
                         case .timedOut(let partialOut, let partialErr):
                             let result = CommandResult(
@@ -348,6 +354,19 @@ public struct WorkerRunner: Sendable {
             exitCode: outcome.exitCode,
             capacityObservation: outcome.capacityObservation
         )
+    }
+
+    /// One-line description of a stream event for the debug log.
+    private static func describe(_ event: WorkerStreamEvent) -> String {
+        switch event {
+        case .answerDelta(let text, let seq, _): return "answerDelta[\(seq)] \(StreamDebugLog.clip(text, 120))"
+        case .reasoningDelta(let text, let seq): return "reasoningDelta[\(seq)] \(StreamDebugLog.clip(text, 120))"
+        case .rawEvent: return "rawEvent (audit)"
+        case .toolActivity(let label, let kind): return "toolActivity \(kind): \(label)"
+        case .started: return "started"
+        case .completed: return "completed"
+        case .failed: return "failed"
+        }
     }
 
     private func output(from stdout: String, manifest: DriverManifest) -> String {

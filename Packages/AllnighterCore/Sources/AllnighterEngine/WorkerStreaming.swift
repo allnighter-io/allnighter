@@ -10,6 +10,10 @@ public enum WorkerStreamEvent: Sendable, Equatable {
     /// A chunk of visible answer text. `sequence` is monotonic per run; `isMarkdown`
     /// hints whether the text should eventually render as Markdown.
     case answerDelta(text: String, sequence: Int, isMarkdown: Bool)
+    /// A chunk of the model's REASONING / thinking, shown live in a separate
+    /// "thinking" surface while the model works (founder: streaming thoughts BEFORE
+    /// the answer). Never folded into the answer text.
+    case reasoningDelta(text: String, sequence: Int)
     /// One raw parsed event line, for debug/audit only — NEVER default UI text.
     case rawEvent(sourceId: String, json: String)
     /// Optional tool/activity hint a parser can map safely (e.g. "Editing file").

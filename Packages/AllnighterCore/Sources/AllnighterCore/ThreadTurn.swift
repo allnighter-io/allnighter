@@ -42,6 +42,10 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
     /// visible suffix until the complete final answer replaces it at settlement.
     /// Additive; absent/false on every existing turn.
     public var partialOutputTruncated: Bool
+    /// Live streamed REASONING / thinking shown in a separate surface while the
+    /// worker runs (kept out of `text`/the answer). Additive; absent on every
+    /// existing turn. Local-only, same sensitivity as the answer.
+    public var reasoningText: String?
 
     public init(
         id: String,
@@ -62,9 +66,11 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         supersedesTurnId: String? = nil,
         seedFromTurnId: String? = nil,
         systemEvent: SystemEventKind? = nil,
-        partialOutputTruncated: Bool = false
+        partialOutputTruncated: Bool = false,
+        reasoningText: String? = nil
     ) {
         self.partialOutputTruncated = partialOutputTruncated
+        self.reasoningText = reasoningText
         self.id = id
         self.threadId = threadId
         self.kind = kind
@@ -89,7 +95,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         case id, threadId, kind, status, createdAt, completedAt, author, text,
              workerId, runId, stageId, artifactRefs, attachmentRefs, fileReferenceRefs,
              contextPacketId, supersedesTurnId, seedFromTurnId, systemEvent,
-             partialOutputTruncated
+             partialOutputTruncated, reasoningText
     }
 
     public init(from decoder: Decoder) throws {
@@ -113,6 +119,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         seedFromTurnId = try c.decodeIfPresent(String.self, forKey: .seedFromTurnId)
         systemEvent = try c.decodeIfPresent(SystemEventKind.self, forKey: .systemEvent)
         partialOutputTruncated = try c.decodeIfPresent(Bool.self, forKey: .partialOutputTruncated) ?? false
+        reasoningText = try c.decodeIfPresent(String.self, forKey: .reasoningText)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -135,8 +142,9 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         try c.encodeIfPresent(supersedesTurnId, forKey: .supersedesTurnId)
         try c.encodeIfPresent(seedFromTurnId, forKey: .seedFromTurnId)
         try c.encodeIfPresent(systemEvent, forKey: .systemEvent)
-        // Encode only when true so every existing turn's JSON stays byte-identical.
+        // Encode only when set so every existing turn's JSON stays byte-identical.
         if partialOutputTruncated { try c.encode(true, forKey: .partialOutputTruncated) }
+        try c.encodeIfPresent(reasoningText, forKey: .reasoningText)
     }
 }
 

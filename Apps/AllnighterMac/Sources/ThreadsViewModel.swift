@@ -383,12 +383,19 @@ final class ThreadsViewModel {
             // before the worker exits (mirrors the worker_chat streaming path).
             let (events, continuation) = AsyncStream<RunEvent>.makeStream()
             let consumer = Task { @MainActor in
-                for await event in events where event.kind == RunEventKind.workerAnswerDelta {
-                    guard let text = event.payload["text"]?.stringValue,
+                for await event in events {
+                    let isAnswer = event.kind == RunEventKind.workerAnswerDelta
+                    let isReasoning = event.kind == RunEventKind.workerReasoningDelta
+                    guard isAnswer || isReasoning,
+                          let text = event.payload["text"]?.stringValue,
                           var running = threadStore.get(threadId)?.turn(id: turnId),
                           running.status == .running else { continue }
-                    running.text = text
-                    running.partialOutputTruncated = event.payload["truncated"]?.boolValue ?? false
+                    if isAnswer {
+                        running.text = text
+                        running.partialOutputTruncated = event.payload["truncated"]?.boolValue ?? false
+                    } else {
+                        running.reasoningText = text
+                    }
                     _ = try? threadStore.updateTurn(running, inThreadId: threadId, now: Date())
                     reload()
                 }
