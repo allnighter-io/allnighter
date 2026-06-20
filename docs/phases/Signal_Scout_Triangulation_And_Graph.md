@@ -13,20 +13,21 @@ Read with:
 - `docs/phases/Team_Run_Floor.md` (owns the `SignalInsight` / `SignalReceipt` contract and the Floor projection)
 - `docs/phases/Team_Delegation_Surface.md` (owns Signal as a team family)
 - `docs/phases/Model_Catalog_And_Bench_Roster.md` (owns model lane tags + driver manifests)
-- `docs/phases/Project_Spine_And_Project_Manager.md` (owns the dispatch→verify→receipt spine the receipt loop rides)
+- `docs/phases/Project_Spine_And_Project_Manager.md` (owns the dispatch→verify→receipt spine the provenance reuses)
 - `docs/phases/Language_Cutover.md` (Signal is the 4th craft; `WorkLane.signal`, `TeamOutputKind.insight`)
 
 This doc owns: (1) a **source-agnostic** Scout → triangulation run shape, (2)
 **role-aware, distinct-driver** model assignment so a signal is read by *many
 minds and many source types*, (3) the **Signal Graph** — durable cross-signal
-memory, and (4) the two laws that make this real instead of another second-brain
-graveyard: the **doubly-grounded gate** and the **receipt loop**.
+memory, and (4) the two laws that keep this honest instead of becoming another
+second-brain graveyard: the **doubly-grounded gate** and **observation, not
+attribution**.
 
 ## The two laws (read these first — everything else serves them)
 
 A "compounding intelligence graph" on its own is the second-brain promise, and
-that graveyard is large. Two laws are what flip this from hype to something
-nobody else is positioned to build. They are the spine, not footnotes.
+that graveyard is large. Two laws keep this grounded. They are the spine, not
+footnotes.
 
 ### Law 1 — Doubly-grounded gate (intersection-or-nothing)
 
@@ -34,37 +35,69 @@ Every Insight must stand on **two feet**:
 
 ```text
 one foot on an OUTSIDE source span   (a verbatim quote, a transcript timestamp)
-one foot on PROJECT TRUTH            (a file:line, a prior decision, a prior receipt)
+one foot on PRIVATE TRUTH            (a file:line, a doc, a prior run/decision, a past post)
 ```
 
 - One foot on outside-only → that is just *news*. Reject.
-- One foot on project-only → that is just *code search*. Reject.
-- The wedge IS the intersection. An LLM can summarize a podcast; it cannot know
-  "this point at 34:12 contradicts the architecture call in commit `abc3`, and
-  last time you waved off a signal like this you shipped X and it flopped." That
-  sentence is unfakeable and uncloneable because Allnighter sits on both corpora
-  at once.
+- One foot on private-only → that is just *code search*. Reject.
+- The wedge IS the intersection: ideas and suggestions **grounded in your own
+  private repo/content**, sourced to a real outside artifact. An LLM can
+  summarize a podcast or summarize X; it cannot say "this point at 34:12 lines up
+  with the same complaint in three threads you saved AND maps to the feature in
+  `OnboardingView.swift:212` you almost cut last week." That sentence is only
+  possible because Allnighter sits on both corpora at once.
+
+The **private leg is mostly self-generated.** Allnighter is the execution
+environment, so the private corpus accretes as exhaust of normal use — runs,
+threads, worker answers, docs, past content. It is not a curation chore the user
+must maintain; it fills because you worked here. That is the durable, hard-to-
+copy asset (your operational history exists nowhere else), and it is why the
+intersections get richer the longer you use the tool.
 
 This is a **validity gate**, enforced on the Insight Writer's output and tested
 — not a tagline. "No move today" is always a valid, complete Insight.
 
-### Law 2 — Receipt loop (reality prunes the graph)
+### Law 2 — Observation, not attribution (no causation claims)
 
-A second-brain graph has no feedback signal, so it only ever grows (= noise
-accumulates). Allnighter's graph closes to a **receipt**:
+Correlation is not causation. A move made after a signal does not mean the signal
+caused it; an outcome after a move does not mean the move caused it. The open
+loop cannot prove either link — there is no control group — so the product must
+never claim it does.
 
 ```text
-signal -> interpretation -> move -> shipped proof/receipt -> memory -> future weighting
+OBSERVATION and PROVENANCE survive without a control.   -> we do this.
+ATTRIBUTION and SCORING require a control.               -> we do NOT, except via A/B (see seam).
 ```
 
-- A move shipped: did it work? That outcome feeds back and the graph is *pruned
-  by reality*, not just grown. This is the difference between a compounding asset
-  and a pile.
-- Unfair advantage: Allnighter **already owns the dispatch spine** (proposal →
-  approve → dispatch → verify → receipt). A pure "signal memory" product would
-  have to build the entire agent-orchestration loop just to earn its first
-  receipt. Signal Memory is a feature riding an existing moat, not a new product
-  needing a new moat.
+Banned by policy (each needs causation we do not have):
+
+- calibration / "your X angle underperforms by N%";
+- per-user scoring of workers/models ("Codex is better for you");
+- "track record / keeps score" positioning;
+- "this signal worked / paid off."
+
+Kept (pure observation/provenance — true regardless of cause):
+
+- **Provenance / recall:** "here is what you were looking at when you decided."
+- **Addressed-vs-open:** "this cluster already produced a move — stop surfacing
+  it as fresh." A true statement about *your actions*, not about cause.
+- **Outcomes as raw facts:** "this post got 2.1k saves." Display it; attribute
+  nothing.
+- **Counts:** "this topic recurred 5 times; you have not acted." A count, not a
+  verdict — the human decides if it is an opportunity or correctly-ignored noise.
+
+So a receipt records **that a move was made and its observed context/outcome**,
+for provenance and dedup — never to score the signal. The unfair advantage stays
+real but narrower: Allnighter **already owns the dispatch spine** (proposal →
+approve → dispatch → verify → receipt), so capturing that provenance is free.
+
+**The seam where the loop genuinely closes:** a controlled experiment. Where a
+move targets an A/B-testable surface (Ikiro / websitemd.studio), randomized
+assignment closes the **move → outcome** link causally — real calibration lives
+*there*, in that product, not in this one. Even then it does **not** close
+**signal → move** (A/B proves "B beat A," not "the post is why B existed"), so we
+never re-import the fallacy through the A/B door. This is a marked future seam,
+not a build target for this phase.
 
 ## Founder Intent
 
@@ -94,11 +127,14 @@ Product value:
 
 ```text
 One artifact is a tip. Ten artifacts cross-referenced against each other AND
-against your own corpus is a thesis nobody else can see. Allnighter is the only
-place that holds the signal stream, the corpus (code OR content), AND a fleet of
-CLI minds — across both velocity and depth sources — so it is the only thing
-that can connect them, keep connecting them as the pile grows, and CLOSE the
-loop to a shipped receipt.
+against your own corpus produces ideas and suggestions grounded in YOUR private
+repo/content — not generic AI summary. Allnighter is the only place that holds
+the signal stream, the corpus (code OR content), AND a fleet of CLI minds across
+velocity + depth sources, so it can keep generating grounded moves as the pile
+grows. It does not claim those moves "work" — it makes them easy to generate,
+well-grounded, and easy to recall later. Validation of whether a move actually
+worked is a separate, controlled problem (see the A/B seam); this product is
+honest about not solving it here.
 ```
 
 Trusted workflow slice:
@@ -117,8 +153,9 @@ Trusted workflow slice:
 5. The Skeptic pressure-tests; the Insight Writer DECIDES.
 6. The user gets a decisive, DOUBLY-GROUNDED answer right now — plus an "in
    light of your prior signals…" section richer than a month ago.
-7. The signal + packet + topic tags + edges are written back to the graph; if
-   the move ships, its receipt closes the loop.
+7. The signal + packet + topic tags + edges are written back to the graph; if a
+   move ships, its receipt is recorded as PROVENANCE (what was done, in what
+   context) — not as proof the signal worked.
 ```
 
 Non-goals:
@@ -132,6 +169,8 @@ Non-goals:
 - Not a new run loop. Rides `CatalogRunCoordinator` and the existing dispatch
   spine.
 - No standalone "clustering" subsystem (edges ARE the clusters — see below).
+- **No causation claims** (Law 2): no calibration, no scoring of signals/
+  workers, no "this worked." Receipts are provenance + dedup only.
 
 ## Current State
 
@@ -161,8 +200,8 @@ Current gaps (the reason for this doc):
    (video/podcast) and no source-agnostic packet.
 4. **No memory.** Each run is one-shot. No Signal Graph, no analyst, nothing
    persists to learn from — so answers can't compound.
-5. **No gate, no loop.** Nothing enforces double-grounding; nothing feeds a
-   shipped receipt back into signal quality.
+5. **No gate, no provenance.** Nothing enforces double-grounding; nothing records
+   what a move was grounded in for later recall.
 6. **Corpus is code-shaped.** A creator's content corpus has no home.
 
 ## Decision — the upgraded Signal run shape (source-agnostic)
@@ -196,8 +235,8 @@ Stage 3  INSIGHT WRITER  (the Lead, DECIDES)
          Enforce the doubly-grounded gate. Answer the question NOW; append the
          triangulation spread and the cross-signal AHA. Tag the topic (free —
          it's already deciding what this is about). Write signal + packet +
-         tags + edges back to the graph. If a move dispatches, its receipt
-         later closes the loop.
+         tags + edges back to the graph. If a move dispatches, its receipt is
+         recorded as provenance (Law 2) — never scored.
 ```
 
 Substrate mapping: the Scout is a new pre-answer dependency stage whose packet is
@@ -239,16 +278,17 @@ Hard rules:
 
 ## Contract — the Signal Graph
 
-Durable cross-signal memory; the substrate that makes answers compound and the
-home of Law 2.
+Durable cross-signal memory; the substrate that makes grounding richer over time
+and the home of provenance (Law 2).
 
 ```text
 SignalGraph (per Project / per corpus)
   signals[]    Signal { id, capturedAt, packetRef, topicTags[], insightRef }
   edges[]      SignalEdge { fromSignalId, toSignalId, kind, rationale, byModelId }
                kind ∈ reinforces | contradicts | supersedes | recurs | appliesTo
-  receipts[]   SignalReceiptLink { signalId, moveRef, workReturnRef, outcome }
-               outcome ∈ shipped | reverted | abandoned | pending
+  receipts[]   SignalReceiptLink { signalId, moveRef, workReturnRef, status }
+               status ∈ shipped | reverted | abandoned | pending
+               (PROVENANCE: what was done in what context — NOT a score of the signal)
   corpusRefs[] what a signal touched
                code repo     -> file:line / commit
                content corpus-> postId / asset id
@@ -263,20 +303,23 @@ SignalGraph (per Project / per corpus)
   pass to build or keep consistent.
 - **Edges are model-attributed** (`byModelId`) so a spurious link is traceable
   and prunable.
-- **Receipts close the loop** (Law 2): when a Signal-derived move dispatches and
-  verifies, a `SignalReceiptLink` records the outcome, which weights future
-  reads (a cluster that already shipped is *memory*, not a fresh opportunity).
+- **Receipts are provenance, not feedback** (Law 2): when a Signal-derived move
+  dispatches, a `SignalReceiptLink` records *that it was done and in what
+  context*. It marks the cluster as **addressed** (stop surfacing it as fresh) —
+  a true statement about your actions. It does **not** weight, score, or grade
+  the signal; causal feedback only exists at the A/B seam.
 - **Corpus-agnostic:** `corpusRefs` anchors to `file:line` for code and
   `postId`/asset for content — same graph, different anchor.
 
-The lifecycle, in computable terms (no vibes):
+The lifecycle, in computable terms (counts and states, not verdicts):
 
 ```text
 Insight      = one signal, doubly-grounded                       (Law 1)
-Opportunity  = a cluster that RECURS across >= N signals
-               AND touches project truth AND has NO receipt yet
-Memory       = a cluster that got actioned and carries a receipt (Law 2)
-               -> down-weights as a fresh opportunity, informs future reads
+Recurring    = a cluster that appears across >= N signals AND touches private
+               truth AND has no recorded move yet. A COUNT surfaced for the
+               human to judge — not a claim that you should act.
+Addressed    = a cluster that already produced a move (has a receipt).
+               Stop surfacing it as fresh. Provenance only — no claim it worked.
 ```
 
 ## Contract — distinct-driver triangulation policy
@@ -389,16 +432,19 @@ Tests: an insight with only outside grounding is rejected as "no move today";
 with both feet it ships; with priors, `crossSignal` is populated + edges
 persisted.
 
-### SIG-S05 — Receipt loop (Law 2)
+### SIG-S05 — Receipt provenance (Law 2 — observation only)
 
 - [ ] When a Signal-derived move dispatches via the existing
-      `ProjectDispatchService` and verifies, record a `SignalReceiptLink`
-      (outcome: shipped/reverted/abandoned/pending).
-- [ ] Receipts down-weight a cluster as a *fresh* opportunity (it becomes
-      *memory*) and inform future analyst reads.
+      `ProjectDispatchService`, record a `SignalReceiptLink`
+      (status: shipped/reverted/abandoned/pending) as **provenance** — what was
+      done, in what context.
+- [ ] A recorded move marks the cluster **addressed** (stop surfacing it as
+      fresh). No scoring, no weighting, no "it worked."
+- [ ] Causation explicitly out of scope here — calibration lives only at the A/B
+      seam (Ikiro / websitemd.studio), tracked in that product, not this one.
 
-Tests: dispatch + verify a move tied to a signal → a `SignalReceiptLink` lands;
-the cluster's lifecycle flips opportunity → memory.
+Tests: dispatch a move tied to a signal → a `SignalReceiptLink` lands; the
+cluster flips recurring → addressed; no scoring fields exist on the receipt.
 
 ### SIG-S06 — Source adapters: X + VVX
 
@@ -424,8 +470,8 @@ postId, not a file:line.
 ### SIG-S08 — Surface (GUI, last)
 
 - [ ] Insight card: the answer now + double-grounding receipts (outside span ↔
-      project ref) + triangulation spread (agree/diverge by mind) + tappable
-      cross-signal links + cluster lifecycle (opportunity vs. memory).
+      private ref) + triangulation spread (agree/diverge by mind) + tappable
+      cross-signal links + cluster state (recurring vs. addressed). No scores.
 - [ ] GUIFixture seal.
 
 ## Works Test
@@ -450,9 +496,9 @@ Assertions:
   clean "no move today."
 - `crossSignal` references ≥1 of the 3 seeded priors; ≥1 typed edge written back.
 - Re-running with the new signals present yields a richer `crossSignal` (the
-  compounding property).
-- Dispatching + verifying a move tied to a signal records a `SignalReceiptLink`
-  and flips its cluster opportunity → memory.
+  compounding property: more grounding, not "better scores").
+- Dispatching a move tied to a signal records a `SignalReceiptLink` (provenance)
+  and flips its cluster recurring → addressed. The receipt carries no score.
 
 Proof command:
 
@@ -467,8 +513,10 @@ alln signal graph clusters --project P
 - Signals distill once (Scout, source-agnostic) and interpret many (distinct
   drivers, velocity × depth) — never one blind mind re-reading raw input.
 - Every Insight is **doubly-grounded** or a clean "no move today" (Law 1).
-- Shipped moves write **receipts** back, pruning/weighting the graph (Law 2).
-- The graph compounds run over run with no extra asking and no curation chore.
+- Moves write **receipts** back as provenance only — no scoring, no causation
+  claims anywhere in the product (Law 2).
+- The graph compounds run over run (richer grounding) with no extra asking and no
+  curation chore.
 - X + VVX both feed the same packet; VVX consumed externally like a CLI.
 - Same machinery serves a code repo and a content corpus.
 - CLI + MCP parity; no aliases, no shims; check.sh green.
@@ -476,12 +524,14 @@ alln signal graph clusters --project P
 ## Open Questions
 
 - **Edge pruning:** does a periodic analyst sweep retire stale `contradicts`
-  edges, or only a superseding signal + a `reverted` receipt?
-- **Receipt attribution:** how tightly must a dispatched move be tied back to the
-  originating signal(s) — single link, or weighted across a cluster?
+  edges, or only a superseding signal?
+- **Receipt linking (provenance, not attribution):** a dispatched move links to
+  the signal(s) that were on screen as context — single link or a cluster link.
+  This is recall plumbing, NOT a causal claim that the signal drove the move.
 - **Cold-start honesty:** value ramps with corpus depth (a fresh project gets
-  generic reads until it has decisions + receipts to collide against). Surface
-  the ramp in the product; don't promise day-1 magic.
+  generic reads until it has enough private corpus to ground against). The
+  self-generated corpus (Law 1) softens this — it fills as you use the tool — but
+  do not promise day-1 magic.
 - **Second depth adapter:** after VVX proves the external-adapter shape, which
   source earns adapter #3 (Reddit thread? competitor changelog?) — gate on
   demand, not on enthusiasm.
