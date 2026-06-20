@@ -76,6 +76,9 @@ public actor RunService {
     private let writeLock: RunWriteLockRegistry
     private let invocations: [String: ToolInvocation]
     private let now: @Sendable () -> Date
+    // Auto (Default model) inputs — injectable so resolution is deterministic in tests.
+    private let loadDefaultSettings: @Sendable () -> DefaultModelSettings
+    private let loadProbeRecords: @Sendable () -> [ToolProbeRecord]
 
     public init(
         models: [Model],
@@ -85,7 +88,9 @@ public actor RunService {
         commandRunner: CommandRunner = SubprocessCommandRunner(),
         writeLock: RunWriteLockRegistry = .shared,
         invocations: [String: ToolInvocation] = [:],
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        defaultSettings: @escaping @Sendable () -> DefaultModelSettings = { DefaultModelSettingsPersistence().load() },
+        probeRecords: @escaping @Sendable () -> [ToolProbeRecord] = { SetupStore().load().records }
     ) {
         self.models = models
         self.registry = registry
@@ -95,9 +100,24 @@ public actor RunService {
         self.writeLock = writeLock
         self.invocations = invocations
         self.now = now
+        self.loadDefaultSettings = defaultSettings
+        self.loadProbeRecords = probeRecords
     }
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
+
+    /// Model ids that are a runnable substitute *right now*: ON the Bench AND their
+    /// source CLI is installed + probe-ready. Mirrors the readiness the `defaults` /
+    /// `models` projections show, so Auto's "→ Opus 4.8" preview equals what actually
+    /// runs and a down CLI is genuinely routed around (source-health, not just enabled).
+    private func sourceReadyModelIds() -> Set<ModelID> {
+        let records = Dictionary(
+            loadProbeRecords().map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
+        let manifestIDs = Set(registry.all.map(\.id))
+        return Set(models.filter { m in
+            m.enabled && manifestIDs.contains(m.driverId) && (records[m.driverId]?.status.isReady ?? false)
+        }.map(\.id))
+    }
 
     /// Run and persist. Returns the settled `TeamRun` (RunRecord substrate).
     public func run(
@@ -125,6 +145,24 @@ public actor RunService {
                 return .failure(.teamResolution("no default team configured", code: "DEFAULT_TEAM_INVALID"))
             }
             preset = team
+        }
+
+        // Auto (the no-pick / default route): resolve the worker model from the
+        // Default-model tiers instead of the team's static preference — using the tier
+        // default, or the first source-ready substitute on the same tier when it's down
+        // (route around a down CLI, no prompt). A blocked tier fails clean ("Auto
+        // waits"), never guesses. An explicit per-chat model pick (workerId) wins.
+        var effectiveWorkerId = request.workerId
+        if preset.id == TeamCatalog.defaultRunTeam()?.id, (request.workerId ?? "").isEmpty {
+            let settings = loadDefaultSettings()
+            let auto = SubstitutionResolver.resolveAuto(
+                settings: settings, readyModelIds: sourceReadyModelIds())
+            guard let modelId = auto.resolvedModelId else {
+                return .failure(.teamResolution(
+                    "Auto waits — no ready model on the \(settings.defaultTier.displayName) tier",
+                    code: "DEFAULT_TEAM_INVALID"))
+            }
+            effectiveWorkerId = modelId
         }
 
         var prompt = request.message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -156,7 +194,7 @@ public actor RunService {
         if preset.runShape == .execution {
             return await runExecution(
                 preset: preset, prompt: prompt, effort: effort, repoRoot: root,
-                projectId: request.projectId, workerOverride: request.workerId,
+                projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner, events: events
             )
         }
