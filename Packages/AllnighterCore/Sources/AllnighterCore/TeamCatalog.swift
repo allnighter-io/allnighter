@@ -364,6 +364,16 @@ public enum TeamCatalog {
         return copy
     }
 
+    /// A fresh, collision-free custom team id for a lane — used when creating a
+    /// brand-new team (Add team) rather than duplicating an existing one.
+    public static func freshCustomId(lane: WorkLane, displayName: String) -> TeamID {
+        var newId = CatalogIDGenerator.customID(lane: lane, displayName: displayName)
+        while get(newId) != nil {
+            newId = CatalogIDGenerator.customID(lane: lane, displayName: displayName, suffix: String(Int.random(in: 1000...9999)))
+        }
+        return newId
+    }
+
     public static func saveCustom(_ team: TeamDefinition) throws {
         guard !team.builtIn else { throw CatalogError.builtInImmutable }
         if BuiltInTeams.team(team.id) != nil { throw CatalogError.idCollision }

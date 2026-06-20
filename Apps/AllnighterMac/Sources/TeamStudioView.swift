@@ -124,11 +124,44 @@ private struct StudioTeamListView: View {
     var customizeTeamId: String? = nil
     @Environment(AppModel.self) private var appModel
     @State private var selectedId: TeamID?
+    /// A brand-new, unsaved team being authored (Add team). Not in the catalog until
+    /// Save; takes precedence over `selectedId` while present.
+    @State private var newDraftBase: TeamPreset?
     /// Bumped to rebuild the inline editor with a fresh draft (revert / after save).
     @State private var revertTick = 0
 
-    private var teams: [TeamPreset] { TeamCatalog.list(lane: lane.workLane) }
-    private var selected: TeamPreset? { teams.first { $0.id == selectedId } ?? teams.first }
+    /// Lane teams, favorites first (in favorite order), then catalog order. The
+    /// global Default Team always leads.
+    private var teams: [TeamPreset] {
+        let all = TeamCatalog.list(lane: lane.workLane)
+        let favRank = Dictionary(uniqueKeysWithValues: appModel.favoriteTeamIds.enumerated().map { ($1, $0) })
+        let defaultId = TeamCatalog.defaultRunTeam()?.id
+        func rank(_ t: TeamPreset) -> (Int, Int) {
+            if t.id == defaultId { return (0, 0) }
+            if let r = favRank[t.id] { return (1, r) }
+            return (2, 0)
+        }
+        return all.enumerated().sorted { a, b in
+            let ra = rank(a.element), rb = rank(b.element)
+            if ra != rb { return ra < rb }
+            return a.offset < b.offset
+        }.map(\.element)
+    }
+    private var selected: TeamPreset? {
+        newDraftBase ?? (teams.first { $0.id == selectedId } ?? teams.first)
+    }
+
+    /// A blank starting point for a new lane team: one worker on a lane skill + the
+    /// first ready model. Not persisted until Save.
+    private func blankBase() -> TeamPreset {
+        let skillId = SkillCatalog.list(lane: lane.workLane).first?.id ?? ""
+        let modelId = readyModels.first?.id ?? appModel.models.first?.id
+        let worker = TeamWorkerSpec(id: UUID().uuidString, skillId: skillId, purpose: .answer,
+                                    preferredModelId: modelId, count: 1, fallbackPolicy: .laneCapable, required: true)
+        let lead = TeamLeadSpec(skillId: skillId, preferredModelId: modelId, fallbackPolicy: .laneCapable)
+        return TeamPreset(id: "new_\(lane.workLane.rawValue)_draft", displayName: "New \(lane.label) team",
+                          lane: lane.workLane, outputKind: .plan, workerSpecs: [worker], lead: lead, builtIn: false)
+    }
 
     /// The models confirmed ready on the bench — so the detail can show who would
     /// actually run each role (concrete, not "Auto").
@@ -143,6 +176,7 @@ private struct StudioTeamListView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header("\(lane.label) teams",
                        subtitle: "Saved \(lane.label.lowercased()) lineups. Pick one to tune it, or pick one in the composer.")
+                addTeamButton
                 ScrollView {
                     VStack(spacing: 3) {
                         ForEach(teams) { team in teamRow(team) }
@@ -161,10 +195,11 @@ private struct StudioTeamListView: View {
                 if let team = selected {
                     TeamEditorView(
                         base: team, lane: lane, models: appModel.models, readyModels: readyModels,
+                        isNew: newDraftBase != nil,
                         onRevert: { revertTick += 1 },
-                        onSaved: { id in selectedId = id; revertTick += 1 }
+                        onSaved: { id in newDraftBase = nil; selectedId = id; revertTick += 1 }
                     )
-                    .id("\(team.id)#\(revertTick)")
+                    .id("\(newDraftBase != nil ? "new" : team.id)#\(revertTick)")
                 } else {
                     StudioEmptyDetail(icon: lane.icon, message: "No \(lane.label.lowercased()) teams yet.")
                 }
@@ -181,27 +216,60 @@ private struct StudioTeamListView: View {
         }
     }
 
-    private func teamRow(_ team: TeamPreset) -> some View {
-        let on = selected?.id == team.id
-        return Button { selectedId = team.id } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(team.displayName)
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                        .lineLimit(1)
-                    if team.isDefaultForLane { miniBadge("Default", ALColor.accent) }
-                    if !team.builtIn { miniBadge("Custom", ALColor.textMuted) }
-                    Spacer(minLength: 0)
-                }
-                Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? 1 : team.workerSpecs.count) workers")
-                    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+    /// Creates a blank draft and opens it in the editor as a new team.
+    private var addTeamButton: some View {
+        Button { newDraftBase = blankBase(); revertTick += 1 } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "plus").font(.system(size: 12, weight: .semibold))
+                Text("New \(lane.label.lowercased()) team").font(.system(size: 12.5, weight: .semibold))
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(on ? ALColor.active : .clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.alPrimary(small: true))
+        .padding(.horizontal, 12).padding(.bottom, 10)
+    }
+
+    private func teamRow(_ team: TeamPreset) -> some View {
+        let on = newDraftBase == nil && selected?.id == team.id
+        let isDefaultRun = team.id == TeamCatalog.defaultRunTeam()?.id
+        let fav = appModel.isFavorite(team.id)
+        return HStack(spacing: 6) {
+            Button { newDraftBase = nil; selectedId = team.id } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(team.displayName)
+                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                            .lineLimit(1)
+                        if isDefaultRun { miniBadge("Default", ALColor.accent) }
+                        if !team.builtIn { miniBadge("Custom", ALColor.textMuted) }
+                        Spacer(minLength: 0)
+                    }
+                    Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? "1 agent" : "\(team.workerSpecs.count) workers")")
+                        .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            // Star toggles favorite (featured first here + in the composer). The
+            // Default Team is implicitly a favorite and can't be unstarred.
+            Button { if !isDefaultRun { appModel.toggleFavorite(team.id) } } label: {
+                Image(systemName: (fav || isDefaultRun) ? "star.fill" : "star").font(.system(size: 12))
+                    .foregroundStyle((fav || isDefaultRun) ? ALColor.accent : ALColor.textFaint)
+                    .frame(width: 22, height: 22)
+            }
+            .buttonStyle(.plain)
+            .disabled(isDefaultRun)
+            .help(isDefaultRun ? "The Default Team is always featured" : (fav ? "Remove from favorites" : "Add to favorites"))
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(on ? ALColor.active : (isDefaultRun ? ALColor.accent.opacity(0.07) : .clear), in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay {
+            if isDefaultRun {
+                RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.accent.opacity(0.35), lineWidth: 1)
+            }
+        }
     }
 
     private func miniBadge(_ t: String, _ c: Color) -> some View {

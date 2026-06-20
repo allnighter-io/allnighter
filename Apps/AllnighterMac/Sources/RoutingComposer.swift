@@ -34,7 +34,7 @@ struct ComposeTeam: Identifiable, Equatable {
     let id: String
     let name: String
     let summary: String
-    let isDefault: Bool
+    let isFavorite: Bool
 }
 
 extension ComposeEffort { var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() } }
@@ -71,6 +71,9 @@ struct RoutingComposer: View {
     @State var lane: ComposeLane
     @State private var text: String = ""
     @State private var targetOpen = false
+    /// Which form the route popover shows — never both at once.
+    @State private var targetTab: TargetTab = .team
+    enum TargetTab { case team, worker }
 
     @State private var composerFocused = false
     @State private var editorHeight = ComposeEditorMetrics.minHeight
@@ -264,20 +267,46 @@ struct RoutingComposer: View {
 
     private var targetPopoverPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            popHeader("Route this turn", "Team + worker run in the project repo")
-            if !locksTeam {
-                laneTabs
-                defaultTeamRow
-                teamList
-                customizeFooter
+            if locksTeam {
+                // Send-to-team launcher: team is fixed, so just the worker + effort.
+                popHeader("Worker", "Override the resolved worker when needed")
+                modelList(appModel.composeBench.map(\.id))
+            } else {
+                targetTabs
+                if targetTab == .team {
+                    laneTabs
+                    defaultTeamRow
+                    teamList
+                    customizeFooter
+                } else {
+                    modelList(appModel.composeBench.map(\.id))
+                }
             }
-            popHeader("Worker", "Override the resolved worker when needed")
-            modelList(appModel.composeBench.map(\.id))
             effortRow(note: "Higher effort = more reasoning time.")
         }
         .padding(6)
         .frame(width: locksTeam ? 300 : 320)
         .background(ALColor.surface)
+    }
+
+    // One toggle, two forms — Team OR Worker, never both stacked (the old overflow).
+    private var targetTabs: some View {
+        HStack(spacing: 0) {
+            ForEach([TargetTab.team, .worker], id: \.self) { tab in
+                Button { targetTab = tab } label: {
+                    Text(tab == .team ? "Team" : "Worker")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(tab == targetTab ? ALColor.textPrimary : ALColor.textMuted)
+                        .frame(maxWidth: .infinity).frame(height: 28)
+                        .background(tab == targetTab ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        .padding(.horizontal, 6).padding(.top, 4).padding(.bottom, 7)
     }
 
     private func popHeader(_ title: String, _ sub: String) -> some View {
@@ -306,57 +335,85 @@ struct RoutingComposer: View {
         .padding(.horizontal, 6).padding(.vertical, 4)
     }
 
+    // The Default Team is pinned to the very top and amber — it's the 95% case.
     private var defaultTeamRow: some View {
         Button { team = nil; targetOpen = false } label: {
             HStack(spacing: 10) {
-                Image(systemName: "star").font(.system(size: 14)).foregroundStyle(ALColor.accentText)
+                Image(systemName: "star.fill").font(.system(size: 13)).foregroundStyle(ALColor.accent)
                     .frame(width: 27, height: 27)
-                    .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
+                    .background(ALColor.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: 7))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(TeamCatalog.defaultRunTeam()?.displayName ?? "Default team")
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                    Text("Your go-to worker — chat or build").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                    Text("Your go-to agent — chat or build").font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
                 }
                 Spacer(minLength: 8)
-                if team == nil { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.accentText) }
+                if team == nil { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.accent) }
             }
             .padding(.horizontal, 9).padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(team == nil ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .background(ALColor.accent.opacity(team == nil ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.accent.opacity(0.45), lineWidth: 1) }
         }
         .buttonStyle(.plain)
     }
 
+    // Favorites featured first, then the rest. The whole list is height-bounded so
+    // the popover can't balloon past the screen (the old "both forms" overflow bug).
     private var teamList: some View {
-        VStack(spacing: 1) {
-            ForEach(appModel.composeTeams(for: lane)) { t in
-                Button { team = t.id; targetOpen = false } label: { teamRow(t) }.buttonStyle(.plain)
+        let teams = appModel.composeTeams(for: lane)
+        let favs = teams.filter(\.isFavorite)
+        let rest = teams.filter { !$0.isFavorite }
+        return ScrollView {
+            VStack(spacing: 1) {
+                if !favs.isEmpty {
+                    teamSectionLabel("FAVORITES")
+                    ForEach(favs) { teamButton($0) }
+                    if !rest.isEmpty { teamSectionLabel("ALL TEAMS") }
+                }
+                ForEach(rest) { teamButton($0) }
             }
         }
+        .frame(maxHeight: 196)
     }
 
-    private func teamRow(_ t: ComposeTeam) -> some View {
+    private func teamSectionLabel(_ text: String) -> some View {
+        Text(text).font(.system(size: 9.5, weight: .semibold)).tracking(0.6)
+            .foregroundStyle(ALColor.textFaint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 9).padding(.top, 6).padding(.bottom, 2)
+    }
+
+    private func teamButton(_ t: ComposeTeam) -> some View {
+        HStack(spacing: 6) {
+            Button { team = t.id; targetOpen = false } label: { teamRowBody(t) }.buttonStyle(.plain)
+            // Star toggles favorite without selecting the team.
+            Button { appModel.toggleFavorite(t.id) } label: {
+                Image(systemName: t.isFavorite ? "star.fill" : "star").font(.system(size: 12))
+                    .foregroundStyle(t.isFavorite ? ALColor.accent : ALColor.textFaint)
+                    .frame(width: 22, height: 22)
+            }
+            .buttonStyle(.plain)
+            .help(t.isFavorite ? "Remove from favorites" : "Add to favorites")
+        }
+        .padding(.horizontal, 9).padding(.vertical, 8)
+        .background(team == t.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+    }
+
+    private func teamRowBody(_ t: ComposeTeam) -> some View {
         HStack(spacing: 10) {
             Image(systemName: lane.icon).font(.system(size: 14)).foregroundStyle(ALColor.accentText)
                 .frame(width: 27, height: 27)
                 .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
             VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(t.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                    if t.isDefault {
-                        Text("default").font(.system(size: 9, design: .monospaced)).foregroundStyle(ALColor.textFaint)
-                            .padding(.horizontal, 4).padding(.vertical, 1)
-                            .overlay { RoundedRectangle(cornerRadius: ALRadius.xs).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-                    }
-                }
+                Text(t.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
                 Text(t.summary).font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 8)
             if team == t.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.accentText) }
         }
-        .padding(.horizontal, 9).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(team == t.id ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .contentShape(Rectangle())
     }
 
     private var customizeFooter: some View {
@@ -377,15 +434,18 @@ struct RoutingComposer: View {
     }
 
     private func modelList(_ ids: [String]) -> some View {
-        VStack(spacing: 1) {
-            ForEach(ids, id: \.self) { id in
-                if let m = appModel.composeBench.first(where: { $0.id == id }) {
-                    Button { if m.ready { to = id; targetOpen = false } } label: { modelRow(m) }
-                        .buttonStyle(.plain)
-                        .disabled(!m.ready)
+        ScrollView {
+            VStack(spacing: 1) {
+                ForEach(ids, id: \.self) { id in
+                    if let m = appModel.composeBench.first(where: { $0.id == id }) {
+                        Button { if m.ready { to = id; targetOpen = false } } label: { modelRow(m) }
+                            .buttonStyle(.plain)
+                            .disabled(!m.ready)
+                    }
                 }
             }
         }
+        .frame(maxHeight: 176)
     }
 
     private func modelRow(_ m: ComposeBenchModel) -> some View {

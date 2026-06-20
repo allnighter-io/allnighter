@@ -150,7 +150,9 @@ struct TeamDraft: Equatable {
                 )
             }
 
-            // 2) Save the custom team. Built-in source → duplicate to a fresh custom.
+            // 2) Save the custom team. Built-in source → duplicate to a fresh custom;
+            // an existing custom → save in place; a brand-new draft (Add team) →
+            // mint a fresh custom id and create it.
             var team: TeamPreset
             if base.builtIn {
                 team = try TeamCatalog.duplicateBuiltIn(base.id, name: saveName)
@@ -158,7 +160,9 @@ struct TeamDraft: Equatable {
             } else if let existing = TeamCatalog.get(base.id) {
                 team = existing
             } else {
-                throw CatalogError.teamNotFound
+                let newId = TeamCatalog.freshCustomId(lane: base.lane, displayName: saveName)
+                team = base.duplicated(newId: newId, newName: saveName)
+                duplicatedTeamId = team.id
             }
             team.displayName = saveName
             team.workerSpecs = specs
@@ -193,6 +197,9 @@ struct TeamDraft: Equatable {
 struct TeamEditorView: View {
     let lane: ComposeLane
     let models: [Model]
+    /// True when editing a brand-new (not-yet-saved) team — the footer reads
+    /// "Create team" rather than "Duplicate Team" / "Save changes".
+    let isNew: Bool
     /// Drop the in-memory edits and rebuild a fresh draft from the base team.
     var onRevert: () -> Void
     var onSaved: (TeamID) -> Void
@@ -206,9 +213,11 @@ struct TeamEditorView: View {
     @State private var editingLead = false
 
     init(base: TeamPreset, lane: ComposeLane, models: [Model], readyModels: [Model],
+         isNew: Bool = false,
          onRevert: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
         self.lane = lane
         self.models = models
+        self.isNew = isNew
         self.onRevert = onRevert
         self.onSaved = onSaved
         _draft = State(initialValue: TeamDraft(base: base, defaultModelId: readyModels.first?.id ?? models.first?.id))
@@ -487,7 +496,7 @@ struct TeamEditorView: View {
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
                 Button("Revert", action: onRevert).buttonStyle(.alSecondary(small: true))
-                Button(isBuiltIn ? "Duplicate Team" : "Save changes", action: save)
+                Button(isNew ? "Create team" : (isBuiltIn ? "Duplicate Team" : "Save changes"), action: save)
                     .buttonStyle(.alPrimary(small: true)).disabled(!draft.isSavable)
             }
         }

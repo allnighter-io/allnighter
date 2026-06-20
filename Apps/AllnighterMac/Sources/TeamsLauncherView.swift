@@ -38,14 +38,28 @@ struct TeamsLauncherView: View {
     private var filteredCards: [TeamCard] {
         var result = familyFilter.map { f in cards.filter { $0.family == f } } ?? cards
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return result }
-        result = result.filter { card in
-            card.displayName.lowercased().contains(q)
-                || card.family.lowercased().contains(q)
-                || card.starterPrompts.contains { $0.lowercased().contains(q) }
-                || card.recommendedFor.contains { $0.lowercased().contains(q) }
+        if !q.isEmpty {
+            result = result.filter { card in
+                card.displayName.lowercased().contains(q)
+                    || card.family.lowercased().contains(q)
+                    || card.starterPrompts.contains { $0.lowercased().contains(q) }
+                    || card.recommendedFor.contains { $0.lowercased().contains(q) }
+            }
         }
-        return result
+        // Featured first: the Default Team, then favorites (in favorite order), then
+        // the rest in catalog order.
+        let favRank = Dictionary(uniqueKeysWithValues: appModel.favoriteTeamIds.enumerated().map { ($1, $0) })
+        let defaultId = TeamCatalog.defaultRunTeam()?.id
+        func rank(_ c: TeamCard) -> (Int, Int) {
+            if c.teamId == defaultId { return (0, 0) }
+            if let r = favRank[c.teamId] { return (1, r) }
+            return (2, 0)
+        }
+        return result.enumerated().sorted { a, b in
+            let ra = rank(a.element), rb = rank(b.element)
+            if ra != rb { return ra < rb }
+            return a.offset < b.offset
+        }.map(\.element)
     }
 
     private let columns = [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14)]
@@ -57,14 +71,18 @@ struct TeamsLauncherView: View {
                     header
                     LazyVGrid(columns: columns, spacing: 14) {
                         ForEach(filteredCards) { card in
+                            let isDefaultRun = card.teamId == TeamCatalog.defaultRunTeam()?.id
                             TeamCardTile(
                                 card: card, selected: selectedTeamId == card.id,
+                                isFavorite: appModel.isFavorite(card.teamId),
+                                isDefaultRun: isDefaultRun,
                                 onTap: {
                                     // One click = select + open the composer (fast path).
                                     selectedTeamId = card.id
                                     composingTeam = card
                                 },
-                                onEdit: { editingTeam = card })   // hover-pencil → editor drawer
+                                onEdit: { editingTeam = card },   // hover-pencil → editor drawer
+                                onToggleFavorite: { if !isDefaultRun { appModel.toggleFavorite(card.teamId) } })
                         }
                     }
                 }
@@ -279,8 +297,11 @@ private struct TeamEditorDrawer: View {
 private struct TeamCardTile: View {
     let card: TeamCard
     let selected: Bool
+    var isFavorite: Bool = false
+    var isDefaultRun: Bool = false
     var onTap: () -> Void
     var onEdit: () -> Void
+    var onToggleFavorite: () -> Void = {}
     @State private var hovering = false
 
     var body: some View {
@@ -314,11 +335,22 @@ private struct TeamCardTile: View {
 
                 Divider().overlay(ALColor.borderSubtle)
 
-                HStack {
-                    Text("\(card.workerCount) workers").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-                    Spacer()
+                HStack(spacing: 8) {
+                    Text(card.mutating ? "1 agent" : "\(card.workerCount) workers")
+                        .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                     if card.mutating {
-                        Text("mutating").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                        Text("· mutating").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                    }
+                    Spacer()
+                    // Favorite star — featured first in this grid + the composer.
+                    if isFavorite || isDefaultRun || hovering {
+                        Button(action: onToggleFavorite) {
+                            Image(systemName: (isFavorite || isDefaultRun) ? "star.fill" : "star").font(.system(size: 12))
+                                .foregroundStyle((isFavorite || isDefaultRun) ? ALColor.accent : ALColor.textMuted)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isDefaultRun)
+                        .help(isDefaultRun ? "The Default Team is always featured" : (isFavorite ? "Remove from favorites" : "Add to favorites"))
                     }
                 }
             }

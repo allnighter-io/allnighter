@@ -20,6 +20,10 @@ final class AppModel {
     private(set) var currentWorkerSpecs: [WorkerSpec] = []
     private(set) var currentSynthesis: SynthesisConfig
 
+    /// User-favorited team ids (persisted via `TeamFavorites`). Observable so every
+    /// team picker re-sorts the instant a star is toggled.
+    private(set) var favoriteTeamIds: [String] = TeamFavorites.ids()
+
     private(set) var run: TeamRun?
     private(set) var isRunning = false
     /// Set when the chosen judge is a manual-paste worker: the assembled combined
@@ -474,17 +478,39 @@ final class AppModel {
     }
 
     func composeTeams(for lane: ComposeLane) -> [ComposeTeam] {
-        TeamCatalog.list(lane: lane.workLane).map { p in
+        let favorites = favoriteTeamIds
+        let favRank = Dictionary(uniqueKeysWithValues: favorites.enumerated().map { ($1, $0) })
+        let teams = TeamCatalog.list(lane: lane.workLane).map { p -> ComposeTeam in
             let n = p.workerSpecs.count
             let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
-            return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)", isDefault: p.isDefaultForLane)
+            return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)",
+                               isFavorite: favorites.contains(p.id))
         }
+        // Favorites first (in the user's favorite order); the rest keep catalog order.
+        return teams.enumerated().sorted { a, b in
+            let ra = favRank[a.element.id], rb = favRank[b.element.id]
+            switch (ra, rb) {
+            case let (x?, y?): return x < y
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return a.offset < b.offset
+            }
+        }.map(\.element)
     }
 
     func composeDefaultTeam(for lane: ComposeLane) -> String {
         let teams = composeTeams(for: lane)
-        return (teams.first { $0.isDefault } ?? teams.first)?.id ?? ""
+        return (teams.first { $0.isFavorite } ?? teams.first)?.id ?? ""
     }
+
+    /// Toggle a team's favorite state (persisted). Reloading the observable list
+    /// re-renders every team picker (favorites move to the front).
+    func toggleFavorite(_ teamId: String) {
+        try? TeamFavorites.toggle(teamId)
+        favoriteTeamIds = TeamFavorites.ids()
+    }
+
+    func isFavorite(_ teamId: String) -> Bool { favoriteTeamIds.contains(teamId) }
 
     /// Per-driver invocations resolved by detection — so GUI runs spawn through the
     /// SAME plan that passed the health probe (health == runs; docs/phases/setup/01 §10).
