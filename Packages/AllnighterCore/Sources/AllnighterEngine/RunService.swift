@@ -281,7 +281,11 @@ public actor RunService {
             workerAnswers: [WorkerAnswer(workerId: worker.id, modelId: model.id, status: .running)],
             createdAt: startedAt, lane: preset.lane, effort: effort,
             teamDisplayName: preset.displayName, outputKind: preset.outputKind,
-            mutating: true, executionSourceId: preset.executionSourceId ?? model.driverId
+            // The run's source is where the worker ACTUALLY ran — the chosen model's
+            // driver. For the default route, Auto/override can pick a model on a CLI
+            // other than the preset's declared executionSourceId, so the model's driver
+            // is the truth (lane safety keys on repo root, not this field).
+            mutating: true, executionSourceId: model.driverId
         )
         try? runStore.save(run, models: models)
 
