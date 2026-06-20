@@ -47,7 +47,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
     public enum Milestone: String, Codable, Sendable { case m1, deferred }
 
     /// Primary machine-output schema a command projects to.
-    public enum OutputSchema: String, Codable, Sendable {
+    public enum OutputSchema: String, Codable, Sendable, CaseIterable {
         case none, teamRunJSON, doctorResult, coordinatorHealth, teamStartResponse, teamStatusResponse, teamCancelResponse, pendingItemJSON, pendingListJSON, stallEpisodeListJSON, stallListJSON, modelListJSON, floorRun, specResult, teamCatalogJSON, skillCatalogJSON, historyJSON, threadStatus, errorEnvelope, markdown, contractDoc
         case projectJSON, projectListJSON, projectContextJSON, projectWorkersJSON
         case projectThreadsJSON, projectPendingJSON
