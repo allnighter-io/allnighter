@@ -20,14 +20,13 @@ enum TextUtil {
         return output
     }
 
-    /// Extracts visible assistant text from Grok's `--output-format streaming-json`
-    /// (and any future driver using the same NDJSON envelope).
+    /// Extracts visible assistant text from Grok's `--output-format streaming-json`.
     ///
     /// - Only `{"type":"text","data":"<delta>"}` chunks are collected (incremental deltas).
     /// - `thought`, `end`, `error`, and any other events are ignored (not part of chat answer text).
     /// - Deltas are concatenated in encounter order to form the final visible answer.
     /// - If no `type:text` events are found, returns the original input unchanged (plain output path).
-    static func extractStreamingVisibleText(_ input: String) -> String {
+    static func extractGrokStreamingVisibleText(_ input: String) -> String {
         var collected: [String] = []
         for rawLine in input.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)

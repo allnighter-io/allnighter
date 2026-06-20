@@ -1,6 +1,8 @@
-# Grok Build CLI Support (Headless + Streaming)
+# Grok Build CLI Support (Headless + Streaming JSON)
 
-Status: streaming-json wired for live answer text (2026-06-19)
+Status: streaming-json schema verified; final visible-text extraction wired
+(2026-06-19). Live partial UI updates still require the shared streaming runner
+from `docs/phases/threads/03_Mac_Streaming.md`.
 
 ## Recommended Non-Interactive Streaming Invocation
 
@@ -17,7 +19,9 @@ grok -p "<PROMPT>" \
 
 - Primary form: `grok -p` / `grok --single <PROMPT>` (top-level). Not `grok agent ...` for this output format.
 - `--cwd` sets project discovery root (used by Allnighter manifests).
-- For Allnighter answer/chat runs the driver manifest now emits the above (plus `{{workingDir}}` expansion).
+- For Allnighter answer/chat runs the driver manifest now emits the above (plus
+  `{{workingDir}}` expansion; no-root chat runs use Allnighter's neutral scratch
+  path rather than `--cwd ""`).
 - Smoke probes continue to use plain output for simple token checks.
 
 ## Event Schema (streaming-json)
@@ -66,9 +70,12 @@ Relevant events:
 ## Implementation Notes (Allnighter)
 
 - Manifests updated in `DefaultConfig.swift` + `Apps/.../Drivers/grok.json`.
-- `TextUtil.extractStreamingVisibleText` concatenates visible deltas (fallback for plain output is identity).
-- Wired in `WorkerRunner` after ANSI strip.
+- `TextUtil.extractGrokStreamingVisibleText` concatenates visible deltas
+  (fallback for plain output is identity).
+- Wired in `WorkerRunner` after ANSI strip for the Grok driver only.
 - Works Test added (`testGrokStreamingJsonExtractsOnlyVisibleTextDeltas`).
-- Matches the pattern used for Cursor streaming support.
+- This is not the full live-streaming feature yet: `WorkerRunner` still receives
+  the complete stdout after process exit. The V1 live path must stream chunks
+  through `StreamingCommandRunner` and persist running-turn partial text.
 
 Sources: `~/.grok/docs/user-guide/14-headless-mode.md`, live `grok -p ... --output-format streaming-json` captures (2026-06), `DriverManifest`, `WorkerRunner`.

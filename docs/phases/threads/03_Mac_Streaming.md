@@ -222,7 +222,7 @@ Evaluated on 2026-06-19 from installed CLI help plus current driver manifests.
 | Codex | `codex exec ... -o {{outputFile}} {{prompt}}` | `codex exec --json` prints JSONL events to stdout. | Supported after parser as completed-message snapshots, not token deltas. Keep `-o {{outputFile}}` for canonical final answer; parse JSONL stdout for `agent_message` snapshots/status/tool activity. |
 | Claude Code | `claude -p {{prompt}} --model {{model}}` | `claude -p --output-format stream-json`; real CLI v2.1.183 sample requires `--verbose` and `--include-partial-messages` for text deltas. | Supported after parser with true incremental `text_delta` output. Use `--output-format stream-json --include-partial-messages --verbose`; parse only assistant text deltas into visible answer. |
 | Cursor Agent | `agent -p --output-format text ...` | `agent -p --output-format stream-json`; live runs confirm `--stream-partial-output` emits character-level assistant deltas plus duplicate flushes. | Supported after parser with true incremental assistant deltas. Use `--output-format stream-json --stream-partial-output`; append only delta-form assistant events and reconcile with `result.result`. |
-| Grok Build | `grok -p {{prompt}} ... --output-format plain` | Help exposes `--output-format streaming-json` for headless mode. | Likely supported after parser. Verify event schema with a tiny real run before claiming product support. |
+| Grok Build | `grok -p {{prompt}} ... --output-format streaming-json` | Local docs and live captures confirm `text` / `thought` / `end` / `error` NDJSON. | Supported after parser with true incremental `text.data` output. Current runtime extracts final visible text after process exit; live UI updates still require the V1 streaming runner. |
 | Antigravity | `agy --print {{prompt}} ...` | Current `agy --help` shows no structured output/stream flag. | Not V1 stream-capable unless the CLI confirms a hidden or newer stream mode. Final-output fallback only. |
 | Manual paste | no process | none | Not applicable. |
 
@@ -414,22 +414,45 @@ Invocation candidate:
 
 ```text
 grok -p {{prompt}} -m {{model}} --output-format streaming-json
+  --cwd {{workingDir}} --always-approve --no-wait-for-background
+  --no-subagents --disable-web-search
 ```
 
 Parser requirements:
 
-- Verify the exact spelling and whether `-p`/`--single` is the required headless
-  mode for `streaming-json`.
-- Treat stdout as JSONL only after a real smoke run proves line-delimited JSON.
-- Extract visible assistant output only; keep reasoning/tool events out of chat.
+- Primary headless form is top-level `grok -p` / `grok --single <PROMPT>`, not
+  `grok agent`.
+- Treat stdout as JSONL.
+- Visible live text deltas are at `$.type == "text"` / `$.data`. These are
+  incremental deltas, not snapshots; concatenate in arrival order.
+- Reasoning is `$.type == "thought"` / `$.data`; never render as chat answer
+  text.
+- Success terminal event is `$.type == "end"` with metadata such as
+  `stopReason`, `sessionId`, and `requestId`. No full assistant message is
+  repeated in the stream.
+- Error event is `$.type == "error"` / `$.message`; also handle non-zero process
+  exits.
+- Treat `max_turns_reached`, `auto_compact_*`, and unknown event types as
+  non-answer events.
+- Tool calls/results are not surfaced in this `streaming-json` envelope; use ACP
+  (`grok agent stdio`) later if Allnighter needs live tool visibility.
+- Exit codes observed/documented for headless: `0` normal completion, `1` error,
+  `130` SIGINT, `143` SIGTERM.
+- Current Allnighter runtime uses this schema only to extract Grok's final
+  visible answer after process exit. True live chat updates still require
+  `StreamingCommandRunner` / `WorkerStreamEvent`.
 
-Need from CLI before implementation claim:
+Tiny verified sequence:
 
-```text
-Please provide the Grok Build `--output-format streaming-json` event schema and
-a one-prompt sample. Which event types/fields are visible assistant text deltas,
-which are reasoning/tool events, and what terminal event marks completion?
+```json
+{"type":"thought","data":"The"}
+{"type":"thought","data":" user asked for one word.\n"}
+{"type":"text","data":"P"}
+{"type":"text","data":"ONG"}
+{"type":"end","stopReason":"EndTurn","sessionId":"019ee2bf-...","requestId":"1e6a7982-..."}
 ```
+
+Full Grok reference: `docs/phases/setup/Grok_Build_CLI_Support.md`.
 
 ### Antigravity Parser
 

@@ -78,13 +78,15 @@ public struct WorkerRunner: Sendable {
         // When no explicit dir is given (chat / team runs), spawn in an
         // Allnighter-owned neutral scratch; explicit repo runs keep theirs.
         // (Launch Authority TCC hotfix neutralized setup/health probe CWDs; this
-        // extends the same rule to worker runs.) The scratch is only the process
-        // CWD — args still resolve against the real `workingDir` (nil → no token).
+        // extends the same rule to worker runs.) When a driver needs a workspace
+        // argv token and no Project root exists, use the same owned scratch so
+        // flags like `--cwd {{workingDir}}` never become `--cwd ""`.
         let spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()
+        let driverWorkingDir = workingDir ?? spawnWorkingDir
         let context = DriverManifest.ResolveContext(
             prompt: prompt,
             model: worker.resolvedLabel(at: effort),
-            workingDir: workingDir,
+            workingDir: driverWorkingDir,
             outputFile: outputFileURL?.path,
             effort: effort
         )
@@ -173,7 +175,9 @@ public struct WorkerRunner: Sendable {
         }
 
         let stripped = output(from: rawOutput, manifest: manifest)
-        let cleaned = TextUtil.extractStreamingVisibleText(stripped)
+        let cleaned = manifest.id == "grok"
+            ? TextUtil.extractGrokStreamingVisibleText(stripped)
+            : stripped
         if cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             outcome.status = .failed
             outcome.errorKind = .emptyOutput

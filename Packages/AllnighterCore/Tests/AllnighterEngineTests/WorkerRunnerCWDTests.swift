@@ -10,12 +10,15 @@ final class WorkerRunnerCWDTests: XCTestCase {
 
     private actor CWDRecorder: CommandRunner {
         private(set) var workingDirs: [String?] = []
+        private(set) var argv: [[String]] = []
         func run(command: String, args: [String], stdin: String?, env: [String: String],
                  workingDirectory: String?, timeout: Duration) async -> CommandResult {
             workingDirs.append(workingDirectory)
+            argv.append(args)
             return CommandResult(stdout: "ok", exitCode: 0)
         }
         func recorded() -> [String?] { workingDirs }
+        func recordedArgs() -> [[String]] { argv }
     }
 
     func testChatRunSpawnsInNeutralScratchNotInheritedCWD() async {
@@ -32,6 +35,34 @@ final class WorkerRunnerCWDTests: XCTestCase {
         let dirs = await recorder.recorded()
         XCTAssertEqual(dirs.first ?? nil, AllnighterPaths.probeScratch.path,
                        "a chat run with no explicit dir must spawn in the owned scratch, never inherit (nil) the app CWD")
+    }
+
+    func testWorkingDirTokenUsesScratchWhenNoExplicitRootExists() async {
+        let recorder = CWDRecorder()
+        let manifest = DriverManifest(
+            id: "grok",
+            displayName: "Grok",
+            kind: .headlessCLI,
+            invoke: .init(
+                command: "grok",
+                args: ["-p", "{{prompt}}", "--cwd", "{{workingDir}}"],
+                timeoutSeconds: 5
+            ),
+            output: .init()
+        )
+        let runner = WorkerRunner(commandRunner: recorder)
+
+        _ = await runner.invoke(
+            worker: TestSupport.worker("w", driverId: "grok"),
+            manifest: manifest,
+            prompt: "say hi"
+        )
+
+        let args = await recorder.recordedArgs()
+        let firstArgs = try! XCTUnwrap(args.first)
+        let cwdIndex = try! XCTUnwrap(firstArgs.firstIndex(of: "--cwd"))
+        XCTAssertEqual(firstArgs[cwdIndex + 1], AllnighterPaths.probeScratch.path)
+        XCTAssertFalse(firstArgs[cwdIndex + 1].isEmpty, "`{{workingDir}}` must not resolve to an empty argv value")
     }
 
     func testExplicitWorkingDirIsPreserved() async {

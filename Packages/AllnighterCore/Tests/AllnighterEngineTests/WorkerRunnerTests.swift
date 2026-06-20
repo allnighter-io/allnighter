@@ -47,6 +47,20 @@ final class WorkerRunnerTests: XCTestCase {
         XCTAssertEqual(response.exitCode, 0)
     }
 
+    func testNonGrokJsonLikeAnswerIsNotRewritten() async {
+        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
+        let worker = TestSupport.worker("w", driverId: "claude_code")
+        let answer = """
+Here is the fixture:
+{"type":"text","data":"do not extract me"}
+"""
+        let run = runner(["claude": .init(stdout: answer, exitCode: 0)])
+
+        let response = await run.invoke(worker: worker, manifest: manifest, prompt: "hi")
+        XCTAssertEqual(response.status, .done)
+        XCTAssertEqual(response.output, answer)
+    }
+
     func testEmptyOutputIsFailure() async {
         let manifest = TestSupport.headlessManifest(id: "codex", command: "codex")
         let worker = TestSupport.worker("w", driverId: "codex")
