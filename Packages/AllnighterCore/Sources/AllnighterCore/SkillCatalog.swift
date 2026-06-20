@@ -645,6 +645,18 @@ public enum SkillCatalog {
         if you are reasoning from prior knowledge rather than a fresh source, label it \
         as background, not news. Prefer a few high-signal items over a long list.
         """),
+        s("signal_interpret", "Signal Interpreter", .signal, .answer, """
+        You are one independent mind interpreting a signal that another model has \
+        already distilled for you. Reason over the provided distilled source — do not \
+        re-fetch it. Give a complete, independent take in two parts: (1) Project fit — \
+        why this matters to THIS Project specifically (not in general), the internal \
+        lessons, and the honest fit and risk; a clear "not for us" is more valuable \
+        than a forced connection. (2) Product moves — concrete external moves this \
+        Project could make (features, positioning, narrative), each naming what it \
+        optimizes for and the cheapest way to test it. Separate observed facts from \
+        your inference and label each. You are one of several models reasoning in \
+        parallel — bring your own angle; do not try to sound like a consensus.
+        """),
         s("signal_project_fit", "Project Fit", .signal, .answer, """
         Connect the signal to THIS Project. Why does it matter here specifically, not \
         in general? Name the internal lessons (what we should learn or change) and the \

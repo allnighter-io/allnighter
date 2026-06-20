@@ -40,6 +40,7 @@ public enum BuiltInTeams {
     private static func make(
         id: String, name: String, lane: WorkLane, output: TeamOutputKind,
         defaultEffort: EffortLevel, isDefault: Bool = false, description: String,
+        scout: TeamWorkerSpec? = nil,
         rows: [TeamWorkerSpec], writer: String, dissent: DissentPolicy = .preserveDissent,
         lead: TeamLeadSpec? = nil,
         mutating: Bool = false, executionSourceId: String? = nil,
@@ -49,10 +50,22 @@ public enum BuiltInTeams {
             id: id, displayName: name, lane: lane, description: description, outputKind: output,
             mutating: mutating,
             executionSourceId: executionSourceId,
-            defaultEffort: defaultEffort, isDefaultForLane: isDefault, workerSpecs: rows,
+            defaultEffort: defaultEffort, isDefaultForLane: isDefault, scout: scout, workerSpecs: rows,
             lead: lead ?? TeamLeadSpec(skillId: writer, fallbackPolicy: .strongestReady, dissentPolicy: dissent),
             typeTags: typeTags, starterPrompts: starters, builtIn: true, version: 1)
     }
+
+    /// The Signal scout row: an X-capable model (Grok today) grabs/distills the
+    /// source FIRST. Falls back to any signal-lane model when Grok is absent, so a
+    /// user with a different CLI still gets a scout (a degraded one — the customize
+    /// surface warns when Grok is removed from this role).
+    static let signalScoutGrok = TeamWorkerSpec(
+        id: "signal_source_reader", skillId: "signal_source_reader", purpose: .answer,
+        preferredModelId: "model_grok", fallbackPolicy: .laneCapable)
+
+    /// Canonical interpreter preference: Grok (web-aware), GPT-5.5, then Gemini
+    /// (strong at finding things online). The resolver fills the rest cheapest-first.
+    static let signalInterpreterPreference = ["model_grok", "model_chatgpt", "model_gemini"]
 
     // MARK: - Code teams
 
@@ -312,11 +325,12 @@ public enum BuiltInTeams {
     static let signalPostToProject = make(
         id: "signal_post_to_project", name: "Post-to-Project Signal", lane: .signal, output: .insight,
         defaultEffort: .med, isDefault: true,
-        description: "Turn a public X post, thread, article, or release note into a Project-aware Insight: what happened, why it matters here, with source receipts, freshness, and a skeptic pass.",
+        description: "Grok grabs and distills a public X post, thread, article, or release note, then several different models reason over it (triangulation) into a Project-aware Insight: what happened, why it matters here, with source receipts, freshness, and a skeptic pass.",
+        scout: signalScoutGrok,
         rows: [
-            row("signal_source_reader", .answer),
-            row("signal_project_fit", .answer),
-            row("signal_product_ideas", .answer),
+            // Three distinct minds reason over the scout's distilled source.
+            TeamWorkerSpec(id: "signal_interpret", skillId: "signal_interpret", purpose: .answer,
+                           count: 3, triangulate: true, triangulatePreferenceIds: signalInterpreterPreference),
             row("signal_skeptic", .review)
         ], writer: "insight_writer", dissent: .preserveDissent,
         starters: ["Paste a public X post or article link and ask how it applies to this project.",
