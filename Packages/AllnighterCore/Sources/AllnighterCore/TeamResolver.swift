@@ -96,6 +96,16 @@ public enum TeamResolver {
         let answerRows = active.filter { $0.purpose == .answer }
         let reviewRows = active.filter { $0.purpose == .review }
 
+        // The Lead (synthesizer) resolves to the strongest ready model; reserve its
+        // model so worker rows prefer cheaper models and the strongest is kept for
+        // the Lead (cost policy: rarely spend the expensive model on a worker).
+        let lead = team.lead
+        let reservedLeadModelId = selectModel(
+            preferredModelId: lead.preferredModelId, allowedModelIds: [],
+            requiredTags: lead.requiredCapabilityTags, fallback: lead.fallbackPolicy,
+            lane: team.lane, ready: readyModels, capabilities: capabilities
+        )?.id
+
         // instanceIndex is global per model across all stages so ids stay distinct
         // and self-fusion reads as `model#0, model#1, …`.
         var nextIndex: [String: Int] = [:]
@@ -103,41 +113,63 @@ public enum TeamResolver {
         var disabled: [DisabledRow] = []
         var requiredBlock: String?
 
+        func makeWorker(_ model: Model, row: TeamWorkerSpec, skillName: String, stage: WorkerStage) -> Worker {
+            let index = nextIndex[model.id, default: 0]
+            nextIndex[model.id] = index + 1
+            return Worker(
+                id: Worker.makeID(modelId: model.id, instanceIndex: index),
+                modelId: model.id, instanceIndex: index,
+                skillId: row.skillId, skillName: skillName, purpose: stage)
+        }
+
+        func disable(_ row: TeamWorkerSpec, _ skillName: String, _ reason: String) {
+            disabled.append(DisabledRow(rowId: row.id, skillId: row.skillId, skillName: skillName, required: row.required, reason: reason))
+            if row.required {
+                requiredBlock = requiredBlock ?? "required worker \(skillName) could not resolve: \(reason)"
+            } else {
+                warnings.append("Optional worker \(skillName) disabled: \(reason).")
+            }
+        }
+
         func resolveRows(_ rows: [TeamWorkerSpec], stage: WorkerStage) -> [Worker] {
             var workers: [Worker] = []
             for row in rows {
-                let chosen = selectModel(
-                    preferredModelId: row.preferredModelId,
-                    allowedModelIds: row.allowedModelIds,
-                    requiredTags: row.requiredCapabilityTags,
-                    fallback: row.fallbackPolicy,
-                    lane: team.lane, ready: readyModels, capabilities: capabilities
-                )
                 let skillName = skill(row.skillId)?.displayName ?? row.skillId
-                guard let model = chosen else {
+                let want = max(1, row.count)
+
+                // Triangulated row: spread `count` workers across distinct CLI drivers
+                // so the signal is read by several different minds (never one).
+                if row.triangulate {
+                    let models = selectTriangle(
+                        count: want, preferenceIds: row.triangulatePreferenceIds,
+                        requiredTags: row.requiredCapabilityTags, lane: team.lane,
+                        ready: readyModels, reserveModelId: reservedLeadModelId,
+                        capabilities: capabilities)
+                    guard !models.isEmpty else {
+                        disable(row, skillName, "no ready model in lane \(team.lane.rawValue) for triangulation")
+                        continue
+                    }
+                    if models.count < want {
+                        warnings.append("\(skillName): triangulation degraded — \(models.count) distinct source(s) ready, wanted \(want).")
+                    }
+                    for model in models { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
+                    continue
+                }
+
+                guard let model = selectModel(
+                    preferredModelId: row.preferredModelId, allowedModelIds: row.allowedModelIds,
+                    requiredTags: row.requiredCapabilityTags, fallback: row.fallbackPolicy,
+                    lane: team.lane, ready: readyModels, capabilities: capabilities
+                ) else {
                     let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
                         + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
-                    disabled.append(DisabledRow(rowId: row.id, skillId: row.skillId, skillName: skillName, required: row.required, reason: reason))
-                    if row.required {
-                        requiredBlock = requiredBlock ?? "required worker \(skillName) could not resolve: \(reason)"
-                    } else {
-                        warnings.append("Optional worker \(skillName) disabled: \(reason).")
-                    }
+                    disable(row, skillName, reason)
                     continue
                 }
                 if let preferred = row.preferredModelId, preferred != model.id {
                     warnings.append("\(skillName): preferred \(preferred) unavailable; resolved to \(model.displayName).")
                 }
-                for _ in 0..<max(1, row.count) {
-                    let index = nextIndex[model.id, default: 0]
-                    nextIndex[model.id] = index + 1
-                    workers.append(Worker(
-                        id: Worker.makeID(modelId: model.id, instanceIndex: index),
-                        modelId: model.id, instanceIndex: index,
-                        skillId: row.skillId, skillName: skillName,
-                        purpose: stage
-                    ))
-                }
+                for _ in 0..<want { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
             }
             return workers
         }
@@ -147,7 +179,6 @@ public enum TeamResolver {
 
         // Rule 9: the mandatory Team Lead (synthesizer) — exactly one worker, from
         // `team.lead` (effort-independent). Resolves its model by name like a row.
-        let lead = team.lead
         result.dissentPolicy = lead.dissentPolicy
         var planWriter: Worker?
         if let model = selectModel(
@@ -243,5 +274,58 @@ public enum TeamResolver {
         case .anyReady, .strongestReady:
             return strongest(pool.filter(hasTags))
         }
+    }
+
+    /// Pick up to `count` ready models on **distinct CLI drivers** for triangulation.
+    /// Preferred ids (ready + lane-capable) are taken first in order; remaining slots
+    /// fill cheapest-first (lowest strength rank) so strong models are saved for the
+    /// Lead. `reserveModelId` (the Lead's model) is dropped from the pool when
+    /// alternatives exist. Returns distinct-driver models only — fewer than `count`
+    /// when too few drivers are ready (the caller warns; never pads with duplicates).
+    static func selectTriangle(
+        count: Int,
+        preferenceIds: [String],
+        requiredTags: [ModelCapabilityTag],
+        lane: WorkLane,
+        ready: [Model],
+        reserveModelId: String?,
+        capabilities: (String) -> ModelCapabilities
+    ) -> [Model] {
+        func hasTags(_ m: Model) -> Bool {
+            let tags = capabilities(m.id).capabilityTags
+            return requiredTags.allSatisfy { tags.contains($0) }
+        }
+        func laneOK(_ m: Model) -> Bool { capabilities(m.id).laneTags.contains(lane) }
+
+        var pool = ready.filter(laneOK).filter(hasTags)
+        // Reserve the Lead's model for the Lead — but only if alternatives remain
+        // (a one-model bench must still produce a worker).
+        if let r = reserveModelId, pool.contains(where: { $0.id != r }) {
+            pool.removeAll { $0.id == r }
+        }
+        guard !pool.isEmpty else { return [] }
+
+        // Ordered candidates: preferred ids first (in declared order), then the rest
+        // cheapest-first (ascending strength rank, stable id tie-break).
+        var ordered: [Model] = []
+        var seen = Set<String>()
+        for pid in preferenceIds {
+            if let m = pool.first(where: { $0.id == pid }), seen.insert(m.id).inserted {
+                ordered.append(m)
+            }
+        }
+        let rest = pool.filter { !seen.contains($0.id) }.sorted { a, b in
+            let ra = capabilities(a.id).strengthRank, rb = capabilities(b.id).strengthRank
+            return ra != rb ? ra < rb : a.id < b.id
+        }
+        ordered.append(contentsOf: rest)
+
+        // One model per distinct driver, in order, up to `count`.
+        var chosen: [Model] = []
+        var usedDrivers = Set<String>()
+        for m in ordered where chosen.count < count {
+            if usedDrivers.insert(m.driverId).inserted { chosen.append(m) }
+        }
+        return chosen
     }
 }

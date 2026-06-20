@@ -157,6 +157,17 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
     /// Required rows must resolve or the team is disabled for that effort;
     /// optional rows may be disabled with a warning.
     public var required: Bool
+    /// When true, this row's `count` workers are spread across **distinct CLI
+    /// drivers** (triangulation) instead of `count` instances of one model — so a
+    /// signal is read by several different minds. Workers prefer cheaper models
+    /// (the strongest is reserved for the Lead); if fewer distinct drivers are
+    /// ready than `count`, the resolver returns what it can and warns (never
+    /// silently collapses to one mind).
+    public var triangulate: Bool
+    /// Ordered model-id preference for triangulation fill (e.g. Grok, GPT, Gemini).
+    /// Present-and-ready ids are taken first, in order; remaining slots fill from
+    /// the ready bench cheapest-first. Ignored when `triangulate == false`.
+    public var triangulatePreferenceIds: [String]
 
     public init(
         id: String,
@@ -167,7 +178,9 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         requiredCapabilityTags: [ModelCapabilityTag] = [],
         count: Int = 1,
         fallbackPolicy: ModelFallbackPolicy = .strongestReady,
-        required: Bool = true
+        required: Bool = true,
+        triangulate: Bool = false,
+        triangulatePreferenceIds: [String] = []
     ) {
         self.id = id
         self.skillId = skillId
@@ -178,6 +191,8 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         self.count = count
         self.fallbackPolicy = fallbackPolicy
         self.required = required
+        self.triangulate = triangulate
+        self.triangulatePreferenceIds = triangulatePreferenceIds
     }
 }
 
