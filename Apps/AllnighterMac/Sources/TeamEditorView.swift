@@ -72,7 +72,9 @@ struct TeamDraft: Equatable {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !rows.isEmpty &&
         (!mutating || rows.count == 1) &&
-        rows.allSatisfy(Self.rowComplete) && Self.rowComplete(lead)
+        rows.allSatisfy(Self.rowComplete) &&
+        // A mutating team has no separate lead — the single agent is the source.
+        (mutating || Self.rowComplete(lead))
     }
 
     /// Persist as a custom team and return its id. Built-in base → duplicate to a
@@ -127,14 +129,26 @@ struct TeamDraft: Equatable {
                     count: 1, fallbackPolicy: fallback, required: true
                 )
             }
-            // 1b) The Team Lead — fork its prompt the same way; carry the dissent
-            // default forward (no UI knob; the Lead's prompt drives its behavior).
-            let leadSpec = TeamLeadSpec(
-                skillId: try resolveSkill(lead, defaultPurpose: .planWriter),
-                preferredModelId: lead.modelId,
-                fallbackPolicy: fallback,
-                dissentPolicy: base.lead.dissentPolicy
-            )
+            // 1b) The Team Lead. For an answer team this is the synthesizer (fork its
+            // prompt the same way). For a MUTATING team there is no separate lead —
+            // the single agent IS the source, so mirror the worker into the lead slot
+            // the data model still carries (kept identical, never a second agent).
+            let leadSpec: TeamLeadSpec
+            if mutating, let only = specs.first {
+                leadSpec = TeamLeadSpec(
+                    skillId: only.skillId,
+                    preferredModelId: only.preferredModelId,
+                    fallbackPolicy: fallback,
+                    dissentPolicy: base.lead.dissentPolicy
+                )
+            } else {
+                leadSpec = TeamLeadSpec(
+                    skillId: try resolveSkill(lead, defaultPurpose: .planWriter),
+                    preferredModelId: lead.modelId,
+                    fallbackPolicy: fallback,
+                    dissentPolicy: base.lead.dissentPolicy
+                )
+            }
 
             // 2) Save the custom team. Built-in source → duplicate to a fresh custom.
             var team: TeamPreset
@@ -245,7 +259,10 @@ struct TeamEditorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     nameField
-                    leadSection
+                    // A mutating team is ONE agent — the worker does the work. No
+                    // separate Lead (that split only makes sense for answer teams,
+                    // where N workers feed one synthesizer).
+                    if !draft.mutating { leadSection }
                     workers
                     substitutionsToggle
                     executionPostureSection
@@ -335,7 +352,12 @@ struct TeamEditorView: View {
 
     private var workers: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("WORKERS").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            Text(draft.mutating ? "AGENT" : "WORKERS")
+                .font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(draft.mutating ? ALColor.accentText : ALColor.textFaint)
+            if draft.mutating {
+                Text("One agent does the work in the repo root — no separate lead.")
+                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+            }
             ForEach($draft.rows) { $row in
                 HStack(spacing: 8) {
                     // Skill cell opens the level-2 Customize-worker editor (skill +
@@ -361,10 +383,14 @@ struct TeamEditorView: View {
                     picker(current: modelName($row.wrappedValue.modelId) ?? "Pick a model", options: models.map { ($0.id, $0.displayName) }) {
                         $row.wrappedValue.modelId = $0
                     }
-                    Button { draft.rows.removeAll { $0.id == row.id } } label: {
-                        Image(systemName: "xmark").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+                    if !draft.mutating {
+                        Button { draft.rows.removeAll { $0.id == row.id } } label: {
+                            Image(systemName: "xmark").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear.frame(width: 14, height: 1)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             Button {
@@ -419,10 +445,16 @@ struct TeamEditorView: View {
         }
     }
 
+    /// Rows that carry an execution source. A mutating team has no separate lead, so
+    /// only its single agent counts; an answer team includes the synthesizer lead.
+    private var executionSourceRows: [TeamDraft.Row] {
+        draft.mutating ? draft.rows : draft.rows + [draft.lead]
+    }
+
     private var pinnedExecutionSourceLabel: String? {
         let bench = Dictionary(models.map { ($0.id, $0.driverId) }, uniquingKeysWith: { a, _ in a })
         var sources = Set<String>()
-        for row in draft.rows + [draft.lead] {
+        for row in executionSourceRows {
             if let mid = row.modelId, let source = bench[mid] { sources.insert(source) }
         }
         guard sources.count == 1, let only = sources.first else { return nil }
@@ -432,7 +464,7 @@ struct TeamEditorView: View {
     private var executionSourceConflictMessage: String? {
         let bench = Dictionary(models.map { ($0.id, $0.driverId) }, uniquingKeysWith: { a, _ in a })
         var sources = Set<String>()
-        for row in draft.rows + [draft.lead] {
+        for row in executionSourceRows {
             if let mid = row.modelId, let source = bench[mid] { sources.insert(source) }
         }
         guard sources.count > 1 else { return nil }
@@ -440,7 +472,9 @@ struct TeamEditorView: View {
     }
 
     private var summary: some View {
-        Text("\(draft.rows.count) workers + 1 lead · saved as a \(lane.label.lowercased()) team you can pick in the composer.")
+        Text(draft.mutating
+             ? "1 agent · runs in the repo root under the write lock · saved as a \(lane.label.lowercased()) team you can pick in the composer."
+             : "\(draft.rows.count) workers + 1 lead · saved as a \(lane.label.lowercased()) team you can pick in the composer.")
             .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
     }
 
@@ -453,7 +487,7 @@ struct TeamEditorView: View {
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
                 Button("Revert", action: onRevert).buttonStyle(.alSecondary(small: true))
-                Button(isBuiltIn ? "Save as my team" : "Save changes", action: save)
+                Button(isBuiltIn ? "Duplicate Team" : "Save changes", action: save)
                     .buttonStyle(.alPrimary(small: true)).disabled(!draft.isSavable)
             }
         }

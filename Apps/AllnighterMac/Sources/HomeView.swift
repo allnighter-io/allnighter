@@ -289,7 +289,7 @@ private struct ProjectThreadRow: View {
             HStack(spacing: 9) {
                 Circle().fill(thread.hasUnread ? ALColor.accent : Color.clear).frame(width: 7, height: 7)
                 Text(thread.title)
-                    .font(.system(size: 13, weight: thread.hasUnread ? .semibold : (selected ? .medium : .regular)))
+                    .font(.system(size: 13, weight: thread.hasUnread ? .semibold : .regular))
                     .foregroundStyle(thread.hasUnread || selected ? ALColor.textPrimary : ALColor.textMuted)
                     .lineLimit(1)
                 Spacer(minLength: 4)
