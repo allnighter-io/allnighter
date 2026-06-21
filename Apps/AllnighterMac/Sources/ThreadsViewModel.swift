@@ -607,7 +607,8 @@ final class ThreadsViewModel {
             settled.completedAt = Date()
             switch result {
             case .success(let run):
-                settled.status = Self.turnStatus(for: run.status)
+                // RLS-S01: a terminal run MUST settle to a terminal turn — never .running.
+                settled.status = Self.settledStatus(forSuccessfulRun: run.status)
                 if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan }) {
                     settled.stageId = stage.id
                 }
@@ -616,9 +617,29 @@ final class ThreadsViewModel {
                 settled.text = error.description
                 settled.runId = nil
             }
-            _ = try? threadStore.updateTurn(settled, inThreadId: threadId, now: Date())
+            // RLS-S01: terminal settlement is not best-effort. A swallowed write left the
+            // turn stuck on the last `.running` checkpoint (the "it's still answering"
+            // bug). Reflect the terminal state in memory FIRST so the UI can never show an
+            // indefinite spinner, then persist — and surface (don't swallow) a write failure.
+            applyTerminalSettlement(settled, threadId: threadId)
+            do {
+                try threadStore.updateTurn(settled, inThreadId: threadId, now: Date())
+            } catch {
+                PerfCounters.bump(.settlementError)
+                FileHandle.standardError.write(Data(
+                    "[settlement] FAILED to persist terminal turn \(turnId) in thread \(threadId): \(error)\n".utf8))
+            }
             reload()
         }
+    }
+
+    /// Force the in-memory `threads` turn to its terminal settled state immediately, so a
+    /// completed run can never leave a live spinner even if the durable write then fails
+    /// or a `reload()` races. The store write remains the source of durable truth.
+    private func applyTerminalSettlement(_ settled: ThreadTurn, threadId: String) {
+        guard let ti = threads.firstIndex(where: { $0.id == threadId }),
+              let tj = threads[ti].turns.firstIndex(where: { $0.id == settled.id }) else { return }
+        threads[ti].turns[tj] = settled
     }
 
     /// Models whose driver is confirmed ready (cached health) — the only bench the
@@ -658,13 +679,23 @@ final class ThreadsViewModel {
     /// A board turn is `.done` whenever the run produced something to show (complete
     /// OR partial — the board itself shows which workers failed); only a fully
     /// failed/interrupted run with no board is a failed turn.
-    private static func turnStatus(for status: RunStatus) -> ThreadTurnStatus {
+    nonisolated static func turnStatus(for status: RunStatus) -> ThreadTurnStatus {
         switch status {
         case .complete, .partial: return .done
         case .cancelled: return .cancelled
         case .failed, .interrupted: return .failed
         case .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
         }
+    }
+
+    /// RLS-S01 terminal-settlement guarantee: a SUCCESSFUL terminal `RunService`
+    /// result must settle the thread turn to a terminal state — never `.running`.
+    /// `run()` returning `.success` means the run is over, so a `run.status` that
+    /// still maps to `.running` (a stale `.finalizing`/`.answersIn`/etc.) is coerced
+    /// to `.done`. No spinner may survive a terminal run.
+    nonisolated static func settledStatus(forSuccessfulRun status: RunStatus) -> ThreadTurnStatus {
+        let mapped = turnStatus(for: status)
+        return mapped == .running ? .done : mapped
     }
 
     /// Chat: hand the message to the chosen model via the coordinator, which

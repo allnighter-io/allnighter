@@ -18,6 +18,9 @@ enum PerfCounters {
         case reloadRequested
         /// `requestReload()` folded into an already-scheduled flush (coalesced away).
         case reloadCoalesced
+        /// A terminal settlement write FAILED (RLS-S01) — a product failure, surfaced
+        /// instead of swallowed, so a completed run never silently stays `running`.
+        case settlementError
     }
 
     private static var counts: [String: Int] = [:]
