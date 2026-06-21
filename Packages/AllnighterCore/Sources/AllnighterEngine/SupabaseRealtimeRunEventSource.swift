@@ -124,7 +124,11 @@ public struct SupabaseRealtimeRunEventSource: Sendable {
 
                     while !Task.isCancelled {
                         let message = try await socket.receive()
-                        guard let envelope = Self.decodeRunEventEnvelope(message, expectedMacAgentId: macAgentId),
+                        guard let envelope = Self.decodeRunEventEnvelope(
+                            message,
+                            expectedAccountId: accountId,
+                            expectedMacAgentId: macAgentId
+                        ),
                               envelope.event.seq > seq else {
                             continue
                         }
@@ -210,6 +214,7 @@ public struct SupabaseRealtimeRunEventSource: Sendable {
 
     private static func decodeRunEventEnvelope(
         _ message: SupabaseRealtimeSocketMessage,
+        expectedAccountId: String,
         expectedMacAgentId: String
     ) -> RemoteRunEventEnvelope? {
         let data: Data
@@ -224,11 +229,12 @@ public struct SupabaseRealtimeRunEventSource: Sendable {
               decoded.payload?.data?.schema == "public",
               decoded.payload?.data?.table == "event_envelopes",
               decoded.payload?.data?.type == "INSERT",
-              let envelope = decoded.payload?.data?.record?.envelope(),
-              envelope.macAgentId == expectedMacAgentId else {
+              let row = decoded.payload?.data?.record,
+              row.accountId == expectedAccountId,
+              row.macAgentId == expectedMacAgentId else {
             return nil
         }
-        return envelope
+        return row.envelope()
     }
 }
 

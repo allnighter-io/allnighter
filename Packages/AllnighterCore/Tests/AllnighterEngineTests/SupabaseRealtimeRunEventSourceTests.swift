@@ -56,9 +56,10 @@ final class SupabaseRealtimeRunEventSourceTests: XCTestCase {
         XCTAssertEqual(change["filter"] as? String, "mac_agent_id=eq.mac_1")
     }
 
-    func testRealtimeSourceIgnoresWrongTableWrongMacAndOldSeq() async throws {
+    func testRealtimeSourceIgnoresWrongTableWrongMacWrongAccountAndOldSeq() async throws {
         let socket = RecordingSupabaseRealtimeSocket(messages: [
             .string(try postgresChangeMessage(envelope: signedEnvelope(id: "evt_old", seq: 4))),
+            .string(try postgresChangeMessage(envelope: signedEnvelope(id: "evt_other_account", seq: 5), accountId: "acct_other")),
             .string(try postgresChangeMessage(envelope: signedEnvelope(id: "evt_other", seq: 6, macAgentId: "mac_other"))),
             .string(try postgresChangeMessage(envelope: signedEnvelope(id: "evt_wrong_table", seq: 7), table: "command_acks")),
             .string(try postgresChangeMessage(envelope: signedEnvelope(id: "evt_8", seq: 8))),
@@ -94,8 +95,12 @@ final class SupabaseRealtimeRunEventSourceTests: XCTestCase {
         )
     }
 
-    private func postgresChangeMessage(envelope: RemoteRunEventEnvelope, table: String = "event_envelopes") throws -> String {
-        let row = EventEnvelopeRow(accountId: "acct_1", envelope: envelope)
+    private func postgresChangeMessage(
+        envelope: RemoteRunEventEnvelope,
+        accountId: String = "acct_1",
+        table: String = "event_envelopes"
+    ) throws -> String {
+        let row = EventEnvelopeRow(accountId: accountId, envelope: envelope)
         let rowJSON = try JSONSerialization.jsonObject(with: SupabaseJSON.encode(row))
         let message: [String: Any] = [
             "event": "postgres_changes",
