@@ -1,7 +1,7 @@
 # Allnighter - Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-06-19
+Updated: 2026-06-21
 
 ## Purpose
 
@@ -41,6 +41,7 @@ otherwise.
 | [`Live_Team_Board.md`](Live_Team_Board.md) | Draft feature packet — no-theater contract | In-thread live board for running answer-team runs: show every assigned worker/job/model, sourced started/running/done/failed states, and real per-worker answer deltas only when emitted. Terminal results land in the Factory Floor; the thread keeps a compact receipt card. Explicitly forbids fake activity prose and fake progress. |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ACTIVE BUILT GATE** (S00–S05 built, policy still live) | Stops blind GUI "fixed" claims: render the surface, a separate layout-watcher looks at the pixels (layout-only; CLI owns content truth), and a content-bound proof packet is wall-enforced by `scripts/check_gui_proof.sh`. Keep active until this policy is promoted to an operations/GUI SSOT. |
 | [`Unified_Run_Model.md`](Unified_Run_Model.md) | **Decision — replacement root model; Core + CLI/MCP BUILT** (Default Team raw passthrough live; Execution Playbook preset + composer simplification remain) | A run = message + optional preset + worker, in the repo root. Default chat = the Default Team (raw passthrough). Answer teams (parallel, read-only) vs execution teams (one worker, mutating, write-locked). Replaces the deleted Project Manager / work-order / propose→dispatch→verify loop. |
+| [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) | Draft feature packet | "Try Fix" checkbox / Auto-Implement chain after Bug Hunt: read-only Code Bug Hunt returns a typed FixPacket, Core gates it, then one execution worker tries the recommended fix under the repo write lock. CLI/MCP-first; Mac checkbox presents the shared contract. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **ORPHAN — was unlisted; ⚠ FOUNDER DECISION** | Signal craft foundations exist in Core (`WorkLane.signal`, `SignalInsight.swift`, `SignalScoutPolicy.swift`, signal teams/skills), but all 8 spec slices (Scout→Graph→Surface) are unbuilt and the doc was missing from this board. Decide: still the Signal direction (re-list + build), or archive the deep-build doc and keep only the shipped foundations? |
 | [`Composer_Image_Attachments.md`](Composer_Image_Attachments.md) | **Backend BUILT** (CIA-S00–S07, 2026-06-17); GUI S03/S04/S08/S09 remain | Image attachments: coordinator send transaction, canonical store, CLI/MCP send, fan-out mapping. GUI paste, timeline chips, proof seal, and DnD deferred. |
 | [`Composer_Model_Popup_Update.md`](Composer_Model_Popup_Update.md) | **BUILT** (2026-06-20; `composer/team-picker` proof sealed) | Composer team/model popover simplified to a fast picker: Auto pinned first ("Auto" / "Default model"), a search field directly under it (searches the whole roster, no lane filter), Recent (max 3, in-memory) + Favorites as the default surface, non-favorites hidden until searched. Craft chips (Code/Design/Copy/Signal) + the All chip removed. The collapsed chip now reads "Auto · <model>" in Auto mode. Full Teams screen stays the roster/management surface. |
@@ -255,6 +256,7 @@ Open questions:
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Send to team, Delegate surface, Team Cards, Signal/Code/Design/Copy team map | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |
 | Team run Floor, inspectable worker lanes, worker artifacts, Signal Insights, run receipts | `Team_Run_Floor.md` + `CLI_Implementation_Contract.md` |
+| Bug Hunt auto-implement, "Try Fix" checkbox, diagnosis-to-fix child runs | `Try_Fix_Auto_Implement.md` + `Unified_Run_Model.md` + `docs/operations/Debugger.md` |
 | Live in-thread team run progress, per-worker status rows, honest streaming excerpts | `Live_Team_Board.md` + `threads/03_Mac_Streaming.md` + `CLI_Implementation_Contract.md` |
 | Execution teams, mutating team runs, dispatch/source safety | `Work_Order_Team_Model.md` + `Project_Spine_And_Project_Manager.md` + `CLI_Implementation_Contract.md` |
 | Projects, local repo/folder roots, Project Manager chat, project-scoped threads/runs/pending/dispatch | `Project_Spine_And_Project_Manager.md` |
