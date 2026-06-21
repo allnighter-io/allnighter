@@ -22,6 +22,16 @@ public enum DirectModeSnapshotError: Error, Equatable, Sendable {
     )
 }
 
+public enum DirectModeMediaError: Error, Equatable, Sendable {
+    case requestMismatch(
+        expectedAccountId: String,
+        actualAccountId: String,
+        expectedMacAgentId: String,
+        actualMacAgentId: String
+    )
+    case mediaNotFound(ref: String)
+}
+
 public enum DirectModeEventsError: Error, Equatable, Sendable {
     case requestMismatch(
         expectedAccountId: String,
@@ -101,6 +111,10 @@ public protocol DirectModeMediaHandling: Sendable {
     func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse
 }
 
+public protocol DirectModeMediaDataProviding: Sendable {
+    func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data?
+}
+
 public protocol DirectModeEventsHandling: Sendable {
     func events(_ request: DirectModeEventsRequest) async throws -> DirectModeEventsResponse
 }
@@ -177,6 +191,46 @@ public struct DirectModeSnapshotHandler: DirectModeSnapshotHandling {
             )
         }
         return try service.snapshot(since: request.since)
+    }
+}
+
+public struct DirectModeMediaHandler: DirectModeMediaHandling {
+    private let accountId: String
+    private let macAgentId: String
+    private let provider: any DirectModeMediaDataProviding
+    private let now: @Sendable () -> Date
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        provider: any DirectModeMediaDataProviding,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.provider = provider
+        self.now = now
+    }
+
+    public func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse {
+        guard request.accountId == accountId,
+              request.macAgentId == macAgentId else {
+            throw DirectModeMediaError.requestMismatch(
+                expectedAccountId: accountId,
+                actualAccountId: request.accountId,
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: request.macAgentId
+            )
+        }
+
+        guard let data = try await provider.mediaData(
+            ref: request.ref,
+            macAgentId: macAgentId,
+            at: now()
+        ) else {
+            throw DirectModeMediaError.mediaNotFound(ref: request.ref)
+        }
+        return DirectModeMediaResponse(ref: request.ref, data: data)
     }
 }
 
