@@ -184,9 +184,8 @@ assertion is not durability). The agent:
    effort — the poll is the guarantee, and it is what makes the **kill switch**
    reliable.
 4. **Verifies independently of the cloud** (signature/key/freshness/capability/skew),
-   **unseals** any sealed payload, then executes via the team-run service
-   (legacy code currently says `TeamService`) / dispatch with a remote
-   `RunOrigin`.
+   **unseals** any sealed payload, then executes via the async team-run service
+   with a remote `RunOrigin`.
 5. **Writes back** a signed `command_ack`, then signed content-light
    `event_envelopes`; seals sensitive content and posts `media_refs` + per-device
    `media_keys`.
