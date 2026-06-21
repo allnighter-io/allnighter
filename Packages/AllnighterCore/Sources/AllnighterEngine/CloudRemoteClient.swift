@@ -220,6 +220,7 @@ public actor CloudRemoteClient: RemoteClient {
               envelope.macAgentId == mac.macAgentId,
               envelope.ack.requestId == command.requestId,
               envelope.auditEvent.requestId == command.requestId,
+              envelope.auditEvent.deviceId == command.assertion.deviceId,
               envelope.auditEvent.commandKind == command.kind else {
             throw CloudRemoteClientError.badAckEnvelope
         }

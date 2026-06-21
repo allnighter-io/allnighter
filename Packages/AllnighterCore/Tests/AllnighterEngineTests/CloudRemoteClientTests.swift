@@ -301,6 +301,31 @@ final class CloudRemoteClientTests: XCTestCase {
         }
     }
 
+    func testClientRejectsAckEnvelopeWithWrongAuditDeviceId() async throws {
+        let relay = MockRemoteMacRelay()
+        try await relay.acknowledge(ackEnvelope(
+            requestId: "req_bad_audit_device",
+            signingKey: macSigningKey,
+            auditDeviceId: "device_other"
+        ))
+        let fixedNow = now
+        let client = CloudRemoteClient(
+            mac: macRef(),
+            relay: relay,
+            now: { fixedNow },
+            ackPollInterval: 0,
+            maxAckPollAttempts: 1
+        )
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        do {
+            _ = try await client.send(try commandFactory().stopAll(requestId: "req_bad_audit_device"))
+            XCTFail("mismatched audit device id should be rejected")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .badAckEnvelope)
+        }
+    }
+
     func testClientRejectsWrongModeAndTimesOutWithoutAck() async throws {
         let relay = MockRemoteMacRelay()
         let fixedNow = now
@@ -399,7 +424,8 @@ final class CloudRemoteClientTests: XCTestCase {
         signingKey: Curve25519.Signing.PrivateKey,
         accepted: Bool = true,
         reason: RemoteCommandRejectReason? = nil,
-        outcome: RemoteCommandAckOutcome = .accepted
+        outcome: RemoteCommandAckOutcome = .accepted,
+        auditDeviceId: String = "device_1"
     ) throws -> RemoteCommandAckEnvelope {
         let ack = try RemoteCrypto.makeCommandAck(
             macAgentId: "mac_1",
@@ -417,7 +443,7 @@ final class CloudRemoteClientTests: XCTestCase {
             ack: ack,
             auditEvent: RemoteAuditEvent(
                 ts: now,
-                deviceId: "device_1",
+                deviceId: auditDeviceId,
                 commandKind: .stopAll,
                 requestId: requestId,
                 targetSummary: "stopAll terminated=1",
