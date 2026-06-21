@@ -49,6 +49,25 @@ public struct RemoteMediaPublisher: Sendable {
         )
     }
 
+    @discardableResult
+    public func resealContentKey(
+        ref: String,
+        contentKey: Data,
+        trustedDevice: TrustedDevice
+    ) async throws -> Bool {
+        let keys = try RemoteMediaCrypto.sealContentKey(
+            contentKey,
+            ref: ref,
+            for: [trustedDevice],
+            now: now()
+        )
+        guard let key = keys.first else {
+            return false
+        }
+        try await relay.upsertMediaKey(key)
+        return true
+    }
+
     public func publish(
         ref: String,
         macAgentId: String,

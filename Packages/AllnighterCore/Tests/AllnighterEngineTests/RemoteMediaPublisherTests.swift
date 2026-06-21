@@ -93,6 +93,57 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertEqual(try RemoteMediaCrypto.decrypt(encryptedData, contentKey: openedContentKey), plaintext)
     }
 
+    func testPublisherResealsExistingContentKeyForLaterDevice() async throws {
+        let firstKey = Curve25519.KeyAgreement.PrivateKey()
+        let laterKey = Curve25519.KeyAgreement.PrivateKey()
+        let revokedKey = Curve25519.KeyAgreement.PrivateKey()
+        let relay = MockRemoteMacRelay()
+        let fixedNow = now
+        let contentKey = Data((0..<RemoteMediaCrypto.contentKeyByteCount).map(UInt8.init))
+        let publisher = RemoteMediaPublisher(relay: relay, now: { fixedNow })
+        _ = try await publisher.publish(
+            ref: "media_reseal",
+            macAgentId: "mac_1",
+            r2Key: "r2/media_reseal",
+            contentType: "image/png",
+            encryptedData: Data("ciphertext".utf8),
+            contentKey: contentKey,
+            trustedDevices: [
+                device(deviceId: "device_first", sealingKey: firstKey),
+            ],
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        let didResealLater = try await publisher.resealContentKey(
+            ref: "media_reseal",
+            contentKey: contentKey,
+            trustedDevice: device(deviceId: "device_later", sealingKey: laterKey)
+        )
+        let didResealRevoked = try await publisher.resealContentKey(
+            ref: "media_reseal",
+            contentKey: contentKey,
+            trustedDevice: device(deviceId: "device_revoked", sealingKey: revokedKey, revoked: true)
+        )
+
+        XCTAssertTrue(didResealLater)
+        XCTAssertFalse(didResealRevoked)
+        let data = try await relay.mediaData(ref: "media_reseal", macAgentId: "mac_1", at: now)
+        XCTAssertEqual(data, Data("ciphertext".utf8))
+        let fetchedLaterEnvelope = try await relay.mediaKey(
+            ref: "media_reseal",
+            deviceId: "device_later",
+            at: now
+        )
+        let laterEnvelope = try XCTUnwrap(fetchedLaterEnvelope)
+        XCTAssertEqual(try RemoteMediaCrypto.openContentKey(laterEnvelope, with: laterKey), contentKey)
+        let revokedEnvelope = try await relay.mediaKey(
+            ref: "media_reseal",
+            deviceId: "device_revoked",
+            at: now
+        )
+        XCTAssertNil(revokedEnvelope)
+    }
+
     private func device(
         deviceId: String,
         sealingKey: Curve25519.KeyAgreement.PrivateKey,

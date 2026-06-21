@@ -136,6 +136,7 @@ public protocol RemoteMacRelay: Sendable {
     func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws
     func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope?
     func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws
+    func upsertMediaKey(_ key: MediaKeyEnvelope) async throws
     func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data?
     func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope?
 }
@@ -439,6 +440,11 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         mediaRefsById[ref.ref] = ref
         mediaDataByRef[ref.ref] = data
         mediaKeysByRef[ref.ref] = Dictionary(uniqueKeysWithValues: keys.map { ($0.deviceId, $0) })
+    }
+
+    public func upsertMediaKey(_ key: MediaKeyEnvelope) async throws {
+        eventLog.append("upsertMediaKey")
+        mediaKeysByRef[key.ref, default: [:]][key.deviceId] = key
     }
 
     public func mediaData(ref: String, macAgentId: String, at now: Date) async throws -> Data? {

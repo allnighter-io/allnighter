@@ -662,6 +662,8 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
 
     func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {}
 
+    func upsertMediaKey(_ key: MediaKeyEnvelope) async throws {}
+
     func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data? {
         nil
     }
