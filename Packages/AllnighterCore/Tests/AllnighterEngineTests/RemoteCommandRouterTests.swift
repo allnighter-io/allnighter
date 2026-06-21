@@ -258,11 +258,24 @@ final class RemoteCommandRouterTests: XCTestCase {
         })
     }
 
-    func testDedupeStoreTreatsLegacyUnscopedRequestAsReplay() throws {
-        try dedupeStore.save(RemoteRequestDedupeRegistry(
-            schemaVersion: 1,
-            requests: [RemoteSeenRequest(requestId: "req_legacy", seenAt: now)]
-        ))
+    func testDedupeStoreIgnoresUnscopedLegacyRequests() throws {
+        let legacyJSON = """
+        {
+          "requests" : [
+            {
+              "requestId" : "req_legacy",
+              "seenAt" : "2025-06-15T15:06:40Z"
+            }
+          ],
+          "schemaVersion" : 1
+        }
+        """
+        try FileManager.default.createDirectory(
+            at: dedupeStore.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(legacyJSON.utf8).write(to: dedupeStore.fileURL)
+        XCTAssertTrue(dedupeStore.load().requests.isEmpty)
 
         let duplicate = try dedupeStore.containsOrRecord(
             requestId: "req_legacy",
@@ -273,11 +286,13 @@ final class RemoteCommandRouterTests: XCTestCase {
             window: 60
         )
 
-        XCTAssertTrue(duplicate)
+        XCTAssertFalse(duplicate)
         let registry = dedupeStore.load()
         XCTAssertEqual(registry.schemaVersion, RemoteRequestDedupeRegistry.currentSchemaVersion)
         XCTAssertEqual(registry.requests.count, 1)
-        XCTAssertNil(registry.requests.first?.accountId)
+        XCTAssertEqual(registry.requests.first?.accountId, "acct_2")
+        XCTAssertEqual(registry.requests.first?.macAgentId, "mac_2")
+        XCTAssertEqual(registry.requests.first?.deviceId, "device_2")
     }
 
     func testPerDeviceRateLimitRejectsSecondDistinctCommand() async throws {

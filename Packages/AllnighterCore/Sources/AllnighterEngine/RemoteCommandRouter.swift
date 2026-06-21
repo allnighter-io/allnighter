@@ -83,16 +83,16 @@ public struct RemoteCommandRouterPolicy: Equatable, Sendable {
 public struct RemoteSeenRequest: Codable, Equatable, Sendable {
     public var requestId: String
     public var seenAt: Date
-    public var accountId: String?
-    public var macAgentId: String?
-    public var deviceId: String?
+    public var accountId: String
+    public var macAgentId: String
+    public var deviceId: String
 
     public init(
         requestId: String,
         seenAt: Date,
-        accountId: String? = nil,
-        macAgentId: String? = nil,
-        deviceId: String? = nil
+        accountId: String,
+        macAgentId: String,
+        deviceId: String
     ) {
         self.requestId = requestId
         self.seenAt = seenAt
@@ -149,9 +149,9 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
 
     public func containsOrRecord(
         requestId: String,
-        accountId: String? = nil,
-        macAgentId: String? = nil,
-        deviceId: String? = nil,
+        accountId: String,
+        macAgentId: String,
+        deviceId: String,
         now: Date,
         window: TimeInterval,
         maxEntries: Int = 10_000
@@ -189,17 +189,11 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
     private func requestMatches(
         _ seen: RemoteSeenRequest,
         requestId: String,
-        accountId: String?,
-        macAgentId: String?,
-        deviceId: String?
+        accountId: String,
+        macAgentId: String,
+        deviceId: String
     ) -> Bool {
         guard seen.requestId == requestId else { return false }
-        if accountId == nil, macAgentId == nil, deviceId == nil {
-            return true
-        }
-        if seen.accountId == nil, seen.macAgentId == nil, seen.deviceId == nil {
-            return true
-        }
         return seen.accountId == accountId
             && seen.macAgentId == macAgentId
             && seen.deviceId == deviceId
