@@ -257,6 +257,36 @@ final class DirectModeRemoteClientTests: XCTestCase {
         }
     }
 
+    func testClientRejectsAckWithWrongAuditCommandKind() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let handler = RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+            requestId: "req_wrong_kind",
+            now: now,
+            macSigningKey: macSigningKey,
+            auditCommandKind: .stopRun
+        ))
+        let server = DirectModeCommandServer(handler: handler)
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        do {
+            _ = try await client.send(Self.command(requestId: "req_wrong_kind", now: now))
+            XCTFail("ack audit command kind must match the command")
+        } catch let error as DirectModeRemoteClientError {
+            XCTAssertEqual(error, .badAckEnvelope)
+        }
+    }
+
     func testClientRejectsWrongConnectionMode() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let endpoint = DirectModeEndpoint(
@@ -303,7 +333,8 @@ final class DirectModeRemoteClientTests: XCTestCase {
     private static func ackEnvelope(
         requestId: String,
         now: Date,
-        macSigningKey: Curve25519.Signing.PrivateKey
+        macSigningKey: Curve25519.Signing.PrivateKey,
+        auditCommandKind: RemoteCommandKind = .stopAll
     ) throws -> RemoteCommandAckEnvelope {
         let ack = try RemoteCrypto.makeCommandAck(
             macAgentId: "mac_1",
@@ -321,7 +352,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
             auditEvent: RemoteAuditEvent(
                 ts: now,
                 deviceId: "device_1",
-                commandKind: .stopAll,
+                commandKind: auditCommandKind,
                 requestId: requestId,
                 targetSummary: "stopAll terminated=1",
                 outcome: .accepted

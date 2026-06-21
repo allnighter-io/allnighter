@@ -158,7 +158,8 @@ public actor DirectModeRemoteClient: RemoteClient {
               envelope.accountId == account.accountId,
               envelope.macAgentId == mac.macAgentId,
               envelope.ack.requestId == command.requestId,
-              envelope.auditEvent.requestId == command.requestId else {
+              envelope.auditEvent.requestId == command.requestId,
+              envelope.auditEvent.commandKind == command.kind else {
             throw DirectModeRemoteClientError.badAckEnvelope
         }
         guard try RemoteCrypto.verifyCommandAck(
