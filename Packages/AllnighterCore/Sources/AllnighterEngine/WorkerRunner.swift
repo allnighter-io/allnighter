@@ -12,6 +12,11 @@ public struct WorkerRunOutcome: Sendable, Equatable {
     public var startedAt: Date?
     public var finishedAt: Date?
     public var durationMs: Int?
+    /// Time-to-first-token: ms from CLI spawn (`startedAt`) to the FIRST visible streamed
+    /// delta (answer or reasoning). The "dead air before anything appears" — the latency a
+    /// user perceives as "it's taking forever". nil on the non-streaming path (no deltas).
+    public var firstTokenAt: Date?
+    public var ttftMs: Int?
     public var exitCode: Int?
     /// Sourced capacity/cooldown fact from raw CLI output (nonzero exit only).
     public var capacityObservation: CapacityObservation?
@@ -344,6 +349,9 @@ public struct WorkerRunner: Sendable {
 
             let consume = Task { [self] in
                 defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
+                // TTFT: stamp the first visible streamed delta (answer or reasoning) — the
+                // "dead air" the user waits through before anything renders.
+                var firstTokenAt: Date?
                 do {
                     for try await event in streamingRunner.runStreaming(
                         command: spawnCommand, args: spawnArgs, stdin: stdin,
@@ -356,7 +364,10 @@ public struct WorkerRunner: Sendable {
                         case .stdout(let data):
                             StreamDebugLog.log("STDOUT \(StreamDebugLog.clip(String(decoding: data, as: UTF8.self)))")
                             let parsed = parser.receiveStdout(data)
-                            for streamEvent in parsed { StreamDebugLog.log("  → \(Self.describe(streamEvent))"); continuation.yield(streamEvent) }
+                            for streamEvent in parsed {
+                                if firstTokenAt == nil, Self.isVisibleDelta(streamEvent) { firstTokenAt = now() }
+                                StreamDebugLog.log("  → \(Self.describe(streamEvent))"); continuation.yield(streamEvent)
+                            }
                         case .stderr(let data):
                             StreamDebugLog.log("STDERR \(StreamDebugLog.clip(String(decoding: data, as: UTF8.self)))")
                             for streamEvent in parser.receiveStderr(data) { continuation.yield(streamEvent) }
@@ -376,6 +387,10 @@ public struct WorkerRunner: Sendable {
                                outcome.status == .done {
                                 outcome.capturedSessionId = WorkerSessionCapture.capturedDirEntry(
                                     before: dc.before, after: Self.directoryEntryNames(dc.url))
+                            }
+                            outcome.firstTokenAt = firstTokenAt
+                            if let firstTokenAt {
+                                outcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
                             }
                             StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1) session=\(outcome.capturedSessionId ?? "-")")
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
@@ -473,6 +488,14 @@ public struct WorkerRunner: Sendable {
     }
 
     /// One-line description of a stream event for the debug log.
+    /// A streamed event the user actually SEES render (drives time-to-first-token).
+    static func isVisibleDelta(_ event: WorkerStreamEvent) -> Bool {
+        switch event {
+        case .answerDelta, .reasoningDelta: return true
+        default: return false
+        }
+    }
+
     /// The entry names directly under `url` (empty if unreadable). Used by `session_dir` capture
     /// to snapshot the agy brain dir before/after a run.
     static func directoryEntryNames(_ url: URL) -> Set<String> {

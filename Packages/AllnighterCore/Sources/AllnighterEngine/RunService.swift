@@ -207,6 +207,9 @@ public actor RunService {
     ) async -> Result<TeamRun, RunServiceError> {
         defer { events?.finish() }
 
+        // Queue-wait clock: stamp BEFORE the write-lock acquire (the real blocking wait) and
+        // resolution/staging, so `queueMs = worker.startedAt − requestedAt` captures all of it.
+        let requestedAt = now()
         let root = RunWriteLock.normalize(request.repoRoot) ?? request.repoRoot
         guard RootNormalization.observeRootState(key: root) == .available else {
             return .failure(.repoRootUnavailable(root))
@@ -275,7 +278,7 @@ public actor RunService {
                 effort: effort, repoRoot: root,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
-                deliveries: request.deliveries, events: events
+                deliveries: request.deliveries, requestedAt: requestedAt, events: events
             )
         }
 
@@ -308,6 +311,7 @@ public actor RunService {
         runId: String,
         runner: WorkerRunner,
         deliveries: [IncludedAttachmentDelivery] = [],
+        requestedAt: Date? = nil,
         events: AsyncStream<RunEvent>.Continuation?
     ) async -> Result<TeamRun, RunServiceError> {
         var seq: Int64 = 0
@@ -485,11 +489,17 @@ public actor RunService {
                 vendorSessionId: vendorId, continuityTier: .vendorSession,
                 createdAt: resumable?.createdAt ?? now(), lastUsedAt: now(), lastRunId: runId))
         }
+        // Queue wait: request accepted → CLI spawned. Lane/lock wait + resolution + staging.
+        let queueMs: Int? = {
+            guard let requestedAt, let startedAt = outcome.startedAt else { return nil }
+            return max(0, Int(startedAt.timeIntervalSince(requestedAt) * 1000))
+        }()
         let answer = WorkerAnswer(
             workerId: worker.id, modelId: model.id, status: outcome.status, output: outcome.output,
             errorKind: outcome.errorKind, errorReason: outcome.errorReason,
             startedAt: outcome.startedAt, finishedAt: outcome.finishedAt,
-            durationMs: outcome.durationMs, exitCode: outcome.exitCode,
+            durationMs: outcome.durationMs, queueMs: queueMs, ttftMs: outcome.ttftMs,
+            exitCode: outcome.exitCode,
             vendorSessionId: outcome.capturedSessionId
         )
         var workerPayload: [String: JSONValue] = [

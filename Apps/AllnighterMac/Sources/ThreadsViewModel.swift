@@ -555,10 +555,11 @@ final class ThreadsViewModel {
         let turnKind: ThreadTurnKind = preset.mutating ? .mutatingRun : (routing.lane == .design ? .designBoard : .teamRun)
         let runId = UUID().uuidString
         let startedAt = Date()
+        let resolvedWorkerId = effectiveWorkerId(for: routing, preset: preset)
         let turn = ThreadTurn(
             id: UUID().uuidString, threadId: threadId, kind: turnKind, status: .running,
             createdAt: startedAt, author: .worker,
-            workerId: preset.mutating && !routing.to.isEmpty ? routing.to : nil,
+            workerId: preset.mutating ? resolvedWorkerId : (routing.to.isEmpty ? nil : routing.to),
             runId: runId
         )
         guard (try? store.appendTurn(turn, toThreadId: threadId, now: startedAt)) != nil else { return }
@@ -612,6 +613,9 @@ final class ThreadsViewModel {
             case .success(let run):
                 // RLS-S01: a terminal run MUST settle to a terminal turn — never .running.
                 settled.status = Self.settledStatus(forSuccessfulRun: run.status)
+                if settled.workerId == nil, let modelId = run.workerAnswers.first?.modelId {
+                    settled.workerId = modelId
+                }
                 if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan }) {
                     settled.stageId = stage.id
                 }
@@ -650,6 +654,22 @@ final class ThreadsViewModel {
     var readyModels: [Model] {
         let readyDriverIds = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
         return models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
+    }
+
+    /// Resolve the model a routing send will actually run — explicit pin, else Auto tier
+    /// default for the default team, else the team's first resolved worker.
+    private func effectiveWorkerId(for routing: ComposeRouting, preset: TeamPreset) -> String? {
+        if !routing.to.isEmpty { return routing.to }
+        if preset.id == TeamCatalog.defaultRunTeam()?.id {
+            let settings = DefaultModelSettingsPersistence().load()
+            let ready = Set(readyModels.map(\.id))
+            return SubstitutionResolver.resolveAuto(settings: settings, readyModelIds: ready).resolvedModelId
+        }
+        let effort = EffortLevel(rawValue: routing.effort.rawValue) ?? preset.defaultEffort
+        let resolved = TeamResolver.resolve(
+            team: preset, requestLane: routing.lane.workLane, requestEffort: effort,
+            readyModels: readyModels)
+        return resolved.answerWorkers.first?.modelId
     }
 
     /// The durable TeamRun behind a board turn (by `runId`), for the board view.

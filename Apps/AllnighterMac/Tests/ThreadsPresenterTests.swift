@@ -248,4 +248,18 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertEqual(sections.groups.first?.threads.map(\.id), ["bound"])
         XCTAssertFalse(sections.groups.contains { $0.title == "Unassigned" })
     }
+
+    func testContinuationWorkerIdPrefersDefaultThenLast() {
+        let bench: Set<String> = ["model_opus", "model_grok"]
+        var grokTurn = turn(.workerChat, .done)
+        grokTurn.workerId = "model_grok"
+        var thread = thread("c", updatedAt: t0, turns: [grokTurn])
+        thread.defaultWorkerId = "model_opus"
+        XCTAssertEqual(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: bench), "model_opus")
+
+        thread.defaultWorkerId = nil
+        XCTAssertEqual(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: bench), "model_grok")
+
+        XCTAssertNil(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: ["model_sonnet"]))
+    }
 }

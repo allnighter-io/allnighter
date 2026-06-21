@@ -144,7 +144,7 @@ public struct RunStore: Sendable {
             let purpose: String?
             let status: String
             let startedAt, finishedAt: Date?
-            let durationMs, exitCode: Int?
+            let durationMs, queueMs, ttftMs, exitCode: Int?
             let errorKind, errorReason: String?
         }
 
@@ -158,7 +158,8 @@ public struct RunStore: Sendable {
                 purpose: worker.purpose?.rawValue,
                 status: (answer?.status ?? .queued).rawValue,
                 startedAt: answer?.startedAt, finishedAt: answer?.finishedAt,
-                durationMs: answer?.durationMs, exitCode: answer?.exitCode,
+                durationMs: answer?.durationMs, queueMs: answer?.queueMs, ttftMs: answer?.ttftMs,
+                exitCode: answer?.exitCode,
                 errorKind: answer?.errorKind?.rawValue, errorReason: answer?.errorReason)
             try CoreJSON.encode(meta).write(
                 to: workersDir.appendingPathComponent("\(stem).metadata.json"), options: .atomic)

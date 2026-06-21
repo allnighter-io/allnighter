@@ -8,27 +8,83 @@ import AllnighterCore
 
 struct ThreadView: View {
     @Environment(ThreadsViewModel.self) private var threads
-    @Environment(AppModel.self) private var appModel
 
     var body: some View {
         if let thread = threads.selectedThread {
-            if thread.turns.isEmpty {
-                ThreadEmptyState(thread: thread)
+            ThreadPaneShell(thread: thread)
+        }
+    }
+}
+
+// MARK: - Thread shell (one composer — survives empty→conversation)
+
+private struct ThreadPaneShell: View {
+    @Environment(ThreadsViewModel.self) private var threads
+    let thread: WorkThread
+
+    private var isEmpty: Bool { thread.turns.isEmpty }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if isEmpty {
+                ThreadEmptyStateBody(thread: thread)
             } else {
-                ThreadConversationPane(thread: thread)
+                ThreadConversationBody(thread: thread)
             }
+            if thread.isArchived {
+                archivedComposerBar
+            } else {
+                ThreadDockedComposer(thread: thread, big: isEmpty)
+                    .frame(maxWidth: isEmpty ? 640 : 680)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, isEmpty ? 28 : 20)
+                    .padding(.vertical, isEmpty ? 28 : 14)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(ALColor.base)
+        .overlay {
+            if thread.isArchived && isEmpty {
+                archivedComposerOverlay
+            }
+        }
+    }
+
+    private var archivedComposerBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "archivebox").foregroundStyle(ALColor.textFaint)
+            Text("Unarchive to reply")
+                .font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+            Spacer()
+            Button("Unarchive") { threads.unarchiveThread(thread.id) }
+                .buttonStyle(.alLight)
+        }
+        .padding(.horizontal, 20).padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var archivedComposerOverlay: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 10) {
+                Image(systemName: "archivebox").foregroundStyle(ALColor.textFaint)
+                Text("Unarchive to reply").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+                Spacer()
+                Button("Unarchive") { threads.unarchiveThread(thread.id) }
+                    .buttonStyle(.alLight)
+            }
+            .padding(.horizontal, 28).padding(.vertical, 14)
+            .background(ALColor.base.opacity(0.92))
         }
     }
 }
 
 // MARK: - Empty thread ("Start a run")
 
-private struct ThreadEmptyState: View {
-    @Environment(ThreadsViewModel.self) private var threads
+private struct ThreadEmptyStateBody: View {
     @Environment(AppModel.self) private var appModel
     let thread: WorkThread
 
-    // CLI-based readiness — same source as the title-bar badge (no header/body drift).
     private var readyCount: Int { appModel.readyToolCount }
     private var totalCount: Int { appModel.totalToolCount }
 
@@ -52,42 +108,14 @@ private struct ThreadEmptyState: View {
             }
             .padding(.horizontal, 28)
             Spacer(minLength: 0)
-            RoutingComposer(
-                big: true,
-                onSend: { threads.sendRouting($0) }
-            )
-            .frame(maxWidth: 640)
-            .padding(.horizontal, 28).padding(.bottom, 28)
-            .disabled(thread.isArchived)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ALColor.base)
-        .overlay {
-            if thread.isArchived {
-                archivedComposerOverlay
-            }
-        }
-    }
-
-    private var archivedComposerOverlay: some View {
-        VStack {
-            Spacer()
-            HStack(spacing: 10) {
-                Image(systemName: "archivebox").foregroundStyle(ALColor.textFaint)
-                Text("Unarchive to reply").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
-                Spacer()
-                Button("Unarchive") { threads.unarchiveThread(thread.id) }
-                    .buttonStyle(.alLight)
-            }
-            .padding(.horizontal, 28).padding(.vertical, 14)
-            .background(ALColor.base.opacity(0.92))
-        }
+        .disabled(thread.isArchived)
     }
 }
 
 // MARK: - Thread with turns
 
-private struct ThreadConversationPane: View {
+private struct ThreadConversationBody: View {
     @Environment(ThreadsViewModel.self) private var threads
     let thread: WorkThread
 
@@ -97,19 +125,7 @@ private struct ThreadConversationPane: View {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             ThreadTurnTimeline(thread: thread)
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
-            if thread.isArchived {
-                archivedComposerBar
-            } else {
-                RoutingComposer(
-                    onSend: { threads.sendRouting($0) }
-                )
-                .padding(.horizontal, 20).padding(.vertical, 14)
-                .frame(maxWidth: 680)
-                .frame(maxWidth: .infinity)
-            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ALColor.base)
         // ⌥⌘R toggles the whole conversation between rich markdown and raw selectable
         // source. A zero-size button just to own the keyboard shortcut.
         .background {
@@ -119,18 +135,32 @@ private struct ThreadConversationPane: View {
                 .accessibilityHidden(true)
         }
     }
+}
 
-    private var archivedComposerBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "archivebox").foregroundStyle(ALColor.textFaint)
-            Text("Unarchive to reply")
-                .font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
-            Spacer()
-            Button("Unarchive") { threads.unarchiveThread(thread.id) }
-                .buttonStyle(.alLight)
-        }
-        .padding(.horizontal, 20).padding(.vertical, 14)
-        .frame(maxWidth: .infinity)
+// MARK: - Docked composer (thread-scoped continuation)
+
+/// One composer per thread — pins the last model used so session continuation survives
+/// turn settlement, empty→conversation transitions, and rail switches.
+private struct ThreadDockedComposer: View {
+    @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
+    let thread: WorkThread
+    var big: Bool = false
+
+    private var continuationWorkerId: String? {
+        ThreadsPresenter.continuationWorkerId(
+            for: thread,
+            benchModelIds: Set(appModel.composeBench.map(\.id))
+        )
+    }
+
+    var body: some View {
+        RoutingComposer(
+            big: big,
+            continuationWorkerId: continuationWorkerId,
+            onSend: { threads.sendRouting($0) }
+        )
+        .id(thread.id)
     }
 }
 

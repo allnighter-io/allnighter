@@ -213,6 +213,8 @@ struct RoutingComposer: View {
     var onSend: ((ComposeRouting) -> Void)?
     /// Fired once on the first user edit (Pending review modal un-arms Pending→Draft).
     var onEdit: (() -> Void)?
+    /// Thread-local model to pin when no explicit override — `lastWorkerId` / default.
+    private let continuationWorkerId: String?
 
     init(
         team: String? = nil,
@@ -222,6 +224,7 @@ struct RoutingComposer: View {
         locksTeam: Bool = false,
         showsProject: Bool = false,
         initialText: String = "",
+        continuationWorkerId: String? = nil,
         editorMaxHeight: CGFloat = ComposeEditorMetrics.maxHeight,
         onSend: ((ComposeRouting) -> Void)? = nil,
         onEdit: (() -> Void)? = nil
@@ -232,9 +235,11 @@ struct RoutingComposer: View {
         _targetOpen = State(initialValue: openTarget)
         _text = State(initialValue: initialText)
         _composerFocused = State(initialValue: !initialText.isEmpty)
+        _pinnedWorker = State(initialValue: continuationWorkerId)
         self.big = big
         self.locksTeam = locksTeam
         self.showsProject = showsProject
+        self.continuationWorkerId = continuationWorkerId
         self.editorMaxHeight = editorMaxHeight
         self.onSend = onSend
         self.onEdit = onEdit
@@ -305,6 +310,17 @@ struct RoutingComposer: View {
         .onChange(of: commands.openRoutePickerTick) { _, _ in
             if onSend != nil { targetOpen = true }
         }
+        .onAppear { adoptContinuationWorkerIfNeeded() }
+        .onChange(of: continuationWorkerId) { _, _ in adoptContinuationWorkerIfNeeded() }
+    }
+
+    /// Pin the bench model this thread last spoke through so the chip survives turn
+    /// settlement, empty→conversation transitions, and thread switches.
+    private func adoptContinuationWorkerIfNeeded() {
+        guard !locksTeam, team == nil, let id = continuationWorkerId,
+              appModel.composeBench.contains(where: { $0.id == id }) else { return }
+        pinnedWorker = id
+        targetTab = .model
     }
 
     private var canSend: Bool {

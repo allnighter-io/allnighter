@@ -299,6 +299,14 @@ enum ThreadsPresenter {
 
     // MARK: - Composer
 
+    /// Model the docked composer should pin for session continuation — mirrors the
+    /// worker-chat send resolver's thread-local picks (01_Work_Threads_MLP §Composer).
+    static func continuationWorkerId(for thread: WorkThread, benchModelIds: Set<String>) -> String? {
+        if let d = thread.defaultWorkerId, benchModelIds.contains(d) { return d }
+        if let last = thread.lastWorkerId, benchModelIds.contains(last) { return last }
+        return nil
+    }
+
     /// The composer chip copy, e.g. "Replying as model_opus".
     static func replyingAs(workerId: String?) -> String {
         guard let workerId else { return "No worker available" }

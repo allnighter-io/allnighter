@@ -24,6 +24,13 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
     public var startedAt: Date?
     public var finishedAt: Date?
     public var durationMs: Int?
+    /// Queue wait: ms from the run REQUEST being accepted to the worker CLI actually spawning
+    /// (`startedAt`). Captures write-lock/lane wait + team resolution + context/attachment
+    /// staging — the "nothing's happening yet" gap before the CLI even starts. nil if unmeasured.
+    public var queueMs: Int?
+    /// Time-to-first-token: ms from CLI spawn to the first visible streamed delta. The dead air
+    /// before any text renders. nil on the non-streaming path. (See `WorkerRunOutcome.ttftMs`.)
+    public var ttftMs: Int?
     public var exitCode: Int?
     /// Sourced capacity/cooldown fact from the worker CLI attempt (nonzero exit only).
     public var capacityObservation: CapacityObservation?
@@ -43,6 +50,8 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         startedAt: Date? = nil,
         finishedAt: Date? = nil,
         durationMs: Int? = nil,
+        queueMs: Int? = nil,
+        ttftMs: Int? = nil,
         exitCode: Int? = nil,
         capacityObservation: CapacityObservation? = nil,
         vendorSessionId: String? = nil
@@ -56,6 +65,8 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         self.startedAt = startedAt
         self.finishedAt = finishedAt
         self.durationMs = durationMs
+        self.queueMs = queueMs
+        self.ttftMs = ttftMs
         self.exitCode = exitCode
         self.capacityObservation = capacityObservation
         self.vendorSessionId = vendorSessionId
