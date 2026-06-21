@@ -165,6 +165,12 @@ struct RootView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Make static text across the workspace selectable (Settings, Default
+                // model, readiness, labels). `.textSelection` is inherited by descendant
+                // Text views; Text inside Buttons stays non-selectable, so rows/controls
+                // are unaffected. (Cross-block selection inside a markdown answer still
+                // needs the native text-view renderer — see the chat selection work.)
+                .textSelection(.enabled)
                 if showTeamDropdown || showDoctor {
                     ALColor.scrimSubtle
                         .onTapGesture {
