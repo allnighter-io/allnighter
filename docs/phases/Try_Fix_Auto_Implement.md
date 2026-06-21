@@ -18,6 +18,28 @@ default worker to run the Debugger and fix it. If Allnighter stops at diagnosis,
 it is not faster for non-developers. The missing capability is an explicit,
 safe follow-up from a read-only answer team into a single mutating execution run.
 
+## First-Principles Verdict
+
+Accept:
+
+- Diagnosis and implementation are different run shapes. Bug Hunt stays an
+  answer team; the fix attempt is a child execution run.
+- The handoff must be typed. Markdown can be the human view, but Core needs a
+  parseable `FixPacket` before it can decide whether a child run may start.
+- The chain belongs in Core run policy, not in SwiftUI state or caller-specific
+  glue.
+- The executor prompt must be engineered for "apply this fix and prove it," not
+  a generic implementation prompt with extra context.
+
+Reject:
+
+- Treating any plausible Bug Hunt prose as executable intent.
+- Auto-starting a fix from medium/low confidence packets in v1.
+- Running more than one mutating worker.
+- Hiding two disconnected runs behind optimistic UI; the user must be able to
+  inspect diagnosis -> fix attempt -> proof.
+- Adding a new user-facing workflow noun. This is a run follow-up policy.
+
 ## Founder Intent
 
 - Raw request: add an option on Bug Hunt-style teams so the team can diagnose the
@@ -71,6 +93,11 @@ to try the recommended fix.
   `TeamPreset.mutating`, `RunShape`, and `RunWriteLock`.
 - `TeamRunJSON.nextActions` and `FloorRun.nextActions` already expose typed
   follow-up actions, but they do not yet include a mutating fix attempt.
+- `StagePayload` is already the closed Core union for typed stage truth, but
+  Bug Hunt currently lands as generic plan markdown from `bug_packet_writer`.
+- `SignalInsightParser` already proves the fenced structured-block pattern for
+  extracting typed output from writer markdown; Try Fix should reuse that pattern
+  as an ingestion bridge, not as long-term durable truth.
 - The Debugger operation doc already defines the fix-quality packet:
   tier, symptom/repro, fingerprint, truth owner, lie-prone layer, regression
   considered, missing proof, fix boundary, and proof command.
@@ -83,9 +110,11 @@ Truth owner:
 AllnighterCore follow-up run policy:
   source answer run
   typed FixPacket
+  TryFixGate decision
   chosen executor team
+  fix-attempt prompt assembly
   parent/child run link
-  gate decision
+  proof result projection
 ```
 
 Lie-prone layers:
@@ -101,13 +130,19 @@ New semantic rules:
    through the same CLI/MCP/Core contract.
 2. `Try Fix` never changes the answer team into a writer. The answer team remains
    mechanically read-only.
-3. If the answer run returns a safe `FixPacket`, Allnighter starts exactly one
-   child execution run with the selected executor team.
-4. If the packet is missing required fields or hits a high-risk stop, Allnighter
-   does not execute. It returns an actionable blocked result.
-5. The mutating child run uses the same repo root and takes the repo write lock.
-6. The parent and child runs are linked durably so the Floor can show:
+3. If `Try Fix` was requested and the answer run returns a high-confidence safe
+   `FixPacket`, Allnighter starts exactly one child execution run with the
+   selected executor team.
+4. If `Try Fix` was not requested, a safe packet still produces a typed
+   `tryFix` next action so a past Bug Hunt can be acted on later.
+5. If the packet is missing required fields, has medium/low confidence, or hits
+   a high-risk stop, Allnighter does not execute. It returns an actionable
+   blocked result.
+6. The mutating child run uses the same repo root and takes the repo write lock.
+7. The parent and child runs are linked durably so the Floor can show:
    diagnosis -> fix attempt -> proof.
+8. Proof failure does not trigger an automatic loop. V1 may expose one explicit
+   repair next action that feeds the proof failure back into the same packet.
 
 Duplicate truth to delete:
 
@@ -119,6 +154,18 @@ Duplicate truth to delete:
 ## Fix Packet
 
 Bug Hunt and GUI Bug Hunt need to produce a structured packet, not just prose.
+The writer should append a fenced JSON block:
+
+````text
+```fix-packet
+{ ... }
+```
+````
+
+Core parses that block, validates it, and stores/projects the result as typed
+truth. The fenced block is an ingestion bridge for model output. Durable truth
+should live as a `StagePayload` case or an attached typed return, not as "the plan
+markdown happens to contain a JSON blob."
 
 ```text
 FixPacket
@@ -135,20 +182,27 @@ FixPacket
   fixBoundary
   filesLikelyTouched[]
   proofCommand
+  proofExpectation
+  guiProofFixture?
+  requiresLayoutWatcher: Bool
   riskFlags[]
   stopReason?
 ```
 
-Required for execution:
+Required for automatic execution in v1:
 
-- `confidence != low`
+- answer run status is terminal success, not partial/failed
+- final writer stage is produced by the Bug Packet writer
+- fenced `fix-packet` block parses and validates
+- `confidence == high`
 - `tier != T3 Critical`
 - `truthOwner` non-empty
 - `recommendedFix` non-empty
 - `fixBoundary` non-empty
-- `proofCommand` non-empty, unless the selected executor preset owns proof
-  discovery and the packet explicitly says so
+- `proofCommand` non-empty
 - no high-risk `riskFlags`
+- selected executor team is mutating, runnable, and resolves to exactly one
+  worker/source
 
 High-risk stops:
 
@@ -158,6 +212,63 @@ High-risk stops:
 - destructive process kill, deletion, or git history rewrite
 - App Store, notarization, distribution identity, TestFlight release
 - billing, entitlement, quota-spend behavior, or production deploy
+
+Medium confidence behavior:
+
+```text
+Packet ready, no child run started.
+Reason: confidence is medium.
+Next actions: run deeper Bug Hunt, save packet, or manually inspect.
+```
+
+Low confidence behavior:
+
+```text
+Blocked. No fix attempt.
+```
+
+## Execution Prompt Contract
+
+The child run must receive a fix-attempt prompt, not a generic plan/build prompt.
+The prompt assembler should include:
+
+```text
+Original user bug report
+Typed FixPacket
+Strict instructions:
+  Apply only the recommendedFix within fixBoundary.
+  Inspect the repo before editing.
+  If evidence contradicts the packet, stop and report the conflict.
+  Do not do broad cleanup or opportunistic refactors.
+  Run proofCommand exactly after editing.
+  Record proof output and exit status.
+  If proof fails, stop with the failure output and smallest next theory.
+```
+
+Default executor decision:
+
+- First release should default to `execution_playbook`, because the child needs
+  discipline, proof, and commit behavior.
+- Raw `Auto` may be offered later only if it resolves through a proof-aware
+  execution preset. A raw chat/default route is too weak for this chain.
+- The UI may still present this simply as the user's default fixer once the
+  underlying executor is unambiguous.
+
+## Proof Surface
+
+The fix attempt is not done because files changed. The child run must surface:
+
+- proof command;
+- whether it ran;
+- exit status;
+- relevant stdout/stderr excerpt or artifact reference;
+- GUI fixture and layout-watcher verdict when `requiresLayoutWatcher == true`;
+- files changed / diff artifact when available;
+- commit id when the executor successfully commits.
+
+If the executor cannot run the proof command, the child run is not proven. It
+must expose a typed `runProof` or `retryFixWithProofFailure` next action rather
+than asking the user to infer success.
 
 ## CLI/MCP Surface
 
@@ -189,10 +300,12 @@ JSON additions:
 ```text
 TeamRunJSON / FloorRun
   followUpPolicy?
-    tryFix: Bool
+    tryFixRequested: Bool
     executorTeamId
+    gateStatus: allowed | blocked | notRequested
+    blockedReason?
   links[]
-    kind: diagnosisOf | fixAttemptFor | proofFor
+    kind: diagnosisOf | fixAttemptFor | proofFor | retryOf
     runId
   nextActions[]
     kind: tryFix
@@ -208,7 +321,27 @@ Error codes:
 | `TRY_FIX_PACKET_MISSING` | Answer run did not produce a typed fix packet. |
 | `TRY_FIX_PACKET_UNSAFE` | Packet had missing proof, low confidence, T3 tier, or high-risk flags. |
 | `TRY_FIX_EXECUTOR_INVALID` | Executor team is unknown, non-mutating when mutating is required, or not runnable. |
+| `TRY_FIX_PROOF_FAILED` | Child run edited but the required proof command failed. |
+| `TRY_FIX_PROOF_NOT_RUN` | Child run completed without running the required proof command. |
 | `RUN_WRITE_LOCK_BUSY` | Another mutating run is already editing this repo root. |
+
+Minimal durable model support:
+
+```text
+TeamRun
+  followUpPolicy?
+  parentRunId?
+  relatedRuns[] or links[]
+
+RunLink
+  kind
+  runId
+```
+
+The parent Bug Hunt run records that Try Fix was requested and, when a child
+starts, links to the child. The child records `parentRunId` and links back to the
+diagnosis. `nextActions` are not enough by themselves because they describe what
+can happen, not what did happen.
 
 ## Mac App Impact
 
@@ -217,7 +350,7 @@ Primary entry:
 ```text
 Send to team -> Code / Bug Hunt
 [ ] Try Fix
-Executor: Auto
+Executor: Execution Playbook
 ```
 
 Rules:
@@ -226,18 +359,21 @@ Rules:
   advertise `supportsTryFix`.
 - Default unchecked until the follow-up contract is proven. Later, custom teams
   may save a default through `TeamPreset` / catalog state, not GUI-only state.
-- Executor defaults to `Auto` or `Execution Playbook`; advanced users can change
-  it to a source-scoped implementation team.
+- Show the executor picker only when `Try Fix` is checked.
+- Executor defaults to `Execution Playbook`; advanced users can change it to a
+  source-scoped implementation team that still satisfies the gate.
 - The running state must show two honest phases:
   `Bug Hunt running` then `Fix attempt running`.
 - If blocked, the user sees the missing field or stop reason, not a vague failure.
+- A completed Bug Hunt Floor should expose `Try Fix` as a next action even when
+  the original send did not check the box, provided the packet is safe.
 
 Floor next actions:
 
 ```text
 Try Fix
-Run fix with Auto
 Run fix with Execution Playbook
+Change executor
 Save packet to Pending
 Send packet to another team
 ```
@@ -254,10 +390,13 @@ iOS presents the same contract later:
 ## Driver / Protocol Impact
 
 - No driver runs multiple mutating workers for this feature.
-- The executor receives one prompt containing the typed fix packet plus the user's
-  original bug report and must run in the repo root.
+- The executor receives one assembled fix-attempt prompt containing the typed fix
+  packet plus the user's original bug report and must run in the repo root.
 - Driver permission prompts remain owned by the underlying CLI. Allnighter adds
   the repo write lock and typed follow-up gate, not a second permission layer.
+- Streaming callers must see honest lifecycle for both phases. If answer-run
+  streaming is enabled, the child run may stream as a second phase or at minimum
+  emit sourced terminal child status; it must not fake activity between phases.
 
 ## Inference Bans
 
@@ -268,35 +407,53 @@ iOS presents the same contract later:
 | Answer team -> writer | RunService | All Bug Hunt workers may patch | Child execution run has exactly one worker | `--try-fix` with mixed-source executor is rejected |
 | Risk flags -> proceed | Follow-up gate | Model confidence overrides high-risk stop | High-risk flags block execution | Packet with credentials flag returns `TRY_FIX_PACKET_UNSAFE` |
 | Parent -> child root | RunService | Child can pick a different cwd | Child run uses parent repo root | Test parent/child `repoRoot` equality |
+| Generic execution prompt -> fix attempt | Prompt assembler | Normal implementation prompt is enough | Use fix-attempt prompt contract | Child prompt lacks `proofCommand`; test fails |
+| Changed files -> proof | Child run projection | A diff means fixed | Require proof command outcome | Child edits without proof returns `TRY_FIX_PROOF_NOT_RUN` |
 
 ## Implementation Slices
 
-### TFX-S00 - Contract Packet
+### TFX-S00 - Packet, Parser, Gate
 
-- Add `FixPacket` Core type or structured stage payload.
+- Add `FixPacket` Core type.
+- Add fenced `fix-packet` parser, preferably by extracting a shared fenced-block
+  helper from the existing Signal Insight path.
+- Update Bug Packet writer skills to emit the exact structured block.
+- Add deterministic `TryFixGate` with missing packet, unsafe packet,
+  confidence, T3, invalid executor, and write-lock cases.
+
+### TFX-S01 - Request, Links, Projections
+
 - Add `tryFix` follow-up policy shape to run request contracts.
-- Add `tryFix` next-action kind and error codes to the registry.
-- Regenerate `docs/generated/alln/*`.
-
-### TFX-S01 - Gate And Links
-
-- Add deterministic `TryFixGate`.
 - Add parent/child run links.
-- Prove missing packet, unsafe packet, invalid executor, and write-lock busy cases.
+- Add `tryFix`, `runProof`, and `retryFixWithProofFailure` next-action kinds as
+  needed.
+- Add error codes to the registry and regenerate `docs/generated/alln/*`.
+- Project packet, policy, gate, links, and proof state into `TeamRunJSON` and
+  `FloorRun`.
 
-### TFX-S02 - CLI/MCP Execution
+### TFX-S02 - Core Chain And Prompt
+
+- Wire the chain inside `RunService` or a narrow `FollowUpCoordinator` it owns.
+- Run parent answer team, gate the final writer packet, then start the child
+  execution run when allowed.
+- Assemble the fix-attempt prompt.
+- Record proof command output / status when the executor reports it.
+
+### TFX-S03 - CLI/MCP Execution
 
 - Add `alln run --try-fix --executor <team>` and MCP `team_run.tryFix`.
-- Run parent answer team, gate the packet, then start the child execution run.
-- Return both run ids and the child status in JSON.
+- Return parent run id, child run id when started, gate status, blocked reason,
+  and proof status in JSON.
+- Stream or terminally report both phases without fake progress.
 
-### TFX-S03 - Mac Checkbox
+### TFX-S04 - Mac Checkbox
 
 - Add the `Try Fix` checkbox to eligible team sends.
-- Add executor selection with `Auto` as the simple default.
+- Add progressive executor selection with `Execution Playbook` as the simple
+  default.
 - Render parent/child progress and Floor next actions.
 
-### TFX-S04 - Proof Failure Recovery
+### TFX-S05 - Proof Failure Recovery
 
 - If the child proof fails, show the failure and expose a typed next action:
   `Retry fix with proof failure`.
@@ -330,8 +487,12 @@ Assertions:
 - child run is mutating and has exactly one worker;
 - parent and child share the same repo root;
 - child run is blocked when `RunWriteLock` is held;
+- medium-confidence packet does not start a child run;
 - unsafe packet does not start a child run;
-- final JSON exposes parent/child links and exact next actions.
+- missing fenced packet does not start a child run;
+- child records proof command, exit status, and output/artifact reference;
+- final JSON exposes parent/child links, gate state, proof state, and exact next
+  actions.
 
 Missing proof / waiver:
 
@@ -340,19 +501,24 @@ Missing proof / waiver:
 ## Done When
 
 - `Try Fix` is available through CLI/MCP before the Mac checkbox.
-- Bug Hunt-style teams can emit a typed `FixPacket`.
+- Bug Hunt-style teams emit a typed `FixPacket` through a validated structured
+  block and Core stores/projects it as typed truth.
 - Unsafe or incomplete packets block without starting a mutating run.
 - Safe packets start exactly one child execution run under the repo write lock.
-- The Floor shows diagnosis, fix attempt, proof output, and failure recovery.
+- The child prompt is a fix-attempt prompt with proof instructions, not generic
+  implementation prose.
+- The Floor shows diagnosis, fix attempt, proof command/output, parent/child
+  links, and failure recovery.
 - Generated contracts and fixture round-trips are updated.
 - Works Test passes locally.
 
 ## Open Questions
 
-- Should the default executor be `Auto` or `Execution Playbook`?
+- Should `FixPacket` be a new `StagePayload` case, a typed attachment on
+  `FloorReturn`, or both?
 - Should built-in Bug Hunt default `Try Fix` off forever, or allow the user to
   save it on for custom duplicates?
-- Should `confidence == medium` execute by default, or require `high` for the
-  first release?
+- Can `execution_playbook` resolve through the user's default execution worker,
+  or do we need a dedicated `fix_attempt` execution preset?
 - Is one explicit repair attempt enough for proof failures, or should that wait
   for a later workflow/loop product?

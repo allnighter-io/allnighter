@@ -40,6 +40,17 @@ struct ALDropdown: View {
     var onPick: (String) -> Void
 
     @State private var open = false
+    /// Keyboard/hover highlight; starts on the current selection.
+    @State private var highlighted = 0
+
+    /// Sorted A→Z and DEDUPED by label — the "Auto" sentinel and a concrete model also
+    /// named "Auto" (Cursor's Auto) collapse to one row instead of two (handoff bug #2).
+    private var rows: [(String, String)] {
+        var seen = Set<String>()
+        return options
+            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
+            .filter { seen.insert($0.1.lowercased()).inserted }
+    }
 
     var body: some View {
         Button { open.toggle() } label: {
@@ -60,21 +71,25 @@ struct ALDropdown: View {
         .alPopover(isPresented: $open, arrowEdge: .bottom) {
             ScrollView {
                 VStack(spacing: 1) {
-                    ForEach(options.sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }, id: \.0) { id, label in
+                    ForEach(Array(rows.enumerated()), id: \.element.0) { idx, row in
+                        let (id, label) = row
                         Button { onPick(id); open = false } label: {
                             HStack(spacing: 8) {
                                 Text(label).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                                 Spacer(minLength: 8)
+                                // Checkmark marks the actual selection; the background is
+                                // the keyboard/hover highlight (selected ≠ highlighted).
                                 if label == current {
                                     Image(systemName: "checkmark").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
                                 }
                             }
                             .padding(.horizontal, 9).padding(.vertical, 7)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(label == current ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                            .background(idx == highlighted ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .onHover { if $0 { highlighted = idx } }
                     }
                 }
                 .padding(6)
@@ -82,6 +97,23 @@ struct ALDropdown: View {
             .frame(width: width)
             .frame(maxHeight: 300)
             .background(ALColor.surface)
+            .overlay(keyMonitor.allowsHitTesting(false))
+            .onAppear { highlighted = rows.firstIndex { $0.1 == current } ?? 0 }
+        }
+    }
+
+    /// ↑/↓/⏎/esc via the AppKit key monitor (SwiftUI key focus doesn't fire in an
+    /// NSPopover, and this dropdown has no search field to host it).
+    private var keyMonitor: some View {
+        let rows = self.rows
+        return PopoverKeyCatcher { action in
+            switch action {
+            case .up: if !rows.isEmpty { highlighted = (highlighted - 1 + rows.count) % rows.count }
+            case .down: if !rows.isEmpty { highlighted = (highlighted + 1) % rows.count }
+            case .enter: if rows.indices.contains(highlighted) { onPick(rows[highlighted].0); open = false }
+            case .escape: open = false
+            }
+            return true
         }
     }
 }
