@@ -57,6 +57,12 @@ public struct RemoteSnapshotService: Sendable {
             return .snapshot(try snapshot(since: seq))
         }
 
+        guard seq <= (try journal.lastSeq()) else {
+            return .resyncRequired(ResyncRequired(
+                reason: "cursorAheadOfJournal",
+                snapshotHint: "Fetch a snapshot, then resume from its lastSeq."
+            ))
+        }
         let replay = try journal.replay(after: seq, limit: replayProbeLimit)
         guard replay.events.count <= policy.replayEventLimit else {
             return .resyncRequired(ResyncRequired(

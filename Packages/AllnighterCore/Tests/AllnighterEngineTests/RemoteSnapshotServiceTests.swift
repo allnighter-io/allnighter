@@ -162,6 +162,26 @@ final class RemoteSnapshotServiceTests: XCTestCase {
         XCTAssertEqual(resync.snapshotHint, "Fetch a snapshot, then resume from its lastSeq.")
     }
 
+    func testResumeRequiresResyncWhenCursorIsAheadOfJournal() throws {
+        let root = tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let journal = RemoteRunEventJournal(rootDirectory: root)
+        _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
+        let fixedNow = now
+
+        let service = RemoteSnapshotService(
+            runStore: RunStore(rootDirectory: root),
+            journal: journal,
+            now: { fixedNow }
+        )
+        guard case let .resyncRequired(resync) = try service.resume(since: 99) else {
+            return XCTFail("Expected an ahead cursor to require a snapshot resync")
+        }
+
+        XCTAssertEqual(resync.reason, "cursorAheadOfJournal")
+        XCTAssertEqual(resync.snapshotHint, "Fetch a snapshot, then resume from its lastSeq.")
+    }
+
     private static func run(
         id: String,
         prompt: String,
