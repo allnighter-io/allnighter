@@ -48,7 +48,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
         macSigningKey: Curve25519.Signing.PrivateKey,
         macSealingKey: Curve25519.KeyAgreement.PrivateKey,
         auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
-        eventCursorStore: RemoteMacAgentEventCursorStore = RemoteMacAgentEventCursorStore(),
+        eventCursorStore: RemoteMacAgentEventCursorStore? = nil,
         routerPolicy: RemoteCommandRouterPolicy = .default,
         pollPolicy: RemoteMacAgentPollPolicy = RemoteMacAgentPollPolicy(),
         sleeper: any RemoteMacAgentSleeping = DefaultRemoteMacAgentSleeper(),
@@ -70,7 +70,10 @@ public struct RemoteMacAgentBootstrap: Sendable {
         self.macSigningKey = macSigningKey
         self.macSealingKey = macSealingKey
         self.auditRecorder = auditRecorder
-        self.eventCursorStore = eventCursorStore
+        self.eventCursorStore = eventCursorStore ?? RemoteMacAgentEventCursorStore.scoped(
+            accountId: account.accountId,
+            macAgentId: macAgentId
+        )
         self.routerPolicy = routerPolicy
         self.pollPolicy = pollPolicy
         self.sleeper = sleeper

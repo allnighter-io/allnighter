@@ -14,6 +14,14 @@ public struct RemoteMacAgentEventCursorStore: Sendable {
         )
     }
 
+    public static func scoped(accountId: String, macAgentId: String) -> RemoteMacAgentEventCursorStore {
+        RemoteMacAgentEventCursorStore(
+            fileURL: AllnighterPaths.coordinator.appendingPathComponent(
+                "remote_event_publish_cursor_\(safePathComponent(accountId))_\(safePathComponent(macAgentId)).json"
+            )
+        )
+    }
+
     public func load() throws -> Int64 {
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
@@ -46,6 +54,12 @@ public struct RemoteMacAgentEventCursorStore: Sendable {
     private var lockURL: URL {
         fileURL.deletingLastPathComponent()
             .appendingPathComponent("\(fileURL.lastPathComponent).lock")
+    }
+
+    private static func safePathComponent(_ raw: String) -> String {
+        let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+        let sanitized = String(raw.map { allowed.contains($0) ? $0 : "_" })
+        return sanitized.isEmpty ? "unknown" : sanitized
     }
 
     private struct State: Codable, Equatable, Sendable {

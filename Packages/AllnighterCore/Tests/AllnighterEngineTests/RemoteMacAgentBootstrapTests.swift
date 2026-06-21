@@ -142,6 +142,21 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         ])
     }
 
+    func testBootstrapScopesDefaultEventCursorStoreByAccountAndMac() {
+        let first = defaultCursorBootstrap(accountId: "acct/one", macAgentId: "mac/one")
+        let second = defaultCursorBootstrap(accountId: "acct/two", macAgentId: "mac/two")
+
+        XCTAssertNotEqual(first.eventCursorStore.fileURL, second.eventCursorStore.fileURL)
+        XCTAssertEqual(
+            first.eventCursorStore.fileURL.lastPathComponent,
+            "remote_event_publish_cursor_acct_one_mac_one.json"
+        )
+        XCTAssertEqual(
+            second.eventCursorStore.fileURL.lastPathComponent,
+            "remote_event_publish_cursor_acct_two_mac_two.json"
+        )
+    }
+
     private func makeBootstrap(
         relay: RemoteMacRelay,
         runStore: RunStore,
@@ -172,6 +187,24 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
             sleeper: sleeper,
             now: { fixedNow },
             observe: observe
+        )
+    }
+
+    private func defaultCursorBootstrap(accountId: String, macAgentId: String) -> RemoteMacAgentBootstrap {
+        let fixedNow = now
+        return RemoteMacAgentBootstrap(
+            account: RemoteAccountSession(accountId: accountId, provider: .apple),
+            macAgentId: macAgentId,
+            displayName: "Studio Mac",
+            relay: MockRemoteMacRelay(),
+            trustedStore: TrustedRemoteStore(fileURL: root.appendingPathComponent("trusted_\(macAgentId).json")),
+            dedupeStore: RemoteRequestDedupeStore(fileURL: root.appendingPathComponent("dedupe_\(macAgentId).json")),
+            runStore: RunStore(rootDirectory: root.appendingPathComponent("runs_\(macAgentId)", isDirectory: true)),
+            journal: RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("journal_\(macAgentId)", isDirectory: true)),
+            executor: BootstrapRemoteExecutor(now: now),
+            macSigningKey: macSigningKey,
+            macSealingKey: macSealingKey,
+            now: { fixedNow }
         )
     }
 
