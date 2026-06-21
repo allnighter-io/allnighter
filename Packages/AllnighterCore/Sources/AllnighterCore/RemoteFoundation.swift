@@ -429,9 +429,7 @@ public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable
 
     public init(macAgentId: String = "", event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
         self.macAgentId = macAgentId
-        var remoteEvent = event
-        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
-        self.event = remoteEvent
+        self.event = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         self.sealedRef = sealedRef
         self.signature = signature
     }
@@ -518,6 +516,69 @@ public struct RemoteAuditEvent: Codable, Equatable, Sendable {
         self.requestId = requestId
         self.targetSummary = String(targetSummary.prefix(Self.targetSummaryLimit))
         self.outcome = outcome
+    }
+}
+
+public enum RemoteRunEventPrivacy {
+    public static let allowedLightPayloadKeys: Set<String> = [
+        "durationMs",
+        "errorKind",
+        "exitCode",
+        "from",
+        "modelId",
+        "origin",
+        "presetId",
+        "purpose",
+        "runId",
+        "sealedRef",
+        "skillId",
+        "stageId",
+        "status",
+        "to",
+        "truncated",
+        "workerId",
+    ]
+
+    public static let forbiddenPayloadKeys: Set<String> = [
+        "answer",
+        "body",
+        "content",
+        "context",
+        "image",
+        "images",
+        "markdown",
+        "output",
+        "outputs",
+        "plan",
+        "plans",
+        "plaintext",
+        "prompt",
+        "promptExcerpt",
+        "raw",
+        "reason",
+        "reasoning",
+        "text",
+    ]
+
+    public static func contentLight(_ event: RunEvent, sealedRef: MediaRef? = nil) -> RunEvent {
+        var remoteEvent = event
+        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
+        remoteEvent.payload = contentLightPayload(event.payload, sealedRef: sealedRef)
+        return remoteEvent
+    }
+
+    public static func contentLightPayload(
+        _ payload: [String: JSONValue],
+        sealedRef: MediaRef? = nil
+    ) -> [String: JSONValue] {
+        var filtered: [String: JSONValue] = [:]
+        for (key, value) in payload where allowedLightPayloadKeys.contains(key) && value.isRemoteLightScalar {
+            filtered[key] = value
+        }
+        if let sealedRef {
+            filtered["sealedRef"] = .string(sealedRef.ref)
+        }
+        return filtered
     }
 }
 
@@ -743,8 +804,7 @@ public enum RemoteCrypto {
         signingKey: Curve25519.Signing.PrivateKey,
         method: String = RemoteProtocol.eventMethod
     ) throws -> RemoteRunEventEnvelope {
-        var remoteEvent = event
-        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
+        let remoteEvent = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         let digest = try remoteEventDigest(macAgentId: macAgentId, event: remoteEvent, sealedRef: sealedRef)
         let signingString = eventSigningString(
             macAgentId: macAgentId,
@@ -858,6 +918,17 @@ private struct RemoteEventSigningBody: Codable, Sendable {
     var macAgentId: String
     var event: RunEvent
     var sealedRef: MediaRef?
+}
+
+private extension JSONValue {
+    var isRemoteLightScalar: Bool {
+        switch self {
+        case .string, .int, .double, .bool, .null:
+            return true
+        case .array, .object:
+            return false
+        }
+    }
 }
 
 public enum RemoteMediaCrypto {

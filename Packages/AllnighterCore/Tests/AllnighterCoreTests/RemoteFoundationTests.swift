@@ -188,6 +188,41 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertFalse(try RemoteCrypto.verifyRemoteRunEventEnvelope(tampered, signingPublicKeyBase64: publicKey))
     }
 
+    func testRemoteEventEnvelopeStripsSensitivePayloadBeforeSigning() throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let publicKey = RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey)
+        let event = RunEvent(
+            id: "evt_secret",
+            seq: 2,
+            ts: Date(timeIntervalSince1970: 1_750_000_001),
+            kind: RunEventKind.workerAnswerDelta,
+            payload: [
+                "runId": .string("run_1"),
+                "workerId": .string("worker_1"),
+                "text": .string("secret streamed answer"),
+                "reason": .string("contains local CLI details"),
+                "truncated": .bool(false),
+                "metadata": .object(["prompt": .string("hidden")]),
+            ]
+        )
+
+        let envelope = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: event,
+            signingKey: signingKey
+        )
+
+        XCTAssertEqual(envelope.event.payload["runId"], .string("run_1"))
+        XCTAssertEqual(envelope.event.payload["workerId"], .string("worker_1"))
+        XCTAssertEqual(envelope.event.payload["truncated"], .bool(false))
+        XCTAssertNil(envelope.event.payload["text"])
+        XCTAssertNil(envelope.event.payload["reason"])
+        XCTAssertNil(envelope.event.payload["metadata"])
+        XCTAssertTrue(Set(envelope.event.payload.keys).isDisjoint(with: RemoteRunEventPrivacy.forbiddenPayloadKeys))
+        XCTAssertFalse(String(decoding: try CoreJSON.encode(envelope), as: UTF8.self).contains("secret streamed answer"))
+        XCTAssertTrue(try RemoteCrypto.verifyRemoteRunEventEnvelope(envelope, signingPublicKeyBase64: publicKey))
+    }
+
     func testHPKESealedBlobRoundTripsAndCarriesNoPlaintext() throws {
         let recipient = Curve25519.KeyAgreement.PrivateKey()
         let recipientPublicKey = RemoteCrypto.sealingPublicKeyBase64(recipient.publicKey)
@@ -412,7 +447,7 @@ final class RemoteFoundationTests: XCTestCase {
 
         let state = RemoteRunReducer.apply(snapshot: snapshot, events: [started])
         XCTAssertEqual(state.run(id: "run_new")?.status, .running)
-        XCTAssertEqual(state.run(id: "run_new")?.promptExcerpt, "Start fresh")
+        XCTAssertEqual(state.run(id: "run_new")?.promptExcerpt, "")
         XCTAssertEqual(state.lastSeq, 1)
     }
 
