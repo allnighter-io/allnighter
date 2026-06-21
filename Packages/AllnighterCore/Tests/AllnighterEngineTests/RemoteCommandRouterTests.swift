@@ -102,6 +102,29 @@ final class RemoteCommandRouterTests: XCTestCase {
         XCTAssertEqual(result.auditEvent.targetSummary, "stopRun runId=run_1")
     }
 
+    func testOversizedLightPayloadIsRejectedBeforeExecutor() async throws {
+        try trustDevice(capabilities: [.stopRun])
+        let executor = CapturingRemoteExecutor(now: now)
+        await executor.setKnownRunIds(["run_1"])
+        let router = makeRouter(
+            executor: executor,
+            policy: RemoteCommandRouterPolicy(maxLightPayloadBytes: 8)
+        )
+        let command = try signedCommand(
+            requestId: "req_large_stop",
+            kind: .stopRun,
+            payload: .light(["runId": .string("run_1")])
+        )
+
+        let result = try await router.route(command)
+
+        XCTAssertFalse(result.ack.accepted)
+        XCTAssertEqual(result.ack.reason, .payloadTooLarge)
+        XCTAssertTrue(try verifyAck(result.ack))
+        let stoppedRunIds = await executor.stoppedRunIds()
+        XCTAssertEqual(stoppedRunIds, [])
+    }
+
     func testStopAllIsNotCapabilityGatedAndReturnsTerminatedCount() async throws {
         try trustDevice(capabilities: [])
         let executor = CapturingRemoteExecutor(now: now)
@@ -135,7 +158,31 @@ final class RemoteCommandRouterTests: XCTestCase {
         XCTAssertEqual(stopAllCallCount, 1)
     }
 
-    private func makeRouter(executor: CapturingRemoteExecutor) -> RemoteCommandRouter {
+    func testPerDeviceRateLimitRejectsSecondDistinctCommand() async throws {
+        try trustDevice(capabilities: [])
+        let executor = CapturingRemoteExecutor(now: now)
+        let router = makeRouter(
+            executor: executor,
+            policy: RemoteCommandRouterPolicy(maxCommandsPerDevicePerWindow: 1, rateLimitWindow: 60)
+        )
+        let firstCommand = try signedCommand(requestId: "req_rate_1", kind: .stopAll, payload: .empty)
+        let secondCommand = try signedCommand(requestId: "req_rate_2", kind: .stopAll, payload: .empty)
+
+        let first = try await router.route(firstCommand)
+        let second = try await router.route(secondCommand)
+
+        XCTAssertTrue(first.ack.accepted)
+        XCTAssertFalse(second.ack.accepted)
+        XCTAssertEqual(second.ack.reason, .rateLimited)
+        XCTAssertTrue(try verifyAck(second.ack))
+        let stopAllCallCount = await executor.stopAllCallCount()
+        XCTAssertEqual(stopAllCallCount, 1)
+    }
+
+    private func makeRouter(
+        executor: CapturingRemoteExecutor,
+        policy: RemoteCommandRouterPolicy = .default
+    ) -> RemoteCommandRouter {
         let fixedNow = now
         return RemoteCommandRouter(
             macAgentId: "mac_1",
@@ -144,7 +191,8 @@ final class RemoteCommandRouterTests: XCTestCase {
             executor: executor,
             macSigningKey: macSigningKey,
             macSealingKey: macSealingKey,
-            now: { fixedNow }
+            now: { fixedNow },
+            policy: policy
         )
     }
 

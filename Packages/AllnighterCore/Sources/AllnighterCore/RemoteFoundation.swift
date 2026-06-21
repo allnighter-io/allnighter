@@ -216,6 +216,8 @@ public enum RemoteCommandRejectReason: String, Codable, Sendable, CaseIterable {
     case badSignature
     case upgradeRequired
     case invalidPayload
+    case payloadTooLarge
+    case rateLimited
 }
 
 public struct CommandAck: Codable, Equatable, Sendable {

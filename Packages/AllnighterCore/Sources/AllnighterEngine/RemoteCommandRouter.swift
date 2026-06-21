@@ -55,6 +55,31 @@ public struct RemoteCommandRoutingResult: Equatable, Sendable {
     }
 }
 
+public struct RemoteCommandRouterPolicy: Equatable, Sendable {
+    public static let `default` = RemoteCommandRouterPolicy()
+
+    public var maxLightPayloadBytes: Int
+    public var maxSealedPayloadBytes: Int
+    public var maxCommandsPerDevicePerWindow: Int
+    public var rateLimitWindow: TimeInterval
+
+    public init(
+        maxLightPayloadBytes: Int = 16 * 1024,
+        maxSealedPayloadBytes: Int = 256 * 1024,
+        maxCommandsPerDevicePerWindow: Int = 120,
+        rateLimitWindow: TimeInterval = 60
+    ) {
+        self.maxLightPayloadBytes = max(0, maxLightPayloadBytes)
+        self.maxSealedPayloadBytes = max(0, maxSealedPayloadBytes)
+        self.maxCommandsPerDevicePerWindow = max(1, maxCommandsPerDevicePerWindow)
+        if rateLimitWindow.isFinite, rateLimitWindow > 0 {
+            self.rateLimitWindow = rateLimitWindow
+        } else {
+            self.rateLimitWindow = 60
+        }
+    }
+}
+
 public struct RemoteSeenRequest: Codable, Equatable, Sendable {
     public var requestId: String
     public var seenAt: Date
@@ -149,6 +174,9 @@ public final class RemoteCommandRouter: @unchecked Sendable {
     private let macSealingKey: Curve25519.KeyAgreement.PrivateKey
     private let now: @Sendable () -> Date
     private let skewWindow: TimeInterval
+    private let policy: RemoteCommandRouterPolicy
+    private let rateLimitLock = NSLock()
+    private var rateLimitHitsByDevice: [String: [Date]] = [:]
 
     public init(
         macAgentId: String,
@@ -158,7 +186,8 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         macSigningKey: Curve25519.Signing.PrivateKey,
         macSealingKey: Curve25519.KeyAgreement.PrivateKey,
         now: @escaping @Sendable () -> Date = Date.init,
-        skewWindow: TimeInterval = 60
+        skewWindow: TimeInterval = 60,
+        policy: RemoteCommandRouterPolicy = .default
     ) {
         self.macAgentId = macAgentId
         self.trustedStore = trustedStore
@@ -168,6 +197,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         self.macSealingKey = macSealingKey
         self.now = now
         self.skewWindow = skewWindow
+        self.policy = policy
     }
 
     public func route(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandRoutingResult {
@@ -197,6 +227,9 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         guard abs(command.assertion.timestamp.timeIntervalSince(serverTime)) <= skewWindow else {
             return try rejected(command, reason: .clockSkew, serverTime: serverTime, includeServerTime: true)
         }
+        guard try payloadFitsPolicy(command.payload) else {
+            return try rejected(command, reason: .payloadTooLarge, serverTime: serverTime)
+        }
         guard try RemoteCrypto.payloadDigest(command.payload) == command.assertion.payloadSHA256 else {
             return try rejected(command, reason: .badSignature, serverTime: serverTime)
         }
@@ -225,6 +258,9 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         if try dedupeStore.containsOrRecord(requestId: command.requestId, now: serverTime, window: skewWindow) {
             return try rejected(command, reason: .replayedRequestId, outcome: .duplicate, serverTime: serverTime)
         }
+        guard recordRateLimitHit(deviceId: trustedDevice.deviceId, at: serverTime) else {
+            return try rejected(command, reason: .rateLimited, serverTime: serverTime)
+        }
 
         switch command.kind {
         case .startRun:
@@ -236,6 +272,32 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         case .approveRequest, .rejectRequest, .openOnMac, .landPlane:
             return try rejected(command, reason: .unauthorizedKind, serverTime: serverTime)
         }
+    }
+
+    private func payloadFitsPolicy(_ payload: RemoteCommandPayload) throws -> Bool {
+        switch payload.kind {
+        case .empty:
+            return true
+        case .lightJSON:
+            return try CoreJSON.encode(payload).count <= policy.maxLightPayloadBytes
+        case .sealedBlob:
+            return try CoreJSON.encode(payload).count <= policy.maxSealedPayloadBytes
+        }
+    }
+
+    private func recordRateLimitHit(deviceId: String, at serverTime: Date) -> Bool {
+        rateLimitLock.lock()
+        defer { rateLimitLock.unlock() }
+
+        let cutoff = serverTime.addingTimeInterval(-policy.rateLimitWindow)
+        var hits = rateLimitHitsByDevice[deviceId, default: []].filter { $0 >= cutoff }
+        guard hits.count < policy.maxCommandsPerDevicePerWindow else {
+            rateLimitHitsByDevice[deviceId] = hits
+            return false
+        }
+        hits.append(serverTime)
+        rateLimitHitsByDevice[deviceId] = hits
+        return true
     }
 
     private func routeStartRun(
