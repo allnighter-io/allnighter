@@ -64,7 +64,7 @@ private struct ComposeFileReference: Identifiable, Equatable {
     var id: String { path }
 }
 
-enum PopoverKeyAction { case up, down, enter, escape }
+enum PopoverKeyAction { case up, down, enter, escape, tab }
 
 /// Forwards ↑/↓/⏎/esc inside an NSPopover via a local NSEvent monitor — reliable where
 /// SwiftUI `.onKeyPress` doesn't fire, and (unlike a first-responder catcher) it does NOT
@@ -105,6 +105,7 @@ struct PopoverKeyCatcher: NSViewRepresentable {
                 case 125: action = .down
                 case 36, 76: action = .enter
                 case 53: action = .escape
+                case 48: action = .tab
                 default: action = nil
                 }
                 if let action, self.handle?(action) == true { return nil }
@@ -285,6 +286,14 @@ struct RoutingComposer: View {
         // Switching teams drops any explicit worker pin so the chip names THAT team's
         // worker, never a stale override.
         .onChange(of: team) { _, _ in pinnedWorker = nil }
+        // ⌘L — focus the composer editor from anywhere (only a real send composer).
+        .onChange(of: commands.focusComposerTick) { _, _ in
+            if onSend != nil { composerFocused = true }
+        }
+        // ⌘/ — open the model/team routing picker on the active send composer.
+        .onChange(of: commands.openRoutePickerTick) { _, _ in
+            if onSend != nil { targetOpen = true }
+        }
     }
 
     private var canSend: Bool {
@@ -977,6 +986,9 @@ struct RoutingComposer: View {
                 if count > 0 { targetHighlight = (targetHighlight + 1) % count }
             case .escape:
                 targetOpen = false
+            case .tab:
+                // ⇥ toggles Model ⇄ Team (only when both tabs are shown).
+                if !locksTeam { targetTab = (targetTab == .model) ? .team : .model }
             case .enter:
                 guard items.indices.contains(targetHighlight) else { return true }
                 switch items[targetHighlight] {
@@ -1318,6 +1330,7 @@ struct RoutingComposer: View {
             case .down: effortHighlight = all[(idx + 1) % all.count]
             case .enter: effort = effortHighlight ?? effort; effortOpen = false
             case .escape: effortOpen = false
+            case .tab: return false   // no tabs here — let Tab pass through
             }
             return true
         }

@@ -24,6 +24,21 @@ final class CommandCenterTests: XCTestCase {
         XCTAssertEqual(cmd.shortcutLabel, "⌥⇧⌘K")
     }
 
+    func testShortcutLabelRendersFunctionAndSpecialKeys() {
+        // F2 used to render as "⌘?" — the bug this fixes.
+        let f2 = KeyEquivalent(Character(UnicodeScalar(0xF705)!))
+        XCTAssertEqual(command("rename", "Rename", key: f2, modifiers: []).shortcutLabel, "F2")
+        XCTAssertEqual(command("up", "Up", key: .upArrow).shortcutLabel, "⌘↑")
+        XCTAssertEqual(command("ret", "Send", key: .return).shortcutLabel, "⌘↩")
+        XCTAssertEqual(command("pick", "Picker", key: "/").shortcutLabel, "⌘/")
+    }
+
+    func testDefaultBindingCapturesKeyAndModifiers() {
+        let cmd = command("x", "X", key: "k", modifiers: [.command, .shift])
+        XCTAssertEqual(cmd.defaultBinding, KeyBinding(key: "k", modifiers: [.command, .shift]))
+        XCTAssertNotEqual(cmd.defaultBinding, KeyBinding(key: "k", modifiers: [.command]))
+    }
+
     func testPaletteHidesHiddenCommandsButMenuKeepsThem() {
         let all = [
             command("new", "New run", key: "n"),

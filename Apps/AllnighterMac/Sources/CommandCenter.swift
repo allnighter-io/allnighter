@@ -17,6 +17,10 @@ final class CommandCenter {
     var focusSearchTick = 0
     /// Bumped by F2; the selected thread header title field focuses.
     var focusRenameTick = 0
+    /// Bumped by ⌘L; the visible composer focuses its editor.
+    var focusComposerTick = 0
+    /// Bumped by ⌘/; the visible composer opens its model/team routing picker.
+    var openRoutePickerTick = 0
     /// Set by the composer's "Customize…"; RootView opens Team Studio at this
     /// lane's Teams page with the team selected (its editor), then clears it.
     var customizeTeamRequest: CustomizeTeamRequest?
@@ -26,6 +30,19 @@ final class CommandCenter {
 struct CustomizeTeamRequest: Equatable {
     let lane: ComposeLane
     let teamId: String
+}
+
+/// A resolved key binding (key + modifiers). Lets the future Settings page
+/// (KBD-S06) record an override and reset losslessly to a command's
+/// `defaultBinding`. Equatable by the key's character + the modifier set
+/// (`KeyEquivalent` itself isn't reliably Equatable across SDKs).
+struct KeyBinding: Equatable {
+    var key: KeyEquivalent
+    var modifiers: EventModifiers
+
+    static func == (lhs: KeyBinding, rhs: KeyBinding) -> Bool {
+        lhs.key.character == rhs.key.character && lhs.modifiers == rhs.modifiers
+    }
 }
 
 /// One keyboard-triggerable action. Title, symbol, and shortcut live here once so
@@ -40,15 +57,41 @@ struct AppCommand: Identifiable {
     var hiddenInPalette = false
     let run: () -> Void
 
-    /// Human-readable accelerator, e.g. "⌘1" / "⇧⌘K", for palette rows.
+    /// This command's shipped binding — the reset target for a user override.
+    var defaultBinding: KeyBinding { KeyBinding(key: key, modifiers: modifiers) }
+
+    /// Human-readable accelerator, e.g. "⌘1" / "⇧⌘K" / "F2", for palette rows.
     var shortcutLabel: String {
         var out = ""
         if modifiers.contains(.control) { out += "⌃" }
         if modifiers.contains(.option) { out += "⌥" }
         if modifiers.contains(.shift) { out += "⇧" }
         if modifiers.contains(.command) { out += "⌘" }
-        out += String(key.character).uppercased()
+        out += Self.glyph(for: key)
         return out
+    }
+
+    /// Render special keys as their canonical glyphs — function (`F2`), arrows,
+    /// return, delete, escape, tab, space — instead of upper-casing a private-use
+    /// scalar (the old code turned F2 into "?"). Printable keys upper-case as before.
+    static func glyph(for key: KeyEquivalent) -> String {
+        let character = key.character
+        if let scalar = character.unicodeScalars.first {
+            switch scalar.value {
+            case 0xF700: return "↑"
+            case 0xF701: return "↓"
+            case 0xF702: return "←"
+            case 0xF703: return "→"
+            case 0xF704...0xF70F: return "F\(scalar.value - 0xF704 + 1)"
+            case 0x0D, 0x03: return "↩"   // return / enter
+            case 0x7F, 0x08: return "⌫"   // delete / backspace
+            case 0x1B: return "⎋"          // escape
+            case 0x09: return "⇥"          // tab
+            case 0x20: return "Space"
+            default: break
+            }
+        }
+        return String(character).uppercased()
     }
 }
 

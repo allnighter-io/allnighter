@@ -112,6 +112,7 @@ struct ALDropdown: View {
             case .down: if !rows.isEmpty { highlighted = (highlighted + 1) % rows.count }
             case .enter: if rows.indices.contains(highlighted) { onPick(rows[highlighted].0); open = false }
             case .escape: open = false
+            case .tab: return false   // no tabs here — let Tab pass through
             }
             return true
         }

@@ -43,12 +43,33 @@ struct RootView: View {
                 threads.newRun()
                 commands.palettePresented = false
             },
+            AppCommand(id: "focus-composer", title: "Focus composer", symbol: "text.cursor", key: "l") {
+                commands.focusComposerTick += 1
+                commands.palettePresented = false
+            },
+            AppCommand(id: "go-inbox", title: "Go to Inbox", symbol: "tray", key: "1") {
+                routeTo(.inbox)
+                commands.palettePresented = false
+            },
+            AppCommand(id: "go-teams", title: "Go to Teams", symbol: "person.2", key: "2") {
+                routeTo(.teams)
+                commands.palettePresented = false
+            },
+            AppCommand(id: "go-pending", title: "Go to Pending", symbol: "clock", key: "3") {
+                showPending = true
+                pendingVM?.refresh()
+                commands.palettePresented = false
+            },
+            AppCommand(id: "open-route-picker", title: "Choose model or team", symbol: "slider.horizontal.3", key: "/") {
+                commands.openRoutePickerTick += 1
+                commands.palettePresented = false
+            },
             AppCommand(id: "focus-search", title: "Search conversations", symbol: "magnifyingglass", key: "f") {
                 commands.focusSearchTick += 1
                 commands.palettePresented = false
             },
             AppCommand(id: "rename-thread", title: "Rename thread", symbol: "pencil",
-                       key: KeyEquivalent(Character(UnicodeScalar(0xF705)!))) {
+                       key: KeyEquivalent(Character(UnicodeScalar(0xF705)!)), modifiers: []) {
                 commands.focusRenameTick += 1
                 commands.palettePresented = false
             },
