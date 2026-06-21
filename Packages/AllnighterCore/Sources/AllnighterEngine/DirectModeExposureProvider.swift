@@ -1,4 +1,5 @@
 import Foundation
+import AllnighterCore
 
 public enum DirectModeExposureTransport: String, Codable, Sendable, CaseIterable {
     case tailscaleHTTPS
@@ -169,5 +170,121 @@ public struct TailscaleExposureProvider: ExposureProvider {
             throw DirectModeExposureError.invalidHost(host)
         }
         return trimmed
+    }
+}
+
+public enum DirectModeReadinessKind: String, Codable, Sendable, CaseIterable {
+    case ready
+    case loopbackOnly
+    case tailnetHTTPFallback
+    case tailscaleUnavailable
+    case httpsCertificateUnavailable
+}
+
+public struct DirectModeReadiness: Equatable, Sendable {
+    public var kind: DirectModeReadinessKind
+    public var ok: Bool
+    public var checkedCommand: [String]?
+    public var detail: String?
+    public var nextAction: String?
+
+    public init(
+        kind: DirectModeReadinessKind,
+        ok: Bool,
+        checkedCommand: [String]? = nil,
+        detail: String? = nil,
+        nextAction: String? = nil
+    ) {
+        self.kind = kind
+        self.ok = ok
+        self.checkedCommand = checkedCommand
+        self.detail = detail.map(Self.capped)
+        self.nextAction = nextAction
+    }
+
+    private static func capped(_ value: String) -> String {
+        String(value.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+    }
+}
+
+public struct DirectModeReadinessChecker: Sendable {
+    private let commandRunner: any CommandRunner
+    private let timeout: Duration
+
+    public init(
+        commandRunner: any CommandRunner,
+        timeout: Duration = .seconds(5)
+    ) {
+        self.commandRunner = commandRunner
+        self.timeout = timeout
+    }
+
+    public func check(_ plan: DirectModeExposurePlan) async -> DirectModeReadiness {
+        switch plan.endpoint.transport {
+        case .loopback:
+            return DirectModeReadiness(kind: .loopbackOnly, ok: true)
+        case .tailnetHTTP:
+            return DirectModeReadiness(
+                kind: .tailnetHTTPFallback,
+                ok: true,
+                nextAction: "iOS must allow the tailnet HTTP ATS exception before using this fallback."
+            )
+        case .tailscaleHTTPS:
+            break
+        }
+
+        guard let command = plan.certificateProbeCommand,
+              let executable = command.first else {
+            return DirectModeReadiness(
+                kind: .httpsCertificateUnavailable,
+                ok: false,
+                checkedCommand: plan.certificateProbeCommand,
+                nextAction: "Enable HTTPS certificates in Tailscale, then re-run the Direct Mode check."
+            )
+        }
+
+        let args = Array(command.dropFirst())
+        let result = await commandRunner.run(
+            command: executable,
+            args: args,
+            stdin: nil,
+            env: [:],
+            workingDirectory: AllnighterPaths.ensuredProbeScratchPath(),
+            timeout: timeout
+        )
+
+        if let launchError = result.launchError {
+            return DirectModeReadiness(
+                kind: .tailscaleUnavailable,
+                ok: false,
+                checkedCommand: command,
+                detail: launchError,
+                nextAction: "Install Tailscale, sign in, then re-run the Direct Mode check."
+            )
+        }
+
+        guard result.exitCode == 0, !result.timedOut, !result.cancelled else {
+            return DirectModeReadiness(
+                kind: .httpsCertificateUnavailable,
+                ok: false,
+                checkedCommand: command,
+                detail: diagnostic(from: result),
+                nextAction: "Enable HTTPS certificates in the Tailscale admin console, then run `tailscale cert` again."
+            )
+        }
+
+        return DirectModeReadiness(
+            kind: .ready,
+            ok: true,
+            checkedCommand: command,
+            detail: diagnostic(from: result)
+        )
+    }
+
+    private func diagnostic(from result: CommandResult) -> String? {
+        let parts = [result.stderr, result.stdout]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 }
