@@ -9,9 +9,11 @@ For every non-trivial bug:
 
 1. Search `Docs/operations/debugger/BUG_PATTERNS.json`.
 2. Search `Docs/operations/debugger/DEBUGLOG.md`.
-3. Inspect current diff for the touched surface before hypothesizing.
-4. Classify tier.
-5. Write the packet.
+3. If a matching pattern says `requiresHarness`, read
+   `docs/operations/debugger/ISOLATION_HARNESS.md`.
+4. Inspect current diff for the touched surface before hypothesizing.
+5. Classify tier.
+6. Write the packet.
 
 For `T3` and repeated bugs, prior art starts at step 1 — not a blank investigation.
 
@@ -20,27 +22,25 @@ For `T3` and repeated bugs, prior art starts at step 1 — not a blank investiga
 A worker may reclassify a bug at most twice. After that, stop, report conflicting
 evidence, and ask for a boundary decision instead of continuing to patch.
 
-### Clean-room positive control
+### Isolation harness
 
 For repeated bugs, native platform behavior, or any bug where the failing path is
 buried under too many product layers, the next move after failed in-place fixes is
-not another patch. Build a disposable positive control first.
+not another patch. Build an isolation harness first.
 
 Required when the same fingerprint survives two fixes, or when the proof gap is
 "does this platform primitive work at all?" (pasteboard, focus, responder chain,
 TCC, process lifecycle, filesystem watcher, keyboard/menu routing):
 
-1. Create a new throwaway folder/project/repo with only the failing primitive and
-   one visible/output assertion. No product architecture, no styling, no routing.
+1. Create a throwaway folder/project/repo with the same seam and only the failing
+   primitive. No product architecture, styling, or routing.
 2. Make the primitive work there and capture the exact API/path that made it work.
-3. Compare the working control to the product path. The delta becomes the fix
+3. Compare the working harness to the product path. The delta becomes the fix
    boundary and the kill test.
-4. If the control cannot make the primitive work, stop and report a platform or
-   assumption problem instead of patching product code.
+4. If the harness cannot make the primitive work, stop and report a platform or
+   assumption problem.
 
-This is a diagnostic tool, not a replacement app. Archive only the small proof or
-notes needed for future agents; do not copy broad experimental code into product
-without a narrow port and a regression test.
+See `docs/operations/debugger/ISOLATION_HARNESS.md`.
 
 After root cause, answer:
 
@@ -100,10 +100,12 @@ The watcher is the eyes the building agent lacks. See
 Tier:
 Symptom / repro:
 Bug fingerprint:
+Attempt count:
+Seam:
 Truth owner:
 Lie-prone layer:
 Regression considered:
-Clean-room baseline:
+Isolation harness:
 Missing kill test / proof:
 Fix boundary:
 Proof command / founder test:
@@ -120,8 +122,10 @@ Proof command / founder test:
 - Combine unrelated cleanup with a bug fix.
 - Hide a repeated bug without adding or naming regression proof.
 - Keep patching a repeated/native bug in the product after two failed fixes
-  without a clean-room positive control or an explicit waiver.
-- Let the clean-room control import product architecture. The control proves the
+  without an isolation harness or an explicit waiver.
+- Treat a true adjacent layer as proof of a seam. "The menu exists", "the reader
+  reads", or "the widget mutates" is not proof that the user path works.
+- Let the isolation harness import product architecture. The harness proves the
   primitive; the product fix ports only the necessary delta.
 
 ## Closeout
@@ -132,7 +136,9 @@ For `T1-T3`, report:
 Tier:
 Boundary verdict:
 Proof gap:
-Clean-room baseline:
+Attempt count:
+Seam:
+Isolation harness:
 Fix boundary:
 RCA:
 Proof:
@@ -147,8 +153,8 @@ Definition of done:
 4. Founder-found or repeated bug: DEBUGLOG `Proof:` names a wall-reachable test.
 5. `T2`/`T3` or repeated: regression law with wall command, or expiring blocker
    in `QUARANTINE.md`.
-6. Repeated/native-platform bug: clean-room positive control path or explicit
-   waiver is named, along with the baseline-to-product delta.
+6. Repeated/native-platform bug: isolation harness path or explicit waiver is
+   named, along with the harness-to-product delta.
 7. GUI-visible bug: layout-watcher PASS on a rendered fixture (see GUI-Visible
    Bugs above); name the fixture + verdict in the closeout.
 8. Founder test = confirmation of feel, never proof of correctness.

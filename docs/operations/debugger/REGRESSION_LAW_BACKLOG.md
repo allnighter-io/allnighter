@@ -6,15 +6,21 @@ meta-gates exist.
 
 ## Open
 
-- `Repeated native/platform bugs need a clean-room positive control before more
+- `Repeated native/platform bugs need an isolation harness before more
   product patches`:
   OPEN 2026-06-21 from repeated composer image-paste failure. The successful fix
   came from a throwaway new folder/project/repo reduced to one text field and one
   image-paste job; only after that did the product delta become obvious. Required
-  process gate: repeated `T3`/native DEBUGLOG entries must name `Clean-room
-  baseline` plus the baseline-to-product delta, or explicitly waive it with a
-  boundary decision. Future wall gate should scan repeated DEBUGLOG entries for
-  that field.
+  process gate: repeated `T3`/native DEBUGLOG entries must name `Attempt count`,
+  `Seam`, `Isolation harness`, and the harness-to-product delta, or explicitly
+  waive it with a boundary decision. Future wall gate should scan repeated
+  DEBUGLOG entries for those fields.
+
+- `Seam bugs cannot close on proof-by-proximity`:
+  OPEN 2026-06-21 from repeated composer paste/image-paste failure. A true layer
+  proof ("menu exists", "reader reads", "text view mutates") is not proof that
+  the user path works. Required future gate: BUG_PATTERNS entries for recurring
+  seam bugs should name `seam` and, when needed, `requiresHarness: true`.
 
 - `Native composer paste is not fixed until first-responder selector/key-equivalent
   tests prove the focused editor and SwiftUI draft binding both change`:

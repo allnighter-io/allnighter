@@ -4,14 +4,25 @@
     {
       "id": "mac-composer-paste-owned-by-text-view",
       "surface": "Apps/AllnighterMac/Sources/AllnighterTextEditor.swift",
+      "seam": "AppKit NSTextView pasteboard handling below the SwiftUI composer bridge",
       "law": "The Mac composer text view must own plain-text paste insertion directly; do not close a paste bug by relying only on SwiftUI commands, a main Edit menu, or implicit AppKit responder routing.",
       "proof": "xcodebuild test -project Apps/AllnighterMac/AllnighterMac.xcodeproj -scheme AllnighterMac -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO -only-testing:AllnighterMacTests/AllnighterTextEditorTests"
     },
     {
-      "id": "repeated-native-bug-needs-clean-room-positive-control",
+      "id": "mac-composer-image-paste-seam-law",
+      "surface": "Apps/AllnighterMac/Sources/AllnighterTextEditor.swift + Apps/AllnighterMac/Sources/RoutingComposer.swift + Packages/AllnighterCore/Sources/AllnighterEngine/ThreadSendCoordinator.swift",
+      "seam": "AppKit pasteboard/responder chain -> SwiftUI composer state -> attachment chip -> worker context delivery",
+      "requiresHarness": true,
+      "law": "Image paste is not fixed by proving any one layer. Proof must traverse copied image/file URL -> focused composer paste gesture -> visible attachment chip -> SwiftUI state preserved -> send includes the attachment in worker context. If this recurs, build an isolation harness that mirrors the AppKit/SwiftUI seam before patching product code.",
+      "proof": "Harness record plus targeted app tests: ComposerPasteboardReaderTests for image-first pasteboard precedence, focused composer paste/attachment integration for chip creation, and TeamRunAttachmentDeliveryTests for worker-context delivery."
+    },
+    {
+      "id": "repeated-native-bug-needs-isolation-harness",
       "surface": "docs/operations/Debugger.md",
-      "law": "When a repeated bug depends on native/platform behavior, stop in-place patching after two failed fixes and build a throwaway minimal positive control that proves the primitive works before porting the delta back.",
-      "proof": "Debugger packet must name `Clean-room baseline` and the baseline-to-product delta; future wall gate should fail repeated DEBUGLOG entries that omit it."
+      "seam": "Any native/platform/product boundary where the full proof is not writable inside the current product path",
+      "requiresHarness": true,
+      "law": "When a repeated bug depends on native/platform behavior, stop in-place patching after two failed fixes and build a throwaway isolation harness that proves the primitive and seam before porting the delta back.",
+      "proof": "Debugger packet must name `Attempt count`, `Seam`, `Isolation harness`, and the harness-to-product delta; future wall gate should fail repeated DEBUGLOG entries that omit them."
     }
   ]
 }
