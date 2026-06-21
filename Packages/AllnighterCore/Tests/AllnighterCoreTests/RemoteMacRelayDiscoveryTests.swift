@@ -37,4 +37,38 @@ final class RemoteMacRelayDiscoveryTests: XCTestCase {
         let missingAccountMacs = try await relay.macAgents(accountId: "acct_missing")
         XCTAssertTrue(missingAccountMacs.isEmpty)
     }
+
+    func testSameMacAgentIdStaysScopedByAccount() async throws {
+        let relay = MockRemoteMacRelay()
+
+        _ = try await relay.registerMacAgent(RemoteMacAgentRegistration(
+            accountId: "acct_1",
+            macAgentId: "mac_shared",
+            displayName: "Studio Mac",
+            agentSigningPubkey: "sign_1",
+            agentSealingPubkey: "seal_1"
+        ))
+        try await relay.heartbeat(RemoteMacAgentHeartbeat(
+            accountId: "acct_1",
+            macAgentId: "mac_shared",
+            at: now
+        ))
+        _ = try await relay.registerMacAgent(RemoteMacAgentRegistration(
+            accountId: "acct_2",
+            macAgentId: "mac_shared",
+            displayName: "Travel Mac",
+            agentSigningPubkey: "sign_2",
+            agentSealingPubkey: "seal_2"
+        ))
+
+        let accountOneMacs = try await relay.macAgents(accountId: "acct_1")
+        let accountTwoMacs = try await relay.macAgents(accountId: "acct_2")
+        let accountOneMac = try XCTUnwrap(accountOneMacs.first)
+        let accountTwoMac = try XCTUnwrap(accountTwoMacs.first)
+
+        XCTAssertEqual(accountOneMac.agentSigningPubkey, "sign_1")
+        XCTAssertEqual(accountOneMac.lastSeenAt, now)
+        XCTAssertEqual(accountTwoMac.agentSigningPubkey, "sign_2")
+        XCTAssertNil(accountTwoMac.lastSeenAt)
+    }
 }
