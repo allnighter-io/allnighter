@@ -129,7 +129,7 @@ public actor DirectModeRemoteClient: RemoteClient {
                       let decoded = try? CoreJSON.decode(DirectModeEventsResponse.self, from: response.body) else {
                     return
                 }
-                for envelope in decoded.events where Self.verifies(envelope, mac: mac) {
+                for envelope in decoded.events where envelope.event.seq > since && Self.verifies(envelope, mac: mac) {
                     continuation.yield(envelope)
                 }
             }

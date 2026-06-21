@@ -270,6 +270,12 @@ final class DirectModeRemoteClientTests: XCTestCase {
             signingKey: macSigningKey,
             now: now
         )
+        let old = try Self.eventEnvelope(
+            id: "evt_old",
+            seq: 1,
+            signingKey: macSigningKey,
+            now: now
+        )
         let forged = RemoteRunEventEnvelope(
             macAgentId: "mac_1",
             event: RunEvent(
@@ -282,6 +288,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
             signature: Data("bad signature".utf8).base64EncodedString()
         )
         let eventsHandler = RecordingDirectModeClientEventsHandler(response: DirectModeEventsResponse(events: [
+            old,
             forged,
             valid,
         ]))
