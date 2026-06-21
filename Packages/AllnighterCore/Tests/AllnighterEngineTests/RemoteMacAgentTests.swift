@@ -63,6 +63,25 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertEqual(acknowledgements[0].auditEvent.targetSummary, "stopAll terminated=3")
     }
 
+    func testDrainClampsCommandBatchLimitSoPollBackstopCannotStarve() async throws {
+        let device = trustedDevice(capabilities: [])
+        let command = try signedCommand(requestId: "req_stop_all", kind: .stopAll, payload: .empty)
+        let relay = MockRemoteMacRelay(
+            trustedDevices: [device],
+            inbox: [inboxEntry(command)]
+        )
+        let executor = CapturingRemoteExecutor(now: now)
+        await executor.setStopAllResult(StopAllResult(terminated: 3))
+        let agent = makeAgent(relay: relay, executor: executor, commandBatchLimit: 0)
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.processedCommandCount, 1)
+        XCTAssertEqual(result.acknowledgements.first?.requestId, "req_stop_all")
+        let stopAllCallCount = await executor.stopAllCallCount()
+        XCTAssertEqual(stopAllCallCount, 1)
+    }
+
     func testDrainRecordsLocalAuditJournalForQueuedCommand() async throws {
         let device = trustedDevice(capabilities: [])
         let command = try signedCommand(requestId: "req_stop_all", kind: .stopAll, payload: .empty)
@@ -441,7 +460,8 @@ final class RemoteMacAgentTests: XCTestCase {
         executor: CapturingRemoteExecutor,
         auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
         eventSync: RemoteMacAgentEventSync? = nil,
-        snapshotPublisher: RemoteSnapshotPublisher? = nil
+        snapshotPublisher: RemoteSnapshotPublisher? = nil,
+        commandBatchLimit: Int = 100
     ) -> RemoteMacAgent {
         let fixedNow = now
         let router = RemoteCommandRouter(
@@ -467,7 +487,8 @@ final class RemoteMacAgentTests: XCTestCase {
             auditRecorder: auditRecorder,
             eventSync: eventSync,
             snapshotPublisher: snapshotPublisher,
-            now: { fixedNow }
+            now: { fixedNow },
+            commandBatchLimit: commandBatchLimit
         )
     }
 

@@ -120,7 +120,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
         self.eventSync = eventSync
         self.snapshotPublisher = snapshotPublisher
         self.now = now
-        self.commandBatchLimit = commandBatchLimit
+        self.commandBatchLimit = max(1, commandBatchLimit)
     }
 
     public func drainOnce() async throws -> RemoteMacAgentDrainResult {
