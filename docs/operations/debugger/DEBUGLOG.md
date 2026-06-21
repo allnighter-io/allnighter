@@ -16,6 +16,18 @@ Deferred proof:
 Pattern candidate:
 ```
 
+## 2026-06-21 - Cursor Composer visible thread loses prior context + no worker session id
+
+Tier: T3 Critical (core product promise failure; session-state truth bug)
+Symptom: In one Allnighter conversation with Composer 2.5, the second turn says it does not have prior context even though the user did not switch models.
+Truth owner: `WorkThread` owns the visible conversation; missing owner is a durable per-thread/per-driver external worker session mapping. `TeamRun` owns each run record, but today it does not carry worker-vendor session identity.
+Lie-prone layer: `ThreadsViewModel` and the timeline make the conversation look continuous while `RunService` / `WorkerRunner` starts a fresh Cursor Agent headless one-shot process for each turn.
+RCA: Active composer sends go through `ThreadsViewModel.runViaRunService`, which creates a fresh `TeamRun` UUID and `RunRequest` with no `threadId` or external session id. `RunService` constructs a `WorkerRunner` and the Cursor manifest resolves to `agent -p ... --workspace {{workingDir}} {{prompt}}`; no `--resume <chatId>` is ever passed. `WorkThread`, `ThreadTurn`, `WorkerAnswer`, and `WorkerRunOutcome` have no vendor session receipt field. Cursor Agent local help does expose `--resume [chatId]`, `--continue`, and `create-chat`, so this is an Allnighter session-contract gap, not a vendor impossibility.
+Fix boundary: Documentation only in this slice. Future fix must add an explicit driver-session contract and pass thread-scoped Cursor chat ids through RunService/WorkerRunner/manifest resolution. Do not fix by stuffing more prior turns into prompts. Do not use global `agent --continue`; it can resume the wrong Cursor session.
+Proof: Code-read packet written at `docs/operations/debugger/2026-06-21-cursor-composer-session-continuity-code-red.md`. Local help inspection only: `agent --help`, `agent create-chat --help`, `agent resume --help`, `agent ls --help`; no quota-bearing prompt was sent.
+Deferred proof: Add kill tests proving second turn in the same Allnighter thread invokes Cursor with `--resume <stored-chat-id>`, different threads do not share ids, reload preserves the id, and no path uses `--continue` for thread continuity.
+Pattern candidate: A visible Allnighter thread is not conversation-continuity proof. For any driver with a resume handle, turn 2 must prove a thread-scoped persisted vendor session id was used in the worker invocation.
+
 ## 2026-06-16 - Apps/AllnighterMac launch + TCC protected-folder prompts + startup shell/CLI probe authority leak
 
 Tier: T3 Critical

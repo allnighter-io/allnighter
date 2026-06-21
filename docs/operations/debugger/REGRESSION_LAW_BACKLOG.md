@@ -6,6 +6,20 @@ meta-gates exist.
 
 ## Open
 
+- `Visible thread continuity requires worker-vendor session continuity when the
+  driver exposes a resume handle`:
+  OPEN 2026-06-21 from Cursor Composer second-turn context loss. Required
+  wall-reachable gates should prove that the second send in the same
+  `WorkThread` and same Cursor worker uses a persisted thread-scoped
+  `--resume <chatId>`, never global `--continue`; different Allnighter threads
+  must not share the id; reloading the store between turns must preserve it.
+  Future gate names proposed in
+  `docs/operations/debugger/2026-06-21-cursor-composer-session-continuity-code-red.md`:
+  `CursorSessionContinuityTests.testSecondTurnUsesStoredCursorChatId`,
+  `testDoesNotUseGlobalContinueForThreadResume`,
+  `testDifferentThreadsDoNotShareCursorChatId`, and
+  `testReloadedThreadStillResumesCursorChatId`.
+
 - `Repeated native/platform bugs need an isolation harness before more
   product patches`:
   OPEN 2026-06-21 from repeated composer image-paste failure. The successful fix
