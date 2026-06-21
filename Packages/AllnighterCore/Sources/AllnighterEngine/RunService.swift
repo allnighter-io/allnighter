@@ -19,10 +19,10 @@ public struct RunRequest: Sendable, Equatable {
     /// Delivered per-worker (vision seats get the path block; non-vision seats get
     /// an explicit "can't see it" notice) by `CatalogRunCoordinator`.
     public var deliveries: [IncludedAttachmentDelivery]
-    /// Try Fix (Try_Fix_Auto_Implement): after this answer run, if it returns an actionable
-    /// FixPacket, start one child execution run that tries the top hypothesis.
-    public var tryFix: Bool
-    /// The mutating executor team for the fix attempt (default `execution_playbook`).
+    /// Try Fix (Try_Fix_Auto_Implement): the mutating executor team for the child fix attempt
+    /// (default `execution_playbook`). Read by `FollowUpCoordinator`, which owns the chain — a
+    /// plain `RunService.run` ignores it. Whether to run the chain at all is the caller's
+    /// decision (the CLI `--try-fix` flag), not a field here.
     public var executorTeamId: String?
 
     public init(
@@ -36,7 +36,6 @@ public struct RunRequest: Sendable, Equatable {
         type: String? = nil,
         context: String? = nil,
         deliveries: [IncludedAttachmentDelivery] = [],
-        tryFix: Bool = false,
         executorTeamId: String? = nil
     ) {
         self.message = message
@@ -49,7 +48,6 @@ public struct RunRequest: Sendable, Equatable {
         self.type = type
         self.context = context
         self.deliveries = deliveries
-        self.tryFix = tryFix
         self.executorTeamId = executorTeamId
     }
 }
@@ -139,8 +137,17 @@ public actor RunService {
     }
 
     /// Re-persist a run (used to record Try Fix parent/child links after both runs settle).
-    public func save(_ run: TeamRun) {
-        try? runStore.save(run, models: models, forceArtifacts: run.status.isTerminal)
+    /// Returns false if the write failed so the caller can note that the diagnosis<->fix link
+    /// didn't durably persist (the runs themselves already saved during `run()`; this only
+    /// re-writes the `links`).
+    @discardableResult
+    public func save(_ run: TeamRun) -> Bool {
+        do {
+            try runStore.save(run, models: models, forceArtifacts: run.status.isTerminal)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Model ids that are a runnable substitute *right now*: ON the Bench AND their

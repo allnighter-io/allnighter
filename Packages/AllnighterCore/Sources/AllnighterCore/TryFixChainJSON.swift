@@ -1,6 +1,7 @@
 import Foundation
 
-/// The agent-facing return of a Try Fix chain (`alln run --try-fix`, MCP team_run try-fix).
+/// The agent-facing return of a Try Fix chain (`alln run --try-fix`; an MCP projection is
+/// pending, task #33).
 /// One round of the elimination loop: the read-only Bug Hunt diagnosis, the gate verdict, the
 /// typed FixPacket, and — when the gate allowed it — the child fix-attempt run. Schema-backed so
 /// a caller (or doctor/autofix) can read the outcome without scraping prose.

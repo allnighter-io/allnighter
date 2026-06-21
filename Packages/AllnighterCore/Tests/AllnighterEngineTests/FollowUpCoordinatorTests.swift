@@ -57,7 +57,7 @@ final class FollowUpCoordinatorTests: XCTestCase {
         let request = RunRequest(
             message: "pasting an image into the composer drops it",
             repoRoot: repo.path, presetId: "code_bug_hunt",
-            tryFix: true, executorTeamId: "execution_playbook")
+            executorTeamId: "execution_playbook")
 
         let result = await coordinator.runTryFix(request, origin: .cli)
         guard case .success(let outcome) = result else { return XCTFail("chain failed: \(result)") }
@@ -105,7 +105,7 @@ final class FollowUpCoordinatorTests: XCTestCase {
         let coordinator = FollowUpCoordinator(runService: service)
         let request = RunRequest(
             message: "something is wrong", repoRoot: repo.path, presetId: "code_bug_hunt",
-            tryFix: true, executorTeamId: "execution_playbook")
+            executorTeamId: "execution_playbook")
 
         let result = await coordinator.runTryFix(request, origin: .cli)
         guard case .success(let outcome) = result else { return XCTFail("chain failed: \(result)") }

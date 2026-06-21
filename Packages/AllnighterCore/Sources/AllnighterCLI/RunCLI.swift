@@ -41,7 +41,6 @@ enum RunCLI {
             lane: lane,
             type: opts.value("type"),
             context: opts.value("context"),
-            tryFix: tryFix,
             executorTeamId: opts.value("executor")
         )
 

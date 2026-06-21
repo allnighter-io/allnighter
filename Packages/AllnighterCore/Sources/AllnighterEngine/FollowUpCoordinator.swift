@@ -23,10 +23,10 @@ public struct FollowUpCoordinator: Sendable {
         _ request: RunRequest, origin: RunOrigin, runId: String? = nil
     ) async -> Result<Outcome, RunServiceError> {
         // 1. Parent: the read-only Bug Hunt answer run.
-        let parentResult = await runService.run(request, origin: origin, runId: runId)
-        guard case .success(var parent) = parentResult else {
-            if case .failure(let error) = parentResult { return .failure(error) }
-            fatalError("unreachable")
+        var parent: TeamRun
+        switch await runService.run(request, origin: origin, runId: runId) {
+        case .failure(let error): return .failure(error)
+        case .success(let run): parent = run
         }
 
         // 2. Lift the typed FixPacket from the writer's output (the synthesis / plan).
@@ -49,11 +49,11 @@ public struct FollowUpCoordinator: Sendable {
         let childRequest = RunRequest(
             message: prompt, repoRoot: request.repoRoot, projectId: request.projectId,
             presetId: executorId, effort: request.effort)
-        let childResult = await runService.run(childRequest, origin: origin)
-        guard case .success(var child) = childResult else {
-            // e.g. the repo write lock is busy — return the diagnosis + gate, no child.
-            if case .failure(let error) = childResult { return .failure(error) }
-            fatalError("unreachable")
+        var child: TeamRun
+        switch await runService.run(childRequest, origin: origin) {
+        // e.g. the repo write lock is busy — surface it; the diagnosis already ran.
+        case .failure(let error): return .failure(error)
+        case .success(let run): child = run
         }
 
         // 5. Link diagnosis <-> fix attempt durably, and persist both.
