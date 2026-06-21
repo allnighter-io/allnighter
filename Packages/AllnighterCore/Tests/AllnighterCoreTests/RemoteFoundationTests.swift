@@ -663,6 +663,38 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(rungs[.deviceApproved]?.ok, true)
     }
 
+    func testMockClientDiagnosesClockSkew() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal",
+            lastSeenAt: now.addingTimeInterval(-30)
+        )
+        let trusted = diagnosticDevice(now: now)
+        let client = MockiOSClient(
+            macs: [mac],
+            trustedDevices: [trusted],
+            serverNow: now,
+            deviceNow: now.addingTimeInterval(120)
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let diagnosis = await client.diagnose()
+        let rungs = diagnosisRungs(diagnosis)
+
+        XCTAssertEqual(rungs[.signedIn]?.ok, true)
+        XCTAssertEqual(rungs[.macVisible]?.ok, true)
+        XCTAssertEqual(rungs[.macReachable]?.ok, true)
+        XCTAssertEqual(rungs[.clockInSync]?.ok, false)
+        XCTAssertEqual(
+            rungs[.clockInSync]?.nextAction,
+            "Check your phone clock; it differs from the Mac by more than 60 seconds."
+        )
+        XCTAssertEqual(rungs[.deviceApproved]?.ok, true)
+    }
+
     func testMockClientAcceptsOnlySealedStartRunPayload() async throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let signingKey = Curve25519.Signing.PrivateKey()

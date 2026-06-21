@@ -166,6 +166,7 @@ public actor MockiOSClient: RemoteClient {
     private var trustedDevices: [String: TrustedDevice]
     private var seenRequestIds: Set<String>
     private var serverNow: Date
+    private var deviceNow: Date
 
     public init(
         macs: [MacAgentRef],
@@ -174,7 +175,8 @@ public actor MockiOSClient: RemoteClient {
         media: [String: Data] = [:],
         mediaKeys: [String: [String: MediaKeyEnvelope]] = [:],
         trustedDevices: [TrustedDevice] = [],
-        serverNow: Date = Date()
+        serverNow: Date = Date(),
+        deviceNow: Date? = nil
     ) {
         self.macRefs = macs
         self.snapshots = snapshots
@@ -184,6 +186,7 @@ public actor MockiOSClient: RemoteClient {
         self.trustedDevices = Dictionary(uniqueKeysWithValues: trustedDevices.map { ($0.deviceId, $0) })
         self.seenRequestIds = []
         self.serverNow = serverNow
+        self.deviceNow = deviceNow ?? serverNow
     }
 
     public func connect(account: RemoteAccountSession, mode: ConnectionMode) async throws {
@@ -304,6 +307,15 @@ public actor MockiOSClient: RemoteClient {
             }
             return mac.macAgentId
         })
+        let clockInSync = signedIn && abs(deviceNow.timeIntervalSince(serverNow)) <= 60
+        let clockNextAction: String?
+        if clockInSync {
+            clockNextAction = nil
+        } else if signedIn {
+            clockNextAction = "Check your phone clock; it differs from the Mac by more than 60 seconds."
+        } else {
+            clockNextAction = "Connect once to compare your phone clock with the Mac."
+        }
         let approved = trustedDevices.values.contains { device in
             guard let account else { return false }
             return device.accountId == account.accountId
@@ -335,8 +347,8 @@ public actor MockiOSClient: RemoteClient {
             ),
             ConnectionDiagnosis.Rung(
                 rung: .clockInSync,
-                ok: signedIn,
-                nextAction: signedIn ? nil : "Connect once to compare your phone clock with the Mac."
+                ok: clockInSync,
+                nextAction: clockNextAction
             ),
             ConnectionDiagnosis.Rung(
                 rung: .deviceApproved,
@@ -352,6 +364,10 @@ public actor MockiOSClient: RemoteClient {
 
     public func appendEvent(_ envelope: RemoteRunEventEnvelope, macId: String) {
         events[macId, default: []].append(envelope)
+    }
+
+    public func setDeviceNow(_ now: Date) {
+        deviceNow = now
     }
 
     public func trustDevice(_ device: TrustedDevice) {
