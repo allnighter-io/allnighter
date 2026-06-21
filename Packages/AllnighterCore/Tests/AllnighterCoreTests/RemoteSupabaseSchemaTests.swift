@@ -109,8 +109,10 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
 
         for policy in [insertPolicy, updatePolicy] {
             XCTAssertTrue(policy.contains("ON \"public\".\"media_keys\""))
-            XCTAssertTrue(policy.contains("\"public\".\"mac_agent_claim_matches\"(\"m\".\"account_id\", \"r\".\"mac_agent_id\")"))
+            XCTAssertTrue(policy.contains("\"public\".\"mac_agent_claim_matches\"(\"m\".\"account_id\", \"media_keys\".\"mac_agent_id\")"))
+            XCTAssertTrue(policy.contains("\"r\".\"mac_agent_id\" = \"media_keys\".\"mac_agent_id\""))
             XCTAssertTrue(policy.contains("\"d\".\"device_id\" = \"media_keys\".\"device_id\""))
+            XCTAssertTrue(policy.contains("\"d\".\"mac_agent_id\" = \"media_keys\".\"mac_agent_id\""))
             XCTAssertTrue(policy.contains("\"d\".\"mac_agent_id\" = \"r\".\"mac_agent_id\""))
             XCTAssertTrue(policy.contains("\"d\".\"revoked\" = false"))
             XCTAssertTrue(policy.contains("\"d\".\"valid_until\" >= \"now\"()"))
@@ -131,6 +133,18 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         }
         XCTAssertTrue(updatePolicy.contains("FOR UPDATE"))
         XCTAssertTrue(updatePolicy.contains("WITH CHECK"))
+    }
+
+    func testMediaKeysSelectPolicyReadsOnlyScopedRefAndDevice() throws {
+        let sql = try schemaSQL
+        let policy = try policyBlock(named: "approved devices select media keys", sql: sql)
+
+        XCTAssertTrue(policy.contains("ON \"public\".\"media_keys\""))
+        XCTAssertTrue(policy.contains("\"r\".\"mac_agent_id\" = \"media_keys\".\"mac_agent_id\""))
+        XCTAssertTrue(policy.contains("\"r\".\"ref\" = \"media_keys\".\"ref\""))
+        XCTAssertTrue(policy.contains("\"public\".\"mac_agent_claim_matches\"(\"m\".\"account_id\", \"media_keys\".\"mac_agent_id\")"))
+        XCTAssertTrue(policy.contains("\"media_keys\".\"device_id\" = \"public\".\"remote_device_id\"()"))
+        XCTAssertTrue(policy.contains("\"public\".\"approved_remote_device\"(\"media_keys\".\"mac_agent_id\", \"media_keys\".\"device_id\")"))
     }
 
     func testCloudRelayTableColumnsStayContentLight() throws {
@@ -168,6 +182,7 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
     func testScopedRelayUniquenessMatchesHeadlessContracts() throws {
         let sql = try schemaSQL
         XCTAssertTrue(try columnNames(in: "command_acks", sql: sql).contains("account_id"))
+        XCTAssertTrue(try columnNames(in: "media_keys", sql: sql).contains("mac_agent_id"))
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"command_inbox_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"request_id\")"
         ))
@@ -182,6 +197,36 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         ))
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"pair_requests_account_mac_device_key\" UNIQUE (\"account_id\", \"mac_agent_id\", \"device_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"trusted_devices_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"device_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"trusted_devices_mac_device_key\" UNIQUE (\"mac_agent_id\", \"device_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"command_inbox_trusted_device_scope_fkey\" FOREIGN KEY (\"account_id\", \"mac_agent_id\", \"from_device_id\") REFERENCES \"public\".\"trusted_devices\"(\"account_id\", \"mac_agent_id\", \"device_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"media_refs_pkey\" PRIMARY KEY (\"mac_agent_id\", \"ref\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"media_keys_pkey\" PRIMARY KEY (\"mac_agent_id\", \"ref\", \"device_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"media_keys_ref_scope_fkey\" FOREIGN KEY (\"mac_agent_id\", \"ref\") REFERENCES \"public\".\"media_refs\"(\"mac_agent_id\", \"ref\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"media_keys_trusted_device_scope_fkey\" FOREIGN KEY (\"mac_agent_id\", \"device_id\") REFERENCES \"public\".\"trusted_devices\"(\"mac_agent_id\", \"device_id\")"
+        ))
+        XCTAssertFalse(sql.contains(
+            "ADD CONSTRAINT \"trusted_devices_pkey\" PRIMARY KEY (\"device_id\")"
+        ))
+        XCTAssertFalse(sql.contains(
+            "ADD CONSTRAINT \"media_refs_pkey\" PRIMARY KEY (\"ref\")"
+        ))
+        XCTAssertFalse(sql.contains(
+            "ADD CONSTRAINT \"media_keys_pkey\" PRIMARY KEY (\"ref\", \"device_id\")"
         ))
     }
 

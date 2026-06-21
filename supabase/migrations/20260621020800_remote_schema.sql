@@ -147,6 +147,7 @@ ALTER TABLE "public"."mac_agents" OWNER TO "postgres";
 
 CREATE TABLE IF NOT EXISTS "public"."media_keys" (
     "ref" "text" NOT NULL,
+    "mac_agent_id" "uuid" NOT NULL,
     "device_id" "text" NOT NULL,
     "sealed_key" "jsonb" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
@@ -289,12 +290,12 @@ ALTER TABLE ONLY "public"."mac_agents"
 
 
 ALTER TABLE ONLY "public"."media_keys"
-    ADD CONSTRAINT "media_keys_pkey" PRIMARY KEY ("ref", "device_id");
+    ADD CONSTRAINT "media_keys_pkey" PRIMARY KEY ("mac_agent_id", "ref", "device_id");
 
 
 
 ALTER TABLE ONLY "public"."media_refs"
-    ADD CONSTRAINT "media_refs_pkey" PRIMARY KEY ("ref");
+    ADD CONSTRAINT "media_refs_pkey" PRIMARY KEY ("mac_agent_id", "ref");
 
 
 
@@ -309,7 +310,12 @@ ALTER TABLE ONLY "public"."pair_requests"
 
 
 ALTER TABLE ONLY "public"."trusted_devices"
-    ADD CONSTRAINT "trusted_devices_pkey" PRIMARY KEY ("device_id");
+    ADD CONSTRAINT "trusted_devices_pkey" PRIMARY KEY ("account_id", "mac_agent_id", "device_id");
+
+
+
+ALTER TABLE ONLY "public"."trusted_devices"
+    ADD CONSTRAINT "trusted_devices_mac_device_key" UNIQUE ("mac_agent_id", "device_id");
 
 
 
@@ -357,7 +363,7 @@ ALTER TABLE ONLY "public"."command_inbox"
 
 
 ALTER TABLE ONLY "public"."command_inbox"
-    ADD CONSTRAINT "command_inbox_from_device_id_fkey" FOREIGN KEY ("from_device_id") REFERENCES "public"."trusted_devices"("device_id") ON DELETE CASCADE;
+    ADD CONSTRAINT "command_inbox_trusted_device_scope_fkey" FOREIGN KEY ("account_id", "mac_agent_id", "from_device_id") REFERENCES "public"."trusted_devices"("account_id", "mac_agent_id", "device_id") ON DELETE CASCADE;
 
 
 
@@ -382,12 +388,12 @@ ALTER TABLE ONLY "public"."mac_agents"
 
 
 ALTER TABLE ONLY "public"."media_keys"
-    ADD CONSTRAINT "media_keys_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "public"."trusted_devices"("device_id") ON DELETE CASCADE;
+    ADD CONSTRAINT "media_keys_trusted_device_scope_fkey" FOREIGN KEY ("mac_agent_id", "device_id") REFERENCES "public"."trusted_devices"("mac_agent_id", "device_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."media_keys"
-    ADD CONSTRAINT "media_keys_ref_fkey" FOREIGN KEY ("ref") REFERENCES "public"."media_refs"("ref") ON DELETE CASCADE;
+    ADD CONSTRAINT "media_keys_ref_scope_fkey" FOREIGN KEY ("mac_agent_id", "ref") REFERENCES "public"."media_refs"("mac_agent_id", "ref") ON DELETE CASCADE;
 
 
 
@@ -461,8 +467,8 @@ CREATE POLICY "users insert own mac agents" ON "public"."mac_agents" FOR INSERT 
 CREATE POLICY "mac agents insert media keys" ON "public"."media_keys" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
    FROM ("public"."media_refs" "r"
      JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id"))
-     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
-  WHERE (("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
+     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "media_keys"."mac_agent_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
+  WHERE (("r"."mac_agent_id" = "media_keys"."mac_agent_id") AND ("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "media_keys"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
 
 
 
@@ -503,7 +509,7 @@ CREATE POLICY "users select own mac agents" ON "public"."mac_agents" FOR SELECT 
 CREATE POLICY "approved devices select media keys" ON "public"."media_keys" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM ("public"."media_refs" "r"
      JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id")))
-  WHERE (("r"."ref" = "media_keys"."ref") AND ("public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") OR (("media_keys"."device_id" = "public"."remote_device_id"()) AND "public"."approved_remote_device"("r"."mac_agent_id", "media_keys"."device_id")))))));
+  WHERE (("r"."mac_agent_id" = "media_keys"."mac_agent_id") AND ("r"."ref" = "media_keys"."ref") AND ("public"."mac_agent_claim_matches"("m"."account_id", "media_keys"."mac_agent_id") OR (("media_keys"."device_id" = "public"."remote_device_id"()) AND "public"."approved_remote_device"("media_keys"."mac_agent_id", "media_keys"."device_id")))))));
 
 
 
@@ -532,12 +538,12 @@ CREATE POLICY "users update own mac agents" ON "public"."mac_agents" FOR UPDATE 
 CREATE POLICY "mac agents update media keys" ON "public"."media_keys" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM ("public"."media_refs" "r"
      JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id"))
-     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
-  WHERE (("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"()))))) WITH CHECK ((EXISTS ( SELECT 1
+     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "media_keys"."mac_agent_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
+  WHERE (("r"."mac_agent_id" = "media_keys"."mac_agent_id") AND ("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "media_keys"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"()))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM ("public"."media_refs" "r"
      JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id"))
-     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
-  WHERE (("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
+     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "media_keys"."mac_agent_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
+  WHERE (("r"."mac_agent_id" = "media_keys"."mac_agent_id") AND ("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "media_keys"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
 
 
 
