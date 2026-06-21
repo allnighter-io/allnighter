@@ -360,6 +360,8 @@ public extension DriverManifest {
         /// exact position the CLI wants them — e.g. Claude `--effort high` at the
         /// end, Codex `-c model_reasoning_effort="high"` BEFORE the positional prompt.
         case effortArgs = "{{effortArgs}}"
+        /// The vendor session id to mint (acquire=set) or resume (Worker_Session_Continuity).
+        case sessionId = "{{sessionId}}"
     }
 
     /// Context for resolving template tokens.
@@ -370,13 +372,17 @@ public extension DriverManifest {
         public var outputFile: String?
         /// The run's effort — applied as a flag for drivers with `effortFlag`.
         public var effort: EffortLevel
+        /// The vendor session id `{{sessionId}}` resolves to (the resume id, or a freshly
+        /// minted uuid for acquire=set). nil ⇒ no session arg substitution.
+        public var resumeSessionId: String?
 
-        public init(prompt: String, model: String, workingDir: String? = nil, outputFile: String? = nil, effort: EffortLevel = .med) {
+        public init(prompt: String, model: String, workingDir: String? = nil, outputFile: String? = nil, effort: EffortLevel = .med, resumeSessionId: String? = nil) {
             self.prompt = prompt
             self.model = model
             self.workingDir = workingDir
             self.outputFile = outputFile
             self.effort = effort
+            self.resumeSessionId = resumeSessionId
         }
     }
 
@@ -436,8 +442,36 @@ public extension DriverManifest {
             return ctx.workingDir ?? ""
         case Token.outputFile.rawValue:
             return ctx.outputFile ?? ""
+        case Token.sessionId.rawValue:
+            return ctx.resumeSessionId ?? ""
         default:
             return element.replacingOccurrences(of: Token.model.rawValue, with: ctx.model)
+        }
+    }
+
+    /// Worker_Session_Continuity argv: the session-aware command line for this turn, or nil
+    /// when the manifest declares no `vendor_session` continuity (caller uses the base
+    /// streaming args + persists/captures nothing).
+    ///
+    /// - `resuming == true`  → resolve `session.resumeArgs` (e.g. `… --resume {{sessionId}}`,
+    ///   or codex's `exec resume {{sessionId}} … {{prompt}}` reshape).
+    /// - `resuming == false` AND `acquire == .set` → resolve `session.firstTurnArgs` (mint:
+    ///   `… --session-id {{sessionId}}`). The caller sets `ctx.resumeSessionId` to the minted uuid.
+    /// - otherwise (first turn with capture/create) → nil; the caller runs the base args and
+    ///   captures/creates the id from the result.
+    func resolvedSessionArgs(_ ctx: ResolveContext, resuming: Bool) -> [String]? {
+        guard let session, session.continuity == .vendorSession else { return nil }
+        let template: [String]?
+        if resuming {
+            template = session.resumeArgs
+        } else if session.acquire == .set {
+            template = session.firstTurnArgs
+        } else {
+            template = nil
+        }
+        guard let template else { return nil }
+        return template.flatMap { element -> [String] in
+            element == Token.effortArgs.rawValue ? effortFlagArgs(ctx) : [resolveStandaloneToken(element, ctx)]
         }
     }
 }
