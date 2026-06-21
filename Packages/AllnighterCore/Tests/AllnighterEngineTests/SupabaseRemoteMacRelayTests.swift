@@ -282,6 +282,39 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ))
     }
 
+    func testPublishEventsRejectsMismatchedMacScopeBeforeWriting() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [])
+        let relay = try makeRelay(transport: transport)
+        let wrongMacEvent = RemoteRunEventEnvelope(
+            macAgentId: "mac_2",
+            event: RunEvent(
+                id: "evt_wrong_mac",
+                seq: 1,
+                ts: now,
+                kind: "run.started",
+                payload: ["runId": .string("run_1")]
+            ),
+            signature: "sig"
+        )
+
+        do {
+            try await relay.publishEvents(accountId: "acct_1", macAgentId: "mac_1", events: [wrongMacEvent])
+            XCTFail("expected event scope mismatch")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .eventScopeMismatch(
+                    expectedMacAgentId: "mac_1",
+                    actualMacAgentId: "mac_2",
+                    eventId: "evt_wrong_mac"
+                )
+            )
+        }
+
+        let requests = await transport.recordedRequests()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
     func testPublishMediaRejectsMismatchedKeyScopeBeforeWriting() async throws {
         let transport = RecordingSupabaseHTTPTransport(responses: [])
         let relay = try makeRelay(transport: transport)

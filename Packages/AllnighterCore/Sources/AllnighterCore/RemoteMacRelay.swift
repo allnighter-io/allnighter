@@ -46,6 +46,7 @@ public struct RemoteMacAgentHeartbeat: Codable, Equatable, Sendable {
 
 public enum RemoteMacRelayError: Error, Equatable, Sendable {
     case unsupportedProtocolVersion(expected: Int, actual: Int)
+    case eventScopeMismatch(expectedMacAgentId: String, actualMacAgentId: String, eventId: String)
     case mediaScopeMismatch(expectedMacAgentId: String, actualMacAgentId: String, expectedRef: String, actualRef: String)
 }
 
@@ -426,8 +427,14 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         events: [RemoteRunEventEnvelope]
     ) async throws {
         eventLog.append("publishEvents")
-        let scopedEvents = events.filter { $0.macAgentId == macAgentId }
-        for event in scopedEvents {
+        if let mismatchedEvent = events.first(where: { $0.macAgentId != macAgentId }) {
+            throw RemoteMacRelayError.eventScopeMismatch(
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: mismatchedEvent.macAgentId,
+                eventId: mismatchedEvent.event.id
+            )
+        }
+        for event in events {
             publishedEventScopes.insert(PublishedEventKey(
                 accountId: accountId,
                 macAgentId: macAgentId,
@@ -435,7 +442,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
                 seq: event.event.seq
             ))
         }
-        publishedEvents.append(contentsOf: scopedEvents)
+        publishedEvents.append(contentsOf: events)
     }
 
     public func publishSnapshot(
