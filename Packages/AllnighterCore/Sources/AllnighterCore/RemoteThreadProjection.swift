@@ -103,6 +103,26 @@ public struct RemoteThreadSummary: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct RemoteThreadSnapshotEnvelope: Codable, Equatable, Sendable {
+    public var threads: [RemoteThreadSummary]
+    public var protocolVersion: Int
+    public var serverTime: Date
+
+    public init(
+        threads: [RemoteThreadSummary],
+        protocolVersion: Int = RemoteProtocol.currentMajor,
+        serverTime: Date
+    ) {
+        self.threads = threads
+        self.protocolVersion = protocolVersion
+        self.serverTime = serverTime
+    }
+
+    public func thread(id: String) -> RemoteThreadSummary? {
+        threads.first { $0.id == id }
+    }
+}
+
 public enum RemoteThreadProjection {
     public static func readState(from thread: WorkThread) -> RemoteThreadReadState {
         RemoteThreadReadState(
