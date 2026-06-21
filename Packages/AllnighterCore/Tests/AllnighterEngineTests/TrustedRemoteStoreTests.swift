@@ -217,6 +217,23 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertEqual(registry.trustedDevices.first { $0.accountId == "acct_2" }?.deviceId, "device_other")
     }
 
+    func testSyncTrustedDevicesDropsDuplicateCloudRowsForTargetScope() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let duplicate = trustedDevice(deviceId: "device_1", macAgentId: "mac_1", now: now)
+        let other = trustedDevice(deviceId: "device_2", macAgentId: "mac_1", now: now)
+
+        let syncedCount = try store.syncTrustedDevices(
+            [duplicate, other, duplicate],
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            now: now
+        )
+
+        let registry = store.load()
+        XCTAssertEqual(syncedCount, 2)
+        XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_1", "device_2"])
+    }
+
     private func pairRequest(
         accountId: String = "acct_1",
         deviceId: String,

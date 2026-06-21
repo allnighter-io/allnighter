@@ -196,6 +196,22 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertTrue(eventLog.contains("updatePairRequest"))
     }
 
+    func testDrainToleratesDuplicateRelayTrustedDevicesWhenPublishingLocalApproval() async throws {
+        let request = pairRequest(deviceId: "device_local")
+        try trustedStore.upsertPending(request)
+        _ = try trustedStore.approve(deviceId: "device_local", now: now, validFor: 3_600)
+        let cloudDevice = trustedDevice(deviceId: "device_cloud", capabilities: [])
+        let relay = MockRemoteMacRelay(trustedDevices: [cloudDevice, cloudDevice])
+        let executor = CapturingRemoteExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor)
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
+        XCTAssertEqual(result.syncedTrustedDeviceCount, 2)
+        XCTAssertEqual(trustedStore.load().trustedDevices.map(\.deviceId), ["device_cloud", "device_local"])
+    }
+
     func testDrainPublishesJournalEventsAfterInboxWithoutSkippingBatchedEvents() async throws {
         let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs"))
         _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
@@ -520,11 +536,12 @@ final class RemoteMacAgentTests: XCTestCase {
     }
 
     private func trustedDevice(
+        deviceId: String = "device_1",
         revoked: Bool = false,
         capabilities: Set<RemoteCapability>
     ) -> TrustedDevice {
         TrustedDevice(
-            deviceId: "device_1",
+            deviceId: deviceId,
             displayName: "Mike's iPhone",
             deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(deviceSigningKey.publicKey),
             deviceSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(deviceSealingKey.publicKey),

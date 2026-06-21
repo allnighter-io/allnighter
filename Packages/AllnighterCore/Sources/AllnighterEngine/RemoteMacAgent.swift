@@ -185,7 +185,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
                 macAgentId: identity.macAgentId
             )
         }
-        try trustedStore.syncTrustedDevices(
+        let syncedTrustedDeviceCount = try trustedStore.syncTrustedDevices(
             trustedDevices,
             accountId: identity.account.accountId,
             macAgentId: identity.macAgentId,
@@ -230,7 +230,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
             mac: mac,
             syncedPendingPairRequestCount: syncedPendingPairRequestCount,
             publishedTrustedDeviceCount: publishedTrustedDeviceCount,
-            syncedTrustedDeviceCount: trustedDevices.count,
+            syncedTrustedDeviceCount: syncedTrustedDeviceCount,
             processedCommandCount: inbox.count,
             publishedEventCount: eventSyncResult?.publishedEventCount ?? 0,
             lastPublishedEventSeq: eventSyncResult?.lastPublishedSeq,
@@ -246,7 +246,8 @@ public final class RemoteMacAgent: @unchecked Sendable {
         serverTime: Date
     ) async throws -> Int {
         let registry = trustedStore.list(now: serverTime)
-        let relayDevicesById = Dictionary(uniqueKeysWithValues: relayTrustedDevices.map { ($0.deviceId, $0) })
+        let relayDeviceIds = Set(relayTrustedDevices.map(\.deviceId))
+        let revokedRelayDeviceIds = Set(relayTrustedDevices.filter(\.revoked).map(\.deviceId))
         var publishedCount = 0
 
         for request in registry.pendingRequests where request.accountId == identity.account.accountId
@@ -258,10 +259,10 @@ public final class RemoteMacAgent: @unchecked Sendable {
         for device in registry.trustedDevices where device.accountId == identity.account.accountId
             && device.macAgentId == identity.macAgentId
             && device.validUntil >= serverTime {
-            if relayDevicesById[device.deviceId]?.revoked == true {
+            if revokedRelayDeviceIds.contains(device.deviceId) {
                 continue
             }
-            guard relayDevicesById[device.deviceId] == nil else {
+            guard !relayDeviceIds.contains(device.deviceId) else {
                 continue
             }
             try await relay.upsertTrustedDevice(device)
