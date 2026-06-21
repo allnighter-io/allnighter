@@ -118,6 +118,12 @@ public protocol RemoteMacRelay: Sendable {
     func updatePairRequest(_ request: RemotePairRequest) async throws -> RemotePairRequest
     func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice]
     func upsertTrustedDevice(_ device: TrustedDevice) async throws
+    func submitCommand(_ entry: RemoteCommandInboxEntry) async throws
+    func commandAck(
+        accountId: String,
+        macAgentId: String,
+        requestId: String
+    ) async throws -> RemoteCommandAckEnvelope?
     func pendingCommands(accountId: String, macAgentId: String, limit: Int) async throws -> [RemoteCommandInboxEntry]
     func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws
     func publishEvents(accountId: String, macAgentId: String, events: [RemoteRunEventEnvelope]) async throws
@@ -289,6 +295,31 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         devices.append(device)
         devices.sort { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
         trustedByMac[device.macAgentId] = devices
+    }
+
+    public func submitCommand(_ entry: RemoteCommandInboxEntry) async throws {
+        eventLog.append("submitCommand")
+        var entries = inboxByMac[entry.macAgentId, default: []]
+        entries.removeAll { $0.requestId == entry.requestId }
+        entries.append(entry)
+        entries.sort {
+            if $0.createdAt == $1.createdAt { return $0.requestId < $1.requestId }
+            return $0.createdAt < $1.createdAt
+        }
+        inboxByMac[entry.macAgentId] = entries
+    }
+
+    public func commandAck(
+        accountId: String,
+        macAgentId: String,
+        requestId: String
+    ) async throws -> RemoteCommandAckEnvelope? {
+        eventLog.append("commandAck")
+        return acknowledgements.last {
+            $0.accountId == accountId
+                && $0.macAgentId == macAgentId
+                && $0.requestId == requestId
+        }
     }
 
     public func pendingCommands(

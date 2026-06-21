@@ -619,6 +619,16 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
 
     func upsertTrustedDevice(_ device: TrustedDevice) async throws {}
 
+    func submitCommand(_ entry: RemoteCommandInboxEntry) async throws {}
+
+    func commandAck(
+        accountId: String,
+        macAgentId: String,
+        requestId: String
+    ) async throws -> RemoteCommandAckEnvelope? {
+        nil
+    }
+
     func pendingCommands(
         accountId: String,
         macAgentId: String,
