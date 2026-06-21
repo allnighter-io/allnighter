@@ -457,6 +457,42 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(state.run(id: "run_1")?.completedAt, now.addingTimeInterval(2))
     }
 
+    func testReducerIgnoresStaleEventsBeforeSnapshotCursor() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let snapshot = SnapshotEnvelope(
+            runs: [
+                TeamRunLight(
+                    id: "run_1",
+                    status: .done,
+                    origin: .ios,
+                    promptExcerpt: "Already finished",
+                    createdAt: now,
+                    completedAt: now.addingTimeInterval(10)
+                )
+            ],
+            lastSeq: 10,
+            serverTime: now
+        )
+        let stale = RemoteRunEventEnvelope(
+            event: RunEvent(
+                id: "evt_stale_new_id",
+                seq: 9,
+                ts: now.addingTimeInterval(9),
+                kind: RunEventKind.runStatusChanged,
+                payload: ["runId": .string("run_1"), "to": .string("running")]
+            ),
+            signature: "sig"
+        )
+
+        let state = RemoteRunReducer.apply(snapshot: snapshot, events: [stale])
+
+        XCTAssertEqual(state.lastSeq, 10)
+        XCTAssertTrue(state.recentEvents.isEmpty)
+        XCTAssertTrue(state.appliedEventIds.isEmpty)
+        XCTAssertEqual(state.run(id: "run_1")?.status, .done)
+        XCTAssertEqual(state.run(id: "run_1")?.completedAt, now.addingTimeInterval(10))
+    }
+
     func testReducerUpsertsRunFromStartedEvent() {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let snapshot = SnapshotEnvelope(runs: [], lastSeq: 0, serverTime: now)
