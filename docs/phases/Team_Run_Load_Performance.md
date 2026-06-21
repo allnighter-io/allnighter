@@ -63,6 +63,7 @@ run.json:
   156 KB
   team: Bug Hunt MAX
   presetId: custom_code_bug_hunt_custom
+  threadId: null (the thread turn owns the run link)
   workers: 11
   workerAnswers: 10
   stages: 1 plan stage
@@ -199,11 +200,16 @@ The thread can still contain the user turn and a team-run receipt card:
 
 ```text
 Bug Hunt MAX
-11 workers - 6 done - 4 timed out - synthesis ready
+11 workers - 6 answers done - 4 timed out - synthesis ready
 [Open Floor]
 ```
 
 No full worker answers in the thread terminal card.
+
+Data note: the reported `thread.json` links to the run through the `.teamRun`
+turn, but `run.json.threadId` is currently null. Floor routing can still work
+from the clicked thread turn, but future run-first retrieval should either set
+`TeamRun.threadId` at creation or maintain a derived run-to-thread summary index.
 
 ### 2. Add Summary Sidecars
 
