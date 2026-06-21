@@ -301,21 +301,32 @@ private struct ThreadTurnTimeline: View {
     }
 }
 
+/// RLS-P0 reasoning render policy. Reasoning is audit/debug by default — a running turn
+/// must NOT auto-render unbounded, growing reasoning text while the answer also streams
+/// (that laid out an ever-taller `Text` on every delta). It stays collapsed to the compact
+/// "Thinking" header (honest live activity) unless the user explicitly opens it.
+enum ReasoningRenderPolicy {
+    static func expanded(userToggle: Bool?, isLatestTurn: Bool, isRunning: Bool) -> Bool {
+        // latest/running deliberately do NOT force expansion anymore — only an explicit toggle.
+        userToggle ?? false
+    }
+}
+
 /// CR4a user messages + CR4b worker chat replies; team/mutating run turns render
 /// from durable run truth.
-/// The model's reasoning, kept above (and visually under) the answer. Never removed.
-/// Expanded by default on the LATEST turn (or while running) so you can watch — and
-/// pause — live; collapsed to a one-line "Thought for Ns" on prior turns so old
-/// threads stay skimmable. A click toggles either way.
+/// The model's reasoning, kept above (and visually under) the answer. Collapsed by
+/// default (a compact "Thinking…/Thought for Ns" header); a click reveals the full text.
 private struct ThreadThinkingBlock: View {
     let text: String?
     var isLatestTurn: Bool = false
     var isRunning: Bool = false
     var duration: TimeInterval? = nil
-    /// nil = follow the default (latest/running → expanded); set by a manual toggle.
+    /// nil = use the default policy (collapsed); set by a manual toggle.
     @State private var userExpanded: Bool? = nil
 
-    private var expanded: Bool { userExpanded ?? (isLatestTurn || isRunning) }
+    private var expanded: Bool {
+        ReasoningRenderPolicy.expanded(userToggle: userExpanded, isLatestTurn: isLatestTurn, isRunning: isRunning)
+    }
 
     private var headerLabel: String {
         if isRunning { return "Thinking" }
