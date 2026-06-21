@@ -80,7 +80,7 @@ public actor DirectModeRemoteClient: RemoteClient {
     public func snapshot(macId: String, since: Int64?) async throws -> SnapshotEnvelope {
         let account = try requireConnected()
         try requireMac(macId)
-        let snapshotURL = Self.routeURLString(DirectModeCommandServer.snapshotPath, baseURL: endpoint.baseURL)
+        let snapshotURL = endpoint.snapshotURL
         guard let url = URL(string: snapshotURL) else {
             throw DirectModeRemoteClientError.invalidEndpoint(snapshotURL)
         }
@@ -113,7 +113,7 @@ public actor DirectModeRemoteClient: RemoteClient {
         return AsyncStream { continuation in
             Task {
                 defer { continuation.finish() }
-                let eventsURL = Self.routeURLString(DirectModeCommandServer.eventsPath, baseURL: endpoint.baseURL)
+                let eventsURL = endpoint.eventsURL
                 guard let url = URL(string: eventsURL) else { return }
                 let request = DirectModeEventsRequest(
                     accountId: accountId,
@@ -174,7 +174,7 @@ public actor DirectModeRemoteClient: RemoteClient {
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
         let account = try requireConnected()
         try requireMac(ref.macAgentId)
-        let mediaURL = Self.routeURLString(DirectModeCommandServer.mediaPath, baseURL: endpoint.baseURL)
+        let mediaURL = endpoint.mediaURL
         guard let url = URL(string: mediaURL) else {
             throw DirectModeRemoteClientError.invalidEndpoint(mediaURL)
         }
@@ -233,11 +233,6 @@ public actor DirectModeRemoteClient: RemoteClient {
 
     private var expectedMode: ConnectionMode {
         endpoint.transport == .loopback ? .loopback : .tailscaleDirect
-    }
-
-    private static func routeURLString(_ path: String, baseURL: String) -> String {
-        let trimmed = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return "\(trimmed)\(path)"
     }
 
     private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {

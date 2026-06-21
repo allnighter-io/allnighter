@@ -11,6 +11,9 @@ final class DirectModeExposureProviderTests: XCTestCase {
 
         XCTAssertEqual(plan.endpoint.baseURL, "https://studio.tail123.ts.net")
         XCTAssertEqual(plan.endpoint.commandURL, "https://studio.tail123.ts.net/remote/command")
+        XCTAssertEqual(plan.endpoint.snapshotURL, "https://studio.tail123.ts.net/remote/snapshot")
+        XCTAssertEqual(plan.endpoint.mediaURL, "https://studio.tail123.ts.net/remote/media")
+        XCTAssertEqual(plan.endpoint.eventsURL, "https://studio.tail123.ts.net/remote/events")
         XCTAssertEqual(plan.endpoint.transport, .tailscaleHTTPS)
         XCTAssertFalse(plan.endpoint.atsExceptionRequired)
         XCTAssertEqual(plan.serveCommand, [

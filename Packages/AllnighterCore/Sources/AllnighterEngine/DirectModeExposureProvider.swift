@@ -44,6 +44,28 @@ public struct DirectModeEndpoint: Codable, Equatable, Sendable {
     public var pairingEndpoint: RemotePairingEndpoint {
         RemotePairingEndpoint(url: baseURL, transportMode: transport.connectionMode)
     }
+
+    public var snapshotURL: String {
+        url(for: DirectModeCommandServer.snapshotPath)
+    }
+
+    public var mediaURL: String {
+        url(for: DirectModeCommandServer.mediaPath)
+    }
+
+    public var eventsURL: String {
+        url(for: DirectModeCommandServer.eventsPath)
+    }
+
+    public func url(for path: String) -> String {
+        Self.routeURL(baseURL: baseURL, path: path)
+    }
+
+    public static func routeURL(baseURL: String, path: String) -> String {
+        let trimmedBase = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
+        return "\(trimmedBase)\(normalizedPath)"
+    }
 }
 
 public struct DirectModeExposurePlan: Equatable, Sendable {
@@ -157,8 +179,7 @@ public struct TailscaleExposureProvider: ExposureProvider {
     }
 
     fileprivate static func commandURL(baseURL: String) -> String {
-        let trimmed = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return "\(trimmed)\(DirectModeCommandServer.commandPath)"
+        DirectModeEndpoint.routeURL(baseURL: baseURL, path: DirectModeCommandServer.commandPath)
     }
 
     private func validate(loopbackPort: UInt16) throws {
