@@ -83,7 +83,9 @@ docs/phases/mockups/
 # GUI Visual Proof Gate — transient fixture captures (overwritten each run)
 docs/qa/gui/_captures/
 
-# Contract export writes to docs/generated/alln/ (repo root). Ignore accidental
+# Team Lab local experiment records (quota-heavy runs, transcripts, model output)
+.lab/
+
 # package-cwd duplicates from `swift run alln dev export-contracts` inside Packages/.
 Packages/AllnighterCore/docs/
 .aider*
