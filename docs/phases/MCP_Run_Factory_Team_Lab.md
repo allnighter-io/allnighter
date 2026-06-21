@@ -118,18 +118,21 @@ Useful substrate already exists:
   intended headless flow: `team_preflight -> team_start -> team_status ->
   team_result`.
 
-Known gaps:
+Landed in v1 harness (2026-06-21 dogfood):
 
-- There is no MCP-only experiment harness.
-- There is no benchmark corpus for default Teams.
-- There is no evaluator schema for run quality, worker contribution, or writer
-  behavior.
-- There is no batch report that says which workers helped, timed out, overlapped,
-  or misled the writer.
-- There is no stop-the-line rule for MCP gaps discovered during Team tuning.
-- Artifact retrieval is not yet proven sufficient through MCP alone for a full
-  lab record. If the factory must read local files directly because MCP lacks an
-  artifact endpoint, that is a contract gap to fix.
+- `scripts/team_lab/` MCP-only factory (`run.py`, `evaluate.py`, `scoring.py`).
+- `team_status` carries `workersDone` / `workersTotal` and `nextPollAfterMs`.
+- `team_result(detail=full)` embeds worker prompt snapshots and answer markdown.
+- `floor_show` / `spec_get` accept `runId` as alias for `run`.
+- MCP-first scoring with `fsBypass` gate and team-quality withholding.
+- Local scratch records: `REPO/.lab/<experiment-id>/`.
+
+Known gaps still open:
+
+- No Bug Hunt regression benchmark suite with seeded known failures yet.
+- Evaluator is heuristic v1 — LLM rubric judge not shipped.
+- `alln dev team-lab` Swift wrapper not built (Python is canonical v1).
+- Stage artifact inline retrieval may still require FS diff-oracle.
 - Async run ownership still depends on a living process. MCP stdio can own a run
   while connected; durable overnight use should route through resident
   `alln serve` when that coordinator is the owner.
@@ -701,6 +704,7 @@ The factory is allowed to discover product bugs. It must not paper over them.
 | --- | --- | --- |
 | P0 | MCP cannot start a run, loses run id, corrupts result | Stop batch, Debugger packet, fix before continuing |
 | P1 | Worker failure hidden, prompt missing, status lies, artifact unreachable | Stop affected suite, fix retrieval/status contract |
+| P1 | `fsBypass=true` (scoring relied on copied journal, not pure MCP) | Team quality score **withheld**; fix MCP retrieval or harness |
 | P2 | Report incomplete, evaluator unclear, schema awkward | Record and continue only if Team score remains interpretable |
 | P3 | Report polish or convenience issue | Backlog |
 
@@ -737,7 +741,41 @@ Rules:
 | Human taste -> benchmark proof | Team Lab rubric | Founder liked one answer, so Team is fixed | Keep human notes separate from scores | Report schema separates `humanNotes` from rubric fields |
 | MCP gap -> local file workaround | MCP contract | Just read the file directly | Add/revise MCP retrieval surface | Harness marks direct run-store read as contract violation unless from MCP artifact ref |
 
+| MCP gap -> local file workaround | MCP contract | Just read the file directly | FS copy is diff-oracle only; scoring must use MCP payloads | Harness `pure_mcp_scoring` fails when `fsBypass=true`; team quality withheld |
+
+## Measurement Validity (v1)
+
+The `4/10 -> 9/10` headline is aspiration until these rules bind:
+
+- Run-contract lane must be green (`fsBypass=false`, `runContractScore >= 0.95`) before
+  any Team-quality score is interpreted.
+- Score **logical workers once** (not duplicate artifact paths).
+- Runs-per-case **>= 3** for calibration claims; report mean and spread, not N=1.
+- Built-in Team mutations require **>= 3 clean reruns** of the same case with positive
+  team-quality delta and no run-contract regression.
+- Writer consistency: discard worker claims contradicted by `experiment.json` and
+  run-contract artifacts.
+
 ## Implementation Slices
+
+### PRE-S0 - Pure-MCP Reconstruction Proof (blocking)
+
+Before LAB-S03+ scores are trusted:
+
+```text
+team_result(detail=full) returns worker prompt snapshots + answer markdown + plan
+floor_show({runId}) returns the requested run (not latest-by-accident)
+journal copy under .lab/run/ is diff-oracle only — zero score weight
+fsBypass=false and runContractScore >= 0.95
+```
+
+Proof:
+
+```bash
+python3 scripts/team_lab/run.py --suite spec_upgrade_mcp_lab_v1 --round 1 --variant baseline
+python3 scripts/team_lab/evaluate.py .lab/<experiment-dir> --rescore-contract
+# expect: pure_mcp_scoring ok, team quality not withheld
+```
 
 ### LAB-S00 - Lab Constitution and Fixtures
 
@@ -749,7 +787,8 @@ Rules:
 Proof:
 
 ```bash
-alln dev team-lab suites --json
+python3 scripts/team_lab/run.py --suite smoke_mcp_v1 --round 1
+# planned: alln dev team-lab suites --json
 ```
 
 ### LAB-S01 - MCP Transcript Harness
@@ -763,7 +802,8 @@ alln dev team-lab suites --json
 Proof:
 
 ```bash
-alln dev team-lab run --suite smoke_mcp_v1 --case hello --json
+python3 scripts/team_lab/run.py --suite smoke_mcp_v1 --case hello --round 1
+# planned: alln dev team-lab run --suite smoke_mcp_v1 --case hello --json
 ```
 
 ### LAB-S02 - Run Factory Driver
@@ -778,7 +818,7 @@ alln dev team-lab run --suite smoke_mcp_v1 --case hello --json
 Proof:
 
 ```bash
-alln dev team-lab run --suite smoke_team_start_v1 --team code_bug_hunt --json
+python3 scripts/team_lab/run.py --suite smoke_team_start_v1 --team code_bug_hunt --round 1
 ```
 
 ### LAB-S03 - Artifact Collector
@@ -792,21 +832,23 @@ alln dev team-lab run --suite smoke_team_start_v1 --team code_bug_hunt --json
 Proof:
 
 ```bash
-alln dev team-lab report <experiment-id> --json
+python3 scripts/team_lab/evaluate.py .lab/<experiment-dir> --rescore-contract
+ls .lab/<experiment-dir>/evaluation/
 ```
 
 ### LAB-S04 - Evaluator and Report Model
 
-- Add deterministic run-contract checks.
-- Add rubric-driven evaluator prompts for Team/worker/writer quality.
-- Store evaluator prompts and outputs.
-- Produce `report.md` and `final-score.json`.
-- Keep human notes separate.
+- Deterministic run-contract checks (`evaluation/run-contract-score.json`).
+- Heuristic worker/writer scoring v1 (`evaluate.py`); LLM rubric judge deferred.
+- Persist evaluator record (`evaluation/evaluator-record.json`).
+- Writer consistency check against `experiment.json`.
+- Produce `report.md`.
 
 Proof:
 
 ```bash
-alln dev team-lab compare <baseline-id> <candidate-id> --json
+python3 scripts/team_lab/evaluate.py .lab/<experiment-dir>
+# planned: alln dev team-lab compare <baseline> <candidate> --json
 ```
 
 ### LAB-S05 - Bug Hunt Calibration
@@ -820,24 +862,15 @@ alln dev team-lab compare <baseline-id> <candidate-id> --json
 Proof:
 
 ```bash
-alln dev team-lab run --suite bug_hunt_repo_regressions_v1 --team code_bug_hunt --json
+python3 scripts/team_lab/run.py --suite bug_hunt_repo_regressions_v1 --team code_bug_hunt --round 1
 ```
 
-### LAB-S06 - Default Team Sweep
+### LAB-S06 - Default Team Sweep (deferred v2)
 
-- Add suites for Code planning, GUI Bug Hunt, Design, Copy, and Signal.
-- Run baselines.
-- Tune each default Team to the target score band.
-- Publish one batch report per Team.
+Deferred until one Team (Bug Hunt) proves the loop with `fsBypass=false` and
+repeatable team-quality deltas. Do not sweep all built-in Teams before that.
 
-Proof:
-
-```bash
-alln dev team-lab suites --json
-alln dev team-lab run --suite default_teams_smoke_v1 --json
-```
-
-### LAB-S07 - Regression Gates
+### LAB-S07 - Regression Gates (deferred v2)
 
 - Add a cheap MCP smoke gate that runs in normal checks without spending real
   quota, using mock/fake workers where possible.
@@ -868,15 +901,21 @@ And produces a batch report
 And any missing MCP/run truth is surfaced as a product bug, not hidden
 ```
 
-## Done When
+## Done When (v1)
 
-- MCP Run Factory can run at least one benchmark case without the Mac app.
-- Every run has a complete local lab record.
-- Worker prompts and outputs are captured.
+- MCP Run Factory runs at least one benchmark case without the Mac app.
+- Every run has a complete local lab record under `.lab/`.
+- Worker prompts and outputs are retrievable via MCP (`fsBypass=false`).
 - Timed-out/failed workers are scored, not hidden.
-- Run-contract quality is scored separately from Team quality.
-- Bug Hunt has a baseline report and at least one proven improvement.
-- Default Team calibration has a repeatable loop for all built-in Teams.
+- Run-contract quality is scored separately from Team quality; P0/P1 failures
+  withhold Team quality.
+- Spec Upgrade self-dogfood completes with `runContractScore >= 0.95` and honest
+  evaluator scores.
+- Bug Hunt has a baseline on 2–3 known regressions and at least one proven
+  improvement.
+
+Deferred to v2: default-Team sweep (LAB-S06), full regression gates (LAB-S07),
+LLM rubric evaluator, `alln dev team-lab` Swift wrapper.
 - Any MCP gaps found by the lab have Debugger packets and either fixes or
   explicit blockers.
 - The app remains only a presenter; it is not part of the lab's proof path.

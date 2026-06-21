@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from mcp_client import MCPStdioClient, parse_tool_json
+from scoring import evaluate_team_quality, score_run_contract
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_ALLN = REPO / "Packages/AllnighterCore/.build/debug/alln"
@@ -70,6 +71,14 @@ def copy_run_journal(run_id: str, dest: Path) -> bool:
     return True
 
 
+def git_head(repo: Path) -> str | None:
+    try:
+        out = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+        return out[:12] if out else None
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
 def write_experiment(
     lab_dir: Path,
     *,
@@ -84,7 +93,23 @@ def write_experiment(
     preflight: dict,
     start: dict,
     status_history: list[dict],
+    idempotency_key: str,
+    alln_path: Path,
+    tools_hash: str,
+    contract_version: str | None,
+    contract: dict | None = None,
+    team_eval: dict | None = None,
 ) -> None:
+    started = status_history[0].get("polledAt") if status_history else None
+    completed = datetime.now(timezone.utc).isoformat()
+    duration_ms = None
+    if started:
+        try:
+            s = datetime.fromisoformat(started.replace("Z", "+00:00"))
+            e = datetime.fromisoformat(completed.replace("Z", "+00:00"))
+            duration_ms = int((e - s).total_seconds() * 1000)
+        except ValueError:
+            pass
     exp = {
         "experimentId": lab_dir.name,
         "suiteId": suite["suiteId"],
@@ -92,18 +117,29 @@ def write_experiment(
         "teamId": team_id,
         "variant": variant,
         "round": round_no,
-        "startedAt": status_history[0].get("polledAt") if status_history else None,
-        "completedAt": datetime.now(timezone.utc).isoformat(),
+        "startedAt": started,
+        "completedAt": completed,
+        "gitHead": git_head(REPO),
+        "allnBinary": str(alln_path),
+        "allnVersion": "0.1.0",
+        "contractVersion": contract_version,
+        "mcpServer": {
+            "command": "alln mcp serve --stdio",
+            "protocolVersion": "2024-11-05",
+            "toolsListHash": tools_hash,
+        },
         "request": {
             "prompt": case["prompt"],
             "lane": case.get("lane", "code"),
             "team": team_id,
             "effort": effort,
+            "idempotencyKey": idempotency_key,
         },
         "run": {
             "runId": run_id,
             "status": status,
             "pollCount": len(status_history),
+            "durationMs": duration_ms,
         },
         "preflight": {
             "canStart": preflight.get("canStart"),
@@ -113,36 +149,23 @@ def write_experiment(
         },
         "start": {"nextPollAfterMs": start.get("nextPollAfterMs")},
     }
+    if contract:
+        exp["scores"] = {
+            "runContract": contract.get("runContractScore"),
+            "fsBypass": contract.get("fsBypass"),
+            "scoringSource": contract.get("scoringSource"),
+            "teamQuality": team_eval.get("teamQualityScore") if team_eval else None,
+            "teamQualityAuthoritative": contract.get("teamQualityAuthoritative", False),
+            "teamQualityWithheld": team_eval.get("teamQualityWithheld") if team_eval else None,
+            "writerConsistencyIssues": (
+                team_eval.get("writerConsistency", {}).get("issueCount") if team_eval else None
+            ),
+        }
+    support_root = os.environ.get("ALLNIGHTER_SUPPORT_DIR") or str(
+        Path.home() / "Library/Application Support/Allnighter"
+    )
+    exp["supportRoot"] = support_root
     (lab_dir / "experiment.json").write_text(json.dumps(exp, indent=2))
-
-
-def score_run_contract(lab_dir: Path, run_id: str, status: str, result_ok: bool, fs_bypass: bool) -> dict:
-    run_dir = lab_dir / "run"
-    checks: list[dict] = []
-    checks.append({"name": "terminal_status", "ok": status in {"completed", "failed", "cancelled", "interrupted"}})
-    checks.append({"name": "run_journal_copied", "ok": run_dir.exists()})
-    run_json = run_dir / "run.json"
-    checks.append({"name": "run_json_present", "ok": run_json.exists()})
-    workers_dir = run_dir / "workers"
-    prompts = list(workers_dir.glob("*.prompt.md")) if workers_dir.exists() else []
-    answers = list(workers_dir.glob("*.answer.md")) if workers_dir.exists() else []
-    checks.append({"name": "worker_prompts_captured", "ok": len(prompts) > 0})
-    checks.append({"name": "worker_answers_captured", "ok": len(answers) > 0})
-    checks.append({"name": "team_result_retrieved", "ok": result_ok})
-    bundle = run_dir / "bundle.md"
-    checks.append({"name": "bundle_md_present", "ok": bundle.exists() and bundle.stat().st_size > 0})
-    trj = lab_dir / "team-result.json"
-    mcp_has_prompts = False
-    if trj.exists():
-        data = json.loads(trj.read_text())
-        workers = data.get("teamRun", {}).get("workers", data.get("workers", []))
-        if isinstance(workers, list):
-            mcp_has_prompts = any(w.get("resolvedWorkerPromptSnapshot") for w in workers)
-    checks.append({"name": "mcp_prompt_snapshots_without_fs", "ok": mcp_has_prompts or not fs_bypass})
-    score = sum(1 for c in checks if c["ok"]) / len(checks)
-    out = {"runContractScore": round(score, 3), "checks": checks, "fsBypass": fs_bypass}
-    (lab_dir / "evaluation" / "run-contract-score.json").write_text(json.dumps(out, indent=2))
-    return out
 
 
 def run_experiment(
@@ -202,7 +225,7 @@ def run_experiment(
         (lab_dir / "tools-list.sha256").write_text(tools_hash)
 
         hello = client.call_tool("mcp_hello", {"originAgent": "team-lab"})
-        (lab_dir / "mcp-hello.json").write_text(hello["text"])
+        (lab_dir / "mcp-hello.json").write_text(json.dumps(hello, indent=2))
 
         preflight_call = client.call_tool(
             "team_preflight",
@@ -224,6 +247,10 @@ def run_experiment(
                 preflight=preflight,
                 start={},
                 status_history=[],
+                idempotency_key="",
+                alln_path=alln,
+                tools_hash=tools_hash,
+                contract_version=None,
             )
             raise SystemExit(f"preflight blocked: {preflight.get('blockedReason')}")
 
@@ -285,8 +312,25 @@ def run_experiment(
         if "floor_show" in tool_names:
             floor = client.call_tool("floor_show", {"runId": run_id})
             (lab_dir / "floor-show.txt").write_text(floor["text"])
+            if floor.get("structured"):
+                (lab_dir / "floor-show.json").write_text(json.dumps(floor["structured"], indent=2))
 
-        fs_bypass = copy_run_journal(run_id, lab_dir / "run")
+        journal_copied = copy_run_journal(run_id, lab_dir / "run")
+
+        terminal_status = status_history[-1].get("status", "")
+        contract = score_run_contract(
+            lab_dir,
+            status=terminal_status,
+            result_ok=result_ok,
+            journal_copied=journal_copied,
+            expected_run_id=run_id,
+        )
+        team_eval = evaluate_team_quality(lab_dir)
+
+        hello_structured = hello.get("structured") if isinstance(hello, dict) else None
+        contract_version = None
+        if isinstance(hello_structured, dict):
+            contract_version = hello_structured.get("contractVersion")
 
         write_experiment(
             lab_dir,
@@ -297,13 +341,17 @@ def run_experiment(
             round_no=round_no,
             variant=variant,
             run_id=run_id,
-            status=status_history[-1].get("status", "unknown"),
+            status=terminal_status,
             preflight=preflight,
             start=start,
             status_history=status_history,
+            idempotency_key=idem,
+            alln_path=alln,
+            tools_hash=tools_hash,
+            contract_version=contract_version,
+            contract=contract,
+            team_eval=team_eval,
         )
-        contract = score_run_contract(
-            lab_dir, run_id, status_history[-1].get("status", ""), result_ok, fs_bypass=fs_bypass)
 
         report_lines = [
             f"# Team Lab Report — {lab_dir.name}",
@@ -314,6 +362,7 @@ def run_experiment(
             f"- Run: `{run_id}`",
             f"- Terminal status: `{status_history[-1].get('status')}`",
             f"- Run contract score: **{contract['runContractScore']}**",
+            f"- Scoring source: `{contract.get('scoringSource')}` (fsBypass={contract.get('fsBypass')})",
             "",
             "## Preflight warnings",
             "",
@@ -324,7 +373,23 @@ def run_experiment(
         for c in contract["checks"]:
             mark = "ok" if c["ok"] else "FAIL"
             report_lines.append(f"- [{mark}] {c['name']}")
-        report_lines += ["", "## Next", "", "- Score workers independently from `run/worker_answers/`", "- Tune one team variable; rerun same case", ""]
+        report_lines += ["", "## Team quality (heuristic)", ""]
+        if team_eval.get("teamQualityWithheld"):
+            report_lines.append(
+                f"- Team quality: **withheld** ({team_eval.get('teamQualityWithheldReason')})"
+            )
+        else:
+            report_lines.append(f"- Score: **{team_eval.get('teamQualityScore')}**")
+        report_lines += [
+            f"- Logical workers scored: {team_eval.get('logicalWorkerCount')}",
+            f"- Writer consistency issues: {team_eval.get('writerConsistency', {}).get('issueCount', 0)}",
+            "",
+            "## Next",
+            "",
+            "- Compare repeatability across rounds before expanding to other teams",
+            "- Tune one team variable; rerun same case",
+            "",
+        ]
         (lab_dir / "report.md").write_text("\n".join(report_lines))
 
         print(f"LAB_DIR={lab_dir}")

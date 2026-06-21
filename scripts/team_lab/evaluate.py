@@ -4,117 +4,54 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
-
-def load_worker_answers(run_dir: Path) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for sub in ("workers", "worker_answers"):
-        ans = run_dir / sub
-        if not ans.exists():
-            continue
-        for p in sorted(ans.glob("*.md")):
-            if ".answer." in p.name or sub == "worker_answers":
-                out[p.stem] = p.read_text()
-            elif p.name.endswith(".answer.md"):
-                out[p.stem.replace(".answer", "")] = p.read_text()
-    workers = run_dir / "workers"
-    if workers.exists():
-        for p in sorted(workers.glob("*.answer.md")):
-            out[p.name.replace(".answer.md", "")] = p.read_text()
-    return out
-
-
-def score_worker(worker_id: str, text: str, expected: list[str]) -> dict:
-    lower = text.lower()
-    hits = [q for q in expected if any(tok in lower for tok in q.lower().split()[:3])]
-    novel_markers = [
-        "evidence inspected",
-        "confidence",
-        "falsif",
-        "missing observation",
-        "what i reject",
-        "mcp",
-        "contract",
-        "proof",
-    ]
-    structure_hits = sum(1 for m in novel_markers if m in lower)
-    return {
-        "workerId": worker_id,
-        "chars": len(text),
-        "expectedQualityHits": len(hits),
-        "structureMarkers": structure_hits,
-        "failedOrEmpty": len(text.strip()) < 80,
-    }
-
-
-def score_writer(bundle_path: Path, answers: dict[str, str]) -> dict:
-    if not bundle_path.exists():
-        return {"ok": False, "reason": "missing bundle.md"}
-    text = bundle_path.read_text()
-    lower = text.lower()
-    cites_workers = sum(1 for wid in answers if wid.replace("#", "") in text or wid in text)
-    return {
-        "ok": True,
-        "chars": len(text),
-        "mentionsWorkers": cites_workers,
-        "hasDissent": "dissent" in lower or "reject" in lower,
-        "hasProofSection": "proof" in lower,
-        "hasCutOrDefer": "defer" in lower or "cut" in lower,
-    }
+from scoring import evaluate_team_quality, score_run_contract
 
 
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("lab_dir", type=Path)
+    p.add_argument("--rescore-contract", action="store_true", help="recompute run-contract from artifacts")
     args = p.parse_args()
     lab = args.lab_dir
     exp = json.loads((lab / "experiment.json").read_text()) if (lab / "experiment.json").exists() else {}
-    suite_id = exp.get("suiteId", "")
-    expected: list[str] = []
-    if suite_id:
-        suite_path = Path(__file__).resolve().parents[2] / "docs/team-lab/suites" / f"{suite_id}.json"
-        if suite_path.exists():
-            suite = json.loads(suite_path.read_text())
-            for c in suite.get("cases", []):
-                if c.get("caseId") == exp.get("caseId"):
-                    expected = c.get("expectedQualities", [])
-                    break
 
-    run_dir = lab / "run"
-    answers = load_worker_answers(run_dir)
-    worker_scores = [score_worker(wid, body, expected) for wid, body in answers.items()]
-    writer = score_writer(run_dir / "bundle.md", answers)
+    if args.rescore_contract:
+        run = exp.get("run") or {}
+        journal_copied = (lab / "run").exists()
+        score_run_contract(
+            lab,
+            status=run.get("status", "unknown"),
+            result_ok=(lab / "team-result.json").exists(),
+            journal_copied=journal_copied,
+            expected_run_id=run.get("runId"),
+        )
 
-    failures = [w for w in worker_scores if w["failedOrEmpty"]]
-    team_quality = 0.0
-    if worker_scores:
-        ok_frac = 1.0 - (len(failures) / len(worker_scores))
-        struct_avg = sum(w["structureMarkers"] for w in worker_scores) / len(worker_scores)
-        team_quality = round(min(1.0, 0.5 * ok_frac + 0.1 * struct_avg), 3)
-
-    out = {
-        "workerScores": worker_scores,
-        "writerScore": writer,
-        "teamQualityScore": team_quality,
-        "workerFailures": [w["workerId"] for w in failures],
-    }
-    eval_dir = lab / "evaluation"
-    eval_dir.mkdir(exist_ok=True)
-    (eval_dir / "worker-scores.json").write_text(json.dumps(out, indent=2))
+    out = evaluate_team_quality(lab)
 
     lines = [
         "## Team quality (heuristic)",
         "",
-        f"- Score: **{team_quality}**",
-        f"- Workers scored: {len(worker_scores)}",
-        f"- Failed/empty: {len(failures)}",
+    ]
+    if out.get("teamQualityWithheld"):
+        lines.append(f"- Team quality: **withheld** ({out.get('teamQualityWithheldReason')})")
+    else:
+        lines.append(f"- Score: **{out.get('teamQualityScore')}**")
+    lines += [
+        f"- Logical workers scored: {out.get('logicalWorkerCount')}",
+        f"- Failed/empty: {len(out.get('workerFailures', []))}",
+        f"- Writer consistency issues: {out.get('writerConsistency', {}).get('issueCount', 0)}",
         "",
     ]
     report = lab / "report.md"
     if report.exists():
-        report.write_text(report.read_text() + "\n" + "\n".join(lines))
+        body = report.read_text()
+        marker = "## Team quality (heuristic)"
+        if marker in body:
+            body = body.split(marker)[0].rstrip() + "\n"
+        report.write_text(body + "\n" + "\n".join(lines))
+
     print(json.dumps(out, indent=2))
     return 0
 
