@@ -1,4 +1,4 @@
-# Spec Upgrade calibration — rounds 1–4
+# Spec Upgrade calibration — rounds 1–5
 
 Team: `code_spec_upgrade` · Suite: `spec_upgrade_mcp_lab_v1`
 
@@ -9,11 +9,9 @@ Team: `code_spec_upgrade` · Suite: `spec_upgrade_mcp_lab_v1`
 | R1 | baseline | 0.714 | true | withheld | — | ~9.4 min |
 | R2 | evidence-contract | 1.0 | false | 0.85 | 1 (stale round claim) | ~11 min |
 | R3 | evidence-contract-r3 | 1.0 | false | 1.0* | 0 | ~12 min |
-| R4 | harness-v2 | 1.0† | false | 1.0* | 0 | ~11.7 min |
+| R5 | harness-v2-r5 | 1.0 | false | 1.0* | 0 | ~14.8 min |
 
 \* Heuristic v1 — **not authoritative** for `TeamCatalog` mutations (R4 unanimous).
-
-† After harness fix: `floor_show` run id read from `floor.run.id`.
 
 ## Substrate fixes landed (from dogfood)
 
@@ -35,8 +33,8 @@ Team: `code_spec_upgrade` · Suite: `spec_upgrade_mcp_lab_v1`
 
 ## Verdict
 
-**Substrate:** Spec Upgrade dogfood satisfied PRE-S0 for R2–R4 (`fsBypass=false`, contract ≥ 0.95).
+**Substrate:** Spec Upgrade dogfood satisfied PRE-S0 for R2–R5 (`fsBypass=false`, contract ≥ 0.95).
 
-**Team:** Packet quality is strong; calibration loop is not yet proven (self-dogfood on one doc, heuristic judge).
+**Team:** Packet quality is strong and repeatable (R3–R5 writer consistency clean). Calibration loop on team *mutations* is not proven — heuristic judge only.
 
-**Next team:** Bug Hunt on `bug_hunt_repo_regressions_v1` (2–3 known regressions) once suite exists.
+**Next:** Bug Hunt baseline on `bug_hunt_repo_regressions_v1` (suite added; run case 1).

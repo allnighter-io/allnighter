@@ -1,0 +1,74 @@
+{
+  "suiteId": "bug_hunt_repo_regressions_v1",
+  "title": "Bug Hunt — known Allnighter regressions",
+  "defaultTeamId": "code_bug_hunt",
+  "cases": [
+    {
+      "caseId": "composer_paste_dead_v1",
+      "lane": "code",
+      "teamId": "code_bug_hunt",
+      "title": "Composer paste appears dead after repeated fixes",
+      "prompt": "We have tried and failed to fix the copy/paste bug in the Mac composer multiple times. Pressing Paste inserts nothing. Review docs/operations/debugger/DEBUGLOG.md entries for composer paste (2026-06-20 and 2026-06-21) and related proof gaps. Classify tier, name truth owner and lie-prone layer, propose the smallest fix boundary, and list the kill tests required before any patch. Do not edit code — produce a Bug Hunt packet only.",
+      "contextPolicy": {
+        "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
+        "contextFiles": [
+          "docs/operations/debugger/DEBUGLOG.md",
+          "docs/operations/Debugger.md",
+          "docs/operations/debugger/ISOLATION_HARNESS.md"
+        ]
+      },
+      "expectedQualities": [
+        "classifies bug tier",
+        "names truth owner and lie-prone layer",
+        "requires kill tests before patch",
+        "mentions isolation harness for repeated bug",
+        "does not claim root cause without evidence"
+      ],
+      "scoringRubricId": "bug_hunt_v1"
+    },
+    {
+      "caseId": "mcp_fs_bypass_scoring_v1",
+      "lane": "code",
+      "teamId": "code_bug_hunt",
+      "title": "Team lab scored from filesystem while claiming MCP-only",
+      "prompt": "The team lab harness historically copied run journals from ~/Library/Application Support/Allnighter and scored artifact presence from disk while advertising MCP-only dogfooding. Review docs/phases/MCP_Run_Factory_Team_Lab.md and scripts/team_lab/scoring.py. Produce a Bug Hunt packet: what was the lie, what is the truth owner, what proof now gates team quality, and what negative tests are still missing.",
+      "contextPolicy": {
+        "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
+        "contextFiles": [
+          "docs/phases/MCP_Run_Factory_Team_Lab.md",
+          "scripts/team_lab/scoring.py",
+          "scripts/team_lab/run.py"
+        ]
+      },
+      "expectedQualities": [
+        "separates run contract from team quality",
+        "names fsBypass as contract violation",
+        "lists missing negative-path tests",
+        "preserves dissent on heuristic evaluator"
+      ],
+      "scoringRubricId": "bug_hunt_v1"
+    },
+    {
+      "caseId": "floor_show_wrong_run_v1",
+      "lane": "code",
+      "teamId": "code_bug_hunt",
+      "title": "floor_show ignored runId parameter",
+      "prompt": "The MCP harness called floor_show with runId but the server only read run, defaulting to latest. This could cross-contaminate batch lab data. Review Packages/AllnighterCore/Sources/AllnighterCLI/MCPServer.swift and scripts/team_lab/run.py. Produce a Bug Hunt packet: severity, reproduction, fix boundary, and regression test.",
+      "contextPolicy": {
+        "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
+        "contextFiles": [
+          "Packages/AllnighterCore/Sources/AllnighterCLI/MCPServer.swift",
+          "Packages/AllnighterCore/Sources/AllnighterCLI/AllnighterCLI.swift",
+          "scripts/team_lab/run.py"
+        ]
+      },
+      "expectedQualities": [
+        "rates severity P1 or explains why not",
+        "names parameter drift across MCP tools",
+        "proposes concrete regression test",
+        "fix boundary is minimal"
+      ],
+      "scoringRubricId": "bug_hunt_v1"
+    }
+  ]
+}
