@@ -849,7 +849,7 @@ private struct ThreadMutatingRunRow: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text(model?.name ?? turn.workerId ?? "Assistant")
+            Text(model?.name ?? turn.workerId ?? "Agent")
                 .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
             Text(turn.createdAt, format: .dateTime.hour().minute())
                 .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
