@@ -6,6 +6,10 @@ public struct RunRequest: Sendable, Equatable {
     public var message: String
     /// Canonical normalized repo root (cwd for every worker). Required.
     public var repoRoot: String
+    /// The visible Allnighter thread this turn belongs to (Worker_Session_Continuity).
+    /// Lets the run path resume the SAME vendor CLI session per (thread, source, model)
+    /// instead of spawning a fresh, amnesiac process each turn. nil = no continuity.
+    public var threadId: String?
     public var projectId: String?
     public var presetId: String?
     /// Override the resolved worker (model id) for execution / default chat.
@@ -28,6 +32,7 @@ public struct RunRequest: Sendable, Equatable {
     public init(
         message: String,
         repoRoot: String,
+        threadId: String? = nil,
         projectId: String? = nil,
         presetId: String? = nil,
         workerId: String? = nil,
@@ -40,6 +45,7 @@ public struct RunRequest: Sendable, Equatable {
     ) {
         self.message = message
         self.repoRoot = repoRoot
+        self.threadId = threadId
         self.projectId = projectId
         self.presetId = presetId
         self.workerId = workerId

@@ -43,6 +43,11 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     /// path. Only set once a real-driver Works Test shows text before process exit.
     public var streaming: Streaming?
 
+    /// How this worker continues ONE vendor session across turns in a thread
+    /// (Worker_Session_Continuity). Additive + OPTIONAL: absent ⇒ no vendor-session
+    /// continuity (each turn is a fresh process; continuity falls back to prompt context).
+    public var session: Session?
+
     public init(
         id: String,
         manifestVersion: Int = 1,
@@ -57,7 +62,8 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         readsImages: Bool? = nil,
         setup: SetupBlock? = nil,
         projectProbe: ProjectProbe? = nil,
-        streaming: Streaming? = nil
+        streaming: Streaming? = nil,
+        session: Session? = nil
     ) {
         self.setup = setup
         self.projectProbe = projectProbe
@@ -73,6 +79,60 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         self.imageGen = imageGen
         self.readsImages = readsImages
         self.streaming = streaming
+        self.session = session
+    }
+
+    /// Worker_Session_Continuity manifest block — how this driver carries one vendor session
+    /// across a thread's turns. Arg-template tokens: `{{prompt}}`, `{{model}}`,
+    /// `{{effortArgs}}`, `{{workingDir}}`, `{{outputFile}}`, and `{{sessionId}}`.
+    public struct Session: Codable, Sendable, Equatable {
+        public enum Continuity: String, Codable, Sendable {
+            case vendorSession = "vendor_session"
+            case promptContextOnly = "prompt_context_only"
+            case unsupported
+        }
+        /// How turn 1 obtains the vendor session id.
+        public enum Acquire: String, Codable, Sendable {
+            case set      // we MINT a uuid and assign it via firstTurnArgs ({{sessionId}})
+            case capture  // the CLI emits an id in its first-run output (read via `capture`)
+            case create   // run `createArgv` first; it prints a new id on stdout
+        }
+
+        public var continuity: Continuity
+        public var acquire: Acquire?
+        /// Full argv for turn 1 when we MINT the id (acquire == .set). Absent ⇒ use the base
+        /// `invoke`/`streaming` args unchanged and rely on capture/create.
+        public var firstTurnArgs: [String]?
+        /// Full argv to RESUME a vendor session (includes `{{sessionId}}`). For codex this
+        /// reshapes to `exec resume {{sessionId}} … {{prompt}}`; for others it's the base args
+        /// plus `--resume {{sessionId}}` / `--conversation {{sessionId}}`.
+        public var resumeArgs: [String]?
+        /// (acquire == .create) a subcommand that prints a brand-new session id on stdout.
+        public var createArgv: [String]?
+        /// (acquire == .capture) where to read the new vendor session id from the first run.
+        public var capture: Capture?
+
+        public struct Capture: Codable, Sendable, Equatable {
+            public enum From: String, Codable, Sendable {
+                case streamJson = "stream_json"   // a field in any JSONL stdout event
+                case stdout                        // a regex over plain stdout (capture group 1)
+                case outputFile = "output_file"    // a field in the JSON output file
+            }
+            public var from: From
+            /// JSON field name (stream_json/output_file) or a regex w/ one capture group (stdout).
+            public var field: String
+            public init(from: From, field: String) { self.from = from; self.field = field }
+        }
+
+        public init(continuity: Continuity, acquire: Acquire? = nil, firstTurnArgs: [String]? = nil,
+                    resumeArgs: [String]? = nil, createArgv: [String]? = nil, capture: Capture? = nil) {
+            self.continuity = continuity
+            self.acquire = acquire
+            self.firstTurnArgs = firstTurnArgs
+            self.resumeArgs = resumeArgs
+            self.createArgv = createArgv
+            self.capture = capture
+        }
     }
 
     /// Whether this worker can stream live partial text (a real, verified mode).
