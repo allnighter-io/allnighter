@@ -358,6 +358,24 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(devices.map(\.deviceId), ["device_valid"])
     }
 
+    func testUpdatePairRequestFiltersReturnedRowsOutsideRequestedScope() async throws {
+        let request = remotePairRequest(id: "pair_1", status: .pending)
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                pairRequestRow(id: "pair_1", accountId: "acct_2", status: .approved),
+                pairRequestRow(id: "pair_1", macAgentId: "mac_2", status: .approved),
+                pairRequestRow(id: "pair_1", status: .approved),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let updated = try await relay.updatePairRequest(request)
+
+        XCTAssertEqual(updated.accountId, "acct_1")
+        XCTAssertEqual(updated.macAgentId, "mac_1")
+        XCTAssertEqual(updated.status, .approved)
+    }
+
     func testPublishEventsWritesAndReadsFullSealedMediaRef() async throws {
         let signingKey = Curve25519.Signing.PrivateKey()
         let sealedRef = mediaRef()
@@ -542,6 +560,22 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(queryValue("account_id", in: request.url), "eq.acct_1")
         XCTAssertEqual(queryValue("mac_agent_id", in: request.url), "eq.mac_1")
         XCTAssertEqual(queryValue("limit", in: request.url), "1")
+    }
+
+    func testSnapshotFiltersRowsOutsideRequestedScope() async throws {
+        let valid = snapshotEnvelope(runId: "run_valid")
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                snapshotEnvelopeRow(snapshotEnvelope(runId: "run_wrong_account"), accountId: "acct_2"),
+                snapshotEnvelopeRow(snapshotEnvelope(runId: "run_wrong_mac"), macAgentId: "mac_2"),
+                snapshotEnvelopeRow(valid),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let fetched = try await relay.snapshot(accountId: "acct_1", macAgentId: "mac_1", since: 7)
+
+        XCTAssertEqual(fetched?.runs.map(\.id), ["run_valid"])
     }
 
     func testRunEventStreamDoesNotOpenRealtimeWhenBackfillFails() async throws {
@@ -738,6 +772,21 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ]
     }
 
+    private func remotePairRequest(id: String, status: RemotePairRequestStatus) -> RemotePairRequest {
+        RemotePairRequest(
+            id: id,
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            deviceId: "device_1",
+            displayName: "device_1",
+            deviceSigningPubkey: "sign_device_1",
+            deviceSealingPubkey: "seal_device_1",
+            status: status,
+            requestedAt: now,
+            expiresAt: now.addingTimeInterval(300)
+        )
+    }
+
     private func trustedDeviceRow(
         deviceId: String,
         accountId: String = "acct_1",
@@ -788,11 +837,11 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         )
     }
 
-    private func snapshotEnvelope() -> SnapshotEnvelope {
+    private func snapshotEnvelope(runId: String = "run_1") -> SnapshotEnvelope {
         SnapshotEnvelope(
             runs: [
                 TeamRunLight(
-                    id: "run_1",
+                    id: runId,
                     status: .running,
                     origin: .ios,
                     promptExcerpt: "Build the thing",
@@ -805,10 +854,14 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         )
     }
 
-    private func snapshotEnvelopeRow(_ snapshot: SnapshotEnvelope) -> [String: Any] {
+    private func snapshotEnvelopeRow(
+        _ snapshot: SnapshotEnvelope,
+        accountId: String = "acct_1",
+        macAgentId: String = "mac_1"
+    ) -> [String: Any] {
         [
-            "account_id": "acct_1",
-            "mac_agent_id": "mac_1",
+            "account_id": accountId,
+            "mac_agent_id": macAgentId,
             "runs": snapshot.runs.map(teamRunLightRow(_:)),
             "last_seq": snapshot.lastSeq,
             "server_time": iso(snapshot.serverTime),

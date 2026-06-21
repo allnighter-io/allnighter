@@ -256,7 +256,11 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
             ],
             prefer: "return=representation"
         )
-        return try (rows.first?.model() ?? request)
+        return try (rows.first(where: {
+            $0.id == request.id
+                && $0.accountId == request.accountId
+                && $0.macAgentId == request.macAgentId
+        })?.model() ?? request)
     }
 
     public func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice] {
@@ -457,7 +461,7 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "limit", value: "1"),
             ]
         )
-        return rows.first?.envelope()
+        return rows.first(where: { $0.accountId == accountId && $0.macAgentId == macAgentId })?.envelope()
     }
 
     public func publishMedia(ref: MediaRef, data _: Data, keys: [MediaKeyEnvelope]) async throws {
