@@ -54,7 +54,8 @@ struct TeamStudioView: View {
         case .defaultModel:
             DefaultModelView()
         case .teams(let lane):
-            StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId, startNewTeam: startNewTeam)
+            StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId, startNewTeam: startNewTeam,
+                               onOpenDefaultModel: { route = .defaultModel })
         case .skills(let lane):
             StudioSkillListView(lane: lane)
         }
@@ -133,6 +134,8 @@ private struct StudioTeamListView: View {
     var customizeTeamId: String? = nil
     /// Add-team flow: open straight into a new blank team draft.
     var startNewTeam: Bool = false
+    /// Navigate to the Default-model screen (the "Auto" team's agent SSOT).
+    var onOpenDefaultModel: () -> Void = {}
     @Environment(AppModel.self) private var appModel
     @State private var selectedId: TeamID?
     /// A brand-new, unsaved team being authored (Add team). Not in the catalog until
@@ -210,7 +213,8 @@ private struct StudioTeamListView: View {
                         // Cancel: drop the new-team form (back to the prior selection),
                         // or discard edits by rebuilding the draft from the base.
                         onCancel: { newDraftBase = nil; revertTick += 1 },
-                        onSaved: { id in newDraftBase = nil; selectedId = id; revertTick += 1 }
+                        onSaved: { id in newDraftBase = nil; selectedId = id; revertTick += 1 },
+                        onOpenDefaultModel: onOpenDefaultModel
                     )
                     .id("\(newDraftBase != nil ? "new" : team.id)#\(revertTick)")
                 } else {

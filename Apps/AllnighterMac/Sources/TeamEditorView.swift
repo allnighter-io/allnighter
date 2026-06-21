@@ -232,6 +232,7 @@ struct TeamDraft: Equatable {
 struct TeamEditorView: View {
     let lane: ComposeLane
     let models: [Model]
+    let readyModels: [Model]
     /// True when editing a brand-new (not-yet-saved) team — the footer reads
     /// "Create team" rather than "Duplicate Team" / "Save changes".
     let isNew: Bool
@@ -239,6 +240,8 @@ struct TeamEditorView: View {
     /// discards unsaved edits (or, in a modal drawer, closes it).
     var onCancel: () -> Void
     var onSaved: (TeamID) -> Void
+    /// Open the Default-model screen — the SSOT for the "Auto" team's agent.
+    var onOpenDefaultModel: () -> Void = {}
 
     @State private var draft: TeamDraft
     @State private var errorText: String?
@@ -253,15 +256,38 @@ struct TeamEditorView: View {
 
     init(base: TeamPreset, lane: ComposeLane, models: [Model], readyModels: [Model],
          isNew: Bool = false,
-         onCancel: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void) {
+         onCancel: @escaping () -> Void, onSaved: @escaping (TeamID) -> Void,
+         onOpenDefaultModel: @escaping () -> Void = {}) {
         self.lane = lane
         self.models = models
+        self.readyModels = readyModels
         self.isNew = isNew
         self.onCancel = onCancel
         self.onSaved = onSaved
+        self.onOpenDefaultModel = onOpenDefaultModel
         let seed = TeamDraft(base: base)
         _draft = State(initialValue: seed)
         self.initialDraft = seed
+    }
+
+    /// The built-in "Auto" team (default_chat) is the default route. Its agent model is NOT
+    /// its own editable field — the run resolves it from the Default-model tiers (Settings →
+    /// Default model), ignoring any per-team pick. So the editor shows that resolved model
+    /// read-only and routes edits to the Default-model screen, instead of a divergent picker.
+    private var isDefaultAutoTeam: Bool {
+        draft.base.id == TeamCatalog.defaultRunTeam()?.id
+    }
+
+    /// What Auto actually runs right now — the resolved Default-model tier pick (the same
+    /// resolution the composer Auto chip and the run path use).
+    private var resolvedDefaultModelName: String {
+        let settings = DefaultModelSettingsPersistence().load()
+        let readyIds = Set(readyModels.map(\.id))
+        if let id = SubstitutionResolver.resolveAuto(settings: settings, readyModelIds: readyIds).resolvedModelId,
+           let name = models.first(where: { $0.id == id })?.displayName {
+            return name
+        }
+        return "your Default model"
     }
 
     /// Has the user changed anything since the editor opened?
@@ -410,7 +436,9 @@ struct TeamEditorView: View {
             Text(draft.mutating ? "AGENT" : "WORKERS")
                 .font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
             if draft.mutating {
-                Text("One agent does the work in the repo root — no separate lead.")
+                Text(isDefaultAutoTeam
+                     ? "Auto runs your Default model — set which model that is in Default model. Editing it here won't change Auto."
+                     : "One agent does the work in the repo root — no separate lead.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
             }
             ForEach($draft.rows) { $row in
@@ -436,7 +464,11 @@ struct TeamEditorView: View {
 
                     // Model quick-swap stays inline (rescue: fast model change on the row).
                     // A triangulated row reads on several distinct CLIs — shown read-only.
-                    if isTriangulated(row.id) {
+                    // The Auto team's model is owned by the Default-model screen, shown
+                    // read-only here (a per-team pick would be silently ignored by the run).
+                    if isDefaultAutoTeam {
+                        defaultModelCell
+                    } else if isTriangulated(row.id) {
                         triangulatedModelCell(count: triangulateCount(row.id))
                     } else {
                         modelPicker($row.wrappedValue.modelId) { $row.wrappedValue.modelId = $0 }
@@ -477,6 +509,26 @@ struct TeamEditorView: View {
     private func modelDisplay(_ id: String?) -> String {
         guard let id else { return "Auto" }
         return models.first { $0.id == id }?.displayName ?? id
+    }
+
+    /// Read-only agent cell for the "Auto" team — shows the resolved Default model and
+    /// opens the Default-model screen (its single source of truth) rather than letting the
+    /// user set a per-team model the run would ignore.
+    private var defaultModelCell: some View {
+        Button(action: onOpenDefaultModel) {
+            HStack(spacing: 5) {
+                Image(systemName: "infinity").font(.system(size: 10)).foregroundStyle(ALColor.textMuted)
+                Text(resolvedDefaultModelName)
+                    .font(.system(size: 12)).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+                Image(systemName: "arrow.up.forward").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 9).frame(height: 30)
+            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Auto runs your Default model — change it in Default model")
     }
 
     /// A model picker whose first option is Auto (nil). Picking Auto clears the pin.
