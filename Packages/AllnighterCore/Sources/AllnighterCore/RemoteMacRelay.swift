@@ -224,7 +224,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         let pairRequest = request.pairRequest(id: pairRequestIdFactory())
         var requests = pairRequestsByMac[pairRequest.macAgentId, default: []]
         requests.removeAll {
-            $0.macAgentId == pairRequest.macAgentId && $0.deviceId == pairRequest.deviceId
+            $0.accountId == pairRequest.accountId
+                && $0.macAgentId == pairRequest.macAgentId
+                && $0.deviceId == pairRequest.deviceId
         }
         requests.append(pairRequest)
         requests.sort {

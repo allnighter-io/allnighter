@@ -65,6 +65,26 @@ final class RemotePairingRelayTests: XCTestCase {
         XCTAssertEqual(pending.first?.displayName, "New iPhone")
     }
 
+    func testSubmitPairRequestPreservesSameDeviceForOtherAccount() async throws {
+        let existing = pairDraft(accountId: "acct_1", deviceId: "device_1")
+            .pairRequest(id: "pair_existing")
+        let relay = MockRemoteMacRelay(
+            pairRequests: [existing],
+            pairRequestIdFactory: { "pair_new" }
+        )
+
+        let new = try await relay.submitPairRequest(pairDraft(
+            accountId: "acct_2",
+            deviceId: "device_1",
+            displayName: "Other Account iPhone"
+        ))
+
+        let firstAccount = try await relay.pendingPairRequests(accountId: "acct_1", macAgentId: "mac_1")
+        let secondAccount = try await relay.pendingPairRequests(accountId: "acct_2", macAgentId: "mac_1")
+        XCTAssertEqual(firstAccount, [existing])
+        XCTAssertEqual(secondAccount, [new])
+    }
+
     func testPairRequestStatusReportsPendingExpiredAndNotFound() async throws {
         let pending = pairDraft(deviceId: "device_1")
             .pairRequest(id: "pair_request_1")

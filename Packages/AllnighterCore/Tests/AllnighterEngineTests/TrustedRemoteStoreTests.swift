@@ -27,6 +27,19 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertTrue(registry.trustedDevices.isEmpty)
     }
 
+    func testUpsertPendingPreservesSameDeviceOnOtherAccount() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let first = pairRequest(accountId: "acct_1", deviceId: "device_1", now: now)
+        let second = pairRequest(accountId: "acct_2", deviceId: "device_1", now: now.addingTimeInterval(1))
+
+        try store.upsertPending(first)
+        try store.upsertPending(second)
+
+        let requests = store.load().pendingRequests
+        XCTAssertEqual(requests.map(\.accountId), ["acct_1", "acct_2"])
+        XCTAssertEqual(Set(requests.map(\.deviceId)), ["device_1"])
+    }
+
     func testApprovePinsDeviceKeysAndMarksRequestApproved() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let request = pairRequest(deviceId: "device_1", now: now)
@@ -136,13 +149,14 @@ final class TrustedRemoteStoreTests: XCTestCase {
     }
 
     private func pairRequest(
+        accountId: String = "acct_1",
         deviceId: String,
         macAgentId: String = "mac_1",
         now: Date
     ) -> RemotePairRequest {
         RemotePairRequest(
             id: "pair_\(deviceId)",
-            accountId: "acct_1",
+            accountId: accountId,
             macAgentId: macAgentId,
             deviceId: deviceId,
             displayName: "Mike's iPhone",

@@ -65,7 +65,9 @@ public final class TrustedRemoteStore: @unchecked Sendable {
     public func upsertPending(_ request: RemotePairRequest) throws {
         var registry = load()
         registry.pendingRequests.removeAll {
-            $0.macAgentId == request.macAgentId && $0.deviceId == request.deviceId
+            $0.accountId == request.accountId
+                && $0.macAgentId == request.macAgentId
+                && $0.deviceId == request.deviceId
         }
         registry.pendingRequests.append(request)
         registry.pendingRequests.sort { lhs, rhs in
