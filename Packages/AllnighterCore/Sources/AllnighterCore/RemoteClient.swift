@@ -234,6 +234,8 @@ public actor MockiOSClient: RemoteClient {
 
     public func send(_ command: RemoteCommand) async throws -> CommandAck {
         try requireConnected()
+        let account = connectedAccount
+        let visibleMacIds = Set(macRefs.map(\.macAgentId))
         guard command.assertion.protocolMajor == RemoteProtocol.currentMajor else {
             return reject(command, reason: .upgradeRequired)
         }
@@ -254,6 +256,8 @@ public actor MockiOSClient: RemoteClient {
             return reject(command, reason: .badSignature)
         }
         guard let trustedDevice = trustedDevices[command.assertion.deviceId],
+              trustedDevice.accountId == account?.accountId,
+              visibleMacIds.contains(trustedDevice.macAgentId),
               trustedDevice.authorizes(command.kind, at: serverNow) else {
             return reject(command, reason: .unauthorizedKind)
         }

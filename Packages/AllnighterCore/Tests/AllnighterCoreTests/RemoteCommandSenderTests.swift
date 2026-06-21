@@ -9,7 +9,7 @@ final class RemoteCommandSenderTests: XCTestCase {
         let deviceSigningKey = Curve25519.Signing.PrivateKey()
         let dateBox = RemoteCommandSenderDateBox()
         let client = MockiOSClient(
-            macs: [],
+            macs: [mac()],
             trustedDevices: [trustedDevice(signingKey: deviceSigningKey)],
             serverNow: serverNow
         )
@@ -70,6 +70,15 @@ final class RemoteCommandSenderTests: XCTestCase {
             pairedAt: serverNow.addingTimeInterval(-60),
             validUntil: serverNow.addingTimeInterval(3_600),
             capabilities: Set(RemoteCapability.allCases)
+        )
+    }
+
+    private func mac() -> MacAgentRef {
+        MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal"
         )
     }
 }

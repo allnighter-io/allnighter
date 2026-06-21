@@ -599,6 +599,50 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(replay.outcome, .duplicate)
     }
 
+    func testMockClientRejectsTrustedDeviceFromOtherAccount() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let trusted = TrustedDevice(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey),
+            deviceSealingPubkey: "sealing",
+            accountId: "acct_2",
+            macAgentId: "mac_1",
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(3600),
+            capabilities: []
+        )
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal"
+        )
+        let client = MockiOSClient(macs: [mac], trustedDevices: [trusted], serverNow: now)
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let assertion = try RemoteCrypto.makeDeviceAssertion(
+            deviceId: "device_1",
+            requestId: "req_other_account",
+            timestamp: now,
+            kind: .stopAll,
+            payload: .empty,
+            signingKey: signingKey
+        )
+        let command = RemoteCommand(
+            requestId: "req_other_account",
+            kind: .stopAll,
+            payload: .empty,
+            assertion: assertion
+        )
+
+        let ack = try await client.send(command)
+
+        XCTAssertFalse(ack.accepted)
+        XCTAssertEqual(ack.reason, .unauthorizedKind)
+    }
+
     func testMockClientRejectsSkewAndReturnsServerTime() async throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let signingKey = Curve25519.Signing.PrivateKey()
