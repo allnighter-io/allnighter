@@ -22,6 +22,11 @@ final class ThreadsViewModel {
     /// `ProjectsViewModel.activeProjectId` by RootView.
     var currentProjectId: String?
 
+    /// Conversation-wide answer display mode. When true, agent answers show their raw
+    /// markdown source in a fully selectable native text view (drag-select anything,
+    /// auto-copy) instead of the rich render. Toggled by the per-answer control or ⌥⌘R.
+    var showRawAnswers = false
+
     /// Pending text from a global quick-capture hotkey (⌥⌘Space or menu "Quick capture").
     /// The currently-visible RoutingComposer will adopt it into its editor (only if
     /// that editor is empty), then clear the pending. Quick capture creates a new
