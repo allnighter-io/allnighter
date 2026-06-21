@@ -225,6 +225,59 @@ final class RemoteMacAgentTests: XCTestCase {
         )
     }
 
+    func testDrainPublishesSnapshotAfterEventSync() async throws {
+        let runsRoot = root.appendingPathComponent("runs")
+        let runStore = RunStore(rootDirectory: runsRoot)
+        let journal = RemoteRunEventJournal(rootDirectory: runsRoot)
+        let fixedNow = now
+        _ = try runStore.save(Self.run(id: "run_1", createdAt: now), models: [])
+        _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
+        let relay = MockRemoteMacRelay()
+        let eventSync = RemoteMacAgentEventSync(
+            publisher: RemoteRunEventPublisher(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                journal: journal,
+                relay: relay,
+                signingKey: macSigningKey
+            ),
+            cursorStore: RemoteMacAgentEventCursorStore(
+                fileURL: root.appendingPathComponent("remote_event_cursor.json")
+            )
+        )
+        let snapshotPublisher = RemoteSnapshotPublisher(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            service: RemoteSnapshotService(
+                runStore: runStore,
+                journal: journal,
+                now: { fixedNow }
+            ),
+            relay: relay
+        )
+        let agent = makeAgent(
+            relay: relay,
+            executor: CapturingRemoteExecutor(now: now),
+            eventSync: eventSync,
+            snapshotPublisher: snapshotPublisher
+        )
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.publishedEventCount, 1)
+        XCTAssertEqual(result.publishedSnapshotRunCount, 1)
+        XCTAssertEqual(result.publishedSnapshotLastSeq, 1)
+        let snapshot = try await relay.snapshot(accountId: "acct_1", macAgentId: "mac_1", since: nil)
+        XCTAssertEqual(snapshot?.runs.map(\.id), ["run_1"])
+        XCTAssertEqual(snapshot?.lastSeq, 1)
+
+        let eventLog = await relay.eventLog
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "publishEvents")),
+            try XCTUnwrap(eventLog.firstIndex(of: "publishSnapshot"))
+        )
+    }
+
     func testDrainRejectsSpoofedFromDeviceIdWithoutExecuting() async throws {
         let device = trustedDevice(capabilities: [])
         let command = try signedCommand(requestId: "req_spoofed_from", kind: .stopAll, payload: .empty)
@@ -387,7 +440,8 @@ final class RemoteMacAgentTests: XCTestCase {
         relay: RemoteMacRelay,
         executor: CapturingRemoteExecutor,
         auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
-        eventSync: RemoteMacAgentEventSync? = nil
+        eventSync: RemoteMacAgentEventSync? = nil,
+        snapshotPublisher: RemoteSnapshotPublisher? = nil
     ) -> RemoteMacAgent {
         let fixedNow = now
         let router = RemoteCommandRouter(
@@ -412,6 +466,7 @@ final class RemoteMacAgentTests: XCTestCase {
             router: router,
             auditRecorder: auditRecorder,
             eventSync: eventSync,
+            snapshotPublisher: snapshotPublisher,
             now: { fixedNow }
         )
     }
@@ -497,6 +552,17 @@ final class RemoteMacAgentTests: XCTestCase {
                 "runId": .string(runId),
                 "to": .string(RunStatus.fanningOut.rawValue),
             ]
+        )
+    }
+
+    private static func run(id: String, createdAt: Date) -> TeamRun {
+        TeamRun(
+            id: id,
+            prompt: "Sensitive prompt stays local",
+            status: .fanningOut,
+            origin: .ios,
+            createdAt: createdAt,
+            teamDisplayName: "Remote Team"
         )
     }
 }
