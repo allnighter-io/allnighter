@@ -78,8 +78,31 @@ class MCPStdioClient:
         result = self.request("tools/call", {"name": name, "arguments": arguments})
         return parse_tool_result(result)
 
+    def close(self) -> None:
+        try:
+            if self.proc.stdin:
+                self.proc.stdin.close()
+        except Exception:
+            pass
+        try:
+            self.proc.terminate()
+        except Exception:
+            pass
+        try:
+            self.proc.wait(timeout=10)
+        except Exception:
+            try:
+                self.proc.kill()
+            except Exception:
+                pass
+
 
 def parse_tool_result(result: dict[str, Any]) -> dict[str, Any]:
+    if result.get("isError"):
+        content = result.get("content", [])
+        text_parts = [c.get("text", "") for c in content if c.get("type") == "text"]
+        msg = "\n".join(text_parts).strip() or "MCP tool error"
+        raise RuntimeError(msg)
     content = result.get("content", [])
     text_parts = [c.get("text", "") for c in content if c.get("type") == "text"]
     structured = None

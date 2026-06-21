@@ -21,6 +21,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import judge as J  # noqa: E402
+from config import hashes_from_labs  # noqa: E402
 
 
 def _load_run(lab_dir: Path) -> dict[str, Any]:
@@ -111,6 +112,8 @@ def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
 
     decision = J.decide_compare(role_decisions, deliverable_verdicts, unmatched)
 
+    champ_hash, cand_hash = hashes_from_labs(baseline_dir, candidate_dir)
+
     return {
         "schemaVersion": 1,
         "baseline": baseline_dir.name,
@@ -118,6 +121,9 @@ def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
         "caseId": base["caseId"],
         "inputHash": input_hash,
         "sameInput": same_input,
+        "championConfigHash": champ_hash,
+        "candidateConfigHash": cand_hash,
+        "materialCandidateDelta": bool(champ_hash and cand_hash and champ_hash != cand_hash),
         "judges": [b.name for b in backends],
         "judgeMode": judge_mode,
         "evidenceValid": judge_mode == "live",
@@ -191,7 +197,8 @@ def main() -> int:
     _write_report(out, eval_dir / "compare.md")
     print(json.dumps({k: out[k] for k in
                       ("bankedRoles", "deliverableOutcome", "interactionWarning",
-                       "sameInput", "judges", "judgeMode", "evidenceValid")}, indent=2))
+                       "sameInput", "judges", "judgeMode", "evidenceValid",
+                       "championConfigHash", "candidateConfigHash", "materialCandidateDelta")}, indent=2))
     return 0
 
 

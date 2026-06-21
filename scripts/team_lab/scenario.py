@@ -9,8 +9,8 @@ comes from input DIVERSITY across rounds, not repetition of one input.
 
 Generates one fresh case from the suite's job distribution, refuses anything whose
 normalized hash is already in the ledger, and appends it. The generator is an LLM
-(env ALLN_JUDGE1_CMD — reuse a configured CLI; do NOT use the same model that
-judges the same round, to avoid a self-consistency loop).
+(env ALLN_SCENARIO_CMD — reuse a configured CLI; do NOT use the same model that
+judges the same round, to avoid a self-consistency loop). Falls back to ALLN_JUDGE1_CMD.
 
 Ledger: docs/team-lab/used_inputs/<suite-id>.jsonl  (committed — the burn list).
 """
@@ -74,6 +74,16 @@ def generator_prompt(suite: dict[str, Any], existing: list[dict[str, Any]]) -> s
     )
 
 
+def generator_backend_from_env() -> J.Backend | None:
+    """Scenario generator — prefer ALLN_SCENARIO_CMD so judges stay independent."""
+    import os
+
+    cmd = os.environ.get("ALLN_SCENARIO_CMD") or os.environ.get("ALLN_JUDGE1_CMD")
+    if cmd:
+        return J.CliBackend("scenario", cmd)
+    return None
+
+
 def generate(suite_id: str, backend: J.Backend, *, max_tries: int = 5) -> dict[str, Any]:
     suite = json.loads((SUITES / f"{suite_id}.json").read_text())
     seen = load_ledger(suite_id)
@@ -104,10 +114,9 @@ def main() -> int:
                              "expectedQualities": ["advisory"]},
         )
     else:
-        backends = J.backends_from_env()
-        if not backends:
-            raise SystemExit("set ALLN_JUDGE1_CMD (generator CLI), or use --mock")
-        backend = backends[0]
+        backend = generator_backend_from_env()
+        if not backend:
+            raise SystemExit("set ALLN_SCENARIO_CMD (generator CLI) or ALLN_JUDGE1_CMD, or use --mock")
 
     case = generate(args.suite_id, backend)
     print(json.dumps(case, indent=2))

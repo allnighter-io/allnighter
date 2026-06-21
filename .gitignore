@@ -90,3 +90,4 @@ docs/qa/gui/_captures/
 Packages/AllnighterCore/docs/
 .aider*
 __pycache__/
+.allnighter/

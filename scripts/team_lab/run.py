@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from mcp_client import MCPStdioClient, parse_tool_json
+from overlay import OverlayDeployError, deploy_champion_overlay, deploy_overlay, ensure_model_policy_team
 from scoring import evaluate_team_quality, score_run_contract
 
 REPO = Path(__file__).resolve().parents[2]
@@ -112,6 +113,7 @@ def write_experiment(
     contract_version: str | None,
     contract: dict | None = None,
     team_eval: dict | None = None,
+    team_lab: dict | None = None,
 ) -> None:
     started = status_history[0].get("polledAt") if status_history else None
     completed = datetime.now(timezone.utc).isoformat()
@@ -162,6 +164,8 @@ def write_experiment(
         },
         "start": {"nextPollAfterMs": start.get("nextPollAfterMs")},
     }
+    if team_lab:
+        exp["teamLab"] = team_lab
     if contract:
         exp["evaluation"] = {
             "runContract": contract.get("runContractScore"),
@@ -182,6 +186,33 @@ def write_experiment(
     (lab_dir / "experiment.json").write_text(json.dumps(exp, indent=2))
 
 
+def _open_mcp_client(
+    alln: Path,
+    env: dict[str, str],
+    *,
+    transcript_path: Path | None = None,
+) -> tuple[subprocess.Popen[bytes], MCPStdioClient]:
+    proc = subprocess.Popen(
+        [str(alln), "mcp", "serve", "--stdio"],
+        cwd=str(REPO),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+    client = MCPStdioClient(proc, transcript_path=transcript_path)
+    client.request(
+        "initialize",
+        {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "team-lab", "version": "0.1"},
+        },
+    )
+    client.notify("notifications/initialized")
+    return proc, client
+
+
 def run_experiment(
     *,
     alln: Path,
@@ -189,6 +220,8 @@ def run_experiment(
     case_id: str | None,
     case_json: Path | None,
     team_id: str | None,
+    champion_overlay: Path | None,
+    candidate_overlay: Path | None,
     effort: str,
     round_no: int,
     variant: str,
@@ -214,27 +247,10 @@ def run_experiment(
     env = os.environ.copy()
     env.setdefault("HOME", str(Path.home()))
 
-    proc = subprocess.Popen(
-        [str(alln), "mcp", "serve", "--stdio"],
-        cwd=str(REPO),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env,
-    )
-    client = MCPStdioClient(proc, transcript_path=transcript)
+    proc, client = _open_mcp_client(alln, env, transcript_path=transcript)
 
     try:
-        init = client.request(
-            "initialize",
-            {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "team-lab", "version": "0.1"},
-            },
-        )
-        client.notify("notifications/initialized")
-        (lab_dir / "initialize.json").write_text(json.dumps(init, indent=2))
+        (lab_dir / "initialize.json").write_text(json.dumps({"restarted": False}, indent=2))
 
         tools = client.request("tools/list")
         (lab_dir / "tools-list.json").write_text(json.dumps(tools, indent=2))
@@ -243,6 +259,56 @@ def run_experiment(
 
         hello = client.call_tool("mcp_hello", {"originAgent": "team-lab"})
         (lab_dir / "mcp-hello.json").write_text(json.dumps(hello, indent=2))
+
+        team_lab_meta: dict | None = None
+
+        if champion_overlay and candidate_overlay:
+            raise SystemExit("pass either --champion-overlay or --candidate-overlay, not both")
+
+        if champion_overlay:
+            try:
+                team, team_lab_meta = deploy_champion_overlay(client, champion_overlay)
+            except OverlayDeployError as e:
+                raise SystemExit(f"champion overlay deploy failed: {e}") from e
+            (lab_dir / "champion-overlay.json").write_text(champion_overlay.read_text())
+            print(f"champion_overlay={champion_overlay} lab_team={team} config={team_lab_meta.get('configHash')}")
+        elif candidate_overlay:
+            try:
+                team, team_lab_meta = deploy_overlay(client, candidate_overlay, arm="candidate")
+            except OverlayDeployError as e:
+                raise SystemExit(f"candidate overlay deploy failed: {e}") from e
+            (lab_dir / "candidate-overlay.json").write_text(candidate_overlay.read_text())
+            print(f"candidate_overlay={candidate_overlay} lab_team={team} config={team_lab_meta.get('configHash')}")
+
+        if os.environ.get("ALLN_LAB_MODEL_POLICY", "1").lower() not in ("0", "false", "off", "no"):
+            team, policy_meta = ensure_model_policy_team(
+                client, team, variant=variant, round_no=round_no
+            )
+            team_lab_meta = {**(team_lab_meta or {}), **policy_meta}
+            if team_lab_meta.get("configHash") and policy_meta.get("modelPolicy"):
+                import hashlib as _hashlib
+
+                team_lab_meta["configHash"] = _hashlib.sha256(
+                    f"{team_lab_meta['configHash']}|{json.dumps(policy_meta['modelPolicy'], sort_keys=True)}".encode()
+                ).hexdigest()[:16]
+            elif policy_meta.get("modelPolicy"):
+                team_lab_meta["configHash"] = _hashlib.sha256(
+                    json.dumps(policy_meta["modelPolicy"], sort_keys=True).encode()
+                ).hexdigest()[:16]
+            print(f"model_policy=opus_lead_gemini_composer_grok team={team}")
+
+        if champion_overlay or candidate_overlay or os.environ.get("ALLN_LAB_MODEL_POLICY", "1").lower() not in (
+            "0",
+            "false",
+            "off",
+            "no",
+        ):
+            # ToolRuntime snapshots TeamCatalog.all at MCP init; teams_save during deploy
+            # is invisible to team_preflight/team_start until we restart the server.
+            client.close()
+            proc, client = _open_mcp_client(alln, env, transcript_path=transcript)
+            (lab_dir / "initialize.json").write_text(json.dumps({"restarted": True}, indent=2))
+            print("mcp_restart=post_catalog_deploy", flush=True)
 
         preflight_call = client.call_tool(
             "team_preflight",
@@ -356,6 +422,7 @@ def run_experiment(
             alln_path=alln,
             tools_hash=tools_hash,
             contract_version=contract_version,
+            team_lab=team_lab_meta,
         )
 
         # Write experiment.json BEFORE evaluation. The writer stale-claim check reads
@@ -425,10 +492,12 @@ def run_experiment(
         return lab_dir
     finally:
         try:
-            proc.terminate()
+            client.close()
         except Exception:
-            pass
-        proc.wait(timeout=10)
+            try:
+                proc.terminate()
+            except Exception:
+                pass
 
 
 def main() -> int:
@@ -442,6 +511,16 @@ def main() -> int:
     p.add_argument("--effort", default="high")
     p.add_argument("--round", type=int, default=1)
     p.add_argument("--variant", default="baseline")
+    p.add_argument(
+        "--champion-overlay",
+        type=Path,
+        help="champion overlay JSON — deploys lab team via MCP before run",
+    )
+    p.add_argument(
+        "--candidate-overlay",
+        type=Path,
+        help="candidate overlay JSON with declared material delta",
+    )
     p.add_argument("--deadline-seconds", type=int, default=7200)
     p.add_argument("--alln", type=Path, default=repo_alln())
     args = p.parse_args()
@@ -455,6 +534,8 @@ def main() -> int:
         case_id=args.case,
         case_json=args.case_json,
         team_id=args.team,
+        champion_overlay=args.champion_overlay,
+        candidate_overlay=args.candidate_overlay,
         effort=args.effort,
         round_no=args.round,
         variant=args.variant,
