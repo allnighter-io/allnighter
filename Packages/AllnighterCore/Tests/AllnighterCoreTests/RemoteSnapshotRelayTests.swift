@@ -19,11 +19,26 @@ final class RemoteSnapshotRelayTests: XCTestCase {
         XCTAssertNil(wrongMac)
     }
 
-    private func snapshotEnvelope() -> SnapshotEnvelope {
+    func testSameMacSnapshotStaysScopedByAccount() async throws {
+        let relay = MockRemoteMacRelay()
+        let first = snapshotEnvelope(runId: "run_acct_1")
+        let second = snapshotEnvelope(runId: "run_acct_2")
+
+        try await relay.publishSnapshot(accountId: "acct_1", macAgentId: "mac_1", snapshot: first)
+        try await relay.publishSnapshot(accountId: "acct_2", macAgentId: "mac_1", snapshot: second)
+
+        let firstFetched = try await relay.snapshot(accountId: "acct_1", macAgentId: "mac_1", since: nil)
+        let secondFetched = try await relay.snapshot(accountId: "acct_2", macAgentId: "mac_1", since: nil)
+
+        XCTAssertEqual(firstFetched, first)
+        XCTAssertEqual(secondFetched, second)
+    }
+
+    private func snapshotEnvelope(runId: String = "run_1") -> SnapshotEnvelope {
         SnapshotEnvelope(
             runs: [
                 TeamRunLight(
-                    id: "run_1",
+                    id: runId,
                     status: .running,
                     origin: .ios,
                     promptExcerpt: "",

@@ -155,8 +155,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var trustedByMac: [String: [TrustedDevice]]
     private var inboxByMac: [String: [RemoteCommandInboxEntry]]
     private var publishedEventScopes: Set<PublishedEventKey>
-    private var snapshotsByMac: [String: SnapshotEnvelope]
-    private var snapshotScopesByMac: [String: PublishedEventScope]
+    private var snapshotsByScope: [SnapshotStorageKey: SnapshotEnvelope]
     private var mediaRefsById: [MediaStorageKey: MediaRef]
     private var mediaDataByRef: [MediaStorageKey: Data]
     private var mediaKeysByRef: [MediaStorageKey: [String: MediaKeyEnvelope]]
@@ -178,8 +177,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         self.trustedByMac = Dictionary(grouping: trustedDevices, by: \.macAgentId)
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)
         self.publishedEventScopes = Set()
-        self.snapshotsByMac = [:]
-        self.snapshotScopesByMac = [:]
+        self.snapshotsByScope = [:]
         self.mediaRefsById = [:]
         self.mediaDataByRef = [:]
         self.mediaKeysByRef = [:]
@@ -431,8 +429,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         snapshot: SnapshotEnvelope
     ) async throws {
         eventLog.append("publishSnapshot")
-        snapshotsByMac[macAgentId] = snapshot
-        snapshotScopesByMac[macAgentId] = PublishedEventScope(accountId: accountId, macAgentId: macAgentId)
+        snapshotsByScope[SnapshotStorageKey(accountId: accountId, macAgentId: macAgentId)] = snapshot
     }
 
     public func snapshot(
@@ -441,12 +438,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         since _: Int64?
     ) async throws -> SnapshotEnvelope? {
         eventLog.append("snapshot")
-        guard let scope = snapshotScopesByMac[macAgentId],
-              scope.accountId == accountId,
-              scope.macAgentId == macAgentId else {
-            return nil
-        }
-        return snapshotsByMac[macAgentId]
+        return snapshotsByScope[SnapshotStorageKey(accountId: accountId, macAgentId: macAgentId)]
     }
 
     public func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {
@@ -514,7 +506,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         }
     }
 
-    private struct PublishedEventScope: Sendable {
+    private struct SnapshotStorageKey: Hashable, Sendable {
         var accountId: String
         var macAgentId: String
     }
