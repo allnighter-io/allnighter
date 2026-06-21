@@ -179,6 +179,10 @@ public extension ContractRegistry {
         MCPToolSpec("thread_get", command: "thread get", summary: "Fetch a work thread snapshot.",
                     params: [.init("threadId", required: true, summary: "Thread id.")],
                     errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("thread_rename", command: "thread rename", summary: "Rename a work thread (same SSOT as the inbox double-click rename).",
+                    params: [.init("threadId", required: true, summary: "Thread id."),
+                             .init("title", required: true, summary: "New non-empty thread title.")],
+                    errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("thread_status", command: "thread status", summary: "Poll thread running/attention state.",
                     params: [.init("threadId", required: true, summary: "Thread id.")],
                     outputSchema: .threadStatus,
@@ -411,6 +415,13 @@ public extension ContractRegistry {
             args: [ArgSpec("thread-id", required: true, summary: "Thread id.")],
             flags: [FlagSpec("json", summary: "Structured thread JSON.")],
             exampleIds: ["thread_get_json"]
+        ),
+        CommandSpec(
+            "thread rename", summary: "Rename a work thread (same SSOT as the inbox double-click rename).", milestone: .m1,
+            args: [ArgSpec("thread-id", required: true, summary: "Thread id or `latest`."),
+                   ArgSpec("title", required: true, summary: "New non-empty thread title.")],
+            flags: [FlagSpec("json", summary: "Structured thread JSON.")],
+            exampleIds: ["thread_rename_json"]
         ),
         CommandSpec(
             "thread status", summary: "Poll thread running/attention state.", milestone: .m1,
@@ -1061,6 +1072,7 @@ public extension ContractRegistry {
         ExampleRecipe("export_md", title: "Export the latest result", command: "alln export latest --format md"),
         ExampleRecipe("export_contracts_check", title: "Verify no contract drift", command: "alln dev export-contracts --check"),
         ExampleRecipe("thread_send_json", title: "Send message with image and file reference to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --ref Sources/App.swift:10-80 --json"),
+        ExampleRecipe("thread_rename_json", title: "Rename a work thread", command: "alln thread rename latest \"Paste-image bug\" --json"),
         ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
         ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --worker claude --when ready --json \"Review this patch when Claude is available.\""),
         ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),

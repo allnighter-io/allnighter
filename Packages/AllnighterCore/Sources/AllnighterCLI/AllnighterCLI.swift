@@ -28,6 +28,7 @@ struct AllnighterCLI {
         case "skills" where args.first == "delete": runSkillsDelete(Array(args.dropFirst()), runtime)
         case "skills": runSkillCatalog(args, runtime)
         case "thread" where args.first == "send": await ThreadSendCLI.runSend(Array(args.dropFirst()), runtime: runtime)
+        case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
