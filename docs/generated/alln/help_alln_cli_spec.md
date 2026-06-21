@@ -999,6 +999,7 @@ Output schema: `helpTopicsJSON`.
 | `TEAM_RUN_FAILED` | no | yes | Inspect failed workers and stages; retry or adjust the team. |
 | `NESTED_TEAM_BLOCKED` | yes | no | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | no | yes | Wait or retry after current team run completes. |
+| `TEAM_GOVERNOR_UNAVAILABLE` | yes | yes | Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for MCP/eval runs. |
 | `PENDING_MUTATION_DEFERRED` | yes | no | Keep item Draft/Pending; mutating pending runs are outside Pending M1. |
 | `PENDING_REORDER_INVALID` | yes | no | Keep order unchanged; reorder only Pending items in the same serialized group. |
 | `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | Generate a new key or reuse the original payload. |

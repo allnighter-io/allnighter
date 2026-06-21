@@ -2719,6 +2719,15 @@
       "ruleId" : "team.governor.busy"
     },
     {
+      "agentAction" : "Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for MCP\/eval runs.",
+      "code" : "TEAM_GOVERNOR_UNAVAILABLE",
+      "exitClass" : "operational",
+      "explain" : "The team-run governor could not create, open, or lock its slot store. This is a storage\/permission\/configuration problem, not a capacity limit.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "team.governor.unavailable"
+    },
+    {
       "agentAction" : "Keep item Draft\/Pending; mutating pending runs are outside Pending M1.",
       "code" : "PENDING_MUTATION_DEFERRED",
       "exitClass" : "operational",
@@ -3790,6 +3799,8 @@
         "DEFAULT_TEAM_INVALID",
         "TEAM_NOT_FOUND",
         "MODEL_UNAVAILABLE",
+        "TEAM_GOVERNOR_BUSY",
+        "TEAM_GOVERNOR_UNAVAILABLE",
         "CLI_USAGE_ERROR"
       ],
       "idempotency" : "idempotent",
@@ -3831,6 +3842,7 @@
         "MODEL_UNAVAILABLE",
         "NESTED_TEAM_BLOCKED",
         "TEAM_GOVERNOR_BUSY",
+        "TEAM_GOVERNOR_UNAVAILABLE",
         "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
         "COORDINATOR_UNAVAILABLE",
         "CLI_USAGE_ERROR"
@@ -4044,6 +4056,7 @@
         "WORKER_FAILED",
         "NESTED_TEAM_BLOCKED",
         "TEAM_GOVERNOR_BUSY",
+        "TEAM_GOVERNOR_UNAVAILABLE",
         "CLI_USAGE_ERROR"
       ],
       "idempotency" : "not_idempotent",

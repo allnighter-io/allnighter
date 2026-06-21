@@ -235,7 +235,7 @@ Strong Code candidates:
 ```text
 Code Core
 Bug Hunt
-Architecture Pressure Test
+Spec Upgrade
 Before I Believe Done
 Release Proof
 ```

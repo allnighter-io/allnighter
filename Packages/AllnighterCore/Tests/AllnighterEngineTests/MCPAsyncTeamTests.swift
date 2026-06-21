@@ -27,10 +27,12 @@ final class MCPAsyncTeamTests: XCTestCase {
     private static func makeRuntime(
         runId: String,
         mock: MockCommandRunner,
-        root: URL
+        root: URL,
+        governor: TeamGovernor? = nil
     ) -> ToolRuntime {
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
         let models = [Self.opus()]
+        let governor = governor ?? TeamGovernor(directory: root.appendingPathComponent("gov"), capacity: 2)
         let asyncTeam = AsyncTeamService(
             models: models,
             registry: registry,
@@ -38,7 +40,7 @@ final class MCPAsyncTeamTests: XCTestCase {
             config: ToolConfig(maxConcurrentTeamRuns: 2, maxTeamRunDepth: 1),
             runStore: RunStore(rootDirectory: root.appendingPathComponent("Runs")),
             commandRunner: mock,
-            governor: TeamGovernor(directory: root.appendingPathComponent("gov"), capacity: 2),
+            governor: governor,
             idempotency: IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json")),
             idFactory: { runId }
         )
@@ -48,7 +50,8 @@ final class MCPAsyncTeamTests: XCTestCase {
             teams: [Self.testTeam()],
             config: ToolConfig(maxConcurrentTeamRuns: 2, maxTeamRunDepth: 1),
             asyncTeam: asyncTeam,
-            readyModels: models
+            readyModels: models,
+            governor: governor
         )
     }
 
@@ -93,6 +96,61 @@ final class MCPAsyncTeamTests: XCTestCase {
                 return XCTFail("expected tool error")
             }
             XCTAssertEqual(envelope.code, "DEFAULT_TEAM_INVALID")
+        }
+    }
+
+    func testPreflightReportsGovernorBusy() async throws {
+        try await mcpAsyncTeamTestGate.run {
+            let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("mcp-async-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: root) }
+            let governor = TeamGovernor(directory: root.appendingPathComponent("gov"), capacity: 2)
+            let slot1 = try XCTUnwrap(governor.acquire())
+            let slot2 = try XCTUnwrap(governor.acquire())
+            let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown)])
+            let runtime = Self.makeRuntime(runId: "mcp-run-busy", mock: mock, root: root, governor: governor)
+
+            let preflight = withExtendedLifetime((slot1, slot2)) {
+                AllnighterCLI.preflight(runtime, args: [
+                    "lane": "code", "team": "code_test", "effort": "low",
+                ])
+            }
+
+            XCTAssertFalse(preflight.canStart)
+            XCTAssertEqual(preflight.blockedReason, "busy: 2 team runs already running")
+            XCTAssertTrue(preflight.warnings.contains("Team governor is at capacity."))
+            XCTAssertEqual(preflight.nextAction.tool, "team_start")
+        }
+    }
+
+    func testPreflightAndStartReportGovernorUnavailable() async throws {
+        try await mcpAsyncTeamTestGate.run {
+            let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("mcp-async-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: root) }
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let badGovernorDirectory = root.appendingPathComponent("gov-file")
+            try Data("not a directory".utf8).write(to: badGovernorDirectory)
+            let governor = TeamGovernor(directory: badGovernorDirectory, capacity: 2)
+            let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown)])
+            let runtime = Self.makeRuntime(runId: "mcp-run-gov-unavailable", mock: mock, root: root, governor: governor)
+
+            let preflight = AllnighterCLI.preflight(runtime, args: [
+                "lane": "code", "team": "code_test", "effort": "low",
+            ])
+
+            XCTAssertFalse(preflight.canStart)
+            XCTAssertTrue(preflight.blockedReason?.contains("team governor slot store unavailable") ?? false)
+            XCTAssertTrue(preflight.warnings.contains("Team governor slot store is unavailable."))
+            XCTAssertEqual(preflight.nextAction.kind, "runDoctor")
+            XCTAssertEqual(preflight.nextAction.tool, "doctor")
+
+            let outcome = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
+                "prompt": "x", "lane": "code", "team": "code_test", "effort": "low",
+            ], defaultAgent: "mcp")
+            guard case .toolError(let envelope) = outcome else {
+                return XCTFail("expected governor unavailable tool error")
+            }
+            XCTAssertEqual(envelope.code, "TEAM_GOVERNOR_UNAVAILABLE")
+            XCTAssertTrue(envelope.message.contains("team governor slot store unavailable"))
         }
     }
 

@@ -493,6 +493,7 @@ Starter error catalog:
 | `TEAM_RUN_TIMEOUT` | Retry with a smaller/simpler Team or inspect failed worker/source state. |
 | `NESTED_TEAM_BLOCKED` | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | Wait or retry after current team run completes. |
+| `TEAM_GOVERNOR_UNAVAILABLE` | Run `alln doctor --json`; ensure the support directory is writable, or set a writable support root for MCP/eval runs. |
 | `EXECUTION_TEAM_MIXED_SOURCES` | Choose one execution source or run a non-mutating review/proposal team first. |
 | `PENDING_MUTATION_DEFERRED` | Keep item Draft/Pending; mutating dispatch is outside Pending M1. |
 | `PENDING_REORDER_INVALID` | Keep order unchanged; reorder only Pending Execute items in the same execution lane. |
@@ -812,7 +813,8 @@ Default recursion policy:
 Governor policy:
 
 - Config owns `maxConcurrentTeamRuns`.
-- Refusal emits `TEAM_GOVERNOR_BUSY`.
+- Refusal emits `TEAM_GOVERNOR_BUSY` only when slots are actually locked.
+- Slot-store creation/open/lock failure emits `TEAM_GOVERNOR_UNAVAILABLE`.
 - Refusal writes an audit event.
 - The user sees a real busy state, not a fake queued worker.
 

@@ -133,6 +133,13 @@ Known gaps:
 - Async run ownership still depends on a living process. MCP stdio can own a run
   while connected; durable overnight use should route through resident
   `alln serve` when that coordinator is the owner.
+- Team admission can fail before model work if the MCP process cannot create or
+  lock Allnighter's support-path governor slots. This must be reported as slot
+  store unavailable, not as a fake "busy" capacity state.
+- Readiness cache can lie when the factory runs under a different host,
+  sandbox, support root, shell, or credential scope than the detector that wrote
+  `SetupStore`. For lab purposes, "ready" means runnable by this MCP process,
+  not merely present in an old cache.
 
 ## First-Principles Decision
 
@@ -176,6 +183,11 @@ Lie-prone layers:
 - A majority theory can be weaker than a minority dissent.
 - A cheap final score can flatten root-cause, evidence, proof, and usefulness
   into one misleading number.
+- An empty lab support root can make readiness look optimistic unless the
+  factory treats missing detection as unknown and runs doctor/preflight truth
+  checks first.
+- A provider CLI can be "ready" in the Mac app but fail from an MCP subprocess
+  because auth/session stores are unavailable to that process.
 
 ## MCP-Only Law
 
@@ -221,6 +233,26 @@ If the lab cannot retrieve worker prompts, worker answers, stage outputs, Floor
 data, or final packets through MCP-returned structures or MCP artifact tools, the
 answer is not "read the app state." The answer is "add the missing MCP retrieval
 surface."
+
+Support-root rule:
+
+```text
+The factory records the exact Allnighter support root used by the MCP server.
+If the root is overridden for eval/sandbox work, the run record says so.
+No experiment may compare results from two support roots as if they shared
+readiness, idempotency, run history, or source credentials.
+```
+
+Admission truth rule:
+
+```text
+TEAM_GOVERNOR_BUSY = slots are actually locked by live team work.
+TEAM_GOVERNOR_UNAVAILABLE = the MCP process cannot create/open/lock the slot store.
+```
+
+The factory must stop on `TEAM_GOVERNOR_UNAVAILABLE`, call `error_explain` or
+`doctor`, and classify the experiment as a run-system issue. It must not retry as
+if waiting would free capacity.
 
 ## CLI/MCP Surface
 
@@ -381,6 +413,11 @@ Each run must log:
 - exact MCP JSON-RPC frames, request and response, with timestamps;
 - `tools/list` result and hash;
 - `mcp_hello` readiness result;
+- Allnighter support root, relevant MCP process environment, and whether the
+  support root was overridden for lab/sandbox execution;
+- first-start facts: binary path, binary version, git head, contract hash,
+  support root, current working directory, PATH source, process pid, and MCP
+  client identity;
 - `team_preflight` result;
 - `team_start` request and `TeamStartResponse`;
 - every `team_status` response and polling interval;
@@ -389,13 +426,45 @@ Each run must log:
 - all error envelopes and `error_explain` output when used;
 - run id, origin metadata, idempotency key, lane, team, effort, and context hash;
 - full worker lineup: model, source, skill, purpose, status, duration, exit code;
+- source readiness provenance: cached detector record, live doctor/probe record,
+  or explicit "unknown";
+- spawn plan per worker: source id, invocation type (`direct`, `shim`,
+  `loginShell`, or bare command), resolved executable path, sanitized argv shape,
+  working directory, timeout budget, streaming mode, output capture mode, and
+  whether a detected invocation was used;
 - full worker prompt snapshots;
 - full worker outputs;
-- writer prompt and output;
-- timeouts, cancellations, interruptions, and hidden partials;
+- writer prompt, spawn plan, terminal status, and output;
+- timeouts, cancellations, interruptions, hidden partials, last stdout/stderr
+  activity timestamp, stdout/stderr byte counts, and whether the watchdog was
+  idle-timeout or wall-clock-timeout;
+- raw terminal classification before synthesis: launch failure, auth/manual
+  prompt, provider capacity, local permission denial, parser failure,
+  empty-output, timeout, cancelled, or nonzero exit;
+- retry/fallback facts: streaming attempted, streaming terminal state,
+  non-streaming fallback attempted, fallback result, and reason for fallback;
 - run-store artifact refs returned through MCP;
 - evaluator prompt, evaluator output, and final scores;
 - human notes, if any, as separate commentary, never as hidden score truth.
+
+Failure aggregation:
+
+```text
+first start failed
+worker launch failed
+worker auth/manual blocked
+worker provider-capacity blocked
+worker local-permission failed
+worker timed out
+worker parser/output failed
+writer failed
+MCP retrieval failed
+```
+
+Every category must be countable by Team, source, model, skill, host process,
+support root, and Allnighter version. Timeout is presumed to be an Allnighter
+spawn/streaming/watchdog problem until the log proves the provider returned no
+events under the same invocation path a human can run successfully.
 
 The lab report must distinguish:
 

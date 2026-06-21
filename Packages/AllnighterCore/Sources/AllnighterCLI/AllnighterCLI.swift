@@ -869,13 +869,31 @@ struct AllnighterCLI {
 
     /// Run preflight from CLI/MCP args (lane/team/type/effort) against the ready bench.
     static func preflight(_ runtime: ToolRuntime, args: [String: Any]) -> TeamPreflight.Result {
-        TeamPreflight.preflight(
+        var result = TeamPreflight.preflight(
             teams: runtime.teams,
             lane: (args["lane"] as? String).flatMap(WorkLane.init(rawValue:)),
             teamId: args["team"] as? String,
             type: args["type"] as? String,
             effort: (args["effort"] as? String).flatMap(EffortLevel.init(rawValue:)),
             readyModels: runtime.readyModels)
+        if result.canStart {
+            switch runtime.governor.availability() {
+            case .available:
+                break
+            case .busy:
+                let reason = "busy: \(runtime.config.maxConcurrentTeamRuns) team runs already running"
+                result.canStart = false
+                result.blockedReason = reason
+                result.warnings.append("Team governor is at capacity.")
+                result.nextAction = AgentNextAction(kind: "retryLater", tool: "team_start")
+            case .unavailable(let reason):
+                result.canStart = false
+                result.blockedReason = reason
+                result.warnings.append("Team governor slot store is unavailable.")
+                result.nextAction = AgentNextAction(kind: "runDoctor", tool: "doctor")
+            }
+        }
+        return result
     }
 
     static func parseAsyncTeamStart(_ args: [String], _ opts: Options) -> AsyncTeamStartRequest? {
@@ -1220,6 +1238,7 @@ struct ToolRuntime {
     let config: ToolConfig
     /// Cached per-driver invocations from the last detection (health == runs).
     let invocations: [String: ToolInvocation]
+    let governor: TeamGovernor
     let asyncTeam: AsyncTeamService
     private let readyModelsOverride: [Model]?
 
@@ -1236,7 +1255,9 @@ struct ToolRuntime {
         self.teams = teams
         self.config = config
         self.invocations = invs
-        self.asyncTeam = AsyncTeamService(models: models, registry: registry, teams: teams, config: config, invocations: invs)
+        let governor = TeamGovernor(capacity: config.maxConcurrentTeamRuns)
+        self.governor = governor
+        self.asyncTeam = AsyncTeamService(models: models, registry: registry, teams: teams, config: config, governor: governor, invocations: invs)
         self.readyModelsOverride = nil
     }
 
@@ -1248,31 +1269,32 @@ struct ToolRuntime {
         config: ToolConfig,
         invocations: [String: ToolInvocation] = [:],
         asyncTeam: AsyncTeamService,
-        readyModels: [Model]
+        readyModels: [Model],
+        governor: TeamGovernor? = nil
     ) {
         self.models = models
         self.registry = registry
         self.teams = teams
         self.config = config
         self.invocations = invocations
+        self.governor = governor ?? TeamGovernor(capacity: config.maxConcurrentTeamRuns)
         self.asyncTeam = asyncTeam
         self.readyModelsOverride = readyModels
     }
 
     func service() -> TeamService {
-        TeamService(models: models, registry: registry, teams: teams, config: config, invocations: invocations)
+        TeamService(models: models, registry: registry, teams: teams, config: config, governor: governor, invocations: invocations)
     }
 
     func asyncTeamService() -> AsyncTeamService { asyncTeam }
 
     /// The ready bench from cached detection (no quota): enabled models whose
-    /// source was detected ready. Falls back to all enabled models when no
-    /// detection cache exists yet (fresh dev environment — optimistic, not a lie:
-    /// a per-worker failure still surfaces honestly at run time).
+    /// source was detected ready by this Allnighter support root. Missing setup is
+    /// unknown, not ready; agents should run doctor/detect instead of spending
+    /// quota on a run that preflight could not honestly admit.
     var readyModels: [Model] {
         if let readyModelsOverride { return readyModelsOverride }
         let readyDrivers = TeamAssembler.readyDriverIds(from: SetupStore().load().records)
-        guard !readyDrivers.isEmpty else { return models.filter(\.enabled) }
         return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }
     }
 

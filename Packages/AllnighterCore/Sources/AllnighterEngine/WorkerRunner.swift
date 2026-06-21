@@ -340,7 +340,39 @@ public struct WorkerRunner: Sendable {
         prompt: String,
         effort: EffortLevel = .med
     ) async -> WorkerAnswer {
-        let outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort)
+        let outcome: WorkerRunOutcome
+        if manifest.canStream, supportsStreaming, let parser = WorkerStreamParsers.make(for: manifest) {
+            var terminal: WorkerRunOutcome?
+            do {
+                for try await event in invokeStreaming(worker: model, manifest: manifest, prompt: prompt, parser: parser, effort: effort) {
+                    switch event {
+                    case .completed(let outcome), .failed(let outcome):
+                        terminal = outcome
+                    case .started, .answerDelta, .reasoningDelta, .rawEvent, .toolActivity:
+                        break
+                    }
+                }
+            } catch {
+                terminal = WorkerRunOutcome(
+                    status: .failed,
+                    errorKind: .nonzeroExit,
+                    errorReason: "streaming worker threw: \(error.localizedDescription)"
+                )
+            }
+            let streamed = terminal ?? WorkerRunOutcome(
+                status: .failed,
+                errorKind: .emptyOutput,
+                errorReason: "stream ended without a terminal event"
+            )
+            if streamed.status != .done, (streamed.output ?? "").isEmpty {
+                StreamDebugLog.log("FALLBACK source=\(manifest.id): catalog worker stream gave \(streamed.status.rawValue)/empty — retrying invoke")
+                outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort)
+            } else {
+                outcome = streamed
+            }
+        } else {
+            outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort)
+        }
         return WorkerAnswer(
             workerId: assignment.id,
             modelId: model.id,

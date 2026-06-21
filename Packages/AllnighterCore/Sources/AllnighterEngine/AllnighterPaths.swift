@@ -6,6 +6,9 @@ import Foundation
 public enum AllnighterPaths {
     /// `~/Library/Application Support/Allnighter/`
     public static var support: URL {
+        if let override = ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: (override as NSString).expandingTildeInPath, isDirectory: true)
+        }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base.appendingPathComponent("Allnighter", isDirectory: true)

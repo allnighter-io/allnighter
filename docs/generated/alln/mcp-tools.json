@@ -293,6 +293,8 @@
       "DEFAULT_TEAM_INVALID",
       "TEAM_NOT_FOUND",
       "MODEL_UNAVAILABLE",
+      "TEAM_GOVERNOR_BUSY",
+      "TEAM_GOVERNOR_UNAVAILABLE",
       "CLI_USAGE_ERROR"
     ],
     "idempotency" : "idempotent",
@@ -334,6 +336,7 @@
       "MODEL_UNAVAILABLE",
       "NESTED_TEAM_BLOCKED",
       "TEAM_GOVERNOR_BUSY",
+      "TEAM_GOVERNOR_UNAVAILABLE",
       "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
       "COORDINATOR_UNAVAILABLE",
       "CLI_USAGE_ERROR"
@@ -547,6 +550,7 @@
       "WORKER_FAILED",
       "NESTED_TEAM_BLOCKED",
       "TEAM_GOVERNOR_BUSY",
+      "TEAM_GOVERNOR_UNAVAILABLE",
       "CLI_USAGE_ERROR"
     ],
     "idempotency" : "not_idempotent",

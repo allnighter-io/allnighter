@@ -92,6 +92,33 @@ Here is the fixture:
         XCTAssertEqual(response.errorKind, .timedOut)
     }
 
+    func testCatalogWorkerRunUsesStreamingWhenAvailable() async {
+        var manifest = TestSupport.headlessManifest(id: "grok", command: "grok")
+        manifest.streaming = .init(
+            supported: true,
+            mode: .jsonlStdout,
+            args: ["-p", "{{prompt}}"],
+            partialOutput: true,
+            finalAnswerSource: .parserAccumulator
+        )
+        let worker = TestSupport.worker("model_grok", driverId: "grok")
+        let assignment = TestSupport.seat("model_grok", skillId: "spec_outside_scout")
+        let streamingRunner = MockStreamingCommandRunner([
+            .started(startedAt: Date()),
+            .stdout(Data((#"{"type":"text","data":"streamed answer"}"# + "\n").utf8)),
+            .completed(CommandResult(stdout: "", exitCode: 0))
+        ])
+        let run = WorkerRunner(
+            commandRunner: MockCommandRunner(scripts: ["grok": .init(stdout: "fallback answer")]),
+            streamingCommandRunner: streamingRunner
+        )
+
+        let response = await run.run(assignment: assignment, model: worker, manifest: manifest, prompt: "hi")
+
+        XCTAssertEqual(response.status, .done)
+        XCTAssertEqual(response.output, "streamed answer")
+    }
+
     func testMissingCLIMapsToMissing() async {
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let worker = TestSupport.worker("w", driverId: "claude_code")

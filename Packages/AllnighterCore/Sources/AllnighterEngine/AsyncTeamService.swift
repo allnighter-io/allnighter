@@ -149,8 +149,15 @@ public actor AsyncTeamService {
             return .failure(.init(code: blocker.code, message: blocker.message, preset: resolvedRequest.team.id))
         }
 
-        guard let slot = governor.acquire() else {
+        let slot: TeamGovernor.Slot
+        switch governor.acquireDetailed() {
+        case .acquired(let acquired):
+            slot = acquired
+        case .busy:
             return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
+                                  preset: resolvedRequest.team.id))
+        case .unavailable(let reason):
+            return .failure(.init(code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason,
                                   preset: resolvedRequest.team.id))
         }
 

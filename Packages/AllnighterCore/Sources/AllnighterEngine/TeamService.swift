@@ -23,6 +23,16 @@ public final class TeamGovernor: @unchecked Sendable {
         init(fd: Int32) { self.fd = fd }
         deinit { flock(fd, LOCK_UN); close(fd) }
     }
+    public enum AcquireResult {
+        case acquired(Slot)
+        case busy
+        case unavailable(String)
+    }
+    public enum Availability: Equatable {
+        case available
+        case busy
+        case unavailable(String)
+    }
     private let directory: URL
     private let capacity: Int
 
@@ -34,16 +44,62 @@ public final class TeamGovernor: @unchecked Sendable {
 
     /// Grab a free slot, or nil if all `capacity` slots are held (busy).
     public func acquire() -> Slot? {
+        guard case .acquired(let slot) = acquireDetailed() else { return nil }
+        return slot
+    }
+
+    /// Grab a free slot and distinguish real capacity from a broken slot store.
+    public func acquireDetailed() -> AcquireResult {
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            return .unavailable("team governor slot store unavailable: cannot create \(directory.path): \(error.localizedDescription)")
+        }
+
+        var unavailableReasons: [String] = []
+        var sawLockedSlot = false
         for i in 0..<capacity {
             let path = directory.appendingPathComponent("slot_\(i).lock").path
             let fd = open(path, O_CREAT | O_RDWR, 0o600)
-            guard fd >= 0 else { continue }
+            guard fd >= 0 else {
+                unavailableReasons.append("open \(path): \(Self.posixMessage(errno))")
+                continue
+            }
             if flock(fd, LOCK_EX | LOCK_NB) == 0 {
-                return Slot(fd: fd)
+                return .acquired(Slot(fd: fd))
+            }
+            let lockErrno = errno
+            if lockErrno == EWOULDBLOCK || lockErrno == EAGAIN {
+                sawLockedSlot = true
+            } else {
+                unavailableReasons.append("lock \(path): \(Self.posixMessage(lockErrno))")
             }
             close(fd)
         }
-        return nil
+        if !unavailableReasons.isEmpty {
+            return .unavailable("team governor slot store unavailable: \(unavailableReasons.joined(separator: "; "))")
+        }
+        return sawLockedSlot ? .busy : .unavailable("team governor slot store unavailable: no usable slot files in \(directory.path)")
+    }
+
+    /// Non-mutating availability probe for preflight. It briefly acquires one
+    /// slot, then releases it immediately. A later `team_start` may still race
+    /// another process, but preflight no longer reports OK when the governor is
+    /// already full.
+    public func availability() -> Availability {
+        switch acquireDetailed() {
+        case .acquired(let slot):
+            _ = slot
+            return .available
+        case .busy:
+            return .busy
+        case .unavailable(let reason):
+            return .unavailable(reason)
+        }
+    }
+
+    private static func posixMessage(_ errnoValue: Int32) -> String {
+        String(cString: strerror(errnoValue))
     }
 }
 
@@ -145,10 +201,17 @@ public actor TeamService {
         }
 
         // Governor (concurrency cap).
-        guard let slot = governor.acquire() else {
+        let slot: TeamGovernor.Slot
+        switch governor.acquireDetailed() {
+        case .acquired(let acquired):
+            slot = acquired
+        case .busy:
             let reason = "busy: \(config.maxConcurrentTeamRuns) team runs already running"
             finishStream(failed: reason)
             return .refused(reason: reason, code: "TEAM_GOVERNOR_BUSY", preset: resolvedRequest.team.id, now: now())
+        case .unavailable(let reason):
+            finishStream(failed: reason)
+            return .refused(reason: reason, code: "TEAM_GOVERNOR_UNAVAILABLE", preset: resolvedRequest.team.id, now: now())
         }
         defer { _ = slot } // released on scope exit (deinit unlocks).
 

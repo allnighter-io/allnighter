@@ -318,30 +318,46 @@ public enum SkillCatalog {
         ship, cheap hardening, later when scale warrants, accepted risk, or enterprise-only \
         suggestion rejected. Every required stop needs a proof condition.
         """),
-        // Architecture Pressure Test
-        s("truth_owner", "Truth Owner", .code, .answer, """
-        Name the semantic owner for every durable fact. Separate product truth from UI \
-        rendering, generated artifacts, prompt prose, and cache state. Reject any design \
-        where SwiftUI or an agent prompt becomes the only owner of durable meaning.
+        // Spec Upgrade
+        s("spec_outside_scout", "Outside Scout", .code, .answer, """
+        Look outside the repo only when it would materially improve the spec. If you have \
+        current web/source access, scout for relevant patterns, prior art, APIs, standards, \
+        tools, or product ideas related to the spec. Cite concrete sources or say when you \
+        could not verify externally. Do not make outside research mandatory; if the best \
+        answer is local first-principles review, say that.
         """),
-        s("complexity_cutter", "Complexity Cutter", .code, .answer, """
-        Remove abstractions that do not pay rent. Prefer the smallest local shape that \
-        preserves the future path. Call out cleverness, generic frameworks, and config \
-        surfaces that are not needed for the current slice.
+        s("spec_first_principles_reviewer", "First Principles Reviewer", .code, .answer, """
+        Read the spec from first principles. What user or developer capability is it really \
+        trying to make true? Name the core promise, the truth owner, the smallest useful \
+        slice, and any hidden assumptions. Prefer clear product mechanics over process \
+        theater or impressive-sounding systems.
         """),
-        s("failure_concurrency", "Failure & Concurrency", .code, .answer, """
-        Look for races, partial writes, cancelled tasks, orphaned runs, interrupted \
-        processes, retries, and stale snapshots. Name what happens if the app closes \
-        mid-run or two attempts touch the same owner.
+        s("spec_contract_auditor", "Contract Auditor", .code, .answer, """
+        Audit the implementation contract for any repo. Look for missing API/CLI/MCP/HTTP \
+        surface, schema, data model, event, error, permission, persistence, compatibility, \
+        or ownership decisions. Name gaps as examples of contract risk, not as Allnighter-\
+        specific requirements unless the repo actually uses those surfaces.
         """),
-        s("migration_steward", "Migration Steward", .code, .answer, """
-        Identify fixtures, generated artifacts, persisted files, CLI contracts, and docs \
-        that must move together. Because the product is pre-user, prefer clean cutovers \
-        over long-lived compatibility shims.
+        s("spec_proof_planner", "Proof Planner", .code, .answer, """
+        Design proof for the spec. Name the deterministic tests, fixtures, commands, manual \
+        checks, negative cases, and blocked proof. Separate what proves product behavior \
+        from what only proves implementation confidence.
         """),
-        s("contrarian_architect", "Contrarian Architect", .code, .review, """
-        Defend the strongest alternative architecture. Say what it would make simpler, \
-        what it would make worse, and what evidence would change the decision.
+        s("spec_scope_steward", "Scope Steward", .code, .answer, """
+        Cut the spec into implementable slices. Identify overbuilt areas, missing first \
+        slice, risky dependencies, and anything that should be deferred. Preserve the \
+        ambition while making the next build step smaller and safer.
+        """),
+        s("spec_hype_skeptic", "Hype Skeptic", .code, .review, """
+        Stay grounded. AI workers often reinforce each other's excitement; your job is to \
+        deflate hype without becoming cynical. Flag vague 10x claims, unproven automation, \
+        self-referential agent theater, and complexity that does not help the user. Keep \
+        what is genuinely valuable.
+        """),
+        s("spec_contrarian_reviewer", "Contrarian Reviewer", .code, .review, """
+        Argue for the strongest different approach. What if the spec is solving the wrong \
+        problem, starting in the wrong place, or using the wrong abstraction? Offer a \
+        concrete alternative and the evidence that would make you switch back.
         """),
         // Release Proof
         s("acceptance_auditor", "Acceptance Auditor", .code, .answer, """
@@ -581,8 +597,23 @@ public enum SkillCatalog {
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
         writer("security_register_writer", "Security Register Writer", .code,
                "small-team security review: boundaries, risks, severity, required stops, cheap hardening, accepted risks, proof requirements"),
-        writer("architecture_verdict_writer", "Architecture Verdict Writer", .code,
-               "architecture verdict: truth owner, boundary map, rejected alternatives, implementation slices, proof wall"),
+        s("spec_upgrade_writer", "Spec Upgrade Writer", .code, .planWriter, """
+        You are the Spec Upgrade synthesizer. You are given the original prompt, independent \
+        worker answers, and review notes. Treat every worker idea as a suggestion, not an \
+        order. Think from first principles about what will actually improve the spec. Do \
+        not average. Decide. Preserve genuine dissent. Reject hype, vague automation, and \
+        complexity that does not help the user.
+
+        Produce a Spec Upgrade Packet:
+        - strongest parts of the spec;
+        - highest-leverage missing decisions;
+        - contract/API/data/protocol/persistence/proof gaps where relevant;
+        - overbuilt or hype-prone areas;
+        - outside ideas worth considering, with source caveats when available;
+        - recommended slice/order changes;
+        - exact doc-change recommendations, without editing the doc.
+        Attribute important points to worker ids when useful.
+        """),
         writer("proof_packet_writer", "Proof Packet Writer", .code,
                "proof packet: Works Test, commands run, missing proof, residual risks, closeout verdict"),
         writer("design_board_writer", "Design Board Writer", .design,

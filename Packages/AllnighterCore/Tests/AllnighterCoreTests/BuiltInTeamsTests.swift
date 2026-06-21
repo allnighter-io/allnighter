@@ -12,8 +12,7 @@ final class BuiltInTeamsTests: XCTestCase {
     func testRequiredBuiltInIdsArePresent() {
         let required = [
             "code_core", "code_bug_hunt", "code_gui_bug_hunt", "code_security_review",
-            "code_architecture_pressure_test", "code_release_proof",
-            "code_codex_implementation", "code_claude_implementation", "code_cursor_implementation",
+            "code_spec_upgrade", "code_release_proof",
             "default_chat", "execution_playbook",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
@@ -25,6 +24,31 @@ final class BuiltInTeamsTests: XCTestCase {
             XCTAssertTrue(BuiltInTeams.team(id)?.builtIn ?? false)
         }
         XCTAssertEqual(BuiltInTeams.all.count, required.count)
+    }
+
+    func testSpecUpgradeCarriesGeneralSpecReviewLineup() {
+        let team = BuiltInTeams.team("code_spec_upgrade")!
+        XCTAssertEqual(team.displayName, "Spec Upgrade")
+        XCTAssertEqual(team.outputKind, .specUpgrade)
+        XCTAssertEqual(team.defaultEffort, .high)
+        XCTAssertEqual(team.scout?.skillId, "spec_outside_scout")
+        XCTAssertEqual(team.scout?.preferredModelId, "model_grok")
+        XCTAssertEqual(team.lead.skillId, "spec_upgrade_writer")
+        XCTAssertEqual(Set(team.workerSpecs.map(\.skillId)), [
+            "spec_first_principles_reviewer",
+            "spec_contract_auditor",
+            "spec_proof_planner",
+            "spec_scope_steward",
+            "spec_hype_skeptic",
+            "spec_contrarian_reviewer"
+        ])
+    }
+
+    func testImplementationSourceChoicesDoNotAppearAsTeams() {
+        for team in BuiltInTeams.all {
+            XCTAssertFalse(team.displayName.lowercased().contains("implementation"))
+            XCTAssertFalse(team.id.contains("_implementation"))
+        }
     }
 
     func testEveryReferencedSkillExistsInCatalog() {

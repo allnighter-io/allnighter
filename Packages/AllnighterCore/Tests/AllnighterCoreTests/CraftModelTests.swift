@@ -28,10 +28,7 @@ final class CraftModelTests: XCTestCase {
     }
 
     func testExistingBuiltInsHaveCorrectMutationShape() {
-        let executionIDs: Set<String> = [
-            "code_codex_implementation", "code_claude_implementation", "code_cursor_implementation",
-            "default_chat", "execution_playbook"
-        ]
+        let executionIDs: Set<String> = ["default_chat", "execution_playbook"]
         for team in BuiltInTeams.all {
             if executionIDs.contains(team.id) {
                 XCTAssertTrue(team.mutating, "\(team.id) is a source-scoped execution team")

@@ -7,8 +7,7 @@ import Foundation
 public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
-        buildCore, buildBugHunt, buildGUIBugHunt, buildSecurityReview, buildArchitecturePressureTest, buildReleaseProof,
-        buildCodexImplementation, buildClaudeImplementation, buildCursorImplementation,
+        buildCore, buildBugHunt, buildGUIBugHunt, buildSecurityReview, buildSpecUpgrade, buildReleaseProof,
         defaultChat, executionPlaybook,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -130,18 +129,20 @@ public enum BuiltInTeams {
             row("security_fix_prioritizer", .review)
         ], writer: "security_register_writer", dissent: .riskRegister)
 
-    static let buildArchitecturePressureTest = make(
-        id: "code_architecture_pressure_test", name: "Architecture Pressure Test", lane: .code,
-        output: .architectureVerdict, defaultEffort: .med,
-        description: "Pressure-test a proposed architecture before implementation hardens the wrong truth owner.",
+    static let buildSpecUpgrade = make(
+        id: "code_spec_upgrade", name: "Spec Upgrade", lane: .code,
+        output: .specUpgrade, defaultEffort: .high,
+        description: "Review and improve technical specs for any repo: sharpen scope, contracts, proof, risks, and implementation order without editing the doc.",
+        scout: row("spec_outside_scout", .answer, preferred: "model_grok", fallback: .anyReady),
         rows: [
-            row("truth_owner", .answer),
-            row("boundary_mapper", .answer),
-            row("complexity_cutter", .answer),
-            row("failure_concurrency", .answer),
-            row("migration_steward", .answer),
-            row("contrarian_architect", .review)
-        ], writer: "architecture_verdict_writer", dissent: .compareOptions)
+            row("spec_first_principles_reviewer", .answer),
+            row("spec_contract_auditor", .answer),
+            row("spec_proof_planner", .answer),
+            row("spec_scope_steward", .answer),
+            row("spec_hype_skeptic", .review),
+            row("spec_contrarian_reviewer", .review)
+        ], writer: "spec_upgrade_writer", dissent: .compareOptions,
+        starters: ["Upgrade this technical spec. Review only; do not edit the doc."])
 
     static let buildReleaseProof = make(
         id: "code_release_proof", name: "Release Proof", lane: .code, output: .proofPacket, defaultEffort: .high,
@@ -156,42 +157,7 @@ public enum BuiltInTeams {
         ], writer: "proof_packet_writer", dissent: .riskRegister,
         starters: ["Prove this slice is actually done before I believe it."])
 
-    private static let codexPreferred = "model_chatgpt"
-    private static let claudePreferred = "model_opus"
     private static let cursorPreferred = "model_cursor_composer_25"
-
-    static let buildCodexImplementation = make(
-        id: "code_codex_implementation", name: "Codex Implementation Team", lane: .code,
-        output: .plan, defaultEffort: .high,
-        description: "Run one Codex worker in the repo with a disciplined implementation preset.",
-        rows: [
-            row("first_principles_builder", .answer, preferred: codexPreferred, fallback: .exactOnly),
-        ], writer: "plan_writer_build",
-        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: codexPreferred, fallbackPolicy: .exactOnly),
-        mutating: true, executionSourceId: "codex",
-        starters: ["Implement this in the repo with proof."])
-
-    static let buildClaudeImplementation = make(
-        id: "code_claude_implementation", name: "Claude Code Implementation Team", lane: .code,
-        output: .plan, defaultEffort: .high,
-        description: "Run one Claude Code worker in the repo with a disciplined implementation preset.",
-        rows: [
-            row("first_principles_builder", .answer, preferred: claudePreferred, fallback: .exactOnly),
-        ], writer: "plan_writer_build",
-        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: claudePreferred, fallbackPolicy: .exactOnly),
-        mutating: true, executionSourceId: "claude_code",
-        starters: ["Implement this in the repo with proof."])
-
-    static let buildCursorImplementation = make(
-        id: "code_cursor_implementation", name: "Cursor Implementation Team", lane: .code,
-        output: .plan, defaultEffort: .high,
-        description: "Run one Cursor Agent worker in the repo with a disciplined implementation preset.",
-        rows: [
-            row("first_principles_builder", .answer, preferred: cursorPreferred, fallback: .exactOnly),
-        ], writer: "plan_writer_build",
-        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: cursorPreferred, fallbackPolicy: .exactOnly),
-        mutating: true, executionSourceId: "cursor_agent",
-        starters: ["Implement this in the repo with proof."])
 
     // MARK: - Unified run model teams
 
