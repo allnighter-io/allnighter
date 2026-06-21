@@ -150,6 +150,7 @@ final class RemoteCarrierParityTests: XCTestCase {
         let executor = CarrierParityExecutor(now: now)
         await executor.setStopAllResult(StopAllResult(terminated: 2))
         let router = RemoteCommandRouter(
+            accountId: "acct_1",
             macAgentId: "mac_1",
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,
@@ -222,6 +223,7 @@ final class RemoteCarrierParityTests: XCTestCase {
         let mediaRelay = MockRemoteMacRelay()
         try await mediaRelay.publishMedia(ref: mediaRef, data: mediaData, keys: [mediaKey])
         let router = RemoteCommandRouter(
+            accountId: "acct_1",
             macAgentId: "mac_1",
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,

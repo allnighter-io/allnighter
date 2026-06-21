@@ -166,6 +166,7 @@ private enum RemoteCommandRouterError: Error {
 }
 
 public final class RemoteCommandRouter: @unchecked Sendable {
+    private let accountId: String
     private let macAgentId: String
     private let trustedStore: TrustedRemoteStore
     private let dedupeStore: RemoteRequestDedupeStore
@@ -179,6 +180,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
     private var rateLimitHitsByDevice: [String: [Date]] = [:]
 
     public init(
+        accountId: String,
         macAgentId: String,
         trustedStore: TrustedRemoteStore,
         dedupeStore: RemoteRequestDedupeStore,
@@ -189,6 +191,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         skewWindow: TimeInterval = 60,
         policy: RemoteCommandRouterPolicy = .default
     ) {
+        self.accountId = accountId
         self.macAgentId = macAgentId
         self.trustedStore = trustedStore
         self.dedupeStore = dedupeStore
@@ -205,7 +208,8 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         guard entry.requestId == entry.command.requestId else {
             return try rejected(entry.command, reason: .badSignature, serverTime: serverTime, requestId: entry.requestId)
         }
-        guard entry.macAgentId == macAgentId,
+        guard entry.accountId == accountId,
+              entry.macAgentId == macAgentId,
               entry.fromDeviceId == entry.command.assertion.deviceId else {
             return try rejected(entry.command, reason: .badSignature, serverTime: serverTime)
         }
@@ -238,7 +242,9 @@ public final class RemoteCommandRouter: @unchecked Sendable {
 
         let registry = trustedStore.list(now: serverTime)
         guard let trustedDevice = registry.trustedDevices.first(where: {
-            $0.deviceId == command.assertion.deviceId && $0.macAgentId == macAgentId
+            $0.accountId == accountId
+                && $0.deviceId == command.assertion.deviceId
+                && $0.macAgentId == macAgentId
         }) else {
             return try rejected(command, reason: .unauthorizedKind, serverTime: serverTime)
         }

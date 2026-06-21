@@ -26,6 +26,7 @@ final class DirectModePairingCeremonyTests: XCTestCase {
         let executor = CeremonyRemoteExecutor()
         await executor.setStopAllResult(StopAllResult(terminated: 2))
         let router = RemoteCommandRouter(
+            accountId: "acct_1",
             macAgentId: "mac_1",
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,

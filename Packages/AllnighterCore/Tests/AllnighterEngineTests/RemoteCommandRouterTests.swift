@@ -141,6 +141,46 @@ final class RemoteCommandRouterTests: XCTestCase {
         XCTAssertTrue(try verifyAck(result.ack))
     }
 
+    func testTrustedDeviceFromOtherAccountDoesNotAuthorizeCommand() async throws {
+        try trustedStore.save(TrustedRemoteRegistry(trustedDevices: [
+            trustedDevice(accountId: "acct_2", capabilities: [])
+        ]))
+        let executor = CapturingRemoteExecutor(now: now)
+        let router = makeRouter(executor: executor)
+        let command = try signedCommand(requestId: "req_other_account", kind: .stopAll, payload: .empty)
+
+        let result = try await router.route(command)
+
+        XCTAssertFalse(result.ack.accepted)
+        XCTAssertEqual(result.ack.reason, .unauthorizedKind)
+        XCTAssertTrue(try verifyAck(result.ack))
+        let stopAllCallCount = await executor.stopAllCallCount()
+        XCTAssertEqual(stopAllCallCount, 0)
+    }
+
+    func testInboxEntryFromOtherAccountRejectedBeforeExecution() async throws {
+        try trustDevice(capabilities: [])
+        let executor = CapturingRemoteExecutor(now: now)
+        let router = makeRouter(executor: executor)
+        let command = try signedCommand(requestId: "req_wrong_account_row", kind: .stopAll, payload: .empty)
+        let entry = RemoteCommandInboxEntry(
+            requestId: command.requestId,
+            accountId: "acct_2",
+            macAgentId: "mac_1",
+            fromDeviceId: "device_1",
+            command: command,
+            createdAt: now
+        )
+
+        let result = try await router.route(entry)
+
+        XCTAssertFalse(result.ack.accepted)
+        XCTAssertEqual(result.ack.reason, .badSignature)
+        XCTAssertTrue(try verifyAck(result.ack))
+        let stopAllCallCount = await executor.stopAllCallCount()
+        XCTAssertEqual(stopAllCallCount, 0)
+    }
+
     func testReplayIsRejectedBeforeSecondExecution() async throws {
         try trustDevice(capabilities: [])
         let executor = CapturingRemoteExecutor(now: now)
@@ -185,6 +225,7 @@ final class RemoteCommandRouterTests: XCTestCase {
     ) -> RemoteCommandRouter {
         let fixedNow = now
         return RemoteCommandRouter(
+            accountId: "acct_1",
             macAgentId: "mac_1",
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,
@@ -197,18 +238,26 @@ final class RemoteCommandRouterTests: XCTestCase {
     }
 
     private func trustDevice(capabilities: Set<RemoteCapability>) throws {
-        let device = TrustedDevice(
+        try trustedStore.save(TrustedRemoteRegistry(trustedDevices: [
+            trustedDevice(capabilities: capabilities)
+        ]))
+    }
+
+    private func trustedDevice(
+        accountId: String = "acct_1",
+        capabilities: Set<RemoteCapability>
+    ) -> TrustedDevice {
+        TrustedDevice(
             deviceId: "device_1",
             displayName: "Mike's iPhone",
             deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(deviceSigningKey.publicKey),
             deviceSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(deviceSealingKey.publicKey),
-            accountId: "acct_1",
+            accountId: accountId,
             macAgentId: "mac_1",
             pairedAt: now.addingTimeInterval(-60),
             validUntil: now.addingTimeInterval(3_600),
             capabilities: capabilities
         )
-        try trustedStore.save(TrustedRemoteRegistry(trustedDevices: [device]))
     }
 
     private func signedCommand(

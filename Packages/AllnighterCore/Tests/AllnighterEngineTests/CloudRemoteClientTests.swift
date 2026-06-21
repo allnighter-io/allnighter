@@ -313,6 +313,7 @@ final class CloudRemoteClientTests: XCTestCase {
     ) -> RemoteMacAgent {
         let fixedNow = now
         let router = RemoteCommandRouter(
+            accountId: account.accountId,
             macAgentId: "mac_1",
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,

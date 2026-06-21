@@ -491,6 +491,7 @@ final class RemoteMacAgentTests: XCTestCase {
     ) -> RemoteMacAgent {
         let fixedNow = now
         let router = RemoteCommandRouter(
+            accountId: "acct_1",
             macAgentId: "mac_1",
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,

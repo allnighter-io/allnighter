@@ -90,6 +90,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
             agentSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(macSealingKey.publicKey)
         )
         let router = RemoteCommandRouter(
+            accountId: account.accountId,
             macAgentId: macAgentId,
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,
