@@ -46,7 +46,7 @@ final class CloudRemoteClientTests: XCTestCase {
         )
         try await client.connect(account: account, mode: .cloudRelay)
 
-        let ack = try await client.send(try signedCommand(requestId: "req_stop_all"))
+        let ack = try await client.send(try commandFactory().stopAll(requestId: "req_stop_all"))
 
         XCTAssertEqual(ack.requestId, "req_stop_all")
         XCTAssertTrue(ack.accepted)
@@ -68,6 +68,50 @@ final class CloudRemoteClientTests: XCTestCase {
         XCTAssertEqual(diagnosis.rungs.first(where: { $0.rung == .deviceApproved })?.ok, true)
     }
 
+    func testClientSendsSealedStartRunThroughMacAgent() async throws {
+        let relay = MockRemoteMacRelay(trustedDevices: [trustedDevice(capabilities: [.startRun])])
+        let executor = CloudRemoteClientExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor)
+        let sleeper = DrainingCloudRemoteClientSleeper(agent: agent)
+        let fixedNow = now
+        let client = CloudRemoteClient(
+            mac: macRef(),
+            relay: relay,
+            sleeper: sleeper,
+            now: { fixedNow },
+            ackPollInterval: 0,
+            maxAckPollAttempts: 3
+        )
+        try await client.connect(account: account, mode: .cloudRelay)
+        let command = try commandFactory().startRun(
+            requestId: "req_start",
+            payload: RemoteStartRunPayload(
+                prompt: "secret cloud prompt",
+                lane: "code",
+                teamPresetId: "code_core",
+                effort: "med",
+                context: "private context"
+            ),
+            mac: macRef()
+        )
+
+        let ack = try await client.send(command)
+
+        XCTAssertTrue(ack.accepted)
+        let started = await executor.startedRequests()
+        XCTAssertEqual(started.count, 1)
+        XCTAssertEqual(started.first?.question, "secret cloud prompt")
+        XCTAssertEqual(started.first?.lane, .code)
+        XCTAssertEqual(started.first?.teamPresetId, "code_core")
+        XCTAssertEqual(started.first?.effort, .med)
+        XCTAssertEqual(started.first?.context, "private context")
+        XCTAssertEqual(started.first?.originAgent, "ios:device_1")
+        XCTAssertEqual(started.first?.idempotencyKey, "remote:req_start")
+
+        let acknowledgements = await relay.acknowledgements
+        XCTAssertFalse(try XCTUnwrap(acknowledgements.first).auditEvent.targetSummary.contains("secret cloud prompt"))
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let relay = MockRemoteMacRelay()
         let badSigningKey = Curve25519.Signing.PrivateKey()
@@ -86,7 +130,7 @@ final class CloudRemoteClientTests: XCTestCase {
         try await client.connect(account: account, mode: .cloudRelay)
 
         do {
-            _ = try await client.send(try signedCommand(requestId: "req_bad_sig"))
+            _ = try await client.send(try commandFactory().stopAll(requestId: "req_bad_sig"))
             XCTFail("bad Mac ack signature should be rejected")
         } catch let error as CloudRemoteClientError {
             XCTAssertEqual(error, .badAckSignature)
@@ -113,7 +157,7 @@ final class CloudRemoteClientTests: XCTestCase {
 
         try await client.connect(account: account, mode: .cloudRelay)
         do {
-            _ = try await client.send(try signedCommand(requestId: "req_no_ack"))
+            _ = try await client.send(try commandFactory().stopAll(requestId: "req_no_ack"))
             XCTFail("missing Mac ack should time out")
         } catch let error as CloudRemoteClientError {
             XCTAssertEqual(error, .ackTimedOut("req_no_ack"))
@@ -162,7 +206,7 @@ final class CloudRemoteClientTests: XCTestCase {
         )
     }
 
-    private func trustedDevice() -> TrustedDevice {
+    private func trustedDevice(capabilities: Set<RemoteCapability> = []) -> TrustedDevice {
         TrustedDevice(
             deviceId: "device_1",
             displayName: "Mike's iPhone",
@@ -172,21 +216,17 @@ final class CloudRemoteClientTests: XCTestCase {
             macAgentId: "mac_1",
             pairedAt: now.addingTimeInterval(-60),
             validUntil: now.addingTimeInterval(3_600),
-            capabilities: []
+            capabilities: capabilities
         )
     }
 
-    private func signedCommand(requestId: String) throws -> RemoteCommand {
-        let payload = RemoteCommandPayload.empty
-        let assertion = try RemoteCrypto.makeDeviceAssertion(
+    private func commandFactory() -> RemoteCommandFactory {
+        let fixedNow = now
+        return RemoteCommandFactory(
             deviceId: "device_1",
-            requestId: requestId,
-            timestamp: now,
-            kind: .stopAll,
-            payload: payload,
-            signingKey: deviceSigningKey
+            signingKey: deviceSigningKey,
+            now: { fixedNow }
         )
-        return RemoteCommand(requestId: requestId, kind: .stopAll, payload: payload, assertion: assertion)
     }
 
     private func ackEnvelope(
@@ -235,6 +275,7 @@ private actor DrainingCloudRemoteClientSleeper: CloudRemoteClientSleeping {
 }
 
 private actor CloudRemoteClientExecutor: RemoteTeamCommandExecuting {
+    private var starts: [AsyncTeamStartRequest] = []
     private var stopAllResult = StopAllResult(terminated: 0)
     private var stopAllCalls = 0
     private let now: Date
@@ -244,7 +285,18 @@ private actor CloudRemoteClientExecutor: RemoteTeamCommandExecuting {
     }
 
     func startRun(_ request: AsyncTeamStartRequest) async -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
-        fatalError("startRun is not part of the cloud remote client stopAll proof")
+        starts.append(request)
+        return .success(TeamStartResponse(
+            runId: "run_\(request.idempotencyKey?.replacingOccurrences(of: "remote:", with: "") ?? "unknown")",
+            status: .accepted,
+            lane: request.lane?.rawValue,
+            teamPresetId: request.teamPresetId,
+            teamDisplayName: "Remote Team",
+            effort: request.effort?.rawValue,
+            acceptedAt: now,
+            nextPollAfterMs: 500,
+            nextActions: []
+        ))
     }
 
     func stopRun(runId: String) async -> TeamCancelResponse? {
@@ -262,5 +314,9 @@ private actor CloudRemoteClientExecutor: RemoteTeamCommandExecuting {
 
     func stopAllCallCount() -> Int {
         stopAllCalls
+    }
+
+    func startedRequests() -> [AsyncTeamStartRequest] {
+        starts
     }
 }
