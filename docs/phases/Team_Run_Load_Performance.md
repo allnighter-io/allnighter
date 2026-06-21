@@ -1,12 +1,13 @@
 # Team Run Load Performance
 
-Status: **TOP PERF PRIORITY**. Initial Team-run open stall FIXED (2026-06-21);
-broader live thread/reload hot path still open. Implemented: run-decode cache
-(no repeated `run.json` decode in body), lazy worker markdown in the terminal
-board (collapsed previews; expand renders), and "Open Factory Floor" -> the full
-lazy per-worker reader. Remaining: high-frequency live deltas still do full
-thread read/write + reload; rail/search/unread derivations still walk full
-thread arrays; store reads still run synchronously on the main actor.
+Status: **TOP PERF PRIORITY**. Initial Team-run open stall FIXED (2026-06-21).
+PERF-S00 (instrumentation) + PERF-S01 (coalesced reload + in-memory live overlay)
+DONE (2026-06-20): team-run/execution streaming deltas no longer do a full
+thread read/write + reload per token — they update the published `threads` in
+memory with a throttled 1.5s durable checkpoint, and reloads coalesce. Proven by
+ThreadStreamingPerformanceTests. Remaining (S02-S03, keep this doc pinned): rail/
+search/unread derivations still walk full thread arrays on every publish, the
+default-chat 150ms poll still reloads, and store reads still run on the main actor.
 Owner: AllnighterCore + AllnighterEngine + AllnighterMac
 Updated: 2026-06-21
 
@@ -495,12 +496,18 @@ and publish too much state on every delta instead of decoding too much JSON.
 ## Implementation Slices
 
 ```text
-PERF-S00 - Instrument + monster fixture
-  Add signposts/counters and a reproducible long-run + streaming fixture.
+PERF-S00 - Instrument + monster fixture  ✅ DONE (2026-06-20)
+  PerfCounters (threadsReload / threadJSONWrite / liveDeltaApplied / reloadRequested /
+  reloadCoalesced) — test-assertable. os_signpost log handle in place.
 
-PERF-S01 - Coalesced reload + live overlay
-  Remove per-delta full reload and full thread.json rewrite. Keep visible
-  streaming responsive through in-memory selected-turn overlay.
+PERF-S01 - Coalesced reload + live overlay  ✅ DONE (2026-06-20)
+  Team-run/execution streaming deltas now update the published `threads` in memory via
+  ThreadsViewModel.applyLiveDelta (no per-delta ThreadStore.list, no per-delta
+  thread.json rewrite); durable thread.json is a throttled 1.5s checkpoint; settlement
+  persists the final in-memory text. requestReload() coalesces a burst into one flush.
+  Gate: ThreadStreamingPerformanceTests (60 deltas → 0 reloads, ≤1 write). Still open:
+  the default-chat 150ms poll loop reloads (bounded, not per-token) — fold into the same
+  overlay in a later slice.
 
 PERF-S02 - Thread read model
   Publish rail rows and selected detail separately. Rail no longer depends on

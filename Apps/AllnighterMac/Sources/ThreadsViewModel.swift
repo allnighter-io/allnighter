@@ -48,6 +48,16 @@ final class ThreadsViewModel {
     private let floorStatus: FloorManagerStatus?
     private var latestVisibleTurnIds: [String: Set<String>] = [:]
 
+    /// Coalesced-reload state: a burst of streaming deltas must not produce a burst of
+    /// full `ThreadStore.list()` decodes (PERF-S01). `requestReload()` schedules at most
+    /// one publish per runloop tick.
+    private var reloadScheduled = false
+    /// Per-running-turn timestamp of the last DURABLE thread.json checkpoint — live text
+    /// streams in memory; disk is written only every `liveCheckpointInterval`, never per
+    /// token (crash-resume continuity without write amplification).
+    private var liveCheckpointAt: [String: Date] = [:]
+    private static let liveCheckpointInterval: TimeInterval = 1.5
+
     private static let readClearDebounceNs: UInt64 = 200_000_000
 
     private struct FileReferenceSendContext {
@@ -164,6 +174,7 @@ final class ThreadsViewModel {
     // MARK: - List / selection
 
     func reload() {
+        PerfCounters.bump(.threadsReload)
         let beforeSnapshots = notificationSnapshots
         threads = store.list()
         if let id = selectedThreadId, !threads.contains(where: { $0.id == id }) {
@@ -173,6 +184,52 @@ final class ThreadsViewModel {
         notificationSnapshots = afterSnapshots
         floorStatus?.update(from: threads)
         Task { await processNotificationTransitions(before: beforeSnapshots, after: afterSnapshots) }
+    }
+
+    /// Coalesced reload: a burst of events (streaming deltas, rapid mutations) folds into
+    /// ONE `reload()` at the next runloop tick instead of one full list-decode per event.
+    func requestReload() {
+        PerfCounters.bump(.reloadRequested)
+        if reloadScheduled { PerfCounters.bump(.reloadCoalesced); return }
+        reloadScheduled = true
+        Task { @MainActor in
+            reloadScheduled = false
+            reload()
+        }
+    }
+
+    /// A live streaming partial for the selected running turn. Updates the published
+    /// `threads` IN MEMORY (no `store.list()`, no `thread.json` write) so text streams
+    /// cheaply, and writes a DURABLE checkpoint to thread.json at most every
+    /// `liveCheckpointInterval` for crash-resume — never per token. Returns true if a
+    /// running turn was found and updated.
+    @discardableResult
+    func applyLiveDelta(threadId: String, turnId: String, isAnswer: Bool, text: String, truncated: Bool?) -> Bool {
+        guard let ti = threads.firstIndex(where: { $0.id == threadId }),
+              let tj = threads[ti].turns.firstIndex(where: { $0.id == turnId }),
+              threads[ti].turns[tj].status == .running else { return false }
+        if isAnswer {
+            threads[ti].turns[tj].text = text
+            if let truncated { threads[ti].turns[tj].partialOutputTruncated = truncated }
+        } else {
+            threads[ti].turns[tj].reasoningText = text
+        }
+        PerfCounters.bump(.liveDeltaApplied)
+
+        // Throttled durable checkpoint — keep the store's authoritative fields, write only
+        // the live ones, and only when the interval has elapsed.
+        let now = Date()
+        if now.timeIntervalSince(liveCheckpointAt[turnId] ?? .distantPast) >= Self.liveCheckpointInterval {
+            liveCheckpointAt[turnId] = now
+            if var stored = store.get(threadId)?.turn(id: turnId), stored.status == .running {
+                stored.text = threads[ti].turns[tj].text
+                stored.reasoningText = threads[ti].turns[tj].reasoningText
+                stored.partialOutputTruncated = threads[ti].turns[tj].partialOutputTruncated
+                _ = try? store.updateTurn(stored, inThreadId: threadId, now: now)
+                PerfCounters.bump(.threadJSONWrite)
+            }
+        }
+        return true
     }
 
     func select(_ thread: WorkThread) {
@@ -490,23 +547,22 @@ final class ThreadsViewModel {
                     let isAnswer = event.kind == RunEventKind.workerAnswerDelta
                     let isReasoning = event.kind == RunEventKind.workerReasoningDelta
                     guard isAnswer || isReasoning,
-                          let text = event.payload["text"]?.stringValue,
-                          var running = threadStore.get(threadId)?.turn(id: turnId),
-                          running.status == .running else { continue }
-                    if isAnswer {
-                        running.text = text
-                        running.partialOutputTruncated = event.payload["truncated"]?.boolValue ?? false
-                    } else {
-                        running.reasoningText = text
-                    }
-                    _ = try? threadStore.updateTurn(running, inThreadId: threadId, now: Date())
-                    reload()
+                          let text = event.payload["text"]?.stringValue else { continue }
+                    // Stream live text into the in-memory turn (no per-delta list decode or
+                    // full thread.json rewrite); a durable checkpoint is throttled inside.
+                    self.applyLiveDelta(
+                        threadId: threadId, turnId: turnId, isAnswer: isAnswer, text: text,
+                        truncated: isAnswer ? (event.payload["truncated"]?.boolValue ?? false) : nil)
                 }
             }
             let result = await service.run(request, origin: .gui, runId: runId, events: continuation)
             await consumer.value
+            liveCheckpointAt[turnId] = nil
 
-            var settled = threadStore.get(threadId)?.turn(id: turnId) ?? turn
+            // Seed settlement from the in-memory turn (freshest live text — the last delta
+            // may post-date the last durable checkpoint), else the store, else the seed.
+            var settled = threads.first(where: { $0.id == threadId })?.turn(id: turnId)
+                ?? threadStore.get(threadId)?.turn(id: turnId) ?? turn
             settled.completedAt = Date()
             switch result {
             case .success(let run):
