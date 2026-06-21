@@ -272,9 +272,13 @@ struct FloorCastMember: Identifiable {
     let startedAt: Date?
     let finishedAt: Date?
     let durationMs: Int?
+    /// The model the team asked for, when a different ready model was substituted (#7).
+    let substitutedFrom: String?
 
     var subtitle: String {
-        isLead ? "\(modelName) — designated lead, synthesized the team" : "\(modelName) — read the full reply below"
+        let base = isLead ? "\(modelName) — designated lead, synthesized the team" : "\(modelName) — read the full reply below"
+        if let substitutedFrom { return "\(modelName) · substituted from \(substitutedFrom)" }
+        return base
     }
 
     /// Build the cast from a TeamRun: the plan-writer worker is the Lead (its reply
@@ -289,7 +293,8 @@ struct FloorCastMember: Identifiable {
                 modelName: modelName(lead.modelId), driverId: driverId(lead.modelId),
                 gist: "The synthesis", markdown: run.plan ?? "(no synthesis written)",
                 status: (leadAnswer?.status ?? .done).rawValue,
-                startedAt: leadAnswer?.startedAt, finishedAt: leadAnswer?.finishedAt, durationMs: leadAnswer?.durationMs))
+                startedAt: leadAnswer?.startedAt, finishedAt: leadAnswer?.finishedAt, durationMs: leadAnswer?.durationMs,
+                substitutedFrom: lead.substitutedFromModelId.map(modelName)))
         }
         for worker in run.workers where worker.purpose != .plan {
             let answer = run.workerAnswer(workerId: worker.id)
@@ -298,7 +303,8 @@ struct FloorCastMember: Identifiable {
                 modelName: modelName(worker.modelId), driverId: driverId(worker.modelId),
                 gist: previewLine(answer?.output ?? ""),
                 markdown: answer?.output ?? "(no reply)", status: (answer?.status ?? .queued).rawValue,
-                startedAt: answer?.startedAt, finishedAt: answer?.finishedAt, durationMs: answer?.durationMs))
+                startedAt: answer?.startedAt, finishedAt: answer?.finishedAt, durationMs: answer?.durationMs,
+                substitutedFrom: worker.substitutedFromModelId.map(modelName)))
         }
         return members
     }
@@ -363,7 +369,14 @@ private struct CastCard: View {
                         Spacer(minLength: 4)
                         WorkerStateBadge(member: member)
                     }
-                    Text(member.modelName).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(member.modelName).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
+                        if let from = member.substitutedFrom {
+                            Text("· from \(from)").font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(ALColor.accentText).lineLimit(1)
+                                .help("Substituted from \(from) (preferred model unavailable)")
+                        }
+                    }
                     Text(member.gist).font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint).lineLimit(1)
                 }
                 Spacer(minLength: 0)

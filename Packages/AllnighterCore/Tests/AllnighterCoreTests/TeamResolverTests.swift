@@ -51,6 +51,9 @@ final class TeamResolverTests: XCTestCase {
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_opus")
         XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_chatgpt unavailable") })
+        // #7: the worker records WHAT it was substituted from, so the UI can say so instead
+        // of silently showing a different model than the team was configured with.
+        XCTAssertEqual(r.answerWorkers.first?.substitutedFromModelId, "model_chatgpt")
         XCTAssertTrue(r.isRunnable)
     }
 
@@ -62,6 +65,7 @@ final class TeamResolverTests: XCTestCase {
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus(), codex()])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_chatgpt")
         XCTAssertFalse(r.warnings.contains { $0.contains("preferred") })
+        XCTAssertNil(r.answerWorkers.first?.substitutedFromModelId, "no substitution → no flag")
     }
 
     // MARK: - Optional disable vs required block
@@ -148,6 +152,19 @@ final class TeamResolverTests: XCTestCase {
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus(), gemini()])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gemini")
         XCTAssertTrue(r.isRunnable)
+    }
+
+    func testWorkerRowsReserveLeadModelWhenAlternativesExist() {
+        let composer = Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
+                             driverId: "cursor_agent", role: .answerer)
+        let t = team(rows: [
+            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamWorkerSpec(id: "r2", skillId: "correct_fix_planner"),
+        ], lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_opus", fallbackPolicy: .strongestReady))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low,
+                                     readyModels: [opus(), codex(), composer])
+        XCTAssertEqual(r.planWriter?.modelId, "model_opus")
+        XCTAssertFalse(r.answerWorkers.contains { $0.modelId == "model_opus" })
     }
 
     func testCustomModelOnReadyDriverResolves() throws {

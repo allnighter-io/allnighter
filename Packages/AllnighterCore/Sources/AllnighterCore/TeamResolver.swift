@@ -100,15 +100,16 @@ public enum TeamResolver {
         let answerRows = active.filter { $0.purpose == .answer }
         let reviewRows = active.filter { $0.purpose == .review }
 
-        // The Lead (synthesizer) resolves to the strongest ready model; reserve its
-        // model so worker rows prefer cheaper models and the strongest is kept for
-        // the Lead (cost policy: rarely spend the expensive model on a worker).
+        // The Lead (synthesizer) resolves to the strongest ready model. Worker rows
+        // avoid the Lead's explicit preferred model (usually Opus) when alternatives
+        // exist. Triangulation also drops the resolved Lead model from its pool.
         let lead = team.lead
-        let reservedLeadModelId = selectModel(
+        let resolvedLeadModelId = selectModel(
             preferredModelId: lead.preferredModelId, allowedModelIds: [],
             requiredTags: lead.requiredCapabilityTags, fallback: lead.fallbackPolicy,
             lane: team.lane, ready: readyModels, capabilities: capabilities
         )?.id
+        let reservedWorkerModelId = lead.preferredModelId
 
         // instanceIndex is global per model across all stages so ids stay distinct
         // and self-fusion reads as `model#0, model#1, …`.
@@ -120,10 +121,14 @@ public enum TeamResolver {
         func makeWorker(_ model: Model, row: TeamWorkerSpec, skillName: String, stage: WorkerStage) -> Worker {
             let index = nextIndex[model.id, default: 0]
             nextIndex[model.id] = index + 1
+            // Record an honest substitution: the row asked for `preferredModelId` but the
+            // resolver ran a different ready model. The UI surfaces "substituted from X".
+            let substitutedFrom = row.preferredModelId.flatMap { $0 != model.id ? $0 : nil }
             return Worker(
                 id: Worker.makeID(modelId: model.id, instanceIndex: index),
                 modelId: model.id, instanceIndex: index,
-                skillId: row.skillId, skillName: skillName, purpose: stage)
+                skillId: row.skillId, skillName: skillName, purpose: stage,
+                substitutedFromModelId: substitutedFrom)
         }
 
         func disable(_ row: TeamWorkerSpec, _ skillName: String, _ reason: String) {
@@ -147,7 +152,7 @@ public enum TeamResolver {
                     let models = selectTriangle(
                         count: want, preferenceIds: row.triangulatePreferenceIds,
                         requiredTags: row.requiredCapabilityTags, lane: team.lane,
-                        ready: readyModels, reserveModelId: reservedLeadModelId,
+                        ready: readyModels, reserveModelId: resolvedLeadModelId,
                         capabilities: capabilities)
                     guard !models.isEmpty else {
                         disable(row, skillName, "no ready model in lane \(team.lane.rawValue) for triangulation")
@@ -163,7 +168,8 @@ public enum TeamResolver {
                 guard let model = selectModel(
                     preferredModelId: row.preferredModelId, allowedModelIds: row.allowedModelIds,
                     requiredTags: row.requiredCapabilityTags, fallback: row.fallbackPolicy,
-                    lane: team.lane, ready: readyModels, capabilities: capabilities
+                    lane: team.lane, ready: readyModels, capabilities: capabilities,
+                    reserveModelId: reservedWorkerModelId
                 ) else {
                     let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
                         + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
@@ -264,7 +270,8 @@ public enum TeamResolver {
         fallback: ModelFallbackPolicy,
         lane: WorkLane,
         ready: [Model],
-        capabilities: (String) -> ModelCapabilities
+        capabilities: (String) -> ModelCapabilities,
+        reserveModelId: String? = nil
     ) -> Model? {
         let byId = Dictionary(ready.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func allowed(_ m: Model) -> Bool { allowedModelIds.isEmpty || allowedModelIds.contains(m.id) }
@@ -284,7 +291,12 @@ public enum TeamResolver {
         // Preferred wins outright when it is ready and allowed (explicit author pick).
         if let pref = preferredModelId, let m = byId[pref], allowed(m) { return m }
 
-        let pool = ready.filter(allowed)
+        var pool = ready.filter(allowed)
+        // Reserve the Lead's model for synthesis — workers take cheaper alternatives
+        // when the bench has depth (one-model benches still run).
+        if let reserved = reserveModelId, pool.contains(where: { $0.id != reserved }) {
+            pool.removeAll { $0.id == reserved }
+        }
         switch fallback {
         case .exactOnly:
             // Only the explicitly allowed/preferred set; no capability broadening.

@@ -36,6 +36,11 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     public var purpose: WorkerStage?
     /// Display override, e.g. `Opus (A)`.
     public var label: String?
+    /// The model the team row ASKED for, when the resolver substituted a different ready
+    /// model for it (preferred unavailable + lane-capable fallback). `nil` when the worker
+    /// runs its preferred model. Lets the UI say "substituted from X" instead of silently
+    /// showing a different model than the team was configured with.
+    public var substitutedFromModelId: String?
 
     public init(
         id: String,
@@ -45,7 +50,8 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         skillName: String? = nil,
         resolvedWorkerPromptSnapshot: String? = nil,
         purpose: WorkerStage? = nil,
-        label: String? = nil
+        label: String? = nil,
+        substitutedFromModelId: String? = nil
     ) {
         self.id = id
         self.modelId = modelId
@@ -55,6 +61,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         self.resolvedWorkerPromptSnapshot = resolvedWorkerPromptSnapshot
         self.purpose = purpose
         self.label = label
+        self.substitutedFromModelId = substitutedFromModelId
     }
 
     /// Canonical worker id for a model + instance index.
