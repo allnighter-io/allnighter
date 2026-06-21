@@ -52,6 +52,7 @@ struct AllnighterCLI {
         case "mcp" where args.first == "install": printMCPInstall(Array(args.dropFirst()))   // consent-gated: prints config, never edits it
         case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "serve": await runServe(args)
+        case "pair": PairCLI.run(args, runtime: runtime)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
@@ -1148,6 +1149,7 @@ struct AllnighterCLI {
           detect                                                    first-run CLI detection, headless
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           serve [--health --json]                                 resident coordinator (Serve0 skeleton)
+          pair list|approve|revoke [--json]                         manage trusted remote devices
           mcp                                                       run as an MCP stdio server
           install-cli | mcp-install                                 setup helpers
         """)
