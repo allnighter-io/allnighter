@@ -191,7 +191,11 @@ public actor MockiOSClient: RemoteClient {
         })
         var trustedByScope: [TrustedDeviceStorageKey: TrustedDevice] = [:]
         for device in trustedDevices {
-            trustedByScope[TrustedDeviceStorageKey(accountId: device.accountId, deviceId: device.deviceId)] = device
+            trustedByScope[TrustedDeviceStorageKey(
+                accountId: device.accountId,
+                macAgentId: device.macAgentId,
+                deviceId: device.deviceId
+            )] = device
         }
         self.trustedDevices = trustedByScope
         self.seenRequestIds = []
@@ -265,19 +269,26 @@ public actor MockiOSClient: RemoteClient {
         guard try RemoteCrypto.payloadDigest(command.payload) == command.assertion.payloadSHA256 else {
             return reject(command, reason: .badSignature)
         }
-        guard let accountId = account?.accountId,
-              let trustedDevice = trustedDevices[TrustedDeviceStorageKey(
-                  accountId: accountId,
-                  deviceId: command.assertion.deviceId
-              )],
-              visibleMacIds.contains(trustedDevice.macAgentId),
-              trustedDevice.authorizes(command.kind, at: serverNow) else {
+        guard let accountId = account?.accountId else {
             return reject(command, reason: .unauthorizedKind)
         }
-        guard try RemoteCrypto.verifyDeviceAssertion(
-            command.assertion,
-            signingPublicKeyBase64: trustedDevice.deviceSigningPubkey
-        ) else {
+        let visibleDeviceRows = trustedDevices.values.filter {
+            $0.accountId == accountId
+                && $0.deviceId == command.assertion.deviceId
+                && visibleMacIds.contains($0.macAgentId)
+        }
+        let authorizedDeviceRows = visibleDeviceRows.filter {
+            $0.authorizes(command.kind, at: serverNow)
+        }
+        guard !authorizedDeviceRows.isEmpty else {
+            return reject(command, reason: .unauthorizedKind)
+        }
+        guard try authorizedDeviceRows.contains(where: {
+            try RemoteCrypto.verifyDeviceAssertion(
+                command.assertion,
+                signingPublicKeyBase64: $0.deviceSigningPubkey
+            )
+        }) else {
             return reject(command, reason: .badSignature)
         }
 
@@ -391,7 +402,11 @@ public actor MockiOSClient: RemoteClient {
     }
 
     public func trustDevice(_ device: TrustedDevice) {
-        trustedDevices[TrustedDeviceStorageKey(accountId: device.accountId, deviceId: device.deviceId)] = device
+        trustedDevices[TrustedDeviceStorageKey(
+            accountId: device.accountId,
+            macAgentId: device.macAgentId,
+            deviceId: device.deviceId
+        )] = device
     }
 
     public func setServerNow(_ date: Date) {
@@ -433,6 +448,7 @@ public actor MockiOSClient: RemoteClient {
 
     private struct TrustedDeviceStorageKey: Hashable, Sendable {
         var accountId: String
+        var macAgentId: String
         var deviceId: String
     }
 }
