@@ -230,6 +230,41 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         ))
     }
 
+    func testRelayConstraintsReferenceDeclaredColumns() throws {
+        let sql = try schemaSQL
+        let tableColumns = try Dictionary(uniqueKeysWithValues: relayTables.map { table in
+            (table, try columnNames(in: table, sql: sql))
+        })
+        var currentTable: String?
+
+        for rawLine in sql.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let table = alteredPublicTable(in: line) {
+                currentTable = table
+                continue
+            }
+            guard line.contains("ADD CONSTRAINT"),
+                  let sourceTable = currentTable,
+                  let sourceColumns = tableColumns[sourceTable] else {
+                continue
+            }
+
+            if line.contains(" PRIMARY KEY ") {
+                try assert(columns: columns(after: "PRIMARY KEY", in: line), existIn: sourceColumns, table: sourceTable)
+            }
+            if line.contains(" UNIQUE ") {
+                try assert(columns: columns(after: "UNIQUE", in: line), existIn: sourceColumns, table: sourceTable)
+            }
+            if line.contains(" FOREIGN KEY ") {
+                try assert(columns: columns(after: "FOREIGN KEY", in: line), existIn: sourceColumns, table: sourceTable)
+                if let target = try publicReferenceTarget(in: line),
+                   let targetColumns = tableColumns[target.table] {
+                    try assert(columns: target.columns, existIn: targetColumns, table: target.table)
+                }
+            }
+        }
+    }
+
     func testCommandAckPoliciesJoinInboxByFullScope() throws {
         let sql = try schemaSQL
         let insertPolicy = try policyBlock(named: "mac agents insert command acks", sql: sql)
@@ -242,6 +277,57 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         }
         XCTAssertTrue(insertPolicy.contains("\"public\".\"mac_agent_claim_matches\"(\"command_acks\".\"account_id\", \"command_acks\".\"mac_agent_id\")"))
         XCTAssertTrue(selectPolicy.contains("\"public\".\"mac_agent_claim_matches\"(\"command_acks\".\"account_id\", \"command_acks\".\"mac_agent_id\")"))
+    }
+
+    private func assert(
+        columns: [String],
+        existIn declaredColumns: Set<String>,
+        table: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        for column in columns {
+            XCTAssertTrue(
+                declaredColumns.contains(column),
+                "\(table) constraint references missing column \(column)",
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    private func alteredPublicTable(in line: String) -> String? {
+        let marker = #"ALTER TABLE ONLY "public"."#
+        guard line.hasPrefix(marker) else { return nil }
+        let rest = line.dropFirst(marker.count)
+        guard let close = rest.firstIndex(of: "\"") else { return nil }
+        return String(rest[..<close])
+    }
+
+    private func columns(after marker: String, in line: String) throws -> [String] {
+        guard let markerRange = line.range(of: marker),
+              let open = line[markerRange.upperBound...].firstIndex(of: "("),
+              let close = line[open...].firstIndex(of: ")") else {
+            XCTFail("missing column list after \(marker): \(line)")
+            return []
+        }
+        return line[line.index(after: open)..<close]
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
+    }
+
+    private func publicReferenceTarget(in line: String) throws -> (table: String, columns: [String])? {
+        let marker = #"REFERENCES "public"."#
+        guard let markerRange = line.range(of: marker) else { return nil }
+        let rest = line[markerRange.upperBound...]
+        guard let close = rest.firstIndex(of: "\"") else {
+            XCTFail("missing public reference target: \(line)")
+            return nil
+        }
+        let table = String(rest[..<close])
+        let columns = try columns(after: "REFERENCES \"public\".\"\(table)\"", in: line)
+        return (table, columns)
     }
 
     private func columnNames(in table: String, sql: String) throws -> Set<String> {
