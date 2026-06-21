@@ -332,6 +332,22 @@ final class RemoteFoundationTests: XCTestCase {
         ]))
     }
 
+    func testDoorbellRoundTripsAndCapsVisibleText() throws {
+        let doorbell = Doorbell(
+            title: String(repeating: "t", count: 120),
+            body: String(repeating: "b", count: 220),
+            runId: "run_1",
+            kind: .runCompleted
+        )
+
+        XCTAssertEqual(doorbell.title.count, Doorbell.titleLimit)
+        XCTAssertEqual(doorbell.body.count, Doorbell.bodyLimit)
+        XCTAssertEqual(
+            try CoreJSON.decode(Doorbell.self, from: CoreJSON.encode(doorbell)),
+            doorbell
+        )
+    }
+
     func testReducerAppliesSnapshotThenEventsIdempotently() {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let snapshot = SnapshotEnvelope(

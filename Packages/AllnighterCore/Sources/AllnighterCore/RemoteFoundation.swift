@@ -521,6 +521,40 @@ public struct RemoteAuditEvent: Codable, Equatable, Sendable {
     }
 }
 
+public enum DoorbellKind: String, Codable, Sendable, CaseIterable {
+    case runUpdated
+    case runCompleted
+    case approvalNeeded
+    case macReachabilityChanged
+}
+
+public struct Doorbell: Codable, Equatable, Sendable {
+    public static let titleLimit = 80
+    public static let bodyLimit = 160
+
+    public var title: String
+    public var body: String
+    public var runId: String?
+    public var kind: DoorbellKind
+
+    public init(
+        title: String,
+        body: String,
+        runId: String? = nil,
+        kind: DoorbellKind
+    ) {
+        self.title = String(title.prefix(Self.titleLimit))
+        self.body = String(body.prefix(Self.bodyLimit))
+        self.runId = runId
+        self.kind = kind
+    }
+}
+
+public protocol PushNotifier: Sendable {
+    func register(device: TrustedDevice, pushToken: String) async throws
+    func notify(device: TrustedDevice, doorbell: Doorbell) async throws
+}
+
 public enum ConnectionDiagnosisRung: String, Codable, Sendable, CaseIterable {
     case signedIn
     case providerAccountMatch
