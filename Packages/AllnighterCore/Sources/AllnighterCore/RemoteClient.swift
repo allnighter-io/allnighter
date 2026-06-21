@@ -185,13 +185,21 @@ public actor MockiOSClient: RemoteClient {
         self.macRefs = macs
         self.snapshots = snapshots
         self.events = events
-        let defaultMediaMacId = macs.first?.macAgentId ?? ""
-        self.media = Dictionary(uniqueKeysWithValues: media.map {
-            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
-        })
-        self.mediaKeys = Dictionary(uniqueKeysWithValues: mediaKeys.map {
-            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
-        })
+        let mediaMacAgentId = macs.first?.macAgentId
+        precondition(
+            mediaMacAgentId != nil || (media.isEmpty && mediaKeys.isEmpty),
+            "MockiOSClient media fixtures require a Mac scope"
+        )
+        self.media = mediaMacAgentId.map { macAgentId in
+            Dictionary(uniqueKeysWithValues: media.map {
+                (MediaStorageKey(macAgentId: macAgentId, ref: $0.key), $0.value)
+            })
+        } ?? [:]
+        self.mediaKeys = mediaMacAgentId.map { macAgentId in
+            Dictionary(uniqueKeysWithValues: mediaKeys.map {
+                (MediaStorageKey(macAgentId: macAgentId, ref: $0.key), $0.value)
+            })
+        } ?? [:]
         var trustedByScope: [TrustedDeviceStorageKey: TrustedDevice] = [:]
         for device in trustedDevices {
             trustedByScope[TrustedDeviceStorageKey(
