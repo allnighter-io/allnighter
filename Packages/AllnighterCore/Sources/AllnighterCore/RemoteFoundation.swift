@@ -964,9 +964,13 @@ public enum RemoteMediaCrypto {
         for devices: [TrustedDevice],
         now: Date
     ) throws -> [MediaKeyEnvelope] {
-        try devices
+        var seenDeviceIds = Set<String>()
+        let activeDevices = devices
             .filter { !$0.revoked && $0.validUntil >= now }
             .sorted { $0.deviceId < $1.deviceId }
+            .filter { seenDeviceIds.insert($0.deviceId).inserted }
+
+        return try activeDevices
             .map { device in
                 let sealedKey = try RemoteCrypto.seal(
                     contentKey,

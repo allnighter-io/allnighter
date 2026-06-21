@@ -22,6 +22,20 @@ final class RemoteMediaRelayTests: XCTestCase {
         XCTAssertNil(missingKey)
     }
 
+    func testPublishMediaToleratesDuplicateDeviceKeys() async throws {
+        let relay = MockRemoteMacRelay()
+        let key = mediaKey(ref: "media_1", deviceId: "device_1")
+
+        try await relay.publishMedia(
+            ref: mediaRef(ref: "media_1", expiresAt: now.addingTimeInterval(60)),
+            data: Data("ciphertext".utf8),
+            keys: [key, key]
+        )
+
+        let fetchedKey = try await relay.mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_1", at: now)
+        XCTAssertEqual(fetchedKey, key)
+    }
+
     func testExpiredMediaReturnsNil() async throws {
         let relay = MockRemoteMacRelay()
         try await relay.publishMedia(

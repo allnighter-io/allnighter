@@ -286,6 +286,23 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertThrowsError(try RemoteMediaCrypto.openContentKey(envelopes[0], with: activeB))
     }
 
+    func testMediaKeyFanoutDeduplicatesActiveDeviceRows() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let active = Curve25519.KeyAgreement.PrivateKey()
+        let contentKey = Data("secret-media-content-key".utf8)
+        let device = mediaDevice(deviceId: "device_a", sealingKey: active, now: now)
+
+        let envelopes = try RemoteMediaCrypto.sealContentKey(
+            contentKey,
+            ref: "media_1",
+            for: [device, device],
+            now: now
+        )
+
+        XCTAssertEqual(envelopes.map(\.deviceId), ["device_a"])
+        XCTAssertEqual(try RemoteMediaCrypto.openContentKey(try XCTUnwrap(envelopes.first), with: active), contentKey)
+    }
+
     func testMediaBlobEncryptionRoundTripsWithContentKey() throws {
         let contentKey = Data((0..<RemoteMediaCrypto.contentKeyByteCount).map(UInt8.init))
         let wrongKey = Data((1...RemoteMediaCrypto.contentKeyByteCount).map(UInt8.init))

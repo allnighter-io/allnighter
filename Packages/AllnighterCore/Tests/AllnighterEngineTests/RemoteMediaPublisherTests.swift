@@ -50,6 +50,36 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertNil(revokedEnvelope)
     }
 
+    func testPublisherDeduplicatesTrustedDevicesBeforeFanout() async throws {
+        let activeKey = Curve25519.KeyAgreement.PrivateKey()
+        let relay = MockRemoteMacRelay()
+        let fixedNow = now
+        let publisher = RemoteMediaPublisher(relay: relay, now: { fixedNow })
+        let contentKey = Data("content-key".utf8)
+        let activeDevice = device(deviceId: "device_active", sealingKey: activeKey)
+
+        let result = try await publisher.publish(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            r2Key: "r2/media_1",
+            contentType: "image/png",
+            encryptedData: Data("encrypted-image-bytes".utf8),
+            contentKey: contentKey,
+            trustedDevices: [activeDevice, activeDevice],
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        XCTAssertEqual(result.keyCount, 1)
+        let fetchedEnvelope = try await relay.mediaKey(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            deviceId: "device_active",
+            at: now
+        )
+        let envelope = try XCTUnwrap(fetchedEnvelope)
+        XCTAssertEqual(try RemoteMediaCrypto.openContentKey(envelope, with: activeKey), contentKey)
+    }
+
     func testPublisherEncryptsPlaintextBeforePublishingMedia() async throws {
         let activeKey = Curve25519.KeyAgreement.PrivateKey()
         let relay = MockRemoteMacRelay()

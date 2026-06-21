@@ -462,7 +462,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         mediaRefs.sort { $0.ref < $1.ref }
         mediaRefsById[key] = ref
         mediaDataByRef[key] = data
-        mediaKeysByRef[key] = Dictionary(uniqueKeysWithValues: keys.map { ($0.deviceId, $0) })
+        mediaKeysByRef[key] = Dictionary(keys.map { ($0.deviceId, $0) }, uniquingKeysWith: { _, replacement in
+            replacement
+        })
     }
 
     public func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws {
