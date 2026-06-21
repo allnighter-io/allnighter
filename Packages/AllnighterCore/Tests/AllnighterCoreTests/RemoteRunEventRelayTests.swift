@@ -68,6 +68,36 @@ final class RemoteRunEventRelayTests: XCTestCase {
         XCTAssertEqual(accountTwo.map(\.event.seq), [2])
     }
 
+    func testPublishEventsDropsEnvelopesForOtherMacAgent() async throws {
+        let relay = MockRemoteMacRelay()
+        try await relay.publishEvents(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            events: [
+                envelope(id: "evt_wrong_mac", seq: 1, macAgentId: "mac_2"),
+                envelope(id: "evt_right_mac", seq: 2, macAgentId: "mac_1"),
+            ]
+        )
+
+        let publishedEvents = await relay.publishedEvents
+        let selectedMacEvents = try await relay.runEvents(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            after: 0,
+            limit: 10
+        )
+        let wrongMacEvents = try await relay.runEvents(
+            accountId: "acct_1",
+            macAgentId: "mac_2",
+            after: 0,
+            limit: 10
+        )
+
+        XCTAssertEqual(publishedEvents.map(\.event.id), ["evt_right_mac"])
+        XCTAssertEqual(selectedMacEvents.map(\.event.id), ["evt_right_mac"])
+        XCTAssertTrue(wrongMacEvents.isEmpty)
+    }
+
     private func envelope(
         id: String,
         seq: Int64,

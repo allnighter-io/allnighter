@@ -425,7 +425,8 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         events: [RemoteRunEventEnvelope]
     ) async throws {
         eventLog.append("publishEvents")
-        for event in events {
+        let scopedEvents = events.filter { $0.macAgentId == macAgentId }
+        for event in scopedEvents {
             publishedEventScopes.insert(PublishedEventKey(
                 accountId: accountId,
                 macAgentId: macAgentId,
@@ -433,7 +434,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
                 seq: event.event.seq
             ))
         }
-        publishedEvents.append(contentsOf: events)
+        publishedEvents.append(contentsOf: scopedEvents)
     }
 
     public func publishSnapshot(
