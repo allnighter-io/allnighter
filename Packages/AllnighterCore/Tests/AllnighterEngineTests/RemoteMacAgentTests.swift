@@ -653,6 +653,12 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
         macAgentId: String,
         events: [RemoteRunEventEnvelope]
     ) async throws {}
+
+    func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws {}
+
+    func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope? {
+        nil
+    }
 }
 
 private extension NSLock {

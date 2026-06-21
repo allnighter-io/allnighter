@@ -133,6 +133,8 @@ public protocol RemoteMacRelay: Sendable {
         limit: Int
     ) async throws -> [RemoteRunEventEnvelope]
     func publishEvents(accountId: String, macAgentId: String, events: [RemoteRunEventEnvelope]) async throws
+    func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws
+    func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope?
 }
 
 public actor MockRemoteMacRelay: RemoteMacRelay {
@@ -148,6 +150,8 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var trustedByMac: [String: [TrustedDevice]]
     private var inboxByMac: [String: [RemoteCommandInboxEntry]]
     private var publishedEventScopes: [String: PublishedEventScope]
+    private var snapshotsByMac: [String: SnapshotEnvelope]
+    private var snapshotScopesByMac: [String: PublishedEventScope]
     private let pairRequestIdFactory: @Sendable () -> String
 
     public init(
@@ -166,6 +170,8 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         self.trustedByMac = Dictionary(grouping: trustedDevices, by: \.macAgentId)
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)
         self.publishedEventScopes = [:]
+        self.snapshotsByMac = [:]
+        self.snapshotScopesByMac = [:]
         self.pairRequestIdFactory = pairRequestIdFactory
     }
 
@@ -389,6 +395,30 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
             )
         }
         publishedEvents.append(contentsOf: events)
+    }
+
+    public func publishSnapshot(
+        accountId: String,
+        macAgentId: String,
+        snapshot: SnapshotEnvelope
+    ) async throws {
+        eventLog.append("publishSnapshot")
+        snapshotsByMac[macAgentId] = snapshot
+        snapshotScopesByMac[macAgentId] = PublishedEventScope(accountId: accountId, macAgentId: macAgentId)
+    }
+
+    public func snapshot(
+        accountId: String,
+        macAgentId: String,
+        since _: Int64?
+    ) async throws -> SnapshotEnvelope? {
+        eventLog.append("snapshot")
+        guard let scope = snapshotScopesByMac[macAgentId],
+              scope.accountId == accountId,
+              scope.macAgentId == macAgentId else {
+            return nil
+        }
+        return snapshotsByMac[macAgentId]
     }
 
     public func setTrustedDevices(_ devices: [TrustedDevice], macAgentId: String) {

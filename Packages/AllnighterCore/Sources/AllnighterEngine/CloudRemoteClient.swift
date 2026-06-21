@@ -19,6 +19,7 @@ public enum CloudRemoteClientError: Error, Equatable, Sendable {
     case notConnected
     case unsupportedMode(ConnectionMode)
     case macNotFound(String)
+    case snapshotNotFound(String)
     case ackTimedOut(String)
     case badAckEnvelope
     case badAckSignature
@@ -67,8 +68,16 @@ public actor CloudRemoteClient: RemoteClient {
     }
 
     public func snapshot(macId: String, since: Int64?) async throws -> SnapshotEnvelope {
+        let account = try requireConnected()
         try requireMac(macId)
-        throw CloudRemoteClientError.unsupportedOperation("snapshot")
+        guard let snapshot = try await relay.snapshot(
+            accountId: account.accountId,
+            macAgentId: macId,
+            since: since
+        ) else {
+            throw CloudRemoteClientError.snapshotNotFound(macId)
+        }
+        return snapshot
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {

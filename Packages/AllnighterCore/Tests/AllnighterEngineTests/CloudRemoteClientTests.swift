@@ -144,6 +144,27 @@ final class CloudRemoteClientTests: XCTestCase {
         XCTAssertEqual(ids, ["evt_2"])
     }
 
+    func testClientFetchesPublishedCloudSnapshot() async throws {
+        let relay = MockRemoteMacRelay()
+        let snapshot = snapshotEnvelope()
+        try await relay.publishSnapshot(accountId: "acct_1", macAgentId: "mac_1", snapshot: snapshot)
+        let client = CloudRemoteClient(mac: macRef(), relay: relay)
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        let fetched = try await client.snapshot(macId: "mac_1", since: nil)
+
+        XCTAssertEqual(fetched, snapshot)
+
+        let missingClient = CloudRemoteClient(mac: macRef(), relay: MockRemoteMacRelay())
+        try await missingClient.connect(account: account, mode: .cloudRelay)
+        do {
+            _ = try await missingClient.snapshot(macId: "mac_1", since: nil)
+            XCTFail("missing relay snapshot should be explicit")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .snapshotNotFound("mac_1"))
+        }
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let relay = MockRemoteMacRelay()
         let badSigningKey = Curve25519.Signing.PrivateKey()
@@ -305,6 +326,23 @@ final class CloudRemoteClientTests: XCTestCase {
                 payload: ["runId": .string("run_1")]
             ),
             signingKey: macSigningKey
+        )
+    }
+
+    private func snapshotEnvelope() -> SnapshotEnvelope {
+        SnapshotEnvelope(
+            runs: [
+                TeamRunLight(
+                    id: "run_1",
+                    status: .running,
+                    origin: .ios,
+                    promptExcerpt: "",
+                    teamDisplayName: "Remote Team",
+                    createdAt: now
+                )
+            ],
+            lastSeq: 7,
+            serverTime: now
         )
     }
 }
