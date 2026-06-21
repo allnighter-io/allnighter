@@ -46,6 +46,13 @@ public enum SourceCapacityLedger {
         Set(cooldowns(observations: observations, now: now).keys)
     }
 
+    /// Cooling sources as a stable, source-sorted list — the agent-facing projection that
+    /// the `alln capacity` CLI and the `capacity_status` MCP tool return.
+    public static func sources(observations: [CapacityObservation], now: Date) -> [SourceCooldown] {
+        cooldowns(observations: observations, now: now).values
+            .sorted { $0.source < $1.source }
+    }
+
     /// Only bench a source on a real, trusted capacity signal. Auth/manual/unknown need user
     /// action (a different model won't help), and an unknown-confidence parse is too noisy.
     static func isActionable(_ obs: CapacityObservation) -> Bool {
@@ -63,5 +70,24 @@ public enum SourceCapacityLedger {
     /// Nil when neither is known (we never bench a source on an open-ended guess).
     static func coolingUntil(of obs: CapacityObservation) -> Date? {
         obs.wakeAfter ?? obs.observedResetAt
+    }
+}
+
+/// Agent-facing return for `alln capacity` / the `capacity_status` MCP tool: which sources
+/// are cooling down right now and until when. ONE contract — CLI, MCP, and the GUI badge
+/// all present this, never a parallel shape.
+public struct CapacitySourcesJSON: Codable, Sendable, Equatable {
+    public let generatedAt: Date
+    public let sources: [SourceCooldown]
+
+    public init(generatedAt: Date, sources: [SourceCooldown]) {
+        self.generatedAt = generatedAt
+        self.sources = sources
+    }
+
+    /// Build from raw capacity observations (the handler gathers these from recent runs).
+    public init(observations: [CapacityObservation], now: Date) {
+        self.generatedAt = now
+        self.sources = SourceCapacityLedger.sources(observations: observations, now: now)
     }
 }

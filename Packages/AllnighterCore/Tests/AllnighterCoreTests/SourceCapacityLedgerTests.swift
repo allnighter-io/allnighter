@@ -67,4 +67,22 @@ final class SourceCapacityLedgerTests: XCTestCase {
             observations: [obs("claude_code", wakeAfter: near), obs("claude_code", wakeAfter: far)], now: now)
         XCTAssertEqual(cd["claude_code"]?.coolingUntil, far, "keep the source benched for the longest known window")
     }
+
+    // MARK: agent-facing projection (CLI / MCP)
+
+    func testProjectionIsSourceSorted() {
+        let until = now.addingTimeInterval(3600)
+        let json = CapacitySourcesJSON(
+            observations: [obs("grok", wakeAfter: until), obs("codex", wakeAfter: until)], now: now)
+        XCTAssertEqual(json.sources.map(\.source), ["codex", "grok"], "stable, source-sorted projection")
+        XCTAssertEqual(json.generatedAt, now)
+    }
+
+    func testProjectionRoundTripsThroughJSON() throws {
+        let until = now.addingTimeInterval(1800)
+        let original = CapacitySourcesJSON(observations: [obs("claude_code", wakeAfter: until)], now: now)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(CapacitySourcesJSON.self, from: data)
+        XCTAssertEqual(decoded, original, "one stable contract — encode/decode is lossless")
+    }
 }
