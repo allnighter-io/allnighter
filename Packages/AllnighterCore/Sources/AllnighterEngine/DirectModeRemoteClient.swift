@@ -220,6 +220,7 @@ public actor DirectModeRemoteClient: RemoteClient {
         }
         guard let decoded = try? CoreJSON.decode(DirectModeMediaKeyResponse.self, from: response.body),
               decoded.key.ref == ref.ref,
+              decoded.key.macAgentId == ref.macAgentId,
               decoded.key.deviceId == deviceId else {
             throw DirectModeRemoteClientError.badMediaKeyResponse
         }

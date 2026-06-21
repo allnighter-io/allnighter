@@ -418,17 +418,24 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
     }
 
     public func publishMedia(ref: MediaRef, data _: Data, keys: [MediaKeyEnvelope]) async throws {
+        if let mismatchedKey = keys.first(where: { $0.macAgentId != ref.macAgentId || $0.ref != ref.ref }) {
+            throw RemoteMacRelayError.mediaScopeMismatch(
+                expectedMacAgentId: ref.macAgentId,
+                actualMacAgentId: mismatchedKey.macAgentId,
+                expectedRef: ref.ref,
+                actualRef: mismatchedKey.ref
+            )
+        }
         _ = try await post(
             table: "media_refs",
             rows: [MediaRefRow(ref)],
             query: [URLQueryItem(name: "on_conflict", value: "mac_agent_id,ref")],
             prefer: "resolution=merge-duplicates,return=minimal"
         ) as [MediaRefRow]
-        let scopedKeys = keys.filter { $0.macAgentId == ref.macAgentId && $0.ref == ref.ref }
-        if !scopedKeys.isEmpty {
+        if !keys.isEmpty {
             _ = try await post(
                 table: "media_keys",
-                rows: scopedKeys.map(MediaKeyRow.init),
+                rows: keys.map(MediaKeyRow.init),
                 query: [URLQueryItem(name: "on_conflict", value: "mac_agent_id,ref,device_id")],
                 prefer: "resolution=merge-duplicates,return=minimal"
             ) as [MediaKeyRow]
@@ -436,7 +443,14 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
     }
 
     public func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws {
-        guard key.macAgentId == macAgentId else { return }
+        guard key.macAgentId == macAgentId else {
+            throw RemoteMacRelayError.mediaScopeMismatch(
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: key.macAgentId,
+                expectedRef: key.ref,
+                actualRef: key.ref
+            )
+        }
         _ = try await post(
             table: "media_keys",
             rows: [MediaKeyRow(key)],

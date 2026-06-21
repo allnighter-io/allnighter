@@ -409,14 +409,14 @@ public struct MediaRef: Codable, Equatable, Sendable, Identifiable {
 
 public struct MediaKeyEnvelope: Codable, Equatable, Sendable, Identifiable {
     public var id: String {
-        macAgentId.isEmpty ? "\(ref):\(deviceId)" : "\(macAgentId):\(ref):\(deviceId)"
+        "\(macAgentId):\(ref):\(deviceId)"
     }
     public var ref: String
     public var macAgentId: String
     public var deviceId: String
     public var sealedKey: SealedBlob
 
-    public init(ref: String, macAgentId: String = "", deviceId: String, sealedKey: SealedBlob) {
+    public init(ref: String, macAgentId: String, deviceId: String, sealedKey: SealedBlob) {
         self.ref = ref
         self.macAgentId = macAgentId
         self.deviceId = deviceId

@@ -178,7 +178,7 @@ public actor CloudRemoteClient: RemoteClient {
         ) else {
             throw CloudRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
         }
-        guard key.ref == ref.ref, key.deviceId == deviceId else {
+        guard key.ref == ref.ref, key.macAgentId == ref.macAgentId, key.deviceId == deviceId else {
             throw CloudRemoteClientError.badMediaKeyEnvelope
         }
         return key

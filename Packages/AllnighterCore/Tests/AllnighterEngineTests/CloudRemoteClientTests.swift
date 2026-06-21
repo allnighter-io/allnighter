@@ -200,12 +200,11 @@ final class CloudRemoteClientTests: XCTestCase {
 
         XCTAssertEqual(fetched, key)
 
-        let mismatchedRelay = MockRemoteMacRelay()
-        try await mismatchedRelay.publishMedia(
-            ref: ref,
-            data: Data("ciphertext".utf8),
-            keys: [mediaKey(ref: "media_other", deviceId: "device_1")]
-        )
+        let mismatchedRelay = MalformedMediaKeyRelay(key: mediaKey(
+            ref: "media_other",
+            macAgentId: "mac_2",
+            deviceId: "device_other"
+        ))
         let mismatchedClient = CloudRemoteClient(mac: macRef(), relay: mismatchedRelay, now: { fixedNow })
         try await mismatchedClient.connect(account: account, mode: .cloudRelay)
         do {
@@ -498,9 +497,10 @@ final class CloudRemoteClientTests: XCTestCase {
         )
     }
 
-    private func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+    private func mediaKey(ref: String, macAgentId: String = "mac_1", deviceId: String) -> MediaKeyEnvelope {
         MediaKeyEnvelope(
             ref: ref,
+            macAgentId: macAgentId,
             deviceId: deviceId,
             sealedKey: SealedBlob(
                 ciphertext: Data("ciphertext".utf8),
@@ -510,6 +510,115 @@ final class CloudRemoteClientTests: XCTestCase {
             )
         )
     }
+}
+
+private actor MalformedMediaKeyRelay: RemoteMacRelay {
+    private let key: MediaKeyEnvelope
+
+    init(key: MediaKeyEnvelope) {
+        self.key = key
+    }
+
+    func registerMacAgent(_: RemoteMacAgentRegistration) async throws -> MacAgentRef {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func heartbeat(_: RemoteMacAgentHeartbeat) async throws {}
+
+    func macAgents(accountId _: String) async throws -> [MacAgentRef] {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func submitPairRequest(_: RemotePairRequestDraft) async throws -> RemotePairRequest {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func pendingPairRequests(accountId _: String, macAgentId _: String) async throws -> [RemotePairRequest] {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func pairRequestStatus(
+        accountId _: String,
+        macAgentId _: String,
+        requestId _: String,
+        deviceId _: String,
+        checkedAt _: Date
+    ) async throws -> RemotePairingStatusResponse {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func updatePairRequest(_: RemotePairRequest) async throws -> RemotePairRequest {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func trustedDevices(accountId _: String, macAgentId _: String) async throws -> [TrustedDevice] {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func upsertTrustedDevice(_: TrustedDevice) async throws {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func submitCommand(_: RemoteCommandInboxEntry) async throws {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func commandAck(
+        accountId _: String,
+        macAgentId _: String,
+        requestId _: String
+    ) async throws -> RemoteCommandAckEnvelope? {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func pendingCommands(accountId _: String, macAgentId _: String, limit _: Int) async throws -> [RemoteCommandInboxEntry] {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func acknowledge(_: RemoteCommandAckEnvelope) async throws {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func runEvents(
+        accountId _: String,
+        macAgentId _: String,
+        after _: Int64,
+        limit _: Int
+    ) async throws -> [RemoteRunEventEnvelope] {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func publishEvents(accountId _: String, macAgentId _: String, events _: [RemoteRunEventEnvelope]) async throws {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func publishSnapshot(accountId _: String, macAgentId _: String, snapshot _: SnapshotEnvelope) async throws {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func snapshot(accountId _: String, macAgentId _: String, since _: Int64?) async throws -> SnapshotEnvelope? {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func publishMedia(ref _: MediaRef, data _: Data, keys _: [MediaKeyEnvelope]) async throws {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func upsertMediaKey(_: MediaKeyEnvelope, macAgentId _: String) async throws {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func mediaData(ref _: String, macAgentId _: String, at _: Date) async throws -> Data? {
+        throw MalformedMediaKeyRelayError.unexpectedCall
+    }
+
+    func mediaKey(ref _: String, macAgentId _: String, deviceId _: String, at _: Date) async throws -> MediaKeyEnvelope? {
+        key
+    }
+}
+
+private enum MalformedMediaKeyRelayError: Error {
+    case unexpectedCall
 }
 
 private actor DrainingCloudRemoteClientSleeper: CloudRemoteClientSleeping {

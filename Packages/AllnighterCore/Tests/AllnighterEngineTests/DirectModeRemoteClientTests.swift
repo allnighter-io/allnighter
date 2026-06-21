@@ -176,6 +176,48 @@ final class DirectModeRemoteClientTests: XCTestCase {
         ])
     }
 
+    func testClientRejectsMediaKeyResponseForOtherMac() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let key = Self.mediaKey(ref: "media_1", macAgentId: "mac_2", deviceId: "device_1")
+        let mediaKeyHandler = RecordingDirectModeClientMediaKeyHandler(response: DirectModeMediaKeyResponse(
+            key: key
+        ))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            mediaKeyHandler: mediaKeyHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+        let ref = MediaRef(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            r2Key: "direct/media_1",
+            contentType: "image/png",
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        do {
+            _ = try await client.fetchMediaKey(ref, deviceId: "device_1")
+            XCTFail("wrong-Mac media key response should be rejected")
+        } catch let error as DirectModeRemoteClientError {
+            XCTAssertEqual(error, .badMediaKeyResponse)
+        }
+    }
+
     func testClientStreamsOnlyVerifiedEventsFromLoopbackServer() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let valid = try Self.eventEnvelope(
@@ -465,9 +507,10 @@ final class DirectModeRemoteClientTests: XCTestCase {
         )
     }
 
-    private static func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+    private static func mediaKey(ref: String, macAgentId: String = "mac_1", deviceId: String) -> MediaKeyEnvelope {
         MediaKeyEnvelope(
             ref: ref,
+            macAgentId: macAgentId,
             deviceId: deviceId,
             sealedKey: SealedBlob(
                 ciphertext: Data("ciphertext".utf8),

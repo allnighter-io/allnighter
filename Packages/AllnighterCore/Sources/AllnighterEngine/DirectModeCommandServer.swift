@@ -41,6 +41,8 @@ public enum DirectModeMediaKeyError: Error, Equatable, Sendable {
     )
     case mediaKeyNotFound(ref: String, deviceId: String)
     case mediaKeyMismatch(
+        expectedMacAgentId: String,
+        actualMacAgentId: String,
         expectedRef: String,
         actualRef: String,
         expectedDeviceId: String,
@@ -325,9 +327,12 @@ public struct DirectModeMediaKeyHandler: DirectModeMediaKeyHandling {
         ) else {
             throw DirectModeMediaKeyError.mediaKeyNotFound(ref: request.ref, deviceId: request.deviceId)
         }
-        guard key.ref == request.ref,
+        guard key.macAgentId == request.macAgentId,
+              key.ref == request.ref,
               key.deviceId == request.deviceId else {
             throw DirectModeMediaKeyError.mediaKeyMismatch(
+                expectedMacAgentId: request.macAgentId,
+                actualMacAgentId: key.macAgentId,
                 expectedRef: request.ref,
                 actualRef: key.ref,
                 expectedDeviceId: request.deviceId,

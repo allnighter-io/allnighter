@@ -46,6 +46,7 @@ public struct RemoteMacAgentHeartbeat: Codable, Equatable, Sendable {
 
 public enum RemoteMacRelayError: Error, Equatable, Sendable {
     case unsupportedProtocolVersion(expected: Int, actual: Int)
+    case mediaScopeMismatch(expectedMacAgentId: String, actualMacAgentId: String, expectedRef: String, actualRef: String)
 }
 
 public enum RemoteCommandInboxStatus: String, Codable, Sendable, CaseIterable {
@@ -457,6 +458,14 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
 
     public func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {
         eventLog.append("publishMedia")
+        if let mismatchedKey = keys.first(where: { $0.macAgentId != ref.macAgentId || $0.ref != ref.ref }) {
+            throw RemoteMacRelayError.mediaScopeMismatch(
+                expectedMacAgentId: ref.macAgentId,
+                actualMacAgentId: mismatchedKey.macAgentId,
+                expectedRef: ref.ref,
+                actualRef: mismatchedKey.ref
+            )
+        }
         let key = MediaStorageKey(macAgentId: ref.macAgentId, ref: ref.ref)
         mediaRefs.removeAll { $0.macAgentId == ref.macAgentId && $0.ref == ref.ref }
         mediaRefs.append(ref)
@@ -470,6 +479,14 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
 
     public func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws {
         eventLog.append("upsertMediaKey")
+        guard key.macAgentId == macAgentId else {
+            throw RemoteMacRelayError.mediaScopeMismatch(
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: key.macAgentId,
+                expectedRef: key.ref,
+                actualRef: key.ref
+            )
+        }
         mediaKeysByRef[MediaStorageKey(macAgentId: macAgentId, ref: key.ref), default: [:]][key.deviceId] = key
     }
 

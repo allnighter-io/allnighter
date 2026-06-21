@@ -8,6 +8,7 @@ final class DirectModeMediaKeyHandlerTests: XCTestCase {
     func testHandlerFetchesMediaKeyWithServerTime() async throws {
         let key = MediaKeyEnvelope(
             ref: "media_1",
+            macAgentId: "mac_1",
             deviceId: "device_1",
             sealedKey: SealedBlob(
                 ciphertext: Data("ciphertext".utf8),
@@ -107,6 +108,7 @@ final class DirectModeMediaKeyHandlerTests: XCTestCase {
     func testHandlerRejectsMismatchedProviderMediaKey() async throws {
         let mismatchedKey = MediaKeyEnvelope(
             ref: "media_other",
+            macAgentId: "mac_2",
             deviceId: "device_other",
             sealedKey: SealedBlob(
                 ciphertext: Data("ciphertext".utf8),
@@ -139,6 +141,8 @@ final class DirectModeMediaKeyHandlerTests: XCTestCase {
             XCTAssertEqual(
                 error as? DirectModeMediaKeyError,
                 .mediaKeyMismatch(
+                    expectedMacAgentId: "mac_1",
+                    actualMacAgentId: "mac_2",
                     expectedRef: "media_1",
                     actualRef: "media_other",
                     expectedDeviceId: "device_1",

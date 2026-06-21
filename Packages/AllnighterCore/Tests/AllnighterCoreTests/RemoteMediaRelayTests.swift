@@ -36,6 +36,32 @@ final class RemoteMediaRelayTests: XCTestCase {
         XCTAssertEqual(fetchedKey, key)
     }
 
+    func testPublishMediaRejectsMismatchedKeyScopeWithoutStoringData() async throws {
+        let relay = MockRemoteMacRelay()
+        let ref = mediaRef(ref: "media_1", expiresAt: now.addingTimeInterval(60))
+        let wrongMacKey = mediaKey(ref: "media_1", macAgentId: "mac_2", deviceId: "device_wrong_mac")
+
+        do {
+            try await relay.publishMedia(ref: ref, data: Data("ciphertext".utf8), keys: [wrongMacKey])
+            XCTFail("expected media scope mismatch")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .mediaScopeMismatch(
+                    expectedMacAgentId: "mac_1",
+                    actualMacAgentId: "mac_2",
+                    expectedRef: "media_1",
+                    actualRef: "media_1"
+                )
+            )
+        }
+
+        let data = try await relay.mediaData(ref: "media_1", macAgentId: "mac_1", at: now)
+        let key = try await relay.mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_wrong_mac", at: now)
+        XCTAssertNil(data)
+        XCTAssertNil(key)
+    }
+
     func testExpiredMediaReturnsNil() async throws {
         let relay = MockRemoteMacRelay()
         try await relay.publishMedia(
@@ -70,6 +96,40 @@ final class RemoteMediaRelayTests: XCTestCase {
         XCTAssertEqual(data, Data("ciphertext".utf8))
         XCTAssertEqual(fetchedFirst, firstKey)
         XCTAssertEqual(fetchedSecond, secondKey)
+    }
+
+    func testUpsertMediaKeyRejectsMismatchedMacScope() async throws {
+        let relay = MockRemoteMacRelay()
+        let firstKey = mediaKey(ref: "media_1", deviceId: "device_1")
+        let wrongMacKey = mediaKey(ref: "media_1", macAgentId: "mac_2", deviceId: "device_wrong_mac")
+        try await relay.publishMedia(
+            ref: mediaRef(ref: "media_1", expiresAt: now.addingTimeInterval(60)),
+            data: Data("ciphertext".utf8),
+            keys: [firstKey]
+        )
+
+        do {
+            try await relay.upsertMediaKey(wrongMacKey, macAgentId: "mac_1")
+            XCTFail("expected media scope mismatch")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .mediaScopeMismatch(
+                    expectedMacAgentId: "mac_1",
+                    actualMacAgentId: "mac_2",
+                    expectedRef: "media_1",
+                    actualRef: "media_1"
+                )
+            )
+        }
+
+        let fetchedWrongMac = try await relay.mediaKey(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            deviceId: "device_wrong_mac",
+            at: now
+        )
+        XCTAssertNil(fetchedWrongMac)
     }
 
     func testPublishMediaRefreshesExistingRefAndReplacesDeviceKeys() async throws {

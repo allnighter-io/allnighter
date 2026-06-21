@@ -282,6 +282,54 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ))
     }
 
+    func testPublishMediaRejectsMismatchedKeyScopeBeforeWriting() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [])
+        let relay = try makeRelay(transport: transport)
+        let wrongMacKey = mediaKey(macAgentId: "mac_2")
+
+        do {
+            try await relay.publishMedia(ref: mediaRef(), data: Data("ciphertext".utf8), keys: [wrongMacKey])
+            XCTFail("expected media scope mismatch")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .mediaScopeMismatch(
+                    expectedMacAgentId: "mac_1",
+                    actualMacAgentId: "mac_2",
+                    expectedRef: "media_1",
+                    actualRef: "media_1"
+                )
+            )
+        }
+
+        let requests = await transport.recordedRequests()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
+    func testUpsertMediaKeyRejectsMismatchedMacScopeBeforeWriting() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [])
+        let relay = try makeRelay(transport: transport)
+        let wrongMacKey = mediaKey(macAgentId: "mac_2")
+
+        do {
+            try await relay.upsertMediaKey(wrongMacKey, macAgentId: "mac_1")
+            XCTFail("expected media scope mismatch")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .mediaScopeMismatch(
+                    expectedMacAgentId: "mac_1",
+                    actualMacAgentId: "mac_2",
+                    expectedRef: "media_1",
+                    actualRef: "media_1"
+                )
+            )
+        }
+
+        let requests = await transport.recordedRequests()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
     func testPublishSnapshotWritesSnapshotEnvelopeRow() async throws {
         let fixedNow = now.addingTimeInterval(60)
         let snapshot = snapshotEnvelope()
@@ -521,6 +569,24 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
             "content_type": ref.contentType,
             "expires_at": iso(ref.expiresAt),
         ]
+    }
+
+    private func mediaKey(
+        ref: String = "media_1",
+        macAgentId: String = "mac_1",
+        deviceId: String = "device_1"
+    ) -> MediaKeyEnvelope {
+        MediaKeyEnvelope(
+            ref: ref,
+            macAgentId: macAgentId,
+            deviceId: deviceId,
+            sealedKey: SealedBlob(
+                ciphertext: Data("sealed-key-\(deviceId)".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: deviceId,
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
     }
 
     private func jsonObject<T: Encodable>(_ value: T) throws -> Any {

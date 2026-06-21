@@ -425,9 +425,10 @@ final class DirectModeCommandServerTests: XCTestCase {
         )
     }
 
-    private static func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+    private static func mediaKey(ref: String, macAgentId: String = "mac_1", deviceId: String) -> MediaKeyEnvelope {
         MediaKeyEnvelope(
             ref: ref,
+            macAgentId: macAgentId,
             deviceId: deviceId,
             sealedKey: SealedBlob(
                 ciphertext: Data("ciphertext".utf8),
