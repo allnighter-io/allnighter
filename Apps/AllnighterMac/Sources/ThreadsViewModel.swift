@@ -427,7 +427,7 @@ final class ThreadsViewModel {
 
     /// Empty thread for the "Start a run" flow.
     func newRun() {
-        _ = newThread(title: "New Chat")
+        _ = newThread(title: Self.newChatTitle)
     }
 
     // MARK: - Routing composer (CR4a user turn; CR4b chat runs the model)
@@ -438,7 +438,7 @@ final class ThreadsViewModel {
     /// composer for a new run.
     func applyQuickCapture(clipboardText: String?) {
         let clip = clipboardText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let title = clip.isEmpty ? "New Chat" : Self.title(from: clip)
+        let title = clip.isEmpty ? Self.newChatTitle : Self.title(from: clip)
         _ = newThread(title: title)
         if !clip.isEmpty {
             pendingQuickCaptureText = clip
@@ -460,6 +460,12 @@ final class ThreadsViewModel {
         } else if let id = selectedThreadId {
             guard store.get(id)?.isArchived != true else { return }
             threadId = id
+            // First real prompt into a still-untitled "New Chat" → title it from the prompt
+            // NOW, so the rail stops showing the stale placeholder the moment you send
+            // (founder: a sent chat must never still read "New Chat").
+            if !message.isEmpty, store.get(id)?.title == Self.newChatTitle {
+                renameThread(id, title: Self.title(from: message))
+            }
         } else {
             return
         }
@@ -817,10 +823,13 @@ final class ThreadsViewModel {
         }
     }
 
+    /// The placeholder title a fresh, unsent chat carries until its first prompt names it.
+    static let newChatTitle = "New Chat"
+
     private static func title(from text: String) -> String {
         let line = text.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? text
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "New Chat" }
+        guard !trimmed.isEmpty else { return newChatTitle }
         if trimmed.count <= 48 { return trimmed }
         return String(trimmed.prefix(45)) + "…"
     }
@@ -830,7 +839,7 @@ final class ThreadsViewModel {
     func applyFixture(_ fixture: String) {
         #if DEBUG
         if fixture == "thread-empty" {
-            _ = newThread(title: "New Chat")
+            _ = newThread(title: Self.newChatTitle)
             return
         }
         ThreadsFixtureSeeder(
