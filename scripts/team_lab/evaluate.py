@@ -10,11 +10,19 @@ from pathlib import Path
 
 def load_worker_answers(run_dir: Path) -> dict[str, str]:
     out: dict[str, str] = {}
-    ans = run_dir / "worker_answers"
-    if not ans.exists():
-        return out
-    for p in sorted(ans.glob("*.md")):
-        out[p.stem] = p.read_text()
+    for sub in ("workers", "worker_answers"):
+        ans = run_dir / sub
+        if not ans.exists():
+            continue
+        for p in sorted(ans.glob("*.md")):
+            if ".answer." in p.name or sub == "worker_answers":
+                out[p.stem] = p.read_text()
+            elif p.name.endswith(".answer.md"):
+                out[p.stem.replace(".answer", "")] = p.read_text()
+    workers = run_dir / "workers"
+    if workers.exists():
+        for p in sorted(workers.glob("*.answer.md")):
+            out[p.name.replace(".answer.md", "")] = p.read_text()
     return out
 
 

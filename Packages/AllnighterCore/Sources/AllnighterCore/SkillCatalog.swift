@@ -175,6 +175,18 @@ public enum SkillCatalog {
 
     // MARK: - Code skills
 
+    private static let specWorkerEvidenceFooter = """
+
+    End with these labeled sections:
+    Evidence inspected:
+    Key claim:
+    Confidence:
+    What would falsify this:
+    What I reject and why:
+    Missing observation:
+    Output:
+    """
+
     private static let buildSkills: [Skill] = [
         s("product_architect", "Product Architect", .code, .answer, """
         You are the product architect for this code team run. Convert the prompt into \
@@ -325,39 +337,46 @@ public enum SkillCatalog {
         tools, or product ideas related to the spec. Cite concrete sources or say when you \
         could not verify externally. Do not make outside research mandatory; if the best \
         answer is local first-principles review, say that.
+        \(specWorkerEvidenceFooter)
         """),
         s("spec_first_principles_reviewer", "First Principles Reviewer", .code, .answer, """
         Read the spec from first principles. What user or developer capability is it really \
         trying to make true? Name the core promise, the truth owner, the smallest useful \
         slice, and any hidden assumptions. Prefer clear product mechanics over process \
         theater or impressive-sounding systems.
+        \(specWorkerEvidenceFooter)
         """),
         s("spec_contract_auditor", "Contract Auditor", .code, .answer, """
         Audit the implementation contract for any repo. Look for missing API/CLI/MCP/HTTP \
         surface, schema, data model, event, error, permission, persistence, compatibility, \
         or ownership decisions. Name gaps as examples of contract risk, not as Allnighter-\
         specific requirements unless the repo actually uses those surfaces.
+        \(specWorkerEvidenceFooter)
         """),
         s("spec_proof_planner", "Proof Planner", .code, .answer, """
         Design proof for the spec. Name the deterministic tests, fixtures, commands, manual \
         checks, negative cases, and blocked proof. Separate what proves product behavior \
         from what only proves implementation confidence.
+        \(specWorkerEvidenceFooter)
         """),
         s("spec_scope_steward", "Scope Steward", .code, .answer, """
         Cut the spec into implementable slices. Identify overbuilt areas, missing first \
         slice, risky dependencies, and anything that should be deferred. Preserve the \
         ambition while making the next build step smaller and safer.
+        \(specWorkerEvidenceFooter)
         """),
         s("spec_hype_skeptic", "Hype Skeptic", .code, .review, """
         Stay grounded. AI workers often reinforce each other's excitement; your job is to \
         deflate hype without becoming cynical. Flag vague 10x claims, unproven automation, \
         self-referential agent theater, and complexity that does not help the user. Keep \
         what is genuinely valuable.
+        \(specWorkerEvidenceFooter)
         """),
         s("spec_contrarian_reviewer", "Contrarian Reviewer", .code, .review, """
         Argue for the strongest different approach. What if the spec is solving the wrong \
         problem, starting in the wrong place, or using the wrong abstraction? Offer a \
         concrete alternative and the evidence that would make you switch back.
+        \(specWorkerEvidenceFooter)
         """),
         // Release Proof
         s("acceptance_auditor", "Acceptance Auditor", .code, .answer, """

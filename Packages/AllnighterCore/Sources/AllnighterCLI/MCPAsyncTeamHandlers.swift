@@ -52,6 +52,7 @@ enum MCPAsyncTeamHandlers {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "runId required",
                                             requiresManual: true, retryable: false))
         }
+        let includePrompts = Self.includeWorkerPromptSnapshots(args)
         switch await runtime.asyncTeamService().result(runId: runId) {
         case .notFound:
             return .toolError(ErrorEnvelope(code: "RUN_NOT_FOUND", message: "no run matches \(runId)",
@@ -62,10 +63,18 @@ enum MCPAsyncTeamHandlers {
         case .ready(let run):
             let trj = TeamRunJSONMapper.map(
                 run, models: runtime.models, manifests: runtime.registry.all,
-                context: AllnighterCLI.defaultRunContext(run))
+                context: AllnighterCLI.defaultRunContext(run, full: includePrompts))
             return .success(AllnighterCLI.jsonString(trj),
                             summary: "Run \(run.id) · \(run.status.rawValue)")
         }
+    }
+
+    /// Honor MCP/CLI parity: `detail: "full"`, `full: true`, or `includePrompts: true`.
+    static func includeWorkerPromptSnapshots(_ args: [String: Any]) -> Bool {
+        if (args["full"] as? Bool) == true { return true }
+        if (args["includePrompts"] as? Bool) == true { return true }
+        if let detail = args["detail"] as? String, detail.lowercased() == "full" { return true }
+        return false
     }
 
     static func cancel(runtime: ToolRuntime, args: [String: Any]) async -> Outcome {

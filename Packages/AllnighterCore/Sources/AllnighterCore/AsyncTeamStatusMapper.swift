@@ -74,6 +74,9 @@ public enum AsyncTeamStatusMapper {
 
     public static func statusResponse(for run: TeamRun) -> TeamStatusResponse {
         let live = liveStatus(for: run)
+        let workerRows = workers(for: run)
+        let terminal: Set<String> = ["completed", "failed", "timedOut", "cancelled"]
+        let done = workerRows.filter { terminal.contains($0.status) }.count
         return TeamStatusResponse(
             runId: run.id,
             status: live,
@@ -81,7 +84,9 @@ public enum AsyncTeamStatusMapper {
             teamPresetId: run.presetId,
             effort: run.effort?.rawValue,
             currentStage: currentStage(for: run),
-            workers: workers(for: run),
+            workers: workerRows,
+            workersDone: done,
+            workersTotal: workerRows.count,
             warnings: run.warnings,
             resultAvailable: resultAvailable(for: run),
             nextPollAfterMs: nextPollAfterMs(for: live),

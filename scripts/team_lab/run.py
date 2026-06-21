@@ -116,22 +116,31 @@ def write_experiment(
     (lab_dir / "experiment.json").write_text(json.dumps(exp, indent=2))
 
 
-def score_run_contract(lab_dir: Path, run_id: str, status: str, result_ok: bool) -> dict:
+def score_run_contract(lab_dir: Path, run_id: str, status: str, result_ok: bool, fs_bypass: bool) -> dict:
     run_dir = lab_dir / "run"
     checks: list[dict] = []
     checks.append({"name": "terminal_status", "ok": status in {"completed", "failed", "cancelled", "interrupted"}})
     checks.append({"name": "run_journal_copied", "ok": run_dir.exists()})
     run_json = run_dir / "run.json"
     checks.append({"name": "run_json_present", "ok": run_json.exists()})
-    worker_prompts = list((run_dir / "worker_prompts").glob("*.md")) if (run_dir / "worker_prompts").exists() else []
-    worker_answers = list((run_dir / "worker_answers").glob("*.md")) if (run_dir / "worker_answers").exists() else []
-    checks.append({"name": "worker_prompts_captured", "ok": len(worker_prompts) > 0})
-    checks.append({"name": "worker_answers_captured", "ok": len(worker_answers) > 0})
+    workers_dir = run_dir / "workers"
+    prompts = list(workers_dir.glob("*.prompt.md")) if workers_dir.exists() else []
+    answers = list(workers_dir.glob("*.answer.md")) if workers_dir.exists() else []
+    checks.append({"name": "worker_prompts_captured", "ok": len(prompts) > 0})
+    checks.append({"name": "worker_answers_captured", "ok": len(answers) > 0})
     checks.append({"name": "team_result_retrieved", "ok": result_ok})
     bundle = run_dir / "bundle.md"
     checks.append({"name": "bundle_md_present", "ok": bundle.exists() and bundle.stat().st_size > 0})
+    trj = lab_dir / "team-result.json"
+    mcp_has_prompts = False
+    if trj.exists():
+        data = json.loads(trj.read_text())
+        workers = data.get("teamRun", {}).get("workers", data.get("workers", []))
+        if isinstance(workers, list):
+            mcp_has_prompts = any(w.get("resolvedWorkerPromptSnapshot") for w in workers)
+    checks.append({"name": "mcp_prompt_snapshots_without_fs", "ok": mcp_has_prompts or not fs_bypass})
     score = sum(1 for c in checks if c["ok"]) / len(checks)
-    out = {"runContractScore": round(score, 3), "checks": checks}
+    out = {"runContractScore": round(score, 3), "checks": checks, "fsBypass": fs_bypass}
     (lab_dir / "evaluation" / "run-contract-score.json").write_text(json.dumps(out, indent=2))
     return out
 
@@ -277,7 +286,7 @@ def run_experiment(
             floor = client.call_tool("floor_show", {"runId": run_id})
             (lab_dir / "floor-show.txt").write_text(floor["text"])
 
-        copy_run_journal(run_id, lab_dir / "run")
+        fs_bypass = copy_run_journal(run_id, lab_dir / "run")
 
         write_experiment(
             lab_dir,
@@ -293,7 +302,8 @@ def run_experiment(
             start=start,
             status_history=status_history,
         )
-        contract = score_run_contract(lab_dir, run_id, status_history[-1].get("status", ""), result_ok)
+        contract = score_run_contract(
+            lab_dir, run_id, status_history[-1].get("status", ""), result_ok, fs_bypass=fs_bypass)
 
         report_lines = [
             f"# Team Lab Report — {lab_dir.name}",

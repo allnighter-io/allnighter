@@ -194,6 +194,31 @@ final class MCPAsyncTeamTests: XCTestCase {
         }
     }
 
+    func testTeamResultHonorsDetailFull() async throws {
+        try await mcpAsyncTeamTestGate.run {
+            let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("mcp-async-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: root) }
+            let mock = MockCommandRunner(scripts: ["claude": .init(stdout: Self.planMarkdown, delay: .milliseconds(250))])
+            let runtime = Self.makeRuntime(runId: "mcp-run-full", mock: mock, root: root)
+            _ = await MCPAsyncTeamHandlers.start(runtime: runtime, args: [
+                "prompt": "full detail", "lane": "code", "team": "code_test", "effort": "low",
+            ], defaultAgent: "mcp")
+            for _ in 0..<50 {
+                if case .success(let json, _) = await MCPAsyncTeamHandlers.result(
+                    runtime: runtime, args: ["runId": "mcp-run-full", "detail": "full"]),
+                   (try? CoreJSON.decode(TeamRunJSON.self, from: Data(json.utf8))) != nil {
+                    break
+                }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            let outcome = await MCPAsyncTeamHandlers.result(
+                runtime: runtime, args: ["runId": "mcp-run-full", "detail": "full"])
+            guard case .success(let json, _) = outcome else { return XCTFail("expected result") }
+            let trj = try CoreJSON.decode(TeamRunJSON.self, from: Data(json.utf8))
+            XCTAssertTrue(trj.workers.contains { $0.resolvedWorkerPromptSnapshot != nil })
+        }
+    }
+
     func testTeamCancel() async throws {
         try await mcpAsyncTeamTestGate.run {
             let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("mcp-async-\(UUID().uuidString)")

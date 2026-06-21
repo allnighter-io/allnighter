@@ -155,6 +155,9 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var effort: String?
     public var currentStage: String?
     public var workers: [TeamStatusWorker]
+    /// Terminal workers (completed, failed, timedOut, cancelled).
+    public var workersDone: Int
+    public var workersTotal: Int
     public var warnings: [String]
     public var resultAvailable: Bool
     public var nextPollAfterMs: Int
@@ -169,6 +172,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         effort: String?,
         currentStage: String?,
         workers: [TeamStatusWorker],
+        workersDone: Int,
+        workersTotal: Int,
         warnings: [String],
         resultAvailable: Bool,
         nextPollAfterMs: Int,
@@ -182,6 +187,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.effort = effort
         self.currentStage = currentStage
         self.workers = workers
+        self.workersDone = workersDone
+        self.workersTotal = workersTotal
         self.warnings = warnings
         self.resultAvailable = resultAvailable
         self.nextPollAfterMs = nextPollAfterMs
