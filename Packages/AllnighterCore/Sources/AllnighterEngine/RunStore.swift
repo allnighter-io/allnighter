@@ -19,8 +19,14 @@ public struct RunStore: Sendable {
         return directory
     }
 
+    /// Persist a run. `forceArtifacts` regenerates the derived markdown/artifact set even
+    /// for a non-terminal run (e.g. a stage boundary); by default the artifacts are
+    /// regenerated only on TERMINAL saves — a running team's progress save (where only
+    /// answer text grew) writes just run.json + the liveness marker, not every artifact
+    /// (PERF-S05 progress fast path). The artifacts are the inspectable terminal receipt;
+    /// run.json stays the truth throughout.
     @discardableResult
-    public func save(_ run: TeamRun, models: [Model]) throws -> URL {
+    public func save(_ run: TeamRun, models: [Model], forceArtifacts: Bool = false) throws -> URL {
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
@@ -44,7 +50,12 @@ public struct RunStore: Sendable {
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
         }
 
-        // Derived artifacts (regenerated from run.json truth on each save).
+        // Progress fast path: a running team's intermediate save writes only the truth
+        // (run.json + owner.pid above), not every derived artifact. The full inspectable
+        // artifact set is (re)built on the terminal save.
+        guard run.status.isTerminal || forceArtifacts else { return directory }
+
+        // Derived artifacts (regenerated from run.json truth on each terminal save).
         let bundle = RunMarkdown.bundle(run, models: models)
         try Data(bundle.utf8).write(to: directory.appendingPathComponent("bundle.md"))
 
