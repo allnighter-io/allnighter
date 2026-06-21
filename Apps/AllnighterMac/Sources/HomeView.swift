@@ -175,7 +175,10 @@ private struct HomeSidebar: View {
         ProjectThreadRow(
             row: row,
             selected: row.id == threads.selectedThreadId,
-            armedPending: armedPendingThreadIds.contains(row.id)
+            armedPending: armedPendingThreadIds.contains(row.id),
+            renaming: renameThreadId == row.id,
+            onRename: { renameThreadId = row.id },
+            onEndRename: { renameThreadId = nil }
         ) {
             threads.select(threadId: row.id)
         }
@@ -335,8 +338,15 @@ private struct ProjectThreadRow: View {
     let selected: Bool
     /// True when an armed Pending item targets this thread (neutral dot, not amber).
     var armedPending: Bool = false
+    /// Inline-rename is parent-driven (shared SSOT with ⌘R + the context menu), so only one
+    /// row edits at a time and the title field tracks the selected thread.
+    var renaming: Bool = false
+    var onRename: (() -> Void)? = nil
+    var onEndRename: (() -> Void)? = nil
     let onTap: () -> Void
     @State private var hovering = false
+    @State private var editTitle = ""
+    @FocusState private var titleFocused: Bool
 
     /// The single SSOT row state — precomputed thread facts + the live armed-Pending fact.
     private var state: ThreadDisplayState {
@@ -347,12 +357,24 @@ private struct ProjectThreadRow: View {
         Button(action: onTap) {
             HStack(spacing: 9) {
                 stateDot
-                Text(row.title)
-                    .font(.system(size: 13, weight: state == .replied ? .semibold : .regular))
-                    .foregroundStyle(titleColor)
-                    .lineLimit(1)
+                if renaming {
+                    // Double-click to rename (Cursor/Finder behaviour). Commit on Return or blur.
+                    TextField("Title", text: $editTitle, onCommit: commitRename)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(ALColor.textPrimary)
+                        .focused($titleFocused)
+                        .onExitCommand { onEndRename?() }   // Esc cancels
+                } else {
+                    Text(row.title)
+                        .font(.system(size: 13, weight: state == .replied ? .semibold : .regular))
+                        .foregroundStyle(titleColor)
+                        .lineLimit(1)
+                }
                 Spacer(minLength: 4)
-                if hovering {
+                if renaming {
+                    EmptyView()
+                } else if hovering {
                     HStack(spacing: 2) {
                         IconButton(systemImage: row.isPinned ? "pin.slash" : "pin", accessibilityLabel: row.isPinned ? "Unpin" : "Pin", small: true) {
                             threads.togglePin(threadId: row.id)
@@ -380,7 +402,28 @@ private struct ProjectThreadRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .threadRowContextMenu(threadId: row.id, isPinned: row.isPinned, isArchived: row.isArchived)
+        // Double-click anywhere on the row opens the inline editor.
+        .simultaneousGesture(TapGesture(count: 2).onEnded { onRename?() })
+        .threadRowContextMenu(threadId: row.id, isPinned: row.isPinned, isArchived: row.isArchived,
+                              onRename: onRename)
+        .onChange(of: renaming) { _, isRenaming in
+            if isRenaming {
+                editTitle = row.title
+                titleFocused = true
+            }
+        }
+        .onChange(of: titleFocused) { _, focused in
+            // Click away (lost focus while still in rename mode) commits, like Finder.
+            if !focused && renaming { commitRename() }
+        }
+    }
+
+    private func commitRename() {
+        let trimmed = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, trimmed != row.title {
+            threads.renameThread(row.id, title: trimmed)
+        }
+        onEndRename?()
     }
 
     /// 4-state leading dot. Color is earned: amber ONLY for a replied/unread thread,
