@@ -12,6 +12,10 @@ import AllnighterEngine
 @Observable
 final class ThreadsViewModel {
     private(set) var threads: [WorkThread] = []
+    /// Lightweight rail-row summaries the sidebar renders (PERF-S02). Recomputed ONLY in
+    /// `reload()` — a live streaming delta mutates `threads` but NOT `railRows`, so the
+    /// rail does not invalidate per token.
+    private(set) var railRows: [ThreadRailRowState] = []
     private(set) var selectedThreadId: String?
 
     /// The active project new threads bind to (PRJ-S14). Kept in sync from
@@ -177,6 +181,8 @@ final class ThreadsViewModel {
         PerfCounters.bump(.threadsReload)
         let beforeSnapshots = notificationSnapshots
         threads = store.list()
+        // Derive the rail summaries once here (PERF-S02/S03), not per render/per delta.
+        railRows = threads.map(ThreadsPresenter.railRow(from:))
         if let id = selectedThreadId, !threads.contains(where: { $0.id == id }) {
             selectedThreadId = threads.first?.id
         }
@@ -307,6 +313,18 @@ final class ThreadsViewModel {
     func togglePin(for thread: WorkThread) {
         guard !thread.isArchived else { return }
         setPinned(thread.id, pinned: !thread.isPinned)
+    }
+
+    /// Rail-row (id-based) convenience so the sidebar can act from a `ThreadRailRowState`
+    /// without holding a full `WorkThread` (PERF-S02 — keeps the rail off the live array).
+    func select(threadId: String) {
+        guard let thread = threads.first(where: { $0.id == threadId }) else { return }
+        select(thread)
+    }
+
+    func togglePin(threadId: String) {
+        guard let thread = threads.first(where: { $0.id == threadId }) else { return }
+        togglePin(for: thread)
     }
 
     @discardableResult

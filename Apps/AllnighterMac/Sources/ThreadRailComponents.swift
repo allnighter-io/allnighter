@@ -43,32 +43,34 @@ enum ThreadRailComponents {
 
 struct ThreadRowContextMenu: ViewModifier {
     @Environment(ThreadsViewModel.self) private var threads
-    let thread: WorkThread
+    let threadId: String
+    let isPinned: Bool
+    let isArchived: Bool
     var inArchiveView: Bool = false
     var onRename: (() -> Void)?
 
     func body(content: Content) -> some View {
         content.contextMenu {
-            Button("Open") { threads.select(thread) }
+            Button("Open") { threads.select(threadId: threadId) }
             if inArchiveView {
-                Button("Unarchive") { threads.unarchiveThread(thread.id) }
+                Button("Unarchive") { threads.unarchiveThread(threadId) }
             } else {
-                if !thread.isArchived {
-                    if thread.isPinned {
-                        Button("Unpin") { threads.setPinned(thread.id, pinned: false) }
+                if !isArchived {
+                    if isPinned {
+                        Button("Unpin") { threads.setPinned(threadId, pinned: false) }
                     } else {
-                        Button("Pin") { threads.setPinned(thread.id, pinned: true) }
+                        Button("Pin") { threads.setPinned(threadId, pinned: true) }
                     }
                     Button("Rename…") { onRename?() }
-                    Button("Archive") { threads.archiveThread(thread.id) }
+                    Button("Archive") { threads.archiveThread(threadId) }
                     Divider()
-                    if threads.isThreadNotificationsMuted(thread.id) {
+                    if threads.isThreadNotificationsMuted(threadId) {
                         Button("Unmute notifications") {
-                            threads.setThreadNotificationsMuted(thread.id, muted: false)
+                            threads.setThreadNotificationsMuted(threadId, muted: false)
                         }
                     } else {
                         Button("Mute notifications") {
-                            threads.setThreadNotificationsMuted(thread.id, muted: true)
+                            threads.setThreadNotificationsMuted(threadId, muted: true)
                         }
                     }
                 }
@@ -79,8 +81,18 @@ struct ThreadRowContextMenu: ViewModifier {
 
 extension View {
     func threadRowContextMenu(
+        threadId: String, isPinned: Bool, isArchived: Bool,
+        inArchiveView: Bool = false, onRename: (() -> Void)? = nil
+    ) -> some View {
+        modifier(ThreadRowContextMenu(threadId: threadId, isPinned: isPinned, isArchived: isArchived,
+                                      inArchiveView: inArchiveView, onRename: onRename))
+    }
+
+    /// Convenience for call sites that still hold a full `WorkThread` (e.g. the archive rail).
+    func threadRowContextMenu(
         thread: WorkThread, inArchiveView: Bool = false, onRename: (() -> Void)? = nil
     ) -> some View {
-        modifier(ThreadRowContextMenu(thread: thread, inArchiveView: inArchiveView, onRename: onRename))
+        threadRowContextMenu(threadId: thread.id, isPinned: thread.isPinned, isArchived: thread.isArchived,
+                             inArchiveView: inArchiveView, onRename: onRename)
     }
 }

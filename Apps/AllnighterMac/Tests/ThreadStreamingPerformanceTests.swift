@@ -82,6 +82,37 @@ final class ThreadStreamingPerformanceTests: XCTestCase {
         XCTAssertEqual(PerfCounters.value(.threadsReload), 1, "exactly one reload for the whole burst")
     }
 
+    func testLiveDeltaDoesNotInvalidateRailRows() throws {
+        let (vm, store, _) = makeVM()
+        let seat = try seedRunningTurn(vm, store)
+        let railBefore = vm.railRows
+        XCTAssertFalse(railBefore.isEmpty, "the seeded running thread produces a rail row")
+
+        for i in 0..<30 {
+            vm.applyLiveDelta(threadId: seat.threadId, turnId: seat.turnId,
+                              isAnswer: true, text: "tok \(i)", truncated: false)
+        }
+        // PERF-S02: the rail summaries are byte-identical — a streaming delta touches the
+        // selected detail (`threads`) only, never the rail.
+        XCTAssertEqual(vm.railRows, railBefore, "live deltas must not rebuild/invalidate rail rows")
+        XCTAssertEqual(vm.threads.first { $0.id == seat.threadId }?.turn(id: seat.turnId)?.text, "tok 29")
+    }
+
+    func testRailRowSearchUsesPrecomputedText() throws {
+        let (vm, store, _) = makeVM()
+        let thread = try store.create(id: UUID().uuidString, title: "Rate limiter", now: Date(), workingDir: nil)
+        let turn = ThreadTurn(id: UUID().uuidString, threadId: thread.id, kind: .workerChat,
+                              status: .done, createdAt: Date(), author: .worker,
+                              text: "Use a token BUCKET for bursts")
+        _ = try store.appendTurn(turn, toThreadId: thread.id, now: Date())
+        vm.reload()
+
+        let row = try XCTUnwrap(vm.railRows.first { $0.id == thread.id })
+        XCTAssertTrue(row.matchesSearch("bucket"), "search matches turn text via the precomputed summary")
+        XCTAssertTrue(row.matchesSearch("RATE"), "search matches the title, case-insensitively")
+        XCTAssertFalse(row.matchesSearch("nonexistent"))
+    }
+
     func testLiveDeltaIgnoresSettledTurns() throws {
         let (vm, store, _) = makeVM()
         let thread = try store.create(id: UUID().uuidString, title: "t", now: Date(), workingDir: nil)

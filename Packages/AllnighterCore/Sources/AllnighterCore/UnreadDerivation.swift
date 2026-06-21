@@ -28,8 +28,11 @@ public struct ThreadReadCursor: Codable, Sendable, Equatable {
 public enum UnreadDerivation {
     public static func unreadTurnIds(thread: WorkThread) -> [String] {
         guard let cursor = thread.readCursor else { return [] }
+        // Resolve the cursor's turn index ONCE (was an O(turns) firstIndex per candidate
+        // → O(turns^2) on long threads). PERF-S03: linear in turn count.
+        let cursorIndex = cursorTurnIndex(thread: thread, cursor: cursor)
         return candidateTurns(thread: thread).compactMap { turn, index in
-            isUnread(turn: turn, index: index, thread: thread, cursor: cursor) ? turn.id : nil
+            isUnread(turn: turn, index: index, cursorIndex: cursorIndex, cursor: cursor) ? turn.id : nil
         }
     }
 
@@ -47,8 +50,9 @@ public enum UnreadDerivation {
 
     public static func unreadNeedsAttention(thread: WorkThread) -> Bool {
         guard let cursor = thread.readCursor else { return false }
+        let cursorIndex = cursorTurnIndex(thread: thread, cursor: cursor)
         return candidateTurns(thread: thread).contains { turn, index in
-            isUnread(turn: turn, index: index, thread: thread, cursor: cursor)
+            isUnread(turn: turn, index: index, cursorIndex: cursorIndex, cursor: cursor)
                 && turn.requiresUserAttention
         }
     }
@@ -100,14 +104,21 @@ public enum UnreadDerivation {
         turn.author == .user || turn.kind == .userMessage || turn.kind == .userDecision
     }
 
+    /// The index of the cursor's last-read turn, resolved once per derivation. `nil` when
+    /// there's no id cursor or it isn't present (callers then fall back to the timestamp).
+    private static func cursorTurnIndex(thread: WorkThread, cursor: ThreadReadCursor) -> Int? {
+        guard let cursorId = cursor.lastReadTurnId else { return nil }
+        return thread.turns.firstIndex { $0.id == cursorId }
+    }
+
     private static func isUnread(
         turn: ThreadTurn,
         index: Int,
-        thread: WorkThread,
+        cursorIndex: Int?,
         cursor: ThreadReadCursor
     ) -> Bool {
         guard isUnreadEligible(turn) else { return false }
-        let afterCursor = isAfterCursor(turn: turn, index: index, thread: thread, cursor: cursor)
+        let afterCursor = isAfterCursor(turn: turn, index: index, cursorIndex: cursorIndex, cursor: cursor)
         let landedAfterRead = landedAfterRead(turn: turn, cursor: cursor)
         return afterCursor || landedAfterRead
     }
@@ -115,11 +126,10 @@ public enum UnreadDerivation {
     private static func isAfterCursor(
         turn: ThreadTurn,
         index: Int,
-        thread: WorkThread,
+        cursorIndex: Int?,
         cursor: ThreadReadCursor
     ) -> Bool {
-        if let cursorId = cursor.lastReadTurnId,
-           let cursorIndex = thread.turns.firstIndex(where: { $0.id == cursorId }) {
+        if let cursorIndex {
             return index > cursorIndex
         }
         if let cursorTimestamp = cursor.lastReadTurnCreatedAt {

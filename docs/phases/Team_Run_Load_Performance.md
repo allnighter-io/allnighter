@@ -509,13 +509,21 @@ PERF-S01 - Coalesced reload + live overlay  ✅ DONE (2026-06-20)
   the default-chat 150ms poll loop reloads (bounded, not per-token) — fold into the same
   overlay in a later slice.
 
-PERF-S02 - Thread read model
-  Publish rail rows and selected detail separately. Rail no longer depends on
-  full WorkThread arrays for every render.
+PERF-S02 - Thread read model  ✅ DONE (2026-06-20)
+  ThreadsViewModel publishes `railRows: [ThreadRailRowState]` (lightweight summaries)
+  recomputed ONLY in reload(); the sidebar renders railRows, not full WorkThreads, so a
+  live streaming delta (which mutates `threads`) no longer invalidates the rail.
+  ProjectThreadRow / context menu / projectSections are row-summary based.
+  Gate: ThreadStreamingPerformanceTests.testLiveDeltaDoesNotInvalidateRailRows.
 
-PERF-S03 - Derived-state cache
-  Linear unread derivation, row-state memoization, projectSections/search out of
-  SwiftUI body/computed properties.
+PERF-S03 - Derived-state cache  ✅ DONE (2026-06-20)
+  UnreadDerivation resolves the cursor index ONCE (was O(turns) firstIndex per candidate
+  → O(turns^2); now linear). ThreadRailRowState precomputes searchText + isRunning/
+  hasUnread/hasNeverRun/lane once per reload, so search is a substring check and row state
+  needs no per-render turn walk. projectSections/search read railRows, not SwiftUI body
+  computed props over full threads. Gate: testRailRowSearchUsesPrecomputedText + the
+  21 Unread tests still green after the linear refactor. Still open: archive rail + the
+  default-chat 150ms poll still read full threads (archive only when shown; not hot).
 
 PERF-S04 - Background store reader + external invalidation
   Move scans/decodes off MainActor and add generation-safe publish.

@@ -57,8 +57,8 @@ private struct HomeSidebar: View {
     /// Thread ids with an armed Pending item — drives the neutral pending row dot.
     @State private var armedPendingThreadIds: Set<String> = []
 
-    private var sections: (pinned: [WorkThread], groups: [ThreadsPresenter.ProjectGroup]) {
-        ThreadsPresenter.projectSections(threads.threads, projects: projects.projects, search: search)
+    private var sections: (pinned: [ThreadRailRowState], groups: [ThreadsPresenter.ProjectRowGroup]) {
+        ThreadsPresenter.projectSections(threads.railRows, projects: projects.projects, search: search)
     }
 
     private var archivedSections: [ThreadsPresenter.TriageSection] {
@@ -123,7 +123,7 @@ private struct HomeSidebar: View {
         }
         .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
         .onAppear(perform: refreshArmedPending)
-        .onChange(of: threads.threads.count) { _, _ in refreshArmedPending() }
+        .onChange(of: threads.railRows.count) { _, _ in refreshArmedPending() }
     }
 
     // MARK: Projects rail (PRJ-S14)
@@ -144,12 +144,12 @@ private struct HomeSidebar: View {
                         onNewAgent: { newAgent(in: group.project.id) }
                     )
                     if !collapsed.contains(group.id) {
-                        let shown = expanded.contains(group.id) ? group.threads : Array(group.threads.prefix(4))
+                        let shown = expanded.contains(group.id) ? group.rows : Array(group.rows.prefix(4))
                         ForEach(shown) { row($0) }
-                        if group.threads.count > 4 && !expanded.contains(group.id) {
-                            moreRow(group.threads.count - 4, group: group.id)
+                        if group.rows.count > 4 && !expanded.contains(group.id) {
+                            moreRow(group.rows.count - 4, group: group.id)
                         }
-                        if group.threads.isEmpty {
+                        if group.rows.isEmpty {
                             Text("No conversations").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
                                 .padding(.horizontal, 28).padding(.vertical, 3)
                         }
@@ -160,13 +160,13 @@ private struct HomeSidebar: View {
         }
     }
 
-    private func row(_ thread: WorkThread) -> some View {
+    private func row(_ row: ThreadRailRowState) -> some View {
         ProjectThreadRow(
-            thread: thread,
-            selected: thread.id == threads.selectedThreadId,
-            armedPending: armedPendingThreadIds.contains(thread.id)
+            row: row,
+            selected: row.id == threads.selectedThreadId,
+            armedPending: armedPendingThreadIds.contains(row.id)
         ) {
-            threads.select(thread)
+            threads.select(threadId: row.id)
         }
     }
 
@@ -320,38 +320,38 @@ private struct HomeSidebar: View {
 /// On hover, the time is replaced by pin + archive actions.
 private struct ProjectThreadRow: View {
     @Environment(ThreadsViewModel.self) private var threads
-    let thread: WorkThread
+    let row: ThreadRailRowState
     let selected: Bool
     /// True when an armed Pending item targets this thread (neutral dot, not amber).
     var armedPending: Bool = false
     let onTap: () -> Void
     @State private var hovering = false
 
-    /// The single SSOT row state (shared with CLI/MCP via `ThreadStateDerivation`).
+    /// The single SSOT row state — precomputed thread facts + the live armed-Pending fact.
     private var state: ThreadDisplayState {
-        ThreadStateDerivation.displayState(thread: thread, hasPendingItem: armedPending)
+        row.displayState(armedPending: armedPending)
     }
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 9) {
                 stateDot
-                Text(thread.title)
+                Text(row.title)
                     .font(.system(size: 13, weight: state == .replied ? .semibold : .regular))
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 if hovering {
                     HStack(spacing: 2) {
-                        IconButton(systemImage: thread.isPinned ? "pin.slash" : "pin", accessibilityLabel: thread.isPinned ? "Unpin" : "Pin", small: true) {
-                            threads.togglePin(for: thread)
+                        IconButton(systemImage: row.isPinned ? "pin.slash" : "pin", accessibilityLabel: row.isPinned ? "Unpin" : "Pin", small: true) {
+                            threads.togglePin(threadId: row.id)
                         }
                         IconButton(systemImage: "archivebox", accessibilityLabel: "Archive", small: true) {
-                            threads.archiveThread(thread.id)
+                            threads.archiveThread(row.id)
                         }
                     }
                 } else {
-                    Text(thread.updatedAt, format: .relative(presentation: .numeric))
+                    Text(row.updatedAt, format: .relative(presentation: .numeric))
                         .font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
                 }
             }
@@ -369,7 +369,7 @@ private struct ProjectThreadRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .threadRowContextMenu(thread: thread)
+        .threadRowContextMenu(threadId: row.id, isPinned: row.isPinned, isArchived: row.isArchived)
     }
 
     /// 4-state leading dot. Color is earned: amber ONLY for a replied/unread thread,
@@ -402,7 +402,7 @@ private struct ProjectThreadRow: View {
 
 /// A project section header: chevron · folder · name · aggregate unread dot · `+`.
 private struct ProjectGroupHeader: View {
-    let group: ThreadsPresenter.ProjectGroup
+    let group: ThreadsPresenter.ProjectRowGroup
     let collapsed: Bool
     let onToggle: () -> Void
     let onNewAgent: (() -> Void)?
