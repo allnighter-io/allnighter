@@ -30,26 +30,25 @@ def main() -> int:
 
     out = evaluate_team_quality(lab)
 
-    lines = [
-        "## Team quality (heuristic)",
-        "",
-    ]
+    marker = "## Team quality"
+    lines = [marker, ""]
     if out.get("teamQualityWithheld"):
-        lines.append(f"- Team quality: **withheld** ({out.get('teamQualityWithheldReason')})")
+        lines.append(f"- Not judgeable: **withheld** ({out.get('teamQualityWithheldReason')})")
     else:
-        lines.append(f"- Score: **{out.get('teamQualityScore')}**")
+        lines.append("- **judge-pending** — run `compare.py <baseline> <candidate>` (two blind LLM judges).")
     lines += [
-        f"- Logical workers scored: {out.get('logicalWorkerCount')}",
-        f"- Failed/empty: {len(out.get('workerFailures', []))}",
-        f"- Writer consistency issues: {out.get('writerConsistency', {}).get('issueCount', 0)}",
+        f"- Answer/review workers (judged per-role by compare.py): {out.get('answerReviewWorkerCount')}",
+        f"- Failed/empty (truth): {len(out.get('workerFailures', []))}",
+        f"- Writer consistency issues (truth): {out.get('writerConsistency', {}).get('issueCount', 0)}",
         "",
     ]
     report = lab / "report.md"
     if report.exists():
         body = report.read_text()
-        marker = "## Team quality (heuristic)"
-        if marker in body:
-            body = body.split(marker)[0].rstrip() + "\n"
+        for m in (marker, "## Team quality (heuristic)"):
+            if m in body:
+                body = body.split(m)[0].rstrip() + "\n"
+                break
         report.write_text(body + "\n" + "\n".join(lines))
 
     print(json.dumps(out, indent=2))

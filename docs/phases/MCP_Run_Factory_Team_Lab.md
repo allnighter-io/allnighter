@@ -511,7 +511,72 @@ human note
 deterministic check
 ```
 
+## Judge Loop (v2, authoritative)
+
+Quality is judged, never scored. There is no deterministic number for judgment —
+deterministic scoring of judgment optimizes for stupid things (saying the magic
+words a heuristic likes). The only deterministic lane is **truth** (run contract +
+"did a worker return content" + writer consistency).
+
+The loop:
+
+```text
+0. Substrate gate: both runs must be run-contract green (compare.py refuses otherwise).
+1. Pick a FRESH input (scenario.py); run champion and candidate on that SAME input.
+2. BLIND output A/B: each judge sees only the two outputs (anonymized, order seeded),
+   never the prompts, model names, or which side is the candidate.
+3. Per WORKER: two different-family judges each pick A/B/tie. Bank the candidate's
+   prompt for that role iff BOTH pick the candidate. Tie/split/baseline -> incumbent.
+4. DELIVERABLE A/B (same blind method): the unit of suspicion. If a worker was banked
+   but the deliverable regressed, raise an interaction warning — do NOT unbank.
+5. Un-blind: the idea-engine reads the prompt diffs + verdicts and proposes the next
+   single-variable changes. It is NON-VOTING — it never decides keep/discard.
+6. Burn the input. Next round uses a new one.
+```
+
+Why this is more valid than judging prompts: the prompt is the method, the output
+is the result. A prompt that looks ridiculous but whose output two blind judges
+prefer, repeatedly, on fresh inputs, is working. Optimize for results.
+
+Roles:
+
+| Thing | Role | Decides? |
+| --- | --- | --- |
+| Per-worker blind A/B | unit of optimization — bank each role independently | YES (unanimous) |
+| Deliverable blind A/B | unit of suspicion — audit for interaction regressions | No (audit only) |
+| Idea-engine (un-blind) | propose next-round single-variable changes | No (advisory) |
+| Run contract (deterministic) | truth gate — may the run even be judged | Gate |
+
+Bias controls (the reason this is run in orchestration/isolation):
+
+- Two **different model families**; same model twice is a correlated echo, not a vote.
+- **Isolated, parallel, sealed** verdicts — no judge sees another's before committing.
+- **Blind + order-seeded** — the judge cannot tell which output is the new one.
+- **Incumbent wins ties** — the `AND` gate trades false-negatives for near-zero
+  false-positives; correct asymmetry for editing production prompts.
+- **Don't let a model judge its own family's output** as a deciding vote.
+- The input generator must not be the same model that judges that round.
+
+Honest limit: judges evaluate **artifacts, not outcomes**. Two judges preferring a
+packet is shared taste, not proof the diagnosis is right. Seed a few **verifiable
+cases** (known bug, known kill-test) to confirm "judges' better" tracks reality.
+
+Harness:
+
+```bash
+python3 scripts/team_lab/scenario.py <suite-id>            # fresh input + burn ledger
+python3 scripts/team_lab/run.py --suite <suite-id> ...     # champion run, candidate run
+python3 scripts/team_lab/compare.py <baseline_dir> <candidate_dir> [--hypotheses]
+# judges: export ALLN_JUDGE1_CMD / ALLN_JUDGE2_CMD to two DIFFERENT provider CLIs
+# (--mock runs deterministic judges for pipeline smoke without quota)
+```
+
 ## Evaluation Rubrics
+
+Only the **Run Contract Score** below is deterministic (it measures truth). The
+Worker / Writer / Team Quality criteria are **judge guidance for the blind A/B in
+the Judge Loop** — things a judge should weigh — NOT checklists that produce a
+score. Do not turn them back into deterministic counts.
 
 ### Run Contract Score
 
@@ -792,12 +857,12 @@ The `4/10 -> 9/10` headline is aspiration until these rules bind:
 - Writer consistency: discard worker claims contradicted by `experiment.json` and
   run-contract artifacts.
 
-The heuristic evaluator is a **smoke check, not a quality judge**: `expectedQualityHits`
-is token-substring matching and `structureMarkers` reward template words the worker
-prompts already mandate (reward-hacking risk). It must not move a `TeamCatalog`
-mutation. The evaluator has its own kill tests (`scripts/team_lab/test_scoring.py`)
-proving it fails a hidden-worker run, an empty answer, a stale-claim writer, and an
-`fsBypass` run — run that before trusting any scoring change.
+There is **no deterministic quality score** (removed 2026-06-21 — see § Judge Loop).
+Keyword/structure scoring rewarded the template words the prompts already mandate
+(Goodhart), so it optimized for theater. Quality is decided only by the two-judge
+blind A/B in `compare.py`. What stays deterministic is **truth**: the run-contract
+lane and the worker "did it return content" / writer-consistency checks, with their
+own kill tests (`test_scoring.py`, `test_judge.py`).
 
 ## Experiment Design (v1)
 
@@ -806,23 +871,30 @@ experiment declares, before running:
 
 ```text
 Hypothesis:        one sentence; what the change should improve and why.
-Changed variable:  exactly one (role, prompt field, model route, writer contract,
-                   evidence packet, topology). One variable per experiment.
-Held constant:     suite, case set, effort, support root, judge version.
-N:                 >= 3 runs per case (>= 5 if run-to-run spread is wide).
-Decision rule:     keep only on pairwise win (candidate vs baseline) on the SAME
-                   cases, with no run-contract regression and no new writer-
-                   consistency issues. Absolute heuristic deltas do not decide.
-Transfer guard:    a winning change must be neutral-or-better on >= 1 held-out
-                   case from another team family before promotion to built-in.
-Success bar:       repeatable; report mean + spread, not the best single run.
+Changed variable:  one OR MORE worker prompts. Per-worker blind A/B gives clean
+                   per-role attribution, so you are NOT limited to one variable for
+                   role-local prompt changes — change several, see which banked.
+                   (Structural changes — add/remove a worker — break 1:1 role
+                   mapping and fall back to the deliverable A/B.)
+Input discipline:  WITHIN a round both arms run the SAME input. BETWEEN rounds the
+                   input is FRESH and never reused (scenario.py + burn ledger).
+                   Reusing one input across rounds is overfitting (the Spec Upgrade
+                   mistake). Power comes from input DIVERSITY across rounds.
+N:                 1 run per arm per round is acceptable — a test of 1 beats a test
+                   of 0, and diversity across rounds accumulates the signal. Replay
+                   the same input >=3x only to MEASURE variance, never to claim a win.
+Decision rule:     bank a worker's candidate prompt iff BOTH blind judges pick the
+                   candidate for that role; any tie/split/baseline keeps incumbent.
+                   The deliverable A/B AUDITS (interaction warning) but never vetoes
+                   a clean per-worker win. No deterministic score decides anything.
+Transfer guard:    a banked change must keep winning on FRESH inputs over rounds;
+                   re-baseline periodically against GENESIS (not just last champion)
+                   to catch slow drift, and re-challenge banked workers occasionally.
 Negative results:  recorded, not discarded.
 ```
 
-Until an LLM rubric judge ships, "pairwise win" is human-judged from the packets
-and recorded as `humanNotes` — kept separate from heuristic scores, never folded
-into a single number. A judge, when added, is pinned to one model + version,
-stamped into `experiment.json`, and re-baselined when its version changes.
+The two judges are different model families, pinned + version-stamped, run in
+isolation. See § Judge Loop for the full mechanism.
 
 ## Implementation Slices
 

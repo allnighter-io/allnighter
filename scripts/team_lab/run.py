@@ -154,8 +154,9 @@ def write_experiment(
             "runContract": contract.get("runContractScore"),
             "fsBypass": contract.get("fsBypass"),
             "scoringSource": contract.get("scoringSource"),
-            "teamQuality": team_eval.get("teamQualityScore") if team_eval else None,
-            "teamQualityAuthoritative": contract.get("teamQualityAuthoritative", False),
+            # No deterministic team-quality score — quality is judged by compare.py.
+            "teamQuality": None,
+            "judgePending": team_eval.get("judgePending") if team_eval else None,
             "teamQualityWithheld": team_eval.get("teamQualityWithheld") if team_eval else None,
             "writerConsistencyIssues": (
                 team_eval.get("writerConsistency", {}).get("issueCount") if team_eval else None
@@ -379,22 +380,27 @@ def run_experiment(
         for c in contract["checks"]:
             mark = "ok" if c["ok"] else "FAIL"
             report_lines.append(f"- [{mark}] {c['name']}")
-        report_lines += ["", "## Team quality (heuristic)", ""]
+        report_lines += ["", "## Team quality", ""]
         if team_eval.get("teamQualityWithheld"):
             report_lines.append(
-                f"- Team quality: **withheld** ({team_eval.get('teamQualityWithheldReason')})"
+                f"- Quality not judgeable: **withheld** ({team_eval.get('teamQualityWithheldReason')}) — "
+                "fix the substrate before judging."
             )
         else:
-            report_lines.append(f"- Score: **{team_eval.get('teamQualityScore')}**")
+            report_lines.append(
+                "- Quality is **judge-pending** — no deterministic score. Run a blind "
+                "two-judge A/B against a baseline/candidate via `compare.py`."
+            )
         report_lines += [
             f"- Preflight-ready sources: {len(preflight.get('readyWorkers', []))} (incl. writer)",
-            f"- Answer/review workers scored (writer/plan excluded): {team_eval.get('logicalWorkerCount')}",
-            f"- Writer scored separately; consistency issues: {team_eval.get('writerConsistency', {}).get('issueCount', 0)}",
+            f"- Answer/review workers (judged per-role by compare.py): {team_eval.get('answerReviewWorkerCount')}",
+            f"- Writer consistency issues (truth check): {team_eval.get('writerConsistency', {}).get('issueCount', 0)}",
             "",
             "## Next",
             "",
-            "- Compare repeatability across rounds before expanding to other teams",
-            "- Tune one team variable; rerun same case",
+            "- Generate a FRESH input each round: `scenario.py <suite>` (never reuse an input)",
+            "- Blind A/B vs the champion run: `compare.py <baseline_dir> <candidate_dir>`",
+            "- Bank per-worker wins (both judges agree); audit the deliverable for regressions",
             "",
         ]
         (lab_dir / "report.md").write_text("\n".join(report_lines))

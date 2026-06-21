@@ -19,7 +19,7 @@ from scoring import (  # noqa: E402
     check_writer_consistency,
     evaluate_team_quality,
     score_run_contract,
-    score_worker,
+    worker_facts,
 )
 
 # A real committed suite/case so expectedQualities resolve through the same path run.py uses.
@@ -116,13 +116,13 @@ def score(lab: Path, status: str = "completed", run_id: str | None = "TEST-RUN")
 def main() -> int:
     root = Path(tempfile.mkdtemp(prefix="team_lab_test_"))
     try:
-        # 1. Good run: expectedQualities actually score (the ordering-bug regression).
+        # 1. Good run: judgeable, no deterministic score, content present.
         good = make_lab(root / "good")
         contract, team = score(good)
-        hits = [w["expectedQualityHits"] for w in team["workerScores"]]
-        check("good_run.expectedQualityHits>0", all(h > 0 for h in hits), f"hits={hits}")
+        check("good_run.no_deterministic_score", team["teamQualityScore"] is None)
+        check("good_run.judge_pending", team["judgePending"] and not team["teamQualityWithheld"])
+        check("good_run.workers_have_content", all(not w["failedOrEmpty"] for w in team["workerFacts"]))
         check("good_run.contract>=0.95", contract["runContractScore"] >= 0.95, str(contract["runContractScore"]))
-        check("good_run.team_quality_not_withheld", not team["teamQualityWithheld"])
         check("good_run.worker_status_check_ok",
               next(c["ok"] for c in contract["checks"] if c["name"] == "mcp_worker_status"))
 
@@ -135,8 +135,8 @@ def main() -> int:
         check("dropped_worker.contract<0.95", contract["runContractScore"] < 0.95, str(contract["runContractScore"]))
         check("dropped_worker.team_quality_withheld", team["teamQualityWithheld"])
 
-        # 3. Empty worker answer -> failedOrEmpty true.
-        empty = score_worker("model_x#0", "  ", expected=["classifies bug tier"])
+        # 3. Empty worker answer -> failedOrEmpty true (truth, not taste).
+        empty = worker_facts("model_x#0", "  ")
         check("empty_answer.failedOrEmpty", empty["failedOrEmpty"])
 
         # 4. Stale-claim writer on a completed run -> consistency issue flagged.

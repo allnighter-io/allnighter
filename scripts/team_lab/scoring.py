@@ -231,25 +231,17 @@ def score_run_contract(
     return out
 
 
-def score_worker(worker_id: str, text: str, expected: list[str]) -> dict[str, Any]:
-    lower = text.lower()
-    hits = [q for q in expected if any(tok in lower for tok in q.lower().split()[:3])]
-    novel_markers = [
-        "evidence inspected",
-        "confidence",
-        "falsif",
-        "missing observation",
-        "what i reject",
-        "mcp",
-        "contract",
-        "proof",
-    ]
-    structure_hits = sum(1 for m in novel_markers if m in lower)
+def worker_facts(worker_id: str, text: str) -> dict[str, Any]:
+    """Deterministic FACTS about a worker output — never a quality judgment.
+
+    Quality is decided by LLM judges (compare.py). Keyword/structure scoring was
+    removed: it rewarded the template words the prompts already mandate (Goodhart),
+    so it optimized for theater. The only deterministic claim we make is "did this
+    worker return real content," which is truth, not taste.
+    """
     return {
         "workerId": worker_id,
         "chars": len(text),
-        "expectedQualityHits": len(hits),
-        "structureMarkers": structure_hits,
         "failedOrEmpty": len(text.strip()) < 80,
     }
 
@@ -300,131 +292,58 @@ def check_writer_consistency(lab_dir: Path, writer_text: str) -> dict[str, Any]:
     }
 
 
-def build_evaluator_record(
-    *,
-    lab_dir: Path,
-    expected: list[str],
-    workers: dict[str, dict[str, Any]],
-    worker_scores: list[dict[str, Any]],
-    writer_score: dict[str, Any],
-    writer_consistency: dict[str, Any],
-    team_quality_score: float | None,
-    withheld: bool,
-    withheld_reason: str | None,
-) -> dict[str, Any]:
-    return {
-        "evaluatorVersion": "heuristic-v1",
-        "method": "keyword-heuristic",
-        "prompt": {
-            "instruction": (
-                "Score each worker answer for expected qualities and structure markers; "
-                "score writer bundle for dissent/proof/defer sections; "
-                "flag stale claims contradicted by experiment artifacts."
-            ),
-            "expectedQualities": expected,
-            "structureMarkers": [
-                "evidence inspected",
-                "confidence",
-                "falsif",
-                "missing observation",
-                "what i reject",
-                "mcp",
-                "contract",
-                "proof",
-            ],
-        },
-        "inputs": {
-            "workerCount": len(workers),
-            "workerIds": sorted(workers),
-            "scoringSource": next(iter(workers.values()), {}).get("source", "unknown"),
-            "writerSource": writer_score.get("source"),
-        },
-        "outputs": {
-            "workerScores": worker_scores,
-            "writerScore": writer_score,
-            "writerConsistency": writer_consistency,
-            "teamQualityScore": team_quality_score,
-            "teamQualityWithheld": withheld,
-            "teamQualityWithheldReason": withheld_reason,
-        },
-    }
-
-
 def evaluate_team_quality(lab_dir: Path) -> dict[str, Any]:
-    exp_path = lab_dir / "experiment.json"
-    exp = json.loads(exp_path.read_text()) if exp_path.exists() else {}
-    suite_id = exp.get("suiteId", "")
-    expected: list[str] = []
-    if suite_id:
-        suite_path = Path(__file__).resolve().parents[2] / "docs/team-lab/suites" / f"{suite_id}.json"
-        if suite_path.exists():
-            suite = json.loads(suite_path.read_text())
-            for case in suite.get("cases", []):
-                if case.get("caseId") == exp.get("caseId"):
-                    expected = case.get("expectedQualities", [])
-                    break
+    """Package artifacts + deterministic TRUTH checks. Quality is NOT scored here.
 
+    There is no deterministic quality number any more — judgment is deferred to the
+    two-judge blind A/B in compare.py. What stays deterministic is truth: did each
+    worker return content (failedOrEmpty), is the writer bundle present, and does it
+    contradict the run artifacts (writer consistency). `judgePending` marks that the
+    quality verdict is owned by the judges, not this file.
+    """
     contract_path = lab_dir / "evaluation" / "run-contract-score.json"
     contract = json.loads(contract_path.read_text()) if contract_path.exists() else {}
-    withheld = bool(contract.get("teamQualityWithheld"))
+    # A run whose substrate lied is not worth judging — the contract gate carries over.
+    judgeable = not bool(contract.get("teamQualityWithheld"))
     withheld_reason = contract.get("teamQualityWithheldReason")
 
     workers = load_logical_workers(lab_dir)
-    worker_scores = [
-        score_worker(wid, body["answerText"], expected) for wid, body in sorted(workers.items())
-    ]
+    facts = [worker_facts(wid, body["answerText"]) for wid, body in sorted(workers.items())]
     writer_text, writer_source = load_writer_bundle(lab_dir)
-    lower = writer_text.lower()
-    writer_score = {
-        "ok": bool(writer_text.strip()),
-        "source": writer_source,
-        "chars": len(writer_text),
-        "mentionsWorkers": sum(1 for wid in workers if wid.replace("#", "") in writer_text or wid in writer_text),
-        "hasDissent": "dissent" in lower or "reject" in lower,
-        "hasProofSection": "proof" in lower,
-        "hasCutOrDefer": "defer" in lower or "cut" in lower,
-    }
+    writer_present = {"ok": bool(writer_text.strip()), "source": writer_source, "chars": len(writer_text)}
     writer_consistency = check_writer_consistency(lab_dir, writer_text)
+    failures = [w for w in facts if w["failedOrEmpty"]]
 
-    failures = [w for w in worker_scores if w["failedOrEmpty"]]
-    team_quality: float | None = None
-    if not withheld and worker_scores:
-        ok_frac = 1.0 - (len(failures) / len(worker_scores))
-        struct_avg = sum(w["structureMarkers"] for w in worker_scores) / len(worker_scores)
-        team_quality = round(min(1.0, 0.5 * ok_frac + 0.1 * struct_avg), 3)
-        if not writer_consistency["ok"]:
-            team_quality = round(min(team_quality, 0.85), 3)
-
-    record = build_evaluator_record(
-        lab_dir=lab_dir,
-        expected=expected,
-        workers=workers,
-        worker_scores=worker_scores,
-        writer_score=writer_score,
-        writer_consistency=writer_consistency,
-        team_quality_score=team_quality,
-        withheld=withheld,
-        withheld_reason=withheld_reason,
-    )
+    record = {
+        "evaluatorVersion": "judge-deferred-v2",
+        "method": "deterministic truth checks only; quality judged by compare.py (two blind LLM judges)",
+        "inputs": {"answerReviewWorkerCount": len(facts), "writerSource": writer_source},
+        "outputs": {
+            "workerFacts": facts,
+            "writerPresent": writer_present,
+            "writerConsistency": writer_consistency,
+        },
+    }
 
     out = {
-        "workerScores": worker_scores,
-        "writerScore": writer_score,
-        "writerConsistency": writer_consistency,
-        "teamQualityScore": team_quality,
-        "teamQualityAuthoritative": False,
-        "teamQualityNote": contract.get(
-            "teamQualityNote",
-            "Heuristic v1 — not authoritative for TeamCatalog mutations until LLM rubric ships",
+        "schemaVersion": 2,
+        "teamQualityScore": None,
+        "judgePending": judgeable,
+        "judgeNote": (
+            "Quality is decided by compare.py (two blind LLM judges). No deterministic "
+            "quality score is emitted — keyword scoring was removed (it was theater)."
         ),
-        "teamQualityWithheld": withheld,
+        "teamQualityWithheld": not judgeable,
         "teamQualityWithheldReason": withheld_reason,
+        "workerFacts": facts,
+        "writerPresent": writer_present,
+        "writerConsistency": writer_consistency,
         "workerFailures": [w["workerId"] for w in failures],
-        "logicalWorkerCount": len(worker_scores),
+        "answerReviewWorkerCount": len(facts),
     }
 
     eval_dir = lab_dir / "evaluation"
     eval_dir.mkdir(exist_ok=True)
-    (eval_dir / "worker-scores.json").write_text(json.dumps(out, indent=2))
+    (eval_dir / "worker-facts.json").write_text(json.dumps(out, indent=2))
     (eval_dir / "evaluator-record.json").write_text(json.dumps(record, indent=2))
     return out

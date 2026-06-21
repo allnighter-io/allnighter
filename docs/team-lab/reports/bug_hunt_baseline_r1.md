@@ -11,7 +11,7 @@ Team: `code_bug_hunt` · Suite: `bug_hunt_repo_regressions_v1` · Case: `compose
 | --- | --- |
 | Run contract | **1.0** (`fsBypass=false`, all 9 checks ok incl. `mcp_worker_status`) |
 | Scoring source | `mcp` (journal diff-oracle only) |
-| Team quality (heuristic) | 0.725 — **non-authoritative**, do not mutate roles on it |
+| Team quality | **judge-pending** — the heuristic (0.725) was deleted as theater; quality now decided by the two-judge blind A/B (`compare.py`). See § Judge Loop. |
 | Writer consistency | 0 issues |
 | expectedQualityHits | 5/5 per worker (after harness ordering fix) |
 
