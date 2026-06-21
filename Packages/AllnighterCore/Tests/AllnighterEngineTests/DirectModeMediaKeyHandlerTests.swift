@@ -38,7 +38,12 @@ final class DirectModeMediaKeyHandlerTests: XCTestCase {
         XCTAssertEqual(response, DirectModeMediaKeyResponse(key: key))
         let requests = await provider.requests()
         XCTAssertEqual(requests, [
-            RecordingDirectModeMediaKeyProvider.Request(ref: "media_1", deviceId: "device_1", at: now),
+            RecordingDirectModeMediaKeyProvider.Request(
+                ref: "media_1",
+                macAgentId: "mac_1",
+                deviceId: "device_1",
+                at: now
+            ),
         ])
     }
 
@@ -103,6 +108,7 @@ final class DirectModeMediaKeyHandlerTests: XCTestCase {
 private actor RecordingDirectModeMediaKeyProvider: DirectModeMediaKeyProviding {
     struct Request: Equatable {
         var ref: String
+        var macAgentId: String
         var deviceId: String
         var at: Date
     }
@@ -114,8 +120,8 @@ private actor RecordingDirectModeMediaKeyProvider: DirectModeMediaKeyProviding {
         self.keys = keys
     }
 
-    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope? {
-        storedRequests.append(Request(ref: ref, deviceId: deviceId, at: at))
+    func mediaKey(ref: String, macAgentId: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope? {
+        storedRequests.append(Request(ref: ref, macAgentId: macAgentId, deviceId: deviceId, at: at))
         return keys["\(ref):\(deviceId)"]
     }
 

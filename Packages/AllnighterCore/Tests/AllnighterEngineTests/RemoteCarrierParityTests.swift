@@ -367,8 +367,8 @@ private struct RelayDirectModeMediaProvider: DirectModeMediaDataProviding, Direc
         try await relay.mediaData(ref: ref, macAgentId: macAgentId, at: at)
     }
 
-    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope? {
-        try await relay.mediaKey(ref: ref, deviceId: deviceId, at: at)
+    func mediaKey(ref: String, macAgentId: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope? {
+        try await relay.mediaKey(ref: ref, macAgentId: macAgentId, deviceId: deviceId, at: at)
     }
 }
 

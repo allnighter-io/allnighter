@@ -64,7 +64,7 @@ public struct RemoteMediaPublisher: Sendable {
         guard let key = keys.first else {
             return false
         }
-        try await relay.upsertMediaKey(key)
+        try await relay.upsertMediaKey(key, macAgentId: trustedDevice.macAgentId)
         return true
     }
 

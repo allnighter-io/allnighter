@@ -154,6 +154,7 @@ public actor CloudRemoteClient: RemoteClient {
         _ = try requireConnected()
         guard let key = try await relay.mediaKey(
             ref: ref.ref,
+            macAgentId: ref.macAgentId,
             deviceId: deviceId,
             at: now()
         ) else {

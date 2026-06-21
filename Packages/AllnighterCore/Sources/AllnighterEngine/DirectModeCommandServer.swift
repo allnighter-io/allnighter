@@ -160,7 +160,7 @@ public protocol DirectModeMediaKeyHandling: Sendable {
 }
 
 public protocol DirectModeMediaKeyProviding: Sendable {
-    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope?
+    func mediaKey(ref: String, macAgentId: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope?
 }
 
 public protocol DirectModeEventsHandling: Sendable {
@@ -313,6 +313,7 @@ public struct DirectModeMediaKeyHandler: DirectModeMediaKeyHandling {
 
         guard let key = try await provider.mediaKey(
             ref: request.ref,
+            macAgentId: request.macAgentId,
             deviceId: request.deviceId,
             at: now()
         ) else {

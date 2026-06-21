@@ -136,9 +136,9 @@ public protocol RemoteMacRelay: Sendable {
     func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws
     func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope?
     func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws
-    func upsertMediaKey(_ key: MediaKeyEnvelope) async throws
+    func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws
     func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data?
-    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope?
+    func mediaKey(ref: String, macAgentId: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope?
 }
 
 public actor MockRemoteMacRelay: RemoteMacRelay {
@@ -157,9 +157,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var publishedEventScopes: Set<PublishedEventKey>
     private var snapshotsByMac: [String: SnapshotEnvelope]
     private var snapshotScopesByMac: [String: PublishedEventScope]
-    private var mediaRefsById: [String: MediaRef]
-    private var mediaDataByRef: [String: Data]
-    private var mediaKeysByRef: [String: [String: MediaKeyEnvelope]]
+    private var mediaRefsById: [MediaStorageKey: MediaRef]
+    private var mediaDataByRef: [MediaStorageKey: Data]
+    private var mediaKeysByRef: [MediaStorageKey: [String: MediaKeyEnvelope]]
     private let pairRequestIdFactory: @Sendable () -> String
 
     public init(
@@ -451,36 +451,39 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
 
     public func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {
         eventLog.append("publishMedia")
-        mediaRefs.removeAll { $0.ref == ref.ref }
+        let key = MediaStorageKey(macAgentId: ref.macAgentId, ref: ref.ref)
+        mediaRefs.removeAll { $0.macAgentId == ref.macAgentId && $0.ref == ref.ref }
         mediaRefs.append(ref)
         mediaRefs.sort { $0.ref < $1.ref }
-        mediaRefsById[ref.ref] = ref
-        mediaDataByRef[ref.ref] = data
-        mediaKeysByRef[ref.ref] = Dictionary(uniqueKeysWithValues: keys.map { ($0.deviceId, $0) })
+        mediaRefsById[key] = ref
+        mediaDataByRef[key] = data
+        mediaKeysByRef[key] = Dictionary(uniqueKeysWithValues: keys.map { ($0.deviceId, $0) })
     }
 
-    public func upsertMediaKey(_ key: MediaKeyEnvelope) async throws {
+    public func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws {
         eventLog.append("upsertMediaKey")
-        mediaKeysByRef[key.ref, default: [:]][key.deviceId] = key
+        mediaKeysByRef[MediaStorageKey(macAgentId: macAgentId, ref: key.ref), default: [:]][key.deviceId] = key
     }
 
     public func mediaData(ref: String, macAgentId: String, at now: Date) async throws -> Data? {
         eventLog.append("mediaData")
-        guard let mediaRef = mediaRefsById[ref],
+        let key = MediaStorageKey(macAgentId: macAgentId, ref: ref)
+        guard let mediaRef = mediaRefsById[key],
               mediaRef.macAgentId == macAgentId,
               mediaRef.expiresAt >= now else {
             return nil
         }
-        return mediaDataByRef[ref]
+        return mediaDataByRef[key]
     }
 
-    public func mediaKey(ref: String, deviceId: String, at now: Date) async throws -> MediaKeyEnvelope? {
+    public func mediaKey(ref: String, macAgentId: String, deviceId: String, at now: Date) async throws -> MediaKeyEnvelope? {
         eventLog.append("mediaKey")
-        guard let mediaRef = mediaRefsById[ref],
+        let key = MediaStorageKey(macAgentId: macAgentId, ref: ref)
+        guard let mediaRef = mediaRefsById[key],
               mediaRef.expiresAt >= now else {
             return nil
         }
-        return mediaKeysByRef[ref]?[deviceId]
+        return mediaKeysByRef[key]?[deviceId]
     }
 
     public func setTrustedDevices(_ devices: [TrustedDevice], macAgentId: String) {
@@ -521,5 +524,10 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         var macAgentId: String
         var eventId: String
         var seq: Int64
+    }
+
+    private struct MediaStorageKey: Hashable, Sendable {
+        var macAgentId: String
+        var ref: String
     }
 }

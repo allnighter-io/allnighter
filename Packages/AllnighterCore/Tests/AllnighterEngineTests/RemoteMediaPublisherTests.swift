@@ -35,6 +35,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertEqual(data, encryptedData)
         let fetchedActiveEnvelope = try await relay.mediaKey(
             ref: "media_1",
+            macAgentId: "mac_1",
             deviceId: "device_active",
             at: now
         )
@@ -42,6 +43,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertEqual(try RemoteMediaCrypto.openContentKey(activeEnvelope, with: activeKey), contentKey)
         let revokedEnvelope = try await relay.mediaKey(
             ref: "media_1",
+            macAgentId: "mac_1",
             deviceId: "device_revoked",
             at: now
         )
@@ -84,6 +86,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertFalse(String(decoding: encryptedData, as: UTF8.self).contains("secret board image bytes"))
         let fetchedEnvelope = try await relay.mediaKey(
             ref: "media_plain",
+            macAgentId: "mac_1",
             deviceId: "device_active",
             at: now
         )
@@ -131,6 +134,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertEqual(data, Data("ciphertext".utf8))
         let fetchedLaterEnvelope = try await relay.mediaKey(
             ref: "media_reseal",
+            macAgentId: "mac_1",
             deviceId: "device_later",
             at: now
         )
@@ -138,6 +142,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertEqual(try RemoteMediaCrypto.openContentKey(laterEnvelope, with: laterKey), contentKey)
         let revokedEnvelope = try await relay.mediaKey(
             ref: "media_reseal",
+            macAgentId: "mac_1",
             deviceId: "device_revoked",
             at: now
         )

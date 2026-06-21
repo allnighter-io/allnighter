@@ -13,8 +13,8 @@ final class RemoteMediaRelayTests: XCTestCase {
 
         let data = try await relay.mediaData(ref: "media_1", macAgentId: "mac_1", at: now)
         let wrongMac = try await relay.mediaData(ref: "media_1", macAgentId: "mac_other", at: now)
-        let fetchedKey = try await relay.mediaKey(ref: "media_1", deviceId: "device_1", at: now)
-        let missingKey = try await relay.mediaKey(ref: "media_1", deviceId: "device_2", at: now)
+        let fetchedKey = try await relay.mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_1", at: now)
+        let missingKey = try await relay.mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_2", at: now)
 
         XCTAssertEqual(data, Data("ciphertext".utf8))
         XCTAssertNil(wrongMac)
@@ -31,7 +31,7 @@ final class RemoteMediaRelayTests: XCTestCase {
         )
 
         let data = try await relay.mediaData(ref: "media_expired", macAgentId: "mac_1", at: now)
-        let key = try await relay.mediaKey(ref: "media_expired", deviceId: "device_1", at: now)
+        let key = try await relay.mediaKey(ref: "media_expired", macAgentId: "mac_1", deviceId: "device_1", at: now)
 
         XCTAssertNil(data)
         XCTAssertNil(key)
@@ -47,11 +47,11 @@ final class RemoteMediaRelayTests: XCTestCase {
             keys: [firstKey]
         )
 
-        try await relay.upsertMediaKey(secondKey)
+        try await relay.upsertMediaKey(secondKey, macAgentId: "mac_1")
 
         let data = try await relay.mediaData(ref: "media_1", macAgentId: "mac_1", at: now)
-        let fetchedFirst = try await relay.mediaKey(ref: "media_1", deviceId: "device_1", at: now)
-        let fetchedSecond = try await relay.mediaKey(ref: "media_1", deviceId: "device_2", at: now)
+        let fetchedFirst = try await relay.mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_1", at: now)
+        let fetchedSecond = try await relay.mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_2", at: now)
 
         XCTAssertEqual(data, Data("ciphertext".utf8))
         XCTAssertEqual(fetchedFirst, firstKey)
@@ -73,18 +73,61 @@ final class RemoteMediaRelayTests: XCTestCase {
         )
 
         let data = try await relay.mediaData(ref: "media_refresh", macAgentId: "mac_1", at: now)
-        let oldKey = try await relay.mediaKey(ref: "media_refresh", deviceId: "device_old", at: now)
-        let newKey = try await relay.mediaKey(ref: "media_refresh", deviceId: "device_new", at: now)
+        let oldKey = try await relay.mediaKey(ref: "media_refresh", macAgentId: "mac_1", deviceId: "device_old", at: now)
+        let newKey = try await relay.mediaKey(ref: "media_refresh", macAgentId: "mac_1", deviceId: "device_new", at: now)
 
         XCTAssertEqual(data, Data("new-ciphertext".utf8))
         XCTAssertNil(oldKey)
         XCTAssertEqual(newKey, mediaKey(ref: "media_refresh", deviceId: "device_new"))
     }
 
-    private func mediaRef(ref: String, expiresAt: Date) -> MediaRef {
+    func testSameRefStaysScopedByMacAgent() async throws {
+        let relay = MockRemoteMacRelay()
+        let firstKey = mediaKey(ref: "media_shared", deviceId: "device_1")
+        let secondKey = mediaKey(ref: "media_shared", deviceId: "device_2")
+        try await relay.publishMedia(
+            ref: mediaRef(ref: "media_shared", macAgentId: "mac_1", expiresAt: now.addingTimeInterval(60)),
+            data: Data("mac-1-ciphertext".utf8),
+            keys: [firstKey]
+        )
+        try await relay.publishMedia(
+            ref: mediaRef(ref: "media_shared", macAgentId: "mac_2", expiresAt: now.addingTimeInterval(60)),
+            data: Data("mac-2-ciphertext".utf8),
+            keys: [secondKey]
+        )
+
+        let firstData = try await relay.mediaData(ref: "media_shared", macAgentId: "mac_1", at: now)
+        let secondData = try await relay.mediaData(ref: "media_shared", macAgentId: "mac_2", at: now)
+        let firstFetchedKey = try await relay.mediaKey(
+            ref: "media_shared",
+            macAgentId: "mac_1",
+            deviceId: "device_1",
+            at: now
+        )
+        let secondFetchedKey = try await relay.mediaKey(
+            ref: "media_shared",
+            macAgentId: "mac_2",
+            deviceId: "device_2",
+            at: now
+        )
+        let wrongMacKey = try await relay.mediaKey(
+            ref: "media_shared",
+            macAgentId: "mac_1",
+            deviceId: "device_2",
+            at: now
+        )
+
+        XCTAssertEqual(firstData, Data("mac-1-ciphertext".utf8))
+        XCTAssertEqual(secondData, Data("mac-2-ciphertext".utf8))
+        XCTAssertEqual(firstFetchedKey, firstKey)
+        XCTAssertEqual(secondFetchedKey, secondKey)
+        XCTAssertNil(wrongMacKey)
+    }
+
+    private func mediaRef(ref: String, macAgentId: String = "mac_1", expiresAt: Date) -> MediaRef {
         MediaRef(
             ref: ref,
-            macAgentId: "mac_1",
+            macAgentId: macAgentId,
             r2Key: "r2/\(ref)",
             contentType: "image/png",
             expiresAt: expiresAt
