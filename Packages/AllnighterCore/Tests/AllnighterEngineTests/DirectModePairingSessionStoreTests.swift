@@ -61,6 +61,16 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.load().sessions.first?.status, .expired)
     }
 
+    func testActivePersistsExpiredSessions() throws {
+        let payload = pairingPayload(pairingToken: "token_expired", expiresAt: now.addingTimeInterval(1))
+        _ = try store.arm(payload: payload, now: now)
+
+        let active = store.active(now: now.addingTimeInterval(2))
+
+        XCTAssertTrue(active.isEmpty)
+        XCTAssertEqual(store.load().sessions.first?.status, .expired)
+    }
+
     func testBadPairingTokenAttemptsLockOutActiveSession() throws {
         let payload = pairingPayload(pairingToken: "token_good", expiresAt: now.addingTimeInterval(120))
         _ = try store.arm(payload: payload, now: now, maxFailedAttempts: 2)

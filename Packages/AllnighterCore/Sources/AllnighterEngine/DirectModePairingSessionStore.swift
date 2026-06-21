@@ -107,7 +107,9 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
 
     public func active(now: Date = Date()) -> [DirectModePairingSession] {
         var registry = load()
-        expireSessions(in: &registry, now: now)
+        if expireSessions(in: &registry, now: now) {
+            _ = try? save(registry)
+        }
         return registry.sessions.filter { $0.isArmed(at: now) }
     }
 
@@ -193,12 +195,16 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
         }
     }
 
-    private func expireSessions(in registry: inout DirectModePairingRegistry, now: Date) {
+    @discardableResult
+    private func expireSessions(in registry: inout DirectModePairingRegistry, now: Date) -> Bool {
+        var didExpire = false
         for index in registry.sessions.indices
             where registry.sessions[index].status == .armed
                 && registry.sessions[index].isExpired(at: now) {
             registry.sessions[index].status = .expired
+            didExpire = true
         }
+        return didExpire
     }
 
     private func recordFailedAttempt(in registry: inout DirectModePairingRegistry, now: Date) {
