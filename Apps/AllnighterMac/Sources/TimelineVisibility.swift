@@ -155,4 +155,26 @@ enum TimelineScrollPolicy {
             withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
         }
     }
+
+    /// RLS-S04 auto-follow: a streaming answer grows the LAST turn's text without changing
+    /// the turn count, so nothing scrolls and the screen looks frozen. While the user is at
+    /// the bottom we follow the growing content; once they scroll up we stop fighting them.
+    /// `slack` lets "near the bottom" still count as following.
+    static func isAtBottom(contentBottomY: CGFloat, viewportBottomY: CGFloat, slack: CGFloat = 120) -> Bool {
+        contentBottomY <= viewportBottomY + slack
+    }
+
+    /// A monotonic signal that grows as the last turn streams (answer + reasoning length),
+    /// or 0 when nothing is running — `onChange` on it drives the live follow-scroll.
+    static func liveContentSignal(for thread: WorkThread) -> Int {
+        guard let last = thread.turns.last, last.status == .running else { return 0 }
+        return (last.text?.count ?? 0) &+ (last.reasoningText?.count ?? 0)
+    }
+}
+
+/// Reports the global maxY of the timeline content's bottom sentinel, so the timeline can
+/// tell whether the user is parked at the bottom (RLS-S04 auto-follow gate).
+struct TimelineBottomSentinelKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
