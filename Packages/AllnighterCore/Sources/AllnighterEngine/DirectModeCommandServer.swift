@@ -33,12 +33,40 @@ public struct DirectModeSnapshotRequest: Codable, Equatable, Sendable {
     }
 }
 
+public struct DirectModeMediaRequest: Codable, Equatable, Sendable {
+    public var accountId: String
+    public var macAgentId: String
+    public var ref: String
+    public var checkedAt: Date
+
+    public init(accountId: String, macAgentId: String, ref: String, checkedAt: Date) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.ref = ref
+        self.checkedAt = checkedAt
+    }
+}
+
+public struct DirectModeMediaResponse: Codable, Equatable, Sendable {
+    public var ref: String
+    public var data: Data
+
+    public init(ref: String, data: Data) {
+        self.ref = ref
+        self.data = data
+    }
+}
+
 public protocol DirectModeCommandHandling: Sendable {
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope
 }
 
 public protocol DirectModeSnapshotHandling: Sendable {
     func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope
+}
+
+public protocol DirectModeMediaHandling: Sendable {
+    func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse
 }
 
 public struct DirectModeCommandHandler: DirectModeCommandHandling {
@@ -121,12 +149,14 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     public static let pairingPath = "/remote/pair"
     public static let pairingStatusPath = "/remote/pair/status"
     public static let snapshotPath = "/remote/snapshot"
+    public static let mediaPath = "/remote/media"
 
     private let lock = NSLock()
     private let handler: any DirectModeCommandHandling
     private let pairingHandler: (any DirectModePairingHandling)?
     private let pairingStatusHandler: (any DirectModePairingStatusHandling)?
     private let snapshotHandler: (any DirectModeSnapshotHandling)?
+    private let mediaHandler: (any DirectModeMediaHandling)?
     private let maxRequestBytes: Int
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
@@ -137,12 +167,14 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         pairingHandler: (any DirectModePairingHandling)? = nil,
         pairingStatusHandler: (any DirectModePairingStatusHandling)? = nil,
         snapshotHandler: (any DirectModeSnapshotHandling)? = nil,
+        mediaHandler: (any DirectModeMediaHandling)? = nil,
         maxRequestBytes: Int = 512 * 1024
     ) {
         self.handler = handler
         self.pairingHandler = pairingHandler
         self.pairingStatusHandler = pairingStatusHandler
         self.snapshotHandler = snapshotHandler
+        self.mediaHandler = mediaHandler
         self.maxRequestBytes = max(1024, maxRequestBytes)
     }
 
@@ -271,6 +303,18 @@ public final class DirectModeCommandServer: @unchecked Sendable {
             do {
                 let snapshotRequest = try CoreJSON.decode(DirectModeSnapshotRequest.self, from: request.body)
                 let response = try await snapshotHandler.snapshot(snapshotRequest)
+                writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
+            } catch {
+                writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)
+            }
+        case Self.mediaPath:
+            guard let mediaHandler else {
+                writeJSON(["error": "not_found"], status: "404 Not Found", to: client)
+                return
+            }
+            do {
+                let mediaRequest = try CoreJSON.decode(DirectModeMediaRequest.self, from: request.body)
+                let response = try await mediaHandler.media(mediaRequest)
                 writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
             } catch {
                 writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)

@@ -81,6 +81,53 @@ final class DirectModeRemoteClientTests: XCTestCase {
         ])
     }
 
+    func testClientFetchesSealedMediaFromLoopbackServer() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let mediaHandler = RecordingDirectModeClientMediaHandler(response: DirectModeMediaResponse(
+            ref: "media_1",
+            data: Data("ciphertext".utf8)
+        ))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            mediaHandler: mediaHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+        let ref = MediaRef(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            r2Key: "direct/media_1",
+            contentType: "image/png",
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        let data = try await client.fetchSealed(ref)
+
+        XCTAssertEqual(data, Data("ciphertext".utf8))
+        XCTAssertEqual(mediaHandler.requests, [
+            DirectModeMediaRequest(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                ref: "media_1",
+                checkedAt: now
+            ),
+        ])
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let otherSigningKey = Curve25519.Signing.PrivateKey()
@@ -237,6 +284,25 @@ private final class RecordingDirectModeClientSnapshotHandler: DirectModeSnapshot
     func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope {
         lock.withLock { storedRequests.append(request) }
         return storedSnapshot
+    }
+}
+
+private final class RecordingDirectModeClientMediaHandler: DirectModeMediaHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedResponse: DirectModeMediaResponse
+    private var storedRequests: [DirectModeMediaRequest] = []
+
+    init(response: DirectModeMediaResponse) {
+        self.storedResponse = response
+    }
+
+    var requests: [DirectModeMediaRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse {
+        lock.withLock { storedRequests.append(request) }
+        return storedResponse
     }
 }
 

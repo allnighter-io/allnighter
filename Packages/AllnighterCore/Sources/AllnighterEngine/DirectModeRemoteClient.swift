@@ -38,6 +38,7 @@ public enum DirectModeRemoteClientError: Error, Equatable, Sendable {
     case badAckEnvelope
     case badAckSignature
     case badSnapshotResponse
+    case badMediaResponse
     case unsupportedOperation(String)
 }
 
@@ -139,7 +140,27 @@ public actor DirectModeRemoteClient: RemoteClient {
     }
 
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
-        throw DirectModeRemoteClientError.unsupportedOperation("fetchSealed")
+        let account = try requireConnected()
+        try requireMac(ref.macAgentId)
+        let mediaURL = routeURLString(DirectModeCommandServer.mediaPath, baseURL: endpoint.baseURL)
+        guard let url = URL(string: mediaURL) else {
+            throw DirectModeRemoteClientError.invalidEndpoint(mediaURL)
+        }
+        let request = DirectModeMediaRequest(
+            accountId: account.accountId,
+            macAgentId: ref.macAgentId,
+            ref: ref.ref,
+            checkedAt: now()
+        )
+        let response = try await poster.postJSON(CoreJSON.encode(request), to: url)
+        guard (200..<300).contains(response.statusCode) else {
+            throw DirectModeRemoteClientError.httpStatus(response.statusCode)
+        }
+        guard let decoded = try? CoreJSON.decode(DirectModeMediaResponse.self, from: response.body),
+              decoded.ref == ref.ref else {
+            throw DirectModeRemoteClientError.badMediaResponse
+        }
+        return decoded.data
     }
 
     public func diagnose() async -> ConnectionDiagnosis {

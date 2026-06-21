@@ -117,6 +117,31 @@ final class DirectModeCommandServerTests: XCTestCase {
         XCTAssertTrue(commandHandler.entries.isEmpty)
     }
 
+    func testLoopbackCommandServerPostsMediaRequestToHandler() throws {
+        let commandHandler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
+        let mediaHandler = RecordingDirectModeMediaHandler(response: DirectModeMediaResponse(
+            ref: "media_1",
+            data: Data("ciphertext".utf8)
+        ))
+        let server = DirectModeCommandServer(handler: commandHandler, mediaHandler: mediaHandler)
+        defer { server.stop() }
+        let port = try server.start()
+        let request = DirectModeMediaRequest(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            ref: "media_1",
+            checkedAt: now
+        )
+
+        let result = try postMedia(request, port: port)
+
+        XCTAssertEqual(result.statusCode, 200)
+        let response = try CoreJSON.decode(DirectModeMediaResponse.self, from: result.body)
+        XCTAssertEqual(response.data, Data("ciphertext".utf8))
+        XCTAssertEqual(mediaHandler.requests, [request])
+        XCTAssertTrue(commandHandler.entries.isEmpty)
+    }
+
     func testLoopbackCommandServerRejectsPairingPathWithoutPairingHandler() throws {
         let handler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
         let server = DirectModeCommandServer(handler: handler)
@@ -161,6 +186,15 @@ final class DirectModeCommandServerTests: XCTestCase {
         try self.request(
             method: "POST",
             path: DirectModeCommandServer.snapshotPath,
+            body: CoreJSON.encode(request),
+            port: port
+        )
+    }
+
+    private func postMedia(_ request: DirectModeMediaRequest, port: UInt16) throws -> HTTPResult {
+        try self.request(
+            method: "POST",
+            path: DirectModeCommandServer.mediaPath,
             body: CoreJSON.encode(request),
             port: port
         )
@@ -398,6 +432,25 @@ private final class RecordingDirectModeSnapshotHandler: DirectModeSnapshotHandli
     func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope {
         lock.withLock { storedRequests.append(request) }
         return storedSnapshot
+    }
+}
+
+private final class RecordingDirectModeMediaHandler: DirectModeMediaHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedResponse: DirectModeMediaResponse
+    private var storedRequests: [DirectModeMediaRequest] = []
+
+    init(response: DirectModeMediaResponse) {
+        self.storedResponse = response
+    }
+
+    var requests: [DirectModeMediaRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse {
+        lock.withLock { storedRequests.append(request) }
+        return storedResponse
     }
 }
 
