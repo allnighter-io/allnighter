@@ -109,12 +109,14 @@ public protocol RemoteMacRelay: Sendable {
     func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice]
     func pendingCommands(accountId: String, macAgentId: String, limit: Int) async throws -> [RemoteCommandInboxEntry]
     func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws
+    func publishEvents(accountId: String, macAgentId: String, events: [RemoteRunEventEnvelope]) async throws
 }
 
 public actor MockRemoteMacRelay: RemoteMacRelay {
     public private(set) var registrations: [RemoteMacAgentRegistration] = []
     public private(set) var heartbeats: [RemoteMacAgentHeartbeat] = []
     public private(set) var acknowledgements: [RemoteCommandAckEnvelope] = []
+    public private(set) var publishedEvents: [RemoteRunEventEnvelope] = []
     public private(set) var eventLog: [String] = []
 
     private var macs: [String: MacAgentRef]
@@ -180,6 +182,15 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         }
         entries[index].status = .acked
         inboxByMac[envelope.macAgentId] = entries
+    }
+
+    public func publishEvents(
+        accountId _: String,
+        macAgentId _: String,
+        events: [RemoteRunEventEnvelope]
+    ) async throws {
+        eventLog.append("publishEvents")
+        publishedEvents.append(contentsOf: events)
     }
 
     public func setTrustedDevices(_ devices: [TrustedDevice], macAgentId: String) {

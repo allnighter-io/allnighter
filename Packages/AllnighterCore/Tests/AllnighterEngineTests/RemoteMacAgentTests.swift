@@ -499,6 +499,12 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
     }
 
     func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws {}
+
+    func publishEvents(
+        accountId: String,
+        macAgentId: String,
+        events: [RemoteRunEventEnvelope]
+    ) async throws {}
 }
 
 private extension NSLock {
