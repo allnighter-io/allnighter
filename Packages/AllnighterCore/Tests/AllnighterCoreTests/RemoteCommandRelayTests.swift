@@ -36,8 +36,38 @@ final class RemoteCommandRelayTests: XCTestCase {
         XCTAssertEqual(pending, [replacement])
     }
 
+    func testSubmitCommandPreservesSameRequestIdForOtherAccount() async throws {
+        let relay = MockRemoteMacRelay()
+        let firstAccount = commandEntry(requestId: "req_shared", accountId: "acct_1")
+        let secondAccount = commandEntry(requestId: "req_shared", accountId: "acct_2")
+
+        try await relay.submitCommand(firstAccount)
+        try await relay.submitCommand(secondAccount)
+
+        let firstPending = try await relay.pendingCommands(accountId: "acct_1", macAgentId: "mac_1", limit: 10)
+        let secondPending = try await relay.pendingCommands(accountId: "acct_2", macAgentId: "mac_1", limit: 10)
+        XCTAssertEqual(firstPending, [firstAccount])
+        XCTAssertEqual(secondPending, [secondAccount])
+    }
+
+    func testAcknowledgeClearsOnlyMatchingAccountRequest() async throws {
+        let relay = MockRemoteMacRelay()
+        let firstAccount = commandEntry(requestId: "req_shared", accountId: "acct_1")
+        let secondAccount = commandEntry(requestId: "req_shared", accountId: "acct_2")
+        try await relay.submitCommand(firstAccount)
+        try await relay.submitCommand(secondAccount)
+
+        try await relay.acknowledge(ackEnvelope(requestId: "req_shared", accountId: "acct_2"))
+
+        let firstPending = try await relay.pendingCommands(accountId: "acct_1", macAgentId: "mac_1", limit: 10)
+        let secondPending = try await relay.pendingCommands(accountId: "acct_2", macAgentId: "mac_1", limit: 10)
+        XCTAssertEqual(firstPending, [firstAccount])
+        XCTAssertTrue(secondPending.isEmpty)
+    }
+
     private func commandEntry(
         requestId: String,
+        accountId: String = "acct_1",
         createdAt: Date? = nil
     ) -> RemoteCommandInboxEntry {
         let assertion = DeviceAssertion(
@@ -56,7 +86,7 @@ final class RemoteCommandRelayTests: XCTestCase {
         )
         return RemoteCommandInboxEntry(
             requestId: requestId,
-            accountId: "acct_1",
+            accountId: accountId,
             macAgentId: "mac_1",
             fromDeviceId: "device_1",
             command: command,
@@ -64,10 +94,10 @@ final class RemoteCommandRelayTests: XCTestCase {
         )
     }
 
-    private func ackEnvelope(requestId: String) -> RemoteCommandAckEnvelope {
+    private func ackEnvelope(requestId: String, accountId: String = "acct_1") -> RemoteCommandAckEnvelope {
         RemoteCommandAckEnvelope(
             requestId: requestId,
-            accountId: "acct_1",
+            accountId: accountId,
             macAgentId: "mac_1",
             ack: CommandAck(
                 requestId: requestId,

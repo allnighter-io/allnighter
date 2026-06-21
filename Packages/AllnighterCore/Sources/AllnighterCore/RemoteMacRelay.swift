@@ -332,7 +332,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     public func submitCommand(_ entry: RemoteCommandInboxEntry) async throws {
         eventLog.append("submitCommand")
         var entries = inboxByMac[entry.macAgentId, default: []]
-        entries.removeAll { $0.requestId == entry.requestId }
+        entries.removeAll {
+            $0.accountId == entry.accountId && $0.requestId == entry.requestId
+        }
         entries.append(entry)
         entries.sort {
             if $0.createdAt == $1.createdAt { return $0.requestId < $1.requestId }
@@ -370,7 +372,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         eventLog.append("acknowledge")
         acknowledgements.append(envelope)
         guard var entries = inboxByMac[envelope.macAgentId],
-              let index = entries.firstIndex(where: { $0.requestId == envelope.requestId }) else {
+              let index = entries.firstIndex(where: {
+                  $0.accountId == envelope.accountId && $0.requestId == envelope.requestId
+              }) else {
             return
         }
         entries[index].status = .acked
