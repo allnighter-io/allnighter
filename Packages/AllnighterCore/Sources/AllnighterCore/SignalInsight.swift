@@ -132,22 +132,8 @@ public enum SignalInsightParser {
         return try? CoreJSON.decode(SignalInsight.self, from: Data(json.utf8))
     }
 
-    /// Extract the contents of the first ```<fence> … ``` code block.
+    /// Extract the contents of the first ```<fence> … ``` code block (shared helper).
     static func fencedBlock(in text: String, fence: String) -> String? {
-        let lines = text.components(separatedBy: "\n")
-        var collecting = false
-        var collected: [String] = []
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if !collecting {
-                if trimmed == "```\(fence)" || trimmed == "``` \(fence)" { collecting = true }
-            } else {
-                if trimmed == "```" {
-                    return collected.joined(separator: "\n")
-                }
-                collected.append(line)
-            }
-        }
-        return nil
+        FencedBlock.extract(from: text, fence: fence)
     }
 }

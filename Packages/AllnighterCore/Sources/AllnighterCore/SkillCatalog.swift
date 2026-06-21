@@ -651,6 +651,38 @@ public enum SkillCatalog {
           expect), never as a gate. Honest low confidence means "expect to iterate", not stop.
         This packet is the hand-off to a fix attempt: it must let one disciplined worker try \
         the top hypothesis, run the proof, and — if it fails — narrow to the next.
+
+        After the human-readable packet, append a machine-readable block EXACTLY in this form \
+        (a fenced code block tagged fix-packet) so the fix attempt can be wired automatically:
+
+        ```fix-packet
+        {
+          "schemaVersion": 1,
+          "seam": "<boundary the bug crosses, or null>",
+          "symptom": "<one line>",
+          "repro": "<smallest steps>",
+          "bugFingerprint": "<short>",
+          "truthOwner": "<who owns the truth>",
+          "lieProneLayer": "<layer that looks correct but isn't>",
+          "hypotheses": [
+            {"id": "h1", "cause": "<most likely cause>", "experiment": "<cheapest confirm/refute>", "fix": "<smallest change to try>", "fixBoundary": "<apply only here>"}
+          ],
+          "ruledOut": [],
+          "proofMethod": "command | guiFixture | userObservation",
+          "proofCommand": "<exact command, when proofMethod is command>",
+          "guiProofFixture": "<fixture, when proofMethod is guiFixture>",
+          "requiresLayoutWatcher": false,
+          "harnessNeeded": false,
+          "harnessSketch": "<minimal isolation target, when harnessNeeded>",
+          "confidenceOrdering": "low | medium | high",
+          "expectedRounds": 1,
+          "tier": "T0 Fast | T1 Boundary | T2 SSOT | T3 Critical",
+          "dangerFlags": []
+        }
+        ```
+
+        Rank `hypotheses` most-likely first. Set `dangerFlags` honestly (credentials, deletion \
+        outside boundary, deploy, billing) — those block an auto-attempt. Never omit the block.
         """),
         writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
