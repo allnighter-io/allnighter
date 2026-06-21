@@ -4,7 +4,7 @@ Status: Draft — first active foundation prep slice; no iOS UI.
 Milestone: iOS foundation
 Owner: Mac + Shared Core
 Created: 2026-06-19
-Updated: 2026-06-19
+Updated: 2026-06-21
 Depends on: `README.md`, `00_iOS_Transport_Decision.md`, `01_Connection_Spine.md`,
 `01a_Pairing_Ceremony.md`, `../CLI_Product_Spine.md`,
 `../CLI_Implementation_Contract.md`, `../Mac_Standalone_App_And_Background_Coordinator.md`
@@ -24,8 +24,8 @@ the foundation contracts in `00`, `01`, and `01a`.
 | Area | State |
 | --- | --- |
 | CLI spine | `alln` M1 is built; async team, Pending, Project core pieces, and MCP pieces exist. |
-| Coordinator | `alln serve` exists as a resident coordinator with health/wake behavior. It is not yet the cloud outbound agent and not yet the Direct Mode command/event HTTP/WS server. |
-| Run durability | `RunStore` writes non-terminal `run.json` snapshots + `owner.pid` and reads dead owners as `interrupted`. It does not yet write append-only `events.jsonl` or a persisted global monotonic `seq`. |
+| Coordinator | `alln serve` exists as a resident coordinator with health/wake behavior. Headless remote Mac-agent, command-router, event-sync, snapshot-publisher, cloud-relay adapter, and Direct Mode carrier code exists in Core/Engine; app/launchd runtime wiring and the carrier Works Test remain. |
+| Run durability | `RunStore` writes non-terminal `run.json` snapshots + `owner.pid` and reads dead owners as `interrupted`. `RemoteRunEventJournal` writes append-only per-run `events.jsonl` plus a persisted global monotonic `seq`, and `AsyncTeamService` records async team coordinator events there. Carrier-level restart/resume proof remains. |
 | Event vocabulary | Remote output is frozen to public `run.*`, `worker.*`, and `stage.*` kinds. `RunEventKind` no longer exposes `synthesis.*`; remote signing rejects private `synthesis.*` inputs. |
 | iOS scaffold | `Apps/AllnighteriOS/` is still the SwiftData starter scaffold with `Item.swift`, `ModelContainer`, and a hand-managed `.xcodeproj`. It is quarantined; no foundation work should depend on it. |
 | Project Manager | Project Core slices PRJ-S00-S06 are built; Project CLI/Manager/proposal/verification slices PRJ-S07-S13 are still moving. Remote foundation must not promise the phone Project Manager UI yet. |
@@ -65,7 +65,8 @@ swift test --package-path Packages/AllnighterCore --disable-sandbox
 rg -n -e "allnighter serve" -e "allnighter pair" -e "allnighter://pair" -e "Allnighter/Allnighter[.]xcodeproj" docs/phases/ios/README.md docs/phases/ios/00_iOS_Transport_Decision.md docs/phases/ios/01_Connection_Spine.md docs/phases/ios/01a_Pairing_Ceremony.md
 ```
 
-The `rg` command should return no matches in the routed foundation docs.
+The `rg` command should return no matches in the routed foundation docs. `00a`
+is intentionally omitted from that command because it contains the check itself.
 
 Done when:
 The foundation docs are current, the pre-code gates below are explicit, and no doc
@@ -75,17 +76,17 @@ invites UI or cloud work before the local proof harness is green.
 
 These gates happen before `iOS01-S00` code begins.
 
-1. **Docs/current-state sync.** Foundation docs must name the real current state:
-   `alln`, `alln serve` coordinator skeleton, partial journal durability, unfinished
-   remote agent, and quarantined SwiftData scaffold.
+1. **Docs/current-state sync.** Foundation docs name the real current state:
+   `alln`, `alln serve` coordinator skeleton, headless remote-agent foundation,
+   async-team event journaling, and quarantined SwiftData scaffold.
 2. **Vocabulary freeze.** The remote wire publishes `run.*`, `worker.*`, and
    `stage.*` only. Remote signing rejects private `synthesis.*` event kinds
    before they can become wire fixtures.
-3. **Journal contract plan.** Define the append-only `events.jsonl`, global sequence
-   index, replay window, snapshot builder, and orphan/interrupted behavior before
-   remote stream code.
-4. **Coordinator boundary.** Document that current `alln serve` health/wake is not
-   enough for remote control. The remote agent extends the coordinator with typed
+3. **Journal contract.** `RemoteRunEventJournal` owns append-only `events.jsonl`,
+   a global sequence index, bounded replay, and snapshot convergence; async team
+   runs append coordinator events into it.
+4. **Coordinator boundary.** Current `alln serve` health/wake is not product remote
+   control by itself. The headless remote agent extends the coordinator with typed
    command/event carriers; it does not create a second semantic engine.
 5. **Closed command set.** Reserve and test the remote enum shape:
    `startRun`, `stopRun`, `stopAll`, plus deferred

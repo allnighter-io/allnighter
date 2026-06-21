@@ -1,11 +1,11 @@
 # 01 — Connection Spine (cloud-first; the reusable core)
 
-Status: Draft — foundation spec under Slice 0 refresh; iOS product UI remains
-deferred. Not a Mac blocker.
+Status: Draft — headless foundation in progress; iOS product UI remains deferred.
+Not a Mac blocker.
 Milestone: iOS (Remote Project Manager)
 Owner: Mac + Shared Core
 Created: 2026-06-15
-Updated: 2026-06-19 (Foundation Slice 0 reset)
+Updated: 2026-06-21 (headless foundation status sync)
 Depends on: `00a_iOS_Foundation_Slice_0.md`, `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
 §4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`, `../CLI_Product_Spine.md`,
 `../Work_Order_Team_Model.md` (vocabulary),
@@ -37,14 +37,17 @@ Mac agent ──dials OUT──►  command inbox + events + auth ───┘
   shared machine contract, async team status/result/cancel exists, Pending/Project
   Core pieces exist, and `alln serve` exists as a resident coordinator health/wake
   skeleton.
-- **The remote agent/server does not exist yet.** Current `alln serve` is not a
-  cloud outbound agent and not a typed command/event HTTP/WS surface. The
-  **outbound Mac agent** (cloud) and the **Direct Mode command/event server** still
-  must be built on top of the coordinator boundary.
-- **Run durability is partial.** `RunStore` now writes non-terminal `run.json`
-  snapshots + `owner.pid` and reads dead owners as `interrupted`. Resume still
-  needs a durable append-only **event journal + monotonic persisted `seq`** (the
-  Mac journal is truth; the cloud mirror is transient).
+- **The remote foundation is headless.** `RemoteMacAgent`, the poll coordinator,
+  bootstrap wiring, command router, event sync, snapshot publisher, Supabase relay
+  adapter, and Direct Mode carrier surfaces exist in Core/Engine tests. Remaining
+  product work is runtime wiring (app/launchd), live credentials, and the full
+  carrier Works Test.
+- **Run durability is wired for async team runs.** `RunStore` writes non-terminal
+  `run.json` snapshots + `owner.pid` and reads dead owners as `interrupted`.
+  `RemoteRunEventJournal` persists append-only per-run events plus the global
+  monotonic `seq`, and `AsyncTeamService` now records `CatalogRunCoordinator`
+  events there. Remaining proof is carrier-level resume across Mac restart and any
+  future non-async-team event sources.
 - **Pre-req complete — event/run vocabulary is frozen.** Remote public output is
   `run.*`, `worker.*`, and `stage.*`; `synthesis.*` is rejected before signing.
   iOS consumes the same `TeamRunJSON` shape as `alln team --json`; it never gets
@@ -217,7 +220,7 @@ IA — short-lived):
 ## The durable contract (envelope unchanged) + resume
 
 - **Envelope** (`00_MVP_Architecture` §6): `{ id, seq, ts, kind, payload }`, kinds
-  `run.*/member.*/stage.*`; dedupe by `id`, apply idempotently. Wire payloads are
+  `run.*/worker.*/stage.*`; dedupe by `id`, apply idempotently. Wire payloads are
   **content-light** (sealed refs for sensitive fields).
 - **`seq` is monotonic + persisted** (journal) — survives a Mac restart and a run
   started from the Mac GUI while the phone was away.
@@ -241,7 +244,8 @@ Append-only `events.jsonl` (one `RunEvent`/line), seq-ordered, per-run under
 `Runs/run_<id>/` + a small global index. The Mac journal is **truth**; the cloud
 mirror is transient (TTL'd). Monotonic seq across runs + processes (file + `flock(2)`,
 RB6 pattern) so the Mac app and the headless agent agree. Bounded replay/snapshot
-pagination. Snapshot is the convergence floor.
+pagination. Snapshot is the convergence floor. Async team runs append their
+coordinator events into this journal; carrier-level restart/resume proof remains.
 
 ## Trust model (transport-agnostic — see `00` §3)
 
@@ -351,15 +355,15 @@ loopback HTTP/WS server (RB6-S08) exposed via an `ExposureProvider` (`tailscale 
 ## Ordered Slices
 
 **Group 0 — Foundation Slice 0 (docs + cleanup gates, no app target):**
-- [ ] iOS00a-S00 — Sync foundation docs to current repo state and route all
+- [x] iOS00a-S00 — Sync foundation docs to current repo state and route all
   implementation through `00a`.
 - [x] iOS00a-S01 — Freeze remote event vocabulary (`synthesis.*` rejected before
   signing; public remote output is `run.*`/`worker.*`/`stage.*`).
-- [ ] iOS00a-S02 — Specify event journal/snapshot hardening over the current
+- [x] iOS00a-S02 — Specify event journal/snapshot hardening over the current
   incremental `run.json` snapshots.
-- [ ] iOS00a-S03 — Mark the `alln serve` coordinator boundary: health/wake exists;
-  remote typed command/event carriers still need implementation.
-- [ ] iOS00a-S04 — Quarantine the SwiftData iOS scaffold until `02`.
+- [x] iOS00a-S03 — Mark the `alln serve` coordinator boundary: health/wake exists;
+  remote typed command/event carriers are headless foundation, not product runtime.
+- [x] iOS00a-S04 — Quarantine the SwiftData iOS scaffold until `02`.
 
 **Group A — Core + crypto + mock (no app target, `swift test`):**
 - [x] (pre-req from Group 0) Freeze event/run vocabulary (`synthesis.*` rejected;

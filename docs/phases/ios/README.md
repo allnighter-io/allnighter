@@ -8,7 +8,7 @@
 Status: **Foundation prep may start; iOS product UI remains deferred.** Architecture
 decisions are preserved here, but iOS work must not block Mac feature delivery, Mac
 proofs, or Mac phase closeout.
-Updated: 2026-06-19 (Foundation Slice 0 reset)
+Updated: 2026-06-21 (headless foundation status sync)
 
 ---
 
@@ -69,13 +69,16 @@ on Mac thread docs.
 
 ### Known pre-reqs (do not skip)
 
-1. **The remote agent/server doesn't exist.** `alln serve` now exists as a resident
-   coordinator/health/wake skeleton, but `01` still must build the **outbound Mac
-   agent** (cloud) and the command/event HTTP/WS surface used by Direct Mode.
-2. **Run durability is partial.** `RunStore` now writes non-terminal snapshots and
-   owner markers with orphan recovery, but resume still needs an append-only event
-   journal + persisted monotonic `seq` (`01` § Event durability) — Mac journal =
-   truth, cloud mirror = transient.
+1. **The remote foundation is headless only.** The outbound Mac agent core,
+   command router, event sync, snapshot publisher, Supabase relay adapter, and
+   Direct Mode carrier surfaces exist in Core/Engine tests. Product wiring remains:
+   app/launchd runtime, live credentials, and the end-to-end carrier Works Test.
+2. **Run durability is headless-foundation complete for async team runs.** `RunStore`
+   writes non-terminal snapshots and owner markers with orphan recovery, and
+   `AsyncTeamService` appends `CatalogRunCoordinator` events into
+   `RemoteRunEventJournal` with a persisted monotonic `seq`. Remaining proof is
+   carrier-level resume across Mac restart and any future non-async-team event
+   sources.
 3. **Event vocabulary is frozen.** Remote public output is `run.*`, `worker.*`,
    and `stage.*`; `synthesis.*` is rejected before signing.
 4. **Do not build on the SwiftData template.** The current
