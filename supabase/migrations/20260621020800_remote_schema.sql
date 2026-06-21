@@ -206,6 +206,67 @@ CREATE TABLE IF NOT EXISTS "public"."trusted_devices" (
 ALTER TABLE "public"."trusted_devices" OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."remote_device_id"() RETURNS "text"
+    LANGUAGE "sql" STABLE
+    AS $$
+  SELECT NULLIF(("auth"."jwt"() ->> 'remote_device_id'), '')
+$$;
+
+
+ALTER FUNCTION "public"."remote_device_id"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."remote_mac_agent_id"() RETURNS "uuid"
+    LANGUAGE "sql" STABLE
+    AS $$
+  SELECT CASE
+    WHEN NULLIF(("auth"."jwt"() ->> 'mac_agent_id'), '') ~* '^[0-9a-f-]{8}-[0-9a-f-]{4}-[0-9a-f-]{4}-[0-9a-f-]{4}-[0-9a-f-]{12}$'
+    THEN NULLIF(("auth"."jwt"() ->> 'mac_agent_id'), '')::"uuid"
+    ELSE NULL
+  END
+$$;
+
+
+ALTER FUNCTION "public"."remote_mac_agent_id"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."approved_remote_device"("p_mac_agent_id" "uuid", "p_device_id" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."trusted_devices" "d"
+    WHERE "d"."account_id" = "auth"."uid"()
+      AND "d"."mac_agent_id" = "p_mac_agent_id"
+      AND "d"."device_id" = "p_device_id"
+      AND "d"."revoked" = false
+      AND "d"."valid_until" >= "now"()
+  )
+$$;
+
+
+ALTER FUNCTION "public"."approved_remote_device"("p_mac_agent_id" "uuid", "p_device_id" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."mac_agent_claim_matches"("p_account_id" "uuid", "p_mac_agent_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT "p_account_id" = "auth"."uid"()
+    AND "public"."remote_mac_agent_id"() = "p_mac_agent_id"
+    AND EXISTS (
+      SELECT 1
+      FROM "public"."mac_agents" "m"
+      WHERE "m"."id" = "p_mac_agent_id"
+        AND "m"."account_id" = "p_account_id"
+    )
+$$;
+
+
+ALTER FUNCTION "public"."mac_agent_claim_matches"("p_account_id" "uuid", "p_mac_agent_id" "uuid") OWNER TO "postgres";
+
+
 ALTER TABLE ONLY "public"."command_acks"
     ADD CONSTRAINT "command_acks_pkey" PRIMARY KEY ("request_id");
 
@@ -248,6 +309,21 @@ ALTER TABLE ONLY "public"."pair_requests"
 
 ALTER TABLE ONLY "public"."trusted_devices"
     ADD CONSTRAINT "trusted_devices_pkey" PRIMARY KEY ("device_id");
+
+
+
+ALTER TABLE ONLY "public"."command_inbox"
+    ADD CONSTRAINT "command_inbox_kind_check" CHECK (("kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'stopAll'::"text", 'approveRequest'::"text", 'rejectRequest'::"text", 'openOnMac'::"text", 'landPlane'::"text"])));
+
+
+
+ALTER TABLE ONLY "public"."command_inbox"
+    ADD CONSTRAINT "command_inbox_start_run_sealed_payload_check" CHECK ((("kind" <> 'startRun'::"text") OR ((("payload" ->> 'kind'::"text") = 'sealedBlob'::"text") AND ("payload" ? 'sealedBlob'::"text") AND (NOT ("payload" ? 'lightPayload'::"text")))));
+
+
+
+ALTER TABLE ONLY "public"."command_inbox"
+    ADD CONSTRAINT "command_inbox_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'acked'::"text"])));
 
 
 
@@ -358,17 +434,17 @@ ALTER TABLE "public"."pair_requests" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."trusted_devices" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "users insert own command acks" ON "public"."command_acks" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
-   FROM "public"."mac_agents" "m"
-  WHERE (("m"."id" = "command_acks"."mac_agent_id") AND ("m"."account_id" = "auth"."uid"())))));
+CREATE POLICY "mac agents insert command acks" ON "public"."command_acks" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."command_inbox" "c"
+  WHERE (("c"."request_id" = "command_acks"."request_id") AND "public"."mac_agent_claim_matches"("c"."account_id", "command_acks"."mac_agent_id")))));
 
 
 
-CREATE POLICY "users insert own command inbox" ON "public"."command_inbox" FOR INSERT TO "authenticated" WITH CHECK (("account_id" = "auth"."uid"()));
+CREATE POLICY "approved devices insert command inbox" ON "public"."command_inbox" FOR INSERT TO "authenticated" WITH CHECK ((("account_id" = "auth"."uid"()) AND ("from_device_id" = "public"."remote_device_id"()) AND "public"."approved_remote_device"("mac_agent_id", "from_device_id")));
 
 
 
-CREATE POLICY "users insert own event envelopes" ON "public"."event_envelopes" FOR INSERT TO "authenticated" WITH CHECK (("account_id" = "auth"."uid"()));
+CREATE POLICY "mac agents insert event envelopes" ON "public"."event_envelopes" FOR INSERT TO "authenticated" WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
 
@@ -376,37 +452,41 @@ CREATE POLICY "users insert own mac agents" ON "public"."mac_agents" FOR INSERT 
 
 
 
-CREATE POLICY "users insert own media keys" ON "public"."media_keys" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
-   FROM "public"."trusted_devices" "d"
-  WHERE (("d"."device_id" = "media_keys"."device_id") AND ("d"."account_id" = "auth"."uid"())))));
+CREATE POLICY "mac agents insert media keys" ON "public"."media_keys" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM ("public"."media_refs" "r"
+     JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id"))
+     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
+  WHERE (("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
 
 
 
-CREATE POLICY "users insert own media refs" ON "public"."media_refs" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "mac agents insert media refs" ON "public"."media_refs" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."mac_agents" "m"
-  WHERE (("m"."id" = "media_refs"."mac_agent_id") AND ("m"."account_id" = "auth"."uid"())))));
+  WHERE (("m"."id" = "media_refs"."mac_agent_id") AND "public"."mac_agent_claim_matches"("m"."account_id", "media_refs"."mac_agent_id")))));
 
 
 
-CREATE POLICY "users insert own pair requests" ON "public"."pair_requests" FOR INSERT TO "authenticated" WITH CHECK (("account_id" = "auth"."uid"()));
-
-
-
-CREATE POLICY "users insert own trusted devices" ON "public"."trusted_devices" FOR INSERT TO "authenticated" WITH CHECK (("account_id" = "auth"."uid"()));
-
-
-
-CREATE POLICY "users select own command acks" ON "public"."command_acks" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+CREATE POLICY "users insert own pair requests" ON "public"."pair_requests" FOR INSERT TO "authenticated" WITH CHECK ((("account_id" = "auth"."uid"()) AND EXISTS ( SELECT 1
    FROM "public"."mac_agents" "m"
-  WHERE (("m"."id" = "command_acks"."mac_agent_id") AND ("m"."account_id" = "auth"."uid"())))));
+  WHERE (("m"."id" = "pair_requests"."mac_agent_id") AND ("m"."account_id" = "auth"."uid"())))));
 
 
 
-CREATE POLICY "users select own command inbox" ON "public"."command_inbox" FOR SELECT TO "authenticated" USING (("account_id" = "auth"."uid"()));
+CREATE POLICY "mac agents insert trusted devices" ON "public"."trusted_devices" FOR INSERT TO "authenticated" WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
 
-CREATE POLICY "users select own event envelopes" ON "public"."event_envelopes" FOR SELECT TO "authenticated" USING (("account_id" = "auth"."uid"()));
+CREATE POLICY "approved devices select command acks" ON "public"."command_acks" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."command_inbox" "c"
+  WHERE (("c"."request_id" = "command_acks"."request_id") AND ("public"."mac_agent_claim_matches"("c"."account_id", "command_acks"."mac_agent_id") OR "public"."approved_remote_device"("command_acks"."mac_agent_id", "public"."remote_device_id"()))))));
+
+
+
+CREATE POLICY "mac agents select command inbox" ON "public"."command_inbox" FOR SELECT TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
+
+
+
+CREATE POLICY "approved devices select event envelopes" ON "public"."event_envelopes" FOR SELECT TO "authenticated" USING (("public"."mac_agent_claim_matches"("account_id", "mac_agent_id") OR "public"."approved_remote_device"("mac_agent_id", "public"."remote_device_id"())));
 
 
 
@@ -414,27 +494,28 @@ CREATE POLICY "users select own mac agents" ON "public"."mac_agents" FOR SELECT 
 
 
 
-CREATE POLICY "users select own media keys" ON "public"."media_keys" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
-   FROM "public"."trusted_devices" "d"
-  WHERE (("d"."device_id" = "media_keys"."device_id") AND ("d"."account_id" = "auth"."uid"())))));
+CREATE POLICY "approved devices select media keys" ON "public"."media_keys" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM ("public"."media_refs" "r"
+     JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id")))
+  WHERE (("r"."ref" = "media_keys"."ref") AND ("public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") OR (("media_keys"."device_id" = "public"."remote_device_id"()) AND "public"."approved_remote_device"("r"."mac_agent_id", "media_keys"."device_id")))))));
 
 
 
-CREATE POLICY "users select own media refs" ON "public"."media_refs" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+CREATE POLICY "approved devices select media refs" ON "public"."media_refs" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."mac_agents" "m"
-  WHERE (("m"."id" = "media_refs"."mac_agent_id") AND ("m"."account_id" = "auth"."uid"())))));
+  WHERE (("m"."id" = "media_refs"."mac_agent_id") AND ("public"."mac_agent_claim_matches"("m"."account_id", "media_refs"."mac_agent_id") OR "public"."approved_remote_device"("media_refs"."mac_agent_id", "public"."remote_device_id"()))))));
 
 
 
-CREATE POLICY "users select own pair requests" ON "public"."pair_requests" FOR SELECT TO "authenticated" USING (("account_id" = "auth"."uid"()));
+CREATE POLICY "users select own pair requests" ON "public"."pair_requests" FOR SELECT TO "authenticated" USING ((("account_id" = "auth"."uid"()) AND ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id") OR ("device_id" = "public"."remote_device_id"()))));
 
 
 
-CREATE POLICY "users select own trusted devices" ON "public"."trusted_devices" FOR SELECT TO "authenticated" USING (("account_id" = "auth"."uid"()));
+CREATE POLICY "approved devices select trusted devices" ON "public"."trusted_devices" FOR SELECT TO "authenticated" USING (("public"."mac_agent_claim_matches"("account_id", "mac_agent_id") OR (("device_id" = "public"."remote_device_id"()) AND "public"."approved_remote_device"("mac_agent_id", "device_id"))));
 
 
 
-CREATE POLICY "users update own command inbox" ON "public"."command_inbox" FOR UPDATE TO "authenticated" USING (("account_id" = "auth"."uid"())) WITH CHECK (("account_id" = "auth"."uid"()));
+CREATE POLICY "mac agents update command inbox" ON "public"."command_inbox" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
 
@@ -442,11 +523,11 @@ CREATE POLICY "users update own mac agents" ON "public"."mac_agents" FOR UPDATE 
 
 
 
-CREATE POLICY "users update own pair requests" ON "public"."pair_requests" FOR UPDATE TO "authenticated" USING (("account_id" = "auth"."uid"())) WITH CHECK (("account_id" = "auth"."uid"()));
+CREATE POLICY "mac agents update pair requests" ON "public"."pair_requests" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
 
-CREATE POLICY "users update own trusted devices" ON "public"."trusted_devices" FOR UPDATE TO "authenticated" USING (("account_id" = "auth"."uid"())) WITH CHECK (("account_id" = "auth"."uid"()));
+CREATE POLICY "mac agents update trusted devices" ON "public"."trusted_devices" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
 
@@ -614,6 +695,22 @@ GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "service_role";
 
 
+GRANT ALL ON FUNCTION "public"."remote_device_id"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."remote_device_id"() TO "service_role";
+
+
+GRANT ALL ON FUNCTION "public"."remote_mac_agent_id"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."remote_mac_agent_id"() TO "service_role";
+
+
+GRANT ALL ON FUNCTION "public"."approved_remote_device"("p_mac_agent_id" "uuid", "p_device_id" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."approved_remote_device"("p_mac_agent_id" "uuid", "p_device_id" "text") TO "service_role";
+
+
+GRANT ALL ON FUNCTION "public"."mac_agent_claim_matches"("p_account_id" "uuid", "p_mac_agent_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."mac_agent_claim_matches"("p_account_id" "uuid", "p_mac_agent_id" "uuid") TO "service_role";
+
+
 
 
 
@@ -744,5 +841,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 drop extension if exists "pg_net";
-
-
