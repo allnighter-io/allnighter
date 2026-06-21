@@ -529,104 +529,11 @@ final class CloudRemoteClientTests: XCTestCase {
     }
 }
 
-private actor MalformedMediaKeyRelay: RemoteMacRelay {
+private actor MalformedMediaKeyRelay: FailingRemoteMacRelay {
     private let key: MediaKeyEnvelope
 
     init(key: MediaKeyEnvelope) {
         self.key = key
-    }
-
-    func registerMacAgent(_: RemoteMacAgentRegistration) async throws -> MacAgentRef {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func heartbeat(_: RemoteMacAgentHeartbeat) async throws {}
-
-    func macAgents(accountId _: String) async throws -> [MacAgentRef] {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func submitPairRequest(_: RemotePairRequestDraft) async throws -> RemotePairRequest {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func pendingPairRequests(accountId _: String, macAgentId _: String) async throws -> [RemotePairRequest] {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func pairRequestStatus(
-        accountId _: String,
-        macAgentId _: String,
-        requestId _: String,
-        deviceId _: String,
-        checkedAt _: Date
-    ) async throws -> RemotePairingStatusResponse {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func updatePairRequest(_: RemotePairRequest) async throws -> RemotePairRequest {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func trustedDevices(accountId _: String, macAgentId _: String) async throws -> [TrustedDevice] {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func upsertTrustedDevice(_: TrustedDevice) async throws {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func submitCommand(_: RemoteCommandInboxEntry) async throws {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func commandAck(
-        accountId _: String,
-        macAgentId _: String,
-        requestId _: String
-    ) async throws -> RemoteCommandAckEnvelope? {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func pendingCommands(accountId _: String, macAgentId _: String, limit _: Int) async throws -> [RemoteCommandInboxEntry] {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func acknowledge(_: RemoteCommandAckEnvelope) async throws {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func runEvents(
-        accountId _: String,
-        macAgentId _: String,
-        after _: Int64,
-        limit _: Int
-    ) async throws -> [RemoteRunEventEnvelope] {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func publishEvents(accountId _: String, macAgentId _: String, events _: [RemoteRunEventEnvelope]) async throws {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func publishSnapshot(accountId _: String, macAgentId _: String, snapshot _: SnapshotEnvelope) async throws {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func snapshot(accountId _: String, macAgentId _: String, since _: Int64?) async throws -> SnapshotEnvelope? {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func publishMedia(ref _: MediaRef, data _: Data, keys _: [MediaKeyEnvelope]) async throws {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func upsertMediaKey(_: MediaKeyEnvelope, macAgentId _: String) async throws {
-        throw MalformedMediaKeyRelayError.unexpectedCall
-    }
-
-    func mediaData(ref _: String, macAgentId _: String, at _: Date) async throws -> Data? {
-        throw MalformedMediaKeyRelayError.unexpectedCall
     }
 
     func mediaKey(ref _: String, macAgentId _: String, deviceId _: String, at _: Date) async throws -> MediaKeyEnvelope? {
@@ -634,11 +541,7 @@ private actor MalformedMediaKeyRelay: RemoteMacRelay {
     }
 }
 
-private enum MalformedMediaKeyRelayError: Error {
-    case unexpectedCall
-}
-
-private struct UnfilteredStreamingRelay: RemoteRunEventStreamingRelay {
+private struct UnfilteredStreamingRelay: RemoteRunEventStreamingRelay, FailingRemoteMacRelay {
     var events: [RemoteRunEventEnvelope]
 
     func runEventStream(
@@ -654,23 +557,29 @@ private struct UnfilteredStreamingRelay: RemoteRunEventStreamingRelay {
             continuation.finish()
         }
     }
+}
 
+private protocol FailingRemoteMacRelay: RemoteMacRelay {}
+
+extension FailingRemoteMacRelay {
     func registerMacAgent(_: RemoteMacAgentRegistration) async throws -> MacAgentRef {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
-    func heartbeat(_: RemoteMacAgentHeartbeat) async throws {}
+    func heartbeat(_: RemoteMacAgentHeartbeat) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
 
     func macAgents(accountId _: String) async throws -> [MacAgentRef] {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func submitPairRequest(_: RemotePairRequestDraft) async throws -> RemotePairRequest {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func pendingPairRequests(accountId _: String, macAgentId _: String) async throws -> [RemotePairRequest] {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func pairRequestStatus(
@@ -680,23 +589,23 @@ private struct UnfilteredStreamingRelay: RemoteRunEventStreamingRelay {
         deviceId _: String,
         checkedAt _: Date
     ) async throws -> RemotePairingStatusResponse {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func updatePairRequest(_: RemotePairRequest) async throws -> RemotePairRequest {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func trustedDevices(accountId _: String, macAgentId _: String) async throws -> [TrustedDevice] {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func upsertTrustedDevice(_: TrustedDevice) async throws {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func submitCommand(_: RemoteCommandInboxEntry) async throws {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func commandAck(
@@ -704,15 +613,15 @@ private struct UnfilteredStreamingRelay: RemoteRunEventStreamingRelay {
         macAgentId _: String,
         requestId _: String
     ) async throws -> RemoteCommandAckEnvelope? {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func pendingCommands(accountId _: String, macAgentId _: String, limit _: Int) async throws -> [RemoteCommandInboxEntry] {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func acknowledge(_: RemoteCommandAckEnvelope) async throws {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func runEvents(
@@ -721,39 +630,39 @@ private struct UnfilteredStreamingRelay: RemoteRunEventStreamingRelay {
         after _: Int64,
         limit _: Int
     ) async throws -> [RemoteRunEventEnvelope] {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func publishEvents(accountId _: String, macAgentId _: String, events _: [RemoteRunEventEnvelope]) async throws {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func publishSnapshot(accountId _: String, macAgentId _: String, snapshot _: SnapshotEnvelope) async throws {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func snapshot(accountId _: String, macAgentId _: String, since _: Int64?) async throws -> SnapshotEnvelope? {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func publishMedia(ref _: MediaRef, data _: Data, keys _: [MediaKeyEnvelope]) async throws {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func upsertMediaKey(_: MediaKeyEnvelope, macAgentId _: String) async throws {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func mediaData(ref _: String, macAgentId _: String, at _: Date) async throws -> Data? {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 
     func mediaKey(ref _: String, macAgentId _: String, deviceId _: String, at _: Date) async throws -> MediaKeyEnvelope? {
-        throw UnfilteredStreamingRelayError.unexpectedCall
+        throw FailingRemoteMacRelayError.unexpectedCall
     }
 }
 
-private enum UnfilteredStreamingRelayError: Error {
+private enum FailingRemoteMacRelayError: Error {
     case unexpectedCall
 }
 
