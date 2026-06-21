@@ -86,6 +86,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
         let fixedNow = now
         let mediaHandler = RecordingDirectModeClientMediaHandler(response: DirectModeMediaResponse(
             ref: "media_1",
+            macAgentId: "mac_1",
             data: Data("ciphertext".utf8)
         ))
         let server = DirectModeCommandServer(
@@ -126,6 +127,49 @@ final class DirectModeRemoteClientTests: XCTestCase {
                 checkedAt: now
             ),
         ])
+    }
+
+    func testClientRejectsSealedMediaResponseForOtherMac() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let mediaHandler = RecordingDirectModeClientMediaHandler(response: DirectModeMediaResponse(
+            ref: "media_1",
+            macAgentId: "mac_2",
+            data: Data("ciphertext".utf8)
+        ))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            mediaHandler: mediaHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+        let ref = MediaRef(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            r2Key: "direct/media_1",
+            contentType: "image/png",
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        do {
+            _ = try await client.fetchSealed(ref)
+            XCTFail("wrong-Mac media response should be rejected")
+        } catch let error as DirectModeRemoteClientError {
+            XCTAssertEqual(error, .badMediaResponse)
+        }
     }
 
     func testClientFetchesMediaKeyFromLoopbackServer() async throws {

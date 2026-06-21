@@ -194,7 +194,8 @@ public actor DirectModeRemoteClient: RemoteClient {
             throw DirectModeRemoteClientError.httpStatus(response.statusCode)
         }
         guard let decoded = try? CoreJSON.decode(DirectModeMediaResponse.self, from: response.body),
-              decoded.ref == ref.ref else {
+              decoded.ref == ref.ref,
+              decoded.macAgentId == ref.macAgentId else {
             throw DirectModeRemoteClientError.badMediaResponse
         }
         return decoded.data

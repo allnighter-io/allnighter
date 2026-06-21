@@ -121,6 +121,7 @@ final class DirectModeCommandServerTests: XCTestCase {
         let commandHandler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
         let mediaHandler = RecordingDirectModeMediaHandler(response: DirectModeMediaResponse(
             ref: "media_1",
+            macAgentId: "mac_1",
             data: Data("ciphertext".utf8)
         ))
         let server = DirectModeCommandServer(handler: commandHandler, mediaHandler: mediaHandler)
@@ -137,6 +138,8 @@ final class DirectModeCommandServerTests: XCTestCase {
 
         XCTAssertEqual(result.statusCode, 200)
         let response = try CoreJSON.decode(DirectModeMediaResponse.self, from: result.body)
+        XCTAssertEqual(response.ref, "media_1")
+        XCTAssertEqual(response.macAgentId, "mac_1")
         XCTAssertEqual(response.data, Data("ciphertext".utf8))
         XCTAssertEqual(mediaHandler.requests, [request])
         XCTAssertTrue(commandHandler.entries.isEmpty)

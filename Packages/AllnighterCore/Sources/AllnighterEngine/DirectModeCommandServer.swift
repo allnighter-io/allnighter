@@ -87,10 +87,12 @@ public struct DirectModeMediaRequest: Codable, Equatable, Sendable {
 
 public struct DirectModeMediaResponse: Codable, Equatable, Sendable {
     public var ref: String
+    public var macAgentId: String
     public var data: Data
 
-    public init(ref: String, data: Data) {
+    public init(ref: String, macAgentId: String, data: Data) {
         self.ref = ref
+        self.macAgentId = macAgentId
         self.data = data
     }
 }
@@ -286,7 +288,7 @@ public struct DirectModeMediaHandler: DirectModeMediaHandling {
         ) else {
             throw DirectModeMediaError.mediaNotFound(ref: request.ref)
         }
-        return DirectModeMediaResponse(ref: request.ref, data: data)
+        return DirectModeMediaResponse(ref: request.ref, macAgentId: request.macAgentId, data: data)
     }
 }
 

@@ -24,7 +24,11 @@ final class DirectModeMediaHandlerTests: XCTestCase {
             checkedAt: now.addingTimeInterval(-300)
         ))
 
-        XCTAssertEqual(response, DirectModeMediaResponse(ref: "media_1", data: Data("ciphertext".utf8)))
+        XCTAssertEqual(response, DirectModeMediaResponse(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            data: Data("ciphertext".utf8)
+        ))
         let requests = await provider.requests()
         XCTAssertEqual(requests, [
             RecordingDirectModeMediaDataProvider.Request(ref: "media_1", macAgentId: "mac_1", at: now),
