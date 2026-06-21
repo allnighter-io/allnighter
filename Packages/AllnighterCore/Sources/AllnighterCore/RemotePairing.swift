@@ -96,6 +96,98 @@ public struct RemotePairingPayload: Codable, Equatable, Sendable {
     }
 }
 
+public enum DirectModePairingSessionStatus: String, Codable, Sendable, CaseIterable {
+    case armed
+    case consumed
+    case expired
+    case lockedOut
+}
+
+public struct DirectModePairingSession: Codable, Equatable, Sendable, Identifiable {
+    public var id: String
+    public var endpoints: [RemotePairingEndpoint]
+    public var agentSigningPubkey: String
+    public var agentSealingPubkey: String
+    public var tailnetName: String?
+    public var protocolVersion: Int
+    public var pairingTokenSHA256: String
+    public var manualCodeSHA256: String?
+    public var createdAt: Date
+    public var expiresAt: Date
+    public var status: DirectModePairingSessionStatus
+    public var failedAttempts: Int
+    public var maxFailedAttempts: Int
+    public var consumedAt: Date?
+    public var lockedOutAt: Date?
+
+    public init(
+        id: String,
+        endpoints: [RemotePairingEndpoint],
+        agentSigningPubkey: String,
+        agentSealingPubkey: String,
+        tailnetName: String? = nil,
+        protocolVersion: Int = RemoteProtocol.currentMajor,
+        pairingTokenSHA256: String,
+        manualCodeSHA256: String? = nil,
+        createdAt: Date,
+        expiresAt: Date,
+        status: DirectModePairingSessionStatus = .armed,
+        failedAttempts: Int = 0,
+        maxFailedAttempts: Int,
+        consumedAt: Date? = nil,
+        lockedOutAt: Date? = nil
+    ) {
+        self.id = id
+        self.endpoints = endpoints
+        self.agentSigningPubkey = agentSigningPubkey
+        self.agentSealingPubkey = agentSealingPubkey
+        self.tailnetName = tailnetName
+        self.protocolVersion = protocolVersion
+        self.pairingTokenSHA256 = pairingTokenSHA256
+        self.manualCodeSHA256 = manualCodeSHA256
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.status = status
+        self.failedAttempts = failedAttempts
+        self.maxFailedAttempts = maxFailedAttempts
+        self.consumedAt = consumedAt
+        self.lockedOutAt = lockedOutAt
+    }
+
+    public func isExpired(at now: Date) -> Bool {
+        expiresAt < now
+    }
+
+    public func isArmed(at now: Date) -> Bool {
+        status == .armed && !isExpired(at: now)
+    }
+
+    public func pairingPayload(pairingToken: String) -> RemotePairingPayload {
+        RemotePairingPayload(
+            endpoints: endpoints,
+            agentSigningPubkey: agentSigningPubkey,
+            agentSealingPubkey: agentSealingPubkey,
+            tailnetName: tailnetName,
+            protocolVersion: protocolVersion,
+            pairingToken: pairingToken,
+            expiresAt: expiresAt
+        )
+    }
+}
+
+public struct DirectModePairingRegistry: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var sessions: [DirectModePairingSession]
+
+    public init(
+        schemaVersion: Int = 1,
+        sessions: [DirectModePairingSession] = []
+    ) {
+        self.schemaVersion = schemaVersion
+        self.sessions = sessions
+    }
+}
+
 public struct TrustedRemoteRegistry: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var pendingRequests: [RemotePairRequest]
