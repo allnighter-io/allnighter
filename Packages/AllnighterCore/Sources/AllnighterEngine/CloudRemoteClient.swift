@@ -39,6 +39,7 @@ public actor CloudRemoteClient: RemoteClient {
     private let streamEventLimit: Int
     private var connectedAccount: RemoteAccountSession?
     private var lastVerifiedAck = false
+    private var lastDeviceApprovedAck = false
 
     public init(
         mac: MacAgentRef,
@@ -202,8 +203,8 @@ public actor CloudRemoteClient: RemoteClient {
             ConnectionDiagnosis.Rung(rung: .clockInSync, ok: true, nextAction: nil),
             ConnectionDiagnosis.Rung(
                 rung: .deviceApproved,
-                ok: lastVerifiedAck,
-                nextAction: lastVerifiedAck ? nil : "Approve this device on your Mac."
+                ok: lastDeviceApprovedAck,
+                nextAction: lastDeviceApprovedAck ? nil : "Approve this device on your Mac."
             ),
         ])
     }
@@ -229,7 +230,19 @@ public actor CloudRemoteClient: RemoteClient {
             throw CloudRemoteClientError.badAckSignature
         }
         lastVerifiedAck = true
+        lastDeviceApprovedAck = Self.ackProvesDeviceApproved(envelope.ack)
         return envelope.ack
+    }
+
+    private static func ackProvesDeviceApproved(_ ack: CommandAck) -> Bool {
+        if ack.accepted { return true }
+        switch ack.reason {
+        case .rateLimited, .replayedRequestId:
+            return true
+        case .badSignature, .clockSkew, .expired, .invalidPayload, .payloadTooLarge, .revoked, .unauthorizedKind,
+             .upgradeRequired, nil:
+            return false
+        }
     }
 
     private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {

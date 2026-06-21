@@ -51,6 +51,7 @@ public actor DirectModeRemoteClient: RemoteClient {
     private let streamEventLimit: Int
     private var connectedAccount: RemoteAccountSession?
     private var lastVerifiedAck = false
+    private var lastDeviceApprovedAck = false
 
     public init(
         mac: MacAgentRef,
@@ -170,6 +171,7 @@ public actor DirectModeRemoteClient: RemoteClient {
             throw DirectModeRemoteClientError.badAckSignature
         }
         lastVerifiedAck = true
+        lastDeviceApprovedAck = Self.ackProvesDeviceApproved(envelope.ack)
         return envelope.ack
     }
 
@@ -253,8 +255,8 @@ public actor DirectModeRemoteClient: RemoteClient {
             ),
             ConnectionDiagnosis.Rung(
                 rung: .deviceApproved,
-                ok: lastVerifiedAck,
-                nextAction: lastVerifiedAck ? nil : "Approve this device on your Mac."
+                ok: lastDeviceApprovedAck,
+                nextAction: lastDeviceApprovedAck ? nil : "Approve this device on your Mac."
             ),
         ])
     }
@@ -269,6 +271,17 @@ public actor DirectModeRemoteClient: RemoteClient {
             envelope,
             signingPublicKeyBase64: mac.agentSigningPubkey
         )) == true)
+    }
+
+    private static func ackProvesDeviceApproved(_ ack: CommandAck) -> Bool {
+        if ack.accepted { return true }
+        switch ack.reason {
+        case .rateLimited, .replayedRequestId:
+            return true
+        case .badSignature, .clockSkew, .expired, .invalidPayload, .payloadTooLarge, .revoked, .unauthorizedKind,
+             .upgradeRequired, nil:
+            return false
+        }
     }
 
     private func requireConnected() throws -> RemoteAccountSession {

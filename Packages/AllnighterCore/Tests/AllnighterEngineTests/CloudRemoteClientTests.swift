@@ -223,6 +223,34 @@ final class CloudRemoteClientTests: XCTestCase {
         }
     }
 
+    func testRejectedAuthorizationAckKeepsApprovalDiagnosticFalse() async throws {
+        let relay = MockRemoteMacRelay()
+        try await relay.acknowledge(ackEnvelope(
+            requestId: "req_revoked",
+            signingKey: macSigningKey,
+            accepted: false,
+            reason: .revoked,
+            outcome: .rejected
+        ))
+        let fixedNow = now
+        let client = CloudRemoteClient(
+            mac: macRef(),
+            relay: relay,
+            now: { fixedNow },
+            ackPollInterval: 0,
+            maxAckPollAttempts: 1
+        )
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        let ack = try await client.send(try commandFactory().stopAll(requestId: "req_revoked"))
+
+        XCTAssertEqual(ack.accepted, false)
+        XCTAssertEqual(ack.reason, .revoked)
+        let diagnosis = await client.diagnose()
+        XCTAssertEqual(diagnosis.rungs.first(where: { $0.rung == .macReachable })?.ok, true)
+        XCTAssertEqual(diagnosis.rungs.first(where: { $0.rung == .deviceApproved })?.ok, false)
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let relay = MockRemoteMacRelay()
         let badSigningKey = Curve25519.Signing.PrivateKey()
@@ -342,13 +370,17 @@ final class CloudRemoteClientTests: XCTestCase {
 
     private func ackEnvelope(
         requestId: String,
-        signingKey: Curve25519.Signing.PrivateKey
+        signingKey: Curve25519.Signing.PrivateKey,
+        accepted: Bool = true,
+        reason: RemoteCommandRejectReason? = nil,
+        outcome: RemoteCommandAckOutcome = .accepted
     ) throws -> RemoteCommandAckEnvelope {
         let ack = try RemoteCrypto.makeCommandAck(
             macAgentId: "mac_1",
             requestId: requestId,
-            accepted: true,
-            outcome: .accepted,
+            accepted: accepted,
+            reason: reason,
+            outcome: outcome,
             serverTime: now,
             signingKey: signingKey
         )
@@ -363,7 +395,7 @@ final class CloudRemoteClientTests: XCTestCase {
                 commandKind: .stopAll,
                 requestId: requestId,
                 targetSummary: "stopAll terminated=1",
-                outcome: .accepted
+                outcome: outcome
             ),
             createdAt: now
         )

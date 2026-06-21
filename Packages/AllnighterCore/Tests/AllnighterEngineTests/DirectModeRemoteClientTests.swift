@@ -257,6 +257,39 @@ final class DirectModeRemoteClientTests: XCTestCase {
         }
     }
 
+    func testRejectedAuthorizationAckKeepsApprovalDiagnosticFalse() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let handler = RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+            requestId: "req_revoked",
+            now: now,
+            macSigningKey: macSigningKey,
+            accepted: false,
+            reason: .revoked,
+            outcome: .rejected
+        ))
+        let server = DirectModeCommandServer(handler: handler)
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        let ack = try await client.send(Self.command(requestId: "req_revoked", now: now))
+
+        XCTAssertEqual(ack.accepted, false)
+        XCTAssertEqual(ack.reason, .revoked)
+        let diagnosis = await client.diagnose()
+        XCTAssertEqual(diagnosis.rungs.first(where: { $0.rung == .macReachable })?.ok, true)
+        XCTAssertEqual(diagnosis.rungs.first(where: { $0.rung == .deviceApproved })?.ok, false)
+    }
+
     func testClientRejectsAckWithWrongAuditCommandKind() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let fixedNow = now
@@ -334,13 +367,17 @@ final class DirectModeRemoteClientTests: XCTestCase {
         requestId: String,
         now: Date,
         macSigningKey: Curve25519.Signing.PrivateKey,
-        auditCommandKind: RemoteCommandKind = .stopAll
+        auditCommandKind: RemoteCommandKind = .stopAll,
+        accepted: Bool = true,
+        reason: RemoteCommandRejectReason? = nil,
+        outcome: RemoteCommandAckOutcome = .accepted
     ) throws -> RemoteCommandAckEnvelope {
         let ack = try RemoteCrypto.makeCommandAck(
             macAgentId: "mac_1",
             requestId: requestId,
-            accepted: true,
-            outcome: .accepted,
+            accepted: accepted,
+            reason: reason,
+            outcome: outcome,
             serverTime: now,
             signingKey: macSigningKey
         )
@@ -355,7 +392,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
                 commandKind: auditCommandKind,
                 requestId: requestId,
                 targetSummary: "stopAll terminated=1",
-                outcome: .accepted
+                outcome: outcome
             ),
             createdAt: now
         )
