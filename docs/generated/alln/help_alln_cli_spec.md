@@ -269,7 +269,7 @@ Examples: `teams_set_default_json`.
 
 ### `alln teams delete`
 
-Delete a custom team.
+Delete a custom team (or restore a built-in to shipped).
 
 Arguments:
 - `team-id` (required) — Team id.
@@ -278,6 +278,18 @@ Flags:
 - `--json` — Deletion acknowledgement JSON.
 
 Examples: `teams_delete_json`.
+
+### `alln teams restore`
+
+Restore a built-in team to its shipped version (remove edits).
+
+Arguments:
+- `team-id` (required) — Team id.
+
+Flags:
+- `--json` — Restore acknowledgement JSON.
+
+Examples: `teams_restore_json`.
 
 ### `alln skills duplicate`
 
@@ -995,7 +1007,8 @@ Output schema: `helpTopicsJSON`.
 | `COORDINATOR_UNAVAILABLE` | no | yes | Use foreground CLI or start resident mode when available. |
 | `SKILL_NOT_FOUND` | yes | no | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
 | `TEAM_NOT_FOUND` | yes | no | Run `alln teams --lane <lane> --json` and pick a valid team id. |
-| `TEAM_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in team, then edit the custom copy. |
+| `TEAM_BUILTIN_IMMUTABLE` | yes | no | Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version). |
+| `TEAM_RESTORE_UNSUPPORTED` | yes | no | Only built-in teams can be restored; for a custom team, edit or delete it instead. |
 | `SKILL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in skill, then edit the custom copy. |
 | `TEAM_ID_COLLISION` | yes | no | Pick a different team id or delete the conflicting custom team. |
 | `SKILL_ID_COLLISION` | yes | no | Pick a different skill id or delete the conflicting custom skill. |

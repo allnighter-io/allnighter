@@ -81,4 +81,69 @@ final class CatalogPersistenceTests: XCTestCase {
         CatalogRoots.overrideForTesting(teams: teamsRoot, skills: skillsRoot)
         XCTAssertNotNil(TeamCatalog.get(team.id))
     }
+
+    // MARK: - Edit-in-place + restore (one Bug Hunt, no duplicate)
+
+    /// Editing a built-in saves an override at the SAME id; readers see the edit, the
+    /// list still shows exactly one entry for that id, and the shipped seed is hidden.
+    func testEditBuiltInSavesInPlaceNoDuplicate() throws {
+        var team = BuiltInTeams.team("code_bug_hunt")!
+        team.displayName = "Bug Hunt (mine)"
+        try TeamCatalog.saveCustom(team)
+
+        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt (mine)")
+        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.builtIn, false)
+        XCTAssertTrue(TeamCatalog.hasOverride("code_bug_hunt"))
+        // Exactly one code_bug_hunt in the catalog list — no duplicate row.
+        XCTAssertEqual(TeamCatalog.all.filter { $0.id == "code_bug_hunt" }.count, 1)
+        // Order preserved: it still sits where the seed was, not appended at the end.
+        let ids = TeamCatalog.all.map(\.id)
+        XCTAssertEqual(ids.filter { $0 == "code_bug_hunt" }.count, 1)
+    }
+
+    /// Restore removes the edit and reveals the shipped seed; idempotent afterward.
+    func testRestoreBuiltInRevealsSeed() throws {
+        var team = BuiltInTeams.team("code_bug_hunt")!
+        team.displayName = "Bug Hunt (mine)"
+        try TeamCatalog.saveCustom(team)
+        XCTAssertTrue(TeamCatalog.hasOverride("code_bug_hunt"))
+
+        let r1 = try TeamCatalog.restore("code_bug_hunt")
+        XCTAssertTrue(r1.removedOverride)
+        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertFalse(TeamCatalog.hasOverride("code_bug_hunt"))
+
+        // Idempotent: restoring again is a no-op, not an error.
+        let r2 = try TeamCatalog.restore("code_bug_hunt")
+        XCTAssertFalse(r2.removedOverride)
+    }
+
+    /// Deleting an edited built-in restores the seed; deleting an unedited built-in is
+    /// blocked (the product team stays); restoring a pure custom id is unsupported.
+    func testDeleteBuiltInResetsAndGuards() throws {
+        XCTAssertThrowsError(try TeamCatalog.deleteCustom("code_bug_hunt")) { error in
+            XCTAssertEqual(error as? CatalogError, .builtInImmutable)
+        }
+        var team = BuiltInTeams.team("code_bug_hunt")!
+        team.displayName = "Edited"
+        try TeamCatalog.saveCustom(team)
+        try TeamCatalog.deleteCustom("code_bug_hunt") // = restore
+        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
+
+        let custom = try TeamCatalog.duplicateBuiltIn("code_core", name: "Mine")
+        XCTAssertThrowsError(try TeamCatalog.restore(custom.id)) { error in
+            XCTAssertEqual(error as? CatalogError, .restoreUnsupported)
+        }
+    }
+
+    /// The global Default Team (default_chat) resolves through the same effective lookup,
+    /// so an edit is visible to `defaultRunTeam()`.
+    func testDefaultRunTeamResolvesOverride() throws {
+        var team = BuiltInTeams.team("default_chat")!
+        team.displayName = "Auto (mine)"
+        try TeamCatalog.saveCustom(team)
+        XCTAssertEqual(TeamCatalog.defaultRunTeam()?.displayName, "Auto (mine)")
+        try TeamCatalog.restore("default_chat")
+        XCTAssertEqual(TeamCatalog.defaultRunTeam()?.displayName, "Auto")
+    }
 }

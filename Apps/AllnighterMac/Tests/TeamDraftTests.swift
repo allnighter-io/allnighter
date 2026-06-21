@@ -2,9 +2,10 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterMac
 
-/// S05b.3: the Customize editor's write path. Editing a built-in must duplicate to
-/// a custom (never mutate the built-in); a failed save must leave no orphan; a
-/// wrong-lane skill must be rejected. Catalog is isolated to a temp dir.
+/// The Customize editor's write path. Editing a built-in saves the user's version IN
+/// PLACE at the same id (an override) — never a duplicate — and the shipped seed stays
+/// available via Restore. A failed save must leave no orphan; a wrong-lane skill must be
+/// rejected. Catalog is isolated to a temp dir.
 final class TeamDraftTests: XCTestCase {
 
     override func setUp() {
@@ -38,12 +39,14 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertTrue(d.isSavable)
     }
 
-    func testSavingAnUnrenamedBuiltInSuffixesCustomAtSaveTime() throws {
-        var d = TeamDraft(base: buildBase)
+    func testSavingABuiltInKeepsItsNameAndId() throws {
+        let base = buildBase   // capture once — after a save the built-in carries an override
+        var d = TeamDraft(base: base)
         d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
         let id = try d.commit()
-        XCTAssertEqual(TeamCatalog.get(id)?.displayName, "\(buildBase.displayName) (custom)",
-                       "(custom) is appended only at Save, and only when the user didn't rename it")
+        XCTAssertEqual(id, base.id, "editing a built-in saves at the SAME id — no duplicate")
+        XCTAssertEqual(TeamCatalog.get(id)?.displayName, base.displayName,
+                       "the name is kept — never suffixed with (custom)")
     }
 
     func testNotSavableWithAModellessRow() {
@@ -52,20 +55,25 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertFalse(d.isSavable, "every role needs a named model before Save")
     }
 
-    func testCommitDuplicatesBuiltInToCustomAndLeavesBuiltInUntouched() throws {
-        var d = TeamDraft(base: buildBase)
+    func testCommitEditsBuiltInInPlaceNoDuplicateAndRestoreReverts() throws {
+        let base = buildBase   // capture once — recomputing after the save would skip it
+        var d = TeamDraft(base: base)
         d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
 
         let id = try d.commit()
         let saved = TeamCatalog.get(id)
-        XCTAssertNotNil(saved)
-        XCTAssertEqual(saved?.builtIn, false, "the saved team is a custom")
-        XCTAssertNotEqual(id, buildBase.id, "a new custom id, not the built-in's")
+        XCTAssertEqual(id, base.id, "saved at the built-in's own id — not a new custom id")
+        XCTAssertEqual(saved?.builtIn, false, "the effective team is now the user's editable version")
         XCTAssertEqual(saved?.workerSpecs.count, 1)
-        XCTAssertEqual(saved?.workerSpecs.first?.skillId, buildSkill)
         XCTAssertEqual(saved?.workerSpecs.first?.preferredModelId, "model_opus", "saved by name, not Auto")
-        XCTAssertTrue(TeamCatalog.list(lane: .code).contains { $0.id == id }, "shows in the lane catalog")
-        XCTAssertEqual(TeamCatalog.get(buildBase.id)?.builtIn, true, "the built-in is never mutated")
+        // Exactly one entry for this id in the catalog — no duplicate row.
+        XCTAssertEqual(TeamCatalog.list(lane: .code).filter { $0.id == id }.count, 1)
+        XCTAssertTrue(TeamCatalog.hasOverride(id), "a Restore is now available")
+
+        // Restore reverts to the shipped seed.
+        _ = try TeamCatalog.restore(id)
+        XCTAssertEqual(TeamCatalog.get(base.id)?.builtIn, true, "restore reveals the shipped team")
+        XCTAssertFalse(TeamCatalog.hasOverride(id))
     }
 
     func testWrongLaneSkillIsRejectedWithNoOrphanLeftBehind() throws {
@@ -121,7 +129,7 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertFalse(fork.builtIn)
         XCTAssertEqual(fork.lane, .code, "fork inherits the team lane")
         XCTAssertEqual(fork.displayName, "\(originalName) for \(team.displayName)",
-                       "<Skill> for <Team> naming — keyed to the SAVED team name (\"… (custom)\")")
+                       "<Skill> for <Team> naming — keyed to the saved team name (kept, not suffixed)")
         XCTAssertEqual(team.workerSpecs.first?.skillId, fork.id, "row repointed to the fork")
         XCTAssertEqual(SkillCatalog.get(originalSkillId)?.template, originalTemplate,
                        "the built-in skill is never mutated")

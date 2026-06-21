@@ -668,7 +668,33 @@
       ],
       "name" : "teams delete",
       "outputSchema" : "none",
-      "summary" : "Delete a custom team."
+      "summary" : "Delete a custom team (or restore a built-in to shipped)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "team-id",
+          "required" : true,
+          "summary" : "Team id."
+        }
+      ],
+      "exampleIds" : [
+        "teams_restore_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Restore acknowledgement JSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "teams restore",
+      "outputSchema" : "none",
+      "summary" : "Restore a built-in team to its shipped version (remove edits)."
     },
     {
       "args" : [
@@ -2765,13 +2791,22 @@
       "ruleId" : "team.not_found"
     },
     {
-      "agentAction" : "Duplicate the built-in team, then edit the custom copy.",
+      "agentAction" : "Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version).",
       "code" : "TEAM_BUILTIN_IMMUTABLE",
       "exitClass" : "operational",
-      "explain" : "Built-in teams cannot be edited or deleted. Duplicate to a custom team and edit that copy.",
+      "explain" : "A built-in team that was never edited has nothing to delete. Edit it in place with `teams edit`, or use `teams restore` to revert prior edits.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "team.builtin.immutable"
+    },
+    {
+      "agentAction" : "Only built-in teams can be restored; for a custom team, edit or delete it instead.",
+      "code" : "TEAM_RESTORE_UNSUPPORTED",
+      "exitClass" : "operational",
+      "explain" : "Restore reverts a built-in team to its shipped version. A custom team has no shipped version to restore to.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "team.restore.unsupported"
     },
     {
       "agentAction" : "Duplicate the built-in skill, then edit the custom copy.",
@@ -3547,7 +3582,6 @@
       "command" : "teams edit",
       "errors" : [
         "TEAM_INVALID",
-        "TEAM_BUILTIN_IMMUTABLE",
         "CATALOG_ID_INVALID",
         "SKILL_LANE_MISMATCH",
         "CLI_USAGE_ERROR",
@@ -3570,7 +3604,7 @@
           "type" : "string"
         }
       ],
-      "summary" : "Save a custom team definition (full replacement)."
+      "summary" : "Save a team definition in place (full replacement). Editing a built-in writes the user's version at the same id; the shipped version stays available via teams_restore — no duplicate."
     },
     {
       "command" : "teams set-default",
@@ -3613,7 +3647,28 @@
           "type" : "string"
         }
       ],
-      "summary" : "Delete a custom team."
+      "summary" : "Delete a custom team. For a built-in, removes the user's edits and restores the shipped version (fails if it was never edited)."
+    },
+    {
+      "command" : "teams restore",
+      "errors" : [
+        "TEAM_RESTORE_UNSUPPORTED",
+        "TEAM_NOT_FOUND",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "teams_restore",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "teamId",
+          "required" : true,
+          "summary" : "Team id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Restore a built-in team to its shipped version by removing the user's edits. Idempotent."
     },
     {
       "command" : "skills",

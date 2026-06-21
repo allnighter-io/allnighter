@@ -117,11 +117,11 @@ public enum HelpTopicRegistry {
             """,
             aliases: ["teams", "workers", "skills", "roster", "catalog"],
             relatedToolIds: ["teams_list", "teams_show", "teams_duplicate", "teams_save",
-                             "teams_set_default", "teams_delete", "skills_list", "skills_show",
+                             "teams_set_default", "teams_delete", "teams_restore", "skills_list", "skills_show",
                              "skills_duplicate", "skills_save", "skills_delete", "team_show"],
-            relatedCommandNames: ["teams", "teams show", "teams duplicate", "skills", "skills show", "models"],
+            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
-            errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "SKILL_NOT_FOUND"],
+            errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "SKILL_NOT_FOUND"],
             needsLiveCheck: false),
 
         HelpTopic(

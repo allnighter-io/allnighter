@@ -34,6 +34,9 @@ public enum CatalogError: Error, Equatable, Sendable {
     case skillLaneMismatch(skillId: SkillID, teamId: TeamID)
     case skillInUse(referencingTeamIDs: [TeamID])
     case teamDefaultInvalid(String)
+    /// Restore was requested for a team id that has no shipped seed to restore to
+    /// (an ordinary custom team, not a built-in).
+    case restoreUnsupported
 }
 
 // MARK: - ID rules

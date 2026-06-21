@@ -94,9 +94,9 @@ struct TeamDraft: Equatable {
     @discardableResult
     func commit() throws -> TeamID {
         let fallback: ModelFallbackPolicy = allowSubstitutions ? .laneCapable : .exactOnly
-        // Built-ins become "<name> (custom)" only at Save, and only if the user
-        // didn't already rename it — never preemptively on selection.
-        let saveName = (base.builtIn && name == base.displayName) ? "\(name) (custom)" : name
+        // Editing a team keeps its name — no "(custom)" suffix. A built-in edit saves
+        // the user's version in place at the same id; the shipped seed stays for Restore.
+        let saveName = name
         var forkedSkillIds: [SkillID] = []
         var duplicatedTeamId: TeamID?
 
@@ -165,8 +165,9 @@ struct TeamDraft: Equatable {
             // mint a fresh custom id and create it.
             var team: TeamPreset
             if base.builtIn {
-                team = try TeamCatalog.duplicateBuiltIn(base.id, name: saveName)
-                duplicatedTeamId = team.id
+                // Editing a shipped team writes the user's version at the SAME id (an
+                // override) — never a duplicate. Start from the seed and apply edits.
+                team = base
             } else if let existing = TeamCatalog.get(base.id) {
                 team = existing
             } else {
@@ -251,9 +252,11 @@ struct TeamEditorView: View {
     /// Has the user changed anything since the editor opened?
     private var isDirty: Bool { draft != initialDraft }
 
-    /// True until this team has been forked to a custom — Save creates a copy and
-    /// the built-in source is never mutated.
+    /// The shipped (unedited) form of a built-in team. False once edited (an override).
     private var isBuiltIn: Bool { draft.base.builtIn }
+
+    /// This team has a shipped version that the user has edited, so a Restore is offered.
+    private var canRestore: Bool { !isNew && TeamCatalog.hasOverride(draft.base.id) }
 
     private var laneSkills: [Skill] { SkillCatalog.list(lane: lane.workLane) }
     /// The Lead picks among plan-writer skills only — it's the synthesizer, not an
@@ -318,12 +321,13 @@ struct TeamEditorView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(draft.name).font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(ALColor.textPrimary).lineLimit(1)
-                Text(isBuiltIn ? "Built-in · edits save as your own team" : "\(lane.label) team · skill | model")
+                Text(canRestore ? "\(lane.label) team · edited · Restore to revert"
+                                : "\(lane.label) team · skill | model")
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
-            if isBuiltIn {
-                Text("BUILT-IN").font(.system(size: 9, weight: .semibold)).tracking(0.5)
+            if canRestore {
+                Text("EDITED").font(.system(size: 9, weight: .semibold)).tracking(0.5)
                     .foregroundStyle(ALColor.textMuted)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(ALColor.textMuted.opacity(0.14), in: Capsule())
@@ -610,6 +614,12 @@ struct TeamEditorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack(spacing: 8) {
+                // Restore appears once this shipped team has been edited — it reverts the
+                // team to its shipped version (removes the user's edits). Left-aligned so
+                // it reads as a quieter, separate action from Save.
+                if canRestore {
+                    Button("Restore", action: restore).buttonStyle(.alSecondary(small: true))
+                }
                 Spacer(minLength: 0)
                 // Cancel only when there's something to cancel: a new team (removes
                 // the form) or unsaved edits (discards them). Nothing to cancel → no
@@ -617,9 +627,10 @@ struct TeamEditorView: View {
                 if isNew || isDirty {
                     Button("Cancel", action: onCancel).buttonStyle(.alSecondary(small: true))
                 }
-                Button(isNew ? "Create team" : (isBuiltIn ? "Duplicate Team" : "Save changes"), action: save)
+                // Every existing team saves in place — there is no "Duplicate Team".
+                Button(isNew ? "Create team" : "Save changes", action: save)
                     .buttonStyle(.alPrimary(small: true))
-                    .disabled(!draft.isSavable || (!isNew && !isBuiltIn && !isDirty))
+                    .disabled(!draft.isSavable || (!isNew && !isDirty))
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
@@ -634,6 +645,17 @@ struct TeamEditorView: View {
             errorText = friendly(e)
         } catch {
             errorText = "Could not save this team."
+        }
+    }
+
+    /// Revert this team to its shipped version (remove the user's edits) and reload the
+    /// editor so it shows the restored seed.
+    private func restore() {
+        do {
+            _ = try TeamCatalog.restore(draft.base.id)
+            onSaved(draft.base.id)
+        } catch {
+            errorText = "Could not restore this team."
         }
     }
 

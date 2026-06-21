@@ -225,13 +225,22 @@
     "ruleId" : "team.not_found"
   },
   {
-    "agentAction" : "Duplicate the built-in team, then edit the custom copy.",
+    "agentAction" : "Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version).",
     "code" : "TEAM_BUILTIN_IMMUTABLE",
     "exitClass" : "operational",
-    "explain" : "Built-in teams cannot be edited or deleted. Duplicate to a custom team and edit that copy.",
+    "explain" : "A built-in team that was never edited has nothing to delete. Edit it in place with `teams edit`, or use `teams restore` to revert prior edits.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "team.builtin.immutable"
+  },
+  {
+    "agentAction" : "Only built-in teams can be restored; for a custom team, edit or delete it instead.",
+    "code" : "TEAM_RESTORE_UNSUPPORTED",
+    "exitClass" : "operational",
+    "explain" : "Restore reverts a built-in team to its shipped version. A custom team has no shipped version to restore to.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "team.restore.unsupported"
   },
   {
     "agentAction" : "Duplicate the built-in skill, then edit the custom copy.",

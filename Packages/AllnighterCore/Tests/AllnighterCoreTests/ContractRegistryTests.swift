@@ -28,7 +28,7 @@ final class ContractRegistryTests: XCTestCase {
             "docs", "doctor", "doctor explain",
             "models", "models enable", "models disable", "models add", "models update", "models delete",
             "team show",
-            "teams", "teams show", "teams duplicate", "teams edit", "teams set-default", "teams delete",
+            "teams", "teams show", "teams duplicate", "teams edit", "teams set-default", "teams delete", "teams restore",
             "skills", "skills show", "skills duplicate", "skills new", "skills edit", "skills delete",
             "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
@@ -53,7 +53,7 @@ final class ContractRegistryTests: XCTestCase {
         let names = reg.mcpTools.map(\.name)
         XCTAssertEqual(Set(names), [
             "mcp_hello", "teams_list", "teams_show", "teams_duplicate", "teams_save",
-            "teams_set_default", "teams_delete",
+            "teams_set_default", "teams_delete", "teams_restore",
             "skills_list", "skills_show", "skills_duplicate", "skills_save", "skills_delete",
             "team_preflight",
             "team_start", "team_status", "team_result", "team_cancel",

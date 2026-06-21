@@ -85,7 +85,6 @@
     "command" : "teams edit",
     "errors" : [
       "TEAM_INVALID",
-      "TEAM_BUILTIN_IMMUTABLE",
       "CATALOG_ID_INVALID",
       "SKILL_LANE_MISMATCH",
       "CLI_USAGE_ERROR",
@@ -108,7 +107,7 @@
         "type" : "string"
       }
     ],
-    "summary" : "Save a custom team definition (full replacement)."
+    "summary" : "Save a team definition in place (full replacement). Editing a built-in writes the user's version at the same id; the shipped version stays available via teams_restore — no duplicate."
   },
   {
     "command" : "teams set-default",
@@ -151,7 +150,28 @@
         "type" : "string"
       }
     ],
-    "summary" : "Delete a custom team."
+    "summary" : "Delete a custom team. For a built-in, removes the user's edits and restores the shipped version (fails if it was never edited)."
+  },
+  {
+    "command" : "teams restore",
+    "errors" : [
+      "TEAM_RESTORE_UNSUPPORTED",
+      "TEAM_NOT_FOUND",
+      "CLI_USAGE_ERROR",
+      "INTERNAL_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "teams_restore",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "teamId",
+        "required" : true,
+        "summary" : "Team id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Restore a built-in team to its shipped version by removing the user's edits. Idempotent."
   },
   {
     "command" : "skills",

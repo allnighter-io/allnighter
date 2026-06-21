@@ -354,7 +354,41 @@ public enum TeamCatalog {
     public static func list(lane: WorkLane) -> [TeamDefinition] { all.teams(in: lane) }
 
     public static func get(_ id: TeamID) -> TeamDefinition? {
-        BuiltInTeams.team(id) ?? CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self)
+        // A saved file ALWAYS wins — for a built-in id that's the user's edited version
+        // (the "override"); the shipped team stays hidden as the restore source. So
+        // editing any team edits it in place; there is never a duplicate "(custom)" row.
+        if let file = CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) {
+            return normalizedOverride(file)
+        }
+        return BuiltInTeams.team(id)
+    }
+
+    /// A saved file with a built-in id is the user's edited version of that team. Force
+    /// `builtIn = false` so every reader treats it as editable-with-restore, never as the
+    /// immutable seed.
+    private static func normalizedOverride(_ team: TeamPreset) -> TeamPreset {
+        guard BuiltInTeams.team(team.id) != nil else { return team }
+        var t = team
+        t.builtIn = false
+        return t
+    }
+
+    /// True when `id` is a built-in team the user has edited (a saved file masks the seed),
+    /// so a Restore affordance should appear.
+    public static func hasOverride(_ id: TeamID) -> Bool {
+        guard BuiltInTeams.team(id) != nil else { return false }
+        return CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) != nil
+    }
+
+    /// Restore a built-in team to its shipped seed by removing the user's edited version.
+    /// Idempotent: returns the effective team and whether an edit was actually removed.
+    @discardableResult
+    public static func restore(_ id: TeamID) throws -> (team: TeamDefinition, removedOverride: Bool) {
+        guard BuiltInTeams.team(id) != nil else { throw CatalogError.restoreUnsupported }
+        let had = hasOverride(id)
+        if had { try CatalogFileIO.delete(id: id, root: CatalogRoots.teams) }
+        guard let team = get(id) else { throw CatalogError.teamNotFound }
+        return (team, had)
     }
 
     public static func defaultTeam(for lane: WorkLane) -> TeamDefinition? {
@@ -368,12 +402,9 @@ public enum TeamCatalog {
     }
 
     /// The global default for `alln run` and default chat — one worker, mutating-allowed.
+    /// Resolves through the same effective lookup as everything else (edit wins, else seed).
     public static func defaultRunTeam() -> TeamDefinition? {
-        if let custom = CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self)
-            .first(where: { $0.id == "default_chat" && !$0.builtIn }) {
-            return custom
-        }
-        return BuiltInTeams.defaultChat
+        get("default_chat") ?? BuiltInTeams.defaultChat
     }
 
     @discardableResult
@@ -397,9 +428,12 @@ public enum TeamCatalog {
     }
 
     public static func saveCustom(_ team: TeamDefinition) throws {
-        guard !team.builtIn else { throw CatalogError.builtInImmutable }
-        if BuiltInTeams.team(team.id) != nil { throw CatalogError.idCollision }
-        guard CatalogIDValidator.isValid(team.id) else { throw CatalogError.idInvalid }
+        // Any team saves in place. A built-in id writes the user's edited version (the
+        // "override") at that same id — no duplicate. A new id is an ordinary custom team.
+        let editsBuiltIn = BuiltInTeams.team(team.id) != nil
+        if !editsBuiltIn {
+            guard CatalogIDValidator.isValid(team.id) else { throw CatalogError.idInvalid }
+        }
         guard !team.workerSpecs.isEmpty else { throw CatalogError.teamInvalid("team must have at least one worker row") }
         if team.mutating {
             guard team.workerSpecs.count == 1, team.workerSpecs.first?.count == 1 else {
@@ -446,7 +480,13 @@ public enum TeamCatalog {
     }
 
     public static func deleteCustom(_ id: TeamID) throws {
-        if BuiltInTeams.team(id) != nil { throw CatalogError.builtInImmutable }
+        // Deleting a built-in just restores its shipped seed (removes the user's edit).
+        // With no edit present there is nothing to delete — the product team stays.
+        if BuiltInTeams.team(id) != nil {
+            guard hasOverride(id) else { throw CatalogError.builtInImmutable }
+            try CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
+            return
+        }
         guard let existing = CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) else {
             throw CatalogError.teamNotFound
         }
@@ -479,7 +519,15 @@ public enum TeamCatalog {
     }
 
     private static func mergeCustom(_ customs: [TeamPreset]) -> [TeamPreset] {
-        let reserved = Set(BuiltInTeams.all.map(\.id))
-        return BuiltInTeams.all + customs.filter { !reserved.contains($0.id) }
+        // An edited built-in REPLACES its seed in place (shipped order preserved), so each
+        // built-in id appears exactly once — edited version or seed, never both. Ordinary
+        // custom teams (non-built-in ids) follow.
+        let overridesById = Dictionary(
+            customs.compactMap { BuiltInTeams.team($0.id) != nil ? ($0.id, normalizedOverride($0)) : nil },
+            uniquingKeysWith: { first, _ in first })
+        let merged = BuiltInTeams.all.map { overridesById[$0.id] ?? $0 }
+        let builtInIds = Set(BuiltInTeams.all.map(\.id))
+        let ordinaryCustoms = customs.filter { !builtInIds.contains($0.id) }
+        return merged + ordinaryCustoms
     }
 }

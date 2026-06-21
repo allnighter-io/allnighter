@@ -19,6 +19,7 @@ struct AllnighterCLI {
         case "teams" where args.first == "edit": runTeamsEdit(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "set-default": runTeamsSetDefault(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "delete": runTeamsDelete(Array(args.dropFirst()), runtime)
+        case "teams" where args.first == "restore": runTeamsRestore(Array(args.dropFirst()), runtime)
         case "teams": runTeamCatalog(args, runtime)
         case "skills" where args.first == "show": runSkillShow(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "duplicate": runSkillsDuplicate(Array(args.dropFirst()), runtime)
@@ -200,6 +201,7 @@ struct AllnighterCLI {
         case .skillInUse(let ids):
             return ("SKILL_IN_USE", "skill is referenced by team(s): \(ids.joined(separator: ", "))")
         case .teamDefaultInvalid(let detail): return ("TEAM_DEFAULT_INVALID", detail)
+        case .restoreUnsupported: return ("TEAM_RESTORE_UNSUPPORTED", "this team has no shipped version to restore")
         }
     }
 
@@ -591,6 +593,12 @@ struct AllnighterCLI {
             let builtIn, isDefaultForLane: Bool
             let description: String
             let workerSpecs: [WorkerRow]
+            // Edit-in-place metadata: where this effective team came from and whether a
+            // Restore (revert-to-shipped) is available.
+            let origin: String
+            let seedId: String?
+            let restoreAvailable: Bool
+            let isDefaultForRun: Bool
         }
         let rows = team.workerSpecs.map {
             WorkerRow(id: $0.id, skillId: $0.skillId, purpose: $0.purpose.rawValue,
@@ -601,8 +609,50 @@ struct AllnighterCLI {
             id: team.id, displayName: team.displayName, lane: team.lane.rawValue,
             outputKind: team.outputKind.rawValue, defaultEffort: team.defaultEffort.rawValue,
             builtIn: team.builtIn, isDefaultForLane: team.isDefaultForLane,
-            description: team.description, workerSpecs: rows
+            description: team.description, workerSpecs: rows,
+            origin: teamOrigin(team.id), seedId: BuiltInTeams.team(team.id) != nil ? team.id : nil,
+            restoreAvailable: TeamCatalog.hasOverride(team.id),
+            isDefaultForRun: team.id == "default_chat"
         ))
+    }
+
+    /// Where the effective team came from: an unedited shipped team (`seed`), the user's
+    /// edited version of a shipped team (`override`), or a brand-new team (`custom`).
+    static func teamOrigin(_ id: TeamID) -> String {
+        if BuiltInTeams.team(id) != nil { return TeamCatalog.hasOverride(id) ? "override" : "seed" }
+        return "custom"
+    }
+
+    /// `alln teams restore <team-id> [--json]` — revert a team to its shipped version by
+    /// removing the user's edits. Idempotent.
+    static func runTeamsRestore(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams restore <team-id> [--json]")
+        }
+        do {
+            let result = try TeamCatalog.restore(id)
+            if opts.flag("json") {
+                print(teamRestoreJSONString(id: id, restored: result.removedOverride))
+            } else {
+                print(result.removedOverride ? "restored \(id) to shipped version" : "\(id) already at shipped version")
+            }
+        } catch let error as CatalogError { emitCatalogError(error) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
+    }
+
+    /// Shared restore-acknowledgement JSON for CLI + MCP parity.
+    static func teamRestoreJSONString(id: TeamID, restored: Bool) -> String {
+        struct RestoreAck: Encodable {
+            let schemaVersion = 1
+            let contractVersion: String
+            let id: String
+            let restored: Bool
+            let origin: String
+        }
+        return jsonString(RestoreAck(
+            contractVersion: ContractRegistry.contractVersion,
+            id: id, restored: restored, origin: teamOrigin(id)))
     }
 
     /// `alln teams duplicate <team-id> [--name <displayName>] [--json]`

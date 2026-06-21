@@ -117,6 +117,21 @@ struct MCPServer {
             } catch {
                 respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
             }
+        case "teams_restore":
+            guard let teamId = args["teamId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "teamId required")
+            }
+            do {
+                let result = try TeamCatalog.restore(teamId)
+                respond(id: id, result: toolText(
+                    result.removedOverride ? "restored \(teamId)" : "\(teamId) already shipped",
+                    structured: AllnighterCLI.teamRestoreJSONString(id: teamId, restored: result.removedOverride)))
+            } catch let error as CatalogError {
+                let env = AllnighterCLI.catalogErrorEnvelope(error)
+                respondToolError(id: id, code: env.code, message: env.message)
+            } catch {
+                respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
+            }
         case "skills_list":
             let lane = (args["lane"] as? String).flatMap(WorkLane.init(rawValue:))
             respond(id: id, result: toolText("Skill catalog", structured: AllnighterCLI.skillsCatalogJSONString(lane: lane)))

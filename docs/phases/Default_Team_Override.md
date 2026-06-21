@@ -1,8 +1,31 @@
 # Default Team Override
 
-Status: Ready for Implementation
+Status: IMPLEMENTED (2026-06-20) — scope BROADENED to every built-in team
 Owner: AllnighterCore + AllnighterCLI/MCP + Mac GUI
-Updated: 2026-06-21
+Updated: 2026-06-20
+
+## Implementation Note (scope change)
+
+The shipped implementation makes **every built-in team editable in place**, not just
+`default_chat`. The founder's driving case was Bug Hunt (`code_bug_hunt`), an ordinary
+built-in — and the "no legacy, build the correct final model" directive — so the
+allowlist (`shadowableBuiltInTeamIDs = [default_chat]`) was dropped: any built-in id
+can carry an override, edit-in-place saves at the same id, and Restore reveals the seed.
+This supersedes the "ordinary built-ins still duplicate-to-edit" non-goal below. The
+mechanism, CLI/MCP surface, and JSON shape are otherwise exactly as specced here.
+
+Skills are unchanged (still duplicate-to-edit) — a possible follow-up.
+
+Landed:
+- Core: `TeamCatalog.get/all/defaultRunTeam` resolve the override; `saveCustom` writes
+  an override for any built-in id; `deleteCustom` on a built-in = restore;
+  `restore(_:)` + `hasOverride(_:)`; `mergeCustom` replaces the seed in shipped order.
+- CLI/MCP: `alln teams restore` + `teams_restore`; `origin`/`restoreAvailable`/`seedId`/
+  `isDefaultForRun` on team JSON; `TEAM_RESTORE_UNSUPPORTED`. Generated contracts re-exported.
+- GUI: editor saves in place (footer "Save changes", no "Duplicate Team"); a "Restore"
+  button + "EDITED" badge appear once a built-in has been edited.
+- Tests: `CatalogPersistenceTests` (edit-in-place / restore / delete-resets / default_chat),
+  rewritten `TeamDraftTests`, `ContractRegistryTests`.
 
 ## Founder Intent
 
