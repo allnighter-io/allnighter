@@ -122,7 +122,7 @@ public actor CloudRemoteClient: RemoteClient {
         return AsyncStream { continuation in
             Task {
                 defer { continuation.finish() }
-                for await envelope in upstream where Self.verifies(envelope, mac: mac) {
+                for await envelope in upstream where envelope.event.seq > since && Self.verifies(envelope, mac: mac) {
                     continuation.yield(envelope)
                 }
             }
