@@ -12,8 +12,33 @@ public enum DirectModeCommandError: Error, Equatable, Sendable {
     )
 }
 
+public enum DirectModeSnapshotError: Error, Equatable, Sendable {
+    case requestMismatch(
+        expectedAccountId: String,
+        actualAccountId: String,
+        expectedMacAgentId: String,
+        actualMacAgentId: String
+    )
+}
+
+public struct DirectModeSnapshotRequest: Codable, Equatable, Sendable {
+    public var accountId: String
+    public var macAgentId: String
+    public var since: Int64?
+
+    public init(accountId: String, macAgentId: String, since: Int64?) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.since = since
+    }
+}
+
 public protocol DirectModeCommandHandling: Sendable {
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope
+}
+
+public protocol DirectModeSnapshotHandling: Sendable {
+    func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope
 }
 
 public struct DirectModeCommandHandler: DirectModeCommandHandling {
@@ -62,15 +87,46 @@ public struct DirectModeCommandHandler: DirectModeCommandHandling {
     }
 }
 
+public struct DirectModeSnapshotHandler: DirectModeSnapshotHandling {
+    private let accountId: String
+    private let macAgentId: String
+    private let service: RemoteSnapshotService
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        service: RemoteSnapshotService
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.service = service
+    }
+
+    public func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope {
+        guard request.accountId == accountId,
+              request.macAgentId == macAgentId else {
+            throw DirectModeSnapshotError.requestMismatch(
+                expectedAccountId: accountId,
+                actualAccountId: request.accountId,
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: request.macAgentId
+            )
+        }
+        return try service.snapshot(since: request.since)
+    }
+}
+
 public final class DirectModeCommandServer: @unchecked Sendable {
     public static let commandPath = "/remote/command"
     public static let pairingPath = "/remote/pair"
     public static let pairingStatusPath = "/remote/pair/status"
+    public static let snapshotPath = "/remote/snapshot"
 
     private let lock = NSLock()
     private let handler: any DirectModeCommandHandling
     private let pairingHandler: (any DirectModePairingHandling)?
     private let pairingStatusHandler: (any DirectModePairingStatusHandling)?
+    private let snapshotHandler: (any DirectModeSnapshotHandling)?
     private let maxRequestBytes: Int
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
@@ -80,11 +136,13 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         handler: any DirectModeCommandHandling,
         pairingHandler: (any DirectModePairingHandling)? = nil,
         pairingStatusHandler: (any DirectModePairingStatusHandling)? = nil,
+        snapshotHandler: (any DirectModeSnapshotHandling)? = nil,
         maxRequestBytes: Int = 512 * 1024
     ) {
         self.handler = handler
         self.pairingHandler = pairingHandler
         self.pairingStatusHandler = pairingStatusHandler
+        self.snapshotHandler = snapshotHandler
         self.maxRequestBytes = max(1024, maxRequestBytes)
     }
 
@@ -201,6 +259,18 @@ public final class DirectModeCommandServer: @unchecked Sendable {
             do {
                 let statusRequest = try CoreJSON.decode(DirectModePairingStatusRequest.self, from: request.body)
                 let response = try pairingStatusHandler.status(statusRequest)
+                writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
+            } catch {
+                writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)
+            }
+        case Self.snapshotPath:
+            guard let snapshotHandler else {
+                writeJSON(["error": "not_found"], status: "404 Not Found", to: client)
+                return
+            }
+            do {
+                let snapshotRequest = try CoreJSON.decode(DirectModeSnapshotRequest.self, from: request.body)
+                let response = try await snapshotHandler.snapshot(snapshotRequest)
                 writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
             } catch {
                 writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)

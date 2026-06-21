@@ -99,6 +99,24 @@ final class DirectModeCommandServerTests: XCTestCase {
         XCTAssertTrue(commandHandler.entries.isEmpty)
     }
 
+    func testLoopbackCommandServerPostsSnapshotRequestToHandler() throws {
+        let commandHandler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
+        let snapshotHandler = RecordingDirectModeSnapshotHandler(snapshot: Self.snapshot(now: now))
+        let server = DirectModeCommandServer(handler: commandHandler, snapshotHandler: snapshotHandler)
+        defer { server.stop() }
+        let port = try server.start()
+        let request = DirectModeSnapshotRequest(accountId: "acct_1", macAgentId: "mac_1", since: 12)
+
+        let result = try postSnapshot(request, port: port)
+
+        XCTAssertEqual(result.statusCode, 200)
+        let snapshot = try CoreJSON.decode(SnapshotEnvelope.self, from: result.body)
+        XCTAssertEqual(snapshot.runs.map(\.id), ["run_1"])
+        XCTAssertEqual(snapshot.lastSeq, 42)
+        XCTAssertEqual(snapshotHandler.requests, [request])
+        XCTAssertTrue(commandHandler.entries.isEmpty)
+    }
+
     func testLoopbackCommandServerRejectsPairingPathWithoutPairingHandler() throws {
         let handler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
         let server = DirectModeCommandServer(handler: handler)
@@ -135,6 +153,15 @@ final class DirectModeCommandServerTests: XCTestCase {
             method: "POST",
             path: DirectModeCommandServer.commandPath,
             body: CoreJSON.encode(entry),
+            port: port
+        )
+    }
+
+    private func postSnapshot(_ request: DirectModeSnapshotRequest, port: UInt16) throws -> HTTPResult {
+        try self.request(
+            method: "POST",
+            path: DirectModeCommandServer.snapshotPath,
+            body: CoreJSON.encode(request),
             port: port
         )
     }
@@ -271,6 +298,23 @@ final class DirectModeCommandServerTests: XCTestCase {
             acceptedAt: now
         )
     }
+
+    private static func snapshot(now: Date) -> SnapshotEnvelope {
+        SnapshotEnvelope(
+            runs: [
+                TeamRunLight(
+                    id: "run_1",
+                    status: .running,
+                    origin: .ios,
+                    promptExcerpt: "",
+                    teamDisplayName: "Remote Team",
+                    createdAt: now
+                ),
+            ],
+            lastSeq: 42,
+            serverTime: now
+        )
+    }
 }
 
 private struct HTTPResult {
@@ -335,6 +379,25 @@ private final class RecordingDirectModePairingHandler: DirectModePairingHandling
     func handle(_ request: DirectModePairingSubmitRequest) throws -> DirectModePairingSubmitResponse {
         lock.withLock { storedRequests.append(request) }
         return response
+    }
+}
+
+private final class RecordingDirectModeSnapshotHandler: DirectModeSnapshotHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedSnapshot: SnapshotEnvelope
+    private var storedRequests: [DirectModeSnapshotRequest] = []
+
+    init(snapshot: SnapshotEnvelope) {
+        self.storedSnapshot = snapshot
+    }
+
+    var requests: [DirectModeSnapshotRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope {
+        lock.withLock { storedRequests.append(request) }
+        return storedSnapshot
     }
 }
 

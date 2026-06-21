@@ -47,6 +47,40 @@ final class DirectModeRemoteClientTests: XCTestCase {
         XCTAssertEqual(diagnosis.rungs.first(where: { $0.rung == .deviceApproved })?.ok, true)
     }
 
+    func testClientFetchesSnapshotFromLoopbackServer() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let snapshotHandler = RecordingDirectModeClientSnapshotHandler(snapshot: Self.snapshot(now: now))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            snapshotHandler: snapshotHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        let snapshot = try await client.snapshot(macId: "mac_1", since: 12)
+
+        XCTAssertEqual(snapshot.runs.map(\.id), ["run_1"])
+        XCTAssertEqual(snapshot.lastSeq, 42)
+        let requests = snapshotHandler.requests
+        XCTAssertEqual(requests, [
+            DirectModeSnapshotRequest(accountId: "acct_1", macAgentId: "mac_1", since: 12),
+        ])
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let otherSigningKey = Curve25519.Signing.PrivateKey()
@@ -149,6 +183,23 @@ final class DirectModeRemoteClientTests: XCTestCase {
             createdAt: now
         )
     }
+
+    private static func snapshot(now: Date) -> SnapshotEnvelope {
+        SnapshotEnvelope(
+            runs: [
+                TeamRunLight(
+                    id: "run_1",
+                    status: .running,
+                    origin: .ios,
+                    promptExcerpt: "",
+                    teamDisplayName: "Remote Team",
+                    createdAt: now
+                ),
+            ],
+            lastSeq: 42,
+            serverTime: now
+        )
+    }
 }
 
 private final class RecordingDirectModeClientHandler: DirectModeCommandHandling, @unchecked Sendable {
@@ -167,6 +218,25 @@ private final class RecordingDirectModeClientHandler: DirectModeCommandHandling,
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope {
         lock.withLock { storedEntries.append(entry) }
         return envelope
+    }
+}
+
+private final class RecordingDirectModeClientSnapshotHandler: DirectModeSnapshotHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedSnapshot: SnapshotEnvelope
+    private var storedRequests: [DirectModeSnapshotRequest] = []
+
+    init(snapshot: SnapshotEnvelope) {
+        self.storedSnapshot = snapshot
+    }
+
+    var requests: [DirectModeSnapshotRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope {
+        lock.withLock { storedRequests.append(request) }
+        return storedSnapshot
     }
 }
 

@@ -37,6 +37,7 @@ public enum DirectModeRemoteClientError: Error, Equatable, Sendable {
     case httpStatus(Int)
     case badAckEnvelope
     case badAckSignature
+    case badSnapshotResponse
     case unsupportedOperation(String)
 }
 
@@ -73,8 +74,25 @@ public actor DirectModeRemoteClient: RemoteClient {
     }
 
     public func snapshot(macId: String, since: Int64?) async throws -> SnapshotEnvelope {
+        let account = try requireConnected()
         try requireMac(macId)
-        throw DirectModeRemoteClientError.unsupportedOperation("snapshot")
+        let snapshotURL = routeURLString(DirectModeCommandServer.snapshotPath, baseURL: endpoint.baseURL)
+        guard let url = URL(string: snapshotURL) else {
+            throw DirectModeRemoteClientError.invalidEndpoint(snapshotURL)
+        }
+        let request = DirectModeSnapshotRequest(
+            accountId: account.accountId,
+            macAgentId: macId,
+            since: since
+        )
+        let response = try await poster.postJSON(CoreJSON.encode(request), to: url)
+        guard (200..<300).contains(response.statusCode) else {
+            throw DirectModeRemoteClientError.httpStatus(response.statusCode)
+        }
+        guard let snapshot = try? CoreJSON.decode(SnapshotEnvelope.self, from: response.body) else {
+            throw DirectModeRemoteClientError.badSnapshotResponse
+        }
+        return snapshot
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {
@@ -162,6 +180,11 @@ public actor DirectModeRemoteClient: RemoteClient {
 
     private var expectedMode: ConnectionMode {
         endpoint.transport == .loopback ? .loopback : .tailscaleDirect
+    }
+
+    private func routeURLString(_ path: String, baseURL: String) -> String {
+        let trimmed = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return "\(trimmed)\(path)"
     }
 
     private func requireConnected() throws -> RemoteAccountSession {
