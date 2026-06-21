@@ -206,8 +206,20 @@ reply OK" → turn 2 "What word did I ask you to remember?" → answers `ambercl
   `--resume <id>`. Live: answer streamed `amber`+`clock` deltas.
 - [x] **CONT-S6 — antigravity (DONE).** `promptContextOnly` declared (no headless id; `--print`
   exposes none). Engine falls back to always-include context for agy. Vendor ask: expose an id.
-- [ ] **CONT-S7 — CLI/MCP surface + GUI honesty.** `alln sessions` + MCP tools + run-artifact
-  receipts; GUI shows continuity state per thread/source.
+- [~] **CONT-S7 — surface (CORE DONE; registration gated).** Run-artifact receipt
+  (`WorkerAnswer.vendorSessionId`, set from the outcome) + `WorkerSessionsJSON` agent
+  envelope shipped + tested (`5ce8719c`). The `alln sessions` / `worker_sessions_*` tool
+  REGISTRATION is the only remaining wiring — blocked solely by the concurrent contract WIP
+  in AllnighterCLI/MCPServer/ContractRegistry (same gate as the capacity surface). Paste-ready.
+
+## STATUS: SOLVED ✅ (2026-06-21)
+
+The CODE-RED dead-end is fixed end-to-end and **live-proven on 4 of 5 CLIs** (claude,
+cursor, codex, grok all recalled "amberclock" across two turns with the prior context NOT
+re-sent; antigravity degrades honestly to `promptContextOnly`). One Allnighter thread now
+piggybacks ONE continuing vendor CLI session per (source, model). ~50 tests green. Only the
+read-only `alln sessions`/`worker_sessions_*` tool registration remains, gated on unrelated
+concurrent contract WIP.
 
 Each slice: implement → focused proof → deslop → audit → closeout (green wall) → commit.
 
