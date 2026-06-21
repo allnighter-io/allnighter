@@ -5,13 +5,22 @@
 //  Created by Michael Reining on 2026-06-15.
 //
 
-import Testing
+import XCTest
 @testable import AllnighteriOS
 
-struct AllnighteriOSTests {
+final class AllnighteriOSTests: XCTestCase {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    func testDebugConversationSnapshotMatchesMVPHomeShape() {
+        #if DEBUG
+        let snapshot = ConversationHomePreviewData.snapshot
+
+        XCTAssertEqual(snapshot.pinned.map(\.title), ["Give me a picture of a cat"])
+        XCTAssertEqual(snapshot.projects.map(\.name), ["Allnighter", "X", "Unassigned"])
+        XCTAssertEqual(snapshot.projects.last?.isExpanded, true)
+        XCTAssertEqual(snapshot.projects.last?.hiddenConversationCount, 1)
+        #else
+        XCTAssertTrue(ConversationListSnapshot.empty.projects.isEmpty)
+        #endif
     }
 
 }
