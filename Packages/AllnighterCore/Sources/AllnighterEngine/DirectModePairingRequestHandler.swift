@@ -96,9 +96,11 @@ public struct DirectModePairingRequestHandler: DirectModePairingHandling {
         case (true, true):
             throw DirectModePairingRequestError.multipleCredentials
         case (true, false):
-            return .pairingToken(token ?? "")
+            guard let token else { throw DirectModePairingRequestError.missingCredential }
+            return .pairingToken(token)
         case (false, true):
-            return .manualCode(code ?? "")
+            guard let code else { throw DirectModePairingRequestError.missingCredential }
+            return .manualCode(code)
         }
     }
 }
