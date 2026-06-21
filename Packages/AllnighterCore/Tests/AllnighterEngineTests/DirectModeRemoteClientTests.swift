@@ -320,6 +320,36 @@ final class DirectModeRemoteClientTests: XCTestCase {
         }
     }
 
+    func testClientRejectsAckWithWrongAuditDevice() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let handler = RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+            requestId: "req_wrong_device",
+            now: now,
+            macSigningKey: macSigningKey,
+            auditDeviceId: "device_other"
+        ))
+        let server = DirectModeCommandServer(handler: handler)
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        do {
+            _ = try await client.send(Self.command(requestId: "req_wrong_device", now: now))
+            XCTFail("ack audit device id must match the command assertion")
+        } catch let error as DirectModeRemoteClientError {
+            XCTAssertEqual(error, .badAckEnvelope)
+        }
+    }
+
     func testClientRejectsWrongConnectionMode() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let endpoint = DirectModeEndpoint(
@@ -368,6 +398,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
         now: Date,
         macSigningKey: Curve25519.Signing.PrivateKey,
         auditCommandKind: RemoteCommandKind = .stopAll,
+        auditDeviceId: String = "device_1",
         accepted: Bool = true,
         reason: RemoteCommandRejectReason? = nil,
         outcome: RemoteCommandAckOutcome = .accepted
@@ -388,7 +419,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
             ack: ack,
             auditEvent: RemoteAuditEvent(
                 ts: now,
-                deviceId: "device_1",
+                deviceId: auditDeviceId,
                 commandKind: auditCommandKind,
                 requestId: requestId,
                 targetSummary: "stopAll terminated=1",
