@@ -89,3 +89,4 @@ docs/qa/gui/_captures/
 # package-cwd duplicates from `swift run alln dev export-contracts` inside Packages/.
 Packages/AllnighterCore/docs/
 .aider*
+__pycache__/

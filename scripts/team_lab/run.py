@@ -329,6 +329,8 @@ def run_experiment(
 
 
 def main() -> int:
+    # Line-buffered status for long-running team polls.
+    sys.stdout.reconfigure(line_buffering=True)
     p = argparse.ArgumentParser(description="Run a team lab experiment via MCP stdio")
     p.add_argument("--suite", required=True)
     p.add_argument("--case")
