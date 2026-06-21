@@ -88,10 +88,9 @@ These gates happen before `iOS01-S00` code begins.
 4. **Coordinator boundary.** Current `alln serve` health/wake is not product remote
    control by itself. The headless remote agent extends the coordinator with typed
    command/event carriers; it does not create a second semantic engine.
-5. **Closed command set.** Reserve and test the remote enum shape:
-   `startRun`, `stopRun`, `stopAll`, plus deferred
-   `approveRequest`, `rejectRequest`, `openOnMac`, and `landPlane`. There is no
-   shell case and no generic MCP passthrough.
+5. **Closed command set.** Test the remote enum shape:
+   `startRun`, `stopRun`, and `stopAll`. There is no shell case, generic MCP
+   passthrough, or reserved future command in v1.
 6. **Crypto proof harness plan.** The first code slice must include deterministic
    round-trip tests for two-key device/Mac identity, signing strings, HPKE
    `SealedBlob`, replay/skew rejection, protocol mismatch, and signed Mac events.

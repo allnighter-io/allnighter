@@ -72,9 +72,9 @@ and everyone understands "use the same Apple ID."
 
 **v1 approval is Mac-only** (the human at the Mac taps Approve, or runs
 `alln pair approve`, or taps a Mac notification). **Adding a device while away
-from the Mac is v1.1** — but the `approveRequest` command is **reserved in the closed
-enum now** (`01`) so v1.1 is wiring, not a wire-contract change. (Reconciles the
-earlier "approve from an already-trusted device" wording: that is v1.1, not v1.)
+from the Mac is v1.1** and requires an explicit command-contract change in `01`.
+(Reconciles the earlier "approve from an already-trusted device" wording: that is
+v1.1, not v1.)
 
 > **Same-account-different-provider is the #1 silent dead end:** Apple on the phone +
 > Google on the Mac = two distinct accounts = the phone sees no Mac, with no error.

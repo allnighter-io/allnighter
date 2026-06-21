@@ -250,13 +250,11 @@ coordinator events into this journal; carrier-level restart/resume proof remains
 ## Trust model (transport-agnostic — see `00` §3)
 
 - **`TrustedRemoteStore`** — the registry; two pubkeys per device; `deviceId` a hint,
-  signature the truth; `capabilities` (v1 grants full set **except** `stopAll`, which
-  is ungated); `validUntil` (v1: **long-lived ~1 year, explicit re-approval on
+  signature the truth; `capabilities` grant `startRun`/`stopRun` only; `stopAll` is
+  ungated; `validUntil` (v1: **long-lived ~1 year, explicit re-approval on
   expiry, surfaced in Settings** — never silent expiry that looks like a bug).
-- **`RemoteCommandRouter`** — closed enum `startRun/stopRun/stopAll` (v1) +
-  `approveRequest/rejectRequest/openOnMac/landPlane` (**modeled now, deferred**; see
-  `01a` — reserving `approveRequest` makes remote device-approval a v1.1 *wiring*
-  change, not a wire-contract bump). **No shell case, ever.** Capability check +
+- **`RemoteCommandRouter`** — closed enum `startRun/stopRun/stopAll` (v1). Future
+  commands require an explicit contract change. **No shell case, ever.** Capability check +
   idempotent dedupe + per-device rate limits + size caps.
 - **Revocation = real teardown:** reject new → tear down that device's filtered
   subscription (without touching others) → cancel its in-flight scopes → (later) clear

@@ -323,8 +323,6 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             return try await routeStopRun(command, serverTime: serverTime)
         case .stopAll:
             return try await routeStopAll(command, serverTime: serverTime)
-        case .approveRequest, .rejectRequest, .openOnMac, .landPlane:
-            return try rejected(command, reason: .unauthorizedKind, serverTime: serverTime)
         }
     }
 

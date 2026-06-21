@@ -10,10 +10,6 @@ final class RemoteFoundationTests: XCTestCase {
             "startRun",
             "stopRun",
             "stopAll",
-            "approveRequest",
-            "rejectRequest",
-            "openOnMac",
-            "landPlane",
         ])
         XCTAssertFalse(cases.contains { $0.localizedCaseInsensitiveContains("shell") })
         XCTAssertFalse(cases.contains { $0.localizedCaseInsensitiveContains("mcp") })

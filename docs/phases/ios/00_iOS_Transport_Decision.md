@@ -155,8 +155,7 @@ authorizer.**
 
 ### 3.1 Typed commands only — never a remote shell (load-bearing invariant)
 
-The phone sends a **closed enum** (`startRun`, `stopRun`, `stopAll`; later
-`approveRequest`/`rejectRequest`/`openOnMac`/`landPlane`). **There is no generic
+The phone sends a **closed enum** (`startRun`, `stopRun`, `stopAll`). **There is no generic
 "run this on my Mac" pathway, and there never will be.** This is the security floor
 *and* the reason a non-developer feels safe enabling remote control. (Also: do not
 expose a generic MCP server to iOS — iOS sends typed Allnighter commands; the Mac

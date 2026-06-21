@@ -18,16 +18,12 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
     case startRun
     case stopRun
     case stopAll
-    case approveRequest
-    case rejectRequest
-    case openOnMac
-    case landPlane
 
     public var requiresSealedPayload: Bool {
         switch self {
         case .startRun:
             return true
-        case .stopRun, .stopAll, .approveRequest, .rejectRequest, .openOnMac, .landPlane:
+        case .stopRun, .stopAll:
             return false
         }
     }
@@ -40,23 +36,6 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
             return .startRun
         case .stopRun:
             return .stopRun
-        case .approveRequest:
-            return .approveRequest
-        case .rejectRequest:
-            return .rejectRequest
-        case .openOnMac:
-            return .openOnMac
-        case .landPlane:
-            return .landPlane
-        }
-    }
-
-    public var isDeferredAfterV1: Bool {
-        switch self {
-        case .startRun, .stopRun, .stopAll:
-            return false
-        case .approveRequest, .rejectRequest, .openOnMac, .landPlane:
-            return true
         }
     }
 }
@@ -64,10 +43,6 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
 public enum RemoteCapability: String, Codable, Sendable, CaseIterable {
     case startRun
     case stopRun
-    case approveRequest
-    case rejectRequest
-    case openOnMac
-    case landPlane
 }
 
 public enum RemoteCryptoSuite: String, Codable, Sendable, CaseIterable {
