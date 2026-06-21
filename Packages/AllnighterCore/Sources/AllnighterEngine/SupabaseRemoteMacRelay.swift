@@ -520,7 +520,9 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "limit", value: "1"),
             ]
         )
-        guard let row = rows.first else { return nil }
+        guard let row = rows.first(where: {
+            $0.macAgentId == macAgentId && $0.ref == ref && $0.deviceId == deviceId
+        }) else { return nil }
         let refs: [MediaRefRow] = try await get(
             table: "media_refs",
             query: [
@@ -530,7 +532,9 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "limit", value: "1"),
             ]
         )
-        guard !refs.isEmpty else { return nil }
+        guard refs.contains(where: { $0.macAgentId == macAgentId && $0.ref == ref && $0.expiresAt >= now }) else {
+            return nil
+        }
         return row.model()
     }
 

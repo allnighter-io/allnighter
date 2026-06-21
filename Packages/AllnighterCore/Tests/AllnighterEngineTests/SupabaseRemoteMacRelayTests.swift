@@ -514,6 +514,47 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
+    func testMediaKeyFiltersRowsOutsideRequestedScopeAndActiveRef() async throws {
+        let validKey = mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_1")
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                mediaKeyRow(mediaKey(ref: "media_1", macAgentId: "mac_2", deviceId: "device_1")),
+                mediaKeyRow(mediaKey(ref: "media_other", macAgentId: "mac_1", deviceId: "device_1")),
+                mediaKeyRow(mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_2")),
+                mediaKeyRow(validKey),
+            ])),
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                mediaRefRow(MediaRef(
+                    ref: "media_1",
+                    macAgentId: "mac_2",
+                    r2Key: "r2/wrong-mac",
+                    contentType: "image/png",
+                    expiresAt: now.addingTimeInterval(300)
+                )),
+                mediaRefRow(MediaRef(
+                    ref: "media_other",
+                    macAgentId: "mac_1",
+                    r2Key: "r2/wrong-ref",
+                    contentType: "image/png",
+                    expiresAt: now.addingTimeInterval(300)
+                )),
+                mediaRefRow(MediaRef(
+                    ref: "media_1",
+                    macAgentId: "mac_1",
+                    r2Key: "r2/expired",
+                    contentType: "image/png",
+                    expiresAt: now.addingTimeInterval(-1)
+                )),
+                mediaRefRow(mediaRef()),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let fetched = try await relay.mediaKey(ref: "media_1", macAgentId: "mac_1", deviceId: "device_1", at: now)
+
+        XCTAssertEqual(fetched, validKey)
+    }
+
     func testPublishSnapshotWritesSnapshotEnvelopeRow() async throws {
         let fixedNow = now.addingTimeInterval(60)
         let snapshot = snapshotEnvelope()
@@ -900,6 +941,10 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
             "content_type": ref.contentType,
             "expires_at": iso(ref.expiresAt),
         ]
+    }
+
+    private func mediaKeyRow(_ key: MediaKeyEnvelope) throws -> [String: Any] {
+        try XCTUnwrap(jsonObject(key) as? [String: Any])
     }
 
     private func mediaKey(
