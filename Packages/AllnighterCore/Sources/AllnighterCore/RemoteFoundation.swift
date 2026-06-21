@@ -343,11 +343,13 @@ public struct MediaRef: Codable, Equatable, Sendable, Identifiable {
 
 public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable {
     public var id: String { event.id }
+    public var macAgentId: String
     public var event: RunEvent
     public var sealedRef: MediaRef?
     public var signature: String
 
-    public init(event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
+    public init(macAgentId: String = "", event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
+        self.macAgentId = macAgentId
         var remoteEvent = event
         remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
         self.event = remoteEvent
@@ -550,6 +552,70 @@ public enum RemoteCrypto {
         return publicKey.isValidSignature(signature, for: Data(assertion.signingString.utf8))
     }
 
+    public static func eventSigningString(
+        macAgentId: String,
+        method: String = RemoteProtocol.eventMethod,
+        event: RunEvent,
+        payloadSHA256: String
+    ) -> String {
+        [
+            macAgentId,
+            method,
+            event.id,
+            String(event.seq),
+            remoteTimestampString(from: event.ts),
+            event.kind,
+            payloadSHA256,
+        ].joined(separator: "|")
+    }
+
+    public static func makeRemoteRunEventEnvelope(
+        macAgentId: String,
+        event: RunEvent,
+        sealedRef: MediaRef? = nil,
+        signingKey: Curve25519.Signing.PrivateKey,
+        method: String = RemoteProtocol.eventMethod
+    ) throws -> RemoteRunEventEnvelope {
+        var remoteEvent = event
+        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
+        let digest = try remoteEventDigest(macAgentId: macAgentId, event: remoteEvent, sealedRef: sealedRef)
+        let signingString = eventSigningString(
+            macAgentId: macAgentId,
+            method: method,
+            event: remoteEvent,
+            payloadSHA256: digest
+        )
+        let signature = try signingKey.signature(for: Data(signingString.utf8)).base64EncodedString()
+        return RemoteRunEventEnvelope(
+            macAgentId: macAgentId,
+            event: remoteEvent,
+            sealedRef: sealedRef,
+            signature: signature
+        )
+    }
+
+    public static func verifyRemoteRunEventEnvelope(
+        _ envelope: RemoteRunEventEnvelope,
+        signingPublicKeyBase64: String,
+        method: String = RemoteProtocol.eventMethod
+    ) throws -> Bool {
+        let keyData = try dataFromBase64(signingPublicKeyBase64, label: "agentSigningPublicKey")
+        let signature = try dataFromBase64(envelope.signature, label: "signature")
+        let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: keyData)
+        let digest = try remoteEventDigest(
+            macAgentId: envelope.macAgentId,
+            event: envelope.event,
+            sealedRef: envelope.sealedRef
+        )
+        let signingString = eventSigningString(
+            macAgentId: envelope.macAgentId,
+            method: method,
+            event: envelope.event,
+            payloadSHA256: digest
+        )
+        return publicKey.isValidSignature(signature, for: Data(signingString.utf8))
+    }
+
     public static func seal(
         _ plaintext: Data,
         to recipientPublicKeyBase64: String,
@@ -608,6 +674,23 @@ public enum RemoteCrypto {
         HPKE.Ciphersuite(kem: .Curve25519_HKDF_SHA256, kdf: .HKDF_SHA256, aead: .AES_GCM_256)
     }
 
+    private static func remoteEventDigest(
+        macAgentId: String,
+        event: RunEvent,
+        sealedRef: MediaRef?
+    ) throws -> String {
+        try sha256Hex(CoreJSON.encode(RemoteEventSigningBody(
+            macAgentId: macAgentId,
+            event: event,
+            sealedRef: sealedRef
+        )))
+    }
+}
+
+private struct RemoteEventSigningBody: Codable, Sendable {
+    var macAgentId: String
+    var event: RunEvent
+    var sealedRef: MediaRef?
 }
 
 public extension RunEventKind {

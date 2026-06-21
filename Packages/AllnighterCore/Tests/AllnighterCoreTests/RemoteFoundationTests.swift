@@ -99,6 +99,30 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertFalse(try RemoteCrypto.verifyDeviceAssertion(tampered, signingPublicKeyBase64: publicKey))
     }
 
+    func testRemoteEventEnvelopeSignsAndRejectsTampering() throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let publicKey = RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey)
+        let event = RunEvent(
+            id: "evt_1",
+            seq: 1,
+            ts: Date(timeIntervalSince1970: 1_750_000_000),
+            kind: RunEventKind.synthesisCompleted,
+            payload: ["runId": .string("run_1")]
+        )
+
+        let envelope = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: event,
+            signingKey: signingKey
+        )
+        XCTAssertEqual(envelope.event.kind, RunEventKind.stageCompleted)
+        XCTAssertTrue(try RemoteCrypto.verifyRemoteRunEventEnvelope(envelope, signingPublicKeyBase64: publicKey))
+
+        var tampered = envelope
+        tampered.event.payload["runId"] = .string("run_2")
+        XCTAssertFalse(try RemoteCrypto.verifyRemoteRunEventEnvelope(tampered, signingPublicKeyBase64: publicKey))
+    }
+
     func testHPKESealedBlobRoundTripsAndCarriesNoPlaintext() throws {
         let recipient = Curve25519.KeyAgreement.PrivateKey()
         let recipientPublicKey = RemoteCrypto.sealingPublicKeyBase64(recipient.publicKey)
@@ -166,5 +190,239 @@ final class RemoteFoundationTests: XCTestCase {
         )
 
         XCTAssertEqual(audit.targetSummary.count, RemoteAuditEvent.targetSummaryLimit)
+    }
+
+    func testReducerAppliesSnapshotThenEventsIdempotently() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let snapshot = SnapshotEnvelope(
+            runs: [
+                TeamRunLight(
+                    id: "run_1",
+                    status: .running,
+                    origin: .ios,
+                    promptExcerpt: "Ship the reducer",
+                    createdAt: now
+                )
+            ],
+            lastSeq: 10,
+            serverTime: now
+        )
+        let done = RemoteRunEventEnvelope(
+            event: RunEvent(
+                id: "evt_done",
+                seq: 12,
+                ts: now.addingTimeInterval(2),
+                kind: RunEventKind.runStatusChanged,
+                payload: ["runId": .string("run_1"), "to": .string("done")]
+            ),
+            signature: "sig"
+        )
+        let duplicate = RemoteRunEventEnvelope(
+            event: RunEvent(
+                id: "evt_done",
+                seq: 13,
+                ts: now.addingTimeInterval(3),
+                kind: RunEventKind.runStatusChanged,
+                payload: ["runId": .string("run_1"), "to": .string("failed")]
+            ),
+            signature: "sig"
+        )
+
+        let state = RemoteRunReducer.apply(snapshot: snapshot, events: [duplicate, done])
+        XCTAssertEqual(state.lastSeq, 12)
+        XCTAssertEqual(state.recentEvents.map(\.event.id), ["evt_done"])
+        XCTAssertEqual(state.run(id: "run_1")?.status, .done)
+        XCTAssertEqual(state.run(id: "run_1")?.completedAt, now.addingTimeInterval(2))
+    }
+
+    func testReducerUpsertsRunFromStartedEvent() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let snapshot = SnapshotEnvelope(runs: [], lastSeq: 0, serverTime: now)
+        let started = RemoteRunEventEnvelope(
+            event: RunEvent(
+                id: "evt_started",
+                seq: 1,
+                ts: now,
+                kind: "run.started",
+                payload: [
+                    "runId": .string("run_new"),
+                    "origin": .string("ios"),
+                    "promptExcerpt": .string("Start fresh"),
+                    "teamDisplayName": .string("Default Team"),
+                ]
+            ),
+            signature: "sig"
+        )
+
+        let state = RemoteRunReducer.apply(snapshot: snapshot, events: [started])
+        XCTAssertEqual(state.run(id: "run_new")?.status, .running)
+        XCTAssertEqual(state.run(id: "run_new")?.promptExcerpt, "Start fresh")
+        XCTAssertEqual(state.lastSeq, 1)
+    }
+
+    func testMockClientStreamsOnlyVerifiedEventsAfterSeq() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let agentSigningKey = Curve25519.Signing.PrivateKey()
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: RemoteCrypto.signingPublicKeyBase64(agentSigningKey.publicKey),
+            agentSealingPubkey: "agent-seal"
+        )
+        let older = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(id: "evt_1", seq: 1, ts: now, kind: "run.started", payload: ["runId": .string("run_1")]),
+            signingKey: agentSigningKey
+        )
+        let newer = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(id: "evt_2", seq: 2, ts: now, kind: "run.completed", payload: ["runId": .string("run_1")]),
+            signingKey: agentSigningKey
+        )
+        let forged = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(id: "evt_forged", seq: 3, ts: now, kind: "run.failed", payload: ["runId": .string("run_1")]),
+            signature: Data("not a real signature".utf8).base64EncodedString()
+        )
+        let client = MockiOSClient(macs: [mac], events: ["mac_1": [older, newer, forged]], serverNow: now)
+
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+        let stream = await client.stream(macId: "mac_1", since: 1)
+        var ids: [String] = []
+        for await envelope in stream {
+            ids.append(envelope.event.id)
+        }
+
+        XCTAssertEqual(ids, ["evt_2"])
+    }
+
+    func testMockClientVerifiesTrustedDeviceSignatureAndReplay() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let sealingKey = Curve25519.KeyAgreement.PrivateKey()
+        let trusted = TrustedDevice(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey),
+            deviceSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(sealingKey.publicKey),
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(3600),
+            capabilities: [.stopRun]
+        )
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal"
+        )
+        let client = MockiOSClient(macs: [mac], trustedDevices: [trusted], serverNow: now)
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let payload = RemoteCommandPayload.light(["runId": .string("run_1")])
+        let assertion = try RemoteCrypto.makeDeviceAssertion(
+            deviceId: "device_1",
+            requestId: "req_1",
+            timestamp: now,
+            kind: .stopRun,
+            payload: payload,
+            signingKey: signingKey
+        )
+        let command = RemoteCommand(requestId: "req_1", kind: .stopRun, payload: payload, assertion: assertion)
+
+        let accepted = try await client.send(command)
+        XCTAssertTrue(accepted.accepted)
+        XCTAssertEqual(accepted.outcome, .accepted)
+
+        let replay = try await client.send(command)
+        XCTAssertFalse(replay.accepted)
+        XCTAssertEqual(replay.reason, .replayedRequestId)
+        XCTAssertEqual(replay.outcome, .duplicate)
+    }
+
+    func testMockClientRejectsSkewAndReturnsServerTime() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let trusted = TrustedDevice(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey),
+            deviceSealingPubkey: "sealing",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(3600),
+            capabilities: [.stopRun]
+        )
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal"
+        )
+        let client = MockiOSClient(macs: [mac], trustedDevices: [trusted], serverNow: now)
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let payload = RemoteCommandPayload.light(["runId": .string("run_1")])
+        let assertion = try RemoteCrypto.makeDeviceAssertion(
+            deviceId: "device_1",
+            requestId: "req_skew",
+            timestamp: now.addingTimeInterval(120),
+            kind: .stopRun,
+            payload: payload,
+            signingKey: signingKey
+        )
+        let command = RemoteCommand(requestId: "req_skew", kind: .stopRun, payload: payload, assertion: assertion)
+
+        let ack = try await client.send(command)
+        XCTAssertFalse(ack.accepted)
+        XCTAssertEqual(ack.reason, .clockSkew)
+        XCTAssertEqual(ack.serverTime, now)
+    }
+
+    func testMockClientAcceptsOnlySealedStartRunPayload() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let agentSealingKey = Curve25519.KeyAgreement.PrivateKey()
+        let trusted = TrustedDevice(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey),
+            deviceSealingPubkey: "device-seal",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(3600),
+            capabilities: [.startRun]
+        )
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(agentSealingKey.publicKey)
+        )
+        let client = MockiOSClient(macs: [mac], trustedDevices: [trusted], serverNow: now)
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let blob = try RemoteCrypto.seal(
+            Data(#"{"prompt":"sealed"}"#.utf8),
+            to: mac.agentSealingPubkey,
+            sealedForKeyId: "agent_seal_1",
+            contentType: "application/json"
+        )
+        let payload = RemoteCommandPayload.sealed(blob)
+        let assertion = try RemoteCrypto.makeDeviceAssertion(
+            deviceId: "device_1",
+            requestId: "req_start",
+            timestamp: now,
+            kind: .startRun,
+            payload: payload,
+            signingKey: signingKey
+        )
+        let command = RemoteCommand(requestId: "req_start", kind: .startRun, payload: payload, assertion: assertion)
+
+        let ack = try await client.send(command)
+        XCTAssertTrue(ack.accepted)
     }
 }
