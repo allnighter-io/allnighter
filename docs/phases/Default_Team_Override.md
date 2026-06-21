@@ -200,7 +200,7 @@ Exit codes and errors:
 | Code | When |
 | --- | --- |
 | `TEAM_NOT_FOUND` | Unknown TeamID |
-| `TEAM_BUILTIN_IMMUTABLE` | Edit/delete/restore non-shadowable built-in, or delete `default_chat` when only the seed exists |
+| `TEAM_BUILTIN_IMMUTABLE` | Edit/delete non-shadowable built-in, or delete `default_chat` when only the seed exists |
 | `TEAM_RESTORE_UNSUPPORTED` | Restore requested for a team id that is not shadowable |
 | `TEAM_INVALID` | Replacement definition fails validation |
 | `SKILL_LANE_MISMATCH` | Replacement row references a skill from another lane |
@@ -416,15 +416,13 @@ The same row returns to the shipped Auto seed.
 - GUI fixture receives layout-watcher PASS.
 - DEBUGLOG records the T2 SSOT fix and proof command.
 
-## Open Questions
+## Blocking Questions
 
-1. Should `execution_playbook` become shadowable in a later slice? This packet
-   intentionally says no for now to avoid accidentally making all built-ins
-   editable in place.
-2. Should `teams restore default_chat` be the only reset command, or should
-   `teams delete default_chat` also reset when an override exists? This packet
-   recommends both: restore is explicit; delete on an existing override is a
-   reset because the visible thing is user-owned.
-3. Should team detail JSON expose prompt/template snapshots by default, or keep
-   them behind a future `--full` flag? This packet does not change current
-   template exposure rules.
+None. The slice is ready for implementation with `default_chat` as the only
+shadowable built-in team id.
+
+## Parked Decisions
+
+1. `execution_playbook` may become shadowable later, but not in this slice.
+2. Team detail JSON may expose deeper prompt/template snapshots later behind a
+   future `--full` flag; this slice does not change template exposure rules.
