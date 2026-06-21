@@ -1,8 +1,20 @@
 # Try Fix: Auto-Implement After Bug Hunt
 
-Status: Draft feature packet
+Status: Draft feature packet — ELIMINATION-LOOP model (confidence gate removed)
 Owner: AllnighterCore + CLI/MCP + Mac app
-Updated: 2026-06-21
+Updated: 2026-06-20
+
+> **Model change (2026-06-20).** This packet was rebuilt around the scientific method.
+> The old "auto-execute only at `confidence == high`" gate is DELETED: real bugs — and
+> the people Try Fix is for, who can't read code — are rarely fixed in one confident shot.
+> They're fixed by trying the best hypothesis, observing what happens, eliminating a
+> failure point, and narrowing. Try Fix is an **elimination loop**, not a one-shot patch.
+> Confidence is an *ordering* signal (which hypothesis first, how many rounds to expect),
+> never a gate. The user's only judgment is "is it fixed?" — which is observable.
+>
+> **Allnighter does no git.** It sends orders to one CLI worker in the repo root under the
+> write lock; the repo and the CLI own all git. Safety = one mutating worker + a small
+> bounded order + danger hard-stops + the proof/observation surface + the user's own undo.
 
 ## Why
 
@@ -31,14 +43,26 @@ Accept:
 - The executor prompt must be engineered for "apply this fix and prove it," not
   a generic implementation prompt with extra context.
 
+Accept (added with the loop model):
+
+- A fix attempt is an EXPERIMENT, not a commitment. Try the top surviving hypothesis,
+  run the proof/repro, and let the result eliminate a failure point and narrow the next
+  round. Bug Hunter supplies a ranked hypothesis ladder + the experiments; Auto Fix runs
+  them. The loop carries a growing "ruled out" list so a round never repeats a dead path.
+- The user judges only "is it fixed?" (observable), never "is this fix correct?".
+- When the bug is at a seam and the honest proof can't be written in the app, the loop
+  escalates to a minimal isolation harness run (the proven "change the haystack" move).
+
 Reject:
 
 - Treating any plausible Bug Hunt prose as executable intent.
-- Auto-starting a fix from medium/low confidence packets in v1.
+- Gating execution on self-reported confidence. Confidence orders hypotheses and sets
+  expectations; it does not decide whether to try. (Danger is the hard gate, not doubt.)
 - Running more than one mutating worker.
 - Hiding two disconnected runs behind optimistic UI; the user must be able to
-  inspect diagnosis -> fix attempt -> proof.
+  inspect diagnosis -> fix attempt -> proof, round by round.
 - Adding a new user-facing workflow noun. This is a run follow-up policy.
+- Allnighter touching git (commit/branch/worktree/revert). The repo and CLI own that.
 
 ## Founder Intent
 
@@ -130,19 +154,21 @@ New semantic rules:
    through the same CLI/MCP/Core contract.
 2. `Try Fix` never changes the answer team into a writer. The answer team remains
    mechanically read-only.
-3. If `Try Fix` was requested and the answer run returns a high-confidence safe
-   `FixPacket`, Allnighter starts exactly one child execution run with the
-   selected executor team.
-4. If `Try Fix` was not requested, a safe packet still produces a typed
-   `tryFix` next action so a past Bug Hunt can be acted on later.
-5. If the packet is missing required fields, has medium/low confidence, or hits
-   a high-risk stop, Allnighter does not execute. It returns an actionable
-   blocked result.
+3. If `Try Fix` was requested and the answer run returns a `FixPacket` that meets the
+   entry conditions (a top hypothesis with a fix + boundary, a named proof method, and no
+   danger flags), Allnighter starts exactly one child execution run that tries the TOP
+   hypothesis. Confidence does not gate this — it only ordered the ladder.
+4. If `Try Fix` was not requested, a valid packet still produces a typed `tryFix` next
+   action so a past Bug Hunt can be acted on later.
+5. If the packet has no actionable hypothesis, names no proof method, or hits a danger
+   stop, Allnighter does not execute; it returns an actionable blocked result. Low
+   confidence is NOT a block — it expects more rounds.
 6. The mutating child run uses the same repo root and takes the repo write lock.
 7. The parent and child runs are linked durably so the Floor can show:
-   diagnosis -> fix attempt -> proof.
-8. Proof failure does not trigger an automatic loop. V1 may expose one explicit
-   repair next action that feeds the proof failure back into the same packet.
+   diagnosis -> fix attempt -> proof, round by round.
+8. A failed proof does not auto-loop. It records a `ruledOut` entry and exposes one
+   explicit "keep going" next action that narrows to the next hypothesis with the updated
+   ruled-out memory. The user drives the cadence.
 
 Duplicate truth to delete:
 
@@ -171,61 +197,95 @@ markdown happens to contain a JSON blob."
 FixPacket
   schemaVersion
   sourceRunId
-  confidence: low | medium | high
-  tier: T0 Fast | T1 Boundary | T2 SSOT | T3 Critical
+  seam?                      // the boundary the bug crosses (e.g. AppKit↔SwiftUI), when one
   symptom
   repro
   bugFingerprint
   truthOwner
   lieProneLayer
-  recommendedFix
-  fixBoundary
-  filesLikelyTouched[]
-  proofCommand
-  proofExpectation
-  guiProofFixture?
+  hypotheses[]               // RANKED ladder, most-likely first
+    id
+    cause
+    experiment              // cheapest confirm/refute
+    fix                     // smallest change to try if this is the cause
+    fixBoundary             // apply only here; no opportunistic refactor
+  ruledOut[]                // failure points already eliminated (loop memory)
+  proofMethod: command | guiFixture | userObservation
+  proofCommand?             // when proofMethod == command
+  guiProofFixture?          // when proofMethod == guiFixture
   requiresLayoutWatcher: Bool
-  riskFlags[]
-  stopReason?
+  harnessNeeded: Bool       // true when the honest proof can't be written in this codebase
+  harnessSketch?            // the minimal isolation target to build (same seam/stack)
+  confidenceOrdering: low | medium | high   // ORDERING hint only — never a gate
+  expectedRounds?           // honest "this is a few-round bug" signal
+  tier: T0 Fast | T1 Boundary | T2 SSOT | T3 Critical
+  dangerFlags[]             // hard stops (see below) — block regardless of confidence
 ```
 
-Required for automatic execution in v1:
+Entry conditions for an automatic fix attempt (the loop may START):
 
 - answer run status is terminal success, not partial/failed
 - final writer stage is produced by the Bug Packet writer
 - fenced `fix-packet` block parses and validates
-- `confidence == high`
-- `tier != T3 Critical`
+- at least one hypothesis with a non-empty `fix` + `fixBoundary`
+- a `proofMethod` is named (command, GUI fixture, or — honestly — user observation)
 - `truthOwner` non-empty
-- `recommendedFix` non-empty
-- `fixBoundary` non-empty
-- `proofCommand` non-empty
-- no high-risk `riskFlags`
-- selected executor team is mutating, runnable, and resolves to exactly one
-  worker/source
+- no `dangerFlags`
+- selected executor team is mutating, runnable, and resolves to exactly one worker/source
 
-High-risk stops:
+Note what is NOT here: there is no confidence threshold and no `tier != T3` block. A T3 or
+low-confidence bug is still tried — it just expects more rounds and a tighter boundary.
+What blocks is **danger**, never **doubt**.
+
+Danger hard-stops (block the attempt regardless of confidence — these are about harm, not
+uncertainty):
 
 - privacy or session data leaving the user's machines
 - credentials, Keychain items, API keys, or auth state
 - Full Disk Access or permission posture changes
-- destructive process kill, deletion, or git history rewrite
+- destructive process kill or deletion outside the fix boundary
 - App Store, notarization, distribution identity, TestFlight release
 - billing, entitlement, quota-spend behavior, or production deploy
 
-Medium confidence behavior:
+(Git history rewrite is the repo/CLI's domain; Allnighter neither performs nor blocks it.)
+
+## The Elimination Loop
+
+Try Fix is the back half of one scientific-method loop. Bug Hunter generates the ranked
+hypotheses and designs the experiments; Auto Fix runs them and narrows.
 
 ```text
-Packet ready, no child run started.
-Reason: confidence is medium.
-Next actions: run deeper Bug Hunt, save packet, or manually inspect.
+take the top SURVIVING hypothesis from the packet
+  -> assemble a disciplined fix-attempt order (one worker, only within fixBoundary,
+     run the proof / reproduce, report exactly what changed)
+  -> start ONE execution run
+  -> read the result
+        proof passes / user confirms "fixed"   -> done. Fixed.
+        not fixed                               -> the result ELIMINATES that hypothesis;
+                                                   append a `ruledOut` entry with what the
+                                                   attempt changed and what it disproved
+  -> narrow to the next hypothesis, carrying the growing ruledOut list into its order
+  -> repeat
 ```
 
-Low confidence behavior:
+Rules:
 
-```text
-Blocked. No fix attempt.
-```
+1. Each round is DIFFERENT because it is informed by the last result. The `ruledOut` list
+   is the loop's memory and the anti-paralysis engine: a round never re-runs a dead path.
+2. The user answers exactly one question between rounds: "is it fixed?" — observable (does
+   it still crash / still look wrong?). They never judge code or packets. A round surfaces
+   `Tried -> Observed -> Ruled out` in plain language, then `[Keep going]` or `[Stop]`.
+3. When `harnessNeeded == true`, or after K in-app rounds fail, the loop ESCALATES to an
+   isolation-harness run: build the minimal target that reproduces only the failing
+   capability with the same seam/stack, get it green, port the known-good pattern back, then
+   resume. (The codebase's own debug process owns the harness protocol;
+   `docs/operations/debugger/ISOLATION_HARNESS.md`.)
+4. The loop terminates honestly. Either FIXED (proof/observation), or STUCK — and stuck
+   means a SPECIFIC ask ("I've ruled out A, B, C; to go further tell me the exact steps that
+   trigger it" / "this needs a human decision about X"), never a vague failure.
+5. V1 does not auto-loop forever. It runs one round at a time gated by the user's "keep
+   going", with the danger hard-stops always in force. A later workflow product may automate
+   the rounds.
 
 ## Execution Prompt Contract
 
@@ -236,7 +296,7 @@ The prompt assembler should include:
 Original user bug report
 Typed FixPacket
 Strict instructions:
-  Apply only the recommendedFix within fixBoundary.
+  Apply only the top hypothesis's fix within its fixBoundary.
   Inspect the repo before editing.
   If evidence contradicts the packet, stop and report the conflict.
   Do not do broad cleanup or opportunistic refactors.
@@ -267,7 +327,7 @@ The fix attempt is not done because files changed. The child run must surface:
 - commit id when the executor successfully commits.
 
 If the executor cannot run the proof command, the child run is not proven. It
-must expose a typed `runProof` or `retryFixWithProofFailure` next action rather
+must expose a typed `runProof` or `keepGoing` (try the next hypothesis) next action rather
 than asking the user to infer success.
 
 ## CLI/MCP Surface
@@ -308,10 +368,11 @@ TeamRunJSON / FloorRun
     kind: diagnosisOf | fixAttemptFor | proofFor | retryOf
     runId
   nextActions[]
-    kind: tryFix
+    kind: tryFix | keepGoing | runProof    // keepGoing narrows to the next hypothesis
     command
     mutating: true
     disabledReason?
+    ruledOut[]?                            // loop memory carried into the next round
 ```
 
 Error codes:
@@ -319,7 +380,7 @@ Error codes:
 | Code | Meaning |
 | --- | --- |
 | `TRY_FIX_PACKET_MISSING` | Answer run did not produce a typed fix packet. |
-| `TRY_FIX_PACKET_UNSAFE` | Packet had missing proof, low confidence, T3 tier, or high-risk flags. |
+| `TRY_FIX_PACKET_UNSAFE` | Packet hit a danger hard-stop, named no proof method, or had no actionable hypothesis. (Low confidence / T3 alone do NOT trigger this.) |
 | `TRY_FIX_EXECUTOR_INVALID` | Executor team is unknown, non-mutating when mutating is required, or not runnable. |
 | `TRY_FIX_PROOF_FAILED` | Child run edited but the required proof command failed. |
 | `TRY_FIX_PROOF_NOT_RUN` | Child run completed without running the required proof command. |
@@ -362,20 +423,22 @@ Rules:
 - Show the executor picker only when `Try Fix` is checked.
 - Executor defaults to `Execution Playbook`; advanced users can change it to a
   source-scoped implementation team that still satisfies the gate.
-- The running state must show two honest phases:
-  `Bug Hunt running` then `Fix attempt running`.
-- If blocked, the user sees the missing field or stop reason, not a vague failure.
-- A completed Bug Hunt Floor should expose `Try Fix` as a next action even when
-  the original send did not check the box, provided the packet is safe.
+- The running state must show honest phases per round:
+  `Bug Hunt running` -> `Fix attempt (round N) running` -> result.
+- The result surface is the hero. Each round shows `Tried -> Observed -> Ruled out` in
+  plain language; the terminal card reads `Fixed ✓`, `Still working (round N)`, or
+  `Stuck` with a SPECIFIC ask — never a vague failure or a missing-field dump.
+- If blocked at the gate (danger flag / no hypothesis / no proof method), say which, plainly.
+- A completed Bug Hunt Floor should expose `Try Fix` as a next action even when the original
+  send did not check the box, provided the packet has an actionable hypothesis.
 
-Floor next actions:
+Floor next actions (consistent with the Floor card's two-action rule — no Save-to-Pending):
 
 ```text
-Try Fix
-Run fix with Execution Playbook
+Try Fix                         // first attempt
+Keep going (try next hypothesis) // after a failed round, carries the ruled-out memory
 Change executor
-Save packet to Pending
-Send packet to another team
+Ask another team                 // hand the packet + ruled-out to a fresh team
 ```
 
 ## iOS Impact
@@ -405,7 +468,8 @@ iOS presents the same contract later:
 | Checkbox -> run request | Core command registry | GUI-selected checkbox implies execution | Only `tryFix: true` in the run request can start the chain | Toggle UI state without request field; no child run starts |
 | Markdown -> execution | FixPacket parser/stage payload | Any markdown recommendation is safe | Require typed `FixPacket` and gate pass | Bug Hunt markdown with no packet returns `TRY_FIX_PACKET_MISSING` |
 | Answer team -> writer | RunService | All Bug Hunt workers may patch | Child execution run has exactly one worker | `--try-fix` with mixed-source executor is rejected |
-| Risk flags -> proceed | Follow-up gate | Model confidence overrides high-risk stop | High-risk flags block execution | Packet with credentials flag returns `TRY_FIX_PACKET_UNSAFE` |
+| Danger flags -> proceed | Follow-up gate | Confidence/usefulness overrides a danger stop | Danger flags block execution regardless of confidence | Packet with credentials flag returns `TRY_FIX_PACKET_UNSAFE` |
+| Low confidence -> block | Follow-up gate | Low confidence means "do not try" | Low confidence still tries (expects more rounds); only danger/no-proof/no-hypothesis blocks | Low-confidence packet with a hypothesis + proof still starts a child run |
 | Parent -> child root | RunService | Child can pick a different cwd | Child run uses parent repo root | Test parent/child `repoRoot` equality |
 | Generic execution prompt -> fix attempt | Prompt assembler | Normal implementation prompt is enough | Use fix-attempt prompt contract | Child prompt lacks `proofCommand`; test fails |
 | Changed files -> proof | Child run projection | A diff means fixed | Require proof command outcome | Child edits without proof returns `TRY_FIX_PROOF_NOT_RUN` |
@@ -419,14 +483,15 @@ iOS presents the same contract later:
   helper from the existing Signal Insight path.
 - Update Bug Packet writer skills to emit the exact structured block.
 - Add deterministic `TryFixGate` with missing packet, unsafe packet,
-  confidence, T3, invalid executor, and write-lock cases.
+  no-hypothesis, no-proof-method, danger-flag, invalid-executor, and write-lock cases
+  (NOT a confidence threshold).
 
 ### TFX-S01 - Request, Links, Projections
 
 - Add `tryFix` follow-up policy shape to run request contracts.
 - Add parent/child run links.
-- Add `tryFix`, `runProof`, and `retryFixWithProofFailure` next-action kinds as
-  needed.
+- Add `tryFix`, `keepGoing`, and `runProof` next-action kinds as needed (keepGoing carries
+  the ruled-out memory to the next hypothesis).
 - Add error codes to the registry and regenerate `docs/generated/alln/*`.
 - Project packet, policy, gate, links, and proof state into `TeamRunJSON` and
   `FloorRun`.
@@ -453,11 +518,15 @@ iOS presents the same contract later:
   default.
 - Render parent/child progress and Floor next actions.
 
-### TFX-S05 - Proof Failure Recovery
+### TFX-S05 - Keep Going (the elimination round)
 
-- If the child proof fails, show the failure and expose a typed next action:
-  `Retry fix with proof failure`.
-- Do not auto-loop indefinitely. V1 may allow one explicit repair attempt.
+- If the proof fails, record a `ruledOut` entry (what was tried, what it disproved) and
+  expose `keepGoing` — narrow to the next hypothesis, carrying the ruled-out memory into
+  its order so the round never repeats a dead path.
+- Surface `Tried -> Observed -> Ruled out` plainly each round; terminal states are
+  `Fixed`, `Still working (round N)`, or `Stuck` with a specific ask.
+- When `harnessNeeded` or after K failed rounds, escalate to an isolation-harness run.
+- V1 runs one round per user "keep going" — no unattended auto-loop yet.
 
 ## Works Test
 
@@ -487,10 +556,14 @@ Assertions:
 - child run is mutating and has exactly one worker;
 - parent and child share the same repo root;
 - child run is blocked when `RunWriteLock` is held;
-- medium-confidence packet does not start a child run;
-- unsafe packet does not start a child run;
+- a LOW/medium-confidence packet with a hypothesis + proof method DOES start a child run
+  (confidence is not a gate);
+- a packet with a danger flag does NOT start a child run;
+- a packet with no actionable hypothesis or no proof method does NOT start a child run;
 - missing fenced packet does not start a child run;
-- child records proof command, exit status, and output/artifact reference;
+- a failed proof appends a `ruledOut` entry and exposes a "keep going" next action that
+  carries the updated ruled-out memory to the next hypothesis;
+- child records proof command/observation, exit status, and output/artifact reference;
 - final JSON exposes parent/child links, gate state, proof state, and exact next
   actions.
 
@@ -520,5 +593,9 @@ Missing proof / waiver:
   save it on for custom duplicates?
 - Can `execution_playbook` resolve through the user's default execution worker,
   or do we need a dedicated `fix_attempt` execution preset?
-- Is one explicit repair attempt enough for proof failures, or should that wait
-  for a later workflow/loop product?
+- (Resolved by the loop model) Proof failure is not a one-shot "repair" — it records a
+  ruled-out entry and offers `keepGoing` to the next hypothesis. Open: what is K (failed
+  in-app rounds) before auto-escalating to an isolation harness, and should the rounds ever
+  run unattended or always wait for the user's "keep going"?
+- How does `ruledOut` memory persist across child runs — on the parent run record, or a
+  dedicated session object the chain owns?
