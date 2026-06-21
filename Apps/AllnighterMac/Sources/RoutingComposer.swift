@@ -327,7 +327,8 @@ struct RoutingComposer: View {
                     contentHeight: $editorHeight,
                     isFocused: $composerFocused,
                     maxHeight: editorMaxHeight,
-                    onCommand: handleEditorCommand
+                    onCommand: handleEditorCommand,
+                    onReturn: handleReturn
                 )
                 .padding(.horizontal, 10).padding(.top, 6)
                 .frame(height: editorHeight)
@@ -638,6 +639,19 @@ struct RoutingComposer: View {
         closeFileSearch()
         targetOpen = false
         editorHeight = ComposeEditorMetrics.minHeight
+    }
+
+    /// Plain Return (Cursor-style): accept the highlighted @ file if the picker is open,
+    /// else send. Shift+Return inserts a newline (handled in the text view).
+    private func handleReturn() -> Bool {
+        if fileSearchOpen {
+            guard fileCandidates.indices.contains(highlightedFileIndex) else { return false }
+            selectFileReference(fileCandidates[highlightedFileIndex].path)
+            return true
+        }
+        guard canSend else { return false }
+        performSend()
+        return true
     }
 
     private func handleEditorCommand(_ command: ALTextEditorCommand) -> Bool {

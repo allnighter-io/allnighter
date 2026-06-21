@@ -26,6 +26,21 @@ enum ALTextEditorCommand {
 /// app is `LSUIElement` promoted to `.regular`, so it has no reliable Edit menu, which is
 /// why paste only beeped. Handling them here makes editing work regardless of the menu.
 final class ComposerTextView: NSTextView {
+    /// Plain Return → send (or accept the highlighted @ file); returns true if handled.
+    /// Shift+Return always inserts a newline (handled here before forwarding).
+    var onReturn: (() -> Bool)?
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36 || event.keyCode == 76 { // Return / Enter
+            if event.modifierFlags.contains(.shift) {
+                insertNewline(self)   // Shift+Return → newline
+                return
+            }
+            if onReturn?() == true { return } // plain Return → send / accept @ file
+        }
+        super.keyDown(with: event)
+    }
+
     override func paste(_ sender: Any?) {
         guard let pasted = NSPasteboard.general.string(forType: .string), !pasted.isEmpty else {
             NSSound.beep()
@@ -60,6 +75,9 @@ struct ALTextEditor: NSViewRepresentable {
     var minHeight: CGFloat = ComposeEditorMetrics.minHeight
     var maxHeight: CGFloat = ComposeEditorMetrics.maxHeight
     var onCommand: ((ALTextEditorCommand) -> Bool)? = nil
+    /// Plain Return (no Shift) — send or accept the highlighted @ file. Shift+Return
+    /// inserts a newline (handled in the view).
+    var onReturn: (() -> Bool)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -81,6 +99,7 @@ struct ALTextEditor: NSViewRepresentable {
         scroll.autohidesScrollers = true
 
         let textView = ComposerTextView(frame: .zero)
+        textView.onReturn = onReturn
         textView.isEditable = true
         textView.isSelectable = true
         textView.allowsUndo = true
@@ -100,6 +119,7 @@ struct ALTextEditor: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let textView = scroll.documentView as? NSTextView else { return }
+        (textView as? ComposerTextView)?.onReturn = onReturn
         context.coordinator.minHeight = minHeight
         context.coordinator.maxHeight = maxHeight
         context.coordinator.onCommand = onCommand
