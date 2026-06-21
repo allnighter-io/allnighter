@@ -387,9 +387,16 @@ final class ThreadsViewModel {
                 // Freeze + commit pasted/picked images into the thread's attachment store
                 // and stage workspace mirrors, so EVERY worker (single or team) receives
                 // the image path. Refs ride on the user turn (thumbnail in the thread).
+                let imageAtts = routing.attachments.filter { $0.kind == .image }
                 let staged = stageAttachments(
-                    routing.attachments, threadId: threadId, repoRoot: scope.root
+                    imageAtts, threadId: threadId, repoRoot: scope.root
                 )
+                // Captured long-paste text rides in as run context (reaches every worker)
+                // so the editor stays clean but the content is really delivered.
+                let pastedContext = pastedTextContext(routing.attachments)
+                let context = [preparedRefs.packetText, pastedContext]
+                    .compactMap { $0?.isEmpty == false ? $0 : nil }
+                    .joined(separator: "\n\n")
                 appendUserTurn(
                     message,
                     toThreadId: threadId,
@@ -403,7 +410,7 @@ final class ThreadsViewModel {
                     toThreadId: threadId,
                     projectId: scope.projectId,
                     repoRoot: scope.root,
-                    context: preparedRefs.packetText,
+                    context: context.isEmpty ? nil : context,
                     deliveries: staged.deliveries
                 )
             } catch {
@@ -676,6 +683,19 @@ final class ThreadsViewModel {
         )
         try? store.appendTurn(turn, toThreadId: threadId, now: Date())
         reload()
+    }
+
+    /// Read captured long-paste (.txt) attachments and render them as fenced run-context
+    /// blocks. Returns nil when there are none.
+    private func pastedTextContext(_ attachments: [ComposeAttachment]) -> String? {
+        let blocks = attachments
+            .filter { $0.kind == .text }
+            .compactMap { att -> String? in
+                guard let body = try? String(contentsOf: att.fileURL, encoding: .utf8),
+                      !body.isEmpty else { return nil }
+                return ComposerPasteContract.contextBlock(title: att.displayName, body: body)
+            }
+        return blocks.isEmpty ? nil : blocks.joined(separator: "\n\n")
     }
 
     /// Commit composer images into the thread's attachment store + stage workspace

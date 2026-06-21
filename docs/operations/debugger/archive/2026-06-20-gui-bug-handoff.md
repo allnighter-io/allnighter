@@ -2,10 +2,12 @@
 
 **First reported:** 2026-06-20  
 **Latest intake update:** 2026-06-21  
-**Status:** 5 of 7 FIXED (2026-06-21). ✅ #1, #2, #3, #6, #7 landed + committed.
-Remaining: #4 (attachment control) + #5 (long-text→.txt) — the composer attachment
-feature, needs end-to-end delivery (composer UI + ComposeRouting + send + team-run Core
-image/file support).  
+**Status:** ✅ 7 of 7 FIXED (2026-06-20). All committed. #1, #2, #3, #6, #7 landed
+earlier; #4 (paperclip + image picker) and #5 (long-text→.txt) landed with the
+composer attachments feature — pasted/picked images deliver per-worker to a single
+worker AND every team seat (vision path block / non-vision notice), and long pastes
+capture to a .txt chip delivered as run context. Kill test:
+`TeamRunAttachmentDeliveryTests`. **This doc is archived.**  
 **Surfaces:** Team launcher, Team Studio, Customize Teams, Composer.  
 **Reporter evidence:** User reports plus screenshots from the original Codex requests.
 
@@ -37,7 +39,12 @@ image/file support).
 **Impact:** The primary chat/composer muscle memory is inverted; users expect Enter to send and only use Shift+Enter for multiline input.  
 **Notes for dev:** Preserve special composer subflows. If the `@` file-reference picker is open, Return may still need to accept the highlighted file reference before normal send behavior resumes. Outside those subflows, plain Return/Enter should call the same send path as the send button.
 
-### 4. Composer attachment icon does nothing and reads as photo-only  — ⏳ attachment feature (next slice)
+### 4. Composer attachment icon does nothing and reads as photo-only  — ✅ FIXED (2026-06-20)
+
+**Fix:** The dead `photo` button is now a `paperclip` that opens an image picker
+(`NSOpenPanel`, multi-select, common image types). Pasted clipboard images attach
+too. Honest image-first scope per the note — no fake document attachment.
+
 
 **Priority:** P1 for dead action; P2 for icon/attachment-scope mismatch.  
 **Surface:** Composer prompt editor.  
@@ -46,7 +53,14 @@ image/file support).
 **Impact:** The composer advertises attachment support but the control is inert, and the current photo icon under-communicates the intended scope.  
 **Notes for dev:** Current image attachment contracts appear image-first. If document attachments are not yet supported in Core/CLI/MCP, either wire the supported image flow honestly and split document support into a scoped contract, or extend the attachment contract deliberately. Do not make arbitrary document files look attached if they are not included in the worker context.
 
-### 5. Long pasted clipboard text should become a `.txt` attachment  — ⏳ attachment feature (next slice)
+### 5. Long pasted clipboard text should become a `.txt` attachment  — ✅ FIXED (2026-06-20)
+
+**Fix:** A paste longer than `ComposerPasteContract.longTextThreshold` (the threshold
+lives in the Core contract, not the view) captures to a `.txt` chip instead of
+flooding the editor; short pastes still insert inline. On send the captured text is
+delivered to every worker (single or team) as a fenced run-context block — really
+delivered, not a fabricated attachment. Image paste still takes precedence.
+
 
 **Priority:** P2 / attachment-paste workflow.  
 **Surface:** Composer prompt editor paste handling.  

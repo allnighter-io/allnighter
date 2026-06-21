@@ -27,11 +27,11 @@ struct ComposeRouting: Equatable {
 /// it into the thread's canonical attachment store and hands the worker(s) its path.
 struct ComposeAttachment: Identifiable, Equatable {
     let id: String
-    /// Frozen temp file (PNG for images). The run path ingests this.
+    /// Frozen temp file (PNG for images, .txt for captured long pastes).
     let fileURL: URL
     let displayName: String
     let kind: Kind
-    enum Kind: Equatable { case image }
+    enum Kind: Equatable { case image, text }
 }
 
 /// A bench model as the composer sees it (maps from AppModel).
@@ -348,7 +348,8 @@ struct RoutingComposer: View {
                     maxHeight: editorMaxHeight,
                     onCommand: handleEditorCommand,
                     onReturn: handleReturn,
-                    onPasteImage: captureImage
+                    onPasteImage: captureImage,
+                    onPasteLongText: captureLongText
                 )
                 .padding(.horizontal, 10).padding(.top, 6)
                 .frame(height: editorHeight)
@@ -433,7 +434,8 @@ struct RoutingComposer: View {
                                 .frame(width: 20, height: 20)
                                 .clipShape(RoundedRectangle(cornerRadius: 3))
                         } else {
-                            Image(systemName: "photo").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                            Image(systemName: att.kind == .text ? "doc.text" : "photo")
+                                .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
                         }
                         Text(att.displayName)
                             .font(ALFont.monoSm).foregroundStyle(ALColor.textSecondary).lineLimit(1)
@@ -462,6 +464,22 @@ struct RoutingComposer: View {
     private func captureImage(_ image: NSImage) -> Bool {
         guard let frozen = ComposerImageFreezer.freeze(image: image) else { return false }
         addAttachment(fileURL: frozen.url, displayName: frozen.name, thumb: frozen.thumb)
+        return true
+    }
+
+    /// A long paste → capture to a temp .txt and add a chip, keeping the editor clean.
+    /// The captured text is delivered to every worker as run context on send.
+    private func captureLongText(_ text: String) -> Bool {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-composer-freeze", isDirectory: true)
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let url = root.appendingPathComponent("paste-\(UUID().uuidString).txt")
+        guard (try? text.write(to: url, atomically: true, encoding: .utf8)) != nil else { return false }
+        let att = ComposeAttachment(
+            id: UUID().uuidString, fileURL: url,
+            displayName: ComposerPasteContract.chipLabel(charCount: text.count), kind: .text)
+        attachments.append(att)
+        composerFocused = true
         return true
     }
 

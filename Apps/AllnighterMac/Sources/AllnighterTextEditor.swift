@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AllnighterEngine
 
 // MARK: - ALTextEditor
 //
@@ -32,6 +33,9 @@ final class ComposerTextView: NSTextView {
     /// An image on the clipboard (screenshot / copied image) → attach instead of
     /// inserting nothing. Returns true if the composer consumed it.
     var onPasteImage: ((NSImage) -> Bool)?
+    /// A very long text paste → attach as a captured block instead of flooding the
+    /// editor. Returns true if the composer consumed it.
+    var onPasteLongText: ((String) -> Bool)?
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 || event.keyCode == 76 { // Return / Enter
@@ -52,6 +56,12 @@ final class ComposerTextView: NSTextView {
         // beep). Marshaling stays on the main queue (NSImage(pasteboard:) is main-safe).
         let pasted = pb.string(forType: .string)
         if let pasted, !pasted.isEmpty {
+            // A long paste (log / transcript / article) attaches as a captured block so
+            // it doesn't flood the prompt the user is writing; short pastes insert inline.
+            if pasted.count > ComposerPasteContract.longTextThreshold,
+               onPasteLongText?(pasted) == true {
+                return
+            }
             insertText(pasted, replacementRange: selectedRange())
             return
         }
@@ -92,6 +102,8 @@ struct ALTextEditor: NSViewRepresentable {
     var onReturn: (() -> Bool)? = nil
     /// Clipboard image (screenshot / copied image) → attach. Returns true when consumed.
     var onPasteImage: ((NSImage) -> Bool)? = nil
+    /// Long text paste → attach as a captured block. Returns true when consumed.
+    var onPasteLongText: ((String) -> Bool)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -115,6 +127,7 @@ struct ALTextEditor: NSViewRepresentable {
         let textView = ComposerTextView(frame: .zero)
         textView.onReturn = onReturn
         textView.onPasteImage = onPasteImage
+        textView.onPasteLongText = onPasteLongText
         textView.isEditable = true
         textView.isSelectable = true
         textView.allowsUndo = true
@@ -136,6 +149,7 @@ struct ALTextEditor: NSViewRepresentable {
         guard let textView = scroll.documentView as? NSTextView else { return }
         (textView as? ComposerTextView)?.onReturn = onReturn
         (textView as? ComposerTextView)?.onPasteImage = onPasteImage
+        (textView as? ComposerTextView)?.onPasteLongText = onPasteLongText
         context.coordinator.minHeight = minHeight
         context.coordinator.maxHeight = maxHeight
         context.coordinator.onCommand = onCommand

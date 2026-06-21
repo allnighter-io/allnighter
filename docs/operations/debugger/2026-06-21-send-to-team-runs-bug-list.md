@@ -57,6 +57,30 @@ custom team execution, model health/substitutions.
   running worker, one done worker, and one timed-out worker proving blue /
   amber-yellow / red dots are visible and non-overlapping.
 
+- [ ] **Factory Floor worker cards do not feel selectable on hover.**
+
+  **Priority:** P2 / navigation affordance, P1 if users miss that worker rows are
+  selectable.  
+  **Observed:** Mousing over workers in the Factory Floor cast rail does not change
+  the row appearance, so the user cannot tell the worker cards are clickable or
+  selectable. Current code has selected styling for `CastCard`, but no visible
+  hover state.  
+  **Expected:** Worker cards in the Factory Floor cast rail have a clear hover
+  affordance, using the existing dark hover surface and pointer-ready row feel.
+  The hover state must be distinct from selected state, and selected+hover should
+  remain legible. Keyboard focus should get an equivalent visible affordance for
+  accessibility and non-mouse navigation.  
+  **Truth owner:** Factory Floor local selection state (`selectedMemberId`) and
+  the `FloorCastMember` list projected from the run.  
+  **Lie-prone layer:** `FactoryFloorView.CastCard` can be a real `Button` but
+  still look inert because it only paints the selected row.  
+  **Fix boundary:** Factory Floor cast-rail row interaction styling only. Do not
+  change run selection semantics, worker ordering, response content, or status
+  projection while fixing hover affordance.  
+  **Missing proof:** A GUI fixture or watcher packet that captures an unselected
+  hovered worker row, a selected row, and selected+hover state, proving the row
+  looks clickable without confusing hover with active selection.
+
 - [ ] **Factory Floor worker responses are missing the bottom copy button.**
 
   **Priority:** P1 for missing action, P2 for polish.  
@@ -151,9 +175,11 @@ custom team execution, model health/substitutions.
 5. Verify every worker card shows `worker title/name - model name`.
 6. Verify every worker card shows elapsed/final response time and a state dot:
    blue running, amber/yellow done, red failed/timed out.
-7. Verify every worker response has a bottom copy button.
-8. Compare the saved custom team row to the run snapshot and spawned CLI/model.
-9. For timed-out workers, inspect whether the runtime classified the failure cause
+7. Hover an unselected worker card and verify it visibly reads as selectable;
+   verify selected and selected+hover states remain distinct.
+8. Verify every worker response has a bottom copy button.
+9. Compare the saved custom team row to the run snapshot and spawned CLI/model.
+10. For timed-out workers, inspect whether the runtime classified the failure cause
    and whether substitution was attempted or explicitly skipped.
 
 ## Related Prior Art
@@ -165,6 +191,9 @@ custom team execution, model health/substitutions.
 - `Packages/AllnighterCore/Sources/AllnighterCore/FloorRun.swift` -
   `FloorWorkerLane` already carries status/timing fields for Factory Floor
   projection.
+- `Apps/AllnighterMac/Sources/FactoryFloorView.swift` - `CastCard` is the
+  current worker row/button touchpoint; it paints selected state but no hover
+  state.
 - `docs/phases/Work_Order_Team_Model.md` - worker = model wearing a skill; models
   sit on the Bench, workers do jobs.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md` - healthy
