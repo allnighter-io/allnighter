@@ -94,17 +94,35 @@ public actor CloudRemoteClient: RemoteClient {
         let relay = relay
         let mac = mac
         let limit = streamEventLimit
+        let upstream: AsyncStream<RemoteRunEventEnvelope>
+        if let streamingRelay = relay as? any RemoteRunEventStreamingRelay {
+            upstream = await streamingRelay.runEventStream(
+                accountId: accountId,
+                macAgentId: mac.macAgentId,
+                after: since,
+                limit: limit
+            )
+        } else {
+            upstream = AsyncStream { continuation in
+                Task {
+                    defer { continuation.finish() }
+                    guard limit > 0 else { return }
+                    let events = (try? await relay.runEvents(
+                        accountId: accountId,
+                        macAgentId: mac.macAgentId,
+                        after: since,
+                        limit: limit
+                    )) ?? []
+                    for envelope in events {
+                        continuation.yield(envelope)
+                    }
+                }
+            }
+        }
         return AsyncStream { continuation in
             Task {
                 defer { continuation.finish() }
-                guard limit > 0 else { return }
-                let events = (try? await relay.runEvents(
-                    accountId: accountId,
-                    macAgentId: mac.macAgentId,
-                    after: since,
-                    limit: limit
-                )) ?? []
-                for envelope in events where Self.verifies(envelope, mac: mac) {
+                for await envelope in upstream where Self.verifies(envelope, mac: mac) {
                     continuation.yield(envelope)
                 }
             }

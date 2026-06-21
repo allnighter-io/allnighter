@@ -78,11 +78,12 @@ public enum SupabaseRemoteMacRelayError: Error, Equatable, Sendable {
     case unsupportedOperation(String)
 }
 
-public actor SupabaseRemoteMacRelay: RemoteMacRelay {
+public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
     private let baseURL: URL
     private let publishableKey: String
     private let tokenProvider: any SupabaseAccessTokenProviding
     private let transport: any SupabaseHTTPTransport
+    private let realtimeEventSource: SupabaseRealtimeRunEventSource
     private let now: @Sendable () -> Date
 
     public init(
@@ -90,6 +91,7 @@ public actor SupabaseRemoteMacRelay: RemoteMacRelay {
         publishableKey: String,
         tokenProvider: any SupabaseAccessTokenProviding,
         transport: any SupabaseHTTPTransport = URLSessionSupabaseHTTPTransport(),
+        realtimeConnector: any SupabaseRealtimeConnecting = URLSessionSupabaseRealtimeConnector(),
         now: @escaping @Sendable () -> Date = Date.init
     ) throws {
         guard supabaseURL.scheme != nil, supabaseURL.host != nil else {
@@ -99,6 +101,12 @@ public actor SupabaseRemoteMacRelay: RemoteMacRelay {
         self.publishableKey = publishableKey
         self.tokenProvider = tokenProvider
         self.transport = transport
+        self.realtimeEventSource = SupabaseRealtimeRunEventSource(
+            supabaseURL: supabaseURL,
+            publishableKey: publishableKey,
+            tokenProvider: tokenProvider,
+            connector: realtimeConnector
+        )
         self.now = now
     }
 
@@ -335,6 +343,47 @@ public actor SupabaseRemoteMacRelay: RemoteMacRelay {
         return rows.map { $0.envelope() }
     }
 
+    public func runEventStream(
+        accountId: String,
+        macAgentId: String,
+        after seq: Int64,
+        limit: Int
+    ) async -> AsyncStream<RemoteRunEventEnvelope> {
+        guard limit > 0 else {
+            return AsyncStream { continuation in
+                continuation.finish()
+            }
+        }
+        let live = realtimeEventSource.stream(accountId: accountId, macAgentId: macAgentId, after: seq)
+        let backfill = (try? await runEvents(accountId: accountId, macAgentId: macAgentId, after: seq, limit: limit)) ?? []
+        return AsyncStream { continuation in
+            Task {
+                var yieldedIds = Set<String>()
+                var yielded = 0
+
+                for envelope in backfill where envelope.event.seq > seq {
+                    guard envelope.macAgentId == macAgentId, yieldedIds.insert(envelope.event.id).inserted else { continue }
+                    continuation.yield(envelope)
+                    yielded += 1
+                    if yielded >= limit {
+                        continuation.finish()
+                        return
+                    }
+                }
+
+                for await envelope in live where envelope.event.seq > seq {
+                    guard envelope.macAgentId == macAgentId, yieldedIds.insert(envelope.event.id).inserted else { continue }
+                    continuation.yield(envelope)
+                    yielded += 1
+                    if yielded >= limit {
+                        break
+                    }
+                }
+                continuation.finish()
+            }
+        }
+    }
+
     public func publishEvents(accountId: String, macAgentId: String, events: [RemoteRunEventEnvelope]) async throws {
         let rows = events
             .filter { $0.macAgentId == macAgentId }
@@ -534,7 +583,7 @@ public actor SupabaseRemoteMacRelay: RemoteMacRelay {
     }
 }
 
-private enum SupabaseJSON {
+enum SupabaseJSON {
     static func encode<T: Encodable>(_ value: T) throws -> Data {
         try encoder.encode(value)
     }
@@ -823,7 +872,7 @@ private struct CommandAckRow: Codable {
     }
 }
 
-private struct EventEnvelopeRow: Codable {
+struct EventEnvelopeRow: Codable {
     var id: String
     var seq: Int64
     var ts: Date
