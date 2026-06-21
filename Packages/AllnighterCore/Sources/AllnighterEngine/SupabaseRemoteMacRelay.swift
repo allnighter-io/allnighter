@@ -339,7 +339,9 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "limit", value: String(limit)),
             ]
         )
-        return rows.map { $0.envelope() }
+        return rows
+            .filter { $0.accountId == accountId && $0.macAgentId == macAgentId && $0.seq > seq }
+            .map { $0.envelope() }
     }
 
     public func runEventStream(

@@ -282,6 +282,26 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ))
     }
 
+    func testRunEventsFiltersRowsOutsideRequestedScopeAndSeq() async throws {
+        let valid = runEventEnvelope(id: "evt_valid", seq: 2, macAgentId: "mac_1")
+        let old = runEventEnvelope(id: "evt_old", seq: 1, macAgentId: "mac_1")
+        let wrongMac = runEventEnvelope(id: "evt_wrong_mac", seq: 3, macAgentId: "mac_2")
+        let wrongAccount = runEventEnvelope(id: "evt_wrong_account", seq: 4, macAgentId: "mac_1")
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                try eventEnvelopeRow(old),
+                try eventEnvelopeRow(wrongMac),
+                try eventEnvelopeRow(wrongAccount, accountId: "acct_2"),
+                try eventEnvelopeRow(valid),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let events = try await relay.runEvents(accountId: "acct_1", macAgentId: "mac_1", after: 1, limit: 10)
+
+        XCTAssertEqual(events.map(\.event.id), ["evt_valid"])
+    }
+
     func testPublishEventsRejectsMismatchedMacScopeBeforeWriting() async throws {
         let transport = RecordingSupabaseHTTPTransport(responses: [])
         let relay = try makeRelay(transport: transport)
@@ -553,12 +573,12 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ]
     }
 
-    private func eventEnvelopeRow(_ envelope: RemoteRunEventEnvelope) throws -> [String: Any] {
+    private func eventEnvelopeRow(_ envelope: RemoteRunEventEnvelope, accountId: String = "acct_1") throws -> [String: Any] {
         [
             "id": envelope.event.id,
             "seq": envelope.event.seq,
             "ts": iso(envelope.event.ts),
-            "account_id": "acct_1",
+            "account_id": accountId,
             "mac_agent_id": envelope.macAgentId,
             "run_id": envelope.event.payload["runId"]?.stringValue ?? NSNull(),
             "kind": envelope.event.kind,
@@ -566,6 +586,20 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
             "sealed_ref": envelope.sealedRef.map(mediaRefRow(_:)) ?? NSNull(),
             "sig": envelope.signature,
         ]
+    }
+
+    private func runEventEnvelope(id: String, seq: Int64, macAgentId: String) -> RemoteRunEventEnvelope {
+        RemoteRunEventEnvelope(
+            macAgentId: macAgentId,
+            event: RunEvent(
+                id: id,
+                seq: seq,
+                ts: now.addingTimeInterval(TimeInterval(seq)),
+                kind: "run.started",
+                payload: ["runId": .string("run_1")]
+            ),
+            signature: "sig"
+        )
     }
 
     private func snapshotEnvelope() -> SnapshotEnvelope {
