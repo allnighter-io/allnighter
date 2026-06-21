@@ -245,6 +245,9 @@ public actor MockiOSClient: RemoteClient {
             .filter { $0.event.seq > since }
             .filter { envelope in
                 guard envelope.macAgentId == mac.macAgentId else { return false }
+                if let sealedRef = envelope.sealedRef, sealedRef.macAgentId != envelope.macAgentId {
+                    return false
+                }
                 return (try? RemoteCrypto.verifyRemoteRunEventEnvelope(
                     envelope,
                     signingPublicKeyBase64: mac.agentSigningPubkey
