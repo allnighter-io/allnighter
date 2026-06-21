@@ -158,9 +158,33 @@ public actor RunService {
         let records = Dictionary(
             loadProbeRecords().map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
         let manifestIDs = Set(registry.all.map(\.id))
+        // A source that just hit a capacity wall is treated as NOT ready until it resets, so
+        // Auto/team resolution substitutes around it pre-dispatch — no run-path retry. The
+        // CLI can probe "green" yet be tapped out; capacity truth comes from prior runs.
+        let cooling = coolingSources()
         return Set(models.filter { m in
-            m.enabled && manifestIDs.contains(m.driverId) && (records[m.driverId]?.status.isReady ?? false)
+            m.enabled && manifestIDs.contains(m.driverId)
+                && (records[m.driverId]?.status.isReady ?? false)
+                && !cooling.contains(m.driverId)
         }.map(\.id))
+    }
+
+    /// How far back to look for capacity observations — bounds the run-history scan; the
+    /// `coolingUntil > now` filter is what actually expires a cooldown.
+    private static let capacityLookbackSeconds: TimeInterval = 12 * 60 * 60
+
+    /// Sources cooling down right now (a recent rate-limit / cooldown that hasn't reset),
+    /// derived from prior runs' failed worker answers. Routed around pre-dispatch.
+    func coolingSources(now: Date = Date()) -> Set<String> {
+        SourceCapacityLedger.coolingSources(observations: recentCapacityObservations(now: now), now: now)
+    }
+
+    private func recentCapacityObservations(now: Date) -> [CapacityObservation] {
+        let lookback = now.addingTimeInterval(-Self.capacityLookbackSeconds)
+        return runStore.list()
+            .filter { $0.createdAt >= lookback }
+            .flatMap { $0.failedWorkerAnswers }
+            .compactMap { $0.capacityObservation }
     }
 
     /// Run and persist. Returns the settled `TeamRun` (RunRecord substrate).
