@@ -222,6 +222,50 @@ public struct DirectModePairingBeginJSON: Codable, Equatable, Sendable {
     }
 }
 
+public struct DirectModePairingSubmitRequest: Codable, Equatable, Sendable {
+    public var deviceId: String
+    public var displayName: String
+    public var deviceSigningPubkey: String
+    public var deviceSealingPubkey: String
+    public var pairingToken: String?
+    public var manualCode: String?
+
+    public init(
+        deviceId: String,
+        displayName: String,
+        deviceSigningPubkey: String,
+        deviceSealingPubkey: String,
+        pairingToken: String? = nil,
+        manualCode: String? = nil
+    ) {
+        self.deviceId = deviceId
+        self.displayName = displayName
+        self.deviceSigningPubkey = deviceSigningPubkey
+        self.deviceSealingPubkey = deviceSealingPubkey
+        self.pairingToken = pairingToken
+        self.manualCode = manualCode
+    }
+}
+
+public struct DirectModePairingSubmitResponse: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var request: RemotePairRequest
+    public var sessionId: String
+    public var acceptedAt: Date
+
+    public init(
+        schemaVersion: Int = 1,
+        request: RemotePairRequest,
+        sessionId: String,
+        acceptedAt: Date
+    ) {
+        self.schemaVersion = schemaVersion
+        self.request = request
+        self.sessionId = sessionId
+        self.acceptedAt = acceptedAt
+    }
+}
+
 public struct TrustedRemoteRegistry: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var pendingRequests: [RemotePairRequest]
