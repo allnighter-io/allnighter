@@ -50,6 +50,23 @@ final class DirectModeExposureProviderTests: XCTestCase {
         XCTAssertNil(plan.certificateProbeCommand)
     }
 
+    func testExposureEndpointProjectsToPairingEndpoint() throws {
+        let https = try TailscaleExposureProvider().plan(DirectModeExposureRequest(
+            loopbackPort: 42123,
+            transport: .tailscaleHTTPS,
+            host: "studio.tail123.ts.net"
+        )).endpoint.pairingEndpoint
+        let loopback = try LoopbackExposureProvider().plan(DirectModeExposureRequest(
+            loopbackPort: 42123,
+            transport: .loopback
+        )).endpoint.pairingEndpoint
+
+        XCTAssertEqual(https.url, "https://studio.tail123.ts.net")
+        XCTAssertEqual(https.transportMode, .tailscaleDirect)
+        XCTAssertEqual(loopback.url, "http://127.0.0.1:42123")
+        XCTAssertEqual(loopback.transportMode, .loopback)
+    }
+
     func testInvalidPlansAreRejected() throws {
         XCTAssertThrowsError(try TailscaleExposureProvider().plan(DirectModeExposureRequest(
             loopbackPort: 0,

@@ -54,6 +54,48 @@ public struct RemotePairRequest: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+public struct RemotePairingEndpoint: Codable, Equatable, Sendable {
+    public var url: String
+    public var transportMode: ConnectionMode
+
+    public init(url: String, transportMode: ConnectionMode) {
+        self.url = url
+        self.transportMode = transportMode
+    }
+}
+
+public struct RemotePairingPayload: Codable, Equatable, Sendable {
+    public var endpoints: [RemotePairingEndpoint]
+    public var agentSigningPubkey: String
+    public var agentSealingPubkey: String
+    public var tailnetName: String?
+    public var protocolVersion: Int
+    public var pairingToken: String
+    public var expiresAt: Date
+
+    public init(
+        endpoints: [RemotePairingEndpoint],
+        agentSigningPubkey: String,
+        agentSealingPubkey: String,
+        tailnetName: String? = nil,
+        protocolVersion: Int = RemoteProtocol.currentMajor,
+        pairingToken: String,
+        expiresAt: Date
+    ) {
+        self.endpoints = endpoints
+        self.agentSigningPubkey = agentSigningPubkey
+        self.agentSealingPubkey = agentSealingPubkey
+        self.tailnetName = tailnetName
+        self.protocolVersion = protocolVersion
+        self.pairingToken = pairingToken
+        self.expiresAt = expiresAt
+    }
+
+    public func isExpired(at now: Date) -> Bool {
+        expiresAt < now
+    }
+}
+
 public struct TrustedRemoteRegistry: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var pendingRequests: [RemotePairRequest]

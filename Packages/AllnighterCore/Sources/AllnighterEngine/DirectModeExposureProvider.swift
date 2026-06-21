@@ -40,6 +40,10 @@ public struct DirectModeEndpoint: Codable, Equatable, Sendable {
         self.transport = transport
         self.atsExceptionRequired = atsExceptionRequired
     }
+
+    public var pairingEndpoint: RemotePairingEndpoint {
+        RemotePairingEndpoint(url: baseURL, transportMode: transport.connectionMode)
+    }
 }
 
 public struct DirectModeExposurePlan: Equatable, Sendable {
@@ -63,6 +67,17 @@ public enum DirectModeExposureError: Error, Equatable, Sendable {
     case hostRequired(DirectModeExposureTransport)
     case invalidHost(String)
     case unsupportedTransport(DirectModeExposureTransport)
+}
+
+public extension DirectModeExposureTransport {
+    var connectionMode: ConnectionMode {
+        switch self {
+        case .tailscaleHTTPS, .tailnetHTTP:
+            return .tailscaleDirect
+        case .loopback:
+            return .loopback
+        }
+    }
 }
 
 public protocol ExposureProvider: Sendable {
