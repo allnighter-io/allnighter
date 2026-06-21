@@ -223,6 +223,31 @@ final class CloudRemoteClientTests: XCTestCase {
         }
     }
 
+    func testClientRejectsCloudMediaRefsForOtherMac() async throws {
+        let fixedNow = now
+        let client = CloudRemoteClient(mac: macRef(), relay: MockRemoteMacRelay(), now: { fixedNow })
+        try await client.connect(account: account, mode: .cloudRelay)
+        let otherMacRef = mediaRef(
+            ref: "media_other_mac",
+            macAgentId: "mac_other",
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        do {
+            _ = try await client.fetchSealed(otherMacRef)
+            XCTFail("other-Mac media data should be rejected")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .macNotFound("mac_other"))
+        }
+
+        do {
+            _ = try await client.fetchMediaKey(otherMacRef, deviceId: "device_1")
+            XCTFail("other-Mac media key should be rejected")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .macNotFound("mac_other"))
+        }
+    }
+
     func testRejectedAuthorizationAckKeepsApprovalDiagnosticFalse() async throws {
         let relay = MockRemoteMacRelay()
         try await relay.acknowledge(ackEnvelope(
@@ -437,10 +462,10 @@ final class CloudRemoteClientTests: XCTestCase {
         )
     }
 
-    private func mediaRef(ref: String, expiresAt: Date) -> MediaRef {
+    private func mediaRef(ref: String, macAgentId: String = "mac_1", expiresAt: Date) -> MediaRef {
         MediaRef(
             ref: ref,
-            macAgentId: "mac_1",
+            macAgentId: macAgentId,
             r2Key: "r2/\(ref)",
             contentType: "image/png",
             expiresAt: expiresAt

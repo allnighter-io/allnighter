@@ -139,7 +139,7 @@ public actor CloudRemoteClient: RemoteClient {
     }
 
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
-        _ = try requireConnected()
+        try requireMac(ref.macAgentId)
         guard let data = try await relay.mediaData(
             ref: ref.ref,
             macAgentId: ref.macAgentId,
@@ -151,7 +151,7 @@ public actor CloudRemoteClient: RemoteClient {
     }
 
     public func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope {
-        _ = try requireConnected()
+        try requireMac(ref.macAgentId)
         guard let key = try await relay.mediaKey(
             ref: ref.ref,
             macAgentId: ref.macAgentId,
