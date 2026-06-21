@@ -45,6 +45,20 @@ final class DirectModePairingStatusReaderTests: XCTestCase {
         XCTAssertEqual(response.trustedDevice?.revoked, true)
     }
 
+    func testStatusReportsExpiredTrustedDevice() throws {
+        try store.save(TrustedRemoteRegistry(trustedDevices: [trustedDevice(validUntil: now)]))
+        let reader = makeReader()
+
+        let response = try reader.status(DirectModePairingStatusRequest(
+            requestId: "pair_request_1",
+            deviceId: "device_1"
+        ))
+
+        XCTAssertEqual(response.status, .expired)
+        XCTAssertEqual(response.trustedDevice?.deviceId, "device_1")
+        XCTAssertEqual(response.trustedDevice?.validUntil, now)
+    }
+
     func testStatusReportsNotFoundOutsideScopedAccountOrMac() throws {
         try store.upsertPending(pairRequest(accountId: "acct_other"))
         try store.save(TrustedRemoteRegistry(trustedDevices: [trustedDevice(macAgentId: "mac_other")]))
@@ -91,6 +105,7 @@ final class DirectModePairingStatusReaderTests: XCTestCase {
     private func trustedDevice(
         accountId: String = "acct_1",
         macAgentId: String = "mac_1",
+        validUntil: Date? = nil,
         revoked: Bool = false
     ) -> TrustedDevice {
         TrustedDevice(
@@ -101,7 +116,7 @@ final class DirectModePairingStatusReaderTests: XCTestCase {
             accountId: accountId,
             macAgentId: macAgentId,
             pairedAt: now,
-            validUntil: now.addingTimeInterval(120),
+            validUntil: validUntil ?? now.addingTimeInterval(120),
             revoked: revoked,
             revokedAt: revoked ? now : nil,
             capabilities: Set(RemoteCapability.allCases)
