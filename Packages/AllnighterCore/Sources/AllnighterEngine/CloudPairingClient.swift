@@ -76,16 +76,20 @@ public actor CloudPairingClient {
     }
 
     public func status(
+        mac: MacAgentRef,
         requestId: String,
         deviceId: String
     ) async throws -> RemotePairingStatusResponse {
         let account = try requireConnected()
+        let macAgentId = mac.macAgentId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !macAgentId.isEmpty else { throw CloudPairingClientError.emptyMacAgentId }
         let requestId = requestId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !requestId.isEmpty else { throw CloudPairingClientError.emptyRequestId }
         let deviceId = deviceId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !deviceId.isEmpty else { throw CloudPairingClientError.emptyDeviceId }
         return try await relay.pairRequestStatus(
             accountId: account.accountId,
+            macAgentId: macAgentId,
             requestId: requestId,
             deviceId: deviceId,
             checkedAt: now()

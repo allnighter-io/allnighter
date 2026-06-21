@@ -30,9 +30,10 @@ final class CloudPairingClientTests: XCTestCase {
 
         let macs = try await client.macs()
         XCTAssertEqual(macs.map(\.macAgentId), ["mac_1"])
+        let mac = try XCTUnwrap(macs.first)
 
         let request = try await client.requestPairing(
-            mac: try XCTUnwrap(macs.first),
+            mac: mac,
             device: RemotePairingDeviceIdentity(
                 deviceId: " device_1 ",
                 displayName: " Mike's iPhone ",
@@ -54,7 +55,7 @@ final class CloudPairingClientTests: XCTestCase {
         let pending = try await relay.pendingPairRequests(accountId: "acct_1", macAgentId: "mac_1")
         XCTAssertEqual(pending, [request])
 
-        let status = try await client.status(requestId: " pair_request_1 ", deviceId: " device_1 ")
+        let status = try await client.status(mac: mac, requestId: " pair_request_1 ", deviceId: " device_1 ")
         XCTAssertEqual(status.status, .pending)
         XCTAssertEqual(status.pairRequest, request)
         XCTAssertNil(status.trustedDevice)
@@ -91,7 +92,7 @@ final class CloudPairingClientTests: XCTestCase {
         var device = trustedDevice()
         try await relay.upsertTrustedDevice(device)
 
-        let approved = try await client.status(requestId: request.id, deviceId: "device_1")
+        let approved = try await client.status(mac: mac, requestId: request.id, deviceId: "device_1")
 
         XCTAssertEqual(approved.status, .approved)
         XCTAssertEqual(approved.pairRequest, approvedRequest)
@@ -101,10 +102,52 @@ final class CloudPairingClientTests: XCTestCase {
         device.revokedAt = now.addingTimeInterval(10)
         try await relay.upsertTrustedDevice(device)
 
-        let revoked = try await client.status(requestId: request.id, deviceId: "device_1")
+        let revoked = try await client.status(mac: mac, requestId: request.id, deviceId: "device_1")
 
         XCTAssertEqual(revoked.status, .revoked)
         XCTAssertEqual(revoked.trustedDevice, device)
+    }
+
+    func testClientScopesStatusToSelectedMac() async throws {
+        var otherMacRequest = RemotePairRequest(
+            id: "pair_shared",
+            accountId: "acct_1",
+            macAgentId: "mac_2",
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: "device_sign",
+            deviceSealingPubkey: "device_seal",
+            requestedAt: now,
+            expiresAt: now.addingTimeInterval(120)
+        )
+        otherMacRequest.status = .approved
+        otherMacRequest.approvedAt = now
+        let relay = MockRemoteMacRelay(
+            pairRequests: [otherMacRequest],
+            trustedDevices: [trustedDevice(macAgentId: "mac_2")]
+        )
+        let fixedNow = now
+        let client = CloudPairingClient(relay: relay, now: { fixedNow })
+        try await client.connect(
+            account: RemoteAccountSession(accountId: "acct_1", provider: .apple),
+            mode: ConnectionMode.cloudRelay
+        )
+        let selectedMac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio Mac",
+            agentSigningPubkey: "mac_sign",
+            agentSealingPubkey: "mac_seal"
+        )
+
+        let status = try await client.status(
+            mac: selectedMac,
+            requestId: "pair_shared",
+            deviceId: "device_1"
+        )
+
+        XCTAssertEqual(status.status, .notFound)
+        XCTAssertNil(status.pairRequest)
+        XCTAssertNil(status.trustedDevice)
     }
 
     func testClientRequiresConnectionAndCloudMode() async throws {
@@ -184,30 +227,52 @@ final class CloudPairingClientTests: XCTestCase {
             account: RemoteAccountSession(accountId: "acct_1", provider: .apple),
             mode: ConnectionMode.cloudRelay
         )
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio Mac",
+            agentSigningPubkey: "mac_sign",
+            agentSealingPubkey: "mac_seal"
+        )
 
         do {
-            _ = try await client.status(requestId: " ", deviceId: "device_1")
+            _ = try await client.status(mac: mac, requestId: " ", deviceId: "device_1")
             XCTFail("empty request id should be rejected")
         } catch let error as CloudPairingClientError {
             XCTAssertEqual(error, .emptyRequestId)
         }
 
         do {
-            _ = try await client.status(requestId: "pair_request_1", deviceId: " ")
+            _ = try await client.status(mac: mac, requestId: "pair_request_1", deviceId: " ")
             XCTFail("empty device id should be rejected")
         } catch let error as CloudPairingClientError {
             XCTAssertEqual(error, .emptyDeviceId)
         }
+
+        do {
+            _ = try await client.status(
+                mac: MacAgentRef(
+                    macAgentId: " ",
+                    displayName: "Studio Mac",
+                    agentSigningPubkey: "mac_sign",
+                    agentSealingPubkey: "mac_seal"
+                ),
+                requestId: "pair_request_1",
+                deviceId: "device_1"
+            )
+            XCTFail("empty mac id should be rejected")
+        } catch let error as CloudPairingClientError {
+            XCTAssertEqual(error, .emptyMacAgentId)
+        }
     }
 
-    private func trustedDevice() -> TrustedDevice {
+    private func trustedDevice(macAgentId: String = "mac_1") -> TrustedDevice {
         TrustedDevice(
             deviceId: "device_1",
             displayName: "Mike's iPhone",
             deviceSigningPubkey: "device_sign",
             deviceSealingPubkey: "device_seal",
             accountId: "acct_1",
-            macAgentId: "mac_1",
+            macAgentId: macAgentId,
             pairedAt: now,
             validUntil: now.addingTimeInterval(3_600),
             capabilities: Set(RemoteCapability.allCases)

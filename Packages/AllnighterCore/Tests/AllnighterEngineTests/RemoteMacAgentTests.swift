@@ -774,6 +774,7 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
 
     func pairRequestStatus(
         accountId: String,
+        macAgentId _: String,
         requestId: String,
         deviceId: String,
         checkedAt: Date

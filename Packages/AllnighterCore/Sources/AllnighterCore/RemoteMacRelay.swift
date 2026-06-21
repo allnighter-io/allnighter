@@ -111,6 +111,7 @@ public protocol RemoteMacRelay: Sendable {
     func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest]
     func pairRequestStatus(
         accountId: String,
+        macAgentId: String,
         requestId: String,
         deviceId: String,
         checkedAt: Date
@@ -249,15 +250,16 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
 
     public func pairRequestStatus(
         accountId: String,
+        macAgentId: String,
         requestId: String,
         deviceId: String,
         checkedAt: Date
     ) async throws -> RemotePairingStatusResponse {
         eventLog.append("pairRequestStatus")
-        guard let request = pairRequestsByMac.values
-            .flatMap({ $0 })
+        guard let request = (pairRequestsByMac[macAgentId] ?? [])
             .first(where: {
                 $0.accountId == accountId
+                    && $0.macAgentId == macAgentId
                     && $0.id == requestId
                     && $0.deviceId == deviceId
             }) else {
@@ -269,7 +271,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
             )
         }
         let trustedDevice = (trustedByMac[request.macAgentId] ?? []).first {
-            $0.accountId == accountId && $0.deviceId == deviceId
+            $0.accountId == accountId && $0.macAgentId == macAgentId && $0.deviceId == deviceId
         }
         let status: RemotePairingStatusKind
         var responseRequest = request
