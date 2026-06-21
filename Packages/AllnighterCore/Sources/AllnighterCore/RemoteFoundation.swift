@@ -433,7 +433,7 @@ public struct MediaKeyEnvelope: Codable, Equatable, Sendable, Identifiable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         ref = try container.decode(String.self, forKey: .ref)
-        macAgentId = try container.decodeIfPresent(String.self, forKey: .macAgentId) ?? ""
+        macAgentId = try container.decode(String.self, forKey: .macAgentId)
         deviceId = try container.decode(String.self, forKey: .deviceId)
         sealedKey = try container.decode(SealedBlob.self, forKey: .sealedKey)
     }
@@ -446,7 +446,7 @@ public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable
     public var sealedRef: MediaRef?
     public var signature: String
 
-    public init(macAgentId: String = "", event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
+    public init(macAgentId: String, event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
         self.macAgentId = macAgentId
         self.event = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         self.sealedRef = sealedRef

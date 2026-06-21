@@ -363,6 +363,23 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(envelope.id, "mac_1:media_1:device_1")
     }
 
+    func testMediaKeyEnvelopeRequiresMacAgentIdOnDecode() throws {
+        let payload = Data("""
+        {
+          "ref": "media_1",
+          "deviceId": "device_1",
+          "sealedKey": {
+            "ciphertext": "",
+            "encapsulatedKey": "",
+            "sealedForKeyId": "device_1",
+            "contentType": "application/vnd.allnighter.media-key"
+          }
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try CoreJSON.decode(MediaKeyEnvelope.self, from: payload))
+    }
+
     func testRemoteEventEnvelopeNormalizesLegacySynthesisKinds() {
         let event = RunEvent(
             id: "evt_1",
@@ -372,7 +389,7 @@ final class RemoteFoundationTests: XCTestCase {
             payload: ["runId": .string("run_1")]
         )
 
-        let envelope = RemoteRunEventEnvelope(event: event, signature: "sig")
+        let envelope = RemoteRunEventEnvelope(macAgentId: "mac_1", event: event, signature: "sig")
         XCTAssertEqual(envelope.event.kind, RunEventKind.stageCompleted)
         XCTAssertTrue(RunEventKind.isRemotePublicKind(envelope.event.kind))
     }
@@ -474,6 +491,7 @@ final class RemoteFoundationTests: XCTestCase {
             serverTime: now
         )
         let done = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_done",
                 seq: 12,
@@ -484,6 +502,7 @@ final class RemoteFoundationTests: XCTestCase {
             signature: "sig"
         )
         let duplicate = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_done",
                 seq: 13,
@@ -519,6 +538,7 @@ final class RemoteFoundationTests: XCTestCase {
             serverTime: now
         )
         let stale = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_stale_new_id",
                 seq: 9,
@@ -542,6 +562,7 @@ final class RemoteFoundationTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let snapshot = SnapshotEnvelope(runs: [], lastSeq: 0, serverTime: now)
         let started = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_started",
                 seq: 1,
