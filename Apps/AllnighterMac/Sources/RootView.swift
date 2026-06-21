@@ -219,9 +219,10 @@ struct RootView: View {
                     let maxBody = max(160, geo.size.height - top - 190)
                     BenchHealthPopover(
                         onClose: { showDoctor = false },
-                        // Open the full Settings shell at CLIs (sidebar present) so
-                        // Teams/Skills stay reachable — not the sidebarless page.
-                        onOpenFull: { showDoctor = false; openTeamStudio() },
+                        // "Open CLI setup" is a HARD LINK — always land on the CLIs route
+                        // (sidebar present so Teams/Skills stay reachable), never the
+                        // default Teams route.
+                        onOpenFull: { showDoctor = false; openTeamStudio(route: .clis) },
                         maxBodyHeight: maxBody
                     )
                     .offset(

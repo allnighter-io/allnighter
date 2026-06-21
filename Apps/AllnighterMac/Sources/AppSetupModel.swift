@@ -18,7 +18,12 @@ enum AppSetupModel {
         toolStatuses: [ToolProbeRecord],
         models: [Model]
     ) -> [SetupCardModel] {
-        registry.all.filter { $0.kind == .headlessCLI }.map { manifest in
+        registry.all
+            .filter { $0.kind == .headlessCLI }
+            // List CLIs A→Z by display name (founder) — stable order in the doctor hover
+            // and the CLI setup page; consumers partition READY/not-ready but keep order.
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            .map { manifest in
             let rec = toolStatuses.first { $0.driverId == manifest.id }
             let seats = models.filter { $0.driverId == manifest.id }.map {
                 SetupCardModel.WorkerSeat(id: $0.id, name: $0.displayName, modelLabel: $0.modelLabel, isPlanWriter: $0.canWritePlan)
