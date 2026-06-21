@@ -20,6 +20,7 @@ public enum CloudRemoteClientError: Error, Equatable, Sendable {
     case unsupportedMode(ConnectionMode)
     case macNotFound(String)
     case snapshotNotFound(String)
+    case mediaNotFound(String)
     case ackTimedOut(String)
     case badAckEnvelope
     case badAckSignature
@@ -135,7 +136,15 @@ public actor CloudRemoteClient: RemoteClient {
     }
 
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
-        throw CloudRemoteClientError.unsupportedOperation("fetchSealed")
+        _ = try requireConnected()
+        guard let data = try await relay.mediaData(
+            ref: ref.ref,
+            macAgentId: ref.macAgentId,
+            at: now()
+        ) else {
+            throw CloudRemoteClientError.mediaNotFound(ref.ref)
+        }
+        return data
     }
 
     public func diagnose() async -> ConnectionDiagnosis {

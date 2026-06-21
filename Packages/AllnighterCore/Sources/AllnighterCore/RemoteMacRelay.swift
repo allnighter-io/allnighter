@@ -135,6 +135,9 @@ public protocol RemoteMacRelay: Sendable {
     func publishEvents(accountId: String, macAgentId: String, events: [RemoteRunEventEnvelope]) async throws
     func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws
     func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope?
+    func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws
+    func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data?
+    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope?
 }
 
 public actor MockRemoteMacRelay: RemoteMacRelay {
@@ -142,6 +145,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     public private(set) var heartbeats: [RemoteMacAgentHeartbeat] = []
     public private(set) var acknowledgements: [RemoteCommandAckEnvelope] = []
     public private(set) var publishedEvents: [RemoteRunEventEnvelope] = []
+    public private(set) var mediaRefs: [MediaRef] = []
     public private(set) var eventLog: [String] = []
 
     private var macs: [String: MacAgentRef]
@@ -152,6 +156,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var publishedEventScopes: [String: PublishedEventScope]
     private var snapshotsByMac: [String: SnapshotEnvelope]
     private var snapshotScopesByMac: [String: PublishedEventScope]
+    private var mediaRefsById: [String: MediaRef]
+    private var mediaDataByRef: [String: Data]
+    private var mediaKeysByRef: [String: [String: MediaKeyEnvelope]]
     private let pairRequestIdFactory: @Sendable () -> String
 
     public init(
@@ -172,6 +179,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         self.publishedEventScopes = [:]
         self.snapshotsByMac = [:]
         self.snapshotScopesByMac = [:]
+        self.mediaRefsById = [:]
+        self.mediaDataByRef = [:]
+        self.mediaKeysByRef = [:]
         self.pairRequestIdFactory = pairRequestIdFactory
     }
 
@@ -419,6 +429,35 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
             return nil
         }
         return snapshotsByMac[macAgentId]
+    }
+
+    public func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {
+        eventLog.append("publishMedia")
+        mediaRefs.removeAll { $0.ref == ref.ref }
+        mediaRefs.append(ref)
+        mediaRefs.sort { $0.ref < $1.ref }
+        mediaRefsById[ref.ref] = ref
+        mediaDataByRef[ref.ref] = data
+        mediaKeysByRef[ref.ref] = Dictionary(uniqueKeysWithValues: keys.map { ($0.deviceId, $0) })
+    }
+
+    public func mediaData(ref: String, macAgentId: String, at now: Date) async throws -> Data? {
+        eventLog.append("mediaData")
+        guard let mediaRef = mediaRefsById[ref],
+              mediaRef.macAgentId == macAgentId,
+              mediaRef.expiresAt >= now else {
+            return nil
+        }
+        return mediaDataByRef[ref]
+    }
+
+    public func mediaKey(ref: String, deviceId: String, at now: Date) async throws -> MediaKeyEnvelope? {
+        eventLog.append("mediaKey")
+        guard let mediaRef = mediaRefsById[ref],
+              mediaRef.expiresAt >= now else {
+            return nil
+        }
+        return mediaKeysByRef[ref]?[deviceId]
     }
 
     public func setTrustedDevices(_ devices: [TrustedDevice], macAgentId: String) {

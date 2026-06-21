@@ -659,6 +659,16 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
     func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope? {
         nil
     }
+
+    func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {}
+
+    func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data? {
+        nil
+    }
+
+    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope? {
+        nil
+    }
 }
 
 private extension NSLock {

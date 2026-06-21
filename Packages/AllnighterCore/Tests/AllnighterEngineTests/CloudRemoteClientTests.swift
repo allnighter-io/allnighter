@@ -165,6 +165,28 @@ final class CloudRemoteClientTests: XCTestCase {
         }
     }
 
+    func testClientFetchesCloudMediaData() async throws {
+        let relay = MockRemoteMacRelay()
+        let ref = mediaRef(ref: "media_1", expiresAt: now.addingTimeInterval(60))
+        try await relay.publishMedia(ref: ref, data: Data("ciphertext".utf8), keys: [])
+        let fixedNow = now
+        let client = CloudRemoteClient(mac: macRef(), relay: relay, now: { fixedNow })
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        let data = try await client.fetchSealed(ref)
+
+        XCTAssertEqual(data, Data("ciphertext".utf8))
+
+        let expired = mediaRef(ref: "media_expired", expiresAt: now.addingTimeInterval(-1))
+        try await relay.publishMedia(ref: expired, data: Data("old".utf8), keys: [])
+        do {
+            _ = try await client.fetchSealed(expired)
+            XCTFail("expired media should be explicit")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .mediaNotFound("media_expired"))
+        }
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let relay = MockRemoteMacRelay()
         let badSigningKey = Curve25519.Signing.PrivateKey()
@@ -343,6 +365,16 @@ final class CloudRemoteClientTests: XCTestCase {
             ],
             lastSeq: 7,
             serverTime: now
+        )
+    }
+
+    private func mediaRef(ref: String, expiresAt: Date) -> MediaRef {
+        MediaRef(
+            ref: ref,
+            macAgentId: "mac_1",
+            r2Key: "r2/\(ref)",
+            contentType: "image/png",
+            expiresAt: expiresAt
         )
     }
 }
