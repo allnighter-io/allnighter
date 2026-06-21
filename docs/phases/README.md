@@ -35,6 +35,7 @@ otherwise.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Run_Latency_And_Streaming_Recovery.md`](Run_Latency_And_Streaming_Recovery.md) | **CODE RED PERF PRIORITY** — recovery phase for default-chat startup, first answer latency, streaming throughput, terminal settlement, and scroll jank | Dogfood response to the 2026-06-21 "2/10 product is dead" finding: a Composer-family run took ~30s to first visible answer, completed in the run artifact, but left the thread turn stuck `running`; stream debug logging and live timeline rendering can also poison throughput and scrolling. Owns the 10x recovery plan before broader feature work. |
 | [`Team_Run_Load_Performance.md`](Team_Run_Load_Performance.md) | **TOP PERF PRIORITY** — initial Team-run open stall fixed; live thread/reload hot path remains | Dogfood diagnosis for Team-run lockups and broader app sluggishness. Initial fix shipped run-decode cache, lazy terminal worker markdown, and Open Factory Floor. Next recommendation is first-principles hot-path hardening: coalesced reloads, in-memory/throttled live deltas, derived rail state, unread/index memoization, background store reads, and performance gates. |
 | [`Language_Cutover.md`](Language_Cutover.md) | **DONE** (CUT-S00–S06, 2026-06-18; check.sh green) | Hard, no-alias rename to the locked vocabulary (Chat / Delegate "Send to team" / Execute; Team; Code/Design/Copy + Signal; effort = model reasoning level). Landed: craft Build→Code, Fan out→Send to team, effort→worker-count gating ripped out, Fanout_Team_Catalog→Team_Catalog. Stays as the canonical word list/SSOT. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft spec — Core cards built; **GUI browse surface unbuilt; ⚠ overlaps `Team_Run_Floor.md` (FOUNDER DECISION)** | Send to team as the discoverable delegation surface: Team Card projection, Signal/Code/Design/Copy families, Project Manager recommendations, direct team send, and Execute approval for mutating work. TeamCard + family + mutating routing exist in Core; the discovery/browse UX is unbuilt and its narrative overlaps the Floor — decide ownership (picker vs workroom) before building. |
@@ -257,6 +258,7 @@ Open questions:
 | Work | Read first |
 | --- | --- |
 | Mac launch TCC prompts, startup shell/CLI probes, process-quiet launch | **BUILT** — `docs/archive/phases/Launch_Authority_TCC_Hotfix.md`; new regressions route through `docs/operations/Debugger.md` |
+| Default-chat startup latency, first answer delay, streaming throughput, stuck running turns, scroll jank while streaming | `Run_Latency_And_Streaming_Recovery.md` + `threads/03_Mac_Streaming.md` + `Team_Run_Load_Performance.md` |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Send to team, Delegate surface, Team Cards, Signal/Code/Design/Copy team map | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |
 | Team run Floor, inspectable worker lanes, worker artifacts, Signal Insights, run receipts | `Team_Run_Floor.md` + `CLI_Implementation_Contract.md` |
