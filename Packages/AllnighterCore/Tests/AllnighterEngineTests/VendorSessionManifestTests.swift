@@ -12,8 +12,30 @@ final class VendorSessionManifestTests: XCTestCase {
 
     func testThereAreVendorSessionDrivers() {
         let ids = Set(vendorManifests.map(\.id))
-        XCTAssertTrue(ids.contains("claude_code"))
-        XCTAssertTrue(ids.contains("cursor_agent"))
+        XCTAssertTrue(ids.isSuperset(of: ["claude_code", "cursor_agent", "codex", "grok"]),
+                      "all four resume-capable CLIs declare vendor_session; got \(ids)")
+    }
+
+    func testPerCliCaptureFieldsMatchLiveProof() throws {
+        func capture(_ id: String) throws -> String {
+            try XCTUnwrap(vendorManifests.first { $0.id == id }?.session?.capture?.field)
+        }
+        XCTAssertEqual(try capture("cursor_agent"), "session_id")
+        XCTAssertEqual(try capture("codex"), "thread_id")
+        XCTAssertEqual(try capture("grok"), "sessionId")
+    }
+
+    func testCodexResumeReshapesToExecResume() throws {
+        let codex = try XCTUnwrap(vendorManifests.first { $0.id == "codex" })
+        let ctx = DriverManifest.ResolveContext(prompt: "p2", model: "gpt", outputFile: "/tmp/o.txt", resumeSessionId: "th-1")
+        let args = try XCTUnwrap(codex.resolvedSessionArgs(ctx, resuming: true))
+        XCTAssertEqual(Array(args.prefix(3)), ["exec", "resume", "th-1"], "codex reshapes to `exec resume <id>`")
+        XCTAssertFalse(args.contains("--color"), "codex resume must not pass --color (it rejects it)")
+    }
+
+    func testAntigravityIsPromptContextOnly() throws {
+        let agy = try XCTUnwrap(DefaultConfig.manifests.first { $0.id == "antigravity" })
+        XCTAssertEqual(agy.session?.continuity, .promptContextOnly, "no headless id → honest context fallback")
     }
 
     func testEveryVendorSessionResumesByStoredIdNeverContinue() {

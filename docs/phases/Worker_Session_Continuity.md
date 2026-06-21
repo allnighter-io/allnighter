@@ -196,10 +196,16 @@ reply OK" → turn 2 "What word did I ask you to remember?" → answers `ambercl
   `--session-id <uuid>` turn 1 → `--resume <uuid>` turn 2 (no context re-sent) → recalled
   **amberclock**. Manifest `session` block shipped (bundle + DefaultConfig). The founder
   Works Test passes. **This validates the whole architecture — the project is NOT a dead end.**
-- [ ] **CONT-S3 — cursor_agent.** `create-chat` + `--resume`; live recall.
-- [ ] **CONT-S4 — codex.** `--json` capture + `exec resume`; live recall.
-- [ ] **CONT-S5 — grok.** `streaming-json` capture + `--resume`; live recall.
-- [ ] **CONT-S6 — antigravity.** declare `promptContextOnly`; bounded context; vendor ask.
+- [x] **CONT-S3 — cursor_agent (DONE, recall PASS ✅).** capture `session_id` from stream-json,
+  resume `--resume <id>`. Live: `cacheReadTokens=54869` + recalled amberclock.
+- [x] **CONT-S4 — codex (DONE, recall PASS ✅).** capture `thread_id`, resume reshape
+  `exec resume <id> --json --skip-git-repo-check -m … -o … <prompt>` (NOT `--color`). Live:
+  agent answered `amberclock`. Gotcha: codex reads stdin — probes need `</dev/null` (the real
+  runner closes stdin, so production is fine).
+- [x] **CONT-S5 — grok (DONE, recall PASS ✅).** capture `sessionId` (camelCase), resume
+  `--resume <id>`. Live: answer streamed `amber`+`clock` deltas.
+- [x] **CONT-S6 — antigravity (DONE).** `promptContextOnly` declared (no headless id; `--print`
+  exposes none). Engine falls back to always-include context for agy. Vendor ask: expose an id.
 - [ ] **CONT-S7 — CLI/MCP surface + GUI honesty.** `alln sessions` + MCP tools + run-artifact
   receipts; GUI shows continuity state per thread/source.
 

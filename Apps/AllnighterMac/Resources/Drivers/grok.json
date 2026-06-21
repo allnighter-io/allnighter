@@ -8,7 +8,20 @@
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "grok",
-    "args": ["-p", "{{prompt}}", "-m", "{{model}}", "--output-format", "streaming-json", "--always-approve", "--no-wait-for-background", "--no-subagents", "--disable-web-search", "--cwd", "{{workingDir}}"],
+    "args": [
+      "-p",
+      "{{prompt}}",
+      "-m",
+      "{{model}}",
+      "--output-format",
+      "streaming-json",
+      "--always-approve",
+      "--no-wait-for-background",
+      "--no-subagents",
+      "--disable-web-search",
+      "--cwd",
+      "{{workingDir}}"
+    ],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
@@ -25,13 +38,23 @@
     "mode": "jsonl_stdout",
     "args": [],
     "partialOutput": true,
-    "answerDeltaPaths": ["$.data"],
+    "answerDeltaPaths": [
+      "$.data"
+    ],
     "finalAnswerSource": "parser_accumulator",
     "stripAnsi": true,
     "visibleReasoning": false
   },
   "imageGen": {
-    "args": ["-p", "{{prompt}}", "--yolo", "--output-format", "json", "--cwd", "{{runDir}}"],
+    "args": [
+      "-p",
+      "{{prompt}}",
+      "--yolo",
+      "--output-format",
+      "json",
+      "--cwd",
+      "{{runDir}}"
+    ],
     "promptVia": "arg",
     "promptTemplate": "Generate an image: {{designPrompt}}. Save the final image to {{imageOut}} and reply with the absolute path only.",
     "arrival": "prompt_directed",
@@ -40,15 +63,54 @@
     "timeoutSeconds": 600
   },
   "setup": {
-    "bins": ["grok"],
-    "knownPaths": ["~/.local/bin", "~/.grok/bin", "/opt/homebrew/bin"],
+    "bins": [
+      "grok"
+    ],
+    "knownPaths": [
+      "~/.local/bin",
+      "~/.grok/bin",
+      "/opt/homebrew/bin"
+    ],
     "installHint": "curl -fsSL https://x.ai/cli/install.sh | bash",
     "docsURL": "https://x.ai/cli",
     "loginFlow": {
       "interactiveCommand": "grok login",
-      "instructions": "Run `grok login` (or just `grok`) once to sign in via browser with your SuperGrok or X Premium+ account. That caches a session token under ~/.grok/ that `grok -p` reuses — no API key needed.",
-      "authErrorPatterns": ["not authenticated", "authentication required", "unauthorized", "sign in", "log in", "login", "auth", "401"],
+      "instructions": "Run `grok login` (or just `grok`) once to sign in via browser with your SuperGrok or X Premium+ account. That caches a session token under ~/.grok/ that `grok -p` reuses \u2014 no API key needed.",
+      "authErrorPatterns": [
+        "not authenticated",
+        "authentication required",
+        "unauthorized",
+        "sign in",
+        "log in",
+        "login",
+        "auth",
+        "401"
+      ],
       "docsURL": "https://docs.x.ai/build/overview"
+    }
+  },
+  "session": {
+    "continuity": "vendor_session",
+    "acquire": "capture",
+    "resumeArgs": [
+      "-p",
+      "{{prompt}}",
+      "-m",
+      "{{model}}",
+      "--output-format",
+      "streaming-json",
+      "--always-approve",
+      "--no-wait-for-background",
+      "--no-subagents",
+      "--disable-web-search",
+      "--cwd",
+      "{{workingDir}}",
+      "--resume",
+      "{{sessionId}}"
+    ],
+    "capture": {
+      "from": "stream_json",
+      "field": "sessionId"
     }
   }
 }

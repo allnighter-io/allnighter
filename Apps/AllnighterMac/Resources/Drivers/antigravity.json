@@ -8,7 +8,13 @@
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "agy",
-    "args": ["--print", "{{prompt}}", "--model", "{{model}}", "--dangerously-skip-permissions"],
+    "args": [
+      "--print",
+      "{{prompt}}",
+      "--model",
+      "{{model}}",
+      "--dangerously-skip-permissions"
+    ],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
@@ -21,7 +27,15 @@
     "sentinel": null
   },
   "imageGen": {
-    "args": ["--print", "{{prompt}}", "--model", "{{model}}", "--dangerously-skip-permissions", "--print-timeout", "10m"],
+    "args": [
+      "--print",
+      "{{prompt}}",
+      "--model",
+      "{{model}}",
+      "--dangerously-skip-permissions",
+      "--print-timeout",
+      "10m"
+    ],
     "promptVia": "arg",
     "promptTemplate": "Use your image generation tool to create an actual raster PNG image (not a markdown file, not HTML) of: {{designPrompt}} After generating, reply with ONLY the absolute filesystem path to the saved .png file.",
     "arrival": "stdout_path",
@@ -30,15 +44,34 @@
     "timeoutSeconds": 600
   },
   "setup": {
-    "bins": ["agy"],
-    "knownPaths": ["~/.local/bin", "~/.antigravity/antigravity/bin", "/opt/homebrew/bin"],
+    "bins": [
+      "agy"
+    ],
+    "knownPaths": [
+      "~/.local/bin",
+      "~/.antigravity/antigravity/bin",
+      "/opt/homebrew/bin"
+    ],
     "installHint": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
     "docsURL": "https://antigravity.google/docs/cli-install",
     "loginFlow": {
       "interactiveCommand": "agy",
       "instructions": "Run `agy`. It tries silent auth via the Apple Keychain; if there's no token it opens a browser for Google / Google Cloud sign-in (SSH sessions use a paste-the-code flow). Sign out with `/logout` inside the TUI.",
-      "authErrorPatterns": ["sign in", "log in", "login", "auth", "oauth", "not authenticated", "authentication", "keyring", "401"],
+      "authErrorPatterns": [
+        "sign in",
+        "log in",
+        "login",
+        "auth",
+        "oauth",
+        "not authenticated",
+        "authentication",
+        "keyring",
+        "401"
+      ],
       "docsURL": "https://antigravity.google/docs/cli-install"
     }
+  },
+  "session": {
+    "continuity": "prompt_context_only"
   }
 }
