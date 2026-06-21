@@ -104,7 +104,7 @@ final class WorkRequestSenderTests: XCTestCase {
     }
 }
 
-private actor RecordingRemoteClient: RemoteClient {
+actor RecordingRemoteClient: RemoteClient {
     private var commands: [RemoteCommand] = []
     private var acks: [CommandAck]
 
@@ -160,7 +160,7 @@ private actor RecordingRemoteClient: RemoteClient {
     }
 }
 
-private enum RecordingRemoteClientError: Error, Equatable {
+enum RecordingRemoteClientError: Error, Equatable {
     case unimplemented
     case missingAck
 }
