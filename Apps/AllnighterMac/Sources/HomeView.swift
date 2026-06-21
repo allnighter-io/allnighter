@@ -8,8 +8,10 @@ import AllnighterEngine
 
 struct HomeView: View {
     @Environment(ThreadsViewModel.self) private var threads
-    /// The team run whose full Factory Floor reader is open (over the workspace).
-    @State private var floorRun: TeamRun?
+    /// The team run whose full Factory Floor reader is open (over the workspace). Owned by
+    /// RootView so a top-bar route command (Inbox/Teams) can dismiss it — the Floor is a
+    /// deep surface that must yield to navigation.
+    @Binding var floorRun: TeamRun?
 
     var body: some View {
         HStack(spacing: 0) {

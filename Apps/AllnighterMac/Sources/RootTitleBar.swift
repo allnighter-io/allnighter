@@ -5,6 +5,9 @@ struct TitleBar: View {
     @Binding var showTeamDropdown: Bool
     @Binding var showDoctor: Bool
     @Binding var workspaceMode: WorkspaceMode
+    /// Route command: Inbox/Teams must escape deep surfaces (Floor, Settings, Pending,
+    /// Readiness, overlays), not just toggle the binding. RootView supplies the reset.
+    var onRoute: (WorkspaceMode) -> Void = { _ in }
     /// Inbox unread badge count. Real unread truth wires with the Projects sidebar
     /// (G-T4); 0 until then (no fabricated count).
     var unread: Int = 0
@@ -21,7 +24,7 @@ struct TitleBar: View {
         HStack(spacing: 10) {
             Spacer().frame(width: ALControl.trafficLightInset)
             LiveMark(state: model.isRunning ? .running : .idle, size: 16)
-            InboxTeamsSwitch(mode: $workspaceMode, unread: unread)
+            InboxTeamsSwitch(mode: $workspaceMode, onRoute: onRoute, unread: unread)
             if let devSimActive {
                 Badge(text: devSimActive, tone: .warning, dot: true, mono: true)
             }

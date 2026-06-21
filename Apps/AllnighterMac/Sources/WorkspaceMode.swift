@@ -15,6 +15,9 @@ enum WorkspaceMode: String, CaseIterable {
 /// box appears only on hover. Inbox carries an unread badge.
 struct InboxTeamsSwitch: View {
     @Binding var mode: WorkspaceMode
+    /// Pressing a segment runs a route command (escapes deep surfaces), not a passive
+    /// binding mutation — so it works even when this route is already selected.
+    var onRoute: (WorkspaceMode) -> Void = { _ in }
     var unread: Int = 0
     @State private var hovered: WorkspaceMode?
 
@@ -29,7 +32,7 @@ struct InboxTeamsSwitch: View {
     private func segment(_ item: WorkspaceMode) -> some View {
         let isActive = mode == item
         let isHovered = hovered == item
-        Button { mode = item } label: {
+        Button { onRoute(item) } label: {
             HStack(spacing: 6) {
                 Image(systemName: item.symbol).font(.system(size: 12, weight: .medium))
                 Text(item.label).font(ALFont.label.weight(.semibold))

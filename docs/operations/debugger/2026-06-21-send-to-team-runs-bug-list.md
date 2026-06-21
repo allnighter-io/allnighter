@@ -116,7 +116,7 @@ custom team execution, model health/substitutions.
   visible `Synthesis from <team>` attachment chip/card and editable prompt; a
   negative test that `Save to Pending` no longer appears on the Floor card.
 
-- [ ] **Top Inbox/Teams navigation does not escape deep surfaces.**
+- [x] **Top Inbox/Teams navigation does not escape deep surfaces.** — FIXED 2026-06-20 (RootRouteState reducer + onRoute route command; floorRun lifted to RootView; RootRouteStateTests)
 
   **Priority:** P1 / app navigation trust.
   **Observed:** Pressing the top `Inbox` or `Teams` control often appears to do

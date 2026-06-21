@@ -23,6 +23,9 @@ struct RootView: View {
     @State private var showMissingDriversAlert = false
     @State private var workspaceMode: WorkspaceMode = .inbox
     @State private var showPending = false
+    /// The Factory Floor reader open over the workspace (a deep surface). Owned here so a
+    /// top-bar route command can dismiss it (HomeView renders it via this binding).
+    @State private var floorRun: TeamRun?
     /// Title-bar pending-count source (drives the conditional `N pending` pill).
     @State private var pendingVM: PendingViewModel?
     @State private var commands = CommandCenter()
@@ -107,6 +110,7 @@ struct RootView: View {
                 showTeamDropdown: $showTeamDropdown,
                 showDoctor: $showDoctor,
                 workspaceMode: $workspaceMode,
+                onRoute: routeTo,
                 pendingCount: pendingVM?.totalPending ?? 0,
                 onRepair: openReadiness(focus:),
                 onManageTeam: { openTeamStudio() },
@@ -157,7 +161,7 @@ struct RootView: View {
                             onAddTeam: { workspaceMode = .inbox; openTeamStudio(route: .teams(.code), newTeam: true) }
                         )
                     } else {
-                        HomeView()
+                        HomeView(floorRun: $floorRun)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -397,6 +401,29 @@ struct RootView: View {
         studioInitialRoute = route
         studioStartNewTeam = newTeam
         showTeamStudio = true
+    }
+
+    /// Top-bar Inbox/Teams are ROUTE COMMANDS, not passive tab labels: they dismiss every
+    /// deep surface above the workspace (Factory Floor, Settings/Team Studio, Pending,
+    /// Readiness, doctor + dropdown overlays) and then show the chosen route — even when
+    /// that route is already selected (the Floor case). Navigation/state reset only; thread
+    /// selection, run truth, and rendering are untouched.
+    private func routeTo(_ mode: WorkspaceMode) {
+        let next = RootRouteState(
+            workspaceMode: workspaceMode, floorOpen: floorRun != nil,
+            showPending: showPending, showTeamStudio: showTeamStudio,
+            showReadiness: showReadiness, showDoctor: showDoctor, showTeamDropdown: showTeamDropdown
+        ).routed(to: mode)
+        workspaceMode = next.workspaceMode
+        if !next.floorOpen { floorRun = nil }
+        showPending = next.showPending
+        showTeamStudio = next.showTeamStudio
+        showReadiness = next.showReadiness
+        showDoctor = next.showDoctor
+        showTeamDropdown = next.showTeamDropdown
+        studioCustomizeTeamId = nil
+        studioStartNewTeam = false
+        pendingVM?.refresh()
     }
 
     private func openReadiness(focus: String? = nil) {
