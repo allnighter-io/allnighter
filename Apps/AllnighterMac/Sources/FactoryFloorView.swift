@@ -107,6 +107,18 @@ struct FactoryFloorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if let member = selected {
+                        if let cause = member.failureCause {
+                            // Honest failure cause (#8) — distinct from a generic timeout; a
+                            // preserved partial answer (if any) still renders below.
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12)).foregroundStyle(ALPalette.red400)
+                                Text(cause).font(.system(size: 12.5, weight: .medium)).foregroundStyle(ALPalette.red400)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(ALPalette.red400.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                        }
                         if rawMode {
                             Text(member.markdown)
                                 .font(.system(size: 12.5, design: .monospaced))
@@ -274,6 +286,8 @@ struct FloorCastMember: Identifiable {
     let durationMs: Int?
     /// The model the team asked for, when a different ready model was substituted (#7).
     let substitutedFrom: String?
+    /// An honest failure cause for a failed/timed-out worker (#8) — nil when it succeeded.
+    let failureCause: String?
 
     var subtitle: String {
         let base = isLead ? "\(modelName) — designated lead, synthesized the team" : "\(modelName) — read the full reply below"
@@ -294,7 +308,8 @@ struct FloorCastMember: Identifiable {
                 gist: "The synthesis", markdown: run.plan ?? "(no synthesis written)",
                 status: (leadAnswer?.status ?? .done).rawValue,
                 startedAt: leadAnswer?.startedAt, finishedAt: leadAnswer?.finishedAt, durationMs: leadAnswer?.durationMs,
-                substitutedFrom: lead.substitutedFromModelId.map(modelName)))
+                substitutedFrom: lead.substitutedFromModelId.map(modelName),
+                failureCause: failureCause(leadAnswer)))
         }
         for worker in run.workers where worker.purpose != .plan {
             let answer = run.workerAnswer(workerId: worker.id)
@@ -304,9 +319,17 @@ struct FloorCastMember: Identifiable {
                 gist: previewLine(answer?.output ?? ""),
                 markdown: answer?.output ?? "(no reply)", status: (answer?.status ?? .queued).rawValue,
                 startedAt: answer?.startedAt, finishedAt: answer?.finishedAt, durationMs: answer?.durationMs,
-                substitutedFrom: worker.substitutedFromModelId.map(modelName)))
+                substitutedFrom: worker.substitutedFromModelId.map(modelName),
+                failureCause: failureCause(answer)))
         }
         return members
+    }
+
+    private static func failureCause(_ answer: WorkerAnswer?) -> String? {
+        guard let answer else { return nil }
+        return WorkerFailurePresenter.cause(
+            status: answer.status, errorKind: answer.errorKind,
+            errorReason: answer.errorReason, capacity: answer.capacityObservation)
     }
 
     /// The worker's job title: the skill display name, else a humanized skill id, else a
@@ -377,7 +400,11 @@ private struct CastCard: View {
                                 .help("Substituted from \(from) (preferred model unavailable)")
                         }
                     }
-                    Text(member.gist).font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint).lineLimit(1)
+                    if let cause = member.failureCause {
+                        Text(cause).font(.system(size: 11)).foregroundStyle(ALPalette.red400).lineLimit(1)
+                    } else {
+                        Text(member.gist).font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint).lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 0)
             }

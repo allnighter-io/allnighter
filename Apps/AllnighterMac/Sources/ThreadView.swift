@@ -747,8 +747,18 @@ private struct ThreadBoardRow: View {
                     .buttonStyle(.plain)
                 }
             case .failed, .timedOut:
-                Text(answer.errorReason ?? "No answer.")
-                    .font(.system(size: 12.5)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
+                // Honest, distinct cause (#8) — auth / rate limit / wrong CLI / timeout /
+                // no-output — not a single collapsed "timed out". Partial output preserved below.
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(WorkerFailurePresenter.cause(
+                        status: answer.status, errorKind: answer.errorKind,
+                        errorReason: answer.errorReason, capacity: answer.capacityObservation) ?? "No answer.")
+                        .font(.system(size: 12.5, weight: .medium)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
+                    if WorkerFailurePresenter.hasPartialOutput(answer.output) {
+                        Text(answer.output ?? "")
+                            .font(.system(size: 12.5)).foregroundStyle(ALColor.textMuted).textSelection(.enabled)
+                    }
+                }
             default:
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)

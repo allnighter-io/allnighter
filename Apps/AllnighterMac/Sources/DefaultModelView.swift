@@ -132,7 +132,7 @@ struct DefaultModelView: View {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Allow healthy substitutions").font(ALFont.sans(14.5, .bold)).foregroundStyle(ALColor.textPrimary)
-                    Text("If your model is down, swap to a ready one in the same tier.")
+                    Text("Before a run starts, if your model is down, swap to a ready one in the same tier. Substitution is preflight — a worker that times out mid-run isn’t retried on another model.")
                         .font(ALFont.sans(12.5)).foregroundStyle(ALColor.textMuted).frame(maxWidth: 560, alignment: .leading)
                 }
                 Spacer(minLength: 0)
