@@ -502,6 +502,7 @@ private struct ThreadTurnRow: View {
 private struct ThreadBoardRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
+    @Environment(\.openFloor) private var openFloor
     let turn: ThreadTurn
     /// Worker answers render lazily — only an expanded card parses/lays out its full
     /// markdown, so first paint of a big terminal team run stays fast (perf doc).
@@ -563,6 +564,21 @@ private struct ThreadBoardRow: View {
 
     @ViewBuilder private var board: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let run, run.status.isTerminal {
+                Button { openFloor(run) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "rectangle.split.3x1.fill").font(.system(size: 10))
+                        Text("Open Factory Floor").font(.system(size: 12, weight: .medium))
+                        Image(systemName: "arrow.up.right").font(.system(size: 9))
+                    }
+                    .foregroundStyle(ALColor.accentText)
+                    .padding(.horizontal, 10).frame(height: 26)
+                    .background(ALColor.active, in: Capsule())
+                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                }
+                .buttonStyle(.plain)
+                .help("Open the full reader: every worker answer, synthesis, and receipts")
+            }
             if let synthesis {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("RECOMMENDATION").font(.system(size: 9, weight: .semibold)).tracking(0.6)

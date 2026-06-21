@@ -8,6 +8,8 @@ import AllnighterEngine
 
 struct HomeView: View {
     @Environment(ThreadsViewModel.self) private var threads
+    /// The team run whose full Factory Floor reader is open (over the workspace).
+    @State private var floorRun: TeamRun?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -16,6 +18,14 @@ struct HomeView: View {
             Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
             mainPane
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .environment(\.openFloor, OpenFloorAction { floorRun = $0 })
+        .overlay {
+            if let floorRun {
+                FactoryFloorView(run: floorRun, onBack: { self.floorRun = nil })
+                    .background(ALColor.base)
+                    .transition(.opacity)
+            }
         }
     }
 

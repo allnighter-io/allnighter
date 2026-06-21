@@ -8,6 +8,24 @@ import AllnighterCore
 /// full reply, and the markdown is rendered faithfully (our AllnighterMarkdown
 /// engine) with a Rendered / Raw honesty toggle. The Lead's reply carries the one
 /// piece of Allnighter chrome: the NextMove block.
+/// Action to open the full Factory Floor reader for a terminal team run (the result
+/// reader; the thread keeps only a compact receipt — Live_Team_Board / perf doc).
+struct OpenFloorAction: @unchecked Sendable {
+    let action: (TeamRun) -> Void
+    func callAsFunction(_ run: TeamRun) { action(run) }
+}
+
+private struct OpenFloorKey: EnvironmentKey {
+    static let defaultValue = OpenFloorAction { _ in }
+}
+
+extension EnvironmentValues {
+    var openFloor: OpenFloorAction {
+        get { self[OpenFloorKey.self] }
+        set { self[OpenFloorKey.self] = newValue }
+    }
+}
+
 struct FactoryFloorView: View {
     let run: TeamRun
     var onBack: () -> Void = {}
