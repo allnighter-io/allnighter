@@ -60,23 +60,23 @@ custom team execution, model health/substitutions.
 - [ ] **Factory Floor worker cards do not feel selectable on hover.**
 
   **Priority:** P2 / navigation affordance, P1 if users miss that worker rows are
-  selectable.  
+  selectable.
   **Observed:** Mousing over workers in the Factory Floor cast rail does not change
   the row appearance, so the user cannot tell the worker cards are clickable or
   selectable. Current code has selected styling for `CastCard`, but no visible
-  hover state.  
+  hover state.
   **Expected:** Worker cards in the Factory Floor cast rail have a clear hover
   affordance, using the existing dark hover surface and pointer-ready row feel.
   The hover state must be distinct from selected state, and selected+hover should
   remain legible. Keyboard focus should get an equivalent visible affordance for
-  accessibility and non-mouse navigation.  
+  accessibility and non-mouse navigation.
   **Truth owner:** Factory Floor local selection state (`selectedMemberId`) and
-  the `FloorCastMember` list projected from the run.  
+  the `FloorCastMember` list projected from the run.
   **Lie-prone layer:** `FactoryFloorView.CastCard` can be a real `Button` but
-  still look inert because it only paints the selected row.  
+  still look inert because it only paints the selected row.
   **Fix boundary:** Factory Floor cast-rail row interaction styling only. Do not
   change run selection semantics, worker ordering, response content, or status
-  projection while fixing hover affordance.  
+  projection while fixing hover affordance.
   **Missing proof:** A GUI fixture or watcher packet that captures an unselected
   hovered worker row, a selected row, and selected+hover state, proving the row
   looks clickable without confusing hover with active selection.
