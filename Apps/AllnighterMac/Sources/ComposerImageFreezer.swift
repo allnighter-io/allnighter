@@ -42,7 +42,7 @@ enum ComposerImageFreezer {
         return rep.representation(using: .png, properties: [:])
     }
 
-    private static func thumbnail(from image: NSImage, max: CGFloat = 64) -> NSImage {
+    private static func thumbnail(from image: NSImage, max: CGFloat = 160) -> NSImage {
         let size = image.size
         guard size.width > 0, size.height > 0 else { return image }
         let scale = min(max / size.width, max / size.height, 1)

@@ -424,41 +424,24 @@ struct RoutingComposer: View {
         }
     }
 
-    // Thumbnail chips for pasted/picked images — a small preview + name + remove. The
-    // image is the durable attachment; it travels with the run to every worker.
+    // Cursor-style attachment row: images are bigger thumbnail tiles (no label, hover-X
+    // top-left, click to view); a captured .txt keeps a compact doc chip. The attachment is
+    // the durable thing; it travels with the run to every worker.
     private var attachmentChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 ForEach(attachments) { att in
-                    HStack(spacing: 6) {
-                        if let thumb = attachmentThumbs[att.id] {
-                            Image(nsImage: thumb)
-                                .resizable().aspectRatio(contentMode: .fill)
-                                .frame(width: 20, height: 20)
-                                .clipShape(RoundedRectangle(cornerRadius: 3))
-                        } else {
-                            Image(systemName: att.kind == .text ? "doc.text" : "photo")
-                                .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-                        }
-                        Text(att.displayName)
-                            .font(ALFont.monoSm).foregroundStyle(ALColor.textSecondary).lineLimit(1)
-                        Button { removeAttachment(att) } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(ALColor.textFaint)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Remove")
-                    }
-                    .padding(.horizontal, 6)
-                    .frame(height: 28)
-                    .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.sm))
-                    .overlay { RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                    ComposerAttachmentTile(
+                        attachment: att,
+                        thumb: attachmentThumbs[att.id],
+                        onRemove: { removeAttachment(att) },
+                        onOpen: { openAttachment(att) }
+                    )
                 }
             }
             .padding(.horizontal, 11)
-            .padding(.top, 5)
-            .padding(.bottom, 1)
+            .padding(.top, 6)
+            .padding(.bottom, 2)
         }
     }
 
@@ -514,6 +497,12 @@ struct RoutingComposer: View {
         attachments.removeAll { $0.id == att.id }
         attachmentThumbs[att.id] = nil
         try? FileManager.default.removeItem(at: att.fileURL)
+    }
+
+    /// Click an attachment to view it — opens the frozen file in the default viewer
+    /// (Preview for images, the editor for a captured .txt).
+    private func openAttachment(_ att: ComposeAttachment) {
+        NSWorkspace.shared.open(att.fileURL)
     }
 
     /// Show the floating suggestions only when there's something to pick — an open @
@@ -1300,5 +1289,83 @@ struct RoutingComposer: View {
             }
             return true
         }
+    }
+}
+
+/// One composer attachment. An image is a Cursor-style thumbnail tile — larger preview, no
+/// label, click to view, and a remove (×) button that appears top-left on hover. A captured
+/// `.txt` keeps a compact doc chip (it has no thumbnail).
+private struct ComposerAttachmentTile: View {
+    let attachment: ComposeAttachment
+    let thumb: NSImage?
+    let onRemove: () -> Void
+    let onOpen: () -> Void
+    @State private var hovering = false
+
+    private let side: CGFloat = 56
+
+    var body: some View {
+        Group {
+            if attachment.kind == .image {
+                imageTile
+            } else {
+                textChip
+            }
+        }
+        .onHover { hovering = $0 }
+        .animation(.easeInOut(duration: 0.12), value: hovering)
+    }
+
+    private var imageTile: some View {
+        ZStack(alignment: .topLeading) {
+            Button(action: onOpen) {
+                Group {
+                    if let thumb {
+                        Image(nsImage: thumb).resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        Image(systemName: "photo").font(.system(size: 18)).foregroundStyle(ALColor.textMuted)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(width: side, height: side)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                .contentShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .help("Click to view")
+
+            if hovering { removeButton.padding(3) }
+        }
+    }
+
+    private var textChip: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+            Text(attachment.displayName)
+                .font(ALFont.monoSm).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+            if hovering {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(ALColor.textFaint)
+                }
+                .buttonStyle(.plain).help("Remove")
+            }
+        }
+        .padding(.horizontal, 8).frame(height: 28)
+        .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+    }
+
+    // White × on a dark disc so it reads on any image; top-left per the founder's spec.
+    private var removeButton: some View {
+        Button(action: onRemove) {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 15))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(Color.white, Color.black.opacity(0.55))
+        }
+        .buttonStyle(.plain)
+        .help("Remove")
+        .transition(.opacity)
     }
 }
