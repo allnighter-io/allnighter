@@ -102,6 +102,23 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         XCTAssertTrue(sql.contains("CREATE POLICY \"mac agents insert trusted devices\""))
     }
 
+    func testMediaKeysAllowMacAgentUpsertForResealOnlyToActiveDevices() throws {
+        let sql = try schemaSQL
+        let insertPolicy = try policyBlock(named: "mac agents insert media keys", sql: sql)
+        let updatePolicy = try policyBlock(named: "mac agents update media keys", sql: sql)
+
+        for policy in [insertPolicy, updatePolicy] {
+            XCTAssertTrue(policy.contains("ON \"public\".\"media_keys\""))
+            XCTAssertTrue(policy.contains("\"public\".\"mac_agent_claim_matches\"(\"m\".\"account_id\", \"r\".\"mac_agent_id\")"))
+            XCTAssertTrue(policy.contains("\"d\".\"device_id\" = \"media_keys\".\"device_id\""))
+            XCTAssertTrue(policy.contains("\"d\".\"mac_agent_id\" = \"r\".\"mac_agent_id\""))
+            XCTAssertTrue(policy.contains("\"d\".\"revoked\" = false"))
+            XCTAssertTrue(policy.contains("\"d\".\"valid_until\" >= \"now\"()"))
+        }
+        XCTAssertTrue(updatePolicy.contains("FOR UPDATE"))
+        XCTAssertTrue(updatePolicy.contains("WITH CHECK"))
+    }
+
     func testCloudRelayTableColumnsStayContentLight() throws {
         let forbiddenNames: Set<String> = [
             "body",
@@ -151,5 +168,17 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
             let parts = trimmed.split(separator: "\"", omittingEmptySubsequences: false)
             return parts.count > 1 ? String(parts[1]) : nil
         })
+    }
+
+    private func policyBlock(named name: String, sql: String) throws -> String {
+        let marker = "CREATE POLICY \"\(name)\""
+        guard let start = sql.range(of: marker)?.lowerBound else {
+            XCTFail("missing policy \(name)")
+            return ""
+        }
+        let rest = sql[start...]
+        let afterMarker = rest.index(start, offsetBy: marker.count)
+        let end = rest[afterMarker...].range(of: "\n\n\nCREATE POLICY")?.lowerBound ?? rest.endIndex
+        return String(rest[..<end])
     }
 }

@@ -523,6 +523,18 @@ CREATE POLICY "users update own mac agents" ON "public"."mac_agents" FOR UPDATE 
 
 
 
+CREATE POLICY "mac agents update media keys" ON "public"."media_keys" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM ("public"."media_refs" "r"
+     JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id"))
+     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
+  WHERE (("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM ("public"."media_refs" "r"
+     JOIN "public"."mac_agents" "m" ON (("m"."id" = "r"."mac_agent_id"))
+     JOIN "public"."trusted_devices" "d" ON ((("d"."device_id" = "media_keys"."device_id") AND ("d"."mac_agent_id" = "r"."mac_agent_id") AND ("d"."account_id" = "m"."account_id"))))
+  WHERE (("r"."ref" = "media_keys"."ref") AND "public"."mac_agent_claim_matches"("m"."account_id", "r"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
+
+
+
 CREATE POLICY "mac agents update pair requests" ON "public"."pair_requests" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
