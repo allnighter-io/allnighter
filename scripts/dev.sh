@@ -67,7 +67,19 @@ echo "✓ built in $(( $(date +%s) - start ))s"
 
 [ "$cmd" = "build" ] && exit 0
 
-# 3. Relaunch: kill any running instance, then open the fresh build.
+# 3. Relaunch: kill any running instance, wait for teardown, then open.
+if [ ! -d "$APP" ]; then
+  echo "✗ app not found at $APP" >&2
+  exit 1
+fi
 pkill -x Allnighter 2>/dev/null || true
+deadline=$(( $(date +%s) + 10 ))
+while pgrep -x Allnighter >/dev/null 2>&1; do
+  if [ "$(date +%s)" -ge "$deadline" ]; then
+    echo "✗ Allnighter did not exit after pkill" >&2
+    exit 1
+  fi
+  sleep 0.05
+done
 open "$APP"
 echo "✓ launched $APP"
