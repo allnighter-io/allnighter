@@ -22,11 +22,14 @@ enum StudioRoute: Hashable {
 struct TeamStudioView: View {
     /// Composer "Customize…" deep-link: which team to pre-select on the Teams page.
     var customizeTeamId: String?
+    /// Add-team flow: open the Teams page straight into a new blank team draft.
+    var startNewTeam: Bool
     var onDone: () -> Void
     @State private var route: StudioRoute
 
-    init(initialRoute: StudioRoute = .clis, customizeTeamId: String? = nil, onDone: @escaping () -> Void) {
+    init(initialRoute: StudioRoute = .clis, customizeTeamId: String? = nil, startNewTeam: Bool = false, onDone: @escaping () -> Void) {
         self.customizeTeamId = customizeTeamId
+        self.startNewTeam = startNewTeam
         self.onDone = onDone
         _route = State(initialValue: initialRoute)
     }
@@ -51,7 +54,7 @@ struct TeamStudioView: View {
         case .defaultModel:
             DefaultModelView()
         case .teams(let lane):
-            StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId)
+            StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId, startNewTeam: startNewTeam)
         case .skills(let lane):
             StudioSkillListView(lane: lane)
         }
@@ -128,6 +131,8 @@ private struct StudioTeamListView: View {
     let lane: ComposeLane
     /// Composer "Customize…" deep-link: pre-select this team on appear (its editor).
     var customizeTeamId: String? = nil
+    /// Add-team flow: open straight into a new blank team draft.
+    var startNewTeam: Bool = false
     @Environment(AppModel.self) private var appModel
     @State private var selectedId: TeamID?
     /// A brand-new, unsaved team being authored (Add team). Not in the catalog until
@@ -217,6 +222,10 @@ private struct StudioTeamListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
         .onAppear {
+            // Add team → open straight into a new blank team draft.
+            if startNewTeam, newDraftBase == nil {
+                newDraftBase = blankBase(); revertTick += 1
+            }
             // Composer "Customize…" deep-link → select that team (its editor opens).
             if let id = customizeTeamId, teams.contains(where: { $0.id == id }) {
                 selectedId = id

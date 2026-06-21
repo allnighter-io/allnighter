@@ -15,6 +15,8 @@ struct RootView: View {
     @State private var studioInitialRoute: StudioRoute = .clis
     /// Composer "Customize…" deep-link: which team to select when Studio opens.
     @State private var studioCustomizeTeamId: String?
+    /// Add-team flow: open Team Studio straight into a new blank team draft.
+    @State private var studioStartNewTeam = false
     @State private var showComposeSpecimen = false
     @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
@@ -107,7 +109,7 @@ struct RootView: View {
                 workspaceMode: $workspaceMode,
                 pendingCount: pendingVM?.totalPending ?? 0,
                 onRepair: openReadiness(focus:),
-                onManageTeam: openTeamStudio,
+                onManageTeam: { openTeamStudio() },
                 onOpenPending: { showPending = true },
                 devSimActive: devSimLabel,
                 onSettings: openSettings
@@ -132,7 +134,8 @@ struct RootView: View {
                         TeamStudioView(
                             initialRoute: studioInitialRoute,
                             customizeTeamId: studioCustomizeTeamId,
-                            onDone: { showTeamStudio = false; studioCustomizeTeamId = nil }
+                            startNewTeam: studioStartNewTeam,
+                            onDone: { showTeamStudio = false; studioCustomizeTeamId = nil; studioStartNewTeam = false }
                         )
                     } else if showReadiness {
                         TeamReadinessView(
@@ -151,7 +154,7 @@ struct RootView: View {
                         // full fidelity; G-T0 wires the toggle + a real card roster).
                         TeamsLauncherView(
                             onContinue: { workspaceMode = .inbox },
-                            onAddTeam: { workspaceMode = .inbox; openTeamStudio() }
+                            onAddTeam: { workspaceMode = .inbox; openTeamStudio(route: .teams(.code), newTeam: true) }
                         )
                     } else {
                         HomeView()
@@ -189,7 +192,7 @@ struct RootView: View {
                         isOpen: $showTeamDropdown,
                         attached: true,
                         onRepair: openReadiness(focus:),
-                        onManageTeam: openTeamStudio,
+                        onManageTeam: { openTeamStudio() },
                         onOpenSetup: { openReadiness() }
                     )
                     .offset(
@@ -387,10 +390,12 @@ struct RootView: View {
     private func openSettings() { openTeamStudio() }
     #endif
 
-    private func openTeamStudio() {
+    private func openTeamStudio(route: StudioRoute = .teams(.code), newTeam: Bool = false) {
         showTeamDropdown = false
         showDoctor = false
         showReadiness = false
+        studioInitialRoute = route
+        studioStartNewTeam = newTeam
         showTeamStudio = true
     }
 
