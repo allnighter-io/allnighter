@@ -99,6 +99,21 @@ final class RemoteFoundationTests: XCTestCase {
             heartbeat
         )
 
+        let pairDraft = RemotePairRequestDraft(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: "device-signing",
+            deviceSealingPubkey: "device-sealing",
+            requestedAt: now,
+            expiresAt: now.addingTimeInterval(300)
+        )
+        XCTAssertEqual(
+            try CoreJSON.decode(RemotePairRequestDraft.self, from: CoreJSON.encode(pairDraft)),
+            pairDraft
+        )
+
         let assertion = DeviceAssertion(
             deviceId: "device_1",
             requestId: "req_1",

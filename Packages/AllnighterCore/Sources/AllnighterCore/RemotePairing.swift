@@ -7,6 +7,51 @@ public enum RemotePairRequestStatus: String, Codable, Sendable, CaseIterable {
     case expired
 }
 
+public struct RemotePairRequestDraft: Codable, Equatable, Sendable {
+    public var accountId: String
+    public var macAgentId: String
+    public var deviceId: String
+    public var displayName: String
+    public var deviceSigningPubkey: String
+    public var deviceSealingPubkey: String
+    public var requestedAt: Date
+    public var expiresAt: Date
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        deviceId: String,
+        displayName: String,
+        deviceSigningPubkey: String,
+        deviceSealingPubkey: String,
+        requestedAt: Date,
+        expiresAt: Date
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.deviceId = deviceId
+        self.displayName = displayName
+        self.deviceSigningPubkey = deviceSigningPubkey
+        self.deviceSealingPubkey = deviceSealingPubkey
+        self.requestedAt = requestedAt
+        self.expiresAt = expiresAt
+    }
+
+    public func pairRequest(id: String) -> RemotePairRequest {
+        RemotePairRequest(
+            id: id,
+            accountId: accountId,
+            macAgentId: macAgentId,
+            deviceId: deviceId,
+            displayName: displayName,
+            deviceSigningPubkey: deviceSigningPubkey,
+            deviceSealingPubkey: deviceSealingPubkey,
+            requestedAt: requestedAt,
+            expiresAt: expiresAt
+        )
+    }
+}
+
 public struct RemotePairRequest: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var accountId: String

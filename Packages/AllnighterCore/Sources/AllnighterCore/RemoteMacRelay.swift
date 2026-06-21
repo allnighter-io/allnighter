@@ -106,6 +106,7 @@ public struct RemoteCommandAckEnvelope: Codable, Equatable, Sendable {
 public protocol RemoteMacRelay: Sendable {
     func registerMacAgent(_ registration: RemoteMacAgentRegistration) async throws -> MacAgentRef
     func heartbeat(_ heartbeat: RemoteMacAgentHeartbeat) async throws
+    func submitPairRequest(_ request: RemotePairRequestDraft) async throws -> RemotePairRequest
     func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest]
     func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice]
     func pendingCommands(accountId: String, macAgentId: String, limit: Int) async throws -> [RemoteCommandInboxEntry]
@@ -124,17 +125,22 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var pairRequestsByMac: [String: [RemotePairRequest]]
     private var trustedByMac: [String: [TrustedDevice]]
     private var inboxByMac: [String: [RemoteCommandInboxEntry]]
+    private let pairRequestIdFactory: @Sendable () -> String
 
     public init(
         macs: [MacAgentRef] = [],
         pairRequests: [RemotePairRequest] = [],
         trustedDevices: [TrustedDevice] = [],
-        inbox: [RemoteCommandInboxEntry] = []
+        inbox: [RemoteCommandInboxEntry] = [],
+        pairRequestIdFactory: @escaping @Sendable () -> String = {
+            "pair_\(UUID().uuidString.lowercased())"
+        }
     ) {
         self.macs = Dictionary(uniqueKeysWithValues: macs.map { ($0.macAgentId, $0) })
         self.pairRequestsByMac = Dictionary(grouping: pairRequests, by: \.macAgentId)
         self.trustedByMac = Dictionary(grouping: trustedDevices, by: \.macAgentId)
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)
+        self.pairRequestIdFactory = pairRequestIdFactory
     }
 
     public func registerMacAgent(_ registration: RemoteMacAgentRegistration) async throws -> MacAgentRef {
@@ -156,6 +162,22 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         guard var ref = macs[heartbeat.macAgentId] else { return }
         ref.lastSeenAt = heartbeat.at
         macs[heartbeat.macAgentId] = ref
+    }
+
+    public func submitPairRequest(_ request: RemotePairRequestDraft) async throws -> RemotePairRequest {
+        eventLog.append("submitPairRequest")
+        let pairRequest = request.pairRequest(id: pairRequestIdFactory())
+        var requests = pairRequestsByMac[pairRequest.macAgentId, default: []]
+        requests.removeAll {
+            $0.macAgentId == pairRequest.macAgentId && $0.deviceId == pairRequest.deviceId
+        }
+        requests.append(pairRequest)
+        requests.sort {
+            if $0.requestedAt == $1.requestedAt { return $0.deviceId < $1.deviceId }
+            return $0.requestedAt < $1.requestedAt
+        }
+        pairRequestsByMac[pairRequest.macAgentId] = requests
+        return pairRequest
     }
 
     public func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest] {
