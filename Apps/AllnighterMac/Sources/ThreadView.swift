@@ -847,9 +847,18 @@ private struct ThreadMutatingRunRow: View {
         }
     }
 
+    /// Name the agent you were talking to — "Agent (Composer 2.5)" — since a run can be
+    /// orchestrated across many CLIs/agents and users need the reminder. Falls back to the
+    /// raw worker id, then a bare "Agent" before anything has resolved.
+    private var headerLabel: String {
+        if let name = model?.name { return "Agent (\(name))" }
+        if let wid = turn.workerId, !wid.isEmpty { return "Agent (\(wid))" }
+        return "Agent"
+    }
+
     private var header: some View {
         HStack(spacing: 6) {
-            Text(model?.name ?? turn.workerId ?? "Agent")
+            Text(headerLabel)
                 .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
             Text(turn.createdAt, format: .dateTime.hour().minute())
                 .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
