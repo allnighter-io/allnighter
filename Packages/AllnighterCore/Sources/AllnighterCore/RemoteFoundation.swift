@@ -581,7 +581,6 @@ public enum RemoteRunEventPrivacy {
 
     public static func contentLight(_ event: RunEvent, sealedRef: MediaRef? = nil) -> RunEvent {
         var remoteEvent = event
-        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
         remoteEvent.payload = contentLightPayload(event.payload, sealedRef: sealedRef)
         return remoteEvent
     }
@@ -667,6 +666,7 @@ public struct ConnectionDiagnosis: Codable, Equatable, Sendable {
 public enum RemoteCryptoError: Error, Equatable {
     case invalidBase64(String)
     case unsupportedSuite(String)
+    case invalidRemoteEventKind(String)
     case invalidContentKeyLength(Int)
     case missingCombinedCiphertext
 }
@@ -825,6 +825,9 @@ public enum RemoteCrypto {
         signingKey: Curve25519.Signing.PrivateKey,
         method: String = RemoteProtocol.eventMethod
     ) throws -> RemoteRunEventEnvelope {
+        guard RunEventKind.isRemotePublicKind(event.kind) else {
+            throw RemoteCryptoError.invalidRemoteEventKind(event.kind)
+        }
         let remoteEvent = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         let digest = try remoteEventDigest(macAgentId: macAgentId, event: remoteEvent, sealedRef: sealedRef)
         let signingString = eventSigningString(
@@ -1018,19 +1021,6 @@ public enum RemoteMediaCrypto {
 }
 
 public extension RunEventKind {
-    static func remotePublicKind(for kind: String) -> String {
-        switch kind {
-        case synthesisStarted:
-            return stageStarted
-        case synthesisCompleted:
-            return stageCompleted
-        case synthesisFailed:
-            return stageFailed
-        default:
-            return kind
-        }
-    }
-
     static func isRemotePublicKind(_ kind: String) -> Bool {
         !kind.hasPrefix("synthesis.")
     }

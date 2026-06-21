@@ -42,7 +42,7 @@ just works.*
 | **E2E content (both directions)** | **HPKE** (CryptoKit) seals all sensitive content: outputs/plans/board-images **and the inbound `startRun` prompt** (sealed to the Mac). Large blobs → R2 ciphertext + **per-device** sealed keys. Supabase carries **content-light metadata only**. Breach ⇒ metadata + unopenable blobs. |
 | **Sign-in** | **Apple primary** (no new password; Hide-My-Email; App-Store-required if Google offered) + **Google fallback**. Account = identity/discovery; device key + Mac approval = authorization. |
 | **CloudKit** | Still **dropped** (Apple-locked, entitlement risk). Supabase is cross-platform + turnkey. **Not Cloudflare-only** for v1 (would mean building auth/realtime/admin ourselves). |
-| **Contract** | The `RunEvent` envelope (`../../mvp/00_MVP_Architecture.md` §6) is unchanged — but legacy `synthesis.*` constants must be **frozen to `stage.*`** before the wire locks. |
+| **Contract** | The `RunEvent` envelope (`../../mvp/00_MVP_Architecture.md` §6) is unchanged. Remote public events are frozen to `run.*`, `worker.*`, and `stage.*`; remote signing rejects private `synthesis.*` inputs. |
 | **Push** | Deferred iOS-only follow-up in `03`. Specialist SaaS behind a `PushNotifier` seam — **OneSignal likely default, swappable**. Content-light doorbell, no secrets. |
 
 ---
@@ -76,7 +76,8 @@ on Mac thread docs.
    owner markers with orphan recovery, but resume still needs an append-only event
    journal + persisted monotonic `seq` (`01` § Event durability) — Mac journal =
    truth, cloud mirror = transient.
-3. **Freeze the event vocabulary** (`synthesis.*` → `stage.*`) before the wire locks.
+3. **Event vocabulary is frozen.** Remote public output is `run.*`, `worker.*`,
+   and `stage.*`; `synthesis.*` is rejected before signing.
 4. **Do not build on the SwiftData template.** The current
    `Apps/AllnighteriOS/` project is still the starter scaffold (`Item.swift`,
    persistent `ModelContainer`, hand-managed `.xcodeproj`). `00a` quarantines it;

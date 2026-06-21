@@ -26,7 +26,7 @@ the foundation contracts in `00`, `01`, and `01a`.
 | CLI spine | `alln` M1 is built; async team, Pending, Project core pieces, and MCP pieces exist. |
 | Coordinator | `alln serve` exists as a resident coordinator with health/wake behavior. It is not yet the cloud outbound agent and not yet the Direct Mode command/event HTTP/WS server. |
 | Run durability | `RunStore` writes non-terminal `run.json` snapshots + `owner.pid` and reads dead owners as `interrupted`. It does not yet write append-only `events.jsonl` or a persisted global monotonic `seq`. |
-| Event vocabulary | Generic `stage.*` events exist, but `RunEventKind` still carries legacy `synthesis.*` constants. The wire must not lock until those are removed or mapped out of public remote output. |
+| Event vocabulary | Remote output is frozen to public `run.*`, `worker.*`, and `stage.*` kinds. `RunEventKind` no longer exposes `synthesis.*`; remote signing rejects private `synthesis.*` inputs. |
 | iOS scaffold | `Apps/AllnighteriOS/` is still the SwiftData starter scaffold with `Item.swift`, `ModelContainer`, and a hand-managed `.xcodeproj`. It is quarantined; no foundation work should depend on it. |
 | Project Manager | Project Core slices PRJ-S00-S06 are built; Project CLI/Manager/proposal/verification slices PRJ-S07-S13 are still moving. Remote foundation must not promise the phone Project Manager UI yet. |
 
@@ -50,9 +50,9 @@ reducers, and fixtures. `AllnighterEngine` owns Mac journal/coordinator executio
 The iOS app target presents later and owns no transport truth.
 
 Lie-prone layer:
-The existing starter iOS target, stale Tailscale-first wording, legacy
-`synthesis.*` event constants, coordinator health being mistaken for a remote
-agent, and model output claiming a Mac is live without a signed Mac event.
+The existing starter iOS target, stale Tailscale-first wording, stale event
+vocabulary references, coordinator health being mistaken for a remote agent,
+and model output claiming a Mac is live without a signed Mac event.
 
 Works Test:
 An implementation agent can read `README.md -> 00a -> 00 -> 01 -> 01a` and know
@@ -65,8 +65,7 @@ swift test --package-path Packages/AllnighterCore --disable-sandbox
 rg -n -e "allnighter serve" -e "allnighter pair" -e "allnighter://pair" -e "Allnighter/Allnighter[.]xcodeproj" docs/phases/ios/README.md docs/phases/ios/00_iOS_Transport_Decision.md docs/phases/ios/01_Connection_Spine.md docs/phases/ios/01a_Pairing_Ceremony.md
 ```
 
-The `rg` command should return no matches in the routed foundation docs. `synthesis.*` may
-appear only as an explicit Slice 0 cleanup target until that cleanup lands.
+The `rg` command should return no matches in the routed foundation docs.
 
 Done when:
 The foundation docs are current, the pre-code gates below are explicit, and no doc
@@ -79,9 +78,9 @@ These gates happen before `iOS01-S00` code begins.
 1. **Docs/current-state sync.** Foundation docs must name the real current state:
    `alln`, `alln serve` coordinator skeleton, partial journal durability, unfinished
    remote agent, and quarantined SwiftData scaffold.
-2. **Vocabulary freeze plan.** The remote wire publishes `run.*`, `worker.*`, and
-   `stage.*` only. Legacy `synthesis.*` constants are removed from remote output or
-   mapped privately before any fixture becomes a wire fixture.
+2. **Vocabulary freeze.** The remote wire publishes `run.*`, `worker.*`, and
+   `stage.*` only. Remote signing rejects private `synthesis.*` event kinds
+   before they can become wire fixtures.
 3. **Journal contract plan.** Define the append-only `events.jsonl`, global sequence
    index, replay window, snapshot builder, and orphan/interrupted behavior before
    remote stream code.

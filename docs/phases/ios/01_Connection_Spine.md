@@ -45,10 +45,10 @@ Mac agent ──dials OUT──►  command inbox + events + auth ───┘
   snapshots + `owner.pid` and reads dead owners as `interrupted`. Resume still
   needs a durable append-only **event journal + monotonic persisted `seq`** (the
   Mac journal is truth; the cloud mirror is transient).
-- **Pre-req — freeze the event/run vocabulary.** Generic `stage.*` events exist,
-  but legacy `synthesis.*` constants still exist in `RunEventKind`. Retire/map
-  them before the wire locks. iOS consumes the same `TeamRunJSON` shape as
-  `alln team --json`; it never gets a dual vocabulary.
+- **Pre-req complete — event/run vocabulary is frozen.** Remote public output is
+  `run.*`, `worker.*`, and `stage.*`; `synthesis.*` is rejected before signing.
+  iOS consumes the same `TeamRunJSON` shape as `alln team --json`; it never gets
+  a dual vocabulary.
 - **iOS app target is quarantined.** `Apps/AllnighteriOS/` is still the SwiftData
   starter scaffold. Foundation work happens in Core/Engine and proves with
   `MockiOSClient`; no SwiftUI dependency.
@@ -353,8 +353,8 @@ loopback HTTP/WS server (RB6-S08) exposed via an `ExposureProvider` (`tailscale 
 **Group 0 — Foundation Slice 0 (docs + cleanup gates, no app target):**
 - [ ] iOS00a-S00 — Sync foundation docs to current repo state and route all
   implementation through `00a`.
-- [ ] iOS00a-S01 — Freeze remote event vocabulary plan (`synthesis.*` retired or
-  private-mapped; public remote output is `run.*`/`worker.*`/`stage.*`).
+- [x] iOS00a-S01 — Freeze remote event vocabulary (`synthesis.*` rejected before
+  signing; public remote output is `run.*`/`worker.*`/`stage.*`).
 - [ ] iOS00a-S02 — Specify event journal/snapshot hardening over the current
   incremental `run.json` snapshots.
 - [ ] iOS00a-S03 — Mark the `alln serve` coordinator boundary: health/wake exists;
@@ -362,7 +362,8 @@ loopback HTTP/WS server (RB6-S08) exposed via an `ExposureProvider` (`tailscale 
 - [ ] iOS00a-S04 — Quarantine the SwiftData iOS scaffold until `02`.
 
 **Group A — Core + crypto + mock (no app target, `swift test`):**
-- [ ] (pre-req from Group 0) Freeze event/run vocabulary (`synthesis.*` -> `stage.*`)
+- [x] (pre-req from Group 0) Freeze event/run vocabulary (`synthesis.*` rejected;
+  public remote output is `run.*`/`worker.*`/`stage.*`)
   against the CLI schema.
 - [ ] iOS01-S00 — Core models above **+ the crypto contract** (two-key model, `SealedBlob`/HPKE,
   signing string incl. `deviceId`, dedupe=skew, protocol version) with **round-trip
@@ -427,7 +428,7 @@ Then the SAME MockiOSClient drives the SAME Mac over Direct Mode with identical 
   or sealed only); audit metadata-only (`targetSummary≤200`).
 - [ ] Resume correct across a **Mac restart**; snapshot includes recently-completed runs.
 - [ ] **No remote-shell pathway** (enum has none; test asserts the closed set).
-- [ ] `RunEvent` envelope unchanged; `synthesis.*` retired.
+- [x] `RunEvent` envelope unchanged; `synthesis.*` retired from remote output.
 - [ ] `RemoteClient` + reducer covered by `swift test`; proof needs no SwiftUI.
 - [ ] `swift test` + app build green via `scripts/check.sh`; Code Audit CLEAN.
 

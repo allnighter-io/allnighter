@@ -186,7 +186,7 @@ final class RemoteFoundationTests: XCTestCase {
             id: "evt_1",
             seq: 1,
             ts: Date(timeIntervalSince1970: 1_750_000_000),
-            kind: RunEventKind.synthesisCompleted,
+            kind: RunEventKind.stageCompleted,
             payload: ["runId": .string("run_1")]
         )
 
@@ -201,6 +201,25 @@ final class RemoteFoundationTests: XCTestCase {
         var tampered = envelope
         tampered.event.payload["runId"] = .string("run_2")
         XCTAssertFalse(try RemoteCrypto.verifyRemoteRunEventEnvelope(tampered, signingPublicKeyBase64: publicKey))
+    }
+
+    func testRemoteEventEnvelopeRejectsPrivateSynthesisKinds() throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let event = RunEvent(
+            id: "evt_1",
+            seq: 1,
+            ts: Date(timeIntervalSince1970: 1_750_000_000),
+            kind: "synthesis.completed",
+            payload: ["runId": .string("run_1")]
+        )
+
+        XCTAssertThrowsError(try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: event,
+            signingKey: signingKey
+        )) { error in
+            XCTAssertEqual(error as? RemoteCryptoError, .invalidRemoteEventKind("synthesis.completed"))
+        }
     }
 
     func testRemoteEventEnvelopeStripsSensitivePayloadBeforeSigning() throws {
@@ -380,12 +399,12 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertThrowsError(try CoreJSON.decode(MediaKeyEnvelope.self, from: payload))
     }
 
-    func testRemoteEventEnvelopeNormalizesLegacySynthesisKinds() {
+    func testRemoteEventEnvelopePreservesPublicStageKinds() {
         let event = RunEvent(
             id: "evt_1",
             seq: 7,
             ts: Date(timeIntervalSince1970: 1_750_000_000),
-            kind: RunEventKind.synthesisCompleted,
+            kind: RunEventKind.stageCompleted,
             payload: ["runId": .string("run_1")]
         )
 
