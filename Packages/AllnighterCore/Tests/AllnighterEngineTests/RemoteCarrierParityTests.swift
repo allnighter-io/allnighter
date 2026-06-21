@@ -33,8 +33,15 @@ final class RemoteCarrierParityTests: XCTestCase {
             contentType: "application/octet-stream",
             expiresAt: now.addingTimeInterval(3_600)
         )
-        let mediaData = Data("sealed media bytes".utf8)
-        let mediaKey = Self.mediaKey(ref: "media_1", deviceId: "device_1")
+        let mediaPlaintext = Data("private media bytes".utf8)
+        let contentKey = Data((0..<RemoteMediaCrypto.contentKeyByteCount).map(UInt8.init))
+        let mediaData = try RemoteMediaCrypto.encrypt(mediaPlaintext, contentKey: contentKey)
+        let mediaKey = try XCTUnwrap(RemoteMediaCrypto.sealContentKey(
+            contentKey,
+            ref: mediaRef.ref,
+            for: [device],
+            now: now
+        ).first)
 
         let cloud = try await makeCloudCarrier(
             root: root,
@@ -87,6 +94,20 @@ final class RemoteCarrierParityTests: XCTestCase {
         let directMediaKey = try await direct.client.fetchMediaKey(mediaRef, deviceId: "device_1")
         XCTAssertEqual(cloudMediaKey, mediaKey)
         XCTAssertEqual(directMediaKey, cloudMediaKey)
+        let cloudPlaintext = try await RemoteMediaFetcher.fetchAndDecrypt(
+            client: cloud.client,
+            ref: mediaRef,
+            deviceId: "device_1",
+            deviceSealingKey: deviceSealingKey
+        )
+        let directPlaintext = try await RemoteMediaFetcher.fetchAndDecrypt(
+            client: direct.client,
+            ref: mediaRef,
+            deviceId: "device_1",
+            deviceSealingKey: deviceSealingKey
+        )
+        XCTAssertEqual(cloudPlaintext, mediaPlaintext)
+        XCTAssertEqual(directPlaintext, cloudPlaintext)
 
         let cloudAck = try await cloud.client.send(Self.signedCommand(
             requestId: "req_cloud_stop_all",
@@ -329,18 +350,6 @@ final class RemoteCarrierParityTests: XCTestCase {
         )
     }
 
-    private static func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
-        MediaKeyEnvelope(
-            ref: ref,
-            deviceId: deviceId,
-            sealedKey: SealedBlob(
-                ciphertext: Data("ciphertext".utf8),
-                encapsulatedKey: Data("encapsulated".utf8),
-                sealedForKeyId: deviceId,
-                contentType: RemoteMediaCrypto.mediaKeyContentType
-            )
-        )
-    }
 }
 
 private struct DrainOnSleepSleeper: CloudRemoteClientSleeping {
