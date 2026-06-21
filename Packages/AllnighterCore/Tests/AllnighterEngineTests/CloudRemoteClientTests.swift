@@ -112,6 +112,38 @@ final class CloudRemoteClientTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(acknowledgements.first).auditEvent.targetSummary.contains("secret cloud prompt"))
     }
 
+    func testClientStreamsOnlyVerifiedCloudEventsAfterSeq() async throws {
+        let relay = MockRemoteMacRelay()
+        let newer = try eventEnvelope(id: "evt_2", seq: 2, kind: "run.completed")
+        let older = try eventEnvelope(id: "evt_1", seq: 1, kind: "run.started")
+        let forged = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(
+                id: "evt_forged",
+                seq: 3,
+                ts: now,
+                kind: "run.failed",
+                payload: ["runId": .string("run_1")]
+            ),
+            signature: Data("not a real signature".utf8).base64EncodedString()
+        )
+        try await relay.publishEvents(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            events: [older, forged, newer]
+        )
+        let client = CloudRemoteClient(mac: macRef(), relay: relay)
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        let stream = await client.stream(macId: "mac_1", since: 1)
+        var ids: [String] = []
+        for await envelope in stream {
+            ids.append(envelope.event.id)
+        }
+
+        XCTAssertEqual(ids, ["evt_2"])
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let relay = MockRemoteMacRelay()
         let badSigningKey = Curve25519.Signing.PrivateKey()
@@ -255,6 +287,24 @@ final class CloudRemoteClientTests: XCTestCase {
                 outcome: .accepted
             ),
             createdAt: now
+        )
+    }
+
+    private func eventEnvelope(
+        id: String,
+        seq: Int64,
+        kind: String
+    ) throws -> RemoteRunEventEnvelope {
+        try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(
+                id: id,
+                seq: seq,
+                ts: now,
+                kind: kind,
+                payload: ["runId": .string("run_1")]
+            ),
+            signingKey: macSigningKey
         )
     }
 }

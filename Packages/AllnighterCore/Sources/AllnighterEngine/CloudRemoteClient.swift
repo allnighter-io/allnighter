@@ -32,6 +32,7 @@ public actor CloudRemoteClient: RemoteClient {
     private let now: @Sendable () -> Date
     private let ackPollInterval: TimeInterval
     private let maxAckPollAttempts: Int
+    private let streamEventLimit: Int
     private var connectedAccount: RemoteAccountSession?
     private var lastVerifiedAck = false
 
@@ -41,7 +42,8 @@ public actor CloudRemoteClient: RemoteClient {
         sleeper: any CloudRemoteClientSleeping = TaskCloudRemoteClientSleeper(),
         now: @escaping @Sendable () -> Date = Date.init,
         ackPollInterval: TimeInterval = 0.25,
-        maxAckPollAttempts: Int = 40
+        maxAckPollAttempts: Int = 40,
+        streamEventLimit: Int = 500
     ) {
         self.mac = mac
         self.relay = relay
@@ -49,6 +51,7 @@ public actor CloudRemoteClient: RemoteClient {
         self.now = now
         self.ackPollInterval = ackPollInterval
         self.maxAckPollAttempts = maxAckPollAttempts
+        self.streamEventLimit = max(0, streamEventLimit)
     }
 
     public func connect(account: RemoteAccountSession, mode: ConnectionMode) async throws {
@@ -69,8 +72,29 @@ public actor CloudRemoteClient: RemoteClient {
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {
-        AsyncStream { continuation in
-            continuation.finish()
+        guard let connectedAccount, macId == mac.macAgentId else {
+            return AsyncStream { continuation in
+                continuation.finish()
+            }
+        }
+        let accountId = connectedAccount.accountId
+        let relay = relay
+        let mac = mac
+        let limit = streamEventLimit
+        return AsyncStream { continuation in
+            Task {
+                defer { continuation.finish() }
+                guard limit > 0 else { return }
+                let events = (try? await relay.runEvents(
+                    accountId: accountId,
+                    macAgentId: mac.macAgentId,
+                    after: since,
+                    limit: limit
+                )) ?? []
+                for envelope in events where Self.verifies(envelope, mac: mac) {
+                    continuation.yield(envelope)
+                }
+            }
         }
     }
 
@@ -171,6 +195,14 @@ public actor CloudRemoteClient: RemoteClient {
         }
         lastVerifiedAck = true
         return envelope.ack
+    }
+
+    private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {
+        guard envelope.macAgentId == mac.macAgentId else { return false }
+        return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
+            envelope,
+            signingPublicKeyBase64: mac.agentSigningPubkey
+        )) == true)
     }
 
     private func requireConnected() throws -> RemoteAccountSession {

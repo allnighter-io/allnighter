@@ -126,6 +126,12 @@ public protocol RemoteMacRelay: Sendable {
     ) async throws -> RemoteCommandAckEnvelope?
     func pendingCommands(accountId: String, macAgentId: String, limit: Int) async throws -> [RemoteCommandInboxEntry]
     func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws
+    func runEvents(
+        accountId: String,
+        macAgentId: String,
+        after seq: Int64,
+        limit: Int
+    ) async throws -> [RemoteRunEventEnvelope]
     func publishEvents(accountId: String, macAgentId: String, events: [RemoteRunEventEnvelope]) async throws
 }
 
@@ -141,6 +147,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var pairRequestsByMac: [String: [RemotePairRequest]]
     private var trustedByMac: [String: [TrustedDevice]]
     private var inboxByMac: [String: [RemoteCommandInboxEntry]]
+    private var publishedEventScopes: [String: PublishedEventScope]
     private let pairRequestIdFactory: @Sendable () -> String
 
     public init(
@@ -158,6 +165,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         self.pairRequestsByMac = Dictionary(grouping: pairRequests, by: \.macAgentId)
         self.trustedByMac = Dictionary(grouping: trustedDevices, by: \.macAgentId)
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)
+        self.publishedEventScopes = [:]
         self.pairRequestIdFactory = pairRequestIdFactory
     }
 
@@ -345,12 +353,41 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         inboxByMac[envelope.macAgentId] = entries
     }
 
+    public func runEvents(
+        accountId: String,
+        macAgentId: String,
+        after seq: Int64,
+        limit: Int
+    ) async throws -> [RemoteRunEventEnvelope] {
+        eventLog.append("runEvents")
+        guard limit > 0 else { return [] }
+        return Array(publishedEvents
+            .filter { envelope in
+                guard let scope = publishedEventScopes[envelope.event.id] else { return false }
+                return scope.accountId == accountId
+                    && scope.macAgentId == macAgentId
+                    && envelope.macAgentId == macAgentId
+                    && envelope.event.seq > seq
+            }
+            .sorted { lhs, rhs in
+                if lhs.event.seq == rhs.event.seq { return lhs.event.id < rhs.event.id }
+                return lhs.event.seq < rhs.event.seq
+            }
+            .prefix(limit))
+    }
+
     public func publishEvents(
-        accountId _: String,
-        macAgentId _: String,
+        accountId: String,
+        macAgentId: String,
         events: [RemoteRunEventEnvelope]
     ) async throws {
         eventLog.append("publishEvents")
+        for event in events {
+            publishedEventScopes[event.event.id] = PublishedEventScope(
+                accountId: accountId,
+                macAgentId: macAgentId
+            )
+        }
         publishedEvents.append(contentsOf: events)
     }
 
@@ -380,5 +417,10 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         case .expired:
             return .expired
         }
+    }
+
+    private struct PublishedEventScope: Sendable {
+        var accountId: String
+        var macAgentId: String
     }
 }

@@ -639,6 +639,15 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
 
     func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws {}
 
+    func runEvents(
+        accountId: String,
+        macAgentId: String,
+        after seq: Int64,
+        limit: Int
+    ) async throws -> [RemoteRunEventEnvelope] {
+        []
+    }
+
     func publishEvents(
         accountId: String,
         macAgentId: String,
