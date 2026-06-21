@@ -32,7 +32,7 @@ Allnighter, not an architectural impossibility. Confirmed live via `--help` on e
 | `cursor_agent` | `agent` | `--resume <chatId>` | `agent create-chat` → id (or capture from stream-json) | `vendorSession` |
 | `codex` | `codex` | `codex exec resume <id> <prompt>` | capture from `codex exec --json` JSONL | `vendorSession` |
 | `grok` | `grok` | `-r/--resume <SESSION_ID>` | capture from `--output-format streaming-json` | `vendorSession` |
-| `antigravity` | `agy` | `--conversation <id>` | ⚠️ no capturable id in `--print` mode (vendor gap) | `promptContextOnly` (v1) |
+| `antigravity` | `agy` | `--conversation <id>` (resume-only; rejects supplied id, emits none) | ⚠️ no per-thread id handle — proven via 4 live tests (see CONT-S6) | `promptContextOnly` |
 
 `claude_code` is the cleanest and is the proof-of-life CLI: we generate the session UUID,
 pass `--session-id <uuid>` on turn 1, then `--resume <uuid>` forever after. No output
@@ -204,8 +204,21 @@ reply OK" → turn 2 "What word did I ask you to remember?" → answers `ambercl
   runner closes stdin, so production is fine).
 - [x] **CONT-S5 — grok (DONE, recall PASS ✅).** capture `sessionId` (camelCase), resume
   `--resume <id>`. Live: answer streamed `amber`+`clock` deltas.
-- [x] **CONT-S6 — antigravity (DONE).** `promptContextOnly` declared (no headless id; `--print`
-  exposes none). Engine falls back to always-include context for agy. Vendor ask: expose an id.
+- [x] **CONT-S6 — antigravity (DONE, `promptContextOnly` PROVEN, not assumed).** Four live
+  tests (2026-06-21) close every door to a safe per-thread vendor id:
+  1. `agy --print --conversation <our-uuid>` → `Warning: conversation "<id>" not found`, then
+     answers in a *fresh* conversation. So agy **cannot adopt an id we supply** (unlike claude
+     `--session-id` = acquire:set). Resume-only, no create-with-id.
+  2. `agy --print` emits **only the answer text** — it never prints the conversation id it
+     minted. Nothing to capture (no `--json`/stream id like cursor/codex/grok).
+  3. agy has **no `sessions`/`conversations`/list subcommand** (only `models`, `plugin`) and
+     persists nothing findable on disk — so the id can't be recovered out-of-band either.
+  4. `agy --print --continue` **does** recall ("amberclock" ✅) → agy persists internally, but
+     `--continue` is **global most-recent**, which cross-contaminates concurrent threads. That
+     violates the inviolable per-thread isolation rule, so we will not use it.
+  Verdict: agy offers **no safe per-thread continuity handle**. `promptContextOnly` is correct,
+  not a placeholder. Engine always re-attaches the bounded context packet for agy. Vendor ask:
+  accept a caller-supplied `--conversation` id OR emit the minted id in `--print`.
 - [~] **CONT-S7 — surface (CORE DONE; registration gated).** Run-artifact receipt
   (`WorkerAnswer.vendorSessionId`, set from the outcome) + `WorkerSessionsJSON` agent
   envelope shipped + tested (`5ce8719c`). The `alln sessions` / `worker_sessions_*` tool
