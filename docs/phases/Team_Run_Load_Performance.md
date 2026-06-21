@@ -1,6 +1,11 @@
 # Team Run Load Performance
 
-Status: Investigation + recommendation only - no runtime fixes in this slice
+Status: Core stall FIXED (2026-06-21). Implemented: run-decode cache (no repeated
+run.json decode in body), lazy worker markdown in the terminal board (collapsed previews;
+expand renders), and "Open Factory Floor" → the full lazy per-worker reader. Remaining
+(hardening, not the stall): summary sidecars, a RunCache actor with summary/floor/full
+tiers, the RunStore.list/PendingService.queueJSON body-path audit (#5), and the perf
+gate tests/instrumentation (#6).
 Owner: AllnighterCore + AllnighterEngine + AllnighterMac
 Updated: 2026-06-21
 
