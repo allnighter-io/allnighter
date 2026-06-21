@@ -36,6 +36,7 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         "command_inbox",
         "command_acks",
         "event_envelopes",
+        "snapshot_envelopes",
         "media_refs",
         "media_keys",
     ]
@@ -73,8 +74,8 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         XCTAssertTrue(line.contains("\"kind\" <> 'startRun'"))
         XCTAssertTrue(line.contains("\"payload\" ->> 'kind'"))
         XCTAssertTrue(line.contains("'sealedBlob'"))
-        XCTAssertTrue(line.contains("\"payload\" ? 'sealedBlob'"))
-        XCTAssertTrue(line.contains("NOT (\"payload\" ? 'lightPayload'"))
+        XCTAssertTrue(line.contains("\"payload\" ? 'sealed_blob'"))
+        XCTAssertTrue(line.contains("NOT (\"payload\" ? 'light_payload'"))
     }
 
     func testThreeTierRLSPoliciesArePinnedToDeviceAndMacClaims() throws {
@@ -174,7 +175,7 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
             XCTAssertTrue(sql.contains("tablename = '\(table)'"), "missing realtime guard for \(table)")
             XCTAssertTrue(sql.contains("add table public.\(table)"), "missing realtime publication for \(table)")
         }
-        for table in ["media_refs", "media_keys", "trusted_devices"] {
+        for table in ["media_refs", "media_keys", "trusted_devices", "snapshot_envelopes"] {
             XCTAssertFalse(sql.contains("add table public.\(table)"), "\(table) should not be broadcast through realtime")
         }
     }
@@ -194,6 +195,9 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         ))
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"event_envelopes_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"snapshot_envelopes_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\")"
         ))
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"pair_requests_account_mac_device_key\" UNIQUE (\"account_id\", \"mac_agent_id\", \"device_id\")"

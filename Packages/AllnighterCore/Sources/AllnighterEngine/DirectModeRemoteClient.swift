@@ -40,7 +40,6 @@ public enum DirectModeRemoteClientError: Error, Equatable, Sendable {
     case badSnapshotResponse
     case badMediaResponse
     case badMediaKeyResponse
-    case unsupportedOperation(String)
 }
 
 public actor DirectModeRemoteClient: RemoteClient {
@@ -129,7 +128,7 @@ public actor DirectModeRemoteClient: RemoteClient {
                       let decoded = try? CoreJSON.decode(DirectModeEventsResponse.self, from: response.body) else {
                     return
                 }
-                for envelope in decoded.events where Self.verifies(envelope, mac: mac) {
+                for envelope in decoded.events where envelope.event.seq > since && envelope.isVerified(for: mac) {
                     continuation.yield(envelope)
                 }
             }
@@ -194,7 +193,8 @@ public actor DirectModeRemoteClient: RemoteClient {
             throw DirectModeRemoteClientError.httpStatus(response.statusCode)
         }
         guard let decoded = try? CoreJSON.decode(DirectModeMediaResponse.self, from: response.body),
-              decoded.ref == ref.ref else {
+              decoded.ref == ref.ref,
+              decoded.macAgentId == ref.macAgentId else {
             throw DirectModeRemoteClientError.badMediaResponse
         }
         return decoded.data
@@ -220,6 +220,7 @@ public actor DirectModeRemoteClient: RemoteClient {
         }
         guard let decoded = try? CoreJSON.decode(DirectModeMediaKeyResponse.self, from: response.body),
               decoded.key.ref == ref.ref,
+              decoded.key.macAgentId == ref.macAgentId,
               decoded.key.deviceId == deviceId else {
             throw DirectModeRemoteClientError.badMediaKeyResponse
         }
@@ -264,14 +265,6 @@ public actor DirectModeRemoteClient: RemoteClient {
 
     private var expectedMode: ConnectionMode {
         endpoint.transport == .loopback ? .loopback : .tailscaleDirect
-    }
-
-    private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {
-        guard envelope.macAgentId == mac.macAgentId else { return false }
-        return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
-            envelope,
-            signingPublicKeyBase64: mac.agentSigningPubkey
-        )) == true)
     }
 
     private static func ackProvesDeviceApproved(_ ack: CommandAck) -> Bool {

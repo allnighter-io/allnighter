@@ -18,16 +18,12 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
     case startRun
     case stopRun
     case stopAll
-    case approveRequest
-    case rejectRequest
-    case openOnMac
-    case landPlane
 
     public var requiresSealedPayload: Bool {
         switch self {
         case .startRun:
             return true
-        case .stopRun, .stopAll, .approveRequest, .rejectRequest, .openOnMac, .landPlane:
+        case .stopRun, .stopAll:
             return false
         }
     }
@@ -40,23 +36,6 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
             return .startRun
         case .stopRun:
             return .stopRun
-        case .approveRequest:
-            return .approveRequest
-        case .rejectRequest:
-            return .rejectRequest
-        case .openOnMac:
-            return .openOnMac
-        case .landPlane:
-            return .landPlane
-        }
-    }
-
-    public var isDeferredAfterV1: Bool {
-        switch self {
-        case .startRun, .stopRun, .stopAll:
-            return false
-        case .approveRequest, .rejectRequest, .openOnMac, .landPlane:
-            return true
         }
     }
 }
@@ -64,10 +43,6 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
 public enum RemoteCapability: String, Codable, Sendable, CaseIterable {
     case startRun
     case stopRun
-    case approveRequest
-    case rejectRequest
-    case openOnMac
-    case landPlane
 }
 
 public enum RemoteCryptoSuite: String, Codable, Sendable, CaseIterable {
@@ -409,14 +384,14 @@ public struct MediaRef: Codable, Equatable, Sendable, Identifiable {
 
 public struct MediaKeyEnvelope: Codable, Equatable, Sendable, Identifiable {
     public var id: String {
-        macAgentId.isEmpty ? "\(ref):\(deviceId)" : "\(macAgentId):\(ref):\(deviceId)"
+        "\(macAgentId):\(ref):\(deviceId)"
     }
     public var ref: String
     public var macAgentId: String
     public var deviceId: String
     public var sealedKey: SealedBlob
 
-    public init(ref: String, macAgentId: String = "", deviceId: String, sealedKey: SealedBlob) {
+    public init(ref: String, macAgentId: String, deviceId: String, sealedKey: SealedBlob) {
         self.ref = ref
         self.macAgentId = macAgentId
         self.deviceId = deviceId
@@ -433,7 +408,7 @@ public struct MediaKeyEnvelope: Codable, Equatable, Sendable, Identifiable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         ref = try container.decode(String.self, forKey: .ref)
-        macAgentId = try container.decodeIfPresent(String.self, forKey: .macAgentId) ?? ""
+        macAgentId = try container.decode(String.self, forKey: .macAgentId)
         deviceId = try container.decode(String.self, forKey: .deviceId)
         sealedKey = try container.decode(SealedBlob.self, forKey: .sealedKey)
     }
@@ -446,11 +421,24 @@ public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable
     public var sealedRef: MediaRef?
     public var signature: String
 
-    public init(macAgentId: String = "", event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
+    public init(macAgentId: String, event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
         self.macAgentId = macAgentId
         self.event = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         self.sealedRef = sealedRef
         self.signature = signature
+    }
+}
+
+public extension RemoteRunEventEnvelope {
+    func isVerified(for mac: MacAgentRef) -> Bool {
+        guard macAgentId == mac.macAgentId else { return false }
+        if let sealedRef, sealedRef.macAgentId != macAgentId {
+            return false
+        }
+        return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
+            self,
+            signingPublicKeyBase64: mac.agentSigningPubkey
+        )) == true)
     }
 }
 
@@ -581,7 +569,6 @@ public enum RemoteRunEventPrivacy {
 
     public static func contentLight(_ event: RunEvent, sealedRef: MediaRef? = nil) -> RunEvent {
         var remoteEvent = event
-        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
         remoteEvent.payload = contentLightPayload(event.payload, sealedRef: sealedRef)
         return remoteEvent
     }
@@ -667,6 +654,7 @@ public struct ConnectionDiagnosis: Codable, Equatable, Sendable {
 public enum RemoteCryptoError: Error, Equatable {
     case invalidBase64(String)
     case unsupportedSuite(String)
+    case invalidRemoteEventKind(String)
     case invalidContentKeyLength(Int)
     case missingCombinedCiphertext
 }
@@ -825,6 +813,9 @@ public enum RemoteCrypto {
         signingKey: Curve25519.Signing.PrivateKey,
         method: String = RemoteProtocol.eventMethod
     ) throws -> RemoteRunEventEnvelope {
+        guard RunEventKind.isRemotePublicKind(event.kind) else {
+            throw RemoteCryptoError.invalidRemoteEventKind(event.kind)
+        }
         let remoteEvent = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         let digest = try remoteEventDigest(macAgentId: macAgentId, event: remoteEvent, sealedRef: sealedRef)
         let signingString = eventSigningString(
@@ -1018,19 +1009,6 @@ public enum RemoteMediaCrypto {
 }
 
 public extension RunEventKind {
-    static func remotePublicKind(for kind: String) -> String {
-        switch kind {
-        case synthesisStarted:
-            return stageStarted
-        case synthesisCompleted:
-            return stageCompleted
-        case synthesisFailed:
-            return stageFailed
-        default:
-            return kind
-        }
-    }
-
     static func isRemotePublicKind(_ kind: String) -> Bool {
         !kind.hasPrefix("synthesis.")
     }

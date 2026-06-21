@@ -22,8 +22,8 @@ enum PairCLI {
         }
     }
 
-    static func listJSON(store: TrustedRemoteStore, now: Date = Date()) -> TrustedRemoteListJSON {
-        let registry = store.list(now: now)
+    static func listJSON(store: TrustedRemoteStore, now: Date = Date()) throws -> TrustedRemoteListJSON {
+        let registry = try store.list(now: now)
         return TrustedRemoteListJSON(
             contractVersion: ContractRegistry.contractVersion,
             pendingRequests: registry.pendingRequests,
@@ -33,7 +33,12 @@ enum PairCLI {
 
     private static func runList(_ args: [String], store: TrustedRemoteStore) {
         let opts = Options(args)
-        let payload = listJSON(store: store)
+        let payload: TrustedRemoteListJSON
+        do {
+            payload = try listJSON(store: store)
+        } catch {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: error.localizedDescription)
+        }
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(payload))
             return

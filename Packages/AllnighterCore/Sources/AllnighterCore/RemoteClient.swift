@@ -185,13 +185,21 @@ public actor MockiOSClient: RemoteClient {
         self.macRefs = macs
         self.snapshots = snapshots
         self.events = events
-        let defaultMediaMacId = macs.first?.macAgentId ?? ""
-        self.media = Dictionary(uniqueKeysWithValues: media.map {
-            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
-        })
-        self.mediaKeys = Dictionary(uniqueKeysWithValues: mediaKeys.map {
-            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
-        })
+        let mediaMacAgentId = macs.first?.macAgentId
+        precondition(
+            mediaMacAgentId != nil || (media.isEmpty && mediaKeys.isEmpty),
+            "MockiOSClient media fixtures require a Mac scope"
+        )
+        self.media = mediaMacAgentId.map { macAgentId in
+            Dictionary(uniqueKeysWithValues: media.map {
+                (MediaStorageKey(macAgentId: macAgentId, ref: $0.key), $0.value)
+            })
+        } ?? [:]
+        self.mediaKeys = mediaMacAgentId.map { macAgentId in
+            Dictionary(uniqueKeysWithValues: mediaKeys.map {
+                (MediaStorageKey(macAgentId: macAgentId, ref: $0.key), $0.value)
+            })
+        } ?? [:]
         var trustedByScope: [TrustedDeviceStorageKey: TrustedDevice] = [:]
         for device in trustedDevices {
             trustedByScope[TrustedDeviceStorageKey(
@@ -235,13 +243,7 @@ public actor MockiOSClient: RemoteClient {
         }
         let pending = (events[macId] ?? [])
             .filter { $0.event.seq > since }
-            .filter { envelope in
-                guard envelope.macAgentId == mac.macAgentId else { return false }
-                return (try? RemoteCrypto.verifyRemoteRunEventEnvelope(
-                    envelope,
-                    signingPublicKeyBase64: mac.agentSigningPubkey
-                )) == true
-            }
+            .filter { $0.isVerified(for: mac) }
             .sorted { $0.event.seq < $1.event.seq }
         return AsyncStream { continuation in
             for event in pending {

@@ -17,8 +17,8 @@ the **global kill switch** — from anywhere, over the `01` cloud-first spine. T
 is **presentation only**: it must not reimplement transport, state interpretation, or
 auth — those live in Core (`01`).
 
-The phone only ever sends `01`'s **typed commands** (`startRun`/`stopRun`/`stopAll`;
-later `approveRequest`/`rejectRequest`/`openOnMac`/`landPlane`). **No shell, no
+The phone only ever sends `01`'s **typed commands** (`startRun`/`stopRun`/`stopAll`).
+**No shell, no
 free-text-to-Mac pathway** — every button maps to one modeled, authorized command
 (`00` §3.1). That constraint is the product's trust story; surface it.
 

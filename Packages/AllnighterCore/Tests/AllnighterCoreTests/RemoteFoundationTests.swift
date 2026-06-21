@@ -10,10 +10,6 @@ final class RemoteFoundationTests: XCTestCase {
             "startRun",
             "stopRun",
             "stopAll",
-            "approveRequest",
-            "rejectRequest",
-            "openOnMac",
-            "landPlane",
         ])
         XCTAssertFalse(cases.contains { $0.localizedCaseInsensitiveContains("shell") })
         XCTAssertFalse(cases.contains { $0.localizedCaseInsensitiveContains("mcp") })
@@ -186,7 +182,7 @@ final class RemoteFoundationTests: XCTestCase {
             id: "evt_1",
             seq: 1,
             ts: Date(timeIntervalSince1970: 1_750_000_000),
-            kind: RunEventKind.synthesisCompleted,
+            kind: RunEventKind.stageCompleted,
             payload: ["runId": .string("run_1")]
         )
 
@@ -201,6 +197,25 @@ final class RemoteFoundationTests: XCTestCase {
         var tampered = envelope
         tampered.event.payload["runId"] = .string("run_2")
         XCTAssertFalse(try RemoteCrypto.verifyRemoteRunEventEnvelope(tampered, signingPublicKeyBase64: publicKey))
+    }
+
+    func testRemoteEventEnvelopeRejectsPrivateSynthesisKinds() throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let event = RunEvent(
+            id: "evt_1",
+            seq: 1,
+            ts: Date(timeIntervalSince1970: 1_750_000_000),
+            kind: "synthesis.completed",
+            payload: ["runId": .string("run_1")]
+        )
+
+        XCTAssertThrowsError(try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: event,
+            signingKey: signingKey
+        )) { error in
+            XCTAssertEqual(error as? RemoteCryptoError, .invalidRemoteEventKind("synthesis.completed"))
+        }
     }
 
     func testRemoteEventEnvelopeStripsSensitivePayloadBeforeSigning() throws {
@@ -363,16 +378,33 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(envelope.id, "mac_1:media_1:device_1")
     }
 
-    func testRemoteEventEnvelopeNormalizesLegacySynthesisKinds() {
+    func testMediaKeyEnvelopeRequiresMacAgentIdOnDecode() throws {
+        let payload = Data("""
+        {
+          "ref": "media_1",
+          "deviceId": "device_1",
+          "sealedKey": {
+            "ciphertext": "",
+            "encapsulatedKey": "",
+            "sealedForKeyId": "device_1",
+            "contentType": "application/vnd.allnighter.media-key"
+          }
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try CoreJSON.decode(MediaKeyEnvelope.self, from: payload))
+    }
+
+    func testRemoteEventEnvelopePreservesPublicStageKinds() {
         let event = RunEvent(
             id: "evt_1",
             seq: 7,
             ts: Date(timeIntervalSince1970: 1_750_000_000),
-            kind: RunEventKind.synthesisCompleted,
+            kind: RunEventKind.stageCompleted,
             payload: ["runId": .string("run_1")]
         )
 
-        let envelope = RemoteRunEventEnvelope(event: event, signature: "sig")
+        let envelope = RemoteRunEventEnvelope(macAgentId: "mac_1", event: event, signature: "sig")
         XCTAssertEqual(envelope.event.kind, RunEventKind.stageCompleted)
         XCTAssertTrue(RunEventKind.isRemotePublicKind(envelope.event.kind))
     }
@@ -474,6 +506,7 @@ final class RemoteFoundationTests: XCTestCase {
             serverTime: now
         )
         let done = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_done",
                 seq: 12,
@@ -484,6 +517,7 @@ final class RemoteFoundationTests: XCTestCase {
             signature: "sig"
         )
         let duplicate = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_done",
                 seq: 13,
@@ -519,6 +553,7 @@ final class RemoteFoundationTests: XCTestCase {
             serverTime: now
         )
         let stale = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_stale_new_id",
                 seq: 9,
@@ -542,6 +577,7 @@ final class RemoteFoundationTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let snapshot = SnapshotEnvelope(runs: [], lastSeq: 0, serverTime: now)
         let started = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
             event: RunEvent(
                 id: "evt_started",
                 seq: 1,
@@ -582,6 +618,24 @@ final class RemoteFoundationTests: XCTestCase {
             event: RunEvent(id: "evt_2", seq: 2, ts: now, kind: "run.completed", payload: ["runId": .string("run_1")]),
             signingKey: agentSigningKey
         )
+        let wrongMacMedia = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(
+                id: "evt_wrong_media_mac",
+                seq: 5,
+                ts: now,
+                kind: "run.completed",
+                payload: ["runId": .string("run_1")]
+            ),
+            sealedRef: MediaRef(
+                ref: "media_cross_mac",
+                macAgentId: "mac_other",
+                r2Key: "r2/media_cross_mac",
+                contentType: "image/png",
+                expiresAt: now.addingTimeInterval(60)
+            ),
+            signingKey: agentSigningKey
+        )
         let wrongMac = try RemoteCrypto.makeRemoteRunEventEnvelope(
             macAgentId: "mac_other",
             event: RunEvent(id: "evt_wrong_mac", seq: 4, ts: now, kind: "run.failed", payload: ["runId": .string("run_1")]),
@@ -592,7 +646,11 @@ final class RemoteFoundationTests: XCTestCase {
             event: RunEvent(id: "evt_forged", seq: 3, ts: now, kind: "run.failed", payload: ["runId": .string("run_1")]),
             signature: Data("not a real signature".utf8).base64EncodedString()
         )
-        let client = MockiOSClient(macs: [mac], events: ["mac_1": [older, newer, forged, wrongMac]], serverNow: now)
+        let client = MockiOSClient(
+            macs: [mac],
+            events: ["mac_1": [older, newer, forged, wrongMacMedia, wrongMac]],
+            serverNow: now
+        )
 
         try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
         let stream = await client.stream(macId: "mac_1", since: 1)

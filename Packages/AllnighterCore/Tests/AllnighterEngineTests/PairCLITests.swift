@@ -22,7 +22,7 @@ final class PairCLITests: XCTestCase {
             expiresAt: now.addingTimeInterval(300)
         ))
 
-        let payload = PairCLI.listJSON(store: store, now: now)
+        let payload = try PairCLI.listJSON(store: store, now: now)
 
         XCTAssertEqual(payload.contractVersion, ContractRegistry.contractVersion)
         XCTAssertEqual(payload.pendingRequests.map(\.deviceId), ["device_1"])
@@ -72,7 +72,7 @@ final class PairCLITests: XCTestCase {
         let stored = String(decoding: try CoreJSON.encode(sessionStore.load()), as: UTF8.self)
         XCTAssertFalse(stored.contains("pair_token_secret"))
         XCTAssertFalse(stored.contains("123456"))
-        XCTAssertEqual(sessionStore.active(now: now).map(\.id), ["session_1"])
+        XCTAssertEqual(try sessionStore.active(now: now).map(\.id), ["session_1"])
     }
 
     private func payload(fromPairingLink link: String) throws -> RemotePairingPayload {

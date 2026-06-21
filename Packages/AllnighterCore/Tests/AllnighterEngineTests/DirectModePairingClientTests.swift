@@ -66,8 +66,8 @@ final class DirectModePairingClientTests: XCTestCase {
         XCTAssertEqual(response.request.id, "pair_request_1")
         XCTAssertEqual(response.request.deviceId, "device_1")
         XCTAssertEqual(response.request.status, .pending)
-        XCTAssertEqual(sessionStore.load().sessions.first?.status, .consumed)
-        XCTAssertEqual(trustedStore.load().pendingRequests, [response.request])
+        XCTAssertEqual(try sessionStore.load().sessions.first?.status, .consumed)
+        XCTAssertEqual(try trustedStore.load().pendingRequests, [response.request])
 
         let pending = try await client.status(DirectModePairingStatusRequest(
             requestId: "pair_request_1",
@@ -121,6 +121,10 @@ final class DirectModePairingClientTests: XCTestCase {
 
 private final class RecordingPairingClientCommandHandler: DirectModeCommandHandling, @unchecked Sendable {
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope {
-        throw DirectModeRemoteClientError.unsupportedOperation("command")
+        throw DirectModePairingClientTestError.unusedCommandHandler
     }
+}
+
+private enum DirectModePairingClientTestError: Error {
+    case unusedCommandHandler
 }

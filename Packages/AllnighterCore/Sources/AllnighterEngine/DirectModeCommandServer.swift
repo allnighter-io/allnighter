@@ -41,6 +41,8 @@ public enum DirectModeMediaKeyError: Error, Equatable, Sendable {
     )
     case mediaKeyNotFound(ref: String, deviceId: String)
     case mediaKeyMismatch(
+        expectedMacAgentId: String,
+        actualMacAgentId: String,
         expectedRef: String,
         actualRef: String,
         expectedDeviceId: String,
@@ -85,10 +87,12 @@ public struct DirectModeMediaRequest: Codable, Equatable, Sendable {
 
 public struct DirectModeMediaResponse: Codable, Equatable, Sendable {
     public var ref: String
+    public var macAgentId: String
     public var data: Data
 
-    public init(ref: String, data: Data) {
+    public init(ref: String, macAgentId: String, data: Data) {
         self.ref = ref
+        self.macAgentId = macAgentId
         self.data = data
     }
 }
@@ -284,7 +288,7 @@ public struct DirectModeMediaHandler: DirectModeMediaHandling {
         ) else {
             throw DirectModeMediaError.mediaNotFound(ref: request.ref)
         }
-        return DirectModeMediaResponse(ref: request.ref, data: data)
+        return DirectModeMediaResponse(ref: request.ref, macAgentId: request.macAgentId, data: data)
     }
 }
 
@@ -325,9 +329,12 @@ public struct DirectModeMediaKeyHandler: DirectModeMediaKeyHandling {
         ) else {
             throw DirectModeMediaKeyError.mediaKeyNotFound(ref: request.ref, deviceId: request.deviceId)
         }
-        guard key.ref == request.ref,
+        guard key.macAgentId == request.macAgentId,
+              key.ref == request.ref,
               key.deviceId == request.deviceId else {
             throw DirectModeMediaKeyError.mediaKeyMismatch(
+                expectedMacAgentId: request.macAgentId,
+                actualMacAgentId: key.macAgentId,
                 expectedRef: request.ref,
                 actualRef: key.ref,
                 expectedDeviceId: request.deviceId,

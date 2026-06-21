@@ -22,9 +22,23 @@ final class TrustedRemoteStoreTests: XCTestCase {
         try store.upsertPending(request)
 
         let reopened = TrustedRemoteStore(fileURL: store.fileURL)
-        let registry = reopened.load()
+        let registry = try reopened.load()
         XCTAssertEqual(registry.pendingRequests, [request])
         XCTAssertTrue(registry.trustedDevices.isEmpty)
+    }
+
+    func testCorruptRegistryFailsClosed() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        try FileManager.default.createDirectory(
+            at: store.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(#"{"trustedDevices":["#.utf8).write(to: store.fileURL)
+
+        XCTAssertThrowsError(try store.load())
+        XCTAssertThrowsError(try store.list(now: now))
+        XCTAssertThrowsError(try store.upsertPending(pairRequest(deviceId: "device_1", now: now)))
+        XCTAssertThrowsError(try store.approve(deviceId: "device_1", now: now))
     }
 
     func testUpsertPendingPreservesSameDeviceOnOtherAccount() throws {
@@ -35,7 +49,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
         try store.upsertPending(first)
         try store.upsertPending(second)
 
-        let requests = store.load().pendingRequests
+        let requests = try store.load().pendingRequests
         XCTAssertEqual(requests.map(\.accountId), ["acct_1", "acct_2"])
         XCTAssertEqual(Set(requests.map(\.deviceId)), ["device_1"])
     }
@@ -55,7 +69,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertFalse(device.revoked)
         XCTAssertEqual(device.capabilities, Set(RemoteCapability.allCases))
 
-        let registry = store.load()
+        let registry = try store.load()
         XCTAssertEqual(registry.pendingRequests.first?.status, .approved)
         XCTAssertEqual(registry.pendingRequests.first?.approvedAt, now)
         XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_1"])
@@ -73,7 +87,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
         let approved = try store.approve(deviceId: "device_1", now: now, validFor: 60)
 
         XCTAssertEqual(approved.macAgentId, "mac_2")
-        let devices = store.load().trustedDevices
+        let devices = try store.load().trustedDevices
         XCTAssertEqual(devices.first { $0.macAgentId == "mac_1" }?.deviceSigningPubkey, "sign_device_1")
         XCTAssertEqual(devices.first { $0.macAgentId == "mac_2" }?.deviceSigningPubkey, "sign_device_1")
         XCTAssertEqual(Set(devices.map(\.macAgentId)), ["mac_1", "mac_2"])
@@ -100,11 +114,11 @@ final class TrustedRemoteStoreTests: XCTestCase {
 
         XCTAssertEqual(approved.accountId, "acct_1")
         XCTAssertEqual(approved.macAgentId, "mac_1")
-        let requests = store.load().pendingRequests
+        let requests = try store.load().pendingRequests
         XCTAssertEqual(requests.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_1" }?.status, .approved)
         XCTAssertEqual(requests.first { $0.accountId == "acct_2" && $0.macAgentId == "mac_1" }?.status, .pending)
         XCTAssertEqual(requests.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_2" }?.status, .pending)
-        XCTAssertEqual(store.load().trustedDevices.map(\.macAgentId), ["mac_1"])
+        XCTAssertEqual(try store.load().trustedDevices.map(\.macAgentId), ["mac_1"])
     }
 
     func testExpiredPendingRequestCannotBeApproved() throws {
@@ -116,7 +130,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.approve(deviceId: "device_1", now: now)) { error in
             XCTAssertEqual(error as? TrustedRemoteStoreError, .pairRequestExpired("device_1"))
         }
-        XCTAssertEqual(store.load().pendingRequests.first?.status, .expired)
+        XCTAssertEqual(try store.load().pendingRequests.first?.status, .expired)
     }
 
     func testRevokeIsForwardOnly() throws {
@@ -128,8 +142,8 @@ final class TrustedRemoteStoreTests: XCTestCase {
 
         XCTAssertTrue(revoked.revoked)
         XCTAssertEqual(revoked.revokedAt, now.addingTimeInterval(10))
-        XCTAssertEqual(store.load().trustedDevices.count, 1)
-        XCTAssertEqual(store.load().trustedDevices.first?.deviceSigningPubkey, "sign_device_1")
+        XCTAssertEqual(try store.load().trustedDevices.count, 1)
+        XCTAssertEqual(try store.load().trustedDevices.first?.deviceSigningPubkey, "sign_device_1")
     }
 
     func testScopedRevokeTargetsOnlyMatchingMac() throws {
@@ -141,7 +155,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
         let revoked = try store.revoke(deviceId: "device_1", macAgentId: "mac_2", now: now.addingTimeInterval(10))
 
         XCTAssertEqual(revoked.macAgentId, "mac_2")
-        let devices = store.load().trustedDevices
+        let devices = try store.load().trustedDevices
         XCTAssertEqual(devices.first { $0.macAgentId == "mac_1" }?.revoked, false)
         XCTAssertEqual(devices.first { $0.macAgentId == "mac_2" }?.revoked, true)
         XCTAssertEqual(devices.first { $0.macAgentId == "mac_2" }?.revokedAt, now.addingTimeInterval(10))
@@ -167,7 +181,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
 
         XCTAssertEqual(revoked.accountId, "acct_1")
         XCTAssertEqual(revoked.macAgentId, "mac_1")
-        let devices = store.load().trustedDevices
+        let devices = try store.load().trustedDevices
         XCTAssertEqual(devices.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_1" }?.revoked, true)
         XCTAssertEqual(devices.first { $0.accountId == "acct_2" && $0.macAgentId == "mac_1" }?.revoked, false)
         XCTAssertEqual(devices.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_2" }?.revoked, false)
@@ -179,7 +193,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
         request.expiresAt = now.addingTimeInterval(-1)
         try store.upsertPending(request)
 
-        let registry = store.list(now: now)
+        let registry = try store.list(now: now)
 
         XCTAssertEqual(registry.pendingRequests.first?.status, .expired)
     }
@@ -197,7 +211,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
         let fresh = trustedDevice(deviceId: "device_fresh", macAgentId: "mac_1", now: now)
         try store.syncTrustedDevices([fresh], accountId: "acct_1", macAgentId: "mac_1", now: now)
 
-        let registry = store.load()
+        let registry = try store.load()
         XCTAssertEqual(registry.pendingRequests, [request])
         XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_fresh", "device_other"])
     }
@@ -211,7 +225,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
 
         try store.syncTrustedDevices([fresh], accountId: "acct_1", macAgentId: "mac_1", now: now)
 
-        let registry = store.load()
+        let registry = try store.load()
         XCTAssertNil(registry.trustedDevices.first { $0.deviceId == "device_stale" })
         XCTAssertEqual(registry.trustedDevices.first { $0.accountId == "acct_1" }?.deviceId, "device_fresh")
         XCTAssertEqual(registry.trustedDevices.first { $0.accountId == "acct_2" }?.deviceId, "device_other")
@@ -229,7 +243,7 @@ final class TrustedRemoteStoreTests: XCTestCase {
             now: now
         )
 
-        let registry = store.load()
+        let registry = try store.load()
         XCTAssertEqual(syncedCount, 2)
         XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_1", "device_2"])
     }

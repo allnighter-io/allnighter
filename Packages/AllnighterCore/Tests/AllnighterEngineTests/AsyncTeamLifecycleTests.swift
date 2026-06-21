@@ -171,6 +171,20 @@ final class AsyncTeamTests: XCTestCase {
             }
             XCTAssertEqual(run.status, .complete)
             XCTAssertEqual(run.plan, AsyncTeamTestHarness.planMarkdown)
+
+            let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("Runs"))
+            var events: [RunEvent] = []
+            for _ in 0..<50 {
+                events = try journal.events(after: 0)
+                if events.contains(where: { $0.kind == RunEventKind.stageCompleted }) { break }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+
+            XCTAssertEqual(events.map(\.seq), events.indices.map { Int64($0 + 1) })
+            XCTAssertTrue(events.allSatisfy { $0.payload["runId"]?.stringValue == "run-result-2" })
+            XCTAssertTrue(events.contains { $0.kind == RunEventKind.runStatusChanged })
+            XCTAssertTrue(events.contains { $0.kind == RunEventKind.workerStatusChanged })
+            XCTAssertTrue(events.contains { $0.kind == RunEventKind.stageCompleted })
         }
     }
 

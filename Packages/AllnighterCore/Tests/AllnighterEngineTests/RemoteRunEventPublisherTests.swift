@@ -11,7 +11,7 @@ final class RemoteRunEventPublisherTests: XCTestCase {
             .appendingPathComponent("remote-run-event-publisher-\(UUID().uuidString)", isDirectory: true)
     }
 
-    func testPublishSignsJournalEventsAndNormalizesRemoteKinds() async throws {
+    func testPublishSignsJournalEventsWithPublicKinds() async throws {
         let root = tempRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let journal = RemoteRunEventJournal(rootDirectory: root)
@@ -19,7 +19,7 @@ final class RemoteRunEventPublisherTests: XCTestCase {
         let relay = MockRemoteMacRelay()
 
         _ = try journal.append(Self.event(id: "evt_1", kind: RunEventKind.runStatusChanged, runId: "run_1", now: now))
-        _ = try journal.append(Self.event(id: "evt_2", kind: RunEventKind.synthesisCompleted, runId: "run_1", now: now))
+        _ = try journal.append(Self.event(id: "evt_2", kind: RunEventKind.stageCompleted, runId: "run_1", now: now))
 
         let publisher = RemoteRunEventPublisher(
             accountId: "acct_1",

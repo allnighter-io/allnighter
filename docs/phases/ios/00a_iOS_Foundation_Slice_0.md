@@ -4,7 +4,7 @@ Status: Draft — first active foundation prep slice; no iOS UI.
 Milestone: iOS foundation
 Owner: Mac + Shared Core
 Created: 2026-06-19
-Updated: 2026-06-19
+Updated: 2026-06-21
 Depends on: `README.md`, `00_iOS_Transport_Decision.md`, `01_Connection_Spine.md`,
 `01a_Pairing_Ceremony.md`, `../CLI_Product_Spine.md`,
 `../CLI_Implementation_Contract.md`, `../Mac_Standalone_App_And_Background_Coordinator.md`
@@ -24,9 +24,9 @@ the foundation contracts in `00`, `01`, and `01a`.
 | Area | State |
 | --- | --- |
 | CLI spine | `alln` M1 is built; async team, Pending, Project core pieces, and MCP pieces exist. |
-| Coordinator | `alln serve` exists as a resident coordinator with health/wake behavior. It is not yet the cloud outbound agent and not yet the Direct Mode command/event HTTP/WS server. |
-| Run durability | `RunStore` writes non-terminal `run.json` snapshots + `owner.pid` and reads dead owners as `interrupted`. It does not yet write append-only `events.jsonl` or a persisted global monotonic `seq`. |
-| Event vocabulary | Generic `stage.*` events exist, but `RunEventKind` still carries legacy `synthesis.*` constants. The wire must not lock until those are removed or mapped out of public remote output. |
+| Coordinator | `alln serve` exists as a resident coordinator with health/wake behavior. Headless remote Mac-agent, command-router, event-sync, snapshot-publisher, cloud-relay adapter, and Direct Mode carrier code exists in Core/Engine; app/launchd runtime wiring and the carrier Works Test remain. |
+| Run durability | `RunStore` writes non-terminal `run.json` snapshots + `owner.pid` and reads dead owners as `interrupted`. `RemoteRunEventJournal` writes append-only per-run `events.jsonl` plus a persisted global monotonic `seq`, and `AsyncTeamService` records async team coordinator events there. Carrier-level restart/resume proof remains. |
+| Event vocabulary | Remote output is frozen to public `run.*`, `worker.*`, and `stage.*` kinds. `RunEventKind` no longer exposes `synthesis.*`; remote signing rejects private `synthesis.*` inputs. |
 | iOS scaffold | `Apps/AllnighteriOS/` is still the SwiftData starter scaffold with `Item.swift`, `ModelContainer`, and a hand-managed `.xcodeproj`. It is quarantined; no foundation work should depend on it. |
 | Project Manager | Project Core slices PRJ-S00-S06 are built; Project CLI/Manager/proposal/verification slices PRJ-S07-S13 are still moving. Remote foundation must not promise the phone Project Manager UI yet. |
 
@@ -50,9 +50,9 @@ reducers, and fixtures. `AllnighterEngine` owns Mac journal/coordinator executio
 The iOS app target presents later and owns no transport truth.
 
 Lie-prone layer:
-The existing starter iOS target, stale Tailscale-first wording, legacy
-`synthesis.*` event constants, coordinator health being mistaken for a remote
-agent, and model output claiming a Mac is live without a signed Mac event.
+The existing starter iOS target, stale Tailscale-first wording, stale event
+vocabulary references, coordinator health being mistaken for a remote agent,
+and model output claiming a Mac is live without a signed Mac event.
 
 Works Test:
 An implementation agent can read `README.md -> 00a -> 00 -> 01 -> 01a` and know
@@ -65,8 +65,8 @@ swift test --package-path Packages/AllnighterCore --disable-sandbox
 rg -n -e "allnighter serve" -e "allnighter pair" -e "allnighter://pair" -e "Allnighter/Allnighter[.]xcodeproj" docs/phases/ios/README.md docs/phases/ios/00_iOS_Transport_Decision.md docs/phases/ios/01_Connection_Spine.md docs/phases/ios/01a_Pairing_Ceremony.md
 ```
 
-The `rg` command should return no matches in the routed foundation docs. `synthesis.*` may
-appear only as an explicit Slice 0 cleanup target until that cleanup lands.
+The `rg` command should return no matches in the routed foundation docs. `00a`
+is intentionally omitted from that command because it contains the check itself.
 
 Done when:
 The foundation docs are current, the pre-code gates below are explicit, and no doc
@@ -76,22 +76,21 @@ invites UI or cloud work before the local proof harness is green.
 
 These gates happen before `iOS01-S00` code begins.
 
-1. **Docs/current-state sync.** Foundation docs must name the real current state:
-   `alln`, `alln serve` coordinator skeleton, partial journal durability, unfinished
-   remote agent, and quarantined SwiftData scaffold.
-2. **Vocabulary freeze plan.** The remote wire publishes `run.*`, `worker.*`, and
-   `stage.*` only. Legacy `synthesis.*` constants are removed from remote output or
-   mapped privately before any fixture becomes a wire fixture.
-3. **Journal contract plan.** Define the append-only `events.jsonl`, global sequence
-   index, replay window, snapshot builder, and orphan/interrupted behavior before
-   remote stream code.
-4. **Coordinator boundary.** Document that current `alln serve` health/wake is not
-   enough for remote control. The remote agent extends the coordinator with typed
+1. **Docs/current-state sync.** Foundation docs name the real current state:
+   `alln`, `alln serve` coordinator skeleton, headless remote-agent foundation,
+   async-team event journaling, and quarantined SwiftData scaffold.
+2. **Vocabulary freeze.** The remote wire publishes `run.*`, `worker.*`, and
+   `stage.*` only. Remote signing rejects private `synthesis.*` event kinds
+   before they can become wire fixtures.
+3. **Journal contract.** `RemoteRunEventJournal` owns append-only `events.jsonl`,
+   a global sequence index, bounded replay, and snapshot convergence; async team
+   runs append coordinator events into it.
+4. **Coordinator boundary.** Current `alln serve` health/wake is not product remote
+   control by itself. The headless remote agent extends the coordinator with typed
    command/event carriers; it does not create a second semantic engine.
-5. **Closed command set.** Reserve and test the remote enum shape:
-   `startRun`, `stopRun`, `stopAll`, plus deferred
-   `approveRequest`, `rejectRequest`, `openOnMac`, and `landPlane`. There is no
-   shell case and no generic MCP passthrough.
+5. **Closed command set.** Test the remote enum shape:
+   `startRun`, `stopRun`, and `stopAll`. There is no shell case, generic MCP
+   passthrough, or reserved future command in v1.
 6. **Crypto proof harness plan.** The first code slice must include deterministic
    round-trip tests for two-key device/Mac identity, signing strings, HPKE
    `SealedBlob`, replay/skew rejection, protocol mismatch, and signed Mac events.

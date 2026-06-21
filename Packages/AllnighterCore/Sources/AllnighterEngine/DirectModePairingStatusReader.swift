@@ -25,7 +25,7 @@ public struct DirectModePairingStatusReader: DirectModePairingStatusHandling {
 
     public func status(_ request: DirectModePairingStatusRequest) throws -> DirectModePairingStatusResponse {
         let checkedAt = now()
-        let registry = trustedStore.list(now: checkedAt)
+        let registry = try trustedStore.list(now: checkedAt)
         let device = registry.trustedDevices.first {
             $0.accountId == accountId
                 && $0.macAgentId == macAgentId

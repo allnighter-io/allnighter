@@ -59,6 +59,7 @@ public actor AsyncTeamService {
     private let commandRunner: CommandRunner
     private let governor: TeamGovernor
     private let idempotency: IdempotencyStore
+    private let remoteEventJournal: RemoteRunEventJournal
     private let now: @Sendable () -> Date
     private let environment: [String: String]
     private let invocations: [String: ToolInvocation]
@@ -75,6 +76,7 @@ public actor AsyncTeamService {
         commandRunner: CommandRunner = SubprocessCommandRunner(),
         governor: TeamGovernor? = nil,
         idempotency: IdempotencyStore = IdempotencyStore(),
+        remoteEventJournal: RemoteRunEventJournal? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
@@ -88,6 +90,7 @@ public actor AsyncTeamService {
         self.commandRunner = commandRunner
         self.governor = governor ?? TeamGovernor(capacity: config.maxConcurrentTeamRuns)
         self.idempotency = idempotency
+        self.remoteEventJournal = remoteEventJournal ?? RemoteRunEventJournal(rootDirectory: runStore.rootDirectory)
         self.environment = environment
         self.invocations = invocations
         self.now = now
@@ -165,7 +168,7 @@ public actor AsyncTeamService {
         let runId = idFactory()
         let acceptedAt = now()
         let answerAndReview = resolved.answerWorkers + resolved.reviewWorkers
-        var run = TeamRun(
+        let run = TeamRun(
             id: runId,
             prompt: prompt,
             status: .fanningOut,
@@ -190,7 +193,7 @@ public actor AsyncTeamService {
         persist(run)
 
         if let key = request.idempotencyKey, !key.isEmpty {
-            try? idempotency.record(key: key, payload: canonical, runId: runId, now: acceptedAt)
+            _ = try? idempotency.record(key: key, payload: canonical, runId: runId, now: acceptedAt)
         }
 
         let store = runStore
@@ -216,7 +219,7 @@ public actor AsyncTeamService {
         let cancelledRuns = cancelledRuns
         let persistDuringRun: @Sendable (TeamRun) -> Void = { incoming in
             cancelledRuns.saveIfActive(runId) {
-                try? store.save(stamped(incoming), models: allModels)
+                _ = try? store.save(stamped(incoming), models: allModels)
             }
         }
 
@@ -226,18 +229,34 @@ public actor AsyncTeamService {
             idFactory: idFactory,
             now: now
         )
+        let remoteEventJournal = remoteEventJournal
 
         let task = Task {
+            async let eventRecorder: Void = Self.recordRemoteEvents(coordinator.events, to: remoteEventJournal)
             _ = await coordinator.run(
                 resolved: resolved, prompt: prompt, models: models,
                 origin: origin, originAgent: request.originAgent,
                 runId: runId, persist: persistDuringRun
             )
+            await eventRecorder
             self.finishActiveRun(runId: runId, slot: slot)
         }
         activeRuns[runId] = ActiveRun(slot: slot, task: task)
 
         return .success(startResponse(for: run, acceptedAt: acceptedAt))
+    }
+
+    private nonisolated static func recordRemoteEvents(
+        _ events: AsyncStream<RunEvent>,
+        to journal: RemoteRunEventJournal
+    ) async {
+        for await event in events {
+            do {
+                _ = try journal.append(event)
+            } catch {
+                StreamDebugLog.log("REMOTE_EVENT_JOURNAL_APPEND_FAILED event=\(event.id) error=\(error)")
+            }
+        }
     }
 
     // MARK: - status / result / cancel
@@ -289,7 +308,7 @@ public actor AsyncTeamService {
             for i in run.workerAnswers.indices where !run.workerAnswers[i].status.isTerminal {
                 run.workerAnswers[i].status = .cancelled
             }
-            try? self.runStore.save(run, models: self.models)
+            _ = try? self.runStore.save(run, models: self.models)
         }
         return TeamCancelResponse(runId: runId, status: .cancelled, cancelledAt: now())
     }
@@ -314,7 +333,7 @@ public actor AsyncTeamService {
 
     private func persist(_ run: TeamRun) {
         cancelledRuns.saveIfActive(run.id) {
-            try? self.runStore.save(run, models: self.models)
+            _ = try? self.runStore.save(run, models: self.models)
         }
     }
 

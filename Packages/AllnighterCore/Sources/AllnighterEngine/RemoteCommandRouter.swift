@@ -83,16 +83,16 @@ public struct RemoteCommandRouterPolicy: Equatable, Sendable {
 public struct RemoteSeenRequest: Codable, Equatable, Sendable {
     public var requestId: String
     public var seenAt: Date
-    public var accountId: String?
-    public var macAgentId: String?
-    public var deviceId: String?
+    public var accountId: String
+    public var macAgentId: String
+    public var deviceId: String
 
     public init(
         requestId: String,
         seenAt: Date,
-        accountId: String? = nil,
-        macAgentId: String? = nil,
-        deviceId: String? = nil
+        accountId: String,
+        macAgentId: String,
+        deviceId: String
     ) {
         self.requestId = requestId
         self.seenAt = seenAt
@@ -129,12 +129,12 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
         self.fileManager = fileManager
     }
 
-    public func load() -> RemoteRequestDedupeRegistry {
-        guard let data = try? Data(contentsOf: fileURL),
-              let registry = try? CoreJSON.decode(RemoteRequestDedupeRegistry.self, from: data) else {
+    public func load() throws -> RemoteRequestDedupeRegistry {
+        guard fileManager.fileExists(atPath: fileURL.path) else {
             return RemoteRequestDedupeRegistry()
         }
-        return registry
+        let data = try Data(contentsOf: fileURL)
+        return try CoreJSON.decode(RemoteRequestDedupeRegistry.self, from: data)
     }
 
     @discardableResult
@@ -149,9 +149,9 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
 
     public func containsOrRecord(
         requestId: String,
-        accountId: String? = nil,
-        macAgentId: String? = nil,
-        deviceId: String? = nil,
+        accountId: String,
+        macAgentId: String,
+        deviceId: String,
         now: Date,
         window: TimeInterval,
         maxEntries: Int = 10_000
@@ -160,7 +160,7 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
         defer { lock.unlock() }
 
         let cutoff = now.addingTimeInterval(-window)
-        var registry = load()
+        var registry = try load()
         registry.schemaVersion = RemoteRequestDedupeRegistry.currentSchemaVersion
         registry.requests.removeAll { $0.seenAt < cutoff }
         if registry.requests.contains(where: {
@@ -189,17 +189,11 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
     private func requestMatches(
         _ seen: RemoteSeenRequest,
         requestId: String,
-        accountId: String?,
-        macAgentId: String?,
-        deviceId: String?
+        accountId: String,
+        macAgentId: String,
+        deviceId: String
     ) -> Bool {
         guard seen.requestId == requestId else { return false }
-        if accountId == nil, macAgentId == nil, deviceId == nil {
-            return true
-        }
-        if seen.accountId == nil, seen.macAgentId == nil, seen.deviceId == nil {
-            return true
-        }
         return seen.accountId == accountId
             && seen.macAgentId == macAgentId
             && seen.deviceId == deviceId
@@ -285,7 +279,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             return try rejected(command, reason: .badSignature, serverTime: serverTime)
         }
 
-        let registry = trustedStore.list(now: serverTime)
+        let registry = try trustedStore.list(now: serverTime)
         guard let trustedDevice = registry.trustedDevices.first(where: {
             $0.accountId == accountId
                 && $0.deviceId == command.assertion.deviceId
@@ -329,8 +323,6 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             return try await routeStopRun(command, serverTime: serverTime)
         case .stopAll:
             return try await routeStopAll(command, serverTime: serverTime)
-        case .approveRequest, .rejectRequest, .openOnMac, .landPlane:
-            return try rejected(command, reason: .unauthorizedKind, serverTime: serverTime)
         }
     }
 

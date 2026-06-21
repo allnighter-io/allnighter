@@ -78,7 +78,7 @@ final class DirectModePairingCeremonyTests: XCTestCase {
             ttlSeconds: 300
         ))
         XCTAssertEqual(begin.payload.endpoints.first?.url, exposurePlan.endpoint.baseURL)
-        XCTAssertEqual(sessionStore.load().sessions.first?.status, DirectModePairingSessionStatus.armed)
+        XCTAssertEqual(try sessionStore.load().sessions.first?.status, DirectModePairingSessionStatus.armed)
 
         let pairingClient = DirectModePairingClient(endpoint: exposurePlan.endpoint)
         let submit = try await pairingClient.submit(DirectModePairingSubmitRequest(
@@ -89,7 +89,7 @@ final class DirectModePairingCeremonyTests: XCTestCase {
             pairingToken: begin.payload.pairingToken
         ))
         XCTAssertEqual(submit.request.status, RemotePairRequestStatus.pending)
-        XCTAssertEqual(sessionStore.load().sessions.first?.status, DirectModePairingSessionStatus.consumed)
+        XCTAssertEqual(try sessionStore.load().sessions.first?.status, DirectModePairingSessionStatus.consumed)
 
         let pending = try await pairingClient.status(DirectModePairingStatusRequest(
             requestId: submit.request.id,

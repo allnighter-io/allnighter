@@ -10,8 +10,8 @@ public struct RunEvent: Codable, Sendable, Equatable, Identifiable {
     public var seq: Int64
     public var ts: Date
     /// Dotted kind, e.g. `run.status_changed`, `worker.status_changed`,
-    /// `synthesis.completed`. Extensible (a String, not a closed enum) so new
-    /// kinds never break old clients.
+    /// `stage.completed`. Extensible (a String, not a closed enum) so new kinds
+    /// never break old clients.
     public var kind: String
     public var payload: [String: JSONValue]
 
@@ -41,9 +41,6 @@ public enum RunEventKind {
     /// Live streaming REASONING: the FULL accumulated thinking text so far for a
     /// worker, shown in a separate surface. Payload: `runId`, `workerId`, `text`.
     public static let workerReasoningDelta = "worker.reasoning_delta"
-    public static let synthesisStarted = "synthesis.started"
-    public static let synthesisCompleted = "synthesis.completed"
-    public static let synthesisFailed = "synthesis.failed"
     // Generic stage events (RB1+) — one family for analysis/plan/review/final/
     // Stage payload carries `stageId` + `purpose`. No per-kind families.
     public static let stageStarted = "stage.started"

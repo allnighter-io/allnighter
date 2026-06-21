@@ -144,6 +144,34 @@ final class CloudRemoteClientTests: XCTestCase {
         XCTAssertEqual(ids, ["evt_2"])
     }
 
+    func testClientFiltersStaleEventsFromStreamingRelay() async throws {
+        let wrongMacMedia = try eventEnvelope(
+            id: "evt_wrong_media_mac",
+            seq: 3,
+            kind: "run.completed",
+            sealedRef: mediaRef(
+                ref: "media_cross_mac",
+                macAgentId: "mac_2",
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
+        let relay = UnfilteredStreamingRelay(events: [
+            try eventEnvelope(id: "evt_old", seq: 1, kind: "run.started"),
+            wrongMacMedia,
+            try eventEnvelope(id: "evt_new", seq: 2, kind: "run.completed"),
+        ])
+        let client = CloudRemoteClient(mac: macRef(), relay: relay)
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        let stream = await client.stream(macId: "mac_1", since: 1)
+        var ids: [String] = []
+        for await envelope in stream {
+            ids.append(envelope.event.id)
+        }
+
+        XCTAssertEqual(ids, ["evt_new"])
+    }
+
     func testClientFetchesPublishedCloudSnapshot() async throws {
         let relay = MockRemoteMacRelay()
         let snapshot = snapshotEnvelope()
@@ -200,12 +228,11 @@ final class CloudRemoteClientTests: XCTestCase {
 
         XCTAssertEqual(fetched, key)
 
-        let mismatchedRelay = MockRemoteMacRelay()
-        try await mismatchedRelay.publishMedia(
-            ref: ref,
-            data: Data("ciphertext".utf8),
-            keys: [mediaKey(ref: "media_other", deviceId: "device_1")]
-        )
+        let mismatchedRelay = MalformedMediaKeyRelay(key: mediaKey(
+            ref: "media_other",
+            macAgentId: "mac_2",
+            deviceId: "device_other"
+        ))
         let mismatchedClient = CloudRemoteClient(mac: macRef(), relay: mismatchedRelay, now: { fixedNow })
         try await mismatchedClient.connect(account: account, mode: .cloudRelay)
         do {
@@ -456,7 +483,8 @@ final class CloudRemoteClientTests: XCTestCase {
     private func eventEnvelope(
         id: String,
         seq: Int64,
-        kind: String
+        kind: String,
+        sealedRef: MediaRef? = nil
     ) throws -> RemoteRunEventEnvelope {
         try RemoteCrypto.makeRemoteRunEventEnvelope(
             macAgentId: "mac_1",
@@ -467,6 +495,7 @@ final class CloudRemoteClientTests: XCTestCase {
                 kind: kind,
                 payload: ["runId": .string("run_1")]
             ),
+            sealedRef: sealedRef,
             signingKey: macSigningKey
         )
     }
@@ -498,9 +527,10 @@ final class CloudRemoteClientTests: XCTestCase {
         )
     }
 
-    private func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+    private func mediaKey(ref: String, macAgentId: String = "mac_1", deviceId: String) -> MediaKeyEnvelope {
         MediaKeyEnvelope(
             ref: ref,
+            macAgentId: macAgentId,
             deviceId: deviceId,
             sealedKey: SealedBlob(
                 ciphertext: Data("ciphertext".utf8),
@@ -510,6 +540,143 @@ final class CloudRemoteClientTests: XCTestCase {
             )
         )
     }
+}
+
+private actor MalformedMediaKeyRelay: FailingRemoteMacRelay {
+    private let key: MediaKeyEnvelope
+
+    init(key: MediaKeyEnvelope) {
+        self.key = key
+    }
+
+    func mediaKey(ref _: String, macAgentId _: String, deviceId _: String, at _: Date) async throws -> MediaKeyEnvelope? {
+        key
+    }
+}
+
+private struct UnfilteredStreamingRelay: RemoteRunEventStreamingRelay, FailingRemoteMacRelay {
+    var events: [RemoteRunEventEnvelope]
+
+    func runEventStream(
+        accountId _: String,
+        macAgentId _: String,
+        after _: Int64,
+        limit _: Int
+    ) async -> AsyncStream<RemoteRunEventEnvelope> {
+        AsyncStream { continuation in
+            for event in events {
+                continuation.yield(event)
+            }
+            continuation.finish()
+        }
+    }
+}
+
+private protocol FailingRemoteMacRelay: RemoteMacRelay {}
+
+extension FailingRemoteMacRelay {
+    func registerMacAgent(_: RemoteMacAgentRegistration) async throws -> MacAgentRef {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func heartbeat(_: RemoteMacAgentHeartbeat) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func macAgents(accountId _: String) async throws -> [MacAgentRef] {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func submitPairRequest(_: RemotePairRequestDraft) async throws -> RemotePairRequest {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func pendingPairRequests(accountId _: String, macAgentId _: String) async throws -> [RemotePairRequest] {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func pairRequestStatus(
+        accountId _: String,
+        macAgentId _: String,
+        requestId _: String,
+        deviceId _: String,
+        checkedAt _: Date
+    ) async throws -> RemotePairingStatusResponse {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func updatePairRequest(_: RemotePairRequest) async throws -> RemotePairRequest {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func trustedDevices(accountId _: String, macAgentId _: String) async throws -> [TrustedDevice] {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func upsertTrustedDevice(_: TrustedDevice) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func submitCommand(_: RemoteCommandInboxEntry) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func commandAck(
+        accountId _: String,
+        macAgentId _: String,
+        requestId _: String
+    ) async throws -> RemoteCommandAckEnvelope? {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func pendingCommands(accountId _: String, macAgentId _: String, limit _: Int) async throws -> [RemoteCommandInboxEntry] {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func acknowledge(_: RemoteCommandAckEnvelope) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func runEvents(
+        accountId _: String,
+        macAgentId _: String,
+        after _: Int64,
+        limit _: Int
+    ) async throws -> [RemoteRunEventEnvelope] {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func publishEvents(accountId _: String, macAgentId _: String, events _: [RemoteRunEventEnvelope]) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func publishSnapshot(accountId _: String, macAgentId _: String, snapshot _: SnapshotEnvelope) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func snapshot(accountId _: String, macAgentId _: String, since _: Int64?) async throws -> SnapshotEnvelope? {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func publishMedia(ref _: MediaRef, data _: Data, keys _: [MediaKeyEnvelope]) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func upsertMediaKey(_: MediaKeyEnvelope, macAgentId _: String) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func mediaData(ref _: String, macAgentId _: String, at _: Date) async throws -> Data? {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func mediaKey(ref _: String, macAgentId _: String, deviceId _: String, at _: Date) async throws -> MediaKeyEnvelope? {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+}
+
+private enum FailingRemoteMacRelayError: Error {
+    case unexpectedCall
 }
 
 private actor DrainingCloudRemoteClientSleeper: CloudRemoteClientSleeping {

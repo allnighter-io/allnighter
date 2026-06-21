@@ -124,7 +124,7 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertEqual(result.acknowledgements.first?.reason, .revoked)
         let stopAllCallCount = await executor.stopAllCallCount()
         XCTAssertEqual(stopAllCallCount, 0)
-        XCTAssertEqual(trustedStore.load().trustedDevices.first?.revoked, true)
+        XCTAssertEqual(try trustedStore.load().trustedDevices.first?.revoked, true)
 
         let eventLog = await relay.eventLog
         XCTAssertLessThan(
@@ -148,7 +148,7 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertEqual(result.syncedPendingPairRequestCount, 1)
         XCTAssertEqual(result.syncedTrustedDeviceCount, 0)
         XCTAssertEqual(result.processedCommandCount, 0)
-        XCTAssertEqual(trustedStore.load().pendingRequests, [request])
+        XCTAssertEqual(try trustedStore.load().pendingRequests, [request])
 
         let eventLog = await relay.eventLog
         XCTAssertLessThan(
@@ -173,7 +173,7 @@ final class RemoteMacAgentTests: XCTestCase {
 
         XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
         XCTAssertEqual(result.syncedTrustedDeviceCount, 1)
-        XCTAssertEqual(trustedStore.load().trustedDevices, [approvedDevice])
+        XCTAssertEqual(try trustedStore.load().trustedDevices, [approvedDevice])
 
         let eventLog = await relay.eventLog
         let relayTrusted = try await relay.trustedDevices(accountId: "acct_1", macAgentId: "mac_1")
@@ -209,7 +209,7 @@ final class RemoteMacAgentTests: XCTestCase {
 
         XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
         XCTAssertEqual(result.syncedTrustedDeviceCount, 2)
-        XCTAssertEqual(trustedStore.load().trustedDevices.map(\.deviceId), ["device_cloud", "device_local"])
+        XCTAssertEqual(try trustedStore.load().trustedDevices.map(\.deviceId), ["device_cloud", "device_local"])
     }
 
     func testDrainPublishesLocalApprovalOverExpiredRelayDevice() async throws {
@@ -226,7 +226,7 @@ final class RemoteMacAgentTests: XCTestCase {
 
         XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
         XCTAssertEqual(result.syncedTrustedDeviceCount, 1)
-        XCTAssertEqual(trustedStore.load().trustedDevices, [approvedDevice])
+        XCTAssertEqual(try trustedStore.load().trustedDevices, [approvedDevice])
         let relayTrusted = try await relay.trustedDevices(accountId: "acct_1", macAgentId: "mac_1")
         XCTAssertEqual(relayTrusted, [approvedDevice])
     }
@@ -249,7 +249,7 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
         XCTAssertEqual(result.syncedTrustedDeviceCount, 1)
         XCTAssertEqual(upsertedDevices, [approvedDevice])
-        XCTAssertEqual(trustedStore.load().trustedDevices, [approvedDevice])
+        XCTAssertEqual(try trustedStore.load().trustedDevices, [approvedDevice])
     }
 
     func testDrainPublishesJournalEventsAfterInboxWithoutSkippingBatchedEvents() async throws {

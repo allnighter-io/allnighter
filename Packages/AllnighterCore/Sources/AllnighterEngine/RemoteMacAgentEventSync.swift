@@ -57,9 +57,12 @@ public struct RemoteMacAgentEventCursorStore: Sendable {
     }
 
     private static func safePathComponent(_ raw: String) -> String {
+        precondition(
+            !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            "remote event cursor scope must not be empty"
+        )
         let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
-        let sanitized = String(raw.map { allowed.contains($0) ? $0 : "_" })
-        return sanitized.isEmpty ? "unknown" : sanitized
+        return String(raw.map { allowed.contains($0) ? $0 : "_" })
     }
 
     private struct State: Codable, Equatable, Sendable {

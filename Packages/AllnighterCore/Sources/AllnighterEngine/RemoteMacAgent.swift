@@ -139,7 +139,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
             accountId: identity.account.accountId,
             macAgentId: identity.macAgentId
         )
-        let localRegistryBeforePairImport = trustedStore.list(now: serverTime)
+        let localRegistryBeforePairImport = try trustedStore.list(now: serverTime)
         let locallyTrustedDeviceIds = Set(localRegistryBeforePairImport.trustedDevices.compactMap { device -> String? in
             guard device.accountId == identity.account.accountId,
                   device.macAgentId == identity.macAgentId,
@@ -245,7 +245,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
         relayTrustedDevices: [TrustedDevice],
         serverTime: Date
     ) async throws -> Int {
-        let registry = trustedStore.list(now: serverTime)
+        let registry = try trustedStore.list(now: serverTime)
         let scopedRelayTrustedDevices = relayTrustedDevices.filter {
             $0.accountId == identity.account.accountId && $0.macAgentId == identity.macAgentId
         }
