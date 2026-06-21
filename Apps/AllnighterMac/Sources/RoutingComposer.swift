@@ -743,23 +743,20 @@ struct RoutingComposer: View {
         if !selectedFileReferences.contains(where: { $0.path == path }) {
             selectedFileReferences.append(ComposeFileReference(path: path))
         }
+        // The chip is the durable attachment — drop the typed "@query" from the editor so
+        // the file isn't shown twice (no leftover @path text + chip).
         if let range = activeFileTrigger(in: text)?.range {
-            text.replaceSubrange(range, with: "@\(path)")
-        } else if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            text = "@\(path)"
-        } else {
-            text += " @\(path)"
+            text.removeSubrange(range)
+            text = text.replacingOccurrences(of: "  ", with: " ")
+            if text == " " { text = "" }
         }
         closeFileSearch()
         composerFocused = true
     }
 
     private func removeFileReference(_ path: String) {
+        // The @path no longer lives in the text (the chip owns it), so just drop the chip.
         selectedFileReferences.removeAll { $0.path == path }
-        text = text.replacingOccurrences(of: "@\(path)", with: "")
-            .replacingOccurrences(of: "  ", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        updateFileSearchFromText()
     }
 
     private func activeFileTrigger(in value: String) -> (range: Range<String.Index>, query: String)? {
