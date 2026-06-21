@@ -104,6 +104,23 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         XCTAssertEqual(consumed.consumedAt, now.addingTimeInterval(1))
     }
 
+    func testMalformedManualCodeAttemptsLockOutActiveSession() throws {
+        let payload = pairingPayload(pairingToken: "token_manual", expiresAt: now.addingTimeInterval(120))
+        _ = try store.arm(payload: payload, manualCode: "123456", now: now, maxFailedAttempts: 1)
+
+        XCTAssertThrowsError(try store.consume(manualCode: "not-a-code", now: now.addingTimeInterval(1))) { error in
+            XCTAssertEqual(error as? DirectModePairingSessionStoreError, .invalidManualCode)
+        }
+        let locked = store.load().sessions.first
+        XCTAssertEqual(locked?.failedAttempts, 1)
+        XCTAssertEqual(locked?.status, .lockedOut)
+        XCTAssertEqual(locked?.lockedOutAt, now.addingTimeInterval(1))
+
+        XCTAssertThrowsError(try store.consume(manualCode: "123456", now: now.addingTimeInterval(2))) { error in
+            XCTAssertEqual(error as? DirectModePairingSessionStoreError, .sessionLockedOut("session_1"))
+        }
+    }
+
     func testNewArmedWindowExpiresPreviousActiveWindow() throws {
         let ids = IDSequence(["session_1", "session_2"])
         store = DirectModePairingSessionStore(

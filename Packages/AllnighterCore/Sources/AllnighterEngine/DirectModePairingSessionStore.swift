@@ -131,6 +131,7 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
         now: Date = Date()
     ) throws -> DirectModePairingSession {
         guard let normalized = Self.normalizeManualCode(manualCode) else {
+            try recordFailedManualCodeAttempt(now: now)
             throw DirectModePairingSessionStoreError.invalidManualCode
         }
         return try consume(digest: Self.sha256Hex(normalized), kind: .manualCode, now: now)
@@ -215,6 +216,22 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
                 registry.sessions[index].lockedOutAt = now
             }
         }
+    }
+
+    private func recordFailedManualCodeAttempt(now: Date) throws {
+        var registry = load()
+        let didExpire = expireSessions(in: &registry, now: now)
+        let hasActiveManualCodeSession = registry.sessions.contains {
+            $0.manualCodeSHA256 != nil && $0.isArmed(at: now)
+        }
+        guard hasActiveManualCodeSession else {
+            if didExpire {
+                try save(registry)
+            }
+            return
+        }
+        recordFailedAttempt(in: &registry, now: now)
+        try save(registry)
     }
 
     private static func normalizeManualCode(_ value: String) -> String? {
