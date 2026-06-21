@@ -116,6 +116,40 @@ custom team execution, model health/substitutions.
   visible `Synthesis from <team>` attachment chip/card and editable prompt; a
   negative test that `Save to Pending` no longer appears on the Floor card.
 
+- [ ] **Top Inbox/Teams navigation does not escape deep surfaces.**
+
+  **Priority:** P1 / app navigation trust.
+  **Observed:** Pressing the top `Inbox` or `Teams` control often appears to do
+  nothing when a deep surface is visible. The founder called out Factory Floor and
+  Settings specifically: the Floor does not yield, Settings does not yield, and
+  the buttons feel broken. In the reported screenshot the top bar still shows
+  `Inbox` selected while the main area is a Factory Floor result.
+  **Expected:** Top-level `Inbox` and `Teams` are route commands, not passive tab
+  labels. Pressing `Inbox` must close/dismiss any non-default surface above the
+  workspace and show the default Inbox view unless the default Inbox view is
+  already visible. Pressing `Teams` must close/dismiss the same deep surfaces and
+  show the default Teams launcher unless the default Teams launcher is already
+  visible. Deep surfaces include Factory Floor, Settings/Team Studio, Pending,
+  readiness/doctor overlays, and any proof/demo overlays.
+  **Truth owner:** Root app route state: `workspaceMode` plus the modal/deep
+  surface flags that currently gate Root/Home content (`showTeamStudio`,
+  `showPending`, `showReadiness`, `showDoctor`, Factory Floor state, and related
+  overlays). The top bar should express one route truth, not only mutate
+  `workspaceMode`.
+  **Lie-prone layer:** `InboxTeamsSwitch` can visually accept a click while an
+  overlay or deeper route still wins the ZStack/body branch, making the button
+  look inert. Home-owned Factory Floor state is especially risky because `Inbox`
+  may already be selected, so setting `.inbox` again does not dismiss it.
+  **Fix boundary:** Navigation/state reset only. Do not change thread selection,
+  run records, Team run truth, Settings content, or Factory Floor rendering while
+  fixing the escape behavior.
+  **Missing proof:** A navigation-state test or GUI fixture that opens Factory
+  Floor, presses `Inbox`, and proves the default Inbox is visible; opens Factory
+  Floor, presses `Teams`, and proves Teams launcher is visible; opens Settings,
+  presses `Inbox`/`Teams`, and proves Settings is dismissed. Include the no-op
+  case: pressing the already visible default route should not destroy useful
+  thread state beyond closing deep surfaces.
+
 - [ ] **Factory Floor worker responses are missing the bottom copy button.**
 
   **Priority:** P1 for missing action, P2 for polish.  
@@ -214,9 +248,11 @@ custom team execution, model health/substitutions.
    verify selected and selected+hover states remain distinct.
 8. In `TAKE THE NEXT MOVE`, verify only `Ask Another Team` and `Continue with
    Auto` appear; each opens the correct composer with the synthesis attached.
-9. Verify every worker response has a bottom copy button.
-10. Compare the saved custom team row to the run snapshot and spawned CLI/model.
-11. For timed-out workers, inspect whether the runtime classified the failure cause
+9. From Factory Floor and Settings, press the top `Inbox` and `Teams` controls
+   and verify they load the default target route instead of appearing inert.
+10. Verify every worker response has a bottom copy button.
+11. Compare the saved custom team row to the run snapshot and spawned CLI/model.
+12. For timed-out workers, inspect whether the runtime classified the failure cause
    and whether substitution was attempted or explicitly skipped.
 
 ## Related Prior Art
@@ -235,6 +271,12 @@ custom team execution, model health/substitutions.
 - `Apps/AllnighterMac/Sources/FactoryFloorView.swift` - `CastCard` is the
   current worker row/button touchpoint; it paints selected state but no hover
   state.
+- `Apps/AllnighterMac/Sources/RootView.swift` - owns top-level workspace routing
+  and deep-surface flags such as Team Studio, Pending, Readiness, and proof Floor.
+- `Apps/AllnighterMac/Sources/HomeView.swift` - owns the production Factory Floor
+  overlay via `floorRun`, which top-level navigation must be able to dismiss.
+- `Apps/AllnighterMac/Sources/WorkspaceMode.swift` / `RootTitleBar.swift` - owns
+  the visible `Inbox | Teams` top-bar control.
 - `docs/phases/Pending_Work_And_Drain.md` - Pending is durable submitted work
   intent/lifecycle state; it should not be used as a vague Floor next-move label.
 - `docs/phases/Work_Order_Team_Model.md` - worker = model wearing a skill; models
