@@ -5,10 +5,12 @@ import AllnighterCore
 public struct RemoteRunEventPublishResult: Equatable, Sendable {
     public var publishedEventCount: Int
     public var lastSeq: Int64
+    public var lastPublishedSeq: Int64?
 
-    public init(publishedEventCount: Int, lastSeq: Int64) {
+    public init(publishedEventCount: Int, lastSeq: Int64, lastPublishedSeq: Int64? = nil) {
         self.publishedEventCount = publishedEventCount
         self.lastSeq = lastSeq
+        self.lastPublishedSeq = lastPublishedSeq
     }
 }
 
@@ -56,7 +58,8 @@ public struct RemoteRunEventPublisher: Sendable {
 
         return RemoteRunEventPublishResult(
             publishedEventCount: envelopes.count,
-            lastSeq: replay.lastSeq
+            lastSeq: replay.lastSeq,
+            lastPublishedSeq: envelopes.map(\.event.seq).max()
         )
     }
 }
