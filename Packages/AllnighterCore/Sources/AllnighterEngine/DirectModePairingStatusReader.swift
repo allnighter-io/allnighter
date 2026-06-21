@@ -41,7 +41,7 @@ public struct DirectModePairingStatusReader: DirectModePairingStatusHandling {
         let status: DirectModePairingStatusKind
         if let device, device.revoked {
             status = .revoked
-        } else if let device, device.validUntil <= checkedAt {
+        } else if let device, device.validUntil < checkedAt {
             status = .expired
         } else if device != nil {
             status = .approved

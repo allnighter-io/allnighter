@@ -46,7 +46,7 @@ final class DirectModePairingStatusReaderTests: XCTestCase {
     }
 
     func testStatusReportsExpiredTrustedDevice() throws {
-        try store.save(TrustedRemoteRegistry(trustedDevices: [trustedDevice(validUntil: now)]))
+        try store.save(TrustedRemoteRegistry(trustedDevices: [trustedDevice(validUntil: now.addingTimeInterval(-1))]))
         let reader = makeReader()
 
         let response = try reader.status(DirectModePairingStatusRequest(
@@ -55,6 +55,20 @@ final class DirectModePairingStatusReaderTests: XCTestCase {
         ))
 
         XCTAssertEqual(response.status, .expired)
+        XCTAssertEqual(response.trustedDevice?.deviceId, "device_1")
+        XCTAssertEqual(response.trustedDevice?.validUntil, now.addingTimeInterval(-1))
+    }
+
+    func testStatusReportsApprovedTrustedDeviceAtValidityBoundary() throws {
+        try store.save(TrustedRemoteRegistry(trustedDevices: [trustedDevice(validUntil: now)]))
+        let reader = makeReader()
+
+        let response = try reader.status(DirectModePairingStatusRequest(
+            requestId: "pair_request_1",
+            deviceId: "device_1"
+        ))
+
+        XCTAssertEqual(response.status, .approved)
         XCTAssertEqual(response.trustedDevice?.deviceId, "device_1")
         XCTAssertEqual(response.trustedDevice?.validUntil, now)
     }
