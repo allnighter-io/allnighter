@@ -691,6 +691,17 @@ private struct ThreadBoardRow: View {
         }
     }
 
+    /// The worker's job title for this answer — the skill name, else a humanized skill id,
+    /// else a generic fallback (never the raw `model_x#0` worker id).
+    private func workerTitle(_ answer: WorkerAnswer) -> String {
+        let worker = run?.workers.first { $0.id == answer.workerId }
+        if let name = worker?.skillName, !name.isEmpty { return name }
+        if let id = worker?.skillId, !id.isEmpty {
+            return id.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+        }
+        return "Worker"
+    }
+
     /// One-glance plain-text preview for a collapsed answer (no markdown layout cost).
     private func answerPreview(_ output: String?) -> String {
         let flat = (output ?? "")
@@ -704,8 +715,14 @@ private struct ThreadBoardRow: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 if let bench { DriverBrandGlyph(driverId: bench.driverId, boxSize: 18, iconSize: 9, cornerRadius: 5) }
-                Text(bench?.name ?? answer.modelId)
-                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
+                // Worker JOB/TITLE first, then the model (bug #1) — so you can tell who did
+                // what, not just which model ran.
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(workerTitle(answer))
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+                    Text(bench?.name ?? answer.modelId)
+                        .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
+                }
                 Spacer(minLength: 0)
                 StatusPill(kind: ThreadsPresenter.pillKind(for: workerTurnStatus(answer.status)))
             }

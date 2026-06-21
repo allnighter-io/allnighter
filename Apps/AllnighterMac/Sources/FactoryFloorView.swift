@@ -114,8 +114,10 @@ struct FactoryFloorView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
                         } else {
                             MarkdownText(markdown: member.markdown)
-                            if member.isLead { nextMove }
                         }
+                        // Copy button at the BOTTOM of every worker answer (bug #6).
+                        FloorAnswerCopyFooter(text: member.markdown)
+                        if member.isLead, !rawMode { nextMove }
                     }
                 }
                 .frame(maxWidth: 720, alignment: .leading)
@@ -169,6 +171,7 @@ struct FactoryFloorView: View {
                                 .padding(.horizontal, 5).padding(.vertical, 2)
                                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(ALColor.accentBorder, lineWidth: 1))
                         }
+                        WorkerStateBadge(member: member)
                     }
                     Text(member.subtitle).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                 }
@@ -249,6 +252,9 @@ struct FloorCastMember: Identifiable {
     let gist: String
     let markdown: String
     let status: String
+    let startedAt: Date?
+    let finishedAt: Date?
+    let durationMs: Int?
 
     var subtitle: String {
         isLead ? "\(modelName) — designated lead, synthesized the team" : "\(modelName) — read the full reply below"
@@ -260,20 +266,34 @@ struct FloorCastMember: Identifiable {
         let lead = run.workers.first { $0.purpose == .plan }
         var members: [FloorCastMember] = []
         if let lead {
+            let leadAnswer = run.workerAnswer(workerId: lead.id)
             members.append(FloorCastMember(
-                id: lead.id, role: "Lead", isLead: true,
+                id: lead.id, role: title(lead.skillName, lead.skillId, fallback: "Lead"), isLead: true,
                 modelName: modelName(lead.modelId), driverId: driverId(lead.modelId),
-                gist: "The synthesis", markdown: run.plan ?? "(no synthesis written)", status: "done"))
+                gist: "The synthesis", markdown: run.plan ?? "(no synthesis written)",
+                status: (leadAnswer?.status ?? .done).rawValue,
+                startedAt: leadAnswer?.startedAt, finishedAt: leadAnswer?.finishedAt, durationMs: leadAnswer?.durationMs))
         }
         for worker in run.workers where worker.purpose != .plan {
             let answer = run.workerAnswer(workerId: worker.id)
             members.append(FloorCastMember(
-                id: worker.id, role: worker.skillName ?? worker.skillId ?? worker.id, isLead: false,
+                id: worker.id, role: title(worker.skillName, worker.skillId, fallback: "Worker"), isLead: false,
                 modelName: modelName(worker.modelId), driverId: driverId(worker.modelId),
                 gist: previewLine(answer?.output ?? ""),
-                markdown: answer?.output ?? "(no reply)", status: (answer?.status ?? .queued).rawValue))
+                markdown: answer?.output ?? "(no reply)", status: (answer?.status ?? .queued).rawValue,
+                startedAt: answer?.startedAt, finishedAt: answer?.finishedAt, durationMs: answer?.durationMs))
         }
         return members
+    }
+
+    /// The worker's job title: the skill display name, else a humanized skill id, else a
+    /// generic fallback — never a raw `model_x#0` worker id.
+    private static func title(_ skillName: String?, _ skillId: String?, fallback: String) -> String {
+        if let skillName, !skillName.isEmpty { return skillName }
+        if let skillId, !skillId.isEmpty {
+            return skillId.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+        }
+        return fallback
     }
 
     private static func modelName(_ modelId: String) -> String {
@@ -301,6 +321,7 @@ private struct CastCard: View {
     let member: FloorCastMember
     let selected: Bool
     var onTap: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: onTap) {
@@ -314,6 +335,7 @@ private struct CastCard: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
+                        // Worker JOB/TITLE first (bug #1).
                         Text(member.role).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                         if member.isLead {
                             Text("synthesis").font(.system(size: 8.5, weight: .semibold))
@@ -321,6 +343,8 @@ private struct CastCard: View {
                                 .padding(.horizontal, 4).padding(.vertical, 1)
                                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(ALColor.accentBorder, lineWidth: 1))
                         }
+                        Spacer(minLength: 4)
+                        WorkerStateBadge(member: member)
                     }
                     Text(member.modelName).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
                     Text(member.gist).font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint).lineLimit(1)
@@ -329,12 +353,80 @@ private struct CastCard: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: 10))
+            // Hover affordance (#3): a quiet hover surface, distinct from the brighter
+            // selected surface; selected+hover stays legible.
+            .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
+                        in: RoundedRectangle(cornerRadius: 10))
             .overlay(alignment: .leading) {
                 if selected && member.isLead { Rectangle().fill(ALColor.accent).frame(width: 2) }
             }
+            .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// Copy footer below a Floor worker answer (bug #6) — copies the exact response body.
+private struct FloorAnswerCopyFooter: View {
+    let text: String
+    @State private var copied = false
+
+    var body: some View {
+        if !text.isEmpty {
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                    copied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { copied = false }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 10, weight: .medium))
+                        Text(copied ? "Copied" : "Copy").font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(copied ? ALPalette.green500 : ALColor.textMuted)
+                    .padding(.horizontal, 8).frame(height: 24)
+                    .background(ALColor.subtle, in: Capsule())
+                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                }
+                .buttonStyle(.plain)
+                .help("Copy this worker's answer")
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+/// A worker's live/terminal state dot + response time (#2). Running workers tick.
+private struct WorkerStateBadge: View {
+    let member: FloorCastMember
+
+    var body: some View {
+        let dot = FloorWorkerStatePresenter.dot(status: member.status)
+        if dot == .running {
+            TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                badge(dot: dot, label: durationLabel(now: ctx.date))
+            }
+        } else {
+            badge(dot: dot, label: durationLabel(now: Date()))
+        }
+    }
+
+    private func durationLabel(now: Date) -> String? {
+        FloorWorkerStatePresenter.durationLabel(
+            status: member.status, startedAt: member.startedAt,
+            finishedAt: member.finishedAt, durationMs: member.durationMs, now: now)
+    }
+
+    private func badge(dot: FloorWorkerStatePresenter.Dot, label: String?) -> some View {
+        HStack(spacing: 4) {
+            if let label {
+                Text(label).font(.system(size: 9.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+            }
+            Circle().fill(dot.color).frame(width: 6, height: 6)
+        }
     }
 }
 
