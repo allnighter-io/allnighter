@@ -16,10 +16,12 @@ struct HomeView: View {
     /// the next composer's attachment.
     var onAskAnotherTeam: (String, String) -> Void = { _, _ in }
     var onContinueWithAuto: (String, String) -> Void = { _, _ in }
+    /// DEBUG-only: open the developer GUI-routes sheet (sidebar footer link).
+    var onOpenDevRoutes: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 0) {
-            HomeSidebar()
+            HomeSidebar(onOpenDevRoutes: onOpenDevRoutes)
                 .frame(width: 300)
             Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
             mainPane
@@ -67,6 +69,8 @@ private struct HomeSidebar: View {
     @State private var newChatHover = false
     /// Thread ids with an armed Pending item — drives the neutral pending row dot.
     @State private var armedPendingThreadIds: Set<String> = []
+    /// DEBUG-only: opens the developer GUI-routes sheet from the sidebar footer.
+    var onOpenDevRoutes: () -> Void = {}
 
     private var sections: (pinned: [ThreadRailRowState], groups: [ThreadsPresenter.ProjectRowGroup]) {
         ThreadsPresenter.projectSections(threads.railRows, projects: projects.projects, search: search)
@@ -126,6 +130,10 @@ private struct HomeSidebar: View {
             if !threads.showingArchive {
                 archiveEntry
             }
+
+            #if DEBUG
+            devRoutesEntry
+            #endif
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(ALColor.subtle)
@@ -136,6 +144,32 @@ private struct HomeSidebar: View {
         .onAppear(perform: refreshArmedPending)
         .onChange(of: threads.railRows.count) { _, _ in refreshArmedPending() }
     }
+
+    #if DEBUG
+    /// Developer-only entry at the very bottom of the rail — opens the GUI-routes /
+    /// bench-scenarios sheet. The Settings gear now opens real Settings, so this is the
+    /// only door to the dev sheet, and it ships only in DEBUG builds.
+    @State private var devRoutesHover = false
+    private var devRoutesEntry: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+            Button(action: onOpenDevRoutes) {
+                HStack(spacing: 7) {
+                    Image(systemName: "hammer").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                    Text("Developer · GUI routes")
+                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(ALColor.textFaint)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 14).frame(height: 34)
+                .background(devRoutesHover ? ALColor.hover : Color.clear)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { devRoutesHover = $0 }
+            .help("DEBUG only — GUI routes & bench scenarios")
+        }
+    }
+    #endif
 
     // MARK: Projects rail (PRJ-S14)
 
@@ -354,53 +388,15 @@ private struct ProjectThreadRow: View {
     }
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 9) {
-                stateDot
-                if renaming {
-                    // Double-click to rename (Cursor/Finder behaviour). Commit on Return or blur.
-                    TextField("Title", text: $editTitle, onCommit: commitRename)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(ALColor.textPrimary)
-                        .focused($titleFocused)
-                        .onExitCommand { onEndRename?() }   // Esc cancels
-                } else {
-                    Text(row.title)
-                        .font(.system(size: 13, weight: state == .replied ? .semibold : .regular))
-                        .foregroundStyle(titleColor)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 4)
-                if renaming {
-                    EmptyView()
-                } else if hovering {
-                    HStack(spacing: 2) {
-                        IconButton(systemImage: row.isPinned ? "pin.slash" : "pin", accessibilityLabel: row.isPinned ? "Unpin" : "Pin", small: true) {
-                            threads.togglePin(threadId: row.id)
-                        }
-                        IconButton(systemImage: "archivebox", accessibilityLabel: "Archive", small: true) {
-                            threads.archiveThread(row.id)
-                        }
-                    }
-                } else {
-                    Text(row.updatedAt, format: .relative(presentation: .numeric))
-                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
-                }
+        Group {
+            if renaming {
+                // TextField must not live inside a Button — Space would activate the row tap.
+                rowContent
+            } else {
+                Button(action: onTap) { rowContent }
+                    .buttonStyle(.plain)
             }
-            .padding(.horizontal, 10).frame(height: 32)
-            .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
-                        in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay(alignment: .leading) {
-                // A draft is "nothing of importance yet" — it must stay subtle even when
-                // selected: the quiet active background marks it, never an amber rail.
-                if selected && state != .draft {
-                    RoundedRectangle(cornerRadius: 1.5).fill(ALColor.accent).frame(width: 2.5).padding(.vertical, 6)
-                }
-            }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
         .onHover { hovering = $0 }
         // Double-click anywhere on the row opens the inline editor.
         .simultaneousGesture(TapGesture(count: 2).onEnded { onRename?() })
@@ -416,6 +412,53 @@ private struct ProjectThreadRow: View {
             // Click away (lost focus while still in rename mode) commits, like Finder.
             if !focused && renaming { commitRename() }
         }
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: 9) {
+            stateDot
+            if renaming {
+                // Double-click to rename (Cursor/Finder behaviour). Commit on Return or blur.
+                TextField("Title", text: $editTitle, onCommit: commitRename)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(ALColor.textPrimary)
+                    .focused($titleFocused)
+                    .onExitCommand { onEndRename?() }   // Esc cancels
+            } else {
+                Text(row.title)
+                    .font(.system(size: 13, weight: state == .replied ? .semibold : .regular))
+                    .foregroundStyle(titleColor)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            if renaming {
+                EmptyView()
+            } else if hovering {
+                HStack(spacing: 2) {
+                    IconButton(systemImage: row.isPinned ? "pin.slash" : "pin", accessibilityLabel: row.isPinned ? "Unpin" : "Pin", small: true) {
+                        threads.togglePin(threadId: row.id)
+                    }
+                    IconButton(systemImage: "archivebox", accessibilityLabel: "Archive", small: true) {
+                        threads.archiveThread(row.id)
+                    }
+                }
+            } else {
+                Text(row.updatedAt, format: .relative(presentation: .numeric))
+                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+            }
+        }
+        .padding(.horizontal, 10).frame(height: 32)
+        .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
+                    in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay(alignment: .leading) {
+            // A draft is "nothing of importance yet" — it must stay subtle even when
+            // selected: the quiet active background marks it, never an amber rail.
+            if selected && state != .draft {
+                RoundedRectangle(cornerRadius: 1.5).fill(ALColor.accent).frame(width: 2.5).padding(.vertical, 6)
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     private func commitRename() {
@@ -501,46 +544,14 @@ private struct ConversationRow: View {
     @FocusState private var titleFocused: Bool
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 10) {
-                rowGlyph
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        if renaming {
-                            TextField("Title", text: $editTitle, onCommit: commitRename)
-                                .textFieldStyle(.plain)
-                                .font(.system(size: 13, weight: .semibold))
-                                .focused($titleFocused)
-                                .onAppear {
-                                    editTitle = thread.title
-                                    titleFocused = true
-                                }
-                        } else {
-                            Text(thread.title)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(ALColor.textPrimary)
-                                .lineLimit(1)
-                        }
-                        ThreadRailComponents.PinMarker(pinned: thread.isPinned)
-                    }
-                    HStack(spacing: 6) {
-                        if let status = ThreadsPresenter.conversationStatus(for: thread) {
-                            ConversationStatusPill(status: status)
-                        }
-                        Text(thread.updatedAt, format: .relative(presentation: .numeric))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(ALColor.textFaint)
-                    }
-                }
-                Spacer(minLength: 0)
-                ThreadRailComponents.UnreadLight(thread: thread)
-                    .frame(width: 10)
+        Group {
+            if renaming {
+                rowContent
+            } else {
+                Button(action: onTap) { rowContent }
+                    .buttonStyle(.plain)
             }
-            .padding(.horizontal, 9).padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
         }
-        .buttonStyle(.plain)
         .threadRowContextMenu(thread: thread, inArchiveView: inArchiveView, onRename: onRename)
         .onChange(of: renaming) { _, isRenaming in
             if isRenaming {
@@ -548,6 +559,46 @@ private struct ConversationRow: View {
                 titleFocused = true
             }
         }
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: 10) {
+            rowGlyph
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    if renaming {
+                        TextField("Title", text: $editTitle, onCommit: commitRename)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13, weight: .semibold))
+                            .focused($titleFocused)
+                            .onAppear {
+                                editTitle = thread.title
+                                titleFocused = true
+                            }
+                    } else {
+                        Text(thread.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(ALColor.textPrimary)
+                            .lineLimit(1)
+                    }
+                    ThreadRailComponents.PinMarker(pinned: thread.isPinned)
+                }
+                HStack(spacing: 6) {
+                    if let status = ThreadsPresenter.conversationStatus(for: thread) {
+                        ConversationStatusPill(status: status)
+                    }
+                    Text(thread.updatedAt, format: .relative(presentation: .numeric))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(ALColor.textFaint)
+                }
+            }
+            Spacer(minLength: 0)
+            ThreadRailComponents.UnreadLight(thread: thread)
+                .frame(width: 10)
+        }
+        .padding(.horizontal, 9).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(selected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
     }
 
     private func commitRename() {

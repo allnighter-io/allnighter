@@ -193,6 +193,11 @@ struct RootView: View {
                                 threads.pendingComposerContext = .init(
                                     id: UUID(), label: "Synthesis from \(team)", text: synthesis)
                                 floorRun = nil    // back to the current thread's composer
+                            },
+                            onOpenDevRoutes: {
+                                #if DEBUG
+                                showDevSettings = true
+                                #endif
                             }
                         )
                     }
@@ -388,8 +393,11 @@ struct RootView: View {
     #if DEBUG
     private var devSimLabel: String? { devBenchScenario == nil ? nil : "sim" }
 
+    /// The Settings gear opens the real Settings shell (CLIs · Teams · Skills) in every
+    /// build. The developer GUI-routes sheet moved to a DEBUG-only sidebar-footer link
+    /// (HomeSidebar.devRoutesEntry → onOpenDevRoutes), so it no longer hijacks the gear.
     private func openSettings() {
-        showDevSettings = true
+        openTeamStudio()
     }
 
     private func useLiveBenchProbes() {
