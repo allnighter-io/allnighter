@@ -1,34 +1,56 @@
-# Customize Teams Dropdown Bugs — Handoff
+# Team Surface Bugs — Handoff
 
 **Date reported:** 2026-06-20  
 **Status:** Intake only. Do not treat this file as an implementation plan or proof of a fix.  
-**Surface:** Team Studio → Customize Teams → worker model dropdowns.  
-**Reporter evidence:** User report plus screenshot from the original Codex request. The screenshot shows a model dropdown opened over the worker rows with duplicate `Auto` entries, each showing a checkmark.
+**Surface:** Team launcher, Team Studio, Customize Teams.  
+**Reporter evidence:** User reports plus screenshots from the original Codex requests.
 
 ## User-Reported Bugs
 
-### 1. Duplicate `Auto` option in model dropdown
+### 1. `Add team` on main Team page routes to CLI Setup
 
-**Priority:** P1 / biggest reported bug.  
+**Priority:** P1 / workflow blocker.  
+**Surface:** Main Teams page / Team launcher (`TEAMS · YOUR ROSTER`).  
+**Observed:** Pressing the primary `Add team` button on the main Team page sends the user to CLI Setup. The user wants to create a team from this action.  
+**Expected:** `Add team` should start a create-team flow: open Team Studio on the Teams route and/or directly create a new unsaved team draft. It must not route to CLI Setup unless the user explicitly chose a CLI/setup action.  
+**Impact:** The primary roster action breaks the user's mental model and blocks team creation from the place where creation is advertised.  
+**Notes for dev:** `TeamsLauncherView` owns the visible button. `TeamStudioView` already has a `newDraftBase` / `addTeamButton` path that creates a blank unsaved team. Check whether the launcher is opening `TeamStudioView` with its default route (`.clis`) instead of a Teams route, and whether it lacks a way to request the new-team draft once Studio opens.
+
+### 2. Duplicate `Auto` option in Customize Teams model dropdown
+
+**Priority:** P1 / biggest dropdown bug.  
+**Surface:** Team Studio → Customize Teams → worker model dropdowns.  
 **Observed:** The opened model dropdown shows `Auto` twice at the top. Both visible `Auto` rows appear selected with checkmarks.  
 **Expected:** `Auto` should appear exactly once as the nil/default model choice. If selected, only that single row should carry the selected/check state.  
 **Notes for dev:** `Auto` is the default model concept, not a concrete catalog model duplicate. Confirm whether the dropdown is combining the explicit `Auto` sentinel with a concrete model whose display name is also `Auto` (for example Cursor Agent Auto), then dedupe by identity/semantics rather than label-only guesswork.
 
-### 2. Up/down arrows do not select rows
+### 3. Up/down arrows do not select Customize Teams dropdown rows
 
 **Priority:** P2 / keyboard usability.  
+**Surface:** Team Studio → Customize Teams → worker model dropdowns.  
 **Observed:** With the dropdown open, the user cannot use up/down arrow keys to move the row selection.  
 **Expected:** Up/down should move an active highlight through dropdown rows; return should pick the highlighted row. This should match the behavior already added to the searchable Compose / Customize-worker style popup.  
 **Notes for dev:** `ALSearchableDropdown` already has `highlighted`, `onKeyPress(.downArrow)`, `onKeyPress(.upArrow)`, `onKeyPress(.return)`, and `.onHover` handling. The simpler `ALDropdown` used for model pickers likely needs the same interaction model.
 
-### 3. Mouse hover does not display the selected row correctly
+### 4. Mouse hover does not display the selected Customize Teams dropdown row correctly
 
 **Priority:** P2 / visual feedback regression.  
+**Surface:** Team Studio → Customize Teams → worker model dropdowns.  
 **Observed:** Mousing over the selected row does not display the row state correctly. The user notes this was already fixed in the Compose popup / overlay form.  
 **Expected:** Hover and selected states should be visible and coherent. The selected row should remain visibly selected; the hovered row should highlight; when the hovered row is also selected, it should still read as selected.  
 **Notes for dev:** Reuse the interaction/state treatment from the Compose popup or `ALSearchableDropdown` rather than inventing a separate hover style.
 
 ## Repro Sketch
+
+### `Add team` routes to CLI Setup
+
+1. Open Allnighter Mac app.
+2. Go to the main Team page / Team launcher.
+3. Press the primary `Add team` button beside the search field.
+4. Observe that the app routes to CLI Setup.
+5. Expected: a team creation flow opens instead.
+
+### Customize Teams dropdown bugs
 
 1. Open Allnighter Mac app.
 2. Go to Team Studio / Customize Teams.
@@ -38,6 +60,13 @@
 
 ## Likely Touchpoints
 
+- `Apps/AllnighterMac/Sources/TeamsLauncherView.swift`
+  - Owns the main `Add team` button shown on the roster page.
+- `Apps/AllnighterMac/Sources/RootView.swift`
+  - Wires `TeamsLauncherView(onAddTeam:)`; current behavior should be checked for defaulting Team Studio to `.clis`.
+- `Apps/AllnighterMac/Sources/TeamStudioView.swift`
+  - `StudioRoute` defaults to `.clis`.
+  - `StudioTeamListView` already has `newDraftBase` and an inline `addTeamButton` that creates a blank team draft.
 - `Apps/AllnighterMac/Sources/TeamEditorView.swift`
   - `modelPicker(_:, onPick:)` currently prepends an explicit `Auto` sentinel before model catalog entries.
   - Worker editor model dropdown also uses `ALDropdown`.
@@ -51,6 +80,10 @@
 
 ## Relevant Prior Art
 
+- `docs/qa/gui/teams-launcher/2026-06-19-favorites-featured/watcher.md`
+  - Confirms the `+ Add team` button renders on the Team launcher, but does not prove the action opens the right flow.
+- `docs/phases/Team_And_Skill_Catalogs.md`
+  - Owns custom team creation/editing semantics and CLI commands.
 - `docs/qa/gui/studio/2026-06-17-combo-keys/watcher.md`
   - Notes keyboard behavior added for dropdown popovers.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md`
@@ -62,6 +95,20 @@
 
 ## Debug Packet Starter
 
+### `Add team` routes to CLI Setup
+
+**Tier:** T1 Boundary; escalate to T2 only if investigation finds Team Studio route/state is inventing catalog truth or losing draft persistence.  
+**Symptom / repro:** Main Team page `Add team` button routes to CLI Setup instead of team creation.  
+**Bug fingerprint:** `TeamsLauncherView` `Add team` action + wrong `TeamStudioView` initial route / missing new-draft intent.  
+**Truth owner:** Team catalog / Team Studio team editor flow.  
+**Lie-prone layer:** Root-level navigation wiring from the Team launcher.  
+**Regression considered:** Team Studio already has a `New <lane> team` draft path; launcher action may have been wired only to "open settings" and inherited the default `.clis` route.  
+**Missing kill test / proof:** UI/navigation test or fixture that invokes `Add team` from the Team launcher and proves the resulting view is a team draft, not CLI Setup.  
+**Fix boundary:** Navigation and new-team intent only. Do not change CLI Setup, model readiness, team catalog persistence, or built-in team semantics unless separate evidence requires it.  
+**Proof command / founder test:** Run targeted Swift tests plus the narrowest GUI fixture that can show Team launcher → team creation. Founder test: press `Add team`; a new editable team appears with a team name and worker rows ready to edit.
+
+### Customize Teams dropdown bugs
+
 **Tier:** T1 Boundary unless investigation shows a shared model-contract bug; escalate to T2 SSOT if `Auto` duplication comes from model/default truth drift across Core and GUI.  
 **Symptom / repro:** Customize Teams model dropdown shows duplicate `Auto`, lacks arrow-key selection, and has incorrect selected-row hover display.  
 **Bug fingerprint:** `TeamEditorView` model picker + duplicate `Auto` / missing keyboard-highlight behavior + likely `ALDropdown` interaction gap.  
@@ -71,4 +118,3 @@
 **Missing kill test / proof:** A focused presenter/unit test or view-level assertion that the model picker option list contains one semantic Auto option, plus a GUI proof for the open dropdown if the harness can capture it.  
 **Fix boundary:** Dropdown option normalization and interaction state only. Do not change team/run semantics, default-model resolution, or model catalog availability without separate evidence.  
 **Proof command / founder test:** Run targeted Swift tests plus `bash scripts/gui_proof.sh studio-team-editor` or the narrowest fixture that can capture the open model dropdown. Founder test: open Customize Teams, confirm one `Auto`, arrow keys move selection, hover/selected state is visually clear.
-
