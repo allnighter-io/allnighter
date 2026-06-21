@@ -66,6 +66,8 @@ struct TeamDraft: Equatable {
     /// A role is complete when it has either an existing skill or a fully-specified
     /// new skill (name + prompt) to create on save. The model may be nil = Auto.
     static func rowComplete(_ r: Row) -> Bool {
+        // Every role needs a named model before Save — a model-less worker can't run.
+        guard r.modelId != nil else { return false }
         guard r.skillId.isEmpty else { return true }
         let hasName = !((r.customSkillName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         let hasPrompt = !((r.promptDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -93,6 +95,19 @@ struct TeamDraft: Equatable {
     /// SkillDefinition named "<Skill> for <Team>".
     @discardableResult
     func commit() throws -> TeamID {
+        // A mutating (execution) team is ONE agent on ONE CLI. If the user's rows span
+        // more than one source, REJECT — never silently keep only the first worker
+        // (the `rows.prefix(1)` collapse below would otherwise hide the conflict). The
+        // editor surfaces this live via `executionSourceConflictMessage`; enforce it
+        // here too so every caller of commit() is held to the same rule.
+        if mutating {
+            let bench = Dictionary(ModelCatalog.list().map { ($0.id, $0.driverId) },
+                                   uniquingKeysWith: { a, _ in a })
+            let sources = Set(rows.compactMap { $0.modelId.flatMap { bench[$0] } })
+            if sources.count > 1 {
+                throw CatalogError.teamInvalid("Execution teams run on one CLI. Pick one source for all workers.")
+            }
+        }
         let fallback: ModelFallbackPolicy = allowSubstitutions ? .laneCapable : .exactOnly
         // Editing a team keeps its name — no "(custom)" suffix. A built-in edit saves
         // the user's version in place at the same id; the shipped seed stays for Restore.
