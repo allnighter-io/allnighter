@@ -200,6 +200,21 @@ final class CloudRemoteClientTests: XCTestCase {
 
         XCTAssertEqual(fetched, key)
 
+        let mismatchedRelay = MockRemoteMacRelay()
+        try await mismatchedRelay.publishMedia(
+            ref: ref,
+            data: Data("ciphertext".utf8),
+            keys: [mediaKey(ref: "media_other", deviceId: "device_1")]
+        )
+        let mismatchedClient = CloudRemoteClient(mac: macRef(), relay: mismatchedRelay, now: { fixedNow })
+        try await mismatchedClient.connect(account: account, mode: .cloudRelay)
+        do {
+            _ = try await mismatchedClient.fetchMediaKey(ref, deviceId: "device_1")
+            XCTFail("mismatched media key envelope should be rejected")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .badMediaKeyEnvelope)
+        }
+
         do {
             _ = try await client.fetchMediaKey(ref, deviceId: "device_missing")
             XCTFail("missing media key should be explicit")

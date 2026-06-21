@@ -22,6 +22,7 @@ public enum CloudRemoteClientError: Error, Equatable, Sendable {
     case snapshotNotFound(String)
     case mediaNotFound(String)
     case mediaKeyNotFound(ref: String, deviceId: String)
+    case badMediaKeyEnvelope
     case ackTimedOut(String)
     case badAckEnvelope
     case badAckSignature
@@ -156,6 +157,9 @@ public actor CloudRemoteClient: RemoteClient {
             at: now()
         ) else {
             throw CloudRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
+        }
+        guard key.ref == ref.ref, key.deviceId == deviceId else {
+            throw CloudRemoteClientError.badMediaKeyEnvelope
         }
         return key
     }
