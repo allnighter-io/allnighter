@@ -74,6 +74,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
     private let relay: RemoteMacRelay
     private let trustedStore: TrustedRemoteStore
     private let router: RemoteCommandRouting
+    private let auditRecorder: any RemoteAuditRecording
     private let now: @Sendable () -> Date
     private let commandBatchLimit: Int
 
@@ -82,6 +83,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
         relay: RemoteMacRelay,
         trustedStore: TrustedRemoteStore,
         router: RemoteCommandRouting,
+        auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
         now: @escaping @Sendable () -> Date = Date.init,
         commandBatchLimit: Int = 100
     ) {
@@ -89,6 +91,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
         self.relay = relay
         self.trustedStore = trustedStore
         self.router = router
+        self.auditRecorder = auditRecorder
         self.now = now
         self.commandBatchLimit = commandBatchLimit
     }
@@ -137,6 +140,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
                 auditEvent: result.auditEvent,
                 createdAt: now()
             )
+            try auditRecorder.record(envelope)
             try await relay.acknowledge(envelope)
             acknowledgements.append(result.ack)
         }

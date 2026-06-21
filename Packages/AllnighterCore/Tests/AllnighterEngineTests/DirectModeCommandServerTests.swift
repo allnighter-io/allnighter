@@ -8,11 +8,13 @@ final class DirectModeCommandServerTests: XCTestCase {
 
     func testHandlerRoutesThroughSharedRouterAndBuildsAckEnvelope() async throws {
         let router = RecordingDirectModeRouter(result: Self.routingResult(requestId: "req_1", now: now))
+        let auditRecorder = RecordingDirectModeAuditRecorder()
         let fixedNow = now
         let handler = DirectModeCommandHandler(
             accountId: "acct_1",
             macAgentId: "mac_1",
             router: router,
+            auditRecorder: auditRecorder,
             now: { fixedNow }
         )
         let entry = Self.entry(requestId: "req_1")
@@ -27,6 +29,7 @@ final class DirectModeCommandServerTests: XCTestCase {
         XCTAssertEqual(envelope.ack.accepted, true)
         XCTAssertEqual(envelope.auditEvent.targetSummary, "stopAll terminated=1")
         XCTAssertEqual(envelope.createdAt, now)
+        XCTAssertEqual(auditRecorder.envelopes.map(\.requestId), ["req_1"])
     }
 
     func testHandlerRejectsWrongAccountOrMacBeforeRouting() async throws {
@@ -243,6 +246,19 @@ private final class RecordingDirectModeHandler: DirectModeCommandHandling, @unch
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope {
         lock.withLock { storedEntries.append(entry) }
         return envelope
+    }
+}
+
+private final class RecordingDirectModeAuditRecorder: RemoteAuditRecording, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedEnvelopes: [RemoteCommandAckEnvelope] = []
+
+    var envelopes: [RemoteCommandAckEnvelope] {
+        lock.withLock { storedEnvelopes }
+    }
+
+    func record(_ envelope: RemoteCommandAckEnvelope) throws {
+        lock.withLock { storedEnvelopes.append(envelope) }
     }
 }
 

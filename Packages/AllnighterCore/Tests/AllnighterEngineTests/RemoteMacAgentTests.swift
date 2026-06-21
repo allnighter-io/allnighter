@@ -63,6 +63,28 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertEqual(acknowledgements[0].auditEvent.targetSummary, "stopAll terminated=3")
     }
 
+    func testDrainRecordsLocalAuditJournalForQueuedCommand() async throws {
+        let device = trustedDevice(capabilities: [])
+        let command = try signedCommand(requestId: "req_stop_all", kind: .stopAll, payload: .empty)
+        let relay = MockRemoteMacRelay(
+            trustedDevices: [device],
+            inbox: [inboxEntry(command)]
+        )
+        let executor = CapturingRemoteExecutor(now: now)
+        await executor.setStopAllResult(StopAllResult(terminated: 3))
+        let journal = RemoteAuditJournal(fileURL: root.appendingPathComponent("remote_audit.jsonl"))
+        let agent = makeAgent(relay: relay, executor: executor, auditRecorder: journal)
+
+        _ = try await agent.drainOnce()
+
+        let entries = try journal.entries()
+        XCTAssertEqual(entries.map(\.requestId), ["req_stop_all"])
+        XCTAssertEqual(entries.first?.accountId, "acct_1")
+        XCTAssertEqual(entries.first?.macAgentId, "mac_1")
+        XCTAssertEqual(entries.first?.auditEvent.deviceId, "device_1")
+        XCTAssertEqual(entries.first?.auditEvent.targetSummary, "stopAll terminated=3")
+    }
+
     func testDrainSyncsTrustedDevicesBeforeInboxSoRevokedQueuedCommandCannotExecute() async throws {
         try trustedStore.save(TrustedRemoteRegistry(trustedDevices: [
             trustedDevice(revoked: false, capabilities: [])
@@ -256,7 +278,8 @@ final class RemoteMacAgentTests: XCTestCase {
 
     private func makeAgent(
         relay: RemoteMacRelay,
-        executor: CapturingRemoteExecutor
+        executor: CapturingRemoteExecutor,
+        auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder()
     ) -> RemoteMacAgent {
         let fixedNow = now
         let router = RemoteCommandRouter(
@@ -279,6 +302,7 @@ final class RemoteMacAgentTests: XCTestCase {
             relay: relay,
             trustedStore: trustedStore,
             router: router,
+            auditRecorder: auditRecorder,
             now: { fixedNow }
         )
     }

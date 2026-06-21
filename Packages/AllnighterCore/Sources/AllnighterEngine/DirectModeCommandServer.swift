@@ -20,17 +20,20 @@ public struct DirectModeCommandHandler: DirectModeCommandHandling {
     private let accountId: String
     private let macAgentId: String
     private let router: any RemoteCommandRouting
+    private let auditRecorder: any RemoteAuditRecording
     private let now: @Sendable () -> Date
 
     public init(
         accountId: String,
         macAgentId: String,
         router: any RemoteCommandRouting,
+        auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.accountId = accountId
         self.macAgentId = macAgentId
         self.router = router
+        self.auditRecorder = auditRecorder
         self.now = now
     }
 
@@ -46,7 +49,7 @@ public struct DirectModeCommandHandler: DirectModeCommandHandling {
             )
         }
         let result = try await router.route(entry)
-        return RemoteCommandAckEnvelope(
+        let envelope = RemoteCommandAckEnvelope(
             requestId: entry.requestId,
             accountId: entry.accountId,
             macAgentId: entry.macAgentId,
@@ -54,6 +57,8 @@ public struct DirectModeCommandHandler: DirectModeCommandHandling {
             auditEvent: result.auditEvent,
             createdAt: now()
         )
+        try auditRecorder.record(envelope)
+        return envelope
     }
 }
 
