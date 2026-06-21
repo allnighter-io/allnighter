@@ -537,12 +537,17 @@ final class RemoteFoundationTests: XCTestCase {
             event: RunEvent(id: "evt_2", seq: 2, ts: now, kind: "run.completed", payload: ["runId": .string("run_1")]),
             signingKey: agentSigningKey
         )
+        let wrongMac = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_other",
+            event: RunEvent(id: "evt_wrong_mac", seq: 4, ts: now, kind: "run.failed", payload: ["runId": .string("run_1")]),
+            signingKey: agentSigningKey
+        )
         let forged = RemoteRunEventEnvelope(
             macAgentId: "mac_1",
             event: RunEvent(id: "evt_forged", seq: 3, ts: now, kind: "run.failed", payload: ["runId": .string("run_1")]),
             signature: Data("not a real signature".utf8).base64EncodedString()
         )
-        let client = MockiOSClient(macs: [mac], events: ["mac_1": [older, newer, forged]], serverNow: now)
+        let client = MockiOSClient(macs: [mac], events: ["mac_1": [older, newer, forged, wrongMac]], serverNow: now)
 
         try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
         let stream = await client.stream(macId: "mac_1", since: 1)
