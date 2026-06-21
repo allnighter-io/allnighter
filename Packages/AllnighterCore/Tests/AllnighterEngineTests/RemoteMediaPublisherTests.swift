@@ -48,6 +48,51 @@ final class RemoteMediaPublisherTests: XCTestCase {
         XCTAssertNil(revokedEnvelope)
     }
 
+    func testPublisherEncryptsPlaintextBeforePublishingMedia() async throws {
+        let activeKey = Curve25519.KeyAgreement.PrivateKey()
+        let relay = MockRemoteMacRelay()
+        let fixedNow = now
+        let contentKey = Data((0..<RemoteMediaCrypto.contentKeyByteCount).map(UInt8.init))
+        let publisher = RemoteMediaPublisher(
+            relay: relay,
+            now: { fixedNow },
+            contentKeyFactory: { contentKey }
+        )
+        let plaintext = Data("secret board image bytes".utf8)
+
+        let result = try await publisher.publishPlaintext(
+            ref: "media_plain",
+            macAgentId: "mac_1",
+            r2Key: "r2/media_plain",
+            contentType: "image/png",
+            plaintextData: plaintext,
+            trustedDevices: [
+                device(deviceId: "device_active", sealingKey: activeKey),
+            ],
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        XCTAssertEqual(result.ref.ref, "media_plain")
+        XCTAssertEqual(result.keyCount, 1)
+        let fetchedEncryptedData = try await relay.mediaData(
+            ref: "media_plain",
+            macAgentId: "mac_1",
+            at: now
+        )
+        let encryptedData = try XCTUnwrap(fetchedEncryptedData)
+        XCTAssertNotEqual(encryptedData, plaintext)
+        XCTAssertFalse(String(decoding: encryptedData, as: UTF8.self).contains("secret board image bytes"))
+        let fetchedEnvelope = try await relay.mediaKey(
+            ref: "media_plain",
+            deviceId: "device_active",
+            at: now
+        )
+        let envelope = try XCTUnwrap(fetchedEnvelope)
+        let openedContentKey = try RemoteMediaCrypto.openContentKey(envelope, with: activeKey)
+        XCTAssertEqual(openedContentKey, contentKey)
+        XCTAssertEqual(try RemoteMediaCrypto.decrypt(encryptedData, contentKey: openedContentKey), plaintext)
+    }
+
     private func device(
         deviceId: String,
         sealingKey: Curve25519.KeyAgreement.PrivateKey,

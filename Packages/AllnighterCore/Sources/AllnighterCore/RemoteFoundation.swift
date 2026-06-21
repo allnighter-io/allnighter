@@ -648,6 +648,8 @@ public struct ConnectionDiagnosis: Codable, Equatable, Sendable {
 public enum RemoteCryptoError: Error, Equatable {
     case invalidBase64(String)
     case unsupportedSuite(String)
+    case invalidContentKeyLength(Int)
+    case missingCombinedCiphertext
 }
 
 public enum RemoteCrypto {
@@ -933,6 +935,28 @@ private extension JSONValue {
 
 public enum RemoteMediaCrypto {
     public static let mediaKeyContentType = "application/vnd.allnighter.media-key"
+    public static let contentKeyByteCount = 32
+
+    public static func randomContentKey() -> Data {
+        SymmetricKey(size: .bits256).withUnsafeBytes { bytes in
+            Data(bytes)
+        }
+    }
+
+    public static func encrypt(_ plaintext: Data, contentKey: Data) throws -> Data {
+        let key = try symmetricContentKey(contentKey)
+        let sealed = try AES.GCM.seal(plaintext, using: key)
+        guard let combined = sealed.combined else {
+            throw RemoteCryptoError.missingCombinedCiphertext
+        }
+        return combined
+    }
+
+    public static func decrypt(_ encryptedData: Data, contentKey: Data) throws -> Data {
+        let key = try symmetricContentKey(contentKey)
+        let sealed = try AES.GCM.SealedBox(combined: encryptedData)
+        return try AES.GCM.open(sealed, using: key)
+    }
 
     public static func sealContentKey(
         _ contentKey: Data,
@@ -959,6 +983,13 @@ public enum RemoteMediaCrypto {
         with deviceSealingKey: Curve25519.KeyAgreement.PrivateKey
     ) throws -> Data {
         try RemoteCrypto.open(envelope.sealedKey, with: deviceSealingKey)
+    }
+
+    private static func symmetricContentKey(_ contentKey: Data) throws -> SymmetricKey {
+        guard contentKey.count == contentKeyByteCount else {
+            throw RemoteCryptoError.invalidContentKeyLength(contentKey.count)
+        }
+        return SymmetricKey(data: contentKey)
     }
 }
 

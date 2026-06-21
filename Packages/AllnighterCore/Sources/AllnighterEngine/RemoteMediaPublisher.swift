@@ -14,13 +14,39 @@ public struct RemoteMediaPublishResult: Equatable, Sendable {
 public struct RemoteMediaPublisher: Sendable {
     public let relay: RemoteMacRelay
     private let now: @Sendable () -> Date
+    private let contentKeyFactory: @Sendable () -> Data
 
     public init(
         relay: RemoteMacRelay,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        contentKeyFactory: @escaping @Sendable () -> Data = RemoteMediaCrypto.randomContentKey
     ) {
         self.relay = relay
         self.now = now
+        self.contentKeyFactory = contentKeyFactory
+    }
+
+    public func publishPlaintext(
+        ref: String,
+        macAgentId: String,
+        r2Key: String,
+        contentType: String,
+        plaintextData: Data,
+        trustedDevices: [TrustedDevice],
+        expiresAt: Date
+    ) async throws -> RemoteMediaPublishResult {
+        let contentKey = contentKeyFactory()
+        let encryptedData = try RemoteMediaCrypto.encrypt(plaintextData, contentKey: contentKey)
+        return try await publish(
+            ref: ref,
+            macAgentId: macAgentId,
+            r2Key: r2Key,
+            contentType: contentType,
+            encryptedData: encryptedData,
+            contentKey: contentKey,
+            trustedDevices: trustedDevices,
+            expiresAt: expiresAt
+        )
     }
 
     public func publish(

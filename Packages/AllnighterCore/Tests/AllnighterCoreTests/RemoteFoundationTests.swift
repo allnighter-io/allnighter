@@ -286,6 +286,22 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertThrowsError(try RemoteMediaCrypto.openContentKey(envelopes[0], with: activeB))
     }
 
+    func testMediaBlobEncryptionRoundTripsWithContentKey() throws {
+        let contentKey = Data((0..<RemoteMediaCrypto.contentKeyByteCount).map(UInt8.init))
+        let wrongKey = Data((1...RemoteMediaCrypto.contentKeyByteCount).map(UInt8.init))
+        let plaintext = Data("secret design-board image bytes".utf8)
+
+        let encrypted = try RemoteMediaCrypto.encrypt(plaintext, contentKey: contentKey)
+
+        XCTAssertNotEqual(encrypted, plaintext)
+        XCTAssertFalse(String(decoding: encrypted, as: UTF8.self).contains("secret design-board image bytes"))
+        XCTAssertEqual(try RemoteMediaCrypto.decrypt(encrypted, contentKey: contentKey), plaintext)
+        XCTAssertThrowsError(try RemoteMediaCrypto.decrypt(encrypted, contentKey: wrongKey))
+        XCTAssertThrowsError(try RemoteMediaCrypto.encrypt(plaintext, contentKey: Data("short".utf8))) { error in
+            XCTAssertEqual(error as? RemoteCryptoError, .invalidContentKeyLength(5))
+        }
+    }
+
     func testMediaKeyEnvelopeRoundTrips() throws {
         let recipient = Curve25519.KeyAgreement.PrivateKey()
         let sealedKey = try RemoteCrypto.seal(
