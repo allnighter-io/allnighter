@@ -81,6 +81,41 @@ custom team execution, model health/substitutions.
   hovered worker row, a selected row, and selected+hover state, proving the row
   looks clickable without confusing hover with active selection.
 
+- [ ] **Factory Floor Next Move actions are confusing and not wired to composers.**
+
+  **Priority:** P1 / product workflow blocker.
+  **Observed:** The Floor shows `Save to Pending` and `Send to another team`.
+  `Save to Pending` is conceptually wrong here because Pending is an outcome/state,
+  not the user's next intent. `Send to another team` is currently inert from the
+  user's report: pressing it does nothing. The card also does not say what payload
+  will be sent, so the user cannot tell whether the synthesis, original prompt, or
+  Floor receipt is included.
+  **Expected:** Collapse the Floor's user-facing next moves to exactly two
+  composer-opening actions:
+  - `Ask Another Team`: opens the Send to Team composer with the Floor synthesis
+    attached as starting context, plus enough receipt metadata to avoid making the
+    next team start from scratch. The user chooses the team and writes the next
+    instruction.
+  - `Continue with Auto`: opens the normal Auto/default composer in the current
+    Project/thread with the same synthesis attached as starting context. The user
+    continues the conversation from the Floor result.
+  Remove `Save to Pending`, `Draft follow-up`, and generic `Run when ready` from
+  this Floor card unless a later action has a named runner, visible payload, and
+  clear execution semantics.
+  **Truth owner:** Floor next-action contract (`FloorNextAction` /
+  `FloorProjector`) plus the shared composer/send contract. Pending remains the
+  lifecycle state for already-submitted work, not the button label for this path.
+  **Lie-prone layer:** `FactoryFloorView.nextMove` can render destination labels
+  as if they are real actions while no composer opens and no payload is visible.
+  **Fix boundary:** Floor next-action projection and composer handoff only. Do not
+  invent a GUI-only payload, do not auto-run work, and do not silently route to
+  Pending. Both actions must show the attached synthesis before sending.
+  **Missing proof:** A contract/presenter test that Floor next actions are only
+  `Ask Another Team` and `Continue with Auto` for a normal synthesized return; a
+  GUI or integration proof that each action opens the correct composer with a
+  visible `Synthesis from <team>` attachment chip/card and editable prompt; a
+  negative test that `Save to Pending` no longer appears on the Floor card.
+
 - [ ] **Factory Floor worker responses are missing the bottom copy button.**
 
   **Priority:** P1 for missing action, P2 for polish.  
@@ -177,9 +212,11 @@ custom team execution, model health/substitutions.
    blue running, amber/yellow done, red failed/timed out.
 7. Hover an unselected worker card and verify it visibly reads as selectable;
    verify selected and selected+hover states remain distinct.
-8. Verify every worker response has a bottom copy button.
-9. Compare the saved custom team row to the run snapshot and spawned CLI/model.
-10. For timed-out workers, inspect whether the runtime classified the failure cause
+8. In `TAKE THE NEXT MOVE`, verify only `Ask Another Team` and `Continue with
+   Auto` appear; each opens the correct composer with the synthesis attached.
+9. Verify every worker response has a bottom copy button.
+10. Compare the saved custom team row to the run snapshot and spawned CLI/model.
+11. For timed-out workers, inspect whether the runtime classified the failure cause
    and whether substitution was attempted or explicitly skipped.
 
 ## Related Prior Art
@@ -191,9 +228,15 @@ custom team execution, model health/substitutions.
 - `Packages/AllnighterCore/Sources/AllnighterCore/FloorRun.swift` -
   `FloorWorkerLane` already carries status/timing fields for Factory Floor
   projection.
+- `Packages/AllnighterCore/Sources/AllnighterCore/FloorProjector.swift` -
+  currently emits `savePending` and `sendTeam` Floor next actions.
+- `Apps/AllnighterMac/Sources/FactoryFloorView.swift` - currently renders Floor
+  next-action rows; this path must open composers with visible synthesis context.
 - `Apps/AllnighterMac/Sources/FactoryFloorView.swift` - `CastCard` is the
   current worker row/button touchpoint; it paints selected state but no hover
   state.
+- `docs/phases/Pending_Work_And_Drain.md` - Pending is durable submitted work
+  intent/lifecycle state; it should not be used as a vague Floor next-move label.
 - `docs/phases/Work_Order_Team_Model.md` - worker = model wearing a skill; models
   sit on the Bench, workers do jobs.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md` - healthy
