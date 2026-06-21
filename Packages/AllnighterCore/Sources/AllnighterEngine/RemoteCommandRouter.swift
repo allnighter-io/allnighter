@@ -129,12 +129,12 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
         self.fileManager = fileManager
     }
 
-    public func load() -> RemoteRequestDedupeRegistry {
-        guard let data = try? Data(contentsOf: fileURL),
-              let registry = try? CoreJSON.decode(RemoteRequestDedupeRegistry.self, from: data) else {
+    public func load() throws -> RemoteRequestDedupeRegistry {
+        guard fileManager.fileExists(atPath: fileURL.path) else {
             return RemoteRequestDedupeRegistry()
         }
-        return registry
+        let data = try Data(contentsOf: fileURL)
+        return try CoreJSON.decode(RemoteRequestDedupeRegistry.self, from: data)
     }
 
     @discardableResult
@@ -160,7 +160,7 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
         defer { lock.unlock() }
 
         let cutoff = now.addingTimeInterval(-window)
-        var registry = load()
+        var registry = try load()
         registry.schemaVersion = RemoteRequestDedupeRegistry.currentSchemaVersion
         registry.requests.removeAll { $0.seenAt < cutoff }
         if registry.requests.contains(where: {
