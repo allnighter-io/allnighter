@@ -164,7 +164,7 @@ public actor MockiOSClient: RemoteClient {
     private var events: [String: [RemoteRunEventEnvelope]]
     private var media: [MediaStorageKey: Data]
     private var mediaKeys: [MediaStorageKey: [String: MediaKeyEnvelope]]
-    private var trustedDevices: [String: TrustedDevice]
+    private var trustedDevices: [TrustedDeviceStorageKey: TrustedDevice]
     private var seenRequestIds: Set<String>
     private var serverNow: Date
     private var deviceNow: Date
@@ -189,7 +189,11 @@ public actor MockiOSClient: RemoteClient {
         self.mediaKeys = Dictionary(uniqueKeysWithValues: mediaKeys.map {
             (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
         })
-        self.trustedDevices = Dictionary(uniqueKeysWithValues: trustedDevices.map { ($0.deviceId, $0) })
+        var trustedByScope: [TrustedDeviceStorageKey: TrustedDevice] = [:]
+        for device in trustedDevices {
+            trustedByScope[TrustedDeviceStorageKey(accountId: device.accountId, deviceId: device.deviceId)] = device
+        }
+        self.trustedDevices = trustedByScope
         self.seenRequestIds = []
         self.serverNow = serverNow
         self.deviceNow = deviceNow ?? serverNow
@@ -261,8 +265,11 @@ public actor MockiOSClient: RemoteClient {
         guard try RemoteCrypto.payloadDigest(command.payload) == command.assertion.payloadSHA256 else {
             return reject(command, reason: .badSignature)
         }
-        guard let trustedDevice = trustedDevices[command.assertion.deviceId],
-              trustedDevice.accountId == account?.accountId,
+        guard let accountId = account?.accountId,
+              let trustedDevice = trustedDevices[TrustedDeviceStorageKey(
+                  accountId: accountId,
+                  deviceId: command.assertion.deviceId
+              )],
               visibleMacIds.contains(trustedDevice.macAgentId),
               trustedDevice.authorizes(command.kind, at: serverNow) else {
             return reject(command, reason: .unauthorizedKind)
@@ -384,7 +391,7 @@ public actor MockiOSClient: RemoteClient {
     }
 
     public func trustDevice(_ device: TrustedDevice) {
-        trustedDevices[device.deviceId] = device
+        trustedDevices[TrustedDeviceStorageKey(accountId: device.accountId, deviceId: device.deviceId)] = device
     }
 
     public func setServerNow(_ date: Date) {
@@ -422,5 +429,10 @@ public actor MockiOSClient: RemoteClient {
     private struct MediaStorageKey: Hashable, Sendable {
         var macAgentId: String
         var ref: String
+    }
+
+    private struct TrustedDeviceStorageKey: Hashable, Sendable {
+        var accountId: String
+        var deviceId: String
     }
 }
