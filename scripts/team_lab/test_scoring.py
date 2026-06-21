@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Planted-failure regression tests for the team-lab evaluator.
+"""Planted-failure regression tests for the team-lab truth evaluator.
 
-The scorer is itself an oracle, so it needs its own kill tests: prove it
-*fails* a bad run and *scores* a good one. Pure-local, no model quota.
+The evaluator is itself an oracle for run truth, so it needs its own kill tests:
+prove it fails a bad run and permits a judgeable good one. Pure-local, no model
+quota.
 
 Run:  python3 scripts/team_lab/test_scoring.py
 """

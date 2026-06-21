@@ -49,6 +49,19 @@ def load_case(suite: dict, case_id: str | None) -> dict:
     return cases[0]
 
 
+def load_case_json(path: Path, suite: dict) -> dict:
+    """Load a generated scenario case without editing the committed suite file."""
+    case = json.loads(path.read_text())
+    if not case.get("caseId") or not case.get("prompt"):
+        raise SystemExit(f"case json must include caseId and prompt: {path}")
+    out = dict(case)
+    out.setdefault("lane", suite.get("cases", [{}])[0].get("lane", "code"))
+    out.setdefault("teamId", suite.get("defaultTeamId"))
+    out.setdefault("contextPolicy", {})
+    out.setdefault("generatedCasePath", str(path))
+    return out
+
+
 def context_for_case(case: dict) -> str:
     policy = case.get("contextPolicy", {})
     parts: list[str] = []
@@ -150,7 +163,7 @@ def write_experiment(
         "start": {"nextPollAfterMs": start.get("nextPollAfterMs")},
     }
     if contract:
-        exp["scores"] = {
+        exp["evaluation"] = {
             "runContract": contract.get("runContractScore"),
             "fsBypass": contract.get("fsBypass"),
             "scoringSource": contract.get("scoringSource"),
@@ -174,6 +187,7 @@ def run_experiment(
     alln: Path,
     suite_id: str,
     case_id: str | None,
+    case_json: Path | None,
     team_id: str | None,
     effort: str,
     round_no: int,
@@ -181,7 +195,9 @@ def run_experiment(
     deadline_s: int,
 ) -> Path:
     suite = load_suite(suite_id)
-    case = load_case(suite, case_id)
+    if case_id and case_json:
+        raise SystemExit("pass either --case or --case-json, not both")
+    case = load_case_json(case_json, suite) if case_json else load_case(suite, case_id)
     team = team_id or case.get("teamId") or suite.get("defaultTeamId")
     if not team:
         raise SystemExit("team id required")
@@ -342,10 +358,9 @@ def run_experiment(
             contract_version=contract_version,
         )
 
-        # Write experiment.json BEFORE scoring. evaluate_team_quality() reads suiteId/
-        # caseId (for expectedQualities) and run status (for the writer stale-claim
-        # check) from this file; scoring it before the file exists silently zeroes
-        # expectedQualityHits and disables the consistency check.
+        # Write experiment.json BEFORE evaluation. The writer stale-claim check reads
+        # run status from this file; running it before the file exists disables the
+        # consistency check.
         write_experiment(lab_dir, **exp_kwargs)
 
         contract = score_run_contract(
@@ -357,7 +372,7 @@ def run_experiment(
         )
         team_eval = evaluate_team_quality(lab_dir)
 
-        # Re-write with embedded scores now that they exist.
+        # Re-write with embedded evaluation facts now that they exist.
         write_experiment(lab_dir, contract=contract, team_eval=team_eval, **exp_kwargs)
 
         report_lines = [
@@ -422,6 +437,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Run a team lab experiment via MCP stdio")
     p.add_argument("--suite", required=True)
     p.add_argument("--case")
+    p.add_argument("--case-json", type=Path, help="generated scenario JSON; use same file for both A/B arms")
     p.add_argument("--team")
     p.add_argument("--effort", default="high")
     p.add_argument("--round", type=int, default=1)
@@ -437,6 +453,7 @@ def main() -> int:
         alln=args.alln,
         suite_id=args.suite,
         case_id=args.case,
+        case_json=args.case_json,
         team_id=args.team,
         effort=args.effort,
         round_no=args.round,

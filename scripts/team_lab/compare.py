@@ -59,6 +59,7 @@ def _label(worker: dict[str, Any]) -> str:
 def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
             *, with_hypotheses: bool = False) -> dict[str, Any]:
     base, cand = _load_run(baseline_dir), _load_run(candidate_dir)
+    judge_mode = "mock" if any(isinstance(b, J.MockBackend) for b in backends) else "live"
 
     # Substrate gate — judges only run on runs the contract proved truthful.
     for d in (baseline_dir, candidate_dir):
@@ -68,6 +69,10 @@ def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
 
     # Same-input discipline: within a round, both arms must share the input.
     same_input = base["task"] == cand["task"] and base["task"] != ""
+    if not same_input:
+        raise SystemExit(
+            "refusing to judge: baseline and candidate must use the exact same non-empty input"
+        )
     input_hash = hashlib.sha256(base["task"].encode()).hexdigest()[:12]
 
     matched, unmatched = J.map_roles(base["workers"], cand["workers"])
@@ -114,6 +119,8 @@ def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
         "inputHash": input_hash,
         "sameInput": same_input,
         "judges": [b.name for b in backends],
+        "judgeMode": judge_mode,
+        "evidenceValid": judge_mode == "live",
         "bankedRoles": decision.banked_roles,
         "deliverableOutcome": decision.deliverable_outcome,
         "interactionWarning": decision.interaction_warning,
@@ -139,6 +146,8 @@ def _write_report(out: dict[str, Any], path: Path) -> None:
         "",
         f"- Case: `{out['caseId']}` · input `{out['inputHash']}` · sameInput={out['sameInput']}",
         f"- Judges: {', '.join(out['judges']) or '(none)'}",
+        f"- Judge mode: **{out['judgeMode']}**"
+        + (" — pipeline smoke only; not evidence" if out["judgeMode"] == "mock" else ""),
         f"- Banked roles (both judges agree better): **{out['bankedRoles'] or 'none'}**",
         f"- Deliverable audit: **{out['deliverableOutcome']}**"
         + ("  ⚠️ INTERACTION WARNING" if out["interactionWarning"] else ""),
@@ -181,7 +190,8 @@ def main() -> int:
     (eval_dir / "compare-record.json").write_text(json.dumps(out, indent=2))
     _write_report(out, eval_dir / "compare.md")
     print(json.dumps({k: out[k] for k in
-                      ("bankedRoles", "deliverableOutcome", "interactionWarning", "sameInput", "judges")}, indent=2))
+                      ("bankedRoles", "deliverableOutcome", "interactionWarning",
+                       "sameInput", "judges", "judgeMode", "evidenceValid")}, indent=2))
     return 0
 
 

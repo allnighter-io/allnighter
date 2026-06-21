@@ -221,7 +221,7 @@ def score_run_contract(
             )
         ),
         "teamQualityNote": (
-            "Heuristic v1 — not authoritative for TeamCatalog mutations until LLM rubric ships"
+            "No deterministic quality score. Quality is judged by compare.py using blind A/B."
         ),
         "mcpArtifactStatus": mcp,
     }

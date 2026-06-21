@@ -16,9 +16,10 @@ The goal is to make every default Team measurably excellent:
 default Team starts as 4/10
 -> MCP-only factory runs many cases
 -> every worker, prompt, artifact, timeout, and result is logged
--> evaluators score what helped and what failed
+-> run-contract checks prove whether the run told the truth
+-> blind A/B judges compare candidate output against the champion
 -> team shape / prompts / model routing improve
--> same benchmark proves the Team is now 9/10
+-> fresh comparable inputs prove the Team is actually getting better
 ```
 
 This is product dogfooding at the contract layer. The Mac app is not in the
@@ -35,7 +36,7 @@ The Team Lab turns subjective Team tuning into an experimental loop:
 
 - benchmark cases instead of one-off anecdotes;
 - MCP request/response transcripts instead of GUI state;
-- per-worker scoring instead of only final-answer taste;
+- per-worker blind comparison instead of only final-answer taste;
 - run-system bug capture instead of silent harness failure;
 - before/after proof when prompts, roles, writers, or model routing change.
 
@@ -60,7 +61,8 @@ developer starts MCP Run Factory
 -> factory fetches `team_result`
 -> factory fetches Floor/artifact views through MCP
 -> factory writes a complete local lab record
--> evaluator scores run, workers, writer, and MCP/run-system health
+-> truth evaluator gates MCP/run-system health
+-> blind judges compare workers and writer against the champion
 -> batch report recommends Team changes or substrate fixes
 ```
 
@@ -78,10 +80,10 @@ Calibration slice:
 
 ```text
 baseline suite for Bug Hunt
--> change one variable: role, prompt, writer, model route, evidence packet
--> rerun same suite
--> compare score deltas
--> keep only changes that improve the benchmark without hiding failures
+-> generate one fresh input
+-> run champion and candidate on that exact same input
+-> blind A/B compare per-worker output and final deliverable
+-> bank only unanimous per-worker wins without hiding failures
 ```
 
 ## Non-goals
@@ -91,7 +93,7 @@ baseline suite for Bug Hunt
 - No private Core shortcut. The factory must not import `AllnighterCore` or call
   `TeamService` directly.
 - No one-off prompt tasting as proof. Human notes are allowed, but benchmark
-  reports need structured scores.
+  reports need structured judge records and truth gates, not numeric quality scores.
 - No automatic mutation of built-in Teams from a single run.
 - No hiding failed workers because the final writer produced a useful answer.
 - No broad Pending drain or scheduler semantics. Runs are explicitly triggered
@@ -130,7 +132,7 @@ Landed in v1 harness (2026-06-21 dogfood):
 Known gaps still open:
 
 - No Bug Hunt regression benchmark suite with seeded known failures yet.
-- Evaluator is heuristic v1 — LLM rubric judge not shipped.
+- Live two-judge CLI path still needs validation; mock judges only prove orchestration.
 - `alln dev team-lab` Swift wrapper not built (Python is canonical v1).
 - Stage artifact inline retrieval may still require FS diff-oracle.
 - Async run ownership still depends on a living process. MCP stdio can own a run
@@ -176,7 +178,7 @@ Did Allnighter's run system tell the truth?
 Did this Team produce excellent work?
 ```
 
-If the run system did not tell the truth, the Team score is not trusted. Fix the
+If the run system did not tell the truth, Team quality is not judged. Fix the
 substrate first.
 
 ## SSOT
@@ -267,7 +269,7 @@ Terminal worker status  = workerAnswers[].status (answer/review); plan.status (w
 floor_show.summaryMarkdown is NOT the packet source (empty on completed runs — SUB-4).
 ```
 
-The harness scores the packet from `team_result`, never from `floor_show` text or
+The harness reads the packet from `team_result`, never from `floor_show` text or
 the copied journal. The journal copy under `.lab/<exp>/run/` stays diff-oracle only.
 
 Support-root rule:
@@ -343,10 +345,11 @@ Suggested path:
     workers/
     stages/
   evaluation/
-    worker-scores.json
-    writer-score.json
     run-contract-score.json
-    final-score.json
+    worker-facts.json
+    evaluator-record.json
+    compare-record.json
+    compare.md
     notes.md
   report.md
 ```
@@ -398,12 +401,12 @@ Draft shape:
     "resultAvailable": true,
     "durationMs": 300000
   },
-  "scores": {
+  "evaluation": {
     "runContract": 0.94,
-    "teamQuality": 0.72,
-    "workerUsefulness": 0.61,
-    "writerQuality": 0.86,
-    "overall": 0.73
+    "fsBypass": false,
+    "judgePending": true,
+    "teamQualityScore": null,
+    "compareRecord": null
   }
 }
 ```
@@ -480,7 +483,7 @@ Each run must log:
 - retry/fallback facts: streaming attempted, streaming terminal state,
   non-streaming fallback attempted, fallback result, and reason for fallback;
 - run-store artifact refs returned through MCP;
-- evaluator prompt, evaluator output, and final scores;
+- blind judge prompts, judge outputs, compare records, and non-voting hypotheses;
 - human notes, if any, as separate commentary, never as hidden score truth.
 
 Failure aggregation:
@@ -564,11 +567,11 @@ cases** (known bug, known kill-test) to confirm "judges' better" tracks reality.
 Harness:
 
 ```bash
-python3 scripts/team_lab/scenario.py <suite-id>            # fresh input + burn ledger
-python3 scripts/team_lab/run.py --suite <suite-id> ...     # champion run, candidate run
+python3 scripts/team_lab/scenario.py <suite-id> > /tmp/team-lab-case.json  # fresh input + burn ledger
+python3 scripts/team_lab/run.py --suite <suite-id> --case-json /tmp/team-lab-case.json ...
 python3 scripts/team_lab/compare.py <baseline_dir> <candidate_dir> [--hypotheses]
 # judges: export ALLN_JUDGE1_CMD / ALLN_JUDGE2_CMD to two DIFFERENT provider CLIs
-# (--mock runs deterministic judges for pipeline smoke without quota)
+# (--mock runs deterministic judges for pipeline smoke only; records are not evidence)
 ```
 
 ## Evaluation Rubrics
@@ -805,14 +808,14 @@ The factory is allowed to discover product bugs. It must not paper over them.
 | --- | --- | --- |
 | P0 | MCP cannot start a run, loses run id, corrupts result | Stop batch, Debugger packet, fix before continuing |
 | P1 | Worker failure hidden, prompt missing, status lies, artifact unreachable | Stop affected suite, fix retrieval/status contract |
-| P1 | `fsBypass=true` (scoring relied on copied journal, not pure MCP) | Team quality score **withheld**; fix MCP retrieval or harness |
-| P2 | Report incomplete, evaluator unclear, schema awkward | Record and continue only if Team score remains interpretable |
+| P1 | `fsBypass=true` (scoring relied on copied journal, not pure MCP) | Team quality judgment **withheld**; fix MCP retrieval or harness |
+| P2 | Report incomplete, evaluator unclear, schema awkward | Record and continue only if the compare record remains interpretable |
 | P3 | Report polish or convenience issue | Backlog |
 
 For P0/P1, the batch report must say:
 
 ```text
-Team quality score withheld because run contract failed.
+Team quality judgment withheld because run contract failed.
 ```
 
 ## Privacy, Security, and Cost
@@ -849,11 +852,11 @@ Rules:
 The `4/10 -> 9/10` headline is aspiration until these rules bind:
 
 - Run-contract lane must be green (`fsBypass=false`, `runContractScore >= 0.95`) before
-  any Team-quality score is interpreted.
-- Score **logical workers once** (not duplicate artifact paths).
-- Runs-per-case **>= 3** for calibration claims; report mean and spread, not N=1.
-- Built-in Team mutations require **>= 3 clean reruns** of the same case with positive
-  team-quality delta and no run-contract regression.
+  any Team-quality judgment is interpreted.
+- Compare **logical workers once** (not duplicate artifact paths).
+- Fresh inputs across rounds; within one round both arms must share the exact same input.
+- Built-in Team mutations require **>= 3 clean live compare rounds** on fresh inputs
+  with live judge preference and no run-contract regression.
 - Writer consistency: discard worker claims contradicted by `experiment.json` and
   run-contract artifacts.
 
@@ -880,6 +883,7 @@ Input discipline:  WITHIN a round both arms run the SAME input. BETWEEN rounds t
                    input is FRESH and never reused (scenario.py + burn ledger).
                    Reusing one input across rounds is overfitting (the Spec Upgrade
                    mistake). Power comes from input DIVERSITY across rounds.
+                   compare.py refuses sameInput=false.
 N:                 1 run per arm per round is acceptable — a test of 1 beats a test
                    of 0, and diversity across rounds accumulates the signal. Replay
                    the same input >=3x only to MEASURE variance, never to claim a win.
@@ -887,6 +891,8 @@ Decision rule:     bank a worker's candidate prompt iff BOTH blind judges pick t
                    candidate for that role; any tie/split/baseline keeps incumbent.
                    The deliverable A/B AUDITS (interaction warning) but never vetoes
                    a clean per-worker win. No deterministic score decides anything.
+Mock rule:         --mock validates orchestration only. Mock compare records are marked
+                   evidenceValid=false and must never support a Team mutation.
 Transfer guard:    a banked change must keep winning on FRESH inputs over rounds;
                    re-baseline periodically against GENESIS (not just last champion)
                    to catch slow drift, and re-challenge banked workers occasionally.
@@ -900,7 +906,7 @@ isolation. See § Judge Loop for the full mechanism.
 
 ### PRE-S0 - Pure-MCP Reconstruction Proof (blocking)
 
-Before LAB-S03+ scores are trusted:
+Before LAB-S03+ truth and compare records are trusted:
 
 ```text
 team_result(detail=full) returns worker prompt snapshots + answer markdown + plan
@@ -979,7 +985,9 @@ ls .lab/<experiment-dir>/evaluation/
 ### LAB-S04 - Evaluator and Report Model
 
 - Deterministic run-contract checks (`evaluation/run-contract-score.json`).
-- Heuristic worker/writer scoring v1 (`evaluate.py`); LLM rubric judge deferred.
+- Deterministic worker facts only (`evaluation/worker-facts.json`): content present,
+  writer present, writer consistency. No quality score.
+- Blind A/B compare records (`evaluation/compare-record.json`, `compare.md`).
 - Persist evaluator record (`evaluation/evaluator-record.json`).
 - Writer consistency check against `experiment.json`.
 - Produce `report.md`.
@@ -988,6 +996,7 @@ Proof:
 
 ```bash
 python3 scripts/team_lab/evaluate.py .lab/<experiment-dir>
+python3 scripts/team_lab/compare.py <baseline> <candidate> --mock
 # planned: alln dev team-lab compare <baseline> <candidate> --json
 ```
 
@@ -1008,7 +1017,7 @@ python3 scripts/team_lab/run.py --suite bug_hunt_repo_regressions_v1 --team code
 ### LAB-S06 - Default Team Sweep (deferred v2)
 
 Deferred until one Team (Bug Hunt) proves the loop with `fsBypass=false` and
-repeatable team-quality deltas. Do not sweep all built-in Teams before that.
+repeatable live judge wins on fresh inputs. Do not sweep all built-in Teams before that.
 
 ### LAB-S07 - Regression Gates (deferred v2)
 
@@ -1036,7 +1045,7 @@ When the factory runs one Bug Hunt benchmark case through MCP
 Then it creates a real run
 And logs every MCP request/response
 And retrieves team result + Floor artifacts
-And scores every worker and the writer
+And records worker/writer truth facts
 And produces a batch report
 And any missing MCP/run truth is surfaced as a product bug, not hidden
 ```
@@ -1046,16 +1055,16 @@ And any missing MCP/run truth is surfaced as a product bug, not hidden
 - MCP Run Factory runs at least one benchmark case without the Mac app.
 - Every run has a complete local lab record under `.lab/`.
 - Worker prompts and outputs are retrievable via MCP (`fsBypass=false`).
-- Timed-out/failed workers are scored, not hidden.
-- Run-contract quality is scored separately from Team quality; P0/P1 failures
-  withhold Team quality.
+- Timed-out/failed workers are visible, not hidden.
+- Run-contract truth is checked separately from Team quality; P0/P1 failures
+  withhold Team quality judgment.
 - Spec Upgrade self-dogfood completes with `runContractScore >= 0.95` and honest
-  evaluator scores.
+  judge-pending / compare records.
 - Bug Hunt has a baseline on 2–3 known regressions and at least one proven
   improvement.
 
 Deferred to v2: default-Team sweep (LAB-S06), full regression gates (LAB-S07),
-LLM rubric evaluator, `alln dev team-lab` Swift wrapper.
+`alln dev team-lab` Swift wrapper.
 - Any MCP gaps found by the lab have Debugger packets and either fixes or
   explicit blockers.
 - The app remains only a presenter; it is not part of the lab's proof path.
@@ -1064,8 +1073,7 @@ LLM rubric evaluator, `alln dev team-lab` Swift wrapper.
 
 - Should lab records live only in Application Support, or should selected
   sanitized reports be committed under `docs/team-lab/reports/`?
-- Should evaluator workers be fixed models for score consistency, or should
-  evaluation itself be a Team that can improve over time?
+- Which live judge model families should be pinned for comparison consistency?
 - What is the minimum benchmark count before changing a built-in Team?
 - Should `floor_show` be enough for artifact retrieval, or do we need a
   dedicated `run_artifact_get` MCP tool?

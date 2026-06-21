@@ -13,7 +13,6 @@ Team: `code_bug_hunt` · Suite: `bug_hunt_repo_regressions_v1` · Case: `compose
 | Scoring source | `mcp` (journal diff-oracle only) |
 | Team quality | **judge-pending** — the heuristic (0.725) was deleted as theater; quality now decided by the two-judge blind A/B (`compare.py`). See § Judge Loop. |
 | Writer consistency | 0 issues |
-| expectedQualityHits | 5/5 per worker (after harness ordering fix) |
 
 ## Packet verdict (human)
 
@@ -29,19 +28,18 @@ chain is exactly what Bug Hunt exists to do.
 The baseline exposed lab defects, not just team behavior. Fixed in `scripts/team_lab/`:
 
 1. **Evaluator ordering bug** — `evaluate_team_quality` ran before `experiment.json`
-   was written, so it read `{}`: `expectedQualityHits` was forced to 0 for every
-   worker and the writer stale-claim check was silently disabled. `run.py` now writes
-   `experiment.json` before scoring. Re-score: hits 0 → 5/5.
+   was written, so the writer stale-claim check was silently disabled. `run.py` now
+   writes `experiment.json` before evaluation.
 2. **Worker-status guard** — new `mcp_worker_status` run-contract check asserts every
    non-plan worker has a `workerAnswers[].status` and writer status is present; a
    dropped/hidden worker now fails the contract and **withholds** team quality.
 3. **Team-quality gate** — withheld when `runContractScore < 0.95` (was only on
    `fsBypass` / not-completed), matching the spec's stated gate.
-4. **Label clarity** — reports now say "answer/review workers scored (writer/plan
-   excluded)" and show preflight-ready (incl. writer) separately.
-5. **Evaluator kill tests** — `scripts/team_lab/test_scoring.py` (11 assertions)
-   proves the scorer fails a hidden-worker run, an empty answer, a stale-claim writer,
-   and an `fsBypass` run. Run before trusting any scoring change.
+4. **Label clarity** — reports now say answer/review workers are judged by
+   `compare.py`; evaluation only records truth facts.
+5. **Evaluator kill tests** — `scripts/team_lab/test_scoring.py` proves the truth
+   evaluator fails a hidden-worker run, an empty answer, a stale-claim writer, and an
+   `fsBypass` run. Run before trusting any evaluator change.
 
 ## Confirmed substrate bugs (filed for the substrate dev)
 
@@ -56,5 +54,6 @@ ordering can't be MCP-verified until SUB-1/2/3 land.
 
 1. Finish the two substrate cases `mcp_fs_bypass_scoring_v1`, `floor_show_wrong_run_v1`.
 2. Keep Bug Hunt baseline immutable until 2–3 cases × N≥3 show repeatability.
-3. Do **not** mutate `TeamCatalog` from the heuristic score — harden the lab first.
+3. Do **not** mutate `TeamCatalog` from any deterministic quality score; quality has
+   no score and must go through live blind A/B.
 4. Treat any future run that fails `mcp_worker_status` as a substrate stop, not a team result.

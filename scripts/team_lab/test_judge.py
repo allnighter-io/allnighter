@@ -129,6 +129,8 @@ def test_compare_e2e() -> None:
         backends = [J.MockBackend("mockA", J.mock_prefer_longer), J.MockBackend("mockB", J.mock_prefer_longer)]
         out = C.compare(base, cand, backends)
         check("e2e.same_input_true", out["sameInput"])
+        check("e2e.mock_mode_marked", out["judgeMode"] == "mock")
+        check("e2e.mock_not_evidence", out["evidenceValid"] is False)
         check("e2e.banks_investigator", out["bankedRoles"] == ["inv#0"], str(out["bankedRoles"]))
         check("e2e.deliverable_candidate", out["deliverableOutcome"] == "candidate", out["deliverableOutcome"])
         check("e2e.no_interaction_warning", not out["interactionWarning"])
@@ -136,9 +138,29 @@ def test_compare_e2e() -> None:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def test_compare_refuses_different_input() -> None:
+    root = Path(tempfile.mkdtemp(prefix="judge_diff_input_"))
+    try:
+        base = root / "baseline"
+        cand = root / "candidate"
+        _mk_run(base, inv_ans="base inv", contra_ans="base contra",
+                plan_md="base plan", task="task one")
+        _mk_run(cand, inv_ans="cand inv", contra_ans="cand contra",
+                plan_md="cand plan", task="task two")
+        backends = [J.MockBackend("mockA", J.mock_prefer_longer), J.MockBackend("mockB", J.mock_prefer_longer)]
+        try:
+            C.compare(base, cand, backends)
+            check("e2e.diff_input_refused", False, "compare returned")
+        except SystemExit as e:
+            check("e2e.diff_input_refused", "same non-empty input" in str(e), str(e))
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def main() -> int:
     for t in (test_json, test_blind, test_blind_prompt_leaks_nothing, test_decide_role,
-              test_decide_compare, test_map_roles, test_compare_e2e):
+              test_decide_compare, test_map_roles, test_compare_e2e,
+              test_compare_refuses_different_input):
         t()
     print("\n".join(f"  ok   {p}" for p in PASSES))
     if FAILS:
