@@ -384,19 +384,14 @@ final class ThreadsViewModel {
                     projectId: scope.projectId,
                     repoRoot: scope.root
                 )
-                // Freeze + commit pasted/picked images into the thread's attachment store
-                // and stage workspace mirrors, so EVERY worker (single or team) receives
-                // the image path. Refs ride on the user turn (thumbnail in the thread).
-                let imageAtts = routing.attachments.filter { $0.kind == .image }
-                let staged = stageAttachments(
-                    imageAtts, threadId: threadId, repoRoot: scope.root
+                // Commit pasted/picked images AND captured long-paste text into the
+                // thread's attachment store + workspace mirror, so EVERY worker (single or
+                // team) gets them as files to open by path — images via a vision-gated
+                // block, text via an always-readable read-paths block. Image refs ride on
+                // the user turn (thumbnail in the thread).
+                let staged = stageRunAttachments(
+                    routing.attachments, threadId: threadId, repoRoot: scope.root
                 )
-                // Captured long-paste text rides in as run context (reaches every worker)
-                // so the editor stays clean but the content is really delivered.
-                let pastedContext = pastedTextContext(routing.attachments)
-                let context = [preparedRefs.packetText, pastedContext]
-                    .compactMap { $0?.isEmpty == false ? $0 : nil }
-                    .joined(separator: "\n\n")
                 appendUserTurn(
                     message,
                     toThreadId: threadId,
@@ -410,7 +405,7 @@ final class ThreadsViewModel {
                     toThreadId: threadId,
                     projectId: scope.projectId,
                     repoRoot: scope.root,
-                    context: context.isEmpty ? nil : context,
+                    context: preparedRefs.packetText,
                     deliveries: staged.deliveries
                 )
             } catch {
@@ -685,36 +680,47 @@ final class ThreadsViewModel {
         reload()
     }
 
-    /// Read captured long-paste (.txt) attachments and render them as fenced run-context
-    /// blocks. Returns nil when there are none.
-    private func pastedTextContext(_ attachments: [ComposeAttachment]) -> String? {
-        let blocks = attachments
-            .filter { $0.kind == .text }
-            .compactMap { att -> String? in
-                guard let body = try? String(contentsOf: att.fileURL, encoding: .utf8),
-                      !body.isEmpty else { return nil }
-                return ComposerPasteContract.contextBlock(title: att.displayName, body: body)
-            }
-        return blocks.isEmpty ? nil : blocks.joined(separator: "\n\n")
-    }
-
-    /// Commit composer images into the thread's attachment store + stage workspace
-    /// mirrors, returning the deliveries (for the run) and refs (for the user turn).
-    /// Failures degrade to no-attachment rather than blocking the send.
-    private func stageAttachments(
+    /// Commit composer images AND captured long-paste text into the thread's attachment
+    /// store + workspace mirror, returning the combined deliveries (for the run) and
+    /// image refs (for the user turn). Failures degrade to no-attachment rather than
+    /// blocking the send.
+    private func stageRunAttachments(
         _ attachments: [ComposeAttachment], threadId: String, repoRoot: String
     ) -> RunAttachmentStager.Staged {
-        guard !attachments.isEmpty else { return .empty }
+        let images = attachments.filter { $0.kind == .image }
+        let texts = attachments.filter { $0.kind == .text }
+        guard !images.isEmpty || !texts.isEmpty else { return .empty }
         do {
             let dir = try store.threadDirectory(forThreadId: threadId)
-            let images = attachments.map {
-                ThreadSendCoordinator.ImageInput(
-                    frozenFileURL: $0.fileURL, sourceKind: .guiAttach, originalName: $0.displayName
+            let stager = RunAttachmentStager()
+            var deliveries: [IncludedAttachmentDelivery] = []
+            var refs: [TurnAttachmentRef] = []
+            var warnings: [String] = []
+
+            if !images.isEmpty {
+                let inputs = images.map {
+                    ThreadSendCoordinator.ImageInput(
+                        frozenFileURL: $0.fileURL, sourceKind: .guiAttach, originalName: $0.displayName
+                    )
+                }
+                let s = try stager.stage(
+                    images: inputs, threadId: threadId, threadDirectory: dir, workingDir: repoRoot
                 )
+                deliveries += s.deliveries; refs += s.refs; warnings += s.warnings
             }
-            return try RunAttachmentStager().stage(
-                images: images, threadId: threadId, threadDirectory: dir, workingDir: repoRoot
-            )
+            if !texts.isEmpty {
+                let snippets = texts.compactMap { att -> RunAttachmentStager.TextSnippet? in
+                    guard let body = try? String(contentsOf: att.fileURL, encoding: .utf8),
+                          !body.isEmpty else { return nil }
+                    return RunAttachmentStager.TextSnippet(title: att.displayName, body: body)
+                }
+                let s = try stager.stageText(
+                    snippets: snippets, threadId: threadId, threadDirectory: dir,
+                    workingDir: repoRoot, startSequence: deliveries.count
+                )
+                deliveries += s.deliveries; warnings += s.warnings
+            }
+            return RunAttachmentStager.Staged(deliveries: deliveries, refs: refs, warnings: warnings)
         } catch {
             return .empty
         }

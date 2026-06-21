@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import AllnighterCore
 
 /// Stages user-attached images for a *run* (single-worker default chat OR a team
@@ -108,5 +109,73 @@ public struct RunAttachmentStager: Sendable {
         }
 
         return Staged(deliveries: deliveries, refs: refs, warnings: warnings)
+    }
+
+    /// A captured long-paste snippet to commit as a real `.txt` file the worker reads by
+    /// path (so two snippets are two files, not two walls of inline prompt text).
+    public struct TextSnippet: Sendable, Equatable {
+        public var title: String
+        public var body: String
+        public init(title: String, body: String) {
+            self.title = title
+            self.body = body
+        }
+    }
+
+    /// Commit `snippets` as durable `.txt` files in the thread's attachment dir, mirror
+    /// them into the workspace so a CLI worker can open them, and return `.text`
+    /// deliveries. `startSequence` keeps text after any images in the combined list.
+    public func stageText(
+        snippets: [TextSnippet],
+        threadId: String,
+        threadDirectory: URL,
+        workingDir: String?,
+        startSequence: Int = 0
+    ) throws -> Staged {
+        guard !snippets.isEmpty else { return .empty }
+
+        let canonicalDir = threadDirectory.appendingPathComponent("attachments", isDirectory: true)
+        try FileManager.default.createDirectory(at: canonicalDir, withIntermediateDirectories: true)
+
+        var mirrorRoot: URL?
+        if let workingDir, !workingDir.isEmpty {
+            let root = URL(fileURLWithPath: workingDir)
+                .appendingPathComponent(".allnighter/attachments/thread_\(threadId)", isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            mirrorRoot = root
+        }
+
+        var deliveries: [IncludedAttachmentDelivery] = []
+        for (offset, snippet) in snippets.enumerated() {
+            let attachmentId = idFactory()
+            let data = Data(snippet.body.utf8)
+            let sha = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            let canonical = canonicalDir.appendingPathComponent("\(attachmentId).txt")
+            try data.write(to: canonical)
+
+            var deliveredPath = canonical.path
+            if let mirrorRoot {
+                let dest = mirrorRoot.appendingPathComponent("\(attachmentId).txt")
+                if FileManager.default.fileExists(atPath: dest.path) {
+                    try FileManager.default.removeItem(at: dest)
+                }
+                try FileManager.default.copyItem(at: canonical, to: dest)
+                deliveredPath = ".allnighter/attachments/thread_\(threadId)/\(attachmentId).txt"
+            }
+
+            deliveries.append(IncludedAttachmentDelivery(
+                attachmentId: attachmentId,
+                sequence: startSequence + offset,
+                canonicalPath: canonical.path,
+                deliveredPathUsed: deliveredPath,
+                storedSha256: sha,
+                kind: .text))
+        }
+
+        var warnings: [String] = []
+        if let workingDir, !workingDir.isEmpty {
+            warnings.append(contentsOf: GitAttachmentHygiene.ensureIgnored(workingDir: workingDir))
+        }
+        return Staged(deliveries: deliveries, refs: [], warnings: warnings)
     }
 }

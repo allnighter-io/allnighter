@@ -61,6 +61,50 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
                        "non-vision worker must NOT get a path block it can't use")
     }
 
+    func testTextDeliveryIsReadByPathOnEverySeatRegardlessOfVision() async {
+        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [
+            "claude": .init(stdout: "vision answer", exitCode: 0),
+            "grok": .init(stdout: "blind answer", exitCode: 0),
+            "gemini": .init(stdout: "# Plan", exitCode: 0)
+        ]))
+        let registry = DriverRegistry([
+            TestSupport.visionManifest(id: "claude_code", command: "claude"),  // reads images
+            TestSupport.headlessManifest(id: "grok", command: "grok"),          // blind
+            TestSupport.headlessManifest(id: "antigravity", command: "gemini")
+        ])
+        let coord = CatalogRunCoordinator(workerRunner: runner, registry: registry, idFactory: { UUID().uuidString })
+        let visionW = Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let blindW = Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let writer = Worker(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
+        let resolved = ResolvedTeamRun(
+            teamPresetId: "t", teamDisplayName: "T", lane: .code, outputKind: .plan,
+            effort: .med, scoutWorker: nil, answerWorkers: [visionW, blindW], planWriter: writer, isRunnable: true)
+        let models = [
+            TestSupport.worker("model_opus", driverId: "claude_code"),
+            TestSupport.worker("model_grok", driverId: "grok"),
+            TestSupport.worker("model_gemini", driverId: "antigravity", role: .both)
+        ]
+
+        let textDelivery = IncludedAttachmentDelivery(
+            attachmentId: "t1", sequence: 0,
+            canonicalPath: "/canonical/t1.txt",
+            deliveredPathUsed: ".allnighter/attachments/thread_t/t1.txt",
+            storedSha256: "cafe", kind: .text)
+
+        let run = await coord.run(
+            resolved: resolved, prompt: "see the log", models: models,
+            runId: "r3", deliveries: [textDelivery])
+
+        // A text file is readable by EVERY worker — vision and non-vision alike — and
+        // never triggers the non-vision "can't see image" notice.
+        for id in ["model_opus#0", "model_grok#0"] {
+            let snap = run.workers.first { $0.id == id }?.resolvedWorkerPromptSnapshot
+            XCTAssertTrue(snap?.contains("Attached text files") == true, "\(id) must get the text read-paths block")
+            XCTAssertTrue(snap?.contains(".allnighter/attachments/thread_t/t1.txt") == true, "\(id) must get the text path")
+            XCTAssertFalse(snap?.contains("does not support image viewing") == true, "text is not vision-gated")
+        }
+    }
+
     func testNoDeliveriesLeavesPromptsUnchanged() async {
         let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [
             "claude": .init(stdout: "answer", exitCode: 0),

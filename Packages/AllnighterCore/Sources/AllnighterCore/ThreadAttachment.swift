@@ -24,25 +24,39 @@ public struct DraftAttachmentRef: Codable, Sendable, Equatable {
     }
 }
 
+/// Whether a delivered attachment is an image (vision-gated path block) or a text file
+/// (any worker can read it by path). Absent in older records ⇒ image.
+public enum AttachmentDeliveryKind: String, Codable, Sendable, CaseIterable {
+    case image
+    case text
+}
+
 public struct IncludedAttachmentDelivery: Codable, Sendable, Equatable {
     public var attachmentId: String
     public var sequence: Int
     public var canonicalPath: String
     public var deliveredPathUsed: String
     public var storedSha256: String
+    /// `nil` (legacy / default) ⇒ image. Text deliveries are read by path by ANY worker
+    /// — no vision gating — so multiple snippets don't bloat the prompt.
+    public var kind: AttachmentDeliveryKind?
+
+    public var deliveryKind: AttachmentDeliveryKind { kind ?? .image }
 
     public init(
         attachmentId: String,
         sequence: Int,
         canonicalPath: String,
         deliveredPathUsed: String,
-        storedSha256: String
+        storedSha256: String,
+        kind: AttachmentDeliveryKind? = nil
     ) {
         self.attachmentId = attachmentId
         self.sequence = sequence
         self.canonicalPath = canonicalPath
         self.deliveredPathUsed = deliveredPathUsed
         self.storedSha256 = storedSha256
+        self.kind = kind
     }
 }
 
