@@ -59,6 +59,39 @@ final class RemoteMediaFetcherTests: XCTestCase {
         }
     }
 
+    func testFetcherRejectsMismatchedMediaKeyEnvelope() async throws {
+        let ref = mediaRef()
+        let mismatchedKey = MediaKeyEnvelope(
+            ref: "media_other",
+            deviceId: "device_other",
+            sealedKey: SealedBlob(
+                ciphertext: Data("ciphertext".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: "device_other",
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+        let client = MockiOSClient(
+            macs: [],
+            media: [ref.ref: Data("ciphertext".utf8)],
+            mediaKeys: [ref.ref: ["device_1": mismatchedKey]],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        do {
+            _ = try await RemoteMediaFetcher.fetchBundle(client: client, ref: ref, deviceId: "device_1")
+            XCTFail("mismatched media key envelope should be rejected")
+        } catch let error as RemoteMediaFetcherError {
+            XCTAssertEqual(error, .mediaKeyMismatch(
+                expectedRef: "media_1",
+                actualRef: "media_other",
+                expectedDeviceId: "device_1",
+                actualDeviceId: "device_other"
+            ))
+        }
+    }
+
     private func mediaRef() -> MediaRef {
         MediaRef(
             ref: "media_1",

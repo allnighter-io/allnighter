@@ -1,6 +1,15 @@
 import CryptoKit
 import Foundation
 
+public enum RemoteMediaFetcherError: Error, Equatable, Sendable {
+    case mediaKeyMismatch(
+        expectedRef: String,
+        actualRef: String,
+        expectedDeviceId: String,
+        actualDeviceId: String
+    )
+}
+
 public struct RemoteMediaBundle: Equatable, Sendable {
     public var ref: MediaRef
     public var encryptedData: Data
@@ -30,11 +39,21 @@ public enum RemoteMediaFetcher {
     ) async throws -> RemoteMediaBundle {
         async let encryptedData = client.fetchSealed(ref)
         async let keyEnvelope = client.fetchMediaKey(ref, deviceId: deviceId)
-        return try await RemoteMediaBundle(
+        let bundle = try await RemoteMediaBundle(
             ref: ref,
             encryptedData: encryptedData,
             keyEnvelope: keyEnvelope
         )
+        guard bundle.keyEnvelope.ref == ref.ref,
+              bundle.keyEnvelope.deviceId == deviceId else {
+            throw RemoteMediaFetcherError.mediaKeyMismatch(
+                expectedRef: ref.ref,
+                actualRef: bundle.keyEnvelope.ref,
+                expectedDeviceId: deviceId,
+                actualDeviceId: bundle.keyEnvelope.deviceId
+            )
+        }
+        return bundle
     }
 
     public static func fetchAndDecrypt(
