@@ -294,7 +294,8 @@ public struct WorkerRunner: Sendable {
         parser: WorkerStreamParser,
         effort: EffortLevel = .med,
         workingDirectoryOverride: String? = nil,
-        timeoutOverride: Duration? = nil
+        timeoutOverride: Duration? = nil,
+        sessionPlan: WorkerSessionPlan? = nil
     ) -> AsyncThrowingStream<WorkerStreamEvent, Error> {
         AsyncThrowingStream { continuation in
             guard manifest.kind == .headlessCLI, let invoke = manifest.invoke,
@@ -312,10 +313,17 @@ public struct WorkerRunner: Sendable {
             let workingDir = workingDirectoryOverride ?? defaultWorkingDirectory ?? invoke.workingDir
             let spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()
             let driverWorkingDir = workingDir ?? spawnWorkingDir
-            let context = DriverManifest.ResolveContext(
+            var context = DriverManifest.ResolveContext(
                 prompt: prompt, model: worker.resolvedLabel(at: effort),
                 workingDir: driverWorkingDir, outputFile: outputFileURL?.path, effort: effort)
-            let args = manifest.resolvedStreamingArgs(context)
+            // Worker_Session_Continuity: a resume turn / mint(set) overrides the argv with the
+            // session-aware template; a capture/first turn keeps the base streaming args and
+            // captures the new vendor id from output afterward.
+            let (sessionArgs, plannedSessionId) = WorkerSessionPlanner.plan(sessionPlan) { id, resuming in
+                context.resumeSessionId = id
+                return manifest.resolvedSessionArgs(context, resuming: resuming)
+            }
+            let args = sessionArgs ?? manifest.resolvedStreamingArgs(context)
             let stdin = manifest.stdinPrompt(context)
             let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
 
@@ -344,11 +352,16 @@ public struct WorkerRunner: Sendable {
                         case .completed(let result):
                             let fileText = outputFileURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
                             let finalText = parser.finalAnswer(result: result, outputFileText: fileText)
-                            let outcome = finalize(
+                            var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
                                 overrideFinalText: finalText)
-                            StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1)")
+                            // The vendor session this turn established/resumed — the caller
+                            // persists it (on success) so the next turn resumes it.
+                            outcome.capturedSessionId = WorkerSessionPlanner.capturedId(
+                                sessionPlan, plannedSessionId: plannedSessionId,
+                                stdout: result.stdout, outputFileContents: fileText)
+                            StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1) session=\(outcome.capturedSessionId ?? "-")")
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
                         case .failed(let launchError):
                             var outcome = WorkerRunOutcome(status: .failed, startedAt: startedAt, finishedAt: now())
