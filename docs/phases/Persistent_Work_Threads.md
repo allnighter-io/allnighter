@@ -3,7 +3,7 @@
 Status: Parent/router — core thread MLP + CR4 conversation send paths delivered;
 remaining work deferred to routed child docs
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-17
+Updated: 2026-06-21
 
 > **Parent doc:** this page is the router for the work-thread product lane. It
 > records what shipped and which child doc owns the next work. Do not use this
@@ -17,8 +17,8 @@ Updated: 2026-06-17
 > the Home conversation rail plus real Chat, Fan out, and Execute send paths.
 > ThreadStore hardening and Threads 2.0 rail controls are archived. Mac local
 > notifications 1.0 are built (02). Remaining active thread work: rich-turn read
-> clear (06 S08), worker image GUI (08 S04), core-loop gaps in `01`, and fast
-> follows 03–04.
+> clear (06 S08), worker image GUI (08 S04), thread forking (09),
+> core-loop gaps in `01`, and fast follows 03–04.
 >
 > **Project spine dependency:** threads are no longer the top-level floor for
 > new forward work. [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md)
@@ -138,6 +138,15 @@ Build in this order:
    - Fast follow for provider-reported usage only.
    - No estimates, no fake dollar math, no opaque quota percentages.
    - Duration stays first-class and already partially exists.
+
+9. [`threads/09_Thread_Forking.md`](threads/09_Thread_Forking.md) — **Draft
+   feature packet; MCP/CLI-first**
+   - Fork a thread or terminal turn prefix into a new active child thread with
+     durable provenance.
+   - MCP `thread_fork` and CLI `alln thread fork` are the acceptance surface;
+     Mac inline/rail affordances present that contract after proof.
+   - Must copy referenced thread subresources and harden run inverse lookup
+     before copied run turns ship.
 
 ## Non-Negotiable Product Rules
 
