@@ -182,6 +182,17 @@ struct BenchDropdownPanel: View {
     /// not-ready models never appear here — they live on the CLI setup page.
     private var availableModels: [Model] { appModel.availableModels }
 
+    /// Auto's resolved default model name — the same resolution the composer chip
+    /// shows ("Auto · Opus 4.8"). Cached on open (it reads persisted settings).
+    @State private var autoModelName: String?
+
+    private func resolveAutoModelName() {
+        let settings = DefaultModelSettingsPersistence().load()
+        let readyIds = Set(appModel.availableModels.map(\.id))
+        let resolved = SubstitutionResolver.resolveAuto(settings: settings, readyModelIds: readyIds).resolvedModelId
+        autoModelName = resolved.flatMap { id in appModel.availableModels.first { $0.id == id }?.displayName }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -193,6 +204,7 @@ struct BenchDropdownPanel: View {
         .clipShape(panelShape)
         .overlay { panelShape.stroke(ALColor.borderDefault, lineWidth: 1) }
         .alShadowXl()
+        .onAppear(perform: resolveAutoModelName)
     }
 
     private var header: some View {
@@ -211,15 +223,23 @@ struct BenchDropdownPanel: View {
 
     private var rowList: some View {
         // ScrollView needs an explicit height here — without it the list collapses to
-        // zero inside the attached popover VStack (header + footer only).
-        let height = min(CGFloat(availableModels.count) * 46 + 12, 322)
+        // zero inside the attached popover VStack (header + footer only). +1 row for the
+        // pinned Auto entry that always leads the list.
+        let height = min(CGFloat(availableModels.count + 1) * 46 + 12, 322)
         return ScrollView {
             VStack(spacing: 1) {
+                // Auto is ALWAYS pinned to the top — the default route every user should
+                // see, resolving to their default model.
+                AutoDropdownRow(modelName: autoModelName)
+                if !availableModels.isEmpty {
+                    Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                }
                 ForEach(availableModels) { ModelDropdownRow(model: $0) }
             }
             .padding(6)
         }
-        .frame(height: max(height, availableModels.isEmpty ? 40 : 46))
+        .frame(height: max(height, 46))
     }
 
     private var footer: some View {
@@ -243,6 +263,37 @@ struct BenchDropdownPanel: View {
         .padding(.horizontal, 12).padding(.vertical, 10)
         .background(ALColor.surface)
         .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
+    }
+}
+
+/// The pinned Auto row at the top of the Models dropdown — the default route that
+/// resolves to your default model (substituting within its tier when a CLI is down).
+/// Always shown so users always see Auto, even before they touch the bench.
+private struct AutoDropdownRow: View {
+    let modelName: String?
+    @State private var hover = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "infinity")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(ALColor.textSecondary)
+                .frame(width: 34, height: 34)
+                .background(ALColor.active, in: RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Auto")
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
+                Text(modelName ?? "Default model")
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(ALColor.textFaint).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Circle().fill(modelName != nil ? ALPalette.green500 : ALColor.textFaint).frame(width: 8, height: 8)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(hover ? ALColor.hover : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+        .onHover { hover = $0 }
     }
 }
 
