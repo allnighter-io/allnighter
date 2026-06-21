@@ -548,7 +548,12 @@ private struct ThreadTurnRow: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(partial)
                                 .font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                                .textSelection(.enabled)
+                                // RLS-S04: selection on actively-streaming text recomputes
+                                // selectable ranges on every delta (and the workspace root
+                                // enables selection by inheritance). Disable it while in
+                                // flight; selection returns at settlement via the answer's
+                                // markdown/raw toggle.
+                                .textSelection(.disabled)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             HStack(spacing: 6) {
