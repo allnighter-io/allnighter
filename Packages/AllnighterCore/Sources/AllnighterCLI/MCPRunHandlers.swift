@@ -17,7 +17,7 @@ enum MCPRunHandlers {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "project required", requiresManual: true, retryable: false))
         }
         let store = ProjectStore()
-        guard let project = resolveProject(projectToken, store: store) else {
+        guard let project = AllnighterCLI.resolveProject(projectToken, store: store) else {
             return .toolError(ErrorEnvelope(code: "PROJECT_NOT_FOUND", message: "project not found: \(projectToken)", requiresManual: true, retryable: false))
         }
 
@@ -53,11 +53,5 @@ enum MCPRunHandlers {
             let text = run.plan ?? run.workerAnswers.first?.output ?? "run \(run.status.rawValue)"
             return .success(AllnighterCLI.jsonString(trj), summary: text.prefix(200).description)
         }
-    }
-
-    private static func resolveProject(_ token: String, store: ProjectStore) -> Project? {
-        if let byId = try? store.get(token) { return byId }
-        let key = RootNormalization.normalize(token).key
-        return (try? store.activeProjects())?.first { $0.normalizedRootPath == key }
     }
 }

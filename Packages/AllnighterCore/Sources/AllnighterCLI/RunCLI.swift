@@ -17,7 +17,7 @@ enum RunCLI {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--project <id|path> required")
         }
         let store = ProjectStore()
-        guard let project = resolveProject(projectToken, store: store) else {
+        guard let project = AllnighterCLI.resolveProject(projectToken, store: store) else {
             AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(projectToken)")
         }
 
@@ -173,11 +173,5 @@ enum RunCLI {
         if let team = run.presetId { parts.append(contentsOf: ["--team", team]) }
         if let effort = run.effort { parts.append(contentsOf: ["--effort", effort.rawValue]) }
         return parts.joined(separator: " ")
-    }
-
-    private static func resolveProject(_ token: String, store: ProjectStore) -> Project? {
-        if let byId = try? store.get(token) { return byId }
-        let key = RootNormalization.normalize(token).key
-        return (try? store.activeProjects())?.first { $0.normalizedRootPath == key }
     }
 }

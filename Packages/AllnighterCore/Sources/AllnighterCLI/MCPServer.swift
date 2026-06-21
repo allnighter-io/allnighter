@@ -289,14 +289,18 @@ struct MCPServer {
             }
             respond(id: id, result: toolText(thread.title, structured: AllnighterCLI.jsonString(thread)))
         case "thread_rename":
-            guard let threadId = args["threadId"] as? String else {
+            guard let threadRef = args["threadId"] as? String else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "threadId required")
             }
             guard let title = (args["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "non-empty title required")
             }
+            let store = ThreadStore()
+            guard let threadId = AllnighterCLI.resolveThreadId(threadRef, store: store) else {
+                return respondToolError(id: id, code: "THREAD_NOT_FOUND", message: "thread not found: \(threadRef)")
+            }
             do {
-                let thread = try ThreadStore().renameThread(threadId: threadId, title: title)
+                let thread = try store.renameThread(threadId: threadId, title: title)
                 respond(id: id, result: toolText("renamed → \(thread.title)", structured: AllnighterCLI.jsonString(thread)))
             } catch let error as ThreadStoreError {
                 if case .threadNotFound = error {

@@ -17,14 +17,8 @@ enum ThreadRenameCLI {
         }
 
         let store = ThreadStore()
-        let threadId: String
-        if threadRef == "latest" {
-            guard let latest = store.list().first else {
-                AllnighterCLI.fail(code: "THREAD_NOT_FOUND", message: "no threads exist")
-            }
-            threadId = latest.id
-        } else {
-            threadId = threadRef
+        guard let threadId = AllnighterCLI.resolveThreadId(threadRef, store: store) else {
+            AllnighterCLI.fail(code: "THREAD_NOT_FOUND", message: "thread not found: \(threadRef)")
         }
 
         do {

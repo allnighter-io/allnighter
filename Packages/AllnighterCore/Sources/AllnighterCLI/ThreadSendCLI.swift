@@ -36,17 +36,8 @@ enum ThreadSendCLI {
         }
 
         let store = ThreadStore()
-        let threadId: String
-        if threadRef == "latest" {
-            guard let latest = store.list().first else {
-                AllnighterCLI.fail(code: "THREAD_NOT_FOUND", message: "no threads exist")
-            }
-            threadId = latest.id
-        } else {
-            threadId = threadRef
-        }
-        guard store.get(threadId) != nil else {
-            AllnighterCLI.fail(code: "THREAD_NOT_FOUND", message: "thread not found: \(threadId)")
+        guard let threadId = AllnighterCLI.resolveThreadId(threadRef, store: store) else {
+            AllnighterCLI.fail(code: "THREAD_NOT_FOUND", message: "thread not found: \(threadRef)")
         }
 
         var frozenInputs: [ThreadSendCoordinator.ImageInput] = []
@@ -258,17 +249,8 @@ enum MCPThreadSendHandlers {
         }
 
         let store = ThreadStore()
-        let threadId: String
-        if threadRef == "latest" {
-            guard let latest = store.list().first else {
-                return .failure(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "no threads exist", requiresManual: true, retryable: false))
-            }
-            threadId = latest.id
-        } else {
-            threadId = threadRef
-        }
-        guard store.get(threadId) != nil else {
-            return .failure(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "thread not found", requiresManual: true, retryable: false))
+        guard let threadId = AllnighterCLI.resolveThreadId(threadRef, store: store) else {
+            return .failure(ErrorEnvelope(code: "THREAD_NOT_FOUND", message: "thread not found: \(threadRef)", requiresManual: true, retryable: false))
         }
 
         var frozenInputs: [ThreadSendCoordinator.ImageInput] = []

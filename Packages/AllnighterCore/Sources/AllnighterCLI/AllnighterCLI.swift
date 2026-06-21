@@ -1050,6 +1050,21 @@ struct AllnighterCLI {
         return "latest"
     }
 
+    /// Resolve a project token (id or repo-root path) to a Project. One SSOT for the run/MCP
+    /// entrypoints — both `alln run` and `team_run` resolve the same way.
+    static func resolveProject(_ token: String, store: ProjectStore) -> Project? {
+        if let byId = try? store.get(token) { return byId }
+        let key = RootNormalization.normalize(token).key
+        return (try? store.activeProjects())?.first { $0.normalizedRootPath == key }
+    }
+
+    /// Resolve a thread reference (`latest` or an id) to a concrete thread id, or nil if no
+    /// thread matches. One SSOT for `thread send` / `thread rename` (CLI + MCP).
+    static func resolveThreadId(_ ref: String, store: ThreadStore) -> String? {
+        if ref == "latest" { return store.list().first?.id }
+        return store.get(ref) != nil ? ref : nil
+    }
+
     /// Default projection context for a persisted run (journal path + reproduce
     /// command derived from the run's own catalog facts).
     static func defaultRunContext(_ run: TeamRun, full: Bool = false) -> TeamRunJSONMapper.Context {
