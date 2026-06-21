@@ -83,18 +83,32 @@ public struct RemoteCommandRouterPolicy: Equatable, Sendable {
 public struct RemoteSeenRequest: Codable, Equatable, Sendable {
     public var requestId: String
     public var seenAt: Date
+    public var accountId: String?
+    public var macAgentId: String?
+    public var deviceId: String?
 
-    public init(requestId: String, seenAt: Date) {
+    public init(
+        requestId: String,
+        seenAt: Date,
+        accountId: String? = nil,
+        macAgentId: String? = nil,
+        deviceId: String? = nil
+    ) {
         self.requestId = requestId
         self.seenAt = seenAt
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.deviceId = deviceId
     }
 }
 
 public struct RemoteRequestDedupeRegistry: Codable, Equatable, Sendable {
+    public static let currentSchemaVersion = 2
+
     public var schemaVersion: Int
     public var requests: [RemoteSeenRequest]
 
-    public init(schemaVersion: Int = 1, requests: [RemoteSeenRequest] = []) {
+    public init(schemaVersion: Int = currentSchemaVersion, requests: [RemoteSeenRequest] = []) {
         self.schemaVersion = schemaVersion
         self.requests = requests
     }
@@ -135,6 +149,9 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
 
     public func containsOrRecord(
         requestId: String,
+        accountId: String? = nil,
+        macAgentId: String? = nil,
+        deviceId: String? = nil,
         now: Date,
         window: TimeInterval,
         maxEntries: Int = 10_000
@@ -144,13 +161,22 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
 
         let cutoff = now.addingTimeInterval(-window)
         var registry = load()
+        registry.schemaVersion = RemoteRequestDedupeRegistry.currentSchemaVersion
         registry.requests.removeAll { $0.seenAt < cutoff }
-        if registry.requests.contains(where: { $0.requestId == requestId }) {
+        if registry.requests.contains(where: {
+            requestMatches($0, requestId: requestId, accountId: accountId, macAgentId: macAgentId, deviceId: deviceId)
+        }) {
             try save(registry)
             return true
         }
 
-        registry.requests.append(RemoteSeenRequest(requestId: requestId, seenAt: now))
+        registry.requests.append(RemoteSeenRequest(
+            requestId: requestId,
+            seenAt: now,
+            accountId: accountId,
+            macAgentId: macAgentId,
+            deviceId: deviceId
+        ))
         if registry.requests.count > maxEntries {
             registry.requests = Array(registry.requests
                 .sorted { $0.seenAt < $1.seenAt }
@@ -158,6 +184,25 @@ public final class RemoteRequestDedupeStore: @unchecked Sendable {
         }
         try save(registry)
         return false
+    }
+
+    private func requestMatches(
+        _ seen: RemoteSeenRequest,
+        requestId: String,
+        accountId: String?,
+        macAgentId: String?,
+        deviceId: String?
+    ) -> Bool {
+        guard seen.requestId == requestId else { return false }
+        if accountId == nil, macAgentId == nil, deviceId == nil {
+            return true
+        }
+        if seen.accountId == nil, seen.macAgentId == nil, seen.deviceId == nil {
+            return true
+        }
+        return seen.accountId == accountId
+            && seen.macAgentId == macAgentId
+            && seen.deviceId == deviceId
     }
 }
 
@@ -263,7 +308,14 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         ) else {
             return try rejected(command, reason: .badSignature, serverTime: serverTime)
         }
-        if try dedupeStore.containsOrRecord(requestId: command.requestId, now: serverTime, window: skewWindow) {
+        if try dedupeStore.containsOrRecord(
+            requestId: command.requestId,
+            accountId: accountId,
+            macAgentId: macAgentId,
+            deviceId: trustedDevice.deviceId,
+            now: serverTime,
+            window: skewWindow
+        ) {
             return try rejected(command, reason: .replayedRequestId, outcome: .duplicate, serverTime: serverTime)
         }
         guard recordRateLimitHit(deviceId: trustedDevice.deviceId, at: serverTime) else {

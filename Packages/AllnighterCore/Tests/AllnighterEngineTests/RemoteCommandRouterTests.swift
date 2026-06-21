@@ -196,6 +196,88 @@ final class RemoteCommandRouterTests: XCTestCase {
         XCTAssertEqual(replay.ack.reason, .replayedRequestId)
         let stopAllCallCount = await executor.stopAllCallCount()
         XCTAssertEqual(stopAllCallCount, 1)
+        let seen = dedupeStore.load().requests
+        XCTAssertEqual(seen.count, 1)
+        XCTAssertEqual(seen.first?.accountId, "acct_1")
+        XCTAssertEqual(seen.first?.macAgentId, "mac_1")
+        XCTAssertEqual(seen.first?.deviceId, "device_1")
+    }
+
+    func testDedupeStoreScopesSameRequestIdByRemoteIdentity() throws {
+        let requestId = "req_shared"
+
+        XCTAssertFalse(try dedupeStore.containsOrRecord(
+            requestId: requestId,
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            deviceId: "device_1",
+            now: now,
+            window: 60
+        ))
+        XCTAssertFalse(try dedupeStore.containsOrRecord(
+            requestId: requestId,
+            accountId: "acct_2",
+            macAgentId: "mac_1",
+            deviceId: "device_1",
+            now: now,
+            window: 60
+        ))
+        XCTAssertFalse(try dedupeStore.containsOrRecord(
+            requestId: requestId,
+            accountId: "acct_1",
+            macAgentId: "mac_2",
+            deviceId: "device_1",
+            now: now,
+            window: 60
+        ))
+        XCTAssertFalse(try dedupeStore.containsOrRecord(
+            requestId: requestId,
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            deviceId: "device_2",
+            now: now,
+            window: 60
+        ))
+        XCTAssertTrue(try dedupeStore.containsOrRecord(
+            requestId: requestId,
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            deviceId: "device_1",
+            now: now,
+            window: 60
+        ))
+
+        let registry = dedupeStore.load()
+        XCTAssertEqual(registry.schemaVersion, RemoteRequestDedupeRegistry.currentSchemaVersion)
+        XCTAssertEqual(registry.requests.count, 4)
+        XCTAssertTrue(registry.requests.contains {
+            $0.requestId == requestId
+                && $0.accountId == "acct_2"
+                && $0.macAgentId == "mac_1"
+                && $0.deviceId == "device_1"
+        })
+    }
+
+    func testDedupeStoreTreatsLegacyUnscopedRequestAsReplay() throws {
+        try dedupeStore.save(RemoteRequestDedupeRegistry(
+            schemaVersion: 1,
+            requests: [RemoteSeenRequest(requestId: "req_legacy", seenAt: now)]
+        ))
+
+        let duplicate = try dedupeStore.containsOrRecord(
+            requestId: "req_legacy",
+            accountId: "acct_2",
+            macAgentId: "mac_2",
+            deviceId: "device_2",
+            now: now,
+            window: 60
+        )
+
+        XCTAssertTrue(duplicate)
+        let registry = dedupeStore.load()
+        XCTAssertEqual(registry.schemaVersion, RemoteRequestDedupeRegistry.currentSchemaVersion)
+        XCTAssertEqual(registry.requests.count, 1)
+        XCTAssertNil(registry.requests.first?.accountId)
     }
 
     func testPerDeviceRateLimitRejectsSecondDistinctCommand() async throws {
