@@ -40,7 +40,7 @@ final class DirectModePairingRequestHandlerTests: XCTestCase {
         XCTAssertEqual(response.request.status, .pending)
         XCTAssertEqual(response.request.expiresAt, now.addingTimeInterval(120))
 
-        XCTAssertEqual(sessionStore.load().sessions.first?.status, .consumed)
+        XCTAssertEqual(try sessionStore.load().sessions.first?.status, .consumed)
         XCTAssertEqual(trustedStore.load().pendingRequests, [response.request])
     }
 
@@ -52,7 +52,7 @@ final class DirectModePairingRequestHandlerTests: XCTestCase {
 
         XCTAssertEqual(response.sessionId, "session_1")
         XCTAssertEqual(trustedStore.load().pendingRequests.map(\.deviceId), ["device_1"])
-        XCTAssertEqual(sessionStore.load().sessions.first?.status, .consumed)
+        XCTAssertEqual(try sessionStore.load().sessions.first?.status, .consumed)
     }
 
     func testWrongTokenLocksOutBeforePendingRequest() throws {
@@ -62,7 +62,7 @@ final class DirectModePairingRequestHandlerTests: XCTestCase {
         XCTAssertThrowsError(try handler.handle(submitRequest(pairingToken: "wrong"))) { error in
             XCTAssertEqual(error as? DirectModePairingSessionStoreError, .invalidPairingToken)
         }
-        XCTAssertEqual(sessionStore.load().sessions.first?.status, .lockedOut)
+        XCTAssertEqual(try sessionStore.load().sessions.first?.status, .lockedOut)
         XCTAssertTrue(trustedStore.load().pendingRequests.isEmpty)
 
         XCTAssertThrowsError(try handler.handle(submitRequest(pairingToken: "token_ok"))) { error in

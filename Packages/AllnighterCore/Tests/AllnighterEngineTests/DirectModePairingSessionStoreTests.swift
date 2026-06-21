@@ -51,6 +51,18 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         }
     }
 
+    func testCorruptRegistryFailsClosed() throws {
+        try FileManager.default.createDirectory(
+            at: store.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(#"{"sessions":["#.utf8).write(to: store.fileURL)
+
+        XCTAssertThrowsError(try store.load())
+        XCTAssertThrowsError(try store.active(now: now))
+        XCTAssertThrowsError(try store.consume(pairingToken: "token_once", now: now))
+    }
+
     func testExpiredSessionCannotBeConsumed() throws {
         let payload = pairingPayload(pairingToken: "token_expired", expiresAt: now.addingTimeInterval(1))
         _ = try store.arm(payload: payload, now: now)
@@ -58,7 +70,7 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.consume(pairingToken: "token_expired", now: now.addingTimeInterval(2))) { error in
             XCTAssertEqual(error as? DirectModePairingSessionStoreError, .sessionExpired("session_1"))
         }
-        XCTAssertEqual(store.load().sessions.first?.status, .expired)
+        XCTAssertEqual(try store.load().sessions.first?.status, .expired)
     }
 
     func testUnsupportedProtocolPayloadCannotBeArmed() throws {
@@ -77,17 +89,17 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
                 )
             )
         }
-        XCTAssertTrue(store.load().sessions.isEmpty)
+        XCTAssertTrue(try store.load().sessions.isEmpty)
     }
 
     func testActivePersistsExpiredSessions() throws {
         let payload = pairingPayload(pairingToken: "token_expired", expiresAt: now.addingTimeInterval(1))
         _ = try store.arm(payload: payload, now: now)
 
-        let active = store.active(now: now.addingTimeInterval(2))
+        let active = try store.active(now: now.addingTimeInterval(2))
 
         XCTAssertTrue(active.isEmpty)
-        XCTAssertEqual(store.load().sessions.first?.status, .expired)
+        XCTAssertEqual(try store.load().sessions.first?.status, .expired)
     }
 
     func testBadPairingTokenAttemptsLockOutActiveSession() throws {
@@ -97,13 +109,13 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.consume(pairingToken: "wrong_1", now: now.addingTimeInterval(1))) { error in
             XCTAssertEqual(error as? DirectModePairingSessionStoreError, .invalidPairingToken)
         }
-        XCTAssertEqual(store.load().sessions.first?.failedAttempts, 1)
-        XCTAssertEqual(store.load().sessions.first?.status, .armed)
+        XCTAssertEqual(try store.load().sessions.first?.failedAttempts, 1)
+        XCTAssertEqual(try store.load().sessions.first?.status, .armed)
 
         XCTAssertThrowsError(try store.consume(pairingToken: "wrong_2", now: now.addingTimeInterval(2))) { error in
             XCTAssertEqual(error as? DirectModePairingSessionStoreError, .invalidPairingToken)
         }
-        let locked = store.load().sessions.first
+        let locked = try store.load().sessions.first
         XCTAssertEqual(locked?.failedAttempts, 2)
         XCTAssertEqual(locked?.status, .lockedOut)
         XCTAssertEqual(locked?.lockedOutAt, now.addingTimeInterval(2))
@@ -130,7 +142,7 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.consume(manualCode: "not-a-code", now: now.addingTimeInterval(1))) { error in
             XCTAssertEqual(error as? DirectModePairingSessionStoreError, .invalidManualCode)
         }
-        let locked = store.load().sessions.first
+        let locked = try store.load().sessions.first
         XCTAssertEqual(locked?.failedAttempts, 1)
         XCTAssertEqual(locked?.status, .lockedOut)
         XCTAssertEqual(locked?.lockedOutAt, now.addingTimeInterval(1))
@@ -155,10 +167,10 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
             now: now.addingTimeInterval(10)
         )
 
-        let sessions = store.load().sessions
+        let sessions = try store.load().sessions
         XCTAssertEqual(sessions.map(\.id), ["session_1", "session_2"])
         XCTAssertEqual(sessions.map(\.status), [.expired, .armed])
-        XCTAssertEqual(store.active(now: now.addingTimeInterval(11)).map(\.id), ["session_2"])
+        XCTAssertEqual(try store.active(now: now.addingTimeInterval(11)).map(\.id), ["session_2"])
     }
 
     private func pairingPayload(

@@ -33,12 +33,12 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
         self.idFactory = idFactory
     }
 
-    public func load() -> DirectModePairingRegistry {
-        guard let data = try? Data(contentsOf: fileURL),
-              let registry = try? CoreJSON.decode(DirectModePairingRegistry.self, from: data) else {
+    public func load() throws -> DirectModePairingRegistry {
+        guard fileManager.fileExists(atPath: fileURL.path) else {
             return DirectModePairingRegistry()
         }
-        return registry
+        let data = try Data(contentsOf: fileURL)
+        return try CoreJSON.decode(DirectModePairingRegistry.self, from: data)
     }
 
     @discardableResult
@@ -82,7 +82,7 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
             normalizedManualCode = nil
         }
 
-        var registry = load()
+        var registry = try load()
         expireSessions(in: &registry, now: now)
         if replaceActive {
             for index in registry.sessions.indices where registry.sessions[index].isArmed(at: now) {
@@ -112,10 +112,10 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
         return session
     }
 
-    public func active(now: Date = Date()) -> [DirectModePairingSession] {
-        var registry = load()
+    public func active(now: Date = Date()) throws -> [DirectModePairingSession] {
+        var registry = try load()
         if expireSessions(in: &registry, now: now) {
-            _ = try? save(registry)
+            try save(registry)
         }
         return registry.sessions.filter { $0.isArmed(at: now) }
     }
@@ -154,7 +154,7 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
         kind: AttemptKind,
         now: Date
     ) throws -> DirectModePairingSession {
-        var registry = load()
+        var registry = try load()
         expireSessions(in: &registry, now: now)
 
         if kind == .manualCode && !registry.sessions.contains(where: { $0.manualCodeSHA256 != nil }) {
@@ -226,7 +226,7 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
     }
 
     private func recordFailedManualCodeAttempt(now: Date) throws {
-        var registry = load()
+        var registry = try load()
         let didExpire = expireSessions(in: &registry, now: now)
         let hasActiveManualCodeSession = registry.sessions.contains {
             $0.manualCodeSHA256 != nil && $0.isArmed(at: now)
