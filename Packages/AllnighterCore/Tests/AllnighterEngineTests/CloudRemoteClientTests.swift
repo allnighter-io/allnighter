@@ -187,6 +187,27 @@ final class CloudRemoteClientTests: XCTestCase {
         }
     }
 
+    func testClientFetchesCloudMediaKey() async throws {
+        let relay = MockRemoteMacRelay()
+        let ref = mediaRef(ref: "media_1", expiresAt: now.addingTimeInterval(60))
+        let key = mediaKey(ref: "media_1", deviceId: "device_1")
+        try await relay.publishMedia(ref: ref, data: Data("ciphertext".utf8), keys: [key])
+        let fixedNow = now
+        let client = CloudRemoteClient(mac: macRef(), relay: relay, now: { fixedNow })
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        let fetched = try await client.fetchMediaKey(ref, deviceId: "device_1")
+
+        XCTAssertEqual(fetched, key)
+
+        do {
+            _ = try await client.fetchMediaKey(ref, deviceId: "device_missing")
+            XCTFail("missing media key should be explicit")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .mediaKeyNotFound(ref: "media_1", deviceId: "device_missing"))
+        }
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let relay = MockRemoteMacRelay()
         let badSigningKey = Curve25519.Signing.PrivateKey()
@@ -375,6 +396,19 @@ final class CloudRemoteClientTests: XCTestCase {
             r2Key: "r2/\(ref)",
             contentType: "image/png",
             expiresAt: expiresAt
+        )
+    }
+
+    private func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+        MediaKeyEnvelope(
+            ref: ref,
+            deviceId: deviceId,
+            sealedKey: SealedBlob(
+                ciphertext: Data("ciphertext".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: deviceId,
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
         )
     }
 }

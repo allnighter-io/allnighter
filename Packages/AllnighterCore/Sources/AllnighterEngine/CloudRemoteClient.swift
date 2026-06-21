@@ -21,6 +21,7 @@ public enum CloudRemoteClientError: Error, Equatable, Sendable {
     case macNotFound(String)
     case snapshotNotFound(String)
     case mediaNotFound(String)
+    case mediaKeyNotFound(ref: String, deviceId: String)
     case ackTimedOut(String)
     case badAckEnvelope
     case badAckSignature
@@ -145,6 +146,18 @@ public actor CloudRemoteClient: RemoteClient {
             throw CloudRemoteClientError.mediaNotFound(ref.ref)
         }
         return data
+    }
+
+    public func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope {
+        _ = try requireConnected()
+        guard let key = try await relay.mediaKey(
+            ref: ref.ref,
+            deviceId: deviceId,
+            at: now()
+        ) else {
+            throw CloudRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
+        }
+        return key
     }
 
     public func diagnose() async -> ConnectionDiagnosis {

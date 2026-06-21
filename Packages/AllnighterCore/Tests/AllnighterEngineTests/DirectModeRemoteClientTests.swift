@@ -128,6 +128,54 @@ final class DirectModeRemoteClientTests: XCTestCase {
         ])
     }
 
+    func testClientFetchesMediaKeyFromLoopbackServer() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let key = Self.mediaKey(ref: "media_1", deviceId: "device_1")
+        let mediaKeyHandler = RecordingDirectModeClientMediaKeyHandler(response: DirectModeMediaKeyResponse(
+            key: key
+        ))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            mediaKeyHandler: mediaKeyHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+        let ref = MediaRef(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            r2Key: "direct/media_1",
+            contentType: "image/png",
+            expiresAt: now.addingTimeInterval(60)
+        )
+
+        let fetched = try await client.fetchMediaKey(ref, deviceId: "device_1")
+
+        XCTAssertEqual(fetched, key)
+        XCTAssertEqual(mediaKeyHandler.requests, [
+            DirectModeMediaKeyRequest(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                ref: "media_1",
+                deviceId: "device_1",
+                checkedAt: now
+            ),
+        ])
+    }
+
     func testClientStreamsOnlyVerifiedEventsFromLoopbackServer() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let valid = try Self.eventEnvelope(
@@ -317,6 +365,19 @@ final class DirectModeRemoteClientTests: XCTestCase {
             serverTime: now
         )
     }
+
+    private static func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+        MediaKeyEnvelope(
+            ref: ref,
+            deviceId: deviceId,
+            sealedKey: SealedBlob(
+                ciphertext: Data("ciphertext".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: deviceId,
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+    }
 }
 
 private final class RecordingDirectModeClientEventsHandler: DirectModeEventsHandling, @unchecked Sendable {
@@ -390,6 +451,25 @@ private final class RecordingDirectModeClientMediaHandler: DirectModeMediaHandli
     }
 
     func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse {
+        lock.withLock { storedRequests.append(request) }
+        return storedResponse
+    }
+}
+
+private final class RecordingDirectModeClientMediaKeyHandler: DirectModeMediaKeyHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedResponse: DirectModeMediaKeyResponse
+    private var storedRequests: [DirectModeMediaKeyRequest] = []
+
+    init(response: DirectModeMediaKeyResponse) {
+        self.storedResponse = response
+    }
+
+    var requests: [DirectModeMediaKeyRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func mediaKey(_ request: DirectModeMediaKeyRequest) async throws -> DirectModeMediaKeyResponse {
         lock.withLock { storedRequests.append(request) }
         return storedResponse
     }

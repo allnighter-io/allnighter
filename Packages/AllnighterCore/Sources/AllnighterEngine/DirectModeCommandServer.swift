@@ -32,6 +32,16 @@ public enum DirectModeMediaError: Error, Equatable, Sendable {
     case mediaNotFound(ref: String)
 }
 
+public enum DirectModeMediaKeyError: Error, Equatable, Sendable {
+    case requestMismatch(
+        expectedAccountId: String,
+        actualAccountId: String,
+        expectedMacAgentId: String,
+        actualMacAgentId: String
+    )
+    case mediaKeyNotFound(ref: String, deviceId: String)
+}
+
 public enum DirectModeEventsError: Error, Equatable, Sendable {
     case requestMismatch(
         expectedAccountId: String,
@@ -77,6 +87,36 @@ public struct DirectModeMediaResponse: Codable, Equatable, Sendable {
     }
 }
 
+public struct DirectModeMediaKeyRequest: Codable, Equatable, Sendable {
+    public var accountId: String
+    public var macAgentId: String
+    public var ref: String
+    public var deviceId: String
+    public var checkedAt: Date
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        ref: String,
+        deviceId: String,
+        checkedAt: Date
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.ref = ref
+        self.deviceId = deviceId
+        self.checkedAt = checkedAt
+    }
+}
+
+public struct DirectModeMediaKeyResponse: Codable, Equatable, Sendable {
+    public var key: MediaKeyEnvelope
+
+    public init(key: MediaKeyEnvelope) {
+        self.key = key
+    }
+}
+
 public struct DirectModeEventsRequest: Codable, Equatable, Sendable {
     public var accountId: String
     public var macAgentId: String
@@ -113,6 +153,14 @@ public protocol DirectModeMediaHandling: Sendable {
 
 public protocol DirectModeMediaDataProviding: Sendable {
     func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data?
+}
+
+public protocol DirectModeMediaKeyHandling: Sendable {
+    func mediaKey(_ request: DirectModeMediaKeyRequest) async throws -> DirectModeMediaKeyResponse
+}
+
+public protocol DirectModeMediaKeyProviding: Sendable {
+    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope?
 }
 
 public protocol DirectModeEventsHandling: Sendable {
@@ -234,6 +282,46 @@ public struct DirectModeMediaHandler: DirectModeMediaHandling {
     }
 }
 
+public struct DirectModeMediaKeyHandler: DirectModeMediaKeyHandling {
+    private let accountId: String
+    private let macAgentId: String
+    private let provider: any DirectModeMediaKeyProviding
+    private let now: @Sendable () -> Date
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        provider: any DirectModeMediaKeyProviding,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.provider = provider
+        self.now = now
+    }
+
+    public func mediaKey(_ request: DirectModeMediaKeyRequest) async throws -> DirectModeMediaKeyResponse {
+        guard request.accountId == accountId,
+              request.macAgentId == macAgentId else {
+            throw DirectModeMediaKeyError.requestMismatch(
+                expectedAccountId: accountId,
+                actualAccountId: request.accountId,
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: request.macAgentId
+            )
+        }
+
+        guard let key = try await provider.mediaKey(
+            ref: request.ref,
+            deviceId: request.deviceId,
+            at: now()
+        ) else {
+            throw DirectModeMediaKeyError.mediaKeyNotFound(ref: request.ref, deviceId: request.deviceId)
+        }
+        return DirectModeMediaKeyResponse(key: key)
+    }
+}
+
 public struct DirectModeEventsHandler: DirectModeEventsHandling {
     private let accountId: String
     private let macAgentId: String
@@ -286,6 +374,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     public static let pairingStatusPath = "/remote/pair/status"
     public static let snapshotPath = "/remote/snapshot"
     public static let mediaPath = "/remote/media"
+    public static let mediaKeyPath = "/remote/media-key"
     public static let eventsPath = "/remote/events"
 
     private let lock = NSLock()
@@ -294,6 +383,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     private let pairingStatusHandler: (any DirectModePairingStatusHandling)?
     private let snapshotHandler: (any DirectModeSnapshotHandling)?
     private let mediaHandler: (any DirectModeMediaHandling)?
+    private let mediaKeyHandler: (any DirectModeMediaKeyHandling)?
     private let eventsHandler: (any DirectModeEventsHandling)?
     private let maxRequestBytes: Int
     private var listenFD: Int32 = -1
@@ -306,6 +396,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         pairingStatusHandler: (any DirectModePairingStatusHandling)? = nil,
         snapshotHandler: (any DirectModeSnapshotHandling)? = nil,
         mediaHandler: (any DirectModeMediaHandling)? = nil,
+        mediaKeyHandler: (any DirectModeMediaKeyHandling)? = nil,
         eventsHandler: (any DirectModeEventsHandling)? = nil,
         maxRequestBytes: Int = 512 * 1024
     ) {
@@ -314,6 +405,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         self.pairingStatusHandler = pairingStatusHandler
         self.snapshotHandler = snapshotHandler
         self.mediaHandler = mediaHandler
+        self.mediaKeyHandler = mediaKeyHandler
         self.eventsHandler = eventsHandler
         self.maxRequestBytes = max(1024, maxRequestBytes)
     }
@@ -455,6 +547,18 @@ public final class DirectModeCommandServer: @unchecked Sendable {
             do {
                 let mediaRequest = try CoreJSON.decode(DirectModeMediaRequest.self, from: request.body)
                 let response = try await mediaHandler.media(mediaRequest)
+                writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
+            } catch {
+                writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)
+            }
+        case Self.mediaKeyPath:
+            guard let mediaKeyHandler else {
+                writeJSON(["error": "not_found"], status: "404 Not Found", to: client)
+                return
+            }
+            do {
+                let mediaKeyRequest = try CoreJSON.decode(DirectModeMediaKeyRequest.self, from: request.body)
+                let response = try await mediaKeyHandler.mediaKey(mediaKeyRequest)
                 writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
             } catch {
                 writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)

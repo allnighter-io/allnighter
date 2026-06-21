@@ -25,6 +25,7 @@ public protocol RemoteClient: Sendable {
     func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope>
     func send(_ command: RemoteCommand) async throws -> CommandAck
     func fetchSealed(_ ref: MediaRef) async throws -> Data
+    func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope
     func diagnose() async -> ConnectionDiagnosis
 }
 
@@ -151,6 +152,7 @@ public enum MockRemoteClientError: Error, Equatable {
     case notConnected
     case macNotFound(String)
     case mediaNotFound(String)
+    case mediaKeyNotFound(ref: String, deviceId: String)
 }
 
 public actor MockiOSClient: RemoteClient {
@@ -160,6 +162,7 @@ public actor MockiOSClient: RemoteClient {
     private var snapshots: [String: SnapshotEnvelope]
     private var events: [String: [RemoteRunEventEnvelope]]
     private var media: [String: Data]
+    private var mediaKeys: [String: [String: MediaKeyEnvelope]]
     private var trustedDevices: [String: TrustedDevice]
     private var seenRequestIds: Set<String>
     private var serverNow: Date
@@ -169,6 +172,7 @@ public actor MockiOSClient: RemoteClient {
         snapshots: [String: SnapshotEnvelope] = [:],
         events: [String: [RemoteRunEventEnvelope]] = [:],
         media: [String: Data] = [:],
+        mediaKeys: [String: [String: MediaKeyEnvelope]] = [:],
         trustedDevices: [TrustedDevice] = [],
         serverNow: Date = Date()
     ) {
@@ -176,6 +180,7 @@ public actor MockiOSClient: RemoteClient {
         self.snapshots = snapshots
         self.events = events
         self.media = media
+        self.mediaKeys = mediaKeys
         self.trustedDevices = Dictionary(uniqueKeysWithValues: trustedDevices.map { ($0.deviceId, $0) })
         self.seenRequestIds = []
         self.serverNow = serverNow
@@ -271,6 +276,14 @@ public actor MockiOSClient: RemoteClient {
             throw MockRemoteClientError.mediaNotFound(ref.ref)
         }
         return data
+    }
+
+    public func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope {
+        try requireConnected()
+        guard let key = mediaKeys[ref.ref]?[deviceId] else {
+            throw MockRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
+        }
+        return key
     }
 
     public func diagnose() async -> ConnectionDiagnosis {

@@ -39,6 +39,7 @@ public enum DirectModeRemoteClientError: Error, Equatable, Sendable {
     case badAckSignature
     case badSnapshotResponse
     case badMediaResponse
+    case badMediaKeyResponse
     case unsupportedOperation(String)
 }
 
@@ -193,6 +194,32 @@ public actor DirectModeRemoteClient: RemoteClient {
             throw DirectModeRemoteClientError.badMediaResponse
         }
         return decoded.data
+    }
+
+    public func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope {
+        let account = try requireConnected()
+        try requireMac(ref.macAgentId)
+        let mediaKeyURL = endpoint.mediaKeyURL
+        guard let url = URL(string: mediaKeyURL) else {
+            throw DirectModeRemoteClientError.invalidEndpoint(mediaKeyURL)
+        }
+        let request = DirectModeMediaKeyRequest(
+            accountId: account.accountId,
+            macAgentId: ref.macAgentId,
+            ref: ref.ref,
+            deviceId: deviceId,
+            checkedAt: now()
+        )
+        let response = try await poster.postJSON(CoreJSON.encode(request), to: url)
+        guard (200..<300).contains(response.statusCode) else {
+            throw DirectModeRemoteClientError.httpStatus(response.statusCode)
+        }
+        guard let decoded = try? CoreJSON.decode(DirectModeMediaKeyResponse.self, from: response.body),
+              decoded.key.ref == ref.ref,
+              decoded.key.deviceId == deviceId else {
+            throw DirectModeRemoteClientError.badMediaKeyResponse
+        }
+        return decoded.key
     }
 
     public func diagnose() async -> ConnectionDiagnosis {

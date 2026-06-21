@@ -53,6 +53,10 @@ public struct DirectModeEndpoint: Codable, Equatable, Sendable {
         url(for: DirectModeCommandServer.mediaPath)
     }
 
+    public var mediaKeyURL: String {
+        url(for: DirectModeCommandServer.mediaKeyPath)
+    }
+
     public var eventsURL: String {
         url(for: DirectModeCommandServer.eventsPath)
     }

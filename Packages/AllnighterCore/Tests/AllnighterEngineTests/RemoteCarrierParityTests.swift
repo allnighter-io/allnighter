@@ -34,6 +34,7 @@ final class RemoteCarrierParityTests: XCTestCase {
             expiresAt: now.addingTimeInterval(3_600)
         )
         let mediaData = Data("sealed media bytes".utf8)
+        let mediaKey = Self.mediaKey(ref: "media_1", deviceId: "device_1")
 
         let cloud = try await makeCloudCarrier(
             root: root,
@@ -43,6 +44,7 @@ final class RemoteCarrierParityTests: XCTestCase {
             journal: journal,
             mediaRef: mediaRef,
             mediaData: mediaData,
+            mediaKey: mediaKey,
             macSigningKey: macSigningKey,
             macSealingKey: macSealingKey,
             now: now
@@ -55,6 +57,7 @@ final class RemoteCarrierParityTests: XCTestCase {
             journal: journal,
             mediaRef: mediaRef,
             mediaData: mediaData,
+            mediaKey: mediaKey,
             macSigningKey: macSigningKey,
             macSealingKey: macSealingKey,
             now: now
@@ -80,6 +83,10 @@ final class RemoteCarrierParityTests: XCTestCase {
         let directMedia = try await direct.client.fetchSealed(mediaRef)
         XCTAssertEqual(cloudMedia, mediaData)
         XCTAssertEqual(directMedia, cloudMedia)
+        let cloudMediaKey = try await cloud.client.fetchMediaKey(mediaRef, deviceId: "device_1")
+        let directMediaKey = try await direct.client.fetchMediaKey(mediaRef, deviceId: "device_1")
+        XCTAssertEqual(cloudMediaKey, mediaKey)
+        XCTAssertEqual(directMediaKey, cloudMediaKey)
 
         let cloudAck = try await cloud.client.send(Self.signedCommand(
             requestId: "req_cloud_stop_all",
@@ -106,6 +113,7 @@ final class RemoteCarrierParityTests: XCTestCase {
         journal: RemoteRunEventJournal,
         mediaRef: MediaRef,
         mediaData: Data,
+        mediaKey: MediaKeyEnvelope,
         macSigningKey: Curve25519.Signing.PrivateKey,
         macSealingKey: Curve25519.KeyAgreement.PrivateKey,
         now: Date
@@ -115,7 +123,7 @@ final class RemoteCarrierParityTests: XCTestCase {
             macAccountIds: ["mac_1": "acct_1"],
             trustedDevices: [device]
         )
-        try await relay.publishMedia(ref: mediaRef, data: mediaData, keys: [])
+        try await relay.publishMedia(ref: mediaRef, data: mediaData, keys: [mediaKey])
         let trustedStore = TrustedRemoteStore(fileURL: root.appendingPathComponent("cloud_trusted_remotes.json"))
         let dedupeStore = RemoteRequestDedupeStore(fileURL: root.appendingPathComponent("cloud_seen_requests.json"))
         let executor = CarrierParityExecutor(now: now)
@@ -180,6 +188,7 @@ final class RemoteCarrierParityTests: XCTestCase {
         journal: RemoteRunEventJournal,
         mediaRef: MediaRef,
         mediaData: Data,
+        mediaKey: MediaKeyEnvelope,
         macSigningKey: Curve25519.Signing.PrivateKey,
         macSealingKey: Curve25519.KeyAgreement.PrivateKey,
         now: Date
@@ -190,7 +199,7 @@ final class RemoteCarrierParityTests: XCTestCase {
         let executor = CarrierParityExecutor(now: now)
         await executor.setStopAllResult(StopAllResult(terminated: 2))
         let mediaRelay = MockRemoteMacRelay()
-        try await mediaRelay.publishMedia(ref: mediaRef, data: mediaData, keys: [])
+        try await mediaRelay.publishMedia(ref: mediaRef, data: mediaData, keys: [mediaKey])
         let router = RemoteCommandRouter(
             macAgentId: "mac_1",
             trustedStore: trustedStore,
@@ -213,6 +222,12 @@ final class RemoteCarrierParityTests: XCTestCase {
                 service: RemoteSnapshotService(runStore: runStore, journal: journal, now: { now })
             ),
             mediaHandler: DirectModeMediaHandler(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                provider: RelayDirectModeMediaProvider(relay: mediaRelay),
+                now: { now }
+            ),
+            mediaKeyHandler: DirectModeMediaKeyHandler(
                 accountId: "acct_1",
                 macAgentId: "mac_1",
                 provider: RelayDirectModeMediaProvider(relay: mediaRelay),
@@ -313,6 +328,19 @@ final class RemoteCarrierParityTests: XCTestCase {
             ]
         )
     }
+
+    private static func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+        MediaKeyEnvelope(
+            ref: ref,
+            deviceId: deviceId,
+            sealedKey: SealedBlob(
+                ciphertext: Data("ciphertext".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: deviceId,
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+    }
 }
 
 private struct DrainOnSleepSleeper: CloudRemoteClientSleeping {
@@ -323,11 +351,15 @@ private struct DrainOnSleepSleeper: CloudRemoteClientSleeping {
     }
 }
 
-private struct RelayDirectModeMediaProvider: DirectModeMediaDataProviding {
+private struct RelayDirectModeMediaProvider: DirectModeMediaDataProviding, DirectModeMediaKeyProviding {
     let relay: any RemoteMacRelay
 
     func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data? {
         try await relay.mediaData(ref: ref, macAgentId: macAgentId, at: at)
+    }
+
+    func mediaKey(ref: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope? {
+        try await relay.mediaKey(ref: ref, deviceId: deviceId, at: at)
     }
 }
 

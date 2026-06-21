@@ -142,6 +142,30 @@ final class DirectModeCommandServerTests: XCTestCase {
         XCTAssertTrue(commandHandler.entries.isEmpty)
     }
 
+    func testLoopbackCommandServerPostsMediaKeyRequestToHandler() throws {
+        let commandHandler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
+        let key = Self.mediaKey(ref: "media_1", deviceId: "device_1")
+        let mediaKeyHandler = RecordingDirectModeMediaKeyHandler(response: DirectModeMediaKeyResponse(key: key))
+        let server = DirectModeCommandServer(handler: commandHandler, mediaKeyHandler: mediaKeyHandler)
+        defer { server.stop() }
+        let port = try server.start()
+        let request = DirectModeMediaKeyRequest(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            ref: "media_1",
+            deviceId: "device_1",
+            checkedAt: now
+        )
+
+        let result = try postMediaKey(request, port: port)
+
+        XCTAssertEqual(result.statusCode, 200)
+        let response = try CoreJSON.decode(DirectModeMediaKeyResponse.self, from: result.body)
+        XCTAssertEqual(response.key, key)
+        XCTAssertEqual(mediaKeyHandler.requests, [request])
+        XCTAssertTrue(commandHandler.entries.isEmpty)
+    }
+
     func testLoopbackCommandServerPostsEventsRequestToHandler() throws {
         let commandHandler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
         let eventsHandler = RecordingDirectModeEventsHandler(response: DirectModeEventsResponse(events: [
@@ -214,6 +238,15 @@ final class DirectModeCommandServerTests: XCTestCase {
         try self.request(
             method: "POST",
             path: DirectModeCommandServer.mediaPath,
+            body: CoreJSON.encode(request),
+            port: port
+        )
+    }
+
+    private func postMediaKey(_ request: DirectModeMediaKeyRequest, port: UInt16) throws -> HTTPResult {
+        try self.request(
+            method: "POST",
+            path: DirectModeCommandServer.mediaKeyPath,
             body: CoreJSON.encode(request),
             port: port
         )
@@ -391,6 +424,19 @@ final class DirectModeCommandServerTests: XCTestCase {
             signature: "sig"
         )
     }
+
+    private static func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+        MediaKeyEnvelope(
+            ref: ref,
+            deviceId: deviceId,
+            sealedKey: SealedBlob(
+                ciphertext: Data("ciphertext".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: deviceId,
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+    }
 }
 
 private struct HTTPResult {
@@ -491,6 +537,25 @@ private final class RecordingDirectModeMediaHandler: DirectModeMediaHandling, @u
     }
 
     func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse {
+        lock.withLock { storedRequests.append(request) }
+        return storedResponse
+    }
+}
+
+private final class RecordingDirectModeMediaKeyHandler: DirectModeMediaKeyHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedResponse: DirectModeMediaKeyResponse
+    private var storedRequests: [DirectModeMediaKeyRequest] = []
+
+    init(response: DirectModeMediaKeyResponse) {
+        self.storedResponse = response
+    }
+
+    var requests: [DirectModeMediaKeyRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func mediaKey(_ request: DirectModeMediaKeyRequest) async throws -> DirectModeMediaKeyResponse {
         lock.withLock { storedRequests.append(request) }
         return storedResponse
     }
