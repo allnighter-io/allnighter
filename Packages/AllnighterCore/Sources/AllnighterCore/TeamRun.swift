@@ -3,6 +3,17 @@ import Foundation
 /// One prompt sent to a team of workers plus the stage sequence that
 /// follows (analysis, plan, reviews, and final output).
 /// The Mac owns this as truth; the run-event stream (§6) is derived from it.
+/// A durable link between two runs (Try Fix chain). `nextActions` describe what CAN happen;
+/// links record what DID happen — diagnosis -> fix attempt -> proof -> retry.
+public struct RunLink: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        case diagnosisOf, fixAttemptFor, proofFor, retryOf
+    }
+    public var kind: Kind
+    public var runId: String
+    public init(kind: Kind, runId: String) { self.kind = kind; self.runId = runId }
+}
+
 public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var prompt: String
@@ -41,6 +52,14 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var threadId: String?
     public var originConversationId: String?
     public var originMessageId: String?
+    /// Try Fix chain (Try_Fix_Auto_Implement): a child fix-attempt run records the parent
+    /// Bug Hunt run it came from; the parent links forward to the child. So the Floor can
+    /// show diagnosis -> fix attempt -> proof. Optional so existing run.json (which predates
+    /// these keys) still decodes; read via `runLinks`.
+    public var parentRunId: String?
+    public var links: [RunLink]?
+    /// Non-optional view of `links` for callers.
+    public var runLinks: [RunLink] { links ?? [] }
 
     public init(
         id: String,

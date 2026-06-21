@@ -19,6 +19,11 @@ public struct RunRequest: Sendable, Equatable {
     /// Delivered per-worker (vision seats get the path block; non-vision seats get
     /// an explicit "can't see it" notice) by `CatalogRunCoordinator`.
     public var deliveries: [IncludedAttachmentDelivery]
+    /// Try Fix (Try_Fix_Auto_Implement): after this answer run, if it returns an actionable
+    /// FixPacket, start one child execution run that tries the top hypothesis.
+    public var tryFix: Bool
+    /// The mutating executor team for the fix attempt (default `execution_playbook`).
+    public var executorTeamId: String?
 
     public init(
         message: String,
@@ -30,7 +35,9 @@ public struct RunRequest: Sendable, Equatable {
         lane: WorkLane? = nil,
         type: String? = nil,
         context: String? = nil,
-        deliveries: [IncludedAttachmentDelivery] = []
+        deliveries: [IncludedAttachmentDelivery] = [],
+        tryFix: Bool = false,
+        executorTeamId: String? = nil
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -42,6 +49,8 @@ public struct RunRequest: Sendable, Equatable {
         self.type = type
         self.context = context
         self.deliveries = deliveries
+        self.tryFix = tryFix
+        self.executorTeamId = executorTeamId
     }
 }
 
