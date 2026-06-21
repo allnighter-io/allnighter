@@ -75,6 +75,49 @@ final class DirectModeCommandServerTests: XCTestCase {
         XCTAssertEqual(handler.entries.map(\.requestId), ["req_http"])
     }
 
+    func testLoopbackCommandServerPostsPairingRequestToHandler() throws {
+        let commandHandler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
+        let pairingHandler = RecordingDirectModePairingHandler(response: Self.pairingResponse(now: now))
+        let server = DirectModeCommandServer(handler: commandHandler, pairingHandler: pairingHandler)
+        defer { server.stop() }
+        let port = try server.start()
+        let request = DirectModePairingSubmitRequest(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: "device_sign",
+            deviceSealingPubkey: "device_seal",
+            pairingToken: "pair_token_1"
+        )
+
+        let result = try postPairing(request, port: port)
+
+        XCTAssertEqual(result.statusCode, 200)
+        let response = try CoreJSON.decode(DirectModePairingSubmitResponse.self, from: result.body)
+        XCTAssertEqual(response.sessionId, "session_1")
+        XCTAssertEqual(response.request.deviceId, "device_1")
+        XCTAssertEqual(pairingHandler.requests.map(\.deviceId), ["device_1"])
+        XCTAssertTrue(commandHandler.entries.isEmpty)
+    }
+
+    func testLoopbackCommandServerRejectsPairingPathWithoutPairingHandler() throws {
+        let handler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
+        let server = DirectModeCommandServer(handler: handler)
+        defer { server.stop() }
+        let port = try server.start()
+        let request = DirectModePairingSubmitRequest(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: "device_sign",
+            deviceSealingPubkey: "device_seal",
+            pairingToken: "pair_token_1"
+        )
+
+        let result = try postPairing(request, port: port)
+
+        XCTAssertEqual(result.statusCode, 404)
+        XCTAssertTrue(handler.entries.isEmpty)
+    }
+
     func testLoopbackCommandServerRejectsNonCommandPath() throws {
         let handler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
         let server = DirectModeCommandServer(handler: handler)
@@ -92,6 +135,15 @@ final class DirectModeCommandServerTests: XCTestCase {
             method: "POST",
             path: DirectModeCommandServer.commandPath,
             body: CoreJSON.encode(entry),
+            port: port
+        )
+    }
+
+    private func postPairing(_ request: DirectModePairingSubmitRequest, port: UInt16) throws -> HTTPResult {
+        try self.request(
+            method: "POST",
+            path: DirectModeCommandServer.pairingPath,
+            body: CoreJSON.encode(request),
             port: port
         )
     }
@@ -201,6 +253,24 @@ final class DirectModeCommandServerTests: XCTestCase {
             createdAt: now
         )
     }
+
+    private static func pairingResponse(now: Date) -> DirectModePairingSubmitResponse {
+        DirectModePairingSubmitResponse(
+            request: RemotePairRequest(
+                id: "pair_request_1",
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                deviceId: "device_1",
+                displayName: "Mike's iPhone",
+                deviceSigningPubkey: "device_sign",
+                deviceSealingPubkey: "device_seal",
+                requestedAt: now,
+                expiresAt: now.addingTimeInterval(300)
+            ),
+            sessionId: "session_1",
+            acceptedAt: now
+        )
+    }
 }
 
 private struct HTTPResult {
@@ -246,6 +316,25 @@ private final class RecordingDirectModeHandler: DirectModeCommandHandling, @unch
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope {
         lock.withLock { storedEntries.append(entry) }
         return envelope
+    }
+}
+
+private final class RecordingDirectModePairingHandler: DirectModePairingHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let response: DirectModePairingSubmitResponse
+    private var storedRequests: [DirectModePairingSubmitRequest] = []
+
+    init(response: DirectModePairingSubmitResponse) {
+        self.response = response
+    }
+
+    var requests: [DirectModePairingSubmitRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func handle(_ request: DirectModePairingSubmitRequest) throws -> DirectModePairingSubmitResponse {
+        lock.withLock { storedRequests.append(request) }
+        return response
     }
 }
 

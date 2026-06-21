@@ -10,7 +10,11 @@ public enum DirectModePairingRequestError: Error, Equatable, Sendable {
     case emptyDeviceSealingKey
 }
 
-public struct DirectModePairingRequestHandler: Sendable {
+public protocol DirectModePairingHandling: Sendable {
+    func handle(_ request: DirectModePairingSubmitRequest) throws -> DirectModePairingSubmitResponse
+}
+
+public struct DirectModePairingRequestHandler: DirectModePairingHandling {
     private let accountId: String
     private let macAgentId: String
     private let sessionStore: DirectModePairingSessionStore
