@@ -6,6 +6,16 @@ meta-gates exist.
 
 ## Open
 
+- `Repeated native/platform bugs need a clean-room positive control before more
+  product patches`:
+  OPEN 2026-06-21 from repeated composer image-paste failure. The successful fix
+  came from a throwaway new folder/project/repo reduced to one text field and one
+  image-paste job; only after that did the product delta become obvious. Required
+  process gate: repeated `T3`/native DEBUGLOG entries must name `Clean-room
+  baseline` plus the baseline-to-product delta, or explicitly waive it with a
+  boundary decision. Future wall gate should scan repeated DEBUGLOG entries for
+  that field.
+
 - `Native composer paste is not fixed until first-responder selector/key-equivalent
   tests prove the focused editor and SwiftUI draft binding both change`:
   OPEN 2026-06-21 from repeated composer paste failure. Required wall-reachable

@@ -20,6 +20,28 @@ For `T3` and repeated bugs, prior art starts at step 1 — not a blank investiga
 A worker may reclassify a bug at most twice. After that, stop, report conflicting
 evidence, and ask for a boundary decision instead of continuing to patch.
 
+### Clean-room positive control
+
+For repeated bugs, native platform behavior, or any bug where the failing path is
+buried under too many product layers, the next move after failed in-place fixes is
+not another patch. Build a disposable positive control first.
+
+Required when the same fingerprint survives two fixes, or when the proof gap is
+"does this platform primitive work at all?" (pasteboard, focus, responder chain,
+TCC, process lifecycle, filesystem watcher, keyboard/menu routing):
+
+1. Create a new throwaway folder/project/repo with only the failing primitive and
+   one visible/output assertion. No product architecture, no styling, no routing.
+2. Make the primitive work there and capture the exact API/path that made it work.
+3. Compare the working control to the product path. The delta becomes the fix
+   boundary and the kill test.
+4. If the control cannot make the primitive work, stop and report a platform or
+   assumption problem instead of patching product code.
+
+This is a diagnostic tool, not a replacement app. Archive only the small proof or
+notes needed for future agents; do not copy broad experimental code into product
+without a narrow port and a regression test.
+
 After root cause, answer:
 
 ```text
@@ -81,6 +103,7 @@ Bug fingerprint:
 Truth owner:
 Lie-prone layer:
 Regression considered:
+Clean-room baseline:
 Missing kill test / proof:
 Fix boundary:
 Proof command / founder test:
@@ -96,6 +119,10 @@ Proof command / founder test:
   watcher looking at it is).
 - Combine unrelated cleanup with a bug fix.
 - Hide a repeated bug without adding or naming regression proof.
+- Keep patching a repeated/native bug in the product after two failed fixes
+  without a clean-room positive control or an explicit waiver.
+- Let the clean-room control import product architecture. The control proves the
+  primitive; the product fix ports only the necessary delta.
 
 ## Closeout
 
@@ -105,6 +132,7 @@ For `T1-T3`, report:
 Tier:
 Boundary verdict:
 Proof gap:
+Clean-room baseline:
 Fix boundary:
 RCA:
 Proof:
@@ -119,9 +147,11 @@ Definition of done:
 4. Founder-found or repeated bug: DEBUGLOG `Proof:` names a wall-reachable test.
 5. `T2`/`T3` or repeated: regression law with wall command, or expiring blocker
    in `QUARANTINE.md`.
-6. GUI-visible bug: layout-watcher PASS on a rendered fixture (see GUI-Visible
+6. Repeated/native-platform bug: clean-room positive control path or explicit
+   waiver is named, along with the baseline-to-product delta.
+7. GUI-visible bug: layout-watcher PASS on a rendered fixture (see GUI-Visible
    Bugs above); name the fixture + verdict in the closeout.
-7. Founder test = confirmation of feel, never proof of correctness.
+8. Founder test = confirmation of feel, never proof of correctness.
 
 Append to `Docs/operations/debugger/DEBUGLOG.md` for every repeated bug and
 every `T3`.
