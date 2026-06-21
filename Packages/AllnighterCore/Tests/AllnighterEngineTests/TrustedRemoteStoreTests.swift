@@ -84,6 +84,24 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertEqual(registry.pendingRequests.first?.status, .expired)
     }
 
+    func testSyncTrustedDevicesReplacesTargetMacOnlyAndPreservesPendingRequests() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let request = pairRequest(deviceId: "device_pending", now: now)
+        let stale = trustedDevice(deviceId: "device_stale", macAgentId: "mac_1", now: now)
+        let otherMac = trustedDevice(deviceId: "device_other", macAgentId: "mac_2", now: now)
+        try store.save(TrustedRemoteRegistry(
+            pendingRequests: [request],
+            trustedDevices: [stale, otherMac]
+        ))
+
+        let fresh = trustedDevice(deviceId: "device_fresh", macAgentId: "mac_1", now: now)
+        try store.syncTrustedDevices([fresh], macAgentId: "mac_1", now: now)
+
+        let registry = store.load()
+        XCTAssertEqual(registry.pendingRequests, [request])
+        XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_fresh", "device_other"])
+    }
+
     private func pairRequest(deviceId: String, now: Date) -> RemotePairRequest {
         RemotePairRequest(
             id: "pair_\(deviceId)",
@@ -95,6 +113,20 @@ final class TrustedRemoteStoreTests: XCTestCase {
             deviceSealingPubkey: "seal_\(deviceId)",
             requestedAt: now,
             expiresAt: now.addingTimeInterval(300)
+        )
+    }
+
+    private func trustedDevice(deviceId: String, macAgentId: String, now: Date) -> TrustedDevice {
+        TrustedDevice(
+            deviceId: deviceId,
+            displayName: deviceId,
+            deviceSigningPubkey: "sign_\(deviceId)",
+            deviceSealingPubkey: "seal_\(deviceId)",
+            accountId: "acct_1",
+            macAgentId: macAgentId,
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(300),
+            capabilities: Set(RemoteCapability.allCases)
         )
     }
 }

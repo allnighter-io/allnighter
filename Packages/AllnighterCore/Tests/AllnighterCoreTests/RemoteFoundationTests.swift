@@ -79,6 +79,71 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(try RemoteCrypto.payloadDigest(one), try RemoteCrypto.payloadDigest(two))
     }
 
+    func testMacRelayContractsRoundTrip() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let registration = RemoteMacAgentRegistration(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            displayName: "Studio Mac",
+            agentSigningPubkey: "signing",
+            agentSealingPubkey: "sealing"
+        )
+        XCTAssertEqual(
+            try CoreJSON.decode(RemoteMacAgentRegistration.self, from: CoreJSON.encode(registration)),
+            registration
+        )
+
+        let heartbeat = RemoteMacAgentHeartbeat(accountId: "acct_1", macAgentId: "mac_1", at: now)
+        XCTAssertEqual(
+            try CoreJSON.decode(RemoteMacAgentHeartbeat.self, from: CoreJSON.encode(heartbeat)),
+            heartbeat
+        )
+
+        let assertion = DeviceAssertion(
+            deviceId: "device_1",
+            requestId: "req_1",
+            timestamp: now,
+            kind: .stopAll,
+            payloadSHA256: "digest",
+            signature: "signature"
+        )
+        let command = RemoteCommand(requestId: "req_1", kind: .stopAll, payload: .empty, assertion: assertion)
+        let inbox = RemoteCommandInboxEntry(
+            requestId: "req_1",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            fromDeviceId: "device_1",
+            command: command,
+            createdAt: now
+        )
+        XCTAssertEqual(
+            try CoreJSON.decode(RemoteCommandInboxEntry.self, from: CoreJSON.encode(inbox)),
+            inbox
+        )
+
+        let ack = CommandAck(requestId: "req_1", accepted: true, outcome: .accepted, signature: "sig")
+        let audit = RemoteAuditEvent(
+            ts: now,
+            deviceId: "device_1",
+            commandKind: .stopAll,
+            requestId: "req_1",
+            targetSummary: "stopAll terminated=1",
+            outcome: .accepted
+        )
+        let envelope = RemoteCommandAckEnvelope(
+            requestId: "req_1",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            ack: ack,
+            auditEvent: audit,
+            createdAt: now
+        )
+        XCTAssertEqual(
+            try CoreJSON.decode(RemoteCommandAckEnvelope.self, from: CoreJSON.encode(envelope)),
+            envelope
+        )
+    }
+
     func testDeviceAssertionSignsAndRejectsTampering() throws {
         let signingKey = Curve25519.Signing.PrivateKey()
         let publicKey = RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey)

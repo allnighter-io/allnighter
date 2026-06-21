@@ -170,6 +170,16 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         self.skewWindow = skewWindow
     }
 
+    public func route(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandRoutingResult {
+        let serverTime = now()
+        guard entry.requestId == entry.command.requestId,
+              entry.macAgentId == macAgentId,
+              entry.fromDeviceId == entry.command.assertion.deviceId else {
+            return try rejected(entry.command, reason: .badSignature, serverTime: serverTime)
+        }
+        return try await route(entry.command)
+    }
+
     public func route(_ command: RemoteCommand) async throws -> RemoteCommandRoutingResult {
         let serverTime = now()
 
