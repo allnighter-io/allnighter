@@ -61,6 +61,25 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.load().sessions.first?.status, .expired)
     }
 
+    func testUnsupportedProtocolPayloadCannotBeArmed() throws {
+        let payload = pairingPayload(
+            pairingToken: "token_future",
+            expiresAt: now.addingTimeInterval(120),
+            protocolVersion: RemoteProtocol.currentMajor + 1
+        )
+
+        XCTAssertThrowsError(try store.arm(payload: payload, now: now)) { error in
+            XCTAssertEqual(
+                error as? DirectModePairingSessionStoreError,
+                .unsupportedProtocolVersion(
+                    expected: RemoteProtocol.currentMajor,
+                    actual: RemoteProtocol.currentMajor + 1
+                )
+            )
+        }
+        XCTAssertTrue(store.load().sessions.isEmpty)
+    }
+
     func testActivePersistsExpiredSessions() throws {
         let payload = pairingPayload(pairingToken: "token_expired", expiresAt: now.addingTimeInterval(1))
         _ = try store.arm(payload: payload, now: now)
@@ -142,7 +161,11 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.active(now: now.addingTimeInterval(11)).map(\.id), ["session_2"])
     }
 
-    private func pairingPayload(pairingToken: String, expiresAt: Date) -> RemotePairingPayload {
+    private func pairingPayload(
+        pairingToken: String,
+        expiresAt: Date,
+        protocolVersion: Int = RemoteProtocol.currentMajor
+    ) -> RemotePairingPayload {
         RemotePairingPayload(
             endpoints: [
                 RemotePairingEndpoint(url: "https://studio.tail123.ts.net", transportMode: .tailscaleDirect),
@@ -150,6 +173,7 @@ final class DirectModePairingSessionStoreTests: XCTestCase {
             agentSigningPubkey: "agent_signing_pub",
             agentSealingPubkey: "agent_sealing_pub",
             tailnetName: "tail123.ts.net",
+            protocolVersion: protocolVersion,
             pairingToken: pairingToken,
             expiresAt: expiresAt
         )

@@ -4,6 +4,7 @@ import AllnighterCore
 
 public enum DirectModePairingSessionStoreError: Error, Equatable, Sendable {
     case expiredPayload
+    case unsupportedProtocolVersion(expected: Int, actual: Int)
     case invalidPairingToken
     case invalidManualCode
     case manualCodeUnavailable
@@ -60,6 +61,12 @@ public final class DirectModePairingSessionStore: @unchecked Sendable {
     ) throws -> DirectModePairingSession {
         guard !payload.isExpired(at: now) else {
             throw DirectModePairingSessionStoreError.expiredPayload
+        }
+        guard payload.protocolVersion == RemoteProtocol.currentMajor else {
+            throw DirectModePairingSessionStoreError.unsupportedProtocolVersion(
+                expected: RemoteProtocol.currentMajor,
+                actual: payload.protocolVersion
+            )
         }
         let pairingToken = payload.pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !pairingToken.isEmpty else {
