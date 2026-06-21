@@ -165,6 +165,25 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         }
     }
 
+    func testScopedRelayUniquenessMatchesHeadlessContracts() throws {
+        let sql = try schemaSQL
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"command_inbox_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"request_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"command_acks_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"request_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"command_acks_inbox_scope_fkey\" FOREIGN KEY (\"account_id\", \"mac_agent_id\", \"request_id\") REFERENCES \"public\".\"command_inbox\"(\"account_id\", \"mac_agent_id\", \"request_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"event_envelopes_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"pair_requests_account_mac_device_key\" UNIQUE (\"account_id\", \"mac_agent_id\", \"device_id\")"
+        ))
+    }
+
     private func columnNames(in table: String, sql: String) throws -> Set<String> {
         let marker = "CREATE TABLE IF NOT EXISTS \"public\".\"\(table)\" ("
         guard let markerRange = sql.range(of: marker) else {

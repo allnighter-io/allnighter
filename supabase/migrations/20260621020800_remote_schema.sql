@@ -268,17 +268,17 @@ ALTER FUNCTION "public"."mac_agent_claim_matches"("p_account_id" "uuid", "p_mac_
 
 
 ALTER TABLE ONLY "public"."command_acks"
-    ADD CONSTRAINT "command_acks_pkey" PRIMARY KEY ("request_id");
+    ADD CONSTRAINT "command_acks_pkey" PRIMARY KEY ("account_id", "mac_agent_id", "request_id");
 
 
 
 ALTER TABLE ONLY "public"."command_inbox"
-    ADD CONSTRAINT "command_inbox_pkey" PRIMARY KEY ("request_id");
+    ADD CONSTRAINT "command_inbox_pkey" PRIMARY KEY ("account_id", "mac_agent_id", "request_id");
 
 
 
 ALTER TABLE ONLY "public"."event_envelopes"
-    ADD CONSTRAINT "event_envelopes_pkey" PRIMARY KEY ("id");
+    ADD CONSTRAINT "event_envelopes_pkey" PRIMARY KEY ("account_id", "mac_agent_id", "id");
 
 
 
@@ -298,7 +298,7 @@ ALTER TABLE ONLY "public"."media_refs"
 
 
 ALTER TABLE ONLY "public"."pair_requests"
-    ADD CONSTRAINT "pair_requests_mac_agent_id_device_id_key" UNIQUE ("mac_agent_id", "device_id");
+    ADD CONSTRAINT "pair_requests_account_mac_device_key" UNIQUE ("account_id", "mac_agent_id", "device_id");
 
 
 
@@ -341,7 +341,7 @@ ALTER TABLE ONLY "public"."command_acks"
 
 
 ALTER TABLE ONLY "public"."command_acks"
-    ADD CONSTRAINT "command_acks_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "public"."command_inbox"("request_id") ON DELETE CASCADE;
+    ADD CONSTRAINT "command_acks_inbox_scope_fkey" FOREIGN KEY ("account_id", "mac_agent_id", "request_id") REFERENCES "public"."command_inbox"("account_id", "mac_agent_id", "request_id") ON DELETE CASCADE;
 
 
 
