@@ -117,7 +117,11 @@ public final class TrustedRemoteStore: @unchecked Sendable {
             lastSeenAt: nil,
             capabilities: capabilities
         )
-        registry.trustedDevices.removeAll { $0.deviceId == deviceId }
+        registry.trustedDevices.removeAll {
+            $0.deviceId == device.deviceId
+                && $0.accountId == device.accountId
+                && $0.macAgentId == device.macAgentId
+        }
         registry.trustedDevices.append(device)
         registry.trustedDevices.sort { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
         try save(registry)

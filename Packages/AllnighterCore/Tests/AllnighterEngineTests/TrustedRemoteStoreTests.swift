@@ -48,6 +48,24 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_1"])
     }
 
+    func testApprovePreservesSameDeviceOnOtherMac() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let existing = trustedDevice(deviceId: "device_1", macAgentId: "mac_1", now: now)
+        let request = pairRequest(deviceId: "device_1", macAgentId: "mac_2", now: now)
+        try store.save(TrustedRemoteRegistry(
+            pendingRequests: [request],
+            trustedDevices: [existing]
+        ))
+
+        let approved = try store.approve(deviceId: "device_1", now: now, validFor: 60)
+
+        XCTAssertEqual(approved.macAgentId, "mac_2")
+        let devices = store.load().trustedDevices
+        XCTAssertEqual(devices.first { $0.macAgentId == "mac_1" }?.deviceSigningPubkey, "sign_device_1")
+        XCTAssertEqual(devices.first { $0.macAgentId == "mac_2" }?.deviceSigningPubkey, "sign_device_1")
+        XCTAssertEqual(Set(devices.map(\.macAgentId)), ["mac_1", "mac_2"])
+    }
+
     func testExpiredPendingRequestCannotBeApproved() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         var request = pairRequest(deviceId: "device_1", now: now)
@@ -117,11 +135,15 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_fresh", "device_other"])
     }
 
-    private func pairRequest(deviceId: String, now: Date) -> RemotePairRequest {
+    private func pairRequest(
+        deviceId: String,
+        macAgentId: String = "mac_1",
+        now: Date
+    ) -> RemotePairRequest {
         RemotePairRequest(
             id: "pair_\(deviceId)",
             accountId: "acct_1",
-            macAgentId: "mac_1",
+            macAgentId: macAgentId,
             deviceId: deviceId,
             displayName: "Mike's iPhone",
             deviceSigningPubkey: "sign_\(deviceId)",
