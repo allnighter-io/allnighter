@@ -1,12 +1,10 @@
 # thread — layout-watcher verdict
 Fixtures: thread-team-board
 Command: bash scripts/gui_proof.sh thread-team-board
-
 ## VERDICT: PASS
-Every team-board answer (RECOMMENDATION synthesis + each worker answer) now has an
-always-visible "Copy" button at the bottom-right (was missing entirely; the others were
-hover-only). Code-red: agent answers can be copied to the clipboard. No clipping/overlap.
-
+Terminal team board now renders the synthesis (RECOMMENDATION, with Copy) full, and each
+worker answer as a COLLAPSED 2-line preview + chevron — only expanding a card renders its
+full markdown (perf: first paint no longer lays out every answer). Copy button still
+present on expand + synthesis. No clipping/overlap.
 P1 — broken: none
-P2 — advisory: text selection in the markdown renderer is still unreliable — the Copy
-button is the dependable path.
+P2 — advisory: collapsed preview shows raw markdown chars; acceptable for a preview.

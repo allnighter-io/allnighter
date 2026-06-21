@@ -503,6 +503,9 @@ private struct ThreadBoardRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
     let turn: ThreadTurn
+    /// Worker answers render lazily — only an expanded card parses/lays out its full
+    /// markdown, so first paint of a big terminal team run stays fast (perf doc).
+    @State private var expanded: Set<String> = []
 
     private var run: TeamRun? { turn.runId.flatMap { threads.teamRun(forRunId: $0) } }
     private var synthesis: String? {
@@ -578,6 +581,14 @@ private struct ThreadBoardRow: View {
         }
     }
 
+    /// One-glance plain-text preview for a collapsed answer (no markdown layout cost).
+    private func answerPreview(_ output: String?) -> String {
+        let flat = (output ?? "")
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return flat.isEmpty ? "Show answer" : String(flat.prefix(220))
+    }
+
     private func answerCard(_ answer: WorkerAnswer) -> some View {
         let bench = appModel.composeBench.first { $0.id == answer.modelId }
         return VStack(alignment: .leading, spacing: 6) {
@@ -590,9 +601,24 @@ private struct ThreadBoardRow: View {
             }
             switch answer.status {
             case .done:
-                MarkdownText(markdown: answer.output ?? "")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                MessageCopyFooter(text: answer.output)
+                if expanded.contains(answer.id) {
+                    MarkdownText(markdown: answer.output ?? "")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    MessageCopyFooter(text: answer.output)
+                } else {
+                    // Lazy preview — tap to render the full markdown (keeps first paint cheap).
+                    Button { expanded.insert(answer.id) } label: {
+                        HStack(alignment: .top, spacing: 6) {
+                            Text(answerPreview(answer.output))
+                                .font(.system(size: 12.5)).foregroundStyle(ALColor.textMuted)
+                                .lineLimit(2).multilineTextAlignment(.leading)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.down").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             case .failed, .timedOut:
                 Text(answer.errorReason ?? "No answer.")
                     .font(.system(size: 12.5)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
