@@ -142,6 +142,41 @@ final class RemoteMacAgentTests: XCTestCase {
         )
     }
 
+    func testDrainPublishesLocalApprovalBeforeCloudTrustedSync() async throws {
+        let request = pairRequest(deviceId: "device_cloud")
+        try trustedStore.upsertPending(request)
+        let approvedDevice = try trustedStore.approve(deviceId: "device_cloud", now: now, validFor: 3_600)
+        let relay = MockRemoteMacRelay(pairRequests: [request])
+        let executor = CapturingRemoteExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor)
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
+        XCTAssertEqual(result.syncedTrustedDeviceCount, 1)
+        XCTAssertEqual(trustedStore.load().trustedDevices, [approvedDevice])
+
+        let eventLog = await relay.eventLog
+        let relayTrusted = try await relay.trustedDevices(accountId: "acct_1", macAgentId: "mac_1")
+        XCTAssertEqual(relayTrusted, [approvedDevice])
+        let relayPending = try await relay.pendingPairRequests(accountId: "acct_1", macAgentId: "mac_1")
+        XCTAssertTrue(relayPending.isEmpty)
+
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "trustedDevices")),
+            try XCTUnwrap(eventLog.firstIndex(of: "upsertTrustedDevice"))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "upsertTrustedDevice")),
+            try XCTUnwrap(eventLog.lastIndex(of: "trustedDevices"))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.lastIndex(of: "trustedDevices")),
+            try XCTUnwrap(eventLog.firstIndex(of: "pendingCommands"))
+        )
+        XCTAssertTrue(eventLog.contains("updatePairRequest"))
+    }
+
     func testDrainRejectsSpoofedFromDeviceIdWithoutExecuting() async throws {
         let device = trustedDevice(capabilities: [])
         let command = try signedCommand(requestId: "req_spoofed_from", kind: .stopAll, payload: .empty)
@@ -556,9 +591,15 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
         []
     }
 
+    func updatePairRequest(_ request: RemotePairRequest) async throws -> RemotePairRequest {
+        request
+    }
+
     func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice] {
         []
     }
+
+    func upsertTrustedDevice(_ device: TrustedDevice) async throws {}
 
     func pendingCommands(
         accountId: String,

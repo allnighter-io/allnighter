@@ -42,6 +42,7 @@ public struct RemoteMacAgentIdentity: Equatable, Sendable {
 public struct RemoteMacAgentDrainResult: Equatable, Sendable {
     public var mac: MacAgentRef
     public var syncedPendingPairRequestCount: Int
+    public var publishedTrustedDeviceCount: Int
     public var syncedTrustedDeviceCount: Int
     public var processedCommandCount: Int
     public var acknowledgements: [CommandAck]
@@ -49,12 +50,14 @@ public struct RemoteMacAgentDrainResult: Equatable, Sendable {
     public init(
         mac: MacAgentRef,
         syncedPendingPairRequestCount: Int = 0,
+        publishedTrustedDeviceCount: Int = 0,
         syncedTrustedDeviceCount: Int,
         processedCommandCount: Int,
         acknowledgements: [CommandAck]
     ) {
         self.mac = mac
         self.syncedPendingPairRequestCount = syncedPendingPairRequestCount
+        self.publishedTrustedDeviceCount = publishedTrustedDeviceCount
         self.syncedTrustedDeviceCount = syncedTrustedDeviceCount
         self.processedCommandCount = processedCommandCount
         self.acknowledgements = acknowledgements
@@ -115,22 +118,52 @@ public final class RemoteMacAgent: @unchecked Sendable {
             accountId: identity.account.accountId,
             macAgentId: identity.macAgentId
         )
+        let localRegistryBeforePairImport = trustedStore.list(now: serverTime)
+        let locallyTrustedDeviceIds = Set(localRegistryBeforePairImport.trustedDevices.compactMap { device -> String? in
+            guard device.accountId == identity.account.accountId,
+                  device.macAgentId == identity.macAgentId,
+                  !device.revoked,
+                  device.validUntil >= serverTime else {
+                return nil
+            }
+            return device.deviceId
+        })
+        let locallyApprovedPairDeviceIds = Set(localRegistryBeforePairImport.pendingRequests.compactMap { request -> String? in
+            guard request.accountId == identity.account.accountId,
+                  request.macAgentId == identity.macAgentId,
+                  request.status == RemotePairRequestStatus.approved else {
+                return nil
+            }
+            return request.deviceId
+        })
         var syncedPendingPairRequestCount = 0
         for request in pendingPairRequests {
             guard request.accountId == identity.account.accountId,
                   request.macAgentId == identity.macAgentId,
                   request.status == RemotePairRequestStatus.pending,
-                  request.expiresAt >= serverTime else {
+                  request.expiresAt >= serverTime,
+                  !locallyTrustedDeviceIds.contains(request.deviceId),
+                  !locallyApprovedPairDeviceIds.contains(request.deviceId) else {
                 continue
             }
             try trustedStore.upsertPending(request)
             syncedPendingPairRequestCount += 1
         }
 
-        let trustedDevices = try await relay.trustedDevices(
+        var trustedDevices = try await relay.trustedDevices(
             accountId: identity.account.accountId,
             macAgentId: identity.macAgentId
         )
+        let publishedTrustedDeviceCount = try await publishLocalApprovals(
+            relayTrustedDevices: trustedDevices,
+            serverTime: serverTime
+        )
+        if publishedTrustedDeviceCount > 0 {
+            trustedDevices = try await relay.trustedDevices(
+                accountId: identity.account.accountId,
+                macAgentId: identity.macAgentId
+            )
+        }
         try trustedStore.syncTrustedDevices(trustedDevices, macAgentId: identity.macAgentId, now: serverTime)
 
         let inbox = try await relay.pendingCommands(
@@ -167,9 +200,40 @@ public final class RemoteMacAgent: @unchecked Sendable {
         return RemoteMacAgentDrainResult(
             mac: mac,
             syncedPendingPairRequestCount: syncedPendingPairRequestCount,
+            publishedTrustedDeviceCount: publishedTrustedDeviceCount,
             syncedTrustedDeviceCount: trustedDevices.count,
             processedCommandCount: inbox.count,
             acknowledgements: acknowledgements
         )
+    }
+
+    private func publishLocalApprovals(
+        relayTrustedDevices: [TrustedDevice],
+        serverTime: Date
+    ) async throws -> Int {
+        let registry = trustedStore.list(now: serverTime)
+        let relayDevicesById = Dictionary(uniqueKeysWithValues: relayTrustedDevices.map { ($0.deviceId, $0) })
+        var publishedCount = 0
+
+        for request in registry.pendingRequests where request.accountId == identity.account.accountId
+            && request.macAgentId == identity.macAgentId
+            && request.status == RemotePairRequestStatus.approved {
+            _ = try await relay.updatePairRequest(request)
+        }
+
+        for device in registry.trustedDevices where device.accountId == identity.account.accountId
+            && device.macAgentId == identity.macAgentId
+            && device.validUntil >= serverTime {
+            if relayDevicesById[device.deviceId]?.revoked == true {
+                continue
+            }
+            guard relayDevicesById[device.deviceId] == nil else {
+                continue
+            }
+            try await relay.upsertTrustedDevice(device)
+            publishedCount += 1
+        }
+
+        return publishedCount
     }
 }
