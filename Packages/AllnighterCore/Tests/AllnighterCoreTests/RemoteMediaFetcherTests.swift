@@ -18,7 +18,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
             now: now
         ).first)
         let client = MockiOSClient(
-            macs: [],
+            macs: [mac()],
             media: [ref.ref: encryptedData],
             mediaKeys: [ref.ref: ["device_1": keyEnvelope]],
             serverNow: now
@@ -44,7 +44,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
     func testFetcherPropagatesMissingMediaKey() async throws {
         let ref = mediaRef()
         let client = MockiOSClient(
-            macs: [],
+            macs: [mac()],
             media: [ref.ref: Data("ciphertext".utf8)],
             mediaKeys: [:],
             serverNow: now
@@ -72,7 +72,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
             )
         )
         let client = MockiOSClient(
-            macs: [],
+            macs: [mac()],
             media: [ref.ref: Data("ciphertext".utf8)],
             mediaKeys: [ref.ref: ["device_1": mismatchedKey]],
             serverNow: now
@@ -95,7 +95,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
     func testMockClientRejectsExpiredMediaData() async throws {
         let ref = mediaRef(expiresAt: now.addingTimeInterval(-1))
         let client = MockiOSClient(
-            macs: [],
+            macs: [mac()],
             media: [ref.ref: Data("ciphertext".utf8)],
             serverNow: now
         )
@@ -122,7 +122,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
             )
         )
         let client = MockiOSClient(
-            macs: [],
+            macs: [mac()],
             mediaKeys: [ref.ref: ["device_1": keyEnvelope]],
             serverNow: now
         )
@@ -136,13 +136,65 @@ final class RemoteMediaFetcherTests: XCTestCase {
         }
     }
 
-    private func mediaRef(expiresAt: Date? = nil) -> MediaRef {
+    func testMockClientScopesMediaByMacAgent() async throws {
+        let ref = mediaRef(ref: "media_shared", macAgentId: "mac_1")
+        let sameRefOtherMac = mediaRef(ref: "media_shared", macAgentId: "mac_2")
+        let keyEnvelope = MediaKeyEnvelope(
+            ref: "media_shared",
+            deviceId: "device_1",
+            sealedKey: SealedBlob(
+                ciphertext: Data("sealed-key".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: "device_1",
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+        let client = MockiOSClient(
+            macs: [mac(macAgentId: "mac_1"), mac(macAgentId: "mac_2")],
+            media: [ref.ref: Data("mac-1-ciphertext".utf8)],
+            mediaKeys: [ref.ref: ["device_1": keyEnvelope]],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let fetchedData = try await client.fetchSealed(ref)
+        let fetchedKey = try await client.fetchMediaKey(ref, deviceId: "device_1")
+        XCTAssertEqual(fetchedData, Data("mac-1-ciphertext".utf8))
+        XCTAssertEqual(fetchedKey, keyEnvelope)
+        do {
+            _ = try await client.fetchSealed(sameRefOtherMac)
+            XCTFail("same media ref on another Mac should not return this Mac's data")
+        } catch let error as MockRemoteClientError {
+            XCTAssertEqual(error, .mediaNotFound("media_shared"))
+        }
+        do {
+            _ = try await client.fetchMediaKey(sameRefOtherMac, deviceId: "device_1")
+            XCTFail("same media ref on another Mac should not return this Mac's key")
+        } catch let error as MockRemoteClientError {
+            XCTAssertEqual(error, .mediaKeyNotFound(ref: "media_shared", deviceId: "device_1"))
+        }
+    }
+
+    private func mediaRef(
+        ref: String = "media_1",
+        macAgentId: String = "mac_1",
+        expiresAt: Date? = nil
+    ) -> MediaRef {
         MediaRef(
-            ref: "media_1",
-            macAgentId: "mac_1",
-            r2Key: "r2/media_1",
+            ref: ref,
+            macAgentId: macAgentId,
+            r2Key: "r2/\(ref)",
             contentType: "image/png",
             expiresAt: expiresAt ?? now.addingTimeInterval(60)
+        )
+    }
+
+    private func mac(macAgentId: String = "mac_1") -> MacAgentRef {
+        MacAgentRef(
+            macAgentId: macAgentId,
+            displayName: "Studio \(macAgentId)",
+            agentSigningPubkey: "sign_\(macAgentId)",
+            agentSealingPubkey: "seal_\(macAgentId)"
         )
     }
 

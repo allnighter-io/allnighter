@@ -162,8 +162,8 @@ public actor MockiOSClient: RemoteClient {
     private var macRefs: [MacAgentRef]
     private var snapshots: [String: SnapshotEnvelope]
     private var events: [String: [RemoteRunEventEnvelope]]
-    private var media: [String: Data]
-    private var mediaKeys: [String: [String: MediaKeyEnvelope]]
+    private var media: [MediaStorageKey: Data]
+    private var mediaKeys: [MediaStorageKey: [String: MediaKeyEnvelope]]
     private var trustedDevices: [String: TrustedDevice]
     private var seenRequestIds: Set<String>
     private var serverNow: Date
@@ -182,8 +182,13 @@ public actor MockiOSClient: RemoteClient {
         self.macRefs = macs
         self.snapshots = snapshots
         self.events = events
-        self.media = media
-        self.mediaKeys = mediaKeys
+        let defaultMediaMacId = macs.first?.macAgentId ?? ""
+        self.media = Dictionary(uniqueKeysWithValues: media.map {
+            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
+        })
+        self.mediaKeys = Dictionary(uniqueKeysWithValues: mediaKeys.map {
+            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
+        })
         self.trustedDevices = Dictionary(uniqueKeysWithValues: trustedDevices.map { ($0.deviceId, $0) })
         self.seenRequestIds = []
         self.serverNow = serverNow
@@ -281,10 +286,11 @@ public actor MockiOSClient: RemoteClient {
 
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
         try requireConnected()
+        try requireMac(ref.macAgentId)
         guard ref.expiresAt >= serverNow else {
             throw MockRemoteClientError.mediaNotFound(ref.ref)
         }
-        guard let data = media[ref.ref] else {
+        guard let data = media[MediaStorageKey(macAgentId: ref.macAgentId, ref: ref.ref)] else {
             throw MockRemoteClientError.mediaNotFound(ref.ref)
         }
         return data
@@ -292,10 +298,11 @@ public actor MockiOSClient: RemoteClient {
 
     public func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope {
         try requireConnected()
+        try requireMac(ref.macAgentId)
         guard ref.expiresAt >= serverNow else {
             throw MockRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
         }
-        guard let key = mediaKeys[ref.ref]?[deviceId] else {
+        guard let key = mediaKeys[MediaStorageKey(macAgentId: ref.macAgentId, ref: ref.ref)]?[deviceId] else {
             throw MockRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
         }
         return key
@@ -390,6 +397,12 @@ public actor MockiOSClient: RemoteClient {
         }
     }
 
+    private func requireMac(_ macId: String) throws {
+        guard macRefs.contains(where: { $0.macAgentId == macId }) else {
+            throw MockRemoteClientError.macNotFound(macId)
+        }
+    }
+
     private func reject(
         _ command: RemoteCommand,
         reason: RemoteCommandRejectReason,
@@ -404,5 +417,10 @@ public actor MockiOSClient: RemoteClient {
             serverTime: includeServerTime ? serverNow : nil,
             signature: "mock-mac-signature"
         )
+    }
+
+    private struct MediaStorageKey: Hashable, Sendable {
+        var macAgentId: String
+        var ref: String
     }
 }
