@@ -60,11 +60,13 @@ public final class RemoteDeviceRevocationCoordinator: @unchecked Sendable {
 
     public func revoke(
         deviceId: String,
+        accountId: String? = nil,
         macAgentId: String
     ) async throws -> RemoteDeviceRevocationResult {
         let revokedAt = now()
         let revokedDevice = try store.revoke(
             deviceId: deviceId,
+            accountId: accountId,
             macAgentId: macAgentId,
             now: revokedAt
         )

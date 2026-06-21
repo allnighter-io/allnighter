@@ -147,6 +147,32 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertEqual(devices.first { $0.macAgentId == "mac_2" }?.revokedAt, now.addingTimeInterval(10))
     }
 
+    func testScopedRevokeCanTargetSameDeviceOnSpecificAccountAndMac() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let target = trustedDevice(accountId: "acct_1", deviceId: "device_1", macAgentId: "mac_1", now: now)
+        let otherAccount = trustedDevice(accountId: "acct_2", deviceId: "device_1", macAgentId: "mac_1", now: now)
+        let otherMac = trustedDevice(accountId: "acct_1", deviceId: "device_1", macAgentId: "mac_2", now: now)
+        try store.save(TrustedRemoteRegistry(trustedDevices: [
+            otherAccount,
+            otherMac,
+            target,
+        ]))
+
+        let revoked = try store.revoke(
+            deviceId: "device_1",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            now: now.addingTimeInterval(10)
+        )
+
+        XCTAssertEqual(revoked.accountId, "acct_1")
+        XCTAssertEqual(revoked.macAgentId, "mac_1")
+        let devices = store.load().trustedDevices
+        XCTAssertEqual(devices.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_1" }?.revoked, true)
+        XCTAssertEqual(devices.first { $0.accountId == "acct_2" && $0.macAgentId == "mac_1" }?.revoked, false)
+        XCTAssertEqual(devices.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_2" }?.revoked, false)
+    }
+
     func testListExpiresStalePendingRequests() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         var request = pairRequest(deviceId: "device_1", now: now)

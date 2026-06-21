@@ -77,13 +77,46 @@ final class RemoteDeviceRevocationCoordinatorTests: XCTestCase {
         XCTAssertEqual(store.load().trustedDevices.first?.revoked, false)
     }
 
-    private func trustedDevice(deviceId: String, macAgentId: String) -> TrustedDevice {
+    func testRevokeCanTargetSpecificAccountScope() async throws {
+        let target = trustedDevice(accountId: "acct_1", deviceId: "device_1", macAgentId: "mac_1")
+        let otherAccount = trustedDevice(accountId: "acct_2", deviceId: "device_1", macAgentId: "mac_1")
+        try store.save(TrustedRemoteRegistry(trustedDevices: [
+            otherAccount,
+            target,
+        ]))
+        let teardown = CapturingRevocationTeardown()
+        let fixedNow = now
+        let coordinator = RemoteDeviceRevocationCoordinator(
+            store: store,
+            teardown: teardown,
+            now: { fixedNow }
+        )
+
+        let result = try await coordinator.revoke(
+            deviceId: "device_1",
+            accountId: "acct_1",
+            macAgentId: "mac_1"
+        )
+
+        XCTAssertEqual(result.teardownScope.accountId, "acct_1")
+        let devices = store.load().trustedDevices
+        XCTAssertEqual(devices.first { $0.accountId == "acct_1" }?.revoked, true)
+        XCTAssertEqual(devices.first { $0.accountId == "acct_2" }?.revoked, false)
+        let scopes = await teardown.scopes()
+        XCTAssertEqual(scopes.map(\.accountId), ["acct_1"])
+    }
+
+    private func trustedDevice(
+        accountId: String = "acct_1",
+        deviceId: String,
+        macAgentId: String
+    ) -> TrustedDevice {
         TrustedDevice(
             deviceId: deviceId,
             displayName: deviceId,
             deviceSigningPubkey: "sign_\(deviceId)_\(macAgentId)",
             deviceSealingPubkey: "seal_\(deviceId)_\(macAgentId)",
-            accountId: "acct_1",
+            accountId: accountId,
             macAgentId: macAgentId,
             pairedAt: now.addingTimeInterval(-60),
             validUntil: now.addingTimeInterval(300),

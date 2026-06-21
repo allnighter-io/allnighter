@@ -142,12 +142,13 @@ public final class TrustedRemoteStore: @unchecked Sendable {
     @discardableResult
     public func revoke(
         deviceId: String,
+        accountId: String? = nil,
         macAgentId: String? = nil,
         now: Date = Date()
     ) throws -> TrustedDevice {
         var registry = load()
         guard let index = registry.trustedDevices.firstIndex(where: {
-            $0.deviceId == deviceId && (macAgentId == nil || $0.macAgentId == macAgentId)
+            matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
         }) else {
             throw TrustedRemoteStoreError.trustedDeviceNotFound(deviceId)
         }
@@ -174,5 +175,16 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         request.deviceId == deviceId
             && (accountId == nil || request.accountId == accountId)
             && (macAgentId == nil || request.macAgentId == macAgentId)
+    }
+
+    private func matches(
+        _ device: TrustedDevice,
+        deviceId: String,
+        accountId: String?,
+        macAgentId: String?
+    ) -> Bool {
+        device.deviceId == deviceId
+            && (accountId == nil || device.accountId == accountId)
+            && (macAgentId == nil || device.macAgentId == macAgentId)
     }
 }
