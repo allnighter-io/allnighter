@@ -98,6 +98,8 @@ public actor RunService {
     // Auto (Default model) inputs — injectable so resolution is deterministic in tests.
     private let loadDefaultSettings: @Sendable () -> DefaultModelSettings
     private let loadProbeRecords: @Sendable () -> [ToolProbeRecord]
+    /// Worker_Session_Continuity: the durable per-(thread, source, model) vendor session map.
+    private let sessionStore: ExternalWorkerSessionStore
 
     public init(
         models: [Model],
@@ -109,7 +111,8 @@ public actor RunService {
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
         defaultSettings: @escaping @Sendable () -> DefaultModelSettings = { DefaultModelSettingsPersistence().load() },
-        probeRecords: @escaping @Sendable () -> [ToolProbeRecord] = { SetupStore().load().records }
+        probeRecords: @escaping @Sendable () -> [ToolProbeRecord] = { SetupStore().load().records },
+        sessionStore: ExternalWorkerSessionStore = ExternalWorkerSessionStore()
     ) {
         self.models = models
         self.registry = registry
@@ -121,6 +124,7 @@ public actor RunService {
         self.now = now
         self.loadDefaultSettings = defaultSettings
         self.loadProbeRecords = probeRecords
+        self.sessionStore = sessionStore
     }
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
@@ -243,9 +247,9 @@ public actor RunService {
         if let starter = preset.starterPrompts.first, !starter.isEmpty, preset.mutating {
             prompt = starter + "\n\n" + prompt
         }
-        if let context = request.context, !context.isEmpty {
-            prompt += "\n\n# Context\n\(context)"
-        }
+        // NOTE: thread context is appended below per-path. The execution path appends it
+        // CONDITIONALLY (Worker_Session_Continuity: when resuming a live vendor session the
+        // CLI already holds the history, so we don't re-dump it); the answer path always does.
 
         let effort = request.effort ?? preset.defaultEffort
         let lockKey = RunWriteLock.key(repoRoot: root)
@@ -267,15 +271,21 @@ public actor RunService {
 
         if preset.runShape == .execution {
             return await runExecution(
-                preset: preset, prompt: prompt, effort: effort, repoRoot: root,
+                preset: preset, prompt: prompt, context: request.context, threadId: request.threadId,
+                effort: effort, repoRoot: root,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, events: events
             )
         }
 
+        // Answer (team) path: no vendor-session continuity — always include the context inline.
+        var answerPrompt = prompt
+        if let context = request.context, !context.isEmpty {
+            answerPrompt += "\n\n# Context\n\(context)"
+        }
         return await runAnswer(
-            preset: preset, prompt: prompt, effort: effort, repoRoot: root,
+            preset: preset, prompt: answerPrompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, events: events
@@ -287,6 +297,8 @@ public actor RunService {
     private func runExecution(
         preset: TeamPreset,
         prompt: String,
+        context: String? = nil,
+        threadId: String? = nil,
         effort: EffortLevel,
         repoRoot: String,
         projectId: String?,
@@ -338,8 +350,35 @@ public actor RunService {
             return .failure(.noWorker("no driver manifest for \(model.driverId)"))
         }
 
+        // Worker_Session_Continuity: resume THIS thread's vendor session for (source, model)
+        // if one's alive; on a first turn / model switch, mint or capture a fresh one.
+        let sessionKey: ExternalWorkerSession.Key? = threadId.map {
+            .init(threadId: $0, sourceId: manifest.id, modelId: model.id, repoRoot: repoRoot)
+        }
+        let resumable = sessionKey.flatMap { sessionStore.resumable($0) }
+        let sessionPlan: WorkerSessionPlan? = {
+            guard sessionKey != nil, let session = manifest.session,
+                  session.continuity == .vendorSession else { return nil }
+            if let resumable {
+                return WorkerSessionPlan(session: session, resumeSessionId: resumable.vendorSessionId, mintSessionId: nil)
+            }
+            let mint = session.acquire == .set ? UUID().uuidString.lowercased() : nil
+            return WorkerSessionPlan(session: session, resumeSessionId: nil, mintSessionId: mint)
+        }()
+
+        // Founder rule: only seed the thread context when we are NOT resuming a live vendor
+        // session (the CLI already remembers it). First turn / model switch → include it.
+        let founderPrompt: String
+        if resumable != nil {
+            founderPrompt = prompt
+        } else if let context, !context.isEmpty {
+            founderPrompt = prompt + "\n\n# Context\n\(context)"
+        } else {
+            founderPrompt = prompt
+        }
+
         let skillId = worker.skillId
-        let baseAssembled = SkillCatalog.assemblePrompt(skillId: skillId, founderPrompt: prompt)
+        let baseAssembled = SkillCatalog.assemblePrompt(skillId: skillId, founderPrompt: founderPrompt)
         // Attach the user's images: a vision worker gets the path block; a non-vision
         // worker gets an explicit notice so it never claims to have seen them.
         let assembled = deliveries.isEmpty ? baseAssembled
@@ -402,7 +441,7 @@ public actor RunService {
             do {
                 for try await streamEvent in runner.invokeStreaming(
                     worker: model, manifest: manifest, prompt: assembled, parser: parser,
-                    effort: effort, workingDirectoryOverride: repoRoot
+                    effort: effort, workingDirectoryOverride: repoRoot, sessionPlan: sessionPlan
                 ) {
                     switch streamEvent {
                     case .answerDelta(let text, _, _):
@@ -435,6 +474,16 @@ public actor RunService {
                 worker: model, manifest: manifest, prompt: assembled, effort: effort,
                 workingDirectoryOverride: repoRoot
             )
+        }
+        // Persist the vendor session this turn established/resumed, so the next turn in this
+        // thread resumes it (success only). Only the streaming path carries a captured id;
+        // the non-streaming fallback is not session-aware in v1.
+        if outcome.status == .done, let key = sessionKey,
+           let vendorId = outcome.capturedSessionId, !vendorId.isEmpty {
+            sessionStore.upsert(ExternalWorkerSession(
+                threadId: key.threadId, sourceId: key.sourceId, modelId: key.modelId, repoRoot: key.repoRoot,
+                vendorSessionId: vendorId, continuityTier: .vendorSession,
+                createdAt: resumable?.createdAt ?? now(), lastUsedAt: now(), lastRunId: runId))
         }
         let answer = WorkerAnswer(
             workerId: worker.id, modelId: model.id, status: outcome.status, output: outcome.output,
