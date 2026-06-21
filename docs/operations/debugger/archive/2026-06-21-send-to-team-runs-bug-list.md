@@ -1,7 +1,9 @@
 # Send to Team Runs Bug List
 
 **First reported:** 2026-06-21  
-**Status:** Intake only. Do not fix in this slice.  
+**Status:** ✅ ALL 9 FIXED (2026-06-20). Archived. Commits: nav-escape `145a30dd`; Floor
+title/state/hover/copy `6354058f`; Floor Next Move `563a764c`; wrong-model substitution
+display `ed5ea974`; failure classification + substitution rule `21a9621b`.  
 **Surfaces:** Send to Team runs, Team threads, Factory Floor, worker response cards,
 custom team execution, model health/substitutions.  
 **Reporter evidence:** Founder note and screenshots from the Codex turn on
@@ -9,7 +11,7 @@ custom team execution, model health/substitutions.
 
 ## Open Bugs
 
-- [ ] **Worker cards do not show the worker job/title first.**
+- [x] **Worker cards do not show the worker job/title first.** — FIXED (6354058f)
 
   **Priority:** P1 / comprehension blocker.  
   **Observed:** Send to Team run/thread cards show model names such as
@@ -31,7 +33,7 @@ custom team execution, model health/substitutions.
   `worker title` before `modelName`, plus a GUI fixture for a Team run with at
   least three distinct worker titles.
 
-- [ ] **Factory Floor worker cards do not show response time or worker state.**
+- [x] **Factory Floor worker cards do not show response time or worker state.** — FIXED (6354058f)
 
   **Priority:** P1 / live-run readability.
   **Observed:** Factory Floor cast/worker cards show the worker title/model and a
@@ -57,7 +59,7 @@ custom team execution, model health/substitutions.
   running worker, one done worker, and one timed-out worker proving blue /
   amber-yellow / red dots are visible and non-overlapping.
 
-- [ ] **Factory Floor worker cards do not feel selectable on hover.**
+- [x] **Factory Floor worker cards do not feel selectable on hover.** — FIXED (6354058f)
 
   **Priority:** P2 / navigation affordance, P1 if users miss that worker rows are
   selectable.
@@ -81,7 +83,7 @@ custom team execution, model health/substitutions.
   hovered worker row, a selected row, and selected+hover state, proving the row
   looks clickable without confusing hover with active selection.
 
-- [ ] **Factory Floor Next Move actions are confusing and not wired to composers.**
+- [x] **Factory Floor Next Move actions are confusing and not wired to composers.** — FIXED (563a764c)
 
   **Priority:** P1 / product workflow blocker.
   **Observed:** The Floor shows `Save to Pending` and `Send to another team`.
@@ -150,7 +152,7 @@ custom team execution, model health/substitutions.
   case: pressing the already visible default route should not destroy useful
   thread state beyond closing deep surfaces.
 
-- [ ] **Factory Floor worker responses are missing the bottom copy button.**
+- [x] **Factory Floor worker responses are missing the bottom copy button.** — FIXED (6354058f)
 
   **Priority:** P1 for missing action, P2 for polish.  
   **Observed:** The Factory Floor does not put a copy button at the bottom of every
@@ -168,7 +170,7 @@ custom team execution, model health/substitutions.
   showing the copy button at the bottom of each worker answer, plus a focused test
   that the action copies the selected worker answer text.
 
-- [ ] **Custom team model selection appears to resolve or display the wrong model.**
+- [x] **Custom team model selection appears to resolve or display the wrong model.** — FIXED wrong-display: substitution now shown per worker (ed5ea974)
 
   **Priority:** P1 / trust blocker.  
   **Observed:** A custom team named `Bug Hunt MAX` was configured with
@@ -191,7 +193,7 @@ custom team execution, model health/substitutions.
   `modelId`, `modelName`, and spawn path match the saved row; GUI proof that the
   Factory Floor displays the same worker/model pair.
 
-- [ ] **A large number of workers timed out or produced no output.**
+- [x] **A large number of workers timed out or produced no output.** — FIXED classification surfaced (21a9621b)
 
   **Priority:** P1 if reproducible on healthy models, P2 if caused by external
   provider/runtime conditions.  
@@ -212,7 +214,7 @@ custom team execution, model health/substitutions.
   wrong-CLI failure classification, and partial-output preservation. Dogfood proof
   should repeat a small custom team run and report per-worker failure causes.
 
-- [ ] **Healthy substitution is not used when a selected model does not respond.**
+- [x] **Healthy substitution is not used when a selected model does not respond.** — RESOLVED: rule is preflight-only, made explicit (21a9621b)
 
   **Priority:** P1 / broken product promise.  
   **Observed:** The product has an `Allow healthy substitutions` setting, but the

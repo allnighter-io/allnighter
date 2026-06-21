@@ -34,6 +34,7 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(team.scout?.skillId, "spec_outside_scout")
         XCTAssertEqual(team.scout?.preferredModelId, "model_grok")
         XCTAssertEqual(team.lead.skillId, "spec_upgrade_writer")
+        XCTAssertEqual(team.lead.preferredModelId, "model_opus")
         XCTAssertEqual(Set(team.workerSpecs.map(\.skillId)), [
             "spec_first_principles_reviewer",
             "spec_contract_auditor",
@@ -42,6 +43,52 @@ final class BuiltInTeamsTests: XCTestCase {
             "spec_hype_skeptic",
             "spec_contrarian_reviewer"
         ])
+        XCTAssertTrue(team.workerSpecs.allSatisfy { $0.preferredModelId != nil })
+    }
+
+    func testSynthesisTeamsPreferOpusLeadAndDiverseWorkersOnFullBench() {
+        let ready: [Model] = [
+            opus(),
+            Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
+                  driverId: "cursor_agent", role: .answerer),
+            Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer),
+            Model(id: "model_gemini", displayName: "Gemini 3.5 Flash", modelLabel: "g", driverId: "antigravity", role: .answerer),
+            Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .answerer),
+            Model(id: "model_grok", displayName: "Grok Build", modelLabel: "grok-build", driverId: "grok", role: .answerer),
+        ]
+        let team = BuiltInTeams.team("code_spec_upgrade")!
+        let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.planWriter?.modelId, "model_opus")
+        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
+        let crew = r.answerWorkers + r.reviewWorkers
+        let opusWorkers = crew.filter { $0.modelId == "model_opus" }
+        XCTAssertEqual(opusWorkers.count, 1, "one strategic Opus worker, not a pile-up")
+        XCTAssertEqual(opusWorkers.first?.skillId, "spec_first_principles_reviewer")
+        XCTAssertGreaterThan(Set(crew.map(\.modelId)).count, 2, "fan-out should spread across multiple models")
+    }
+
+    func testTierOneTeamsCarryOneStrategicOpusWorker() {
+        let tierOne: [String: String] = [
+            "code_core": "first_principles_builder",
+            "code_bug_hunt": "contrarian_root_cause",
+            "code_gui_bug_hunt": "contrarian_root_cause",
+            "code_security_review": "security_fix_prioritizer",
+            "code_spec_upgrade": "spec_first_principles_reviewer",
+            "code_release_proof": "acceptance_auditor",
+            "design_core": "design_critic",
+        ]
+        for (teamId, skillId) in tierOne {
+            let row = BuiltInTeams.team(teamId)?.workerSpecs.first { $0.skillId == skillId }
+            XCTAssertEqual(row?.preferredModelId, "model_opus", "\(teamId) strategic worker \(skillId)")
+        }
+    }
+
+    func testEverySynthesisTeamReservesOpusForLead() {
+        let passthrough: Set<String> = ["default_chat", "execution_playbook"]
+        for team in BuiltInTeams.all where !passthrough.contains(team.id) {
+            XCTAssertEqual(team.lead.preferredModelId, "model_opus", "\(team.id) lead should prefer Opus")
+        }
     }
 
     func testImplementationSourceChoicesDoNotAppearAsTeams() {
@@ -138,12 +185,12 @@ final class BuiltInTeamsTests: XCTestCase {
 
     // MARK: - Works Test E: preferred Codex unavailable falls back deterministically
 
-    func testRegressionGuardFallsBackFromCodexToOpus() {
+    func testRegressionGuardFallsBackWhenPreferredUnavailable() {
         let team = BuiltInTeams.team("code_bug_hunt")!
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         let regression = r.answerWorkers.first { $0.skillId == "regression_guard" }
         XCTAssertEqual(regression?.modelId, "model_opus")
-        XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_chatgpt unavailable") })
+        XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_cursor_composer_25 unavailable") })
     }
 
     // MARK: - Built-in immutability via duplicate-to-customize

@@ -1305,11 +1305,18 @@ struct ToolRuntime {
     }
 
     private static func applyLoginPath() {
+        if ProcessInfo.processInfo.environment["ALLNIGHTER_SKIP_LOGIN_PATH_BOOTSTRAP"] == "1" { return }
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        let p = Process(); p.executableURL = URL(fileURLWithPath: shell); p.arguments = ["-lic", "printf %s \"$PATH\""]
+        let p = Process(); p.executableURL = URL(fileURLWithPath: shell); p.arguments = ["-lc", "printf %s \"$PATH\""]
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = Pipe()
         guard (try? p.run()) != nil else { return }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile(); p.waitUntilExit()
+        let exited = DispatchSemaphore(value: 0)
+        p.terminationHandler = { _ in exited.signal() }
+        if exited.wait(timeout: .now() + .seconds(2)) == .timedOut {
+            p.terminate()
+            return
+        }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let path = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         if !path.isEmpty { setenv("PATH", path, 1) }
     }
