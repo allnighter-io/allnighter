@@ -22,6 +22,24 @@ public enum DirectModeSnapshotError: Error, Equatable, Sendable {
     )
 }
 
+public enum DirectModeThreadSnapshotError: Error, Equatable, Sendable {
+    case requestMismatch(
+        expectedAccountId: String,
+        actualAccountId: String,
+        expectedMacAgentId: String,
+        actualMacAgentId: String
+    )
+}
+
+public enum DirectModeThreadDetailError: Error, Equatable, Sendable {
+    case requestMismatch(
+        expectedAccountId: String,
+        actualAccountId: String,
+        expectedMacAgentId: String,
+        actualMacAgentId: String
+    )
+}
+
 public enum DirectModeMediaError: Error, Equatable, Sendable {
     case requestMismatch(
         expectedAccountId: String,
@@ -68,6 +86,46 @@ public struct DirectModeSnapshotRequest: Codable, Equatable, Sendable {
         self.accountId = accountId
         self.macAgentId = macAgentId
         self.since = since
+    }
+}
+
+public struct DirectModeThreadSnapshotRequest: Codable, Equatable, Sendable {
+    public var accountId: String
+    public var macAgentId: String
+
+    public init(accountId: String, macAgentId: String) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+    }
+}
+
+public struct DirectModeThreadDetailRequest: Codable, Equatable, Sendable {
+    public var accountId: String
+    public var macAgentId: String
+    public var threadId: String
+    public var deviceId: String
+    public var checkedAt: Date
+
+    public init(accountId: String, macAgentId: String, threadId: String, deviceId: String, checkedAt: Date) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.threadId = threadId
+        self.deviceId = deviceId
+        self.checkedAt = checkedAt
+    }
+}
+
+public struct DirectModeThreadDetailResponse: Codable, Equatable, Sendable {
+    public var threadId: String
+    public var macAgentId: String
+    public var deviceId: String
+    public var sealedDetail: SealedBlob
+
+    public init(threadId: String, macAgentId: String, deviceId: String, sealedDetail: SealedBlob) {
+        self.threadId = threadId
+        self.macAgentId = macAgentId
+        self.deviceId = deviceId
+        self.sealedDetail = sealedDetail
     }
 }
 
@@ -155,6 +213,14 @@ public protocol DirectModeCommandHandling: Sendable {
 
 public protocol DirectModeSnapshotHandling: Sendable {
     func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope
+}
+
+public protocol DirectModeThreadSnapshotHandling: Sendable {
+    func threadSnapshot(_ request: DirectModeThreadSnapshotRequest) async throws -> RemoteThreadSnapshotEnvelope
+}
+
+public protocol DirectModeThreadDetailHandling: Sendable {
+    func threadDetail(_ request: DirectModeThreadDetailRequest) async throws -> DirectModeThreadDetailResponse
 }
 
 public protocol DirectModeMediaHandling: Sendable {
@@ -249,6 +315,69 @@ public struct DirectModeSnapshotHandler: DirectModeSnapshotHandling {
             )
         }
         return try service.snapshot(since: request.since)
+    }
+}
+
+public struct DirectModeThreadSnapshotHandler: DirectModeThreadSnapshotHandling {
+    private let accountId: String
+    private let macAgentId: String
+    private let service: RemoteThreadSnapshotService
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        service: RemoteThreadSnapshotService
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.service = service
+    }
+
+    public func threadSnapshot(_ request: DirectModeThreadSnapshotRequest) async throws -> RemoteThreadSnapshotEnvelope {
+        guard request.accountId == accountId,
+              request.macAgentId == macAgentId else {
+            throw DirectModeThreadSnapshotError.requestMismatch(
+                expectedAccountId: accountId,
+                actualAccountId: request.accountId,
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: request.macAgentId
+            )
+        }
+        return service.snapshot()
+    }
+}
+
+public struct DirectModeThreadDetailHandler: DirectModeThreadDetailHandling {
+    private let accountId: String
+    private let macAgentId: String
+    private let service: RemoteThreadContentService
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        service: RemoteThreadContentService
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.service = service
+    }
+
+    public func threadDetail(_ request: DirectModeThreadDetailRequest) async throws -> DirectModeThreadDetailResponse {
+        guard request.accountId == accountId,
+              request.macAgentId == macAgentId else {
+            throw DirectModeThreadDetailError.requestMismatch(
+                expectedAccountId: accountId,
+                actualAccountId: request.accountId,
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: request.macAgentId
+            )
+        }
+        return DirectModeThreadDetailResponse(
+            threadId: request.threadId,
+            macAgentId: request.macAgentId,
+            deviceId: request.deviceId,
+            sealedDetail: try service.sealedDetail(threadId: request.threadId, forDeviceId: request.deviceId)
+        )
     }
 }
 
@@ -396,6 +525,8 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     public static let pairingPath = "/remote/pair"
     public static let pairingStatusPath = "/remote/pair/status"
     public static let snapshotPath = "/remote/snapshot"
+    public static let threadSnapshotPath = "/remote/thread-snapshot"
+    public static let threadDetailPath = "/remote/thread-detail"
     public static let mediaPath = "/remote/media"
     public static let mediaKeyPath = "/remote/media-key"
     public static let eventsPath = "/remote/events"
@@ -405,6 +536,8 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     private let pairingHandler: (any DirectModePairingHandling)?
     private let pairingStatusHandler: (any DirectModePairingStatusHandling)?
     private let snapshotHandler: (any DirectModeSnapshotHandling)?
+    private let threadSnapshotHandler: (any DirectModeThreadSnapshotHandling)?
+    private let threadDetailHandler: (any DirectModeThreadDetailHandling)?
     private let mediaHandler: (any DirectModeMediaHandling)?
     private let mediaKeyHandler: (any DirectModeMediaKeyHandling)?
     private let eventsHandler: (any DirectModeEventsHandling)?
@@ -418,6 +551,8 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         pairingHandler: (any DirectModePairingHandling)? = nil,
         pairingStatusHandler: (any DirectModePairingStatusHandling)? = nil,
         snapshotHandler: (any DirectModeSnapshotHandling)? = nil,
+        threadSnapshotHandler: (any DirectModeThreadSnapshotHandling)? = nil,
+        threadDetailHandler: (any DirectModeThreadDetailHandling)? = nil,
         mediaHandler: (any DirectModeMediaHandling)? = nil,
         mediaKeyHandler: (any DirectModeMediaKeyHandling)? = nil,
         eventsHandler: (any DirectModeEventsHandling)? = nil,
@@ -427,6 +562,8 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         self.pairingHandler = pairingHandler
         self.pairingStatusHandler = pairingStatusHandler
         self.snapshotHandler = snapshotHandler
+        self.threadSnapshotHandler = threadSnapshotHandler
+        self.threadDetailHandler = threadDetailHandler
         self.mediaHandler = mediaHandler
         self.mediaKeyHandler = mediaKeyHandler
         self.eventsHandler = eventsHandler
@@ -558,6 +695,30 @@ public final class DirectModeCommandServer: @unchecked Sendable {
             do {
                 let snapshotRequest = try CoreJSON.decode(DirectModeSnapshotRequest.self, from: request.body)
                 let response = try await snapshotHandler.snapshot(snapshotRequest)
+                writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
+            } catch {
+                writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)
+            }
+        case Self.threadSnapshotPath:
+            guard let threadSnapshotHandler else {
+                writeJSON(["error": "not_found"], status: "404 Not Found", to: client)
+                return
+            }
+            do {
+                let threadSnapshotRequest = try CoreJSON.decode(DirectModeThreadSnapshotRequest.self, from: request.body)
+                let response = try await threadSnapshotHandler.threadSnapshot(threadSnapshotRequest)
+                writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
+            } catch {
+                writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)
+            }
+        case Self.threadDetailPath:
+            guard let threadDetailHandler else {
+                writeJSON(["error": "not_found"], status: "404 Not Found", to: client)
+                return
+            }
+            do {
+                let threadDetailRequest = try CoreJSON.decode(DirectModeThreadDetailRequest.self, from: request.body)
+                let response = try await threadDetailHandler.threadDetail(threadDetailRequest)
                 writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
             } catch {
                 writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)

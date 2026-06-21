@@ -33,7 +33,7 @@ final class RemoteThreadContentServiceTests: XCTestCase {
         let openedJSON = String(decoding: opened, as: UTF8.self)
         let detail = try CoreJSON.decode(RemoteThreadDetail.self, from: opened)
 
-        XCTAssertEqual(blob.contentType, RemoteThreadContentService.detailContentType)
+        XCTAssertEqual(blob.contentType, RemoteThreadDetail.sealedContentType)
         XCTAssertEqual(blob.sealedForKeyId, "device_1")
         XCTAssertFalse(encodedBlob.contains("private prompt with token"))
         XCTAssertFalse(encodedBlob.contains("private worker reply"))

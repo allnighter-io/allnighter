@@ -37,6 +37,8 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         "command_acks",
         "event_envelopes",
         "snapshot_envelopes",
+        "thread_snapshot_envelopes",
+        "thread_detail_blobs",
         "media_refs",
         "media_keys",
     ]
@@ -148,6 +150,33 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         XCTAssertTrue(policy.contains("\"public\".\"approved_remote_device\"(\"media_keys\".\"mac_agent_id\", \"media_keys\".\"device_id\")"))
     }
 
+    func testThreadDetailPoliciesKeepRowsDeviceScopedAndSealed() throws {
+        let sql = try schemaSQL
+        let insertPolicy = try policyBlock(named: "mac agents insert thread detail blobs", sql: sql)
+        let updatePolicy = try policyBlock(named: "mac agents update thread detail blobs", sql: sql)
+        let selectPolicy = try policyBlock(named: "approved devices select thread detail blobs", sql: sql)
+
+        XCTAssertTrue(sql.contains("thread_detail_blobs_sealed_detail_shape_check"))
+        XCTAssertTrue(sql.contains("\"sealed_detail\" ->> 'content_type'"))
+        XCTAssertTrue(sql.contains("'application/vnd.allnighter.remote-thread-detail+json'"))
+        XCTAssertTrue(sql.contains("\"sealed_detail\" ->> 'sealed_for_key_id'"))
+        XCTAssertTrue(sql.contains("\"device_id\""))
+
+        for policy in [insertPolicy, updatePolicy] {
+            XCTAssertTrue(policy.contains("ON \"public\".\"thread_detail_blobs\""))
+            XCTAssertTrue(policy.contains("\"d\".\"account_id\" = \"thread_detail_blobs\".\"account_id\""))
+            XCTAssertTrue(policy.contains("\"d\".\"mac_agent_id\" = \"thread_detail_blobs\".\"mac_agent_id\""))
+            XCTAssertTrue(policy.contains("\"d\".\"device_id\" = \"thread_detail_blobs\".\"device_id\""))
+            XCTAssertTrue(policy.contains("\"public\".\"mac_agent_claim_matches\"(\"thread_detail_blobs\".\"account_id\", \"thread_detail_blobs\".\"mac_agent_id\")"))
+            XCTAssertTrue(policy.contains("\"d\".\"revoked\" = false"))
+            XCTAssertTrue(policy.contains("\"d\".\"valid_until\" >= \"now\"()"))
+        }
+
+        XCTAssertTrue(selectPolicy.contains("ON \"public\".\"thread_detail_blobs\""))
+        XCTAssertTrue(selectPolicy.contains("\"device_id\" = \"public\".\"remote_device_id\"()"))
+        XCTAssertTrue(selectPolicy.contains("\"public\".\"approved_remote_device\"(\"mac_agent_id\", \"device_id\")"))
+    }
+
     func testCloudRelayTableColumnsStayContentLight() throws {
         let forbiddenNames: Set<String> = [
             "body",
@@ -175,7 +204,14 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
             XCTAssertTrue(sql.contains("tablename = '\(table)'"), "missing realtime guard for \(table)")
             XCTAssertTrue(sql.contains("add table public.\(table)"), "missing realtime publication for \(table)")
         }
-        for table in ["media_refs", "media_keys", "trusted_devices", "snapshot_envelopes"] {
+        for table in [
+            "media_refs",
+            "media_keys",
+            "trusted_devices",
+            "snapshot_envelopes",
+            "thread_snapshot_envelopes",
+            "thread_detail_blobs",
+        ] {
             XCTAssertFalse(sql.contains("add table public.\(table)"), "\(table) should not be broadcast through realtime")
         }
     }
@@ -198,6 +234,15 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         ))
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"snapshot_envelopes_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"thread_snapshot_envelopes_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"thread_detail_blobs_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"thread_id\", \"device_id\")"
+        ))
+        XCTAssertTrue(sql.contains(
+            "ADD CONSTRAINT \"thread_detail_blobs_trusted_device_scope_fkey\" FOREIGN KEY (\"account_id\", \"mac_agent_id\", \"device_id\") REFERENCES \"public\".\"trusted_devices\"(\"account_id\", \"mac_agent_id\", \"device_id\")"
         ))
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"pair_requests_account_mac_device_key\" UNIQUE (\"account_id\", \"mac_agent_id\", \"device_id\")"

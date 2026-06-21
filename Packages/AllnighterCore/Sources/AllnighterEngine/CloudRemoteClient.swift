@@ -20,6 +20,9 @@ public enum CloudRemoteClientError: Error, Equatable, Sendable {
     case unsupportedMode(ConnectionMode)
     case macNotFound(String)
     case snapshotNotFound(String)
+    case threadSnapshotNotFound(String)
+    case threadDetailNotFound(threadId: String, deviceId: String)
+    case badThreadDetailEnvelope
     case mediaNotFound(String)
     case mediaKeyNotFound(ref: String, deviceId: String)
     case badMediaKeyEnvelope
@@ -81,6 +84,36 @@ public actor CloudRemoteClient: RemoteClient {
             throw CloudRemoteClientError.snapshotNotFound(macId)
         }
         return snapshot
+    }
+
+    public func threadSnapshot(macId: String) async throws -> RemoteThreadSnapshotEnvelope {
+        let account = try requireConnected()
+        try requireMac(macId)
+        guard let snapshot = try await relay.threadSnapshot(
+            accountId: account.accountId,
+            macAgentId: macId
+        ) else {
+            throw CloudRemoteClientError.threadSnapshotNotFound(macId)
+        }
+        return snapshot
+    }
+
+    public func sealedThreadDetail(macId: String, threadId: String, deviceId: String) async throws -> SealedBlob {
+        let account = try requireConnected()
+        try requireMac(macId)
+        guard let blob = try await relay.sealedThreadDetail(
+            accountId: account.accountId,
+            macAgentId: macId,
+            threadId: threadId,
+            deviceId: deviceId
+        ) else {
+            throw CloudRemoteClientError.threadDetailNotFound(threadId: threadId, deviceId: deviceId)
+        }
+        guard blob.sealedForKeyId == deviceId,
+              blob.contentType == RemoteThreadDetail.sealedContentType else {
+            throw CloudRemoteClientError.badThreadDetailEnvelope
+        }
+        return blob
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {

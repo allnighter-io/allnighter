@@ -12,6 +12,8 @@ final class DirectModeExposureProviderTests: XCTestCase {
         XCTAssertEqual(plan.endpoint.baseURL, "https://studio.tail123.ts.net")
         XCTAssertEqual(plan.endpoint.commandURL, "https://studio.tail123.ts.net/remote/command")
         XCTAssertEqual(plan.endpoint.snapshotURL, "https://studio.tail123.ts.net/remote/snapshot")
+        XCTAssertEqual(plan.endpoint.threadSnapshotURL, "https://studio.tail123.ts.net/remote/thread-snapshot")
+        XCTAssertEqual(plan.endpoint.threadDetailURL, "https://studio.tail123.ts.net/remote/thread-detail")
         XCTAssertEqual(plan.endpoint.mediaURL, "https://studio.tail123.ts.net/remote/media")
         XCTAssertEqual(plan.endpoint.mediaKeyURL, "https://studio.tail123.ts.net/remote/media-key")
         XCTAssertEqual(plan.endpoint.eventsURL, "https://studio.tail123.ts.net/remote/events")
@@ -48,6 +50,8 @@ final class DirectModeExposureProviderTests: XCTestCase {
 
         XCTAssertEqual(plan.endpoint.baseURL, "http://127.0.0.1:42123")
         XCTAssertEqual(plan.endpoint.commandURL, "http://127.0.0.1:42123/remote/command")
+        XCTAssertEqual(plan.endpoint.threadSnapshotURL, "http://127.0.0.1:42123/remote/thread-snapshot")
+        XCTAssertEqual(plan.endpoint.threadDetailURL, "http://127.0.0.1:42123/remote/thread-detail")
         XCTAssertEqual(plan.endpoint.transport, .loopback)
         XCTAssertFalse(plan.endpoint.atsExceptionRequired)
         XCTAssertEqual(plan.serveCommand, [])

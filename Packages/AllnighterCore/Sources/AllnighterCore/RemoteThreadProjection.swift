@@ -170,6 +170,8 @@ public struct RemoteThreadTurnDetail: Codable, Equatable, Identifiable, Sendable
 }
 
 public struct RemoteThreadDetail: Codable, Equatable, Identifiable, Sendable {
+    public static let sealedContentType = "application/vnd.allnighter.remote-thread-detail+json"
+
     public var id: String { summary.id }
     public var summary: RemoteThreadSummary
     public var turns: [RemoteThreadTurnDetail]

@@ -7,8 +7,6 @@ public enum RemoteThreadContentServiceError: Error, Equatable, Sendable {
 }
 
 public struct RemoteThreadContentService: Sendable {
-    public static let detailContentType = "application/vnd.allnighter.remote-thread-detail+json"
-
     public let accountId: String
     public let macAgentId: String
     public let threadStore: ThreadStore
@@ -50,7 +48,7 @@ public struct RemoteThreadContentService: Sendable {
             CoreJSON.encode(detail),
             to: device.deviceSealingPubkey,
             sealedForKeyId: device.deviceId,
-            contentType: Self.detailContentType
+            contentType: RemoteThreadDetail.sealedContentType
         )
     }
 

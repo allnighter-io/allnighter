@@ -48,6 +48,8 @@ public enum RemoteMacRelayError: Error, Equatable, Sendable {
     case unsupportedProtocolVersion(expected: Int, actual: Int)
     case eventScopeMismatch(expectedMacAgentId: String, actualMacAgentId: String, eventId: String)
     case mediaScopeMismatch(expectedMacAgentId: String, actualMacAgentId: String, expectedRef: String, actualRef: String)
+    case threadDetailDeviceMismatch(threadId: String, expectedDeviceId: String, actualSealedForKeyId: String)
+    case threadDetailContentTypeMismatch(threadId: String, expectedContentType: String, actualContentType: String)
 }
 
 public enum RemoteCommandInboxStatus: String, Codable, Sendable, CaseIterable {
@@ -142,6 +144,21 @@ public protocol RemoteMacRelay: Sendable {
     func publishEvents(accountId: String, macAgentId: String, events: [RemoteRunEventEnvelope]) async throws
     func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws
     func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope?
+    func publishThreadSnapshot(accountId: String, macAgentId: String, snapshot: RemoteThreadSnapshotEnvelope) async throws
+    func threadSnapshot(accountId: String, macAgentId: String) async throws -> RemoteThreadSnapshotEnvelope?
+    func publishThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob
+    ) async throws
+    func sealedThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String
+    ) async throws -> SealedBlob?
     func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws
     func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws
     func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data?
@@ -162,6 +179,8 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var inboxByMac: [String: [RemoteCommandInboxEntry]]
     private var publishedEventScopes: Set<PublishedEventKey>
     private var snapshotsByScope: [SnapshotStorageKey: SnapshotEnvelope]
+    private var threadSnapshotsByScope: [SnapshotStorageKey: RemoteThreadSnapshotEnvelope]
+    private var threadDetailsByScope: [ThreadDetailStorageKey: SealedBlob]
     private var mediaRefsById: [MediaStorageKey: MediaRef]
     private var mediaDataByRef: [MediaStorageKey: Data]
     private var mediaKeysByRef: [MediaStorageKey: [String: MediaKeyEnvelope]]
@@ -186,6 +205,8 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)
         self.publishedEventScopes = Set()
         self.snapshotsByScope = [:]
+        self.threadSnapshotsByScope = [:]
+        self.threadDetailsByScope = [:]
         self.mediaRefsById = [:]
         self.mediaDataByRef = [:]
         self.mediaKeysByRef = [:]
@@ -473,6 +494,55 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         return snapshotsByScope[SnapshotStorageKey(accountId: accountId, macAgentId: macAgentId)]
     }
 
+    public func publishThreadSnapshot(
+        accountId: String,
+        macAgentId: String,
+        snapshot: RemoteThreadSnapshotEnvelope
+    ) async throws {
+        eventLog.append("publishThreadSnapshot")
+        threadSnapshotsByScope[SnapshotStorageKey(accountId: accountId, macAgentId: macAgentId)] = snapshot
+    }
+
+    public func threadSnapshot(
+        accountId: String,
+        macAgentId: String
+    ) async throws -> RemoteThreadSnapshotEnvelope? {
+        eventLog.append("threadSnapshot")
+        return threadSnapshotsByScope[SnapshotStorageKey(accountId: accountId, macAgentId: macAgentId)]
+    }
+
+    public func publishThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob
+    ) async throws {
+        try Self.validateThreadDetail(threadId: threadId, deviceId: deviceId, sealedDetail: sealedDetail)
+        eventLog.append("publishThreadDetail")
+        threadDetailsByScope[ThreadDetailStorageKey(
+            accountId: accountId,
+            macAgentId: macAgentId,
+            threadId: threadId,
+            deviceId: deviceId
+        )] = sealedDetail
+    }
+
+    public func sealedThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String
+    ) async throws -> SealedBlob? {
+        eventLog.append("sealedThreadDetail")
+        return threadDetailsByScope[ThreadDetailStorageKey(
+            accountId: accountId,
+            macAgentId: macAgentId,
+            threadId: threadId,
+            deviceId: deviceId
+        )]
+    }
+
     public func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {
         eventLog.append("publishMedia")
         if let mismatchedKey = keys.first(where: { $0.macAgentId != ref.macAgentId || $0.ref != ref.ref }) {
@@ -565,9 +635,33 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         }
     }
 
+    private static func validateThreadDetail(threadId: String, deviceId: String, sealedDetail: SealedBlob) throws {
+        guard sealedDetail.sealedForKeyId == deviceId else {
+            throw RemoteMacRelayError.threadDetailDeviceMismatch(
+                threadId: threadId,
+                expectedDeviceId: deviceId,
+                actualSealedForKeyId: sealedDetail.sealedForKeyId
+            )
+        }
+        guard sealedDetail.contentType == RemoteThreadDetail.sealedContentType else {
+            throw RemoteMacRelayError.threadDetailContentTypeMismatch(
+                threadId: threadId,
+                expectedContentType: RemoteThreadDetail.sealedContentType,
+                actualContentType: sealedDetail.contentType
+            )
+        }
+    }
+
     private struct SnapshotStorageKey: Hashable, Sendable {
         var accountId: String
         var macAgentId: String
+    }
+
+    private struct ThreadDetailStorageKey: Hashable, Sendable {
+        var accountId: String
+        var macAgentId: String
+        var threadId: String
+        var deviceId: String
     }
 
     private struct MacStorageKey: Hashable, Sendable {

@@ -81,6 +81,126 @@ final class DirectModeRemoteClientTests: XCTestCase {
         ])
     }
 
+    func testClientFetchesThreadSnapshotFromLoopbackServer() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let threadSnapshotHandler = RecordingDirectModeClientThreadSnapshotHandler(snapshot: Self.threadSnapshot(now: now))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            threadSnapshotHandler: threadSnapshotHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        let snapshot = try await client.threadSnapshot(macId: "mac_1")
+
+        XCTAssertEqual(snapshot.threads.map(\.id), ["thread_1"])
+        XCTAssertEqual(threadSnapshotHandler.requests, [
+            DirectModeThreadSnapshotRequest(accountId: "acct_1", macAgentId: "mac_1"),
+        ])
+    }
+
+    func testClientFetchesSealedThreadDetailFromLoopbackServer() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let blob = Self.sealedThreadDetail(deviceId: "device_1")
+        let threadDetailHandler = RecordingDirectModeClientThreadDetailHandler(response: DirectModeThreadDetailResponse(
+            threadId: "thread_1",
+            macAgentId: "mac_1",
+            deviceId: "device_1",
+            sealedDetail: blob
+        ))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            threadDetailHandler: threadDetailHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        let fetched = try await client.sealedThreadDetail(macId: "mac_1", threadId: "thread_1", deviceId: "device_1")
+
+        XCTAssertEqual(fetched, blob)
+        XCTAssertEqual(threadDetailHandler.requests, [
+            DirectModeThreadDetailRequest(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                threadId: "thread_1",
+                deviceId: "device_1",
+                checkedAt: now
+            ),
+        ])
+    }
+
+    func testClientRejectsSealedThreadDetailForOtherDeviceOrMac() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let wrongDeviceHandler = RecordingDirectModeClientThreadDetailHandler(response: DirectModeThreadDetailResponse(
+            threadId: "thread_1",
+            macAgentId: "mac_1",
+            deviceId: "device_2",
+            sealedDetail: Self.sealedThreadDetail(deviceId: "device_2")
+        ))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            threadDetailHandler: wrongDeviceHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(
+            mac: Self.mac(signingKey: macSigningKey),
+            endpoint: endpoint,
+            now: { fixedNow }
+        )
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        do {
+            _ = try await client.sealedThreadDetail(macId: "mac_1", threadId: "thread_1", deviceId: "device_1")
+            XCTFail("wrong-device thread detail response should be rejected")
+        } catch let error as DirectModeRemoteClientError {
+            XCTAssertEqual(error, .badThreadDetailResponse)
+        }
+
+        do {
+            _ = try await client.sealedThreadDetail(macId: "mac_2", threadId: "thread_1", deviceId: "device_1")
+            XCTFail("wrong-Mac thread detail request should be rejected")
+        } catch let error as DirectModeRemoteClientError {
+            XCTAssertEqual(error, .macNotFound("mac_2"))
+        }
+    }
+
     func testClientFetchesSealedMediaFromLoopbackServer() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let fixedNow = now
@@ -574,6 +694,48 @@ final class DirectModeRemoteClientTests: XCTestCase {
         )
     }
 
+    private static func threadSnapshot(now: Date) -> RemoteThreadSnapshotEnvelope {
+        RemoteThreadSnapshotEnvelope(
+            threads: [
+                RemoteThreadSummary(
+                    id: "thread_1",
+                    title: "Thread",
+                    status: .active,
+                    projectId: nil,
+                    createdAt: now.addingTimeInterval(-60),
+                    updatedAt: now,
+                    pinnedAt: nil,
+                    displayState: .replied,
+                    readState: RemoteThreadReadState(
+                        readCursor: nil,
+                        hasUnread: true,
+                        unreadNeedsAttention: true,
+                        firstUnreadTurnId: "turn_1",
+                        latestUnreadTurnId: "turn_1"
+                    ),
+                    turnCount: 1,
+                    latestTurn: RemoteThreadTurnLight(
+                        id: "turn_1",
+                        kind: .workerChat,
+                        status: .done,
+                        author: .worker,
+                        createdAt: now
+                    )
+                ),
+            ],
+            serverTime: now
+        )
+    }
+
+    private static func sealedThreadDetail(deviceId: String) -> SealedBlob {
+        SealedBlob(
+            ciphertext: Data("thread-detail-ciphertext".utf8),
+            encapsulatedKey: Data("thread-detail-encapsulated".utf8),
+            sealedForKeyId: deviceId,
+            contentType: RemoteThreadDetail.sealedContentType
+        )
+    }
+
     private static func mediaKey(ref: String, macAgentId: String = "mac_1", deviceId: String) -> MediaKeyEnvelope {
         MediaKeyEnvelope(
             ref: ref,
@@ -643,6 +805,44 @@ private final class RecordingDirectModeClientSnapshotHandler: DirectModeSnapshot
     func snapshot(_ request: DirectModeSnapshotRequest) async throws -> SnapshotEnvelope {
         lock.withLock { storedRequests.append(request) }
         return storedSnapshot
+    }
+}
+
+private final class RecordingDirectModeClientThreadSnapshotHandler: DirectModeThreadSnapshotHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedSnapshot: RemoteThreadSnapshotEnvelope
+    private var storedRequests: [DirectModeThreadSnapshotRequest] = []
+
+    init(snapshot: RemoteThreadSnapshotEnvelope) {
+        self.storedSnapshot = snapshot
+    }
+
+    var requests: [DirectModeThreadSnapshotRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func threadSnapshot(_ request: DirectModeThreadSnapshotRequest) async throws -> RemoteThreadSnapshotEnvelope {
+        lock.withLock { storedRequests.append(request) }
+        return storedSnapshot
+    }
+}
+
+private final class RecordingDirectModeClientThreadDetailHandler: DirectModeThreadDetailHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedResponse: DirectModeThreadDetailResponse
+    private var storedRequests: [DirectModeThreadDetailRequest] = []
+
+    init(response: DirectModeThreadDetailResponse) {
+        self.storedResponse = response
+    }
+
+    var requests: [DirectModeThreadDetailRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func threadDetail(_ request: DirectModeThreadDetailRequest) async throws -> DirectModeThreadDetailResponse {
+        lock.withLock { storedRequests.append(request) }
+        return storedResponse
     }
 }
 

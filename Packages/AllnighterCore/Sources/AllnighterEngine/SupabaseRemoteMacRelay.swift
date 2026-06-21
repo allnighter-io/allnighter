@@ -474,6 +474,86 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
         return rows.first(where: { $0.accountId == accountId && $0.macAgentId == macAgentId })?.envelope()
     }
 
+    public func publishThreadSnapshot(
+        accountId: String,
+        macAgentId: String,
+        snapshot: RemoteThreadSnapshotEnvelope
+    ) async throws {
+        _ = try await post(
+            table: "thread_snapshot_envelopes",
+            rows: [ThreadSnapshotEnvelopeRow(
+                accountId: accountId,
+                macAgentId: macAgentId,
+                snapshot: snapshot,
+                updatedAt: now()
+            )],
+            query: [URLQueryItem(name: "on_conflict", value: "account_id,mac_agent_id")],
+            prefer: "resolution=merge-duplicates,return=minimal"
+        ) as [ThreadSnapshotEnvelopeRow]
+    }
+
+    public func threadSnapshot(
+        accountId: String,
+        macAgentId: String
+    ) async throws -> RemoteThreadSnapshotEnvelope? {
+        let rows: [ThreadSnapshotEnvelopeRow] = try await get(
+            table: "thread_snapshot_envelopes",
+            query: [
+                eq("account_id", accountId),
+                eq("mac_agent_id", macAgentId),
+                URLQueryItem(name: "limit", value: "1"),
+            ]
+        )
+        return rows.first(where: { $0.accountId == accountId && $0.macAgentId == macAgentId })?.envelope()
+    }
+
+    public func publishThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob
+    ) async throws {
+        try Self.validateThreadDetail(threadId: threadId, deviceId: deviceId, sealedDetail: sealedDetail)
+        _ = try await post(
+            table: "thread_detail_blobs",
+            rows: [ThreadDetailBlobRow(
+                accountId: accountId,
+                macAgentId: macAgentId,
+                threadId: threadId,
+                deviceId: deviceId,
+                sealedDetail: sealedDetail,
+                updatedAt: now()
+            )],
+            query: [URLQueryItem(name: "on_conflict", value: "account_id,mac_agent_id,thread_id,device_id")],
+            prefer: "resolution=merge-duplicates,return=minimal"
+        ) as [ThreadDetailBlobRow]
+    }
+
+    public func sealedThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String
+    ) async throws -> SealedBlob? {
+        let rows: [ThreadDetailBlobRow] = try await get(
+            table: "thread_detail_blobs",
+            query: [
+                eq("account_id", accountId),
+                eq("mac_agent_id", macAgentId),
+                eq("thread_id", threadId),
+                eq("device_id", deviceId),
+                URLQueryItem(name: "limit", value: "1"),
+            ]
+        )
+        return rows.first(where: {
+            $0.accountId == accountId
+                && $0.macAgentId == macAgentId
+                && $0.threadId == threadId
+                && $0.deviceId == deviceId
+        })?.sealedDetail
+    }
+
     public func publishMedia(ref: MediaRef, data _: Data, keys: [MediaKeyEnvelope]) async throws {
         if let mismatchedKey = keys.first(where: { $0.macAgentId != ref.macAgentId || $0.ref != ref.ref }) {
             throw RemoteMacRelayError.mediaScopeMismatch(
@@ -644,6 +724,23 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
     private static func validateProtocolVersion(_ version: Int) throws {
         guard version == RemoteProtocol.currentMajor else {
             throw RemoteMacRelayError.unsupportedProtocolVersion(expected: RemoteProtocol.currentMajor, actual: version)
+        }
+    }
+
+    private static func validateThreadDetail(threadId: String, deviceId: String, sealedDetail: SealedBlob) throws {
+        guard sealedDetail.sealedForKeyId == deviceId else {
+            throw RemoteMacRelayError.threadDetailDeviceMismatch(
+                threadId: threadId,
+                expectedDeviceId: deviceId,
+                actualSealedForKeyId: sealedDetail.sealedForKeyId
+            )
+        }
+        guard sealedDetail.contentType == RemoteThreadDetail.sealedContentType else {
+            throw RemoteMacRelayError.threadDetailContentTypeMismatch(
+                threadId: threadId,
+                expectedContentType: RemoteThreadDetail.sealedContentType,
+                actualContentType: sealedDetail.contentType
+            )
         }
     }
 }
@@ -1008,6 +1105,57 @@ private struct SnapshotEnvelopeRow: Codable {
             serverTime: serverTime,
             protocolVersion: protocolVersion
         )
+    }
+}
+
+private struct ThreadSnapshotEnvelopeRow: Codable {
+    var accountId: String
+    var macAgentId: String
+    var threads: [RemoteThreadSummary]
+    var serverTime: Date
+    var protocolVersion: Int
+    var updatedAt: Date
+
+    init(accountId: String, macAgentId: String, snapshot: RemoteThreadSnapshotEnvelope, updatedAt: Date) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        threads = snapshot.threads
+        serverTime = snapshot.serverTime
+        protocolVersion = snapshot.protocolVersion
+        self.updatedAt = updatedAt
+    }
+
+    func envelope() -> RemoteThreadSnapshotEnvelope {
+        RemoteThreadSnapshotEnvelope(
+            threads: threads,
+            protocolVersion: protocolVersion,
+            serverTime: serverTime
+        )
+    }
+}
+
+private struct ThreadDetailBlobRow: Codable {
+    var accountId: String
+    var macAgentId: String
+    var threadId: String
+    var deviceId: String
+    var sealedDetail: SealedBlob
+    var updatedAt: Date
+
+    init(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob,
+        updatedAt: Date
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.threadId = threadId
+        self.deviceId = deviceId
+        self.sealedDetail = sealedDetail
+        self.updatedAt = updatedAt
     }
 }
 

@@ -911,6 +911,33 @@ private actor UnscopedTrustedDevicesRelay: RemoteMacRelay {
         nil
     }
 
+    func publishThreadSnapshot(
+        accountId: String,
+        macAgentId: String,
+        snapshot: RemoteThreadSnapshotEnvelope
+    ) async throws {}
+
+    func threadSnapshot(accountId: String, macAgentId: String) async throws -> RemoteThreadSnapshotEnvelope? {
+        nil
+    }
+
+    func publishThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob
+    ) async throws {}
+
+    func sealedThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String
+    ) async throws -> SealedBlob? {
+        nil
+    }
+
     func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {}
 
     func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws {}
@@ -1015,6 +1042,33 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
     func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws {}
 
     func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope? {
+        nil
+    }
+
+    func publishThreadSnapshot(
+        accountId: String,
+        macAgentId: String,
+        snapshot: RemoteThreadSnapshotEnvelope
+    ) async throws {}
+
+    func threadSnapshot(accountId: String, macAgentId: String) async throws -> RemoteThreadSnapshotEnvelope? {
+        nil
+    }
+
+    func publishThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob
+    ) async throws {}
+
+    func sealedThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String
+    ) async throws -> SealedBlob? {
         nil
     }
 
