@@ -15,6 +15,7 @@ struct AllnighterCLI {
         let runtime = ToolRuntime()
         switch command {
         case "teams" where args.first == "show": runTeamsShow(Array(args.dropFirst()), runtime)
+        case "teams" where args.first == "definition": runTeamsDefinition(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "duplicate": runTeamsDuplicate(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "edit": runTeamsEdit(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "set-default": runTeamsSetDefault(Array(args.dropFirst()), runtime)
@@ -563,6 +564,19 @@ struct AllnighterCLI {
 
     // MARK: - Catalog mutation (teams)
 
+    /// `alln teams definition <team-id> [--json]` — full TeamPreset for edit/save round-trip.
+    static func runTeamsDefinition(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams definition <team-id> [--json]")
+        }
+        guard let team = TeamCatalog.get(id) else {
+            fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)")
+        }
+        if opts.flag("json") { print(teamDefinitionJSONString(team)) }
+        else { print(teamDefinitionJSONString(team)) }
+    }
+
     /// `alln teams show <team-id> [--json]` — one team including worker rows.
     static func runTeamsShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
@@ -579,6 +593,11 @@ struct AllnighterCLI {
                 print("  \(row.id)\t\(row.skillId)\t\(row.purpose.rawValue)")
             }
         }
+    }
+
+    /// Full `TeamPreset` JSON round-trippable through `teams_save` / `teams edit`.
+    static func teamDefinitionJSONString(_ team: TeamPreset) -> String {
+        jsonString(team)
     }
 
     static func teamShowJSONString(_ team: TeamPreset) -> String {

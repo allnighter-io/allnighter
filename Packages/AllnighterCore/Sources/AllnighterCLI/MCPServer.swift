@@ -54,6 +54,11 @@ struct MCPServer {
                 return respondToolError(id: id, code: "TEAM_NOT_FOUND", message: "teamId required")
             }
             respond(id: id, result: toolText(team.displayName, structured: AllnighterCLI.teamShowJSONString(team)))
+        case "teams_definition":
+            guard let teamId = args["teamId"] as? String, let team = TeamCatalog.get(teamId) else {
+                return respondToolError(id: id, code: "TEAM_NOT_FOUND", message: "teamId required")
+            }
+            respond(id: id, result: toolText(team.displayName, structured: AllnighterCLI.teamDefinitionJSONString(team)))
         case "teams_duplicate":
             guard let teamId = args["teamId"] as? String else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "teamId required")

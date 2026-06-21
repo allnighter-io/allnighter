@@ -29,7 +29,10 @@ public extension ContractRegistry {
                     params: [.init("lane", summary: "Filter to one lane: code|design|copy|signal (optional).")],
                     outputSchema: .teamCatalogJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("teams_show", command: "teams show", summary: "One team definition including worker rows.",
+        MCPToolSpec("teams_show", command: "teams show", summary: "One team summary including worker rows (not round-trippable for save).",
+                    params: [.init("teamId", required: true, summary: "Team id.")],
+                    errors: ["TEAM_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("teams_definition", command: "teams definition", summary: "Full TeamPreset JSON round-trippable through teams_save.",
                     params: [.init("teamId", required: true, summary: "Team id.")],
                     errors: ["TEAM_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("teams_duplicate", command: "teams duplicate", summary: "Duplicate a built-in team into a custom team.",
@@ -446,6 +449,12 @@ public extension ContractRegistry {
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
             flags: [FlagSpec("json", summary: "Structured team detail.")],
             exampleIds: ["teams_show_json"]
+        ),
+        CommandSpec(
+            "teams definition", summary: "Full TeamPreset JSON round-trippable through teams edit/save.", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "Team id.")],
+            flags: [FlagSpec("json", summary: "Structured team definition.")],
+            exampleIds: ["teams_definition_json"]
         ),
         CommandSpec(
             "teams duplicate", summary: "Duplicate a built-in team into a custom team.", milestone: .m1,
@@ -1063,6 +1072,7 @@ public extension ContractRegistry {
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
         ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),
+        ExampleRecipe("teams_definition_json", title: "Full team definition for edit", command: "alln teams definition code_bug_hunt --json"),
         ExampleRecipe("skills_code_json", title: "List Code skills", command: "alln skills --lane code --json"),
         ExampleRecipe("skills_show_json", title: "Show a Code skill", command: "alln skills show bug_reproducer --json"),
         ExampleRecipe("team_preflight", title: "Preflight a team", command: "alln team preflight --lane code --team code_bug_hunt --effort high"),
