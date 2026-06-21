@@ -400,10 +400,13 @@ struct RoutingComposer: View {
                         Image(systemName: "doc.text")
                             .font(.system(size: 10))
                             .foregroundStyle(ALColor.textMuted)
-                        Text(ref.path)
+                        // Cursor-style: once added, show just the filename. The full
+                        // root-relative path stays available on hover (the chip's help).
+                        Text(fileReferenceName(ref.path))
                             .font(ALFont.monoSm)
                             .foregroundStyle(ALColor.textSecondary)
                             .lineLimit(1)
+                            .help(ref.path)
                         Button { removeFileReference(ref.path) } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 9, weight: .semibold))
@@ -883,6 +886,13 @@ struct RoutingComposer: View {
     private func removeFileReference(_ path: String) {
         // The @path no longer lives in the text (the chip owns it), so just drop the chip.
         selectedFileReferences.removeAll { $0.path == path }
+    }
+
+    /// The chip label for a referenced file — just the filename (Cursor-style). The full
+    /// root-relative path is still resolved/sent; only the display is shortened.
+    private func fileReferenceName(_ path: String) -> String {
+        let name = (path as NSString).lastPathComponent
+        return name.isEmpty ? path : name
     }
 
     private func activeFileTrigger(in value: String) -> (range: Range<String.Index>, query: String)? {
