@@ -88,3 +88,16 @@ public struct ExternalWorkerSession: Codable, Sendable, Equatable, Identifiable 
         continuityTier == .vendorSession && status == .active && !vendorSessionId.isEmpty
     }
 }
+
+/// Agent-facing return for `alln sessions` / the `worker_sessions_list` MCP tool: the vendor
+/// CLI sessions a thread is piggybacking, so an agent can SEE/verify continuity. ONE
+/// contract — CLI, MCP, and the GUI present this.
+public struct WorkerSessionsJSON: Codable, Sendable, Equatable {
+    public let threadId: String?
+    public let sessions: [ExternalWorkerSession]
+
+    public init(threadId: String?, sessions: [ExternalWorkerSession]) {
+        self.threadId = threadId
+        self.sessions = sessions.sorted { $0.lastUsedAt > $1.lastUsedAt }
+    }
+}

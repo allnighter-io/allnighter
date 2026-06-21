@@ -489,7 +489,8 @@ public actor RunService {
             workerId: worker.id, modelId: model.id, status: outcome.status, output: outcome.output,
             errorKind: outcome.errorKind, errorReason: outcome.errorReason,
             startedAt: outcome.startedAt, finishedAt: outcome.finishedAt,
-            durationMs: outcome.durationMs, exitCode: outcome.exitCode
+            durationMs: outcome.durationMs, exitCode: outcome.exitCode,
+            vendorSessionId: outcome.capturedSessionId
         )
         var workerPayload: [String: JSONValue] = [
             "runId": .string(runId), "workerId": .string(worker.id), "modelId": .string(model.id),

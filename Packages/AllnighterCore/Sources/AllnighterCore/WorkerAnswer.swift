@@ -27,6 +27,9 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
     public var exitCode: Int?
     /// Sourced capacity/cooldown fact from the worker CLI attempt (nonzero exit only).
     public var capacityObservation: CapacityObservation?
+    /// Worker_Session_Continuity receipt: the vendor CLI session id this turn used/established
+    /// (`--resume`d or minted/captured). Lets a run artifact PROVE turn 2 resumed turn 1.
+    public var vendorSessionId: String?
 
     public var id: String { workerId }
 
@@ -41,7 +44,8 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         finishedAt: Date? = nil,
         durationMs: Int? = nil,
         exitCode: Int? = nil,
-        capacityObservation: CapacityObservation? = nil
+        capacityObservation: CapacityObservation? = nil,
+        vendorSessionId: String? = nil
     ) {
         self.workerId = workerId
         self.modelId = modelId
@@ -54,6 +58,7 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         self.durationMs = durationMs
         self.exitCode = exitCode
         self.capacityObservation = capacityObservation
+        self.vendorSessionId = vendorSessionId
     }
 
     public var hasAnswer: Bool {

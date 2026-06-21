@@ -87,4 +87,16 @@ final class WorkerSessionStoreTests: XCTestCase {
         store.upsert(s)
         XCTAssertNil(store.resumable(s.key), "promptContextOnly has no vendor session to resume")
     }
+
+    // CONT-S7: the agent-facing projection (`alln sessions` / `worker_sessions_list`).
+    func testWorkerSessionsJSONSortsMostRecentFirstAndRoundTrips() throws {
+        var older = session(thread: "t1", source: "claude_code", model: "opus", vendor: "v-old")
+        older.lastUsedAt = Date(timeIntervalSince1970: 1000)
+        var newer = session(thread: "t1", source: "cursor_agent", model: "composer", vendor: "v-new")
+        newer.lastUsedAt = Date(timeIntervalSince1970: 2000)
+        let json = WorkerSessionsJSON(threadId: "t1", sessions: [older, newer])
+        XCTAssertEqual(json.sessions.map(\.vendorSessionId), ["v-new", "v-old"], "most recent first")
+        let data = try JSONEncoder().encode(json)
+        XCTAssertEqual(try JSONDecoder().decode(WorkerSessionsJSON.self, from: data), json)
+    }
 }
