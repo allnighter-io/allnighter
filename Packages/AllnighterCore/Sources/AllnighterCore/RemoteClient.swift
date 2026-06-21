@@ -168,7 +168,7 @@ public actor MockiOSClient: RemoteClient {
     private var media: [MediaStorageKey: Data]
     private var mediaKeys: [MediaStorageKey: [String: MediaKeyEnvelope]]
     private var trustedDevices: [TrustedDeviceStorageKey: TrustedDevice]
-    private var seenRequestIds: Set<String>
+    private var seenRequestKeys: Set<MockSeenRequestKey>
     private var serverNow: Date
     private var deviceNow: Date
 
@@ -201,7 +201,7 @@ public actor MockiOSClient: RemoteClient {
             )] = device
         }
         self.trustedDevices = trustedByScope
-        self.seenRequestIds = []
+        self.seenRequestKeys = []
         self.serverNow = serverNow
         self.deviceNow = deviceNow ?? serverNow
     }
@@ -268,14 +268,19 @@ public actor MockiOSClient: RemoteClient {
         guard abs(command.assertion.timestamp.timeIntervalSince(serverNow)) <= 60 else {
             return reject(command, reason: .clockSkew, includeServerTime: true)
         }
-        guard !seenRequestIds.contains(command.requestId) else {
-            return reject(command, reason: .replayedRequestId, outcome: .duplicate)
-        }
         guard try RemoteCrypto.payloadDigest(command.payload) == command.assertion.payloadSHA256 else {
             return reject(command, reason: .badSignature)
         }
         guard let accountId = account?.accountId else {
             return reject(command, reason: .unauthorizedKind)
+        }
+        let seenKey = MockSeenRequestKey(
+            accountId: accountId,
+            deviceId: command.assertion.deviceId,
+            requestId: command.requestId
+        )
+        guard !seenRequestKeys.contains(seenKey) else {
+            return reject(command, reason: .replayedRequestId, outcome: .duplicate)
         }
         let visibleDeviceRows = trustedDevices.values.filter {
             $0.accountId == accountId
@@ -297,7 +302,7 @@ public actor MockiOSClient: RemoteClient {
             return reject(command, reason: .badSignature)
         }
 
-        seenRequestIds.insert(command.requestId)
+        seenRequestKeys.insert(seenKey)
         return CommandAck(
             requestId: command.requestId,
             accepted: true,
@@ -455,5 +460,11 @@ public actor MockiOSClient: RemoteClient {
         var accountId: String
         var macAgentId: String
         var deviceId: String
+    }
+
+    private struct MockSeenRequestKey: Hashable, Sendable {
+        var accountId: String
+        var deviceId: String
+        var requestId: String
     }
 }

@@ -647,6 +647,86 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(replay.outcome, .duplicate)
     }
 
+    func testMockClientScopesReplayByConnectedAccountAndDevice() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let firstSigningKey = Curve25519.Signing.PrivateKey()
+        let secondSigningKey = Curve25519.Signing.PrivateKey()
+        let firstTrusted = TrustedDevice(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(firstSigningKey.publicKey),
+            deviceSealingPubkey: "sealing-1",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(3600),
+            capabilities: []
+        )
+        let secondTrusted = TrustedDevice(
+            deviceId: "device_2",
+            displayName: "Other iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(secondSigningKey.publicKey),
+            deviceSealingPubkey: "sealing-2",
+            accountId: "acct_2",
+            macAgentId: "mac_1",
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(3600),
+            capabilities: []
+        )
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal"
+        )
+        let client = MockiOSClient(
+            macs: [mac],
+            trustedDevices: [firstTrusted, secondTrusted],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let firstAssertion = try RemoteCrypto.makeDeviceAssertion(
+            deviceId: "device_1",
+            requestId: "req_shared",
+            timestamp: now,
+            kind: .stopAll,
+            payload: .empty,
+            signingKey: firstSigningKey
+        )
+        let firstCommand = RemoteCommand(
+            requestId: "req_shared",
+            kind: .stopAll,
+            payload: .empty,
+            assertion: firstAssertion
+        )
+        let firstAck = try await client.send(firstCommand)
+        XCTAssertTrue(firstAck.accepted)
+
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_2", provider: .apple), mode: .cloudRelay)
+        let secondAssertion = try RemoteCrypto.makeDeviceAssertion(
+            deviceId: "device_2",
+            requestId: "req_shared",
+            timestamp: now,
+            kind: .stopAll,
+            payload: .empty,
+            signingKey: secondSigningKey
+        )
+        let secondCommand = RemoteCommand(
+            requestId: "req_shared",
+            kind: .stopAll,
+            payload: .empty,
+            assertion: secondAssertion
+        )
+        let secondAck = try await client.send(secondCommand)
+        XCTAssertTrue(secondAck.accepted)
+
+        let secondReplay = try await client.send(secondCommand)
+        XCTAssertFalse(secondReplay.accepted)
+        XCTAssertEqual(secondReplay.reason, .replayedRequestId)
+        XCTAssertEqual(secondReplay.outcome, .duplicate)
+    }
+
     func testMockClientRejectsTrustedDeviceFromOtherAccount() async throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let signingKey = Curve25519.Signing.PrivateKey()
