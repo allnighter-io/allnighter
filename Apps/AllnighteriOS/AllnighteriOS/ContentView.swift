@@ -78,6 +78,15 @@ private struct ConversationsHomeView: View {
         .preferredColorScheme(.dark)
     }
 
+    private var visibleSnapshot: ConversationListSnapshot {
+        switch selectedFilter {
+        case .all:
+            snapshot
+        case .unread, .pending:
+            snapshot.filtering(selectedFilter.includes)
+        }
+    }
+
     private var brandBar: some View {
         HStack(spacing: IOSSpace.s3) {
             HStack(spacing: IOSSpace.s3) {
@@ -146,12 +155,12 @@ private struct ConversationsHomeView: View {
 
     private var conversationSections: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !snapshot.pinned.isEmpty {
+            if !visibleSnapshot.pinned.isEmpty {
                 SectionHeader(title: "Pinned")
                     .padding(.bottom, IOSSpace.s5)
 
                 VStack(spacing: 0) {
-                    ForEach(snapshot.pinned) { conversation in
+                    ForEach(visibleSnapshot.pinned) { conversation in
                         ConversationRow(conversation: conversation)
                     }
                 }
@@ -171,7 +180,7 @@ private struct ConversationsHomeView: View {
             .padding(.bottom, IOSSpace.s4)
 
             VStack(spacing: IOSSpace.s2) {
-                ForEach(snapshot.projects) { project in
+                ForEach(visibleSnapshot.projects) { project in
                     ProjectGroup(project: project)
                 }
             }
@@ -197,6 +206,17 @@ private enum ConversationFilter: CaseIterable, Identifiable {
         case .all: "All"
         case .unread: "Unread"
         case .pending: "Pending"
+        }
+    }
+
+    func includes(_ conversation: ConversationSummary) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .unread:
+            return conversation.isUnread
+        case .pending:
+            return conversation.isPending
         }
     }
 }
@@ -275,6 +295,7 @@ private struct ConversationRow: View {
 
 private struct ProjectGroup: View {
     let project: ConversationProject
+    private let visibleConversationLimit = 4
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -314,13 +335,13 @@ private struct ProjectGroup: View {
 
             if project.isExpanded {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(project.conversations) { conversation in
+                    ForEach(visibleConversations) { conversation in
                         ConversationRow(conversation: conversation)
                             .padding(.leading, 44)
                     }
 
-                    if project.hiddenConversationCount > 0 {
-                        Text("\(project.hiddenConversationCount) more")
+                    if hiddenConversationCount > 0 {
+                        Text("\(hiddenConversationCount) more")
                             .font(IOSFont.label)
                             .foregroundStyle(IOSColor.accentText)
                             .padding(.leading, 44)
@@ -330,6 +351,14 @@ private struct ProjectGroup: View {
                 }
             }
         }
+    }
+
+    private var visibleConversations: [ConversationSummary] {
+        Array(project.conversations.prefix(visibleConversationLimit))
+    }
+
+    private var hiddenConversationCount: Int {
+        max(0, project.conversations.count - visibleConversations.count)
     }
 
     private var iconName: String {

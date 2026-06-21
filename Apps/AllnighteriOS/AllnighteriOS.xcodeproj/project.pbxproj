@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		35EE085859A04889BFB6B24F /* AllnighterCore in Frameworks */ = {isa = PBXBuildFile; productRef = 49F35D565EDD4C919AD4F8E3 /* AllnighterCore */; };
+		7302985C67D44AF0BA469593 /* AllnighterCore in Frameworks */ = {isa = PBXBuildFile; productRef = 389A169CE28A4B058C1AE0A4 /* AllnighterCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		27905F7A2FE0833F006F9C60 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				35EE085859A04889BFB6B24F /* AllnighterCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -59,6 +65,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7302985C67D44AF0BA469593 /* AllnighterCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +119,7 @@
 			);
 			name = AllnighteriOS;
 			packageProductDependencies = (
+				49F35D565EDD4C919AD4F8E3 /* AllnighterCore */,
 			);
 			productName = AllnighteriOS;
 			productReference = 27905F6A2FE0833E006F9C60 /* AllnighteriOS.app */;
@@ -135,6 +143,7 @@
 			);
 			name = AllnighteriOSTests;
 			packageProductDependencies = (
+				389A169CE28A4B058C1AE0A4 /* AllnighterCore */,
 			);
 			productName = AllnighteriOSTests;
 			productReference = 27905F792FE0833F006F9C60 /* AllnighteriOSTests.xctest */;
@@ -195,6 +204,9 @@
 			);
 			mainGroup = 27905F612FE0833E006F9C60;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				246F9B007E524F4A81931CA4 /* XCLocalSwiftPackageReference "../../Packages/AllnighterCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 27905F6B2FE0833E006F9C60 /* Products */;
 			projectDirPath = "";
@@ -578,6 +590,26 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		246F9B007E524F4A81931CA4 /* XCLocalSwiftPackageReference "../../Packages/AllnighterCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../Packages/AllnighterCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		389A169CE28A4B058C1AE0A4 /* AllnighterCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246F9B007E524F4A81931CA4 /* XCLocalSwiftPackageReference "../../Packages/AllnighterCore" */;
+			productName = AllnighterCore;
+		};
+		49F35D565EDD4C919AD4F8E3 /* AllnighterCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246F9B007E524F4A81931CA4 /* XCLocalSwiftPackageReference "../../Packages/AllnighterCore" */;
+			productName = AllnighterCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 27905F622FE0833E006F9C60 /* Project object */;
 }

@@ -12,6 +12,13 @@ struct ConversationListSnapshot: Equatable {
     var projects: [ConversationProject]
 
     static let empty = ConversationListSnapshot(pinned: [], projects: [])
+
+    func filtering(_ includes: (ConversationSummary) -> Bool) -> ConversationListSnapshot {
+        ConversationListSnapshot(
+            pinned: pinned.filter(includes),
+            projects: projects.compactMap { $0.filtering(includes) }
+        )
+    }
 }
 
 struct ConversationSummary: Identifiable, Equatable {
@@ -34,7 +41,19 @@ struct ConversationProject: Identifiable, Equatable {
     let isExpanded: Bool
     let hasUnread: Bool
     let conversations: [ConversationSummary]
-    let hiddenConversationCount: Int
+
+    func filtering(_ includes: (ConversationSummary) -> Bool) -> ConversationProject? {
+        let filteredConversations = conversations.filter(includes)
+        guard !filteredConversations.isEmpty else { return nil }
+        return ConversationProject(
+            id: id,
+            name: name,
+            icon: icon,
+            isExpanded: isExpanded,
+            hasUnread: filteredConversations.contains { $0.isUnread },
+            conversations: filteredConversations
+        )
+    }
 }
 
 #if DEBUG
@@ -56,8 +75,7 @@ enum ConversationHomePreviewData {
                 icon: .folder,
                 isExpanded: false,
                 hasUnread: true,
-                conversations: [],
-                hiddenConversationCount: 0
+                conversations: []
             ),
             ConversationProject(
                 id: "x",
@@ -65,8 +83,7 @@ enum ConversationHomePreviewData {
                 icon: .folder,
                 isExpanded: false,
                 hasUnread: true,
-                conversations: [],
-                hiddenConversationCount: 0
+                conversations: []
             ),
             ConversationProject(
                 id: "unassigned",
@@ -102,9 +119,15 @@ enum ConversationHomePreviewData {
                         relativeAge: "4 days ago",
                         isUnread: false,
                         isPending: false
+                    ),
+                    ConversationSummary(
+                        id: "follow-up-plan",
+                        title: "Follow up on the run plan",
+                        relativeAge: "5 days ago",
+                        isUnread: false,
+                        isPending: false
                     )
-                ],
-                hiddenConversationCount: 1
+                ]
             )
         ]
     )
