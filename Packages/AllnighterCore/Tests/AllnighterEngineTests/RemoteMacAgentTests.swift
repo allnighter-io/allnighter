@@ -595,6 +595,20 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
         []
     }
 
+    func pairRequestStatus(
+        accountId: String,
+        requestId: String,
+        deviceId: String,
+        checkedAt: Date
+    ) async throws -> RemotePairingStatusResponse {
+        RemotePairingStatusResponse(
+            requestId: requestId,
+            deviceId: deviceId,
+            status: .notFound,
+            checkedAt: checkedAt
+        )
+    }
+
     func updatePairRequest(_ request: RemotePairRequest) async throws -> RemotePairRequest {
         request
     }

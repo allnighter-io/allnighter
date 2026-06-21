@@ -53,6 +53,58 @@ final class CloudPairingClientTests: XCTestCase {
 
         let pending = try await relay.pendingPairRequests(accountId: "acct_1", macAgentId: "mac_1")
         XCTAssertEqual(pending, [request])
+
+        let status = try await client.status(requestId: " pair_request_1 ", deviceId: " device_1 ")
+        XCTAssertEqual(status.status, .pending)
+        XCTAssertEqual(status.pairRequest, request)
+        XCTAssertNil(status.trustedDevice)
+        XCTAssertEqual(status.checkedAt, now)
+    }
+
+    func testClientReportsApprovedAndRevokedCloudStatus() async throws {
+        let relay = MockRemoteMacRelay(pairRequestIdFactory: { "pair_request_1" })
+        let fixedNow = now
+        let client = CloudPairingClient(relay: relay, now: { fixedNow }, defaultTTL: 120)
+        try await client.connect(
+            account: RemoteAccountSession(accountId: "acct_1", provider: .apple),
+            mode: ConnectionMode.cloudRelay
+        )
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio Mac",
+            agentSigningPubkey: "mac_sign",
+            agentSealingPubkey: "mac_seal"
+        )
+        let request = try await client.requestPairing(
+            mac: mac,
+            device: RemotePairingDeviceIdentity(
+                deviceId: "device_1",
+                displayName: "Mike's iPhone",
+                deviceSigningPubkey: "device_sign",
+                deviceSealingPubkey: "device_seal"
+            )
+        )
+        var approvedRequest = request
+        approvedRequest.status = .approved
+        approvedRequest.approvedAt = now
+        _ = try await relay.updatePairRequest(approvedRequest)
+        var device = trustedDevice()
+        try await relay.upsertTrustedDevice(device)
+
+        let approved = try await client.status(requestId: request.id, deviceId: "device_1")
+
+        XCTAssertEqual(approved.status, .approved)
+        XCTAssertEqual(approved.pairRequest, approvedRequest)
+        XCTAssertEqual(approved.trustedDevice, device)
+
+        device.revoked = true
+        device.revokedAt = now.addingTimeInterval(10)
+        try await relay.upsertTrustedDevice(device)
+
+        let revoked = try await client.status(requestId: request.id, deviceId: "device_1")
+
+        XCTAssertEqual(revoked.status, .revoked)
+        XCTAssertEqual(revoked.trustedDevice, device)
     }
 
     func testClientRequiresConnectionAndCloudMode() async throws {
@@ -122,5 +174,43 @@ final class CloudPairingClientTests: XCTestCase {
         } catch let error as CloudPairingClientError {
             XCTAssertEqual(error, .invalidTTL(0))
         }
+    }
+
+    func testClientValidatesStatusFields() async throws {
+        let relay = MockRemoteMacRelay()
+        let fixedNow = now
+        let client = CloudPairingClient(relay: relay, now: { fixedNow })
+        try await client.connect(
+            account: RemoteAccountSession(accountId: "acct_1", provider: .apple),
+            mode: ConnectionMode.cloudRelay
+        )
+
+        do {
+            _ = try await client.status(requestId: " ", deviceId: "device_1")
+            XCTFail("empty request id should be rejected")
+        } catch let error as CloudPairingClientError {
+            XCTAssertEqual(error, .emptyRequestId)
+        }
+
+        do {
+            _ = try await client.status(requestId: "pair_request_1", deviceId: " ")
+            XCTFail("empty device id should be rejected")
+        } catch let error as CloudPairingClientError {
+            XCTAssertEqual(error, .emptyDeviceId)
+        }
+    }
+
+    private func trustedDevice() -> TrustedDevice {
+        TrustedDevice(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: "device_sign",
+            deviceSealingPubkey: "device_seal",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(3_600),
+            capabilities: Set(RemoteCapability.allCases)
+        )
     }
 }

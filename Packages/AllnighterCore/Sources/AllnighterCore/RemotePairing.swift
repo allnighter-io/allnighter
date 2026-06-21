@@ -71,6 +71,43 @@ public struct RemotePairingDeviceIdentity: Codable, Equatable, Sendable {
     }
 }
 
+public enum RemotePairingStatusKind: String, Codable, Sendable, CaseIterable {
+    case pending
+    case approved
+    case rejected
+    case expired
+    case revoked
+    case notFound
+}
+
+public struct RemotePairingStatusResponse: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var requestId: String
+    public var deviceId: String
+    public var status: RemotePairingStatusKind
+    public var pairRequest: RemotePairRequest?
+    public var trustedDevice: TrustedDevice?
+    public var checkedAt: Date
+
+    public init(
+        schemaVersion: Int = 1,
+        requestId: String,
+        deviceId: String,
+        status: RemotePairingStatusKind,
+        pairRequest: RemotePairRequest? = nil,
+        trustedDevice: TrustedDevice? = nil,
+        checkedAt: Date
+    ) {
+        self.schemaVersion = schemaVersion
+        self.requestId = requestId
+        self.deviceId = deviceId
+        self.status = status
+        self.pairRequest = pairRequest
+        self.trustedDevice = trustedDevice
+        self.checkedAt = checkedAt
+    }
+}
+
 public struct RemotePairRequest: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var accountId: String

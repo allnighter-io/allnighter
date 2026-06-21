@@ -109,6 +109,12 @@ public protocol RemoteMacRelay: Sendable {
     func macAgents(accountId: String) async throws -> [MacAgentRef]
     func submitPairRequest(_ request: RemotePairRequestDraft) async throws -> RemotePairRequest
     func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest]
+    func pairRequestStatus(
+        accountId: String,
+        requestId: String,
+        deviceId: String,
+        checkedAt: Date
+    ) async throws -> RemotePairingStatusResponse
     func updatePairRequest(_ request: RemotePairRequest) async throws -> RemotePairRequest
     func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice]
     func upsertTrustedDevice(_ device: TrustedDevice) async throws
@@ -208,6 +214,54 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
             }
     }
 
+    public func pairRequestStatus(
+        accountId: String,
+        requestId: String,
+        deviceId: String,
+        checkedAt: Date
+    ) async throws -> RemotePairingStatusResponse {
+        eventLog.append("pairRequestStatus")
+        guard let request = pairRequestsByMac.values
+            .flatMap({ $0 })
+            .first(where: {
+                $0.accountId == accountId
+                    && $0.id == requestId
+                    && $0.deviceId == deviceId
+            }) else {
+            return RemotePairingStatusResponse(
+                requestId: requestId,
+                deviceId: deviceId,
+                status: .notFound,
+                checkedAt: checkedAt
+            )
+        }
+        let trustedDevice = (trustedByMac[request.macAgentId] ?? []).first {
+            $0.accountId == accountId && $0.deviceId == deviceId
+        }
+        let status: RemotePairingStatusKind
+        var responseRequest = request
+        if let trustedDevice, trustedDevice.revoked {
+            status = .revoked
+        } else if let trustedDevice, trustedDevice.validUntil < checkedAt {
+            status = .expired
+        } else if trustedDevice != nil {
+            status = .approved
+        } else {
+            status = Self.statusKind(for: request, at: checkedAt)
+            if status == .expired, responseRequest.status == .pending {
+                responseRequest.status = .expired
+            }
+        }
+        return RemotePairingStatusResponse(
+            requestId: requestId,
+            deviceId: deviceId,
+            status: status,
+            pairRequest: responseRequest,
+            trustedDevice: trustedDevice,
+            checkedAt: checkedAt
+        )
+    }
+
     public func updatePairRequest(_ request: RemotePairRequest) async throws -> RemotePairRequest {
         eventLog.append("updatePairRequest")
         var requests = pairRequestsByMac[request.macAgentId, default: []]
@@ -279,5 +333,21 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
 
     public func enqueue(_ entry: RemoteCommandInboxEntry) {
         inboxByMac[entry.macAgentId, default: []].append(entry)
+    }
+
+    private static func statusKind(
+        for request: RemotePairRequest,
+        at now: Date
+    ) -> RemotePairingStatusKind {
+        switch request.status {
+        case .pending:
+            return request.isPending(at: now) ? .pending : .expired
+        case .approved:
+            return .approved
+        case .rejected:
+            return .rejected
+        case .expired:
+            return .expired
+        }
     }
 }

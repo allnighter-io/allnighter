@@ -5,6 +5,7 @@ public enum CloudPairingClientError: Error, Equatable, Sendable {
     case notConnected
     case unsupportedMode(ConnectionMode)
     case invalidTTL(TimeInterval)
+    case emptyRequestId
     case emptyMacAgentId
     case emptyDeviceId
     case emptyDisplayName
@@ -72,6 +73,23 @@ public actor CloudPairingClient {
             requestedAt: requestedAt,
             expiresAt: requestedAt.addingTimeInterval(ttl)
         ))
+    }
+
+    public func status(
+        requestId: String,
+        deviceId: String
+    ) async throws -> RemotePairingStatusResponse {
+        let account = try requireConnected()
+        let requestId = requestId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !requestId.isEmpty else { throw CloudPairingClientError.emptyRequestId }
+        let deviceId = deviceId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !deviceId.isEmpty else { throw CloudPairingClientError.emptyDeviceId }
+        return try await relay.pairRequestStatus(
+            accountId: account.accountId,
+            requestId: requestId,
+            deviceId: deviceId,
+            checkedAt: now()
+        )
     }
 
     private func requireConnected() throws -> RemoteAccountSession {
