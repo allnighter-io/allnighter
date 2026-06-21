@@ -468,8 +468,9 @@ final class RemoteFoundationTests: XCTestCase {
         )
 
         let state = RemoteRunReducer.apply(snapshot: snapshot, events: [duplicate, done])
-        XCTAssertEqual(state.lastSeq, 12)
+        XCTAssertEqual(state.lastSeq, 13)
         XCTAssertEqual(state.recentEvents.map(\.event.id), ["evt_done"])
+        XCTAssertEqual(state.appliedEventIds, ["evt_done"])
         XCTAssertEqual(state.run(id: "run_1")?.status, .done)
         XCTAssertEqual(state.run(id: "run_1")?.completedAt, now.addingTimeInterval(2))
     }

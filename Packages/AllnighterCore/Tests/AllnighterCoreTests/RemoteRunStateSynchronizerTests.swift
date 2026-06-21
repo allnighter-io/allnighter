@@ -86,6 +86,46 @@ final class RemoteRunStateSynchronizerTests: XCTestCase {
         XCTAssertEqual(result.state.run(id: "run_1")?.completedAt, now.addingTimeInterval(1))
     }
 
+    func testSyncAdvancesSeqForDuplicateOnlyResumeBatch() async throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let mac = Self.mac(signingKey: signingKey, now: now)
+        let duplicateDone = try Self.envelope(
+            id: "evt_done",
+            seq: 2,
+            runId: "run_1",
+            kind: RunEventKind.runStatusChanged,
+            payload: ["to": .string("done")],
+            signingKey: signingKey,
+            now: now
+        )
+        let current = RemoteRunViewState(
+            runs: [Self.run(id: "run_1", status: .done, now: now)],
+            lastSeq: 1,
+            appliedEventIds: ["evt_done"],
+            recentEvents: [duplicateDone],
+            serverTime: now
+        )
+        let client = MockiOSClient(
+            macs: [mac],
+            events: ["mac_1": [duplicateDone]],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let result = try await RemoteRunStateSynchronizer.sync(client: client, macId: "mac_1", current: current)
+        let resumed = try await RemoteRunStateSynchronizer.sync(client: client, macId: "mac_1", current: result.state)
+
+        XCTAssertFalse(result.fetchedSnapshot)
+        XCTAssertEqual(result.receivedEventCount, 1)
+        XCTAssertEqual(result.appliedEventCount, 0)
+        XCTAssertEqual(result.state.lastSeq, 2)
+        XCTAssertEqual(result.state.appliedEventIds, ["evt_done"])
+        XCTAssertEqual(result.state.recentEvents, [duplicateDone])
+        XCTAssertEqual(result.state.run(id: "run_1")?.status, .done)
+        XCTAssertEqual(resumed.receivedEventCount, 0)
+        XCTAssertEqual(resumed.state.lastSeq, 2)
+    }
+
     func testSyncRejectsUnsupportedSnapshotProtocolVersion() async throws {
         let signingKey = Curve25519.Signing.PrivateKey()
         let mac = Self.mac(signingKey: signingKey, now: now)

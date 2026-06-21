@@ -85,7 +85,10 @@ public enum RemoteRunReducer {
 
     public static func apply(_ envelope: RemoteRunEventEnvelope, to state: inout RemoteRunViewState) {
         guard envelope.event.seq > state.lastSeq else { return }
-        guard !state.appliedEventIds.contains(envelope.event.id) else { return }
+        guard !state.appliedEventIds.contains(envelope.event.id) else {
+            state.lastSeq = max(state.lastSeq, envelope.event.seq)
+            return
+        }
         state.appliedEventIds.insert(envelope.event.id)
         state.recentEvents.append(envelope)
         state.lastSeq = max(state.lastSeq, envelope.event.seq)
