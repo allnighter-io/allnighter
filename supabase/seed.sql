@@ -1,0 +1,1 @@
+-- Intentionally empty. Relay bootstrap uses migrations only.

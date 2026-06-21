@@ -61,6 +61,7 @@ fastlane/test_output
 # Environment & secrets
 .env
 .env.*
+!.env.example
 *.pem
 *.p12
 
