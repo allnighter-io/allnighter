@@ -225,7 +225,9 @@ public actor MockiOSClient: RemoteClient {
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {
-        guard let mac = macRefs.first(where: { $0.macAgentId == macId }) else {
+        guard connectedAccount != nil,
+              connectionMode != nil,
+              let mac = macRefs.first(where: { $0.macAgentId == macId }) else {
             return AsyncStream { $0.finish() }
         }
         let pending = (events[macId] ?? [])

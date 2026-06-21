@@ -576,6 +576,31 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(ids, ["evt_2"])
     }
 
+    func testMockClientStreamRequiresConnection() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let agentSigningKey = Curve25519.Signing.PrivateKey()
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: RemoteCrypto.signingPublicKeyBase64(agentSigningKey.publicKey),
+            agentSealingPubkey: "agent-seal"
+        )
+        let event = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(id: "evt_1", seq: 1, ts: now, kind: "run.started", payload: ["runId": .string("run_1")]),
+            signingKey: agentSigningKey
+        )
+        let client = MockiOSClient(macs: [mac], events: ["mac_1": [event]], serverNow: now)
+
+        let stream = await client.stream(macId: "mac_1", since: 0)
+        var ids: [String] = []
+        for await envelope in stream {
+            ids.append(envelope.event.id)
+        }
+
+        XCTAssertTrue(ids.isEmpty)
+    }
+
     func testMockClientVerifiesTrustedDeviceSignatureAndReplay() async throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let signingKey = Curve25519.Signing.PrivateKey()
