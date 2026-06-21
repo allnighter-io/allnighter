@@ -535,6 +535,14 @@ CREATE POLICY "mac agents update media keys" ON "public"."media_keys" FOR UPDATE
 
 
 
+CREATE POLICY "mac agents update media refs" ON "public"."media_refs" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."mac_agents" "m"
+  WHERE (("m"."id" = "media_refs"."mac_agent_id") AND "public"."mac_agent_claim_matches"("m"."account_id", "media_refs"."mac_agent_id"))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."mac_agents" "m"
+  WHERE (("m"."id" = "media_refs"."mac_agent_id") AND "public"."mac_agent_claim_matches"("m"."account_id", "media_refs"."mac_agent_id")))));
+
+
+
 CREATE POLICY "mac agents update pair requests" ON "public"."pair_requests" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 

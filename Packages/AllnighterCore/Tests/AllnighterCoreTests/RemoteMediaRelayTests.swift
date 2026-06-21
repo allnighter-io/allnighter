@@ -58,6 +58,29 @@ final class RemoteMediaRelayTests: XCTestCase {
         XCTAssertEqual(fetchedSecond, secondKey)
     }
 
+    func testPublishMediaRefreshesExistingRefAndReplacesDeviceKeys() async throws {
+        let relay = MockRemoteMacRelay()
+        try await relay.publishMedia(
+            ref: mediaRef(ref: "media_refresh", expiresAt: now.addingTimeInterval(-1)),
+            data: Data("old-ciphertext".utf8),
+            keys: [mediaKey(ref: "media_refresh", deviceId: "device_old")]
+        )
+
+        try await relay.publishMedia(
+            ref: mediaRef(ref: "media_refresh", expiresAt: now.addingTimeInterval(60)),
+            data: Data("new-ciphertext".utf8),
+            keys: [mediaKey(ref: "media_refresh", deviceId: "device_new")]
+        )
+
+        let data = try await relay.mediaData(ref: "media_refresh", macAgentId: "mac_1", at: now)
+        let oldKey = try await relay.mediaKey(ref: "media_refresh", deviceId: "device_old", at: now)
+        let newKey = try await relay.mediaKey(ref: "media_refresh", deviceId: "device_new", at: now)
+
+        XCTAssertEqual(data, Data("new-ciphertext".utf8))
+        XCTAssertNil(oldKey)
+        XCTAssertEqual(newKey, mediaKey(ref: "media_refresh", deviceId: "device_new"))
+    }
+
     private func mediaRef(ref: String, expiresAt: Date) -> MediaRef {
         MediaRef(
             ref: ref,

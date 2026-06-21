@@ -119,6 +119,20 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         XCTAssertTrue(updatePolicy.contains("WITH CHECK"))
     }
 
+    func testMediaRefsAllowMacAgentUpsertForBlobRefresh() throws {
+        let sql = try schemaSQL
+        let insertPolicy = try policyBlock(named: "mac agents insert media refs", sql: sql)
+        let updatePolicy = try policyBlock(named: "mac agents update media refs", sql: sql)
+
+        for policy in [insertPolicy, updatePolicy] {
+            XCTAssertTrue(policy.contains("ON \"public\".\"media_refs\""))
+            XCTAssertTrue(policy.contains("\"m\".\"id\" = \"media_refs\".\"mac_agent_id\""))
+            XCTAssertTrue(policy.contains("\"public\".\"mac_agent_claim_matches\"(\"m\".\"account_id\", \"media_refs\".\"mac_agent_id\")"))
+        }
+        XCTAssertTrue(updatePolicy.contains("FOR UPDATE"))
+        XCTAssertTrue(updatePolicy.contains("WITH CHECK"))
+    }
+
     func testCloudRelayTableColumnsStayContentLight() throws {
         let forbiddenNames: Set<String> = [
             "body",
