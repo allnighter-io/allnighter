@@ -129,6 +129,23 @@ public struct RemoteMacAgentBootstrap: Sendable {
             ),
             relay: relay
         )
+        let threadPublisher = RemoteThreadPublisher(
+            accountId: account.accountId,
+            macAgentId: macAgentId,
+            snapshotService: RemoteThreadSnapshotService(
+                threadStore: threadStore,
+                now: now
+            ),
+            contentService: RemoteThreadContentService(
+                accountId: account.accountId,
+                macAgentId: macAgentId,
+                threadStore: threadStore,
+                trustedStore: trustedStore,
+                now: now
+            ),
+            relay: relay,
+            now: now
+        )
         let agent = RemoteMacAgent(
             identity: identity,
             relay: relay,
@@ -137,6 +154,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
             auditRecorder: auditRecorder,
             eventSync: eventSync,
             snapshotPublisher: snapshotPublisher,
+            threadPublisher: threadPublisher,
             now: now,
             commandBatchLimit: commandBatchLimit
         )

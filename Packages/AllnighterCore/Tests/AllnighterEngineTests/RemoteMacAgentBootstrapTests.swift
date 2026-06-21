@@ -28,8 +28,10 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         let runsRoot = root.appendingPathComponent("runs", isDirectory: true)
         let runStore = RunStore(rootDirectory: runsRoot)
         let journal = RemoteRunEventJournal(rootDirectory: runsRoot)
+        let threadStore = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
         _ = try runStore.save(Self.run(id: "run_1", createdAt: now), models: [])
         _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
+        try threadStore.saveForImport(threadWithUnreadReply())
         let command = try signedCommand(requestId: "req_stop_all")
         let relay = MockRemoteMacRelay(
             trustedDevices: [trustedDevice()],
@@ -43,6 +45,7 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         let bootstrap = makeBootstrap(
             relay: relay,
             runStore: runStore,
+            threadStore: threadStore,
             journal: journal,
             executor: executor,
             eventCursorStore: cursorStore
@@ -57,6 +60,8 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         XCTAssertEqual(result.lastPublishedEventSeq, 1)
         XCTAssertEqual(result.publishedSnapshotRunCount, 1)
         XCTAssertEqual(result.publishedSnapshotLastSeq, 1)
+        XCTAssertEqual(result.publishedThreadSnapshotThreadCount, 1)
+        XCTAssertEqual(result.publishedThreadDetailBlobCount, 1)
         let stopAllCallCount = await executor.stopAllCallCount()
         XCTAssertEqual(stopAllCallCount, 1)
         XCTAssertEqual(try cursorStore.load(), 1)
@@ -98,6 +103,17 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         let snapshot = try await relay.snapshot(accountId: "acct_1", macAgentId: "mac_1", since: nil)
         XCTAssertEqual(snapshot?.runs.map(\.id), ["run_1"])
         XCTAssertEqual(snapshot?.lastSeq, 1)
+        let threadSnapshot = try await relay.threadSnapshot(accountId: "acct_1", macAgentId: "mac_1")
+        XCTAssertEqual(threadSnapshot?.threads.map(\.id), ["thread_1"])
+        let sealedDetailBlob = try await relay.sealedThreadDetail(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            threadId: "thread_1",
+            deviceId: "device_1"
+        )
+        let sealedDetail = try XCTUnwrap(sealedDetailBlob)
+        let detail = try CoreJSON.decode(RemoteThreadDetail.self, from: RemoteCrypto.open(sealedDetail, with: deviceSealingKey))
+        XCTAssertEqual(detail.turns.map(\.text), ["private prompt", "private reply"])
 
         let eventLog = await relay.eventLog
         XCTAssertLessThan(
@@ -107,6 +123,10 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         XCTAssertLessThan(
             try XCTUnwrap(eventLog.firstIndex(of: "publishEvents")),
             try XCTUnwrap(eventLog.firstIndex(of: "publishSnapshot"))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "publishSnapshot")),
+            try XCTUnwrap(eventLog.firstIndex(of: "publishThreadSnapshot"))
         )
     }
 
