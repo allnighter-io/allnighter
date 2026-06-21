@@ -2,13 +2,16 @@
 
 **First reported:** 2026-06-20  
 **Latest intake update:** 2026-06-21  
-**Status:** Intake only. Do not treat this file as an implementation plan or proof of a fix.  
+**Status:** 5 of 7 FIXED (2026-06-21). ✅ #1, #2, #3, #6, #7 landed + committed.
+Remaining: #4 (attachment control) + #5 (long-text→.txt) — the composer attachment
+feature, needs end-to-end delivery (composer UI + ComposeRouting + send + team-run Core
+image/file support).  
 **Surfaces:** Team launcher, Team Studio, Customize Teams, Composer.  
 **Reporter evidence:** User reports plus screenshots from the original Codex requests.
 
 ## User-Reported Bugs
 
-### 1. `Add team` on main Team page routes to CLI Setup
+### 1. `Add team` on main Team page routes to CLI Setup  — ✅ FIXED (2026-06-21)
 
 **Priority:** P1 / workflow blocker.  
 **Surface:** Main Teams page / Team launcher (`TEAMS · YOUR ROSTER`).  
@@ -17,7 +20,7 @@
 **Impact:** The primary roster action breaks the user's mental model and blocks team creation from the place where creation is advertised.  
 **Notes for dev:** `TeamsLauncherView` owns the visible button. `TeamStudioView` already has a `newDraftBase` / `addTeamButton` path that creates a blank unsaved team. Check whether the launcher is opening `TeamStudioView` with its default route (`.clis`) instead of a Teams route, and whether it lacks a way to request the new-team draft once Studio opens.
 
-### 2. Duplicate `Auto` option in Customize Teams model dropdown
+### 2. Duplicate `Auto` option in Customize Teams model dropdown  — ✅ FIXED (2026-06-21)
 
 **Priority:** P1 / biggest dropdown bug.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -25,7 +28,7 @@
 **Expected:** `Auto` should appear exactly once as the nil/default model choice. If selected, only that single row should carry the selected/check state.  
 **Notes for dev:** `Auto` is the default model concept, not a concrete catalog model duplicate. Confirm whether the dropdown is combining the explicit `Auto` sentinel with a concrete model whose display name is also `Auto` (for example Cursor Agent Auto), then dedupe by identity/semantics rather than label-only guesswork.
 
-### 3. Return/Enter in Composer should send, Shift+Return should newline
+### 3. Return/Enter in Composer should send, Shift+Return should newline  — ✅ FIXED (2026-06-21)
 
 **Priority:** P1 / core composer usability.  
 **Surface:** Composer prompt editor.  
@@ -34,7 +37,7 @@
 **Impact:** The primary chat/composer muscle memory is inverted; users expect Enter to send and only use Shift+Enter for multiline input.  
 **Notes for dev:** Preserve special composer subflows. If the `@` file-reference picker is open, Return may still need to accept the highlighted file reference before normal send behavior resumes. Outside those subflows, plain Return/Enter should call the same send path as the send button.
 
-### 4. Composer attachment icon does nothing and reads as photo-only
+### 4. Composer attachment icon does nothing and reads as photo-only  — ⏳ attachment feature (next slice)
 
 **Priority:** P1 for dead action; P2 for icon/attachment-scope mismatch.  
 **Surface:** Composer prompt editor.  
@@ -43,7 +46,7 @@
 **Impact:** The composer advertises attachment support but the control is inert, and the current photo icon under-communicates the intended scope.  
 **Notes for dev:** Current image attachment contracts appear image-first. If document attachments are not yet supported in Core/CLI/MCP, either wire the supported image flow honestly and split document support into a scoped contract, or extend the attachment contract deliberately. Do not make arbitrary document files look attached if they are not included in the worker context.
 
-### 5. Long pasted clipboard text should become a `.txt` attachment
+### 5. Long pasted clipboard text should become a `.txt` attachment  — ⏳ attachment feature (next slice)
 
 **Priority:** P2 / attachment-paste workflow.  
 **Surface:** Composer prompt editor paste handling.  
@@ -52,7 +55,7 @@
 **Impact:** Users can bring large notes, logs, docs, transcripts, or copied pages into context without turning the prompt box into an unreadable wall of text.  
 **Notes for dev:** Preserve existing paste precedence: image paste should still attach images, and mixed image+text paste needs an explicit rule. If `.txt` attachments are new to Core/CLI/MCP, extend the attachment contract and delivery proof before showing the text file as attached.
 
-### 6. Up/down arrows do not select Customize Teams dropdown rows
+### 6. Up/down arrows do not select Customize Teams dropdown rows  — ✅ FIXED (2026-06-21)
 
 **Priority:** P2 / keyboard usability.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -60,7 +63,7 @@
 **Expected:** Up/down should move an active highlight through dropdown rows; return should pick the highlighted row. This should match the behavior already added to the searchable Compose / Customize-worker style popup.  
 **Notes for dev:** `ALSearchableDropdown` already has `highlighted`, `onKeyPress(.downArrow)`, `onKeyPress(.upArrow)`, `onKeyPress(.return)`, and `.onHover` handling. The simpler `ALDropdown` used for model pickers likely needs the same interaction model.
 
-### 7. Mouse hover does not display the selected Customize Teams dropdown row correctly
+### 7. Mouse hover does not display the selected Customize Teams dropdown row correctly  — ✅ FIXED (2026-06-21)
 
 **Priority:** P2 / visual feedback regression.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
