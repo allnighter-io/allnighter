@@ -26,7 +26,6 @@ public enum CloudRemoteClientError: Error, Equatable, Sendable {
     case ackTimedOut(String)
     case badAckEnvelope
     case badAckSignature
-    case unsupportedOperation(String)
 }
 
 public actor CloudRemoteClient: RemoteClient {

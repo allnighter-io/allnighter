@@ -40,7 +40,6 @@ public enum DirectModeRemoteClientError: Error, Equatable, Sendable {
     case badSnapshotResponse
     case badMediaResponse
     case badMediaKeyResponse
-    case unsupportedOperation(String)
 }
 
 public actor DirectModeRemoteClient: RemoteClient {

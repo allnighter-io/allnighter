@@ -121,6 +121,10 @@ final class DirectModePairingClientTests: XCTestCase {
 
 private final class RecordingPairingClientCommandHandler: DirectModeCommandHandling, @unchecked Sendable {
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope {
-        throw DirectModeRemoteClientError.unsupportedOperation("command")
+        throw DirectModePairingClientTestError.unusedCommandHandler
     }
+}
+
+private enum DirectModePairingClientTestError: Error {
+    case unusedCommandHandler
 }
