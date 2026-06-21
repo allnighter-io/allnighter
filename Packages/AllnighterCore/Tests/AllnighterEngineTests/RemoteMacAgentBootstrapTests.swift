@@ -110,6 +110,34 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         )
     }
 
+    func testBootstrapUsesDocumentedRouterSkewWindowByDefault() async throws {
+        let staleCommand = try signedCommand(
+            requestId: "req_stale",
+            timestamp: now.addingTimeInterval(-61)
+        )
+        let relay = MockRemoteMacRelay(
+            trustedDevices: [trustedDevice()],
+            inbox: [inboxEntry(staleCommand)]
+        )
+        let executor = BootstrapRemoteExecutor(now: now)
+        await executor.setStopAllResult(StopAllResult(terminated: 4))
+        let bootstrap = makeBootstrap(
+            relay: relay,
+            runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
+            journal: RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
+            executor: executor
+        )
+
+        let result = try await bootstrap.makeRuntime().agent.drainOnce()
+
+        XCTAssertEqual(result.processedCommandCount, 1)
+        XCTAssertEqual(result.acknowledgements.first?.accepted, false)
+        XCTAssertEqual(result.acknowledgements.first?.reason, .clockSkew)
+        XCTAssertEqual(result.acknowledgements.first?.serverTime, now)
+        let stopAllCallCount = await executor.stopAllCallCount()
+        XCTAssertEqual(stopAllCallCount, 0)
+    }
+
     func testBootstrapCoordinatorRunsAssembledAgentWithInjectedPolicy() async throws {
         let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
         let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
@@ -222,12 +250,12 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         )
     }
 
-    private func signedCommand(requestId: String) throws -> RemoteCommand {
+    private func signedCommand(requestId: String, timestamp: Date? = nil) throws -> RemoteCommand {
         let payload = RemoteCommandPayload.empty
         let assertion = try RemoteCrypto.makeDeviceAssertion(
             deviceId: "device_1",
             requestId: requestId,
-            timestamp: now,
+            timestamp: timestamp ?? now,
             kind: .stopAll,
             payload: payload,
             signingKey: deviceSigningKey

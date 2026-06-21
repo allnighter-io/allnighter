@@ -54,7 +54,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
         sleeper: any RemoteMacAgentSleeping = DefaultRemoteMacAgentSleeper(),
         now: @escaping @Sendable () -> Date = Date.init,
         observe: (@Sendable (RemoteMacAgentPollEvent) -> Void)? = nil,
-        skewWindow: TimeInterval = 300,
+        skewWindow: TimeInterval = 60,
         commandBatchLimit: Int = 100,
         eventBatchLimit: Int = 100
     ) {
