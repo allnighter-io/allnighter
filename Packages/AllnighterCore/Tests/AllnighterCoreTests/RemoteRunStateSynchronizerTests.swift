@@ -86,6 +86,56 @@ final class RemoteRunStateSynchronizerTests: XCTestCase {
         XCTAssertEqual(result.state.run(id: "run_1")?.completedAt, now.addingTimeInterval(1))
     }
 
+    func testSyncRejectsUnsupportedSnapshotProtocolVersion() async throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let mac = Self.mac(signingKey: signingKey, now: now)
+        let snapshot = SnapshotEnvelope(
+            runs: [],
+            lastSeq: 0,
+            serverTime: now,
+            protocolVersion: RemoteProtocol.currentMajor + 1
+        )
+        let client = MockiOSClient(
+            macs: [mac],
+            snapshots: ["mac_1": snapshot],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        do {
+            _ = try await RemoteRunStateSynchronizer.sync(client: client, macId: "mac_1")
+            XCTFail("unsupported snapshot protocol should be rejected")
+        } catch let error as RemoteRunStateSynchronizerError {
+            XCTAssertEqual(error, .unsupportedProtocolVersion(
+                expected: RemoteProtocol.currentMajor,
+                actual: RemoteProtocol.currentMajor + 1
+            ))
+        }
+    }
+
+    func testSyncRejectsUnsupportedCurrentStateProtocolVersion() async throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let mac = Self.mac(signingKey: signingKey, now: now)
+        let current = RemoteRunViewState(
+            runs: [Self.run(id: "run_1", status: .running, now: now)],
+            lastSeq: 1,
+            protocolVersion: RemoteProtocol.currentMajor + 1,
+            serverTime: now
+        )
+        let client = MockiOSClient(macs: [mac], serverNow: now)
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        do {
+            _ = try await RemoteRunStateSynchronizer.sync(client: client, macId: "mac_1", current: current)
+            XCTFail("unsupported current protocol should be rejected")
+        } catch let error as RemoteRunStateSynchronizerError {
+            XCTAssertEqual(error, .unsupportedProtocolVersion(
+                expected: RemoteProtocol.currentMajor,
+                actual: RemoteProtocol.currentMajor + 1
+            ))
+        }
+    }
+
     private static func mac(
         signingKey: Curve25519.Signing.PrivateKey,
         now: Date

@@ -1,5 +1,9 @@
 import Foundation
 
+public enum RemoteRunStateSynchronizerError: Error, Equatable, Sendable {
+    case unsupportedProtocolVersion(expected: Int, actual: Int)
+}
+
 public struct RemoteRunStateSyncResult: Equatable, Sendable {
     public var state: RemoteRunViewState
     public var fetchedSnapshot: Bool
@@ -32,10 +36,12 @@ public enum RemoteRunStateSynchronizer {
 
         if forceSnapshot || currentSeq <= 0 {
             let snapshot = try await client.snapshot(macId: macId, since: currentSeq)
+            try validateProtocolVersion(snapshot.protocolVersion)
             state = RemoteRunViewState(snapshot: snapshot)
             fetchedSnapshot = true
         } else {
             state = current!
+            try validateProtocolVersion(state.protocolVersion)
         }
 
         let appliedBefore = state.appliedEventIds.count
@@ -51,5 +57,14 @@ public enum RemoteRunStateSynchronizer {
             receivedEventCount: receivedEventCount,
             appliedEventCount: state.appliedEventIds.count - appliedBefore
         )
+    }
+
+    private static func validateProtocolVersion(_ protocolVersion: Int) throws {
+        guard protocolVersion == RemoteProtocol.currentMajor else {
+            throw RemoteRunStateSynchronizerError.unsupportedProtocolVersion(
+                expected: RemoteProtocol.currentMajor,
+                actual: protocolVersion
+            )
+        }
     }
 }
