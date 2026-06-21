@@ -1035,6 +1035,20 @@ struct AllnighterCLI {
         return loadRun(ref)
     }
 
+    /// MCP tools accept `runId` (team_* family) or `run` (query tools). Prefer `runId`
+    /// when both are present so harnesses using team-style args resolve the intended run.
+    static func runRef(from args: [String: Any]) -> String {
+        if let runId = args["runId"] as? String {
+            let trimmed = runId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        if let run = args["run"] as? String {
+            let trimmed = run.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return "latest"
+    }
+
     /// Default projection context for a persisted run (journal path + reproduce
     /// command derived from the run's own catalog facts).
     static func defaultRunContext(_ run: TeamRun, full: Bool = false) -> TeamRunJSONMapper.Context {

@@ -234,7 +234,7 @@ struct MCPServer {
             let payload = HistoryJSON(contractVersion: ContractRegistry.contractVersion, query: query, results: hits)
             respond(id: id, result: toolText(text, structured: AllnighterCLI.jsonString(payload)))
         case "show":
-            let ref = (args["run"] as? String) ?? "latest"
+            let ref = AllnighterCLI.runRef(from: args)
             guard let run = AllnighterCLI.resolveRun(ref) else {
                 return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
             }
@@ -259,14 +259,14 @@ struct MCPServer {
             let bridged = ErrorHelpBridge.explain(spec, contractVersion: ContractRegistry.contractVersion)
             respond(id: id, result: toolText("\(spec.code): \(spec.agentAction)", structured: AllnighterCLI.jsonString(bridged)))
         case "spec_get":
-            let ref = (args["run"] as? String) ?? "latest"
+            let ref = AllnighterCLI.runRef(from: args)
             guard let run = AllnighterCLI.resolveRun(ref) else {
                 return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
             }
             let result = AllnighterCLI.specResult(run, runtime: runtime, detail: args["detail"] as? String)
             respond(id: id, result: toolText(result.summary, structured: AllnighterCLI.jsonString(result)))
         case "floor_show":
-            let ref = (args["run"] as? String) ?? "latest"
+            let ref = AllnighterCLI.runRef(from: args)
             guard let run = AllnighterCLI.resolveRun(ref) else {
                 return respondToolError(id: id, code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
             }
