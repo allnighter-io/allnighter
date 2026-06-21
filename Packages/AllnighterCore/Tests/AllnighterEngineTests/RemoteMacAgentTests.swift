@@ -177,6 +177,54 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertTrue(eventLog.contains("updatePairRequest"))
     }
 
+    func testDrainPublishesJournalEventsAfterInboxWithoutSkippingBatchedEvents() async throws {
+        let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs"))
+        _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
+        _ = try journal.append(Self.event(id: "evt_2", runId: "run_1", now: now))
+        let relay = MockRemoteMacRelay()
+        let cursorStore = RemoteMacAgentEventCursorStore(
+            fileURL: root.appendingPathComponent("remote_event_cursor.json")
+        )
+        let eventSync = RemoteMacAgentEventSync(
+            publisher: RemoteRunEventPublisher(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                journal: journal,
+                relay: relay,
+                signingKey: macSigningKey,
+                batchLimit: 1
+            ),
+            cursorStore: cursorStore
+        )
+        let executor = CapturingRemoteExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor, eventSync: eventSync)
+
+        let first = try await agent.drainOnce()
+        let second = try await agent.drainOnce()
+
+        XCTAssertEqual(first.processedCommandCount, 0)
+        XCTAssertEqual(first.publishedEventCount, 1)
+        XCTAssertEqual(first.lastPublishedEventSeq, 1)
+        XCTAssertEqual(first.journalLastEventSeq, 2)
+        XCTAssertEqual(second.publishedEventCount, 1)
+        XCTAssertEqual(second.lastPublishedEventSeq, 2)
+        XCTAssertEqual(try cursorStore.load(), 2)
+
+        let published = await relay.publishedEvents
+        XCTAssertEqual(published.map(\.event.id), ["evt_1", "evt_2"])
+        for envelope in published {
+            XCTAssertTrue(try RemoteCrypto.verifyRemoteRunEventEnvelope(
+                envelope,
+                signingPublicKeyBase64: RemoteCrypto.signingPublicKeyBase64(macSigningKey.publicKey)
+            ))
+        }
+        let eventLog = await relay.eventLog
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "pendingCommands")),
+            try XCTUnwrap(eventLog.firstIndex(of: "publishEvents"))
+        )
+    }
+
     func testDrainRejectsSpoofedFromDeviceIdWithoutExecuting() async throws {
         let device = trustedDevice(capabilities: [])
         let command = try signedCommand(requestId: "req_spoofed_from", kind: .stopAll, payload: .empty)
@@ -338,7 +386,8 @@ final class RemoteMacAgentTests: XCTestCase {
     private func makeAgent(
         relay: RemoteMacRelay,
         executor: CapturingRemoteExecutor,
-        auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder()
+        auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
+        eventSync: RemoteMacAgentEventSync? = nil
     ) -> RemoteMacAgent {
         let fixedNow = now
         let router = RemoteCommandRouter(
@@ -362,6 +411,7 @@ final class RemoteMacAgentTests: XCTestCase {
             trustedStore: trustedStore,
             router: router,
             auditRecorder: auditRecorder,
+            eventSync: eventSync,
             now: { fixedNow }
         )
     }
@@ -434,6 +484,19 @@ final class RemoteMacAgentTests: XCTestCase {
             ack,
             macAgentId: "mac_1",
             signingPublicKeyBase64: RemoteCrypto.signingPublicKeyBase64(macSigningKey.publicKey)
+        )
+    }
+
+    private static func event(id: String, runId: String, now: Date) -> RunEvent {
+        RunEvent(
+            id: id,
+            seq: 0,
+            ts: now,
+            kind: RunEventKind.runStatusChanged,
+            payload: [
+                "runId": .string(runId),
+                "to": .string(RunStatus.fanningOut.rawValue),
+            ]
         )
     }
 }

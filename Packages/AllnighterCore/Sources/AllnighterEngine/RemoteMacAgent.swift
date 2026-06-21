@@ -45,6 +45,9 @@ public struct RemoteMacAgentDrainResult: Equatable, Sendable {
     public var publishedTrustedDeviceCount: Int
     public var syncedTrustedDeviceCount: Int
     public var processedCommandCount: Int
+    public var publishedEventCount: Int
+    public var lastPublishedEventSeq: Int64?
+    public var journalLastEventSeq: Int64?
     public var acknowledgements: [CommandAck]
 
     public init(
@@ -53,6 +56,9 @@ public struct RemoteMacAgentDrainResult: Equatable, Sendable {
         publishedTrustedDeviceCount: Int = 0,
         syncedTrustedDeviceCount: Int,
         processedCommandCount: Int,
+        publishedEventCount: Int = 0,
+        lastPublishedEventSeq: Int64? = nil,
+        journalLastEventSeq: Int64? = nil,
         acknowledgements: [CommandAck]
     ) {
         self.mac = mac
@@ -60,6 +66,9 @@ public struct RemoteMacAgentDrainResult: Equatable, Sendable {
         self.publishedTrustedDeviceCount = publishedTrustedDeviceCount
         self.syncedTrustedDeviceCount = syncedTrustedDeviceCount
         self.processedCommandCount = processedCommandCount
+        self.publishedEventCount = publishedEventCount
+        self.lastPublishedEventSeq = lastPublishedEventSeq
+        self.journalLastEventSeq = journalLastEventSeq
         self.acknowledgements = acknowledgements
     }
 }
@@ -81,6 +90,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
     private let trustedStore: TrustedRemoteStore
     private let router: RemoteCommandRouting
     private let auditRecorder: any RemoteAuditRecording
+    private let eventSync: RemoteMacAgentEventSync?
     private let now: @Sendable () -> Date
     private let commandBatchLimit: Int
 
@@ -90,6 +100,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
         trustedStore: TrustedRemoteStore,
         router: RemoteCommandRouting,
         auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
+        eventSync: RemoteMacAgentEventSync? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         commandBatchLimit: Int = 100
     ) {
@@ -98,6 +109,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
         self.trustedStore = trustedStore
         self.router = router
         self.auditRecorder = auditRecorder
+        self.eventSync = eventSync
         self.now = now
         self.commandBatchLimit = commandBatchLimit
     }
@@ -197,12 +209,17 @@ public final class RemoteMacAgent: @unchecked Sendable {
             acknowledgements.append(result.ack)
         }
 
+        let eventSyncResult = try await eventSync?.publishNewEvents()
+
         return RemoteMacAgentDrainResult(
             mac: mac,
             syncedPendingPairRequestCount: syncedPendingPairRequestCount,
             publishedTrustedDeviceCount: publishedTrustedDeviceCount,
             syncedTrustedDeviceCount: trustedDevices.count,
             processedCommandCount: inbox.count,
+            publishedEventCount: eventSyncResult?.publishedEventCount ?? 0,
+            lastPublishedEventSeq: eventSyncResult?.lastPublishedSeq,
+            journalLastEventSeq: eventSyncResult?.journalLastSeq,
             acknowledgements: acknowledgements
         )
     }
