@@ -285,7 +285,9 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "limit", value: "1"),
             ]
         )
-        guard let row = rows.first else { return nil }
+        guard let row = rows.first(where: {
+            $0.accountId == accountId && $0.macAgentId == macAgentId && $0.requestId == requestId
+        }) else { return nil }
         return row.envelope()
     }
 
@@ -301,7 +303,13 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "limit", value: String(limit)),
             ]
         )
-        return try rows.map { try $0.entry() }
+        return try rows
+            .filter {
+                $0.accountId == accountId
+                    && $0.macAgentId == macAgentId
+                    && $0.status == .pending
+            }
+            .map { try $0.entry() }
     }
 
     public func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws {

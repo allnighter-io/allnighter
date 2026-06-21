@@ -103,6 +103,27 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(queryValue("limit", in: request.url), "10")
     }
 
+    func testPendingCommandsFiltersRowsOutsideRequestedScope() async throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let valid = try Self.deviceAssertion(requestId: "req_valid", signingKey: signingKey)
+        let wrongAccount = try Self.deviceAssertion(requestId: "req_wrong_account", signingKey: signingKey)
+        let wrongMac = try Self.deviceAssertion(requestId: "req_wrong_mac", signingKey: signingKey)
+        let acked = try Self.deviceAssertion(requestId: "req_acked", signingKey: signingKey)
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                commandInboxRow(assertion: wrongAccount, accountId: "acct_2"),
+                commandInboxRow(assertion: wrongMac, macAgentId: "mac_2"),
+                commandInboxRow(assertion: acked, status: .acked),
+                commandInboxRow(assertion: valid),
+            ]))
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let entries = try await relay.pendingCommands(accountId: "acct_1", macAgentId: "mac_1", limit: 10)
+
+        XCTAssertEqual(entries.map(\.requestId), ["req_valid"])
+    }
+
     func testAcknowledgeWritesSignedAckServerTimeAndMarksInboxAcked() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let signedServerTime = now
@@ -201,6 +222,32 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         let recordedRequests = await transport.recordedRequests()
         XCTAssertEqual(recordedRequests.count, 1)
         XCTAssertEqual(recordedRequests.first?.url.path, "/rest/v1/command_acks")
+    }
+
+    func testCommandAckFiltersRowsOutsideRequestedScope() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let ack = try RemoteCrypto.makeCommandAck(
+            macAgentId: "mac_1",
+            requestId: "req_1",
+            accepted: true,
+            outcome: .accepted,
+            serverTime: now,
+            signingKey: macSigningKey
+        )
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                commandAckRow(ack: ack, accountId: "acct_2"),
+                commandAckRow(ack: ack, macAgentId: "mac_2"),
+                commandAckRow(ack: ack),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let envelope = try await relay.commandAck(accountId: "acct_1", macAgentId: "mac_1", requestId: "req_1")
+
+        XCTAssertEqual(envelope?.accountId, "acct_1")
+        XCTAssertEqual(envelope?.macAgentId, "mac_1")
+        XCTAssertEqual(envelope?.requestId, "req_1")
     }
 
     func testCommandAckPreservesNilSignedServerTime() async throws {
@@ -528,11 +575,27 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         )
     }
 
-    private func commandInboxRow(assertion: DeviceAssertion) -> [String: Any] {
+    private static func deviceAssertion(requestId: String, signingKey: Curve25519.Signing.PrivateKey) throws -> DeviceAssertion {
+        try RemoteCrypto.makeDeviceAssertion(
+            deviceId: "device_1",
+            requestId: requestId,
+            timestamp: Date(timeIntervalSince1970: 1_750_000_000),
+            kind: .stopRun,
+            payload: .light(["runId": .string("run_1")]),
+            signingKey: signingKey
+        )
+    }
+
+    private func commandInboxRow(
+        assertion: DeviceAssertion,
+        accountId: String = "acct_1",
+        macAgentId: String = "mac_1",
+        status: RemoteCommandInboxStatus = .pending
+    ) -> [String: Any] {
         [
             "request_id": assertion.requestId,
-            "account_id": "acct_1",
-            "mac_agent_id": "mac_1",
+            "account_id": accountId,
+            "mac_agent_id": macAgentId,
             "from_device_id": assertion.deviceId,
             "kind": assertion.kind.rawValue,
             "payload": [
@@ -543,12 +606,14 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
             ],
             "signature": assertion.signature,
             "created_at": iso(assertion.timestamp),
-            "status": "pending",
+            "status": status.rawValue,
         ]
     }
 
     private func commandAckRow(
         ack: CommandAck,
+        accountId: String = "acct_1",
+        macAgentId: String = "mac_1",
         createdAt: Date? = nil,
         auditTs: Date? = nil,
         auditCommandKind: RemoteCommandKind = .stopRun,
@@ -558,8 +623,8 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         let rowAuditTs = auditTs ?? ack.serverTime ?? rowCreatedAt
         return [
             "request_id": ack.requestId,
-            "account_id": "acct_1",
-            "mac_agent_id": "mac_1",
+            "account_id": accountId,
+            "mac_agent_id": macAgentId,
             "accepted": ack.accepted,
             "reason": ack.reason?.rawValue ?? NSNull(),
             "outcome": ack.outcome.rawValue,
