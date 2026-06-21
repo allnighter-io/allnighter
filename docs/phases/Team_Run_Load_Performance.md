@@ -1,11 +1,12 @@
 # Team Run Load Performance
 
-Status: Core stall FIXED (2026-06-21). Implemented: run-decode cache (no repeated
-run.json decode in body), lazy worker markdown in the terminal board (collapsed previews;
-expand renders), and "Open Factory Floor" → the full lazy per-worker reader. Remaining
-(hardening, not the stall): summary sidecars, a RunCache actor with summary/floor/full
-tiers, the RunStore.list/PendingService.queueJSON body-path audit (#5), and the perf
-gate tests/instrumentation (#6).
+Status: **TOP PERF PRIORITY**. Initial Team-run open stall FIXED (2026-06-21);
+broader live thread/reload hot path still open. Implemented: run-decode cache
+(no repeated `run.json` decode in body), lazy worker markdown in the terminal
+board (collapsed previews; expand renders), and "Open Factory Floor" -> the full
+lazy per-worker reader. Remaining: high-frequency live deltas still do full
+thread read/write + reload; rail/search/unread derivations still walk full
+thread arrays; store reads still run synchronously on the main actor.
 Owner: AllnighterCore + AllnighterEngine + AllnighterMac
 Updated: 2026-06-21
 
@@ -88,9 +89,9 @@ main-actor work: load full run truth during SwiftUI body evaluation, render ever
 markdown answer inline, and use the thread timeline as the terminal result reader.
 ```
 
-## Why It Opens As A Thread
+## Why It Originally Opened As A Thread
 
-Current code path:
+Original shell code path:
 
 ```text
 HomeView.ProjectThreadRow tap
@@ -102,27 +103,29 @@ HomeView.ProjectThreadRow tap
 -> ThreadBoardRow for .teamRun
 ```
 
-The current GUI has no branch that says "this selected row's latest meaningful
-thing is a terminal team run, so open the Floor." It always opens the selected
-`WorkThread`.
+At investigation time, the GUI had no branch that said "this selected row's
+latest meaningful thing is a terminal team run, so open the Floor." It always
+opened the selected `WorkThread`.
 
-`FactoryFloorView` exists, but it is not the production destination for this rail
-selection path. It is currently reachable as a proof/demo path, while the thread
-timeline still embeds terminal team results directly.
+`FactoryFloorView` existed, but it was not the production destination for this
+rail selection path. The first fix added an "Open Factory Floor" action and made
+the terminal board lazy. The outer shell still selects a thread first, so the
+long-term product split remains important:
 
-This conflicts with the active product decision in `Live_Team_Board.md`:
+This is the active product decision in `Live_Team_Board.md`:
 
 ```text
 Thread Live Team Board = compact live progress and terminal receipt.
 Factory Floor          = full worker answers, synthesis, artifacts, receipts.
 ```
 
-Therefore the observed "why is this a thread?" is a product bug, not just a
-performance bug.
+The original "why is this a thread?" was a product bug, not just a performance
+bug. The initial fix should not be regressed: the thread is the cockpit/receipt;
+the Floor is the room.
 
-## Suspected Stall Mechanism
+## Original Stall Mechanism
 
-Evidence in code:
+Evidence at investigation time:
 
 ```text
 ThreadsViewModel.reload()
@@ -141,19 +144,24 @@ ThreadBoardRow.board
   renders synthesis plus every worker answer as MarkdownText inside the thread.
 ```
 
-The expensive parts are not bounded:
+The first fix addressed the Team-run specific part:
 
-- SwiftUI may evaluate computed properties many times per draw.
-- `ThreadBoardRow.run` can synchronously decode the same `run.json` more than once
-  during one render pass.
-- The terminal board asks the markdown engine to parse/layout the synthesis and
-  every done worker answer at once.
-- `MessageCopyFooter` and text selection attach to every full answer, increasing
-  layout work.
-- The rail and unread/read-clear paths can trigger reloads while the same surface
-  is mounting.
+- terminal `TeamRun` decode is cached by `RunDecodeCache`;
+- worker answers are collapsed/lazy instead of all markdown-rendered at first
+  paint;
+- the Floor is reachable for full reading.
 
-The first frame is doing the wrong job. It is trying to become the full reader.
+The remaining expensive parts are still not bounded well enough:
+
+- `reload()` still decodes every full `thread.json`;
+- streaming deltas still do `get -> updateTurn -> reload`;
+- read-clear and notification paths can trigger reloads while a surface is
+  mounting;
+- rail, search, unread, and Floor-derived state can still be recomputed after
+  broad `threads` publishes.
+
+The lesson remains: the first frame should not try to become the whole store,
+and a token should not make the whole app pay a history tax.
 
 ## JSON Verdict
 
@@ -179,241 +187,406 @@ JSON will become the wrong primary query layer if we keep adding:
 - live updates that rewrite and re-render whole run records.
 
 GRDB/SQLite is the documented growth path, but a database migration alone would
-not fix this bug if the GUI still asks for the full run and renders all markdown
-before first paint. The first fix should be a read-model and navigation fix.
+not fix this bug if the GUI still reloads and recomputes whole app state for
+every small event. The next fix should be reload/live-state/read-model work, not
+a storage rewrite.
 
-## Recommendation
+## Current Status After First Fix
 
-### 1. Make Team Runs Open The Floor
+The narrow "click a terminal Team run and beachball while SwiftUI repeatedly
+decodes/rendered the same run" problem has a real fix in code:
 
-Clicking a terminal team-run receipt should open the Factory Floor, not expand a
-full inline board inside the thread.
+- `RunDecodeCache` caches terminal `TeamRun`s so body evaluation does not decode
+  the same immutable `run.json` repeatedly.
+- `ThreadBoardRow` now renders worker answers lazily instead of laying out every
+  full markdown answer at first paint.
+- Terminal boards expose "Open Factory Floor" so the Floor can be the full reader
+  and the thread can stop being the result room.
 
-Thread role:
+That is good, but it is not enough to call Allnighter performance solved. The
+next hot path is broader and nastier:
 
 ```text
-Thread = context, user prompt, live compact board, receipt.
+live answer/reasoning delta
+-> ThreadStore.get(threadId)             # full decode of thread.json
+-> ThreadStore.updateTurn(...)           # full read + atomic rewrite of thread.json
+-> ThreadsViewModel.reload()
+-> ThreadStore.list()                    # scan + decode every thread_*/thread.json
+-> notification snapshot + FloorManagerStatus + presenter derivations
+-> publish the whole threads array
+-> every rail/sidebar/thread observer recomputes
 ```
 
-Floor role:
+The chat path also runs a 150ms poll loop that calls `reload()` while a worker is
+streaming. So the remaining risk is not one big file. It is high-frequency work
+where each small event pays an app-wide tax.
+
+## First-Principles Review
+
+The pasted ideas are directionally right, but the ordering matters. From first
+principles:
+
+- First paint must be bounded by visible UI, not by total threads, total turns, or
+  total historical worker output.
+- A streaming delta is not the same durability tier as a settled turn. Treating
+  every token as canonical thread history creates write amplification.
+- Durable truth and UI invalidation are separate boundaries. A file write should
+  not imply "reload the entire app model."
+- Derived state is state. Rail order, unread flags, search hits, and Floor
+  projections need ownership, caching, invalidation, and proof instead of being
+  recomputed casually from `body` and computed properties.
+- The main actor paints. It should receive small view snapshots, not synchronously
+  scan, decode, sort, search, and rewrite file stores.
+- External writers (CLI/MCP/iOS) are real, so "just keep everything in memory" is
+  not sufficient. We need a change/invalidation story, not constant polling.
+
+Verdict on the pasted ideas:
+
+- **Correct / high priority:** coalesced reloads, in-memory or throttled live
+  partials, lightweight rail/read models, unread index maps, moving derivations
+  out of computed properties, off-main store reads, and a RunStore progress fast
+  path.
+- **Correct / lower priority:** summary sidecars, search debounce, lighter
+  pending reads, and Factory Floor projection memoization. These matter, but they
+  do not remove the per-delta app-wide tax by themselves.
+- **Not the first move:** SQLite/GRDB. A database can help later with query shape
+  and large history, but it will not fix a UI that reloads/recomputes everything
+  on every stream event.
+- **Rejected as stated:** "stop persisting partial text" with no replacement.
+  We should stop full `thread.json` rewrites per delta, but if crash/reopen
+  continuity matters, use a throttled live sidecar or timer-based checkpoint.
+
+## Updated Recommendations
+
+### P0 - Add Perf Instrumentation And A Monster Fixture
+
+Do this before or alongside the first code slice. We need numbers because the app
+now has two different performance stories: terminal Team-run open and live
+thread streaming.
+
+Add `os_signpost` / counters for:
 
 ```text
-Floor = the full result reader and inspectable receipt for one Team run.
+rail.click
+thread.select.start/end
+threads.reload.start/end
+threadStore.list.start/end
+threadStore.get.start/end
+threadStore.updateTurn.start/end
+runStore.load.start/end
+pending.queueJSON.start/end
+unread.derive.start/end
+presenter.projectSections.start/end
+markdown.render.start/end
+floor.firstPaint
 ```
 
-The thread can still contain the user turn and a team-run receipt card:
+Counters to assert in tests:
 
 ```text
-Bug Hunt MAX
-11 workers - 6 answers done - 4 timed out - synthesis ready
-[Open Floor]
+reloads per streaming second
+thread.json writes per streaming second
+full thread-list decodes per streaming second
+run.json decodes per terminal Team-run click
+main-actor blocked time per rail click
 ```
 
-No full worker answers in the thread terminal card.
-
-Data note: the reported `thread.json` links to the run through the `.teamRun`
-turn, but `run.json.threadId` is currently null. Floor routing can still work
-from the clicked thread turn, but future run-first retrieval should either set
-`TeamRun.threadId` at creation or maintain a derived run-to-thread summary index.
-
-### 2. Add Summary Sidecars
-
-Add store-owned derived files:
+Seed:
 
 ```text
-Threads/index.json
-Threads/thread_<id>/summary.json
+33 current-style threads
+1 long selected thread
+1 terminal 11-worker Team run from this dogfood shape
+1 synthetic 100-worker / 2 MB output run
+1 streaming worker emitting deltas every 50-100ms
+```
+
+### P1 - Coalesce Reloads
+
+Replace direct `reload()` calls in mutation, streaming, polling, read-clear, and
+notification paths with a coalesced scheduler:
+
+```text
+requestReload(reason)
+  if reload already scheduled: mark reason and return
+  schedule one MainActor publish at next frame / short debounce
+```
+
+Rules:
+
+- One frame gets at most one thread-list refresh.
+- A burst of deltas should not produce a burst of full `ThreadStore.list()`.
+- Selection should update selected id immediately, then refresh in the coalesced
+  lane only if a file-backed mutation actually changed list-level truth.
+
+### P2 - Split Live Partials From Durable Thread History
+
+Streaming text should update the visible running turn without rewriting the full
+thread file on every delta.
+
+Recommended tiers:
+
+```text
+In-memory live overlay:
+  threadId + turnId -> answerText/reasoningText/truncated/updatedAt
+  published directly to selected-thread UI
+
+Durable checkpoint:
+  optional throttled live sidecar every 1-2s or on meaningful boundary
+  never full thread-list reload per checkpoint
+
+Settled truth:
+  final ThreadStore.updateTurn on done/failed/cancelled
+  final reload or targeted in-memory update
+```
+
+For Team runs, remember that `RunService` / `RunStore` already owns durable run
+truth. The thread turn can carry a compact live receipt; it does not need to
+become the full streaming transcript store.
+
+### P3 - Introduce A Thread Read Model
+
+The GUI needs two products, not one `threads: [WorkThread]` blob:
+
+```text
+ThreadRailRowState
+  id, projectId, title, updatedAt, pinned, displayState, unread, running,
+  latestRunId?, latestRunSummary?, shortPreview
+
+SelectedThreadDetail
+  id, title, projectId, turns, liveOverlay, archive/pin state
+```
+
+Rules:
+
+- Rail/sidebar views render `ThreadRailRowState`, not full `WorkThread`.
+- `selectedThread` detail loads only when the pane needs the turns.
+- Publishing a live delta for the selected turn must not invalidate every rail
+  row unless it changes row-level facts.
+- `ThreadStore.list()` becomes a refresh operation, not the normal way to keep
+  live UI current.
+
+This can be implemented with JSON sidecars later, but start with an in-memory
+derived read model so we remove the hot-path tax first.
+
+### P4 - Make Derived State Versioned And Linear
+
+Fix the known repeated scans:
+
+- Build an id -> turn index map once per unread derivation instead of calling
+  `firstIndex` inside each candidate check.
+- Compute `hasUnread`, `firstUnreadTurnId`, `needsAttention`, `isRunning`,
+  `lane`, `preview`, and row state once per thread version.
+- Compute `projectSections` / search results in the view model or a derived-state
+  object, not repeatedly from `HomeSidebar` computed properties.
+- Search should scan row summaries first. Full turn-text search can be explicit,
+  debounced, and off-main.
+
+Target complexity:
+
+```text
+Per changed thread: O(turns in that thread)
+Per rail publish: O(visible rows log visible rows), no turn-text walk
+Never: O(all threads * all turns) per stream delta
+Never: O(turns^2) unread derivation
+```
+
+### P5 - Move Store Reads Off The Main Actor
+
+Add a serial store-reader actor or detached refresh task:
+
+```text
+ThreadStoreReader actor
+  loadRailSnapshot() async -> [ThreadRailRowState]
+  loadThreadDetail(id) async -> SelectedThreadDetail
+  loadChangedThreads(since generation) async -> ...
+```
+
+Publish back with a generation counter so stale async loads cannot overwrite a
+newer in-memory state.
+
+External writers still matter. The reader should pair with one of:
+
+- explicit write notifications from in-process stores,
+- lightweight polling with coalescing,
+- file-system events for `Threads/`, `Runs/`, and `Pending/`,
+- or an eventual resident coordinator event stream.
+
+### P6 - Keep The Floor Lazy, Then Memoize It
+
+The first fix made terminal Team-run reading much better. Keep those rules:
+
+- Thread terminal card is a receipt + short synthesis + "Open Factory Floor".
+- Full worker markdown renders only when the worker is expanded/selected.
+- The Floor renders synthesis and cast rail first; non-selected worker answers
+  load lazily from artifacts or cached `TeamRun` output.
+
+Then harden:
+
+- Memoize `FloorProjector.project(run)` by `run.id` + run version.
+- Do not rebuild cast/floor on every `@State` toggle.
+- Keep `RunDecodeCache`, but evolve it into a `RunRepository` only after the
+  thread hot path is under control.
+
+### P7 - Add Store Fast Paths And Sidecars
+
+After P1-P5, add store-level optimizations where they now have a clear purpose:
+
+```text
+Threads/index.json or thread_<id>/summary.json
 Runs/run_<id>/summary.json
 Runs/run_<id>/floor_summary.json
-```
-
-Suggested `ThreadSummary`:
-
-```text
-id
-projectId
-title
-status
-updatedAt
-pinnedAt
-hasUnread
-displayState
-latestTurnKind
-latestRunId?
-latestRunStatus?
-latestRunTeamName?
-latestRunWorkerCounts?
-preview
-```
-
-Suggested `RunSummary`:
-
-```text
-id
-threadId?
-status
-presetId
-teamDisplayName
-createdAt
-finishedAt?
-workerCount
-doneCount
-failedCount
-timedOutCount
-synthesisPreview
-returnStageId?
-floorReady: Bool
 ```
 
 Rules:
 
 - `thread.json` and `run.json` remain truth.
-- Sidecars are derived by `ThreadStore` / `RunStore` on save.
-- If a sidecar is missing or stale, rebuild it in a background task and show the
-  best available fallback.
-- Views never parse full records for rail rows.
+- Sidecars are derived by stores on save.
+- Missing/stale sidecars rebuild in the background.
+- Views never choose sidecar truth over canonical truth when the two conflict.
 
-### 3. Put Run Loading Behind An Async Cache
+RunStore should also get a progress-save fast path:
 
-Create a Mac-facing run read model:
+- During running/progress updates, avoid rewriting every derived artifact if only
+  answer text grew.
+- Regenerate `bundle.md`, worker artifacts, stage files, reviews, and return
+  artifacts on terminal/stage boundaries or throttled checkpoints.
+
+### P8 - Clean Up Smaller Amplifiers
+
+Useful once the main reload/delta tax is gone:
+
+- Debounce search-driven filtering.
+- Make `refreshArmedPending()` event-driven or backed by a pending summary
+  instead of rebuilding `PendingService` and walking the queue from the rail.
+- Avoid `store.get` just to compare before/after when the in-memory selected
+  thread already has the old cursor.
+- Audit every GUI call to `ThreadStore.list`, `RunStore.list`, `RunStore.load`,
+  and `PendingService.queueJSON` from `body`, computed properties, `onAppear`,
+  layout callbacks, and high-frequency `onChange`.
+
+## Storage Decision
+
+Do not lead with SQLite.
+
+Keep JSON as durable truth for the next performance slice because the current
+failure is mostly algorithmic and architectural:
 
 ```text
-RunRepository / RunCache actor
-  summary(runId) async -> RunSummary
-  floor(runId) async -> FloorRun
-  fullRun(runId) async -> TeamRun
+per-delta full decode/write/reload
+whole-array observation invalidation
+unmemoized derived state
+main-actor disk work
 ```
 
-Rules:
-
-- No direct `RunStore.load` from SwiftUI `body` or computed view properties.
-- Cache full `TeamRun` by `runId` with invalidation on run update.
-- Publish summary immediately, full Floor content later.
-- Instrument load count; one user click should not decode the same run more than
-  once.
-
-### 4. Make Markdown Lazy
-
-Terminal thread card:
+SQLite/GRDB becomes the right answer when the dominant problem is:
 
 ```text
-No full MarkdownText for all worker answers.
+large cross-thread search
+large history filtering
+many thousands of rows
+multi-process query coordination
+needing indexed predicates that sidecars cannot cover cleanly
 ```
 
-Factory Floor:
+If we migrate before fixing the hot path, we will simply run expensive queries
+and publish too much state on every delta instead of decoding too much JSON.
+
+## Implementation Slices
 
 ```text
-Render only the selected member's markdown.
-Render synthesis first.
-Load non-selected worker markdown from worker artifact files on selection.
-Cache parsed/render-ready markdown if the engine supports it.
+PERF-S00 - Instrument + monster fixture
+  Add signposts/counters and a reproducible long-run + streaming fixture.
+
+PERF-S01 - Coalesced reload + live overlay
+  Remove per-delta full reload and full thread.json rewrite. Keep visible
+  streaming responsive through in-memory selected-turn overlay.
+
+PERF-S02 - Thread read model
+  Publish rail rows and selected detail separately. Rail no longer depends on
+  full WorkThread arrays for every render.
+
+PERF-S03 - Derived-state cache
+  Linear unread derivation, row-state memoization, projectSections/search out of
+  SwiftUI body/computed properties.
+
+PERF-S04 - Background store reader + external invalidation
+  Move scans/decodes off MainActor and add generation-safe publish.
+
+PERF-S05 - Store sidecars + RunStore progress fast path
+  Add summary sidecars and stop regenerating all run artifacts on every progress
+  save.
+
+PERF-S06 - Hard performance gates
+  Wall tests for reload count, write count, run decode count, first paint, and
+  Floor open timing.
 ```
 
-The existing artifact files are useful here:
+## Performance Gates
+
+Works Tests:
 
 ```text
-workers/<worker>.answer.md
-stages/<stage>.plan.md
-master_plan.md
-bundle.md
-```
-
-Use them as lazy read targets. Do not force the first frame to decode and layout
-every answer embedded in `run.json`.
-
-### 5. Stop Full-Record Poll/Reload Loops From Driving UI
-
-Audit every GUI path that calls:
-
-```text
-ThreadStore.list()
-RunStore.list()
-RunStore.load(runId:)
-PendingService.queueJSON()
-```
-
-from:
-
-```text
-View.body
-computed view properties
-onAppear of high-frequency surfaces
-onChange triggered by layout/visibility
-```
-
-Replace those with summaries, cached actors, or explicit async tasks. The main
-actor should receive small immutable view state.
-
-### 6. Add Performance Gates
-
-New Works Tests:
-
-```text
-TeamRunOpenPerformanceTests.testSelectingTerminalTeamRunShowsReceiptWithoutFullRunDecode
-TeamRunOpenPerformanceTests.testOneClickDecodesRunAtMostOnce
-TeamRunOpenPerformanceTests.testThreadRailLoadsSummariesWithoutDecodingFullTurns
-TeamRunOpenPerformanceTests.testFactoryFloorRendersOnlySelectedWorkerMarkdownInitially
+TeamRunOpenPerformanceTests.testTerminalTeamRunClickDoesNotDecodeRunMoreThanOnce
+TeamRunOpenPerformanceTests.testTerminalTeamRunFirstPaintUsesReceiptNotAllWorkerMarkdown
+ThreadStreamingPerformanceTests.testStreamingDeltasDoNotCallThreadStoreListPerDelta
+ThreadStreamingPerformanceTests.testStreamingDeltasDoNotRewriteThreadJSONPerDelta
+ThreadRailPerformanceTests.testRailRowsUseSummariesWithoutTurnTextScans
+UnreadDerivationPerformanceTests.testUnreadDerivationIsLinearInTurnCount
+FactoryFloorPerformanceTests.testFloorRendersOnlySelectedWorkerMarkdownInitially
 ```
 
 Manual dogfood proof:
 
 ```text
-Seed the reported run fixture or a larger synthetic 100-worker / 2 MB output run.
+Seed the reported run fixture plus a larger synthetic 100-worker / 2 MB run.
 Click the rail row.
 First visual response <50ms.
 Receipt visible <150ms.
 Open Floor <300ms to synthesis + cast rail.
-Selecting a worker lazily loads that worker's answer without beachballing.
+Start a streaming worker.
+Reload count <= 10/sec, preferably <= display frames actually needed.
+Full thread-list decode count is not tied to token count.
+Thread file writes are throttled/checkpointed, not per token.
 ```
 
-Instrumentation:
-
-```text
-os_signpost:
-  rail.click
-  thread.select.start/end
-  thread.summary.load.start/end
-  run.summary.load.start/end
-  run.full.decode.start/end
-  markdown.render.start/end
-  floor.firstPaint
-```
-
-Done means we can prove the 100x claim with numbers, not vibes.
+Done means the 100x claim is backed by timings and counters, not subjective
+smoothness.
 
 ## Debug Packet
 
 ```text
 Tier: T2 SSOT/performance
-Symptom / repro: Click the large Bug Hunt MAX Team run row; app blocks 5-10s before content appears.
-Bug fingerprint: Home rail selection + terminal team_run turn + synchronous run decode/render + thread used as full result reader.
-Truth owner: TeamRun / FloorRun for team-run result truth; WorkThread only owns the conversation and run reference.
-Lie-prone layer: SwiftUI ThreadView/ThreadBoardRow presenting full run truth as inline thread content and doing store reads during render.
-Regression considered: Live_Team_Board.md already says terminal results land in the Factory Floor; current GUI violates that decision.
-Missing kill test / proof: No performance test proves first paint without full run decode/markdown render; no test proves terminal team run opens Floor/receipt.
-Fix boundary: Read model + navigation + lazy Floor rendering. Do not patch by hiding worker failures, truncating truth, or deleting artifacts.
-Proof command / founder test: Add the performance tests above plus a dogfood fixture using the reported run shape.
+Symptom / repro: Original: click large Bug Hunt MAX Team run row and app blocks 5-10s. Remaining: live streaming and thread interactions can still pay full app-wide reload/persist costs.
+Bug fingerprint: ThreadsViewModel reload model + streaming delta path + whole-array observation + synchronous file stores on MainActor.
+Truth owner: WorkThread owns settled conversation truth; TeamRun/FloorRun own Team-run result truth; live deltas are transient selected-turn UI state until checkpoint/settlement.
+Lie-prone layer: SwiftUI and view models treat every small write as "reload all thread truth" and recompute rail/search/unread/Floor derivations from full records.
+Regression considered: Initial RunDecodeCache/lazy Floor fix addressed terminal run open, but did not touch per-delta thread reload/write amplification.
+Missing kill test / proof: No counter test proves streaming deltas avoid ThreadStore.list and per-delta thread.json rewrites; no test proves unread derivation is linear.
+Fix boundary: Performance architecture only. Do not change user-visible run truth, hide failed workers, drop settled output, or replace canonical JSON with unsourced GUI state.
+Proof command / founder test: PERF-S00/S01 gates plus dogfood streaming fixture and reported Team-run fixture.
 ```
 
 ## Done When
 
-- A terminal Team run rail click opens a compact receipt / Floor path, not a full
-  inline thread board.
-- No SwiftUI body path directly calls `RunStore.load` or `RunStore.list`.
-- Rail rows are backed by summaries.
-- One click decodes a full run at most once.
-- Full worker markdown renders lazily.
-- The reported run opens without a beachball.
-- The performance proof reports before/after timings and load counts.
+- `docs/phases/README.md` keeps this phase at the top until PERF-S01-S03 are done.
+- Terminal Team-run click remains fast and opens a receipt/Floor path.
+- Streaming deltas update visible UI without `ThreadStore.list()` per delta.
+- Streaming deltas do not rewrite full `thread.json` per delta.
+- Rail rendering is driven by row summaries / derived state, not repeated full
+  turn-text scans.
+- Unread derivation is linear in turn count.
+- Heavy store reads run off MainActor and publish generation-safe snapshots.
+- Performance proof reports before/after timings, reload counts, decode counts,
+  and write counts.
 
 ## Open Questions
 
-- Should the rail row itself represent the latest thread or the latest run
-  receipt? Recommendation: keep it as a thread row, but route terminal team-run
-  clicks to the Floor when the click target is the team receipt/latest team run.
+- Do we need crash-resumable partial text? Recommendation: yes, but via throttled
+  live checkpoint/sidecar, not full `thread.json` rewrite per delta.
 - Should summary sidecars be JSON or SQLite first? Recommendation: JSON sidecars
-  first. Revisit GRDB when query breadth, history search, or row counts become
-  the bottleneck.
+  after P1-P5. Revisit GRDB when query breadth, history search, or row counts
+  become the measured bottleneck.
 - Should `FloorRun` be persisted as a sidecar? Recommendation: persist only a
   small `floor_summary.json`; project full `FloorRun` from `run.json` and
   artifact refs on demand until profiling says otherwise.
