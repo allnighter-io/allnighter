@@ -520,9 +520,22 @@ final class ThreadsViewModel {
     }
 
     /// The durable TeamRun behind a board turn (by `runId`), for the board view.
+    /// In-memory cache of decoded runs. Terminal runs are immutable, so caching them
+    /// turns the repeated `run.json` decode (SwiftUI re-reads `ThreadBoardRow.run` many
+    /// times per draw → a 5–10s stall on a big run) into a dict lookup. Not @Observable —
+    /// writes here must never trigger a re-render during body evaluation.
+    private let runCache = RunDecodeCache()
+
     func teamRun(forRunId runId: String) -> TeamRun? {
-        runStore.load(runId: runId)
+        if let cached = runCache.get(runId) { return cached }
+        guard let run = runStore.load(runId: runId) else { return nil }
+        // Only cache terminal (immutable) runs; a running run still changes.
+        if run.status.isTerminal { runCache.set(runId, run) }
+        return run
     }
+
+    /// Drop a run from the decode cache (e.g. after it's updated/persisted).
+    func invalidateRunCache(_ runId: String) { runCache.clear(runId) }
 
     private func appendFailedRun(_ reason: String, kind: ThreadTurnKind, toThreadId threadId: String) {
         let turn = ThreadTurn(
