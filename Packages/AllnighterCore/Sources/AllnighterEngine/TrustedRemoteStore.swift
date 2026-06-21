@@ -21,12 +21,12 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         self.fileManager = fileManager
     }
 
-    public func load() -> TrustedRemoteRegistry {
-        guard let data = try? Data(contentsOf: fileURL),
-              let registry = try? CoreJSON.decode(TrustedRemoteRegistry.self, from: data) else {
+    public func load() throws -> TrustedRemoteRegistry {
+        guard fileManager.fileExists(atPath: fileURL.path) else {
             return TrustedRemoteRegistry()
         }
-        return registry
+        let data = try Data(contentsOf: fileURL)
+        return try CoreJSON.decode(TrustedRemoteRegistry.self, from: data)
     }
 
     @discardableResult
@@ -39,8 +39,8 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         return fileURL
     }
 
-    public func list(now: Date = Date()) -> TrustedRemoteRegistry {
-        var registry = load()
+    public func list(now: Date = Date()) throws -> TrustedRemoteRegistry {
+        var registry = try load()
         expirePendingRequests(in: &registry, now: now)
         return registry
     }
@@ -52,7 +52,7 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         macAgentId: String,
         now: Date = Date()
     ) throws -> Int {
-        var registry = load()
+        var registry = try load()
         expirePendingRequests(in: &registry, now: now)
         let scopedDevices = deduplicatedTrustedDevices(devices.filter {
             $0.accountId == accountId && $0.macAgentId == macAgentId
@@ -69,7 +69,7 @@ public final class TrustedRemoteStore: @unchecked Sendable {
     }
 
     public func upsertPending(_ request: RemotePairRequest) throws {
-        var registry = load()
+        var registry = try load()
         registry.pendingRequests.removeAll {
             $0.accountId == request.accountId
                 && $0.macAgentId == request.macAgentId
@@ -92,7 +92,7 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         validFor: TimeInterval = 365 * 24 * 60 * 60,
         capabilities: Set<RemoteCapability> = Set(RemoteCapability.allCases)
     ) throws -> TrustedDevice {
-        var registry = load()
+        var registry = try load()
         expirePendingRequests(in: &registry, now: now)
         guard let index = registry.pendingRequests.firstIndex(where: {
             matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
@@ -149,7 +149,7 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         macAgentId: String? = nil,
         now: Date = Date()
     ) throws -> TrustedDevice {
-        var registry = load()
+        var registry = try load()
         guard let index = registry.trustedDevices.firstIndex(where: {
             matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
         }) else {

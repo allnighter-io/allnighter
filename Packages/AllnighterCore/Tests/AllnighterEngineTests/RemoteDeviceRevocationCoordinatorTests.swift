@@ -47,7 +47,7 @@ final class RemoteDeviceRevocationCoordinatorTests: XCTestCase {
         let scopes = await teardown.scopes()
         XCTAssertEqual(scopes, [result.teardownScope])
 
-        let devices = store.load().trustedDevices
+        let devices = try store.load().trustedDevices
         XCTAssertEqual(devices.first { $0.deviceId == "device_1" && $0.macAgentId == "mac_1" }?.revoked, true)
         XCTAssertEqual(devices.first { $0.deviceId == "device_2" && $0.macAgentId == "mac_1" }?.revoked, false)
         XCTAssertEqual(devices.first { $0.deviceId == "device_1" && $0.macAgentId == "mac_2" }?.revoked, false)
@@ -74,7 +74,7 @@ final class RemoteDeviceRevocationCoordinatorTests: XCTestCase {
 
         let scopes = await teardown.scopes()
         XCTAssertEqual(scopes, [])
-        XCTAssertEqual(store.load().trustedDevices.first?.revoked, false)
+        XCTAssertEqual(try store.load().trustedDevices.first?.revoked, false)
     }
 
     func testRevokeCanTargetSpecificAccountScope() async throws {
@@ -99,7 +99,7 @@ final class RemoteDeviceRevocationCoordinatorTests: XCTestCase {
         )
 
         XCTAssertEqual(result.teardownScope.accountId, "acct_1")
-        let devices = store.load().trustedDevices
+        let devices = try store.load().trustedDevices
         XCTAssertEqual(devices.first { $0.accountId == "acct_1" }?.revoked, true)
         XCTAssertEqual(devices.first { $0.accountId == "acct_2" }?.revoked, false)
         let scopes = await teardown.scopes()

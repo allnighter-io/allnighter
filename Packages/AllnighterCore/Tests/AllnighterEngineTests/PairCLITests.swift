@@ -22,7 +22,7 @@ final class PairCLITests: XCTestCase {
             expiresAt: now.addingTimeInterval(300)
         ))
 
-        let payload = PairCLI.listJSON(store: store, now: now)
+        let payload = try PairCLI.listJSON(store: store, now: now)
 
         XCTAssertEqual(payload.contractVersion, ContractRegistry.contractVersion)
         XCTAssertEqual(payload.pendingRequests.map(\.deviceId), ["device_1"])

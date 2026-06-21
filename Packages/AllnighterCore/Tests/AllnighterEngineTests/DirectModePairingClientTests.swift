@@ -67,7 +67,7 @@ final class DirectModePairingClientTests: XCTestCase {
         XCTAssertEqual(response.request.deviceId, "device_1")
         XCTAssertEqual(response.request.status, .pending)
         XCTAssertEqual(try sessionStore.load().sessions.first?.status, .consumed)
-        XCTAssertEqual(trustedStore.load().pendingRequests, [response.request])
+        XCTAssertEqual(try trustedStore.load().pendingRequests, [response.request])
 
         let pending = try await client.status(DirectModePairingStatusRequest(
             requestId: "pair_request_1",

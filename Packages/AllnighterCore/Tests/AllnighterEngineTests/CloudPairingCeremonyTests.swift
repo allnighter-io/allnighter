@@ -40,7 +40,7 @@ final class CloudPairingCeremonyTests: XCTestCase {
         XCTAssertEqual(firstDrain.syncedPendingPairRequestCount, 1)
         XCTAssertEqual(firstDrain.syncedTrustedDeviceCount, 0)
         XCTAssertEqual(firstDrain.processedCommandCount, 0)
-        XCTAssertEqual(trustedStore.load().pendingRequests, [submitted])
+        XCTAssertEqual(try trustedStore.load().pendingRequests, [submitted])
 
         let approvedDevice = try trustedStore.approve(deviceId: "device_1", now: now, validFor: 3_600)
         let secondDrain = try await agent.drainOnce()

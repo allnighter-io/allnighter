@@ -279,7 +279,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             return try rejected(command, reason: .badSignature, serverTime: serverTime)
         }
 
-        let registry = trustedStore.list(now: serverTime)
+        let registry = try trustedStore.list(now: serverTime)
         guard let trustedDevice = registry.trustedDevices.first(where: {
             $0.accountId == accountId
                 && $0.deviceId == command.assertion.deviceId
