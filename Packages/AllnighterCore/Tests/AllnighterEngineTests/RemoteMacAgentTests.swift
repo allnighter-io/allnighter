@@ -583,6 +583,10 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
 
     func heartbeat(_ heartbeat: RemoteMacAgentHeartbeat) async throws {}
 
+    func macAgents(accountId: String) async throws -> [MacAgentRef] {
+        []
+    }
+
     func submitPairRequest(_ request: RemotePairRequestDraft) async throws -> RemotePairRequest {
         request.pairRequest(id: "pair_request_mismatch")
     }
