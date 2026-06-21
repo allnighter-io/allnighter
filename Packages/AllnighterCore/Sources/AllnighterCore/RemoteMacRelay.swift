@@ -44,6 +44,10 @@ public struct RemoteMacAgentHeartbeat: Codable, Equatable, Sendable {
     }
 }
 
+public enum RemoteMacRelayError: Error, Equatable, Sendable {
+    case unsupportedProtocolVersion(expected: Int, actual: Int)
+}
+
 public enum RemoteCommandInboxStatus: String, Codable, Sendable, CaseIterable {
     case pending
     case acked
@@ -187,6 +191,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     }
 
     public func registerMacAgent(_ registration: RemoteMacAgentRegistration) async throws -> MacAgentRef {
+        try Self.validateProtocolVersion(registration.protocolVersion)
         eventLog.append("register")
         registrations.append(registration)
         let ref = MacAgentRef(
@@ -200,6 +205,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     }
 
     public func heartbeat(_ heartbeat: RemoteMacAgentHeartbeat) async throws {
+        try Self.validateProtocolVersion(heartbeat.protocolVersion)
         eventLog.append("heartbeat")
         heartbeats.append(heartbeat)
         let key = MacStorageKey(accountId: heartbeat.accountId, macAgentId: heartbeat.macAgentId)
@@ -507,6 +513,15 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
             return .rejected
         case .expired:
             return .expired
+        }
+    }
+
+    private static func validateProtocolVersion(_ protocolVersion: Int) throws {
+        guard protocolVersion == RemoteProtocol.currentMajor else {
+            throw RemoteMacRelayError.unsupportedProtocolVersion(
+                expected: RemoteProtocol.currentMajor,
+                actual: protocolVersion
+            )
         }
     }
 

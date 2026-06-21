@@ -71,4 +71,65 @@ final class RemoteMacRelayDiscoveryTests: XCTestCase {
         XCTAssertEqual(accountTwoMac.agentSigningPubkey, "sign_2")
         XCTAssertNil(accountTwoMac.lastSeenAt)
     }
+
+    func testRegistrationRejectsUnsupportedProtocolVersion() async throws {
+        let relay = MockRemoteMacRelay()
+
+        do {
+            _ = try await relay.registerMacAgent(RemoteMacAgentRegistration(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                displayName: "Studio Mac",
+                agentSigningPubkey: "sign_1",
+                agentSealingPubkey: "seal_1",
+                protocolVersion: RemoteProtocol.currentMajor + 1
+            ))
+            XCTFail("unsupported registration protocol should be rejected")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .unsupportedProtocolVersion(
+                    expected: RemoteProtocol.currentMajor,
+                    actual: RemoteProtocol.currentMajor + 1
+                )
+            )
+        }
+
+        let macs = try await relay.macAgents(accountId: "acct_1")
+        XCTAssertTrue(macs.isEmpty)
+    }
+
+    func testHeartbeatRejectsUnsupportedProtocolVersionWithoutMarkingReachable() async throws {
+        let relay = MockRemoteMacRelay()
+
+        _ = try await relay.registerMacAgent(RemoteMacAgentRegistration(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            displayName: "Studio Mac",
+            agentSigningPubkey: "sign_1",
+            agentSealingPubkey: "seal_1"
+        ))
+
+        do {
+            try await relay.heartbeat(RemoteMacAgentHeartbeat(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                at: now,
+                protocolVersion: RemoteProtocol.currentMajor + 1
+            ))
+            XCTFail("unsupported heartbeat protocol should be rejected")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .unsupportedProtocolVersion(
+                    expected: RemoteProtocol.currentMajor,
+                    actual: RemoteProtocol.currentMajor + 1
+                )
+            )
+        }
+
+        let macs = try await relay.macAgents(accountId: "acct_1")
+        let mac = try XCTUnwrap(macs.first)
+        XCTAssertNil(mac.lastSeenAt)
+    }
 }
