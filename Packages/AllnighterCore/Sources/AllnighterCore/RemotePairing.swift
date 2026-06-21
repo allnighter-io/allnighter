@@ -188,6 +188,40 @@ public struct DirectModePairingRegistry: Codable, Equatable, Sendable {
     }
 }
 
+public struct DirectModePairingBeginJSON: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var sessionId: String
+    public var pairingLink: String?
+    public var manualCode: String
+    public var payload: RemotePairingPayload
+    public var expiresAt: Date
+    public var serveCommand: [String]
+    public var certificateProbeCommand: [String]?
+
+    public init(
+        schemaVersion: Int = 1,
+        contractVersion: String,
+        sessionId: String,
+        pairingLink: String? = nil,
+        manualCode: String,
+        payload: RemotePairingPayload,
+        expiresAt: Date,
+        serveCommand: [String],
+        certificateProbeCommand: [String]? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.contractVersion = contractVersion
+        self.sessionId = sessionId
+        self.pairingLink = pairingLink
+        self.manualCode = manualCode
+        self.payload = payload
+        self.expiresAt = expiresAt
+        self.serveCommand = serveCommand
+        self.certificateProbeCommand = certificateProbeCommand
+    }
+}
+
 public struct TrustedRemoteRegistry: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var pendingRequests: [RemotePairRequest]
