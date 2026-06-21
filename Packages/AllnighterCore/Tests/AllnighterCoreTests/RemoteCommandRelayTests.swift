@@ -36,6 +36,16 @@ final class RemoteCommandRelayTests: XCTestCase {
         XCTAssertEqual(pending, [replacement])
     }
 
+    func testPendingCommandsUseRequestIdTieBreakForSameTimestamp() async throws {
+        let laterId = commandEntry(requestId: "req_b", createdAt: now)
+        let earlierId = commandEntry(requestId: "req_a", createdAt: now)
+        let relay = MockRemoteMacRelay(inbox: [laterId, earlierId])
+
+        let pending = try await relay.pendingCommands(accountId: "acct_1", macAgentId: "mac_1", limit: 10)
+
+        XCTAssertEqual(pending.map(\.requestId), ["req_a", "req_b"])
+    }
+
     func testSubmitCommandPreservesSameRequestIdForOtherAccount() async throws {
         let relay = MockRemoteMacRelay()
         let firstAccount = commandEntry(requestId: "req_shared", accountId: "acct_1")

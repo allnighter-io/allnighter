@@ -372,7 +372,10 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         eventLog.append("pendingCommands")
         return Array((inboxByMac[macAgentId] ?? [])
             .filter { $0.accountId == accountId && $0.status == .pending }
-            .sorted { $0.createdAt < $1.createdAt }
+            .sorted {
+                if $0.createdAt == $1.createdAt { return $0.requestId < $1.requestId }
+                return $0.createdAt < $1.createdAt
+            }
             .prefix(max(0, limit)))
     }
 
