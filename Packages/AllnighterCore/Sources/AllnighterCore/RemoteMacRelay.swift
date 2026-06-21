@@ -434,6 +434,16 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
                 eventId: mismatchedEvent.event.id
             )
         }
+        if let mismatchedEvent = events.first(where: { event in
+            guard let sealedMacAgentId = event.sealedRef?.macAgentId else { return false }
+            return sealedMacAgentId != macAgentId
+        }) {
+            throw RemoteMacRelayError.eventScopeMismatch(
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: mismatchedEvent.sealedRef?.macAgentId ?? mismatchedEvent.macAgentId,
+                eventId: mismatchedEvent.event.id
+            )
+        }
         for event in events {
             publishedEventScopes.insert(PublishedEventKey(
                 accountId: accountId,

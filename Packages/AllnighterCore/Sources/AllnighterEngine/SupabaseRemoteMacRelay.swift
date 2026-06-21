@@ -433,6 +433,16 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 eventId: mismatchedEvent.event.id
             )
         }
+        if let mismatchedEvent = events.first(where: { event in
+            guard let sealedMacAgentId = event.sealedRef?.macAgentId else { return false }
+            return sealedMacAgentId != macAgentId
+        }) {
+            throw RemoteMacRelayError.eventScopeMismatch(
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: mismatchedEvent.sealedRef?.macAgentId ?? mismatchedEvent.macAgentId,
+                eventId: mismatchedEvent.event.id
+            )
+        }
         let rows = events.map { EventEnvelopeRow(accountId: accountId, envelope: $0) }
         guard !rows.isEmpty else { return }
         _ = try await post(

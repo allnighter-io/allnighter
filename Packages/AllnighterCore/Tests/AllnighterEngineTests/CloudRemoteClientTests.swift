@@ -116,16 +116,6 @@ final class CloudRemoteClientTests: XCTestCase {
         let relay = MockRemoteMacRelay()
         let newer = try eventEnvelope(id: "evt_2", seq: 2, kind: "run.completed")
         let older = try eventEnvelope(id: "evt_1", seq: 1, kind: "run.started")
-        let wrongMacMedia = try eventEnvelope(
-            id: "evt_wrong_media_mac",
-            seq: 4,
-            kind: "run.completed",
-            sealedRef: mediaRef(
-                ref: "media_cross_mac",
-                macAgentId: "mac_2",
-                expiresAt: now.addingTimeInterval(60)
-            )
-        )
         let forged = RemoteRunEventEnvelope(
             macAgentId: "mac_1",
             event: RunEvent(
@@ -140,7 +130,7 @@ final class CloudRemoteClientTests: XCTestCase {
         try await relay.publishEvents(
             accountId: "acct_1",
             macAgentId: "mac_1",
-            events: [older, forged, wrongMacMedia, newer]
+            events: [older, forged, newer]
         )
         let client = CloudRemoteClient(mac: macRef(), relay: relay)
         try await client.connect(account: account, mode: .cloudRelay)
@@ -155,8 +145,19 @@ final class CloudRemoteClientTests: XCTestCase {
     }
 
     func testClientFiltersStaleEventsFromStreamingRelay() async throws {
+        let wrongMacMedia = try eventEnvelope(
+            id: "evt_wrong_media_mac",
+            seq: 3,
+            kind: "run.completed",
+            sealedRef: mediaRef(
+                ref: "media_cross_mac",
+                macAgentId: "mac_2",
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
         let relay = UnfilteredStreamingRelay(events: [
             try eventEnvelope(id: "evt_old", seq: 1, kind: "run.started"),
+            wrongMacMedia,
             try eventEnvelope(id: "evt_new", seq: 2, kind: "run.completed"),
         ])
         let client = CloudRemoteClient(mac: macRef(), relay: relay)

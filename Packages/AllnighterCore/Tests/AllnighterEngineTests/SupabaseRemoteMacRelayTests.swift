@@ -466,6 +466,34 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
+    func testPublishEventsRejectsMismatchedSealedRefScopeBeforeWriting() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [])
+        let relay = try makeRelay(transport: transport)
+        let wrongMediaMacEvent = runEventEnvelope(
+            id: "evt_wrong_media_mac",
+            seq: 1,
+            macAgentId: "mac_1",
+            sealedRef: mediaRef(macAgentId: "mac_2")
+        )
+
+        do {
+            try await relay.publishEvents(accountId: "acct_1", macAgentId: "mac_1", events: [wrongMediaMacEvent])
+            XCTFail("expected event scope mismatch")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(
+                error,
+                .eventScopeMismatch(
+                    expectedMacAgentId: "mac_1",
+                    actualMacAgentId: "mac_2",
+                    eventId: "evt_wrong_media_mac"
+                )
+            )
+        }
+
+        let requests = await transport.recordedRequests()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
     func testPublishMediaRejectsMismatchedKeyScopeBeforeWriting() async throws {
         let transport = RecordingSupabaseHTTPTransport(responses: [])
         let relay = try makeRelay(transport: transport)
@@ -864,7 +892,12 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ]
     }
 
-    private func runEventEnvelope(id: String, seq: Int64, macAgentId: String) -> RemoteRunEventEnvelope {
+    private func runEventEnvelope(
+        id: String,
+        seq: Int64,
+        macAgentId: String,
+        sealedRef: MediaRef? = nil
+    ) -> RemoteRunEventEnvelope {
         RemoteRunEventEnvelope(
             macAgentId: macAgentId,
             event: RunEvent(
@@ -874,6 +907,7 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
                 kind: "run.started",
                 payload: ["runId": .string("run_1")]
             ),
+            sealedRef: sealedRef,
             signature: "sig"
         )
     }
@@ -923,11 +957,11 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ]
     }
 
-    private func mediaRef() -> MediaRef {
+    private func mediaRef(ref: String = "media_1", macAgentId: String = "mac_1") -> MediaRef {
         MediaRef(
-            ref: "media_1",
-            macAgentId: "mac_1",
-            r2Key: "r2/media_1",
+            ref: ref,
+            macAgentId: macAgentId,
+            r2Key: "r2/\(ref)",
             contentType: "image/png",
             expiresAt: now.addingTimeInterval(3600)
         )
