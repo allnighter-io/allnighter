@@ -57,6 +57,28 @@ public struct DirectModeMediaResponse: Codable, Equatable, Sendable {
     }
 }
 
+public struct DirectModeEventsRequest: Codable, Equatable, Sendable {
+    public var accountId: String
+    public var macAgentId: String
+    public var afterSeq: Int64
+    public var limit: Int
+
+    public init(accountId: String, macAgentId: String, afterSeq: Int64, limit: Int) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.afterSeq = afterSeq
+        self.limit = limit
+    }
+}
+
+public struct DirectModeEventsResponse: Codable, Equatable, Sendable {
+    public var events: [RemoteRunEventEnvelope]
+
+    public init(events: [RemoteRunEventEnvelope]) {
+        self.events = events
+    }
+}
+
 public protocol DirectModeCommandHandling: Sendable {
     func handle(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandAckEnvelope
 }
@@ -67,6 +89,10 @@ public protocol DirectModeSnapshotHandling: Sendable {
 
 public protocol DirectModeMediaHandling: Sendable {
     func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse
+}
+
+public protocol DirectModeEventsHandling: Sendable {
+    func events(_ request: DirectModeEventsRequest) async throws -> DirectModeEventsResponse
 }
 
 public struct DirectModeCommandHandler: DirectModeCommandHandling {
@@ -150,6 +176,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     public static let pairingStatusPath = "/remote/pair/status"
     public static let snapshotPath = "/remote/snapshot"
     public static let mediaPath = "/remote/media"
+    public static let eventsPath = "/remote/events"
 
     private let lock = NSLock()
     private let handler: any DirectModeCommandHandling
@@ -157,6 +184,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     private let pairingStatusHandler: (any DirectModePairingStatusHandling)?
     private let snapshotHandler: (any DirectModeSnapshotHandling)?
     private let mediaHandler: (any DirectModeMediaHandling)?
+    private let eventsHandler: (any DirectModeEventsHandling)?
     private let maxRequestBytes: Int
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
@@ -168,6 +196,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         pairingStatusHandler: (any DirectModePairingStatusHandling)? = nil,
         snapshotHandler: (any DirectModeSnapshotHandling)? = nil,
         mediaHandler: (any DirectModeMediaHandling)? = nil,
+        eventsHandler: (any DirectModeEventsHandling)? = nil,
         maxRequestBytes: Int = 512 * 1024
     ) {
         self.handler = handler
@@ -175,6 +204,7 @@ public final class DirectModeCommandServer: @unchecked Sendable {
         self.pairingStatusHandler = pairingStatusHandler
         self.snapshotHandler = snapshotHandler
         self.mediaHandler = mediaHandler
+        self.eventsHandler = eventsHandler
         self.maxRequestBytes = max(1024, maxRequestBytes)
     }
 
@@ -315,6 +345,18 @@ public final class DirectModeCommandServer: @unchecked Sendable {
             do {
                 let mediaRequest = try CoreJSON.decode(DirectModeMediaRequest.self, from: request.body)
                 let response = try await mediaHandler.media(mediaRequest)
+                writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
+            } catch {
+                writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)
+            }
+        case Self.eventsPath:
+            guard let eventsHandler else {
+                writeJSON(["error": "not_found"], status: "404 Not Found", to: client)
+                return
+            }
+            do {
+                let eventsRequest = try CoreJSON.decode(DirectModeEventsRequest.self, from: request.body)
+                let response = try await eventsHandler.events(eventsRequest)
                 writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
             } catch {
                 writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)

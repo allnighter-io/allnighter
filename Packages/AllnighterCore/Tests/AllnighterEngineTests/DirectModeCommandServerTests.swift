@@ -142,6 +142,25 @@ final class DirectModeCommandServerTests: XCTestCase {
         XCTAssertTrue(commandHandler.entries.isEmpty)
     }
 
+    func testLoopbackCommandServerPostsEventsRequestToHandler() throws {
+        let commandHandler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
+        let eventsHandler = RecordingDirectModeEventsHandler(response: DirectModeEventsResponse(events: [
+            Self.eventEnvelope(id: "evt_1", seq: 1),
+        ]))
+        let server = DirectModeCommandServer(handler: commandHandler, eventsHandler: eventsHandler)
+        defer { server.stop() }
+        let port = try server.start()
+        let request = DirectModeEventsRequest(accountId: "acct_1", macAgentId: "mac_1", afterSeq: 7, limit: 50)
+
+        let result = try postEvents(request, port: port)
+
+        XCTAssertEqual(result.statusCode, 200)
+        let response = try CoreJSON.decode(DirectModeEventsResponse.self, from: result.body)
+        XCTAssertEqual(response.events.map(\.event.id), ["evt_1"])
+        XCTAssertEqual(eventsHandler.requests, [request])
+        XCTAssertTrue(commandHandler.entries.isEmpty)
+    }
+
     func testLoopbackCommandServerRejectsPairingPathWithoutPairingHandler() throws {
         let handler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_http", now: now))
         let server = DirectModeCommandServer(handler: handler)
@@ -195,6 +214,15 @@ final class DirectModeCommandServerTests: XCTestCase {
         try self.request(
             method: "POST",
             path: DirectModeCommandServer.mediaPath,
+            body: CoreJSON.encode(request),
+            port: port
+        )
+    }
+
+    private func postEvents(_ request: DirectModeEventsRequest, port: UInt16) throws -> HTTPResult {
+        try self.request(
+            method: "POST",
+            path: DirectModeCommandServer.eventsPath,
             body: CoreJSON.encode(request),
             port: port
         )
@@ -349,6 +377,20 @@ final class DirectModeCommandServerTests: XCTestCase {
             serverTime: now
         )
     }
+
+    private static func eventEnvelope(id: String, seq: Int64) -> RemoteRunEventEnvelope {
+        RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(
+                id: id,
+                seq: seq,
+                ts: Date(timeIntervalSince1970: 1_750_300_000),
+                kind: "run.started",
+                payload: ["runId": .string("run_1")]
+            ),
+            signature: "sig"
+        )
+    }
 }
 
 private struct HTTPResult {
@@ -449,6 +491,25 @@ private final class RecordingDirectModeMediaHandler: DirectModeMediaHandling, @u
     }
 
     func media(_ request: DirectModeMediaRequest) async throws -> DirectModeMediaResponse {
+        lock.withLock { storedRequests.append(request) }
+        return storedResponse
+    }
+}
+
+private final class RecordingDirectModeEventsHandler: DirectModeEventsHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedResponse: DirectModeEventsResponse
+    private var storedRequests: [DirectModeEventsRequest] = []
+
+    init(response: DirectModeEventsResponse) {
+        self.storedResponse = response
+    }
+
+    var requests: [DirectModeEventsRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func events(_ request: DirectModeEventsRequest) async throws -> DirectModeEventsResponse {
         lock.withLock { storedRequests.append(request) }
         return storedResponse
     }

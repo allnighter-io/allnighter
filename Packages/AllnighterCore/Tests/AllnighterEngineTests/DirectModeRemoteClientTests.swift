@@ -128,6 +128,57 @@ final class DirectModeRemoteClientTests: XCTestCase {
         ])
     }
 
+    func testClientStreamsOnlyVerifiedEventsFromLoopbackServer() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let valid = try Self.eventEnvelope(
+            id: "evt_valid",
+            seq: 2,
+            signingKey: macSigningKey,
+            now: now
+        )
+        let forged = RemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(
+                id: "evt_forged",
+                seq: 3,
+                ts: now,
+                kind: "run.failed",
+                payload: ["runId": .string("run_1")]
+            ),
+            signature: Data("bad signature".utf8).base64EncodedString()
+        )
+        let eventsHandler = RecordingDirectModeClientEventsHandler(response: DirectModeEventsResponse(events: [
+            forged,
+            valid,
+        ]))
+        let server = DirectModeCommandServer(
+            handler: RecordingDirectModeClientHandler(envelope: try Self.ackEnvelope(
+                requestId: "req_unused",
+                now: now,
+                macSigningKey: macSigningKey
+            )),
+            eventsHandler: eventsHandler
+        )
+        let port = try server.start()
+        defer { server.stop() }
+        let endpoint = try LoopbackExposureProvider()
+            .plan(DirectModeExposureRequest(loopbackPort: port, transport: .loopback))
+            .endpoint
+        let client = DirectModeRemoteClient(mac: Self.mac(signingKey: macSigningKey), endpoint: endpoint)
+        try await client.connect(account: Self.account, mode: .loopback)
+
+        let stream = await client.stream(macId: "mac_1", since: 1)
+        var ids: [String] = []
+        for await envelope in stream {
+            ids.append(envelope.event.id)
+        }
+
+        XCTAssertEqual(ids, ["evt_valid"])
+        XCTAssertEqual(eventsHandler.requests, [
+            DirectModeEventsRequest(accountId: "acct_1", macAgentId: "mac_1", afterSeq: 1, limit: 500),
+        ])
+    }
+
     func testClientRejectsBadAckSignature() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let otherSigningKey = Curve25519.Signing.PrivateKey()
@@ -231,6 +282,25 @@ final class DirectModeRemoteClientTests: XCTestCase {
         )
     }
 
+    private static func eventEnvelope(
+        id: String,
+        seq: Int64,
+        signingKey: Curve25519.Signing.PrivateKey,
+        now: Date
+    ) throws -> RemoteRunEventEnvelope {
+        try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(
+                id: id,
+                seq: seq,
+                ts: now,
+                kind: "run.completed",
+                payload: ["runId": .string("run_1")]
+            ),
+            signingKey: signingKey
+        )
+    }
+
     private static func snapshot(now: Date) -> SnapshotEnvelope {
         SnapshotEnvelope(
             runs: [
@@ -246,6 +316,25 @@ final class DirectModeRemoteClientTests: XCTestCase {
             lastSeq: 42,
             serverTime: now
         )
+    }
+}
+
+private final class RecordingDirectModeClientEventsHandler: DirectModeEventsHandling, @unchecked Sendable {
+    private let lock = NSLock()
+    private let storedResponse: DirectModeEventsResponse
+    private var storedRequests: [DirectModeEventsRequest] = []
+
+    init(response: DirectModeEventsResponse) {
+        self.storedResponse = response
+    }
+
+    var requests: [DirectModeEventsRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    func events(_ request: DirectModeEventsRequest) async throws -> DirectModeEventsResponse {
+        lock.withLock { storedRequests.append(request) }
+        return storedResponse
     }
 }
 

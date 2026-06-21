@@ -47,6 +47,7 @@ public actor DirectModeRemoteClient: RemoteClient {
     private let endpoint: DirectModeEndpoint
     private let poster: any DirectModeHTTPPosting
     private let now: @Sendable () -> Date
+    private let streamEventLimit: Int
     private var connectedAccount: RemoteAccountSession?
     private var lastVerifiedAck = false
 
@@ -54,12 +55,14 @@ public actor DirectModeRemoteClient: RemoteClient {
         mac: MacAgentRef,
         endpoint: DirectModeEndpoint,
         poster: any DirectModeHTTPPosting = URLSessionDirectModeHTTPPoster(),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        streamEventLimit: Int = 500
     ) {
         self.mac = mac
         self.endpoint = endpoint
         self.poster = poster
         self.now = now
+        self.streamEventLimit = max(0, streamEventLimit)
     }
 
     public func connect(account: RemoteAccountSession, mode: ConnectionMode) async throws {
@@ -77,7 +80,7 @@ public actor DirectModeRemoteClient: RemoteClient {
     public func snapshot(macId: String, since: Int64?) async throws -> SnapshotEnvelope {
         let account = try requireConnected()
         try requireMac(macId)
-        let snapshotURL = routeURLString(DirectModeCommandServer.snapshotPath, baseURL: endpoint.baseURL)
+        let snapshotURL = Self.routeURLString(DirectModeCommandServer.snapshotPath, baseURL: endpoint.baseURL)
         guard let url = URL(string: snapshotURL) else {
             throw DirectModeRemoteClientError.invalidEndpoint(snapshotURL)
         }
@@ -97,8 +100,37 @@ public actor DirectModeRemoteClient: RemoteClient {
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {
-        AsyncStream { continuation in
-            continuation.finish()
+        guard let connectedAccount, macId == mac.macAgentId, streamEventLimit > 0 else {
+            return AsyncStream { continuation in
+                continuation.finish()
+            }
+        }
+        let endpoint = endpoint
+        let poster = poster
+        let mac = mac
+        let accountId = connectedAccount.accountId
+        let limit = streamEventLimit
+        return AsyncStream { continuation in
+            Task {
+                defer { continuation.finish() }
+                let eventsURL = Self.routeURLString(DirectModeCommandServer.eventsPath, baseURL: endpoint.baseURL)
+                guard let url = URL(string: eventsURL) else { return }
+                let request = DirectModeEventsRequest(
+                    accountId: accountId,
+                    macAgentId: macId,
+                    afterSeq: since,
+                    limit: limit
+                )
+                guard let body = try? CoreJSON.encode(request),
+                      let response = try? await poster.postJSON(body, to: url),
+                      (200..<300).contains(response.statusCode),
+                      let decoded = try? CoreJSON.decode(DirectModeEventsResponse.self, from: response.body) else {
+                    return
+                }
+                for envelope in decoded.events where Self.verifies(envelope, mac: mac) {
+                    continuation.yield(envelope)
+                }
+            }
         }
     }
 
@@ -142,7 +174,7 @@ public actor DirectModeRemoteClient: RemoteClient {
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
         let account = try requireConnected()
         try requireMac(ref.macAgentId)
-        let mediaURL = routeURLString(DirectModeCommandServer.mediaPath, baseURL: endpoint.baseURL)
+        let mediaURL = Self.routeURLString(DirectModeCommandServer.mediaPath, baseURL: endpoint.baseURL)
         guard let url = URL(string: mediaURL) else {
             throw DirectModeRemoteClientError.invalidEndpoint(mediaURL)
         }
@@ -203,9 +235,17 @@ public actor DirectModeRemoteClient: RemoteClient {
         endpoint.transport == .loopback ? .loopback : .tailscaleDirect
     }
 
-    private func routeURLString(_ path: String, baseURL: String) -> String {
+    private static func routeURLString(_ path: String, baseURL: String) -> String {
         let trimmed = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         return "\(trimmed)\(path)"
+    }
+
+    private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {
+        guard envelope.macAgentId == mac.macAgentId else { return false }
+        return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
+            envelope,
+            signingPublicKeyBase64: mac.agentSigningPubkey
+        )) == true)
     }
 
     private func requireConnected() throws -> RemoteAccountSession {
