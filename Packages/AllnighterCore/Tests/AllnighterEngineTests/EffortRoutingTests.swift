@@ -70,4 +70,36 @@ final class EffortRoutingTests: XCTestCase {
         XCTAssertEqual(opus.resolvedLabel(at: .high), "opus")
         XCTAssertEqual(opus.resolvedLabel(at: .low), "opus")
     }
+
+    func testSupportsEffortFlagBasedDrivers() {
+        let opus = Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code")
+        XCTAssertTrue(opus.supportsEffort(manifest: manifest("claude_code")))
+        let chatgpt = Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex")
+        XCTAssertTrue(chatgpt.supportsEffort(manifest: manifest("codex")))
+    }
+
+    func testGrokAndCursorModelsDoNotSupportEffort() {
+        let grokComposer = Model(id: "model_composer", displayName: "Grok Composer 2.5 Fast",
+                                 modelLabel: "grok-composer-2.5-fast", driverId: "grok")
+        XCTAssertFalse(grokComposer.supportsEffort(manifest: manifest("grok")))
+        let cursorFast = Model(id: "model_cursor_composer_25_fast", displayName: "Composer 2.5 Fast",
+                               modelLabel: "composer-2.5-fast", driverId: "cursor_agent")
+        XCTAssertFalse(cursorFast.supportsEffort(manifest: manifest("cursor_agent")))
+    }
+
+    func testAntigravityEffortVariantsGateEffortDial() {
+        let flash = ModelCatalog.builtIns.first { $0.id == "model_gemini" }!
+        let flashModel = Model(id: flash.id, displayName: flash.displayName, modelLabel: flash.modelLabel,
+                               driverId: flash.driverId, effortVariants: flash.effortVariants)
+        XCTAssertTrue(flashModel.supportsEffort(manifest: manifest("antigravity")))
+        let fixed = ModelCatalog.builtIns.first { $0.id == "model_agy_sonnet" }!
+        let fixedModel = Model(id: fixed.id, displayName: fixed.displayName, modelLabel: fixed.modelLabel,
+                               driverId: fixed.driverId, effortVariants: fixed.effortVariants)
+        XCTAssertFalse(fixedModel.supportsEffort(manifest: manifest("antigravity")))
+    }
+
+    func testUnknownCustomModelWithoutEffortFlagStaysHidden() {
+        let custom = Model(id: "custom_grok_fast", displayName: "Mystery", modelLabel: "mystery", driverId: "grok")
+        XCTAssertFalse(custom.supportsEffort(manifest: manifest("grok")))
+    }
 }

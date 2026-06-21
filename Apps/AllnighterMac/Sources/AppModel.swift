@@ -483,7 +483,8 @@ final class AppModel {
             return ComposeBenchModel(
                 id: m.id, name: m.displayName, driverId: m.driverId,
                 cli: m.driverId.replacingOccurrences(of: "_", with: "-"),
-                sub: cliName, ready: ready, notReadyReason: ready ? nil : reason)
+                sub: cliName, ready: ready, notReadyReason: ready ? nil : reason,
+                supportsEffort: m.supportsEffort(registry: registry))
         }
     }
 

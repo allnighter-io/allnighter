@@ -45,4 +45,19 @@ public struct Model: Codable, Sendable, Equatable, Identifiable {
     public func resolvedLabel(at effort: EffortLevel) -> String {
         effortVariants?[effort] ?? modelLabel
     }
+
+    /// Whether the composer should expose the reasoning-effort dial for this worker.
+    /// Antigravity-style models need distinct per-effort labels; flag-based drivers
+    /// (Claude, Codex) need an `effortFlag` on the manifest. Everything else —
+    /// including unknown custom models on drivers without a flag — stays hidden.
+    public func supportsEffort(manifest: DriverManifest?) -> Bool {
+        if let variants = effortVariants {
+            return Set(variants.values).count > 1
+        }
+        return manifest?.invoke?.effortFlag != nil
+    }
+
+    public func supportsEffort(registry: DriverRegistry) -> Bool {
+        supportsEffort(manifest: registry.manifest(id: driverId))
+    }
 }

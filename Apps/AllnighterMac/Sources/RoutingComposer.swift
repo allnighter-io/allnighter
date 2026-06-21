@@ -43,6 +43,8 @@ struct ComposeBenchModel: Identifiable, Equatable {
     let sub: String
     let ready: Bool
     var notReadyReason: String?
+    /// Whether this worker exposes a reasoning-effort axis in the composer.
+    let supportsEffort: Bool
 }
 
 /// A saved team for a lane (maps from TeamCatalog).
@@ -285,7 +287,16 @@ struct RoutingComposer: View {
         }
         // Switching teams drops any explicit worker pin so the chip names THAT team's
         // worker, never a stale override.
-        .onChange(of: team) { _, _ in pinnedWorker = nil }
+        .onChange(of: team) { _, _ in
+            pinnedWorker = nil
+            if !showsEffortChip { effortOpen = false }
+        }
+        .onChange(of: pinnedWorker) { _, _ in
+            if !showsEffortChip { effortOpen = false }
+        }
+        .onChange(of: defaultSettings) { _, _ in
+            if !showsEffortChip { effortOpen = false }
+        }
         // ⌘L — focus the composer editor from anywhere (only a real send composer).
         .onChange(of: commands.focusComposerTick) { _, _ in
             if onSend != nil { composerFocused = true }
@@ -459,7 +470,7 @@ struct RoutingComposer: View {
     }
 
     // Cursor-style attachment row: images are bigger thumbnail tiles (no label, hover-X
-    // top-left, click to view); a captured .txt keeps a compact doc chip. The attachment is
+    // top-right, click to view); a captured .txt keeps a compact doc chip. The attachment is
     // the durable thing; it travels with the run to every worker.
     private var attachmentChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -650,10 +661,20 @@ struct RoutingComposer: View {
         return qi == q.endIndex ? offsets : []
     }
 
+    /// Reasoning effort is model-specific — hide it for Grok/Cursor fast models and
+    /// any worker whose driver has no effort axis. Team runs keep the dial (effort
+    /// applies per worker where the source supports it).
+    private var showsEffortChip: Bool {
+        if team != nil { return true }
+        guard let id = selectedWorkerId,
+              let bench = appModel.composeBench.first(where: { $0.id == id }) else { return false }
+        return bench.supportsEffort
+    }
+
     private var bar: some View {
         HStack(spacing: 9) {
             targetChip
-            effortChip
+            if showsEffortChip { effortChip }
             Spacer(minLength: 8)
             IconButton(systemImage: "paperclip", accessibilityLabel: "Attach image", small: true, action: pickImages)
             sendButton
@@ -1338,7 +1359,7 @@ struct RoutingComposer: View {
 }
 
 /// One composer attachment. An image is a Cursor-style thumbnail tile — larger preview, no
-/// label, click to view, and a remove (×) button that appears top-left on hover. A captured
+/// label, click to view, and a remove (×) button that appears top-right on hover. A captured
 /// `.txt` keeps a compact doc chip (it has no thumbnail).
 private struct ComposerAttachmentTile: View {
     let attachment: ComposeAttachment
@@ -1362,7 +1383,7 @@ private struct ComposerAttachmentTile: View {
     }
 
     private var imageTile: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack(alignment: .topTrailing) {
             Button(action: onOpen) {
                 Group {
                     if let thumb {
@@ -1401,7 +1422,7 @@ private struct ComposerAttachmentTile: View {
         .overlay { RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
     }
 
-    // White × on a dark disc so it reads on any image; top-left per the founder's spec.
+    // White × on a dark disc so it reads on any image; top-right on hover.
     private var removeButton: some View {
         Button(action: onRemove) {
             Image(systemName: "xmark.circle.fill")
