@@ -318,6 +318,32 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertTrue(try verifyAck(acknowledgement.ack))
     }
 
+    func testDrainAcksMalformedInboxRowWithRelayRequestId() async throws {
+        let device = trustedDevice(capabilities: [])
+        let command = try signedCommand(requestId: "req_embedded", kind: .stopAll, payload: .empty)
+        let relay = MockRemoteMacRelay(
+            trustedDevices: [device],
+            inbox: [inboxEntry(command, requestId: "req_relay_row")]
+        )
+        let executor = CapturingRemoteExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor)
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.acknowledgements.first?.requestId, "req_relay_row")
+        XCTAssertEqual(result.acknowledgements.first?.accepted, false)
+        XCTAssertEqual(result.acknowledgements.first?.reason, .badSignature)
+        let stopAllCallCount = await executor.stopAllCallCount()
+        XCTAssertEqual(stopAllCallCount, 0)
+
+        let acknowledgements = await relay.acknowledgements
+        let acknowledgement = try XCTUnwrap(acknowledgements.first)
+        XCTAssertEqual(acknowledgement.requestId, "req_relay_row")
+        XCTAssertEqual(acknowledgement.ack.requestId, "req_relay_row")
+        XCTAssertEqual(acknowledgement.auditEvent.requestId, "req_relay_row")
+        XCTAssertTrue(try verifyAck(acknowledgement.ack))
+    }
+
     func testDrainRejectsMismatchedRegistrationResponse() async throws {
         let executor = CapturingRemoteExecutor(now: now)
         let agent = makeAgent(relay: MismatchedRegistrationRelay(), executor: executor)
@@ -543,10 +569,11 @@ final class RemoteMacAgentTests: XCTestCase {
 
     private func inboxEntry(
         _ command: RemoteCommand,
+        requestId: String? = nil,
         fromDeviceId: String? = nil
     ) -> RemoteCommandInboxEntry {
         RemoteCommandInboxEntry(
-            requestId: command.requestId,
+            requestId: requestId ?? command.requestId,
             accountId: "acct_1",
             macAgentId: "mac_1",
             fromDeviceId: fromDeviceId ?? command.assertion.deviceId,

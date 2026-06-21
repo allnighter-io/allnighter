@@ -202,8 +202,10 @@ public final class RemoteCommandRouter: @unchecked Sendable {
 
     public func route(_ entry: RemoteCommandInboxEntry) async throws -> RemoteCommandRoutingResult {
         let serverTime = now()
-        guard entry.requestId == entry.command.requestId,
-              entry.macAgentId == macAgentId,
+        guard entry.requestId == entry.command.requestId else {
+            return try rejected(entry.command, reason: .badSignature, serverTime: serverTime, requestId: entry.requestId)
+        }
+        guard entry.macAgentId == macAgentId,
               entry.fromDeviceId == entry.command.assertion.deviceId else {
             return try rejected(entry.command, reason: .badSignature, serverTime: serverTime)
         }
@@ -398,10 +400,12 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         outcome: RemoteCommandAckOutcome = .rejected,
         serverTime: Date,
         includeServerTime: Bool = false,
+        requestId: String? = nil,
         targetSummary: String? = nil
     ) throws -> RemoteCommandRoutingResult {
+        let ackRequestId = requestId ?? command.requestId
         let ack = try signedAck(
-            requestId: command.requestId,
+            requestId: ackRequestId,
             accepted: false,
             reason: reason,
             outcome: outcome,
@@ -412,6 +416,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             auditEvent: audit(
                 command,
                 outcome: outcome,
+                requestId: ackRequestId,
                 targetSummary: targetSummary ?? "\(command.kind.rawValue) rejected",
                 serverTime: serverTime
             )
@@ -439,6 +444,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
     private func audit(
         _ command: RemoteCommand,
         outcome: RemoteCommandAckOutcome,
+        requestId: String? = nil,
         targetSummary: String,
         serverTime: Date
     ) -> RemoteAuditEvent {
@@ -446,7 +452,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             ts: serverTime,
             deviceId: command.assertion.deviceId,
             commandKind: command.kind,
-            requestId: command.requestId,
+            requestId: requestId ?? command.requestId,
             targetSummary: targetSummary,
             outcome: outcome
         )
