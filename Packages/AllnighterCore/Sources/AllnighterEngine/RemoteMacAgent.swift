@@ -185,7 +185,12 @@ public final class RemoteMacAgent: @unchecked Sendable {
                 macAgentId: identity.macAgentId
             )
         }
-        try trustedStore.syncTrustedDevices(trustedDevices, macAgentId: identity.macAgentId, now: serverTime)
+        try trustedStore.syncTrustedDevices(
+            trustedDevices,
+            accountId: identity.account.accountId,
+            macAgentId: identity.macAgentId,
+            now: serverTime
+        )
 
         let inbox = try await relay.pendingCommands(
             accountId: identity.account.accountId,

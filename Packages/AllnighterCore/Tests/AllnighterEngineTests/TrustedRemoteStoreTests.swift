@@ -141,11 +141,26 @@ final class TrustedRemoteStoreTests: XCTestCase {
         ))
 
         let fresh = trustedDevice(deviceId: "device_fresh", macAgentId: "mac_1", now: now)
-        try store.syncTrustedDevices([fresh], macAgentId: "mac_1", now: now)
+        try store.syncTrustedDevices([fresh], accountId: "acct_1", macAgentId: "mac_1", now: now)
 
         let registry = store.load()
         XCTAssertEqual(registry.pendingRequests, [request])
         XCTAssertEqual(registry.trustedDevices.map(\.deviceId), ["device_fresh", "device_other"])
+    }
+
+    func testSyncTrustedDevicesPreservesSameMacForOtherAccount() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let stale = trustedDevice(accountId: "acct_1", deviceId: "device_stale", macAgentId: "mac_1", now: now)
+        let otherAccount = trustedDevice(accountId: "acct_2", deviceId: "device_other", macAgentId: "mac_1", now: now)
+        let fresh = trustedDevice(accountId: "acct_1", deviceId: "device_fresh", macAgentId: "mac_1", now: now)
+        try store.save(TrustedRemoteRegistry(trustedDevices: [stale, otherAccount]))
+
+        try store.syncTrustedDevices([fresh], accountId: "acct_1", macAgentId: "mac_1", now: now)
+
+        let registry = store.load()
+        XCTAssertNil(registry.trustedDevices.first { $0.deviceId == "device_stale" })
+        XCTAssertEqual(registry.trustedDevices.first { $0.accountId == "acct_1" }?.deviceId, "device_fresh")
+        XCTAssertEqual(registry.trustedDevices.first { $0.accountId == "acct_2" }?.deviceId, "device_other")
     }
 
     private func pairRequest(
@@ -167,13 +182,18 @@ final class TrustedRemoteStoreTests: XCTestCase {
         )
     }
 
-    private func trustedDevice(deviceId: String, macAgentId: String, now: Date) -> TrustedDevice {
+    private func trustedDevice(
+        accountId: String = "acct_1",
+        deviceId: String,
+        macAgentId: String,
+        now: Date
+    ) -> TrustedDevice {
         TrustedDevice(
             deviceId: deviceId,
             displayName: deviceId,
             deviceSigningPubkey: "sign_\(deviceId)",
             deviceSealingPubkey: "seal_\(deviceId)",
-            accountId: "acct_1",
+            accountId: accountId,
             macAgentId: macAgentId,
             pairedAt: now,
             validUntil: now.addingTimeInterval(300),

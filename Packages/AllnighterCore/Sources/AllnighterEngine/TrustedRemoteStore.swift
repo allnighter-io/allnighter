@@ -47,13 +47,16 @@ public final class TrustedRemoteStore: @unchecked Sendable {
 
     public func syncTrustedDevices(
         _ devices: [TrustedDevice],
+        accountId: String,
         macAgentId: String,
         now: Date = Date()
     ) throws {
         var registry = load()
         expirePendingRequests(in: &registry, now: now)
-        registry.trustedDevices.removeAll { $0.macAgentId == macAgentId }
-        registry.trustedDevices.append(contentsOf: devices.filter { $0.macAgentId == macAgentId })
+        registry.trustedDevices.removeAll { $0.accountId == accountId && $0.macAgentId == macAgentId }
+        registry.trustedDevices.append(contentsOf: devices.filter {
+            $0.accountId == accountId && $0.macAgentId == macAgentId
+        })
         registry.trustedDevices.sort { lhs, rhs in
             let displayOrder = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
             if displayOrder == .orderedSame { return lhs.deviceId < rhs.deviceId }
