@@ -407,6 +407,19 @@ public struct MediaRef: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+public struct MediaKeyEnvelope: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { "\(ref):\(deviceId)" }
+    public var ref: String
+    public var deviceId: String
+    public var sealedKey: SealedBlob
+
+    public init(ref: String, deviceId: String, sealedKey: SealedBlob) {
+        self.ref = ref
+        self.deviceId = deviceId
+        self.sealedKey = sealedKey
+    }
+}
+
 public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable {
     public var id: String { event.id }
     public var macAgentId: String
@@ -811,6 +824,37 @@ private struct RemoteEventSigningBody: Codable, Sendable {
     var macAgentId: String
     var event: RunEvent
     var sealedRef: MediaRef?
+}
+
+public enum RemoteMediaCrypto {
+    public static let mediaKeyContentType = "application/vnd.allnighter.media-key"
+
+    public static func sealContentKey(
+        _ contentKey: Data,
+        ref: String,
+        for devices: [TrustedDevice],
+        now: Date
+    ) throws -> [MediaKeyEnvelope] {
+        try devices
+            .filter { !$0.revoked && $0.validUntil >= now }
+            .sorted { $0.deviceId < $1.deviceId }
+            .map { device in
+                let sealedKey = try RemoteCrypto.seal(
+                    contentKey,
+                    to: device.deviceSealingPubkey,
+                    sealedForKeyId: device.deviceId,
+                    contentType: mediaKeyContentType
+                )
+                return MediaKeyEnvelope(ref: ref, deviceId: device.deviceId, sealedKey: sealedKey)
+            }
+    }
+
+    public static func openContentKey(
+        _ envelope: MediaKeyEnvelope,
+        with deviceSealingKey: Curve25519.KeyAgreement.PrivateKey
+    ) throws -> Data {
+        try RemoteCrypto.open(envelope.sealedKey, with: deviceSealingKey)
+    }
 }
 
 public extension RunEventKind {

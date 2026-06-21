@@ -208,6 +208,51 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(opened, plaintext)
     }
 
+    func testMediaKeyFanoutSealsOnlyActiveDevices() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let activeA = Curve25519.KeyAgreement.PrivateKey()
+        let activeB = Curve25519.KeyAgreement.PrivateKey()
+        let revoked = Curve25519.KeyAgreement.PrivateKey()
+        let expired = Curve25519.KeyAgreement.PrivateKey()
+        let contentKey = Data("secret-media-content-key".utf8)
+        let devices = [
+            mediaDevice(deviceId: "device_b", sealingKey: activeB, now: now),
+            mediaDevice(deviceId: "device_revoked", sealingKey: revoked, now: now, revoked: true),
+            mediaDevice(deviceId: "device_a", sealingKey: activeA, now: now),
+            mediaDevice(deviceId: "device_expired", sealingKey: expired, now: now, validUntil: now.addingTimeInterval(-1)),
+        ]
+
+        let envelopes = try RemoteMediaCrypto.sealContentKey(
+            contentKey,
+            ref: "media_1",
+            for: devices,
+            now: now
+        )
+
+        XCTAssertEqual(envelopes.map(\.deviceId), ["device_a", "device_b"])
+        XCTAssertFalse(String(decoding: try CoreJSON.encode(envelopes), as: UTF8.self).contains("secret-media-content-key"))
+        XCTAssertEqual(try RemoteMediaCrypto.openContentKey(envelopes[0], with: activeA), contentKey)
+        XCTAssertEqual(try RemoteMediaCrypto.openContentKey(envelopes[1], with: activeB), contentKey)
+        XCTAssertThrowsError(try RemoteMediaCrypto.openContentKey(envelopes[0], with: activeB))
+    }
+
+    func testMediaKeyEnvelopeRoundTrips() throws {
+        let recipient = Curve25519.KeyAgreement.PrivateKey()
+        let sealedKey = try RemoteCrypto.seal(
+            Data("content-key".utf8),
+            to: RemoteCrypto.sealingPublicKeyBase64(recipient.publicKey),
+            sealedForKeyId: "device_1",
+            contentType: RemoteMediaCrypto.mediaKeyContentType
+        )
+        let envelope = MediaKeyEnvelope(ref: "media_1", deviceId: "device_1", sealedKey: sealedKey)
+
+        XCTAssertEqual(
+            try CoreJSON.decode(MediaKeyEnvelope.self, from: CoreJSON.encode(envelope)),
+            envelope
+        )
+        XCTAssertEqual(envelope.id, "media_1:device_1")
+    }
+
     func testRemoteEventEnvelopeNormalizesLegacySynthesisKinds() {
         let event = RunEvent(
             id: "evt_1",
@@ -519,5 +564,27 @@ final class RemoteFoundationTests: XCTestCase {
 
         let ack = try await client.send(command)
         XCTAssertTrue(ack.accepted)
+    }
+
+    private func mediaDevice(
+        deviceId: String,
+        sealingKey: Curve25519.KeyAgreement.PrivateKey,
+        now: Date,
+        revoked: Bool = false,
+        validUntil: Date? = nil
+    ) -> TrustedDevice {
+        TrustedDevice(
+            deviceId: deviceId,
+            displayName: deviceId,
+            deviceSigningPubkey: "sign_\(deviceId)",
+            deviceSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(sealingKey.publicKey),
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            pairedAt: now.addingTimeInterval(-60),
+            validUntil: validUntil ?? now.addingTimeInterval(3_600),
+            revoked: revoked,
+            revokedAt: revoked ? now : nil,
+            capabilities: Set(RemoteCapability.allCases)
+        )
     }
 }
