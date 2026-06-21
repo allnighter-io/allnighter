@@ -453,6 +453,37 @@
         {
           "name" : "thread-id",
           "required" : true,
+          "summary" : "Thread id or `latest`."
+        },
+        {
+          "name" : "title",
+          "required" : true,
+          "summary" : "New non-empty thread title."
+        }
+      ],
+      "exampleIds" : [
+        "thread_rename_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured thread JSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "thread rename",
+      "outputSchema" : "none",
+      "summary" : "Rename a work thread (same SSOT as the inbox double-click rename)."
+    },
+    {
+      "args" : [
+        {
+          "name" : "thread-id",
+          "required" : true,
           "summary" : "Thread id."
         }
       ],
@@ -3133,6 +3164,33 @@
       "ruleId" : "thread.not_found"
     },
     {
+      "agentAction" : "Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet.",
+      "code" : "TRY_FIX_PACKET_MISSING",
+      "exitClass" : "operational",
+      "explain" : "The Bug Hunt answer run produced no typed fix packet (the writer emitted no fenced fix-packet block), so there is no hypothesis to try. Re-run the diagnosis with a sharper report.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "try_fix.packet.missing"
+    },
+    {
+      "agentAction" : "Read the gate reason; resolve the danger flag \/ add an actionable hypothesis + proof, then retry.",
+      "code" : "TRY_FIX_PACKET_UNSAFE",
+      "exitClass" : "operational",
+      "explain" : "The fix packet is not safe to execute: it carries a danger flag (credentials, deletion, deploy…), lacks an actionable hypothesis (a fix within a boundary), names no truth owner, or its proof method is incomplete. Danger blocks; doubt does not.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "try_fix.packet.unsafe"
+    },
+    {
+      "agentAction" : "Pass --executor a single mutating team that is runnable on this bench (default execution_playbook).",
+      "code" : "TRY_FIX_EXECUTOR_INVALID",
+      "exitClass" : "operational",
+      "explain" : "The chosen fix executor is not a single, mutating, runnable team. The fix attempt must resolve to exactly one mutating worker.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "try_fix.executor.invalid"
+    },
+    {
       "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
       "code" : "THREAD_SEND_FAILED",
       "exitClass" : "operational",
@@ -3487,6 +3545,11 @@
       "command" : "alln thread send latest \"describe this\" --image .\/shot.png --ref Sources\/App.swift:10-80 --json",
       "id" : "thread_send_json",
       "title" : "Send message with image and file reference to thread"
+    },
+    {
+      "command" : "alln thread rename latest \"Paste-image bug\" --json",
+      "id" : "thread_rename_json",
+      "title" : "Rename a work thread"
     },
     {
       "command" : "alln serve --health --json",
@@ -3955,6 +4018,24 @@
           "required" : true,
           "summary" : "Run id from team_start.",
           "type" : "string"
+        },
+        {
+          "name" : "detail",
+          "required" : false,
+          "summary" : "summary | full (full embeds worker prompt snapshots).",
+          "type" : "string"
+        },
+        {
+          "name" : "full",
+          "required" : false,
+          "summary" : "Alias for detail=full.",
+          "type" : "string"
+        },
+        {
+          "name" : "includePrompts",
+          "required" : false,
+          "summary" : "When true, embed worker prompt snapshots.",
+          "type" : "string"
         }
       ],
       "summary" : "Fetch TeamRunJSON when terminal, or a not-ready envelope."
@@ -4219,6 +4300,12 @@
           "type" : "string"
         },
         {
+          "name" : "runId",
+          "required" : false,
+          "summary" : "Alias for `run` (team-style harness args).",
+          "type" : "string"
+        },
+        {
           "name" : "detail",
           "required" : false,
           "summary" : "summary | full | artifactRefsOnly (default summary).",
@@ -4241,6 +4328,12 @@
           "name" : "run",
           "required" : false,
           "summary" : "Run id or `latest` (default latest).",
+          "type" : "string"
+        },
+        {
+          "name" : "runId",
+          "required" : false,
+          "summary" : "Alias for `run` (team-style harness args).",
           "type" : "string"
         }
       ],
@@ -4381,6 +4474,31 @@
         }
       ],
       "summary" : "Fetch a work thread snapshot."
+    },
+    {
+      "command" : "thread rename",
+      "errors" : [
+        "THREAD_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "thread_rename",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "threadId",
+          "required" : true,
+          "summary" : "Thread id.",
+          "type" : "string"
+        },
+        {
+          "name" : "title",
+          "required" : true,
+          "summary" : "New non-empty thread title.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Rename a work thread (same SSOT as the inbox double-click rename)."
     },
     {
       "command" : "thread status",

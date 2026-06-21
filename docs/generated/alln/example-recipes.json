@@ -90,6 +90,11 @@
     "title" : "Send message with image and file reference to thread"
   },
   {
+    "command" : "alln thread rename latest \"Paste-image bug\" --json",
+    "id" : "thread_rename_json",
+    "title" : "Rename a work thread"
+  },
+  {
     "command" : "alln serve --health --json",
     "id" : "serve_health_json",
     "title" : "Coordinator health"

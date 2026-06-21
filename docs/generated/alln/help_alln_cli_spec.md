@@ -179,6 +179,19 @@ Flags:
 
 Examples: `thread_get_json`.
 
+### `alln thread rename`
+
+Rename a work thread (same SSOT as the inbox double-click rename).
+
+Arguments:
+- `thread-id` (required) — Thread id or `latest`.
+- `title` (required) — New non-empty thread title.
+
+Flags:
+- `--json` — Structured thread JSON.
+
+Examples: `thread_rename_json`.
+
 ### `alln thread status`
 
 Poll thread running/attention state.
@@ -1045,6 +1058,9 @@ Output schema: `helpTopicsJSON`.
 | `FILE_REFERENCE_WORKER_UNSUPPORTED` | yes | no | Choose a worker that can receive referenced file text or use a chat worker. |
 | `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | Use a new idempotency key or repeat the original payload. |
 | `THREAD_NOT_FOUND` | yes | no | Run `alln history --json` (or create a thread); retry with a valid thread id. |
+| `TRY_FIX_PACKET_MISSING` | no | yes | Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet. |
+| `TRY_FIX_PACKET_UNSAFE` | yes | no | Read the gate reason; resolve the danger flag / add an actionable hypothesis + proof, then retry. |
+| `TRY_FIX_EXECUTOR_INVALID` | yes | no | Pass --executor a single mutating team that is runnable on this bench (default execution_playbook). |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |
@@ -1113,6 +1129,7 @@ Output schema: `helpTopicsJSON`.
 - `export_md` — Export the latest result: `alln export latest --format md`
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`
 - `thread_send_json` — Send message with image and file reference to thread: `alln thread send latest "describe this" --image ./shot.png --ref Sources/App.swift:10-80 --json`
+- `thread_rename_json` — Rename a work thread: `alln thread rename latest "Paste-image bug" --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
 - `pending_add_json` — Create a Draft Pending item: `alln pending add --worker claude --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`

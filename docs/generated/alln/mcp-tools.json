@@ -449,6 +449,24 @@
         "required" : true,
         "summary" : "Run id from team_start.",
         "type" : "string"
+      },
+      {
+        "name" : "detail",
+        "required" : false,
+        "summary" : "summary | full (full embeds worker prompt snapshots).",
+        "type" : "string"
+      },
+      {
+        "name" : "full",
+        "required" : false,
+        "summary" : "Alias for detail=full.",
+        "type" : "string"
+      },
+      {
+        "name" : "includePrompts",
+        "required" : false,
+        "summary" : "When true, embed worker prompt snapshots.",
+        "type" : "string"
       }
     ],
     "summary" : "Fetch TeamRunJSON when terminal, or a not-ready envelope."
@@ -713,6 +731,12 @@
         "type" : "string"
       },
       {
+        "name" : "runId",
+        "required" : false,
+        "summary" : "Alias for `run` (team-style harness args).",
+        "type" : "string"
+      },
+      {
         "name" : "detail",
         "required" : false,
         "summary" : "summary | full | artifactRefsOnly (default summary).",
@@ -735,6 +759,12 @@
         "name" : "run",
         "required" : false,
         "summary" : "Run id or `latest` (default latest).",
+        "type" : "string"
+      },
+      {
+        "name" : "runId",
+        "required" : false,
+        "summary" : "Alias for `run` (team-style harness args).",
         "type" : "string"
       }
     ],
@@ -875,6 +905,31 @@
       }
     ],
     "summary" : "Fetch a work thread snapshot."
+  },
+  {
+    "command" : "thread rename",
+    "errors" : [
+      "THREAD_NOT_FOUND",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "thread_rename",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "threadId",
+        "required" : true,
+        "summary" : "Thread id.",
+        "type" : "string"
+      },
+      {
+        "name" : "title",
+        "required" : true,
+        "summary" : "New non-empty thread title.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Rename a work thread (same SSOT as the inbox double-click rename)."
   },
   {
     "command" : "thread status",

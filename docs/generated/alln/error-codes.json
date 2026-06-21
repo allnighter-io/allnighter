@@ -567,6 +567,33 @@
     "ruleId" : "thread.not_found"
   },
   {
+    "agentAction" : "Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet.",
+    "code" : "TRY_FIX_PACKET_MISSING",
+    "exitClass" : "operational",
+    "explain" : "The Bug Hunt answer run produced no typed fix packet (the writer emitted no fenced fix-packet block), so there is no hypothesis to try. Re-run the diagnosis with a sharper report.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "try_fix.packet.missing"
+  },
+  {
+    "agentAction" : "Read the gate reason; resolve the danger flag \/ add an actionable hypothesis + proof, then retry.",
+    "code" : "TRY_FIX_PACKET_UNSAFE",
+    "exitClass" : "operational",
+    "explain" : "The fix packet is not safe to execute: it carries a danger flag (credentials, deletion, deploy…), lacks an actionable hypothesis (a fix within a boundary), names no truth owner, or its proof method is incomplete. Danger blocks; doubt does not.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "try_fix.packet.unsafe"
+  },
+  {
+    "agentAction" : "Pass --executor a single mutating team that is runnable on this bench (default execution_playbook).",
+    "code" : "TRY_FIX_EXECUTOR_INVALID",
+    "exitClass" : "operational",
+    "explain" : "The chosen fix executor is not a single, mutating, runnable team. The fix attempt must resolve to exactly one mutating worker.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "try_fix.executor.invalid"
+  },
+  {
     "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
     "code" : "THREAD_SEND_FAILED",
     "exitClass" : "operational",
