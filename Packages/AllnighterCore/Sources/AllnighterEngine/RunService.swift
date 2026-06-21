@@ -121,6 +121,28 @@ public actor RunService {
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
 
+    // MARK: - Try Fix support (FollowUpCoordinator)
+
+    /// Resolve the chosen executor team to the facts the Try Fix gate needs: does it exist,
+    /// is it mutating, can it run on this bench, and does it resolve to exactly one worker.
+    public func tryFixExecutorFacts(teamId: String) -> TryFixGate.ExecutorFacts {
+        guard let team = teams.first(where: { $0.id == teamId }) ?? TeamCatalog.get(teamId) else {
+            return .init(teamId: teamId, exists: false, isMutating: false, isRunnable: false, workerCount: 0)
+        }
+        let resolved = TeamResolver.resolve(
+            team: team, requestLane: team.lane, requestEffort: team.defaultEffort, readyModels: readyModels())
+        // A mutating team runs exactly one worker (the execution path); count its resolved
+        // answer worker(s) — the catalog enforces one row for mutating teams.
+        let workerCount = team.mutating ? resolved.answerWorkers.count : resolved.allWorkers.count
+        return .init(teamId: teamId, exists: true, isMutating: team.mutating,
+                     isRunnable: resolved.isRunnable, workerCount: workerCount)
+    }
+
+    /// Re-persist a run (used to record Try Fix parent/child links after both runs settle).
+    public func save(_ run: TeamRun) {
+        try? runStore.save(run, models: models, forceArtifacts: run.status.isTerminal)
+    }
+
     /// Model ids that are a runnable substitute *right now*: ON the Bench AND their
     /// source CLI is installed + probe-ready. Mirrors the readiness the `defaults` /
     /// `models` projections show, so Auto's "→ Opus 4.8" preview equals what actually
