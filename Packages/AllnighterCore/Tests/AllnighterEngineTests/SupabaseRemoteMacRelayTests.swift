@@ -146,8 +146,12 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(ackRequest.headers["Prefer"], "resolution=ignore-duplicates,return=minimal")
         let ackRow = try XCTUnwrap(bodyRows(from: ackRequest).first)
         XCTAssertEqual(ackRow["sig"] as? String, ack.signature)
-        XCTAssertEqual(ackRow["created_at"] as? String, iso(signedServerTime))
-        XCTAssertNotEqual(ackRow["created_at"] as? String, iso(envelopeCreatedAt))
+        XCTAssertEqual(ackRow["server_time"] as? String, iso(signedServerTime))
+        XCTAssertEqual(ackRow["created_at"] as? String, iso(envelopeCreatedAt))
+        XCTAssertEqual(ackRow["audit_ts"] as? String, iso(signedServerTime))
+        XCTAssertEqual(ackRow["audit_device_id"] as? String, "device_1")
+        XCTAssertEqual(ackRow["audit_command_kind"] as? String, "stopAll")
+        XCTAssertEqual(ackRow["audit_target_summary"] as? String, "stopAll terminated=1")
 
         let patchRequest = requests[1]
         XCTAssertEqual(patchRequest.method, "PATCH")
@@ -159,18 +163,8 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(patchBody["status"] as? String, "acked")
     }
 
-    func testCommandAckReconstructsVerifiableAckFromRows() async throws {
-        let deviceSigningKey = Curve25519.Signing.PrivateKey()
+    func testCommandAckReadsCompleteVerifiableAckRow() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
-        let payload = RemoteCommandPayload.light(["runId": .string("run_1")])
-        let assertion = try RemoteCrypto.makeDeviceAssertion(
-            deviceId: "device_1",
-            requestId: "req_1",
-            timestamp: now,
-            kind: .stopRun,
-            payload: payload,
-            signingKey: deviceSigningKey
-        )
         let ack = try RemoteCrypto.makeCommandAck(
             macAgentId: "mac_1",
             requestId: "req_1",
@@ -181,7 +175,6 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         )
         let transport = RecordingSupabaseHTTPTransport(responses: [
             SupabaseHTTPResponse(statusCode: 200, data: try jsonData([commandAckRow(ack: ack)])),
-            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([commandInboxRow(assertion: assertion)])),
         ])
         let relay = try makeRelay(transport: transport)
 
@@ -198,11 +191,143 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(envelope.createdAt, now)
         XCTAssertEqual(envelope.auditEvent.deviceId, "device_1")
         XCTAssertEqual(envelope.auditEvent.commandKind, .stopRun)
+        XCTAssertEqual(envelope.auditEvent.targetSummary, "stopRun run_1")
         XCTAssertTrue(try RemoteCrypto.verifyCommandAck(
             envelope.ack,
             macAgentId: "mac_1",
             signingPublicKeyBase64: RemoteCrypto.signingPublicKeyBase64(macSigningKey.publicKey)
         ))
+
+        let recordedRequests = await transport.recordedRequests()
+        XCTAssertEqual(recordedRequests.count, 1)
+        XCTAssertEqual(recordedRequests.first?.url.path, "/rest/v1/command_acks")
+    }
+
+    func testCommandAckPreservesNilSignedServerTime() async throws {
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let ack = try RemoteCrypto.makeCommandAck(
+            macAgentId: "mac_1",
+            requestId: "req_1",
+            accepted: false,
+            reason: .badSignature,
+            outcome: .rejected,
+            serverTime: nil,
+            signingKey: macSigningKey
+        )
+        let rowCreatedAt = now.addingTimeInterval(12)
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                commandAckRow(
+                    ack: ack,
+                    createdAt: rowCreatedAt,
+                    auditTs: rowCreatedAt,
+                    auditCommandKind: .startRun,
+                    auditTargetSummary: "startRun rejected"
+                )
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let fetchedEnvelope = try await relay.commandAck(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            requestId: "req_1"
+        )
+        let envelope = try XCTUnwrap(fetchedEnvelope)
+
+        XCTAssertNil(envelope.ack.serverTime)
+        XCTAssertEqual(envelope.createdAt, rowCreatedAt)
+        XCTAssertEqual(envelope.auditEvent.targetSummary, "startRun rejected")
+        XCTAssertTrue(try RemoteCrypto.verifyCommandAck(
+            envelope.ack,
+            macAgentId: "mac_1",
+            signingPublicKeyBase64: RemoteCrypto.signingPublicKeyBase64(macSigningKey.publicKey)
+        ))
+    }
+
+    func testPublishEventsWritesAndReadsFullSealedMediaRef() async throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let sealedRef = mediaRef()
+        let envelope = try RemoteCrypto.makeRemoteRunEventEnvelope(
+            macAgentId: "mac_1",
+            event: RunEvent(
+                id: "evt_1",
+                seq: 1,
+                ts: now,
+                kind: "run.started",
+                payload: ["runId": .string("run_1"), "prompt": .string("sensitive")]
+            ),
+            sealedRef: sealedRef,
+            signingKey: signingKey
+        )
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 201, data: Data()),
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([try eventEnvelopeRow(envelope)])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        try await relay.publishEvents(accountId: "acct_1", macAgentId: "mac_1", events: [envelope])
+        let fetched = try await relay.runEvents(accountId: "acct_1", macAgentId: "mac_1", after: 0, limit: 10)
+
+        let requests = await transport.recordedRequests()
+        let publishRequest = try XCTUnwrap(requests.first)
+        let row = try XCTUnwrap(bodyRows(from: publishRequest).first)
+        let persistedRef = try XCTUnwrap(row["sealed_ref"] as? [String: Any])
+        XCTAssertEqual(persistedRef["ref"] as? String, "media_1")
+        XCTAssertEqual(persistedRef["mac_agent_id"] as? String, "mac_1")
+        XCTAssertEqual(fetched.first?.sealedRef, sealedRef)
+        XCTAssertTrue(try RemoteCrypto.verifyRemoteRunEventEnvelope(
+            try XCTUnwrap(fetched.first),
+            signingPublicKeyBase64: RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey)
+        ))
+    }
+
+    func testPublishSnapshotWritesSnapshotEnvelopeRow() async throws {
+        let fixedNow = now.addingTimeInterval(60)
+        let snapshot = snapshotEnvelope()
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 201, data: Data())
+        ])
+        let relay = try makeRelay(transport: transport, now: { fixedNow })
+
+        try await relay.publishSnapshot(accountId: "acct_1", macAgentId: "mac_1", snapshot: snapshot)
+
+        let recordedRequests = await transport.recordedRequests()
+        let request = try XCTUnwrap(recordedRequests.first)
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.url.path, "/rest/v1/snapshot_envelopes")
+        XCTAssertEqual(queryValue("on_conflict", in: request.url), "account_id,mac_agent_id")
+        XCTAssertEqual(request.headers["Prefer"], "resolution=merge-duplicates,return=minimal")
+
+        let row = try XCTUnwrap(bodyRows(from: request).first)
+        XCTAssertEqual(row["account_id"] as? String, "acct_1")
+        XCTAssertEqual(row["mac_agent_id"] as? String, "mac_1")
+        XCTAssertEqual(row["last_seq"] as? Int, 7)
+        XCTAssertEqual(row["server_time"] as? String, iso(now))
+        XCTAssertEqual(row["protocol_version"] as? Int, RemoteProtocol.currentMajor)
+        XCTAssertEqual(row["updated_at"] as? String, iso(fixedNow))
+        let runs = try XCTUnwrap(row["runs"] as? [[String: Any]])
+        XCTAssertEqual(runs.first?["id"] as? String, "run_1")
+        XCTAssertEqual(runs.first?["team_display_name"] as? String, "Default Team")
+    }
+
+    func testSnapshotReadsStoredEnvelope() async throws {
+        let snapshot = snapshotEnvelope()
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([snapshotEnvelopeRow(snapshot)]))
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let fetched = try await relay.snapshot(accountId: "acct_1", macAgentId: "mac_1", since: 7)
+
+        XCTAssertEqual(fetched, snapshot)
+        let recordedRequests = await transport.recordedRequests()
+        let request = try XCTUnwrap(recordedRequests.first)
+        XCTAssertEqual(request.method, "GET")
+        XCTAssertEqual(request.url.path, "/rest/v1/snapshot_envelopes")
+        XCTAssertEqual(queryValue("account_id", in: request.url), "eq.acct_1")
+        XCTAssertEqual(queryValue("mac_agent_id", in: request.url), "eq.mac_1")
+        XCTAssertEqual(queryValue("limit", in: request.url), "1")
     }
 
     func testLiveSupabaseRLSIsolatesAccountMacScopesWhenConfigured() async throws {
@@ -264,12 +389,16 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         }
     }
 
-    private func makeRelay(transport: RecordingSupabaseHTTPTransport) throws -> SupabaseRemoteMacRelay {
+    private func makeRelay(
+        transport: RecordingSupabaseHTTPTransport,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) throws -> SupabaseRemoteMacRelay {
         try SupabaseRemoteMacRelay(
             supabaseURL: supabaseURL,
             publishableKey: "publishable",
             tokenProvider: StaticSupabaseAccessTokenProvider(token: "jwt"),
-            transport: transport
+            transport: transport,
+            now: now
         )
     }
 
@@ -292,16 +421,110 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ]
     }
 
-    private func commandAckRow(ack: CommandAck) throws -> [String: Any] {
-        [
+    private func commandAckRow(
+        ack: CommandAck,
+        createdAt: Date? = nil,
+        auditTs: Date? = nil,
+        auditCommandKind: RemoteCommandKind = .stopRun,
+        auditTargetSummary: String = "stopRun run_1"
+    ) throws -> [String: Any] {
+        let rowCreatedAt = createdAt ?? ack.serverTime ?? now
+        let rowAuditTs = auditTs ?? ack.serverTime ?? rowCreatedAt
+        return [
             "request_id": ack.requestId,
             "account_id": "acct_1",
             "mac_agent_id": "mac_1",
             "accepted": ack.accepted,
+            "reason": ack.reason?.rawValue ?? NSNull(),
             "outcome": ack.outcome.rawValue,
+            "server_time": ack.serverTime.map(iso(_:)) ?? NSNull(),
+            "audit_ts": iso(rowAuditTs),
+            "audit_device_id": "device_1",
+            "audit_command_kind": auditCommandKind.rawValue,
+            "audit_target_summary": auditTargetSummary,
             "sig": ack.signature,
-            "created_at": iso(try XCTUnwrap(ack.serverTime)),
+            "created_at": iso(rowCreatedAt),
         ]
+    }
+
+    private func eventEnvelopeRow(_ envelope: RemoteRunEventEnvelope) throws -> [String: Any] {
+        [
+            "id": envelope.event.id,
+            "seq": envelope.event.seq,
+            "ts": iso(envelope.event.ts),
+            "account_id": "acct_1",
+            "mac_agent_id": envelope.macAgentId,
+            "run_id": envelope.event.payload["runId"]?.stringValue ?? NSNull(),
+            "kind": envelope.event.kind,
+            "light_payload": try jsonObject(envelope.event.payload),
+            "sealed_ref": envelope.sealedRef.map(mediaRefRow(_:)) ?? NSNull(),
+            "sig": envelope.signature,
+        ]
+    }
+
+    private func snapshotEnvelope() -> SnapshotEnvelope {
+        SnapshotEnvelope(
+            runs: [
+                TeamRunLight(
+                    id: "run_1",
+                    status: .running,
+                    origin: .ios,
+                    promptExcerpt: "Build the thing",
+                    teamDisplayName: "Default Team",
+                    createdAt: now
+                ),
+            ],
+            lastSeq: 7,
+            serverTime: now
+        )
+    }
+
+    private func snapshotEnvelopeRow(_ snapshot: SnapshotEnvelope) -> [String: Any] {
+        [
+            "account_id": "acct_1",
+            "mac_agent_id": "mac_1",
+            "runs": snapshot.runs.map(teamRunLightRow(_:)),
+            "last_seq": snapshot.lastSeq,
+            "server_time": iso(snapshot.serverTime),
+            "protocol_version": snapshot.protocolVersion,
+            "updated_at": iso(now.addingTimeInterval(5)),
+        ]
+    }
+
+    private func teamRunLightRow(_ run: TeamRunLight) -> [String: Any] {
+        [
+            "id": run.id,
+            "status": run.status.rawValue,
+            "origin": run.origin.rawValue,
+            "prompt_excerpt": run.promptExcerpt,
+            "team_display_name": run.teamDisplayName ?? NSNull(),
+            "created_at": iso(run.createdAt),
+            "completed_at": run.completedAt.map(iso(_:)) ?? NSNull(),
+        ]
+    }
+
+    private func mediaRef() -> MediaRef {
+        MediaRef(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            r2Key: "r2/media_1",
+            contentType: "image/png",
+            expiresAt: now.addingTimeInterval(3600)
+        )
+    }
+
+    private func mediaRefRow(_ ref: MediaRef) -> [String: Any] {
+        [
+            "ref": ref.ref,
+            "mac_agent_id": ref.macAgentId,
+            "r2_key": ref.r2Key,
+            "content_type": ref.contentType,
+            "expires_at": iso(ref.expiresAt),
+        ]
+    }
+
+    private func jsonObject<T: Encodable>(_ value: T) throws -> Any {
+        try JSONSerialization.jsonObject(with: try SupabaseJSON.encode(value))
     }
 
     private func bodyRows(from request: SupabaseHTTPRequest) throws -> [[String: Any]] {

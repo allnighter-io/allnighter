@@ -88,6 +88,11 @@ CREATE TABLE IF NOT EXISTS "public"."command_acks" (
     "accepted" boolean NOT NULL,
     "reason" "text",
     "outcome" "text" NOT NULL,
+    "server_time" timestamp with time zone,
+    "audit_ts" timestamp with time zone NOT NULL,
+    "audit_device_id" "text" NOT NULL,
+    "audit_command_kind" "text" NOT NULL,
+    "audit_target_summary" "text" NOT NULL,
     "sig" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
@@ -121,13 +126,27 @@ CREATE TABLE IF NOT EXISTS "public"."event_envelopes" (
     "run_id" "text",
     "kind" "text" NOT NULL,
     "light_payload" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "sealed_ref" "text",
+    "sealed_ref" "jsonb",
     "sig" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 
 ALTER TABLE "public"."event_envelopes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."snapshot_envelopes" (
+    "account_id" "uuid" NOT NULL,
+    "mac_agent_id" "uuid" NOT NULL,
+    "runs" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "last_seq" bigint NOT NULL,
+    "server_time" timestamp with time zone NOT NULL,
+    "protocol_version" integer NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."snapshot_envelopes" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."mac_agents" (
@@ -283,6 +302,10 @@ ALTER TABLE ONLY "public"."event_envelopes"
     ADD CONSTRAINT "event_envelopes_pkey" PRIMARY KEY ("account_id", "mac_agent_id", "id");
 
 
+ALTER TABLE ONLY "public"."snapshot_envelopes"
+    ADD CONSTRAINT "snapshot_envelopes_pkey" PRIMARY KEY ("account_id", "mac_agent_id");
+
+
 
 ALTER TABLE ONLY "public"."mac_agents"
     ADD CONSTRAINT "mac_agents_pkey" PRIMARY KEY ("id");
@@ -325,12 +348,32 @@ ALTER TABLE ONLY "public"."command_inbox"
 
 
 ALTER TABLE ONLY "public"."command_inbox"
-    ADD CONSTRAINT "command_inbox_start_run_sealed_payload_check" CHECK ((("kind" <> 'startRun'::"text") OR ((("payload" ->> 'kind'::"text") = 'sealedBlob'::"text") AND ("payload" ? 'sealedBlob'::"text") AND (NOT ("payload" ? 'lightPayload'::"text")))));
+    ADD CONSTRAINT "command_inbox_start_run_sealed_payload_check" CHECK ((("kind" <> 'startRun'::"text") OR ((("payload" ->> 'kind'::"text") = 'sealedBlob'::"text") AND ("payload" ? 'sealed_blob'::"text") AND (NOT ("payload" ? 'light_payload'::"text")))));
 
 
 
 ALTER TABLE ONLY "public"."command_inbox"
     ADD CONSTRAINT "command_inbox_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'acked'::"text"])));
+
+
+
+ALTER TABLE ONLY "public"."command_acks"
+    ADD CONSTRAINT "command_acks_outcome_check" CHECK (("outcome" = ANY (ARRAY['accepted'::"text", 'rejected'::"text", 'duplicate'::"text", 'queued'::"text"])));
+
+
+
+ALTER TABLE ONLY "public"."command_acks"
+    ADD CONSTRAINT "command_acks_audit_command_kind_check" CHECK (("audit_command_kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'stopAll'::"text", 'approveRequest'::"text", 'rejectRequest'::"text", 'openOnMac'::"text", 'landPlane'::"text"])));
+
+
+
+ALTER TABLE ONLY "public"."command_acks"
+    ADD CONSTRAINT "command_acks_audit_target_summary_check" CHECK (("char_length"("audit_target_summary") <= 200));
+
+
+
+ALTER TABLE ONLY "public"."snapshot_envelopes"
+    ADD CONSTRAINT "snapshot_envelopes_protocol_version_check" CHECK (("protocol_version" = 1));
 
 
 
@@ -379,6 +422,15 @@ ALTER TABLE ONLY "public"."event_envelopes"
 
 ALTER TABLE ONLY "public"."event_envelopes"
     ADD CONSTRAINT "event_envelopes_mac_agent_id_fkey" FOREIGN KEY ("mac_agent_id") REFERENCES "public"."mac_agents"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."snapshot_envelopes"
+    ADD CONSTRAINT "snapshot_envelopes_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."snapshot_envelopes"
+    ADD CONSTRAINT "snapshot_envelopes_mac_agent_id_fkey" FOREIGN KEY ("mac_agent_id") REFERENCES "public"."mac_agents"("id") ON DELETE CASCADE;
 
 
 
@@ -431,6 +483,9 @@ ALTER TABLE "public"."command_inbox" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."event_envelopes" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."snapshot_envelopes" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."mac_agents" ENABLE ROW LEVEL SECURITY;
 
 
@@ -457,6 +512,10 @@ CREATE POLICY "approved devices insert command inbox" ON "public"."command_inbox
 
 
 CREATE POLICY "mac agents insert event envelopes" ON "public"."event_envelopes" FOR INSERT TO "authenticated" WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
+
+
+
+CREATE POLICY "mac agents insert snapshot envelopes" ON "public"."snapshot_envelopes" FOR INSERT TO "authenticated" WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
 
@@ -502,6 +561,10 @@ CREATE POLICY "approved devices select event envelopes" ON "public"."event_envel
 
 
 
+CREATE POLICY "approved devices select snapshot envelopes" ON "public"."snapshot_envelopes" FOR SELECT TO "authenticated" USING (("public"."mac_agent_claim_matches"("account_id", "mac_agent_id") OR "public"."approved_remote_device"("mac_agent_id", "public"."remote_device_id"())));
+
+
+
 CREATE POLICY "users select own mac agents" ON "public"."mac_agents" FOR SELECT TO "authenticated" USING (("account_id" = "auth"."uid"()));
 
 
@@ -528,6 +591,10 @@ CREATE POLICY "approved devices select trusted devices" ON "public"."trusted_dev
 
 
 CREATE POLICY "mac agents update command inbox" ON "public"."command_inbox" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
+
+
+
+CREATE POLICY "mac agents update snapshot envelopes" ON "public"."snapshot_envelopes" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
 
 
@@ -774,6 +841,12 @@ GRANT ALL ON TABLE "public"."command_inbox" TO "service_role";
 GRANT ALL ON TABLE "public"."event_envelopes" TO "anon";
 GRANT ALL ON TABLE "public"."event_envelopes" TO "authenticated";
 GRANT ALL ON TABLE "public"."event_envelopes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."snapshot_envelopes" TO "anon";
+GRANT ALL ON TABLE "public"."snapshot_envelopes" TO "authenticated";
+GRANT ALL ON TABLE "public"."snapshot_envelopes" TO "service_role";
 
 
 

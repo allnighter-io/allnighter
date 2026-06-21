@@ -286,8 +286,7 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
             ]
         )
         guard let row = rows.first else { return nil }
-        let inbox = try await commandInboxRow(accountId: accountId, macAgentId: macAgentId, requestId: requestId)
-        return try row.envelope(command: inbox?.entry())
+        return row.envelope()
     }
 
     public func pendingCommands(accountId: String, macAgentId: String, limit: Int) async throws -> [RemoteCommandInboxEntry] {
@@ -397,21 +396,25 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
         ) as [EventEnvelopeRow]
     }
 
-    public func publishSnapshot(accountId _: String, macAgentId _: String, snapshot _: SnapshotEnvelope) async throws {
-        // The current Supabase schema has no snapshot table. The cloud adapter synthesizes
-        // a best-effort snapshot from event rows until that table exists.
+    public func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws {
+        _ = try await post(
+            table: "snapshot_envelopes",
+            rows: [SnapshotEnvelopeRow(accountId: accountId, macAgentId: macAgentId, snapshot: snapshot, updatedAt: now())],
+            query: [URLQueryItem(name: "on_conflict", value: "account_id,mac_agent_id")],
+            prefer: "resolution=merge-duplicates,return=minimal"
+        ) as [SnapshotEnvelopeRow]
     }
 
     public func snapshot(accountId: String, macAgentId: String, since _: Int64?) async throws -> SnapshotEnvelope? {
-        let events = try await runEvents(accountId: accountId, macAgentId: macAgentId, after: -1, limit: 5_000)
-        let base = SnapshotEnvelope(runs: [], lastSeq: 0, serverTime: now())
-        let state = RemoteRunReducer.apply(snapshot: base, events: events)
-        return SnapshotEnvelope(
-            runs: state.runs,
-            lastSeq: state.lastSeq,
-            serverTime: now(),
-            protocolVersion: state.protocolVersion
+        let rows: [SnapshotEnvelopeRow] = try await get(
+            table: "snapshot_envelopes",
+            query: [
+                eq("account_id", accountId),
+                eq("mac_agent_id", macAgentId),
+                URLQueryItem(name: "limit", value: "1"),
+            ]
         )
+        return rows.first?.envelope()
     }
 
     public func publishMedia(ref: MediaRef, data _: Data, keys: [MediaKeyEnvelope]) async throws {
@@ -468,19 +471,6 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
         )
         guard !refs.isEmpty else { return nil }
         return row.model()
-    }
-
-    private func commandInboxRow(accountId: String, macAgentId: String, requestId: String) async throws -> CommandInboxRow? {
-        let rows: [CommandInboxRow] = try await get(
-            table: "command_inbox",
-            query: [
-                eq("account_id", accountId),
-                eq("mac_agent_id", macAgentId),
-                eq("request_id", requestId),
-                URLQueryItem(name: "limit", value: "1"),
-            ]
-        )
-        return rows.first
     }
 
     private func get<T: Decodable>(table: String, query: [URLQueryItem]) async throws -> [T] {
@@ -830,6 +820,11 @@ private struct CommandAckRow: Codable {
     var accepted: Bool
     var reason: RemoteCommandRejectReason?
     var outcome: RemoteCommandAckOutcome
+    var serverTime: Date?
+    var auditTs: Date
+    var auditDeviceId: String
+    var auditCommandKind: RemoteCommandKind
+    var auditTargetSummary: String
     var sig: String
     var createdAt: Date
 
@@ -840,25 +835,30 @@ private struct CommandAckRow: Codable {
         accepted = envelope.ack.accepted
         reason = envelope.ack.reason
         outcome = envelope.ack.outcome
+        serverTime = envelope.ack.serverTime
+        auditTs = envelope.auditEvent.ts
+        auditDeviceId = envelope.auditEvent.deviceId
+        auditCommandKind = envelope.auditEvent.commandKind
+        auditTargetSummary = envelope.auditEvent.targetSummary
         sig = envelope.ack.signature
-        createdAt = envelope.ack.serverTime ?? envelope.createdAt
+        createdAt = envelope.createdAt
     }
 
-    func envelope(command: RemoteCommandInboxEntry?) throws -> RemoteCommandAckEnvelope {
+    func envelope() -> RemoteCommandAckEnvelope {
         let ack = CommandAck(
             requestId: requestId,
             accepted: accepted,
             reason: reason,
             outcome: outcome,
-            serverTime: createdAt,
+            serverTime: serverTime,
             signature: sig
         )
         let audit = RemoteAuditEvent(
-            ts: createdAt,
-            deviceId: command?.fromDeviceId ?? "",
-            commandKind: command?.command.kind ?? .stopAll,
+            ts: auditTs,
+            deviceId: auditDeviceId,
+            commandKind: auditCommandKind,
             requestId: requestId,
-            targetSummary: "",
+            targetSummary: auditTargetSummary,
             outcome: outcome
         )
         return RemoteCommandAckEnvelope(
@@ -881,7 +881,7 @@ struct EventEnvelopeRow: Codable {
     var runId: String?
     var kind: String
     var lightPayload: [String: JSONValue]
-    var sealedRef: String?
+    var sealedRef: MediaRef?
     var sig: String
 
     init(accountId: String, envelope: RemoteRunEventEnvelope) {
@@ -893,7 +893,7 @@ struct EventEnvelopeRow: Codable {
         runId = envelope.event.payload["runId"]?.stringValue
         kind = envelope.event.kind
         lightPayload = envelope.event.payload
-        sealedRef = envelope.sealedRef?.ref
+        sealedRef = envelope.sealedRef
         sig = envelope.signature
     }
 
@@ -901,8 +901,37 @@ struct EventEnvelopeRow: Codable {
         RemoteRunEventEnvelope(
             macAgentId: macAgentId,
             event: RunEvent(id: id, seq: seq, ts: ts, kind: kind, payload: lightPayload),
-            sealedRef: nil,
+            sealedRef: sealedRef,
             signature: sig
+        )
+    }
+}
+
+private struct SnapshotEnvelopeRow: Codable {
+    var accountId: String
+    var macAgentId: String
+    var runs: [TeamRunLight]
+    var lastSeq: Int64
+    var serverTime: Date
+    var protocolVersion: Int
+    var updatedAt: Date
+
+    init(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope, updatedAt: Date) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        runs = snapshot.runs
+        lastSeq = snapshot.lastSeq
+        serverTime = snapshot.serverTime
+        protocolVersion = snapshot.protocolVersion
+        self.updatedAt = updatedAt
+    }
+
+    func envelope() -> SnapshotEnvelope {
+        SnapshotEnvelope(
+            runs: runs,
+            lastSeq: lastSeq,
+            serverTime: serverTime,
+            protocolVersion: protocolVersion
         )
     }
 }
