@@ -123,6 +123,63 @@ public struct RemoteThreadSnapshotEnvelope: Codable, Equatable, Sendable {
     }
 }
 
+public struct RemoteThreadTurnDetail: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var kind: ThreadTurnKind
+    public var status: ThreadTurnStatus
+    public var author: TurnAuthor
+    public var createdAt: Date
+    public var completedAt: Date?
+    public var text: String?
+    public var workerId: String?
+    public var runId: String?
+    public var stageId: String?
+    public var partialOutputTruncated: Bool
+    public var attachmentRefs: [TurnAttachmentRef]
+    public var fileReferenceRefs: [TurnFileReferenceRef]
+
+    public init(
+        id: String,
+        kind: ThreadTurnKind,
+        status: ThreadTurnStatus,
+        author: TurnAuthor,
+        createdAt: Date,
+        completedAt: Date? = nil,
+        text: String? = nil,
+        workerId: String? = nil,
+        runId: String? = nil,
+        stageId: String? = nil,
+        partialOutputTruncated: Bool = false,
+        attachmentRefs: [TurnAttachmentRef] = [],
+        fileReferenceRefs: [TurnFileReferenceRef] = []
+    ) {
+        self.id = id
+        self.kind = kind
+        self.status = status
+        self.author = author
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+        self.text = text
+        self.workerId = workerId
+        self.runId = runId
+        self.stageId = stageId
+        self.partialOutputTruncated = partialOutputTruncated
+        self.attachmentRefs = attachmentRefs
+        self.fileReferenceRefs = fileReferenceRefs
+    }
+}
+
+public struct RemoteThreadDetail: Codable, Equatable, Identifiable, Sendable {
+    public var id: String { summary.id }
+    public var summary: RemoteThreadSummary
+    public var turns: [RemoteThreadTurnDetail]
+
+    public init(summary: RemoteThreadSummary, turns: [RemoteThreadTurnDetail]) {
+        self.summary = summary
+        self.turns = turns
+    }
+}
+
 public enum RemoteThreadProjection {
     public static func readState(from thread: WorkThread) -> RemoteThreadReadState {
         RemoteThreadReadState(
@@ -161,6 +218,31 @@ public enum RemoteThreadProjection {
             readState: readState(from: thread),
             turnCount: thread.turns.count,
             latestTurn: thread.turns.last.map(turnLight(from:))
+        )
+    }
+
+    public static func turnDetail(from turn: ThreadTurn) -> RemoteThreadTurnDetail {
+        RemoteThreadTurnDetail(
+            id: turn.id,
+            kind: turn.kind,
+            status: turn.status,
+            author: turn.author,
+            createdAt: turn.createdAt,
+            completedAt: turn.completedAt,
+            text: turn.text,
+            workerId: turn.workerId,
+            runId: turn.runId,
+            stageId: turn.stageId,
+            partialOutputTruncated: turn.partialOutputTruncated,
+            attachmentRefs: turn.attachmentRefs,
+            fileReferenceRefs: turn.fileReferenceRefs
+        )
+    }
+
+    public static func detail(from thread: WorkThread, hasPendingItem: Bool = false) -> RemoteThreadDetail {
+        RemoteThreadDetail(
+            summary: summary(from: thread, hasPendingItem: hasPendingItem),
+            turns: thread.turns.map(turnDetail(from:))
         )
     }
 
