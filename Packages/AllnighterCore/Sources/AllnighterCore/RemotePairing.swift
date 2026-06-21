@@ -52,6 +52,25 @@ public struct RemotePairRequestDraft: Codable, Equatable, Sendable {
     }
 }
 
+public struct RemotePairingDeviceIdentity: Codable, Equatable, Sendable {
+    public var deviceId: String
+    public var displayName: String
+    public var deviceSigningPubkey: String
+    public var deviceSealingPubkey: String
+
+    public init(
+        deviceId: String,
+        displayName: String,
+        deviceSigningPubkey: String,
+        deviceSealingPubkey: String
+    ) {
+        self.deviceId = deviceId
+        self.displayName = displayName
+        self.deviceSigningPubkey = deviceSigningPubkey
+        self.deviceSealingPubkey = deviceSealingPubkey
+    }
+}
+
 public struct RemotePairRequest: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var accountId: String
