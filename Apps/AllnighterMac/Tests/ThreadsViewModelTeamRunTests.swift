@@ -27,10 +27,17 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
             } else {
                 prompt = stdin ?? args.joined(separator: " ")
             }
+            record(prompt)
+            return CommandResult(stdout: "Read the referenced file.", exitCode: 0)
+        }
+
+        /// NSLock.lock()/unlock() are unavailable from async contexts under Swift 6
+        /// strict concurrency, so do the locking inside synchronous helpers that the
+        /// async `run` can safely call.
+        private func record(_ prompt: String) {
             lock.lock()
             prompts.append(prompt)
             lock.unlock()
-            return CommandResult(stdout: "Read the referenced file.", exitCode: 0)
         }
 
         func lastPrompt() -> String? {

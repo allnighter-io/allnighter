@@ -18,6 +18,16 @@ private final class LockedBuffer: @unchecked Sendable {
     }
 }
 
+/// Thread-safe timestamp — the streaming idle watchdog reads it while readability
+/// handlers (on a dispatch queue) write it on each output chunk.
+private final class LockedDate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Date
+    init(_ value: Date) { self.value = value }
+    func set(_ value: Date) { lock.lock(); self.value = value; lock.unlock() }
+    func get() -> Date { lock.lock(); defer { lock.unlock() }; return value }
+}
+
 private final class ResumeOnce: @unchecked Sendable {
     private let lock = NSLock()
     private var resumed = false
@@ -148,12 +158,16 @@ public struct SubprocessCommandRunner: CommandRunner, StreamingCommandRunner {
             let errBuffer = LockedBuffer()
             // Readability handlers append to the full buffers (so the terminal
             // CommandResult carries everything) AND forward each raw chunk live.
+            // The timeout is IDLE, not total: every output chunk pushes the deadline
+            // forward, so a healthy agent that's actively streaming reasoning/output is
+            // never killed mid-work — only a genuinely silent (hung) worker is.
+            let lastActivity = LockedDate(Date())
             let configured = Self.configureProcess(
                 command: command, args: args, env: env,
                 workingDirectory: workingDirectory, hasStdin: stdin != nil,
                 outBuffer: outBuffer, errBuffer: errBuffer,
-                onStdout: { continuation.yield(.stdout($0)) },
-                onStderr: { continuation.yield(.stderr($0)) }
+                onStdout: { lastActivity.set(Date()); continuation.yield(.stdout($0)) },
+                onStderr: { lastActivity.set(Date()); continuation.yield(.stderr($0)) }
             )
             guard let process = configured.process else {
                 continuation.yield(.failed(launchError: configured.launchError ?? "command not found: \(command)"))
@@ -203,12 +217,17 @@ public struct SubprocessCommandRunner: CommandRunner, StreamingCommandRunner {
             }
             continuation.yield(.started(startedAt: Date()))
 
-            // Timeout watchdog.
+            // Idle-timeout watchdog: kill only when SILENT for `timeout` (no output),
+            // re-checking every few seconds and resetting whenever a chunk arrives.
+            let idleSeconds = max(Double(timeout.components.seconds), 1)
             Task {
-                try? await Task.sleep(for: timeout)
-                if box.process.isRunning {
-                    endReason.set(.timeout)
-                    Self.killGroup(box.process)
+                while box.process.isRunning {
+                    let idle = Date().timeIntervalSince(lastActivity.get())
+                    if idle >= idleSeconds {
+                        if box.process.isRunning { endReason.set(.timeout); Self.killGroup(box.process) }
+                        break
+                    }
+                    try? await Task.sleep(for: .seconds(min(idleSeconds - idle, 5)))
                 }
             }
         }

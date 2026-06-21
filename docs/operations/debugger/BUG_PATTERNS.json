@@ -1,4 +1,11 @@
 {
   "version": 1,
-  "patterns": []
+  "patterns": [
+    {
+      "id": "mac-composer-paste-owned-by-text-view",
+      "surface": "Apps/AllnighterMac/Sources/AllnighterTextEditor.swift",
+      "law": "The Mac composer text view must own plain-text paste insertion directly; do not close a paste bug by relying only on SwiftUI commands, a main Edit menu, or implicit AppKit responder routing.",
+      "proof": "xcodebuild test -project Apps/AllnighterMac/AllnighterMac.xcodeproj -scheme AllnighterMac -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO -only-testing:AllnighterMacTests/AllnighterTextEditorTests"
+    }
+  ]
 }

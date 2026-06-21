@@ -29,7 +29,7 @@ final class TeamDraftTests: XCTestCase {
     private var buildSkill: String { SkillCatalog.list(lane: .code).first!.id }
 
     func testSeedFromBuiltInKeepsRealNameUntilSaved() {
-        let d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        let d = TeamDraft(base: buildBase)
         XCTAssertEqual(d.name, buildBase.displayName,
                        "selecting a built-in must NOT preemptively rename it to (custom)")
         XCTAssertFalse(d.name.contains("(custom)"))
@@ -39,7 +39,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testSavingAnUnrenamedBuiltInSuffixesCustomAtSaveTime() throws {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
         let id = try d.commit()
         XCTAssertEqual(TeamCatalog.get(id)?.displayName, "\(buildBase.displayName) (custom)",
@@ -47,13 +47,13 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testNotSavableWithAModellessRow() {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.rows[0].modelId = nil
         XCTAssertFalse(d.isSavable, "every role needs a named model before Save")
     }
 
     func testCommitDuplicatesBuiltInToCustomAndLeavesBuiltInUntouched() throws {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
 
         let id = try d.commit()
@@ -73,7 +73,7 @@ final class TeamDraftTests: XCTestCase {
             throw XCTSkip("no design skills to cross with")
         }
         let before = TeamCatalog.list(lane: .code).count
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.rows = [.init(id: "r1", skillId: designSkill, modelId: "model_opus", purpose: .answer)]
 
         XCTAssertThrowsError(try d.commit()) { err in
@@ -97,7 +97,7 @@ final class TeamDraftTests: XCTestCase {
     func testEditingPromptDraftWithoutCommitWritesNothing() {
         let skillsBefore = customBuildSkills().count
         let teamsBefore = customBuildTeams().count
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.rows[0].promptDraft = "edited but never saved (this is Cancel)"
         // No commit() — equivalent to Cancel.
         XCTAssertEqual(customBuildSkills().count, skillsBefore, "cancel forks no skill")
@@ -105,7 +105,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testPromptEditForksCustomSkillOnSaveAndRepointsRow() throws {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         let originalSkillId = d.rows[0].skillId
         let originalTemplate = SkillCatalog.get(originalSkillId)?.template
         let originalName = SkillCatalog.get(originalSkillId)?.displayName ?? originalSkillId
@@ -128,7 +128,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testModelOnlyChangeDoesNotFork() throws {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.rows[0].modelId = "model_grok"   // model only; no promptDraft
         let skillsBefore = customBuildSkills().count
         _ = try d.commit()
@@ -136,7 +136,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testFailedTeamSaveRollsBackForkedSkill() throws {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         XCTAssertGreaterThan(d.rows.count, 1, "need a second row to force a team-save failure")
         d.rows[0].promptDraft = "tuned prompt that must roll back"
         // Force the team save to fail AFTER the fork: a later row points at no skill.
@@ -154,7 +154,7 @@ final class TeamDraftTests: XCTestCase {
     // MARK: - S03b: type-to-create + named forks
 
     func testTypeToCreateMakesANamedCustomSkillOnSave() throws {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         // A brand-new skill (no source skillId), named by the user, prompt written.
         d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
                           purpose: .answer,
@@ -173,7 +173,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testNamedForkUsesChosenNameNotAuto() throws {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         let sourceId = d.rows[0].skillId
         d.rows[0].promptDraft = "tuned"
         d.rows[0].customSkillName = "Renamed Skill"
@@ -186,7 +186,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testNewSkillRowWithoutNameIsNotSavable() {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
                           purpose: .answer,
                           promptDraft: "has prompt", customSkillName: nil)
@@ -194,7 +194,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testMutatingMixedSourceSaveIsBlocked() {
-        var d = TeamDraft(base: buildBase, defaultModelId: "model_opus")
+        var d = TeamDraft(base: buildBase)
         d.mutating = true
         if d.rows.count > 1 {
             d.rows[1].modelId = "model_chatgpt"

@@ -12,7 +12,7 @@
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
-    "timeoutSeconds": 300,
+    "timeoutSeconds": 600,
     "effortFlag": { "flag": "--effort", "levels": { "low": "low", "med": "medium", "high": "high" } }
   },
   "output": {

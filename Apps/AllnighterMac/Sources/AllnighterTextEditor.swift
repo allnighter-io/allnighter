@@ -26,6 +26,14 @@ enum ALTextEditorCommand {
 /// app is `LSUIElement` promoted to `.regular`, so it has no reliable Edit menu, which is
 /// why paste only beeped. Handling them here makes editing work regardless of the menu.
 final class ComposerTextView: NSTextView {
+    override func paste(_ sender: Any?) {
+        guard let pasted = NSPasteboard.general.string(forType: .string), !pasted.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        insertText(pasted, replacementRange: selectedRange())
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.charactersIgnoringModifiers?.lowercased()

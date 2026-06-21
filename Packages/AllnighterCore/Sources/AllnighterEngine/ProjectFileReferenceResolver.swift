@@ -461,12 +461,13 @@ public struct ProjectFileCatalog {
         process.standardError = Pipe()
         do {
             try process.run()
-            process.waitUntilExit()
         } catch {
             return []
         }
-        guard process.terminationStatus == 0 else { return [] }
+        // Drain before waiting — same pipe-deadlock guard as the file listing.
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return [] }
         guard let raw = String(data: data, encoding: .utf8) else { return [] }
         var dirty = Set<String>()
         for entry in raw.split(separator: "\0") where entry.count > 3 {
@@ -488,12 +489,16 @@ public struct ProjectFileCatalog {
         process.standardError = Pipe()
         do {
             try process.run()
-            process.waitUntilExit()
         } catch {
             return nil
         }
-        guard process.terminationStatus == 0 else { return nil }
+        // Drain the pipe BEFORE waitUntilExit. On a big repo git's output exceeds the
+        // 64KB pipe buffer; if we waited first, git would block writing and we'd block
+        // waiting → deadlock (the bug that hung the @ picker on real repos but never in
+        // the tiny fixtures).
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return nil }
         guard let raw = String(data: data, encoding: .utf8) else { return nil }
         let files = raw.split(separator: "\0").map(String.init)
         return files.isEmpty ? nil : files
