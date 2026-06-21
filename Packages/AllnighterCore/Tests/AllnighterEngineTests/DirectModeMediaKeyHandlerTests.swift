@@ -103,6 +103,50 @@ final class DirectModeMediaKeyHandlerTests: XCTestCase {
             )
         }
     }
+
+    func testHandlerRejectsMismatchedProviderMediaKey() async throws {
+        let mismatchedKey = MediaKeyEnvelope(
+            ref: "media_other",
+            deviceId: "device_other",
+            sealedKey: SealedBlob(
+                ciphertext: Data("ciphertext".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: "device_other",
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+        let provider = RecordingDirectModeMediaKeyProvider(keys: [
+            "media_1:device_1": mismatchedKey,
+        ])
+        let fixedNow = now
+        let handler = DirectModeMediaKeyHandler(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            provider: provider,
+            now: { fixedNow }
+        )
+
+        do {
+            _ = try await handler.mediaKey(DirectModeMediaKeyRequest(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                ref: "media_1",
+                deviceId: "device_1",
+                checkedAt: now
+            ))
+            XCTFail("Expected mismatched media key")
+        } catch {
+            XCTAssertEqual(
+                error as? DirectModeMediaKeyError,
+                .mediaKeyMismatch(
+                    expectedRef: "media_1",
+                    actualRef: "media_other",
+                    expectedDeviceId: "device_1",
+                    actualDeviceId: "device_other"
+                )
+            )
+        }
+    }
 }
 
 private actor RecordingDirectModeMediaKeyProvider: DirectModeMediaKeyProviding {
