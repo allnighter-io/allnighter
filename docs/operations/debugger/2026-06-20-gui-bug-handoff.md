@@ -1,8 +1,8 @@
-# Team Surface Bugs — Handoff
+# GUI Bug Handoff
 
 **Date reported:** 2026-06-20  
 **Status:** Intake only. Do not treat this file as an implementation plan or proof of a fix.  
-**Surface:** Team launcher, Team Studio, Customize Teams.  
+**Surfaces:** Team launcher, Team Studio, Customize Teams, Composer.  
 **Reporter evidence:** User reports plus screenshots from the original Codex requests.
 
 ## User-Reported Bugs
@@ -24,7 +24,16 @@
 **Expected:** `Auto` should appear exactly once as the nil/default model choice. If selected, only that single row should carry the selected/check state.  
 **Notes for dev:** `Auto` is the default model concept, not a concrete catalog model duplicate. Confirm whether the dropdown is combining the explicit `Auto` sentinel with a concrete model whose display name is also `Auto` (for example Cursor Agent Auto), then dedupe by identity/semantics rather than label-only guesswork.
 
-### 3. Up/down arrows do not select Customize Teams dropdown rows
+### 3. Return/Enter in Composer should send, Shift+Return should newline
+
+**Priority:** P1 / core composer usability.  
+**Surface:** Composer prompt editor.  
+**Observed:** Pressing Return or Enter in the Composer does not submit/send the prompt the way Cursor does.  
+**Expected:** Match Cursor behavior: plain Return or Enter sends the prompt. Shift+Return or Shift+Enter inserts a line break. Empty/disabled sends should still be blocked by the existing send rules.  
+**Impact:** The primary chat/composer muscle memory is inverted; users expect Enter to send and only use Shift+Enter for multiline input.  
+**Notes for dev:** Preserve special composer subflows. If the `@` file-reference picker is open, Return may still need to accept the highlighted file reference before normal send behavior resumes. Outside those subflows, plain Return/Enter should call the same send path as the send button.
+
+### 4. Up/down arrows do not select Customize Teams dropdown rows
 
 **Priority:** P2 / keyboard usability.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -32,7 +41,7 @@
 **Expected:** Up/down should move an active highlight through dropdown rows; return should pick the highlighted row. This should match the behavior already added to the searchable Compose / Customize-worker style popup.  
 **Notes for dev:** `ALSearchableDropdown` already has `highlighted`, `onKeyPress(.downArrow)`, `onKeyPress(.upArrow)`, `onKeyPress(.return)`, and `.onHover` handling. The simpler `ALDropdown` used for model pickers likely needs the same interaction model.
 
-### 4. Mouse hover does not display the selected Customize Teams dropdown row correctly
+### 5. Mouse hover does not display the selected Customize Teams dropdown row correctly
 
 **Priority:** P2 / visual feedback regression.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -49,6 +58,16 @@
 3. Press the primary `Add team` button beside the search field.
 4. Observe that the app routes to CLI Setup.
 5. Expected: a team creation flow opens instead.
+
+### Composer Return/Enter send behavior
+
+1. Open a normal Composer prompt editor.
+2. Type a prompt.
+3. Press Return or Enter.
+4. Expected: the prompt sends, same as pressing the send button.
+5. Type a multiline prompt and press Shift+Return or Shift+Enter.
+6. Expected: a newline is inserted instead of sending.
+7. Check the `@` file-reference flow separately so Return still accepts the highlighted file when that picker is open.
 
 ### Customize Teams dropdown bugs
 
@@ -67,6 +86,11 @@
 - `Apps/AllnighterMac/Sources/TeamStudioView.swift`
   - `StudioRoute` defaults to `.clis`.
   - `StudioTeamListView` already has `newDraftBase` and an inline `addTeamButton` that creates a blank team draft.
+- `Apps/AllnighterMac/Sources/RoutingComposer.swift`
+  - Owns the send button, `performSend()`, and `handleEditorCommand(_:)`.
+  - Current send button advertises Command+Return; future behavior should decide whether that remains as an extra shortcut while plain Return becomes primary.
+- `Apps/AllnighterMac/Sources/AllnighterTextEditor.swift`
+  - `ALTextEditor` maps `insertNewline(_:)` to `.returnKey`; this is the likely interception point for plain Return/Enter versus Shift+Return/Shift+Enter.
 - `Apps/AllnighterMac/Sources/TeamEditorView.swift`
   - `modelPicker(_:, onPick:)` currently prepends an explicit `Auto` sentinel before model catalog entries.
   - Worker editor model dropdown also uses `ALDropdown`.
@@ -84,6 +108,8 @@
   - Confirms the `+ Add team` button renders on the Team launcher, but does not prove the action opens the right flow.
 - `docs/phases/Team_And_Skill_Catalogs.md`
   - Owns custom team creation/editing semantics and CLI commands.
+- `docs/phases/Composer_File_References.md`
+  - Relevant because Return already has a picker-accept behavior while an `@` file-reference panel is open.
 - `docs/qa/gui/studio/2026-06-17-combo-keys/watcher.md`
   - Notes keyboard behavior added for dropdown popovers.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md`
@@ -106,6 +132,18 @@
 **Missing kill test / proof:** UI/navigation test or fixture that invokes `Add team` from the Team launcher and proves the resulting view is a team draft, not CLI Setup.  
 **Fix boundary:** Navigation and new-team intent only. Do not change CLI Setup, model readiness, team catalog persistence, or built-in team semantics unless separate evidence requires it.  
 **Proof command / founder test:** Run targeted Swift tests plus the narrowest GUI fixture that can show Team launcher → team creation. Founder test: press `Add team`; a new editable team appears with a team name and worker rows ready to edit.
+
+### Composer Return/Enter send behavior
+
+**Tier:** T1 Boundary; escalate to T2 only if the change touches thread/run dispatch semantics beyond invoking the existing send path.  
+**Symptom / repro:** Composer plain Return/Enter does not submit the prompt; desired behavior is Cursor parity, with Shift+Return/Shift+Enter for newline.  
+**Bug fingerprint:** `RoutingComposer` + `ALTextEditor` newline command handling + send shortcut mismatch.  
+**Truth owner:** Composer send contract and existing `performSend()` path.  
+**Lie-prone layer:** NSTextView command routing; Return/Enter/Shift+Return modifier handling around multiline input and file-reference picker state.  
+**Regression considered:** Return currently accepts highlighted `@` file references when that picker is open; changing send behavior must not break that picker flow.  
+**Missing kill test / proof:** Focused test or UI harness proving plain Return sends, Shift+Return inserts newline, empty prompt does not send, and Return still accepts a highlighted file-reference candidate while the picker is open.  
+**Fix boundary:** Keyboard handling in Composer editor only. Do not alter `performSend()` semantics, thread persistence, run routing, model selection, or file-reference attachment semantics except to call the existing paths.  
+**Proof command / founder test:** Run targeted Swift tests plus a manual founder test in Composer: Return sends; Shift+Return creates a new line; `@` picker Return still accepts the highlighted file.
 
 ### Customize Teams dropdown bugs
 
