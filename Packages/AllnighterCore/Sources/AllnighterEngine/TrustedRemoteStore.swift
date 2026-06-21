@@ -125,9 +125,15 @@ public final class TrustedRemoteStore: @unchecked Sendable {
     }
 
     @discardableResult
-    public func revoke(deviceId: String, now: Date = Date()) throws -> TrustedDevice {
+    public func revoke(
+        deviceId: String,
+        macAgentId: String? = nil,
+        now: Date = Date()
+    ) throws -> TrustedDevice {
         var registry = load()
-        guard let index = registry.trustedDevices.firstIndex(where: { $0.deviceId == deviceId }) else {
+        guard let index = registry.trustedDevices.firstIndex(where: {
+            $0.deviceId == deviceId && (macAgentId == nil || $0.macAgentId == macAgentId)
+        }) else {
             throw TrustedRemoteStoreError.trustedDeviceNotFound(deviceId)
         }
         registry.trustedDevices[index].revoked = true

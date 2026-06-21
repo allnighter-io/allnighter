@@ -73,6 +73,21 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertEqual(store.load().trustedDevices.first?.deviceSigningPubkey, "sign_device_1")
     }
 
+    func testScopedRevokeTargetsOnlyMatchingMac() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let firstMac = trustedDevice(deviceId: "device_1", macAgentId: "mac_1", now: now)
+        let secondMac = trustedDevice(deviceId: "device_1", macAgentId: "mac_2", now: now)
+        try store.save(TrustedRemoteRegistry(trustedDevices: [firstMac, secondMac]))
+
+        let revoked = try store.revoke(deviceId: "device_1", macAgentId: "mac_2", now: now.addingTimeInterval(10))
+
+        XCTAssertEqual(revoked.macAgentId, "mac_2")
+        let devices = store.load().trustedDevices
+        XCTAssertEqual(devices.first { $0.macAgentId == "mac_1" }?.revoked, false)
+        XCTAssertEqual(devices.first { $0.macAgentId == "mac_2" }?.revoked, true)
+        XCTAssertEqual(devices.first { $0.macAgentId == "mac_2" }?.revokedAt, now.addingTimeInterval(10))
+    }
+
     func testListExpiresStalePendingRequests() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         var request = pairRequest(deviceId: "device_1", now: now)

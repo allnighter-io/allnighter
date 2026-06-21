@@ -257,6 +257,36 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(audit.targetSummary.count, RemoteAuditEvent.targetSummaryLimit)
     }
 
+    func testRemoteAuditEventSchemaIsMetadataOnly() throws {
+        let audit = RemoteAuditEvent(
+            ts: Date(timeIntervalSince1970: 1_750_000_000),
+            deviceId: "device_1",
+            commandKind: .stopRun,
+            requestId: "req_1",
+            targetSummary: "stopRun runId=run_1",
+            outcome: .accepted
+        )
+
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: CoreJSON.encode(audit)) as? [String: Any])
+        let fields = Set(object.keys)
+        XCTAssertEqual(fields, [
+            "commandKind",
+            "deviceId",
+            "outcome",
+            "requestId",
+            "targetSummary",
+            "ts",
+        ])
+        XCTAssertTrue(fields.isDisjoint(with: [
+            "body",
+            "content",
+            "output",
+            "plan",
+            "prompt",
+            "raw",
+        ]))
+    }
+
     func testReducerAppliesSnapshotThenEventsIdempotently() {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let snapshot = SnapshotEnvelope(
