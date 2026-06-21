@@ -106,6 +106,7 @@ public struct RemoteCommandAckEnvelope: Codable, Equatable, Sendable {
 public protocol RemoteMacRelay: Sendable {
     func registerMacAgent(_ registration: RemoteMacAgentRegistration) async throws -> MacAgentRef
     func heartbeat(_ heartbeat: RemoteMacAgentHeartbeat) async throws
+    func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest]
     func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice]
     func pendingCommands(accountId: String, macAgentId: String, limit: Int) async throws -> [RemoteCommandInboxEntry]
     func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws
@@ -120,15 +121,18 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     public private(set) var eventLog: [String] = []
 
     private var macs: [String: MacAgentRef]
+    private var pairRequestsByMac: [String: [RemotePairRequest]]
     private var trustedByMac: [String: [TrustedDevice]]
     private var inboxByMac: [String: [RemoteCommandInboxEntry]]
 
     public init(
         macs: [MacAgentRef] = [],
+        pairRequests: [RemotePairRequest] = [],
         trustedDevices: [TrustedDevice] = [],
         inbox: [RemoteCommandInboxEntry] = []
     ) {
         self.macs = Dictionary(uniqueKeysWithValues: macs.map { ($0.macAgentId, $0) })
+        self.pairRequestsByMac = Dictionary(grouping: pairRequests, by: \.macAgentId)
         self.trustedByMac = Dictionary(grouping: trustedDevices, by: \.macAgentId)
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)
     }
@@ -152,6 +156,16 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         guard var ref = macs[heartbeat.macAgentId] else { return }
         ref.lastSeenAt = heartbeat.at
         macs[heartbeat.macAgentId] = ref
+    }
+
+    public func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest] {
+        eventLog.append("pendingPairRequests")
+        return (pairRequestsByMac[macAgentId] ?? [])
+            .filter { $0.accountId == accountId && $0.status == .pending }
+            .sorted {
+                if $0.requestedAt == $1.requestedAt { return $0.deviceId < $1.deviceId }
+                return $0.requestedAt < $1.requestedAt
+            }
     }
 
     public func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice] {
@@ -195,6 +209,10 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
 
     public func setTrustedDevices(_ devices: [TrustedDevice], macAgentId: String) {
         trustedByMac[macAgentId] = devices
+    }
+
+    public func setPairRequests(_ requests: [RemotePairRequest], macAgentId: String) {
+        pairRequestsByMac[macAgentId] = requests
     }
 
     public func enqueue(_ entry: RemoteCommandInboxEntry) {

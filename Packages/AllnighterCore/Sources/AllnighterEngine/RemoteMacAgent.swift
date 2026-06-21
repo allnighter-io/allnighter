@@ -41,17 +41,20 @@ public struct RemoteMacAgentIdentity: Equatable, Sendable {
 
 public struct RemoteMacAgentDrainResult: Equatable, Sendable {
     public var mac: MacAgentRef
+    public var syncedPendingPairRequestCount: Int
     public var syncedTrustedDeviceCount: Int
     public var processedCommandCount: Int
     public var acknowledgements: [CommandAck]
 
     public init(
         mac: MacAgentRef,
+        syncedPendingPairRequestCount: Int = 0,
         syncedTrustedDeviceCount: Int,
         processedCommandCount: Int,
         acknowledgements: [CommandAck]
     ) {
         self.mac = mac
+        self.syncedPendingPairRequestCount = syncedPendingPairRequestCount
         self.syncedTrustedDeviceCount = syncedTrustedDeviceCount
         self.processedCommandCount = processedCommandCount
         self.acknowledgements = acknowledgements
@@ -108,6 +111,22 @@ public final class RemoteMacAgent: @unchecked Sendable {
             at: serverTime
         ))
 
+        let pendingPairRequests = try await relay.pendingPairRequests(
+            accountId: identity.account.accountId,
+            macAgentId: identity.macAgentId
+        )
+        var syncedPendingPairRequestCount = 0
+        for request in pendingPairRequests {
+            guard request.accountId == identity.account.accountId,
+                  request.macAgentId == identity.macAgentId,
+                  request.status == RemotePairRequestStatus.pending,
+                  request.expiresAt >= serverTime else {
+                continue
+            }
+            try trustedStore.upsertPending(request)
+            syncedPendingPairRequestCount += 1
+        }
+
         let trustedDevices = try await relay.trustedDevices(
             accountId: identity.account.accountId,
             macAgentId: identity.macAgentId
@@ -147,6 +166,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
 
         return RemoteMacAgentDrainResult(
             mac: mac,
+            syncedPendingPairRequestCount: syncedPendingPairRequestCount,
             syncedTrustedDeviceCount: trustedDevices.count,
             processedCommandCount: inbox.count,
             acknowledgements: acknowledgements

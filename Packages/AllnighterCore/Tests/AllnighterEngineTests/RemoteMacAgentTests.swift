@@ -118,6 +118,30 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertFalse(acknowledgement.auditEvent.targetSummary.contains("secret"))
     }
 
+    func testDrainSyncsPendingPairRequestsBeforeTrustedDevicesAndInbox() async throws {
+        let request = pairRequest(deviceId: "device_cloud")
+        let relay = MockRemoteMacRelay(pairRequests: [request])
+        let executor = CapturingRemoteExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor)
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.syncedPendingPairRequestCount, 1)
+        XCTAssertEqual(result.syncedTrustedDeviceCount, 0)
+        XCTAssertEqual(result.processedCommandCount, 0)
+        XCTAssertEqual(trustedStore.load().pendingRequests, [request])
+
+        let eventLog = await relay.eventLog
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "pendingPairRequests")),
+            try XCTUnwrap(eventLog.firstIndex(of: "trustedDevices"))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "trustedDevices")),
+            try XCTUnwrap(eventLog.firstIndex(of: "pendingCommands"))
+        )
+    }
+
     func testDrainRejectsSpoofedFromDeviceIdWithoutExecuting() async throws {
         let device = trustedDevice(capabilities: [])
         let command = try signedCommand(requestId: "req_spoofed_from", kind: .stopAll, payload: .empty)
@@ -326,6 +350,20 @@ final class RemoteMacAgentTests: XCTestCase {
         )
     }
 
+    private func pairRequest(deviceId: String) -> RemotePairRequest {
+        RemotePairRequest(
+            id: "pair_request_\(deviceId)",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            deviceId: deviceId,
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(deviceSigningKey.publicKey),
+            deviceSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(deviceSealingKey.publicKey),
+            requestedAt: now.addingTimeInterval(-30),
+            expiresAt: now.addingTimeInterval(300)
+        )
+    }
+
     private func signedCommand(
         requestId: String,
         kind: RemoteCommandKind,
@@ -509,6 +547,10 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
     }
 
     func heartbeat(_ heartbeat: RemoteMacAgentHeartbeat) async throws {}
+
+    func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest] {
+        []
+    }
 
     func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice] {
         []
