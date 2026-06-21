@@ -384,11 +384,18 @@ final class ThreadsViewModel {
                     projectId: scope.projectId,
                     repoRoot: scope.root
                 )
+                // Freeze + commit pasted/picked images into the thread's attachment store
+                // and stage workspace mirrors, so EVERY worker (single or team) receives
+                // the image path. Refs ride on the user turn (thumbnail in the thread).
+                let staged = stageAttachments(
+                    routing.attachments, threadId: threadId, repoRoot: scope.root
+                )
                 appendUserTurn(
                     message,
                     toThreadId: threadId,
                     id: userTurnId,
                     fileReferenceRefs: preparedRefs.turnRefs,
+                    attachmentRefs: staged.refs,
                     contextPacketId: preparedRefs.contextPacketId
                 )
                 runViaRunService(
@@ -396,7 +403,8 @@ final class ThreadsViewModel {
                     toThreadId: threadId,
                     projectId: scope.projectId,
                     repoRoot: scope.root,
-                    context: preparedRefs.packetText
+                    context: preparedRefs.packetText,
+                    deliveries: staged.deliveries
                 )
             } catch {
                 appendFailedRun(fileReferenceFailureText(error), kind: .systemEvent, toThreadId: threadId)
@@ -434,7 +442,8 @@ final class ThreadsViewModel {
         toThreadId threadId: String,
         projectId: String?,
         repoRoot: String,
-        context: String? = nil
+        context: String? = nil,
+        deliveries: [IncludedAttachmentDelivery] = []
     ) {
         let preset = routing.team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
         guard let preset else {
@@ -463,7 +472,8 @@ final class ThreadsViewModel {
             workerId: routing.to.isEmpty ? nil : routing.to,
             effort: effort,
             lane: routing.lane.workLane,
-            context: context
+            context: context,
+            deliveries: deliveries
         )
         let service = makeRunService()
         let threadStore = store
@@ -654,16 +664,40 @@ final class ThreadsViewModel {
         toThreadId threadId: String,
         id: String = UUID().uuidString,
         fileReferenceRefs: [TurnFileReferenceRef] = [],
+        attachmentRefs: [TurnAttachmentRef] = [],
         contextPacketId: String? = nil
     ) {
         let turn = ThreadTurn(
             id: id, threadId: threadId, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user, text: message,
+            attachmentRefs: attachmentRefs,
             fileReferenceRefs: fileReferenceRefs,
             contextPacketId: contextPacketId
         )
         try? store.appendTurn(turn, toThreadId: threadId, now: Date())
         reload()
+    }
+
+    /// Commit composer images into the thread's attachment store + stage workspace
+    /// mirrors, returning the deliveries (for the run) and refs (for the user turn).
+    /// Failures degrade to no-attachment rather than blocking the send.
+    private func stageAttachments(
+        _ attachments: [ComposeAttachment], threadId: String, repoRoot: String
+    ) -> RunAttachmentStager.Staged {
+        guard !attachments.isEmpty else { return .empty }
+        do {
+            let dir = try store.threadDirectory(forThreadId: threadId)
+            let images = attachments.map {
+                ThreadSendCoordinator.ImageInput(
+                    frozenFileURL: $0.fileURL, sourceKind: .guiAttach, originalName: $0.displayName
+                )
+            }
+            return try RunAttachmentStager().stage(
+                images: images, threadId: threadId, threadDirectory: dir, workingDir: repoRoot
+            )
+        } catch {
+            return .empty
+        }
     }
 
     private static func title(from text: String) -> String {

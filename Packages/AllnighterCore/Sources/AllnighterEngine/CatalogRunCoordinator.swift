@@ -42,6 +42,7 @@ public actor CatalogRunCoordinator {
         origin: RunOrigin = .cli,
         originAgent: String? = nil,
         runId: String? = nil,
+        deliveries: [IncludedAttachmentDelivery] = [],
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> TeamRun {
         let modelByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -67,7 +68,7 @@ public actor CatalogRunCoordinator {
         // crew reasons over the same distilled packet (the crux of triangulation).
         var downstreamPrompt = prompt
         if let scout = resolved.scoutWorker {
-            let (scoutAnswers, scoutSnapshots) = await runWorkers([scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
+            let (scoutAnswers, scoutSnapshots) = await runWorkers([scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, deliveries: deliveries)
             applySnapshots(scoutSnapshots, to: &run)
             merge(scoutAnswers, into: &run)
             if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
@@ -78,7 +79,7 @@ public actor CatalogRunCoordinator {
         }
 
         // Stage 1 — answer workers, blind and parallel, over the distilled source.
-        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
+        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, deliveries: deliveries)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -86,7 +87,7 @@ public actor CatalogRunCoordinator {
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
             let reviewPrompt = downstreamPrompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
-            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id)
+            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, deliveries: deliveries)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -115,7 +116,7 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Stages
 
-    private func runWorkers(_ workers: [Worker], prompt: String, effort: EffortLevel, modelByID: [String: Model], runId: String) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
+    private func runWorkers(_ workers: [Worker], prompt: String, effort: EffortLevel, modelByID: [String: Model], runId: String, deliveries: [IncludedAttachmentDelivery] = []) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
         for worker in workers {
             emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
@@ -126,7 +127,15 @@ public actor CatalogRunCoordinator {
             for worker in workers {
                 let model = modelByID[worker.modelId]
                 let manifest = model.flatMap { registry.manifest(for: $0) }
-                let workerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: prompt)
+                let baseWorkerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: prompt)
+                // Attach the user's images PER WORKER: vision models get the path block;
+                // non-vision models get an explicit "you can't see it" notice so they
+                // never claim to. (Delivery law §5 via AttachmentDeliveryRenderer.)
+                let workerPrompt = deliveries.isEmpty ? baseWorkerPrompt
+                    : TeamRunAttachmentMapper.teamRunSeatPrompt(
+                        basePrompt: baseWorkerPrompt,
+                        deliveries: deliveries,
+                        readsImages: manifest?.canReadImages ?? false)
                 snapshots[worker.id] = workerPrompt
                 group.addTask {
                     guard let model else {

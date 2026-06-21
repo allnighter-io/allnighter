@@ -1,10 +1,10 @@
 # Unified Run Model — Chat, Execute, and Teams as One
 
-Status: **In progress — core + CLI/MCP shipped; GUI proof pending**
+Status: **In progress — core + CLI/MCP shipped; GUI proof pending; Default Team override packet routed**
 surface, the work-order/proposal loop, the three-mode composer, and the user-facing
 execution lane. This is not a refinement of those; it replaces them.
 Owner: AllnighterCore + Mac app + CLI/MCP
-Updated: 2026-06-19
+Updated: 2026-06-21
 
 ## Why this doc
 
@@ -93,6 +93,12 @@ Default chat, an execution team, and an answer team are the **same object** with
 different settings. There is **no special-case chat code**: default chat = run the
 Default Team (message + its preset + its worker) in the project root. The Default Team
 appears in the same picker as every other team.
+
+Default Team editing has one special catalog rule: the bundled `default_chat`
+team is an immutable seed, and the user's active Default Team is an optional
+same-id override on disk. There is still only one effective `default_chat` in
+lists, pickers, CLI, MCP, and run resolution. Restore deletes the override and
+reveals the seed. The implementation packet is `Default_Team_Override.md`.
 
 ### Repo-root execution — kill the blind paths
 

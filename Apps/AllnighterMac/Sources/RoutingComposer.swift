@@ -18,6 +18,20 @@ struct ComposeRouting: Equatable {
     var lane: ComposeLane
     var text: String
     var fileReferences: [FileReferenceInput] = []
+    /// Pasted/picked images, frozen to temp files. Staged into the thread's attachment
+    /// store on send and DELIVERED to every worker (single OR team) by the run path.
+    var attachments: [ComposeAttachment] = []
+}
+
+/// A composer-captured attachment, frozen to a temp file on disk. The send path stages
+/// it into the thread's canonical attachment store and hands the worker(s) its path.
+struct ComposeAttachment: Identifiable, Equatable {
+    let id: String
+    /// Frozen temp file (PNG for images). The run path ingests this.
+    let fileURL: URL
+    let displayName: String
+    let kind: Kind
+    enum Kind: Equatable { case image }
 }
 
 /// A bench model as the composer sees it (maps from AppModel).
@@ -165,6 +179,11 @@ struct RoutingComposer: View {
     @State private var fileCandidates: [ProjectFileCatalog.Candidate] = []
     @State private var highlightedFileIndex = 0
     @State private var selectedFileReferences: [ComposeFileReference] = []
+    /// Pasted/picked images, frozen to temp files, shown as thumbnail chips and sent
+    /// with the run. Thumbnails are cached by id (NSImage isn't part of the Equatable
+    /// routing payload).
+    @State private var attachments: [ComposeAttachment] = []
+    @State private var attachmentThumbs: [String: NSImage] = [:]
     /// Which form the route popover shows — never both at once.
     // Model is the default (the 95% case: chat with a model); Team is the deliberate
     // "delegate to a team" choice. "Model" reads clearer than the old "Worker".
@@ -328,10 +347,14 @@ struct RoutingComposer: View {
                     isFocused: $composerFocused,
                     maxHeight: editorMaxHeight,
                     onCommand: handleEditorCommand,
-                    onReturn: handleReturn
+                    onReturn: handleReturn,
+                    onPasteImage: captureImage
                 )
                 .padding(.horizontal, 10).padding(.top, 6)
                 .frame(height: editorHeight)
+            }
+            if !attachments.isEmpty {
+                attachmentChips
             }
             if !selectedFileReferences.isEmpty {
                 fileReferenceChips
@@ -395,6 +418,79 @@ struct RoutingComposer: View {
             .padding(.top, 5)
             .padding(.bottom, 1)
         }
+    }
+
+    // Thumbnail chips for pasted/picked images — a small preview + name + remove. The
+    // image is the durable attachment; it travels with the run to every worker.
+    private var attachmentChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(attachments) { att in
+                    HStack(spacing: 6) {
+                        if let thumb = attachmentThumbs[att.id] {
+                            Image(nsImage: thumb)
+                                .resizable().aspectRatio(contentMode: .fill)
+                                .frame(width: 20, height: 20)
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                        } else {
+                            Image(systemName: "photo").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                        }
+                        Text(att.displayName)
+                            .font(ALFont.monoSm).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+                        Button { removeAttachment(att) } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(ALColor.textFaint)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove")
+                    }
+                    .padding(.horizontal, 6)
+                    .frame(height: 28)
+                    .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                    .overlay { RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                }
+            }
+            .padding(.horizontal, 11)
+            .padding(.top, 5)
+            .padding(.bottom, 1)
+        }
+    }
+
+    /// Freeze a pasted clipboard image to a temp PNG and add a chip. Returns true so the
+    /// text view consumes the paste (no beep, no empty insert).
+    private func captureImage(_ image: NSImage) -> Bool {
+        guard let frozen = ComposerImageFreezer.freeze(image: image) else { return false }
+        addAttachment(fileURL: frozen.url, displayName: frozen.name, thumb: frozen.thumb)
+        return true
+    }
+
+    /// Paperclip → pick image files. Each is frozen to a temp PNG and added as a chip.
+    private func pickImages() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.png, .jpeg, .tiff, .gif, .bmp, .heic, .image]
+        panel.prompt = "Attach"
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            guard let frozen = ComposerImageFreezer.freeze(fileURL: url) else { continue }
+            addAttachment(fileURL: frozen.url, displayName: frozen.name, thumb: frozen.thumb)
+        }
+    }
+
+    private func addAttachment(fileURL: URL, displayName: String, thumb: NSImage?) {
+        let att = ComposeAttachment(id: UUID().uuidString, fileURL: fileURL, displayName: displayName, kind: .image)
+        attachments.append(att)
+        if let thumb { attachmentThumbs[att.id] = thumb }
+        composerFocused = true
+    }
+
+    private func removeAttachment(_ att: ComposeAttachment) {
+        attachments.removeAll { $0.id == att.id }
+        attachmentThumbs[att.id] = nil
+        try? FileManager.default.removeItem(at: att.fileURL)
     }
 
     /// Show the floating suggestions only when there's something to pick — an open @
@@ -513,7 +609,7 @@ struct RoutingComposer: View {
             targetChip
             effortChip
             Spacer(minLength: 8)
-            IconButton(systemImage: "photo", accessibilityLabel: "Attach image", small: true) {}
+            IconButton(systemImage: "paperclip", accessibilityLabel: "Attach image", small: true, action: pickImages)
             sendButton
         }
         .padding(.horizontal, 11).padding(.vertical, 10)
@@ -632,10 +728,13 @@ struct RoutingComposer: View {
             effort: effort,
             lane: lane,
             text: body,
-            fileReferences: selectedFileInputs
+            fileReferences: selectedFileInputs,
+            attachments: attachments
         ))
         text = ""
         selectedFileReferences = []
+        attachments = []
+        attachmentThumbs = [:]
         closeFileSearch()
         targetOpen = false
         editorHeight = ComposeEditorMetrics.minHeight

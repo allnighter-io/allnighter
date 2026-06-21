@@ -159,6 +159,7 @@ public enum TeamRunJSONMapper {
         case .gui: return .gui
         case .mcp: return .mcp
         case .http: return .localApi
+        case .ios: return .ios
         }
     }
 

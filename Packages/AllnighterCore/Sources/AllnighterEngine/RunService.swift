@@ -15,6 +15,10 @@ public struct RunRequest: Sendable, Equatable {
     public var lane: WorkLane?
     public var type: String?
     public var context: String?
+    /// User-attached images/files, already staged into the workspace and frozen.
+    /// Delivered per-worker (vision seats get the path block; non-vision seats get
+    /// an explicit "can't see it" notice) by `CatalogRunCoordinator`.
+    public var deliveries: [IncludedAttachmentDelivery]
 
     public init(
         message: String,
@@ -25,7 +29,8 @@ public struct RunRequest: Sendable, Equatable {
         effort: EffortLevel? = nil,
         lane: WorkLane? = nil,
         type: String? = nil,
-        context: String? = nil
+        context: String? = nil,
+        deliveries: [IncludedAttachmentDelivery] = []
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -36,6 +41,7 @@ public struct RunRequest: Sendable, Equatable {
         self.lane = lane
         self.type = type
         self.context = context
+        self.deliveries = deliveries
     }
 }
 
@@ -195,14 +201,16 @@ public actor RunService {
             return await runExecution(
                 preset: preset, prompt: prompt, effort: effort, repoRoot: root,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
-                origin: origin, originAgent: originAgent, runId: id, runner: runner, events: events
+                origin: origin, originAgent: originAgent, runId: id, runner: runner,
+                deliveries: request.deliveries, events: events
             )
         }
 
         return await runAnswer(
             preset: preset, prompt: prompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
-            origin: origin, originAgent: originAgent, runId: id, runner: runner, events: events
+            origin: origin, originAgent: originAgent, runId: id, runner: runner,
+            deliveries: request.deliveries, events: events
         )
     }
 
@@ -219,6 +227,7 @@ public actor RunService {
         originAgent: String?,
         runId: String,
         runner: WorkerRunner,
+        deliveries: [IncludedAttachmentDelivery] = [],
         events: AsyncStream<RunEvent>.Continuation?
     ) async -> Result<TeamRun, RunServiceError> {
         var seq: Int64 = 0
@@ -262,7 +271,14 @@ public actor RunService {
         }
 
         let skillId = worker.skillId
-        let assembled = SkillCatalog.assemblePrompt(skillId: skillId, founderPrompt: prompt)
+        let baseAssembled = SkillCatalog.assemblePrompt(skillId: skillId, founderPrompt: prompt)
+        // Attach the user's images: a vision worker gets the path block; a non-vision
+        // worker gets an explicit notice so it never claims to have seen them.
+        let assembled = deliveries.isEmpty ? baseAssembled
+            : TeamRunAttachmentMapper.teamRunSeatPrompt(
+                basePrompt: baseAssembled,
+                deliveries: deliveries,
+                readsImages: manifest.canReadImages)
         let startedAt = now()
         emit(RunEventKind.runStatusChanged, [
             "runId": .string(runId), "from": .string(RunStatus.draft.rawValue),
@@ -405,6 +421,7 @@ public actor RunService {
         originAgent: String?,
         runId: String,
         runner: WorkerRunner,
+        deliveries: [IncludedAttachmentDelivery] = [],
         events: AsyncStream<RunEvent>.Continuation?
     ) async -> Result<TeamRun, RunServiceError> {
         let bench = readyModels()
@@ -432,7 +449,8 @@ public actor RunService {
 
         var run = await coordinator.run(
             resolved: resolved, prompt: prompt, models: models,
-            origin: origin, originAgent: originAgent, runId: runId, persist: persist
+            origin: origin, originAgent: originAgent, runId: runId,
+            deliveries: deliveries, persist: persist
         )
         await forwarder?.value
         run = stamped(run)

@@ -1,8 +1,8 @@
 # Team And Skill Catalogs
 
-Status: **S00–S04 BUILT** (catalogs + IDs + custom persistence + CLI + resolver); S05 (Mac Settings lane-first nav) in progress
+Status: **S00–S04 BUILT** (catalogs + IDs + custom persistence + CLI + resolver); S05 (Mac Settings lane-first nav) in progress; Default Team override carve-out routed
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
-Updated: 2026-06-17
+Updated: 2026-06-21
 
 ## Founder Intent
 
@@ -126,9 +126,11 @@ Catalogs own both built-in and custom definitions:
 TeamCatalog
   list(lane)
   get(TeamID)
+  defaultRunTeam()
   duplicateBuiltIn(TeamID, name)
   saveCustom(TeamDefinition)
   deleteCustom(TeamID)
+  restoreBuiltInOverride(TeamID)
 
 SkillCatalog
   list(lane)
@@ -138,8 +140,14 @@ SkillCatalog
   deleteCustom(SkillID)
 ```
 
-Built-ins are shipped product assets. They are read-only at runtime. Editing a
-built-in always creates a custom definition with a new ID.
+Built-ins are shipped product assets. They are read-only at runtime. Editing an
+ordinary built-in creates a custom definition with a new ID.
+
+One exception is routed through `Default_Team_Override.md`: the global Default
+Team seed (`default_chat`) is immutable, but the active user Default Team may be
+stored as a same-id override at `Catalogs/teams/default_chat.json`. Catalog APIs
+must expose exactly one effective `default_chat`: override when present, seed
+otherwise. Restore deletes the override and reveals the seed.
 
 Persistence is private plumbing under the catalog, not a second source of truth.
 
@@ -262,6 +270,30 @@ If the same posture belongs in another lane, duplicate and tune it there.
 | Lane | Exactly one | Exactly one, immutable after create |
 | Persistence | App bundle / Core source | Catalog persistence |
 
+### Shadowable Default Team
+
+`default_chat` is a shadowable built-in id. This is not a general built-in
+editing rule.
+
+Rules:
+
+- `BuiltInTeams.defaultChat` is the restore seed.
+- `Catalogs/teams/default_chat.json` is the optional active user override.
+- `TeamCatalog.get("default_chat")` returns the override when present, else the
+  seed.
+- `TeamCatalog.all` and `TeamCatalog.list(lane:)` include exactly one effective
+  `default_chat`.
+- `TeamCatalog.defaultRunTeam()` uses the same effective lookup as `get`.
+- `TeamCatalog.saveCustom` may save a same-id override only for shadowable ids.
+- `TeamCatalog.deleteCustom("default_chat")` removes the override when it
+  exists; it must never delete the seed.
+- `TeamCatalog.restoreBuiltInOverride("default_chat")` is the explicit reset
+  operation exposed by CLI/MCP.
+- Ordinary built-in ids remain duplicate-to-edit and non-deletable.
+
+The full implementation packet, CLI/MCP contract, proof matrix, and inference
+bans live in `Default_Team_Override.md`.
+
 ### No skill versioning in the MLP
 
 Versioning answers this question:
@@ -291,6 +323,9 @@ retrieval. Do not smuggle it into this cleanup.
 ### Deletion
 
 - Built-in teams and skills cannot be deleted.
+- Deleting an overridden shadowable Default Team removes only the override file
+  and restores the seed. Deleting the seed when no override exists is still
+  blocked.
 - Deleting a custom team does not affect past runs; past runs carry snapshots.
 - Deleting a custom skill fails if any current team definition references it.
 - The error must name the referencing TeamIDs.
@@ -358,6 +393,7 @@ alln teams show <team-id> [--json]
 alln teams duplicate <team-id> [--name <displayName>] [--json]
 alln teams new --lane build|design|copy --name <displayName> [--json]
 alln teams edit <team-id> [--file <path>] [--json]
+alln teams restore <team-id> [--json]
 alln teams delete <team-id> [--json]
 
 alln skills --lane build|design|copy [--json]
@@ -381,6 +417,7 @@ details for skills and worker row details for teams.
 | --- | --- |
 | `TEAM_NOT_FOUND` | Unknown TeamID |
 | `TEAM_BUILTIN_IMMUTABLE` | Edit/delete built-in team |
+| `TEAM_RESTORE_UNSUPPORTED` | Restore requested for a non-shadowable team |
 | `TEAM_ID_COLLISION` | New custom team ID collides |
 | `TEAM_INVALID` | Missing lane/name/rows or invalid effort/output kind |
 | `SKILL_NOT_FOUND` | Unknown SkillID |
@@ -400,6 +437,7 @@ teams_list
 teams_show
 teams_duplicate
 teams_save
+teams_restore
 teams_delete
 skills_list
 skills_show
@@ -510,6 +548,8 @@ separate MCP-only team or skill schema.
 | MCP tools | Separate JSON schema | Registry-derived tools only |
 | Run history | Shows latest skill template as if historical | Snapshot resolved skill content at run time |
 | Delete flow | Deletes a skill still used by a team | Catalog reference check |
+| Default Team editor | Forces duplicate for the global Default Team | `default_chat` saves/restores a same-id override |
+| Catalog projection | Shows seed and override or multiple default flags | Projection computes effective teams/defaults |
 
 ## Works Tests
 
@@ -573,6 +613,8 @@ GUI slice proof additionally requires the GUI visual proof gate.
 - Custom teams and custom skills can be duplicated, edited, persisted, listed,
   shown, and deleted through catalog APIs.
 - Built-ins are duplicate-to-edit only.
+- Exception: `default_chat` is shadowable by a same-id override and is restored
+  by deleting that override.
 - Team rows reference `SkillID`, never inline skill prompt prose.
 - Wrong-lane SkillIDs are rejected at save and run resolve.
 - Deleting an in-use custom skill fails with referencing TeamIDs.
@@ -598,6 +640,7 @@ GUI slice proof additionally requires the GUI visual proof gate.
 | Catalog semantics, custom team/skill editing, lane-first Settings | This doc |
 | Product vocabulary | `Work_Order_Team_Model.md` |
 | Existing built-in team packs | `Team_Catalog.md` |
+| Default Team edit/reset bug | `Default_Team_Override.md` |
 | CLI registry and generated contracts | `CLI_Implementation_Contract.md` |
 | Settings GUI implementation | `docs/gui/GUI_Workflow.md` + `GUI_Visual_Proof_Gate.md` |
 | Bench/source setup | `setup/README.md` + `wiring/design_handoff_bench_and_wiring/WIRING.md` |

@@ -68,4 +68,5 @@ public enum RunOrigin: String, Codable, Sendable, CaseIterable {
     case cli
     case mcp
     case http
+    case ios
 }

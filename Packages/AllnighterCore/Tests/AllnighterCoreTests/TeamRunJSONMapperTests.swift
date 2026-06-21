@@ -66,5 +66,6 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(TeamRunJSONMapper.mapRun(.failed), .failed)
         XCTAssertEqual(TeamRunJSONMapper.mapRun(.cancelled), .cancelled)
         XCTAssertEqual(TeamRunJSONMapper.mapOrigin(.http), .localApi)
+        XCTAssertEqual(TeamRunJSONMapper.mapOrigin(.ios), .ios)
     }
 }

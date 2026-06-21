@@ -29,6 +29,9 @@ final class ComposerTextView: NSTextView {
     /// Plain Return → send (or accept the highlighted @ file); returns true if handled.
     /// Shift+Return always inserts a newline (handled here before forwarding).
     var onReturn: (() -> Bool)?
+    /// An image on the clipboard (screenshot / copied image) → attach instead of
+    /// inserting nothing. Returns true if the composer consumed it.
+    var onPasteImage: ((NSImage) -> Bool)?
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 || event.keyCode == 76 { // Return / Enter
@@ -42,11 +45,20 @@ final class ComposerTextView: NSTextView {
     }
 
     override func paste(_ sender: Any?) {
-        guard let pasted = NSPasteboard.general.string(forType: .string), !pasted.isEmpty else {
-            NSSound.beep()
+        let pb = NSPasteboard.general
+        // Plain text wins when present (a normal copy carries no image rep). Only when
+        // there's NO usable string do we treat the clipboard as an image — that's the
+        // screenshot / copied-image case, which we attach instead of dropping (the old
+        // beep). Marshaling stays on the main queue (NSImage(pasteboard:) is main-safe).
+        let pasted = pb.string(forType: .string)
+        if let pasted, !pasted.isEmpty {
+            insertText(pasted, replacementRange: selectedRange())
             return
         }
-        insertText(pasted, replacementRange: selectedRange())
+        if let handler = onPasteImage, let image = NSImage(pasteboard: pb), handler(image) {
+            return
+        }
+        NSSound.beep()
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -78,6 +90,8 @@ struct ALTextEditor: NSViewRepresentable {
     /// Plain Return (no Shift) — send or accept the highlighted @ file. Shift+Return
     /// inserts a newline (handled in the view).
     var onReturn: (() -> Bool)? = nil
+    /// Clipboard image (screenshot / copied image) → attach. Returns true when consumed.
+    var onPasteImage: ((NSImage) -> Bool)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -100,6 +114,7 @@ struct ALTextEditor: NSViewRepresentable {
 
         let textView = ComposerTextView(frame: .zero)
         textView.onReturn = onReturn
+        textView.onPasteImage = onPasteImage
         textView.isEditable = true
         textView.isSelectable = true
         textView.allowsUndo = true
@@ -120,6 +135,7 @@ struct ALTextEditor: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let textView = scroll.documentView as? NSTextView else { return }
         (textView as? ComposerTextView)?.onReturn = onReturn
+        (textView as? ComposerTextView)?.onPasteImage = onPasteImage
         context.coordinator.minHeight = minHeight
         context.coordinator.maxHeight = maxHeight
         context.coordinator.onCommand = onCommand

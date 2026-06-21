@@ -251,6 +251,70 @@ public struct StopAllResult: Codable, Equatable, Sendable {
     }
 }
 
+public struct RemoteStartRunPayload: Codable, Equatable, Sendable {
+    public var prompt: String
+    public var lane: String?
+    public var teamPresetId: String?
+    public var effort: String?
+    public var type: String?
+    public var context: String?
+    public var threadId: String?
+    public var originConversationId: String?
+    public var originMessageId: String?
+
+    public init(
+        prompt: String,
+        lane: String? = nil,
+        teamPresetId: String? = nil,
+        effort: String? = nil,
+        type: String? = nil,
+        context: String? = nil,
+        threadId: String? = nil,
+        originConversationId: String? = nil,
+        originMessageId: String? = nil
+    ) {
+        self.prompt = prompt
+        self.lane = lane
+        self.teamPresetId = teamPresetId
+        self.effort = effort
+        self.type = type
+        self.context = context
+        self.threadId = threadId
+        self.originConversationId = originConversationId
+        self.originMessageId = originMessageId
+    }
+
+    public func asyncTeamStartRequest(originAgent: String, idempotencyKey: String) -> AsyncTeamStartRequest? {
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty else { return nil }
+        let resolvedLane = lane.flatMap(WorkLane.init(rawValue:))
+        let resolvedEffort = effort.flatMap(EffortLevel.init(rawValue:))
+        if lane != nil && resolvedLane == nil { return nil }
+        if effort != nil && resolvedEffort == nil { return nil }
+        return AsyncTeamStartRequest(
+            question: trimmedPrompt,
+            lane: resolvedLane,
+            teamPresetId: teamPresetId,
+            effort: resolvedEffort,
+            type: type,
+            context: context,
+            threadId: threadId,
+            originAgent: originAgent,
+            originConversationId: originConversationId,
+            originMessageId: originMessageId,
+            idempotencyKey: idempotencyKey
+        )
+    }
+}
+
+public struct RemoteStopRunPayload: Codable, Equatable, Sendable {
+    public var runId: String
+
+    public init(runId: String) {
+        self.runId = runId
+    }
+}
+
 public struct MacAgentRef: Codable, Equatable, Sendable, Identifiable {
     public var id: String { macAgentId }
     public var macAgentId: String
@@ -550,6 +614,60 @@ public enum RemoteCrypto {
         let signature = try dataFromBase64(assertion.signature, label: "signature")
         let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: keyData)
         return publicKey.isValidSignature(signature, for: Data(assertion.signingString.utf8))
+    }
+
+    public static func commandAckSigningString(
+        macAgentId: String,
+        method: String = RemoteProtocol.commandAckMethod,
+        ack: CommandAck
+    ) -> String {
+        [
+            macAgentId,
+            method,
+            ack.requestId,
+            ack.accepted ? "true" : "false",
+            ack.reason?.rawValue ?? "",
+            ack.outcome.rawValue,
+            ack.serverTime.map(remoteTimestampString(from:)) ?? "",
+        ].joined(separator: "|")
+    }
+
+    public static func makeCommandAck(
+        macAgentId: String,
+        requestId: String,
+        accepted: Bool,
+        reason: RemoteCommandRejectReason? = nil,
+        outcome: RemoteCommandAckOutcome,
+        serverTime: Date? = nil,
+        signingKey: Curve25519.Signing.PrivateKey,
+        method: String = RemoteProtocol.commandAckMethod
+    ) throws -> CommandAck {
+        var ack = CommandAck(
+            requestId: requestId,
+            accepted: accepted,
+            reason: reason,
+            outcome: outcome,
+            serverTime: serverTime,
+            signature: ""
+        )
+        let signingString = commandAckSigningString(macAgentId: macAgentId, method: method, ack: ack)
+        ack.signature = try signingKey.signature(for: Data(signingString.utf8)).base64EncodedString()
+        return ack
+    }
+
+    public static func verifyCommandAck(
+        _ ack: CommandAck,
+        macAgentId: String,
+        signingPublicKeyBase64: String,
+        method: String = RemoteProtocol.commandAckMethod
+    ) throws -> Bool {
+        let keyData = try dataFromBase64(signingPublicKeyBase64, label: "agentSigningPublicKey")
+        let signature = try dataFromBase64(ack.signature, label: "signature")
+        let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: keyData)
+        var unsignedAck = ack
+        unsignedAck.signature = ""
+        let signingString = commandAckSigningString(macAgentId: macAgentId, method: method, ack: unsignedAck)
+        return publicKey.isValidSignature(signature, for: Data(signingString.utf8))
     }
 
     public static func eventSigningString(

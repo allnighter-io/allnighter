@@ -287,6 +287,17 @@ public actor AsyncTeamService {
         return TeamCancelResponse(runId: runId, status: .cancelled, cancelledAt: now())
     }
 
+    public func cancelAll() -> StopAllResult {
+        let runIds = Array(activeRuns.keys)
+        var terminated = 0
+        for runId in runIds {
+            if cancel(runId: runId) != nil {
+                terminated += 1
+            }
+        }
+        return StopAllResult(terminated: terminated)
+    }
+
     // MARK: - helpers
 
     private func finishActiveRun(runId: String, slot: TeamGovernor.Slot) {
