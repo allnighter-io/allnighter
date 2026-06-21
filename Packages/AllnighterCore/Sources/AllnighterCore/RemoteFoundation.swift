@@ -17,13 +17,14 @@ public enum ConnectionMode: String, Codable, Sendable, CaseIterable {
 public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
     case startRun
     case stopRun
+    case markThreadRead = "thread.mark_read"
     case stopAll
 
     public var requiresSealedPayload: Bool {
         switch self {
         case .startRun:
             return true
-        case .stopRun, .stopAll:
+        case .stopRun, .markThreadRead, .stopAll:
             return false
         }
     }
@@ -36,6 +37,8 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
             return .startRun
         case .stopRun:
             return .stopRun
+        case .markThreadRead:
+            return .markThreadRead
         }
     }
 }
@@ -43,6 +46,7 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
 public enum RemoteCapability: String, Codable, Sendable, CaseIterable {
     case startRun
     case stopRun
+    case markThreadRead = "thread.mark_read"
 }
 
 public enum RemoteCryptoSuite: String, Codable, Sendable, CaseIterable {
@@ -289,6 +293,16 @@ public struct RemoteStopRunPayload: Codable, Equatable, Sendable {
 
     public init(runId: String) {
         self.runId = runId
+    }
+}
+
+public struct RemoteMarkThreadReadPayload: Codable, Equatable, Sendable {
+    public var threadId: String
+    public var throughTurnId: String
+
+    public init(threadId: String, throughTurnId: String) {
+        self.threadId = threadId
+        self.throughTurnId = throughTurnId
     }
 }
 

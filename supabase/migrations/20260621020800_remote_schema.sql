@@ -343,7 +343,7 @@ ALTER TABLE ONLY "public"."trusted_devices"
 
 
 ALTER TABLE ONLY "public"."command_inbox"
-    ADD CONSTRAINT "command_inbox_kind_check" CHECK (("kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'stopAll'::"text"])));
+    ADD CONSTRAINT "command_inbox_kind_check" CHECK (("kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'thread.mark_read'::"text", 'stopAll'::"text"])));
 
 
 
@@ -363,7 +363,7 @@ ALTER TABLE ONLY "public"."command_acks"
 
 
 ALTER TABLE ONLY "public"."command_acks"
-    ADD CONSTRAINT "command_acks_audit_command_kind_check" CHECK (("audit_command_kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'stopAll'::"text"])));
+    ADD CONSTRAINT "command_acks_audit_command_kind_check" CHECK (("audit_command_kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'thread.mark_read'::"text", 'stopAll'::"text"])));
 
 
 

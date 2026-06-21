@@ -138,6 +138,42 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         XCTAssertEqual(stopAllCallCount, 0)
     }
 
+    func testBootstrapRoutesMarkThreadReadThroughThreadStore() async throws {
+        let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
+        let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
+        let threadStore = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
+        try threadStore.saveForImport(threadWithUnreadReply())
+        let command = try signedCommand(
+            requestId: "req_thread_read",
+            kind: .markThreadRead,
+            payload: .light(["threadId": .string("thread_1"), "throughTurnId": .string("w1")])
+        )
+        let relay = MockRemoteMacRelay(
+            trustedDevices: [trustedDevice()],
+            inbox: [inboxEntry(command)]
+        )
+        let executor = BootstrapRemoteExecutor(now: now)
+        let bootstrap = makeBootstrap(
+            relay: relay,
+            runStore: runStore,
+            threadStore: threadStore,
+            journal: journal,
+            executor: executor
+        )
+
+        let result = try await bootstrap.makeRuntime().agent.drainOnce()
+
+        XCTAssertEqual(result.processedCommandCount, 1)
+        XCTAssertEqual(result.acknowledgements.first?.accepted, true)
+        XCTAssertEqual(threadStore.get("thread_1")?.readCursor?.lastReadTurnId, "w1")
+        let acknowledgements = await relay.acknowledgements
+        let acknowledgement = try XCTUnwrap(acknowledgements.first)
+        XCTAssertEqual(
+            acknowledgement.auditEvent.targetSummary,
+            "thread.mark_read threadId=thread_1 throughTurnId=w1"
+        )
+    }
+
     func testBootstrapCoordinatorRunsAssembledAgentWithInjectedPolicy() async throws {
         let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
         let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
@@ -188,6 +224,7 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
     private func makeBootstrap(
         relay: RemoteMacRelay,
         runStore: RunStore,
+        threadStore: ThreadStore? = nil,
         journal: RemoteRunEventJournal,
         executor: RemoteTeamCommandExecuting,
         eventCursorStore: RemoteMacAgentEventCursorStore? = nil,
@@ -204,6 +241,7 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
             trustedStore: TrustedRemoteStore(fileURL: root.appendingPathComponent("trusted_remotes.json")),
             dedupeStore: RemoteRequestDedupeStore(fileURL: root.appendingPathComponent("seen_requests.json")),
             runStore: runStore,
+            threadStore: threadStore ?? ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true)),
             journal: journal,
             executor: executor,
             macSigningKey: macSigningKey,
@@ -250,17 +288,21 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         )
     }
 
-    private func signedCommand(requestId: String, timestamp: Date? = nil) throws -> RemoteCommand {
-        let payload = RemoteCommandPayload.empty
+    private func signedCommand(
+        requestId: String,
+        timestamp: Date? = nil,
+        kind: RemoteCommandKind = .stopAll,
+        payload: RemoteCommandPayload = .empty
+    ) throws -> RemoteCommand {
         let assertion = try RemoteCrypto.makeDeviceAssertion(
             deviceId: "device_1",
             requestId: requestId,
             timestamp: timestamp ?? now,
-            kind: .stopAll,
+            kind: kind,
             payload: payload,
             signingKey: deviceSigningKey
         )
-        return RemoteCommand(requestId: requestId, kind: .stopAll, payload: payload, assertion: assertion)
+        return RemoteCommand(requestId: requestId, kind: kind, payload: payload, assertion: assertion)
     }
 
     private func inboxEntry(_ command: RemoteCommand) -> RemoteCommandInboxEntry {
@@ -295,6 +337,41 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
                 "runId": .string(runId),
                 "to": .string(RunStatus.fanningOut.rawValue),
             ]
+        )
+    }
+
+    private func threadWithUnreadReply() -> WorkThread {
+        let userTurn = ThreadTurn(
+            id: "u1",
+            threadId: "thread_1",
+            kind: .userMessage,
+            status: .done,
+            createdAt: now.addingTimeInterval(-20),
+            author: .user,
+            text: "private prompt"
+        )
+        let workerTurn = ThreadTurn(
+            id: "w1",
+            threadId: "thread_1",
+            kind: .workerChat,
+            status: .done,
+            createdAt: now.addingTimeInterval(-10),
+            completedAt: now.addingTimeInterval(-10),
+            author: .worker,
+            text: "private reply",
+            workerId: "codex"
+        )
+        return WorkThread(
+            id: "thread_1",
+            title: "Remote thread",
+            createdAt: now.addingTimeInterval(-30),
+            updatedAt: now.addingTimeInterval(-10),
+            readCursor: ThreadReadCursor(
+                lastReadTurnId: "u1",
+                lastReadTurnCreatedAt: userTurn.createdAt,
+                readAt: userTurn.createdAt
+            ),
+            turns: [userTurn, workerTurn]
         )
     }
 }

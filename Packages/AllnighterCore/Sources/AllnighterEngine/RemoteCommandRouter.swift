@@ -8,6 +8,10 @@ public protocol RemoteTeamCommandExecuting: Sendable {
     func stopAllRuns() async -> StopAllResult
 }
 
+public protocol RemoteThreadCommandExecuting: Sendable {
+    func markRead(threadId: String, throughTurnId: String, now: Date) throws -> RemoteThreadReadState
+}
+
 public struct AsyncTeamRemoteCommandExecutor: RemoteTeamCommandExecuting {
     private let service: AsyncTeamService
     private let readyModels: @Sendable () -> [Model]
@@ -33,25 +37,41 @@ public struct AsyncTeamRemoteCommandExecutor: RemoteTeamCommandExecuting {
     }
 }
 
+public struct ThreadStoreRemoteCommandExecutor: RemoteThreadCommandExecuting {
+    private let store: ThreadStore
+
+    public init(store: ThreadStore = ThreadStore()) {
+        self.store = store
+    }
+
+    public func markRead(threadId: String, throughTurnId: String, now: Date) throws -> RemoteThreadReadState {
+        let thread = try store.markRead(threadId: threadId, throughTurnId: throughTurnId, now: now)
+        return RemoteThreadProjection.readState(from: thread)
+    }
+}
+
 public struct RemoteCommandRoutingResult: Equatable, Sendable {
     public var ack: CommandAck
     public var auditEvent: RemoteAuditEvent
     public var startResponse: TeamStartResponse?
     public var stopRunResponse: TeamCancelResponse?
     public var stopAllResult: StopAllResult?
+    public var threadReadState: RemoteThreadReadState?
 
     public init(
         ack: CommandAck,
         auditEvent: RemoteAuditEvent,
         startResponse: TeamStartResponse? = nil,
         stopRunResponse: TeamCancelResponse? = nil,
-        stopAllResult: StopAllResult? = nil
+        stopAllResult: StopAllResult? = nil,
+        threadReadState: RemoteThreadReadState? = nil
     ) {
         self.ack = ack
         self.auditEvent = auditEvent
         self.startResponse = startResponse
         self.stopRunResponse = stopRunResponse
         self.stopAllResult = stopAllResult
+        self.threadReadState = threadReadState
     }
 }
 
@@ -210,6 +230,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
     private let trustedStore: TrustedRemoteStore
     private let dedupeStore: RemoteRequestDedupeStore
     private let executor: RemoteTeamCommandExecuting
+    private let threadExecutor: RemoteThreadCommandExecuting?
     private let macSigningKey: Curve25519.Signing.PrivateKey
     private let macSealingKey: Curve25519.KeyAgreement.PrivateKey
     private let now: @Sendable () -> Date
@@ -224,6 +245,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         trustedStore: TrustedRemoteStore,
         dedupeStore: RemoteRequestDedupeStore,
         executor: RemoteTeamCommandExecuting,
+        threadExecutor: RemoteThreadCommandExecuting? = nil,
         macSigningKey: Curve25519.Signing.PrivateKey,
         macSealingKey: Curve25519.KeyAgreement.PrivateKey,
         now: @escaping @Sendable () -> Date = Date.init,
@@ -235,6 +257,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         self.trustedStore = trustedStore
         self.dedupeStore = dedupeStore
         self.executor = executor
+        self.threadExecutor = threadExecutor
         self.macSigningKey = macSigningKey
         self.macSealingKey = macSealingKey
         self.now = now
@@ -321,6 +344,8 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             return try await routeStartRun(command, trustedDevice: trustedDevice, serverTime: serverTime)
         case .stopRun:
             return try await routeStopRun(command, serverTime: serverTime)
+        case .markThreadRead:
+            return try routeMarkThreadRead(command, serverTime: serverTime)
         case .stopAll:
             return try await routeStopAll(command, serverTime: serverTime)
         }
@@ -411,6 +436,37 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         )
     }
 
+    private func routeMarkThreadRead(
+        _ command: RemoteCommand,
+        serverTime: Date
+    ) throws -> RemoteCommandRoutingResult {
+        guard let threadExecutor,
+              let payload = try? decodeLightPayload(RemoteMarkThreadReadPayload.self, from: command.payload) else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "thread.mark_read")
+        }
+        let threadId = payload.threadId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let throughTurnId = payload.throughTurnId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !threadId.isEmpty, !throughTurnId.isEmpty else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "thread.mark_read")
+        }
+
+        do {
+            let readState = try threadExecutor.markRead(
+                threadId: threadId,
+                throughTurnId: throughTurnId,
+                now: serverTime
+            )
+            return try accepted(
+                command,
+                serverTime: serverTime,
+                targetSummary: "thread.mark_read threadId=\(threadId) throughTurnId=\(throughTurnId)",
+                threadReadState: readState
+            )
+        } catch {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "thread.mark_read")
+        }
+    }
+
     private func decodeLightPayload<T: Decodable>(
         _ type: T.Type,
         from payload: RemoteCommandPayload
@@ -427,7 +483,8 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         targetSummary: String,
         startResponse: TeamStartResponse? = nil,
         stopRunResponse: TeamCancelResponse? = nil,
-        stopAllResult: StopAllResult? = nil
+        stopAllResult: StopAllResult? = nil,
+        threadReadState: RemoteThreadReadState? = nil
     ) throws -> RemoteCommandRoutingResult {
         let ack = try signedAck(
             requestId: command.requestId,
@@ -440,7 +497,8 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             auditEvent: audit(command, outcome: .accepted, targetSummary: targetSummary, serverTime: serverTime),
             startResponse: startResponse,
             stopRunResponse: stopRunResponse,
-            stopAllResult: stopAllResult
+            stopAllResult: stopAllResult,
+            threadReadState: threadReadState
         )
     }
 

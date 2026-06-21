@@ -20,6 +20,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
     public var trustedStore: TrustedRemoteStore
     public var dedupeStore: RemoteRequestDedupeStore
     public var runStore: RunStore
+    public var threadStore: ThreadStore
     public var journal: RemoteRunEventJournal
     public var executor: RemoteTeamCommandExecuting
     public var macSigningKey: Curve25519.Signing.PrivateKey
@@ -43,6 +44,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
         trustedStore: TrustedRemoteStore,
         dedupeStore: RemoteRequestDedupeStore,
         runStore: RunStore,
+        threadStore: ThreadStore = ThreadStore(),
         journal: RemoteRunEventJournal,
         executor: RemoteTeamCommandExecuting,
         macSigningKey: Curve25519.Signing.PrivateKey,
@@ -65,6 +67,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
         self.trustedStore = trustedStore
         self.dedupeStore = dedupeStore
         self.runStore = runStore
+        self.threadStore = threadStore
         self.journal = journal
         self.executor = executor
         self.macSigningKey = macSigningKey
@@ -98,6 +101,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,
             executor: executor,
+            threadExecutor: ThreadStoreRemoteCommandExecutor(store: threadStore),
             macSigningKey: macSigningKey,
             macSealingKey: macSealingKey,
             now: now,

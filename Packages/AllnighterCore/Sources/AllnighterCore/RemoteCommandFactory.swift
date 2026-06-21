@@ -5,6 +5,8 @@ public enum RemoteCommandFactoryError: Error, Equatable, Sendable {
     case emptyDeviceId
     case emptyRequestId
     case emptyRunId
+    case emptyThreadId
+    case emptyTurnId
     case invalidStartRunPayload
 }
 
@@ -89,6 +91,26 @@ public struct RemoteCommandFactory {
             requestId: normalizedRequestId(requestId),
             kind: .stopAll,
             payload: .empty,
+            deviceId: normalizedDeviceId()
+        )
+    }
+
+    public func markThreadRead(
+        requestId: String,
+        threadId: String,
+        throughTurnId: String
+    ) throws -> RemoteCommand {
+        let threadId = threadId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let throughTurnId = throughTurnId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !threadId.isEmpty else { throw RemoteCommandFactoryError.emptyThreadId }
+        guard !throughTurnId.isEmpty else { throw RemoteCommandFactoryError.emptyTurnId }
+        return try command(
+            requestId: normalizedRequestId(requestId),
+            kind: .markThreadRead,
+            payload: .light([
+                "threadId": .string(threadId),
+                "throughTurnId": .string(throughTurnId),
+            ]),
             deviceId: normalizedDeviceId()
         )
     }
