@@ -24,12 +24,21 @@ public final class ResidentCoordinator: @unchecked Sendable {
         }
     }
 
+    public struct RemoteDependencies: Sendable {
+        public var coordinator: any RemoteMacAgentCoordinating
+
+        public init(coordinator: any RemoteMacAgentCoordinating) {
+            self.coordinator = coordinator
+        }
+    }
+
     public let binaryVersion: String
     public let contractVersion: String
     private let store: ResidentCoordinatorStore
     private let probe: ResidentCoordinatorProbe
     private let server: LoopbackHealthServer
     private let wakeDependencies: WakeDependencies?
+    private let remoteDependencies: RemoteDependencies?
     private let coordinatorId: String
     private let startedAt: Date
 
@@ -38,7 +47,8 @@ public final class ResidentCoordinator: @unchecked Sendable {
         contractVersion: String = ContractRegistry.contractVersion,
         store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
         server: LoopbackHealthServer = LoopbackHealthServer(),
-        wakeDependencies: WakeDependencies? = nil
+        wakeDependencies: WakeDependencies? = nil,
+        remoteDependencies: RemoteDependencies? = nil
     ) {
         self.binaryVersion = binaryVersion
         self.contractVersion = contractVersion
@@ -46,6 +56,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
         self.probe = ResidentCoordinatorProbe(store: store)
         self.server = server
         self.wakeDependencies = wakeDependencies
+        self.remoteDependencies = remoteDependencies
         self.coordinatorId = UUID().uuidString.lowercased()
         self.startedAt = Date()
     }
@@ -89,6 +100,11 @@ public final class ResidentCoordinator: @unchecked Sendable {
                         invocations: wake.invocations
                     )
                     await scheduler.run { shutdown.isCancelled }
+                }
+            }
+            if let remote = remoteDependencies {
+                group.addTask {
+                    await remote.coordinator.run { shutdown.isCancelled }
                 }
             }
             await group.next()

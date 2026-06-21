@@ -129,6 +129,131 @@ final class RemoteMacAgentTests: XCTestCase {
         }
     }
 
+    func testCoordinatorPollsAfterSuccessfulDrain() async throws {
+        let fixedNow = now
+        let agent = ScriptedRemoteMacAgent(outcomes: [
+            .success(processedCommandCount: 2, syncedTrustedDeviceCount: 3)
+        ])
+        let sleeper = RecordingRemoteMacAgentSleeper()
+        let events = RemoteMacAgentPollEventBox()
+        let coordinator = RemoteMacAgentCoordinator(
+            agent: agent,
+            policy: RemoteMacAgentPollPolicy(pollInterval: 10, initialFailureBackoff: 1),
+            sleeper: sleeper,
+            now: { fixedNow },
+            observe: { events.append($0) }
+        )
+
+        await coordinator.run { sleeper.sleepCallCount >= 1 }
+
+        let drainCallCount = await agent.drainCallCount()
+        XCTAssertEqual(drainCallCount, 1)
+        XCTAssertEqual(sleeper.intervals, [10])
+        XCTAssertEqual(events.values, [
+            RemoteMacAgentPollEvent(
+                attempt: 1,
+                outcome: .drained(processedCommandCount: 2, syncedTrustedDeviceCount: 3),
+                nextDelay: 10,
+                at: now
+            )
+        ])
+    }
+
+    func testCoordinatorBacksOffOnFailureAndResetsAfterSuccess() async throws {
+        let fixedNow = now
+        let agent = ScriptedRemoteMacAgent(outcomes: [
+            .failure("offline"),
+            .failure("still-offline"),
+            .success(processedCommandCount: 0, syncedTrustedDeviceCount: 1),
+            .failure("offline-again")
+        ])
+        let sleeper = RecordingRemoteMacAgentSleeper()
+        let events = RemoteMacAgentPollEventBox()
+        let coordinator = RemoteMacAgentCoordinator(
+            agent: agent,
+            policy: RemoteMacAgentPollPolicy(
+                pollInterval: 30,
+                initialFailureBackoff: 1,
+                maximumFailureBackoff: 4,
+                backoffMultiplier: 2
+            ),
+            sleeper: sleeper,
+            now: { fixedNow },
+            observe: { events.append($0) }
+        )
+
+        await coordinator.run { sleeper.sleepCallCount >= 4 }
+
+        let drainCallCount = await agent.drainCallCount()
+        XCTAssertEqual(drainCallCount, 4)
+        XCTAssertEqual(sleeper.intervals, [1, 2, 30, 1])
+        XCTAssertEqual(events.values.map(\.outcome), [
+            .failed(errorType: "ScriptedDrainError"),
+            .failed(errorType: "ScriptedDrainError"),
+            .drained(processedCommandCount: 0, syncedTrustedDeviceCount: 1),
+            .failed(errorType: "ScriptedDrainError")
+        ])
+    }
+
+    func testCoordinatorStopsWhenSleeperThrows() async throws {
+        let fixedNow = now
+        let agent = ScriptedRemoteMacAgent(outcomes: [
+            .success(processedCommandCount: 1, syncedTrustedDeviceCount: 1),
+            .success(processedCommandCount: 1, syncedTrustedDeviceCount: 1)
+        ])
+        let sleeper = RecordingRemoteMacAgentSleeper(throwOnSleepCall: 1)
+        let coordinator = RemoteMacAgentCoordinator(
+            agent: agent,
+            policy: RemoteMacAgentPollPolicy(pollInterval: 5),
+            sleeper: sleeper,
+            now: { fixedNow }
+        )
+
+        await coordinator.run { false }
+
+        let drainCallCount = await agent.drainCallCount()
+        XCTAssertEqual(drainCallCount, 1)
+        XCTAssertEqual(sleeper.intervals, [5])
+    }
+
+    func testCoordinatorDoesNotDrainWhenAlreadyCancelled() async throws {
+        let agent = ScriptedRemoteMacAgent(outcomes: [
+            .success(processedCommandCount: 1, syncedTrustedDeviceCount: 1)
+        ])
+        let sleeper = RecordingRemoteMacAgentSleeper()
+        let coordinator = RemoteMacAgentCoordinator(agent: agent, sleeper: sleeper)
+
+        await coordinator.run { true }
+
+        let drainCallCount = await agent.drainCallCount()
+        XCTAssertEqual(drainCallCount, 0)
+        XCTAssertTrue(sleeper.intervals.isEmpty)
+    }
+
+    func testPollPolicyEnforcesPositiveFiniteDelays() {
+        let clamped = RemoteMacAgentPollPolicy(
+            pollInterval: 0,
+            initialFailureBackoff: -1,
+            maximumFailureBackoff: 0,
+            backoffMultiplier: 0
+        )
+        XCTAssertEqual(clamped.pollInterval, RemoteMacAgentPollPolicy.minimumDelay)
+        XCTAssertEqual(clamped.initialFailureBackoff, RemoteMacAgentPollPolicy.minimumDelay)
+        XCTAssertEqual(clamped.maximumFailureBackoff, RemoteMacAgentPollPolicy.minimumDelay)
+        XCTAssertEqual(clamped.backoffMultiplier, 1)
+
+        let fallback = RemoteMacAgentPollPolicy(
+            pollInterval: .infinity,
+            initialFailureBackoff: .nan,
+            maximumFailureBackoff: .infinity,
+            backoffMultiplier: .nan
+        )
+        XCTAssertEqual(fallback.pollInterval, 5)
+        XCTAssertEqual(fallback.initialFailureBackoff, 1)
+        XCTAssertEqual(fallback.maximumFailureBackoff, 60)
+        XCTAssertEqual(fallback.backoffMultiplier, 2)
+    }
+
     private func makeAgent(
         relay: RemoteMacRelay,
         executor: CapturingRemoteExecutor
@@ -216,6 +341,98 @@ final class RemoteMacAgentTests: XCTestCase {
     }
 }
 
+private enum ScriptedDrainOutcome: Sendable {
+    case success(processedCommandCount: Int, syncedTrustedDeviceCount: Int)
+    case failure(String)
+}
+
+private struct ScriptedDrainError: Error, CustomStringConvertible, Sendable {
+    var description: String
+}
+
+private actor ScriptedRemoteMacAgent: RemoteMacAgentDraining {
+    private var outcomes: [ScriptedDrainOutcome]
+    private var calls = 0
+
+    init(outcomes: [ScriptedDrainOutcome]) {
+        self.outcomes = outcomes
+    }
+
+    func drainOnce() async throws -> RemoteMacAgentDrainResult {
+        calls += 1
+        let outcome = outcomes.isEmpty ? .success(processedCommandCount: 0, syncedTrustedDeviceCount: 0) : outcomes.removeFirst()
+        switch outcome {
+        case let .success(processedCommandCount, syncedTrustedDeviceCount):
+            return RemoteMacAgentDrainResult(
+                mac: MacAgentRef(
+                    macAgentId: "mac_1",
+                    displayName: "Studio Mac",
+                    agentSigningPubkey: "agent_signing_pubkey",
+                    agentSealingPubkey: "agent_sealing_pubkey"
+                ),
+                syncedTrustedDeviceCount: syncedTrustedDeviceCount,
+                processedCommandCount: processedCommandCount,
+                acknowledgements: []
+            )
+        case let .failure(message):
+            throw ScriptedDrainError(description: message)
+        }
+    }
+
+    func drainCallCount() -> Int {
+        calls
+    }
+}
+
+private final class RecordingRemoteMacAgentSleeper: RemoteMacAgentSleeping, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedIntervals: [TimeInterval] = []
+    private let throwOnSleepCall: Int?
+
+    init(throwOnSleepCall: Int? = nil) {
+        self.throwOnSleepCall = throwOnSleepCall
+    }
+
+    var intervals: [TimeInterval] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedIntervals
+    }
+
+    var sleepCallCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedIntervals.count
+    }
+
+    func sleep(for interval: TimeInterval) async throws {
+        let shouldThrow: Bool = lock.withLock {
+            recordedIntervals.append(interval)
+            return recordedIntervals.count == throwOnSleepCall
+        }
+        if shouldThrow {
+            throw ScriptedDrainError(description: "sleep-cancelled")
+        }
+    }
+}
+
+private final class RemoteMacAgentPollEventBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [RemoteMacAgentPollEvent] = []
+
+    var values: [RemoteMacAgentPollEvent] {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+
+    func append(_ event: RemoteMacAgentPollEvent) {
+        lock.lock()
+        stored.append(event)
+        lock.unlock()
+    }
+}
+
 private actor CapturingRemoteExecutor: RemoteTeamCommandExecuting {
     private var stopAllResult = StopAllResult(terminated: 0)
     private var stopAllCalls = 0
@@ -282,4 +499,12 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
     }
 
     func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws {}
+}
+
+private extension NSLock {
+    func withLock<T>(_ body: () -> T) -> T {
+        lock()
+        defer { unlock() }
+        return body()
+    }
 }

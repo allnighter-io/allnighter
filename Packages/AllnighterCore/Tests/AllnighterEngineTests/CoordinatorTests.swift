@@ -130,6 +130,27 @@ final class CoordinatorRunTests: XCTestCase {
         XCTAssertTrue(box.value)
         XCTAssertNil(store.load(), "clean shutdown clears durable coordinator state")
     }
+
+    func testResidentCoordinatorRunsRemoteDependencyUntilShutdown() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-remote-\(UUID().uuidString)")
+        let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
+        let remote = RecordingRemoteCoordinator()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try await ResidentCoordinator(
+            binaryVersion: "0.1.0",
+            store: store,
+            remoteDependencies: .init(coordinator: remote)
+        ).run(untilShutdown: {
+            while !remote.started {
+                try? await Task.sleep(nanoseconds: 1_000_000)
+            }
+        })
+
+        XCTAssertTrue(remote.started)
+        XCTAssertTrue(remote.sawCancellation)
+        XCTAssertNil(store.load(), "clean shutdown clears durable coordinator state")
+    }
 }
 
 private final class StringBox: @unchecked Sendable {
@@ -147,6 +168,28 @@ private final class BoolBox: @unchecked Sendable {
     var value: Bool {
         get { lock.withLock { stored } }
         set { lock.withLock { stored = newValue } }
+    }
+}
+
+private final class RecordingRemoteCoordinator: RemoteMacAgentCoordinating, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedStarted = false
+    private var storedSawCancellation = false
+
+    var started: Bool {
+        lock.withLock { storedStarted }
+    }
+
+    var sawCancellation: Bool {
+        lock.withLock { storedSawCancellation }
+    }
+
+    func run(isCancelled: @escaping @Sendable () -> Bool) async {
+        lock.withLock { storedStarted = true }
+        while !isCancelled() && !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
+        lock.withLock { storedSawCancellation = true }
     }
 }
 
