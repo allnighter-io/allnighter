@@ -64,7 +64,7 @@ public struct RemoteSnapshotService: Sendable {
                 snapshotHint: "Fetch a snapshot, then resume from its lastSeq."
             ))
         }
-        return .events(replay.events, lastSeq: replay.lastSeq)
+        return .events(replay.events.map { RemoteRunEventPrivacy.contentLight($0) }, lastSeq: replay.lastSeq)
     }
 
     private var replayProbeLimit: Int? {
@@ -85,7 +85,7 @@ public struct RemoteSnapshotService: Sendable {
             id: run.id,
             status: mapped.teamRun.status,
             origin: mapped.teamRun.origin,
-            promptExcerpt: PendingItemDerivation.promptExcerpt(run.prompt, limit: policy.promptExcerptLimit),
+            promptExcerpt: "",
             teamDisplayName: mapped.teamRun.teamDisplayName,
             createdAt: run.createdAt,
             completedAt: completedAt(for: run)

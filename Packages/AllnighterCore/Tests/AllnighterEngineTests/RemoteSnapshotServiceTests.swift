@@ -58,7 +58,8 @@ final class RemoteSnapshotServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.runs[1].origin, .ios)
         XCTAssertEqual(snapshot.runs[1].teamDisplayName, "Night Team")
         XCTAssertEqual(snapshot.runs[1].completedAt, now.addingTimeInterval(-100))
-        XCTAssertLessThanOrEqual(snapshot.runs[1].promptExcerpt.count, 12)
+        XCTAssertEqual(snapshot.runs.map(\.promptExcerpt), ["", ""])
+        XCTAssertFalse(String(decoding: try CoreJSON.encode(snapshot), as: UTF8.self).contains(String(repeating: "r", count: 40)))
     }
 
     func testResumeAtZeroReturnsSnapshot() throws {
@@ -99,6 +100,43 @@ final class RemoteSnapshotServiceTests: XCTestCase {
 
         XCTAssertEqual(events.map(\.id), ["evt_2"])
         XCTAssertEqual(lastSeq, 2)
+    }
+
+    func testResumeEventsAreContentLight() throws {
+        let root = tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let journal = RemoteRunEventJournal(rootDirectory: root)
+        _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
+        _ = try journal.append(RunEvent(
+            id: "evt_secret",
+            seq: 0,
+            ts: now,
+            kind: RunEventKind.workerAnswerDelta,
+            payload: [
+                "runId": .string("run_1"),
+                "workerId": .string("worker_1"),
+                "text": .string("secret replay text"),
+                "truncated": .bool(false),
+            ]
+        ))
+        let fixedNow = now
+
+        let service = RemoteSnapshotService(
+            runStore: RunStore(rootDirectory: root),
+            journal: journal,
+            policy: RemoteSnapshotPolicy(replayEventLimit: 10),
+            now: { fixedNow }
+        )
+        guard case let .events(events, _) = try service.resume(since: 1) else {
+            return XCTFail("Expected missed events inside the replay window")
+        }
+
+        XCTAssertEqual(events.map(\.id), ["evt_secret"])
+        XCTAssertEqual(events.first?.payload["runId"], .string("run_1"))
+        XCTAssertEqual(events.first?.payload["workerId"], .string("worker_1"))
+        XCTAssertEqual(events.first?.payload["truncated"], .bool(false))
+        XCTAssertNil(events.first?.payload["text"])
+        XCTAssertFalse(String(decoding: try CoreJSON.encode(events), as: UTF8.self).contains("secret replay text"))
     }
 
     func testResumeRequiresResyncWhenEventWindowIsExceeded() throws {
