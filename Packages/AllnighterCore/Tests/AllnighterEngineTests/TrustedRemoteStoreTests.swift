@@ -79,6 +79,34 @@ final class TrustedRemoteStoreTests: XCTestCase {
         XCTAssertEqual(Set(devices.map(\.macAgentId)), ["mac_1", "mac_2"])
     }
 
+    func testApproveCanTargetSameDeviceOnSpecificAccountAndMac() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let first = pairRequest(accountId: "acct_1", deviceId: "device_1", macAgentId: "mac_1", now: now)
+        let otherAccount = pairRequest(accountId: "acct_2", deviceId: "device_1", macAgentId: "mac_1", now: now)
+        let otherMac = pairRequest(accountId: "acct_1", deviceId: "device_1", macAgentId: "mac_2", now: now)
+        try store.save(TrustedRemoteRegistry(pendingRequests: [
+            otherAccount,
+            otherMac,
+            first,
+        ]))
+
+        let approved = try store.approve(
+            deviceId: "device_1",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            now: now,
+            validFor: 60
+        )
+
+        XCTAssertEqual(approved.accountId, "acct_1")
+        XCTAssertEqual(approved.macAgentId, "mac_1")
+        let requests = store.load().pendingRequests
+        XCTAssertEqual(requests.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_1" }?.status, .approved)
+        XCTAssertEqual(requests.first { $0.accountId == "acct_2" && $0.macAgentId == "mac_1" }?.status, .pending)
+        XCTAssertEqual(requests.first { $0.accountId == "acct_1" && $0.macAgentId == "mac_2" }?.status, .pending)
+        XCTAssertEqual(store.load().trustedDevices.map(\.macAgentId), ["mac_1"])
+    }
+
     func testExpiredPendingRequestCannotBeApproved() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         var request = pairRequest(deviceId: "device_1", now: now)

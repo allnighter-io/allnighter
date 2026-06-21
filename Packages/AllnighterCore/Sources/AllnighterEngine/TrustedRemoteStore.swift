@@ -83,6 +83,8 @@ public final class TrustedRemoteStore: @unchecked Sendable {
     @discardableResult
     public func approve(
         deviceId: String,
+        accountId: String? = nil,
+        macAgentId: String? = nil,
         now: Date = Date(),
         validFor: TimeInterval = 365 * 24 * 60 * 60,
         capabilities: Set<RemoteCapability> = Set(RemoteCapability.allCases)
@@ -90,9 +92,13 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         var registry = load()
         expirePendingRequests(in: &registry, now: now)
         guard let index = registry.pendingRequests.firstIndex(where: {
-            $0.deviceId == deviceId && $0.status == .pending
+            matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
+                && $0.status == .pending
         }) else {
-            if registry.pendingRequests.contains(where: { $0.deviceId == deviceId && $0.status == .expired }) {
+            if registry.pendingRequests.contains(where: {
+                matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
+                    && $0.status == .expired
+            }) {
                 try save(registry)
                 throw TrustedRemoteStoreError.pairRequestExpired(deviceId)
             }
@@ -157,5 +163,16 @@ public final class TrustedRemoteStore: @unchecked Sendable {
                 && registry.pendingRequests[index].expiresAt < now {
             registry.pendingRequests[index].status = .expired
         }
+    }
+
+    private func matches(
+        _ request: RemotePairRequest,
+        deviceId: String,
+        accountId: String?,
+        macAgentId: String?
+    ) -> Bool {
+        request.deviceId == deviceId
+            && (accountId == nil || request.accountId == accountId)
+            && (macAgentId == nil || request.macAgentId == macAgentId)
     }
 }
