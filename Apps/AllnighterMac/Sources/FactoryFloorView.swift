@@ -37,6 +37,8 @@ struct FactoryFloorView: View {
     @State private var selectedMemberId: String?
     @State private var rawMode = false
     @State private var promptExpanded = false
+    /// Brief "Copied" flash after an auto-copy drag-select in raw mode.
+    @State private var copiedFlash = false
 
     private var cast: [FloorCastMember] { FloorCastMember.cast(from: run) }
     private var selected: FloorCastMember? {
@@ -51,6 +53,33 @@ struct FactoryFloorView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+        // ⌥⌘R toggles raw/rich here too (same gesture as the thread). Zero-size button to
+        // own the shortcut.
+        .background {
+            Button("") { rawMode.toggle() }
+                .keyboardShortcut("r", modifiers: [.command, .option])
+                .opacity(0).accessibilityHidden(true)
+        }
+        .overlay(alignment: .bottom) {
+            if copiedFlash {
+                HStack(spacing: 5) {
+                    Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold))
+                    Text("Copied").font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(ALPalette.green500)
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(ALColor.raised, in: Capsule())
+                .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                .padding(.bottom, 22)
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: copiedFlash)
+    }
+
+    private func flashCopied() {
+        copiedFlash = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copiedFlash = false }
     }
 
     // MARK: Cast rail
@@ -73,7 +102,7 @@ struct FactoryFloorView: View {
                 ForEach(cast) { member in
                     CastCard(member: member, selected: selected?.id == member.id) {
                         selectedMemberId = member.id
-                        rawMode = false
+                        // Raw stays sticky across members (founder: "one raw for everything").
                     }
                 }
             }
@@ -120,10 +149,9 @@ struct FactoryFloorView: View {
                             .background(ALPalette.red400.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                         }
                         if rawMode {
-                            Text(member.markdown)
-                                .font(.system(size: 12.5, design: .monospaced))
-                                .foregroundStyle(ALColor.textMuted)
-                                .textSelection(.enabled)
+                            // Native selectable raw source — drag-select across the whole
+                            // answer (paragraphs/headings/code), auto-copy on drag-select.
+                            SelectableText(text: member.markdown, onCopied: { _ in flashCopied() })
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(18)
                                 .background(ALColor.surface, in: RoundedRectangle(cornerRadius: 10))
