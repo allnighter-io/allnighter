@@ -45,6 +45,9 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
             "promptSnapshots": 0,
             "hasPlan": False,
             "hasBundleMarkdown": False,
+            "nonPlanWorkerCount": 0,
+            "statusedAnswerCount": 0,
+            "writerStatusPresent": False,
         }
     workers = team_result.get("workers", [])
     answers = team_result.get("workerAnswers", [])
@@ -52,6 +55,12 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
     answered = sum(1 for a in answers if (a.get("markdown") or "").strip())
     plan = team_result.get("plan") or {}
     plan_md = (plan.get("markdown") or "").strip() if isinstance(plan, dict) else ""
+    # Terminal worker status lives in workerAnswers[].status (NOT workers[].status,
+    # which the contract does not carry). Every non-plan worker must have a status so
+    # a hidden/dropped answer/review worker cannot pass as a clean run.
+    non_plan = [w for w in workers if w.get("purpose") != "plan"]
+    statused_answers = [a for a in answers if (a.get("status") or "").strip()]
+    writer_status_present = bool(isinstance(plan, dict) and (plan.get("status") or "").strip())
     return {
         "ok": prompts > 0 and answered > 0 and bool(plan_md),
         "workerCount": len(workers),
@@ -59,6 +68,9 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
         "promptSnapshots": prompts,
         "hasPlan": bool(plan_md),
         "hasBundleMarkdown": bool(plan_md),
+        "nonPlanWorkerCount": len(non_plan),
+        "statusedAnswerCount": len(statused_answers),
+        "writerStatusPresent": writer_status_present,
     }
 
 
@@ -160,11 +172,21 @@ def score_run_contract(
         except (json.JSONDecodeError, OSError):
             floor_ok = False
 
+    # Every assigned answer/review worker must have a visible terminal status, and the
+    # writer status must be present. This is the "failed/timed-out workers were not
+    # hidden" rubric item — a dropped worker would make statusedAnswerCount < nonPlanWorkerCount.
+    worker_status_ok = (
+        mcp["nonPlanWorkerCount"] > 0
+        and mcp["statusedAnswerCount"] == mcp["nonPlanWorkerCount"]
+        and mcp["writerStatusPresent"]
+    )
+
     checks: list[dict[str, Any]] = []
     checks.append({"name": "terminal_status", "ok": status in {"completed", "failed", "cancelled", "interrupted"}})
     checks.append({"name": "team_result_retrieved", "ok": result_ok})
     checks.append({"name": "mcp_worker_prompts", "ok": mcp["promptSnapshots"] > 0})
     checks.append({"name": "mcp_worker_answers", "ok": mcp["answerCount"] > 0})
+    checks.append({"name": "mcp_worker_status", "ok": worker_status_ok})
     checks.append({"name": "mcp_plan_markdown", "ok": mcp["hasPlan"]})
     checks.append({"name": "floor_show_run_id", "ok": floor_ok or not expected_run_id})
     checks.append({"name": "pure_mcp_scoring", "ok": not fs_bypass})
@@ -173,7 +195,9 @@ def score_run_contract(
     scored_checks = [c for c in checks if c.get("scored", True)]
     raw_score = sum(1 for c in scored_checks if c["ok"]) / len(scored_checks)
     run_contract_score = round(raw_score, 3)
-    team_quality_withheld = fs_bypass or status != "completed"
+    # Spec gate: team quality is interpretable only when the run-contract lane is green
+    # (fsBypass=false, runContractScore >= 0.95) and the run actually completed.
+    team_quality_withheld = fs_bypass or status != "completed" or run_contract_score < 0.95
 
     out = {
         "runContractScore": run_contract_score,
@@ -186,7 +210,15 @@ def score_run_contract(
         "teamQualityWithheldReason": (
             "fsBypass: scoring relied on copied journal, not pure MCP"
             if fs_bypass
-            else ("run not completed" if status != "completed" else None)
+            else (
+                "run not completed"
+                if status != "completed"
+                else (
+                    f"run contract {run_contract_score} < 0.95 (substrate not fully truthful)"
+                    if run_contract_score < 0.95
+                    else None
+                )
+            )
         ),
         "teamQualityNote": (
             "Heuristic v1 — not authoritative for TeamCatalog mutations until LLM rubric ships"

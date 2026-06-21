@@ -144,6 +144,26 @@ Known gaps still open:
   `SetupStore`. For lab purposes, "ready" means runnable by this MCP process,
   not merely present in an old cache.
 
+## Confirmed Substrate Bugs (Bug Hunt baseline r1, 2026-06-21)
+
+Found by the lab, owned by `AllnighterCore`. The lab now gates on what it can
+detect; these are for the substrate dev. Fix before any team-quality number from
+an affected run is interpreted.
+
+| ID | Severity | Truth | Owner (file:line) |
+| --- | --- | --- | --- |
+| SUB-1 | P2 | `teamRun.completedAt` is `run.workerAnswers.compactMap(\.finishedAt).max()` — the last **answer** worker's finish, stamped *before* synthesis. Run completion must be after the plan/synthesis stage finishes. | `TeamRunJSONMapper.swift:74-86` |
+| SUB-2 | P2 | `team_result.stages[]` (`StageInfo`) omits `markdown`, `startedAt`, `finishedAt`; `plan.status` is hard-coded `.done`. Stage payload/timestamps exist internally but are not projected, so the lab cannot independently verify completion ordering (SUB-1) over MCP. | `TeamRunJSON.swift:184-194`, `TeamRunJSONMapper.swift:168-180` |
+| SUB-3 | P3 | `workerAnswers[].finishedAt` is not serialized (only `durationMs`, `markdown`, `modelId`, `status`, `workerId`). Serialize it so completion ordering is checkable from the MCP payload. | `TeamRunJSONMapper.swift` worker-answer mapping |
+| SUB-4 | P3 | `floor_show.summaryMarkdown` is empty (0 chars) on a completed run; the packet body is only in `team_result.plan.markdown`. Either populate the floor summary or document it as never the packet source. | `FloorProjector` / floor projection |
+
+Note on the earlier "writer shows `queued` / all worker status null" report: `workers[]`
+metadata does **not** carry `status` by design (`TeamRunJSON.WorkerInfo`,
+`TeamRunJSON.swift:149-165`). Terminal status for answer/review workers lives in
+`workerAnswers[].status` (all `done` in the baseline). Writer status is only
+representable via `plan.status`. The lab's `mcp_worker_status` check asserts every
+non-plan worker has a `workerAnswers` status and that writer status is present.
+
 ## First-Principles Decision
 
 The Team Lab is not a GUI QA harness. It is an MCP contract pressure test plus a
@@ -236,6 +256,19 @@ If the lab cannot retrieve worker prompts, worker answers, stage outputs, Floor
 data, or final packets through MCP-returned structures or MCP artifact tools, the
 answer is not "read the app state." The answer is "add the missing MCP retrieval
 surface."
+
+Final packet retrieval rule (pinned 2026-06-21):
+
+```text
+Canonical packet body  = team_result(detail=full).plan.markdown
+Answer/review bodies    = team_result(detail=full).workerAnswers[].markdown
+Worker prompt snapshots = team_result(detail=full).workers[].resolvedWorkerPromptSnapshot
+Terminal worker status  = workerAnswers[].status (answer/review); plan.status (writer)
+floor_show.summaryMarkdown is NOT the packet source (empty on completed runs — SUB-4).
+```
+
+The harness scores the packet from `team_result`, never from `floor_show` text or
+the copied journal. The journal copy under `.lab/<exp>/run/` stays diff-oracle only.
 
 Support-root rule:
 
@@ -489,7 +522,10 @@ Measures whether Allnighter told the truth:
 - status changed honestly;
 - polling cadence was respected;
 - terminal state matched artifacts;
-- every assigned worker had a visible terminal status;
+- every assigned answer/review worker had a visible terminal status in
+  `workerAnswers[].status`, and writer status was present (`mcp_worker_status`
+  check: `statusedAnswerCount == nonPlanWorkerCount` and `writerStatusPresent`);
+  a dropped/hidden worker fails this check and withholds team quality;
 - failed/timed-out workers were not hidden;
 - prompts and outputs were retrievable;
 - writer/stage outputs were retrievable;
@@ -755,6 +791,38 @@ The `4/10 -> 9/10` headline is aspiration until these rules bind:
   team-quality delta and no run-contract regression.
 - Writer consistency: discard worker claims contradicted by `experiment.json` and
   run-contract artifacts.
+
+The heuristic evaluator is a **smoke check, not a quality judge**: `expectedQualityHits`
+is token-substring matching and `structureMarkers` reward template words the worker
+prompts already mandate (reward-hacking risk). It must not move a `TeamCatalog`
+mutation. The evaluator has its own kill tests (`scripts/team_lab/test_scoring.py`)
+proving it fails a hidden-worker run, an empty answer, a stale-claim writer, and an
+`fsBypass` run — run that before trusting any scoring change.
+
+## Experiment Design (v1)
+
+No team mutation is proposed without a pre-registered design. Each calibration
+experiment declares, before running:
+
+```text
+Hypothesis:        one sentence; what the change should improve and why.
+Changed variable:  exactly one (role, prompt field, model route, writer contract,
+                   evidence packet, topology). One variable per experiment.
+Held constant:     suite, case set, effort, support root, judge version.
+N:                 >= 3 runs per case (>= 5 if run-to-run spread is wide).
+Decision rule:     keep only on pairwise win (candidate vs baseline) on the SAME
+                   cases, with no run-contract regression and no new writer-
+                   consistency issues. Absolute heuristic deltas do not decide.
+Transfer guard:    a winning change must be neutral-or-better on >= 1 held-out
+                   case from another team family before promotion to built-in.
+Success bar:       repeatable; report mean + spread, not the best single run.
+Negative results:  recorded, not discarded.
+```
+
+Until an LLM rubric judge ships, "pairwise win" is human-judged from the packets
+and recorded as `humanNotes` — kept separate from heuristic scores, never folded
+into a single number. A judge, when added, is pinned to one model + version,
+stamped into `experiment.json`, and re-baselined when its version changes.
 
 ## Implementation Slices
 

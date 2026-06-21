@@ -318,22 +318,12 @@ def run_experiment(
         journal_copied = copy_run_journal(run_id, lab_dir / "run")
 
         terminal_status = status_history[-1].get("status", "")
-        contract = score_run_contract(
-            lab_dir,
-            status=terminal_status,
-            result_ok=result_ok,
-            journal_copied=journal_copied,
-            expected_run_id=run_id,
-        )
-        team_eval = evaluate_team_quality(lab_dir)
-
         hello_structured = hello.get("structured") if isinstance(hello, dict) else None
         contract_version = None
         if isinstance(hello_structured, dict):
             contract_version = hello_structured.get("contractVersion")
 
-        write_experiment(
-            lab_dir,
+        exp_kwargs = dict(
             suite=suite,
             case=case,
             team_id=team,
@@ -349,9 +339,25 @@ def run_experiment(
             alln_path=alln,
             tools_hash=tools_hash,
             contract_version=contract_version,
-            contract=contract,
-            team_eval=team_eval,
         )
+
+        # Write experiment.json BEFORE scoring. evaluate_team_quality() reads suiteId/
+        # caseId (for expectedQualities) and run status (for the writer stale-claim
+        # check) from this file; scoring it before the file exists silently zeroes
+        # expectedQualityHits and disables the consistency check.
+        write_experiment(lab_dir, **exp_kwargs)
+
+        contract = score_run_contract(
+            lab_dir,
+            status=terminal_status,
+            result_ok=result_ok,
+            journal_copied=journal_copied,
+            expected_run_id=run_id,
+        )
+        team_eval = evaluate_team_quality(lab_dir)
+
+        # Re-write with embedded scores now that they exist.
+        write_experiment(lab_dir, contract=contract, team_eval=team_eval, **exp_kwargs)
 
         report_lines = [
             f"# Team Lab Report — {lab_dir.name}",
@@ -381,8 +387,9 @@ def run_experiment(
         else:
             report_lines.append(f"- Score: **{team_eval.get('teamQualityScore')}**")
         report_lines += [
-            f"- Logical workers scored: {team_eval.get('logicalWorkerCount')}",
-            f"- Writer consistency issues: {team_eval.get('writerConsistency', {}).get('issueCount', 0)}",
+            f"- Preflight-ready sources: {len(preflight.get('readyWorkers', []))} (incl. writer)",
+            f"- Answer/review workers scored (writer/plan excluded): {team_eval.get('logicalWorkerCount')}",
+            f"- Writer scored separately; consistency issues: {team_eval.get('writerConsistency', {}).get('issueCount', 0)}",
             "",
             "## Next",
             "",
