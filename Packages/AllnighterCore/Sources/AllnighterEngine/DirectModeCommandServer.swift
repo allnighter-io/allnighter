@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Darwin
 import AllnighterCore
@@ -13,6 +14,15 @@ public enum DirectModeCommandError: Error, Equatable, Sendable {
 }
 
 public enum DirectModeSnapshotError: Error, Equatable, Sendable {
+    case requestMismatch(
+        expectedAccountId: String,
+        actualAccountId: String,
+        expectedMacAgentId: String,
+        actualMacAgentId: String
+    )
+}
+
+public enum DirectModeEventsError: Error, Equatable, Sendable {
     case requestMismatch(
         expectedAccountId: String,
         actualAccountId: String,
@@ -167,6 +177,52 @@ public struct DirectModeSnapshotHandler: DirectModeSnapshotHandling {
             )
         }
         return try service.snapshot(since: request.since)
+    }
+}
+
+public struct DirectModeEventsHandler: DirectModeEventsHandling {
+    private let accountId: String
+    private let macAgentId: String
+    private let journal: RemoteRunEventJournal
+    private let signingKey: Curve25519.Signing.PrivateKey
+    private let maxLimit: Int
+
+    public init(
+        accountId: String,
+        macAgentId: String,
+        journal: RemoteRunEventJournal = RemoteRunEventJournal(),
+        signingKey: Curve25519.Signing.PrivateKey,
+        maxLimit: Int = 500
+    ) {
+        self.accountId = accountId
+        self.macAgentId = macAgentId
+        self.journal = journal
+        self.signingKey = signingKey
+        self.maxLimit = max(0, maxLimit)
+    }
+
+    public func events(_ request: DirectModeEventsRequest) async throws -> DirectModeEventsResponse {
+        guard request.accountId == accountId,
+              request.macAgentId == macAgentId else {
+            throw DirectModeEventsError.requestMismatch(
+                expectedAccountId: accountId,
+                actualAccountId: request.accountId,
+                expectedMacAgentId: macAgentId,
+                actualMacAgentId: request.macAgentId
+            )
+        }
+
+        let limit = min(max(0, request.limit), maxLimit)
+        guard limit > 0 else { return DirectModeEventsResponse(events: []) }
+        let replay = try journal.replay(after: request.afterSeq, limit: limit)
+        let envelopes = try replay.events.map { event in
+            try RemoteCrypto.makeRemoteRunEventEnvelope(
+                macAgentId: macAgentId,
+                event: event,
+                signingKey: signingKey
+            )
+        }
+        return DirectModeEventsResponse(events: envelopes)
     }
 }
 
