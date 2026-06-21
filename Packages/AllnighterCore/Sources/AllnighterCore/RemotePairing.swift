@@ -266,6 +266,53 @@ public struct DirectModePairingSubmitResponse: Codable, Equatable, Sendable {
     }
 }
 
+public struct DirectModePairingStatusRequest: Codable, Equatable, Sendable {
+    public var requestId: String
+    public var deviceId: String
+
+    public init(requestId: String, deviceId: String) {
+        self.requestId = requestId
+        self.deviceId = deviceId
+    }
+}
+
+public enum DirectModePairingStatusKind: String, Codable, Sendable, CaseIterable {
+    case pending
+    case approved
+    case rejected
+    case expired
+    case revoked
+    case notFound
+}
+
+public struct DirectModePairingStatusResponse: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var requestId: String
+    public var deviceId: String
+    public var status: DirectModePairingStatusKind
+    public var pairRequest: RemotePairRequest?
+    public var trustedDevice: TrustedDevice?
+    public var checkedAt: Date
+
+    public init(
+        schemaVersion: Int = 1,
+        requestId: String,
+        deviceId: String,
+        status: DirectModePairingStatusKind,
+        pairRequest: RemotePairRequest? = nil,
+        trustedDevice: TrustedDevice? = nil,
+        checkedAt: Date
+    ) {
+        self.schemaVersion = schemaVersion
+        self.requestId = requestId
+        self.deviceId = deviceId
+        self.status = status
+        self.pairRequest = pairRequest
+        self.trustedDevice = trustedDevice
+        self.checkedAt = checkedAt
+    }
+}
+
 public struct TrustedRemoteRegistry: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var pendingRequests: [RemotePairRequest]

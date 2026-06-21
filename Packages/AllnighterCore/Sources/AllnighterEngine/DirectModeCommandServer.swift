@@ -65,10 +65,12 @@ public struct DirectModeCommandHandler: DirectModeCommandHandling {
 public final class DirectModeCommandServer: @unchecked Sendable {
     public static let commandPath = "/remote/command"
     public static let pairingPath = "/remote/pair"
+    public static let pairingStatusPath = "/remote/pair/status"
 
     private let lock = NSLock()
     private let handler: any DirectModeCommandHandling
     private let pairingHandler: (any DirectModePairingHandling)?
+    private let pairingStatusHandler: (any DirectModePairingStatusHandling)?
     private let maxRequestBytes: Int
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
@@ -77,10 +79,12 @@ public final class DirectModeCommandServer: @unchecked Sendable {
     public init(
         handler: any DirectModeCommandHandling,
         pairingHandler: (any DirectModePairingHandling)? = nil,
+        pairingStatusHandler: (any DirectModePairingStatusHandling)? = nil,
         maxRequestBytes: Int = 512 * 1024
     ) {
         self.handler = handler
         self.pairingHandler = pairingHandler
+        self.pairingStatusHandler = pairingStatusHandler
         self.maxRequestBytes = max(1024, maxRequestBytes)
     }
 
@@ -183,8 +187,20 @@ public final class DirectModeCommandServer: @unchecked Sendable {
                 return
             }
             do {
-                let request = try CoreJSON.decode(DirectModePairingSubmitRequest.self, from: request.body)
-                let response = try pairingHandler.handle(request)
+                let submitRequest = try CoreJSON.decode(DirectModePairingSubmitRequest.self, from: request.body)
+                let response = try pairingHandler.handle(submitRequest)
+                writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
+            } catch {
+                writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)
+            }
+        case Self.pairingStatusPath:
+            guard let pairingStatusHandler else {
+                writeJSON(["error": "not_found"], status: "404 Not Found", to: client)
+                return
+            }
+            do {
+                let statusRequest = try CoreJSON.decode(DirectModePairingStatusRequest.self, from: request.body)
+                let response = try pairingStatusHandler.status(statusRequest)
                 writeData(try CoreJSON.encode(response), status: "200 OK", to: client)
             } catch {
                 writeJSON(["error": "bad_request"], status: "400 Bad Request", to: client)

@@ -36,9 +36,16 @@ final class DirectModePairingClientTests: XCTestCase {
             now: { fixedNow },
             requestIdFactory: { "pair_request_1" }
         )
+        let statusReader = DirectModePairingStatusReader(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            trustedStore: trustedStore,
+            now: { fixedNow }
+        )
         let server = DirectModeCommandServer(
             handler: RecordingPairingClientCommandHandler(),
-            pairingHandler: pairingHandler
+            pairingHandler: pairingHandler,
+            pairingStatusHandler: statusReader
         )
         let port = try server.start()
         defer { server.stop() }
@@ -61,6 +68,21 @@ final class DirectModePairingClientTests: XCTestCase {
         XCTAssertEqual(response.request.status, .pending)
         XCTAssertEqual(sessionStore.load().sessions.first?.status, .consumed)
         XCTAssertEqual(trustedStore.load().pendingRequests, [response.request])
+
+        let pending = try await client.status(DirectModePairingStatusRequest(
+            requestId: "pair_request_1",
+            deviceId: "device_1"
+        ))
+        XCTAssertEqual(pending.status, .pending)
+        XCTAssertNil(pending.trustedDevice)
+
+        _ = try trustedStore.approve(deviceId: "device_1", now: now, validFor: 120)
+        let approved = try await client.status(DirectModePairingStatusRequest(
+            requestId: "pair_request_1",
+            deviceId: "device_1"
+        ))
+        XCTAssertEqual(approved.status, .approved)
+        XCTAssertEqual(approved.trustedDevice?.deviceId, "device_1")
     }
 
     func testClientReportsHTTPStatusWhenPairingRouteIsUnavailable() async throws {
@@ -81,6 +103,16 @@ final class DirectModePairingClientTests: XCTestCase {
                 pairingToken: "pair_token_1"
             ))
             XCTFail("missing pairing handler should surface an HTTP error")
+        } catch let error as DirectModePairingClientError {
+            XCTAssertEqual(error, .httpStatus(404))
+        }
+
+        do {
+            _ = try await client.status(DirectModePairingStatusRequest(
+                requestId: "pair_request_1",
+                deviceId: "device_1"
+            ))
+            XCTFail("missing pairing status handler should surface an HTTP error")
         } catch let error as DirectModePairingClientError {
             XCTAssertEqual(error, .httpStatus(404))
         }

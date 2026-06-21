@@ -22,7 +22,7 @@ public struct DirectModePairingClient: Sendable {
     public func submit(
         _ request: DirectModePairingSubmitRequest
     ) async throws -> DirectModePairingSubmitResponse {
-        let pairingURL = pairingURLString(baseURL: endpoint.baseURL)
+        let pairingURL = routeURLString(DirectModeCommandServer.pairingPath, baseURL: endpoint.baseURL)
         guard let url = URL(string: pairingURL) else {
             throw DirectModePairingClientError.invalidEndpoint(pairingURL)
         }
@@ -36,8 +36,25 @@ public struct DirectModePairingClient: Sendable {
         return decoded
     }
 
-    private func pairingURLString(baseURL: String) -> String {
+    public func status(
+        _ request: DirectModePairingStatusRequest
+    ) async throws -> DirectModePairingStatusResponse {
+        let statusURL = routeURLString(DirectModeCommandServer.pairingStatusPath, baseURL: endpoint.baseURL)
+        guard let url = URL(string: statusURL) else {
+            throw DirectModePairingClientError.invalidEndpoint(statusURL)
+        }
+        let response = try await poster.postJSON(CoreJSON.encode(request), to: url)
+        guard (200..<300).contains(response.statusCode) else {
+            throw DirectModePairingClientError.httpStatus(response.statusCode)
+        }
+        guard let decoded = try? CoreJSON.decode(DirectModePairingStatusResponse.self, from: response.body) else {
+            throw DirectModePairingClientError.badResponse
+        }
+        return decoded
+    }
+
+    private func routeURLString(_ path: String, baseURL: String) -> String {
         let trimmed = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return "\(trimmed)\(DirectModeCommandServer.pairingPath)"
+        return "\(trimmed)\(path)"
     }
 }
