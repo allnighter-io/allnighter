@@ -537,6 +537,66 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(ack.serverTime, now)
     }
 
+    func testMockClientDiagnosesDisconnectedState() async {
+        let client = MockiOSClient(macs: [])
+
+        let diagnosis = await client.diagnose()
+        let rungs = diagnosisRungs(diagnosis)
+
+        XCTAssertEqual(rungs[.signedIn]?.ok, false)
+        XCTAssertEqual(rungs[.macVisible]?.ok, false)
+        XCTAssertEqual(rungs[.deviceApproved]?.ok, false)
+        XCTAssertNotNil(rungs[.signedIn]?.nextAction)
+    }
+
+    func testMockClientDiagnosesVisibleApprovedButUnreachableMac() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal",
+            lastSeenAt: now.addingTimeInterval(-300)
+        )
+        let trusted = diagnosticDevice(now: now)
+        let client = MockiOSClient(macs: [mac], trustedDevices: [trusted], serverNow: now)
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let diagnosis = await client.diagnose()
+        let rungs = diagnosisRungs(diagnosis)
+
+        XCTAssertEqual(rungs[.signedIn]?.ok, true)
+        XCTAssertEqual(rungs[.macVisible]?.ok, true)
+        XCTAssertEqual(rungs[.macReachable]?.ok, false)
+        XCTAssertEqual(rungs[.deviceApproved]?.ok, true)
+        XCTAssertNotNil(rungs[.macReachable]?.nextAction)
+    }
+
+    func testMockClientDiagnosesReachableApprovedMac() async throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let mac = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "agent-sign",
+            agentSealingPubkey: "agent-seal",
+            lastSeenAt: now.addingTimeInterval(-30)
+        )
+        let trusted = diagnosticDevice(now: now)
+        let client = MockiOSClient(macs: [mac], trustedDevices: [trusted], serverNow: now)
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        let diagnosis = await client.diagnose()
+        let rungs = diagnosisRungs(diagnosis)
+
+        XCTAssertEqual(diagnosis.rungs.map(\.rung), ConnectionDiagnosisRung.allCases)
+        XCTAssertEqual(rungs[.signedIn]?.ok, true)
+        XCTAssertEqual(rungs[.providerAccountMatch]?.ok, true)
+        XCTAssertEqual(rungs[.macVisible]?.ok, true)
+        XCTAssertEqual(rungs[.macReachable]?.ok, true)
+        XCTAssertEqual(rungs[.clockInSync]?.ok, true)
+        XCTAssertEqual(rungs[.deviceApproved]?.ok, true)
+    }
+
     func testMockClientAcceptsOnlySealedStartRunPayload() async throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let signingKey = Curve25519.Signing.PrivateKey()
@@ -602,5 +662,23 @@ final class RemoteFoundationTests: XCTestCase {
             revokedAt: revoked ? now : nil,
             capabilities: Set(RemoteCapability.allCases)
         )
+    }
+
+    private func diagnosticDevice(now: Date) -> TrustedDevice {
+        TrustedDevice(
+            deviceId: "device_1",
+            displayName: "Mike's iPhone",
+            deviceSigningPubkey: "signing",
+            deviceSealingPubkey: "sealing",
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            pairedAt: now.addingTimeInterval(-60),
+            validUntil: now.addingTimeInterval(3_600),
+            capabilities: Set(RemoteCapability.allCases)
+        )
+    }
+
+    private func diagnosisRungs(_ diagnosis: ConnectionDiagnosis) -> [ConnectionDiagnosisRung: ConnectionDiagnosis.Rung] {
+        Dictionary(uniqueKeysWithValues: diagnosis.rungs.map { ($0.rung, $0) })
     }
 }

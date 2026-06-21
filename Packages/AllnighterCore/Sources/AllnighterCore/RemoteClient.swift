@@ -274,9 +274,57 @@ public actor MockiOSClient: RemoteClient {
     }
 
     public func diagnose() async -> ConnectionDiagnosis {
-        ConnectionDiagnosis(rungs: ConnectionDiagnosisRung.allCases.map {
-            ConnectionDiagnosis.Rung(rung: $0, ok: connectedAccount != nil)
+        let account = connectedAccount
+        let signedIn = account != nil
+        let visibleMacs = signedIn ? macRefs : []
+        let visibleMacIds = Set(visibleMacs.map(\.macAgentId))
+        let reachableMacIds = Set(visibleMacs.compactMap { mac -> String? in
+            guard let lastSeenAt = mac.lastSeenAt,
+                  serverNow.timeIntervalSince(lastSeenAt) <= 120 else {
+                return nil
+            }
+            return mac.macAgentId
         })
+        let approved = trustedDevices.values.contains { device in
+            guard let account else { return false }
+            return device.accountId == account.accountId
+                && visibleMacIds.contains(device.macAgentId)
+                && !device.revoked
+                && device.validUntil >= serverNow
+        }
+
+        return ConnectionDiagnosis(rungs: [
+            ConnectionDiagnosis.Rung(
+                rung: .signedIn,
+                ok: signedIn,
+                nextAction: signedIn ? nil : "Sign in with Apple or Google."
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .providerAccountMatch,
+                ok: signedIn,
+                nextAction: signedIn ? nil : "Use the same account on your phone and Mac."
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .macVisible,
+                ok: !visibleMacs.isEmpty,
+                nextAction: visibleMacs.isEmpty ? "Open Allnighter on your Mac with the same account." : nil
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .macReachable,
+                ok: !reachableMacIds.isEmpty,
+                nextAction: reachableMacIds.isEmpty ? "Wake your Mac or start the Allnighter agent." : nil
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .clockInSync,
+                ok: signedIn,
+                nextAction: signedIn ? nil : "Connect once to compare your phone clock with the Mac."
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .deviceApproved,
+                ok: approved,
+                nextAction: approved ? nil : "Approve this device on your Mac."
+            ),
+        ])
     }
 
     public func setSnapshot(_ snapshot: SnapshotEnvelope, macId: String) {
