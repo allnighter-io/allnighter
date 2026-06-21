@@ -216,6 +216,8 @@ public enum RemoteCommandRejectReason: String, Codable, Sendable, CaseIterable {
     case badSignature
     case upgradeRequired
     case invalidPayload
+    case payloadTooLarge
+    case rateLimited
 }
 
 public struct CommandAck: Codable, Equatable, Sendable {
@@ -405,6 +407,38 @@ public struct MediaRef: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+public struct MediaKeyEnvelope: Codable, Equatable, Sendable, Identifiable {
+    public var id: String {
+        macAgentId.isEmpty ? "\(ref):\(deviceId)" : "\(macAgentId):\(ref):\(deviceId)"
+    }
+    public var ref: String
+    public var macAgentId: String
+    public var deviceId: String
+    public var sealedKey: SealedBlob
+
+    public init(ref: String, macAgentId: String = "", deviceId: String, sealedKey: SealedBlob) {
+        self.ref = ref
+        self.macAgentId = macAgentId
+        self.deviceId = deviceId
+        self.sealedKey = sealedKey
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case ref
+        case macAgentId
+        case deviceId
+        case sealedKey
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        ref = try container.decode(String.self, forKey: .ref)
+        macAgentId = try container.decodeIfPresent(String.self, forKey: .macAgentId) ?? ""
+        deviceId = try container.decode(String.self, forKey: .deviceId)
+        sealedKey = try container.decode(SealedBlob.self, forKey: .sealedKey)
+    }
+}
+
 public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable {
     public var id: String { event.id }
     public var macAgentId: String
@@ -414,9 +448,7 @@ public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable
 
     public init(macAgentId: String = "", event: RunEvent, sealedRef: MediaRef? = nil, signature: String) {
         self.macAgentId = macAgentId
-        var remoteEvent = event
-        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
-        self.event = remoteEvent
+        self.event = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         self.sealedRef = sealedRef
         self.signature = signature
     }
@@ -506,6 +538,103 @@ public struct RemoteAuditEvent: Codable, Equatable, Sendable {
     }
 }
 
+public enum RemoteRunEventPrivacy {
+    public static let allowedLightPayloadKeys: Set<String> = [
+        "durationMs",
+        "errorKind",
+        "exitCode",
+        "from",
+        "modelId",
+        "origin",
+        "presetId",
+        "purpose",
+        "runId",
+        "sealedRef",
+        "skillId",
+        "stageId",
+        "status",
+        "to",
+        "truncated",
+        "workerId",
+    ]
+
+    public static let forbiddenPayloadKeys: Set<String> = [
+        "answer",
+        "body",
+        "content",
+        "context",
+        "image",
+        "images",
+        "markdown",
+        "output",
+        "outputs",
+        "plan",
+        "plans",
+        "plaintext",
+        "prompt",
+        "promptExcerpt",
+        "raw",
+        "reason",
+        "reasoning",
+        "text",
+    ]
+
+    public static func contentLight(_ event: RunEvent, sealedRef: MediaRef? = nil) -> RunEvent {
+        var remoteEvent = event
+        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
+        remoteEvent.payload = contentLightPayload(event.payload, sealedRef: sealedRef)
+        return remoteEvent
+    }
+
+    public static func contentLightPayload(
+        _ payload: [String: JSONValue],
+        sealedRef: MediaRef? = nil
+    ) -> [String: JSONValue] {
+        var filtered: [String: JSONValue] = [:]
+        for (key, value) in payload where allowedLightPayloadKeys.contains(key) && value.isRemoteLightScalar {
+            filtered[key] = value
+        }
+        if let sealedRef {
+            filtered["sealedRef"] = .string(sealedRef.ref)
+        }
+        return filtered
+    }
+}
+
+public enum DoorbellKind: String, Codable, Sendable, CaseIterable {
+    case runUpdated
+    case runCompleted
+    case approvalNeeded
+    case macReachabilityChanged
+}
+
+public struct Doorbell: Codable, Equatable, Sendable {
+    public static let titleLimit = 80
+    public static let bodyLimit = 160
+
+    public var title: String
+    public var body: String
+    public var runId: String?
+    public var kind: DoorbellKind
+
+    public init(
+        title: String,
+        body: String,
+        runId: String? = nil,
+        kind: DoorbellKind
+    ) {
+        self.title = String(title.prefix(Self.titleLimit))
+        self.body = String(body.prefix(Self.bodyLimit))
+        self.runId = runId
+        self.kind = kind
+    }
+}
+
+public protocol PushNotifier: Sendable {
+    func register(device: TrustedDevice, pushToken: String) async throws
+    func notify(device: TrustedDevice, doorbell: Doorbell) async throws
+}
+
 public enum ConnectionDiagnosisRung: String, Codable, Sendable, CaseIterable {
     case signedIn
     case providerAccountMatch
@@ -538,6 +667,8 @@ public struct ConnectionDiagnosis: Codable, Equatable, Sendable {
 public enum RemoteCryptoError: Error, Equatable {
     case invalidBase64(String)
     case unsupportedSuite(String)
+    case invalidContentKeyLength(Int)
+    case missingCombinedCiphertext
 }
 
 public enum RemoteCrypto {
@@ -694,8 +825,7 @@ public enum RemoteCrypto {
         signingKey: Curve25519.Signing.PrivateKey,
         method: String = RemoteProtocol.eventMethod
     ) throws -> RemoteRunEventEnvelope {
-        var remoteEvent = event
-        remoteEvent.kind = RunEventKind.remotePublicKind(for: event.kind)
+        let remoteEvent = RemoteRunEventPrivacy.contentLight(event, sealedRef: sealedRef)
         let digest = try remoteEventDigest(macAgentId: macAgentId, event: remoteEvent, sealedRef: sealedRef)
         let signingString = eventSigningString(
             macAgentId: macAgentId,
@@ -809,6 +939,82 @@ private struct RemoteEventSigningBody: Codable, Sendable {
     var macAgentId: String
     var event: RunEvent
     var sealedRef: MediaRef?
+}
+
+private extension JSONValue {
+    var isRemoteLightScalar: Bool {
+        switch self {
+        case .string, .int, .double, .bool, .null:
+            return true
+        case .array, .object:
+            return false
+        }
+    }
+}
+
+public enum RemoteMediaCrypto {
+    public static let mediaKeyContentType = "application/vnd.allnighter.media-key"
+    public static let contentKeyByteCount = 32
+
+    public static func randomContentKey() -> Data {
+        SymmetricKey(size: .bits256).withUnsafeBytes { bytes in
+            Data(bytes)
+        }
+    }
+
+    public static func encrypt(_ plaintext: Data, contentKey: Data) throws -> Data {
+        let key = try symmetricContentKey(contentKey)
+        let sealed = try AES.GCM.seal(plaintext, using: key)
+        guard let combined = sealed.combined else {
+            throw RemoteCryptoError.missingCombinedCiphertext
+        }
+        return combined
+    }
+
+    public static func decrypt(_ encryptedData: Data, contentKey: Data) throws -> Data {
+        let key = try symmetricContentKey(contentKey)
+        let sealed = try AES.GCM.SealedBox(combined: encryptedData)
+        return try AES.GCM.open(sealed, using: key)
+    }
+
+    public static func sealContentKey(
+        _ contentKey: Data,
+        ref: String,
+        macAgentId: String,
+        for devices: [TrustedDevice],
+        now: Date
+    ) throws -> [MediaKeyEnvelope] {
+        var seenDeviceIds = Set<String>()
+        let activeDevices = devices
+            .filter { $0.macAgentId == macAgentId && !$0.revoked && $0.validUntil >= now }
+            .sorted { $0.deviceId < $1.deviceId }
+            .filter { seenDeviceIds.insert($0.deviceId).inserted }
+
+        return try activeDevices
+            .map { device in
+                let sealedKey = try RemoteCrypto.seal(
+                    contentKey,
+                    to: device.deviceSealingPubkey,
+                    sealedForKeyId: device.deviceId,
+                    contentType: mediaKeyContentType
+                )
+                return MediaKeyEnvelope(ref: ref, macAgentId: macAgentId, deviceId: device.deviceId, sealedKey: sealedKey)
+            }
+    }
+
+    public static func openContentKey(
+        _ envelope: MediaKeyEnvelope,
+        with deviceSealingKey: Curve25519.KeyAgreement.PrivateKey
+    ) throws -> Data {
+        try RemoteCrypto.open(envelope.sealedKey, with: deviceSealingKey)
+    }
+
+    private static func symmetricContentKey(_ contentKey: Data) throws -> SymmetricKey {
+        guard contentKey.count == contentKeyByteCount else {
+            throw RemoteCryptoError.invalidContentKeyLength(contentKey.count)
+        }
+        return SymmetricKey(data: contentKey)
+    }
 }
 
 public extension RunEventKind {

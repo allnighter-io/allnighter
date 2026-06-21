@@ -45,10 +45,35 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         return registry
     }
 
+    @discardableResult
+    public func syncTrustedDevices(
+        _ devices: [TrustedDevice],
+        accountId: String,
+        macAgentId: String,
+        now: Date = Date()
+    ) throws -> Int {
+        var registry = load()
+        expirePendingRequests(in: &registry, now: now)
+        let scopedDevices = deduplicatedTrustedDevices(devices.filter {
+            $0.accountId == accountId && $0.macAgentId == macAgentId
+        })
+        registry.trustedDevices.removeAll { $0.accountId == accountId && $0.macAgentId == macAgentId }
+        registry.trustedDevices.append(contentsOf: scopedDevices)
+        registry.trustedDevices.sort { lhs, rhs in
+            let displayOrder = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+            if displayOrder == .orderedSame { return lhs.deviceId < rhs.deviceId }
+            return displayOrder == .orderedAscending
+        }
+        try save(registry)
+        return scopedDevices.count
+    }
+
     public func upsertPending(_ request: RemotePairRequest) throws {
         var registry = load()
         registry.pendingRequests.removeAll {
-            $0.macAgentId == request.macAgentId && $0.deviceId == request.deviceId
+            $0.accountId == request.accountId
+                && $0.macAgentId == request.macAgentId
+                && $0.deviceId == request.deviceId
         }
         registry.pendingRequests.append(request)
         registry.pendingRequests.sort { lhs, rhs in
@@ -61,6 +86,8 @@ public final class TrustedRemoteStore: @unchecked Sendable {
     @discardableResult
     public func approve(
         deviceId: String,
+        accountId: String? = nil,
+        macAgentId: String? = nil,
         now: Date = Date(),
         validFor: TimeInterval = 365 * 24 * 60 * 60,
         capabilities: Set<RemoteCapability> = Set(RemoteCapability.allCases)
@@ -68,9 +95,13 @@ public final class TrustedRemoteStore: @unchecked Sendable {
         var registry = load()
         expirePendingRequests(in: &registry, now: now)
         guard let index = registry.pendingRequests.firstIndex(where: {
-            $0.deviceId == deviceId && $0.status == .pending
+            matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
+                && $0.status == .pending
         }) else {
-            if registry.pendingRequests.contains(where: { $0.deviceId == deviceId && $0.status == .expired }) {
+            if registry.pendingRequests.contains(where: {
+                matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
+                    && $0.status == .expired
+            }) {
                 try save(registry)
                 throw TrustedRemoteStoreError.pairRequestExpired(deviceId)
             }
@@ -100,7 +131,11 @@ public final class TrustedRemoteStore: @unchecked Sendable {
             lastSeenAt: nil,
             capabilities: capabilities
         )
-        registry.trustedDevices.removeAll { $0.deviceId == deviceId }
+        registry.trustedDevices.removeAll {
+            $0.deviceId == device.deviceId
+                && $0.accountId == device.accountId
+                && $0.macAgentId == device.macAgentId
+        }
         registry.trustedDevices.append(device)
         registry.trustedDevices.sort { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
         try save(registry)
@@ -108,9 +143,16 @@ public final class TrustedRemoteStore: @unchecked Sendable {
     }
 
     @discardableResult
-    public func revoke(deviceId: String, now: Date = Date()) throws -> TrustedDevice {
+    public func revoke(
+        deviceId: String,
+        accountId: String? = nil,
+        macAgentId: String? = nil,
+        now: Date = Date()
+    ) throws -> TrustedDevice {
         var registry = load()
-        guard let index = registry.trustedDevices.firstIndex(where: { $0.deviceId == deviceId }) else {
+        guard let index = registry.trustedDevices.firstIndex(where: {
+            matches($0, deviceId: deviceId, accountId: accountId, macAgentId: macAgentId)
+        }) else {
             throw TrustedRemoteStoreError.trustedDeviceNotFound(deviceId)
         }
         registry.trustedDevices[index].revoked = true
@@ -125,5 +167,32 @@ public final class TrustedRemoteStore: @unchecked Sendable {
                 && registry.pendingRequests[index].expiresAt < now {
             registry.pendingRequests[index].status = .expired
         }
+    }
+
+    private func matches(
+        _ request: RemotePairRequest,
+        deviceId: String,
+        accountId: String?,
+        macAgentId: String?
+    ) -> Bool {
+        request.deviceId == deviceId
+            && (accountId == nil || request.accountId == accountId)
+            && (macAgentId == nil || request.macAgentId == macAgentId)
+    }
+
+    private func matches(
+        _ device: TrustedDevice,
+        deviceId: String,
+        accountId: String?,
+        macAgentId: String?
+    ) -> Bool {
+        device.deviceId == deviceId
+            && (accountId == nil || device.accountId == accountId)
+            && (macAgentId == nil || device.macAgentId == macAgentId)
+    }
+
+    private func deduplicatedTrustedDevices(_ devices: [TrustedDevice]) -> [TrustedDevice] {
+        var seenDeviceIds = Set<String>()
+        return devices.filter { seenDeviceIds.insert($0.deviceId).inserted }
     }
 }

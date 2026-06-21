@@ -25,6 +25,7 @@ public protocol RemoteClient: Sendable {
     func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope>
     func send(_ command: RemoteCommand) async throws -> CommandAck
     func fetchSealed(_ ref: MediaRef) async throws -> Data
+    func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope
     func diagnose() async -> ConnectionDiagnosis
 }
 
@@ -83,7 +84,11 @@ public enum RemoteRunReducer {
     }
 
     public static func apply(_ envelope: RemoteRunEventEnvelope, to state: inout RemoteRunViewState) {
-        guard !state.appliedEventIds.contains(envelope.event.id) else { return }
+        guard envelope.event.seq > state.lastSeq else { return }
+        guard !state.appliedEventIds.contains(envelope.event.id) else {
+            state.lastSeq = max(state.lastSeq, envelope.event.seq)
+            return
+        }
         state.appliedEventIds.insert(envelope.event.id)
         state.recentEvents.append(envelope)
         state.lastSeq = max(state.lastSeq, envelope.event.seq)
@@ -151,6 +156,7 @@ public enum MockRemoteClientError: Error, Equatable {
     case notConnected
     case macNotFound(String)
     case mediaNotFound(String)
+    case mediaKeyNotFound(ref: String, deviceId: String)
 }
 
 public actor MockiOSClient: RemoteClient {
@@ -159,26 +165,45 @@ public actor MockiOSClient: RemoteClient {
     private var macRefs: [MacAgentRef]
     private var snapshots: [String: SnapshotEnvelope]
     private var events: [String: [RemoteRunEventEnvelope]]
-    private var media: [String: Data]
-    private var trustedDevices: [String: TrustedDevice]
-    private var seenRequestIds: Set<String>
+    private var media: [MediaStorageKey: Data]
+    private var mediaKeys: [MediaStorageKey: [String: MediaKeyEnvelope]]
+    private var trustedDevices: [TrustedDeviceStorageKey: TrustedDevice]
+    private var seenRequestKeys: Set<MockSeenRequestKey>
     private var serverNow: Date
+    private var deviceNow: Date
 
     public init(
         macs: [MacAgentRef],
         snapshots: [String: SnapshotEnvelope] = [:],
         events: [String: [RemoteRunEventEnvelope]] = [:],
         media: [String: Data] = [:],
+        mediaKeys: [String: [String: MediaKeyEnvelope]] = [:],
         trustedDevices: [TrustedDevice] = [],
-        serverNow: Date = Date()
+        serverNow: Date = Date(),
+        deviceNow: Date? = nil
     ) {
         self.macRefs = macs
         self.snapshots = snapshots
         self.events = events
-        self.media = media
-        self.trustedDevices = Dictionary(uniqueKeysWithValues: trustedDevices.map { ($0.deviceId, $0) })
-        self.seenRequestIds = []
+        let defaultMediaMacId = macs.first?.macAgentId ?? ""
+        self.media = Dictionary(uniqueKeysWithValues: media.map {
+            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
+        })
+        self.mediaKeys = Dictionary(uniqueKeysWithValues: mediaKeys.map {
+            (MediaStorageKey(macAgentId: defaultMediaMacId, ref: $0.key), $0.value)
+        })
+        var trustedByScope: [TrustedDeviceStorageKey: TrustedDevice] = [:]
+        for device in trustedDevices {
+            trustedByScope[TrustedDeviceStorageKey(
+                accountId: device.accountId,
+                macAgentId: device.macAgentId,
+                deviceId: device.deviceId
+            )] = device
+        }
+        self.trustedDevices = trustedByScope
+        self.seenRequestKeys = []
         self.serverNow = serverNow
+        self.deviceNow = deviceNow ?? serverNow
     }
 
     public func connect(account: RemoteAccountSession, mode: ConnectionMode) async throws {
@@ -203,14 +228,17 @@ public actor MockiOSClient: RemoteClient {
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {
-        guard let mac = macRefs.first(where: { $0.macAgentId == macId }) else {
+        guard connectedAccount != nil,
+              connectionMode != nil,
+              let mac = macRefs.first(where: { $0.macAgentId == macId }) else {
             return AsyncStream { $0.finish() }
         }
         let pending = (events[macId] ?? [])
             .filter { $0.event.seq > since }
-            .filter {
-                (try? RemoteCrypto.verifyRemoteRunEventEnvelope(
-                    $0,
+            .filter { envelope in
+                guard envelope.macAgentId == mac.macAgentId else { return false }
+                return (try? RemoteCrypto.verifyRemoteRunEventEnvelope(
+                    envelope,
                     signingPublicKeyBase64: mac.agentSigningPubkey
                 )) == true
             }
@@ -225,6 +253,8 @@ public actor MockiOSClient: RemoteClient {
 
     public func send(_ command: RemoteCommand) async throws -> CommandAck {
         try requireConnected()
+        let account = connectedAccount
+        let visibleMacIds = Set(macRefs.map(\.macAgentId))
         guard command.assertion.protocolMajor == RemoteProtocol.currentMajor else {
             return reject(command, reason: .upgradeRequired)
         }
@@ -238,24 +268,41 @@ public actor MockiOSClient: RemoteClient {
         guard abs(command.assertion.timestamp.timeIntervalSince(serverNow)) <= 60 else {
             return reject(command, reason: .clockSkew, includeServerTime: true)
         }
-        guard !seenRequestIds.contains(command.requestId) else {
-            return reject(command, reason: .replayedRequestId, outcome: .duplicate)
-        }
         guard try RemoteCrypto.payloadDigest(command.payload) == command.assertion.payloadSHA256 else {
             return reject(command, reason: .badSignature)
         }
-        guard let trustedDevice = trustedDevices[command.assertion.deviceId],
-              trustedDevice.authorizes(command.kind, at: serverNow) else {
+        guard let accountId = account?.accountId else {
             return reject(command, reason: .unauthorizedKind)
         }
-        guard try RemoteCrypto.verifyDeviceAssertion(
-            command.assertion,
-            signingPublicKeyBase64: trustedDevice.deviceSigningPubkey
-        ) else {
+        let seenKey = MockSeenRequestKey(
+            accountId: accountId,
+            deviceId: command.assertion.deviceId,
+            requestId: command.requestId
+        )
+        guard !seenRequestKeys.contains(seenKey) else {
+            return reject(command, reason: .replayedRequestId, outcome: .duplicate)
+        }
+        let visibleDeviceRows = trustedDevices.values.filter {
+            $0.accountId == accountId
+                && $0.deviceId == command.assertion.deviceId
+                && visibleMacIds.contains($0.macAgentId)
+        }
+        let authorizedDeviceRows = visibleDeviceRows.filter {
+            $0.authorizes(command.kind, at: serverNow)
+        }
+        guard !authorizedDeviceRows.isEmpty else {
+            return reject(command, reason: .unauthorizedKind)
+        }
+        guard try authorizedDeviceRows.contains(where: {
+            try RemoteCrypto.verifyDeviceAssertion(
+                command.assertion,
+                signingPublicKeyBase64: $0.deviceSigningPubkey
+            )
+        }) else {
             return reject(command, reason: .badSignature)
         }
 
-        seenRequestIds.insert(command.requestId)
+        seenRequestKeys.insert(seenKey)
         return CommandAck(
             requestId: command.requestId,
             accepted: true,
@@ -267,16 +314,89 @@ public actor MockiOSClient: RemoteClient {
 
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
         try requireConnected()
-        guard let data = media[ref.ref] else {
+        try requireMac(ref.macAgentId)
+        guard ref.expiresAt >= serverNow else {
+            throw MockRemoteClientError.mediaNotFound(ref.ref)
+        }
+        guard let data = media[MediaStorageKey(macAgentId: ref.macAgentId, ref: ref.ref)] else {
             throw MockRemoteClientError.mediaNotFound(ref.ref)
         }
         return data
     }
 
+    public func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope {
+        try requireConnected()
+        try requireMac(ref.macAgentId)
+        guard ref.expiresAt >= serverNow else {
+            throw MockRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
+        }
+        guard let key = mediaKeys[MediaStorageKey(macAgentId: ref.macAgentId, ref: ref.ref)]?[deviceId] else {
+            throw MockRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
+        }
+        return key
+    }
+
     public func diagnose() async -> ConnectionDiagnosis {
-        ConnectionDiagnosis(rungs: ConnectionDiagnosisRung.allCases.map {
-            ConnectionDiagnosis.Rung(rung: $0, ok: connectedAccount != nil)
+        let account = connectedAccount
+        let signedIn = account != nil
+        let visibleMacs = signedIn ? macRefs : []
+        let visibleMacIds = Set(visibleMacs.map(\.macAgentId))
+        let reachableMacIds = Set(visibleMacs.compactMap { mac -> String? in
+            guard let lastSeenAt = mac.lastSeenAt,
+                  serverNow.timeIntervalSince(lastSeenAt) <= 120 else {
+                return nil
+            }
+            return mac.macAgentId
         })
+        let clockInSync = signedIn && abs(deviceNow.timeIntervalSince(serverNow)) <= 60
+        let clockNextAction: String?
+        if clockInSync {
+            clockNextAction = nil
+        } else if signedIn {
+            clockNextAction = "Check your phone clock; it differs from the Mac by more than 60 seconds."
+        } else {
+            clockNextAction = "Connect once to compare your phone clock with the Mac."
+        }
+        let approved = trustedDevices.values.contains { device in
+            guard let account else { return false }
+            return device.accountId == account.accountId
+                && visibleMacIds.contains(device.macAgentId)
+                && !device.revoked
+                && device.validUntil >= serverNow
+        }
+
+        return ConnectionDiagnosis(rungs: [
+            ConnectionDiagnosis.Rung(
+                rung: .signedIn,
+                ok: signedIn,
+                nextAction: signedIn ? nil : "Sign in with Apple or Google."
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .providerAccountMatch,
+                ok: signedIn,
+                nextAction: signedIn ? nil : "Use the same account on your phone and Mac."
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .macVisible,
+                ok: !visibleMacs.isEmpty,
+                nextAction: visibleMacs.isEmpty ? "Open Allnighter on your Mac with the same account." : nil
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .macReachable,
+                ok: !reachableMacIds.isEmpty,
+                nextAction: reachableMacIds.isEmpty ? "Wake your Mac or start the Allnighter agent." : nil
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .clockInSync,
+                ok: clockInSync,
+                nextAction: clockNextAction
+            ),
+            ConnectionDiagnosis.Rung(
+                rung: .deviceApproved,
+                ok: approved,
+                nextAction: approved ? nil : "Approve this device on your Mac."
+            ),
+        ])
     }
 
     public func setSnapshot(_ snapshot: SnapshotEnvelope, macId: String) {
@@ -287,8 +407,16 @@ public actor MockiOSClient: RemoteClient {
         events[macId, default: []].append(envelope)
     }
 
+    public func setDeviceNow(_ now: Date) {
+        deviceNow = now
+    }
+
     public func trustDevice(_ device: TrustedDevice) {
-        trustedDevices[device.deviceId] = device
+        trustedDevices[TrustedDeviceStorageKey(
+            accountId: device.accountId,
+            macAgentId: device.macAgentId,
+            deviceId: device.deviceId
+        )] = device
     }
 
     public func setServerNow(_ date: Date) {
@@ -298,6 +426,12 @@ public actor MockiOSClient: RemoteClient {
     private func requireConnected() throws {
         guard connectedAccount != nil, connectionMode != nil else {
             throw MockRemoteClientError.notConnected
+        }
+    }
+
+    private func requireMac(_ macId: String) throws {
+        guard macRefs.contains(where: { $0.macAgentId == macId }) else {
+            throw MockRemoteClientError.macNotFound(macId)
         }
     }
 
@@ -315,5 +449,22 @@ public actor MockiOSClient: RemoteClient {
             serverTime: includeServerTime ? serverNow : nil,
             signature: "mock-mac-signature"
         )
+    }
+
+    private struct MediaStorageKey: Hashable, Sendable {
+        var macAgentId: String
+        var ref: String
+    }
+
+    private struct TrustedDeviceStorageKey: Hashable, Sendable {
+        var accountId: String
+        var macAgentId: String
+        var deviceId: String
+    }
+
+    private struct MockSeenRequestKey: Hashable, Sendable {
+        var accountId: String
+        var deviceId: String
+        var requestId: String
     }
 }

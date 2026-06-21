@@ -1247,7 +1247,7 @@ struct AllnighterCLI {
           detect                                                    first-run CLI detection, headless
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           serve [--health --json]                                 resident coordinator (Serve0 skeleton)
-          pair list|approve|revoke [--json]                         manage trusted remote devices
+          pair list|approve|revoke|begin [--json]                   manage trusted remote devices
           mcp                                                       run as an MCP stdio server
           install-cli | mcp-install                                 setup helpers
         """)

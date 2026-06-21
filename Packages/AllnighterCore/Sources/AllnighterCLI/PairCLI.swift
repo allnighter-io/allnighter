@@ -3,7 +3,12 @@ import AllnighterCore
 import AllnighterEngine
 
 enum PairCLI {
-    static func run(_ args: [String], runtime: ToolRuntime, store: TrustedRemoteStore = TrustedRemoteStore()) {
+    static func run(
+        _ args: [String],
+        runtime: ToolRuntime,
+        store: TrustedRemoteStore = TrustedRemoteStore(),
+        directSessionStore: DirectModePairingSessionStore = DirectModePairingSessionStore()
+    ) {
         guard let sub = args.first else {
             runList([], store: store)
             return
@@ -12,6 +17,7 @@ enum PairCLI {
         case "list": runList(Array(args.dropFirst()), store: store)
         case "approve": runApprove(Array(args.dropFirst()), store: store)
         case "revoke": runRevoke(Array(args.dropFirst()), store: store)
+        case "begin": runBegin(Array(args.dropFirst()), sessionStore: directSessionStore)
         default: usage()
         }
     }
@@ -99,6 +105,72 @@ enum PairCLI {
         }
     }
 
+    static func beginJSON(
+        _ args: [String],
+        sessionStore: DirectModePairingSessionStore,
+        now: @escaping @Sendable () -> Date = Date.init,
+        tokenFactory: @escaping @Sendable () -> String = DirectModePairingBeginService.randomPairingToken,
+        manualCodeFactory: @escaping @Sendable () -> String = DirectModePairingBeginService.randomManualCode
+    ) throws -> DirectModePairingBeginJSON {
+        let opts = Options(args)
+        let transport = try beginTransport(opts.value("transport"))
+        let port = try beginPort(opts.value("port"))
+        let plan = try exposureProvider(for: transport).plan(DirectModeExposureRequest(
+            loopbackPort: port,
+            transport: transport,
+            host: opts.value("host")
+        ))
+        guard let agentSigningPubkey = opts.value("agent-signing-pubkey") else {
+            throw PairCLIError.missingRequired("--agent-signing-pubkey")
+        }
+        guard let agentSealingPubkey = opts.value("agent-sealing-pubkey") else {
+            throw PairCLIError.missingRequired("--agent-sealing-pubkey")
+        }
+        let ttlSeconds = try beginTTL(opts.value("ttl-seconds"))
+        let maxFailedAttempts = try beginMaxFailedAttempts(opts.value("max-failed-attempts"))
+        let linkBase = try beginLinkBase(opts.value("link-base"))
+        let service = DirectModePairingBeginService(
+            sessionStore: sessionStore,
+            now: now,
+            tokenFactory: tokenFactory,
+            manualCodeFactory: manualCodeFactory
+        )
+        return try service.begin(DirectModePairingBeginRequest(
+            exposurePlan: plan,
+            agentSigningPubkey: agentSigningPubkey,
+            agentSealingPubkey: agentSealingPubkey,
+            tailnetName: opts.value("tailnet"),
+            ttlSeconds: ttlSeconds,
+            maxFailedAttempts: maxFailedAttempts,
+            universalLinkBase: linkBase
+        )).json(contractVersion: ContractRegistry.contractVersion)
+    }
+
+    private static func runBegin(_ args: [String], sessionStore: DirectModePairingSessionStore) {
+        let opts = Options(args)
+        do {
+            let payload = try beginJSON(args, sessionStore: sessionStore)
+            if opts.flag("json") {
+                print(AllnighterCLI.jsonString(payload))
+                return
+            }
+
+            print("Direct Mode pairing armed until \(iso(payload.expiresAt))")
+            if let link = payload.pairingLink {
+                print("Pairing link: \(link)")
+            }
+            print("Manual code: \(payload.manualCode)")
+            if !payload.serveCommand.isEmpty {
+                print("Expose command: \(payload.serveCommand.joined(separator: " "))")
+            }
+            if let certificateProbeCommand = payload.certificateProbeCommand {
+                print("Readiness check: \(certificateProbeCommand.joined(separator: " "))")
+            }
+        } catch {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: String(describing: error))
+        }
+    }
+
     private static func emitStoreError(_ error: TrustedRemoteStoreError) -> Never {
         switch error {
         case .pairRequestNotFound(let deviceId):
@@ -110,7 +182,7 @@ enum PairCLI {
         }
     }
 
-    private static func usage(_ detail: String = "list|approve|revoke") -> Never {
+    private static func usage(_ detail: String = "list|approve|revoke|begin") -> Never {
         FileHandle.standardError.write(Data("usage: alln pair \(detail)\n".utf8))
         exit(2)
     }
@@ -120,4 +192,58 @@ enum PairCLI {
         formatter.formatOptions = [.withInternetDateTime]
         return formatter.string(from: date)
     }
+
+    private static func beginTransport(_ raw: String?) throws -> DirectModeExposureTransport {
+        guard let raw else { return .loopback }
+        guard let transport = DirectModeExposureTransport(rawValue: raw) else {
+            throw PairCLIError.invalidValue("--transport", raw)
+        }
+        return transport
+    }
+
+    private static func beginPort(_ raw: String?) throws -> UInt16 {
+        guard let raw else { return 42123 }
+        guard let value = UInt16(raw), value > 0 else {
+            throw PairCLIError.invalidValue("--port", raw)
+        }
+        return value
+    }
+
+    private static func beginTTL(_ raw: String?) throws -> TimeInterval {
+        guard let raw else { return 5 * 60 }
+        guard let value = TimeInterval(raw), value.isFinite, value > 0 else {
+            throw PairCLIError.invalidValue("--ttl-seconds", raw)
+        }
+        return value
+    }
+
+    private static func beginMaxFailedAttempts(_ raw: String?) throws -> Int {
+        guard let raw else { return 5 }
+        guard let value = Int(raw), value > 0 else {
+            throw PairCLIError.invalidValue("--max-failed-attempts", raw)
+        }
+        return value
+    }
+
+    private static func beginLinkBase(_ raw: String?) throws -> URL? {
+        guard let raw else { return nil }
+        guard let url = URL(string: raw) else {
+            throw PairCLIError.invalidValue("--link-base", raw)
+        }
+        return url
+    }
+
+    private static func exposureProvider(for transport: DirectModeExposureTransport) -> any ExposureProvider {
+        switch transport {
+        case .loopback:
+            return LoopbackExposureProvider()
+        case .tailscaleHTTPS, .tailnetHTTP:
+            return TailscaleExposureProvider()
+        }
+    }
+}
+
+private enum PairCLIError: Error, Equatable {
+    case missingRequired(String)
+    case invalidValue(String, String)
 }
