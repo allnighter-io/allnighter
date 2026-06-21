@@ -15,8 +15,63 @@ public struct WorkerRunOutcome: Sendable, Equatable {
     public var exitCode: Int?
     /// Sourced capacity/cooldown fact from raw CLI output (nonzero exit only).
     public var capacityObservation: CapacityObservation?
+    /// Worker_Session_Continuity: the vendor CLI session id this run used/established — the
+    /// minted id (acquire=set), the captured id (acquire=capture), or the resumed id. The
+    /// caller persists it against (thread, source, model) so the next turn resumes it.
+    public var capturedSessionId: String?
 
     public var hasOutput: Bool { status == .done && (output?.isEmpty == false) }
+}
+
+/// What the runner needs to piggyback ONE vendor CLI session across a thread's turns.
+public struct WorkerSessionPlan: Sendable, Equatable {
+    /// The driver's session config (from its manifest).
+    public let session: DriverManifest.Session
+    /// Resume this vendor session id (a later turn). nil ⇒ first turn on this (thread,source,model).
+    public let resumeSessionId: String?
+    /// First turn with acquire=set: the uuid the caller minted to assign via `--session-id`.
+    public let mintSessionId: String?
+
+    public init(session: DriverManifest.Session, resumeSessionId: String?, mintSessionId: String?) {
+        self.session = session
+        self.resumeSessionId = resumeSessionId
+        self.mintSessionId = mintSessionId
+    }
+}
+
+/// Pure decision layer for session-aware invocation — what argv to run and what session id
+/// the run will carry. Keeps the (testable) policy out of the streaming method's plumbing.
+public enum WorkerSessionPlanner {
+    /// The session args override (nil ⇒ run the base args) and the id to substitute/mint.
+    /// `resolveArgs` resolves `manifest.resolvedSessionArgs` against a context carrying the id.
+    public static func plan(
+        _ plan: WorkerSessionPlan?,
+        resolveArgs: (_ sessionId: String?, _ resuming: Bool) -> [String]?
+    ) -> (args: [String]?, sessionId: String?) {
+        guard let plan, plan.session.continuity == .vendorSession else { return (nil, nil) }
+        if let resumeId = plan.resumeSessionId {
+            return (resolveArgs(resumeId, true), resumeId)
+        }
+        if plan.session.acquire == .set {
+            let minted = plan.mintSessionId ?? UUID().uuidString.lowercased()
+            return (resolveArgs(minted, false), minted)  // firstTurnArgs, --session-id <minted>
+        }
+        return (nil, nil)  // acquire=capture/create first turn → base args; id captured after
+    }
+
+    /// The id to persist after the run: the resumed/minted id straight through, else the
+    /// captured id from output (acquire=capture). nil ⇒ no continuity established this turn.
+    public static func capturedId(
+        _ plan: WorkerSessionPlan?,
+        plannedSessionId: String?,
+        stdout: String,
+        outputFileContents: String?
+    ) -> String? {
+        guard let plan, plan.session.continuity == .vendorSession else { return nil }
+        if let plannedSessionId { return plannedSessionId }   // resume or mint(set)
+        guard plan.session.acquire == .capture, let rule = plan.session.capture else { return nil }
+        return WorkerSessionCapture.extract(capture: rule, stdout: stdout, outputFileContents: outputFileContents)
+    }
 }
 
 /// Runs one worker's CLI for one prompt and normalizes the raw command result.
