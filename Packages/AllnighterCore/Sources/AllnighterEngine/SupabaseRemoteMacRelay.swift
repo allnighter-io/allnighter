@@ -126,7 +126,9 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
             query: [URLQueryItem(name: "on_conflict", value: "id")],
             prefer: "resolution=merge-duplicates,return=representation"
         )
-        return try (rows.first ?? row).macRef()
+        return try (rows.first(where: {
+            $0.id == registration.macAgentId && $0.accountId == registration.accountId
+        }) ?? row).macRef()
     }
 
     public func heartbeat(_ heartbeat: RemoteMacAgentHeartbeat) async throws {
@@ -150,7 +152,9 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "order", value: "display_name.asc,id.asc"),
             ]
         )
-        return try rows.map { try $0.macRef() }
+        return try rows
+            .filter { $0.accountId == accountId }
+            .map { try $0.macRef() }
     }
 
     public func submitPairRequest(_ request: RemotePairRequestDraft) async throws -> RemotePairRequest {
@@ -160,7 +164,11 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
             rows: [row],
             prefer: "return=representation"
         )
-        guard let inserted = rows.first else {
+        guard let inserted = rows.first(where: {
+            $0.accountId == request.accountId
+                && $0.macAgentId == request.macAgentId
+                && $0.deviceId == request.deviceId
+        }) else {
             throw SupabaseRemoteMacRelayError.decodeFailed("missing pair_requests insert representation")
         }
         return try inserted.model()
@@ -176,7 +184,13 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "order", value: "requested_at.asc,device_id.asc"),
             ]
         )
-        return try rows.map { try $0.model() }
+        return try rows
+            .filter {
+                $0.accountId == accountId
+                    && $0.macAgentId == macAgentId
+                    && $0.status == .pending
+            }
+            .map { try $0.model() }
     }
 
     public func pairRequestStatus(
@@ -196,7 +210,12 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "limit", value: "1"),
             ]
         )
-        guard let request = try requests.first?.model() else {
+        guard let request = try requests.first(where: {
+            $0.accountId == accountId
+                && $0.macAgentId == macAgentId
+                && $0.id == requestId
+                && $0.deviceId == deviceId
+        })?.model() else {
             return RemotePairingStatusResponse(requestId: requestId, deviceId: deviceId, status: .notFound, checkedAt: checkedAt)
         }
 
@@ -249,7 +268,9 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 URLQueryItem(name: "order", value: "display_name.asc,device_id.asc"),
             ]
         )
-        return rows.map { $0.model() }
+        return rows
+            .filter { $0.accountId == accountId && $0.macAgentId == macAgentId }
+            .map { $0.model() }
     }
 
     public func upsertTrustedDevice(_ device: TrustedDevice) async throws {

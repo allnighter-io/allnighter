@@ -292,6 +292,72 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         ))
     }
 
+    func testMacAgentsFiltersRowsOutsideRequestedAccount() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                macAgentRow(id: "mac_other", accountId: "acct_2"),
+                macAgentRow(id: "mac_1", accountId: "acct_1"),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let macs = try await relay.macAgents(accountId: "acct_1")
+
+        XCTAssertEqual(macs.map(\.macAgentId), ["mac_1"])
+    }
+
+    func testPendingPairRequestsFiltersRowsOutsideRequestedScope() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                pairRequestRow(id: "pair_wrong_account", accountId: "acct_2"),
+                pairRequestRow(id: "pair_wrong_mac", macAgentId: "mac_2"),
+                pairRequestRow(id: "pair_approved", status: .approved),
+                pairRequestRow(id: "pair_valid"),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let requests = try await relay.pendingPairRequests(accountId: "acct_1", macAgentId: "mac_1")
+
+        XCTAssertEqual(requests.map(\.id), ["pair_valid"])
+    }
+
+    func testPairRequestStatusIgnoresRowsOutsideRequestedScope() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                pairRequestRow(id: "pair_1", accountId: "acct_2"),
+                pairRequestRow(id: "pair_1", macAgentId: "mac_2"),
+                pairRequestRow(id: "pair_1", deviceId: "device_other"),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let status = try await relay.pairRequestStatus(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            requestId: "pair_1",
+            deviceId: "device_1",
+            checkedAt: now
+        )
+
+        XCTAssertEqual(status.status, .notFound)
+    }
+
+    func testTrustedDevicesFiltersRowsOutsideRequestedScope() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                trustedDeviceRow(deviceId: "device_wrong_account", accountId: "acct_2"),
+                trustedDeviceRow(deviceId: "device_wrong_mac", macAgentId: "mac_2"),
+                trustedDeviceRow(deviceId: "device_valid"),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let devices = try await relay.trustedDevices(accountId: "acct_1", macAgentId: "mac_1")
+
+        XCTAssertEqual(devices.map(\.deviceId), ["device_valid"])
+    }
+
     func testPublishEventsWritesAndReadsFullSealedMediaRef() async throws {
         let signingKey = Curve25519.Signing.PrivateKey()
         let sealedRef = mediaRef()
@@ -635,6 +701,61 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
             "audit_target_summary": auditTargetSummary,
             "sig": ack.signature,
             "created_at": iso(rowCreatedAt),
+        ]
+    }
+
+    private func macAgentRow(id: String, accountId: String) -> [String: Any] {
+        [
+            "id": id,
+            "account_id": accountId,
+            "display_name": id,
+            "agent_signing_pubkey": "sign_\(id)",
+            "agent_sealing_pubkey": "seal_\(id)",
+            "last_seen_at": iso(now),
+        ]
+    }
+
+    private func pairRequestRow(
+        id: String,
+        accountId: String = "acct_1",
+        macAgentId: String = "mac_1",
+        deviceId: String = "device_1",
+        status: RemotePairRequestStatus = .pending
+    ) -> [String: Any] {
+        [
+            "id": id,
+            "account_id": accountId,
+            "mac_agent_id": macAgentId,
+            "device_id": deviceId,
+            "display_name": deviceId,
+            "device_signing_pubkey": "sign_\(deviceId)",
+            "device_sealing_pubkey": "seal_\(deviceId)",
+            "status": status.rawValue,
+            "requested_at": iso(now),
+            "expires_at": iso(now.addingTimeInterval(300)),
+            "approved_at": NSNull(),
+            "rejected_at": NSNull(),
+        ]
+    }
+
+    private func trustedDeviceRow(
+        deviceId: String,
+        accountId: String = "acct_1",
+        macAgentId: String = "mac_1"
+    ) -> [String: Any] {
+        [
+            "device_id": deviceId,
+            "account_id": accountId,
+            "mac_agent_id": macAgentId,
+            "display_name": deviceId,
+            "device_signing_pubkey": "sign_\(deviceId)",
+            "device_sealing_pubkey": "seal_\(deviceId)",
+            "paired_at": iso(now),
+            "valid_until": iso(now.addingTimeInterval(300)),
+            "revoked": false,
+            "revoked_at": NSNull(),
+            "last_seen_at": NSNull(),
+            "capabilities": [RemoteCapability.startRun.rawValue],
         ]
     }
 
