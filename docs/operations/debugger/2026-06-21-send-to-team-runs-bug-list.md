@@ -31,6 +31,32 @@ custom team execution, model health/substitutions.
   `worker title` before `modelName`, plus a GUI fixture for a Team run with at
   least three distinct worker titles.
 
+- [ ] **Factory Floor worker cards do not show response time or worker state.**
+
+  **Priority:** P1 / live-run readability.
+  **Observed:** Factory Floor cast/worker cards show the worker title/model and a
+  truncated response preview, but not how long that worker took to respond and not
+  a clear per-worker state indicator. The reported screenshot shows
+  `Regression Guard`, `ChatGPT 5.5`, and a preview line only.
+  **Expected:** Every Factory Floor worker row/card shows timing and state:
+  running workers show live elapsed time plus a blue working dot; done workers
+  show the final response duration plus an amber/yellow dot like a new-message
+  indicator; failed/timed-out/cancelled workers show final elapsed time when
+  known plus a red failure dot. Queued/skipped states need an honest neutral
+  treatment, not a fabricated success or failure color.
+  **Truth owner:** `WorkerAnswer.status`, `startedAt`, `finishedAt`,
+  `durationMs`, and the projected `FloorWorkerLane` fields.
+  **Lie-prone layer:** `FactoryFloorView` / `FloorCastMember` can discard or hide
+  the status and timing that already exist in the run/Floor projection.
+  **Fix boundary:** Factory Floor worker row/card presenter and layout only unless
+  investigation proves the run snapshot is missing timing. Do not invent timers
+  from view mount time; derive live elapsed from persisted `startedAt` and clock,
+  and final duration from `durationMs` or `finishedAt - startedAt`.
+  **Missing proof:** Presenter tests for running/done/failed/timed-out worker
+  rows showing the right duration source and state, plus a GUI fixture with one
+  running worker, one done worker, and one timed-out worker proving blue /
+  amber-yellow / red dots are visible and non-overlapping.
+
 - [ ] **Factory Floor worker responses are missing the bottom copy button.**
 
   **Priority:** P1 for missing action, P2 for polish.  
@@ -123,9 +149,11 @@ custom team execution, model health/substitutions.
 3. Send a Team run from the Composer.
 4. Open the Team thread and Factory Floor.
 5. Verify every worker card shows `worker title/name - model name`.
-6. Verify every worker response has a bottom copy button.
-7. Compare the saved custom team row to the run snapshot and spawned CLI/model.
-8. For timed-out workers, inspect whether the runtime classified the failure cause
+6. Verify every worker card shows elapsed/final response time and a state dot:
+   blue running, amber/yellow done, red failed/timed out.
+7. Verify every worker response has a bottom copy button.
+8. Compare the saved custom team row to the run snapshot and spawned CLI/model.
+9. For timed-out workers, inspect whether the runtime classified the failure cause
    and whether substitution was attempted or explicitly skipped.
 
 ## Related Prior Art
@@ -134,6 +162,9 @@ custom team execution, model health/substitutions.
   ownership and lazy run rendering.
 - `docs/phases/CLI_Implementation_Contract.md` - `TeamRunJSON.workers`,
   `workerAnswers`, status vocabulary, and timeout status.
+- `Packages/AllnighterCore/Sources/AllnighterCore/FloorRun.swift` -
+  `FloorWorkerLane` already carries status/timing fields for Factory Floor
+  projection.
 - `docs/phases/Work_Order_Team_Model.md` - worker = model wearing a skill; models
   sit on the Bench, workers do jobs.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md` - healthy
