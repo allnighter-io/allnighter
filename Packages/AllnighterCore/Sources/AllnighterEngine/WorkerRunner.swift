@@ -324,6 +324,17 @@ public struct WorkerRunner: Sendable {
                 return manifest.resolvedSessionArgs(context, resuming: resuming)
             }
             let args = sessionArgs ?? manifest.resolvedStreamingArgs(context)
+            // session_dir capture (agy): the CLI mints one conversation folder per turn 1 but
+            // never prints its id. Snapshot the brain dir now; the single folder created during
+            // this run is the vendor session id we resume next turn. Only on a first/capture turn.
+            let dirCapture: (url: URL, before: Set<String>)? = {
+                guard plannedSessionId == nil,
+                      let session = sessionPlan?.session, session.continuity == .vendorSession,
+                      session.acquire == .capture, let rule = session.capture,
+                      rule.from == .sessionDir, let dir = rule.dir else { return nil }
+                let url = URL(fileURLWithPath: (dir as NSString).expandingTildeInPath)
+                return (url, Self.directoryEntryNames(url))
+            }()
             let stdin = manifest.stdinPrompt(context)
             let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
 
@@ -361,6 +372,11 @@ public struct WorkerRunner: Sendable {
                             outcome.capturedSessionId = WorkerSessionPlanner.capturedId(
                                 sessionPlan, plannedSessionId: plannedSessionId,
                                 stdout: result.stdout, outputFileContents: fileText)
+                            if outcome.capturedSessionId == nil, let dc = dirCapture,
+                               outcome.status == .done {
+                                outcome.capturedSessionId = WorkerSessionCapture.capturedDirEntry(
+                                    before: dc.before, after: Self.directoryEntryNames(dc.url))
+                            }
                             StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1) session=\(outcome.capturedSessionId ?? "-")")
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
                         case .failed(let launchError):
@@ -457,6 +473,12 @@ public struct WorkerRunner: Sendable {
     }
 
     /// One-line description of a stream event for the debug log.
+    /// The entry names directly under `url` (empty if unreadable). Used by `session_dir` capture
+    /// to snapshot the agy brain dir before/after a run.
+    static func directoryEntryNames(_ url: URL) -> Set<String> {
+        Set((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? [])
+    }
+
     private static func describe(_ event: WorkerStreamEvent) -> String {
         switch event {
         case .answerDelta(let text, let seq, _): return "answerDelta[\(seq)] \(StreamDebugLog.clip(text, 120))"

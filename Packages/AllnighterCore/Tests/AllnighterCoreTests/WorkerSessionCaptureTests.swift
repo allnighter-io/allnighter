@@ -51,4 +51,29 @@ final class WorkerSessionCaptureTests: XCTestCase {
         let cap = DriverManifest.Session.Capture(from: .streamJson, field: "session_id")
         XCTAssertNil(WorkerSessionCapture.extract(capture: cap, stdout: #"{"session_id":""}"#))
     }
+
+    func testSessionDirHasNoStringField() {
+        // agy mints a folder, not an output field — string extraction yields nothing.
+        let cap = DriverManifest.Session.Capture(from: .sessionDir, dir: "~/.gemini/antigravity-cli/brain")
+        XCTAssertNil(WorkerSessionCapture.extract(capture: cap, stdout: "OK"))
+    }
+
+    // CONT-S6: `session_dir` capture identifies the ONE conversation folder agy minted this turn.
+    func testCapturedDirEntryReturnsTheSingleNewFolder() {
+        let before: Set<String> = ["a", "b", "c"]
+        let after: Set<String> = ["a", "b", "c", "359ae744"]
+        XCTAssertEqual(WorkerSessionCapture.capturedDirEntry(before: before, after: after), "359ae744")
+    }
+
+    func testCapturedDirEntryNilWhenNothingMinted() {
+        let s: Set<String> = ["a", "b"]
+        XCTAssertNil(WorkerSessionCapture.capturedDirEntry(before: s, after: s))
+    }
+
+    func testCapturedDirEntryNilWhenAmbiguous() {
+        // Two folders appeared (a concurrent agy run) — refuse to guess; degrade to context-only.
+        let before: Set<String> = ["a"]
+        let after: Set<String> = ["a", "x", "y"]
+        XCTAssertNil(WorkerSessionCapture.capturedDirEntry(before: before, after: after))
+    }
 }

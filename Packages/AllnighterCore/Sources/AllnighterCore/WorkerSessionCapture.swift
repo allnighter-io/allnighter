@@ -13,15 +13,28 @@ public enum WorkerSessionCapture {
         stdout: String,
         outputFileContents: String? = nil
     ) -> String? {
+        guard let field = capture.field else { return nil }  // session_dir carries no string field
         switch capture.from {
         case .stdout:
-            return firstRegexGroup(pattern: capture.field, in: stdout)
+            return firstRegexGroup(pattern: field, in: stdout)
         case .streamJson:
-            return firstJSONLFieldValue(field: capture.field, jsonl: stdout)
+            return firstJSONLFieldValue(field: field, jsonl: stdout)
         case .outputFile:
             guard let contents = outputFileContents else { return nil }
-            return firstJSONFieldValue(field: capture.field, json: contents)
+            return firstJSONFieldValue(field: field, json: contents)
+        case .sessionDir:
+            return nil  // captured from the filesystem in the Engine, not from output strings
         }
+    }
+
+    /// `session_dir` capture: given the folder names under the brain dir BEFORE the run and AFTER,
+    /// the vendor session id is the single newly-minted folder. Pure (the directory-listing IO
+    /// lives in the Engine). Returns nil for 0 (CLI minted nothing) or >1 (a concurrent run —
+    /// ambiguous, so we refuse to guess and degrade to a context-only turn rather than resume the
+    /// wrong conversation).
+    public static func capturedDirEntry(before: Set<String>, after: Set<String>) -> String? {
+        let created = after.subtracting(before)
+        return created.count == 1 ? created.first : nil
     }
 
     // MARK: - stream-json (JSONL): scan each line for the field

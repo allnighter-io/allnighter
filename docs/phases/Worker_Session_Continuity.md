@@ -32,7 +32,7 @@ Allnighter, not an architectural impossibility. Confirmed live via `--help` on e
 | `cursor_agent` | `agent` | `--resume <chatId>` | `agent create-chat` → id (or capture from stream-json) | `vendorSession` |
 | `codex` | `codex` | `codex exec resume <id> <prompt>` | capture from `codex exec --json` JSONL | `vendorSession` |
 | `grok` | `grok` | `-r/--resume <SESSION_ID>` | capture from `--output-format streaming-json` | `vendorSession` |
-| `antigravity` | `agy` | `--conversation <id>` (resume-only; rejects supplied id, emits none) | ⚠️ no per-thread id handle — proven via 4 live tests (see CONT-S6) | `promptContextOnly` |
+| `antigravity` | `agy` | `--conversation <id>` | ✅ capture the new `brain/<uuid>/` folder (snapshot-diff; see CONT-S6) | `vendorSession` |
 
 `claude_code` is the cleanest and is the proof-of-life CLI: we generate the session UUID,
 pass `--session-id <uuid>` on turn 1, then `--resume <uuid>` forever after. No output
@@ -204,21 +204,25 @@ reply OK" → turn 2 "What word did I ask you to remember?" → answers `ambercl
   runner closes stdin, so production is fine).
 - [x] **CONT-S5 — grok (DONE, recall PASS ✅).** capture `sessionId` (camelCase), resume
   `--resume <id>`. Live: answer streamed `amber`+`clock` deltas.
-- [x] **CONT-S6 — antigravity (DONE, `promptContextOnly` PROVEN, not assumed).** Four live
-  tests (2026-06-21) close every door to a safe per-thread vendor id:
-  1. `agy --print --conversation <our-uuid>` → `Warning: conversation "<id>" not found`, then
-     answers in a *fresh* conversation. So agy **cannot adopt an id we supply** (unlike claude
-     `--session-id` = acquire:set). Resume-only, no create-with-id.
-  2. `agy --print` emits **only the answer text** — it never prints the conversation id it
-     minted. Nothing to capture (no `--json`/stream id like cursor/codex/grok).
-  3. agy has **no `sessions`/`conversations`/list subcommand** (only `models`, `plugin`) and
-     persists nothing findable on disk — so the id can't be recovered out-of-band either.
-  4. `agy --print --continue` **does** recall ("amberclock" ✅) → agy persists internally, but
-     `--continue` is **global most-recent**, which cross-contaminates concurrent threads. That
-     violates the inviolable per-thread isolation rule, so we will not use it.
-  Verdict: agy offers **no safe per-thread continuity handle**. `promptContextOnly` is correct,
-  not a placeholder. Engine always re-attaches the bounded context packet for agy. Vendor ask:
-  accept a caller-supplied `--conversation` id OR emit the minted id in `--print`.
+- [x] **CONT-S6 — antigravity (SOLVED ✅ — `vendorSession` via `session_dir` capture).** The
+  early read ("no capturable id → promptContextOnly") was wrong. agy *does* carry continuity; the
+  id just isn't in stdout — it's the **folder name**. Live-proven 2026-06-21:
+  - agy mints exactly **one** UUID folder per conversation under
+    `~/.gemini/antigravity-cli/brain/` on turn 1. `agy --print` never prints it; there's no
+    `--json`/list subcommand. But the folder IS the id `--conversation <id>` resumes.
+  - **Capture = filesystem snapshot-diff.** Snapshot the brain dir before turn 1, run, diff after
+    → the single new folder is the vendor session id. Guard: 0 new (minted nothing) or >1 new (a
+    concurrent agy run) → capture nothing and degrade to a context-only turn — never resume the
+    wrong conversation. (`WorkerSessionCapture.capturedDirEntry`, pure + tested.)
+  - **Proof:** turn 1 plain run minted `359ae744-…`; `--conversation 359ae744-…` recalled
+    "amberclock" on turn 2 AND "amberclockok" on turn 3, with **no new folder** created on resume
+    (one durable conversation) and **no** "not found" warning. 3-turn recall ✅.
+  - Rejected alternative: `agy --print --continue` also recalls, but it's **global most-recent** —
+    cross-thread contamination. Forbidden. We resume by the captured id only, never `--continue`.
+  Manifest: `continuity:vendor_session, acquire:capture, capture:{from:session_dir,
+  dir:"~/.gemini/antigravity-cli/brain"}`, `resumeArgs:[… --conversation {{sessionId}}]`. The
+  Engine does the dir snapshot in `WorkerRunner.invokeStreaming`; everything else is the shared
+  path. **All 5 CLIs now on real vendor sessions.**
 - [~] **CONT-S7 — surface (CORE DONE; registration gated).** Run-artifact receipt
   (`WorkerAnswer.vendorSessionId`, set from the outcome) + `WorkerSessionsJSON` agent
   envelope shipped + tested (`5ce8719c`). The `alln sessions` / `worker_sessions_*` tool
@@ -227,10 +231,10 @@ reply OK" → turn 2 "What word did I ask you to remember?" → answers `ambercl
 
 ## STATUS: SOLVED ✅ (2026-06-21)
 
-The CODE-RED dead-end is fixed end-to-end and **live-proven on 4 of 5 CLIs** (claude,
-cursor, codex, grok all recalled "amberclock" across two turns with the prior context NOT
-re-sent; antigravity degrades honestly to `promptContextOnly`). One Allnighter thread now
-piggybacks ONE continuing vendor CLI session per (source, model). ~50 tests green. Only the
+The CODE-RED dead-end is fixed end-to-end and **live-proven on all 5 CLIs** (claude, cursor,
+codex, grok recalled "amberclock" across two turns; antigravity recalled across three turns via
+`session_dir` capture — all with the prior context NOT re-sent). One Allnighter thread now
+piggybacks ONE continuing vendor CLI session per (source, model). ~55 tests green. Only the
 read-only `alln sessions`/`worker_sessions_*` tool registration remains, gated on unrelated
 concurrent contract WIP.
 

@@ -72,6 +72,20 @@
     }
   },
   "session": {
-    "continuity": "prompt_context_only"
+    "continuity": "vendor_session",
+    "acquire": "capture",
+    "capture": {
+      "from": "session_dir",
+      "dir": "~/.gemini/antigravity-cli/brain"
+    },
+    "resumeArgs": [
+      "--print",
+      "{{prompt}}",
+      "--model",
+      "{{model}}",
+      "--dangerously-skip-permissions",
+      "--conversation",
+      "{{sessionId}}"
+    ]
   }
 }

@@ -12,8 +12,8 @@ final class VendorSessionManifestTests: XCTestCase {
 
     func testThereAreVendorSessionDrivers() {
         let ids = Set(vendorManifests.map(\.id))
-        XCTAssertTrue(ids.isSuperset(of: ["claude_code", "cursor_agent", "codex", "grok"]),
-                      "all four resume-capable CLIs declare vendor_session; got \(ids)")
+        XCTAssertTrue(ids.isSuperset(of: ["claude_code", "cursor_agent", "codex", "grok", "antigravity"]),
+                      "all five resume-capable CLIs declare vendor_session; got \(ids)")
     }
 
     func testPerCliCaptureFieldsMatchLiveProof() throws {
@@ -33,9 +33,21 @@ final class VendorSessionManifestTests: XCTestCase {
         XCTAssertFalse(args.contains("--color"), "codex resume must not pass --color (it rejects it)")
     }
 
-    func testAntigravityIsPromptContextOnly() throws {
+    /// agy mints a UUID conversation FOLDER under `~/.gemini/antigravity-cli/brain/` but never
+    /// prints the id. We capture it by snapshot-diffing that dir (live-proven 2026-06-21: a
+    /// 3-turn `amberclock` recall via `--conversation <captured>`).
+    func testAntigravityIsVendorSessionViaSessionDirCapture() throws {
         let agy = try XCTUnwrap(DefaultConfig.manifests.first { $0.id == "antigravity" })
-        XCTAssertEqual(agy.session?.continuity, .promptContextOnly, "no headless id → honest context fallback")
+        XCTAssertEqual(agy.session?.continuity, .vendorSession)
+        XCTAssertEqual(agy.session?.acquire, .capture)
+        XCTAssertEqual(agy.session?.capture?.from, .sessionDir)
+        XCTAssertEqual(agy.session?.capture?.dir, "~/.gemini/antigravity-cli/brain")
+        XCTAssertNil(agy.session?.capture?.field, "session_dir captures the folder NAME, no string field")
+        let ctx = DriverManifest.ResolveContext(prompt: "p", model: "Gemini 3.5 Flash (Low)", resumeSessionId: "conv-123")
+        let args = try XCTUnwrap(agy.resolvedSessionArgs(ctx, resuming: true))
+        XCTAssertTrue(args.contains("--conversation"), "agy resumes by --conversation <id>")
+        XCTAssertTrue(args.contains("conv-123"))
+        XCTAssertFalse(args.contains("--continue"), "never the global --continue")
     }
 
     func testEveryVendorSessionResumesByStoredIdNeverContinue() {
@@ -49,9 +61,12 @@ final class VendorSessionManifestTests: XCTestCase {
         }
     }
 
-    func testCaptureDriversDeclareAField() {
+    func testCaptureDriversDeclareAFieldOrDir() {
         for m in vendorManifests where m.session?.acquire == .capture {
-            XCTAssertNotNil(m.session?.capture?.field, "\(m.id): acquire=capture needs a capture field")
+            let cap = m.session?.capture
+            // String sources (stream_json/stdout/output_file) need a `field`; session_dir needs a `dir`.
+            let hasHandle = (cap?.field != nil) || (cap?.dir != nil)
+            XCTAssertTrue(hasHandle, "\(m.id): acquire=capture needs a capture field or dir")
         }
     }
 

@@ -117,11 +117,18 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
                 case streamJson = "stream_json"   // a field in any JSONL stdout event
                 case stdout                        // a regex over plain stdout (capture group 1)
                 case outputFile = "output_file"    // a field in the JSON output file
+                case sessionDir = "session_dir"    // a NEW UUID folder under `dir` after turn 1 (agy)
             }
             public var from: From
             /// JSON field name (stream_json/output_file) or a regex w/ one capture group (stdout).
-            public var field: String
-            public init(from: From, field: String) { self.from = from; self.field = field }
+            /// Unused (nil) for `session_dir`, where the id IS the new folder name.
+            public var field: String?
+            /// (session_dir) the directory the CLI mints one conversation folder in, per turn 1.
+            /// Snapshot-diffed before/after the run; the single new entry is the vendor id. `~` ok.
+            public var dir: String?
+            public init(from: From, field: String? = nil, dir: String? = nil) {
+                self.from = from; self.field = field; self.dir = dir
+            }
         }
 
         public init(continuity: Continuity, acquire: Acquire? = nil, firstTurnArgs: [String]? = nil,
