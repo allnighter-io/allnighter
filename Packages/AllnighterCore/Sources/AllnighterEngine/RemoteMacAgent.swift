@@ -246,7 +246,9 @@ public final class RemoteMacAgent: @unchecked Sendable {
         serverTime: Date
     ) async throws -> Int {
         let registry = trustedStore.list(now: serverTime)
-        let relayDeviceIds = Set(relayTrustedDevices.map(\.deviceId))
+        let activeRelayDeviceIds = Set(relayTrustedDevices.filter {
+            !$0.revoked && $0.validUntil >= serverTime
+        }.map(\.deviceId))
         let revokedRelayDeviceIds = Set(relayTrustedDevices.filter(\.revoked).map(\.deviceId))
         var publishedCount = 0
 
@@ -262,7 +264,7 @@ public final class RemoteMacAgent: @unchecked Sendable {
             if revokedRelayDeviceIds.contains(device.deviceId) {
                 continue
             }
-            guard !relayDeviceIds.contains(device.deviceId) else {
+            guard !activeRelayDeviceIds.contains(device.deviceId) else {
                 continue
             }
             try await relay.upsertTrustedDevice(device)

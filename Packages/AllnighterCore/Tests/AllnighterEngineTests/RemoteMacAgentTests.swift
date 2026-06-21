@@ -212,6 +212,25 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertEqual(trustedStore.load().trustedDevices.map(\.deviceId), ["device_cloud", "device_local"])
     }
 
+    func testDrainPublishesLocalApprovalOverExpiredRelayDevice() async throws {
+        let request = pairRequest(deviceId: "device_local")
+        try trustedStore.upsertPending(request)
+        let approvedDevice = try trustedStore.approve(deviceId: "device_local", now: now, validFor: 3_600)
+        var expiredRelayDevice = approvedDevice
+        expiredRelayDevice.validUntil = now.addingTimeInterval(-1)
+        let relay = MockRemoteMacRelay(trustedDevices: [expiredRelayDevice])
+        let executor = CapturingRemoteExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor)
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
+        XCTAssertEqual(result.syncedTrustedDeviceCount, 1)
+        XCTAssertEqual(trustedStore.load().trustedDevices, [approvedDevice])
+        let relayTrusted = try await relay.trustedDevices(accountId: "acct_1", macAgentId: "mac_1")
+        XCTAssertEqual(relayTrusted, [approvedDevice])
+    }
+
     func testDrainPublishesJournalEventsAfterInboxWithoutSkippingBatchedEvents() async throws {
         let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs"))
         _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
