@@ -246,10 +246,13 @@ public final class RemoteMacAgent: @unchecked Sendable {
         serverTime: Date
     ) async throws -> Int {
         let registry = trustedStore.list(now: serverTime)
-        let activeRelayDeviceIds = Set(relayTrustedDevices.filter {
+        let scopedRelayTrustedDevices = relayTrustedDevices.filter {
+            $0.accountId == identity.account.accountId && $0.macAgentId == identity.macAgentId
+        }
+        let activeRelayDeviceIds = Set(scopedRelayTrustedDevices.filter {
             !$0.revoked && $0.validUntil >= serverTime
         }.map(\.deviceId))
-        let revokedRelayDeviceIds = Set(relayTrustedDevices.filter(\.revoked).map(\.deviceId))
+        let revokedRelayDeviceIds = Set(scopedRelayTrustedDevices.filter(\.revoked).map(\.deviceId))
         var publishedCount = 0
 
         for request in registry.pendingRequests where request.accountId == identity.account.accountId

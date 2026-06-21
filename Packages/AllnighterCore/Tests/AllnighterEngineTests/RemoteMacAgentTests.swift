@@ -231,6 +231,27 @@ final class RemoteMacAgentTests: XCTestCase {
         XCTAssertEqual(relayTrusted, [approvedDevice])
     }
 
+    func testDrainIgnoresOutOfScopeRelayTrustedDeviceWhenPublishingLocalApproval() async throws {
+        let request = pairRequest(deviceId: "device_shared")
+        try trustedStore.upsertPending(request)
+        let approvedDevice = try trustedStore.approve(deviceId: "device_shared", now: now, validFor: 3_600)
+        var outOfScopeRevokedDevice = approvedDevice
+        outOfScopeRevokedDevice.accountId = "acct_other"
+        outOfScopeRevokedDevice.revoked = true
+        outOfScopeRevokedDevice.revokedAt = now
+        let relay = UnscopedTrustedDevicesRelay(trustedDevices: [outOfScopeRevokedDevice])
+        let executor = CapturingRemoteExecutor(now: now)
+        let agent = makeAgent(relay: relay, executor: executor)
+
+        let result = try await agent.drainOnce()
+        let upsertedDevices = await relay.upsertedTrustedDevices()
+
+        XCTAssertEqual(result.publishedTrustedDeviceCount, 1)
+        XCTAssertEqual(result.syncedTrustedDeviceCount, 1)
+        XCTAssertEqual(upsertedDevices, [approvedDevice])
+        XCTAssertEqual(trustedStore.load().trustedDevices, [approvedDevice])
+    }
+
     func testDrainPublishesJournalEventsAfterInboxWithoutSkippingBatchedEvents() async throws {
         let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs"))
         _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
@@ -782,6 +803,128 @@ private actor CapturingRemoteExecutor: RemoteTeamCommandExecuting {
 
     func stopAllCallCount() -> Int {
         stopAllCalls
+    }
+}
+
+private actor UnscopedTrustedDevicesRelay: RemoteMacRelay {
+    private var trustedRows: [TrustedDevice]
+    private var upserts: [TrustedDevice] = []
+
+    init(trustedDevices: [TrustedDevice]) {
+        self.trustedRows = trustedDevices
+    }
+
+    func registerMacAgent(_ registration: RemoteMacAgentRegistration) async throws -> MacAgentRef {
+        MacAgentRef(
+            macAgentId: registration.macAgentId,
+            displayName: registration.displayName,
+            agentSigningPubkey: registration.agentSigningPubkey,
+            agentSealingPubkey: registration.agentSealingPubkey
+        )
+    }
+
+    func heartbeat(_ heartbeat: RemoteMacAgentHeartbeat) async throws {}
+
+    func macAgents(accountId: String) async throws -> [MacAgentRef] {
+        []
+    }
+
+    func submitPairRequest(_ request: RemotePairRequestDraft) async throws -> RemotePairRequest {
+        request.pairRequest(id: "pair_request_unscoped")
+    }
+
+    func pendingPairRequests(accountId: String, macAgentId: String) async throws -> [RemotePairRequest] {
+        []
+    }
+
+    func pairRequestStatus(
+        accountId: String,
+        macAgentId: String,
+        requestId: String,
+        deviceId: String,
+        checkedAt: Date
+    ) async throws -> RemotePairingStatusResponse {
+        RemotePairingStatusResponse(
+            requestId: requestId,
+            deviceId: deviceId,
+            status: .notFound,
+            checkedAt: checkedAt
+        )
+    }
+
+    func updatePairRequest(_ request: RemotePairRequest) async throws -> RemotePairRequest {
+        request
+    }
+
+    func trustedDevices(accountId: String, macAgentId: String) async throws -> [TrustedDevice] {
+        trustedRows
+    }
+
+    func upsertTrustedDevice(_ device: TrustedDevice) async throws {
+        trustedRows.removeAll {
+            $0.accountId == device.accountId
+                && $0.macAgentId == device.macAgentId
+                && $0.deviceId == device.deviceId
+        }
+        trustedRows.append(device)
+        upserts.append(device)
+    }
+
+    func submitCommand(_ entry: RemoteCommandInboxEntry) async throws {}
+
+    func commandAck(
+        accountId: String,
+        macAgentId: String,
+        requestId: String
+    ) async throws -> RemoteCommandAckEnvelope? {
+        nil
+    }
+
+    func pendingCommands(
+        accountId: String,
+        macAgentId: String,
+        limit: Int
+    ) async throws -> [RemoteCommandInboxEntry] {
+        []
+    }
+
+    func acknowledge(_ envelope: RemoteCommandAckEnvelope) async throws {}
+
+    func runEvents(
+        accountId: String,
+        macAgentId: String,
+        after seq: Int64,
+        limit: Int
+    ) async throws -> [RemoteRunEventEnvelope] {
+        []
+    }
+
+    func publishEvents(
+        accountId: String,
+        macAgentId: String,
+        events: [RemoteRunEventEnvelope]
+    ) async throws {}
+
+    func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws {}
+
+    func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope? {
+        nil
+    }
+
+    func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {}
+
+    func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws {}
+
+    func mediaData(ref: String, macAgentId: String, at: Date) async throws -> Data? {
+        nil
+    }
+
+    func mediaKey(ref: String, macAgentId: String, deviceId: String, at: Date) async throws -> MediaKeyEnvelope? {
+        nil
+    }
+
+    func upsertedTrustedDevices() -> [TrustedDevice] {
+        upserts
     }
 }
 
