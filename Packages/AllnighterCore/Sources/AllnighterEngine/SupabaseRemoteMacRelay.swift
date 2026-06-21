@@ -353,8 +353,15 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
                 continuation.finish()
             }
         }
+        let backfill: [RemoteRunEventEnvelope]
+        do {
+            backfill = try await runEvents(accountId: accountId, macAgentId: macAgentId, after: seq, limit: limit)
+        } catch {
+            return AsyncStream { continuation in
+                continuation.finish()
+            }
+        }
         let live = realtimeEventSource.stream(accountId: accountId, macAgentId: macAgentId, after: seq)
-        let backfill = (try? await runEvents(accountId: accountId, macAgentId: macAgentId, after: seq, limit: limit)) ?? []
         return AsyncStream { continuation in
             Task {
                 var yieldedIds = Set<String>()

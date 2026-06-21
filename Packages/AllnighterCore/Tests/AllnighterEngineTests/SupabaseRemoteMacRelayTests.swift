@@ -378,6 +378,29 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(queryValue("limit", in: request.url), "1")
     }
 
+    func testRunEventStreamDoesNotOpenRealtimeWhenBackfillFails() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 500, data: Data("backfill unavailable".utf8))
+        ])
+        let realtimeConnector = RecordingRelayRealtimeConnector()
+        let relay = try makeRelay(transport: transport, realtimeConnector: realtimeConnector)
+
+        var events: [RemoteRunEventEnvelope] = []
+        let stream = await relay.runEventStream(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            after: 0,
+            limit: 10
+        )
+        for await event in stream {
+            events.append(event)
+        }
+
+        XCTAssertTrue(events.isEmpty)
+        let requests = await realtimeConnector.recordedRequests()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
     func testLiveSupabaseRLSIsolatesAccountMacScopesWhenConfigured() async throws {
         let config = try LiveSupabaseRLSConfig.loadOrSkip()
         let accountARelay = try SupabaseRemoteMacRelay(
@@ -439,6 +462,7 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
 
     private func makeRelay(
         transport: RecordingSupabaseHTTPTransport,
+        realtimeConnector: any SupabaseRealtimeConnecting = RecordingRelayRealtimeConnector(),
         now: @escaping @Sendable () -> Date = Date.init
     ) throws -> SupabaseRemoteMacRelay {
         try SupabaseRemoteMacRelay(
@@ -446,6 +470,7 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
             publishableKey: "publishable",
             tokenProvider: StaticSupabaseAccessTokenProvider(token: "jwt"),
             transport: transport,
+            realtimeConnector: realtimeConnector,
             now: now
         )
     }
@@ -632,6 +657,42 @@ private actor RecordingSupabaseHTTPTransport: SupabaseHTTPTransport {
     }
 
     func recordedRequests() -> [SupabaseHTTPRequest] {
+        requests
+    }
+}
+
+private enum RelayRealtimeSocketError: Error {
+    case endOfMessages
+}
+
+private actor RecordingRelayRealtimeSocket: SupabaseRealtimeSocket {
+    private var sent: [String] = []
+
+    func send(_ text: String) async throws {
+        sent.append(text)
+    }
+
+    func receive() async throws -> SupabaseRealtimeSocketMessage {
+        throw RelayRealtimeSocketError.endOfMessages
+    }
+
+    func close() async {}
+
+    func sentMessages() -> [String] {
+        sent
+    }
+}
+
+private actor RecordingRelayRealtimeConnector: SupabaseRealtimeConnecting {
+    private var requests: [SupabaseRealtimeConnectionRequest] = []
+    private let socket = RecordingRelayRealtimeSocket()
+
+    func connect(_ request: SupabaseRealtimeConnectionRequest) async throws -> any SupabaseRealtimeSocket {
+        requests.append(request)
+        return socket
+    }
+
+    func recordedRequests() -> [SupabaseRealtimeConnectionRequest] {
         requests
     }
 }
