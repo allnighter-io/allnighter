@@ -429,6 +429,19 @@ public struct RemoteRunEventEnvelope: Codable, Equatable, Sendable, Identifiable
     }
 }
 
+public extension RemoteRunEventEnvelope {
+    func isVerified(for mac: MacAgentRef) -> Bool {
+        guard macAgentId == mac.macAgentId else { return false }
+        if let sealedRef, sealedRef.macAgentId != macAgentId {
+            return false
+        }
+        return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
+            self,
+            signingPublicKeyBase64: mac.agentSigningPubkey
+        )) == true)
+    }
+}
+
 public struct TeamRunLight: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var status: TeamRunJSON.Status

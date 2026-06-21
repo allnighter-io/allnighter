@@ -129,7 +129,7 @@ public actor DirectModeRemoteClient: RemoteClient {
                       let decoded = try? CoreJSON.decode(DirectModeEventsResponse.self, from: response.body) else {
                     return
                 }
-                for envelope in decoded.events where envelope.event.seq > since && Self.verifies(envelope, mac: mac) {
+                for envelope in decoded.events where envelope.event.seq > since && envelope.isVerified(for: mac) {
                     continuation.yield(envelope)
                 }
             }
@@ -266,17 +266,6 @@ public actor DirectModeRemoteClient: RemoteClient {
 
     private var expectedMode: ConnectionMode {
         endpoint.transport == .loopback ? .loopback : .tailscaleDirect
-    }
-
-    private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {
-        guard envelope.macAgentId == mac.macAgentId else { return false }
-        if let sealedRef = envelope.sealedRef, sealedRef.macAgentId != envelope.macAgentId {
-            return false
-        }
-        return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
-            envelope,
-            signingPublicKeyBase64: mac.agentSigningPubkey
-        )) == true)
     }
 
     private static func ackProvesDeviceApproved(_ ack: CommandAck) -> Bool {

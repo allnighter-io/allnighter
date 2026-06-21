@@ -122,7 +122,7 @@ public actor CloudRemoteClient: RemoteClient {
         return AsyncStream { continuation in
             Task {
                 defer { continuation.finish() }
-                for await envelope in upstream where envelope.event.seq > since && Self.verifies(envelope, mac: mac) {
+                for await envelope in upstream where envelope.event.seq > since && envelope.isVerified(for: mac) {
                     continuation.yield(envelope)
                 }
             }
@@ -263,17 +263,6 @@ public actor CloudRemoteClient: RemoteClient {
              .upgradeRequired, nil:
             return false
         }
-    }
-
-    private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {
-        guard envelope.macAgentId == mac.macAgentId else { return false }
-        if let sealedRef = envelope.sealedRef, sealedRef.macAgentId != envelope.macAgentId {
-            return false
-        }
-        return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
-            envelope,
-            signingPublicKeyBase64: mac.agentSigningPubkey
-        )) == true)
     }
 
     private func requireConnected() throws -> RemoteAccountSession {
