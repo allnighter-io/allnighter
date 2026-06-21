@@ -1147,6 +1147,24 @@ struct RoutingComposer: View {
         .padding(6)
         .frame(width: 150)
         .background(ALColor.surface)
+        .overlay(effortKeyMonitor.allowsHitTesting(false))
         .onAppear { effortHighlight = nil }
+    }
+
+    /// ↑/↓ move through Low/Med/High, ⏎ selects, esc closes — same AppKit key monitor
+    /// the target popover uses (SwiftUI key focus doesn't fire inside an NSPopover).
+    private var effortKeyMonitor: some View {
+        let all = ComposeEffort.allCases
+        return PopoverKeyCatcher { action in
+            let current = effortHighlight ?? effort
+            let idx = all.firstIndex(of: current) ?? 0
+            switch action {
+            case .up: effortHighlight = all[(idx - 1 + all.count) % all.count]
+            case .down: effortHighlight = all[(idx + 1) % all.count]
+            case .enter: effort = effortHighlight ?? effort; effortOpen = false
+            case .escape: effortOpen = false
+            }
+            return true
+        }
     }
 }
