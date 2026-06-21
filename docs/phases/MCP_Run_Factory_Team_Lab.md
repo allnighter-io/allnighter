@@ -1,0 +1,825 @@
+# MCP Run Factory and Team Lab
+
+Status: Draft feature packet
+Owner: Founder + Shared Core + CLI/MCP + Team Quality
+Updated: 2026-06-21
+
+## Founder Intent
+
+Allnighter says MCP first. That means the fastest path to better Teams is not
+more app clicking. It is to run Allnighter through the same agent-facing MCP
+surface we expect OpenClaw, Hermes, Codex, Claude, and other agents to use.
+
+The goal is to make every default Team measurably excellent:
+
+```text
+default Team starts as 4/10
+-> MCP-only factory runs many cases
+-> every worker, prompt, artifact, timeout, and result is logged
+-> evaluators score what helped and what failed
+-> team shape / prompts / model routing improve
+-> same benchmark proves the Team is now 9/10
+```
+
+This is product dogfooding at the contract layer. The Mac app is not in the
+loop. If the factory discovers MCP, run-journal, artifact, prompt, or status
+bugs, those bugs are fixed before the Team quality conclusions are trusted.
+
+## Product Value
+
+Great default Teams are the product. A user should not need to understand which
+worker was useful, which model timed out, or whether the writer averaged a bad
+majority. Allnighter should learn that internally and ship better lineups.
+
+The Team Lab turns subjective Team tuning into an experimental loop:
+
+- benchmark cases instead of one-off anecdotes;
+- MCP request/response transcripts instead of GUI state;
+- per-worker scoring instead of only final-answer taste;
+- run-system bug capture instead of silent harness failure;
+- before/after proof when prompts, roles, writers, or model routing change.
+
+The product promise:
+
+```text
+Every default Team earns its seat.
+```
+
+## Trusted Workflow Slice
+
+Primary slice:
+
+```text
+developer starts MCP Run Factory
+-> factory launches or connects to `alln mcp serve --stdio`
+-> factory calls `mcp_hello`
+-> factory selects a benchmark suite and Team
+-> factory calls `team_preflight`
+-> factory calls `team_start` with an idempotency key
+-> factory polls `team_status`
+-> factory fetches `team_result`
+-> factory fetches Floor/artifact views through MCP
+-> factory writes a complete local lab record
+-> evaluator scores run, workers, writer, and MCP/run-system health
+-> batch report recommends Team changes or substrate fixes
+```
+
+Bug-stop slice:
+
+```text
+factory cannot retrieve prompt/artifact/status truth through MCP
+-> mark experiment blocked
+-> create Debugger packet
+-> fix MCP/run contract
+-> rerun same case before changing Team prompts
+```
+
+Calibration slice:
+
+```text
+baseline suite for Bug Hunt
+-> change one variable: role, prompt, writer, model route, evidence packet
+-> rerun same suite
+-> compare score deltas
+-> keep only changes that improve the benchmark without hiding failures
+```
+
+## Non-goals
+
+- No Mac app dependency. The factory must not start, click, scrape, or inspect
+  SwiftUI surfaces.
+- No private Core shortcut. The factory must not import `AllnighterCore` or call
+  `TeamService` directly.
+- No one-off prompt tasting as proof. Human notes are allowed, but benchmark
+  reports need structured scores.
+- No automatic mutation of built-in Teams from a single run.
+- No hiding failed workers because the final writer produced a useful answer.
+- No broad Pending drain or scheduler semantics. Runs are explicitly triggered
+  by the factory/client.
+- No cloud service requirement. This is local-first and repo/app independent.
+
+## Current State
+
+Useful substrate already exists:
+
+- `alln mcp serve --stdio` exposes the agent-facing MCP server.
+- MCP dispatch includes `mcp_hello`, `team_preflight`, `team_start`,
+  `team_status`, `team_result`, `team_cancel`, `team_run`, `floor_show`,
+  `help_search`, `help_get`, Project tools, Pending tools, and stalled-work
+  tools.
+- `AsyncTeamService` starts MCP-origin team runs, writes a durable run journal,
+  persists progress, and returns `TeamStartResponse`.
+- `RunStore` persists `run.json`, `bundle.md`, worker prompts, worker answers,
+  stage artifacts, return artifacts, and metadata.
+- `TeamRunJSON` and Floor projections are the machine-readable run result
+  contracts.
+- `TeamCatalog` and `SkillCatalog` own default Team and Skill definitions.
+- `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` already states the
+  intended headless flow: `team_preflight -> team_start -> team_status ->
+  team_result`.
+
+Known gaps:
+
+- There is no MCP-only experiment harness.
+- There is no benchmark corpus for default Teams.
+- There is no evaluator schema for run quality, worker contribution, or writer
+  behavior.
+- There is no batch report that says which workers helped, timed out, overlapped,
+  or misled the writer.
+- There is no stop-the-line rule for MCP gaps discovered during Team tuning.
+- Artifact retrieval is not yet proven sufficient through MCP alone for a full
+  lab record. If the factory must read local files directly because MCP lacks an
+  artifact endpoint, that is a contract gap to fix.
+- Async run ownership still depends on a living process. MCP stdio can own a run
+  while connected; durable overnight use should route through resident
+  `alln serve` when that coordinator is the owner.
+
+## First-Principles Decision
+
+The Team Lab is not a GUI QA harness. It is an MCP contract pressure test plus a
+Team-quality calibration loop.
+
+The lab must answer two questions separately:
+
+```text
+Did Allnighter's run system tell the truth?
+Did this Team produce excellent work?
+```
+
+If the run system did not tell the truth, the Team score is not trusted. Fix the
+substrate first.
+
+## SSOT
+
+Truth owners:
+
+| Truth | Owner |
+| --- | --- |
+| MCP tool names, args, errors, schemas | `ContractRegistry` projected to generated MCP descriptors |
+| Team definitions | `TeamCatalog` |
+| Skill prompts | `SkillCatalog` |
+| Models and ready Bench | `ModelCatalog`, `SetupStore`, source detector output |
+| Run lifecycle | `AsyncTeamService` / `RunService` |
+| Durable run truth | `RunStore` + `TeamRun` |
+| Machine result contract | `TeamRunJSON` |
+| Inspectable worker/artifact surface | `FloorRun` / Floor projection |
+| Lab experiment truth | New `TeamLabExperiment` records, stored outside app GUI state |
+| Evaluation rubric truth | New `TeamLabRubric` records by lane/team |
+
+Lie-prone layers:
+
+- The final synthesized answer can look good while individual workers are wrong,
+  redundant, or timed out.
+- A completed run can hide missing worker prompts, missing artifacts, or partial
+  status truth.
+- A GUI-visible result can mask MCP contract gaps.
+- A majority theory can be weaker than a minority dissent.
+- A cheap final score can flatten root-cause, evidence, proof, and usefulness
+  into one misleading number.
+
+## MCP-Only Law
+
+The factory must create, control, and retrieve runs only through MCP.
+
+Allowed:
+
+```text
+spawn/connect: alln mcp serve --stdio
+call: initialize
+call: tools/list
+call: mcp_hello
+call: help_search / help_get
+call: teams_list / teams_show
+call: team_preflight
+call: team_start
+call: team_status
+call: team_result
+call: team_cancel
+call: floor_show
+call: spec_get / export-style tools when available
+call: doctor / error_explain when blocked
+```
+
+Not allowed:
+
+```text
+start the Mac app
+use SwiftUI/AppModel as an oracle
+import AllnighterCore into the factory
+call TeamService or RunStore directly for run creation
+patch run files by hand
+infer missing MCP truth from app-only behavior
+```
+
+Artifact capture rule:
+
+```text
+MCP is the retrieval owner.
+```
+
+If the lab cannot retrieve worker prompts, worker answers, stage outputs, Floor
+data, or final packets through MCP-returned structures or MCP artifact tools, the
+answer is not "read the app state." The answer is "add the missing MCP retrieval
+surface."
+
+## CLI/MCP Surface
+
+The lab itself is a development and product-quality tool. V1 can be implemented
+as a repo tool that speaks MCP over stdio. If productized, it must expose a
+dev-facing CLI surface without bypassing MCP.
+
+Proposed dev CLI:
+
+```bash
+alln dev team-lab suites --json
+alln dev team-lab run --suite <suite-id> --team <team-id> [--case <case-id>] --json
+alln dev team-lab report <experiment-id> --json
+alln dev team-lab compare <baseline-id> <candidate-id> --json
+```
+
+Important implementation rule:
+
+```text
+`alln dev team-lab run` launches/connects to `alln mcp serve --stdio` and uses
+JSON-RPC tools. It does not call Core/Engine run APIs directly.
+```
+
+No new public MCP tool is required for S00-S04 because the lab is testing the
+existing MCP tool surface. Add new MCP tools only when a real retrieval or
+artifact gap is found, such as:
+
+```text
+run_artifact_get
+run_transcript_get
+lab_report_get
+```
+
+Those tools must be registry-backed, schema-backed, and parity-tested before the
+factory depends on them.
+
+## Experiment Record
+
+Every case run creates one local immutable lab record.
+
+Suggested path:
+
+```text
+~/Library/Application Support/Allnighter/Labs/<experiment-id>/
+  experiment.json
+  mcp-transcript.jsonl
+  run/
+    team-result.json
+    floor.json
+    run.json
+    bundle.md
+    workers/
+    stages/
+  evaluation/
+    worker-scores.json
+    writer-score.json
+    run-contract-score.json
+    final-score.json
+    notes.md
+  report.md
+```
+
+Committed benchmark definitions may live in:
+
+```text
+docs/team-lab/suites/
+```
+
+Large run logs, private prompts, model outputs, and user/project data stay local
+unless explicitly exported for a report. Export must redact credentials, API
+keys, home-directory secrets, and private source snippets unless the developer
+chooses a repo-local dogfood suite.
+
+## Experiment JSON
+
+Draft shape:
+
+```json
+{
+  "experimentId": "lab_2026_06_21_bug_hunt_baseline_001",
+  "suiteId": "bug_hunt_repo_regressions_v1",
+  "caseId": "composer_paste_dead_v1",
+  "teamId": "code_bug_hunt",
+  "teamDisplayName": "Bug Hunt",
+  "variant": "baseline",
+  "startedAt": "2026-06-21T00:00:00Z",
+  "completedAt": "2026-06-21T00:06:00Z",
+  "allnVersion": "0.6",
+  "contractHash": "sha256:...",
+  "gitHead": "acf8b3df",
+  "mcpServer": {
+    "command": "alln mcp serve --stdio",
+    "protocolVersion": "2024-11-05",
+    "toolsListHash": "sha256:..."
+  },
+  "request": {
+    "prompt": "...",
+    "lane": "code",
+    "team": "code_bug_hunt",
+    "effort": "high",
+    "contextRefs": [],
+    "idempotencyKey": "..."
+  },
+  "run": {
+    "runId": "3BF1481D-56CD-4E10-AE52-EAFB00D5174C",
+    "status": "completed",
+    "resultAvailable": true,
+    "durationMs": 300000
+  },
+  "scores": {
+    "runContract": 0.94,
+    "teamQuality": 0.72,
+    "workerUsefulness": 0.61,
+    "writerQuality": 0.86,
+    "overall": 0.73
+  }
+}
+```
+
+## Benchmark Case
+
+Draft shape:
+
+```json
+{
+  "caseId": "composer_paste_dead_v1",
+  "teamFamily": "bug_hunt",
+  "lane": "code",
+  "title": "Composer paste appears dead after repeated fixes",
+  "prompt": "We have tried and failed to fix the copy paste bug...",
+  "contextPolicy": {
+    "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
+    "includeGitStatus": true,
+    "includeGitDiff": true,
+    "includeDebugLogs": true,
+    "maxBytes": 120000
+  },
+  "expectedQualities": [
+    "classifies repeated bug as T3",
+    "inspects current diff before root-cause confidence",
+    "preserves dissent",
+    "rejects weak majority theories with evidence",
+    "names missing proof"
+  ],
+  "knownTraps": [
+    "stale-binding theory overfit",
+    "isolated text-view tests treated as proof",
+    "uncommitted paste override ignored"
+  ],
+  "scoringRubricId": "bug_hunt_v1"
+}
+```
+
+## Logging Requirements
+
+Each run must log:
+
+- exact MCP JSON-RPC frames, request and response, with timestamps;
+- `tools/list` result and hash;
+- `mcp_hello` readiness result;
+- `team_preflight` result;
+- `team_start` request and `TeamStartResponse`;
+- every `team_status` response and polling interval;
+- `team_result` response, including not-ready envelopes;
+- Floor/artifact retrieval responses;
+- all error envelopes and `error_explain` output when used;
+- run id, origin metadata, idempotency key, lane, team, effort, and context hash;
+- full worker lineup: model, source, skill, purpose, status, duration, exit code;
+- full worker prompt snapshots;
+- full worker outputs;
+- writer prompt and output;
+- timeouts, cancellations, interruptions, and hidden partials;
+- run-store artifact refs returned through MCP;
+- evaluator prompt, evaluator output, and final scores;
+- human notes, if any, as separate commentary, never as hidden score truth.
+
+The lab report must distinguish:
+
+```text
+observed fact
+model inference
+human note
+deterministic check
+```
+
+## Evaluation Rubrics
+
+### Run Contract Score
+
+Measures whether Allnighter told the truth:
+
+- preflight blocked bad runs before quota;
+- `team_start` returned a run id only after journal creation;
+- status changed honestly;
+- polling cadence was respected;
+- terminal state matched artifacts;
+- every assigned worker had a visible terminal status;
+- failed/timed-out workers were not hidden;
+- prompts and outputs were retrievable;
+- writer/stage outputs were retrievable;
+- `TeamRunJSON` matched Floor/artifact truth;
+- idempotency behaved correctly;
+- interrupted/orphaned runs recovered honestly;
+- MCP schemas matched generated contract docs.
+
+### Worker Score
+
+Measures each worker independently:
+
+- followed its role prompt;
+- inspected the right evidence;
+- produced novel useful facts;
+- avoided unsupported certainty;
+- named falsifiers or missing observations;
+- avoided duplicating another worker's generic answer;
+- preserved boundaries and blast radius;
+- returned within time;
+- produced output the writer actually used;
+- caused harm through wrong confidence or broad fix advice.
+
+### Writer Score
+
+Measures synthesis:
+
+- did not average weak answers;
+- ranked hypotheses;
+- preserved dissent;
+- rejected bad majority theories with reason;
+- named the smallest next observation/test;
+- separated live hypotheses from rejected ones;
+- exposed worker failures and timeouts;
+- produced the requested output kind;
+- returned a typed packet when the Team contract requires one;
+- made next actions executable by a human or Try Fix gate.
+
+### Team Quality Score
+
+Measures the final result against the Team's job.
+
+Bug Hunt:
+
+- reproduces or narrows the symptom;
+- classifies tier correctly;
+- names truth owner and lie-prone layer;
+- inspects current diff, logs, prior attempts, and proof gaps;
+- distinguishes observed facts from inference;
+- gives the cheapest discriminator;
+- avoids symptom patching;
+- names smallest correct fix boundary;
+- names regression proof;
+- produces a high-confidence `FixPacket` only when justified.
+
+Code planning:
+
+- scopes the slice tightly;
+- matches repo architecture;
+- names truth owners;
+- identifies risks;
+- sequences implementation;
+- names proof;
+- avoids broad cleanup.
+
+Design:
+
+- critiques the actual surface;
+- honors the design system;
+- distinguishes taste, usability, and implementation constraints;
+- gives concrete revisions;
+- requires visual proof when needed.
+
+Copy:
+
+- fits audience and brand voice;
+- improves specificity;
+- preserves factual constraints;
+- produces usable final copy;
+- avoids generic marketing filler.
+
+Signal:
+
+- uses source-labeled receipts;
+- separates observation from inference;
+- assesses freshness;
+- produces actionable insight;
+- avoids unsupported trend claims.
+
+## Score Bands
+
+```text
+0-3  unusable or misleading
+4    useful fragments, unsafe to trust
+5-6  helpful but inconsistent
+7    good enough with expert review
+8    strong, with visible remaining gaps
+9    excellent default Team behavior
+10   reserved for narrow benchmark perfection
+```
+
+The target for default Teams is not a perfect 10. The target is repeatable 9/10
+behavior on the benchmark suite, with known residual risks named.
+
+## Default Team Calibration Loop
+
+For each default Team:
+
+1. Run baseline suite.
+2. Produce per-case and batch reports.
+3. Identify weak roles, missing roles, prompt failures, model-routing failures,
+   writer failures, and MCP/run-system bugs.
+4. Stop and fix any run-system bug that invalidates evaluation.
+5. Change one Team variable at a time:
+   - role removed;
+   - role added;
+   - role prompt changed;
+   - model preference changed;
+   - writer prompt changed;
+   - evidence packet added;
+   - structured packet requirement added.
+6. Rerun the same suite.
+7. Compare baseline and candidate.
+8. Keep the change only if quality improves without hiding failures or increasing
+   run-contract defects.
+9. Update Team/Skill source truth.
+10. Add the benchmark as a regression guard.
+
+## Bug Hunt First
+
+Bug Hunt is the first lab specimen because a recent run showed the exact shape
+this lab is designed to improve:
+
+- the final packet was strong;
+- several answer workers missed the decisive current-diff fact;
+- the majority theory was likely wrong;
+- the contrarian worker was highly valuable;
+- the writer did the right thing by rejecting the weak majority;
+- multiple workers timed out;
+- some roles overlapped or ran at the wrong phase;
+- the system did not present a run-quality scorecard by default.
+
+Initial Bug Hunt experiments:
+
+| Experiment | Variable |
+| --- | --- |
+| Baseline | current built-in Bug Hunt |
+| Evidence Packet | add MCP-collected `git status`, diff, logs, prior attempts before workers |
+| Reduced Team | keep Reproducer, Truth Owner, Trace, Regression, Contrarian, Writer |
+| Phase-Split | run Correct Fix Planner and Change Impact only after root-cause ranking |
+| Model Routing | reserve Opus for Contrarian + Writer, use faster code-local workers for answer roles |
+| Discriminator Role | add explicit cheap-test splitter |
+| Writer Contract | require rank/reject/dissent/next-observation fields |
+| Typed Return | require `BugPacket`/`FixPacket` eligibility fields |
+
+## Evidence Packet
+
+Many Team failures are upstream context failures. For bug and code teams, the
+factory should be able to create a shared evidence packet before workers start.
+
+For Bug Hunt, the evidence packet includes:
+
+- repo root;
+- `git status --short`;
+- current branch and HEAD;
+- `git diff --stat`;
+- relevant `git diff` excerpts;
+- recent commits touching the surface;
+- matching `DEBUGLOG.md` entries;
+- matching `BUG_PATTERNS.json` entries;
+- matching regression law backlog entries;
+- relevant source snippets;
+- known founder observations;
+- blocked proof commands.
+
+The evidence packet is not a model answer. It is observed context. Worker prompts
+must cite which evidence they used and which evidence would falsify their theory.
+
+## Prompt Contract Changes
+
+Every worker prompt in a lab-calibrated Team should require:
+
+```text
+Evidence inspected:
+Key claim:
+Confidence:
+What would falsify this:
+What I reject and why:
+Missing observation:
+Output:
+```
+
+Additional Bug Hunt rule:
+
+```text
+No high-confidence root cause unless current diff/log/prior attempts were
+inspected or the worker explicitly says that evidence was unavailable.
+```
+
+Writer rule:
+
+```text
+Do not average. Decide. Preserve dissent. Prefer the mechanically checkable
+minority over a confident majority when the evidence is stronger.
+```
+
+## Run-System Bug Ladder
+
+The factory is allowed to discover product bugs. It must not paper over them.
+
+| Severity | Example | Required action |
+| --- | --- | --- |
+| P0 | MCP cannot start a run, loses run id, corrupts result | Stop batch, Debugger packet, fix before continuing |
+| P1 | Worker failure hidden, prompt missing, status lies, artifact unreachable | Stop affected suite, fix retrieval/status contract |
+| P2 | Report incomplete, evaluator unclear, schema awkward | Record and continue only if Team score remains interpretable |
+| P3 | Report polish or convenience issue | Backlog |
+
+For P0/P1, the batch report must say:
+
+```text
+Team quality score withheld because run contract failed.
+```
+
+## Privacy, Security, and Cost
+
+The lab can spend real model quota and may send benchmark context to external
+CLI providers exactly like normal Team runs.
+
+Rules:
+
+- Use explicit suites. Do not silently sweep arbitrary private projects.
+- Redact secrets in MCP transcripts and exported reports.
+- Keep raw run logs local by default.
+- Mark suites that contain private source code.
+- Record which models/sources were invoked.
+- Respect the same entitlement, source, and mutating gates as normal MCP runs.
+- Never let an evaluator mutate a repo unless routed through an execution Team
+  with the normal write lock and approval semantics.
+
+## Inference Bans
+
+| Junction | Owner | Possible bad inference | Ban | Negative test |
+| --- | --- | --- | --- | --- |
+| Final packet -> worker quality | Team Lab evaluator | Good final answer means all workers worked | Score workers independently | Batch with good final output and timed-out workers still flags worker failures |
+| GUI run -> MCP readiness | MCP contract | App can run it, so MCP can run it | Lab must use MCP only | Harness test fails if Core/App APIs are imported |
+| `completed` status -> complete artifacts | RunStore/Floor | Terminal run means prompts and outputs are retrievable | Artifact completeness is separate | Completed fixture missing worker prompt fails run-contract score |
+| Majority agreement -> correctness | Writer/evaluator | More workers said it, so it wins | Writer must rank evidence, not votes | Case where minority has decisive diff evidence must score majority-following writer low |
+| Human taste -> benchmark proof | Team Lab rubric | Founder liked one answer, so Team is fixed | Keep human notes separate from scores | Report schema separates `humanNotes` from rubric fields |
+| MCP gap -> local file workaround | MCP contract | Just read the file directly | Add/revise MCP retrieval surface | Harness marks direct run-store read as contract violation unless from MCP artifact ref |
+
+## Implementation Slices
+
+### LAB-S00 - Lab Constitution and Fixtures
+
+- Add this phase doc.
+- Define suite/case/rubric JSON shapes.
+- Add one tiny synthetic suite and one Bug Hunt dogfood suite definition.
+- Decide local storage path and redaction rules.
+
+Proof:
+
+```bash
+alln dev team-lab suites --json
+```
+
+### LAB-S01 - MCP Transcript Harness
+
+- Build a small harness that spawns `alln mcp serve --stdio`.
+- Implement JSON-RPC initialize, `tools/list`, and `mcp_hello`.
+- Write raw transcript JSONL.
+- Hash tools list.
+- Fail if required MCP tools are absent.
+
+Proof:
+
+```bash
+alln dev team-lab run --suite smoke_mcp_v1 --case hello --json
+```
+
+### LAB-S02 - Run Factory Driver
+
+- Add `team_preflight`, `team_start`, `team_status`, `team_result`, and
+  `team_cancel` calls.
+- Generate idempotency keys.
+- Respect `nextPollAfterMs`.
+- Record every status response.
+- Mark timeout/cancel/interrupted honestly.
+
+Proof:
+
+```bash
+alln dev team-lab run --suite smoke_team_start_v1 --team code_bug_hunt --json
+```
+
+### LAB-S03 - Artifact Collector
+
+- Retrieve Floor and artifact refs through MCP.
+- Persist worker prompts, worker answers, stage outputs, final packet, and
+  metadata into lab record.
+- If any required artifact cannot be reached through MCP, emit a P1 run-contract
+  bug and block Team scoring.
+
+Proof:
+
+```bash
+alln dev team-lab report <experiment-id> --json
+```
+
+### LAB-S04 - Evaluator and Report Model
+
+- Add deterministic run-contract checks.
+- Add rubric-driven evaluator prompts for Team/worker/writer quality.
+- Store evaluator prompts and outputs.
+- Produce `report.md` and `final-score.json`.
+- Keep human notes separate.
+
+Proof:
+
+```bash
+alln dev team-lab compare <baseline-id> <candidate-id> --json
+```
+
+### LAB-S05 - Bug Hunt Calibration
+
+- Create Bug Hunt benchmark suite from known Allnighter regressions.
+- Run current Bug Hunt baseline.
+- Test evidence packet, reduced lineup, phase-split planner, model routing, and
+  writer contract variants.
+- Update `TeamCatalog`/`SkillCatalog` only after repeated wins.
+
+Proof:
+
+```bash
+alln dev team-lab run --suite bug_hunt_repo_regressions_v1 --team code_bug_hunt --json
+```
+
+### LAB-S06 - Default Team Sweep
+
+- Add suites for Code planning, GUI Bug Hunt, Design, Copy, and Signal.
+- Run baselines.
+- Tune each default Team to the target score band.
+- Publish one batch report per Team.
+
+Proof:
+
+```bash
+alln dev team-lab suites --json
+alln dev team-lab run --suite default_teams_smoke_v1 --json
+```
+
+### LAB-S07 - Regression Gates
+
+- Add a cheap MCP smoke gate that runs in normal checks without spending real
+  quota, using mock/fake workers where possible.
+- Keep quota-heavy benchmark suites manual or nightly.
+- Gate generated MCP schema drift.
+- Gate artifact completeness.
+
+Proof:
+
+```bash
+swift test --filter MCPAsyncTeamTests
+alln dev team-lab run --suite smoke_mcp_mock_v1 --json
+```
+
+## Works Test
+
+End-to-end, no app:
+
+```text
+Given the Mac app is closed
+And `alln mcp serve --stdio` is reachable
+When the factory runs one Bug Hunt benchmark case through MCP
+Then it creates a real run
+And logs every MCP request/response
+And retrieves team result + Floor artifacts
+And scores every worker and the writer
+And produces a batch report
+And any missing MCP/run truth is surfaced as a product bug, not hidden
+```
+
+## Done When
+
+- MCP Run Factory can run at least one benchmark case without the Mac app.
+- Every run has a complete local lab record.
+- Worker prompts and outputs are captured.
+- Timed-out/failed workers are scored, not hidden.
+- Run-contract quality is scored separately from Team quality.
+- Bug Hunt has a baseline report and at least one proven improvement.
+- Default Team calibration has a repeatable loop for all built-in Teams.
+- Any MCP gaps found by the lab have Debugger packets and either fixes or
+  explicit blockers.
+- The app remains only a presenter; it is not part of the lab's proof path.
+
+## Open Questions
+
+- Should lab records live only in Application Support, or should selected
+  sanitized reports be committed under `docs/team-lab/reports/`?
+- Should evaluator workers be fixed models for score consistency, or should
+  evaluation itself be a Team that can improve over time?
+- What is the minimum benchmark count before changing a built-in Team?
+- Should `floor_show` be enough for artifact retrieval, or do we need a
+  dedicated `run_artifact_get` MCP tool?
+- Should long-running factory batches require resident `alln serve`, or is MCP
+  stdio ownership sufficient for v1 manual experiments?
