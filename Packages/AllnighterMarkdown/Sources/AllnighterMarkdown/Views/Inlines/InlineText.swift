@@ -17,23 +17,52 @@ struct InlineText: View {
 
   var body: some View {
     TextStyleAttributesReader { attributes in
-      self.inlines.renderText(
-        baseURL: self.baseURL,
-        textStyles: .init(
-          code: self.theme.code,
-          emphasis: self.theme.emphasis,
-          strong: self.theme.strong,
-          strikethrough: self.theme.strikethrough,
-          link: self.theme.link
-        ),
-        images: self.inlineImages,
-        softBreakMode: self.softBreakMode,
-        attributes: attributes
+      let styles = InlineTextStyles(
+        code: self.theme.code,
+        emphasis: self.theme.emphasis,
+        strong: self.theme.strong,
+        strikethrough: self.theme.strikethrough,
+        link: self.theme.link
       )
+      if self.hasInlineImages {
+        // Inline images can't live in an AttributedString — keep the Text-concatenation
+        // path so they still render (copy is best-effort for these rare cases).
+        self.inlines.renderText(
+          baseURL: self.baseURL,
+          textStyles: styles,
+          images: self.inlineImages,
+          softBreakMode: self.softBreakMode,
+          attributes: attributes
+        )
+      } else {
+        // Draw the whole run as ONE Text(AttributedString) so SwiftUI's text selection
+        // copies to the pasteboard on ⌘C (a `Text + Text` concatenation only highlights).
+        Text(
+          self.inlines.renderAttributedString(
+            baseURL: self.baseURL,
+            textStyles: styles,
+            softBreakMode: self.softBreakMode,
+            attributes: attributes
+          )
+        )
+      }
     }
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]
     }
+  }
+
+  /// True when this inline run contains an image anywhere in its tree — those force the
+  /// Text-concatenation path (AttributedString can't embed images).
+  private var hasInlineImages: Bool {
+    func scan(_ nodes: [InlineNode]) -> Bool {
+      for node in nodes {
+        if case .image = node { return true }
+        if scan(node.children) { return true }
+      }
+      return false
+    }
+    return scan(self.inlines)
   }
 
   private func loadInlineImages() async throws -> [String: Image] {

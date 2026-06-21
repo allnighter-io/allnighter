@@ -18,6 +18,30 @@ extension InlineNode {
   }
 }
 
+extension Sequence where Element == InlineNode {
+  /// Render a whole inline run into ONE `AttributedString`. Drawing the run as a single
+  /// `Text(AttributedString)` (instead of `Text + Text + …` concatenation) is what lets
+  /// SwiftUI's native text selection actually copy on ⌘C — a `+`-concatenated `Text` only
+  /// highlights, it never reaches the pasteboard.
+  func renderAttributedString(
+    baseURL: URL?,
+    textStyles: InlineTextStyles,
+    softBreakMode: SoftBreak.Mode,
+    attributes: AttributeContainer
+  ) -> AttributedString {
+    var renderer = AttributedStringInlineRenderer(
+      baseURL: baseURL,
+      textStyles: textStyles,
+      softBreakMode: softBreakMode,
+      attributes: attributes
+    )
+    for inline in self {
+      renderer.render(inline)
+    }
+    return renderer.result.resolvingFonts()
+  }
+}
+
 private struct AttributedStringInlineRenderer {
   var result = AttributedString()
 
