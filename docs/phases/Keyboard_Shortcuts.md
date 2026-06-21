@@ -147,13 +147,19 @@ bindings, so a rebind shows everywhere instantly — no second source to update.
 
 ## Slices (ordered; green wall after each)
 
-- [ ] **KBD-S00 — Registry hardening + label fix.** Add `defaultBinding` to
-  `AppCommand`; fix `shortcutLabel` for function/arrow/return/delete glyphs; no new
-  bindings yet. Tests: `CommandCenterTests` label cases.
-- [ ] **KBD-S01 — Phase 1 muscle-memory core (the asks).** `⌘L` focus composer;
-  `⌘1/⌘2/⌘3` views; `⌘.` stop run; `⌘/` routing picker + `⇥` Model⇄Team toggle;
-  **Enter-to-send / ⇧↵ newline** in `RoutingComposer`. Covers all three explicit
-  requests + 80% of the daily grind.
+- [x] **KBD-S00 — Registry hardening + label fix (DONE 2026-06-21, `2e0f07f3`).**
+  Added `KeyBinding` + `AppCommand.defaultBinding`; `shortcutLabel` now renders
+  function/arrow/return/delete/escape/tab/space glyphs (the rename row was showing
+  `⌘?`); rename rebound to plain `F2`. `CommandCenterTests` +2 cases (special-key
+  glyphs, defaultBinding).
+- [x] **KBD-S01 — Phase 1 muscle-memory core (DONE 2026-06-21, `2e0f07f3`).**
+  `⌘L` focus composer; `⌘1/⌘2/⌘3` Inbox/Teams/Pending; `⌘/` routing picker + `⇥`
+  Model⇄Team toggle. Wired via `CommandCenter` intents (`focusComposerTick`,
+  `openRoutePickerTick`) + a `.tab` `PopoverKeyAction`. **Enter-to-send / ⇧↵
+  newline was already shipped** in `AllnighterTextEditor`/`handleReturn` — verified,
+  no change needed. **`⌘.` stop run DEFERRED** — no run-cancel surface exists in the
+  app yet to bind to (binding a key to a no-op would be fake); re-slot when a stop
+  affordance lands. Covers all three explicit requests.
 - [ ] **KBD-S02 — Tier-2 plumbing + list nav.** Establish `onKeyPress` scope; `j/k`
   prev/next thread; `1`–`9` model/team pick inside the open picker.
 - [ ] **KBD-S03 — Go-to + window nav.** `⌘P` fuzzy quick-switcher (threads+projects);
