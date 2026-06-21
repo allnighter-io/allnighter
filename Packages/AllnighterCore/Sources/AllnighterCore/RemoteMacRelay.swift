@@ -298,7 +298,10 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     public func updatePairRequest(_ request: RemotePairRequest) async throws -> RemotePairRequest {
         eventLog.append("updatePairRequest")
         var requests = pairRequestsByMac[request.macAgentId, default: []]
-        requests.removeAll { $0.id == request.id || ($0.macAgentId == request.macAgentId && $0.deviceId == request.deviceId) }
+        requests.removeAll {
+            $0.accountId == request.accountId
+                && ($0.id == request.id || ($0.macAgentId == request.macAgentId && $0.deviceId == request.deviceId))
+        }
         requests.append(request)
         requests.sort {
             if $0.requestedAt == $1.requestedAt { return $0.deviceId < $1.deviceId }
@@ -318,7 +321,9 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     public func upsertTrustedDevice(_ device: TrustedDevice) async throws {
         eventLog.append("upsertTrustedDevice")
         var devices = trustedByMac[device.macAgentId, default: []]
-        devices.removeAll { $0.deviceId == device.deviceId }
+        devices.removeAll {
+            $0.accountId == device.accountId && $0.deviceId == device.deviceId
+        }
         devices.append(device)
         devices.sort { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
         trustedByMac[device.macAgentId] = devices
