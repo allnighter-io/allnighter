@@ -116,6 +116,16 @@ final class CloudRemoteClientTests: XCTestCase {
         let relay = MockRemoteMacRelay()
         let newer = try eventEnvelope(id: "evt_2", seq: 2, kind: "run.completed")
         let older = try eventEnvelope(id: "evt_1", seq: 1, kind: "run.started")
+        let wrongMacMedia = try eventEnvelope(
+            id: "evt_wrong_media_mac",
+            seq: 4,
+            kind: "run.completed",
+            sealedRef: mediaRef(
+                ref: "media_cross_mac",
+                macAgentId: "mac_2",
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
         let forged = RemoteRunEventEnvelope(
             macAgentId: "mac_1",
             event: RunEvent(
@@ -130,7 +140,7 @@ final class CloudRemoteClientTests: XCTestCase {
         try await relay.publishEvents(
             accountId: "acct_1",
             macAgentId: "mac_1",
-            events: [older, forged, newer]
+            events: [older, forged, wrongMacMedia, newer]
         )
         let client = CloudRemoteClient(mac: macRef(), relay: relay)
         try await client.connect(account: account, mode: .cloudRelay)
@@ -472,7 +482,8 @@ final class CloudRemoteClientTests: XCTestCase {
     private func eventEnvelope(
         id: String,
         seq: Int64,
-        kind: String
+        kind: String,
+        sealedRef: MediaRef? = nil
     ) throws -> RemoteRunEventEnvelope {
         try RemoteCrypto.makeRemoteRunEventEnvelope(
             macAgentId: "mac_1",
@@ -483,6 +494,7 @@ final class CloudRemoteClientTests: XCTestCase {
                 kind: kind,
                 payload: ["runId": .string("run_1")]
             ),
+            sealedRef: sealedRef,
             signingKey: macSigningKey
         )
     }

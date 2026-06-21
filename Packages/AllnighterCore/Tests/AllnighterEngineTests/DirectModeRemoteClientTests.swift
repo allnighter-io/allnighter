@@ -276,6 +276,19 @@ final class DirectModeRemoteClientTests: XCTestCase {
             signingKey: macSigningKey,
             now: now
         )
+        let wrongMacMedia = try Self.eventEnvelope(
+            id: "evt_wrong_media_mac",
+            seq: 4,
+            signingKey: macSigningKey,
+            now: now,
+            sealedRef: MediaRef(
+                ref: "media_cross_mac",
+                macAgentId: "mac_2",
+                r2Key: "r2/media_cross_mac",
+                contentType: "image/png",
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
         let forged = RemoteRunEventEnvelope(
             macAgentId: "mac_1",
             event: RunEvent(
@@ -290,6 +303,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
         let eventsHandler = RecordingDirectModeClientEventsHandler(response: DirectModeEventsResponse(events: [
             old,
             forged,
+            wrongMacMedia,
             valid,
         ]))
         let server = DirectModeCommandServer(
@@ -526,7 +540,8 @@ final class DirectModeRemoteClientTests: XCTestCase {
         id: String,
         seq: Int64,
         signingKey: Curve25519.Signing.PrivateKey,
-        now: Date
+        now: Date,
+        sealedRef: MediaRef? = nil
     ) throws -> RemoteRunEventEnvelope {
         try RemoteCrypto.makeRemoteRunEventEnvelope(
             macAgentId: "mac_1",
@@ -537,6 +552,7 @@ final class DirectModeRemoteClientTests: XCTestCase {
                 kind: "run.completed",
                 payload: ["runId": .string("run_1")]
             ),
+            sealedRef: sealedRef,
             signingKey: signingKey
         )
     }

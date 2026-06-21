@@ -267,6 +267,9 @@ public actor CloudRemoteClient: RemoteClient {
 
     private static func verifies(_ envelope: RemoteRunEventEnvelope, mac: MacAgentRef) -> Bool {
         guard envelope.macAgentId == mac.macAgentId else { return false }
+        if let sealedRef = envelope.sealedRef, sealedRef.macAgentId != envelope.macAgentId {
+            return false
+        }
         return ((try? RemoteCrypto.verifyRemoteRunEventEnvelope(
             envelope,
             signingPublicKeyBase64: mac.agentSigningPubkey
