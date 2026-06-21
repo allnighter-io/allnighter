@@ -30,9 +30,9 @@ final class ComposerTextView: NSTextView {
     /// Plain Return → send (or accept the highlighted @ file); returns true if handled.
     /// Shift+Return always inserts a newline (handled here before forwarding).
     var onReturn: (() -> Bool)?
-    /// An image on the clipboard (screenshot / copied image) → attach instead of
-    /// inserting nothing. Returns true if the composer consumed it.
-    var onPasteImage: ((NSImage) -> Bool)?
+    /// An image on the clipboard (screenshot / copied image / Finder image file) → attach
+    /// instead of inserting nothing. Carries a suggested name. Returns true if consumed.
+    var onPasteImage: ((NSImage, String) -> Bool)?
     /// A very long text paste → attach as a captured block instead of flooding the
     /// editor. Returns true if the composer consumed it.
     var onPasteLongText: ((String) -> Bool)?
@@ -48,27 +48,50 @@ final class ComposerTextView: NSTextView {
         super.keyDown(with: event)
     }
 
+    // ADVERTISE image + string types. Without this, AppKit DISABLES Paste for an
+    // image-only clipboard before our handler ever runs (the greyed right-click Paste).
+    override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
+        var seen = Set<NSPasteboard.PasteboardType>()
+        return (ComposerPasteboardReader.readableTypes + super.readablePasteboardTypes)
+            .filter { seen.insert($0).inserted }
+    }
+
+    // Keep right-click / main-menu Paste ENABLED whenever the clipboard has an image or
+    // text — not just when it has rich text AppKit recognizes.
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(NSText.paste(_:)) {
+            return ComposerPasteboardReader.canReadImageOrText(from: .general)
+                || super.validateUserInterfaceItem(item)
+        }
+        return super.validateUserInterfaceItem(item)
+    }
+
     override func paste(_ sender: Any?) {
-        let pb = NSPasteboard.general
-        // Plain text wins when present (a normal copy carries no image rep). Only when
-        // there's NO usable string do we treat the clipboard as an image — that's the
-        // screenshot / copied-image case, which we attach instead of dropping (the old
-        // beep). Marshaling stays on the main queue (NSImage(pasteboard:) is main-safe).
-        let pasted = pb.string(forType: .string)
-        if let pasted, !pasted.isEmpty {
-            // A long paste (log / transcript / article) attaches as a captured block so
-            // it doesn't flood the prompt the user is writing; short pastes insert inline.
-            if pasted.count > ComposerPasteContract.longTextThreshold,
-               onPasteLongText?(pasted) == true {
-                return
+        if consumePasteboard(.general) { return }
+        super.paste(sender)
+    }
+
+    // The drag/services read path also routes through the same contract.
+    override func readSelection(from pasteboard: NSPasteboard, type: NSPasteboard.PasteboardType) -> Bool {
+        if consumePasteboard(pasteboard) { return true }
+        return super.readSelection(from: pasteboard, type: type)
+    }
+
+    /// Apply the composer paste contract: image (file URL → pixels) → long text → inline
+    /// text. Returns true when the clipboard was consumed.
+    private func consumePasteboard(_ pasteboard: NSPasteboard) -> Bool {
+        guard let payload = ComposerPasteboardReader.read(from: pasteboard) else { return false }
+        switch payload {
+        case .image(let image, let name):
+            return onPasteImage?(image, name) ?? false
+        case .text(let text):
+            if text.count > ComposerPasteContract.longTextThreshold,
+               onPasteLongText?(text) == true {
+                return true
             }
-            insertText(pasted, replacementRange: selectedRange())
-            return
+            insertText(text, replacementRange: selectedRange())
+            return true
         }
-        if let handler = onPasteImage, let image = NSImage(pasteboard: pb), handler(image) {
-            return
-        }
-        NSSound.beep()
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -100,8 +123,9 @@ struct ALTextEditor: NSViewRepresentable {
     /// Plain Return (no Shift) — send or accept the highlighted @ file. Shift+Return
     /// inserts a newline (handled in the view).
     var onReturn: (() -> Bool)? = nil
-    /// Clipboard image (screenshot / copied image) → attach. Returns true when consumed.
-    var onPasteImage: ((NSImage) -> Bool)? = nil
+    /// Clipboard image (screenshot / copied image / Finder file) → attach with a suggested
+    /// name. Returns true when consumed.
+    var onPasteImage: ((NSImage, String) -> Bool)? = nil
     /// Long text paste → attach as a captured block. Returns true when consumed.
     var onPasteLongText: ((String) -> Bool)? = nil
 

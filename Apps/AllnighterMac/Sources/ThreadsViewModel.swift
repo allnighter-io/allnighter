@@ -434,7 +434,9 @@ final class ThreadsViewModel {
     /// bound Project root; rootless legacy threads are refused honestly.
     func sendRouting(_ routing: ComposeRouting, createThread: Bool = false) {
         let message = routing.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty else { return }
+        // An attachment-only send (pasted image, no typed text) is valid — the workers
+        // still receive the image. Only refuse a truly empty turn.
+        guard !message.isEmpty || !routing.attachments.isEmpty else { return }
 
         let threadId: String
         if createThread || selectedThreadId == nil {

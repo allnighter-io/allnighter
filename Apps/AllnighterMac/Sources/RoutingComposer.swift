@@ -282,7 +282,10 @@ struct RoutingComposer: View {
     }
 
     private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && onSend != nil
+        // Image-only (or text-attachment-only) sends are valid — a pasted screenshot with
+        // no typed text must enable Send.
+        let hasBody = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return (hasBody || !attachments.isEmpty) && onSend != nil
     }
 
     private func seedDefaults() {
@@ -460,10 +463,12 @@ struct RoutingComposer: View {
     }
 
     /// Freeze a pasted clipboard image to a temp PNG and add a chip. Returns true so the
-    /// text view consumes the paste (no beep, no empty insert).
-    private func captureImage(_ image: NSImage) -> Bool {
+    /// text view consumes the paste (no beep, no empty insert). `name` is the Finder
+    /// filename for a copied image file, else "Pasted image".
+    private func captureImage(_ image: NSImage, name: String) -> Bool {
         guard let frozen = ComposerImageFreezer.freeze(image: image) else { return false }
-        addAttachment(fileURL: frozen.url, displayName: frozen.name, thumb: frozen.thumb)
+        let displayName = name.isEmpty ? frozen.name : name
+        addAttachment(fileURL: frozen.url, displayName: displayName, thumb: frozen.thumb)
         return true
     }
 
@@ -730,7 +735,8 @@ struct RoutingComposer: View {
 
     private func performSend() {
         let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { return }
+        // Allow an attachment-only send (e.g. a pasted screenshot with no typed text).
+        guard !body.isEmpty || !attachments.isEmpty else { return }
         // Auto (no team, no pin) sends an EMPTY worker so the run resolves the tier
         // default and substitutes across CLIs. A team or an explicit pin sends a
         // concrete worker (exact, no substitution).
