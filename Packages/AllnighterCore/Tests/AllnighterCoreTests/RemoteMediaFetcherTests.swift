@@ -92,13 +92,57 @@ final class RemoteMediaFetcherTests: XCTestCase {
         }
     }
 
-    private func mediaRef() -> MediaRef {
+    func testMockClientRejectsExpiredMediaData() async throws {
+        let ref = mediaRef(expiresAt: now.addingTimeInterval(-1))
+        let client = MockiOSClient(
+            macs: [],
+            media: [ref.ref: Data("ciphertext".utf8)],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        do {
+            _ = try await client.fetchSealed(ref)
+            XCTFail("expired media should not return sealed data")
+        } catch let error as MockRemoteClientError {
+            XCTAssertEqual(error, .mediaNotFound(ref.ref))
+        }
+    }
+
+    func testMockClientRejectsExpiredMediaKey() async throws {
+        let ref = mediaRef(expiresAt: now.addingTimeInterval(-1))
+        let keyEnvelope = MediaKeyEnvelope(
+            ref: ref.ref,
+            deviceId: "device_1",
+            sealedKey: SealedBlob(
+                ciphertext: Data("sealed-key".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: "device_1",
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+        let client = MockiOSClient(
+            macs: [],
+            mediaKeys: [ref.ref: ["device_1": keyEnvelope]],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        do {
+            _ = try await client.fetchMediaKey(ref, deviceId: "device_1")
+            XCTFail("expired media should not return device keys")
+        } catch let error as MockRemoteClientError {
+            XCTAssertEqual(error, .mediaKeyNotFound(ref: ref.ref, deviceId: "device_1"))
+        }
+    }
+
+    private func mediaRef(expiresAt: Date? = nil) -> MediaRef {
         MediaRef(
             ref: "media_1",
             macAgentId: "mac_1",
             r2Key: "r2/media_1",
             contentType: "image/png",
-            expiresAt: now.addingTimeInterval(60)
+            expiresAt: expiresAt ?? now.addingTimeInterval(60)
         )
     }
 

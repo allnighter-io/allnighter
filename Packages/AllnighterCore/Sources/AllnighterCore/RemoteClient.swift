@@ -272,6 +272,9 @@ public actor MockiOSClient: RemoteClient {
 
     public func fetchSealed(_ ref: MediaRef) async throws -> Data {
         try requireConnected()
+        guard ref.expiresAt >= serverNow else {
+            throw MockRemoteClientError.mediaNotFound(ref.ref)
+        }
         guard let data = media[ref.ref] else {
             throw MockRemoteClientError.mediaNotFound(ref.ref)
         }
@@ -280,6 +283,9 @@ public actor MockiOSClient: RemoteClient {
 
     public func fetchMediaKey(_ ref: MediaRef, deviceId: String) async throws -> MediaKeyEnvelope {
         try requireConnected()
+        guard ref.expiresAt >= serverNow else {
+            throw MockRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
+        }
         guard let key = mediaKeys[ref.ref]?[deviceId] else {
             throw MockRemoteClientError.mediaKeyNotFound(ref: ref.ref, deviceId: deviceId)
         }
