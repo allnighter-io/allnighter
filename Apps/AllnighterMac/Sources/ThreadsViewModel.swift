@@ -27,6 +27,16 @@ final class ThreadsViewModel {
     /// auto-copy) instead of the rich render. Toggled by the per-answer control or ⌥⌘R.
     var showRawAnswers = false
 
+    /// A synthesis (or other text) handed to the next composer as a visible attachment chip
+    /// — set by the Factory Floor "Ask Another Team" / "Continue with Auto" next moves. The
+    /// first visible composer adopts it (writes a .txt attachment) and clears it.
+    struct PendingComposerContext: Equatable {
+        let id: UUID
+        let label: String
+        let text: String
+    }
+    var pendingComposerContext: PendingComposerContext?
+
     /// Pending text from a global quick-capture hotkey (⌥⌘Space or menu "Quick capture").
     /// The currently-visible RoutingComposer will adopt it into its editor (only if
     /// that editor is empty), then clear the pending. Quick capture creates a new

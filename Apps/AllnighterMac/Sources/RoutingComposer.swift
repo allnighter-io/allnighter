@@ -184,6 +184,8 @@ struct RoutingComposer: View {
     /// routing payload).
     @State private var attachments: [ComposeAttachment] = []
     @State private var attachmentThumbs: [String: NSImage] = [:]
+    /// The Floor-handoff context already adopted into this composer (so it's added once).
+    @State private var adoptedContextId: UUID?
     /// Which form the route popover shows — never both at once.
     // Model is the default (the 95% case: chat with a model); Team is the deliberate
     // "delegate to a team" choice. "Model" reads clearer than the old "Worker".
@@ -248,6 +250,7 @@ struct RoutingComposer: View {
         }
         .onAppear(perform: seedDefaults)
         .onAppear(perform: consumePendingPrefillIfNeeded)
+        .onAppear(perform: adoptPendingComposerContextIfNeeded)
         .onAppear(perform: updateFileSearchFromText)
         .onAppear {
             #if DEBUG
@@ -264,6 +267,9 @@ struct RoutingComposer: View {
         }
         .onChange(of: threads.pendingQuickCaptureText) { _, _ in
             consumePendingPrefillIfNeeded()
+        }
+        .onChange(of: threads.pendingComposerContext) { _, _ in
+            adoptPendingComposerContextIfNeeded()
         }
         .onChange(of: text) { _, _ in
             updateFileSearchFromText()
@@ -333,6 +339,22 @@ struct RoutingComposer: View {
         text = pending
         threads.pendingQuickCaptureText = nil
         composerFocused = true
+    }
+
+    /// Adopt a Floor handoff (synthesis) as a visible attachment chip (bug #4). Only a real
+    /// send composer adopts; the synthesis is written to a .txt and delivered as context on
+    /// send (the next team/Auto starts from the prior result, not from scratch).
+    private func adoptPendingComposerContextIfNeeded() {
+        guard onSend != nil, let ctx = threads.pendingComposerContext, adoptedContextId != ctx.id else { return }
+        adoptedContextId = ctx.id
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-composer-freeze", isDirectory: true)
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let url = root.appendingPathComponent("synthesis-\(ctx.id.uuidString).txt")
+        guard (try? ctx.text.write(to: url, atomically: true, encoding: .utf8)) != nil else { return }
+        attachments.append(ComposeAttachment(id: UUID().uuidString, fileURL: url, displayName: ctx.label, kind: .text))
+        composerFocused = true
+        threads.pendingComposerContext = nil
     }
 
     // MARK: composer box

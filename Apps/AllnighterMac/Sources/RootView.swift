@@ -161,7 +161,19 @@ struct RootView: View {
                             onAddTeam: { workspaceMode = .inbox; openTeamStudio(route: .teams(.code), newTeam: true) }
                         )
                     } else {
-                        HomeView(floorRun: $floorRun)
+                        HomeView(
+                            floorRun: $floorRun,
+                            onAskAnotherTeam: { synthesis, team in
+                                threads.pendingComposerContext = .init(
+                                    id: UUID(), label: "Synthesis from \(team)", text: synthesis)
+                                routeTo(.teams)   // open the Send-to-Team launcher
+                            },
+                            onContinueWithAuto: { synthesis, team in
+                                threads.pendingComposerContext = .init(
+                                    id: UUID(), label: "Synthesis from \(team)", text: synthesis)
+                                floorRun = nil    // back to the current thread's composer
+                            }
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -12,6 +12,10 @@ struct HomeView: View {
     /// RootView so a top-bar route command (Inbox/Teams) can dismiss it — the Floor is a
     /// deep surface that must yield to navigation.
     @Binding var floorRun: TeamRun?
+    /// Floor next-move handoffs (bug #4): (synthesis, team name). RootView routes + seeds
+    /// the next composer's attachment.
+    var onAskAnotherTeam: (String, String) -> Void = { _, _ in }
+    var onContinueWithAuto: (String, String) -> Void = { _, _ in }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -24,9 +28,14 @@ struct HomeView: View {
         .environment(\.openFloor, OpenFloorAction { floorRun = $0 })
         .overlay {
             if let floorRun {
-                FactoryFloorView(run: floorRun, onBack: { self.floorRun = nil })
-                    .background(ALColor.base)
-                    .transition(.opacity)
+                FactoryFloorView(
+                    run: floorRun,
+                    onBack: { self.floorRun = nil },
+                    onAskAnotherTeam: onAskAnotherTeam,
+                    onContinueWithAuto: onContinueWithAuto
+                )
+                .background(ALColor.base)
+                .transition(.opacity)
             }
         }
     }

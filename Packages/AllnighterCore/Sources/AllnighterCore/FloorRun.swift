@@ -233,6 +233,9 @@ public struct FloorNextAction: Codable, Sendable, Equatable, Identifiable {
         case openArtifact, copyReturn, exportFloor, sendTeam, draftCopy, createCodeProposal
         case createDesignBrief, savePending, ignore
         case monitorExternally, showRun, showHistory
+        /// The two composer-opening next moves on the GUI Floor card: hand the synthesis to
+        /// a new Send-to-Team run, or continue the current Auto/default conversation.
+        case askAnotherTeam, continueWithAuto
     }
     public var id: String
     public var kind: Kind

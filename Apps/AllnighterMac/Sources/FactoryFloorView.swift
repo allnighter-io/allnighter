@@ -29,6 +29,10 @@ extension EnvironmentValues {
 struct FactoryFloorView: View {
     let run: TeamRun
     var onBack: () -> Void = {}
+    /// Next-move handoffs (bug #4): open a composer with the synthesis attached. Args are
+    /// (synthesis markdown, source team name).
+    var onAskAnotherTeam: (String, String) -> Void = { _, _ in }
+    var onContinueWithAuto: (String, String) -> Void = { _, _ in }
 
     @State private var selectedMemberId: String?
     @State private var rawMode = false
@@ -206,19 +210,27 @@ struct FactoryFloorView: View {
 
     // MARK: NextMove (Allnighter chrome — Lead only)
 
+    /// Exactly two composer-opening next moves (bug #4): hand the synthesis to a NEW team,
+    /// or continue here with Auto. No Save-to-Pending / Draft / Run-when-ready — those were
+    /// destination labels, not actions. Both open a composer with the synthesis attached.
     private var nextMove: some View {
-        let actions = floor.nextActions.filter {
-            [.draftCopy, .createCodeProposal, .createDesignBrief, .savePending, .sendTeam].contains($0.kind)
-        }
+        let synthesis = run.plan ?? cast.first(where: \.isLead)?.markdown ?? ""
+        let teamName = run.teamDisplayName ?? run.presetId ?? "this team"
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("TAKE THE NEXT MOVE", systemImage: "arrow.triangle.merge")
                     .font(ALFont.monoSm.weight(.semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                 Spacer()
-                Text("Allnighter · from this run").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+                Text("attaches the synthesis from \(teamName)").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
-            ForEach(Array(actions.prefix(3).enumerated()), id: \.element.id) { idx, action in
-                nextMoveRow(action, primary: idx == 0)
+            ForEach(FloorNextMovePresenter.cardMoves, id: \.kind) { move in
+                nextMoveRow(label: move.label, icon: move.icon, primary: move.primary) {
+                    switch move.kind {
+                    case .askAnotherTeam: onAskAnotherTeam(synthesis, teamName)
+                    case .continueWithAuto: onContinueWithAuto(synthesis, teamName)
+                    default: break
+                    }
+                }
             }
         }
         .padding(16)
@@ -228,16 +240,21 @@ struct FactoryFloorView: View {
         .markdownTopGap()
     }
 
-    private func nextMoveRow(_ action: FloorNextAction, primary: Bool) -> some View {
-        HStack(spacing: 10) {
-            Text(action.label).font(.system(size: 13, weight: primary ? .semibold : .regular))
-                .foregroundStyle(primary ? ALColor.textOnAmber : ALColor.textSecondary)
-            Spacer()
-            Image(systemName: "arrow.right").font(.system(size: 12)).foregroundStyle(primary ? ALColor.textOnAmber : ALColor.textFaint)
+    private func nextMoveRow(label: String, icon: String, primary: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.system(size: 12)).foregroundStyle(primary ? ALColor.textOnAmber : ALColor.textMuted)
+                Text(label).font(.system(size: 13, weight: primary ? .semibold : .regular))
+                    .foregroundStyle(primary ? ALColor.textOnAmber : ALColor.textSecondary)
+                Spacer()
+                Image(systemName: "arrow.right").font(.system(size: 12)).foregroundStyle(primary ? ALColor.textOnAmber : ALColor.textFaint)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(primary ? ALColor.accent : ALColor.surface, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(primary ? Color.clear : ALColor.borderDefault, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(primary ? ALColor.accent : ALColor.surface, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(primary ? Color.clear : ALColor.borderDefault, lineWidth: 1))
+        .buttonStyle(.plain)
     }
 }
 
