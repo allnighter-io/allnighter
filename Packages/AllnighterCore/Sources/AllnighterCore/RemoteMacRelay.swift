@@ -154,7 +154,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private var pairRequestsByMac: [String: [RemotePairRequest]]
     private var trustedByMac: [String: [TrustedDevice]]
     private var inboxByMac: [String: [RemoteCommandInboxEntry]]
-    private var publishedEventScopes: [String: PublishedEventScope]
+    private var publishedEventScopes: Set<PublishedEventKey>
     private var snapshotsByMac: [String: SnapshotEnvelope]
     private var snapshotScopesByMac: [String: PublishedEventScope]
     private var mediaRefsById: [String: MediaRef]
@@ -177,7 +177,7 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         self.pairRequestsByMac = Dictionary(grouping: pairRequests, by: \.macAgentId)
         self.trustedByMac = Dictionary(grouping: trustedDevices, by: \.macAgentId)
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)
-        self.publishedEventScopes = [:]
+        self.publishedEventScopes = Set()
         self.snapshotsByMac = [:]
         self.snapshotScopesByMac = [:]
         self.mediaRefsById = [:]
@@ -380,9 +380,13 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
         guard limit > 0 else { return [] }
         return Array(publishedEvents
             .filter { envelope in
-                guard let scope = publishedEventScopes[envelope.event.id] else { return false }
-                return scope.accountId == accountId
-                    && scope.macAgentId == macAgentId
+                let key = PublishedEventKey(
+                    accountId: accountId,
+                    macAgentId: macAgentId,
+                    eventId: envelope.event.id,
+                    seq: envelope.event.seq
+                )
+                return publishedEventScopes.contains(key)
                     && envelope.macAgentId == macAgentId
                     && envelope.event.seq > seq
             }
@@ -400,10 +404,12 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     ) async throws {
         eventLog.append("publishEvents")
         for event in events {
-            publishedEventScopes[event.event.id] = PublishedEventScope(
+            publishedEventScopes.insert(PublishedEventKey(
                 accountId: accountId,
-                macAgentId: macAgentId
-            )
+                macAgentId: macAgentId,
+                eventId: event.event.id,
+                seq: event.event.seq
+            ))
         }
         publishedEvents.append(contentsOf: events)
     }
@@ -497,5 +503,12 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
     private struct PublishedEventScope: Sendable {
         var accountId: String
         var macAgentId: String
+    }
+
+    private struct PublishedEventKey: Hashable, Sendable {
+        var accountId: String
+        var macAgentId: String
+        var eventId: String
+        var seq: Int64
     }
 }

@@ -38,6 +38,36 @@ final class RemoteRunEventRelayTests: XCTestCase {
         XCTAssertTrue(otherAccount.isEmpty)
     }
 
+    func testDuplicateEventIdsStayScopedByAccount() async throws {
+        let relay = MockRemoteMacRelay()
+        try await relay.publishEvents(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            events: [envelope(id: "evt_shared", seq: 1, macAgentId: "mac_1")]
+        )
+        try await relay.publishEvents(
+            accountId: "acct_2",
+            macAgentId: "mac_1",
+            events: [envelope(id: "evt_shared", seq: 2, macAgentId: "mac_1")]
+        )
+
+        let accountOne = try await relay.runEvents(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            after: 0,
+            limit: 10
+        )
+        let accountTwo = try await relay.runEvents(
+            accountId: "acct_2",
+            macAgentId: "mac_1",
+            after: 0,
+            limit: 10
+        )
+
+        XCTAssertEqual(accountOne.map(\.event.seq), [1])
+        XCTAssertEqual(accountTwo.map(\.event.seq), [2])
+    }
+
     private func envelope(
         id: String,
         seq: Int64,
