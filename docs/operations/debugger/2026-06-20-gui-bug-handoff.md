@@ -33,7 +33,16 @@
 **Impact:** The primary chat/composer muscle memory is inverted; users expect Enter to send and only use Shift+Enter for multiline input.  
 **Notes for dev:** Preserve special composer subflows. If the `@` file-reference picker is open, Return may still need to accept the highlighted file reference before normal send behavior resumes. Outside those subflows, plain Return/Enter should call the same send path as the send button.
 
-### 4. Up/down arrows do not select Customize Teams dropdown rows
+### 4. Composer attachment icon does nothing and reads as photo-only
+
+**Priority:** P1 for dead action; P2 for icon/attachment-scope mismatch.  
+**Surface:** Composer prompt editor.  
+**Observed:** Pressing the photo/image icon in the Composer does not open an attachment flow or otherwise respond. The icon also implies photos only.  
+**Expected:** Pressing the attachment control should work. It should let the user attach supported files to the next turn. The affordance should be a general attachment control, likely a paperclip icon, because users should be able to attach documents too, not just photos.  
+**Impact:** The composer advertises attachment support but the control is inert, and the current photo icon under-communicates the intended scope.  
+**Notes for dev:** Current image attachment contracts appear image-first. If document attachments are not yet supported in Core/CLI/MCP, either wire the supported image flow honestly and split document support into a scoped contract, or extend the attachment contract deliberately. Do not make arbitrary document files look attached if they are not included in the worker context.
+
+### 5. Up/down arrows do not select Customize Teams dropdown rows
 
 **Priority:** P2 / keyboard usability.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -41,7 +50,7 @@
 **Expected:** Up/down should move an active highlight through dropdown rows; return should pick the highlighted row. This should match the behavior already added to the searchable Compose / Customize-worker style popup.  
 **Notes for dev:** `ALSearchableDropdown` already has `highlighted`, `onKeyPress(.downArrow)`, `onKeyPress(.upArrow)`, `onKeyPress(.return)`, and `.onHover` handling. The simpler `ALDropdown` used for model pickers likely needs the same interaction model.
 
-### 5. Mouse hover does not display the selected Customize Teams dropdown row correctly
+### 6. Mouse hover does not display the selected Customize Teams dropdown row correctly
 
 **Priority:** P2 / visual feedback regression.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -69,6 +78,14 @@
 6. Expected: a newline is inserted instead of sending.
 7. Check the `@` file-reference flow separately so Return still accepts the highlighted file when that picker is open.
 
+### Composer attachment control
+
+1. Open a normal Composer prompt editor.
+2. Press the photo/image icon in the composer bar.
+3. Expected: an attachment picker or supported attachment flow opens.
+4. Observe whether any attachment chip/state appears after choosing a file.
+5. Expected affordance: use a general attachment icon such as paperclip if the flow accepts documents as well as images.
+
 ### Customize Teams dropdown bugs
 
 1. Open Allnighter Mac app.
@@ -89,6 +106,7 @@
 - `Apps/AllnighterMac/Sources/RoutingComposer.swift`
   - Owns the send button, `performSend()`, and `handleEditorCommand(_:)`.
   - Current send button advertises Command+Return; future behavior should decide whether that remains as an extra shortcut while plain Return becomes primary.
+  - Also contains the composer attachment icon button; current touchpoint appears to be `IconButton(systemImage: "photo", accessibilityLabel: "Attach image", small: true) {}`.
 - `Apps/AllnighterMac/Sources/AllnighterTextEditor.swift`
   - `ALTextEditor` maps `insertNewline(_:)` to `.returnKey`; this is the likely interception point for plain Return/Enter versus Shift+Return/Shift+Enter.
 - `Apps/AllnighterMac/Sources/TeamEditorView.swift`
@@ -110,6 +128,8 @@
   - Owns custom team creation/editing semantics and CLI commands.
 - `docs/phases/Composer_File_References.md`
   - Relevant because Return already has a picker-accept behavior while an `@` file-reference panel is open.
+- `docs/phases/Composer_Image_Attachments.md`
+  - Owns the built image attachment contract and calls out GUI gaps. It is image-focused; document attachment support may need a separate contract extension.
 - `docs/qa/gui/studio/2026-06-17-combo-keys/watcher.md`
   - Notes keyboard behavior added for dropdown popovers.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md`
@@ -144,6 +164,18 @@
 **Missing kill test / proof:** Focused test or UI harness proving plain Return sends, Shift+Return inserts newline, empty prompt does not send, and Return still accepts a highlighted file-reference candidate while the picker is open.  
 **Fix boundary:** Keyboard handling in Composer editor only. Do not alter `performSend()` semantics, thread persistence, run routing, model selection, or file-reference attachment semantics except to call the existing paths.  
 **Proof command / founder test:** Run targeted Swift tests plus a manual founder test in Composer: Return sends; Shift+Return creates a new line; `@` picker Return still accepts the highlighted file.
+
+### Composer attachment control
+
+**Tier:** T2 SSOT if document attachments are included; T1 Boundary if the fix only wires the existing image attachment flow.  
+**Symptom / repro:** Composer photo icon is clickable-looking but inert; the affordance implies photos only while the desired user workflow is general file attachment, including docs.  
+**Bug fingerprint:** `RoutingComposer` attachment icon + empty action / attachment contract mismatch.  
+**Truth owner:** Attachment contract (`Composer_Image_Attachments.md`, `ThreadAttachmentStore`, `ThreadSendCoordinator`) and any future document attachment contract.  
+**Lie-prone layer:** SwiftUI composer button and icon/accessibility label; GUI state may show an attachment without Core actually sending it.  
+**Regression considered:** Images have a built CLI/MCP/Core path; arbitrary documents may not. Existing `@` file references are not the same as attaching an external document unless the contract says so.  
+**Missing kill test / proof:** GUI test or manual proof that pressing the attachment button opens the picker, selecting a supported file creates visible attachment state, and send includes the attachment in the committed turn/worker context. If docs are supported, prove a document reaches the worker context; if not, do not present docs as supported.  
+**Fix boundary:** Wire the composer attachment affordance to supported attachment ingest and rename/icon it honestly. Do not broaden attachment types without updating Core/CLI/MCP contracts and tests.  
+**Proof command / founder test:** Press the paperclip/attachment button, choose an image and a document if supported, send, then verify the turn and worker context include the selected attachment(s).
 
 ### Customize Teams dropdown bugs
 
