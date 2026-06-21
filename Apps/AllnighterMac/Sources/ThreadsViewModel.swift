@@ -567,6 +567,9 @@ final class ThreadsViewModel {
         let request = RunRequest(
             message: routing.text.trimmingCharacters(in: .whitespacesAndNewlines),
             repoRoot: repoRoot,
+            // Worker_Session_Continuity: carry the visible thread so the run resumes this
+            // thread's vendor CLI session per (source, model) instead of a fresh process.
+            threadId: threadId,
             projectId: projectId,
             presetId: routing.team,
             workerId: routing.to.isEmpty ? nil : routing.to,

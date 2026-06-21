@@ -8,12 +8,25 @@
   "smokeTestExpect": "ALLNIGHTER_READY",
   "invoke": {
     "command": "claude",
-    "args": ["-p", "{{prompt}}", "--model", "{{model}}", "{{effortArgs}}"],
+    "args": [
+      "-p",
+      "{{prompt}}",
+      "--model",
+      "{{model}}",
+      "{{effortArgs}}"
+    ],
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
     "timeoutSeconds": 600,
-    "effortFlag": { "flag": "--effort", "levels": { "low": "low", "med": "medium", "high": "high" } }
+    "effortFlag": {
+      "flag": "--effort",
+      "levels": {
+        "low": "low",
+        "med": "medium",
+        "high": "high"
+      }
+    }
   },
   "output": {
     "capture": "stdout",
@@ -24,24 +37,86 @@
   "streaming": {
     "supported": true,
     "mode": "jsonl_stdout",
-    "args": ["-p", "{{prompt}}", "--model", "{{model}}", "{{effortArgs}}", "--output-format", "stream-json", "--include-partial-messages", "--verbose", "--permission-mode", "bypassPermissions"],
+    "args": [
+      "-p",
+      "{{prompt}}",
+      "--model",
+      "{{model}}",
+      "{{effortArgs}}",
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      "--permission-mode",
+      "bypassPermissions"
+    ],
     "partialOutput": true,
-    "answerDeltaPaths": ["$.event.delta.text"],
+    "answerDeltaPaths": [
+      "$.event.delta.text"
+    ],
     "finalAnswerSource": "event",
     "stripAnsi": true,
     "visibleReasoning": true
   },
   "readsImages": true,
   "setup": {
-    "bins": ["claude"],
-    "knownPaths": ["~/.local/bin", "/opt/homebrew/bin", "~/.npm-global/bin", "/usr/local/bin"],
+    "bins": [
+      "claude"
+    ],
+    "knownPaths": [
+      "~/.local/bin",
+      "/opt/homebrew/bin",
+      "~/.npm-global/bin",
+      "/usr/local/bin"
+    ],
     "installHint": "Install Claude Code: curl -fsSL https://claude.ai/install.sh | bash  (or npm i -g @anthropic-ai/claude-code)",
     "docsURL": "https://code.claude.com/docs/en/quickstart",
     "loginFlow": {
       "interactiveCommand": "claude",
       "instructions": "Run `claude`, then type `/login` and finish sign-in in the browser.",
-      "authErrorPatterns": ["invalid api key", "not logged in", "unauthorized", "/login", "authentication", "401"],
+      "authErrorPatterns": [
+        "invalid api key",
+        "not logged in",
+        "unauthorized",
+        "/login",
+        "authentication",
+        "401"
+      ],
       "docsURL": "https://code.claude.com/docs/en/quickstart"
     }
+  },
+  "session": {
+    "continuity": "vendor_session",
+    "acquire": "set",
+    "firstTurnArgs": [
+      "-p",
+      "{{prompt}}",
+      "--model",
+      "{{model}}",
+      "{{effortArgs}}",
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      "--permission-mode",
+      "bypassPermissions",
+      "--session-id",
+      "{{sessionId}}"
+    ],
+    "resumeArgs": [
+      "-p",
+      "{{prompt}}",
+      "--model",
+      "{{model}}",
+      "{{effortArgs}}",
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      "--permission-mode",
+      "bypassPermissions",
+      "--resume",
+      "{{sessionId}}"
+    ]
   }
 }

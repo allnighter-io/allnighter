@@ -185,14 +185,17 @@ reply OK" → turn 2 "What word did I ask you to remember?" → answers `ambercl
 
 ## Sliced plan (Execution-Playbook, orchestrated, one CLI at a time)
 
-- [ ] **CONT-S0 — Contract + store + manifest schema.** `ExternalWorkerSession[Store]`,
-  `ContinuityTier`, manifest `session` block + decoder, `RunRequest.threadId`. Tests:
-  `WorkerSessionStoreTests`. No behavior change yet.
-- [ ] **CONT-S1 — Run-path plumbing + argv harness.** Thread id through
-  `runViaRunService → RunRequest → RunService → WorkerRunner`; resume-id in / captured-id
-  out; conditional context packet; persist-before-success. Argv-capture kill tests RED→GREEN.
-- [ ] **CONT-S2 — claude_code (proof of life).** `--session-id` mint + `--resume`; live
-  two-turn recall run. **First end-to-end green CLI.**
+- [x] **CONT-S0 — Contract + store + manifest schema (DONE).** `ExternalWorkerSession[Store]`
+  (`db74c218`), `ContinuityTier`, manifest `session` block + `RunRequest.threadId`
+  (`46cbed47`). 12 tests.
+- [x] **CONT-S1 — Run-path plumbing (DONE).** Argv resolution (`8ab33141`), capture parser
+  (`01269eea`), planner + `WorkerRunOutcome.capturedSessionId` (`15ed0809`), invokeStreaming
+  wiring (`54407ad4`), RunService load/pass/persist + conditional context (`9b986a8e`), GUI
+  `threadId`. End-to-end: GUI → RunRequest → RunService → invokeStreaming → capture → persist.
+- [x] **CONT-S2 — claude_code PROOF OF LIFE (DONE — recall PASS ✅).** Live two-turn test:
+  `--session-id <uuid>` turn 1 → `--resume <uuid>` turn 2 (no context re-sent) → recalled
+  **amberclock**. Manifest `session` block shipped (bundle + DefaultConfig). The founder
+  Works Test passes. **This validates the whole architecture — the project is NOT a dead end.**
 - [ ] **CONT-S3 — cursor_agent.** `create-chat` + `--resume`; live recall.
 - [ ] **CONT-S4 — codex.** `--json` capture + `exec resume`; live recall.
 - [ ] **CONT-S5 — grok.** `streaming-json` capture + `--resume`; live recall.
