@@ -1,6 +1,7 @@
 # GUI Bug Handoff
 
-**Date reported:** 2026-06-20  
+**First reported:** 2026-06-20  
+**Latest intake update:** 2026-06-21  
 **Status:** Intake only. Do not treat this file as an implementation plan or proof of a fix.  
 **Surfaces:** Team launcher, Team Studio, Customize Teams, Composer.  
 **Reporter evidence:** User reports plus screenshots from the original Codex requests.
@@ -42,7 +43,16 @@
 **Impact:** The composer advertises attachment support but the control is inert, and the current photo icon under-communicates the intended scope.  
 **Notes for dev:** Current image attachment contracts appear image-first. If document attachments are not yet supported in Core/CLI/MCP, either wire the supported image flow honestly and split document support into a scoped contract, or extend the attachment contract deliberately. Do not make arbitrary document files look attached if they are not included in the worker context.
 
-### 5. Up/down arrows do not select Customize Teams dropdown rows
+### 5. Long pasted clipboard text should become a `.txt` attachment
+
+**Priority:** P2 / attachment-paste workflow.  
+**Surface:** Composer prompt editor paste handling.  
+**Observed:** Long clipboard text pasted into the Composer would clutter the prompt the user is actively writing. This belongs with the attachment bug because paste should support images and long text as attachable context.  
+**Expected:** When pasted text exceeds a product-defined threshold (`X` characters / size), the composer should create a `.txt` attachment instead of inserting the full text inline. Short pasted text should still paste normally. The threshold must live in the attachment/composer contract, not as a hidden magic number in the view.  
+**Impact:** Users can bring large notes, logs, docs, transcripts, or copied pages into context without turning the prompt box into an unreadable wall of text.  
+**Notes for dev:** Preserve existing paste precedence: image paste should still attach images, and mixed image+text paste needs an explicit rule. If `.txt` attachments are new to Core/CLI/MCP, extend the attachment contract and delivery proof before showing the text file as attached.
+
+### 6. Up/down arrows do not select Customize Teams dropdown rows
 
 **Priority:** P2 / keyboard usability.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -50,7 +60,7 @@
 **Expected:** Up/down should move an active highlight through dropdown rows; return should pick the highlighted row. This should match the behavior already added to the searchable Compose / Customize-worker style popup.  
 **Notes for dev:** `ALSearchableDropdown` already has `highlighted`, `onKeyPress(.downArrow)`, `onKeyPress(.upArrow)`, `onKeyPress(.return)`, and `.onHover` handling. The simpler `ALDropdown` used for model pickers likely needs the same interaction model.
 
-### 6. Mouse hover does not display the selected Customize Teams dropdown row correctly
+### 7. Mouse hover does not display the selected Customize Teams dropdown row correctly
 
 **Priority:** P2 / visual feedback regression.  
 **Surface:** Team Studio → Customize Teams → worker model dropdowns.  
@@ -86,6 +96,16 @@
 4. Observe whether any attachment chip/state appears after choosing a file.
 5. Expected affordance: use a general attachment icon such as paperclip if the flow accepts documents as well as images.
 
+### Composer long-text paste
+
+1. Copy a large block of text to the clipboard: logs, notes, a transcript, or a long article.
+2. Paste into the Composer.
+3. Expected: if the text exceeds the configured threshold, the composer creates a `.txt` attachment chip instead of inserting all pasted text inline.
+4. Send the turn.
+5. Expected: the `.txt` attachment is committed and included in the worker context.
+6. Paste short text separately.
+7. Expected: short text still inserts inline as normal.
+
 ### Customize Teams dropdown bugs
 
 1. Open Allnighter Mac app.
@@ -109,6 +129,7 @@
   - Also contains the composer attachment icon button; current touchpoint appears to be `IconButton(systemImage: "photo", accessibilityLabel: "Attach image", small: true) {}`.
 - `Apps/AllnighterMac/Sources/AllnighterTextEditor.swift`
   - `ALTextEditor` maps `insertNewline(_:)` to `.returnKey`; this is the likely interception point for plain Return/Enter versus Shift+Return/Shift+Enter.
+  - `ComposerTextView.paste(_:)` is the likely interception point for image paste and long-text-to-`.txt` paste behavior.
 - `Apps/AllnighterMac/Sources/TeamEditorView.swift`
   - `modelPicker(_:, onPick:)` currently prepends an explicit `Auto` sentinel before model catalog entries.
   - Worker editor model dropdown also uses `ALDropdown`.
@@ -129,7 +150,7 @@
 - `docs/phases/Composer_File_References.md`
   - Relevant because Return already has a picker-accept behavior while an `@` file-reference panel is open.
 - `docs/phases/Composer_Image_Attachments.md`
-  - Owns the built image attachment contract and calls out GUI gaps. It is image-focused; document attachment support may need a separate contract extension.
+  - Owns the built image attachment contract and calls out GUI paste/attach gaps. It is image-focused; `.txt` / document attachment support may need a contract extension.
 - `docs/qa/gui/studio/2026-06-17-combo-keys/watcher.md`
   - Notes keyboard behavior added for dropdown popovers.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md`
@@ -176,6 +197,18 @@
 **Missing kill test / proof:** GUI test or manual proof that pressing the attachment button opens the picker, selecting a supported file creates visible attachment state, and send includes the attachment in the committed turn/worker context. If docs are supported, prove a document reaches the worker context; if not, do not present docs as supported.  
 **Fix boundary:** Wire the composer attachment affordance to supported attachment ingest and rename/icon it honestly. Do not broaden attachment types without updating Core/CLI/MCP contracts and tests.  
 **Proof command / founder test:** Press the paperclip/attachment button, choose an image and a document if supported, send, then verify the turn and worker context include the selected attachment(s).
+
+### Composer long-text paste attachment
+
+**Tier:** T2 SSOT because pasted text becomes durable attachment/context truth.  
+**Symptom / repro:** Long pasted clipboard text should attach as a `.txt` file instead of cluttering the Composer prompt; short pasted text should remain inline.  
+**Bug fingerprint:** `ComposerTextView.paste(_:)` + long text threshold + missing text-attachment contract.  
+**Truth owner:** Attachment/composer contract for supported attachment types, paste precedence, threshold policy, and send-time delivery.  
+**Lie-prone layer:** GUI paste handling and attachment chip state; it can look attached without being committed or delivered to the worker.  
+**Regression considered:** Image paste is already part of the attachment plan; mixed clipboard payloads need deterministic precedence so an image+text paste does not double-attach or silently drop meaningful text.  
+**Missing kill test / proof:** Tests for below-threshold text inserts inline, above-threshold text creates a `.txt` draft attachment, mixed image/text paste follows the documented precedence, send commits the `.txt` attachment, and worker context includes it.  
+**Fix boundary:** Paste handling and attachment contract only. Do not conflate pasted `.txt` attachments with `@` Project file references or external document upload unless those contracts are extended deliberately.  
+**Proof command / founder test:** Paste a long log/transcript, see a `.txt` attachment chip instead of inline wall text, send it, then verify the worker receives the attached text; paste a short sentence and confirm it stays inline.
 
 ### Customize Teams dropdown bugs
 
