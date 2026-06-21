@@ -303,3 +303,118 @@ public struct DirectModeReadinessChecker: Sendable {
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 }
+
+public enum DirectModeActivationKind: String, Codable, Sendable, CaseIterable {
+    case activated
+    case loopbackOnly
+    case serveFailed
+    case tailscaleUnavailable
+}
+
+public struct DirectModeActivationResult: Equatable, Sendable {
+    public var kind: DirectModeActivationKind
+    public var ok: Bool
+    public var endpoint: DirectModeEndpoint
+    public var checkedCommand: [String]?
+    public var detail: String?
+    public var nextAction: String?
+
+    public init(
+        kind: DirectModeActivationKind,
+        ok: Bool,
+        endpoint: DirectModeEndpoint,
+        checkedCommand: [String]? = nil,
+        detail: String? = nil,
+        nextAction: String? = nil
+    ) {
+        self.kind = kind
+        self.ok = ok
+        self.endpoint = endpoint
+        self.checkedCommand = checkedCommand
+        self.detail = detail.map(Self.capped)
+        self.nextAction = nextAction
+    }
+
+    private static func capped(_ value: String) -> String {
+        String(value.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+    }
+}
+
+public struct DirectModeExposureActivator: Sendable {
+    private let commandRunner: any CommandRunner
+    private let timeout: Duration
+
+    public init(
+        commandRunner: any CommandRunner,
+        timeout: Duration = .seconds(10)
+    ) {
+        self.commandRunner = commandRunner
+        self.timeout = timeout
+    }
+
+    public func activate(_ plan: DirectModeExposurePlan) async -> DirectModeActivationResult {
+        guard !plan.serveCommand.isEmpty else {
+            return DirectModeActivationResult(
+                kind: .loopbackOnly,
+                ok: true,
+                endpoint: plan.endpoint
+            )
+        }
+        guard let executable = plan.serveCommand.first else {
+            return DirectModeActivationResult(
+                kind: .serveFailed,
+                ok: false,
+                endpoint: plan.endpoint,
+                checkedCommand: plan.serveCommand,
+                nextAction: "Recreate the Direct Mode exposure plan, then retry."
+            )
+        }
+
+        let args = Array(plan.serveCommand.dropFirst())
+        let result = await commandRunner.run(
+            command: executable,
+            args: args,
+            stdin: nil,
+            env: [:],
+            workingDirectory: AllnighterPaths.ensuredProbeScratchPath(),
+            timeout: timeout
+        )
+
+        if let launchError = result.launchError {
+            return DirectModeActivationResult(
+                kind: .tailscaleUnavailable,
+                ok: false,
+                endpoint: plan.endpoint,
+                checkedCommand: plan.serveCommand,
+                detail: launchError,
+                nextAction: "Install Tailscale, sign in, then retry Direct Mode exposure."
+            )
+        }
+
+        guard result.exitCode == 0, !result.timedOut, !result.cancelled else {
+            return DirectModeActivationResult(
+                kind: .serveFailed,
+                ok: false,
+                endpoint: plan.endpoint,
+                checkedCommand: plan.serveCommand,
+                detail: diagnostic(from: result),
+                nextAction: "Check Tailscale Serve status, then retry Direct Mode exposure."
+            )
+        }
+
+        return DirectModeActivationResult(
+            kind: .activated,
+            ok: true,
+            endpoint: plan.endpoint,
+            checkedCommand: plan.serveCommand,
+            detail: diagnostic(from: result)
+        )
+    }
+
+    private func diagnostic(from result: CommandResult) -> String? {
+        let parts = [result.stderr, result.stdout]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n")
+    }
+}

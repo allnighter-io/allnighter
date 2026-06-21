@@ -174,6 +174,70 @@ final class DirectModeExposureProviderTests: XCTestCase {
         _ = await DirectModeReadinessChecker(commandRunner: runner).check(tailnetHTTP)
         XCTAssertTrue(runner.calls.isEmpty)
     }
+
+    func testActivatorRunsServeCommandFromProbeScratch() async throws {
+        let runner = RecordingDirectModeCommandRunner(result: CommandResult(stdout: "served", exitCode: 0))
+        let plan = try TailscaleExposureProvider().plan(DirectModeExposureRequest(
+            loopbackPort: 42123,
+            transport: .tailscaleHTTPS,
+            host: "studio.tail123.ts.net"
+        ))
+
+        let activation = await DirectModeExposureActivator(commandRunner: runner).activate(plan)
+
+        XCTAssertEqual(activation.kind, .activated)
+        XCTAssertTrue(activation.ok)
+        XCTAssertEqual(activation.endpoint, plan.endpoint)
+        XCTAssertEqual(activation.checkedCommand, plan.serveCommand)
+        XCTAssertEqual(activation.detail, "served")
+        let call = try XCTUnwrap(runner.calls.first)
+        XCTAssertEqual(call.command, "tailscale")
+        XCTAssertEqual(call.args, ["serve", "--bg", "--https=443", "http://127.0.0.1:42123"])
+        XCTAssertTrue(call.workingDirectory?.contains("ProbeScratch") == true)
+    }
+
+    func testActivatorNoopsForLoopbackPlans() async throws {
+        let runner = RecordingDirectModeCommandRunner(result: CommandResult(stdout: "should not run", exitCode: 0))
+        let plan = try LoopbackExposureProvider().plan(DirectModeExposureRequest(
+            loopbackPort: 42123,
+            transport: .loopback
+        ))
+
+        let activation = await DirectModeExposureActivator(commandRunner: runner).activate(plan)
+
+        XCTAssertEqual(activation.kind, .loopbackOnly)
+        XCTAssertTrue(activation.ok)
+        XCTAssertEqual(activation.endpoint, plan.endpoint)
+        XCTAssertNil(activation.checkedCommand)
+        XCTAssertTrue(runner.calls.isEmpty)
+    }
+
+    func testActivatorReportsMissingTailscaleAndServeFailures() async throws {
+        let missingRunner = RecordingDirectModeCommandRunner(result: CommandResult(
+            launchError: "No such file or directory"
+        ))
+        let failingRunner = RecordingDirectModeCommandRunner(result: CommandResult(
+            stderr: "serve failed because HTTPS is disabled",
+            exitCode: 1
+        ))
+        let plan = try TailscaleExposureProvider().plan(DirectModeExposureRequest(
+            loopbackPort: 42123,
+            transport: .tailscaleHTTPS,
+            host: "studio.tail123.ts.net"
+        ))
+
+        let missing = await DirectModeExposureActivator(commandRunner: missingRunner).activate(plan)
+        let failed = await DirectModeExposureActivator(commandRunner: failingRunner).activate(plan)
+
+        XCTAssertEqual(missing.kind, .tailscaleUnavailable)
+        XCTAssertFalse(missing.ok)
+        XCTAssertEqual(missing.detail, "No such file or directory")
+        XCTAssertEqual(missing.nextAction, "Install Tailscale, sign in, then retry Direct Mode exposure.")
+        XCTAssertEqual(failed.kind, .serveFailed)
+        XCTAssertFalse(failed.ok)
+        XCTAssertEqual(failed.detail, "serve failed because HTTPS is disabled")
+        XCTAssertEqual(failed.nextAction, "Check Tailscale Serve status, then retry Direct Mode exposure.")
+    }
 }
 
 private final class RecordingDirectModeCommandRunner: CommandRunner, @unchecked Sendable {
