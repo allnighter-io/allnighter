@@ -442,8 +442,11 @@ final class AppModel {
     /// Models dropdown or the title bar — they live only on the CLI setup page.
     var availableModels: [Model] {
         let readyDrivers = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        // A cooling source is not available right now — so Auto's preview and the run path
+        // agree (the run already substitutes around it). Live filter; never stale on expiry.
+        let cooling = coolingSources
         return models
-            .filter { $0.enabled && readyDrivers.contains($0.driverId) }
+            .filter { $0.enabled && readyDrivers.contains($0.driverId) && !cooling.contains($0.driverId) }
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 
@@ -461,24 +464,72 @@ final class AppModel {
         AppSetupModel.setupCards(registry: registry, toolStatuses: toolStatuses, models: models)
     }
 
+    // MARK: - Source capacity cooldowns (pre-dispatch availability)
+
+    /// Cached per-source cooldowns — the expensive run-store scan, refreshed on demand
+    /// (picker/dropdown open), NEVER per render. The "cooling NOW" decision is a live
+    /// `> Date()` filter over this, so an expiry is never stale; only a brand-new cooldown
+    /// needs a refresh, and one only appears when a run settles with a capacity wall.
+    private(set) var cachedCooldowns: [SourceCooldown] = []
+
+    /// Re-scan recent runs for capacity observations. Cheap; call it on a user action
+    /// (opening the model picker / Models dropdown), not every render.
+    func refreshCapacityCooldowns(now: Date = Date()) {
+        let lookback = now.addingTimeInterval(-12 * 60 * 60)
+        let observations = store.list()
+            .filter { $0.createdAt >= lookback }
+            .flatMap { $0.failedWorkerAnswers }
+            .compactMap { $0.capacityObservation }
+        cachedCooldowns = SourceCapacityLedger.sources(observations: observations, now: now)
+    }
+
+    /// Sources tapped out right now — live filter over the cache (never stale on expiry).
+    var coolingSources: Set<String> {
+        let now = Date()
+        return Set(cachedCooldowns.filter { $0.coolingUntil > now }.map(\.source))
+    }
+
+    /// "At capacity · resets <time>" when this source is cooling now, else nil — the picker
+    /// reason that tells the user it's transient (not a broken setup) and when it lifts.
+    func capacityReason(forSource driverId: String, now: Date = Date()) -> String? {
+        guard let cd = cachedCooldowns.first(where: { $0.source == driverId && $0.coolingUntil > now })
+        else { return nil }
+        return "At capacity · resets \(Self.capacityTimeFormatter.string(from: cd.coolingUntil))"
+    }
+
+    private static let capacityTimeFormatter: DateFormatter = {
+        let f = DateFormatter(); f.timeStyle = .short; f.dateStyle = .none; return f
+    }()
+
     // MARK: - Compose routing data (CR3)
 
     /// The bench the routing composer offers — the user's REAL enabled models
     /// with REAL readiness from `toolStatuses`. Work routes to a model; the CLI
-    /// is only the source (brand glyph + slug + sub).
+    /// is only the source (brand glyph + slug + sub). A source that's cooling down
+    /// (recent capacity wall, not yet reset) is shown not-ready so the picker grays +
+    /// disables it — an explicit pick would just fail, since substitution only applies to Auto.
     var composeBench: [ComposeBenchModel] {
-        models.filter(\.enabled).map { m in
+        let cooling = coolingSources
+        return models.filter(\.enabled).map { m in
             let rec = toolStatus(for: m.driverId)
-            let ready = rec?.status.isReady ?? false
+            let probeReady = rec?.status.isReady ?? false
+            let isCooling = cooling.contains(m.driverId)
+            let ready = probeReady && !isCooling
             let cliName = registry.manifest(for: m)?.displayName ?? m.driverId
             let reason: String?
-            switch rec?.status {
-            case .installedNotSignedIn?: reason = "Not signed in"
-            case .shimmedNeedsConfirm?: reason = "Needs a path"
-            case .probeFailed?: reason = "Probe failed"
-            case .installedNotProbed?: reason = "Not checked"
-            case .notInstalled?, .none: reason = "Not detected"
-            case .ready?: reason = nil
+            if !probeReady {
+                switch rec?.status {
+                case .installedNotSignedIn?: reason = "Not signed in"
+                case .shimmedNeedsConfirm?: reason = "Needs a path"
+                case .probeFailed?: reason = "Probe failed"
+                case .installedNotProbed?: reason = "Not checked"
+                case .notInstalled?, .none: reason = "Not detected"
+                case .ready?: reason = nil
+                }
+            } else if isCooling {
+                reason = capacityReason(forSource: m.driverId)
+            } else {
+                reason = nil
             }
             return ComposeBenchModel(
                 id: m.id, name: m.displayName, driverId: m.driverId,
@@ -486,6 +537,7 @@ final class AppModel {
                 sub: cliName, ready: ready, notReadyReason: ready ? nil : reason,
                 supportsEffort: m.supportsEffort(registry: registry))
         }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// Models that can run as an agent in your repo — enabled models whose

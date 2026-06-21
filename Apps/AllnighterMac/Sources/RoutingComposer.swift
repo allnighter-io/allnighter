@@ -986,7 +986,9 @@ struct RoutingComposer: View {
         // ↑/↓/⏎ are handled by an AppKit key monitor (SwiftUI key focus doesn't fire
         // inside an NSPopover). Hover + the default top-row highlight come from `targetHighlight`.
         .overlay(targetKeyMonitor.allowsHitTesting(false))
-        .onAppear { targetHighlight = 0 }
+        // Freshen capacity cooldowns when the picker opens (a user action, not per render),
+        // so a tapped-out source grays + disables right when you're about to pick.
+        .onAppear { targetHighlight = 0; appModel.refreshCapacityCooldowns() }
         .onChange(of: targetTab) { _, _ in targetHighlight = 0 }
         .onChange(of: teamSearch) { _, _ in targetHighlight = 0 }
     }

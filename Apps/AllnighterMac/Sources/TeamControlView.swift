@@ -204,7 +204,7 @@ struct BenchDropdownPanel: View {
         .clipShape(panelShape)
         .overlay { panelShape.stroke(ALColor.borderDefault, lineWidth: 1) }
         .alShadowXl()
-        .onAppear(perform: resolveAutoModelName)
+        .onAppear { resolveAutoModelName(); appModel.refreshCapacityCooldowns() }
     }
 
     private var header: some View {
