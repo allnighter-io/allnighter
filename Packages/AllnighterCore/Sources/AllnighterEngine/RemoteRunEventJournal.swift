@@ -7,6 +7,16 @@ public enum RemoteRunEventJournalError: Error, Equatable, Sendable {
     case missingIndexedEvent(seq: Int64, runId: String, eventId: String)
 }
 
+public struct RemoteRunEventReplay: Equatable, Sendable {
+    public var events: [RunEvent]
+    public var lastSeq: Int64
+
+    public init(events: [RunEvent], lastSeq: Int64) {
+        self.events = events
+        self.lastSeq = lastSeq
+    }
+}
+
 /// Mac-truth remote event journal. Cloud mirrors may expire; this append-only
 /// store owns the monotonic per-Mac sequence used for remote resume.
 public struct RemoteRunEventJournal: Sendable {
@@ -52,6 +62,14 @@ public struct RemoteRunEventJournal: Sendable {
     }
 
     public func events(after seq: Int64, limit: Int? = nil) throws -> [RunEvent] {
+        try replay(after: seq, limit: limit).events
+    }
+
+    public func replay(after seq: Int64, limit: Int? = nil) throws -> RemoteRunEventReplay {
+        try FileManager.default.createDirectory(at: rootDirectory, withIntermediateDirectories: true)
+        let lock = try ThreadFlockLock.acquire(lockURL: lockURL)
+        defer { _ = lock }
+
         let entries = try readIndexEntries(after: seq, limit: limit)
         var eventsByRunId: [String: [RunEvent]] = [:]
         var resolvedEvents: [RunEvent] = []
@@ -72,7 +90,7 @@ public struct RemoteRunEventJournal: Sendable {
             resolvedEvents.append(event)
         }
 
-        return resolvedEvents
+        return RemoteRunEventReplay(events: resolvedEvents, lastSeq: try lastSeqLocked())
     }
 
     public func events(forRunId runId: String, after seq: Int64 = 0, limit: Int? = nil) throws -> [RunEvent] {
