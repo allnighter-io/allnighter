@@ -244,7 +244,11 @@ public enum SkillCatalog {
         s("trace_mapper", "Trace Mapper", .code, .answer, """
         Map the bug through the likely layers: UI, presenter/model, engine, store, \
         contract, persisted file, external CLI. Name the truth owner and the first layer \
-        likely to be lying.
+        likely to be lying. CRUCIAL: name the SEAM the bug crosses — the boundary between \
+        two systems (e.g. AppKit↔SwiftUI, app↔CLI, store↔view, network↔state). Bugs live at \
+        seams: each side can look correct in isolation while the CROSSING fails, so the seam \
+        is surrounded by adjacent truths. A proof of one side is a proximity trap; the real \
+        proof must traverse the whole seam end to end.
         """),
         s("state_skeptic", "State Skeptic", .code, .answer, """
         Assume the bug is caused by duplicated state, stale state, optimistic UI, missing \
@@ -259,15 +263,27 @@ public enum SkillCatalog {
         """),
         s("correct_fix_planner", "Correct Fix Planner", .code, .answer, """
         Plan the smallest correct fix, not the smallest visible patch. Do not patch the \
-        visible layer until the truth owner and blast radius are named. If the cause is \
-        duplicated state, SSOT drift, presenter mismatch, or shared component behavior, \
-        the correct fix may be deeper than the failing view.
+        visible layer until the truth owner, the seam, and the blast radius are named. If the \
+        cause is duplicated state, SSOT drift, presenter mismatch, shared-component behavior, \
+        or a seam crossing, the correct fix may be deeper than the failing view.
+        Produce a RANKED LADDER of candidate causes — not one — most-likely first. For each, \
+        give the single cheapest experiment that confirms or refutes it, and note what is \
+        already ruled out. The fix targets the top surviving hypothesis. Real bugs are solved \
+        by elimination across rounds, not one confident leap — design for the next round, not \
+        a guaranteed one-shot.
         """),
         s("regression_guard", "Regression Guard", .code, .answer, """
         Write the proof plan. Name the exact unit/integration/fixture test that would \
         fail before the fix and pass after. Include a negative test for the old lie when \
         possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition \
         to semantic tests.
+        Then judge PROOF FEASIBILITY: can that honest END-TO-END proof actually be written in \
+        THIS codebase? If the bug lives at a seam tangled with the whole app and a true \
+        end-to-end test cannot be written in place, say so and specify a MINIMAL ISOLATION \
+        HARNESS — a tiny standalone target that reproduces ONLY the failing capability using \
+        the SAME seam/stack, with a success criterion a non-coder can confirm. The green \
+        harness is the spec and defines the real kill test. A single-layer test that passes \
+        while the user-visible bug remains is NOT proof; neither is manual confirmation.
         """),
         s("gui_bug_reproducer", "GUI Bug Reproducer", .code, .answer, """
         Reduce the visible GUI bug to the smallest rendered state that proves it: surface, \
@@ -291,6 +307,11 @@ public enum SkillCatalog {
         s("contrarian_root_cause", "Contrarian Root Cause", .code, .review, """
         Argue against the leading theory. Provide an alternate root cause and the \
         cheapest observation or test that rules it in or out.
+        Reject PROOF-BY-PROXIMITY: a nearby true statement (the menu exists, the reader reads, \
+        this one layer works) is NOT proof the user-visible behavior is fixed. Founder/manual \
+        confirmation is a hint, never sufficient for a seam bug. Demand the end-to-end \
+        observation that only the real fix can produce — if it can't be produced in this \
+        codebase, the answer is an isolation harness, not a partial proof.
         """),
         // Security Review
         s("boundary_mapper", "Boundary Mapper", .code, .answer, """
@@ -610,8 +631,27 @@ public enum SkillCatalog {
     private static let writerSkills: [Skill] = [
         writer("plan_writer_build", "Code Plan Writer", .code,
                "implementable plan with scope, architecture, risks, and a proof wall"),
-        writer("bug_packet_writer", "Bug Packet Writer", .code,
-               "bug packet: symptom, repro, truth owner, lie-prone layer, blast radius, smallest correct fix, regression proof"),
+        s("bug_packet_writer", "Bug Packet Writer", .code, .planWriter, """
+        You are the team's Bug Packet writer. You are given the original report, the \
+        independent worker answers, and review notes. Decide; do not average. Resolve each \
+        contradiction explicitly and attribute points to worker ids.
+        Produce a Bug Packet built for ELIMINATION, not a single confident guess:
+        - Symptom and the smallest repro (steps, expected vs observed).
+        - Bug fingerprint, truth owner, and the lie-prone layer.
+        - The SEAM the bug crosses, when there is one — and why a one-side proof is a trap.
+        - A RANKED HYPOTHESIS LADDER (most-likely first). For each: the cheapest experiment \
+          that confirms or refutes it, and what it would rule out. Carry forward anything the \
+          team has already ruled out so a next round never repeats it.
+        - The smallest correct fix for the TOP surviving hypothesis, and its fix boundary \
+          (apply only here; no opportunistic refactor).
+        - The PROOF METHOD: the exact command/fixture/observation that decides "fixed", and \
+          whether that proof can be written in this codebase OR needs a minimal isolation \
+          harness (name it). A passing single-layer test while the bug remains is NOT proof.
+        - Confidence as an ORDERING signal (how to rank hypotheses + how many rounds to \
+          expect), never as a gate. Honest low confidence means "expect to iterate", not stop.
+        This packet is the hand-off to a fix attempt: it must let one disciplined worker try \
+        the top hypothesis, run the proof, and — if it fails — narrow to the next.
+        """),
         writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
         writer("security_register_writer", "Security Register Writer", .code,
