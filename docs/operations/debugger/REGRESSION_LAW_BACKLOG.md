@@ -4,6 +4,24 @@ DEBUGLOG entries without a wall-reachable regression law are tracked here until
 each pattern has a gate or test. Expired rows should fail the green wall once
 meta-gates exist.
 
+## Open
+
+- `Native composer paste is not fixed until first-responder selector/key-equivalent
+  tests prove the focused editor and SwiftUI draft binding both change`:
+  OPEN 2026-06-21 from repeated composer paste failure. Required wall-reachable
+  gates should live in `Apps/AllnighterMac/Tests/` and run under
+  `xcodebuild test -scheme AllnighterMac -destination 'platform=macOS'`:
+  low-level `AllnighterTextEditorTests.testComposerPasteInsertsPlainTextAtSelection`
+  / `testComposerPasteReplacesSelectedText`, plus kill tests
+  `AllnighterTextEditorTests.testCommandVKeyEquivalentPastesClipboardWithoutEditMenu`,
+  `AllnighterTextEditorTests.testPasteViaFirstResponderSelectorReachesFocusedComposerTextView`,
+  `RoutingComposerPasteIntegrationTests.testEditMenuPasteUpdatesDraftAndSendPayload`,
+  and negative
+  `RoutingComposerPasteIntegrationTests.testDirectTextViewPasteIsNotEnoughWhenComposerIsNotFirstResponder`.
+  GUI proof: render a `compose-paste` fixture with `bash scripts/gui_proof.sh
+  compose-paste`, obtain layout-watcher PASS, then seal it with
+  `bash scripts/gui_proof_seal.sh composer <slug> compose-paste`.
+
 ## Closed
 
 - `GUI-visible work is not fixed until a layout-watcher passes a real render`:
