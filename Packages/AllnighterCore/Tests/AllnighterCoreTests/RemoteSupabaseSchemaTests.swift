@@ -167,6 +167,7 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
 
     func testScopedRelayUniquenessMatchesHeadlessContracts() throws {
         let sql = try schemaSQL
+        XCTAssertTrue(try columnNames(in: "command_acks", sql: sql).contains("account_id"))
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"command_inbox_pkey\" PRIMARY KEY (\"account_id\", \"mac_agent_id\", \"request_id\")"
         ))
@@ -182,6 +183,20 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         XCTAssertTrue(sql.contains(
             "ADD CONSTRAINT \"pair_requests_account_mac_device_key\" UNIQUE (\"account_id\", \"mac_agent_id\", \"device_id\")"
         ))
+    }
+
+    func testCommandAckPoliciesJoinInboxByFullScope() throws {
+        let sql = try schemaSQL
+        let insertPolicy = try policyBlock(named: "mac agents insert command acks", sql: sql)
+        let selectPolicy = try policyBlock(named: "approved devices select command acks", sql: sql)
+
+        for policy in [insertPolicy, selectPolicy] {
+            XCTAssertTrue(policy.contains("\"c\".\"account_id\" = \"command_acks\".\"account_id\""))
+            XCTAssertTrue(policy.contains("\"c\".\"mac_agent_id\" = \"command_acks\".\"mac_agent_id\""))
+            XCTAssertTrue(policy.contains("\"c\".\"request_id\" = \"command_acks\".\"request_id\""))
+        }
+        XCTAssertTrue(insertPolicy.contains("\"public\".\"mac_agent_claim_matches\"(\"command_acks\".\"account_id\", \"command_acks\".\"mac_agent_id\")"))
+        XCTAssertTrue(selectPolicy.contains("\"public\".\"mac_agent_claim_matches\"(\"command_acks\".\"account_id\", \"command_acks\".\"mac_agent_id\")"))
     }
 
     private func columnNames(in table: String, sql: String) throws -> Set<String> {

@@ -83,6 +83,7 @@ SET default_table_access_method = "heap";
 
 CREATE TABLE IF NOT EXISTS "public"."command_acks" (
     "request_id" "text" NOT NULL,
+    "account_id" "uuid" NOT NULL,
     "mac_agent_id" "uuid" NOT NULL,
     "accepted" boolean NOT NULL,
     "reason" "text",
@@ -341,6 +342,11 @@ ALTER TABLE ONLY "public"."command_acks"
 
 
 ALTER TABLE ONLY "public"."command_acks"
+    ADD CONSTRAINT "command_acks_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."command_acks"
     ADD CONSTRAINT "command_acks_inbox_scope_fkey" FOREIGN KEY ("account_id", "mac_agent_id", "request_id") REFERENCES "public"."command_inbox"("account_id", "mac_agent_id", "request_id") ON DELETE CASCADE;
 
 
@@ -436,7 +442,7 @@ ALTER TABLE "public"."trusted_devices" ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "mac agents insert command acks" ON "public"."command_acks" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."command_inbox" "c"
-  WHERE (("c"."request_id" = "command_acks"."request_id") AND "public"."mac_agent_claim_matches"("c"."account_id", "command_acks"."mac_agent_id")))));
+  WHERE (("c"."account_id" = "command_acks"."account_id") AND ("c"."mac_agent_id" = "command_acks"."mac_agent_id") AND ("c"."request_id" = "command_acks"."request_id") AND "public"."mac_agent_claim_matches"("command_acks"."account_id", "command_acks"."mac_agent_id")))));
 
 
 
@@ -478,7 +484,7 @@ CREATE POLICY "mac agents insert trusted devices" ON "public"."trusted_devices" 
 
 CREATE POLICY "approved devices select command acks" ON "public"."command_acks" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."command_inbox" "c"
-  WHERE (("c"."request_id" = "command_acks"."request_id") AND ("public"."mac_agent_claim_matches"("c"."account_id", "command_acks"."mac_agent_id") OR "public"."approved_remote_device"("command_acks"."mac_agent_id", "public"."remote_device_id"()))))));
+  WHERE (("c"."account_id" = "command_acks"."account_id") AND ("c"."mac_agent_id" = "command_acks"."mac_agent_id") AND ("c"."request_id" = "command_acks"."request_id") AND ("public"."mac_agent_claim_matches"("command_acks"."account_id", "command_acks"."mac_agent_id") OR "public"."approved_remote_device"("command_acks"."mac_agent_id", "public"."remote_device_id"()))))));
 
 
 
