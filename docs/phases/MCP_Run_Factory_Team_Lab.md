@@ -572,7 +572,47 @@ python3 scripts/team_lab/run.py --suite <suite-id> --case-json /tmp/team-lab-cas
 python3 scripts/team_lab/compare.py <baseline_dir> <candidate_dir> [--hypotheses]
 # judges: export ALLN_JUDGE1_CMD / ALLN_JUDGE2_CMD to two DIFFERENT provider CLIs
 # (--mock runs deterministic judges for pipeline smoke only; records are not evidence)
+python3 scripts/team_lab/promote.py --compare-record <candidate>/evaluation/compare-record.json \
+  --baseline-lab <champion_dir> --candidate-lab <candidate_dir> \
+  --suite <suite-id> --team <team-id> --round <N+1>
+python3 scripts/team_lab/advance.py --suite <suite-id> --team <team-id> --round <N> \
+  --champion-overlay docs/team-lab/champions/<suite>/<team>.json
 ```
+
+### Autopromote policy (no founder gate for routine wins)
+
+The lab promotes champions from compare evidence automatically. Founder review is
+async — the loop never stops to wait.
+
+**Promote when** (`promote.py` gate): `judgeMode=live`, `evidenceValid=true`,
+`sameInput=true`, `interactionWarning=false`, no unmatched roles, `bankedRoles`
+non-empty, `championConfigHash != candidateConfigHash` (material candidate delta),
+and `deliverableOutcome` is `candidate` (or a narrow tie with few banks).
+
+**HOLD** when: `championConfigHash == candidateConfigHash` → `no material candidate delta`.
+R3-style identical-config rounds are automation smoke, not quality improvement.
+
+**Escalate (exit non-zero, no promote)** when: judges split repeatedly on
+deliverable while many roles bank; deliverable regresses to baseline; run-contract
+not green; mock judges; structural role mismatch; model/source failures make
+evidence suspect; overlay declares template changes but MCP cannot wire lab skills
+into team rows; or the change would touch privacy, credentials, billing,
+destructive actions, or distribution.
+
+**Quality rounds** (`advance.py`): require `--hypotheses-from` or `--candidate-overlay`
+so the candidate arm differs (hypothesis patch, skill fork, etc.). Use
+`--calibration-smoke` only for automation calibration (skips promotion).
+
+**MCP**: `teams_definition` returns full `TeamPreset` JSON round-trippable through
+`teams_save`. `teams_show` remains summary-only.
+
+**SkillCatalog shipping**: after enough clean fresh-input wins with material deltas,
+`promote.py` writes a reviewable patch under `docs/team-lab/patches/` (only roles
+whose template differs from built-in). Not hand-picked by founder.
+
+Champion overlay: `docs/team-lab/champions/<suite>/<team>.json` — banked role
+provenance + templates. `run.py --champion-overlay` deploys a lab team via MCP
+before `team_start`.
 
 ## Evaluation Rubrics
 
@@ -903,6 +943,9 @@ The two judges are different model families, pinned + version-stamped, run in
 isolation. See § Judge Loop for the full mechanism.
 
 ## Implementation Slices
+
+**Full Slice 1 execution spec (whole v1 package + good-to-great roadmap):**
+[`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md)
 
 ### PRE-S0 - Pure-MCP Reconstruction Proof (blocking)
 

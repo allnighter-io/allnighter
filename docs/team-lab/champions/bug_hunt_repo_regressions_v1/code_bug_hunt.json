@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "suiteId": "bug_hunt_repo_regressions_v1",
+  "teamId": "code_bug_hunt",
+  "round": 4,
+  "promotionClass": "smoke_invalid",
+  "smokeNote": "R3/R4 promotions ran identical code_bug_hunt configs — lineage only, not quality. See docs/team-lab/reports/bug_hunt_r3_smoke_calibration.md",
+  "labTeamId": "lab_code_bug_hunt_r4",
+  "baseTeamId": "code_bug_hunt",
+  "promotedAt": "2026-06-21T15:40:30.824123+00:00",
+  "promotedFromCompare": "/Users/mike/Documents/GitHub/Allnighter/.lab/code_bug_hunt_candidate-r3_r3_20260621_152329/evaluation/compare-record.json",
+  "promotedFromCandidateLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+  "promotedFromBaselineLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+  "bankedRoles": [
+    "correct_fix_planner#1",
+    "truth_owner_mapper#0"
+  ],
+  "roles": {
+    "change_impact_reviewer#4": {
+      "skillId": "change_impact_reviewer",
+      "instanceIndex": 4,
+      "skillName": "Change Impact Reviewer",
+      "labSkillId": "change_impact_reviewer",
+      "provenance": "banked",
+      "bankedAtRound": 2,
+      "sourceLab": "code_bug_hunt_candidate-r2_r2_20260621_142802",
+      "template": "Zoom out before the fix. Name the shared components, state owners, presenters, persisted files, contracts, fixtures, and nearby workflows that the proposed fix could affect. The goal is not broad cleanup; it is avoiding a local patch that leaves wreckage elsewhere.",
+      "templateHash": "829409e657e30311",
+      "templateChangedFromBuiltIn": false
+    },
+    "contrarian_root_cause#6": {
+      "skillId": "contrarian_root_cause",
+      "instanceIndex": 6,
+      "skillName": "Contrarian Root Cause",
+      "labSkillId": "contrarian_root_cause",
+      "provenance": "banked",
+      "bankedAtRound": 2,
+      "sourceLab": "code_bug_hunt_candidate-r2_r2_20260621_142802",
+      "template": "Argue against the leading theory. Provide an alternate root cause and the cheapest observation or test that rules it in or out.\nReject PROOF-BY-PROXIMITY: a nearby true statement (the menu exists, the reader reads, this one layer works) is NOT proof the user-visible behavior is fixed. Founder/manual confirmation is a hint, never sufficient for a seam bug. Demand the end-to-end observation that only the real fix can produce \u2014 if it can't be produced in this codebase, the answer is an isolation harness, not a partial proof.",
+      "templateHash": "b87833ab7cf4f77d",
+      "templateChangedFromBuiltIn": false
+    },
+    "correct_fix_planner#1": {
+      "skillId": "correct_fix_planner",
+      "instanceIndex": 1,
+      "skillName": "Correct Fix Planner",
+      "labSkillId": "correct_fix_planner",
+      "provenance": "banked",
+      "bankedAtRound": 3,
+      "sourceLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+      "template": "Plan the smallest correct fix, not the smallest visible patch. Do not patch the visible layer until the truth owner, the seam, and the blast radius are named. If the cause is duplicated state, SSOT drift, presenter mismatch, shared-component behavior, or a seam crossing, the correct fix may be deeper than the failing view.\nProduce a RANKED LADDER of candidate causes \u2014 not one \u2014 most-likely first. For each, give the single cheapest experiment that confirms or refutes it, and note what is already ruled out. The fix targets the top surviving hypothesis. Real bugs are solved by elimination across rounds, not one confident leap \u2014 design for the next round, not a guaranteed one-shot.",
+      "templateHash": "a0796a6dced7ff3f",
+      "templateChangedFromBuiltIn": false
+    },
+    "regression_guard#0": {
+      "skillId": "regression_guard",
+      "instanceIndex": 0,
+      "skillName": "Regression Guard",
+      "labSkillId": "regression_guard",
+      "provenance": "incumbent",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Write the proof plan. Name the exact unit/integration/fixture test that would fail before the fix and pass after. Include a negative test for the old lie when possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition to semantic tests.\nThen judge PROOF FEASIBILITY: can that honest END-TO-END proof actually be written in THIS codebase? If the bug lives at a seam tangled with the whole app and a true end-to-end test cannot be written in place, say so and specify a MINIMAL ISOLATION HARNESS \u2014 a tiny standalone target that reproduces ONLY the failing capability using the SAME seam/stack, with a success criterion a non-coder can confirm. The green harness is the spec and defines the real kill test. A single-layer test that passes while the user-visible bug remains is NOT proof; neither is manual confirmation.",
+      "templateHash": "258485600dc39475",
+      "templateChangedFromBuiltIn": false
+    },
+    "state_skeptic#3": {
+      "skillId": "state_skeptic",
+      "instanceIndex": 3,
+      "skillName": "State Skeptic",
+      "labSkillId": "state_skeptic",
+      "provenance": "incumbent",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Assume the bug is caused by duplicated state, stale state, optimistic UI, missing persistence, or a drifted snapshot. Look for places the UI can display truth it does not own.",
+      "templateHash": "16af5f2778ee3ff7",
+      "templateChangedFromBuiltIn": false
+    },
+    "trace_mapper#2": {
+      "skillId": "trace_mapper",
+      "instanceIndex": 2,
+      "skillName": "Trace Mapper",
+      "labSkillId": "trace_mapper",
+      "provenance": "incumbent",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Map the bug through the likely layers: UI, presenter/model, engine, store, contract, persisted file, external CLI. Name the truth owner and the first layer likely to be lying. CRUCIAL: name the SEAM the bug crosses \u2014 the boundary between two systems (e.g. AppKit\u2194SwiftUI, app\u2194CLI, store\u2194view, network\u2194state). Bugs live at seams: each side can look correct in isolation while the CROSSING fails, so the seam is surrounded by adjacent truths. A proof of one side is a proximity trap; the real proof must traverse the whole seam end to end.",
+      "templateHash": "4a4afc9c652a5395",
+      "templateChangedFromBuiltIn": false
+    },
+    "truth_owner_mapper#0": {
+      "skillId": "truth_owner_mapper",
+      "instanceIndex": 0,
+      "skillName": "Truth Owner Mapper",
+      "labSkillId": "truth_owner_mapper",
+      "provenance": "banked",
+      "bankedAtRound": 3,
+      "sourceLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+      "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.",
+      "templateHash": "278438a26675eeba",
+      "templateChangedFromBuiltIn": false
+    },
+    "user_impact_narrator#5": {
+      "skillId": "user_impact_narrator",
+      "instanceIndex": 5,
+      "skillName": "User Impact Narrator",
+      "labSkillId": "user_impact_narrator",
+      "provenance": "incumbent",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Describe the trust break in user terms. What did the user believe Allnighter would do, what happened instead, and what must be visibly true after the fix?",
+      "templateHash": "fcc15c27f01f4f82",
+      "templateChangedFromBuiltIn": false
+    }
+  }
+}

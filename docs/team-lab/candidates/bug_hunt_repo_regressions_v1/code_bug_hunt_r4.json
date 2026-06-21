@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 2,
+  "suiteId": "bug_hunt_repo_regressions_v1",
+  "teamId": "code_bug_hunt",
+  "round": 4,
+  "promotionClass": "smoke_invalid",
+  "smokeNote": "R3/R4 promotions ran identical code_bug_hunt configs \u2014 lineage only, not quality. See docs/team-lab/reports/bug_hunt_r3_smoke_calibration.md",
+  "labTeamId": "lab_code_bug_hunt_r4",
+  "baseTeamId": "code_bug_hunt",
+  "promotedAt": "2026-06-21T15:40:30.824123+00:00",
+  "promotedFromCompare": "/Users/mike/Documents/GitHub/Allnighter/.lab/code_bug_hunt_candidate-r3_r3_20260621_152329/evaluation/compare-record.json",
+  "promotedFromCandidateLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+  "promotedFromBaselineLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+  "bankedRoles": [
+    "correct_fix_planner#1",
+    "truth_owner_mapper#0"
+  ],
+  "roles": {
+    "change_impact_reviewer#4": {
+      "skillId": "change_impact_reviewer",
+      "instanceIndex": 4,
+      "skillName": "Change Impact Reviewer",
+      "labSkillId": "custom_code_lab_change_impact_reviewer_2330",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 2,
+      "sourceLab": "code_bug_hunt_candidate-r2_r2_20260621_142802",
+      "template": "Zoom out before the fix. Name the shared components, state owners, presenters, persisted files, contracts, fixtures, and nearby workflows that the proposed fix could affect. The goal is not broad cleanup; it is avoiding a local patch that leaves wreckage elsewhere.\n\nAdd a closing directive requiring the packet to end with a one-line 'Generalized regression law' that names the invariant abstractly (persist-before-evaluate / state must be durable before any gate reads it) separate from the concrete kill tests.",
+      "templateHash": "e0519069c00cc249",
+      "templateChangedFromBuiltIn": true
+    },
+    "contrarian_root_cause#6": {
+      "skillId": "contrarian_root_cause",
+      "instanceIndex": 6,
+      "skillName": "Contrarian Root Cause",
+      "labSkillId": "custom_code_lab_contrarian_root_cause_7964",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 2,
+      "sourceLab": "code_bug_hunt_candidate-r2_r2_20260621_142802",
+      "template": "Argue against the leading theory. Provide an alternate root cause and the cheapest observation or test that rules it in or out.\nReject PROOF-BY-PROXIMITY: a nearby true statement (the menu exists, the reader reads, this one layer works) is NOT proof the user-visible behavior is fixed. Founder/manual confirmation is a hint, never sufficient for a seam bug. Demand the end-to-end observation that only the real fix can produce \u2014 if it can't be produced in this codebase, the answer is an isolation harness, not a partial proof.\n\nAdd a directive: 'Do not stop at the reported/landed fix. Produce a short ranked ladder of candidate causes and explicitly mark which survive that fix. Name the one root cause that the landed fix does NOT close.'",
+      "templateHash": "94d746afef89e78b",
+      "templateChangedFromBuiltIn": true
+    },
+    "correct_fix_planner#1": {
+      "skillId": "correct_fix_planner",
+      "instanceIndex": 1,
+      "skillName": "Correct Fix Planner",
+      "labSkillId": "custom_code_lab_correct_fix_planner_5227",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 3,
+      "sourceLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+      "template": "Plan the smallest correct fix, not the smallest visible patch. Do not patch the visible layer until the truth owner, the seam, and the blast radius are named. If the cause is duplicated state, SSOT drift, presenter mismatch, shared-component behavior, or a seam crossing, the correct fix may be deeper than the failing view.\nProduce a RANKED LADDER of candidate causes \u2014 not one \u2014 most-likely first. For each, give the single cheapest experiment that confirms or refutes it, and note what is already ruled out. The fix targets the top surviving hypothesis. Real bugs are solved by elimination across rounds, not one confident leap \u2014 design for the next round, not a guaranteed one-shot.\n\nAppend a required output-structure spec to the Bug Hunt packet section: 'Emit the packet as labeled sections in this exact order: SEVERITY, TRUTH OWNER, LIE-PRONE LAYER, FAILURE MODE (why silent), FIX BOUNDARY, KILL TESTS / REGRESSION LAWS.'",
+      "templateHash": "0130f0dec7ebad5a",
+      "templateChangedFromBuiltIn": true
+    },
+    "regression_guard#0": {
+      "skillId": "regression_guard",
+      "instanceIndex": 0,
+      "skillName": "Regression Guard",
+      "labSkillId": "custom_code_lab_regression_guard_7225",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Write the proof plan. Name the exact unit/integration/fixture test that would fail before the fix and pass after. Include a negative test for the old lie when possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition to semantic tests.\nThen judge PROOF FEASIBILITY: can that honest END-TO-END proof actually be written in THIS codebase? If the bug lives at a seam tangled with the whole app and a true end-to-end test cannot be written in place, say so and specify a MINIMAL ISOLATION HARNESS \u2014 a tiny standalone target that reproduces ONLY the failing capability using the SAME seam/stack, with a success criterion a non-coder can confirm. The green harness is the spec and defines the real kill test. A single-layer test that passes while the user-visible bug remains is NOT proof; neither is manual confirmation.\n\nAdd a one-line output contract at the end fixing packet field order and headers: 'Return exactly these labeled sections in order: SEVERITY, TRUTH OWNER, LIE-PRONE LAYER, FAILURE MODE (why silent), SMALLEST FIX BOUNDARY, KILL TESTS / REGRESSION LAWS.'",
+      "templateHash": "4f4f4c04c6cdcb9d",
+      "templateChangedFromBuiltIn": true
+    },
+    "state_skeptic#3": {
+      "skillId": "state_skeptic",
+      "instanceIndex": 3,
+      "skillName": "State Skeptic",
+      "labSkillId": "custom_code_lab_state_skeptic_9553",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Assume the bug is caused by duplicated state, stale state, optimistic UI, missing persistence, or a drifted snapshot. Look for places the UI can display truth it does not own.\n\nAppend a short ranked-output contract: 'Lead with the single highest-severity finding as a one-line verdict (owner \u00b7 lie-prone layer \u00b7 severity), then the packet sections below it.'",
+      "templateHash": "609f59c917e215ae",
+      "templateChangedFromBuiltIn": true
+    },
+    "trace_mapper#2": {
+      "skillId": "trace_mapper",
+      "instanceIndex": 2,
+      "skillName": "Trace Mapper",
+      "labSkillId": "custom_code_lab_trace_mapper_6176",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Map the bug through the likely layers: UI, presenter/model, engine, store, contract, persisted file, external CLI. Name the truth owner and the first layer likely to be lying. CRUCIAL: name the SEAM the bug crosses \u2014 the boundary between two systems (e.g. AppKit\u2194SwiftUI, app\u2194CLI, store\u2194view, network\u2194state). Bugs live at seams: each side can look correct in isolation while the CROSSING fails, so the seam is surrounded by adjacent truths. A proof of one side is a proximity trap; the real proof must traverse the whole seam end to end.\n\nAdd one sentence forcing a concrete seam-traversal proof for THIS bug: 'Name the exact two-sided kill test that fails before the fix and passes after \u2014 one assertion on the persisted experiment.json state AND one on what check_writer_consistency observed, so neither side can pass alone.'",
+      "templateHash": "6d92f5abbab13e0b",
+      "templateChangedFromBuiltIn": true
+    },
+    "truth_owner_mapper#0": {
+      "skillId": "truth_owner_mapper",
+      "instanceIndex": 0,
+      "skillName": "Truth Owner Mapper",
+      "labSkillId": "custom_code_lab_truth_owner_mapper_8317",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 3,
+      "sourceLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+      "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.\n\nDrop the embedded baseline-r1 narrative (the harness ordering defect, the specific file paths, the write-before-evaluate fix) and keep only the role framing plus the generic Bug Hunt packet instructions, so the prompt no longer pre-supplies the answer.",
+      "templateHash": "00b60f4bf641655a",
+      "templateChangedFromBuiltIn": true
+    },
+    "user_impact_narrator#5": {
+      "skillId": "user_impact_narrator",
+      "instanceIndex": 5,
+      "skillName": "User Impact Narrator",
+      "labSkillId": "custom_code_lab_user_impact_narrator_6789",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Describe the trust break in user terms. What did the user believe Allnighter would do, what happened instead, and what must be visibly true after the fix?\n\nCut the generic Bug Hunt packet checklist (severity / truth owner / lie-prone layer / kill tests) from the prompt and keep ONLY the opening user-terms mandate, expanded into three required beats: (1) what the user believed Allnighter would do, (2) what silently happened instead, (3) the one user-observable fact that must be true after the fix. End: 'Do not produce a severity/truth-owner packet \u2014 that is another role's job.'",
+      "templateHash": "fda4cd402be67b59",
+      "templateChangedFromBuiltIn": true
+    }
+  },
+  "arm": "candidate",
+  "builtAt": "2026-06-21T18:26:19.644733+00:00",
+  "candidateDelta": {
+    "kind": "hypothesis_patch",
+    "sourceCompare": ".lab/code_bug_hunt_candidate-r3_r3_20260621_152329/evaluation/compare-record.json",
+    "patchedRoles": [
+      "change_impact_reviewer#4",
+      "contrarian_root_cause#6",
+      "correct_fix_planner#1",
+      "regression_guard#0",
+      "state_skeptic#3",
+      "trace_mapper#2",
+      "truth_owner_mapper#0",
+      "user_impact_narrator#5"
+    ],
+    "patches": {
+      "truth_owner_mapper#0": "Drop the embedded baseline-r1 narrative (the harness ordering defect, the specific file paths, the write-before-evaluate fix) and keep only the role framing plus the generic Bug Hunt packet instructions, so the prompt no longer pre-supplies the answer.",
+      "correct_fix_planner#1": "Append a required output-structure spec to the Bug Hunt packet section: 'Emit the packet as labeled sections in this exact order: SEVERITY, TRUTH OWNER, LIE-PRONE LAYER, FAILURE MODE (why silent), FIX BOUNDARY, KILL TESTS / REGRESSION LAWS.'",
+      "regression_guard#0": "Add a one-line output contract at the end fixing packet field order and headers: 'Return exactly these labeled sections in order: SEVERITY, TRUTH OWNER, LIE-PRONE LAYER, FAILURE MODE (why silent), SMALLEST FIX BOUNDARY, KILL TESTS / REGRESSION LAWS.'",
+      "trace_mapper#2": "Add one sentence forcing a concrete seam-traversal proof for THIS bug: 'Name the exact two-sided kill test that fails before the fix and passes after \u2014 one assertion on the persisted experiment.json state AND one on what check_writer_consistency observed, so neither side can pass alone.'",
+      "state_skeptic#3": "Append a short ranked-output contract: 'Lead with the single highest-severity finding as a one-line verdict (owner \u00b7 lie-prone layer \u00b7 severity), then the packet sections below it.'",
+      "change_impact_reviewer#4": "Add a closing directive requiring the packet to end with a one-line 'Generalized regression law' that names the invariant abstractly (persist-before-evaluate / state must be durable before any gate reads it) separate from the concrete kill tests.",
+      "user_impact_narrator#5": "Cut the generic Bug Hunt packet checklist (severity / truth owner / lie-prone layer / kill tests) from the prompt and keep ONLY the opening user-terms mandate, expanded into three required beats: (1) what the user believed Allnighter would do, (2) what silently happened instead, (3) the one user-observable fact that must be true after the fix. End: 'Do not produce a severity/truth-owner packet \u2014 that is another role's job.'",
+      "contrarian_root_cause#6": "Add a directive: 'Do not stop at the reported/landed fix. Produce a short ranked ladder of candidate causes and explicitly mark which survive that fix. Name the one root cause that the landed fix does NOT close.'"
+    }
+  },
+  "candidateLabTeamId": "custom_code_lab_candidate_r4"
+}
