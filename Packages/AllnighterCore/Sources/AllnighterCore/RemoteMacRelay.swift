@@ -175,10 +175,10 @@ public actor MockRemoteMacRelay: RemoteMacRelay {
             "pair_\(UUID().uuidString.lowercased())"
         }
     ) {
-        self.macs = Dictionary(uniqueKeysWithValues: macs.compactMap { mac in
+        self.macs = Dictionary(macs.compactMap { mac in
             guard let accountId = macAccountIds[mac.macAgentId] else { return nil }
             return (MacStorageKey(accountId: accountId, macAgentId: mac.macAgentId), mac)
-        })
+        }, uniquingKeysWith: { _, replacement in replacement })
         self.pairRequestsByMac = Dictionary(grouping: pairRequests, by: \.macAgentId)
         self.trustedByMac = Dictionary(grouping: trustedDevices, by: \.macAgentId)
         self.inboxByMac = Dictionary(grouping: inbox, by: \.macAgentId)

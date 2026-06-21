@@ -72,6 +72,29 @@ final class RemoteMacRelayDiscoveryTests: XCTestCase {
         XCTAssertNil(accountTwoMac.lastSeenAt)
     }
 
+    func testSeededMacDiscoveryToleratesDuplicateRowsForSameScope() async throws {
+        let stale = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Old Studio",
+            agentSigningPubkey: "sign_old",
+            agentSealingPubkey: "seal_old"
+        )
+        let fresh = MacAgentRef(
+            macAgentId: "mac_1",
+            displayName: "Studio",
+            agentSigningPubkey: "sign_new",
+            agentSealingPubkey: "seal_new"
+        )
+        let relay = MockRemoteMacRelay(
+            macs: [stale, fresh],
+            macAccountIds: ["mac_1": "acct_1"]
+        )
+
+        let macs = try await relay.macAgents(accountId: "acct_1")
+
+        XCTAssertEqual(macs, [fresh])
+    }
+
     func testRegistrationRejectsUnsupportedProtocolVersion() async throws {
         let relay = MockRemoteMacRelay()
 
