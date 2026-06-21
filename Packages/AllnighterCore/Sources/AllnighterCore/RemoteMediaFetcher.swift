@@ -3,6 +3,8 @@ import Foundation
 
 public enum RemoteMediaFetcherError: Error, Equatable, Sendable {
     case mediaKeyMismatch(
+        expectedMacAgentId: String,
+        actualMacAgentId: String,
         expectedRef: String,
         actualRef: String,
         expectedDeviceId: String,
@@ -44,9 +46,12 @@ public enum RemoteMediaFetcher {
             encryptedData: encryptedData,
             keyEnvelope: keyEnvelope
         )
-        guard bundle.keyEnvelope.ref == ref.ref,
+        guard bundle.keyEnvelope.macAgentId == ref.macAgentId,
+              bundle.keyEnvelope.ref == ref.ref,
               bundle.keyEnvelope.deviceId == deviceId else {
             throw RemoteMediaFetcherError.mediaKeyMismatch(
+                expectedMacAgentId: ref.macAgentId,
+                actualMacAgentId: bundle.keyEnvelope.macAgentId,
                 expectedRef: ref.ref,
                 actualRef: bundle.keyEnvelope.ref,
                 expectedDeviceId: deviceId,

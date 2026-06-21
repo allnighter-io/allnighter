@@ -8,6 +8,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
 
     func testPublisherStoresEncryptedMediaAndFanoutKeysForActiveDevices() async throws {
         let activeKey = Curve25519.KeyAgreement.PrivateKey()
+        let wrongMacKey = Curve25519.KeyAgreement.PrivateKey()
         let revokedKey = Curve25519.KeyAgreement.PrivateKey()
         let relay = MockRemoteMacRelay()
         let fixedNow = now
@@ -24,6 +25,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
             contentKey: contentKey,
             trustedDevices: [
                 device(deviceId: "device_revoked", sealingKey: revokedKey, revoked: true),
+                device(deviceId: "device_wrong_mac", sealingKey: wrongMacKey, macAgentId: "mac_2"),
                 device(deviceId: "device_active", sealingKey: activeKey),
             ],
             expiresAt: now.addingTimeInterval(60)
@@ -40,6 +42,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
             at: now
         )
         let activeEnvelope = try XCTUnwrap(fetchedActiveEnvelope)
+        XCTAssertEqual(activeEnvelope.macAgentId, "mac_1")
         XCTAssertEqual(try RemoteMediaCrypto.openContentKey(activeEnvelope, with: activeKey), contentKey)
         let revokedEnvelope = try await relay.mediaKey(
             ref: "media_1",
@@ -48,6 +51,13 @@ final class RemoteMediaPublisherTests: XCTestCase {
             at: now
         )
         XCTAssertNil(revokedEnvelope)
+        let wrongMacEnvelope = try await relay.mediaKey(
+            ref: "media_1",
+            macAgentId: "mac_1",
+            deviceId: "device_wrong_mac",
+            at: now
+        )
+        XCTAssertNil(wrongMacEnvelope)
     }
 
     func testPublisherDeduplicatesTrustedDevicesBeforeFanout() async throws {
@@ -182,7 +192,8 @@ final class RemoteMediaPublisherTests: XCTestCase {
     private func device(
         deviceId: String,
         sealingKey: Curve25519.KeyAgreement.PrivateKey,
-        revoked: Bool = false
+        revoked: Bool = false,
+        macAgentId: String = "mac_1"
     ) -> TrustedDevice {
         TrustedDevice(
             deviceId: deviceId,
@@ -190,7 +201,7 @@ final class RemoteMediaPublisherTests: XCTestCase {
             deviceSigningPubkey: "sign_\(deviceId)",
             deviceSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(sealingKey.publicKey),
             accountId: "acct_1",
-            macAgentId: "mac_1",
+            macAgentId: macAgentId,
             pairedAt: now.addingTimeInterval(-60),
             validUntil: now.addingTimeInterval(3_600),
             revoked: revoked,

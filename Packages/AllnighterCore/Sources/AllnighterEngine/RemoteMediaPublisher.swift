@@ -58,6 +58,7 @@ public struct RemoteMediaPublisher: Sendable {
         let keys = try RemoteMediaCrypto.sealContentKey(
             contentKey,
             ref: ref,
+            macAgentId: trustedDevice.macAgentId,
             for: [trustedDevice],
             now: now()
         )
@@ -88,6 +89,7 @@ public struct RemoteMediaPublisher: Sendable {
         let keys = try RemoteMediaCrypto.sealContentKey(
             contentKey,
             ref: ref,
+            macAgentId: macAgentId,
             for: trustedDevices,
             now: now()
         )

@@ -98,7 +98,7 @@ final class RemoteMediaRelayTests: XCTestCase {
     func testSameRefStaysScopedByMacAgent() async throws {
         let relay = MockRemoteMacRelay()
         let firstKey = mediaKey(ref: "media_shared", deviceId: "device_1")
-        let secondKey = mediaKey(ref: "media_shared", deviceId: "device_2")
+        let secondKey = mediaKey(ref: "media_shared", macAgentId: "mac_2", deviceId: "device_2")
         try await relay.publishMedia(
             ref: mediaRef(ref: "media_shared", macAgentId: "mac_1", expiresAt: now.addingTimeInterval(60)),
             data: Data("mac-1-ciphertext".utf8),
@@ -148,9 +148,10 @@ final class RemoteMediaRelayTests: XCTestCase {
         )
     }
 
-    private func mediaKey(ref: String, deviceId: String) -> MediaKeyEnvelope {
+    private func mediaKey(ref: String, macAgentId: String = "mac_1", deviceId: String) -> MediaKeyEnvelope {
         MediaKeyEnvelope(
             ref: ref,
+            macAgentId: macAgentId,
             deviceId: deviceId,
             sealedKey: SealedBlob(
                 ciphertext: Data("sealed-key-\(deviceId)".utf8),

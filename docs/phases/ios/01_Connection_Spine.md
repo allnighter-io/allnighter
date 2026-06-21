@@ -145,7 +145,8 @@ command_acks      { requestId, macAgentId, accepted, reason?, outcome, sig }
 event_envelopes   { id, seq, ts, macAgentId, runId, kind, lightPayload,
                     sealedRef?, sig, createdAt(TTL) }
 media_refs        { ref, macAgentId, r2Key, contentType, expiresAt }            one row per blob
-media_keys        { ref, deviceId, sealedKey, PRIMARY KEY(ref, deviceId) }      one row per device (fan-out)
+media_keys        { macAgentId, ref, deviceId, sealedKey,
+                    PRIMARY KEY(macAgentId, ref, deviceId) }                  one row per device (fan-out)
 ```
 
 - **Mac agent auth (the third leg).** The Mac signs into the **same account** and

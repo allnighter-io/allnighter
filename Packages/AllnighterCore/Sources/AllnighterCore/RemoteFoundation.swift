@@ -408,15 +408,34 @@ public struct MediaRef: Codable, Equatable, Sendable, Identifiable {
 }
 
 public struct MediaKeyEnvelope: Codable, Equatable, Sendable, Identifiable {
-    public var id: String { "\(ref):\(deviceId)" }
+    public var id: String {
+        macAgentId.isEmpty ? "\(ref):\(deviceId)" : "\(macAgentId):\(ref):\(deviceId)"
+    }
     public var ref: String
+    public var macAgentId: String
     public var deviceId: String
     public var sealedKey: SealedBlob
 
-    public init(ref: String, deviceId: String, sealedKey: SealedBlob) {
+    public init(ref: String, macAgentId: String = "", deviceId: String, sealedKey: SealedBlob) {
         self.ref = ref
+        self.macAgentId = macAgentId
         self.deviceId = deviceId
         self.sealedKey = sealedKey
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case ref
+        case macAgentId
+        case deviceId
+        case sealedKey
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        ref = try container.decode(String.self, forKey: .ref)
+        macAgentId = try container.decodeIfPresent(String.self, forKey: .macAgentId) ?? ""
+        deviceId = try container.decode(String.self, forKey: .deviceId)
+        sealedKey = try container.decode(SealedBlob.self, forKey: .sealedKey)
     }
 }
 
@@ -961,12 +980,13 @@ public enum RemoteMediaCrypto {
     public static func sealContentKey(
         _ contentKey: Data,
         ref: String,
+        macAgentId: String,
         for devices: [TrustedDevice],
         now: Date
     ) throws -> [MediaKeyEnvelope] {
         var seenDeviceIds = Set<String>()
         let activeDevices = devices
-            .filter { !$0.revoked && $0.validUntil >= now }
+            .filter { $0.macAgentId == macAgentId && !$0.revoked && $0.validUntil >= now }
             .sorted { $0.deviceId < $1.deviceId }
             .filter { seenDeviceIds.insert($0.deviceId).inserted }
 
@@ -978,7 +998,7 @@ public enum RemoteMediaCrypto {
                     sealedForKeyId: device.deviceId,
                     contentType: mediaKeyContentType
                 )
-                return MediaKeyEnvelope(ref: ref, deviceId: device.deviceId, sealedKey: sealedKey)
+                return MediaKeyEnvelope(ref: ref, macAgentId: macAgentId, deviceId: device.deviceId, sealedKey: sealedKey)
             }
     }
 

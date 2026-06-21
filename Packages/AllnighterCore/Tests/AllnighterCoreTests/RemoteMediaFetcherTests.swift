@@ -14,6 +14,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
         let keyEnvelope = try XCTUnwrap(RemoteMediaCrypto.sealContentKey(
             contentKey,
             ref: ref.ref,
+            macAgentId: ref.macAgentId,
             for: [trustedDevice(deviceId: "device_1", sealingKey: deviceSealingKey)],
             now: now
         ).first)
@@ -63,6 +64,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
         let ref = mediaRef()
         let mismatchedKey = MediaKeyEnvelope(
             ref: "media_other",
+            macAgentId: "mac_1",
             deviceId: "device_other",
             sealedKey: SealedBlob(
                 ciphertext: Data("ciphertext".utf8),
@@ -84,10 +86,48 @@ final class RemoteMediaFetcherTests: XCTestCase {
             XCTFail("mismatched media key envelope should be rejected")
         } catch let error as RemoteMediaFetcherError {
             XCTAssertEqual(error, .mediaKeyMismatch(
+                expectedMacAgentId: "mac_1",
+                actualMacAgentId: "mac_1",
                 expectedRef: "media_1",
                 actualRef: "media_other",
                 expectedDeviceId: "device_1",
                 actualDeviceId: "device_other"
+            ))
+        }
+    }
+
+    func testFetcherRejectsMismatchedMediaKeyMacAgent() async throws {
+        let ref = mediaRef(ref: "media_shared", macAgentId: "mac_1")
+        let mismatchedKey = MediaKeyEnvelope(
+            ref: "media_shared",
+            macAgentId: "mac_2",
+            deviceId: "device_1",
+            sealedKey: SealedBlob(
+                ciphertext: Data("ciphertext".utf8),
+                encapsulatedKey: Data("encapsulated".utf8),
+                sealedForKeyId: "device_1",
+                contentType: RemoteMediaCrypto.mediaKeyContentType
+            )
+        )
+        let client = MockiOSClient(
+            macs: [mac(macAgentId: "mac_1"), mac(macAgentId: "mac_2")],
+            media: [ref.ref: Data("ciphertext".utf8)],
+            mediaKeys: [ref.ref: ["device_1": mismatchedKey]],
+            serverNow: now
+        )
+        try await client.connect(account: RemoteAccountSession(accountId: "acct_1", provider: .apple), mode: .cloudRelay)
+
+        do {
+            _ = try await RemoteMediaFetcher.fetchBundle(client: client, ref: ref, deviceId: "device_1")
+            XCTFail("wrong-Mac media key envelope should be rejected")
+        } catch let error as RemoteMediaFetcherError {
+            XCTAssertEqual(error, .mediaKeyMismatch(
+                expectedMacAgentId: "mac_1",
+                actualMacAgentId: "mac_2",
+                expectedRef: "media_shared",
+                actualRef: "media_shared",
+                expectedDeviceId: "device_1",
+                actualDeviceId: "device_1"
             ))
         }
     }
@@ -113,6 +153,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
         let ref = mediaRef(expiresAt: now.addingTimeInterval(-1))
         let keyEnvelope = MediaKeyEnvelope(
             ref: ref.ref,
+            macAgentId: ref.macAgentId,
             deviceId: "device_1",
             sealedKey: SealedBlob(
                 ciphertext: Data("sealed-key".utf8),
@@ -141,6 +182,7 @@ final class RemoteMediaFetcherTests: XCTestCase {
         let sameRefOtherMac = mediaRef(ref: "media_shared", macAgentId: "mac_2")
         let keyEnvelope = MediaKeyEnvelope(
             ref: "media_shared",
+            macAgentId: "mac_1",
             deviceId: "device_1",
             sealedKey: SealedBlob(
                 ciphertext: Data("sealed-key".utf8),

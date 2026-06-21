@@ -39,6 +39,7 @@ final class RemoteCarrierParityTests: XCTestCase {
         let mediaKey = try XCTUnwrap(RemoteMediaCrypto.sealContentKey(
             contentKey,
             ref: mediaRef.ref,
+            macAgentId: mediaRef.macAgentId,
             for: [device],
             now: now
         ).first)
