@@ -19,6 +19,13 @@ enum RemoteAppConnectionPhase: Equatable {
     case connected(macName: String)
     case awaitingPairingApproval(macName: String)
     case needsConfiguration
+    case noMacsOnAccount
+    case failed(String)
+}
+
+enum WorkRequestSendPhase: Equatable {
+    case idle
+    case sending
     case failed(String)
 }
 
@@ -28,6 +35,20 @@ final class RemoteAppModel {
     private(set) var homeSnapshot: ConversationListSnapshot = .empty
     private(set) var homeStatus: ConversationHomeLoadStatus = .idle
     private(set) var connectionPhase: RemoteAppConnectionPhase = .idle
+    private(set) var workRequestSendPhase: WorkRequestSendPhase = .idle
+
+    var showsHome: Bool {
+        switch connectionPhase {
+        case .connected, .preview:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var canSendWorkRequests: Bool {
+        connectedClient != nil && workRequestSendPhase != .sending
+    }
 
     private var homeStore: ConversationHomeStore?
     private var connectedClient: RemoteCloudClientAssembly.ConnectedClient?
@@ -40,18 +61,19 @@ final class RemoteAppModel {
         connectionPhase = .connecting
 
         if let environment = RemoteSupabaseEnvironment.load(), environment.hasDeviceCredentials {
+            let activation = currentActivation
             do {
                 let connected = try await RemoteCloudClientAssembly.makeConnectedClient(
                     environment: environment,
                     deviceDisplayName: Self.defaultDeviceDisplayName(),
                     onPairingPhase: { phase in
-                        Task { @MainActor in
-                            guard currentActivation == activationSequence else { return }
+                        Task { @MainActor [weak self] in
+                            guard let self, activation == self.activationSequence else { return }
                             switch phase {
                             case .checkingTrust, .requestingPairing:
-                                connectionPhase = .connecting
+                                self.connectionPhase = .connecting
                             case let .awaitingApproval(macDisplayName):
-                                connectionPhase = .awaitingPairingApproval(macName: macDisplayName)
+                                self.connectionPhase = .awaitingPairingApproval(macName: macDisplayName)
                             case .approved:
                                 break
                             }
@@ -69,7 +91,7 @@ final class RemoteAppModel {
                 return
             } catch {
                 guard currentActivation == activationSequence else { return }
-                connectionPhase = .failed(Self.failureMessage(from: error))
+                connectionPhase = Self.connectionPhase(from: error)
             }
         }
 
@@ -91,6 +113,36 @@ final class RemoteAppModel {
         await homeStore.refresh()
         homeSnapshot = homeStore.state.snapshot
         homeStatus = homeStore.state.status
+    }
+
+    func sendWorkRequest(prompt: String) async {
+        guard let connectedClient, canSendWorkRequests else { return }
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        workRequestSendPhase = .sending
+        let sender = WorkRequestSender(
+            client: connectedClient.client,
+            mac: connectedClient.mac,
+            deviceId: connectedClient.deviceCredentials.deviceId,
+            deviceSigningKey: connectedClient.deviceSigningKey
+        )
+
+        do {
+            _ = try await sender.send(WorkRequestDraft(prompt: trimmed))
+            workRequestSendPhase = .idle
+            await refreshHome()
+        } catch let error as WorkRequestSenderError where error == .emptyPrompt {
+            workRequestSendPhase = .idle
+        } catch {
+            workRequestSendPhase = .failed(Self.workRequestFailureMessage(from: error))
+        }
+    }
+
+    func clearWorkRequestSendFailure() {
+        if case .failed = workRequestSendPhase {
+            workRequestSendPhase = .idle
+        }
     }
 
     private func installPreviewClient() {
@@ -276,6 +328,15 @@ final class RemoteAppModel {
         #endif
     }
 
+    private static func connectionPhase(from error: Error) -> RemoteAppConnectionPhase {
+        switch error {
+        case RemoteCloudClientAssemblyError.macNotSelected:
+            return .noMacsOnAccount
+        default:
+            return .failed(failureMessage(from: error))
+        }
+    }
+
     private static func failureMessage(from error: Error) -> String {
         switch error {
         case RemoteCloudClientAssemblyError.missingDeviceAccessToken:
@@ -290,6 +351,15 @@ final class RemoteAppModel {
             "This device was not approved on your Mac."
         default:
             "Could not connect to your Mac."
+        }
+    }
+
+    private static func workRequestFailureMessage(from error: Error) -> String {
+        switch error {
+        case WorkRequestSenderError.emptyPrompt:
+            "Enter a work request before sending."
+        default:
+            "Could not send work request to your Mac."
         }
     }
 }

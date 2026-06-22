@@ -11,11 +11,27 @@ struct ContentView: View {
     @Environment(RemoteAppModel.self) private var appModel
 
     var body: some View {
-        ConversationsHomeView(
-            snapshot: appModel.homeSnapshot,
-            connectionPhase: appModel.connectionPhase,
-            homeStatus: appModel.homeStatus
-        )
+        Group {
+            if appModel.showsHome {
+                ConversationsHomeView(
+                    snapshot: appModel.homeSnapshot,
+                    connectionPhase: appModel.connectionPhase,
+                    homeStatus: appModel.homeStatus,
+                    workRequestSendPhase: appModel.workRequestSendPhase,
+                    canSendWorkRequests: appModel.canSendWorkRequests,
+                    onSendWorkRequest: { prompt in
+                        await appModel.sendWorkRequest(prompt: prompt)
+                    },
+                    onDismissSendFailure: {
+                        appModel.clearWorkRequestSendFailure()
+                    }
+                )
+            } else {
+                RemoteOnboardingView(phase: appModel.connectionPhase) {
+                    await appModel.activate()
+                }
+            }
+        }
         .refreshable {
             await appModel.refreshHome()
         }
@@ -26,6 +42,10 @@ private struct ConversationsHomeView: View {
     let snapshot: ConversationListSnapshot
     let connectionPhase: RemoteAppConnectionPhase
     let homeStatus: ConversationHomeLoadStatus
+    let workRequestSendPhase: WorkRequestSendPhase
+    let canSendWorkRequests: Bool
+    let onSendWorkRequest: (String) async -> Void
+    let onDismissSendFailure: () -> Void
 
     @State private var searchText = ""
     @State private var selectedFilter: ConversationFilter = .all
@@ -39,6 +59,12 @@ private struct ConversationsHomeView: View {
                     .padding(.bottom, IOSSpace.s7)
 
                 connectionBanner
+
+                if case let .failed(message) = workRequestSendPhase {
+                    StatusBanner(text: message, tone: .warning)
+                        .padding(.bottom, IOSSpace.s5)
+                        .onTapGesture(perform: onDismissSendFailure)
+                }
 
                 Text("Conversations")
                     .font(IOSFont.display)
@@ -62,7 +88,16 @@ private struct ConversationsHomeView: View {
         .background(IOSColor.void)
         .scrollContentBackground(.hidden)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            IOSComposerBar(text: $composerText)
+            IOSComposerBar(
+                text: $composerText,
+                isSending: workRequestSendPhase == .sending,
+                canSend: canSendWorkRequests && !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                onSend: {
+                    let prompt = composerText
+                    composerText = ""
+                    await onSendWorkRequest(prompt)
+                }
+            )
                 .padding(.horizontal, IOSSpace.s3)
                 .padding(.top, IOSSpace.s3)
                 .padding(.bottom, IOSSpace.s2)
@@ -90,6 +125,8 @@ private struct ConversationsHomeView: View {
                 StatusBanner(text: "Approve this iPhone on \(macName)", tone: .warning)
             case .needsConfiguration:
                 StatusBanner(text: "Sign in to connect to your Mac.", tone: .warning)
+            case .noMacsOnAccount:
+                StatusBanner(text: "No Mac registered on this account yet.", tone: .warning)
             case let .failed(message):
                 StatusBanner(text: message, tone: .warning)
             }
@@ -441,6 +478,9 @@ private struct ProjectGroup: View {
 
 private struct IOSComposerBar: View {
     @Binding var text: String
+    var isSending: Bool = false
+    var canSend: Bool = false
+    var onSend: () async -> Void = {}
 
     private let placeholder = "Start something - ask, order, or build..."
 
@@ -483,13 +523,15 @@ private struct IOSComposerBar: View {
         .accessibilityIdentifier("ios-composer-bar")
     }
 
-    private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private var sendEnabled: Bool {
+        canSend && !isSending
     }
 
     private func send() {
-        guard canSend else { return }
-        text = ""
+        guard sendEnabled else { return }
+        Task {
+            await onSend()
+        }
     }
 
     private func composerControls(showModelDetail: Bool, showEffort: Bool) -> some View {
@@ -506,14 +548,21 @@ private struct IOSComposerBar: View {
             Spacer(minLength: IOSSpace.s2)
 
             Button(action: send) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(canSend ? IOSColor.textOnLight : IOSColor.textFaint)
-                    .frame(width: 48, height: 48)
-                    .background(canSend ? IOSColor.textPrimary : IOSColor.active, in: Circle())
+                Group {
+                    if isSending {
+                        ProgressView()
+                            .tint(IOSColor.textOnLight)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 17, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(sendEnabled ? IOSColor.textOnLight : IOSColor.textFaint)
+                .frame(width: 48, height: 48)
+                .background(sendEnabled ? IOSColor.textPrimary : IOSColor.active, in: Circle())
             }
             .buttonStyle(.plain)
-            .disabled(!canSend)
+            .disabled(!sendEnabled)
             .accessibilityLabel("Send")
             .accessibilityIdentifier("composer-send-button")
         }
