@@ -122,6 +122,10 @@ Binding rules:
    honest gray tile + reason, never stock art.
 4. **One shared chip/tile component** for timeline attachments (user + worker)
    and design option tiles where dimensions align (see GUI slices).
+5. **Zero-user hard cutover:** no aliases, no compatibility shims, no migration
+   readers, no dual JSON shapes. If a read contract is wrong, replace it,
+   regenerate generated docs/schemas, and wipe/reseed local dogfood fixtures as
+   needed. Do not preserve raw `WorkThread` output as a "legacy" MCP/CLI mode.
 
 ---
 
@@ -192,8 +196,8 @@ registry-advertised but not dispatched.
 - Wire the missing CLI route for:
   - `alln thread get --json`
   - `alln thread status --json`
-- Replace raw `WorkThread` read output with a versioned projection, or add a
-  sibling projection while preserving raw fields.
+- Replace raw `WorkThread` read output with the versioned projection. No
+  `raw`, `legacy`, `v1Compat`, alternate alias, or sibling projection.
 - Add `resolvedAttachments: [ResolvedThreadAttachment]` per turn (preferred), or
   a top-level `attachmentsById` map plus ordered refs. The row shape is:
   - `attachmentId`

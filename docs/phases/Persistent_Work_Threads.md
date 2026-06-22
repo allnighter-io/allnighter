@@ -78,8 +78,10 @@ Build in this order:
    - [x] Rail filters, search, and pinned/recent grouping exist (CR4e).
    - [ ] Not delivered: editable `work_order` turn creation, return-review as a
      thread turn, team-result reply defaulting to the writer with switch-away
-     warning, lazy legacy-run migration, and full thread export with linked run
-     artifacts. Keep these in `01_Work_Threads_MLP.md` until resliced.
+     warning, and full thread export with linked run artifacts. Keep these in
+     `01_Work_Threads_MLP.md` until resliced. Zero-user rule: do not add
+     migration readers or aliases for old local dogfood shapes; wipe/reseed if a
+     schema cutover needs it.
 
 2. [`ThreadStore Hardening`](../archive/phases/05_ThreadStore_Hardening.md)
    — **BUILT / archived**
@@ -246,7 +248,8 @@ Still missing / deferred:
 
 - Core-loop gaps still owned by `01_Work_Threads_MLP.md`: editable work-order
   turns, return-review turns, team-result writer default + switch-away warning,
-  lazy legacy-run migration, and full thread export with linked run artifacts.
+  and full thread export with linked run artifacts. Do not implement migration
+  readers for old dogfood data; there are zero users.
 - ThreadStore hardening and explicit mutation APIs are built and archived at
   `docs/archive/phases/05_ThreadStore_Hardening.md`.
 - Read cursor, unread derivation, Mac rail light, viewport clear, notification
