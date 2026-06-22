@@ -80,4 +80,23 @@ final class WorkerRunnerCWDTests: XCTestCase {
         let dirs = await recorder.recorded()
         XCTAssertEqual(dirs.first ?? nil, "/tmp/some-repo", "explicit working dir must be preserved")
     }
+
+    func testCatalogWorkerRunPassesRepoRoot() async {
+        let recorder = CWDRecorder()
+        var manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
+        manifest.streaming = nil
+        let runner = WorkerRunner(
+            commandRunner: recorder,
+            invocations: ["claude_code": .direct(path: "/opt/test/claude")]
+        )
+        _ = await runner.run(
+            assignment: Worker(id: "w#0", modelId: "w", instanceIndex: 0, purpose: .answer),
+            model: TestSupport.worker("w", driverId: "claude_code"),
+            manifest: manifest,
+            prompt: "trace the bug",
+            workingDirectoryOverride: "/tmp/team-repo"
+        )
+        let dirs = await recorder.recorded()
+        XCTAssertEqual(dirs.first ?? nil, "/tmp/team-repo", "team catalog run must spawn in repoRoot")
+    }
 }

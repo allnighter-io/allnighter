@@ -42,6 +42,8 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
     /// Worker_Session_Continuity receipt: the vendor CLI session id this turn used/established
     /// (`--resume`d or minted/captured). Lets a run artifact PROVE turn 2 resumed turn 1.
     public var vendorSessionId: String?
+    /// Spawn facts for triage: cwd, timeout kind, byte counts, stderr tail.
+    public var spawnDiagnostics: WorkerSpawnDiagnostics?
 
     public var id: String { workerId }
 
@@ -60,7 +62,8 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         gateWaitMs: Int? = nil,
         exitCode: Int? = nil,
         capacityObservation: CapacityObservation? = nil,
-        vendorSessionId: String? = nil
+        vendorSessionId: String? = nil,
+        spawnDiagnostics: WorkerSpawnDiagnostics? = nil
     ) {
         self.workerId = workerId
         self.modelId = modelId
@@ -77,6 +80,7 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         self.exitCode = exitCode
         self.capacityObservation = capacityObservation
         self.vendorSessionId = vendorSessionId
+        self.spawnDiagnostics = spawnDiagnostics
     }
 
     public var hasAnswer: Bool {

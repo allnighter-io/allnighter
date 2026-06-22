@@ -346,6 +346,7 @@ def run_experiment(
                 "team": team,
                 "effort": effort,
                 "context": context,
+                "repoRoot": str(REPO),
                 "idempotencyKey": idem,
                 "originAgent": "team-lab",
                 "originConversationId": f"lab-{suite_id}",

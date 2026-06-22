@@ -15,6 +15,14 @@ enum MCPAsyncTeamHandlers {
                                             requiresManual: true, retryable: false))
         }
         if request.originAgent == nil { request.originAgent = defaultAgent }
+        if request.repoRoot == nil, let projectToken = args["project"] as? String, !projectToken.isEmpty {
+            let store = ProjectStore()
+            guard let project = AllnighterCLI.resolveProject(projectToken, store: store) else {
+                return .toolError(ErrorEnvelope(code: "PROJECT_NOT_FOUND", message: "project not found: \(projectToken)",
+                                                requiresManual: true, retryable: false))
+            }
+            request.repoRoot = project.normalizedRootPath
+        }
         if let lane = args["lane"] as? String, request.lane == nil {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "unknown lane: \(lane)",
                                             requiresManual: true, retryable: false))

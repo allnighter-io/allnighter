@@ -142,6 +142,7 @@ public struct PendingRunExecutor: Sendable {
             origin: origin,
             originAgent: nil,
             runId: item.runId ?? "run_\(UUID().uuidString.lowercased())",
+            repoRoot: item.safety.workingDir,
             persist: persist
         )
         return try service.settleTeamRun(

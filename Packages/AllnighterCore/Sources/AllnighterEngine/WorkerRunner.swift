@@ -30,6 +30,8 @@ public struct WorkerRunOutcome: Sendable, Equatable {
     /// minted id (acquire=set), the captured id (acquire=capture), or the resumed id. The
     /// caller persists it against (thread, source, model) so the next turn resumes it.
     public var capturedSessionId: String?
+    /// Spawn cwd/timeout/byte-count facts for run artifacts.
+    public var spawnDiagnostics: WorkerSpawnDiagnostics?
 
     public var hasOutput: Bool { status == .done && (output?.isEmpty == false) }
 }
@@ -172,6 +174,16 @@ public struct WorkerRunner: Sendable {
         // health == runs: spawn through the SAME invocation detection resolved
         // (docs/phases/setup/01 §4.3, §10), not the bare command on the ambient PATH.
         let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
+        let invocationKind = invocationKindLabel(manifest: manifest)
+        let timeoutSeconds = invoke.timeoutSeconds
+        let spawnDiagBase = (
+            command: spawnCommand,
+            argCount: spawnArgs.count,
+            workingDirectory: spawnWorkingDir,
+            timeoutSeconds: timeoutSeconds,
+            timeoutKind: WorkerSpawnDiagnostics.TimeoutKind.wallClock,
+            invocationKind: invocationKind
+        )
 
         // Per-driver spawn gate: fragile CLIs (agy, cursor) declare maxConcurrentSpawns=1
         // and serialize here; everything else stays ungated. Acquire BEFORE stamping
@@ -195,7 +207,12 @@ public struct WorkerRunner: Sendable {
         let finishedAt = now()
         var outcome = finalize(
             result: result, worker: worker, manifest: manifest, invoke: invoke,
-            outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: finishedAt
+            outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: finishedAt,
+            timeoutKind: .wallClock,
+            spawnCommand: spawnDiagBase.command,
+            spawnArgCount: spawnDiagBase.argCount,
+            spawnWorkingDir: spawnDiagBase.workingDirectory,
+            invocationKind: spawnDiagBase.invocationKind
         )
         outcome.gateWaitMs = gateWaitMs
         return outcome
@@ -226,11 +243,22 @@ public struct WorkerRunner: Sendable {
     /// is preserved on the outcome.
     func finalize(
         result: CommandResult, worker: Model, manifest: DriverManifest, invoke: DriverManifest.Invoke,
-        outputFileURL: URL?, startedAt: Date, finishedAt: Date, overrideFinalText: String? = nil
+        outputFileURL: URL?, startedAt: Date, finishedAt: Date, overrideFinalText: String? = nil,
+        timeoutKind: WorkerSpawnDiagnostics.TimeoutKind = .wallClock,
+        spawnCommand: String? = nil,
+        spawnArgCount: Int? = nil,
+        spawnWorkingDir: String? = nil,
+        invocationKind: String? = nil
     ) -> WorkerRunOutcome {
         let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
         var outcome = WorkerRunOutcome(
             status: .running, startedAt: startedAt, finishedAt: finishedAt, durationMs: durationMs)
+        if let spawnCommand, let spawnArgCount {
+            outcome.spawnDiagnostics = Self.spawnDiagnostics(
+                result: result, command: spawnCommand, argCount: spawnArgCount,
+                workingDirectory: spawnWorkingDir, timeoutSeconds: invoke.timeoutSeconds,
+                timeoutKind: timeoutKind, invocationKind: invocationKind)
+        }
 
         func preservedPartial() -> String? {
             guard let t = overrideFinalText,
@@ -253,7 +281,12 @@ public struct WorkerRunner: Sendable {
         if result.timedOut {
             outcome.status = .timedOut
             outcome.errorKind = .timedOut
-            outcome.errorReason = "no output for \(invoke.timeoutSeconds)s"
+            switch timeoutKind {
+            case .wallClock:
+                outcome.errorReason = "wall-clock timeout after \(invoke.timeoutSeconds)s"
+            case .idle:
+                outcome.errorReason = "no output for \(invoke.timeoutSeconds)s"
+            }
             outcome.output = preservedPartial()
             return outcome
         }
@@ -293,6 +326,13 @@ public struct WorkerRunner: Sendable {
         let cleaned = (overrideFinalText == nil && manifest.id == "grok")
             ? TextUtil.extractGrokStreamingVisibleText(stripped)
             : stripped
+        if let vendorFailure = vendorStdoutFailure(cleaned, manifest: manifest) {
+            outcome.status = .failed
+            outcome.errorKind = .timedOut
+            outcome.errorReason = vendorFailure
+            outcome.output = preservedPartial() ?? (cleaned.isEmpty ? nil : cleaned)
+            return outcome
+        }
         if cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             outcome.status = .failed
             outcome.errorKind = .emptyOutput
@@ -360,6 +400,7 @@ public struct WorkerRunner: Sendable {
             }()
             let stdin = manifest.stdinPrompt(context)
             let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
+            let invocationKind = invocationKindLabel(manifest: manifest)
 
             let gateRequestedAt = now()
             continuation.yield(.started(workerId: worker.id, modelId: worker.id, sourceId: manifest.id))
@@ -406,7 +447,12 @@ public struct WorkerRunner: Sendable {
                             var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
-                                overrideFinalText: finalText)
+                                overrideFinalText: finalText,
+                                timeoutKind: .idle,
+                                spawnCommand: spawnCommand,
+                                spawnArgCount: spawnArgs.count,
+                                spawnWorkingDir: spawnWorkingDir,
+                                invocationKind: invocationKind)
                             // The vendor session this turn established/resumed — the caller
                             // persists it (on success) so the next turn resumes it.
                             outcome.capturedSessionId = WorkerSessionPlanner.capturedId(
@@ -439,7 +485,12 @@ public struct WorkerRunner: Sendable {
                             var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
-                                overrideFinalText: finalText)
+                                overrideFinalText: finalText,
+                                timeoutKind: .idle,
+                                spawnCommand: spawnCommand,
+                                spawnArgCount: spawnArgs.count,
+                                spawnWorkingDir: spawnWorkingDir,
+                                invocationKind: invocationKind)
                             outcome.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         case .cancelled(let partialOut, let partialErr):
@@ -450,7 +501,12 @@ public struct WorkerRunner: Sendable {
                             var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
-                                overrideFinalText: finalText)
+                                overrideFinalText: finalText,
+                                timeoutKind: .idle,
+                                spawnCommand: spawnCommand,
+                                spawnArgCount: spawnArgs.count,
+                                spawnWorkingDir: spawnWorkingDir,
+                                invocationKind: invocationKind)
                             outcome.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         }
@@ -470,13 +526,16 @@ public struct WorkerRunner: Sendable {
         model: Model,
         manifest: DriverManifest,
         prompt: String,
-        effort: EffortLevel = .med
+        effort: EffortLevel = .med,
+        workingDirectoryOverride: String? = nil
     ) async -> WorkerAnswer {
         let outcome: WorkerRunOutcome
         if manifest.canStream, supportsStreaming, let parser = WorkerStreamParsers.make(for: manifest) {
             var terminal: WorkerRunOutcome?
             do {
-                for try await event in invokeStreaming(worker: model, manifest: manifest, prompt: prompt, parser: parser, effort: effort) {
+                for try await event in invokeStreaming(
+                    worker: model, manifest: manifest, prompt: prompt, parser: parser, effort: effort,
+                    workingDirectoryOverride: workingDirectoryOverride) {
                     switch event {
                     case .completed(let outcome), .failed(let outcome):
                         terminal = outcome
@@ -498,12 +557,14 @@ public struct WorkerRunner: Sendable {
             )
             if streamed.status != .done, (streamed.output ?? "").isEmpty {
                 StreamDebugLog.log("FALLBACK source=\(manifest.id): catalog worker stream gave \(streamed.status.rawValue)/empty — retrying invoke")
-                outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort)
+                outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort,
+                                       workingDirectoryOverride: workingDirectoryOverride)
             } else {
                 outcome = streamed
             }
         } else {
-            outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort)
+            outcome = await invoke(worker: model, manifest: manifest, prompt: prompt, effort: effort,
+                                   workingDirectoryOverride: workingDirectoryOverride)
         }
         return WorkerAnswer(
             workerId: assignment.id,
@@ -518,7 +579,8 @@ public struct WorkerRunner: Sendable {
             ttftMs: outcome.ttftMs,
             gateWaitMs: outcome.gateWaitMs,
             exitCode: outcome.exitCode,
-            capacityObservation: outcome.capacityObservation
+            capacityObservation: outcome.capacityObservation,
+            spawnDiagnostics: outcome.spawnDiagnostics
         )
     }
 
@@ -559,5 +621,47 @@ public struct WorkerRunner: Sendable {
     private func errorReason(from result: CommandResult, exitCode: Int32) -> String {
         let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
         return stderr.isEmpty ? "exit code \(exitCode)" : stderr
+    }
+
+    private func invocationKindLabel(manifest: DriverManifest) -> String {
+        switch invocations[manifest.id] {
+        case .direct: return "direct"
+        case .shim: return "shim"
+        case .loginShell: return "login_shell"
+        case nil: return "ambient"
+        }
+    }
+
+    private static func spawnDiagnostics(
+        result: CommandResult,
+        command: String,
+        argCount: Int,
+        workingDirectory: String?,
+        timeoutSeconds: Int,
+        timeoutKind: WorkerSpawnDiagnostics.TimeoutKind,
+        invocationKind: String?
+    ) -> WorkerSpawnDiagnostics {
+        let stderr = TextUtil.stripANSI(result.stderr)
+        let tail = String(stderr.suffix(512)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return WorkerSpawnDiagnostics(
+            command: command,
+            argCount: argCount,
+            workingDirectory: workingDirectory,
+            timeoutSeconds: timeoutSeconds,
+            timeoutKind: timeoutKind,
+            stdoutBytes: result.stdout.utf8.count,
+            stderrBytes: result.stderr.utf8.count,
+            stderrTail: tail.isEmpty ? nil : tail,
+            invocationKind: invocationKind
+        )
+    }
+
+    /// Vendor-reported failure embedded in stdout with exit 0 (agy does this).
+    private func vendorStdoutFailure(_ text: String, manifest: DriverManifest) -> String? {
+        guard manifest.id == "antigravity" else { return nil }
+        if text.contains("Error: timed out waiting for response") {
+            return "agy vendor timeout (stdout)"
+        }
+        return nil
     }
 }

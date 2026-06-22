@@ -644,7 +644,7 @@ public actor RunService {
         var run = await coordinator.run(
             resolved: resolved, prompt: prompt, models: models,
             origin: origin, originAgent: originAgent, runId: runId,
-            deliveries: deliveries, persist: persist
+            repoRoot: repoRoot, deliveries: deliveries, persist: persist
         )
         await forwarder?.value
         run = stamped(run)

@@ -146,6 +146,7 @@ public struct RunStore: Sendable {
             let startedAt, finishedAt: Date?
             let durationMs, queueMs, ttftMs, gateWaitMs, exitCode: Int?
             let errorKind, errorReason: String?
+            let spawnDiagnostics: WorkerSpawnDiagnostics?
         }
 
         for worker in run.workers {
@@ -161,7 +162,8 @@ public struct RunStore: Sendable {
                 durationMs: answer?.durationMs, queueMs: answer?.queueMs, ttftMs: answer?.ttftMs,
                 gateWaitMs: answer?.gateWaitMs,
                 exitCode: answer?.exitCode,
-                errorKind: answer?.errorKind?.rawValue, errorReason: answer?.errorReason)
+                errorKind: answer?.errorKind?.rawValue, errorReason: answer?.errorReason,
+                spawnDiagnostics: answer?.spawnDiagnostics)
             try CoreJSON.encode(meta).write(
                 to: workersDir.appendingPathComponent("\(stem).metadata.json"), options: .atomic)
 

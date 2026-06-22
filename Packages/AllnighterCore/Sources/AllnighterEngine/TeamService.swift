@@ -243,13 +243,16 @@ public actor TeamService {
         let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }
 
         let coordinator = CatalogRunCoordinator(
-            workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations), registry: registry
+            workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations),
+            registry: registry
         )
         let forwarder: Task<Void, Never>? = events.map { sink in
             Task { for await event in coordinator.events { sink.yield(event) } }
         }
         // Coordinator persists each transition (incl. terminal) via `persist`.
-        var run = await coordinator.run(resolved: resolved, prompt: prompt, models: models, origin: origin, originAgent: originAgent, persist: persist)
+        var run = await coordinator.run(
+            resolved: resolved, prompt: prompt, models: models, origin: origin, originAgent: originAgent,
+            repoRoot: request.repoRoot, persist: persist)
         await forwarder?.value
         events?.finish()
 

@@ -42,6 +42,7 @@ public actor CatalogRunCoordinator {
         origin: RunOrigin = .cli,
         originAgent: String? = nil,
         runId: String? = nil,
+        repoRoot: String? = nil,
         deliveries: [IncludedAttachmentDelivery] = [],
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> TeamRun {
@@ -58,7 +59,8 @@ public actor CatalogRunCoordinator {
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
             workerAnswers: seeded.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
-            createdAt: now()
+            createdAt: now(),
+            repoRoot: repoRoot
         )
         run = transition(run, to: .fanningOut)
         persist?(run) // durable state before any worker executes
@@ -68,7 +70,7 @@ public actor CatalogRunCoordinator {
         // crew reasons over the same distilled packet (the crux of triangulation).
         var downstreamPrompt = prompt
         if let scout = resolved.scoutWorker {
-            let (scoutAnswers, scoutSnapshots) = await runWorkers([scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, deliveries: deliveries)
+            let (scoutAnswers, scoutSnapshots) = await runWorkers([scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, repoRoot: repoRoot, deliveries: deliveries)
             applySnapshots(scoutSnapshots, to: &run)
             merge(scoutAnswers, into: &run)
             if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
@@ -79,7 +81,7 @@ public actor CatalogRunCoordinator {
         }
 
         // Stage 1 — answer workers, blind and parallel, over the distilled source.
-        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, deliveries: deliveries)
+        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, repoRoot: repoRoot, deliveries: deliveries)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -87,7 +89,7 @@ public actor CatalogRunCoordinator {
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
             let reviewPrompt = downstreamPrompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
-            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, deliveries: deliveries)
+            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, repoRoot: repoRoot, deliveries: deliveries)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -100,7 +102,7 @@ public actor CatalogRunCoordinator {
         if let writer = resolved.planWriter, !run.answeredWorkers.isEmpty {
             run = transition(run, to: .planning)
             persist?(run)
-            let (stage, writerSnapshot) = await runWriter(writer, resolved: resolved, run: run, basePrompt: downstreamPrompt, modelByID: modelByID)
+            let (stage, writerSnapshot) = await runWriter(writer, resolved: resolved, run: run, basePrompt: downstreamPrompt, modelByID: modelByID, repoRoot: repoRoot)
             if let writerSnapshot { applySnapshots([writer.id: writerSnapshot], to: &run) }
             run.stages.append(stage)
             run = transition(run, to: stage.status == .done ? .complete : .partial)
@@ -116,7 +118,7 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Stages
 
-    private func runWorkers(_ workers: [Worker], prompt: String, effort: EffortLevel, modelByID: [String: Model], runId: String, deliveries: [IncludedAttachmentDelivery] = []) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
+    private func runWorkers(_ workers: [Worker], prompt: String, effort: EffortLevel, modelByID: [String: Model], runId: String, repoRoot: String?, deliveries: [IncludedAttachmentDelivery] = []) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
         for worker in workers {
             emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
@@ -146,7 +148,7 @@ public actor CatalogRunCoordinator {
                         return WorkerAnswer(workerId: worker.id, modelId: worker.modelId, status: .failed,
                                             errorKind: .missingCLI, errorReason: "no driver manifest for \(model.driverId)")
                     }
-                    return await runner.run(assignment: worker, model: model, manifest: manifest, prompt: workerPrompt, effort: effort)
+                    return await runner.run(assignment: worker, model: model, manifest: manifest, prompt: workerPrompt, effort: effort, workingDirectoryOverride: repoRoot)
                 }
             }
             var collected: [WorkerAnswer] = []
@@ -160,7 +162,7 @@ public actor CatalogRunCoordinator {
         return (answers, snapshots)
     }
 
-    private func runWriter(_ writer: Worker, resolved: ResolvedTeamRun, run: TeamRun, basePrompt: String, modelByID: [String: Model]) async -> (stage: StageOutput, promptSnapshot: String?) {
+    private func runWriter(_ writer: Worker, resolved: ResolvedTeamRun, run: TeamRun, basePrompt: String, modelByID: [String: Model], repoRoot: String?) async -> (stage: StageOutput, promptSnapshot: String?) {
         let stageId = idFactory()
         let startedAt = now()
         emitStage(RunEventKind.stageStarted, runId: run.id, stageId: stageId, workerId: writer.id)
@@ -176,7 +178,7 @@ public actor CatalogRunCoordinator {
             return fail("plan/output writer model unavailable")
         }
         let writerPrompt = SkillCatalog.assemblePrompt(skillId: writer.skillId, founderPrompt: writerInput(resolved: resolved, run: run, basePrompt: basePrompt))
-        let outcome = await workerRunner.invoke(worker: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort)
+        let outcome = await workerRunner.invoke(worker: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort, workingDirectoryOverride: repoRoot)
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }

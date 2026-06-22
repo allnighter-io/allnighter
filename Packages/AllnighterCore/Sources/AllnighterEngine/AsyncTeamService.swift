@@ -188,7 +188,8 @@ public actor AsyncTeamService {
             warnings: resolved.warnings,
             threadId: request.threadId,
             originConversationId: request.originConversationId,
-            originMessageId: request.originMessageId
+            originMessageId: request.originMessageId,
+            repoRoot: request.repoRoot
         )
         persist(run)
 
@@ -214,6 +215,7 @@ public actor AsyncTeamService {
             copy.threadId = request.threadId
             copy.originConversationId = request.originConversationId
             copy.originMessageId = request.originMessageId
+            copy.repoRoot = request.repoRoot
             return copy
         }
         let cancelledRuns = cancelledRuns
@@ -236,7 +238,7 @@ public actor AsyncTeamService {
             _ = await coordinator.run(
                 resolved: resolved, prompt: prompt, models: models,
                 origin: origin, originAgent: request.originAgent,
-                runId: runId, persist: persistDuringRun
+                runId: runId, repoRoot: request.repoRoot, persist: persistDuringRun
             )
             await eventRecorder
             self.finishActiveRun(runId: runId, slot: slot)

@@ -27,6 +27,8 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
     public var originConversationId: String?
     public var originMessageId: String?
     public var idempotencyKey: String?
+    /// Repo root for worker subprocess cwd. nil ⇒ ProbeScratch (chat-without-project).
+    public var repoRoot: String?
 
     public init(
         question: String,
@@ -39,7 +41,8 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
         originAgent: String? = nil,
         originConversationId: String? = nil,
         originMessageId: String? = nil,
-        idempotencyKey: String? = nil
+        idempotencyKey: String? = nil,
+        repoRoot: String? = nil
     ) {
         self.question = question
         self.lane = lane
@@ -52,11 +55,12 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
         self.originConversationId = originConversationId
         self.originMessageId = originMessageId
         self.idempotencyKey = idempotencyKey
+        self.repoRoot = repoRoot
     }
 
     public var teamRequest: TeamRequest {
         TeamRequest(question: question, lane: lane, teamPresetId: teamPresetId,
-                    effort: effort, type: type, context: context)
+                    effort: effort, type: type, context: context, repoRoot: repoRoot)
     }
 
     /// MCP `team_start` arguments.
@@ -75,7 +79,8 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
             originAgent: args["originAgent"] as? String,
             originConversationId: args["originConversationId"] as? String,
             originMessageId: args["originMessageId"] as? String,
-            idempotencyKey: args["idempotencyKey"] as? String
+            idempotencyKey: args["idempotencyKey"] as? String,
+            repoRoot: (args["repoRoot"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 }
@@ -246,6 +251,7 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
     public var effort: String?
     public var type: String?
     public var context: String?
+    public var repoRoot: String?
 
     public init(from request: AsyncTeamStartRequest) {
         prompt = request.question
@@ -254,5 +260,6 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
         effort = request.effort?.rawValue
         type = request.type
         context = request.context
+        repoRoot = request.repoRoot
     }
 }

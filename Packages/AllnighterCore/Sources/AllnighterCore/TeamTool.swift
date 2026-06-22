@@ -16,6 +16,8 @@ public struct TeamRequest: Codable, Sendable, Equatable {
     public var type: String?
     /// Optional bounded snippet the calling agent wants considered.
     public var context: String?
+    /// Repo root for worker subprocesses (repo-reading teams). nil ⇒ ProbeScratch fallback.
+    public var repoRoot: String?
     /// `team_ask` client timeout (seconds). When set, the tool may return a
     /// `runId` to poll if the run is still in flight — never branches on a
     /// predicted duration.
@@ -28,6 +30,7 @@ public struct TeamRequest: Codable, Sendable, Equatable {
         effort: EffortLevel? = nil,
         type: String? = nil,
         context: String? = nil,
+        repoRoot: String? = nil,
         waitSeconds: Int? = nil
     ) {
         self.question = question
@@ -36,6 +39,7 @@ public struct TeamRequest: Codable, Sendable, Equatable {
         self.effort = effort
         self.type = type
         self.context = context
+        self.repoRoot = repoRoot
         self.waitSeconds = waitSeconds
     }
 }

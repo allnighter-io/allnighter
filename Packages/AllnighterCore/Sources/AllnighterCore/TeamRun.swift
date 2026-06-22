@@ -52,6 +52,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var threadId: String?
     public var originConversationId: String?
     public var originMessageId: String?
+    /// Repo root workers were launched in (team/MCP runs with `repoRoot` / `project`).
+    public var repoRoot: String? = nil
     /// Try Fix chain (Try_Fix_Auto_Implement): a child fix-attempt run records the parent
     /// Bug Hunt run it came from; the parent links forward to the child. So the Floor can
     /// show diagnosis -> fix attempt -> proof. Optional so existing run.json (which predates
@@ -82,7 +84,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         warnings: [String] = [],
         threadId: String? = nil,
         originConversationId: String? = nil,
-        originMessageId: String? = nil
+        originMessageId: String? = nil,
+        repoRoot: String? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -105,6 +108,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.threadId = threadId
         self.originConversationId = originConversationId
         self.originMessageId = originMessageId
+        self.repoRoot = repoRoot
     }
 }
 

@@ -90,6 +90,36 @@ Here is the fixture:
         let response = await run.invoke(worker: worker, manifest: manifest, prompt: "hi")
         XCTAssertEqual(response.status, .timedOut)
         XCTAssertEqual(response.errorKind, .timedOut)
+        XCTAssertEqual(response.errorReason, "wall-clock timeout after \(manifest.invoke!.timeoutSeconds)s")
+    }
+
+    func testAgyVendorStdoutTimeoutFailsDespiteExitZero() async {
+        let manifest = TestSupport.headlessManifest(id: "antigravity", command: "agy")
+        let worker = TestSupport.worker("w", driverId: "antigravity")
+        let stdout = "searching...\nError: timed out waiting for response\n"
+        let run = runner(["agy": .init(stdout: stdout, exitCode: 0)])
+
+        let response = await run.invoke(worker: worker, manifest: manifest, prompt: "hi")
+        XCTAssertEqual(response.status, .failed)
+        XCTAssertEqual(response.errorKind, .timedOut)
+        XCTAssertEqual(response.errorReason, "agy vendor timeout (stdout)")
+    }
+
+    func testSpawnDiagnosticsCapturedOnInvoke() async {
+        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
+        let worker = TestSupport.worker("w", driverId: "claude_code")
+        let run = WorkerRunner(
+            commandRunner: MockCommandRunner(scripts: ["/opt/test/claude": .init(stdout: "ok", stderr: "warn", exitCode: 0)]),
+            invocations: ["claude_code": .direct(path: "/opt/test/claude")]
+        )
+        let response = await run.invoke(
+            worker: worker, manifest: manifest, prompt: "hi",
+            workingDirectoryOverride: "/tmp/repo"
+        )
+        XCTAssertEqual(response.spawnDiagnostics?.workingDirectory, "/tmp/repo")
+        XCTAssertEqual(response.spawnDiagnostics?.timeoutKind, .wallClock)
+        XCTAssertEqual(response.spawnDiagnostics?.command, "/opt/test/claude")
+        XCTAssertEqual(response.spawnDiagnostics?.stderrTail, "warn")
     }
 
     func testCatalogWorkerRunUsesStreamingWhenAvailable() async {
