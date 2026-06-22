@@ -626,7 +626,8 @@ final class ThreadsViewModel {
                 // skipped: their tile strip already owns the fan-out images.
                 if turnKind != .designBoard {
                     let harvested = self.harvestWorkerImages(
-                        run: run, settledText: settled.text, threadId: threadId)
+                        run: run, settledText: settled.text,
+                        reasoningText: settled.reasoningText, threadId: threadId)
                     if !harvested.refs.isEmpty {
                         settled.attachmentRefs += harvested.refs
                         if let caption = harvested.cleanedCaption { settled.text = caption }
@@ -720,20 +721,27 @@ final class ThreadsViewModel {
     /// settled text) into the thread's canonical attachment store, returning refs to stamp
     /// on the settled turn plus the caption with those paths removed. Real bytes only — a
     /// path with no valid image behind it is skipped.
-    private func harvestWorkerImages(run: TeamRun, settledText: String?, threadId: String) -> HarvestedImages {
+    private func harvestWorkerImages(run: TeamRun, settledText: String?, reasoningText: String?, threadId: String) -> HarvestedImages {
         guard let dir = try? store.threadDirectory(forThreadId: threadId) else { return HarvestedImages(refs: []) }
         // Caption candidates in display priority: the settled turn text first (what the row
-        // shows), then the worker answers, then any plan markdown.
-        var texts: [String] = []
-        if let t = settledText, !t.isEmpty { texts.append(t) }
+        // shows), then the worker answers, then any plan markdown. These are the only texts
+        // the cleaned caption may be sourced from.
+        var captionTexts: [String] = []
+        if let t = settledText, !t.isEmpty { captionTexts.append(t) }
         for answer in run.workerAnswers where !(answer.output ?? "").isEmpty {
-            texts.append(answer.output ?? "")
+            captionTexts.append(answer.output ?? "")
         }
         for stage in run.stages where !(stage.payload?.markdown ?? "").isEmpty {
-            texts.append(stage.payload?.markdown ?? "")
+            captionTexts.append(stage.payload?.markdown ?? "")
         }
+        // Scan texts also include the worker's reasoning: workers frequently name the image
+        // they produced ONLY in their thinking ("The path is given: …/1.jpg") and leave the
+        // final answer as a bare "Here's your image:". Reasoning is scanned for capture but
+        // is never used as the displayed caption.
+        var scanTexts = captionTexts
+        if let r = reasoningText, !r.isEmpty { scanTexts.append(r) }
         let runDir = try? runStore.runDirectory(forRunId: run.id)
-        let candidates = WorkerOutputImageHarvest.candidates(in: texts, runDirectory: runDir)
+        let candidates = WorkerOutputImageHarvest.candidates(in: scanTexts, runDirectory: runDir)
         guard !candidates.isEmpty else { return HarvestedImages(refs: []) }
 
         let refs = WorkerOutputImageHarvest.commit(
@@ -749,7 +757,7 @@ final class ThreadsViewModel {
         // Clean the caption the row will show — the first text holding a captured path, else
         // the settled text. The row prefers `turn.text` when the turn carries captured images.
         let tokens = candidates.map(\.token)
-        let base = texts.first { text in tokens.contains { text.contains($0) } } ?? settledText ?? ""
+        let base = captionTexts.first { text in tokens.contains { text.contains($0) } } ?? settledText ?? ""
         let cleaned = WorkerOutputImageHarvest.cleanedCaption(from: base, removing: tokens)
         return HarvestedImages(refs: refs, cleanedCaption: cleaned.isEmpty ? nil : cleaned)
     }
