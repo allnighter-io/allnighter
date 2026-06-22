@@ -12,6 +12,7 @@ struct ConversationThreadView: View {
 
     @Environment(RemoteAppModel.self) private var appModel
     @State private var showsStopConfirm = false
+    @State private var composerText = ""
 
     var body: some View {
         ScrollView {
@@ -27,6 +28,20 @@ struct ConversationThreadView: View {
         .background(IOSColor.void)
         .scrollContentBackground(.hidden)
         .navigationBarTitleDisplayMode(.inline)
+        .iosComposerSafeAreaInset {
+            IOSComposerBar(
+                text: $composerText,
+                placeholder: "Continue this conversation…",
+                isSending: appModel.workRequestSendPhase == .sending,
+                canSend: appModel.canSendWorkRequests
+                    && !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                onSend: {
+                    let prompt = composerText
+                    composerText = ""
+                    await appModel.sendWorkRequest(prompt: prompt)
+                }
+            )
+        }
         .task(id: threadId) {
             appModel.composerThreadId = threadId
             await appModel.loadThread(threadId: threadId)
@@ -82,6 +97,9 @@ struct ConversationThreadView: View {
         } else if case .succeeded = appModel.stopRunPhase {
             IOSStatusBanner(text: "Run stopped on your Mac.", tone: .positive)
                 .onTapGesture { appModel.clearStopRunStatus() }
+        } else if case let .failed(message) = appModel.workRequestSendPhase {
+            IOSStatusBanner(text: message, tone: .warning)
+                .onTapGesture { appModel.clearWorkRequestSendFailure() }
         }
 
         if let snapshot = appModel.threadSnapshot, snapshot.id == threadId {

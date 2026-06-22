@@ -423,6 +423,9 @@ final class RemoteAppModel {
             ))
             workRequestSendPhase = .idle
             await refreshHome()
+            if let threadId = composerThreadId {
+                await loadThread(threadId: threadId)
+            }
         } catch let error as WorkRequestSenderError where error == .emptyPrompt {
             workRequestSendPhase = .idle
         } catch {
