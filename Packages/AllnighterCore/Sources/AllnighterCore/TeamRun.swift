@@ -58,6 +58,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// these keys) still decodes; read via `runLinks`.
     public var parentRunId: String?
     public var links: [RunLink]?
+    /// Timing ladder and counters captured from the GUI/engine hot path. Optional so
+    /// legacy persisted runs decode unchanged.
+    public var timing: RunTimingReport?
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -82,7 +85,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         warnings: [String] = [],
         threadId: String? = nil,
         originConversationId: String? = nil,
-        originMessageId: String? = nil
+        originMessageId: String? = nil,
+        timing: RunTimingReport? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -105,6 +109,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.threadId = threadId
         self.originConversationId = originConversationId
         self.originMessageId = originMessageId
+        self.timing = timing
     }
 }
 

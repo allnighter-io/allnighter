@@ -49,6 +49,69 @@ final class RunServiceTests: XCTestCase {
         XCTAssertTrue(events.contains { $0.kind == RunEventKind.runStatusChanged && $0.payload["to"] == .string(RunStatus.complete.rawValue) })
     }
 
+    func testExecutionRunPersistsTimingLadder() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let model = Model(
+            id: "model_cursor_composer_25",
+            displayName: "Cursor Composer",
+            modelLabel: "composer-2.5",
+            driverId: "cursor_agent",
+            role: .both
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_cursor_composer_25"]))
+        let probe = ToolProbeRecord(driverId: "cursor_agent", status: .ready(version: "1.0"), lastProbeAt: .distantPast)
+        let runStore = RunStore(rootDirectory: repo.appendingPathComponent("runs", isDirectory: true))
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "cursor_agent", command: "cursor")]),
+            runStore: runStore,
+            commandRunner: MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        var seed = RunTimingReport()
+        seed.stamp(RunTimingKey.composerSubmit)
+        seed.stamp(RunTimingKey.contextBuildStart)
+        seed.stamp(RunTimingKey.contextBuildEnd)
+        seed.set(RunTimingKey.contextTurnCount, int: 3)
+
+        let request = RunRequest(
+            message: "Say done",
+            repoRoot: repo.path,
+            context: "file reference context",
+            timing: seed
+        )
+        let result = await service.run(request, origin: .cli, runId: "timing-run")
+
+        guard case .success(let run) = result else {
+            return XCTFail("run failed: \(result)")
+        }
+        let timing = try XCTUnwrap(run.timing)
+        XCTAssertNotNil(timing.event(named: RunTimingKey.composerSubmit))
+        XCTAssertNotNil(timing.event(named: RunTimingKey.runRequested))
+        XCTAssertNotNil(timing.event(named: RunTimingKey.workerResolveStart))
+        XCTAssertNotNil(timing.event(named: RunTimingKey.workerResolveEnd))
+        XCTAssertNotNil(timing.event(named: RunTimingKey.driverCommandResolved))
+        XCTAssertNotNil(timing.event(named: RunTimingKey.processSpawnStart))
+        XCTAssertNotNil(timing.event(named: RunTimingKey.processExit))
+        XCTAssertNotNil(timing.event(named: RunTimingKey.runOutcomePersisted))
+        XCTAssertEqual(timing.facts[RunTimingKey.sourceId], .string("cursor_agent"))
+        XCTAssertEqual(timing.facts[RunTimingKey.modelId], .string("model_cursor_composer_25"))
+        XCTAssertEqual(timing.facts[RunTimingKey.commandModelFlag], .string("composer-2.5"))
+        XCTAssertEqual(timing.facts[RunTimingKey.contextBytes], .int("file reference context".utf8.count))
+
+        let persisted = try XCTUnwrap(runStore.load(runId: "timing-run"))
+        XCTAssertNotNil(persisted.timing?.event(named: RunTimingKey.runOutcomePersisted))
+    }
+
     /// SBDS-S03: Auto runs the tier default, but routes around a down CLI to the next
     /// source-ready model on the same tier — without asking.
     func testAutoRoutesAroundADownCLIWithinTheTier() async throws {

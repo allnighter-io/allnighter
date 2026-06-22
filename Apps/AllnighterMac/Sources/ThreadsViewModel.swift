@@ -452,6 +452,8 @@ final class ThreadsViewModel {
         // An attachment-only send (pasted image, no typed text) is valid — the workers
         // still receive the image. Only refuse a truly empty turn.
         guard !message.isEmpty || !routing.attachments.isEmpty else { return }
+        var timing = RunTimingReport()
+        timing.stamp(RunTimingKey.composerSubmit)
 
         let threadId: String
         if createThread || selectedThreadId == nil {
@@ -473,15 +475,23 @@ final class ThreadsViewModel {
         if let scope = repoRoot(for: threadId) {
             let userTurnId = UUID().uuidString
             do {
+                let fileReferenceInputs = (routing.fileReferences + FileReferenceTokenParser.parse(message: message))
+                    .dedupedPreservingOrder()
+                if let currentThread = store.get(threadId) {
+                    timing.set(RunTimingKey.contextTurnCount, int: currentThread.turns.count)
+                }
+                timing.set(RunTimingKey.contextFileReferenceCount, int: fileReferenceInputs.count)
+                timing.stamp(RunTimingKey.contextBuildStart)
                 let preparedRefs = try prepareFileReferenceContext(
-                    inputs: (routing.fileReferences + FileReferenceTokenParser.parse(message: message))
-                        .dedupedPreservingOrder(),
+                    inputs: fileReferenceInputs,
                     message: message,
                     threadId: threadId,
                     userTurnId: userTurnId,
                     projectId: scope.projectId,
                     repoRoot: scope.root
                 )
+                timing.stamp(RunTimingKey.contextBuildEnd)
+                timing.set(RunTimingKey.contextBytes, int: preparedRefs.packetText?.utf8.count ?? 0)
                 // Commit pasted/picked images AND captured long-paste text into the
                 // thread's attachment store + workspace mirror, so EVERY worker (single or
                 // team) gets them as files to open by path — images via a vision-gated
@@ -490,21 +500,24 @@ final class ThreadsViewModel {
                 let staged = stageRunAttachments(
                     routing.attachments, threadId: threadId, repoRoot: scope.root
                 )
-                appendUserTurn(
+                if appendUserTurn(
                     message,
                     toThreadId: threadId,
                     id: userTurnId,
                     fileReferenceRefs: preparedRefs.turnRefs,
                     attachmentRefs: staged.refs,
                     contextPacketId: preparedRefs.contextPacketId
-                )
+                ) {
+                    timing.stamp(RunTimingKey.threadUserTurnPersisted)
+                }
                 runViaRunService(
                     routing,
                     toThreadId: threadId,
                     projectId: scope.projectId,
                     repoRoot: scope.root,
                     context: preparedRefs.packetText,
-                    deliveries: staged.deliveries
+                    deliveries: staged.deliveries,
+                    timing: timing
                 )
             } catch {
                 appendFailedRun(fileReferenceFailureText(error), kind: .systemEvent, toThreadId: threadId)
@@ -543,8 +556,10 @@ final class ThreadsViewModel {
         projectId: String?,
         repoRoot: String,
         context: String? = nil,
-        deliveries: [IncludedAttachmentDelivery] = []
+        deliveries: [IncludedAttachmentDelivery] = [],
+        timing seedTiming: RunTimingReport = RunTimingReport()
     ) {
+        var timing = seedTiming
         let preset = routing.team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
         guard let preset else {
             appendFailedRun("No team configured.", kind: .teamRun, toThreadId: threadId)
@@ -563,6 +578,7 @@ final class ThreadsViewModel {
             runId: runId
         )
         guard (try? store.appendTurn(turn, toThreadId: threadId, now: startedAt)) != nil else { return }
+        timing.stamp(RunTimingKey.threadWorkerTurnPersisted, at: startedAt)
         reload()
 
         let request = RunRequest(
@@ -577,13 +593,15 @@ final class ThreadsViewModel {
             effort: effort,
             lane: routing.lane.workLane,
             context: context,
-            deliveries: deliveries
+            deliveries: deliveries,
+            timing: timing
         )
         let service = makeRunService()
         let threadStore = store
         let turnId = turn.id
 
         Task { @MainActor in
+            let uiTiming = RunTimingAccumulator()
             // Consume live answer-delta events so the running turn shows streamed text
             // before the worker exits (mirrors the worker_chat streaming path).
             let (events, continuation) = AsyncStream<RunEvent>.makeStream()
@@ -595,9 +613,13 @@ final class ThreadsViewModel {
                           let text = event.payload["text"]?.stringValue else { continue }
                     // Stream live text into the in-memory turn (no per-delta list decode or
                     // full thread.json rewrite); a durable checkpoint is throttled inside.
-                    self.applyLiveDelta(
+                    let published = self.applyLiveDelta(
                         threadId: threadId, turnId: turnId, isAnswer: isAnswer, text: text,
                         truncated: isAnswer ? (event.payload["truncated"]?.boolValue ?? false) : nil)
+                    if published {
+                        await uiTiming.count(RunTimingKey.uiPublishCount)
+                        await uiTiming.stampOnce(RunTimingKey.firstUIPublish)
+                    }
                 }
             }
             let result = await service.run(request, origin: .gui, runId: runId, events: continuation)
@@ -610,7 +632,7 @@ final class ThreadsViewModel {
                 ?? threadStore.get(threadId)?.turn(id: turnId) ?? turn
             settled.completedAt = Date()
             switch result {
-            case .success(let run):
+            case .success(var run):
                 // RLS-S01: a terminal run MUST settle to a terminal turn — never .running.
                 settled.status = Self.settledStatus(forSuccessfulRun: run.status)
                 if settled.workerId == nil, let modelId = run.workerAnswers.first?.modelId {
@@ -619,22 +641,43 @@ final class ThreadsViewModel {
                 if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan }) {
                     settled.stageId = stage.id
                 }
+                await uiTiming.stamp(RunTimingKey.threadTurnSettlementStart)
+                await uiTiming.count(RunTimingKey.threadStoreUpdateTurnCount)
+                // RLS-S01: terminal settlement is not best-effort. A swallowed write left the
+                // turn stuck on the last `.running` checkpoint (the "it's still answering"
+                // bug). Reflect the terminal state in memory FIRST so the UI can never show an
+                // indefinite spinner, then persist — and surface (don't swallow) a write failure.
+                applyTerminalSettlement(settled, threadId: threadId)
+                do {
+                    try threadStore.updateTurn(settled, inThreadId: threadId, now: Date())
+                    await uiTiming.stamp(RunTimingKey.threadTurnSettlementEnd)
+                } catch {
+                    await uiTiming.stamp(RunTimingKey.threadTurnSettlementError, detail: String(describing: error))
+                    PerfCounters.bump(.settlementError)
+                    FileHandle.standardError.write(Data(
+                        "[settlement] FAILED to persist terminal turn \(turnId) in thread \(threadId): \(error)\n".utf8))
+                }
+                var finalTiming = run.timing ?? timing
+                finalTiming.merge(await uiTiming.snapshot())
+                finalTiming.count(RunTimingKey.runStoreSaveCount, by: 1)
+                run.timing = finalTiming
+                try? runStore.save(run, models: models)
             case .failure(let error):
                 settled.status = .failed
                 settled.text = error.description
                 settled.runId = nil
-            }
-            // RLS-S01: terminal settlement is not best-effort. A swallowed write left the
-            // turn stuck on the last `.running` checkpoint (the "it's still answering"
-            // bug). Reflect the terminal state in memory FIRST so the UI can never show an
-            // indefinite spinner, then persist — and surface (don't swallow) a write failure.
-            applyTerminalSettlement(settled, threadId: threadId)
-            do {
-                try threadStore.updateTurn(settled, inThreadId: threadId, now: Date())
-            } catch {
-                PerfCounters.bump(.settlementError)
-                FileHandle.standardError.write(Data(
-                    "[settlement] FAILED to persist terminal turn \(turnId) in thread \(threadId): \(error)\n".utf8))
+                await uiTiming.stamp(RunTimingKey.threadTurnSettlementStart)
+                await uiTiming.count(RunTimingKey.threadStoreUpdateTurnCount)
+                applyTerminalSettlement(settled, threadId: threadId)
+                do {
+                    try threadStore.updateTurn(settled, inThreadId: threadId, now: Date())
+                    await uiTiming.stamp(RunTimingKey.threadTurnSettlementEnd)
+                } catch {
+                    await uiTiming.stamp(RunTimingKey.threadTurnSettlementError, detail: String(describing: error))
+                    PerfCounters.bump(.settlementError)
+                    FileHandle.standardError.write(Data(
+                        "[settlement] FAILED to persist terminal turn \(turnId) in thread \(threadId): \(error)\n".utf8))
+                }
             }
             reload()
         }
@@ -812,6 +855,7 @@ final class ThreadsViewModel {
         return error.localizedDescription
     }
 
+    @discardableResult
     private func appendUserTurn(
         _ message: String,
         toThreadId threadId: String,
@@ -819,7 +863,7 @@ final class ThreadsViewModel {
         fileReferenceRefs: [TurnFileReferenceRef] = [],
         attachmentRefs: [TurnAttachmentRef] = [],
         contextPacketId: String? = nil
-    ) {
+    ) -> Bool {
         let turn = ThreadTurn(
             id: id, threadId: threadId, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user, text: message,
@@ -827,8 +871,9 @@ final class ThreadsViewModel {
             fileReferenceRefs: fileReferenceRefs,
             contextPacketId: contextPacketId
         )
-        try? store.appendTurn(turn, toThreadId: threadId, now: Date())
+        guard (try? store.appendTurn(turn, toThreadId: threadId, now: Date())) != nil else { return false }
         reload()
+        return true
     }
 
     /// Commit composer images AND captured long-paste text into the thread's attachment
