@@ -29,6 +29,13 @@ enum WorkRequestSendPhase: Equatable {
     case failed(String)
 }
 
+enum KillSwitchPhase: Equatable {
+    case idle
+    case stopping
+    case succeeded(String)
+    case failed(String)
+}
+
 @MainActor
 @Observable
 final class RemoteAppModel {
@@ -36,6 +43,7 @@ final class RemoteAppModel {
     private(set) var homeStatus: ConversationHomeLoadStatus = .idle
     private(set) var connectionPhase: RemoteAppConnectionPhase = .idle
     private(set) var workRequestSendPhase: WorkRequestSendPhase = .idle
+    private(set) var killSwitchPhase: KillSwitchPhase = .idle
 
     var showsHome: Bool {
         switch connectionPhase {
@@ -48,6 +56,16 @@ final class RemoteAppModel {
 
     var canSendWorkRequests: Bool {
         connectedClient != nil && workRequestSendPhase != .sending
+    }
+
+    var canStopAllWork: Bool {
+        connectedClient != nil && killSwitchPhase != .stopping
+    }
+
+    var activeWorkCount: Int {
+        let conversations = homeSnapshot.pinned
+            + homeSnapshot.projects.flatMap(\.conversations)
+        return conversations.filter(\.isPending).count
     }
 
     private var homeStore: ConversationHomeStore?
@@ -142,6 +160,38 @@ final class RemoteAppModel {
     func clearWorkRequestSendFailure() {
         if case .failed = workRequestSendPhase {
             workRequestSendPhase = .idle
+        }
+    }
+
+    func stopAllWork() async {
+        guard let connectedClient, canStopAllWork else { return }
+
+        killSwitchPhase = .stopping
+        let sender = RemoteControlSender(
+            client: connectedClient.client,
+            deviceId: connectedClient.deviceCredentials.deviceId,
+            deviceSigningKey: connectedClient.deviceSigningKey
+        )
+
+        do {
+            let result = try await sender.stopAll()
+            if result.commandResult.ack.accepted {
+                killSwitchPhase = .succeeded("All active work stopped on your Mac.")
+                await refreshHome()
+            } else {
+                killSwitchPhase = .failed(Self.killSwitchFailureMessage(from: result.commandResult.ack))
+            }
+        } catch {
+            killSwitchPhase = .failed("Could not reach your Mac to stop work.")
+        }
+    }
+
+    func clearKillSwitchStatus() {
+        switch killSwitchPhase {
+        case .succeeded, .failed:
+            killSwitchPhase = .idle
+        case .idle, .stopping:
+            break
         }
     }
 
@@ -360,6 +410,23 @@ final class RemoteAppModel {
             "Enter a work request before sending."
         default:
             "Could not send work request to your Mac."
+        }
+    }
+
+    private static func killSwitchFailureMessage(from ack: CommandAck) -> String {
+        switch ack.reason {
+        case .revoked:
+            "This device is not authorized to stop work on your Mac."
+        case .rateLimited:
+            "Too many stop requests. Try again shortly."
+        case .clockSkew:
+            "Your phone clock is out of sync with your Mac."
+        case .unauthorizedKind:
+            "This device cannot send stop commands."
+        case .replayedRequestId:
+            "That stop request was already sent."
+        default:
+            "Your Mac did not accept the stop request."
         }
     }
 }

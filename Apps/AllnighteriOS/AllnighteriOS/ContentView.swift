@@ -18,12 +18,21 @@ struct ContentView: View {
                     connectionPhase: appModel.connectionPhase,
                     homeStatus: appModel.homeStatus,
                     workRequestSendPhase: appModel.workRequestSendPhase,
+                    killSwitchPhase: appModel.killSwitchPhase,
+                    activeWorkCount: appModel.activeWorkCount,
                     canSendWorkRequests: appModel.canSendWorkRequests,
+                    canStopAllWork: appModel.canStopAllWork,
                     onSendWorkRequest: { prompt in
                         await appModel.sendWorkRequest(prompt: prompt)
                     },
                     onDismissSendFailure: {
                         appModel.clearWorkRequestSendFailure()
+                    },
+                    onStopAllWork: {
+                        await appModel.stopAllWork()
+                    },
+                    onDismissKillSwitchStatus: {
+                        appModel.clearKillSwitchStatus()
                     }
                 )
             } else {
@@ -43,13 +52,19 @@ private struct ConversationsHomeView: View {
     let connectionPhase: RemoteAppConnectionPhase
     let homeStatus: ConversationHomeLoadStatus
     let workRequestSendPhase: WorkRequestSendPhase
+    let killSwitchPhase: KillSwitchPhase
+    let activeWorkCount: Int
     let canSendWorkRequests: Bool
+    let canStopAllWork: Bool
     let onSendWorkRequest: (String) async -> Void
     let onDismissSendFailure: () -> Void
+    let onStopAllWork: () async -> Void
+    let onDismissKillSwitchStatus: () -> Void
 
     @State private var searchText = ""
     @State private var selectedFilter: ConversationFilter = .all
     @State private var composerText = ""
+    @State private var showsKillSwitchConfirm = false
 
     var body: some View {
         ScrollView {
@@ -59,6 +74,40 @@ private struct ConversationsHomeView: View {
                     .padding(.bottom, IOSSpace.s7)
 
                 connectionBanner
+
+                KillSwitchBar(
+                    activeWorkCount: activeWorkCount,
+                    phase: killSwitchPhase,
+                    isEnabled: canStopAllWork,
+                    onTap: { showsKillSwitchConfirm = true }
+                )
+                .padding(.bottom, IOSSpace.s5)
+                .confirmationDialog(
+                    "Stop all work on your Mac?",
+                    isPresented: $showsKillSwitchConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("Stop All Work", role: .destructive) {
+                        Task { await onStopAllWork() }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    if activeWorkCount > 0 {
+                        Text("This stops \(activeWorkCount) active run\(activeWorkCount == 1 ? "" : "s") on your Mac.")
+                    } else {
+                        Text("This sends a stop-all command to your Mac.")
+                    }
+                }
+
+                if case let .succeeded(message) = killSwitchPhase {
+                    StatusBanner(text: message, tone: .positive)
+                        .padding(.bottom, IOSSpace.s5)
+                        .onTapGesture(perform: onDismissKillSwitchStatus)
+                } else if case let .failed(message) = killSwitchPhase {
+                    StatusBanner(text: message, tone: .warning)
+                        .padding(.bottom, IOSSpace.s5)
+                        .onTapGesture(perform: onDismissKillSwitchStatus)
+                }
 
                 if case let .failed(message) = workRequestSendPhase {
                     StatusBanner(text: message, tone: .warning)
@@ -248,6 +297,71 @@ struct ContentViewPreviews: PreviewProvider {
     static var previews: some View {
         ContentView()
             .environment(RemoteAppModel())
+    }
+}
+
+private struct KillSwitchBar: View {
+    let activeWorkCount: Int
+    let phase: KillSwitchPhase
+    let isEnabled: Bool
+    let onTap: () -> Void
+
+    private var title: String {
+        if activeWorkCount > 0 {
+            "Stop \(activeWorkCount) Active Run\(activeWorkCount == 1 ? "" : "s")"
+        } else {
+            "Stop All Work"
+        }
+    }
+
+    private var isStopping: Bool {
+        if case .stopping = phase { return true }
+        return false
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: IOSSpace.s3) {
+                Group {
+                    if isStopping {
+                        ProgressView()
+                            .tint(IOSColor.textPrimary)
+                    } else {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                }
+                .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(IOSFont.bodyStrong)
+                        .foregroundStyle(IOSColor.textPrimary)
+                    Text("Kill switch — stops every run on your Mac")
+                        .font(IOSFont.label)
+                        .foregroundStyle(IOSColor.textMuted)
+                }
+
+                Spacer(minLength: IOSSpace.s2)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(IOSColor.textFaint)
+            }
+            .padding(.horizontal, IOSSpace.s4)
+            .padding(.vertical, IOSSpace.s4)
+            .background(IOSColor.raised, in: RoundedRectangle(cornerRadius: IOSRadius.lg, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: IOSRadius.lg, style: .continuous)
+                    .strokeBorder(Color.red.opacity(0.42), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled || isStopping)
+        .opacity(isEnabled ? 1 : 0.55)
+        .accessibilityIdentifier("kill-switch-bar")
+        .accessibilityLabel(title)
+        .accessibilityHint("Double tap to confirm stopping all work on your Mac")
     }
 }
 
