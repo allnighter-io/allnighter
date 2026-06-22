@@ -20,6 +20,7 @@ final class ACPSessionTests: XCTestCase {
         }
         func send(_ line: String) { sentCont.yield(line) }
         func inboundLines() -> AsyncStream<String> { inbound }
+        func terminate() { inboundCont.finish() }
         func push(_ line: String) { inboundCont.yield(line) }
         func finishInbound() { inboundCont.finish() }
         func sent() -> AsyncStream<String> { sentStream }

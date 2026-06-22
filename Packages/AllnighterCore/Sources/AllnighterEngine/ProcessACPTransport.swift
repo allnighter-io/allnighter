@@ -1,0 +1,80 @@
+import Foundation
+import AllnighterCore
+
+/// The real `ACPTransport`: spawns a long-lived `grok agent --always-approve stdio` process and
+/// wires its stdin/stdout to an `ACPSession` (Warm_Single_Lane_Chat §4b). One process stays warm —
+/// the working-tree index + agent runtime load ONCE; every turn after is model-time only.
+///
+/// stdin: `send` writes one newline-framed JSON-RPC line (a pipe write, synchronous).
+/// stdout: a readability handler splits the byte stream into newline-delimited lines and yields them
+/// on `inboundLines()`. stderr is discarded. The inbound stream finishes when the process exits.
+public final class ProcessACPTransport: ACPTransport, @unchecked Sendable {
+    private let process = Process()
+    private let stdinPipe = Pipe()
+    private let stdoutPipe = Pipe()
+    private let inbound: AsyncStream<String>
+    private let inboundCont: AsyncStream<String>.Continuation
+    private let lock = NSLock()
+    private var buffer = Data()
+
+    /// - command: the `grok` binary — an absolute path, or a bare name resolved via `/usr/bin/env`.
+    /// - model: e.g. `grok-build`. - cwd: the REAL repo root (indexed once, warm thereafter).
+    public init(command: String, model: String, cwd: String, extraEnv: [String: String] = [:]) throws {
+        (inbound, inboundCont) = AsyncStream<String>.makeStream()
+
+        if command.contains("/") {
+            process.executableURL = URL(fileURLWithPath: command)
+            process.arguments = ["agent", "--model", model, "--always-approve", "stdio"]
+        } else {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = [command, "agent", "--model", model, "--always-approve", "stdio"]
+        }
+        process.currentDirectoryURL = URL(fileURLWithPath: cwd)
+        process.standardInput = stdinPipe
+        process.standardOutput = stdoutPipe
+        process.standardError = FileHandle.nullDevice  // drain-free: never fills + blocks the agent
+
+        var env = ProcessInfo.processInfo.environment
+        for (k, v) in extraEnv { env[k] = v }
+        process.environment = env
+
+        let cont = inboundCont
+        stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            self?.ingest(data, cont)
+        }
+        process.terminationHandler = { _ in cont.finish() }
+
+        try process.run()
+    }
+
+    private func ingest(_ data: Data, _ cont: AsyncStream<String>.Continuation) {
+        lock.lock(); defer { lock.unlock() }
+        buffer.append(data)
+        let newline = Data([0x0A])
+        while let nl = buffer.range(of: newline) {
+            let lineData = buffer.subdata(in: buffer.startIndex..<nl.lowerBound)
+            buffer.removeSubrange(buffer.startIndex..<nl.upperBound)
+            if let s = String(data: lineData, encoding: .utf8),
+               !s.trimmingCharacters(in: .whitespaces).isEmpty {
+                cont.yield(s)
+            }
+        }
+    }
+
+    public func send(_ line: String) {
+        guard let data = line.data(using: .utf8) else { return }
+        lock.lock(); defer { lock.unlock() }
+        try? stdinPipe.fileHandleForWriting.write(contentsOf: data)
+    }
+
+    public func inboundLines() -> AsyncStream<String> { inbound }
+
+    /// Stop the warm worker (thread closed / idle teardown / crash recovery).
+    public func terminate() {
+        if process.isRunning { process.terminate() }
+        stdoutPipe.fileHandleForReading.readabilityHandler = nil
+        inboundCont.finish()
+    }
+}

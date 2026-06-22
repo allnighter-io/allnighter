@@ -21,6 +21,8 @@ public protocol ACPTransport: Sendable {
     func send(_ line: String)
     /// Newline-delimited JSON-RPC lines from the agent's stdout; finishes when the process exits.
     func inboundLines() -> AsyncStream<String>
+    /// Stop the underlying worker (kill the process / close the stream). Idempotent.
+    func terminate()
 }
 
 /// Drives ONE warm ACP conversation over an `ACPTransport`: `initialize` → `session/new {cwd}` →
