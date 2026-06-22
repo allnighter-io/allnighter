@@ -98,7 +98,6 @@ public extension ContractRegistry {
         MCPToolSpec("team_result", command: "team result", summary: "Fetch TeamRunJSON when terminal, or a not-ready envelope.",
                     params: [.init("runId", required: true, summary: "Run id from team_start."),
                              .init("detail", summary: "summary | full (full embeds worker prompt snapshots)."),
-                             .init("full", summary: "Alias for detail=full."),
                              .init("includePrompts", summary: "When true, embed worker prompt snapshots.")],
                     outputSchema: .teamRunJSON,
                     errors: ["RUN_NOT_FOUND", "RESULT_NOT_READY", "CLI_USAGE_ERROR"], idempotency: .idempotent),
@@ -149,13 +148,11 @@ public extension ContractRegistry {
                     outputSchema: .errorExplainJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("spec_get", command: "spec", summary: "Retrieve a run's full spec/result packet without opening the GUI. Failed workers and warnings always included in full detail.",
                     params: [.init("run", summary: "Run id or `latest` (default latest)."),
-                             .init("runId", summary: "Alias for `run` (team-style harness args)."),
                              .init("detail", summary: "summary | full | artifactRefsOnly (default summary).")],
                     outputSchema: .specResult,
                     errors: ["RUN_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("floor_show", command: "floor show", summary: "The inspectable Floor for one team run: worker lanes (incl. failures), durable artifact refs, typed return (Signal insight when applicable), converge timeline, and Execute requirements.",
-                    params: [.init("run", summary: "Run id or `latest` (default latest)."),
-                             .init("runId", summary: "Alias for `run` (team-style harness args).")],
+                    params: [.init("run", summary: "Run id or `latest` (default latest).")],
                     outputSchema: .floorRun,
                     errors: ["RUN_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("thread_send", command: "thread send", summary: "Send a message and/or images to a work thread worker.",
@@ -215,7 +212,7 @@ public extension ContractRegistry {
                     params: [
                         .init("pendingId", required: true, summary: "Pending item id."),
                         .init("prompt", summary: "Replacement prompt text."),
-                        .init("worker", summary: "Target worker id or alias."),
+                        .init("worker", summary: "Target worker model id."),
                         .init("team", summary: "Team preset id."),
                         .init("fallback", summary: "Fallback worker id."),
                         .init("when", summary: "ready | away | manual."),
@@ -286,12 +283,10 @@ public extension ContractRegistry {
         // (mirrors project approve/edit being human-only); only the read is projected.
         MCPToolSpec("defaults_get", command: "defaults show", summary: "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness).",
                     outputSchema: .defaultSettingsJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
-        // Utilization Boost window — placement + seed controls (Utilization_Window_Priming).
-        MCPToolSpec("utilization_boost_status", command: "utilization boost show", summary: "Read Boost window settings, derived seed/reset times, provider rows, and display state.",
+        // Boost window — placement + seed controls (Utilization_Window_Priming).
+        MCPToolSpec("boost_window_show", command: "boost-window show", summary: "Show Boost window settings, derived seed/reset times, provider rows, and display state.",
                     outputSchema: .boostWindowSettingsJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("utilization_boost_get", command: "utilization boost show", summary: "Alias of utilization_boost_status — full BoostWindowSettingsJSON projection.",
-                    outputSchema: .boostWindowSettingsJSON, errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
-        MCPToolSpec("utilization_boost_update", command: "utilization boost set", summary: "Update Boost window master toggle, 5h window start, and applies-to sources.",
+        MCPToolSpec("boost_window_set", command: "boost-window set", summary: "Set Boost window master toggle, 5h window start, and applies-to sources.",
                     params: [
                         .init("enabled", type: "boolean", summary: "Turn Boost window on or off."),
                         .init("windowStart", summary: "Window start as HH:MM or minutes-from-midnight (snapped to 15m)."),
@@ -299,12 +294,12 @@ public extension ContractRegistry {
                     ],
                     outputSchema: .boostWindowSettingsJSON,
                     errors: ["CLI_USAGE_ERROR", "INTERNAL_ERROR"], idempotency: .notIdempotent),
-        MCPToolSpec("utilization_boost_seed", command: "utilization boost seed", summary: "Force one utilization seed for a configured source (probe scratch, non-mutating).",
+        MCPToolSpec("boost_window_seed", command: "boost-window seed", summary: "Force one Boost window seed for a configured source (probe scratch, non-mutating).",
                     params: [.init("sourceId", required: true, summary: "Driver id (e.g. claude_code, codex).")],
                     outputSchema: .utilizationSeedEventJSON,
                     errors: ["CLI_USAGE_ERROR", "UTILIZATION_SOURCE_NOT_FOUND", "UTILIZATION_SOURCE_UNCONFIGURED", "UTILIZATION_AUTH_REQUIRED", "UTILIZATION_BILLING_PROMPT", "INTERNAL_ERROR"],
                     idempotency: .notIdempotent),
-        MCPToolSpec("utilization_observations_clear", command: "utilization boost observations clear", summary: "Clear local utilization seed observations (all sources or one source).",
+        MCPToolSpec("boost_window_observations_clear", command: "boost-window observations clear", summary: "Clear local Boost window seed observations (all sources or one source).",
                     params: [.init("sourceId", summary: "Optional source id; omit to clear all.")],
                     outputSchema: .utilizationObservationsClearJSON,
                     errors: ["CLI_USAGE_ERROR", "INTERNAL_ERROR"], idempotency: .notIdempotent),
@@ -675,7 +670,7 @@ public extension ContractRegistry {
             args: [ArgSpec("prompt", required: false, summary: "Work prompt (or use --file).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read prompt from a file."),
-                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker id or alias."),
+                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker model id."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
                 FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
                 FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
@@ -715,7 +710,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("prompt", takesValue: true, valueType: "string", summary: "Replacement prompt text."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Replacement prompt file."),
-                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker id or alias."),
+                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker model id."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
                 FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
                 FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
@@ -901,14 +896,14 @@ public extension ContractRegistry {
             flags: [FlagSpec("json", summary: "Emit a DefaultSettingsJSON object.")],
             outputSchema: .defaultSettingsJSON
         ),
-        // Utilization Boost window — rolling-bucket seed placement (Utilization_Window_Priming).
+        // Boost window — rolling-bucket seed placement (Utilization_Window_Priming).
         CommandSpec(
-            "utilization boost show", summary: "Show Boost window settings, derived seed/reset times, provider rows, and display state.", milestone: .m1,
+            "boost-window show", summary: "Show Boost window settings, derived seed/reset times, provider rows, and display state.", milestone: .m1,
             flags: [FlagSpec("json", summary: "Emit a BoostWindowSettingsJSON object.")],
             outputSchema: .boostWindowSettingsJSON
         ),
         CommandSpec(
-            "utilization boost set", summary: "Update Boost window master toggle, 5h window start, and applies-to sources.", milestone: .m1,
+            "boost-window set", summary: "Set Boost window master toggle, 5h window start, and applies-to sources.", milestone: .m1,
             flags: [
                 FlagSpec("enabled", takesValue: true, valueType: "bool", summary: "true | false."),
                 FlagSpec("window-start", takesValue: true, valueType: "time", summary: "HH:MM (snapped to 15m)."),
@@ -918,13 +913,13 @@ public extension ContractRegistry {
             outputSchema: .boostWindowSettingsJSON
         ),
         CommandSpec(
-            "utilization boost seed", summary: "Force one utilization seed for a configured source.", milestone: .m1,
+            "boost-window seed", summary: "Force one Boost window seed for a configured source.", milestone: .m1,
             args: [ArgSpec("source-id", required: true, summary: "Driver id (e.g. claude_code, codex).")],
             flags: [FlagSpec("json", summary: "Emit a UtilizationSeedEvent object.")],
             outputSchema: .utilizationSeedEventJSON
         ),
         CommandSpec(
-            "utilization boost observations clear", summary: "Clear local utilization seed observations.", milestone: .m1,
+            "boost-window observations clear", summary: "Clear local Boost window seed observations.", milestone: .m1,
             flags: [
                 FlagSpec("source", takesValue: true, valueType: "sourceId", summary: "Limit clear to one source."),
                 FlagSpec("json", summary: "Emit a UtilizationObservationsClearJSON object."),
@@ -1059,7 +1054,7 @@ public extension ContractRegistry {
         ErrorSpec("NO_PROJECT_ROOT", ruleId: "run.no_project_root", agentAction: "Restore the project folder or pick an available project root, then retry.", requiresManual: true, retryable: true, explain: "The project repo root is missing or unreadable; runs require a real cwd in the repo."),
         ErrorSpec("WORKER_NOT_READY", ruleId: "run.worker_not_ready", agentAction: "Pick a ready worker or run setup health, then retry.", requiresManual: true, retryable: true, explain: "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready)."),
         ErrorSpec("EXECUTION_TEAM_MIXED_SOURCES", ruleId: "execution.team.mixed_sources", agentAction: "Pick one execution source, run as non-mutating review/propose, or split into judgment then execution.", requiresManual: true, retryable: false, explain: "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn."),
-        // Utilization Boost window (Utilization_Window_Priming).
+        // Boost window (Utilization_Window_Priming).
         ErrorSpec("UTILIZATION_SOURCE_NOT_FOUND", ruleId: "utilization.source.not_found", agentAction: "Run `alln models --json`; use a known driver id in appliesTo.", requiresManual: true, retryable: false, explain: "The utilization source id is not registered on this bench.", exitClass: .usage),
         ErrorSpec("UTILIZATION_SOURCE_UNCONFIGURED", ruleId: "utilization.source.unconfigured", agentAction: "Add the source to Boost window appliesTo, then retry.", requiresManual: true, retryable: false, explain: "The source is not included in the Boost window appliesTo list.", exitClass: .usage),
         ErrorSpec("UTILIZATION_AUTH_REQUIRED", ruleId: "utilization.auth.required", agentAction: "Sign in to the named CLI, then retry the seed.", requiresManual: true, retryable: false, explain: "The seed stopped on an auth prompt. Allnighter never auto-confirms sign-in."),
@@ -1144,9 +1139,9 @@ public extension ContractRegistry {
         ExampleRecipe("thread_send_json", title: "Send message with image and file reference to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --ref Sources/App.swift:10-80 --json"),
         ExampleRecipe("thread_rename_json", title: "Rename a work thread", command: "alln thread rename latest \"Paste-image bug\" --json"),
         ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
-        ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --worker claude --when ready --json \"Review this patch when Claude is available.\""),
+        ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\""),
         ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),
-        ExampleRecipe("utilization_boost_show_json", title: "Show Boost window settings", command: "alln utilization boost show --json"),
-        ExampleRecipe("utilization_boost_set_json", title: "Enable Boost window for Claude and Codex", command: "alln utilization boost set --enabled true --window-start 08:00 --applies-to claude_code,codex --json"),
+        ExampleRecipe("boost_window_show_json", title: "Show Boost window settings", command: "alln boost-window show --json"),
+        ExampleRecipe("boost_window_set_json", title: "Enable Boost window for Claude and Codex", command: "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json"),
     ]
 }

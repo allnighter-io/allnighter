@@ -24,7 +24,7 @@ final class ContractRegistryTests: XCTestCase {
     /// The in-scope M1 command set must equal the documented Milestone Boundary.
     func testM1CommandSetMatchesMilestoneBoundary() {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
-        XCTAssertEqual(m1, [
+        let expected: Set<String> = [
             "docs", "doctor", "doctor explain",
             "models", "models enable", "models disable", "models add", "models update", "models delete",
             "team show",
@@ -44,16 +44,17 @@ final class ContractRegistryTests: XCTestCase {
             "project workers", "project recheck-workers",
             "defaults show", "defaults tier", "defaults assign", "defaults unassign",
             "defaults substitutions", "defaults reset",
-            "utilization boost show", "utilization boost set", "utilization boost seed",
-            "utilization boost observations clear",
+            "boost-window show", "boost-window set", "boost-window seed",
+            "boost-window observations clear",
             "help search", "help get", "help topics",
-        ])
+        ]
+        XCTAssertEqual(m1.sorted(), expected.sorted())
     }
 
     /// MCP tools are a clean projection of M1 commands — no retired vocabulary.
     func testMCPToolsAreCleanAndDeriveFromCommands() {
         let names = reg.mcpTools.map(\.name)
-        XCTAssertEqual(Set(names), [
+        let expected: Set<String> = [
             "mcp_hello", "teams_list", "teams_show", "teams_definition", "teams_duplicate", "teams_save",
             "teams_set_default", "teams_delete", "teams_restore",
             "skills_list", "skills_show", "skills_duplicate", "skills_save", "skills_delete",
@@ -66,12 +67,16 @@ final class ContractRegistryTests: XCTestCase {
             "project_stalled", "stalled_list", "stall_check_status", "stall_keep_waiting", "stall_dismiss",
             "project_list", "project_get", "project_context", "project_workers", "project_recheck_workers",
             "defaults_get",
-            "utilization_boost_status", "utilization_boost_get", "utilization_boost_update",
-            "utilization_boost_seed", "utilization_observations_clear",
+            "boost_window_show", "boost_window_set",
+            "boost_window_seed", "boost_window_observations_clear",
             "help_search", "help_get",
-        ])
+        ]
+        XCTAssertEqual(Set(names).sorted(), expected.sorted())
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         XCTAssertFalse(names.contains("team_presets"))
+        let boostNames = names.filter { $0.contains("boost") || $0.contains("utilization") }
+        XCTAssertFalse(boostNames.contains(where: { $0.contains("_get") || $0.contains("_update") || $0.contains("_status") }),
+                       "Boost-window MCP tools must use the same show/set labels as the CLI contract")
         let deferred = Set(reg.commands.filter { $0.milestone == .deferred }.map(\.name))
         XCTAssertFalse(deferred.contains("team edit"), "retired nested catalog command")
         XCTAssertFalse(deferred.contains("teams edit"), "teams edit is M1 in catalog slice")

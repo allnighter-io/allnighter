@@ -41,7 +41,7 @@ struct AllnighterCLI {
         case "team": await runTeam(args, runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "defaults": await DefaultsCLI.run(args, runtime: runtime)
-        case "utilization": await UtilizationBoostCLI.run(args, runtime: runtime)
+        case "boost-window": await BoostWindowCLI.run(args, runtime: runtime)
         case "help": await HelpCLI.run(args, runtime: runtime)
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
@@ -1056,13 +1056,8 @@ struct AllnighterCLI {
         return loadRun(ref)
     }
 
-    /// MCP tools accept `runId` (team_* family) or `run` (query tools). Prefer `runId`
-    /// when both are present so harnesses using team-style args resolve the intended run.
+    /// Query-style MCP tools accept `run` only; team lifecycle tools use `runId`.
     static func runRef(from args: [String: Any]) -> String {
-        if let runId = args["runId"] as? String {
-            let trimmed = runId.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { return trimmed }
-        }
         if let run = args["run"] as? String {
             let trimmed = run.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed }
@@ -1261,6 +1256,7 @@ struct AllnighterCLI {
           models enable|disable <model-id> [--json]                  toggle Bench membership
           models add --driver <id> --name <name> --model-label <l>   add a custom model
           models update|delete <custom-model-id> [--json]            edit or remove a custom model
+          boost-window show|set|seed|observations [--json]           configure the Boost window
           doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
           doctor explain <code> [--json]                            explain an error/recovery code
           docs [topic] [--errors|--schema|--examples]               generated agent-facing reference
