@@ -357,6 +357,8 @@ Settings is lane-first:
 
 ```text
 CLIs                         <- lane-agnostic; sources/models feed every lane
+Default model                <- lane-agnostic; Auto tier + substitutions
+Boost window                 <- lane-agnostic; utilization seed window (v1)
 
 BUILD
   Teams
@@ -377,6 +379,7 @@ Default landings:
 | --- | --- |
 | Health badge / `N ready` | CLIs |
 | Settings gear | CLIs |
+| Settings **Boost window** | Boost window |
 | Composer Manage team | Current lane's Teams |
 | Composer Customize | Current selected team editor/drawer, not the generic Settings landing |
 

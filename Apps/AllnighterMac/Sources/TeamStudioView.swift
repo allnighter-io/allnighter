@@ -15,6 +15,7 @@ import AllnighterCore
 enum StudioRoute: Hashable {
     case clis
     case defaultModel
+    case boostWindow
     case teams(ComposeLane)
     case skills(ComposeLane)
 }
@@ -53,6 +54,8 @@ struct TeamStudioView: View {
             TeamReadinessView(focusDriverId: nil, onClose: onDone, onAddSource: {})
         case .defaultModel:
             DefaultModelView()
+        case .boostWindow:
+            BoostWindowView()
         case .teams(let lane):
             StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId, startNewTeam: startNewTeam,
                                onOpenDefaultModel: { route = .defaultModel })
@@ -86,6 +89,7 @@ private struct StudioNav: View {
             // Default model (Auto) — lane-agnostic; the model that answers when no team
             // or model is picked, drawn from the substitution tiers.
             item("Default model", icon: "infinity", target: .defaultModel)
+            item("Boost window", icon: "gauge.with.dots.needle.33percent", target: .boostWindow)
 
             ForEach(ComposeLane.allCases, id: \.self) { lane in
                 laneHeader(lane)
