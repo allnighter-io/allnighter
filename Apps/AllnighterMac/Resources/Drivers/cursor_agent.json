@@ -3,6 +3,7 @@
   "manifestVersion": 1,
   "displayName": "Cursor Agent",
   "kind": "headless_cli",
+  "maxConcurrentSpawns": 1,
   "detectCommand": "agent --version",
   "smokeTestCommand": "agent -p --output-format text --model composer-2.5 --trust \"Reply with the single token ALLNIGHTER_READY\"",
   "smokeTestExpect": "ALLNIGHTER_READY",

@@ -3,6 +3,7 @@
   "manifestVersion": 1,
   "displayName": "Antigravity",
   "kind": "headless_cli",
+  "maxConcurrentSpawns": 1,
   "detectCommand": "agy --version",
   "smokeTestCommand": "agy --print \"Reply with the single token ALLNIGHTER_READY\" --model \"{{model}}\" --dangerously-skip-permissions",
   "smokeTestExpect": "ALLNIGHTER_READY",

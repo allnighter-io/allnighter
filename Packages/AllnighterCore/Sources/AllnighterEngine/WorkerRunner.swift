@@ -167,6 +167,12 @@ public struct WorkerRunner: Sendable {
         // (docs/phases/setup/01 §4.3, §10), not the bare command on the ambient PATH.
         let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
 
+        // Per-driver spawn gate: fragile CLIs (agy, cursor) declare maxConcurrentSpawns=1
+        // and serialize here; everything else stays ungated. Acquire BEFORE stamping
+        // startedAt so a queued seat's duration excludes its wait. The run is always
+        // timeout-bounded, so the permit is always released and the queue drains.
+        let gateLimit = manifest.maxConcurrentSpawns
+        if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
         let startedAt = now()
         let result = await commandRunner.run(
             command: spawnCommand,
@@ -176,6 +182,7 @@ public struct WorkerRunner: Sendable {
             workingDirectory: spawnWorkingDir,
             timeout: timeoutOverride ?? .seconds(invoke.timeoutSeconds)
         )
+        if gateLimit != nil { await DriverConcurrencyGate.shared.release(driverId: manifest.id) }
         let finishedAt = now()
         return finalize(
             result: result, worker: worker, manifest: manifest, invoke: invoke,
@@ -349,6 +356,11 @@ public struct WorkerRunner: Sendable {
 
             let consume = Task { [self] in
                 defer { if let outputFileURL { try? FileManager.default.removeItem(at: outputFileURL) } }
+                // Per-driver spawn gate (see invoke()): fragile CLIs serialize here; the
+                // streamed run is timeout-bounded so the permit always releases.
+                let gateLimit = manifest.maxConcurrentSpawns
+                if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
+                defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
                 // TTFT: stamp the first visible streamed delta (answer or reasoning) — the
                 // "dead air" the user waits through before anything renders.
                 var firstTokenAt: Date?

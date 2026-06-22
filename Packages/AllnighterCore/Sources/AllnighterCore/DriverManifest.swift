@@ -48,6 +48,15 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
     /// continuity (each turn is a fresh process; continuity falls back to prompt context).
     public var session: Session?
 
+    /// Max simultaneous headless spawns of THIS driver's CLI, process-wide. Absent /
+    /// nil ⇒ unlimited (the default; team fan-out runs all seats in parallel). Set to 1
+    /// for CLIs that cannot survive concurrent headless invocation — proven by the
+    /// concurrency spike (`scripts/cli-concurrency-spike.py`): `antigravity` (agy)
+    /// deadlocks on its singleton `~/.gemini/antigravity-cli/brain` session dir, and
+    /// `cursor_agent` races on its per-invocation `~/.cursor/cli-config.json` temp-rename.
+    /// Enforced at the spawn chokepoint by `DriverConcurrencyGate`.
+    public var maxConcurrentSpawns: Int?
+
     public init(
         id: String,
         manifestVersion: Int = 1,
@@ -63,7 +72,8 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         setup: SetupBlock? = nil,
         projectProbe: ProjectProbe? = nil,
         streaming: Streaming? = nil,
-        session: Session? = nil
+        session: Session? = nil,
+        maxConcurrentSpawns: Int? = nil
     ) {
         self.setup = setup
         self.projectProbe = projectProbe
@@ -80,6 +90,7 @@ public struct DriverManifest: Codable, Sendable, Equatable, Identifiable {
         self.readsImages = readsImages
         self.streaming = streaming
         self.session = session
+        self.maxConcurrentSpawns = maxConcurrentSpawns
     }
 
     /// Worker_Session_Continuity manifest block — how this driver carries one vendor session
