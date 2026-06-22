@@ -172,10 +172,12 @@ Examples: `thread_send_json`.
 Fetch one work thread snapshot.
 
 Arguments:
-- `thread-id` (required) — Thread id.
+- `thread-id` (required) — Thread id or `latest`.
 
 Flags:
 - `--json` — Structured thread JSON.
+
+Output schema: `threadGetJSON`.
 
 Examples: `thread_get_json`.
 
@@ -190,14 +192,29 @@ Arguments:
 Flags:
 - `--json` — Structured thread JSON.
 
+Output schema: `threadGetJSON`.
+
 Examples: `thread_rename_json`.
+
+### `alln thread attachment`
+
+Fetch one thread attachment by id.
+
+Arguments:
+- `thread-id` (required) — Thread id or `latest`.
+- `attachment-id` (required) — Attachment id.
+
+Flags:
+- `--json` — Structured attachment JSON.
+
+Output schema: `threadAttachmentJSON`.
 
 ### `alln thread status`
 
 Poll thread running/attention state.
 
 Arguments:
-- `thread-id` (required) — Thread id.
+- `thread-id` (required) — Thread id or `latest`.
 
 Flags:
 - `--json` — Structured status JSON.
@@ -582,7 +599,7 @@ Arguments:
 
 Flags:
 - `--file <path>` — Read prompt from a file.
-- `--worker <id>` — Target worker id or alias.
+- `--worker <id>` — Target worker model id.
 - `--team <id>` — Team preset id.
 - `--fallback <id>` — Fallback worker id.
 - `--when <when>` — ready | away | manual.
@@ -648,7 +665,7 @@ Arguments:
 Flags:
 - `--prompt <string>` — Replacement prompt text.
 - `--file <path>` — Replacement prompt file.
-- `--worker <id>` — Target worker id or alias.
+- `--worker <id>` — Target worker model id.
 - `--team <id>` — Team preset id.
 - `--fallback <id>` — Fallback worker id.
 - `--when <when>` — ready | away | manual.
@@ -957,7 +974,7 @@ Flags:
 
 Output schema: `defaultSettingsJSON`.
 
-### `alln utilization boost show`
+### `alln boost-window show`
 
 Show Boost window settings, derived seed/reset times, provider rows, and display state.
 
@@ -966,9 +983,9 @@ Flags:
 
 Output schema: `boostWindowSettingsJSON`.
 
-### `alln utilization boost set`
+### `alln boost-window set`
 
-Update Boost window master toggle, 5h window start, and applies-to sources.
+Set Boost window master toggle, 5h window start, and applies-to sources.
 
 Flags:
 - `--enabled <bool>` — true | false.
@@ -978,9 +995,9 @@ Flags:
 
 Output schema: `boostWindowSettingsJSON`.
 
-### `alln utilization boost seed`
+### `alln boost-window seed`
 
-Force one utilization seed for a configured source.
+Force one Boost window seed for a configured source.
 
 Arguments:
 - `source-id` (required) — Driver id (e.g. claude_code, codex).
@@ -990,9 +1007,9 @@ Flags:
 
 Output schema: `utilizationSeedEventJSON`.
 
-### `alln utilization boost observations clear`
+### `alln boost-window observations clear`
 
-Clear local utilization seed observations.
+Clear local Boost window seed observations.
 
 Flags:
 - `--source <sourceId>` — Limit clear to one source.
@@ -1091,6 +1108,7 @@ Output schema: `helpTopicsJSON`.
 | `PERMISSION_REQUIRED` | yes | no | Ask the user for the named permission. |
 | `MCP_CLIENT_UNAPPROVED` | yes | no | Approve or configure the MCP client before retrying. |
 | `ATTACHMENT_HASH_MISMATCH` | yes | no | Re-ingest or re-send the attachment; do not retry with stale bytes. |
+| `ATTACHMENT_NOT_FOUND` | no | no | Use thread_get to list resolved attachments for the turn. |
 | `ATTACHMENT_TOO_MANY` | yes | no | Remove attachments until within the count cap. |
 | `ATTACHMENT_TOO_LARGE` | yes | no | Use a smaller image or fewer attachments. |
 | `ATTACHMENT_UNSUPPORTED_TYPE` | yes | no | Send PNG/JPEG/GIF/WebP only. |
@@ -1191,8 +1209,8 @@ Output schema: `helpTopicsJSON`.
 - `thread_send_json` — Send message with image and file reference to thread: `alln thread send latest "describe this" --image ./shot.png --ref Sources/App.swift:10-80 --json`
 - `thread_rename_json` — Rename a work thread: `alln thread rename latest "Paste-image bug" --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
-- `pending_add_json` — Create a Draft Pending item: `alln pending add --worker claude --when ready --json "Review this patch when Claude is available."`
+- `pending_add_json` — Create a Draft Pending item: `alln pending add --worker model_opus --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`
-- `utilization_boost_show_json` — Show Boost window settings: `alln utilization boost show --json`
-- `utilization_boost_set_json` — Enable Boost window for Claude and Codex: `alln utilization boost set --enabled true --window-start 08:00 --applies-to claude_code,codex --json`
+- `boost_window_show_json` — Show Boost window settings: `alln boost-window show --json`
+- `boost_window_set_json` — Enable Boost window for Claude and Codex: `alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json`
 

@@ -1,0 +1,36 @@
+{
+  "$id" : "https:\/\/allnighter.app\/schemas\/thread-attachment.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "attachmentId" : {
+      "type" : "string"
+    },
+    "byteSize" : {
+      "type" : "integer"
+    },
+    "canonicalPath" : {
+      "type" : "string"
+    },
+    "mimeType" : {
+      "type" : "string"
+    },
+    "missing" : {
+      "type" : "boolean"
+    },
+    "storedSha256" : {
+      "type" : "string"
+    },
+    "threadId" : {
+      "type" : "string"
+    }
+  },
+  "required" : [
+    "threadId",
+    "attachmentId",
+    "canonicalPath",
+    "missing"
+  ],
+  "title" : "ThreadAttachmentGetResponse",
+  "type" : "object"
+}

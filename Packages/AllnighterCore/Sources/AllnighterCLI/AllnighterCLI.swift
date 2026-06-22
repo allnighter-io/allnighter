@@ -29,6 +29,9 @@ struct AllnighterCLI {
         case "skills" where args.first == "delete": runSkillsDelete(Array(args.dropFirst()), runtime)
         case "skills": runSkillCatalog(args, runtime)
         case "thread" where args.first == "send": await ThreadSendCLI.runSend(Array(args.dropFirst()), runtime: runtime)
+        case "thread" where args.first == "get": ThreadCLI.runGet(Array(args.dropFirst()))
+        case "thread" where args.first == "status": ThreadCLI.runStatus(Array(args.dropFirst()))
+        case "thread" where args.first == "attachment": ThreadCLI.runAttachmentGet(Array(args.dropFirst()))
         case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
@@ -1083,8 +1086,14 @@ struct AllnighterCLI {
     /// Default projection context for a persisted run (journal path + reproduce
     /// command derived from the run's own catalog facts).
     static func defaultRunContext(_ run: TeamRun, full: Bool = false) -> TeamRunJSONMapper.Context {
-        let path = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path ?? ""
-        return .init(runJournalPath: path, reproduceCommand: reproduceCommand(run), includeWorkerPromptSnapshots: full)
+        let runDir = try? RunStore().runDirectory(forRunId: run.id)
+        let path = runDir?.appendingPathComponent("run.json").path ?? ""
+        return .init(
+            runJournalPath: path,
+            reproduceCommand: reproduceCommand(run),
+            includeWorkerPromptSnapshots: full,
+            runDirectory: runDir
+        )
     }
 
     /// The Floor projection JSON for a persisted run — shared by `alln floor show`

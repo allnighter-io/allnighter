@@ -521,6 +521,7 @@ private struct MessageCopyFooter: View {
 
 private struct ThreadTurnRow: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(ThreadsViewModel.self) private var threads
     let turn: ThreadTurn
     var isLastTurn: Bool = false
     @State private var hovering = false
@@ -549,6 +550,18 @@ private struct ThreadTurnRow: View {
     private var model: ComposeBenchModel? {
         guard let id = turn.workerId else { return nil }
         return appModel.composeBench.first(where: { $0.id == id })
+    }
+
+    private var resolvedAttachments: [ResolvedThreadAttachment] {
+        threads.resolvedAttachments(threadId: turn.threadId, turn: turn)
+    }
+
+    private var attachmentRow: some View {
+        TimelineAttachmentRow(
+            attachments: resolvedAttachments,
+            thumb: { threads.attachmentThumb(for: $0) },
+            onOpen: { threads.openAttachmentPath($0.canonicalPath) }
+        )
     }
 
     private var workerBubble: some View {
@@ -607,11 +620,13 @@ private struct ThreadTurnRow: View {
                 case .cancelled:
                     Text("Cancelled.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
                 case .done:
-                    // Rich markdown by default; ⌥⌘R (or the footer toggle) flips the whole
-                    // conversation to raw source — one selectable text run you can
-                    // drag-select across (auto-copies). The footer carries both controls.
-                    AnswerBody(markdown: turn.text ?? "")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !resolvedAttachments.isEmpty {
+                        attachmentRow
+                    }
+                    if let text = turn.text, !text.isEmpty {
+                        AnswerBody(markdown: text)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -635,14 +650,19 @@ private struct ThreadTurnRow: View {
                     Text(turn.createdAt, format: .dateTime.hour().minute())
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                 }
-                Text(turn.text ?? "")
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(ALColor.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .padding(.horizontal, 14).padding(.vertical, 10)
-                    .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-                    .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
-                    .textSelection(.enabled)
+                if !resolvedAttachments.isEmpty {
+                    attachmentRow
+                }
+                if let text = turn.text, !text.isEmpty {
+                    Text(text)
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(ALColor.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+                        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+                        .textSelection(.enabled)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -729,7 +749,18 @@ private struct ThreadBoardRow: View {
 
     @ViewBuilder private var board: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let run, run.status.isTerminal {
+            if turn.kind == .designBoard, let run, let board = run.latestStage(.board)?.payload?.board {
+                DesignBoardTileStrip(
+                    board: board,
+                    runDirectory: threads.runDirectory(forRunId: run.id),
+                    onOpenBoard: { openFloor(run) }
+                )
+            } else if turn.kind == .designBoard, run != nil {
+                Text("Design board payload is not available yet.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(ALColor.textMuted)
+            }
+            if let run, run.status.isTerminal, turn.kind != .designBoard {
                 Button { openFloor(run) } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "rectangle.split.3x1.fill").font(.system(size: 10))
@@ -744,7 +775,7 @@ private struct ThreadBoardRow: View {
                 .buttonStyle(.plain)
                 .help("Open the full reader: every worker answer, synthesis, and receipts")
             }
-            if let synthesis {
+            if let synthesis, turn.kind != .designBoard {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("RECOMMENDATION").font(.system(size: 9, weight: .semibold)).tracking(0.6)
                         .foregroundStyle(ALColor.accentText)
@@ -756,8 +787,10 @@ private struct ThreadBoardRow: View {
                 .background(ALColor.active, in: RoundedRectangle(cornerRadius: ALRadius.lg))
                 .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
             }
-            ForEach(run?.workerAnswers ?? []) { answer in
-                answerCard(answer)
+            if turn.kind != .designBoard {
+                ForEach(run?.workerAnswers ?? []) { answer in
+                    answerCard(answer)
+                }
             }
         }
     }

@@ -427,7 +427,7 @@
         {
           "name" : "thread-id",
           "required" : true,
-          "summary" : "Thread id."
+          "summary" : "Thread id or `latest`."
         }
       ],
       "exampleIds" : [
@@ -445,7 +445,7 @@
 
       ],
       "name" : "thread get",
-      "outputSchema" : "none",
+      "outputSchema" : "threadGetJSON",
       "summary" : "Fetch one work thread snapshot."
     },
     {
@@ -476,7 +476,7 @@
 
       ],
       "name" : "thread rename",
-      "outputSchema" : "none",
+      "outputSchema" : "threadGetJSON",
       "summary" : "Rename a work thread (same SSOT as the inbox double-click rename)."
     },
     {
@@ -484,7 +484,38 @@
         {
           "name" : "thread-id",
           "required" : true,
-          "summary" : "Thread id."
+          "summary" : "Thread id or `latest`."
+        },
+        {
+          "name" : "attachment-id",
+          "required" : true,
+          "summary" : "Attachment id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured attachment JSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "thread attachment",
+      "outputSchema" : "threadAttachmentJSON",
+      "summary" : "Fetch one thread attachment by id."
+    },
+    {
+      "args" : [
+        {
+          "name" : "thread-id",
+          "required" : true,
+          "summary" : "Thread id or `latest`."
         }
       ],
       "exampleIds" : [
@@ -1461,7 +1492,7 @@
         },
         {
           "name" : "worker",
-          "summary" : "Target worker id or alias.",
+          "summary" : "Target worker model id.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -1630,7 +1661,7 @@
         },
         {
           "name" : "worker",
-          "summary" : "Target worker id or alias.",
+          "summary" : "Target worker model id.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -2400,7 +2431,7 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "utilization boost show",
+      "name" : "boost-window show",
       "outputSchema" : "boostWindowSettingsJSON",
       "summary" : "Show Boost window settings, derived seed\/reset times, provider rows, and display state."
     },
@@ -2440,9 +2471,9 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "utilization boost set",
+      "name" : "boost-window set",
       "outputSchema" : "boostWindowSettingsJSON",
-      "summary" : "Update Boost window master toggle, 5h window start, and applies-to sources."
+      "summary" : "Set Boost window master toggle, 5h window start, and applies-to sources."
     },
     {
       "args" : [
@@ -2466,9 +2497,9 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "utilization boost seed",
+      "name" : "boost-window seed",
       "outputSchema" : "utilizationSeedEventJSON",
-      "summary" : "Force one utilization seed for a configured source."
+      "summary" : "Force one Boost window seed for a configured source."
     },
     {
       "args" : [
@@ -2494,9 +2525,9 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "utilization boost observations clear",
+      "name" : "boost-window observations clear",
       "outputSchema" : "utilizationObservationsClearJSON",
-      "summary" : "Clear local utilization seed observations."
+      "summary" : "Clear local Boost window seed observations."
     },
     {
       "args" : [
@@ -3106,6 +3137,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "attachment.hash.mismatch"
+    },
+    {
+      "agentAction" : "Use thread_get to list resolved attachments for the turn.",
+      "code" : "ATTACHMENT_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No attachment record exists for the requested id.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "attachment.not_found"
     },
     {
       "agentAction" : "Remove attachments until within the count cap.",
@@ -3740,7 +3780,7 @@
       "title" : "Coordinator health"
     },
     {
-      "command" : "alln pending add --worker claude --when ready --json \"Review this patch when Claude is available.\"",
+      "command" : "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\"",
       "id" : "pending_add_json",
       "title" : "Create a Draft Pending item"
     },
@@ -3750,13 +3790,13 @@
       "title" : "List Pending items"
     },
     {
-      "command" : "alln utilization boost show --json",
-      "id" : "utilization_boost_show_json",
+      "command" : "alln boost-window show --json",
+      "id" : "boost_window_show_json",
       "title" : "Show Boost window settings"
     },
     {
-      "command" : "alln utilization boost set --enabled true --window-start 08:00 --applies-to claude_code,codex --json",
-      "id" : "utilization_boost_set_json",
+      "command" : "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json",
+      "id" : "boost_window_set_json",
       "title" : "Enable Boost window for Claude and Codex"
     }
   ],
@@ -4238,12 +4278,6 @@
           "type" : "string"
         },
         {
-          "name" : "full",
-          "required" : false,
-          "summary" : "Alias for detail=full.",
-          "type" : "string"
-        },
-        {
           "name" : "includePrompts",
           "required" : false,
           "summary" : "When true, embed worker prompt snapshots.",
@@ -4512,12 +4546,6 @@
           "type" : "string"
         },
         {
-          "name" : "runId",
-          "required" : false,
-          "summary" : "Alias for `run` (team-style harness args).",
-          "type" : "string"
-        },
-        {
           "name" : "detail",
           "required" : false,
           "summary" : "summary | full | artifactRefsOnly (default summary).",
@@ -4540,12 +4568,6 @@
           "name" : "run",
           "required" : false,
           "summary" : "Run id or `latest` (default latest).",
-          "type" : "string"
-        },
-        {
-          "name" : "runId",
-          "required" : false,
-          "summary" : "Alias for `run` (team-style harness args).",
           "type" : "string"
         }
       ],
@@ -4676,12 +4698,12 @@
       ],
       "idempotency" : "idempotent",
       "name" : "thread_get",
-      "outputSchema" : "none",
+      "outputSchema" : "threadGetJSON",
       "params" : [
         {
           "name" : "threadId",
           "required" : true,
-          "summary" : "Thread id.",
+          "summary" : "Thread id or `latest`.",
           "type" : "string"
         }
       ],
@@ -4695,7 +4717,7 @@
       ],
       "idempotency" : "idempotent",
       "name" : "thread_rename",
-      "outputSchema" : "none",
+      "outputSchema" : "threadGetJSON",
       "params" : [
         {
           "name" : "threadId",
@@ -4725,11 +4747,37 @@
         {
           "name" : "threadId",
           "required" : true,
-          "summary" : "Thread id.",
+          "summary" : "Thread id or `latest`.",
           "type" : "string"
         }
       ],
       "summary" : "Poll thread running\/attention state."
+    },
+    {
+      "command" : "thread attachment",
+      "errors" : [
+        "THREAD_NOT_FOUND",
+        "ATTACHMENT_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "thread_attachment_get",
+      "outputSchema" : "threadAttachmentJSON",
+      "params" : [
+        {
+          "name" : "threadId",
+          "required" : true,
+          "summary" : "Thread id or `latest`.",
+          "type" : "string"
+        },
+        {
+          "name" : "attachmentId",
+          "required" : true,
+          "summary" : "Attachment id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Fetch one thread attachment by id."
     },
     {
       "command" : "pending list",
@@ -4835,7 +4883,7 @@
         {
           "name" : "worker",
           "required" : false,
-          "summary" : "Target worker id or alias.",
+          "summary" : "Target worker model id.",
           "type" : "string"
         },
         {
@@ -5148,39 +5196,26 @@
       "summary" : "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness)."
     },
     {
-      "command" : "utilization boost show",
+      "command" : "boost-window show",
       "errors" : [
         "CLI_USAGE_ERROR"
       ],
       "idempotency" : "idempotent",
-      "name" : "utilization_boost_status",
+      "name" : "boost_window_show",
       "outputSchema" : "boostWindowSettingsJSON",
       "params" : [
 
       ],
-      "summary" : "Read Boost window settings, derived seed\/reset times, provider rows, and display state."
+      "summary" : "Show Boost window settings, derived seed\/reset times, provider rows, and display state."
     },
     {
-      "command" : "utilization boost show",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "utilization_boost_get",
-      "outputSchema" : "boostWindowSettingsJSON",
-      "params" : [
-
-      ],
-      "summary" : "Alias of utilization_boost_status — full BoostWindowSettingsJSON projection."
-    },
-    {
-      "command" : "utilization boost set",
+      "command" : "boost-window set",
       "errors" : [
         "CLI_USAGE_ERROR",
         "INTERNAL_ERROR"
       ],
       "idempotency" : "not_idempotent",
-      "name" : "utilization_boost_update",
+      "name" : "boost_window_set",
       "outputSchema" : "boostWindowSettingsJSON",
       "params" : [
         {
@@ -5202,10 +5237,10 @@
           "type" : "string"
         }
       ],
-      "summary" : "Update Boost window master toggle, 5h window start, and applies-to sources."
+      "summary" : "Set Boost window master toggle, 5h window start, and applies-to sources."
     },
     {
-      "command" : "utilization boost seed",
+      "command" : "boost-window seed",
       "errors" : [
         "CLI_USAGE_ERROR",
         "UTILIZATION_SOURCE_NOT_FOUND",
@@ -5215,7 +5250,7 @@
         "INTERNAL_ERROR"
       ],
       "idempotency" : "not_idempotent",
-      "name" : "utilization_boost_seed",
+      "name" : "boost_window_seed",
       "outputSchema" : "utilizationSeedEventJSON",
       "params" : [
         {
@@ -5225,16 +5260,16 @@
           "type" : "string"
         }
       ],
-      "summary" : "Force one utilization seed for a configured source (probe scratch, non-mutating)."
+      "summary" : "Force one Boost window seed for a configured source (probe scratch, non-mutating)."
     },
     {
-      "command" : "utilization boost observations clear",
+      "command" : "boost-window observations clear",
       "errors" : [
         "CLI_USAGE_ERROR",
         "INTERNAL_ERROR"
       ],
       "idempotency" : "not_idempotent",
-      "name" : "utilization_observations_clear",
+      "name" : "boost_window_observations_clear",
       "outputSchema" : "utilizationObservationsClearJSON",
       "params" : [
         {
@@ -5244,7 +5279,7 @@
           "type" : "string"
         }
       ],
-      "summary" : "Clear local utilization seed observations (all sources or one source)."
+      "summary" : "Clear local Boost window seed observations (all sources or one source)."
     },
     {
       "command" : "help search",

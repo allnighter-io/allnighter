@@ -1,0 +1,137 @@
+{
+  "$defs" : {
+    "ResolvedThreadAttachment" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "attachmentId" : {
+          "type" : "string"
+        },
+        "byteSize" : {
+          "type" : "integer"
+        },
+        "canonicalPath" : {
+          "type" : "string"
+        },
+        "mimeType" : {
+          "type" : "string"
+        },
+        "missing" : {
+          "type" : "boolean"
+        },
+        "sequence" : {
+          "type" : "integer"
+        },
+        "sourceKind" : {
+          "type" : "string"
+        },
+        "storedSha256" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "attachmentId",
+        "sequence",
+        "canonicalPath",
+        "missing"
+      ],
+      "type" : "object"
+    },
+    "ThreadTurnProjection" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "attachmentRefs" : {
+          "items" : {
+            "additionalProperties" : false,
+            "properties" : {
+              "attachmentId" : {
+                "type" : "string"
+              },
+              "sequence" : {
+                "type" : "integer"
+              }
+            },
+            "required" : [
+              "attachmentId",
+              "sequence"
+            ],
+            "type" : "object"
+          },
+          "type" : "array"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string"
+        },
+        "resolvedAttachments" : {
+          "items" : {
+            "$ref" : "#\/$defs\/ResolvedThreadAttachment"
+          },
+          "type" : "array"
+        },
+        "status" : {
+          "type" : "string"
+        },
+        "text" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "id",
+        "kind",
+        "status",
+        "resolvedAttachments"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/thread-get.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "createdAt" : {
+      "type" : "string"
+    },
+    "formatVersion" : {
+      "type" : "integer"
+    },
+    "id" : {
+      "type" : "string"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "title" : {
+      "type" : "string"
+    },
+    "turns" : {
+      "items" : {
+        "$ref" : "#\/$defs\/ThreadTurnProjection"
+      },
+      "type" : "array"
+    },
+    "updatedAt" : {
+      "type" : "string"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "id",
+    "title",
+    "status",
+    "turns"
+  ],
+  "title" : "ThreadGetResponse",
+  "type" : "object"
+}

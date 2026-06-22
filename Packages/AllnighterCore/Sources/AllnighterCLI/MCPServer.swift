@@ -292,13 +292,16 @@ struct MCPServer {
                 respondToolError(id: id, code: envelope.code, message: envelope.message)
             }
         case "thread_get":
-            guard let threadId = args["threadId"] as? String else {
+            guard let threadRef = args["threadId"] as? String else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "threadId required")
             }
-            guard let thread = ThreadStore().get(threadId) else {
-                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "thread not found")
+            let store = ThreadStore()
+            guard let threadId = AllnighterCLI.resolveThreadId(threadRef, store: store),
+                  let thread = store.get(threadId) else {
+                return respondToolError(id: id, code: "THREAD_NOT_FOUND", message: "thread not found")
             }
-            respond(id: id, result: toolText(thread.title, structured: AllnighterCLI.jsonString(thread)))
+            let projection = ThreadCLI.project(thread: thread, threadId: threadId, store: store)
+            respond(id: id, result: toolText(projection.title, structured: AllnighterCLI.jsonString(projection)))
         case "thread_rename":
             guard let threadRef = args["threadId"] as? String else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "threadId required")
@@ -322,15 +325,36 @@ struct MCPServer {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "\(error)")
             }
         case "thread_status":
-            guard let threadId = args["threadId"] as? String else {
+            guard let threadRef = args["threadId"] as? String else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "threadId required")
             }
-            guard let thread = ThreadStore().get(threadId) else {
-                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "thread not found")
+            let store = ThreadStore()
+            guard let threadId = AllnighterCLI.resolveThreadId(threadRef, store: store),
+                  let thread = store.get(threadId) else {
+                return respondToolError(id: id, code: "THREAD_NOT_FOUND", message: "thread not found")
             }
-            let running = thread.isRunning
-            let status = ThreadStatusResponse(threadId: threadId, isRunning: running, needsAttention: thread.needsAttention)
-            respond(id: id, result: toolText(running ? "running" : "idle", structured: AllnighterCLI.jsonString(status)))
+            let status = ThreadStatusResponse(threadId: threadId, isRunning: thread.isRunning, needsAttention: thread.needsAttention)
+            respond(id: id, result: toolText(thread.isRunning ? "running" : "idle", structured: AllnighterCLI.jsonString(status)))
+        case "thread_attachment_get":
+            guard let threadRef = args["threadId"] as? String,
+                  let attachmentId = args["attachmentId"] as? String else {
+                return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "threadId and attachmentId required")
+            }
+            let store = ThreadStore()
+            guard let threadId = AllnighterCLI.resolveThreadId(threadRef, store: store) else {
+                return respondToolError(id: id, code: "THREAD_NOT_FOUND", message: "thread not found")
+            }
+            do {
+                let dir = try store.threadDirectory(forThreadId: threadId)
+                guard let response = ThreadAttachmentResolver.attachmentGet(
+                    threadId: threadId, attachmentId: attachmentId, threadDirectory: dir
+                ) else {
+                    return respondToolError(id: id, code: "ATTACHMENT_NOT_FOUND", message: "attachment not found")
+                }
+                respond(id: id, result: toolText(response.canonicalPath, structured: AllnighterCLI.jsonString(response)))
+            } catch {
+                return respondToolError(id: id, code: "THREAD_NOT_FOUND", message: "\(error)")
+            }
         case "pending_list":
             respondPending(id: id, outcome: MCPPendingHandlers.list(runtime: runtime, args: args))
         case "pending_queue":

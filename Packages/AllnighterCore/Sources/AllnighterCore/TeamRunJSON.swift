@@ -17,6 +17,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var models: [ModelInfo]
     public var workers: [WorkerInfo]
     public var workerAnswers: [AnswerInfo]
+    public var designBoard: DesignBoard?
     public var stages: [StageInfo]
     public var plan: Plan?
     public var usage: Usage
@@ -32,6 +33,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         models: [ModelInfo],
         workers: [WorkerInfo],
         workerAnswers: [AnswerInfo],
+        designBoard: DesignBoard? = nil,
         stages: [StageInfo],
         plan: Plan?,
         usage: Usage,
@@ -46,6 +48,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.models = models
         self.workers = workers
         self.workerAnswers = workerAnswers
+        self.designBoard = designBoard
         self.stages = stages
         self.plan = plan
         self.usage = usage
@@ -172,10 +175,70 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var status: Status
         public var durationMs: Int?
         public var markdown: String?
+        /// Absolute path when `markdown` is a run-relative design image file.
+        public var outputAbsolutePath: String?
         public var error: ErrorEnvelope?
-        public init(workerId: String, modelId: String? = nil, status: Status, durationMs: Int? = nil, markdown: String? = nil, error: ErrorEnvelope? = nil) {
+        public init(
+            workerId: String, modelId: String? = nil, status: Status, durationMs: Int? = nil,
+            markdown: String? = nil, outputAbsolutePath: String? = nil, error: ErrorEnvelope? = nil
+        ) {
             self.workerId = workerId; self.modelId = modelId; self.status = status
-            self.durationMs = durationMs; self.markdown = markdown; self.error = error
+            self.durationMs = durationMs; self.markdown = markdown
+            self.outputAbsolutePath = outputAbsolutePath; self.error = error
+        }
+    }
+
+    /// Structured design board projection for design-lane runs.
+    public struct DesignBoard: Codable, Equatable, Sendable {
+        public var targetShape: String
+        public var screenshotPath: String?
+        public var screenshotAbsolutePath: String?
+        public var options: [DesignBoardOption]
+        public var chosen: DesignBoardChosen?
+
+        public init(
+            targetShape: String,
+            screenshotPath: String? = nil,
+            screenshotAbsolutePath: String? = nil,
+            options: [DesignBoardOption],
+            chosen: DesignBoardChosen? = nil
+        ) {
+            self.targetShape = targetShape
+            self.screenshotPath = screenshotPath
+            self.screenshotAbsolutePath = screenshotAbsolutePath
+            self.options = options
+            self.chosen = chosen
+        }
+    }
+
+    public struct DesignBoardOption: Codable, Equatable, Sendable {
+        public var workerId: String
+        public var modelId: String
+        public var persona: String
+        public var imagePath: String?
+        public var absolutePath: String?
+        public var status: Status
+        public var failureReason: String?
+        public var sessionId: String?
+
+        public init(
+            workerId: String, modelId: String, persona: String, imagePath: String? = nil,
+            absolutePath: String? = nil, status: Status, failureReason: String? = nil,
+            sessionId: String? = nil
+        ) {
+            self.workerId = workerId; self.modelId = modelId; self.persona = persona
+            self.imagePath = imagePath; self.absolutePath = absolutePath; self.status = status
+            self.failureReason = failureReason; self.sessionId = sessionId
+        }
+    }
+
+    public struct DesignBoardChosen: Codable, Equatable, Sendable {
+        public var workerId: String
+        public var persona: String
+        public var chosenAt: String?
+
+        public init(workerId: String, persona: String, chosenAt: String? = nil) {
+            self.workerId = workerId; self.persona = persona; self.chosenAt = chosenAt
         }
     }
 

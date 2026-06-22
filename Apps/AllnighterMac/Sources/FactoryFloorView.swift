@@ -1,5 +1,6 @@
 import SwiftUI
 import AllnighterCore
+import AllnighterEngine
 
 // MARK: - Factory Floor reader (docs/phases/wiring/design_handoff_team_reader)
 
@@ -45,6 +46,8 @@ struct FactoryFloorView: View {
         cast.first { $0.id == selectedMemberId } ?? cast.first
     }
     private var floor: FloorRun { FloorProjector.project(run) }
+    private var runDirectory: URL? { try? RunStore().runDirectory(forRunId: run.id) }
+    private var isDesignRun: Bool { run.lane == .design || run.outputKind == .designBoard }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -80,6 +83,14 @@ struct FactoryFloorView: View {
     private func flashCopied() {
         copiedFlash = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copiedFlash = false }
+    }
+
+    private var boardChosenWorkerId: String? {
+        run.latestStage(.board)?.payload?.board?.chosen?.workerId
+    }
+
+    private func designOption(for workerId: String) -> DesignOption? {
+        run.latestStage(.board)?.payload?.board?.options.first { $0.workerId == workerId }
     }
 
     // MARK: Cast rail
@@ -148,6 +159,20 @@ struct FactoryFloorView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(ALPalette.red400.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                         }
+                        if isDesignRun, !member.isLead, let option = designOption(for: member.id) {
+                            DesignMockupTile(
+                                persona: option.persona,
+                                imagePath: option.imagePath.flatMap { runDirectory?.appendingPathComponent($0).path },
+                                absolutePath: option.imagePath.flatMap { rel in
+                                    runDirectory.flatMap { RunImagePathResolver.absolutePath(runDirectory: $0, relativePath: rel) }
+                                },
+                                isChosen: boardChosenWorkerId == option.workerId,
+                                failed: !option.hasImage,
+                                failureReason: option.failureReason,
+                                size: CGSize(width: 220, height: 320),
+                                onOpen: nil
+                            )
+                        }
                         if rawMode {
                             // Native selectable raw source — drag-select across the whole
                             // answer (paragraphs/headings/code), auto-copy on drag-select.
@@ -156,7 +181,7 @@ struct FactoryFloorView: View {
                                 .padding(18)
                                 .background(ALColor.surface, in: RoundedRectangle(cornerRadius: 10))
                                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
-                        } else {
+                        } else if !(isDesignRun && !member.isLead && designOption(for: member.id)?.hasImage == true) {
                             MarkdownText(markdown: member.markdown)
                         }
                         // Copy button at the BOTTOM of every worker answer (bug #6).

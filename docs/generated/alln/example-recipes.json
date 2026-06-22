@@ -105,7 +105,7 @@
     "title" : "Coordinator health"
   },
   {
-    "command" : "alln pending add --worker claude --when ready --json \"Review this patch when Claude is available.\"",
+    "command" : "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\"",
     "id" : "pending_add_json",
     "title" : "Create a Draft Pending item"
   },
@@ -115,13 +115,13 @@
     "title" : "List Pending items"
   },
   {
-    "command" : "alln utilization boost show --json",
-    "id" : "utilization_boost_show_json",
+    "command" : "alln boost-window show --json",
+    "id" : "boost_window_show_json",
     "title" : "Show Boost window settings"
   },
   {
-    "command" : "alln utilization boost set --enabled true --window-start 08:00 --applies-to claude_code,codex --json",
-    "id" : "utilization_boost_set_json",
+    "command" : "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json",
+    "id" : "boost_window_set_json",
     "title" : "Enable Boost window for Claude and Codex"
   }
 ]

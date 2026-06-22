@@ -23,8 +23,9 @@ enum ThreadRenameCLI {
 
         do {
             let thread = try store.renameThread(threadId: threadId, title: title)
+            let projection = ThreadCLI.project(thread: thread, threadId: threadId, store: store)
             if opts.flag("json") {
-                print(AllnighterCLI.jsonString(thread))
+                print(AllnighterCLI.jsonString(projection))
             } else {
                 print("renamed \(thread.id) → \(thread.title)")
             }

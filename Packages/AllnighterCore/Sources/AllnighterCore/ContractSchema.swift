@@ -494,6 +494,47 @@ public enum ContractSchema {
         return schema
     }
 
+    public static func threadGetSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/thread-get.schema.json",
+            "title": "ThreadGetResponse",
+        ]
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str, "formatVersion": int,
+            "id": str, "title": str, "status": str, "createdAt": str, "updatedAt": str,
+            "turns": arr(ref("ThreadTurnProjection")),
+        ], required: ["schemaVersion", "contractVersion", "id", "title", "status", "turns"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "ThreadTurnProjection": obj([
+                "id": str, "kind": str, "status": str, "text": nullable("string"),
+                "attachmentRefs": arr(obj(["attachmentId": str, "sequence": int], required: ["attachmentId", "sequence"])),
+                "resolvedAttachments": arr(ref("ResolvedThreadAttachment")),
+            ], required: ["id", "kind", "status", "resolvedAttachments"]),
+            "ResolvedThreadAttachment": obj([
+                "attachmentId": str, "sequence": int, "canonicalPath": str,
+                "storedSha256": str, "mimeType": str, "sourceKind": str,
+                "byteSize": int, "missing": bool,
+            ], required: ["attachmentId", "sequence", "canonicalPath", "missing"]),
+        ]
+        return schema
+    }
+
+    public static func threadAttachmentSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/thread-attachment.schema.json",
+            "title": "ThreadAttachmentGetResponse",
+        ]
+        let top = obj([
+            "threadId": str, "attachmentId": str, "canonicalPath": str,
+            "storedSha256": str, "mimeType": str, "byteSize": int, "missing": bool,
+        ], required: ["threadId", "attachmentId", "canonicalPath", "missing"])
+        schema.merge(top) { _, new in new }
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

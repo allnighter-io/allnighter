@@ -16,16 +16,20 @@ public enum TeamRunJSONMapper {
         public var runJournalPath: String
         public var reproduceCommand: String?
         public var includeWorkerPromptSnapshots: Bool
+        /// Run folder for resolving design image absolute paths.
+        public var runDirectory: URL?
         public init(
             promptSource: TeamRunJSON.PromptSource = .init(kind: .positional),
             lane: String? = nil, type: String? = nil, effort: String? = nil,
             runJournalPath: String, reproduceCommand: String? = nil,
-            includeWorkerPromptSnapshots: Bool = false
+            includeWorkerPromptSnapshots: Bool = false,
+            runDirectory: URL? = nil
         ) {
             self.promptSource = promptSource; self.lane = lane; self.type = type
             self.effort = effort; self.runJournalPath = runJournalPath
             self.reproduceCommand = reproduceCommand
             self.includeWorkerPromptSnapshots = includeWorkerPromptSnapshots
+            self.runDirectory = runDirectory
         }
     }
 
@@ -47,12 +51,20 @@ public enum TeamRunJSONMapper {
         }
 
         let answers = run.workerAnswers.map { a in
-            TeamRunJSON.AnswerInfo(
+            let outputAbsolute: String? = {
+                guard let output = a.output, let dir = context.runDirectory,
+                      RunImagePathResolver.isImagePath(output) else { return nil }
+                return RunImagePathResolver.absolutePath(runDirectory: dir, relativePath: output)
+            }()
+            return TeamRunJSON.AnswerInfo(
                 workerId: a.workerId, modelId: a.modelId, status: mapWorker(a.status),
                 durationMs: a.durationMs, markdown: a.output,
+                outputAbsolutePath: outputAbsolute,
                 error: errorEnvelope(for: a, runId: run.id)
             )
         }
+
+        let designBoard = mapDesignBoard(run, runDirectory: context.runDirectory)
 
         let stages = run.stages.compactMap { mapStage($0) }
 
@@ -96,6 +108,7 @@ public enum TeamRunJSONMapper {
         return TeamRunJSON(
             contractVersion: ContractRegistry.contractVersion,
             teamRun: info, models: modelInfos, workers: workers, workerAnswers: answers,
+            designBoard: designBoard,
             stages: stages, plan: plan, usage: usage,
             warnings: run.warnings.map { TeamRunJSON.Warning(message: $0) }, errors: [],
             nextActions: [
@@ -197,4 +210,41 @@ public enum TeamRunJSONMapper {
         f.formatOptions = [.withInternetDateTime]
         return f.string(from: date)
     }
+
+    static func mapDesignBoard(_ run: TeamRun, runDirectory: URL?) -> TeamRunJSON.DesignBoard? {
+        let isDesign = run.lane == .design || run.outputKind == .designBoard
+        guard isDesign, let board = run.latestStage(.board)?.payload?.board else { return nil }
+        let screenshotAbsolute = board.screenshotPath.flatMap { rel in
+            runDirectory.flatMap { RunImagePathResolver.absolutePath(runDirectory: $0, relativePath: rel) }
+        }
+        let options = board.options.map { opt in
+            TeamRunJSON.DesignBoardOption(
+                workerId: opt.workerId,
+                modelId: opt.modelId,
+                persona: opt.persona,
+                imagePath: opt.imagePath,
+                absolutePath: opt.imagePath.flatMap { rel in
+                    runDirectory.flatMap { RunImagePathResolver.absolutePath(runDirectory: $0, relativePath: rel) }
+                },
+                status: mapStage(status: opt.status),
+                failureReason: opt.failureReason,
+                sessionId: opt.sessionId
+            )
+        }
+        let chosen = board.chosen.map { c in
+            TeamRunJSON.DesignBoardChosen(
+                workerId: c.workerId,
+                persona: c.persona,
+                chosenAt: c.chosenAt.map(isoString)
+            )
+        }
+        return TeamRunJSON.DesignBoard(
+            targetShape: board.targetShape.rawValue,
+            screenshotPath: board.screenshotPath,
+            screenshotAbsolutePath: screenshotAbsolute,
+            options: options,
+            chosen: chosen
+        )
+    }
+
 }

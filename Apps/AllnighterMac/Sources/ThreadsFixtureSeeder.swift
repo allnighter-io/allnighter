@@ -34,6 +34,12 @@ struct ThreadsFixtureSeeder {
             seedFixtureStreamingBuild()
         case "thread-thinking-history":
             seedFixtureThinkingHistory()
+        case "thread-user-image-attachment":
+            seedFixtureUserImageAttachment()
+        case "thread-worker-image-reply":
+            seedFixtureWorkerImageReply()
+        case "thread-design-board-fanout":
+            seedFixtureDesignBoardFanout()
         case "home-thread-states":
             seedFixtureThreadStates()
             setSelectedThreadId(nil)
@@ -460,6 +466,157 @@ struct ThreadsFixtureSeeder {
         _ = try? store.appendTurn(mutatingRun, toThreadId: id, now: Date())
         reload()
         setSelectedThreadId(id)
+    }
+
+    private func seedFixtureUserImageAttachment() {
+        let id = "fixture-user-image"
+        _ = try? store.create(id: id, title: "Screenshot for profile refresh", now: Date())
+        do {
+            let ref = try commitFixtureAttachment(
+                threadId: id, attachmentId: "fixture-user-img", sequence: 0, sourceKind: .paste
+            )
+            let turn = ThreadTurn(
+                id: "fixture-user-image-turn", threadId: id, kind: .userMessage, status: .done,
+                createdAt: Date(), completedAt: Date(), author: .user,
+                text: "Make this profile feel premium and clean.",
+                attachmentRefs: [ref]
+            )
+            _ = try? store.appendTurn(turn, toThreadId: id, now: Date())
+        } catch {}
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    private func seedFixtureWorkerImageReply() {
+        let id = "fixture-worker-image"
+        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        _ = try? store.create(id: id, title: "Draw a cute cat", now: Date())
+        let user = ThreadTurn(
+            id: "fixture-worker-image-user", threadId: id, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user,
+            text: "Draw a cute cat."
+        )
+        _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+        do {
+            let ref = try commitFixtureAttachment(
+                threadId: id, attachmentId: "fixture-worker-img", sequence: 0,
+                sourceKind: .workerGenerated
+            )
+            let reply = ThreadTurn(
+                id: "fixture-worker-image-reply", threadId: id, kind: .workerChat, status: .done,
+                createdAt: Date(), completedAt: Date(), author: .worker,
+                text: "Here's the photorealistic cat you asked for.",
+                workerId: workerId,
+                attachmentRefs: [ref]
+            )
+            _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
+        } catch {}
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    private func seedFixtureDesignBoardFanout() {
+        let id = "fixture-design-board"
+        _ = try? store.create(id: id, title: "Profile screen options", now: Date())
+        let m0 = models.first?.id ?? "model_grok"
+        let m1 = models.dropFirst().first?.id ?? "model_gemini"
+        let w0 = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 0), modelId: m0,
+                        instanceIndex: 0, skillId: "bold", skillName: "Bold", purpose: .answer)
+        let w1 = Worker(id: Worker.makeID(modelId: m1, instanceIndex: 0), modelId: m1,
+                        instanceIndex: 0, skillId: "minimal", skillName: "Minimal", purpose: .answer)
+        let runId = "fixture-design-run"
+        do {
+            let runDir = try runStore.runDirectory(forRunId: runId)
+            let path0 = "option_\(w0.id).png"
+            let path1 = "option_\(w1.id).png"
+            try FixturePNG.write(to: runDir.appendingPathComponent(path0), hue: 0.08)
+            try FixturePNG.write(to: runDir.appendingPathComponent(path1), hue: 0.55)
+
+            var run = TeamRun(
+                id: runId, prompt: "Make this profile feel premium and clean.",
+                status: .complete, origin: .gui, presetId: "design_core",
+                workers: [w0, w1],
+                workerAnswers: [
+                    WorkerAnswer(workerId: w0.id, modelId: m0, status: .done, output: path0, durationMs: 8000),
+                    WorkerAnswer(workerId: w1.id, modelId: m1, status: .done, output: path1, durationMs: 9000),
+                ],
+                createdAt: Date(),
+                lane: .design,
+                outputKind: .designBoard
+            )
+            run.stages = [
+                StageOutput(
+                    id: "fixture-design-board-stage", purpose: .board, status: .done,
+                    payload: .board(BoardPayload(
+                        targetShape: .mobile,
+                        options: [
+                            DesignOption(workerId: w0.id, modelId: m0, persona: "bold", imagePath: path0, status: .done),
+                            DesignOption(workerId: w1.id, modelId: m1, persona: "minimal", imagePath: path1, status: .done),
+                            DesignOption(workerId: "failed-seat", modelId: m1, persona: "editorial",
+                                         status: .failed, failureReason: "Image gen timed out"),
+                        ],
+                        chosen: ChosenOption(workerId: w1.id, persona: "minimal")
+                    )),
+                    startedAt: Date(), finishedAt: Date()
+                )
+            ]
+            _ = try? runStore.save(run, models: models)
+
+            let user = ThreadTurn(
+                id: "fixture-design-user", threadId: id, kind: .userMessage, status: .done,
+                createdAt: Date(), completedAt: Date(), author: .user,
+                text: "Make this profile feel premium and clean."
+            )
+            let board = ThreadTurn(
+                id: "fixture-design-board-turn", threadId: id, kind: .designBoard, status: .done,
+                createdAt: Date(), completedAt: Date(), author: .worker, runId: runId
+            )
+            _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+            _ = try? store.appendTurn(board, toThreadId: id, now: Date())
+        } catch {}
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    private func commitFixtureAttachment(
+        threadId: String,
+        attachmentId: String,
+        sequence: Int,
+        sourceKind: AttachmentSourceKind
+    ) throws -> TurnAttachmentRef {
+        let dir = try store.threadDirectory(forThreadId: threadId)
+        let attachmentStore = ThreadAttachmentStore(threadDirectory: dir)
+        let png = try FixturePNG.data(hue: sourceKind == .workerGenerated ? 0.62 : 0.12)
+        let ingested = try AttachmentIngestor().ingest(
+            data: png, declaredMIME: "image/png", sourceKind: sourceKind
+        )
+        let (_, ref) = try attachmentStore.commitIngested(
+            ingested: ingested,
+            attachmentId: attachmentId,
+            threadId: threadId,
+            sourceKind: sourceKind,
+            sequence: sequence,
+            originalName: nil,
+            now: Date()
+        )
+        return ref
+    }
+}
+
+private enum FixturePNG {
+    static let base64 =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+
+    static func data(hue: CGFloat = 0) throws -> Data {
+        _ = hue
+        guard let data = Data(base64Encoded: base64) else {
+            throw AttachmentError.decodeFailed
+        }
+        return data
+    }
+
+    static func write(to url: URL, hue: CGFloat = 0) throws {
+        try data(hue: hue).write(to: url)
     }
 }
 #endif

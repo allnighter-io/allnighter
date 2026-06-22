@@ -177,16 +177,25 @@ public extension ContractRegistry {
                     errors: ["THREAD_NOT_FOUND", "THREAD_SEND_IDEMPOTENCY_CONFLICT", "WORKER_FAILED", "THREAD_SEND_FAILED", "ATTACHMENT_TOO_MANY", "ATTACHMENT_TOO_LARGE", "ATTACHMENT_UNSUPPORTED_TYPE", "ATTACHMENT_DECODE_FAILED", "ATTACHMENT_BASE64_INVALID", "ATTACHMENT_HASH_MISMATCH", "ATTACHMENT_STAGE_FAILED", "CONTEXT_ATTACHMENT_CAP_EXCEEDED", "FILE_REFERENCE_PROJECT_ROOT_MISSING", "FILE_REFERENCE_OUTSIDE_PROJECT", "FILE_REFERENCE_NOT_FOUND", "FILE_REFERENCE_UNREADABLE", "FILE_REFERENCE_BINARY_UNSUPPORTED", "FILE_REFERENCE_TOO_LARGE", "FILE_REFERENCE_TOO_MANY", "FILE_REFERENCE_SENSITIVE_BLOCKED", "FILE_REFERENCE_LINE_RANGE_INVALID", "FILE_REFERENCE_CHANGED_BEFORE_INVOKE", "FILE_REFERENCE_CATALOG_STALE", "FILE_REFERENCE_WORKER_UNSUPPORTED", "CLI_USAGE_ERROR"],
                     idempotency: .keyed),
         MCPToolSpec("thread_get", command: "thread get", summary: "Fetch a work thread snapshot.",
-                    params: [.init("threadId", required: true, summary: "Thread id.")],
+                    params: [.init("threadId", required: true, summary: "Thread id or `latest`.")],
+                    outputSchema: .threadGetJSON,
                     errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("thread_rename", command: "thread rename", summary: "Rename a work thread (same SSOT as the inbox double-click rename).",
                     params: [.init("threadId", required: true, summary: "Thread id."),
                              .init("title", required: true, summary: "New non-empty thread title.")],
+                    outputSchema: .threadGetJSON,
                     errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("thread_status", command: "thread status", summary: "Poll thread running/attention state.",
-                    params: [.init("threadId", required: true, summary: "Thread id.")],
+                    params: [.init("threadId", required: true, summary: "Thread id or `latest`.")],
                     outputSchema: .threadStatus,
                     errors: ["THREAD_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
+        MCPToolSpec("thread_attachment_get", command: "thread attachment", summary: "Fetch one thread attachment by id.",
+                    params: [
+                        .init("threadId", required: true, summary: "Thread id or `latest`."),
+                        .init("attachmentId", required: true, summary: "Attachment id."),
+                    ],
+                    outputSchema: .threadAttachmentJSON,
+                    errors: ["THREAD_NOT_FOUND", "ATTACHMENT_NOT_FOUND", "CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("pending_list", command: "pending list", summary: "List Pending items for one Project or the aggregate floor.",
                     params: [
                         .init("project", summary: "Project id or name (optional; omit for --all aggregate)."),
@@ -432,8 +441,9 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "thread get", summary: "Fetch one work thread snapshot.", milestone: .m1,
-            args: [ArgSpec("thread-id", required: true, summary: "Thread id.")],
+            args: [ArgSpec("thread-id", required: true, summary: "Thread id or `latest`.")],
             flags: [FlagSpec("json", summary: "Structured thread JSON.")],
+            outputSchema: .threadGetJSON,
             exampleIds: ["thread_get_json"]
         ),
         CommandSpec(
@@ -441,11 +451,21 @@ public extension ContractRegistry {
             args: [ArgSpec("thread-id", required: true, summary: "Thread id or `latest`."),
                    ArgSpec("title", required: true, summary: "New non-empty thread title.")],
             flags: [FlagSpec("json", summary: "Structured thread JSON.")],
+            outputSchema: .threadGetJSON,
             exampleIds: ["thread_rename_json"]
         ),
         CommandSpec(
+            "thread attachment", summary: "Fetch one thread attachment by id.", milestone: .m1,
+            args: [
+                ArgSpec("thread-id", required: true, summary: "Thread id or `latest`."),
+                ArgSpec("attachment-id", required: true, summary: "Attachment id."),
+            ],
+            flags: [FlagSpec("json", summary: "Structured attachment JSON.")],
+            outputSchema: .threadAttachmentJSON
+        ),
+        CommandSpec(
             "thread status", summary: "Poll thread running/attention state.", milestone: .m1,
-            args: [ArgSpec("thread-id", required: true, summary: "Thread id.")],
+            args: [ArgSpec("thread-id", required: true, summary: "Thread id or `latest`.")],
             flags: [FlagSpec("json", summary: "Structured status JSON.")],
             outputSchema: .threadStatus, exampleIds: ["thread_status_json"]
         ),
@@ -1009,6 +1029,7 @@ public extension ContractRegistry {
         ErrorSpec("PERMISSION_REQUIRED", ruleId: "permission.required", agentAction: "Ask the user for the named permission.", requiresManual: true, retryable: false, explain: "The action needs a user-granted permission that is not present. Request the named permission before retrying."),
         ErrorSpec("MCP_CLIENT_UNAPPROVED", ruleId: "mcp.client.unapproved", agentAction: "Approve or configure the MCP client before retrying.", requiresManual: true, retryable: false, explain: "The calling MCP client is not approved. Approve or configure it, then retry."),
         ErrorSpec("ATTACHMENT_HASH_MISMATCH", ruleId: "attachment.hash.mismatch", agentAction: "Re-ingest or re-send the attachment; do not retry with stale bytes.", requiresManual: true, retryable: false, explain: "Attachment storedSha256 does not match on-disk bytes."),
+        ErrorSpec("ATTACHMENT_NOT_FOUND", ruleId: "attachment.not_found", agentAction: "Use thread_get to list resolved attachments for the turn.", requiresManual: false, retryable: false, explain: "No attachment record exists for the requested id."),
         ErrorSpec("ATTACHMENT_TOO_MANY", ruleId: "attachment.too_many", agentAction: "Remove attachments until within the count cap.", requiresManual: true, retryable: false, explain: "Too many images attached for one send."),
         ErrorSpec("ATTACHMENT_TOO_LARGE", ruleId: "attachment.too_large", agentAction: "Use a smaller image or fewer attachments.", requiresManual: true, retryable: false, explain: "An attachment exceeds byte or megapixel limits."),
         ErrorSpec("ATTACHMENT_UNSUPPORTED_TYPE", ruleId: "attachment.unsupported_type", agentAction: "Send PNG/JPEG/GIF/WebP only.", requiresManual: true, retryable: false, explain: "Attachment MIME type is not allowed."),

@@ -369,6 +369,15 @@
     "ruleId" : "attachment.hash.mismatch"
   },
   {
+    "agentAction" : "Use thread_get to list resolved attachments for the turn.",
+    "code" : "ATTACHMENT_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No attachment record exists for the requested id.",
+    "requiresManual" : false,
+    "retryable" : false,
+    "ruleId" : "attachment.not_found"
+  },
+  {
     "agentAction" : "Remove attachments until within the count cap.",
     "code" : "ATTACHMENT_TOO_MANY",
     "exitClass" : "operational",

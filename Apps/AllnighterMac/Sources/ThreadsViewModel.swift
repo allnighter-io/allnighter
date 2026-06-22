@@ -687,6 +687,31 @@ final class ThreadsViewModel {
         return run
     }
 
+    func runDirectory(forRunId runId: String) -> URL? {
+        try? runStore.runDirectory(forRunId: runId)
+    }
+
+    func resolvedAttachments(threadId: String, turn: ThreadTurn) -> [ResolvedThreadAttachment] {
+        guard let dir = try? store.threadDirectory(forThreadId: threadId) else { return [] }
+        let attachmentStore = ThreadAttachmentStore(threadDirectory: dir)
+        return ThreadAttachmentResolver.resolve(refs: turn.attachmentRefs, store: attachmentStore)
+    }
+
+    func attachmentThumb(for resolved: ResolvedThreadAttachment) -> NSImage? {
+        if let cached = attachmentThumbCache[resolved.attachmentId] { return cached }
+        guard !resolved.missing else { return nil }
+        guard let image = NSImage(contentsOfFile: resolved.canonicalPath) else { return nil }
+        attachmentThumbCache[resolved.attachmentId] = image
+        return image
+    }
+
+    func openAttachmentPath(_ path: String) {
+        guard !path.isEmpty else { return }
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+    }
+
+    private var attachmentThumbCache: [String: NSImage] = [:]
+
     /// Drop a run from the decode cache (e.g. after it's updated/persisted).
     func invalidateRunCache(_ runId: String) { runCache.clear(runId) }
 
