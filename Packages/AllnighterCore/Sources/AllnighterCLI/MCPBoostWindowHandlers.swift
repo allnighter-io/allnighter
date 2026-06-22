@@ -2,24 +2,20 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// MCP projection of `alln utilization boost` — same Core path and JSON as CLI.
-enum MCPUtilizationBoostHandlers {
+/// MCP projection of `alln boost-window` — same Core path and JSON as CLI.
+enum MCPBoostWindowHandlers {
     enum Outcome: Sendable {
         case success(String, summary: String)
         case toolError(ErrorEnvelope)
     }
 
-    static func status(runtime: ToolRuntime) -> Outcome {
-        get(runtime: runtime)
-    }
-
-    static func get(runtime: ToolRuntime) -> Outcome {
-        let json = UtilizationBoostOperations.projection(runtime: runtime)
+    static func show(runtime: ToolRuntime) -> Outcome {
+        let json = BoostWindowOperations.projection(runtime: runtime)
         let summary = "boost \(json.enabled ? "on" : "off") · \(json.displayState)"
         return .success(AllnighterCLI.jsonString(json), summary: summary)
     }
 
-    static func update(runtime: ToolRuntime, args: [String: Any]) -> Outcome {
+    static func set(runtime: ToolRuntime, args: [String: Any]) -> Outcome {
         let enabled = boolArg(args["enabled"])
         let windowStart = stringArg(args["windowStart"])
         let appliesTo: String?
@@ -32,14 +28,14 @@ enum MCPUtilizationBoostHandlers {
             return usage("pass enabled, windowStart, and/or appliesTo")
         }
         do {
-            let json = try UtilizationBoostOperations.update(
+            let json = try BoostWindowOperations.update(
                 runtime: runtime,
                 enabled: enabled,
                 windowStart: windowStart,
                 appliesTo: appliesTo
             )
             return .success(AllnighterCLI.jsonString(json), summary: "boost updated · \(json.displayState)")
-        } catch let failure as UtilizationBoostOperations.Failure {
+        } catch let failure as BoostWindowOperations.Failure {
             if case .envelope(let env) = failure { return .toolError(env) }
             return .toolError(internalEnvelope(failure))
         } catch {
@@ -52,12 +48,12 @@ enum MCPUtilizationBoostHandlers {
             return usage("sourceId required")
         }
         do {
-            let event = try await UtilizationBoostOperations.seed(runtime: runtime, sourceId: sourceId)
+            let event = try await BoostWindowOperations.seed(runtime: runtime, sourceId: sourceId)
             return .success(
                 AllnighterCLI.jsonString(event),
                 summary: "seed \(sourceId): \(event.outcome.rawValue)"
             )
-        } catch let failure as UtilizationBoostOperations.Failure {
+        } catch let failure as BoostWindowOperations.Failure {
             if case .envelope(let env) = failure { return .toolError(env) }
             return .toolError(internalEnvelope(failure))
         } catch {
@@ -68,7 +64,7 @@ enum MCPUtilizationBoostHandlers {
     static func clearObservations(args: [String: Any]) -> Outcome {
         let sourceId = stringArg(args["sourceId"])
         do {
-            let json = try UtilizationBoostOperations.clearObservations(sourceId: sourceId)
+            let json = try BoostWindowOperations.clearObservations(sourceId: sourceId)
             let summary = sourceId.map { "cleared observations for \($0)" } ?? "cleared all seed observations"
             return .success(AllnighterCLI.jsonString(json), summary: summary)
         } catch {

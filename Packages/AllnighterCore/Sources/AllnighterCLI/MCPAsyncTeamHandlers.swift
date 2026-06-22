@@ -43,7 +43,7 @@ enum MCPAsyncTeamHandlers {
     }
 
     static func status(runtime: ToolRuntime, args: [String: Any]) async -> Outcome {
-        guard let runId = args["runId"] as? String ?? args["run"] as? String, !runId.isEmpty else {
+        guard let runId = args["runId"] as? String, !runId.isEmpty else {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "runId required",
                                             requiresManual: true, retryable: false))
         }
@@ -56,7 +56,7 @@ enum MCPAsyncTeamHandlers {
     }
 
     static func result(runtime: ToolRuntime, args: [String: Any]) async -> Outcome {
-        guard let runId = args["runId"] as? String ?? args["run"] as? String, !runId.isEmpty else {
+        guard let runId = args["runId"] as? String, !runId.isEmpty else {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "runId required",
                                             requiresManual: true, retryable: false))
         }
@@ -77,16 +77,15 @@ enum MCPAsyncTeamHandlers {
         }
     }
 
-    /// Honor MCP/CLI parity: `detail: "full"`, `full: true`, or `includePrompts: true`.
+    /// Honor MCP/CLI parity: `detail: "full"` or `includePrompts: true`.
     static func includeWorkerPromptSnapshots(_ args: [String: Any]) -> Bool {
-        if (args["full"] as? Bool) == true { return true }
         if (args["includePrompts"] as? Bool) == true { return true }
         if let detail = args["detail"] as? String, detail.lowercased() == "full" { return true }
         return false
     }
 
     static func cancel(runtime: ToolRuntime, args: [String: Any]) async -> Outcome {
-        guard let runId = args["runId"] as? String ?? args["run"] as? String, !runId.isEmpty else {
+        guard let runId = args["runId"] as? String, !runId.isEmpty else {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "runId required",
                                             requiresManual: true, retryable: false))
         }

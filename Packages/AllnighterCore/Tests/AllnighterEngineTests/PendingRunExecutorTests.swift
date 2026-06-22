@@ -43,7 +43,7 @@ final class PendingRunExecutorTests: XCTestCase {
         )
     }
 
-    private func addWorkerChat(_ executor: PendingRunExecutor, worker: String = "claude", prompt: String = "Review patch") throws -> PendingItem {
+    private func addWorkerChat(_ executor: PendingRunExecutor, worker: String = "model_opus", prompt: String = "Review patch") throws -> PendingItem {
         try executor.service.add(.init(prompt: prompt, workerToken: worker, submit: true))
     }
 
@@ -153,7 +153,7 @@ final class PendingRunExecutorTests: XCTestCase {
 
     func testDraftItemIsSubmittedBeforeRun() async throws {
         let executor = makeExecutor(scripts: ["claude": .init(stdout: "ok", exitCode: 0)])
-        let draft = try executor.service.add(.init(prompt: "Draft run", workerToken: "claude"))
+        let draft = try executor.service.add(.init(prompt: "Draft run", workerToken: "model_opus"))
 
         let settled = try await executor.run(id: draft.id)
 
@@ -163,7 +163,7 @@ final class PendingRunExecutorTests: XCTestCase {
 
     func testTeamRunWithoutPresetIsRejected() async throws {
         let executor = makeExecutor(scripts: [:])
-        let item = try executor.service.add(.init(prompt: "Team", kind: .teamRun, workerToken: "claude", submit: true))
+        let item = try executor.service.add(.init(prompt: "Team", kind: .teamRun, workerToken: "model_opus", submit: true))
 
         do {
             _ = try await executor.run(id: item.id)
@@ -179,7 +179,7 @@ final class PendingRunExecutorTests: XCTestCase {
 
     func testUnsupportedFollowUpKindIsRejected() async throws {
         let executor = makeExecutor(scripts: [:])
-        let item = try executor.service.add(.init(prompt: "Follow", kind: .followUp, workerToken: "claude", submit: true))
+        let item = try executor.service.add(.init(prompt: "Follow", kind: .followUp, workerToken: "model_opus", submit: true))
 
         do {
             _ = try await executor.run(id: item.id)
@@ -192,7 +192,7 @@ final class PendingRunExecutorTests: XCTestCase {
     func testCodexJSONLUsageLimitInStdout() async throws {
         let stdout = #"{"type":"error","message":"usage_limit_reached","resetsAt":"2026-06-19T12:00:00Z"}"#
         let executor = makeExecutor(scripts: ["codex": .init(stdout: stdout, exitCode: 1)])
-        let item = try executor.service.add(.init(prompt: "Codex limit", workerToken: "codex", submit: true))
+        let item = try executor.service.add(.init(prompt: "Codex limit", workerToken: "model_codex", submit: true))
 
         let settled = try await executor.run(id: item.id)
 

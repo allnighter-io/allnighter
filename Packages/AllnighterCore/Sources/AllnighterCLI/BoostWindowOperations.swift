@@ -3,7 +3,7 @@ import AllnighterCore
 import AllnighterEngine
 
 /// Shared Boost window read/write path for CLI and MCP (same JSON envelopes).
-enum UtilizationBoostOperations {
+enum BoostWindowOperations {
     enum Failure: Error {
         case envelope(ErrorEnvelope)
     }

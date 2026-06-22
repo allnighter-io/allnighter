@@ -914,7 +914,7 @@ App-closed Works Test:
 
 ```text
 Start alln serve.
-Create a Pending item with alln pending add --worker claude --when ready.
+Create a Pending item with alln pending add --worker model_opus --when ready.
 Close the GUI.
 Fake clock reaches observed resetAt.
 alln serve leases and runs the item.

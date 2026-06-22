@@ -50,7 +50,7 @@ final class MCPPendingTests: XCTestCase {
             let store = PendingStore(rootDirectory: root)
             let runtime = mcpPendingTestRuntime(root: root)
             let service = MCPPendingHandlers.makeService(runtime, store: store)
-            _ = try service.add(.init(prompt: "Listed via MCP", workerToken: "claude", submit: true, origin: .mcp))
+            _ = try service.add(.init(prompt: "Listed via MCP", workerToken: "model_opus", submit: true, origin: .mcp))
 
             guard case .success(let json, _) = MCPPendingHandlers.list(runtime: runtime, args: [:], store: store) else {
                 return XCTFail("expected list success")
@@ -70,7 +70,7 @@ final class MCPPendingTests: XCTestCase {
             let store = PendingStore(rootDirectory: root)
             let runtime = mcpPendingTestRuntime(root: root)
             let service = MCPPendingHandlers.makeService(runtime, store: store)
-            let item = try service.add(.init(prompt: "Show me", workerToken: "claude", submit: true))
+            let item = try service.add(.init(prompt: "Show me", workerToken: "model_opus", submit: true))
 
             guard case .success(let json, _) = MCPPendingHandlers.show(runtime: runtime, args: ["pendingId": item.id], store: store) else {
                 return XCTFail("expected show success")
@@ -93,7 +93,7 @@ final class MCPPendingTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "Review complete.", exitCode: 0)])
             let runtime = mcpPendingTestRuntime(root: root)
             let service = MCPPendingHandlers.makeService(runtime, store: store)
-            let item = try service.add(.init(prompt: "Run via MCP", workerToken: "claude", submit: true, origin: .mcp))
+            let item = try service.add(.init(prompt: "Run via MCP", workerToken: "model_opus", submit: true, origin: .mcp))
 
             guard case .success(let json, _) = await MCPPendingHandlers.run(
                 runtime: runtime,
@@ -120,7 +120,7 @@ final class MCPPendingTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stderr: stderr, exitCode: 1)])
             let runtime = mcpPendingTestRuntime(root: root)
             let service = MCPPendingHandlers.makeService(runtime, store: store)
-            let item = try service.add(.init(prompt: "Cooling", workerToken: "claude", submit: true))
+            let item = try service.add(.init(prompt: "Cooling", workerToken: "model_opus", submit: true))
 
             guard case .success(let json, _) = await MCPPendingHandlers.run(
                 runtime: runtime,
@@ -147,7 +147,7 @@ final class MCPPendingTests: XCTestCase {
             let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "nope", exitCode: 0)])
             let runtime = mcpPendingTestRuntime(root: root)
             let service = MCPPendingHandlers.makeService(runtime, store: store)
-            let item = try service.add(.init(prompt: "Follow", kind: .followUp, workerToken: "claude", submit: true))
+            let item = try service.add(.init(prompt: "Follow", kind: .followUp, workerToken: "model_opus", submit: true))
 
             guard case .toolError(let envelope) = await MCPPendingHandlers.run(
                 runtime: runtime,

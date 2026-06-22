@@ -94,7 +94,7 @@ final class PendingWakeSchedulerTests: XCTestCase {
         let store = PendingStore(rootDirectory: root)
         let now = Date(timeIntervalSince1970: 1_700_000_200)
         let service = PendingService(store: store, models: models, now: { now })
-        let item = try service.add(.init(prompt: "Review", workerToken: "claude", submit: true))
+        let item = try service.add(.init(prompt: "Review", workerToken: "model_opus", submit: true))
         var saved = try XCTUnwrap(store.load(id: item.id))
         saved.projectId = "proj1"
         saved.resume = PendingResume(reason: .cooldown, wakeAfter: Date(timeIntervalSince1970: 1_700_000_100))

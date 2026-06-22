@@ -1104,9 +1104,9 @@ Pending Works Test:
 
 ```bash
 alln serve
-alln pending add --project Allnighter --worker claude --when ready --json "Review this patch when Claude is available."
+alln pending add --project Allnighter --worker model_opus --when ready --json "Review this patch when Claude is available."
 alln pending submit <pending-id> --json
-alln pending add --project Allnighter --submit --worker claude --when ready --json "Continue security review."
+alln pending add --project Allnighter --submit --worker model_opus --when ready --json "Continue security review."
 alln pending list --project Allnighter --json
 alln pending list --all --json
 alln pending show <pending-id> --json

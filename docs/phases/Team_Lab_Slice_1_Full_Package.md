@@ -166,7 +166,7 @@ advertising MCP-only law. Any team-quality number from that era is invalid.
 | Check | Meaning |
 | --- | --- |
 | `team_result(detail=full)` | Worker prompt snapshots, answer markdown, plan markdown retrievable |
-| `floor_show({runId})` | Returns the requested run, not latest-by-accident |
+| `floor_show({run})` | Returns the requested run, not latest-by-accident |
 | Journal copy under `.lab/run/` | Diff-oracle only — **zero score weight** |
 | `fsBypass=false` | Scoring used MCP payloads exclusively |
 | `runContractScore >= 0.95` | All contract checks pass |
@@ -250,7 +250,7 @@ floor_show.summaryMarkdown is NOT the packet source (SUB-4)
 3. `team_status` poll loop — respect `nextPollAfterMs`; record full history
 4. Terminal honesty — `completed` / `failed` / `cancelled` / `interrupted`; deadline timeout
 5. `team_result(detail=full)` — persist raw + parsed JSON
-6. `floor_show(runId=...)` — persist text + structured when available
+6. `floor_show(run=...)` — persist text + structured when available
 7. Optional `team_cancel` on harness failure paths (manual today)
 
 **CLI surface:**
@@ -350,7 +350,7 @@ using the judge loop — not one-off prompt tasting.
 | --- | --- |
 | `composer_paste_dead_v1` | Real regression — paste dead after repeated fixes; baseline immutable |
 | `mcp_fs_bypass_scoring_v1` | Meta — lab lied about MCP-only; proves contract gate |
-| `floor_show_wrong_run_v1` | Meta — `runId` alias bug; proves floor retrieval |
+| `floor_show_wrong_run_v1` | Meta — wrong-run retrieval regression; proves floor retrieval |
 
 **Calibration experiments (one variable discipline per round):**
 

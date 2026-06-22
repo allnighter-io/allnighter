@@ -125,7 +125,7 @@ Landed in v1 harness (2026-06-21 dogfood):
 - `scripts/team_lab/` MCP-only factory (`run.py`, `evaluate.py`, `scoring.py`).
 - `team_status` carries `workersDone` / `workersTotal` and `nextPollAfterMs`.
 - `team_result(detail=full)` embeds worker prompt snapshots and answer markdown.
-- `floor_show` / `spec_get` accept `runId` as alias for `run`.
+- `floor_show` / `spec_get` accept the canonical `run` argument.
 - MCP-first scoring with `fsBypass` gate and team-quality withholding.
 - Local scratch records: `REPO/.lab/<experiment-id>/`.
 

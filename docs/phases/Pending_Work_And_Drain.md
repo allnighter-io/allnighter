@@ -976,14 +976,14 @@ Scope:
 Works Test:
 
 ```text
-Run alln pending add --project Allnighter --worker claude "Review this patch when Claude is ready."
+Run alln pending add --project Allnighter --worker model_opus "Review this patch when Claude is ready."
 Run alln pending list --project Allnighter --json.
 The item appears as Draft with selected worker, policy, safety, and no guessed
 quota/cost/runtime fields.
 It includes projectId.
 Run alln pending submit <id>.
 The item becomes Pending.
-Run alln pending add --project Allnighter --submit --worker claude "Continue security review."
+Run alln pending add --project Allnighter --submit --worker model_opus "Continue security review."
 The new item is created directly as Pending.
 Run alln pending reorder <second-id> --before <first-id>.
 The two items keep their lifecycle states, and only their execution-lane order

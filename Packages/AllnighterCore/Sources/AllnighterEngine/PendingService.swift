@@ -521,14 +521,6 @@ public struct PendingService: Sendable {
         let normalized = token.lowercased()
         if models.contains(where: { $0.id == token }) { return token }
         if let model = models.first(where: { $0.id.lowercased() == normalized }) { return model.id }
-        let driverAliases: [String: String] = [
-            "claude": "claude_code", "codex": "codex", "grok": "grok",
-            "gemini": "antigravity", "antigravity": "antigravity",
-        ]
-        let driverId = driverAliases[normalized] ?? normalized
-        if let model = models.first(where: { $0.driverId == driverId && $0.enabled }) {
-            return model.id
-        }
         throw PendingServiceError.invalidWorker(token)
     }
 

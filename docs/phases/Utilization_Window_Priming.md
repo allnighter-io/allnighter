@@ -516,29 +516,28 @@ Duplicate truth to avoid:
  observations.
 - Activity copy that says "capacity" without a sourced observation.
 
-## CLI/MCP Surface Sketch
+## CLI/MCP Contract
 
-Not Ready for Implementation until the command/tool contract is fully specified,
-but the direction should be CLI/MCP-first and aligned to `BoostWindowSettings`.
+CLI/MCP are projections of the same **Boost window** product object used in the
+Settings UI. The canonical public actions are `show`, `set`, `seed`, and
+`observations clear`.
 
-Possible CLI:
+CLI:
 
 ```bash
-alln utilization boost status --json
-alln utilization boost show --json
-alln utilization boost set --enabled true --window-start 08:00 --applies-to claude,codex --json
-alln utilization boost seed --source claude --json
-alln utilization observations clear --source claude --json
+alln boost-window show --json
+alln boost-window set --enabled true --window-start 08:00 --applies-to claude,codex --json
+alln boost-window seed claude --json
+alln boost-window observations clear --source claude --json
 ```
 
-Possible MCP:
+MCP:
 
 ```text
-utilization_boost_status
-utilization_boost_get
-utilization_boost_update
-utilization_boost_seed
-utilization_observations_clear
+boost_window_show
+boost_window_set
+boost_window_seed
+boost_window_observations_clear
 ```
 
 JSON shape sketch:
@@ -671,7 +670,7 @@ official/local behavior are reviewed.
 
 ## Done When
 
-- User can configure Boost window from Settings > Utilization.
+- User can configure Boost window from Settings > Boost window.
 - UI matches `docs/phases/mockups/boost-window/` acceptance criteria.
 - CLI and MCP expose the same `BoostWindowSettings`, status, seed, and observation
  contract.

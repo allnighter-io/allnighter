@@ -9,7 +9,13 @@ from typing import Any
 
 from config import config_hash, overlay_material_delta
 from mcp_client import MCPStdioClient, parse_tool_json
-from model_policy import LEAD_OPUS, WORKER_POOL, WORKER_POOL_LABEL, apply_model_policy
+from model_policy import (
+    BLOCKED_WORKER_MODELS,
+    LEAD_OPUS,
+    SONNET_WORKER,
+    WORKER_POOL,
+    apply_model_policy,
+)
 
 LAB_TYPE_TAG = "lab"
 
@@ -199,15 +205,26 @@ def _verify_model_policy_definition(team_def: dict[str, Any]) -> None:
             f"model policy lead not wired (got {lead.get('preferredModelId')!r}, want {LEAD_OPUS})"
         )
     pool = set(WORKER_POOL)
+    sonnet_count = 0
     for spec in team_def.get("workerSpecs") or []:
         mid = spec.get("preferredModelId")
+        if mid in BLOCKED_WORKER_MODELS:
+            raise OverlayDeployError(f"model policy blocked worker model: {mid}")
         if mid and mid not in pool:
             raise OverlayDeployError(f"model policy worker violation: {mid} not in {WORKER_POOL}")
+        if mid == SONNET_WORKER:
+            sonnet_count += 1
         allowed = set(spec.get("allowedModelIds") or [])
         if allowed and not allowed.issubset(pool):
             raise OverlayDeployError(
                 f"model policy allowed pool violation: {sorted(allowed - pool)}"
             )
+        if allowed & BLOCKED_WORKER_MODELS:
+            raise OverlayDeployError(
+                f"model policy blocked allowedModelIds: {sorted(allowed & BLOCKED_WORKER_MODELS)}"
+            )
+    if sonnet_count > 1:
+        raise OverlayDeployError(f"model policy: Sonnet on {sonnet_count} seats (max 1)")
 
 
 def ensure_model_policy_team(

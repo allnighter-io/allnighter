@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-enum UtilizationBoostCLI {
+enum BoostWindowCLI {
     static func run(_ args: [String], runtime: ToolRuntime) async {
         let sub = args.first
         let rest = Array(args.dropFirst())
@@ -10,13 +10,14 @@ enum UtilizationBoostCLI {
         case "set": set(rest, runtime)
         case "seed": await seed(rest, runtime)
         case "observations": observations(rest)
-        case "show", "status", nil: show(rest, runtime)
-        default: show(args, runtime)
+        case "show", nil: show(rest, runtime)
+        default:
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln boost-window show|set|seed|observations")
         }
     }
 
     private static func show(_ args: [String], _ runtime: ToolRuntime) {
-        emit(UtilizationBoostOperations.projection(runtime: runtime), Options(args), runtime)
+        emit(BoostWindowOperations.projection(runtime: runtime), Options(args), runtime)
     }
 
     private static func set(_ args: [String], _ runtime: ToolRuntime) {
@@ -26,18 +27,17 @@ enum UtilizationBoostCLI {
             if let raw = opts.value("enabled") {
                 guard let on = Bool(raw.lowercased()) else {
                     AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--enabled must be true or false")
-                    return
                 }
                 enabled = on
             }
-            let json = try UtilizationBoostOperations.update(
+            let json = try BoostWindowOperations.update(
                 runtime: runtime,
                 enabled: enabled,
                 windowStart: opts.value("window-start"),
                 appliesTo: opts.value("applies-to")
             )
             emit(json, opts, runtime)
-        } catch let failure as UtilizationBoostOperations.Failure {
+        } catch let failure as BoostWindowOperations.Failure {
             if case .envelope(let env) = failure { fail(env) }
         } catch {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
@@ -47,16 +47,16 @@ enum UtilizationBoostCLI {
     private static func seed(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let sourceId = opts.positional.first else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln utilization boost seed <source-id> [--json]")
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln boost-window seed <source-id> [--json]")
         }
         do {
-            let event = try await UtilizationBoostOperations.seed(runtime: runtime, sourceId: sourceId)
+            let event = try await BoostWindowOperations.seed(runtime: runtime, sourceId: sourceId)
             if opts.flag("json") {
                 print(AllnighterCLI.jsonString(event))
             } else {
                 print("seed \(sourceId): \(event.outcome.rawValue)")
             }
-        } catch let failure as UtilizationBoostOperations.Failure {
+        } catch let failure as BoostWindowOperations.Failure {
             if case .envelope(let env) = failure { fail(env) }
         } catch {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
@@ -67,7 +67,7 @@ enum UtilizationBoostCLI {
         let opts = Options(args)
         if opts.positional.first == "clear" {
             do {
-                let json = try UtilizationBoostOperations.clearObservations(sourceId: opts.value("source"))
+                let json = try BoostWindowOperations.clearObservations(sourceId: opts.value("source"))
                 if opts.flag("json") { print(AllnighterCLI.jsonString(json)) }
                 else {
                     print(json.sourceId.map { "cleared observations for \($0)" } ?? "cleared all seed observations")
@@ -77,7 +77,7 @@ enum UtilizationBoostCLI {
             }
             return
         }
-        AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln utilization boost observations clear [--source <id>] [--json]")
+        AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln boost-window observations clear [--source <id>] [--json]")
     }
 
     private static func fail(_ env: ErrorEnvelope) {

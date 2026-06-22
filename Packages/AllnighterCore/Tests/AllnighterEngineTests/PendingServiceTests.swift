@@ -27,8 +27,8 @@ final class PendingServiceTests: XCTestCase {
         try? FileManager.default.removeItem(at: root)
     }
 
-    func testAddCreatesDraftWithWorkerAlias() throws {
-        let item = try service.add(.init(prompt: "Review this patch when Claude is ready.", workerToken: "claude"))
+    func testAddCreatesDraftWithWorkerId() throws {
+        let item = try service.add(.init(prompt: "Review this patch when Claude is ready.", workerToken: "model_opus"))
         XCTAssertEqual(item.status, .draft)
         XCTAssertEqual(item.target.preferredWorkerIds, ["model_opus"])
         let json = try service.mapJSON(item)
@@ -39,19 +39,19 @@ final class PendingServiceTests: XCTestCase {
     }
 
     func testSubmitAndAddWithSubmitFlag() throws {
-        let draft = try service.add(.init(prompt: "First", workerToken: "claude"))
+        let draft = try service.add(.init(prompt: "First", workerToken: "model_opus"))
         let pending = try service.submit(id: draft.id)
         XCTAssertEqual(pending.status, .pending)
         XCTAssertNotNil(pending.submittedAt)
 
-        let direct = try service.add(.init(prompt: "Continue security review.", workerToken: "claude", submit: true))
+        let direct = try service.add(.init(prompt: "Continue security review.", workerToken: "model_opus", submit: true))
         XCTAssertEqual(direct.status, .pending)
     }
 
     func testQueueJSONCountsArmedGroupsAndPreservesOrder() throws {
-        _ = try service.add(.init(prompt: "First task", workerToken: "claude", submit: true))
-        _ = try service.add(.init(prompt: "Second task", workerToken: "claude", submit: true))
-        _ = try service.add(.init(prompt: "Draft only", workerToken: "claude"))   // draft → excluded from the queue
+        _ = try service.add(.init(prompt: "First task", workerToken: "model_opus", submit: true))
+        _ = try service.add(.init(prompt: "Second task", workerToken: "model_opus", submit: true))
+        _ = try service.add(.init(prompt: "Draft only", workerToken: "model_opus"))   // draft → excluded from the queue
 
         let q = try service.queueJSON()
         XCTAssertEqual(q.totalPending, 2, "drafts are not armed; only .pending count toward the pill")
@@ -65,8 +65,8 @@ final class PendingServiceTests: XCTestCase {
     }
 
     func testReorderPreservesLifecycleStatus() throws {
-        let first = try service.add(.init(prompt: "A", workerToken: "claude", submit: true))
-        let second = try service.add(.init(prompt: "B", workerToken: "claude", submit: true))
+        let first = try service.add(.init(prompt: "A", workerToken: "model_opus", submit: true))
+        let second = try service.add(.init(prompt: "B", workerToken: "model_opus", submit: true))
         _ = try service.reorder(id: second.id, anchor: .before(first.id))
         let order = try service.list().map(\.id)
         XCTAssertEqual(order, [second.id, first.id])
@@ -75,15 +75,15 @@ final class PendingServiceTests: XCTestCase {
     }
 
     func testCancelMarksCancelled() throws {
-        let item = try service.add(.init(prompt: "Cancel me", workerToken: "claude", submit: true))
+        let item = try service.add(.init(prompt: "Cancel me", workerToken: "model_opus", submit: true))
         let cancelled = try service.cancel(id: item.id)
         XCTAssertEqual(cancelled.status, .cancelled)
     }
 
     func testPersistenceAcrossStoreReopen() throws {
-        _ = try service.add(.init(prompt: "One", workerToken: "claude", submit: true, threadId: "thread_a"))
-        _ = try service.add(.init(prompt: "Two", workerToken: "codex", submit: true, threadId: "thread_a"))
-        _ = try service.add(.init(prompt: "Three", workerToken: "claude", threadId: "thread_a"))
+        _ = try service.add(.init(prompt: "One", workerToken: "model_opus", submit: true, threadId: "thread_a"))
+        _ = try service.add(.init(prompt: "Two", workerToken: "model_codex", submit: true, threadId: "thread_a"))
+        _ = try service.add(.init(prompt: "Three", workerToken: "model_opus", threadId: "thread_a"))
 
         let now = fixedNow
         let reopened = PendingService(store: PendingStore(rootDirectory: root), models: models, now: { now })
@@ -94,7 +94,7 @@ final class PendingServiceTests: XCTestCase {
     }
 
     func testEditPendingReturnsToDraftAndClearsLease() throws {
-        var item = try service.add(.init(prompt: "Edit me", workerToken: "claude", submit: true))
+        var item = try service.add(.init(prompt: "Edit me", workerToken: "model_opus", submit: true))
         item.lease = PendingLease(leaseId: "lease_test", owner: .cli, leasedAt: fixedNow)
         item.resume = PendingResume(reason: .cooldown, wakeAfter: fixedNow.addingTimeInterval(3600))
         try service.store.save(item)
@@ -108,7 +108,7 @@ final class PendingServiceTests: XCTestCase {
     }
 
     func testBeginRunMarksRunningAttempt() throws {
-        let item = try service.add(.init(prompt: "Run me", workerToken: "claude", submit: true))
+        let item = try service.add(.init(prompt: "Run me", workerToken: "model_opus", submit: true))
         let running = try service.beginRun(id: item.id)
         XCTAssertEqual(running.status, .running)
         XCTAssertEqual(running.attempts.count, 1)
@@ -118,7 +118,7 @@ final class PendingServiceTests: XCTestCase {
     }
 
     func testBeginRunWakeTicketUsesServeLease() throws {
-        let item = try service.add(.init(prompt: "Wake", workerToken: "claude", submit: true))
+        let item = try service.add(.init(prompt: "Wake", workerToken: "model_opus", submit: true))
         let running = try service.beginRun(id: item.id, options: .wakeTicket)
         XCTAssertEqual(running.lease?.owner, .serve)
         XCTAssertEqual(running.attempts.last?.reason, "wakeTicket")
@@ -126,7 +126,7 @@ final class PendingServiceTests: XCTestCase {
     }
 
     func testListJSONProjection() throws {
-        _ = try service.add(.init(prompt: "Listed", workerToken: "claude", submit: true))
+        _ = try service.add(.init(prompt: "Listed", workerToken: "model_opus", submit: true))
         let items = try service.list().map { try service.mapJSON($0) }
         let list = PendingListJSON(contractVersion: ContractRegistry.contractVersion, items: items)
         let blob = jsonBlob(list)
@@ -146,7 +146,7 @@ final class PendingServiceTests: XCTestCase {
             retryAfterSeconds: 9_900,
             wakeAfter: resetAt
         )
-        var item = try service.add(.init(prompt: "Cooling", workerToken: "claude", submit: true))
+        var item = try service.add(.init(prompt: "Cooling", workerToken: "model_opus", submit: true))
         item.resume = PendingResume(
             reason: .cooldown,
             observedResetAt: resetAt,

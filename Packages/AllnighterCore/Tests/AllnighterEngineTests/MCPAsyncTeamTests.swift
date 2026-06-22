@@ -266,10 +266,10 @@ final class MCPAsyncTeamTests: XCTestCase {
         }
     }
 
-    func testRunRefPrefersRunIdOverRun() {
+    func testRunRefUsesCanonicalRunArgumentOnly() {
         XCTAssertEqual(
             AllnighterCLI.runRef(from: ["runId": "AAA", "run": "BBB"]),
-            "AAA")
+            "BBB")
         XCTAssertEqual(AllnighterCLI.runRef(from: ["run": "BBB"]), "BBB")
         XCTAssertEqual(AllnighterCLI.runRef(from: [:]), "latest")
     }

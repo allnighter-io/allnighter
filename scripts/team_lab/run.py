@@ -295,7 +295,8 @@ def run_experiment(
                 team_lab_meta["configHash"] = _hashlib.sha256(
                     json.dumps(policy_meta["modelPolicy"], sort_keys=True).encode()
                 ).hexdigest()[:16]
-            print(f"model_policy=opus_lead_gemini_composer_grok team={team}")
+            label = policy_meta.get("modelPolicy", {}).get("label", "lab")
+            print(f"model_policy={label} team={team}")
 
         if champion_overlay or candidate_overlay or os.environ.get("ALLN_LAB_MODEL_POLICY", "1").lower() not in (
             "0",
