@@ -144,7 +144,7 @@ public enum SkillCatalog {
     }
 
     /// Default design-board panel skill ids (one image worker per direction).
-    public static let defaultDesignPanelSkillIDs: [SkillID] = ["minimal", "bold", "editorial", "on_brand"]
+    public static let defaultDesignPanelSkillIDs: [SkillID] = ["minimal", "bold", "editorial"]
 
     /// User-facing skill name; falls back to a capitalized id.
     public static func displayName(for skillId: String) -> String {
@@ -434,18 +434,20 @@ public enum SkillCatalog {
     /// Lane-owned design-board panel skills (formerly `DesignPersonaLibrary`).
     private static let designPanelSkills: [Skill] = [
         s("minimal", "Minimal", .design, .answer, """
-        Restraint, generous whitespace, type-led hierarchy; strip every non-essential element.
+        Restraint, generous whitespace, type-led hierarchy; strip every non-essential element. \
+        Produce exactly one finished mockup image for this direction.
         """),
         s("bold", "Bold", .design, .answer, """
-        High contrast, oversized type, opinionated color; the primary action dominates.
+        High contrast, oversized type, opinionated color; the primary action dominates. \
+        Produce exactly one finished mockup image for this direction.
         """),
         s("editorial", "Editorial", .design, .answer, """
         Break the generic SaaS look — magazine/editorial or information-dense — while staying \
-        recognizably the same screen and usable.
+        recognizably the same screen and usable. Produce exactly one finished mockup image for this direction.
         """),
         s("on_brand", "On-brand", .design, .answer, """
         Match the product's existing look: palette, type scale, and spacing from the attached \
-        screen. Range in layout, not in brand.
+        screen. Range in layout, not in brand. Produce exactly one finished mockup image for this direction.
         """)
     ]
 
@@ -685,14 +687,25 @@ public enum SkillCatalog {
         """),
         writer("proof_packet_writer", "Proof Packet Writer", .code,
                "proof packet: Works Test, commands run, missing proof, residual risks, closeout verdict"),
-        writer("design_board_writer", "Design Board Writer", .design,
-               "design board: options, rationale, tradeoffs, and the selected direction when requested"),
+        s("design_board_writer", "Design Board Writer", .design, .planWriter, """
+        You are the team's Design Board writer. You are given the original prompt, up to three \
+        independent mockup-producing worker answers, and any review notes. Synthesize them into \
+        one decisive design board: the three options, what each optimizes for, tradeoffs, and the \
+        selected direction when requested. Decide; do not average. Resolve contradictions explicitly \
+        and preserve genuine dissent. Attribute points to worker ids. Never invent a fourth mockup.
+        """),
+        s("conversion_board_writer", "Conversion Board Writer", .design, .planWriter, """
+        You are the team's Conversion Board writer. Synthesize up to three mockup-producing worker \
+        answers into one conversion board: hierarchy, offer clarity, trust/proof, CTA path, and \
+        friction cuts. Decide; do not average. Never invent options beyond the worker mockups.
+        """),
+        s("direction_board_writer", "Direction Board Writer", .design, .planWriter, """
+        You are the team's Direction Board writer. Synthesize up to three mockup-producing worker \
+        answers into one option board: distinct directions, what each optimizes for, and when to \
+        choose it. Decide; do not average. Never invent a fourth direction.
+        """),
         writer("polish_board_writer", "Polish Board Writer", .design,
                "polish board: concrete visual/interaction improvements, before/after priorities, token/component changes"),
-        writer("conversion_board_writer", "Conversion Board Writer", .design,
-               "conversion board: hierarchy, offer clarity, trust/proof, CTA path, friction cuts"),
-        writer("direction_board_writer", "Direction Board Writer", .design,
-               "option board: distinct directions, what each optimizes for, and when to choose it"),
         writer("usability_triage_writer", "Usability Triage Writer", .design,
                "usability triage: top friction points, severity, fix order, state/control changes"),
         writer("copy_board_writer", "Copy Board Writer", .copy,

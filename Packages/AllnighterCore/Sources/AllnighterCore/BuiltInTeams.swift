@@ -37,8 +37,18 @@ public enum BuiltInTeams {
         composer, chatgpt, gemini, composer, sonnet, chatgpt, gemini, composer, sonnet
     ]
     private static let designWorkerRotation: [String] = [
-        gemini, composer, chatgpt, sonnet, gemini, composer, chatgpt
+        gemini, chatgpt, grok
     ]
+    /// Image mockup seats — one finished image per worker; only these three engines generate images.
+    private static let designImageModels: [String] = [gemini, chatgpt, grok]
+
+    private static func designMockupRows(_ specs: [(String, TeamWorkerPurpose)]) -> [TeamWorkerSpec] {
+        specs.enumerated().map { offset, spec in
+            row(spec.0, spec.1,
+                preferred: designImageModels[offset % designImageModels.count],
+                tags: [.image])
+        }
+    }
     private static let copyWorkerRotation: [String] = [
         chatgpt, composer, sonnet, chatgpt, composer, gemini, chatgpt
     ]
@@ -233,17 +243,12 @@ public enum BuiltInTeams {
 
     static let designCore = make(
         id: "design_core", name: "Design Core", lane: .design, output: .designBoard, defaultEffort: .med, isDefault: true,
-        description: "Turn a product/design prompt into several credible interface directions, then make the tradeoffs visible.",
-        rows: diverseRows([
+        description: "Turn a product/design prompt into three credible interface mockups, then make the tradeoffs visible.",
+        rows: designMockupRows([
             ("information_architect", .answer),
             ("interaction_designer", .answer),
             ("visual_system_designer", .answer),
-            ("accessibility_reviewer", .review),
-            ("brand_fit_reviewer", .review),
-            ("design_critic", .review)
-        ], rotation: designWorkerRotation, strategicOpus: ["design_critic"]) + [
-            row("outlier_direction", .answer, preferred: gemini, required: false, tags: [.image])
-        ],
+        ]),
         writer: "design_board_writer", dissent: .compareOptions)
 
     static let designPremiumPolish = make(
@@ -252,9 +257,6 @@ public enum BuiltInTeams {
         rows: diverseRows([
             ("hierarchy_sculptor", .answer),
             ("type_spacing_auditor", .answer),
-            ("color_token_keeper", .answer),
-            ("component_stylist", .answer),
-            ("state_designer", .answer),
             ("polish_critic", .review)
         ], rotation: designWorkerRotation),
         writer: "polish_board_writer",
@@ -263,27 +265,21 @@ public enum BuiltInTeams {
     static let designConversionStudio = make(
         id: "design_conversion_studio", name: "Conversion Studio", lane: .design, output: .designBoard, defaultEffort: .high,
         description: "Improve a product/marketing surface so users understand the offer, trust it, and know what to do next.",
-        rows: diverseRows([
+        rows: designMockupRows([
             ("offer_clarity", .answer),
             ("cta_path", .answer),
-            ("friction_hunter", .answer),
             ("trust_builder", .answer),
-            ("mobile_scanner", .answer),
-            ("objection_finder", .review)
-        ], rotation: designWorkerRotation, startIndex: 1),
+        ]),
         writer: "conversion_board_writer")
 
     static let designRadicalDirections = make(
         id: "design_radical_directions", name: "Radical Directions", lane: .design, output: .designBoard, defaultEffort: .med,
-        description: "Generate genuinely different design directions before the team converges too early.",
-        rows: diverseRows([
+        description: "Generate three genuinely different design directions before the team converges too early.",
+        rows: designMockupRows([
             ("minimal_direction", .answer),
             ("bold_direction", .answer),
-            ("operational_direction", .answer),
             ("editorial_direction", .answer),
-            ("native_app_direction", .answer),
-            ("direction_critic", .review)
-        ], rotation: designWorkerRotation, startIndex: 2),
+        ]),
         writer: "direction_board_writer", dissent: .compareOptions)
 
     static let designUsabilityTriage = make(
@@ -292,11 +288,8 @@ public enum BuiltInTeams {
         rows: diverseRows([
             ("journey_mapper", .answer),
             ("control_ergonomics", .answer),
-            ("navigation_reviewer", .answer),
-            ("accessibility_reviewer", .review),
-            ("cognitive_load_cutter", .review),
-            ("state_feedback_reviewer", .review)
-        ], rotation: designWorkerRotation, startIndex: 3),
+            ("cognitive_load_cutter", .review)
+        ], rotation: designWorkerRotation, startIndex: 1),
         writer: "usability_triage_writer")
 
     // MARK: - Copy teams (parity; full type packs owned by docs/phases/copy)

@@ -39,12 +39,17 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertTrue(r.readyWorkers.contains { $0.purpose == "plan" }) // synthetic writer
     }
 
-    func testPreflightDisablesOptionalImageRow() {
-        // design_core has an optional image row (outlier_direction); Opus has no image.
+    func testPreflightDesignCoreThreeImageWorkers() {
+        let ready = [
+            opus(),
+            Model(id: "model_gemini", displayName: "Gemini", modelLabel: "g", driverId: "antigravity", role: .answerer),
+            Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt", driverId: "codex", role: .answerer),
+            Model(id: "model_grok", displayName: "Grok", modelLabel: "grok", driverId: "grok", role: .answerer),
+        ]
         let r = TeamPreflight.preflight(teams: teams, lane: .design, teamId: "design_core",
-                                        type: nil, effort: .high, readyModels: [opus()])
+                                        type: nil, effort: .high, readyModels: ready)
         XCTAssertTrue(r.canStart)
-        XCTAssertTrue(r.blockedWorkers.contains { $0.skillId == "outlier_direction" && !$0.required })
+        XCTAssertEqual(r.readyWorkers.filter { $0.purpose != "plan" }.count, 3)
     }
 
     func testPreflightRejectsConflictingTeamAndType() {

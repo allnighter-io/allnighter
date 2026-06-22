@@ -32,6 +32,14 @@ class ModelPolicyTests(unittest.TestCase):
         self.assertEqual(meta["fallbackSemantics"], "bounded_pool")
         self.assertTrue(meta["duplicateModelsAllowed"])
 
+    def test_design_lane_grok_chatgpt_only(self) -> None:
+        team_def = {"lane": "design", "lead": {}, "workerSpecs": [{} for _ in range(3)]}
+        patched, meta = apply_model_policy(team_def)
+        mids = [s["preferredModelId"] for s in patched["workerSpecs"]]
+        self.assertTrue(all(m in ("model_grok", "model_chatgpt") for m in mids))
+        self.assertEqual(meta["lane"], "design")
+        self.assertNotIn("model_gemini", meta["workers"])
+
     def test_rotation_excludes_gemini(self) -> None:
         mids = [preferred_worker_model(i) for i in range(12)]
         self.assertEqual(mids.count(SONNET_WORKER), 1)

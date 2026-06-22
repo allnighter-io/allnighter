@@ -807,6 +807,10 @@ not ad-hoc overlay overrides.
 | Rotating workers | `model_grok`, `model_cursor_composer_25`, `model_chatgpt`, `model_cursor_auto` |
 | Diversity (≤1 per run) | `model_sonnet` at worker index 2 |
 
+**Design lane lab fanouts** (future design-team rounds): `model_grok` + `model_chatgpt`
+only — no Gemini/AGY in lab even though product mockup engines include Gemini Flash.
+Duplicate Grok/GPT seats are allowed.
+
 `overlay._verify_model_policy_definition` rejects champion/candidate overlays that
 assign blocked models to worker seats.
 

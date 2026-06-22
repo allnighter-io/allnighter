@@ -76,7 +76,6 @@ final class BuiltInTeamsTests: XCTestCase {
             "code_security_review": "security_fix_prioritizer",
             "code_spec_upgrade": "spec_first_principles_reviewer",
             "code_release_proof": "acceptance_auditor",
-            "design_core": "design_critic",
         ]
         for (teamId, skillId) in tierOne {
             let row = BuiltInTeams.team(teamId)?.workerSpecs.first { $0.skillId == skillId }

@@ -16,7 +16,7 @@ final class DesignModelsTests: XCTestCase {
     func testDesignRequestRoundTrips() throws {
         try assertRoundTrips(DesignRequest(
             prompt: "make this profile screen feel premium and clean",
-            personaIds: ["minimal", "bold", "editorial", "on_brand"],
+            personaIds: ["minimal", "bold", "editorial"],
             screenshotPath: "screenshot.png",
             targetShape: .mobile
         ))
