@@ -21,8 +21,7 @@ final class WarmWorkerPoolTests: XCTestCase {
     private static func makeWorker(_ key: ExternalWorkerSession.Key, at t: TimeInterval) -> WarmWorker {
         WarmWorker(
             key: key,
-            transport: NoopACPTransport(),
-            profile: .grok(model: "grok-build"),
+            driver: ACPSession(transport: NoopACPTransport(), profile: .grok(model: "grok-build")),
             cwd: "/repo",
             now: Date(timeIntervalSince1970: t))
     }

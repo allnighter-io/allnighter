@@ -45,10 +45,10 @@ final class ACPSessionTests: XCTestCase {
 
     func testHandshakeThenStreamedTurnCompletes() async throws {
         let t = FakeACPTransport()
-        let session = ACPSession(transport: t)
+        let session = ACPSession(transport: t, profile: .grok(model: "grok-build"))
         var sent = t.sent().makeAsyncIterator()
 
-        let startTask = Task { try await session.start(cwd: "/repo/root", profile: .grok(model: "grok-build")) }
+        let startTask = Task { try await session.start(cwd: "/repo/root") }
 
         let initLine = await sent.next()!
         XCTAssertEqual(jsonMethod(initLine), "initialize")
@@ -84,9 +84,9 @@ final class ACPSessionTests: XCTestCase {
 
     func testServerRequestIsAcked() async throws {
         let t = FakeACPTransport()
-        let session = ACPSession(transport: t)
+        let session = ACPSession(transport: t, profile: .grok(model: "grok-build"))
         var sent = t.sent().makeAsyncIterator()
-        let startTask = Task { try await session.start(cwd: "/r", profile: .grok(model: "grok-build")) }
+        let startTask = Task { try await session.start(cwd: "/r") }
         t.push(resultLine(id: jsonId(await sent.next()!)))                 // initialize
         t.push(resultLine(id: jsonId(await sent.next()!), sessionId: "S")) // session/new
         try await startTask.value
@@ -104,9 +104,9 @@ final class ACPSessionTests: XCTestCase {
 
     func testCursorProfileAuthenticatesBeforeSessionNew() async throws {
         let t = FakeACPTransport()
-        let session = ACPSession(transport: t)
+        let session = ACPSession(transport: t, profile: .cursorAgent(model: "composer-2.5"))
         var sent = t.sent().makeAsyncIterator()
-        let startTask = Task { try await session.start(cwd: "/repo", profile: .cursorAgent(model: "composer-2.5")) }
+        let startTask = Task { try await session.start(cwd: "/repo") }
 
         t.push(resultLine(id: jsonId(await sent.next()!)))
         let authLine = await sent.next()!
@@ -124,9 +124,9 @@ final class ACPSessionTests: XCTestCase {
 
     func testDisconnectFailsActiveTurn() async throws {
         let t = FakeACPTransport()
-        let session = ACPSession(transport: t)
+        let session = ACPSession(transport: t, profile: .grok(model: "grok-build"))
         var sent = t.sent().makeAsyncIterator()
-        let startTask = Task { try await session.start(cwd: "/r", profile: .grok(model: "grok-build")) }
+        let startTask = Task { try await session.start(cwd: "/r") }
         t.push(resultLine(id: jsonId(await sent.next()!)))
         t.push(resultLine(id: jsonId(await sent.next()!), sessionId: "S"))
         try await startTask.value

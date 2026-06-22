@@ -453,11 +453,9 @@ public actor RunService {
                     threadId: threadId, sourceId: manifest.id, modelId: model.id, repoRoot: repoRoot)
                 let command = invoke.command
                 let warm = try await warmPool.worker(for: warmKey) { key in
-                    WarmWorker(
-                        key: key,
-                        transport: try ProcessACPTransport(command: command, profile: profile, cwd: repoRoot),
-                        profile: profile,
-                        cwd: repoRoot)
+                    let transport = try ProcessACPTransport(command: command, profile: profile, cwd: repoRoot)
+                    let driver: any WarmSessionDriver = profile.makeDriver(transport: transport)
+                    return WarmWorker(key: key, driver: driver, cwd: repoRoot)
                 }
                 for try await event in try await warm.prompt(assembled) {
                     switch event {

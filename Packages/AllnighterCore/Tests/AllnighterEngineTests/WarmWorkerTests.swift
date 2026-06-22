@@ -46,7 +46,7 @@ final class WarmWorkerTests: XCTestCase {
 
     func testHandshakeHappensOnceAcrossTurns() async throws {
         let transport = AutoACPTransport()
-        let worker = WarmWorker(key: key, transport: transport, profile: profile, cwd: "/repo")
+        let worker = WarmWorker(key: key, driver: ACPSession(transport: transport, profile: profile), cwd: "/repo")
 
         let a1 = try await answer(worker.prompt("turn one"))
         let a2 = try await answer(worker.prompt("turn two"))
@@ -58,7 +58,7 @@ final class WarmWorkerTests: XCTestCase {
 
     func testShutdownMakesWorkerDead() async throws {
         let transport = AutoACPTransport()
-        let worker = WarmWorker(key: key, transport: transport, profile: profile, cwd: "/repo")
+        let worker = WarmWorker(key: key, driver: ACPSession(transport: transport, profile: profile), cwd: "/repo")
         _ = try await answer(worker.prompt("hi"))
         await worker.shutdown()
 
@@ -71,7 +71,7 @@ final class WarmWorkerTests: XCTestCase {
     func testLastUsedAdvancesWithTurns() async throws {
         let transport = AutoACPTransport()
         let t0 = Date(timeIntervalSince1970: 1000)
-        let worker = WarmWorker(key: key, transport: transport, profile: profile, cwd: "/repo", now: t0)
+        let worker = WarmWorker(key: key, driver: ACPSession(transport: transport, profile: profile), cwd: "/repo", now: t0)
         _ = try await answer(worker.prompt("hi", now: Date(timeIntervalSince1970: 2000)))
         let idleVsOld = await worker.isIdle(since: Date(timeIntervalSince1970: 1500))
         let idleVsNew = await worker.isIdle(since: Date(timeIntervalSince1970: 3000))

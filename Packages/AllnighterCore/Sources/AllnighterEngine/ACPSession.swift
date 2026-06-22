@@ -26,12 +26,25 @@ public protocol ACPTransport: Sendable {
     func terminate()
 }
 
-/// Drives ONE warm ACP conversation over an `ACPTransport`: `initialize` → `session/new {cwd}` →
-/// `session/prompt` per turn, routing `session/update` notifications to the active turn's stream and
-/// acking any server→client request so the agent never blocks. One session = one warm worker process
-/// (the index/runtime load once; every turn is model-time only). Single-lane: one turn at a time.
-public actor ACPSession {
+/// One warm conversation driver, independent of wire dialect. `ACPSession` (grok/cursor ACP) and
+/// `CodexSession` (codex app-server) both conform, so `WarmWorker`/`WarmWorkerPool`/the transport are
+/// dialect-agnostic. Single-lane: one turn at a time.
+public protocol WarmSessionDriver: Sendable {
+    /// Handshake + open a session bound to `cwd` (the one-time index). Called lazily on turn 1.
+    func start(cwd: String) async throws
+    /// Submit one user turn, streaming its events; finishes when the agent completes the turn.
+    func prompt(_ text: String) async -> AsyncThrowingStream<ACPTurnEvent, Error>
+    /// Tear down the session (process kill happens in the transport). Idempotent.
+    func shutdown() async
+}
+
+/// Drives ONE warm ACP conversation over an `ACPTransport`: `initialize` → [`authenticate`] →
+/// `session/new {cwd}` → `session/prompt` per turn, routing `session/update` to the active turn and
+/// acking any server→client request so the agent never blocks. The dialect deltas (grok vs cursor)
+/// come from the injected `ACPTransportProfile`.
+public actor ACPSession: WarmSessionDriver {
     private let transport: ACPTransport
+    private let profile: ACPTransportProfile
     private var nextId = 0
     private var sessionId: String?
     private var readerTask: Task<Void, Never>?
@@ -42,12 +55,13 @@ public actor ACPSession {
     /// The single active prompt turn: its request id + the stream it feeds.
     private var activeTurn: (id: Int, continuation: AsyncThrowingStream<ACPTurnEvent, Error>.Continuation)?
 
-    public init(transport: ACPTransport) {
+    public init(transport: ACPTransport, profile: ACPTransportProfile) {
         self.transport = transport
+        self.profile = profile
     }
 
     /// Spawn-side already running; perform the ACP handshake and open a session bound to `cwd`.
-    public func start(cwd: String, profile: ACPTransportProfile) async throws {
+    public func start(cwd: String) async throws {
         guard !started else { return }
         started = true
         readerTask = Task { [weak self] in
@@ -76,6 +90,7 @@ public actor ACPSession {
 
     public func shutdown() {
         readerTask?.cancel()
+        transport.terminate()
         handleDisconnect()
     }
 
