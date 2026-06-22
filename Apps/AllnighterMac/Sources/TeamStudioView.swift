@@ -147,7 +147,7 @@ private struct StudioTeamListView: View {
     /// Lane teams, favorites first (in favorite order), then catalog order. The
     /// global Default Team always leads.
     private var teams: [TeamPreset] {
-        let all = TeamCatalog.list(lane: lane.workLane)
+        let all = TeamCatalog.list(lane: lane.workLane).filter { !$0.isLabTeam }
         let favRank = Dictionary(uniqueKeysWithValues: appModel.favoriteTeamIds.enumerated().map { ($1, $0) })
         let defaultId = TeamCatalog.defaultRunTeam()?.id
         func rank(_ t: TeamPreset) -> (Int, Int) {

@@ -271,6 +271,7 @@ public enum SkillCatalog {
         already ruled out. The fix targets the top surviving hypothesis. Real bugs are solved \
         by elimination across rounds, not one confident leap — design for the next round, not \
         a guaranteed one-shot.
+        Name every code path that spawns a worker process and state, for each, which working directory it resolves and whether it is ProbeScratch-guarded.
         """),
         s("regression_guard", "Regression Guard", .code, .answer, """
         Write the proof plan. Name the exact unit/integration/fixture test that would \
@@ -652,37 +653,11 @@ public enum SkillCatalog {
         This packet is the hand-off to a fix attempt: it must let one disciplined worker try \
         the top hypothesis, run the proof, and — if it fails — narrow to the next.
 
-        After the human-readable packet, append a machine-readable block EXACTLY in this form \
-        (a fenced code block tagged fix-packet) so the fix attempt can be wired automatically:
-
-        ```fix-packet
-        {
-          "schemaVersion": 1,
-          "seam": "<boundary the bug crosses, or null>",
-          "symptom": "<one line>",
-          "repro": "<smallest steps>",
-          "bugFingerprint": "<short>",
-          "truthOwner": "<who owns the truth>",
-          "lieProneLayer": "<layer that looks correct but isn't>",
-          "hypotheses": [
-            {"id": "h1", "cause": "<most likely cause>", "experiment": "<cheapest confirm/refute>", "fix": "<smallest change to try>", "fixBoundary": "<apply only here>"}
-          ],
-          "ruledOut": [],
-          "proofMethod": "command | guiFixture | userObservation",
-          "proofCommand": "<exact command, when proofMethod is command>",
-          "guiProofFixture": "<fixture, when proofMethod is guiFixture>",
-          "requiresLayoutWatcher": false,
-          "harnessNeeded": false,
-          "harnessSketch": "<minimal isolation target, when harnessNeeded>",
-          "confidenceOrdering": "low | medium | high",
-          "expectedRounds": 1,
-          "tier": "T0 Fast | T1 Boundary | T2 SSOT | T3 Critical",
-          "dangerFlags": []
-        }
-        ```
-
-        Rank `hypotheses` most-likely first. Set `dangerFlags` honestly (credentials, deletion \
-        outside boundary, deploy, billing) — those block an auto-attempt. Never omit the block.
+        After the human-readable packet, append a structured block (fenced fix-packet) capturing the \
+        key elements (seam, truth owner, ranked hypotheses with experiments/fix/fixBoundary, proof method, \
+        ruledOut, dangerFlags) for automation. No rigid schema or exact key set is required.
+        Rank hypotheses most-likely first. Note danger flags (credentials, deletion outside boundary, \
+        deploy, billing) — those block an auto-attempt. Never omit the structured block.
         """),
         writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),

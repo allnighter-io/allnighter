@@ -25,8 +25,9 @@ struct TeamsLauncherView: View {
     @State private var familyFilter: String?
 
     private var cards: [TeamCard] {
-        TeamCardCatalogJSON.project(TeamCatalog.all, family: nil,
-                                    contractVersion: ContractRegistry.contractVersion).cards
+        let userTeams = TeamCatalog.all.filter { !$0.isLabTeam }
+        return TeamCardCatalogJSON.project(userTeams, family: nil,
+                                           contractVersion: ContractRegistry.contractVersion).cards
     }
 
     /// Ready models, mirroring Team Studio's derivation (bench-ready ids).

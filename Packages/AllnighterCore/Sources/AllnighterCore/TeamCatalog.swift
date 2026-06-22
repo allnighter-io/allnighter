@@ -312,6 +312,12 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         copy.version = 1
         return copy
     }
+
+    /// Team-lab experiment teams carry `typeTags` containing `"lab"`. Hidden from
+    /// Send-to-team and Team Studio browse; never promoted without founder review.
+    public var isLabTeam: Bool { typeTags.contains(Self.labTypeTag) }
+
+    public static let labTypeTag = "lab"
 }
 
 // MARK: - Default-per-lane integrity

@@ -76,7 +76,8 @@ struct MCPServer {
             guard let teamId = args["teamId"] as? String else {
                 return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "teamId required")
             }
-            guard TeamCatalog.get(teamId) != nil else {
+            let isNewLabTeam = TeamCatalog.get(teamId) == nil && teamId.hasPrefix("lab_")
+            guard TeamCatalog.get(teamId) != nil || isNewLabTeam else {
                 return respondToolError(id: id, code: "TEAM_NOT_FOUND", message: "unknown team: \(teamId)")
             }
             guard let definition = args["definition"] else {
@@ -87,6 +88,9 @@ struct MCPServer {
                 let team = try CoreJSON.decode(TeamPreset.self, from: data)
                 guard team.id == teamId else {
                     return respondToolError(id: id, code: "TEAM_INVALID", message: "definition id must match teamId")
+                }
+                if isNewLabTeam, !team.typeTags.contains(TeamPreset.labTypeTag) {
+                    return respondToolError(id: id, code: "TEAM_INVALID", message: "new lab_ teams must include typeTags [\"lab\"]")
                 }
                 try TeamCatalog.saveCustom(team)
                 respond(id: id, result: toolText("saved \(teamId)", structured: AllnighterCLI.teamShowJSONString(team)))
