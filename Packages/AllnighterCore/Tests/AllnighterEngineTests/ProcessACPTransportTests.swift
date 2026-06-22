@@ -40,12 +40,12 @@ final class ProcessACPTransportTests: XCTestCase {
         let cwd = NSTemporaryDirectory() + "alln-acp-live-\(UUID().uuidString)"
         try FileManager.default.createDirectory(atPath: cwd, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: cwd) }
-        let transport = try ProcessACPTransport(command: grokPath()!, model: "grok-build", cwd: cwd)
+        let transport = try ProcessACPTransport(command: grokPath()!, profile: .grok(model: "grok-build"), cwd: cwd)
         defer { transport.terminate() }
         let session = ACPSession(transport: transport)
 
         let t0 = Date()
-        try await withTimeout(60) { try await session.start(cwd: cwd) }
+        try await withTimeout(60) { try await session.start(cwd: cwd, profile: .grok(model: "grok-build")) }
         print("ACP start (handshake + session/new): \(Int(Date().timeIntervalSince(t0) * 1000))ms")
 
         let t1 = Date()
@@ -59,5 +59,41 @@ final class ProcessACPTransportTests: XCTestCase {
 
         XCTAssertTrue(a2.lowercased().contains("amberclock"), "warm session must recall across turns; got: \(a2)")
         XCTAssertLessThan(turn2ms, 15000, "warm turn-2 should be fast, not a 22s cold walk")
+    }
+
+    private func agentPath() -> String? {
+        for p in ["\(NSHomeDirectory())/.local/bin/agent", "/usr/local/bin/agent", "/opt/homebrew/bin/agent"]
+        where FileManager.default.isExecutableFile(atPath: p) { return p }
+        return "agent"
+    }
+
+    /// Live cursor ACP against the real Allnighter repo — proves warm turn-2 latency vs cold `-p`.
+    ///   ALLN_CURSOR_ACP_LIVE=1 swift test --package-path Packages/AllnighterCore --filter ProcessACPTransportTests/testLiveCursorWarmTurnsRecallAndStayFast
+    func testLiveCursorWarmTurnsRecallAndStayFast() async throws {
+        guard ProcessInfo.processInfo.environment["ALLN_CURSOR_ACP_LIVE"] == "1" else {
+            throw XCTSkip("set ALLN_CURSOR_ACP_LIVE=1 to run the live cursor ACP integration test")
+        }
+        let cwd = FileManager.default.currentDirectoryPath
+        let transport = try ProcessACPTransport(
+            command: agentPath()!, profile: .cursorAgent(model: "composer-2.5"), cwd: cwd)
+        defer { transport.terminate() }
+        let session = ACPSession(transport: transport)
+        let profile = ACPTransportProfile.cursorAgent(model: "composer-2.5")
+
+        try await withTimeout(90) { try await session.start(cwd: cwd, profile: profile) }
+
+        _ = try await withTimeout(90) {
+            try await Self.answer(session.prompt("Remember the word amberclock. Reply with just: OK"))
+        }
+
+        let t2 = Date()
+        let a2 = try await withTimeout(90) {
+            try await Self.answer(session.prompt("What single word did I ask you to remember? Reply with ONLY that word."))
+        }
+        let turn2ms = Int(Date().timeIntervalSince(t2) * 1000)
+        print("cursor ACP turn 2: \(turn2ms)ms answer=\(a2.prefix(40))")
+
+        XCTAssertTrue(a2.lowercased().contains("amberclock"), "warm session must recall across turns; got: \(a2)")
+        XCTAssertLessThan(turn2ms, 8000, "warm turn-2 should beat cold `-p` (~5s+) per turn")
     }
 }

@@ -195,7 +195,10 @@ mode falls back to the S0 lean view (already shipped) — still a 3× win, no ex
   investigate the Agent SDK / a long-lived process.) Warm interface TBD.
 - [ ] **Phase 3 — codex.** Spike: `codex exec` is one-shot; does the interactive/TUI mode warm? Warm
   interface TBD.
-- [ ] **Phase 4 — cursor (`agent`).** Spike: persistent server mode? Warm interface TBD.
+- [ ] **Phase 4 — cursor (`agent`).** **IN PROGRESS (2026-06-21).** Warm path = `agent acp` (ACP stdio);
+  `ACPTransportProfile.cursorAgent`, `authenticate` + `model` on `session/new`, `permissionAllowOnce`.
+  Wired in `RunService` + `WarmWorkerCapability.acpStdioSources`. Live proof:
+  `ALLN_CURSOR_ACP_LIVE=1 swift test --filter ProcessACPTransportTests/testLiveCursorWarmTurnsRecallAndStayFast`.
 - [ ] **Phase 5 — antigravity (`agy`).** Spike: persistent mode? (Already on `session_dir` continuity.)
   Likely lean-view fallback if no warm mode.
 

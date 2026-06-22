@@ -48,7 +48,7 @@ final class ACPSessionTests: XCTestCase {
         let session = ACPSession(transport: t)
         var sent = t.sent().makeAsyncIterator()
 
-        let startTask = Task { try await session.start(cwd: "/repo/root") }
+        let startTask = Task { try await session.start(cwd: "/repo/root", profile: .grok(model: "grok-build")) }
 
         let initLine = await sent.next()!
         XCTAssertEqual(jsonMethod(initLine), "initialize")
@@ -86,7 +86,7 @@ final class ACPSessionTests: XCTestCase {
         let t = FakeACPTransport()
         let session = ACPSession(transport: t)
         var sent = t.sent().makeAsyncIterator()
-        let startTask = Task { try await session.start(cwd: "/r") }
+        let startTask = Task { try await session.start(cwd: "/r", profile: .grok(model: "grok-build")) }
         t.push(resultLine(id: jsonId(await sent.next()!)))                 // initialize
         t.push(resultLine(id: jsonId(await sent.next()!), sessionId: "S")) // session/new
         try await startTask.value
@@ -99,13 +99,34 @@ final class ACPSessionTests: XCTestCase {
         }
         XCTAssertNotNil(ack, "server request must be acked")
         XCTAssertTrue(ack!.contains("\"result\""))
+        XCTAssertTrue(ack!.contains("allow-once"), "tool permission must auto-approve for unattended orchestration")
+    }
+
+    func testCursorProfileAuthenticatesBeforeSessionNew() async throws {
+        let t = FakeACPTransport()
+        let session = ACPSession(transport: t)
+        var sent = t.sent().makeAsyncIterator()
+        let startTask = Task { try await session.start(cwd: "/repo", profile: .cursorAgent(model: "composer-2.5")) }
+
+        t.push(resultLine(id: jsonId(await sent.next()!)))
+        let authLine = await sent.next()!
+        XCTAssertEqual(jsonMethod(authLine), "authenticate")
+        t.push(resultLine(id: jsonId(authLine)))
+
+        let newLine = await sent.next()!
+        XCTAssertEqual(jsonMethod(newLine), "session/new")
+        XCTAssertEqual(params(newLine)["cwd"] as? String, "/repo")
+        XCTAssertEqual(params(newLine)["model"] as? String, "composer-2.5")
+        t.push(resultLine(id: jsonId(newLine), sessionId: "S1"))
+
+        try await startTask.value
     }
 
     func testDisconnectFailsActiveTurn() async throws {
         let t = FakeACPTransport()
         let session = ACPSession(transport: t)
         var sent = t.sent().makeAsyncIterator()
-        let startTask = Task { try await session.start(cwd: "/r") }
+        let startTask = Task { try await session.start(cwd: "/r", profile: .grok(model: "grok-build")) }
         t.push(resultLine(id: jsonId(await sent.next()!)))
         t.push(resultLine(id: jsonId(await sent.next()!), sessionId: "S"))
         try await startTask.value

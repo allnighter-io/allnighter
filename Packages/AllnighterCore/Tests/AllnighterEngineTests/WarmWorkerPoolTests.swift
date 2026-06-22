@@ -19,7 +19,12 @@ final class WarmWorkerPoolTests: XCTestCase {
     }
     /// static so factory closures capture nothing non-Sendable (Swift 6 `@Sendable` factory).
     private static func makeWorker(_ key: ExternalWorkerSession.Key, at t: TimeInterval) -> WarmWorker {
-        WarmWorker(key: key, transport: NoopACPTransport(), cwd: "/repo", now: Date(timeIntervalSince1970: t))
+        WarmWorker(
+            key: key,
+            transport: NoopACPTransport(),
+            profile: .grok(model: "grok-build"),
+            cwd: "/repo",
+            now: Date(timeIntervalSince1970: t))
     }
 
     func testSameKeyReusesTheWarmWorker() async throws {

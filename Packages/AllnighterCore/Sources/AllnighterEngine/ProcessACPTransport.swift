@@ -1,9 +1,9 @@
 import Foundation
 import AllnighterCore
 
-/// The real `ACPTransport`: spawns a long-lived `grok agent --always-approve stdio` process and
-/// wires its stdin/stdout to an `ACPSession` (Warm_Single_Lane_Chat §4b). One process stays warm —
-/// the working-tree index + agent runtime load ONCE; every turn after is model-time only.
+/// The real `ACPTransport`: spawns a long-lived ACP worker process and wires its stdin/stdout to an
+/// `ACPSession` (Warm_Single_Lane_Chat §4b). One process stays warm — the working-tree index +
+/// agent runtime load ONCE; every turn after is model-time only.
 ///
 /// stdin: `send` writes one newline-framed JSON-RPC line (a pipe write, synchronous).
 /// stdout: a readability handler splits the byte stream into newline-delimited lines and yields them
@@ -17,17 +17,18 @@ public final class ProcessACPTransport: ACPTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = Data()
 
-    /// - command: the `grok` binary — an absolute path, or a bare name resolved via `/usr/bin/env`.
-    /// - model: e.g. `grok-build`. - cwd: the REAL repo root (indexed once, warm thereafter).
-    public init(command: String, model: String, cwd: String, extraEnv: [String: String] = [:]) throws {
+    /// - command: CLI binary — absolute path, or bare name resolved via `/usr/bin/env`.
+    /// - profile: vendor spawn recipe (grok stdio vs cursor `acp`).
+    /// - cwd: the REAL repo root (indexed once, warm thereafter).
+    public init(command: String, profile: ACPTransportProfile, cwd: String, extraEnv: [String: String] = [:]) throws {
         (inbound, inboundCont) = AsyncStream<String>.makeStream()
 
         if command.contains("/") {
             process.executableURL = URL(fileURLWithPath: command)
-            process.arguments = ["agent", "--model", model, "--always-approve", "stdio"]
+            process.arguments = profile.spawnArgs
         } else {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [command, "agent", "--model", model, "--always-approve", "stdio"]
+            process.arguments = [command] + profile.spawnArgs
         }
         process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         process.standardInput = stdinPipe

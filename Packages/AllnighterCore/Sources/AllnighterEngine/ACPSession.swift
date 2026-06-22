@@ -11,6 +11,7 @@ public enum ACPTurnEvent: Sendable, Equatable {
 public enum ACPError: Error, Equatable {
     case noSession              // session/new returned no sessionId
     case disconnected           // the agent process closed the stream mid-flight
+    case busy                   // a turn is already in flight (single-lane guard)
     case agentError(code: Int, message: String)
 }
 
@@ -46,7 +47,7 @@ public actor ACPSession {
     }
 
     /// Spawn-side already running; perform the ACP handshake and open a session bound to `cwd`.
-    public func start(cwd: String) async throws {
+    public func start(cwd: String, profile: ACPTransportProfile) async throws {
         guard !started else { return }
         started = true
         readerTask = Task { [weak self] in
@@ -57,7 +58,11 @@ public actor ACPSession {
             await self.handleDisconnect()
         }
         _ = try await request { ACP.initialize(id: $0) }
-        let reply = try await request { ACP.sessionNew(id: $0, cwd: cwd) }
+        if profile.requiresAuthenticate {
+            _ = try await request { ACP.authenticate(id: $0) }
+        }
+        let params = profile.sessionNewParams(cwd: cwd)
+        let reply = try await request { ACP.sessionNew(id: $0, params: params) }
         guard case let .result(_, sid?) = reply else { throw ACPError.noSession }
         sessionId = sid
     }
@@ -89,6 +94,9 @@ public actor ACPSession {
 
     private func beginTurn(text: String, continuation: AsyncThrowingStream<ACPTurnEvent, Error>.Continuation) {
         guard let sessionId else { continuation.finish(throwing: ACPError.noSession); return }
+        // Single-lane guard: never clobber an in-flight turn. The write lock serializes mutating
+        // chat already; this is the backstop for any caller that doesn't.
+        guard activeTurn == nil else { continuation.finish(throwing: ACPError.busy); return }
         let id = allocId()
         activeTurn = (id, continuation)
         transport.send(ACP.sessionPrompt(id: id, sessionId: sessionId, text: text))
@@ -121,8 +129,15 @@ public actor ACPSession {
                 cont.resume(throwing: ACPError.agentError(code: code, message: message))
             }
 
+        case let .permissionRequest(id, options):
+            // Approve using an option the agent ACTUALLY offered (falls back to allow-once).
+            let optionId = ACP.chooseAllowOption(options) ?? "allow-once"
+            transport.send(ACP.permissionResult(id: id, optionId: optionId))
+
         case let .serverRequest(id, _):
-            transport.send(ACP.emptyResult(id: id))  // ack so the agent never deadlocks on us
+            // Other server→client requests (cursor/ask_question, etc.): minimal ack so we don't
+            // deadlock. Real answers for blocking plan-mode extensions are S5.
+            transport.send(ACP.emptyResult(id: id))
 
         case .other:
             break

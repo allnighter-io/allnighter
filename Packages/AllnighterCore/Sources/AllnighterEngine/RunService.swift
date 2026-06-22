@@ -427,11 +427,12 @@ public actor RunService {
         // nothing usable, FALL BACK to the proven one-shot invoke so the worker always
         // answers.
         var outcome: WorkerRunOutcome
-        // Warm_Single_Lane_Chat §5 S4: warm-capable sources (grok) run as ONE persistent ACP-stdio
-        // worker per thread — the repo index loads once, then every turn is model-time only. Any
-        // failure falls back to the proven cold one-shot. The write lock already serializes turns,
-        // so the warm worker only ever handles one turn at a time (single-lane).
-        if WarmWorkerCapability.supportsACPStdio(manifest.id), let threadId, let invoke = manifest.invoke {
+        // Warm_Single_Lane_Chat §5 S4: warm-capable sources (grok, cursor_agent) run as ONE persistent
+        // ACP worker per thread — the repo index loads once, then every turn is model-time only.
+        if WarmWorkerCapability.supportsACPStdio(manifest.id),
+           let threadId,
+           let invoke = manifest.invoke,
+           let profile = ACPTransportProfile.make(sourceId: manifest.id, model: model.resolvedLabel(at: effort)) {
             var answer = StreamingPartialBuffer()
             var reasoning = ""
             var lastAnswerEmit = now()
@@ -451,11 +452,11 @@ public actor RunService {
                 let warmKey = ExternalWorkerSession.Key(
                     threadId: threadId, sourceId: manifest.id, modelId: model.id, repoRoot: repoRoot)
                 let command = invoke.command
-                let modelLabel = model.resolvedLabel(at: effort)
                 let warm = try await warmPool.worker(for: warmKey) { key in
                     WarmWorker(
                         key: key,
-                        transport: try ProcessACPTransport(command: command, model: modelLabel, cwd: repoRoot),
+                        transport: try ProcessACPTransport(command: command, profile: profile, cwd: repoRoot),
+                        profile: profile,
                         cwd: repoRoot)
                 }
                 for try await event in try await warm.prompt(assembled) {

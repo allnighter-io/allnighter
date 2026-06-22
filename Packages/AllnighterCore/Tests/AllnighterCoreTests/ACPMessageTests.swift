@@ -27,6 +27,25 @@ final class ACPMessageTests: XCTestCase {
         XCTAssertEqual((obj["params"] as? [String: Any])?["cwd"] as? String, "/repo/root")
     }
 
+    func testSessionNewCarriesModelForCursor() {
+        let obj = decode(ACP.sessionNew(id: 2, params: ["cwd": "/repo", "mcpServers": [], "model": "composer-2.5"]))
+        XCTAssertEqual((obj["params"] as? [String: Any])?["model"] as? String, "composer-2.5")
+    }
+
+    func testAuthenticateEncodes() {
+        let obj = decode(ACP.authenticate(id: 4))
+        XCTAssertEqual(obj["method"] as? String, "authenticate")
+        XCTAssertEqual((obj["params"] as? [String: Any])?["methodId"] as? String, "cursor_login")
+    }
+
+    func testPermissionAllowOnceEncodes() {
+        let obj = decode(ACP.permissionAllowOnce(id: 7))
+        let result = obj["result"] as? [String: Any]
+        let outcome = result?["outcome"] as? [String: Any]
+        XCTAssertEqual(outcome?["outcome"] as? String, "selected")
+        XCTAssertEqual(outcome?["optionId"] as? String, "allow-once")
+    }
+
     func testSessionPromptShapesTheTurn() {
         let obj = decode(ACP.sessionPrompt(id: 3, sessionId: "sess-1", text: "hello"))
         XCTAssertEqual(obj["method"] as? String, "session/prompt")
@@ -71,10 +90,38 @@ final class ACPMessageTests: XCTestCase {
         XCTAssertEqual(u.title, "read_file")
     }
 
-    func testServerRequestIsFlaggedForAck() {
-        // agent asks the client something (id + method, no result) — we must ack so it doesn't hang.
-        let line = #"{"jsonrpc":"2.0","id":7,"method":"session/request_permission","params":{}}"#
-        XCTAssertEqual(ACP.parse(line), .serverRequest(id: 7, method: "session/request_permission"))
+    func testGenericServerRequestIsFlaggedForAck() {
+        // a non-permission server→client request (e.g. cursor/ask_question) — we ack so it doesn't hang.
+        let line = #"{"jsonrpc":"2.0","id":7,"method":"cursor/ask_question","params":{}}"#
+        XCTAssertEqual(ACP.parse(line), .serverRequest(id: 7, method: "cursor/ask_question"))
+    }
+
+    func testPermissionRequestParsesOfferedOptions() {
+        let line = #"{"jsonrpc":"2.0","id":9,"method":"session/request_permission","params":{"options":[{"optionId":"allow-once","kind":"allow_once"},{"optionId":"reject","kind":"reject_once"}]}}"#
+        guard case let .permissionRequest(id, options)? = ACP.parse(line) else { return XCTFail("expected permissionRequest") }
+        XCTAssertEqual(id, 9)
+        XCTAssertEqual(options.map(\.optionId), ["allow-once", "reject"])
+        XCTAssertEqual(options.first?.kind, "allow_once")
+    }
+
+    func testChooseAllowOptionPrefersAllowFromOfferedSet() {
+        // picks the agent's OWN allow option id, never a blind guess
+        let opts = [ACP.PermissionOption(optionId: "x_reject_7", kind: "reject_once"),
+                    ACP.PermissionOption(optionId: "x_allow_7", kind: "allow_once")]
+        XCTAssertEqual(ACP.chooseAllowOption(opts), "x_allow_7")
+    }
+
+    func testChooseAllowOptionFallsBackToFirstWhenNoAllowKind() {
+        let opts = [ACP.PermissionOption(optionId: "only-option", kind: nil)]
+        XCTAssertEqual(ACP.chooseAllowOption(opts), "only-option")
+        XCTAssertNil(ACP.chooseAllowOption([]))
+    }
+
+    func testPermissionResultEchoesChosenOption() {
+        let obj = decode(ACP.permissionResult(id: 9, optionId: "x_allow_7"))
+        let outcome = (obj["result"] as? [String: Any])?["outcome"] as? [String: Any]
+        XCTAssertEqual(outcome?["outcome"] as? String, "selected")
+        XCTAssertEqual(outcome?["optionId"] as? String, "x_allow_7")
     }
 
     func testAnnouncementNotificationIsOther() {

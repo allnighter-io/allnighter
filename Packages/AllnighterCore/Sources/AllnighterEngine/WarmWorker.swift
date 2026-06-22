@@ -10,15 +10,23 @@ public actor WarmWorker {
     public let key: ExternalWorkerSession.Key
     private let session: ACPSession
     private let transport: ACPTransport
+    private let profile: ACPTransportProfile
     private let cwd: String
     private var started = false
     public private(set) var isDead = false
     /// Last time a turn was requested — drives idle teardown in the pool.
     public private(set) var lastUsedAt: Date
 
-    public init(key: ExternalWorkerSession.Key, transport: ACPTransport, cwd: String, now: Date = Date()) {
+    public init(
+        key: ExternalWorkerSession.Key,
+        transport: ACPTransport,
+        profile: ACPTransportProfile,
+        cwd: String,
+        now: Date = Date()
+    ) {
         self.key = key
         self.transport = transport
+        self.profile = profile
         self.session = ACPSession(transport: transport)
         self.cwd = cwd
         self.lastUsedAt = now
@@ -29,7 +37,7 @@ public actor WarmWorker {
     public func prompt(_ text: String, now: Date = Date()) async throws -> AsyncThrowingStream<ACPTurnEvent, Error> {
         guard !isDead else { throw ACPError.disconnected }
         if !started {
-            do { try await session.start(cwd: cwd); started = true }
+            do { try await session.start(cwd: cwd, profile: profile); started = true }
             catch { isDead = true; throw error }
         }
         lastUsedAt = now
