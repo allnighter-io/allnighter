@@ -16,7 +16,8 @@ struct ContentView: View {
                 NavigationStack {
                     ConversationsHomeView(
                         snapshot: appModel.homeSnapshot,
-                        connectionPhase: appModel.connectionPhase,
+                        connectionStatusText: appModel.connectionStatusText,
+                        connectionStatusTone: appModel.connectionStatusTone,
                         homeStatus: appModel.homeStatus,
                         workRequestSendPhase: appModel.workRequestSendPhase,
                         killSwitchPhase: appModel.killSwitchPhase,
@@ -54,7 +55,8 @@ struct ContentView: View {
 
 private struct ConversationsHomeView: View {
     let snapshot: ConversationListSnapshot
-    let connectionPhase: RemoteAppConnectionPhase
+    let connectionStatusText: String
+    let connectionStatusTone: IOSStatusBanner.Tone
     let homeStatus: ConversationHomeLoadStatus
     let workRequestSendPhase: WorkRequestSendPhase
     let killSwitchPhase: KillSwitchPhase
@@ -167,25 +169,9 @@ private struct ConversationsHomeView: View {
     }
 
     private var connectionBanner: some View {
-        Group {
-            switch connectionPhase {
-            case .idle, .connecting:
-                IOSStatusBanner(text: "Connecting to your Mac…", tone: .neutral)
-            case .preview:
-                IOSStatusBanner(text: "Preview data — configure Supabase to connect live.", tone: .neutral)
-            case let .connected(macName):
-                IOSStatusBanner(text: "Connected to \(macName)", tone: .positive)
-            case let .awaitingPairingApproval(macName):
-                IOSStatusBanner(text: "Approve this iPhone on \(macName)", tone: .warning)
-            case .needsConfiguration:
-                IOSStatusBanner(text: "Sign in to connect to your Mac.", tone: .warning)
-            case .noMacsOnAccount:
-                IOSStatusBanner(text: "No Mac registered on this account yet.", tone: .warning)
-            case let .failed(message):
-                IOSStatusBanner(text: message, tone: .warning)
-            }
-        }
-        .padding(.bottom, IOSSpace.s5)
+        IOSStatusBanner(text: connectionStatusText, tone: connectionStatusTone)
+            .padding(.bottom, IOSSpace.s5)
+            .accessibilityIdentifier("connection-status-banner")
     }
 
     private var visibleSnapshot: ConversationListSnapshot {

@@ -54,6 +54,42 @@ final class RemoteAppModel {
     private(set) var threadSnapshot: ConversationThreadSnapshot?
     private(set) var threadLoadStatus: ConversationThreadLoadStatus = .idle
     private(set) var stopRunPhase: StopRunPhase = .idle
+    private(set) var connectionDiagnosisLine: String?
+
+    var connectionStatusText: String {
+        switch connectionPhase {
+        case .idle, .connecting:
+            "Connecting to your Mac…"
+        case .preview:
+            "Preview data — configure Supabase to connect live."
+        case let .connected(macName):
+            connectionDiagnosisLine ?? "Connected to \(macName)"
+        case let .awaitingPairingApproval(macName):
+            "Approve this iPhone on \(macName)"
+        case .needsConfiguration:
+            "Sign in to connect to your Mac."
+        case .noMacsOnAccount:
+            "No Mac registered on this account yet."
+        case let .failed(message):
+            message
+        }
+    }
+
+    var connectionStatusTone: IOSStatusBanner.Tone {
+        switch connectionPhase {
+        case .connected:
+            if connectionDiagnosisLine?.contains("Wake") == true
+                || connectionDiagnosisLine?.contains("asleep") == true
+                || connectionDiagnosisLine?.contains("agent") == true {
+                return .warning
+            }
+            return .positive
+        case .preview, .idle, .connecting:
+            return .neutral
+        case .awaitingPairingApproval, .needsConfiguration, .noMacsOnAccount, .failed:
+            return .warning
+        }
+    }
 
     var showsHome: Bool {
         switch connectionPhase {
@@ -142,6 +178,7 @@ final class RemoteAppModel {
                 )
                 connectionPhase = .connected(macName: connected.mac.displayName)
                 await refreshHome()
+                await refreshConnectionDiagnosis()
                 return
             } catch {
                 guard currentActivation == activationSequence else { return }
@@ -154,6 +191,7 @@ final class RemoteAppModel {
         installPreviewClient()
         connectionPhase = .preview
         await refreshHome()
+        await refreshConnectionDiagnosis()
         #else
         guard currentActivation == activationSequence else { return }
         connectionPhase = .needsConfiguration
@@ -167,6 +205,20 @@ final class RemoteAppModel {
         await homeStore.refresh()
         homeSnapshot = homeStore.state.snapshot
         homeStatus = homeStore.state.status
+        await refreshConnectionDiagnosis()
+    }
+
+    func refreshConnectionDiagnosis() async {
+        guard let session = deviceSession else {
+            connectionDiagnosisLine = nil
+            return
+        }
+        let diagnosis = await session.client.diagnose()
+        connectionDiagnosisLine = Self.diagnosisLine(
+            diagnosis,
+            macName: session.mac.displayName,
+            connectionPhase: connectionPhase
+        )
     }
 
     func loadThread(threadId: String) async {
@@ -597,6 +649,24 @@ final class RemoteAppModel {
         #else
         ProcessInfo.processInfo.hostName
         #endif
+    }
+
+    private static func diagnosisLine(
+        _ diagnosis: ConnectionDiagnosis,
+        macName: String,
+        connectionPhase: RemoteAppConnectionPhase
+    ) -> String? {
+        guard case .connected = connectionPhase else { return nil }
+        if diagnosis.rungs.allSatisfy(\.ok) {
+            return "Connected to \(macName)"
+        }
+        if let unreachable = diagnosis.rungs.first(where: { $0.rung == .macReachable && !$0.ok }) {
+            return unreachable.nextAction ?? "Wake your Mac or start the Allnighter agent."
+        }
+        if let failed = diagnosis.rungs.first(where: { !$0.ok }) {
+            return failed.nextAction
+        }
+        return "Connected to \(macName)"
     }
 
     private static func connectionPhase(from error: Error) -> RemoteAppConnectionPhase {
