@@ -15,6 +15,12 @@ public enum WorkerOutputImageHarvest {
     /// output that lists many paths.
     public static let maxImagesPerTurn = 8
 
+    /// Cap on how many referenced markdown artifacts one turn follows for embedded images
+    /// (AGY/antigravity wraps a produced image in a `.md` artifact and links only the `.md`).
+    static let maxArtifactsToFollow = 4
+    /// Don't slurp a huge file when following an artifact for embedded image links.
+    static let maxArtifactBytes = 512 * 1024
+
     /// A path token in the worker's prose that resolved to a real, validated image.
     /// `token` is the raw substring as it appeared (used to strip it from the caption);
     /// `url` is the validated file on disk.
@@ -33,11 +39,39 @@ public enum WorkerOutputImageHarvest {
     public static func candidates(in texts: [String], runDirectory: URL?) -> [Candidate] {
         var seen = Set<String>()
         var result: [Candidate] = []
+
+        func consider(token: String, url: URL, captionToken: String) {
+            guard result.count < maxImagesPerTurn else { return }
+            if seen.insert(url.path).inserted { result.append(Candidate(token: captionToken, url: url)) }
+        }
+
         for text in texts {
+            // 1. Images named directly in the prose (Grok: "The path is given: …/1.jpg").
             for token in imagePathTokens(in: text) {
                 guard result.count < maxImagesPerTurn else { return result }
-                guard let url = validatedImageURL(forPath: token, runDirectory: runDirectory) else { continue }
-                if seen.insert(url.path).inserted { result.append(Candidate(token: token, url: url)) }
+                if let url = validatedImageURL(forPath: token, runDirectory: runDirectory) {
+                    consider(token: token, url: url, captionToken: token)
+                }
+            }
+            // 2. Images embedded inside a referenced markdown artifact (AGY: the answer links
+            //    a `.md`, and the real image is `![alt](…jpg)` inside it). Follow the artifact,
+            //    resolve its inner image links relative to the artifact's own directory.
+            var followed = 0
+            for token in artifactPathTokens(in: text) {
+                guard result.count < maxImagesPerTurn, followed < maxArtifactsToFollow else { break }
+                guard let artifactURL = validatedArtifactURL(forPath: token, runDirectory: runDirectory),
+                      let contents = readArtifact(artifactURL) else { continue }
+                followed += 1
+                let artifactDir = artifactURL.deletingLastPathComponent()
+                for inner in imagePathTokens(in: contents) {
+                    guard result.count < maxImagesPerTurn else { break }
+                    if let url = validatedImageURL(forPath: inner, runDirectory: artifactDir) {
+                        // Leave the caption untouched: the artifact link (e.g. the `.md`) is a
+                        // real, openable artifact worth keeping; the image just appears below it.
+                        // The inner path never appeared in the prose, so nothing is stripped.
+                        consider(token: inner, url: url, captionToken: inner)
+                    }
+                }
             }
         }
         return result
@@ -131,21 +165,70 @@ public enum WorkerOutputImageHarvest {
         }
     }
 
-    private static func validatedImageURL(forPath rawPath: String, runDirectory: URL?) -> URL? {
-        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, RunImagePathResolver.isImagePath(trimmed) else { return nil }
-
-        if trimmed.hasPrefix("/") || trimmed.hasPrefix("~") {
-            let expanded = (trimmed as NSString).expandingTildeInPath
-            let url = URL(fileURLWithPath: expanded)
-            return WorkerImageCapture.isValidImage(at: url) ? url : nil
+    /// Path-like tokens ending in a markdown extension — a user-facing artifact some agents
+    /// (AGY/antigravity) produce instead of naming the image directly. The caller reads each
+    /// and scans its contents for embedded image links.
+    static func artifactPathTokens(in text: String) -> [String] {
+        guard !text.isEmpty else { return [] }
+        let pattern = "[^\\s\"'`<>()\\[\\]{}|,]+\\.(?:md|markdown)"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return []
         }
-        // Run-relative — only honoured under a known run directory, with the resolver's
-        // escape checks (no `..`, no absolute, must stay under the run root).
-        guard let runDirectory,
-              let abs = RunImagePathResolver.absolutePath(runDirectory: runDirectory, relativePath: trimmed)
-        else { return nil }
-        let url = URL(fileURLWithPath: abs)
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.matches(in: text, range: range).compactMap { match in
+            Range(match.range, in: text).map { String(text[$0]) }
+        }
+    }
+
+    private static func validatedImageURL(forPath rawPath: String, runDirectory: URL?) -> URL? {
+        guard let url = resolvedFileURL(forPath: rawPath, runDirectory: runDirectory),
+              RunImagePathResolver.isImagePath(url.path) else { return nil }
         return WorkerImageCapture.isValidImage(at: url) ? url : nil
+    }
+
+    private static func validatedArtifactURL(forPath rawPath: String, runDirectory: URL?) -> URL? {
+        guard let url = resolvedFileURL(forPath: rawPath, runDirectory: runDirectory) else { return nil }
+        let ext = url.pathExtension.lowercased()
+        guard ext == "md" || ext == "markdown" else { return nil }
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue else {
+            return nil
+        }
+        return url
+    }
+
+    /// Resolve a raw token (which may be a `file://` URL, a `~/`/absolute path, or a path
+    /// relative to `runDirectory`) to a filesystem URL — without checking the file type.
+    /// Absolute/`file://`/`~` paths resolve directly; relative paths use the resolver's escape
+    /// checks (no `..`, must stay under the run root). Returns nil for paths that don't exist.
+    private static func resolvedFileURL(forPath rawPath: String, runDirectory: URL?) -> URL? {
+        let token = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { return nil }
+        let path = filesystemPath(from: token)
+
+        if path.hasPrefix("/") || path.hasPrefix("~") {
+            let expanded = (path as NSString).expandingTildeInPath
+            return URL(fileURLWithPath: expanded)
+        }
+        guard let runDirectory,
+              let abs = RunImagePathResolver.absolutePath(runDirectory: runDirectory, relativePath: path)
+        else { return nil }
+        return URL(fileURLWithPath: abs)
+    }
+
+    /// Turn a `file://` URL into a filesystem path (percent-decoded, scheme dropped). A plain
+    /// path is returned unchanged — so a literal `%2F` in a non-URL vendor path (Grok session
+    /// dirs) is preserved, never accidentally decoded.
+    private static func filesystemPath(from token: String) -> String {
+        guard token.lowercased().hasPrefix("file://") else { return token }
+        if let url = URL(string: token), url.isFileURL { return url.path }
+        let dropped = String(token.dropFirst("file://".count))
+        return dropped.removingPercentEncoding ?? dropped
+    }
+
+    private static func readArtifact(_ url: URL) -> String? {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? Int, size <= maxArtifactBytes else { return nil }
+        return try? String(contentsOf: url, encoding: .utf8)
     }
 }

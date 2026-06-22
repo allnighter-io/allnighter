@@ -46,6 +46,41 @@ final class WorkerOutputImageHarvestTests: XCTestCase {
         XCTAssertEqual(urls.map(\.path), [png.path])
     }
 
+    /// AGY/antigravity wraps the produced image in a `.md` artifact and the answer links only
+    /// the `.md` (via a `file://` URL); the real image is `![alt](…jpg)` inside it. Harvest must
+    /// follow the artifact and capture the embedded image.
+    func testFollowsMarkdownArtifactToEmbeddedImage() {
+        let dir = tempDir()
+        let png = writeRealPNG(at: dir.appendingPathComponent("vancouver_sunset.png"))
+        let artifact = dir.appendingPathComponent("vancouver_sunset.md")
+        try? """
+        # Vancouver Sunset
+
+        Here is the generated image:
+
+        ![Vancouver Sunset](\(png.path))
+        """.write(to: artifact, atomically: true, encoding: .utf8)
+
+        let answer = "I have generated the image. You can view it in the "
+            + "[vancouver_sunset.md](file://\(artifact.path)) artifact."
+        let urls = WorkerOutputImageHarvest.candidateImageURLs(in: [answer], runDirectory: nil)
+        XCTAssertEqual(urls.map(\.path), [png.path], "image embedded in the linked .md is harvested")
+    }
+
+    /// The artifact link is kept in the caption (it's a real, openable artifact) — the inner
+    /// image path, never shown in the prose, is what gets captured, so the caption is intact.
+    func testArtifactCaptionIsPreserved() {
+        let dir = tempDir()
+        let png = writeRealPNG(at: dir.appendingPathComponent("art.png"))
+        let artifact = dir.appendingPathComponent("art.md")
+        try? "![art](\(png.path))".write(to: artifact, atomically: true, encoding: .utf8)
+        let answer = "Done. See [art.md](file://\(artifact.path))."
+        let candidates = WorkerOutputImageHarvest.candidates(in: [answer], runDirectory: nil)
+        let cleaned = WorkerOutputImageHarvest.cleanedCaption(
+            from: answer, removing: candidates.map(\.token))
+        XCTAssertTrue(cleaned.contains("[art.md]"), "the artifact link stays in the caption")
+    }
+
     func testIgnoresPathWithNoFileAndNonImageBytes() {
         let dir = tempDir()
         // Path that doesn't exist on disk.
