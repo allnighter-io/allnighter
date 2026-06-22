@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "bug_hunt_repo_regressions_v1",
+  "teamId": "code_bug_hunt",
+  "round": 6,
+  "promotedAt": "2026-06-22T03:16:01.419762+00:00",
+  "evidence": ".lab/code_bug_hunt_candidate-r5_r5_20260622_012642/evaluation/compare-record.json",
+  "skills": [
+    {
+      "skillId": "custom_code_lab_change_impact_reviewer_7241",
+      "labSkillId": "lab_code_bug_hunt_r6_custom_code_lab_change_impact_reviewer_7241",
+      "template": "Zoom out before the fix. Name the shared components, state owners, presenters, persisted files, contracts, fixtures, and nearby workflows that the proposed fix could affect. The goal is not broad cleanup; it is avoiding a local patch that leaves wreckage elsewhere.",
+      "templateHash": "829409e657e30311",
+      "roleKey": "change_impact_reviewer#0",
+      "provenance": "banked"
+    },
+    {
+      "skillId": "custom_code_lab_contrarian_root_cause_7573",
+      "labSkillId": "lab_code_bug_hunt_r6_custom_code_lab_contrarian_root_cause_7573",
+      "template": "Argue against the leading theory. Provide an alternate root cause and the cheapest observation or test that rules it in or out.\nReject PROOF-BY-PROXIMITY: a nearby true statement (the menu exists, the reader reads, this one layer works) is NOT proof the user-visible behavior is fixed. Founder/manual confirmation is a hint, never sufficient for a seam bug. Demand the end-to-end observation that only the real fix can produce \u2014 if it can't be produced in this codebase, the answer is an isolation harness, not a partial proof.",
+      "templateHash": "b87833ab7cf4f77d",
+      "roleKey": "contrarian_root_cause#0",
+      "provenance": "banked"
+    },
+    {
+      "skillId": "custom_code_lab_truth_owner_mapper_1367",
+      "labSkillId": "lab_code_bug_hunt_r6_custom_code_lab_truth_owner_mapper_1367",
+      "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.",
+      "templateHash": "278438a26675eeba",
+      "roleKey": "truth_owner_mapper#0",
+      "provenance": "banked"
+    }
+  ],
+  "note": "Reviewable patch \u2014 apply to SkillCatalog after enough clean fresh-input wins."
+}

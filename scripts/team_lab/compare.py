@@ -57,6 +57,10 @@ def _label(worker: dict[str, Any]) -> str:
     return worker.get("skillName") or worker.get("skillId") or worker.get("purpose") or worker.get("id")
 
 
+from worker_health import origin_map_from_lab_dir as _origin_map_from_lab_dir
+from worker_health import promotion_worker_meta
+
+
 def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
             *, with_hypotheses: bool = False) -> dict[str, Any]:
     base, cand = _load_run(baseline_dir), _load_run(candidate_dir)
@@ -76,7 +80,13 @@ def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
         )
     input_hash = hashlib.sha256(base["task"].encode()).hexdigest()[:12]
 
-    matched, unmatched = J.map_roles(base["workers"], cand["workers"])
+    origin_by_skill = {
+        **_origin_map_from_lab_dir(baseline_dir),
+        **_origin_map_from_lab_dir(candidate_dir),
+    }
+    matched, unmatched = J.map_roles(
+        base["workers"], cand["workers"], origin_by_skill=origin_by_skill
+    )
 
     role_decisions: list[J.RoleDecision] = []
     hypotheses: list[dict[str, Any]] = []
@@ -113,6 +123,7 @@ def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
     decision = J.decide_compare(role_decisions, deliverable_verdicts, unmatched)
 
     champ_hash, cand_hash = hashes_from_labs(baseline_dir, candidate_dir)
+    worker_meta = promotion_worker_meta(candidate_dir)
 
     return {
         "schemaVersion": 1,
@@ -143,6 +154,7 @@ def compare(baseline_dir: Path, candidate_dir: Path, backends: list[J.Backend],
         ],
         "deliverableVerdicts": deliverable_verdicts,
         "hypotheses": hypotheses,
+        **worker_meta,
     }
 
 

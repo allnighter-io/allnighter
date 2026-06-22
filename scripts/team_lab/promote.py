@@ -27,6 +27,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import judge as J  # noqa: E402
 from config import config_hash, hashes_from_labs, overlay_material_delta  # noqa: E402
+from worker_health import failed_role_keys, promotion_worker_meta  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 CHAMPIONS_DIR = REPO / "docs/team-lab/champions"
@@ -76,54 +77,74 @@ def extract_skill_template(snapshot: str, builtin_template: str) -> str:
 
 
 def load_workers(lab_dir: Path) -> dict[str, dict[str, Any]]:
+    from worker_health import origin_map_from_lab_dir
+
     tr = json.loads((lab_dir / "team-result.json").read_text())
+    origins = origin_map_from_lab_dir(lab_dir)
     out: dict[str, dict[str, Any]] = {}
     for w in tr.get("workers", []):
         if w.get("purpose") == "plan":
             continue
-        out[J.role_key(w)] = w
+        out[J.role_key(w, origins)] = w
     return out
 
 
-def autopromote_gate(record: dict[str, Any]) -> tuple[str, str | None]:
-    """Return (verdict, reason) where verdict is promote | escalate | hold."""
+def autopromote_gate(record: dict[str, Any]) -> tuple[str, str | None, dict[str, Any]]:
+    """Return (verdict, reason, meta) where verdict is promote | escalate | hold."""
+    meta: dict[str, Any] = {
+        "degradedWin": False,
+        "confirmRequiredNextRound": False,
+        "failedRoleKeys": record.get("failedRoleKeys") or [],
+        "failedWorkers": record.get("failedWorkers") or [],
+    }
     if record.get("judgeMode") != "live":
-        return "hold", "judgeMode is not live"
+        return "hold", "judgeMode is not live", meta
     if not record.get("evidenceValid"):
-        return "hold", "evidenceValid is false"
+        return "hold", "evidenceValid is false", meta
     if not record.get("sameInput"):
-        return "hold", "sameInput is false"
+        return "hold", "sameInput is false", meta
     if record.get("unmatchedRoles"):
-        return "escalate", f"structural role mismatch: {record['unmatchedRoles']}"
+        return "escalate", f"structural role mismatch: {record['unmatchedRoles']}", meta
     if record.get("interactionWarning"):
-        return "escalate", "interactionWarning — deliverable regressed while roles banked"
+        return "escalate", "interactionWarning — deliverable regressed while roles banked", meta
 
     champ_hash = record.get("championConfigHash")
     cand_hash = record.get("candidateConfigHash")
     if not champ_hash or not cand_hash:
-        return "hold", "missing championConfigHash or candidateConfigHash in compare record"
+        return "hold", "missing championConfigHash or candidateConfigHash in compare record", meta
     if champ_hash == cand_hash:
-        return "hold", "no material candidate delta"
+        return "hold", "no material candidate delta", meta
     if record.get("materialCandidateDelta") is False:
-        return "hold", "no material candidate delta"
+        return "hold", "no material candidate delta", meta
 
-    banked = record.get("bankedRoles") or []
+    banked = set(record.get("bankedRoles") or [])
     deliverable = record.get("deliverableOutcome")
+    failed_roles = set(record.get("failedRoleKeys") or [])
 
     if not banked:
-        return "hold", "no banked roles"
+        return "hold", "no banked roles", meta
+
+    banked_failed = sorted(banked & failed_roles)
+    if banked_failed:
+        return "hold", f"banked role(s) had failed/empty worker: {banked_failed}", meta
 
     if deliverable == "baseline":
-        return "escalate", "deliverable regressed to baseline while roles banked"
+        return "escalate", "deliverable regressed to baseline while roles banked", meta
     if deliverable == "invalid":
-        return "escalate", "deliverable verdict invalid"
+        return "escalate", "deliverable verdict invalid", meta
     if deliverable == "tie" and len(banked) >= 3:
-        return "escalate", "deliverable tie with multiple role banks — judge split"
+        return "escalate", "deliverable tie with multiple role banks — judge split", meta
+
+    unbanked_failed = sorted(failed_roles - banked)
+    if unbanked_failed and deliverable == "candidate":
+        meta["degradedWin"] = True
+        meta["confirmRequiredNextRound"] = True
+        meta["degradedReason"] = f"unbanked failed workers: {unbanked_failed}"
 
     if deliverable in ("candidate", "tie"):
-        return "promote", None
+        return "promote", None, meta
 
-    return "hold", f"deliverableOutcome={deliverable!r}"
+    return "hold", f"deliverableOutcome={deliverable!r}", meta
 
 
 def load_prior_overlay(suite_id: str, team_id: str) -> dict[str, Any] | None:
@@ -145,44 +166,85 @@ def build_overlay(
     prior: dict[str, Any] | None,
 ) -> dict[str, Any]:
     banked = set(compare_record.get("bankedRoles") or [])
+    failed_roles = set(compare_record.get("failedRoleKeys") or [])
+    prior_banked = set((prior or {}).get("bankedRoles") or [])
+    carry_prior_banked = prior_banked - banked - failed_roles
+    all_banked = banked | carry_prior_banked
     base_workers = load_workers(baseline_lab)
     cand_workers = load_workers(candidate_lab)
     prior_roles = (prior or {}).get("roles") or {}
 
     roles: dict[str, Any] = {}
-    for rkey in sorted(set(base_workers) | set(cand_workers) | set(prior_roles)):
+    role_keys = sorted(set(prior_roles) | set(base_workers) | set(cand_workers))
+    for rkey in role_keys:
+        prior_role = prior_roles.get(rkey) or {}
         if rkey in banked and rkey in cand_workers:
             worker = cand_workers[rkey]
             provenance = "banked"
             source_lab = candidate_lab.name
-        elif rkey in prior_roles and prior_roles[rkey].get("provenance") == "banked":
-            worker = cand_workers.get(rkey) or base_workers.get(rkey) or {}
+            banked_at = round_no - 1
+            snapshot = worker.get("resolvedWorkerPromptSnapshot") or ""
+        elif rkey in carry_prior_banked and prior_role.get("provenance") == "banked":
+            worker = prior_role
             provenance = "banked"
-            source_lab = prior_roles[rkey].get("sourceLab", baseline_lab.name)
+            source_lab = prior_role.get("sourceLab", baseline_lab.name)
+            banked_at = prior_role.get("bankedAtRound")
+            snapshot = prior_role.get("template") or ""
         else:
-            worker = base_workers.get(rkey) or cand_workers.get(rkey) or {}
+            worker = base_workers.get(rkey) or prior_role
             provenance = "incumbent"
             source_lab = baseline_lab.name
+            banked_at = None
+            snapshot = worker.get("resolvedWorkerPromptSnapshot") or prior_role.get("template") or ""
 
-        skill_id = worker.get("skillId") or rkey.split("#")[0]
-        snapshot = worker.get("resolvedWorkerPromptSnapshot") or ""
+        skill_id = worker.get("skillId") if isinstance(worker, dict) and worker.get("skillId") else (
+            prior_role.get("skillId") or rkey.split("#")[0]
+        )
+        if skill_id.startswith("custom_code_lab_"):
+            # Champion arm uses built-in skill ids; map lab forks back to canonical.
+            skill_id = rkey.split("#")[0]
         builtin = fetch_skill_template(alln, skill_id)
-        template = extract_skill_template(snapshot, builtin)
+        if rkey in banked and rkey in cand_workers:
+            template = extract_skill_template(snapshot, builtin)
+        elif rkey in carry_prior_banked and prior_role.get("template"):
+            template = prior_role.get("template") or ""
+        else:
+            template = extract_skill_template(snapshot, builtin) if snapshot else (
+                prior_role.get("template") or builtin
+            )
         template_changed = template.strip() != builtin.strip()
-        lab_skill_id = f"lab_{team_id}_r{round_no}_{skill_id}" if template_changed else skill_id
+        if template_changed:
+            prior_lab = prior_role.get("labSkillId")
+            if prior_lab and str(prior_lab).startswith("custom_code_lab_"):
+                lab_skill_id = prior_lab
+            else:
+                lab_skill_id = skill_id  # deploy creates fork via skills_duplicate
+        else:
+            lab_skill_id = skill_id
 
         roles[rkey] = {
             "skillId": skill_id,
-            "instanceIndex": worker.get("instanceIndex"),
-            "skillName": worker.get("skillName"),
+            "instanceIndex": (
+                worker.get("instanceIndex", prior_role.get("instanceIndex", 0))
+                if isinstance(worker, dict) else prior_role.get("instanceIndex", 0)
+            ),
+            "skillName": (
+                (worker.get("skillName") if isinstance(worker, dict) else None)
+                or prior_role.get("skillName")
+            ),
             "labSkillId": lab_skill_id,
+            "originRoleKey": rkey,
             "provenance": provenance,
-            "bankedAtRound": round_no - 1 if provenance == "banked" and rkey in banked else prior_roles.get(rkey, {}).get("bankedAtRound"),
+            "bankedAtRound": banked_at,
             "sourceLab": source_lab,
             "template": template,
             "templateHash": hashlib.sha256(template.encode()).hexdigest()[:16],
             "templateChangedFromBuiltIn": template_changed,
         }
+
+    promotion_class = compare_record.get("promotionClass") or "quality"
+    if compare_record.get("degradedWin"):
+        promotion_class = "degraded_win"
 
     lab_team_id = f"lab_{team_id}_r{round_no}"
     overlay = {
@@ -196,8 +258,11 @@ def build_overlay(
         "promotedFromCompare": str(compare_record.get("_path", "")),
         "promotedFromCandidateLab": candidate_lab.name,
         "promotedFromBaselineLab": baseline_lab.name,
-        "bankedRoles": sorted(banked),
-        "promotionClass": "quality",
+        "bankedRoles": sorted(all_banked),
+        "promotionClass": promotion_class,
+        "degradedWin": bool(compare_record.get("degradedWin")),
+        "confirmRequiredNextRound": bool(compare_record.get("confirmRequiredNextRound")),
+        "failedRoleKeys": compare_record.get("failedRoleKeys") or [],
         "roles": roles,
     }
     overlay["championConfigHash"] = compare_record.get("championConfigHash")
@@ -293,10 +358,13 @@ def promote(
 ) -> dict[str, Any]:
     record = json.loads(compare_record_path.read_text())
     record["_path"] = str(compare_record_path)
+    record.update(promotion_worker_meta(candidate_lab))
 
-    verdict, reason = autopromote_gate(record)
+    verdict, reason, gate_meta = autopromote_gate(record)
     if verdict != "promote" and not force:
         raise SystemExit(f"autopromote {verdict}: {reason}")
+
+    record.update(gate_meta)
 
     prior = load_prior_overlay(suite_id, team_id)
     overlay = build_overlay(
@@ -331,7 +399,7 @@ def promote(
     promotion = {
         "schemaVersion": 2,
         "verdict": "promote" if verdict == "promote" else "forced",
-        "promotionClass": "quality",
+        "promotionClass": overlay.get("promotionClass") or ("degraded_win" if record.get("degradedWin") else "quality"),
         "gateReason": reason,
         "round": round_no,
         "suiteId": suite_id,
@@ -341,6 +409,10 @@ def promote(
         "candidateLab": candidate_lab.name,
         "bankedRoles": record.get("bankedRoles"),
         "deliverableOutcome": record.get("deliverableOutcome"),
+        "degradedWin": record.get("degradedWin"),
+        "confirmRequiredNextRound": record.get("confirmRequiredNextRound"),
+        "failedRoleKeys": record.get("failedRoleKeys"),
+        "failedWorkers": record.get("failedWorkers"),
         "championConfigHash": champ_hash or record.get("championConfigHash"),
         "candidateConfigHash": cand_hash or record.get("candidateConfigHash"),
         "materialCandidateDelta": record.get("materialCandidateDelta"),
@@ -371,9 +443,20 @@ def main() -> int:
         raise SystemExit(f"alln not found: {args.alln}")
 
     record = json.loads(args.compare_record.read_text())
-    verdict, reason = autopromote_gate(record)
+    record.update(promotion_worker_meta(args.candidate_lab))
+    verdict, reason, gate_meta = autopromote_gate(record)
     if args.check_only:
-        print(json.dumps({"verdict": verdict, "reason": reason, "bankedRoles": record.get("bankedRoles")}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "verdict": verdict,
+                    "reason": reason,
+                    "bankedRoles": record.get("bankedRoles"),
+                    **gate_meta,
+                },
+                indent=2,
+            )
+        )
         return 0 if verdict == "promote" else 1
 
     promo = promote(

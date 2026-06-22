@@ -57,6 +57,16 @@ def main() -> int:
         help="prior compare-record.json — builds candidate overlay with hypothesis patches",
     )
     p.add_argument("--case-json", type=Path, help="reuse case; default generate fresh via scenario.py")
+    p.add_argument(
+        "--controlled",
+        action="store_true",
+        help="prompt-only candidate: same roster as champion overlay, no structural adds",
+    )
+    p.add_argument(
+        "--narrow",
+        action="store_true",
+        help="patch only one unbanked role with a hypothesis — not a full sweep",
+    )
     p.add_argument("--mock-judges", action="store_true")
     p.add_argument("--skip-compare", action="store_true")
     p.add_argument("--auto-promote-next", action="store_true", default=True)
@@ -114,7 +124,11 @@ def main() -> int:
         compare_record = json.loads(args.hypotheses_from.read_text())
         compare_record["_path"] = str(args.hypotheses_from)
         cand_overlay = build_candidate_overlay(
-            champion, compare_record=compare_record, round_no=args.round
+            champion,
+            compare_record=compare_record,
+            round_no=args.round,
+            controlled=args.controlled,
+            narrow=args.narrow,
         )
         cand_overlay_path = CANDIDATES_DIR / args.suite / f"{args.team}_r{args.round}.json"
         write_candidate_overlay(cand_overlay_path, cand_overlay)

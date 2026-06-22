@@ -39,27 +39,78 @@ def hypotheses_by_role(compare_record: dict[str, Any]) -> dict[str, str]:
     return out
 
 
+def _normalize_patches_to_champion(
+    patches: dict[str, str], champion_roles: dict[str, Any]
+) -> dict[str, str]:
+    """Map compare-record role keys onto champion overlay keys (same skillId)."""
+    by_skill = {r.get("skillId"): rkey for rkey, r in champion_roles.items()}
+    out: dict[str, str] = {}
+    for role_key, change in patches.items():
+        skill = role_key.split("#", 1)[0]
+        target = by_skill.get(skill)
+        if not target:
+            continue
+        out[target] = change
+    return out
+
+
 def build_candidate_overlay(
     champion_overlay: dict[str, Any],
     *,
     compare_record: dict[str, Any],
     round_no: int,
     builtin_templates: dict[str, str] | None = None,
+    controlled: bool = False,
+    narrow: bool = False,
 ) -> dict[str, Any]:
-    """Champion overlay + hypothesis patches on banked roles = material candidate arm."""
+    """Champion overlay + hypothesis patches on banked roles = material candidate arm.
+
+    When controlled=True, only patch roles already present in the champion overlay
+    (same roster / no structural adds). Unmatched structural roles in the compare
+    record must be empty.
+    """
     patches = hypotheses_by_role(compare_record)
     if not patches:
         raise SystemExit(
             "refusing candidate overlay: compare record has no hypothesis patches for banked roles"
         )
 
+    champion_roles = champion_overlay.get("roles") or {}
+    patches = _normalize_patches_to_champion(patches, champion_roles)
+    if not patches:
+        raise SystemExit(
+            "refusing candidate overlay: no hypothesis patches match champion overlay roles"
+        )
+    if narrow:
+        just_banked = set(compare_record.get("bankedRoles") or [])
+        champion_banked = set(champion_overlay.get("bankedRoles") or [])
+        # Prefer one unbanked role so R6 tests a single new hypothesis, not re-sweeping winners.
+        candidates = [r for r in patches if r not in just_banked and r not in champion_banked]
+        if not candidates:
+            candidates = [r for r in patches if r not in just_banked]
+        pick = candidates[0] if candidates else next(iter(patches))
+        patches = {pick: patches[pick]}
+    if controlled:
+        unmatched = compare_record.get("unmatchedRoles") or []
+        overlay_skill_ids = {r.get("skillId") for r in champion_roles.values()}
+        alien = [u for u in unmatched if u.split("#", 1)[0] not in overlay_skill_ids]
+        if alien:
+            raise SystemExit(
+                f"refusing controlled candidate: structural roles not in champion roster: {alien}"
+            )
+
     out = deepcopy(champion_overlay)
     out["round"] = round_no
     out["arm"] = "candidate"
     out["builtAt"] = datetime.now(timezone.utc).isoformat()
+    if controlled:
+        out["candidatePolicy"] = "controlled_prompt_only"
+    if narrow:
+        out["candidatePolicy"] = "narrow_single_role"
     roles: dict[str, Any] = {}
-    for rkey, role in (out.get("roles") or {}).items():
+    for rkey, role in champion_roles.items():
         new_role = dict(role)
+        new_role.setdefault("originRoleKey", rkey)
         if rkey in patches:
             template = apply_hypothesis_patch(role.get("template") or "", patches[rkey])
             builtin = (builtin_templates or {}).get(role.get("skillId", ""), "")

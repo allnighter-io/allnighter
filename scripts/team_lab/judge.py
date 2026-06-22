@@ -324,24 +324,32 @@ def decide_compare(role_decisions: list[RoleDecision],
 # --------------------------------------------------------------------------- #
 
 
-def role_key(worker: dict[str, Any]) -> str:
-    """Stable identity for a role across runs: skill + instance, not model."""
+def role_key(worker: dict[str, Any], origin_by_skill: dict[str, str] | None = None) -> str:
+    """Stable identity for a role across runs: originRoleKey when known, else skill + instance."""
     skill = worker.get("skillId") or worker.get("skillName") or worker.get("purpose") or worker.get("id")
+    if origin_by_skill and skill in origin_by_skill:
+        return origin_by_skill[skill]
     idx = worker.get("instanceIndex")
     return f"{skill}#{idx}" if idx is not None else str(skill)
 
 
-def map_roles(baseline_workers: list[dict[str, Any]],
-              candidate_workers: list[dict[str, Any]]) -> tuple[list[tuple[str, dict, dict]], list[str]]:
-    """Match answer/review roles 1:1 by role_key. Plan/writer handled via deliverable.
+def map_roles(
+    baseline_workers: list[dict[str, Any]],
+    candidate_workers: list[dict[str, Any]],
+    *,
+    origin_by_skill: dict[str, str] | None = None,
+) -> tuple[list[tuple[str, dict, dict]], list[str]]:
+    """Match answer/review roles 1:1 by canonical role key. Plan/writer handled via deliverable.
     Returns (matched, unmatched_keys). Structural changes (added/removed roles) show
     up as unmatched and fall back to the deliverable gate."""
+    origins = origin_by_skill or {}
+
     def index(ws: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         out: dict[str, dict[str, Any]] = {}
         for w in ws:
             if w.get("purpose") == "plan":
                 continue
-            out[role_key(w)] = w
+            out[role_key(w, origins)] = w
         return out
 
     bi, ci = index(baseline_workers), index(candidate_workers)

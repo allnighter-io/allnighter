@@ -47,6 +47,7 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
             "hasBundleMarkdown": False,
             "nonPlanWorkerCount": 0,
             "statusedAnswerCount": 0,
+            "nonemptyAnswerCount": 0,
             "writerStatusPresent": False,
         }
     workers = team_result.get("workers", [])
@@ -59,12 +60,24 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
     # which the contract does not carry). Every non-plan worker must have a status so
     # a hidden/dropped answer/review worker cannot pass as a clean run.
     non_plan = [w for w in workers if w.get("purpose") != "plan"]
+    workers_by_id = {w["id"]: w for w in workers if w.get("id")}
     statused_answers = [a for a in answers if (a.get("status") or "").strip()]
     writer_status_present = bool(isinstance(plan, dict) and (plan.get("status") or "").strip())
+    nonempty_answers = 0
+    for ans in answers:
+        wid = ans.get("workerId")
+        if not wid:
+            continue
+        meta = workers_by_id.get(wid, {})
+        if meta.get("purpose") == "plan":
+            continue
+        if (ans.get("markdown") or "").strip():
+            nonempty_answers += 1
     return {
         "ok": prompts > 0 and answered > 0 and bool(plan_md),
         "workerCount": len(workers),
         "answerCount": answered,
+        "nonemptyAnswerCount": nonempty_answers,
         "promptSnapshots": prompts,
         "hasPlan": bool(plan_md),
         "hasBundleMarkdown": bool(plan_md),
@@ -180,6 +193,10 @@ def score_run_contract(
         and mcp["statusedAnswerCount"] == mcp["nonPlanWorkerCount"]
         and mcp["writerStatusPresent"]
     )
+    worker_content_ok = (
+        mcp["nonPlanWorkerCount"] > 0
+        and mcp.get("nonemptyAnswerCount", 0) == mcp["nonPlanWorkerCount"]
+    )
 
     checks: list[dict[str, Any]] = []
     checks.append({"name": "terminal_status", "ok": status in {"completed", "failed", "cancelled", "interrupted"}})
@@ -187,6 +204,7 @@ def score_run_contract(
     checks.append({"name": "mcp_worker_prompts", "ok": mcp["promptSnapshots"] > 0})
     checks.append({"name": "mcp_worker_answers", "ok": mcp["answerCount"] > 0})
     checks.append({"name": "mcp_worker_status", "ok": worker_status_ok})
+    checks.append({"name": "mcp_worker_nonempty", "ok": worker_content_ok})
     checks.append({"name": "mcp_plan_markdown", "ok": mcp["hasPlan"]})
     checks.append({"name": "floor_show_run_id", "ok": floor_ok or not expected_run_id})
     checks.append({"name": "pure_mcp_scoring", "ok": not fs_bypass})

@@ -116,14 +116,14 @@
       "skillId": "truth_owner_mapper",
       "instanceIndex": 0,
       "skillName": "Truth Owner Mapper",
-      "labSkillId": "truth_owner_mapper",
+      "labSkillId": "custom_code_lab_truth_owner_mapper_3281",
       "originRoleKey": "truth_owner_mapper#0",
-      "provenance": "incumbent",
+      "provenance": "candidate_hypothesis",
       "bankedAtRound": null,
       "sourceLab": "code_bug_hunt_champion-r5_r5_20260621_231411",
-      "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.",
-      "templateHash": "278438a26675eeba",
-      "templateChangedFromBuiltIn": false
+      "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.\n\nAdd one sentence requiring the packet to state the single file:line where the env value is dropped/clobbered, plus the minimal one-line fix, and refuse any answer that names only a layer without that exact location.",
+      "templateHash": "72b1b49d4c993001",
+      "templateChangedFromBuiltIn": true
     },
     "user_impact_narrator#0": {
       "skillId": "user_impact_narrator",
@@ -141,5 +141,19 @@
   },
   "championConfigHash": "e5aa2c2c514408f4",
   "candidateConfigHash": "b6caabb5b7adb620",
-  "configHash": "49b4497a2d1c65eb"
+  "configHash": "49b4497a2d1c65eb",
+  "arm": "candidate",
+  "builtAt": "2026-06-22T03:49:45.327290+00:00",
+  "candidatePolicy": "narrow_single_role",
+  "candidateDelta": {
+    "kind": "hypothesis_patch",
+    "sourceCompare": ".lab/code_bug_hunt_candidate-r5_r5_20260622_012642/evaluation/compare-record.json",
+    "patchedRoles": [
+      "truth_owner_mapper#0"
+    ],
+    "patches": {
+      "truth_owner_mapper#0": "Add one sentence requiring the packet to state the single file:line where the env value is dropped/clobbered, plus the minimal one-line fix, and refuse any answer that names only a layer without that exact location."
+    }
+  },
+  "candidateLabTeamId": "lab_code_bug_hunt_r6_candidate"
 }

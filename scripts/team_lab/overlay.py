@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +11,27 @@ from config import config_hash, overlay_material_delta
 from mcp_client import MCPStdioClient, parse_tool_json
 from model_policy import LEAD_OPUS, WORKER_POOL, WORKER_POOL_LABEL, apply_model_policy
 
+LAB_TYPE_TAG = "lab"
+
 
 class OverlayDeployError(RuntimeError):
     pass
+
+
+def lab_isolated_teams_enabled() -> bool:
+    """Default: experiment teams are isolated lab_ ids, never user-facing production teams.
+
+    Set ALLN_LAB_IN_PLACE=1 only for founder-approved upgrades to the real team id.
+    """
+    if os.environ.get("ALLN_LAB_IN_PLACE", "").lower() in ("1", "true", "yes"):
+        return False
+    return os.environ.get("ALLN_LAB_ISOLATED_TEAMS", "1").lower() not in ("0", "false", "off", "no")
+
+
+def lab_team_id(base_team_id: str, round_no: int, arm: str) -> str:
+    """Stable isolated team id for A/B arms, e.g. lab_code_bug_hunt_r4_champion."""
+    arm_slug = arm.replace("-", "_").lower()
+    return f"lab_{base_team_id}_r{round_no}_{arm_slug}"
 
 
 def load_overlay(path: Path) -> dict[str, Any]:
@@ -49,8 +68,20 @@ def _fetch_team_definition(client: MCPStdioClient, team_id: str) -> dict[str, An
     return parse_tool_json(client.call_tool("teams_definition", {"teamId": team_id}))
 
 
-def _ensure_lab_skill(client: MCPStdioClient, role: dict[str, Any]) -> str:
+def _mark_lab_team(team_def: dict[str, Any], *, display_name: str) -> None:
+    tags = list(team_def.get("typeTags") or [])
+    if LAB_TYPE_TAG not in tags:
+        tags.append(LAB_TYPE_TAG)
+    team_def["typeTags"] = tags
+    team_def["displayName"] = display_name
+    team_def["builtIn"] = False
+    team_def["isDefaultForLane"] = False
+    team_def["isDefaultForRun"] = False
+
+
+def _ensure_lab_skill(client: MCPStdioClient, role: dict[str, Any], *, origin_role_key: str) -> str:
     """Return skill id to use on the team row (lab fork or built-in)."""
+    role.setdefault("originRoleKey", origin_role_key)
     skill_id = role["skillId"]
     if not role.get("templateChangedFromBuiltIn"):
         return skill_id
@@ -90,17 +121,44 @@ def _apply_skill_map(team_def: dict[str, Any], skill_map: dict[str, str]) -> Non
             lead["skillId"] = skill_map[ls]
 
 
+def _seed_lab_team_from_base(
+    client: MCPStdioClient,
+    *,
+    base_team_id: str,
+    lab_team_id: str,
+    display_name: str,
+) -> dict[str, Any]:
+    """Create a new lab_* team from a built-in/custom base (MCP allows lab_ upsert)."""
+    base_def = _fetch_team_definition(client, base_team_id)
+    team_def = dict(base_def)
+    team_def["id"] = lab_team_id
+    _mark_lab_team(team_def, display_name=display_name)
+    client.call_tool("teams_save", {"teamId": lab_team_id, "definition": team_def})
+    return _fetch_team_definition(client, lab_team_id)
+
+
 def _save_team_with_skill_map(
     client: MCPStdioClient,
     *,
     base_team_id: str,
-    lab_team_id: str | None,
+    target_team_id: str,
     skill_map: dict[str, str],
     display_name: str,
+    isolated: bool,
 ) -> str:
-    """Duplicate if needed, wire skill_map into full TeamPreset, teams_save."""
-    if lab_team_id and _team_exists(client, lab_team_id):
-        team_def = _fetch_team_definition(client, lab_team_id)
+    """Wire skill_map into TeamPreset and teams_save. Isolated runs use lab_* ids."""
+    if isolated:
+        if _team_exists(client, target_team_id):
+            team_def = _fetch_team_definition(client, target_team_id)
+        else:
+            team_def = _seed_lab_team_from_base(
+                client,
+                base_team_id=base_team_id,
+                lab_team_id=target_team_id,
+                display_name=display_name,
+            )
+    elif _team_exists(client, target_team_id):
+        team_def = _fetch_team_definition(client, target_team_id)
     else:
         dup = parse_tool_json(
             client.call_tool(
@@ -108,17 +166,19 @@ def _save_team_with_skill_map(
                 {"teamId": base_team_id, "name": display_name},
             )
         )
-        lab_team_id = dup["id"]
-        team_def = _fetch_team_definition(client, lab_team_id)
+        target_team_id = dup["id"]
+        team_def = _fetch_team_definition(client, target_team_id)
 
     _apply_skill_map(team_def, skill_map)
-    team_def["id"] = lab_team_id
-    team_def["displayName"] = display_name
-    team_def["builtIn"] = False
-    client.call_tool("teams_save", {"teamId": lab_team_id, "definition": team_def})
+    team_def["id"] = target_team_id
+    if isolated:
+        _mark_lab_team(team_def, display_name=display_name)
+    else:
+        team_def["displayName"] = display_name
+        team_def["builtIn"] = False
+    client.call_tool("teams_save", {"teamId": target_team_id, "definition": team_def})
 
-    # Verify wiring — every remapped built-in skill must appear on a row.
-    saved = _fetch_team_definition(client, lab_team_id)
+    saved = _fetch_team_definition(client, target_team_id)
     saved_skills = {s.get("skillId") for s in saved.get("workerSpecs", [])}
     if lead := saved.get("lead"):
         if isinstance(lead, dict) and lead.get("skillId"):
@@ -126,9 +186,9 @@ def _save_team_with_skill_map(
     for src, dst in skill_map.items():
         if src != dst and dst not in saved_skills:
             raise OverlayDeployError(
-                f"teams_save did not wire lab skill {dst} (from {src}) into team {lab_team_id}"
+                f"teams_save did not wire lab skill {dst} (from {src}) into team {target_team_id}"
             )
-    return lab_team_id
+    return target_team_id
 
 
 def _verify_model_policy_definition(team_def: dict[str, Any]) -> None:
@@ -157,29 +217,23 @@ def ensure_model_policy_team(
     variant: str,
     round_no: int,
 ) -> tuple[str, dict[str, Any]]:
-    """Duplicate built-in teams, then pin Opus lead + worker pool. Returns (team_id, policy meta)."""
+    """Pin Opus lead + worker pool on the experiment team. Never renames production teams."""
     team_def = _fetch_team_definition(client, team_id)
-    if team_def.get("builtIn"):
-        dup = parse_tool_json(
-            client.call_tool(
-                "teams_duplicate",
-                {"teamId": team_id, "name": f"Lab {variant} R{round_no} policy"},
-            )
-        )
-        team_id = dup["id"]
-        team_def = _fetch_team_definition(client, team_id)
+    original_name = team_def.get("displayName", team_id)
 
     patched, policy_meta = apply_model_policy(team_def)
     patched["id"] = team_id
-    patched["builtIn"] = False
-    patched["displayName"] = f"Lab {variant} R{round_no} ({WORKER_POOL_LABEL})"
+    if team_id.startswith("lab_") or lab_isolated_teams_enabled():
+        _mark_lab_team(patched, display_name=f"{original_name.split(' · Lab')[0]} · Lab")
+    else:
+        patched["builtIn"] = team_def.get("builtIn", False)
+        patched["displayName"] = original_name
     client.call_tool("teams_save", {"teamId": team_id, "definition": patched})
 
     saved = _fetch_team_definition(client, team_id)
     _verify_model_policy_definition(saved)
     meta = {
         "modelPolicy": policy_meta,
-        # Real bench preflight runs after MCP restart (ToolRuntime caches teams at init).
         "preflightCanStart": None,
         "readyWorkers": None,
     }
@@ -196,36 +250,48 @@ def deploy_overlay(
     overlay = load_overlay(overlay_path)
     base_team_id = overlay["baseTeamId"]
     arm = arm or overlay.get("arm") or "champion"
+    round_no = int(overlay.get("round") or 0)
+    isolated = lab_isolated_teams_enabled()
+
+    base_def = _fetch_team_definition(client, base_team_id)
+    base_display = base_def.get("displayName", base_team_id)
+    lab_display = f"{base_display} · Lab"
 
     skill_map: dict[str, str] = {}
     needs_custom_skills = False
-    for _rkey, role in overlay.get("roles", {}).items():
+    for rkey, role in overlay.get("roles", {}).items():
+        role.setdefault("originRoleKey", rkey)
         if role.get("templateChangedFromBuiltIn"):
             needs_custom_skills = True
-            skill_map[role["skillId"]] = _ensure_lab_skill(client, role)
+            skill_map[role["skillId"]] = _ensure_lab_skill(client, role, origin_role_key=rkey)
         else:
             skill_map[role["skillId"]] = role.get("labSkillId") or role["skillId"]
 
-    if needs_custom_skills:
-        lab_team_id = overlay.get("labTeamId") if arm == "champion" else overlay.get("candidateLabTeamId")
-        display = f"Lab {arm.title()} R{overlay.get('round', '?')}"
+    if isolated:
+        target_team_id = lab_team_id(base_team_id, round_no, arm)
+        display = lab_display
+    else:
+        target_team_id = base_team_id
+        display = base_display
+
+    if needs_custom_skills or isolated:
         try:
             deployed = _save_team_with_skill_map(
                 client,
                 base_team_id=base_team_id,
-                lab_team_id=lab_team_id,
+                target_team_id=target_team_id,
                 skill_map=skill_map,
                 display_name=display,
+                isolated=isolated,
             )
         except OverlayDeployError:
             raise
         except RuntimeError as e:
             raise OverlayDeployError(f"overlay deploy failed for {arm}: {e}") from e
-        if arm == "champion":
-            overlay["labTeamId"] = deployed
-        else:
-            overlay["candidateLabTeamId"] = deployed
-        overlay_path.write_text(json.dumps(overlay, indent=2) + "\n")
+        if isolated:
+            overlay_key = "labTeamId" if arm == "champion" else "candidateLabTeamId"
+            overlay[overlay_key] = deployed
+            overlay_path.write_text(json.dumps(overlay, indent=2) + "\n")
         team_id = deployed
     else:
         team_id = base_team_id
@@ -235,6 +301,7 @@ def deploy_overlay(
         "overlayPath": str(overlay_path),
         "deployedTeamId": team_id,
         "baseTeamId": base_team_id,
+        "isolatedLabTeam": isolated,
         "materialDelta": overlay_material_delta(overlay) or needs_custom_skills,
         "configHash": config_hash(overlay, deployed_team_id=team_id, arm=arm),
     }
@@ -243,7 +310,8 @@ def deploy_overlay(
 
 def deploy_champion_overlay(client: MCPStdioClient, overlay_path: Path) -> tuple[str, dict[str, Any]]:
     team_id, meta = deploy_overlay(client, overlay_path, arm="champion")
-    if overlay_material_delta(load_overlay(overlay_path)) and team_id == load_overlay(overlay_path)["baseTeamId"]:
+    overlay = load_overlay(overlay_path)
+    if overlay_material_delta(overlay) and team_id == overlay["baseTeamId"] and lab_isolated_teams_enabled():
         raise OverlayDeployError(
             "overlay declares template changes but champion deployed on base team — wiring failed"
         )

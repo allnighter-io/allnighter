@@ -41,28 +41,44 @@ def clean_record(**overrides) -> dict:
 
 
 def test_gate() -> None:
-    v, r = P.autopromote_gate(clean_record())
+    v, r, m = P.autopromote_gate(clean_record())
     check("gate.clean_promote", v == "promote" and r is None)
 
-    v, r = P.autopromote_gate(clean_record(championConfigHash="same", candidateConfigHash="same"))
+    v, r, _ = P.autopromote_gate(clean_record(championConfigHash="same", candidateConfigHash="same"))
     check("gate.identical_config_hold", v == "hold" and r == "no material candidate delta")
 
-    v, _ = P.autopromote_gate(clean_record(judgeMode="mock"))
+    v, _, _ = P.autopromote_gate(clean_record(judgeMode="mock"))
     check("gate.mock_hold", v == "hold")
 
-    v, _ = P.autopromote_gate(clean_record(interactionWarning=True))
+    v, _, _ = P.autopromote_gate(clean_record(interactionWarning=True))
     check("gate.interaction_escalate", v == "escalate")
 
-    v, _ = P.autopromote_gate(clean_record(deliverableOutcome="baseline"))
+    v, _, _ = P.autopromote_gate(clean_record(deliverableOutcome="baseline"))
     check("gate.deliverable_regress_escalate", v == "escalate")
 
-    v, _ = P.autopromote_gate(clean_record(bankedRoles=[]))
+    v, _, _ = P.autopromote_gate(clean_record(bankedRoles=[]))
     check("gate.no_banks_hold", v == "hold")
 
-    v, _ = P.autopromote_gate(
+    v, _, _ = P.autopromote_gate(
         clean_record(deliverableOutcome="tie", bankedRoles=["a#0", "b#1", "c#2"])
     )
     check("gate.tie_many_banks_escalate", v == "escalate")
+
+    v, r, m = P.autopromote_gate(
+        clean_record(
+            bankedRoles=["correct_fix_planner#1", "state_skeptic#0"],
+            failedRoleKeys=["change_impact_reviewer#0"],
+        )
+    )
+    check("gate.degraded_win", v == "promote" and m.get("degradedWin") is True)
+
+    v, r, _ = P.autopromote_gate(
+        clean_record(
+            bankedRoles=["bug_reproducer#0"],
+            failedRoleKeys=["bug_reproducer#0"],
+        )
+    )
+    check("gate.banked_failed_hold", v == "hold" and "banked role" in (r or ""))
 
 
 def test_config_hash() -> None:

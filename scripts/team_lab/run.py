@@ -371,7 +371,8 @@ def run_experiment(
             status = status_data.get("status")
             print(
                 f"  status={status} workers={status_data.get('workersDone')}/"
-                f"{status_data.get('workersTotal')} stage={status_data.get('stage')}"
+                f"{status_data.get('workersTotal')} stage={status_data.get('stage')}",
+                flush=True,
             )
             poll_ms = status_data.get("nextPollAfterMs", poll_ms)
             if status in terminal:

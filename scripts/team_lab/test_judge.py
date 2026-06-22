@@ -91,6 +91,13 @@ def test_map_roles() -> None:
     check("map.flags_structural_change", "newrole#0" in unmatched)
     check("map.excludes_plan", all("plan" not in k for k, _, _ in matched))
 
+    # Lab fork skill ids map back to originRoleKey from overlay.
+    cand_fork = [w("custom_code_lab_inv_123", 0), w("contra", 0)]
+    origins = {"custom_code_lab_inv_123": "inv#0"}
+    matched2, unmatched2 = J.map_roles(base[:2], cand_fork, origin_by_skill=origins)
+    check("map.origin_skill_resolves", matched2 and matched2[0][0] == "inv#0")
+    check("map.origin_still_pairs_shared", any(k == "contra#0" for k, _, _ in matched2))
+
 
 # ---- end-to-end compare() with mock judges -------------------------------- #
 

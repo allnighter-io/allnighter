@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "suiteId": "bug_hunt_repo_regressions_v1",
+  "teamId": "code_bug_hunt",
+  "round": 5,
+  "baseTeamId": "code_bug_hunt",
+  "promotionClass": "learning_hold",
+  "r4HoldNote": "R4 live re-compare: deliverable tie, 3 banked roles, no promotion. R5 controlled prompt-only.",
+  "bankedRoles": [
+    "change_impact_reviewer#0",
+    "contrarian_root_cause#0",
+    "correct_fix_planner#0",
+    "truth_owner_mapper#0"
+  ],
+  "roles": {
+    "bug_reproducer#0": {
+      "skillId": "bug_reproducer",
+      "instanceIndex": 0,
+      "skillName": "Bug Reproducer",
+      "labSkillId": "bug_reproducer",
+      "originRoleKey": "bug_reproducer#0",
+      "provenance": "incumbent",
+      "bankedAtRound": null,
+      "sourceLab": null,
+      "template": "Reduce the bug to the smallest reproducible scenario. Use concrete steps, inputs, expected behavior, and observed behavior. Do not invent facts. If a detail is unknown, name the missing observation.",
+      "templateHash": "67987571cf74dce0",
+      "templateChangedFromBuiltIn": false
+    },
+    "truth_owner_mapper#0": {
+      "skillId": "truth_owner_mapper",
+      "instanceIndex": 0,
+      "skillName": "Truth Owner Mapper",
+      "labSkillId": "custom_code_lab_truth_owner_mapper_1367",
+      "originRoleKey": "truth_owner_mapper#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 3,
+      "sourceLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+      "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.\n\nAdd one explicit sentence requiring the packet to name the truth owner as a non-UI layer and state the disproving proof, without naming WorkerRunner or any path.",
+      "templateHash": "dcaffe4c1e75d8a3",
+      "templateChangedFromBuiltIn": true
+    },
+    "correct_fix_planner#0": {
+      "skillId": "correct_fix_planner",
+      "instanceIndex": 0,
+      "skillName": "Correct Fix Planner",
+      "labSkillId": "custom_code_lab_correct_fix_planner_9147",
+      "originRoleKey": "correct_fix_planner#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 3,
+      "sourceLab": "code_bug_hunt_candidate-r3_r3_20260621_152329",
+      "template": "Plan the smallest correct fix, not the smallest visible patch. Do not patch the visible layer until the truth owner, the seam, and the blast radius are named. If the cause is duplicated state, SSOT drift, presenter mismatch, shared-component behavior, or a seam crossing, the correct fix may be deeper than the failing view.\nProduce a RANKED LADDER of candidate causes \u2014 not one \u2014 most-likely first. For each, give the single cheapest experiment that confirms or refutes it, and note what is already ruled out. The fix targets the top surviving hypothesis. Real bugs are solved by elimination across rounds, not one confident leap \u2014 design for the next round, not a guaranteed one-shot.\n\nDrop the rigid output-structure spec (which scored baseline) and instead add one targeted demand to the Bug Hunt instruction: 'Name every code path that spawns a worker process and state, for each, which working directory it resolves and whether it is ProbeScratch-guarded.'",
+      "templateHash": "e18debb9a9d17908",
+      "templateChangedFromBuiltIn": true
+    },
+    "regression_guard#0": {
+      "skillId": "regression_guard",
+      "instanceIndex": 0,
+      "skillName": "Regression Guard",
+      "labSkillId": "custom_code_lab_regression_guard_4757",
+      "originRoleKey": "regression_guard#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Write the proof plan. Name the exact unit/integration/fixture test that would fail before the fix and pass after. Include a negative test for the old lie when possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition to semantic tests.\nThen judge PROOF FEASIBILITY: can that honest END-TO-END proof actually be written in THIS codebase? If the bug lives at a seam tangled with the whole app and a true end-to-end test cannot be written in place, say so and specify a MINIMAL ISOLATION HARNESS \u2014 a tiny standalone target that reproduces ONLY the failing capability using the SAME seam/stack, with a success criterion a non-coder can confirm. The green harness is the spec and defines the real kill test. A single-layer test that passes while the user-visible bug remains is NOT proof; neither is manual confirmation.\n\nKeep the incumbent prompt unchanged but append an output contract whose labels EXACTLY mirror the task's required items (TIER, TRUTH OWNER, LIE-PRONE LAYER, WHY PROBE NEUTRALIZATION MISSED CHAT/TEAM SPAWNS, SMALLEST FIX BOUNDARY, KILL TESTS, FIX-CLOSURE ASSESSMENT) \u2014 including the closure assessment the tested candidate dropped.",
+      "templateHash": "0b2b45c503b0bdf8",
+      "templateChangedFromBuiltIn": true
+    },
+    "trace_mapper#0": {
+      "skillId": "trace_mapper",
+      "instanceIndex": 0,
+      "skillName": "Trace Mapper",
+      "labSkillId": "custom_code_lab_trace_mapper_6885",
+      "originRoleKey": "trace_mapper#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Map the bug through the likely layers: UI, presenter/model, engine, store, contract, persisted file, external CLI. Name the truth owner and the first layer likely to be lying. CRUCIAL: name the SEAM the bug crosses \u2014 the boundary between two systems (e.g. AppKit\u2194SwiftUI, app\u2194CLI, store\u2194view, network\u2194state). Bugs live at seams: each side can look correct in isolation while the CROSSING fails, so the seam is surrounded by adjacent truths. A proof of one side is a proximity trap; the real proof must traverse the whole seam end to end.\n\nKeep the candidate's two-sided kill-test sentence but replace the mismatched 'experiment.json / check_writer_consistency' nouns with this bug's actual seam artifacts: 'one assertion on the spawn working directory WorkerRunner passes to the child process AND one on whether macOS raised the Documents-access prompt (or the CWD escaped ProbeScratch/the chosen project root), so neither the spawn side nor the sandbox side can pass alone.'",
+      "templateHash": "38e7cf3aabab1381",
+      "templateChangedFromBuiltIn": true
+    },
+    "state_skeptic#0": {
+      "skillId": "state_skeptic",
+      "instanceIndex": 0,
+      "skillName": "State Skeptic",
+      "labSkillId": "custom_code_lab_state_skeptic_8882",
+      "originRoleKey": "state_skeptic#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Assume the bug is caused by duplicated state, stale state, optimistic UI, missing persistence, or a drifted snapshot. Look for places the UI can display truth it does not own.\n\nReplace the ranked-output preamble with a forced first-line severity gate that also demands a tier number: 'First line MUST be: TIER <n> \u00b7 <truth owner> \u00b7 <lie-prone layer>. Refuse to proceed until that line is written.'",
+      "templateHash": "94ba88166d04a2ff",
+      "templateChangedFromBuiltIn": true
+    },
+    "change_impact_reviewer#0": {
+      "skillId": "change_impact_reviewer",
+      "instanceIndex": 0,
+      "skillName": "Change Impact Reviewer",
+      "labSkillId": "custom_code_lab_change_impact_reviewer_7241",
+      "originRoleKey": "change_impact_reviewer#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 2,
+      "sourceLab": "code_bug_hunt_candidate-r2_r2_20260621_142802",
+      "template": "Zoom out before the fix. Name the shared components, state owners, presenters, persisted files, contracts, fixtures, and nearby workflows that the proposed fix could affect. The goal is not broad cleanup; it is avoiding a local patch that leaves wreckage elsewhere.\n\nAdd a single closing line requiring the packet to state the tier as a strict 1-line verdict using a fixed label set (e.g. 'Tier: [confirmed-bug | by-design | non-issue]') with a one-clause justification.",
+      "templateHash": "895be63c641e1b11",
+      "templateChangedFromBuiltIn": true
+    },
+    "user_impact_narrator#0": {
+      "skillId": "user_impact_narrator",
+      "instanceIndex": 0,
+      "skillName": "User Impact Narrator",
+      "labSkillId": "custom_code_lab_user_impact_narrator_9937",
+      "originRoleKey": "user_impact_narrator#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": null,
+      "sourceLab": "code_bug_hunt_champion-r3_r3_20260621_151308",
+      "template": "Describe the trust break in user terms. What did the user believe Allnighter would do, what happened instead, and what must be visibly true after the fix?\n\nAdd one explicit constraint after the three beats: 'Use only words the user could say themselves \u2014 name no files, layers, classes, or tests; if you reference internals, you have failed this role.'",
+      "templateHash": "610373b8c5ac5603",
+      "templateChangedFromBuiltIn": true
+    },
+    "contrarian_root_cause#0": {
+      "skillId": "contrarian_root_cause",
+      "instanceIndex": 0,
+      "skillName": "Contrarian Root Cause",
+      "labSkillId": "custom_code_lab_contrarian_root_cause_7573",
+      "originRoleKey": "contrarian_root_cause#0",
+      "provenance": "candidate_hypothesis",
+      "bankedAtRound": 2,
+      "sourceLab": "code_bug_hunt_candidate-r2_r2_20260621_142802",
+      "template": "Argue against the leading theory. Provide an alternate root cause and the cheapest observation or test that rules it in or out.\nReject PROOF-BY-PROXIMITY: a nearby true statement (the menu exists, the reader reads, this one layer works) is NOT proof the user-visible behavior is fixed. Founder/manual confirmation is a hint, never sufficient for a seam bug. Demand the end-to-end observation that only the real fix can produce \u2014 if it can't be produced in this codebase, the answer is an isolation harness, not a partial proof.\n\nAppend a hard output cap: 'Output at most: (1) the single strongest alternate root cause the leading theory misses, (2) its cheapest rule-in/rule-out observation, (3) one named gap the landed fix leaves open. No tier/owner/layer restatement, no tables, no ladders beyond those three lines.'",
+      "templateHash": "652e6d43604f516b",
+      "templateChangedFromBuiltIn": true
+    }
+  },
+  "labTeamId": "lab_code_bug_hunt_r5_champion",
+  "arm": "candidate",
+  "builtAt": "2026-06-22T01:26:27.984267+00:00",
+  "candidatePolicy": "controlled_prompt_only",
+  "candidateDelta": {
+    "kind": "hypothesis_patch",
+    "sourceCompare": ".lab/code_bug_hunt_candidate-r4_r4_20260621_183434/evaluation/compare-record.json",
+    "patchedRoles": [
+      "change_impact_reviewer#0",
+      "contrarian_root_cause#0",
+      "correct_fix_planner#0",
+      "regression_guard#0",
+      "state_skeptic#0",
+      "trace_mapper#0",
+      "truth_owner_mapper#0",
+      "user_impact_narrator#0"
+    ],
+    "patches": {
+      "truth_owner_mapper#0": "Add one explicit sentence requiring the packet to name the truth owner as a non-UI layer and state the disproving proof, without naming WorkerRunner or any path.",
+      "correct_fix_planner#0": "Drop the rigid output-structure spec (which scored baseline) and instead add one targeted demand to the Bug Hunt instruction: 'Name every code path that spawns a worker process and state, for each, which working directory it resolves and whether it is ProbeScratch-guarded.' ",
+      "regression_guard#0": "Keep the incumbent prompt unchanged but append an output contract whose labels EXACTLY mirror the task's required items (TIER, TRUTH OWNER, LIE-PRONE LAYER, WHY PROBE NEUTRALIZATION MISSED CHAT/TEAM SPAWNS, SMALLEST FIX BOUNDARY, KILL TESTS, FIX-CLOSURE ASSESSMENT) \u2014 including the closure assessment the tested candidate dropped.",
+      "trace_mapper#0": "Keep the candidate's two-sided kill-test sentence but replace the mismatched 'experiment.json / check_writer_consistency' nouns with this bug's actual seam artifacts: 'one assertion on the spawn working directory WorkerRunner passes to the child process AND one on whether macOS raised the Documents-access prompt (or the CWD escaped ProbeScratch/the chosen project root), so neither the spawn side nor the sandbox side can pass alone.'",
+      "state_skeptic#0": "Replace the ranked-output preamble with a forced first-line severity gate that also demands a tier number: 'First line MUST be: TIER <n> \u00b7 <truth owner> \u00b7 <lie-prone layer>. Refuse to proceed until that line is written.'",
+      "change_impact_reviewer#0": "Add a single closing line requiring the packet to state the tier as a strict 1-line verdict using a fixed label set (e.g. 'Tier: [confirmed-bug | by-design | non-issue]') with a one-clause justification.",
+      "user_impact_narrator#0": "Add one explicit constraint after the three beats: 'Use only words the user could say themselves \u2014 name no files, layers, classes, or tests; if you reference internals, you have failed this role.'",
+      "contrarian_root_cause#0": "Append a hard output cap: 'Output at most: (1) the single strongest alternate root cause the leading theory misses, (2) its cheapest rule-in/rule-out observation, (3) one named gap the landed fix leaves open. No tier/owner/layer restatement, no tables, no ladders beyond those three lines.'"
+    }
+  },
+  "candidateLabTeamId": "lab_code_bug_hunt_r5_candidate"
+}
