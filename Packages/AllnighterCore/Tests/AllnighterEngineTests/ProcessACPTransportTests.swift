@@ -126,4 +126,34 @@ final class ProcessACPTransportTests: XCTestCase {
         XCTAssertTrue(a2.lowercased().contains("amberclock"), "warm session must recall; got: \(a2)")
         XCTAssertLessThan(turn2ms, 10000, "warm turn-2 should beat cold `codex exec` per turn")
     }
+
+    private func claudePath() -> String? {
+        for p in ["\(NSHomeDirectory())/.local/bin/claude", "/opt/homebrew/bin/claude", "/usr/local/bin/claude"]
+        where FileManager.default.isExecutableFile(atPath: p) { return p }
+        return "claude"
+    }
+
+    /// Live Claude Code stream-json warm path. GATED:
+    ///   ALLN_CLAUDE_LIVE=1 swift test --package-path Packages/AllnighterCore --filter ProcessACPTransportTests/testLiveClaudeWarmTurnsRecallAndStayFast
+    func testLiveClaudeWarmTurnsRecallAndStayFast() async throws {
+        guard ProcessInfo.processInfo.environment["ALLN_CLAUDE_LIVE"] == "1" else {
+            throw XCTSkip("set ALLN_CLAUDE_LIVE=1 to run the live claude stream-json integration test")
+        }
+        let cwd = NSTemporaryDirectory() + "alln-claude-live-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: cwd, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: cwd) }
+        let transport = try ProcessACPTransport(command: claudePath()!, profile: .claude(model: "sonnet"), cwd: cwd)
+        defer { transport.terminate() }
+        let session = ClaudeSession(transport: transport)
+
+        try await withTimeout(60) { try await session.start(cwd: cwd) }
+        _ = try await withTimeout(60) { try await Self.answer(session.prompt("Remember the word amberclock. Reply with just: OK")) }
+        let t2 = Date()
+        let a2 = try await withTimeout(60) { try await Self.answer(session.prompt("What single word did I ask you to remember? Reply with ONLY that word.")) }
+        let turn2ms = Int(Date().timeIntervalSince(t2) * 1000)
+        print("claude stream-json turn 2: \(turn2ms)ms answer=\(a2.prefix(40))")
+
+        XCTAssertTrue(a2.lowercased().contains("amberclock"), "warm session must recall; got: \(a2)")
+        XCTAssertLessThan(turn2ms, 8000, "warm turn-2 should beat cold `-p` per turn")
+    }
 }

@@ -5,8 +5,9 @@ import Foundation
 /// a source NOT here transparently uses the existing cold per-turn spawn (no regression).
 public enum WarmWorkerCapability {
     /// Sources proven to run a warm persistent worker over stdio. grok = `grok agent stdio` (ACP);
-    /// cursor = `agent acp` (ACP); codex = `codex app-server` (its own dialect, CodexSession).
-    public static let acpStdioSources: Set<String> = ["grok", "cursor_agent", "codex"]
+    /// cursor = `agent acp` (ACP); codex = `codex app-server`; claude = `claude -p --input-format
+    /// stream-json`. Each has its own `WarmSessionDriver` dialect.
+    public static let acpStdioSources: Set<String> = ["grok", "cursor_agent", "codex", "claude_code"]
 
     public static func supportsACPStdio(_ sourceId: String) -> Bool {
         acpStdioSources.contains(sourceId)
