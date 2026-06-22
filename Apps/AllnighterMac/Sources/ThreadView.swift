@@ -344,6 +344,38 @@ enum ReasoningRenderPolicy {
     }
 }
 
+/// Compact wall-clock duration: "8s", "1m 20s", "1h 3m". No leading zero units.
+enum DurationFormat {
+    static func compact(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval.rounded()))
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        if h > 0 { return "\(h)h \(m)m" }
+        if m > 0 { return "\(m)m \(s)s" }
+        return "\(s)s"
+    }
+}
+
+/// A running-state label that ticks the elapsed wall time each second — "Working 8s",
+/// "Thinking 1m 20s" — so a spinner reads as live progress, not a hang (some workers, e.g.
+/// AGY/Gemini, never stream thoughts, so the clock is the only sign of life). `TimelineView`
+/// pauses when offscreen, and the caller renders this only while the turn runs, so it stops
+/// at settlement. The clock is wall time on our side (includes queue/spawn) — what the user
+/// actually waits.
+private struct RunningStatusLabel: View {
+    let verb: String
+    let start: Date
+    var suffix: String = ""
+    var font: Font = .system(size: 12)
+    var color: Color = ALColor.textMuted
+
+    var body: some View {
+        TimelineView(.periodic(from: start, by: 1)) { context in
+            Text("\(verb) \(DurationFormat.compact(context.date.timeIntervalSince(start)))\(suffix)")
+                .font(font).foregroundStyle(color).monospacedDigit()
+        }
+    }
+}
+
 /// CR4a user messages + CR4b worker chat replies; team/mutating run turns render
 /// from durable run truth.
 /// The model's reasoning, kept above (and visually under) the answer. Collapsed by
@@ -353,6 +385,8 @@ private struct ThreadThinkingBlock: View {
     var isLatestTurn: Bool = false
     var isRunning: Bool = false
     var duration: TimeInterval? = nil
+    /// When running, the turn's start — drives the live "Thinking Ns" clock in the bar.
+    var startedAt: Date? = nil
     /// nil = use the default policy (collapsed); set by a manual toggle.
     @State private var userExpanded: Bool? = nil
 
@@ -373,7 +407,7 @@ private struct ThreadThinkingBlock: View {
 
     private var headerLabel: String {
         if isRunning { return "Thinking" }
-        if let duration, duration >= 1 { return "Thought for \(Int(duration.rounded()))s" }
+        if let duration, duration >= 1 { return "Thought for \(DurationFormat.compact(duration))" }
         return "Thought process"
     }
 
@@ -385,8 +419,15 @@ private struct ThreadThinkingBlock: View {
                         Image(systemName: expanded ? "chevron.down" : "chevron.right")
                             .font(.system(size: 8, weight: .semibold)).foregroundStyle(ALColor.textFaint)
                         Image(systemName: "brain").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
-                        Text(headerLabel).font(.system(size: 10, weight: .semibold)).tracking(0.4)
-                            .foregroundStyle(ALColor.textFaint)
+                        if isRunning, let startedAt {
+                            RunningStatusLabel(
+                                verb: "Thinking", start: startedAt,
+                                font: .system(size: 10, weight: .semibold), color: ALColor.textFaint)
+                                .tracking(0.4)
+                        } else {
+                            Text(headerLabel).font(.system(size: 10, weight: .semibold)).tracking(0.4)
+                                .foregroundStyle(ALColor.textFaint)
+                        }
                         Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
@@ -608,7 +649,8 @@ private struct ThreadTurnRow: View {
                 // expanded on the latest turn, collapsed to one line on prior turns.
                 ThreadThinkingBlock(
                     text: turn.reasoningText, isLatestTurn: isLastTurn,
-                    isRunning: !turn.status.isTerminal, duration: thinkingDuration)
+                    isRunning: !turn.status.isTerminal, duration: thinkingDuration,
+                    startedAt: turn.createdAt)
                 switch turn.status {
                 case .running, .queued, .draft:
                     if let partial = turn.text, !partial.isEmpty {
@@ -628,15 +670,22 @@ private struct ThreadTurnRow: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             HStack(spacing: 6) {
                                 ProgressView().controlSize(.small)
-                                Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
-                                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                                RunningStatusLabel(
+                                    verb: "Streaming", start: turn.createdAt,
+                                    suffix: turn.partialOutputTruncated ? " (truncated)" : "",
+                                    font: .system(size: 11), color: ALColor.textFaint)
                             }
                         }
                     } else {
                         HStack(spacing: 6) {
                             ProgressView().controlSize(.small)
-                            Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "running…")
-                                .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                            // Reasoning streamers are timed in the Thinking bar above; only the
+                            // no-thoughts "Working" case carries the clock here.
+                            if turn.reasoningText?.isEmpty == false {
+                                Text("Thinking…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                            } else {
+                                RunningStatusLabel(verb: "Working", start: turn.createdAt)
+                            }
                         }
                     }
                 case .failed, .timedOut:
@@ -756,7 +805,7 @@ private struct ThreadBoardRow: View {
         case .running, .queued, .draft:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
-                Text("fanning out…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                RunningStatusLabel(verb: "Fanning out", start: turn.createdAt)
             }
         case .cancelled:
             Text("Cancelled.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
@@ -909,7 +958,7 @@ private struct ThreadBoardRow: View {
             default:
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("running…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                    RunningStatusLabel(verb: "Working", start: turn.createdAt)
                 }
             }
         }
@@ -986,7 +1035,8 @@ private struct ThreadMutatingRunRow: View {
                 // to one line on prior turns. Never removed (no jump at settlement).
                 ThreadThinkingBlock(
                     text: turn.reasoningText, isLatestTurn: isLastTurn,
-                    isRunning: !turn.status.isTerminal, duration: thinkingDuration)
+                    isRunning: !turn.status.isTerminal, duration: thinkingDuration,
+                    startedAt: turn.createdAt)
                 attachmentRow
                 content
                 MessageCopyFooter(text: copyableText)
@@ -1052,15 +1102,22 @@ private struct ThreadMutatingRunRow: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.small)
-                        Text(turn.partialOutputTruncated ? "streaming… (truncated)" : "streaming…")
-                            .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                        RunningStatusLabel(
+                            verb: "Streaming", start: turn.createdAt,
+                            suffix: turn.partialOutputTruncated ? " (truncated)" : "",
+                            font: .system(size: 11), color: ALColor.textFaint)
                     }
                 }
             } else {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text(turn.reasoningText?.isEmpty == false ? "thinking…" : "Working…")
-                        .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                    // Reasoning streamers are timed in the Thinking bar above; only the
+                    // no-thoughts "Working" case carries the clock here.
+                    if turn.reasoningText?.isEmpty == false {
+                        Text("Thinking…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                    } else {
+                        RunningStatusLabel(verb: "Working", start: turn.createdAt)
+                    }
                 }
             }
         case .failed, .timedOut:
