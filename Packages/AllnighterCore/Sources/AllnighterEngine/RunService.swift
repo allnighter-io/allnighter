@@ -100,6 +100,9 @@ public actor RunService {
     private let loadProbeRecords: @Sendable () -> [ToolProbeRecord]
     /// Worker_Session_Continuity: the durable per-(thread, source, model) vendor session map.
     private let sessionStore: ExternalWorkerSessionStore
+    /// Warm_Single_Lane_Chat: process-global warm-worker registry (default = shared singleton so
+    /// warmth survives the per-turn RunService instances; tests inject a fresh pool).
+    private let warmPool: WarmWorkerPool
 
     public init(
         models: [Model],
@@ -112,7 +115,8 @@ public actor RunService {
         now: @escaping @Sendable () -> Date = Date.init,
         defaultSettings: @escaping @Sendable () -> DefaultModelSettings = { DefaultModelSettingsPersistence().load() },
         probeRecords: @escaping @Sendable () -> [ToolProbeRecord] = { SetupStore().load().records },
-        sessionStore: ExternalWorkerSessionStore = ExternalWorkerSessionStore()
+        sessionStore: ExternalWorkerSessionStore = ExternalWorkerSessionStore(),
+        warmPool: WarmWorkerPool = .shared
     ) {
         self.models = models
         self.registry = registry
@@ -125,6 +129,7 @@ public actor RunService {
         self.loadDefaultSettings = defaultSettings
         self.loadProbeRecords = probeRecords
         self.sessionStore = sessionStore
+        self.warmPool = warmPool
     }
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
@@ -422,7 +427,68 @@ public actor RunService {
         // nothing usable, FALL BACK to the proven one-shot invoke so the worker always
         // answers.
         var outcome: WorkerRunOutcome
-        if manifest.canStream, runner.supportsStreaming,
+        // Warm_Single_Lane_Chat §5 S4: warm-capable sources (grok) run as ONE persistent ACP-stdio
+        // worker per thread — the repo index loads once, then every turn is model-time only. Any
+        // failure falls back to the proven cold one-shot. The write lock already serializes turns,
+        // so the warm worker only ever handles one turn at a time (single-lane).
+        if WarmWorkerCapability.supportsACPStdio(manifest.id), let threadId, let invoke = manifest.invoke {
+            var answer = StreamingPartialBuffer()
+            var reasoning = ""
+            var lastAnswerEmit = now()
+            func emitWarmAnswer() {
+                emit(RunEventKind.workerAnswerDelta, [
+                    "runId": .string(runId), "workerId": .string(worker.id),
+                    "text": .string(answer.visibleText), "truncated": .bool(answer.isTruncated)])
+                lastAnswerEmit = now()
+            }
+            func emitWarmReasoning() {
+                emit(RunEventKind.workerReasoningDelta, [
+                    "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning)])
+            }
+            let startedAt = now()
+            var firstTokenAt: Date?
+            do {
+                let warmKey = ExternalWorkerSession.Key(
+                    threadId: threadId, sourceId: manifest.id, modelId: model.id, repoRoot: repoRoot)
+                let command = invoke.command
+                let modelLabel = model.resolvedLabel(at: effort)
+                let warm = try await warmPool.worker(for: warmKey) { key in
+                    WarmWorker(
+                        key: key,
+                        transport: try ProcessACPTransport(command: command, model: modelLabel, cwd: repoRoot),
+                        cwd: repoRoot)
+                }
+                for try await event in try await warm.prompt(assembled) {
+                    switch event {
+                    case .answerDelta(let text):
+                        if firstTokenAt == nil { firstTokenAt = now() }
+                        let due = answer.append(text)
+                        if due || now().timeIntervalSince(lastAnswerEmit) >= 0.1 { emitWarmAnswer() }
+                    case .reasoningDelta(let text):
+                        reasoning += text; emitWarmReasoning()
+                    case .toolActivity:
+                        break
+                    }
+                }
+                emitWarmAnswer(); if !reasoning.isEmpty { emitWarmReasoning() }
+                let text = answer.visibleText
+                var warmOutcome = WorkerRunOutcome(
+                    status: text.isEmpty ? .failed : .done, startedAt: startedAt, finishedAt: now())
+                warmOutcome.output = text.isEmpty ? nil : text
+                if text.isEmpty { warmOutcome.errorKind = .emptyOutput; warmOutcome.errorReason = "warm worker returned no text" }
+                warmOutcome.durationMs = Int(now().timeIntervalSince(startedAt) * 1000)
+                if let firstTokenAt {
+                    warmOutcome.firstTokenAt = firstTokenAt
+                    warmOutcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
+                }
+                outcome = warmOutcome
+            } catch {
+                StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")
+                outcome = await runner.invoke(
+                    worker: model, manifest: manifest, prompt: assembled, effort: effort,
+                    workingDirectoryOverride: repoRoot)
+            }
+        } else if manifest.canStream, runner.supportsStreaming,
            let parser = WorkerStreamParsers.make(for: manifest) {
             var answer = StreamingPartialBuffer()
             var reasoning = ""

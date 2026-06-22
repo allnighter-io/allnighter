@@ -5,6 +5,10 @@ import AllnighterCore
 /// (thread, source, model, repo); bounded so N idle threads never mean N live processes — the same
 /// discipline IDEs use for language servers: cap concurrent workers, LRU-evict, idle-teardown.
 public actor WarmWorkerPool {
+    /// Process-global pool: warm workers must outlive the per-turn `RunService` instances the app
+    /// creates, or there is no warmth. Tests inject a fresh pool instead.
+    public static let shared = WarmWorkerPool()
+
     private var workers: [ExternalWorkerSession.Key: WarmWorker] = [:]
     private let maxWorkers: Int
 
