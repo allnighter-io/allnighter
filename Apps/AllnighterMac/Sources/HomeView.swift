@@ -483,15 +483,10 @@ private struct ProjectThreadRow: View {
             }
         }
         .padding(.horizontal, 10).frame(height: 32)
+        // Selection is marked by the shaded background alone — no accent rail (less busy,
+        // and no amber line clashing with other-colored status dots).
         .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
                     in: RoundedRectangle(cornerRadius: ALRadius.md))
-        .overlay(alignment: .leading) {
-            // A draft is "nothing of importance yet" — it must stay subtle even when
-            // selected: the quiet active background marks it, never an amber rail.
-            if selected && state != .draft {
-                RoundedRectangle(cornerRadius: 1.5).fill(ALColor.accent).frame(width: 2.5).padding(.vertical, 6)
-            }
-        }
         .contentShape(Rectangle())
     }
 
