@@ -311,6 +311,7 @@ struct RootView: View {
                     // CLIs page shows a mixed bench (exercises repair); Teams/Skills
                     // pages need a ready bench so the lineup resolves to real models.
                     model.applyDevBenchScenario(GUIFixture.active == "studio-clis" ? "readiness-mixed" : "team-open-ready")
+                    GUIFixture.seedBoostWindowForProof()
                     studioInitialRoute = GUIFixture.studioRoute
                     showTeamStudio = true
                 }

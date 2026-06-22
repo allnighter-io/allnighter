@@ -151,6 +151,17 @@ enum GUIFixture {
     /// Open the composer-in-modal review over the first pending item.
     static var opensPendingReview: Bool { active == "pending-review" }
 
+    /// Seed boost window settings for the `studio-boost-window` proof fixture.
+    static func seedBoostWindowForProof() {
+        guard active == "studio-boost-window" else { return }
+        let persistence = BoostWindowSettingsPersistence()
+        var settings = BoostWindowSettings(
+            enabled: true,
+            windowStart: BoostWindowSettings.defaultWindowStart
+        )
+        try? persistence.save(settings)
+    }
+
     /// Seed a temp Pending store with sample armed work for the pending fixtures
     /// (`pending-queue` = the screen, `pending-pill` = home + the top-bar pill).
     static func seededPendingService(models: [Model]) -> PendingService? {

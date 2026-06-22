@@ -68,9 +68,22 @@ struct BoostWindowView: View {
 
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 20) {
-                statColumn.frame(width: 220, alignment: .leading)
-                zoomChart.frame(maxWidth: .infinity, minHeight: 168, alignment: .topLeading)
+            HStack(alignment: .top, spacing: 0) {
+                BoostWindowStatColumn(
+                    enabled: vm.projection.enabled,
+                    displayState: vm.displayState,
+                    resetMid: vm.resetMid
+                )
+                .frame(width: 240, alignment: .leading)
+                .padding(.trailing, 20)
+
+                BoostWindowZoomChart(
+                    windowStart: vm.windowStart,
+                    resetMid: vm.resetMid,
+                    displayState: vm.displayState,
+                    enabled: vm.projection.enabled
+                )
+                .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
             }
             minimapStrip
             softNote
@@ -78,115 +91,28 @@ struct BoostWindowView: View {
         .padding(20)
         .background(RoundedRectangle(cornerRadius: 14).fill(ALColor.raised))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(ALColor.borderDefault, lineWidth: 1))
-        .opacity(vm.projection.enabled ? 1 : 0.55)
-        .overlay { if vm.displayState == .needsYou { needsYouOverlay } }
+        .saturation(vm.projection.enabled ? 1 : 0.5)
+        .opacity(vm.projection.enabled ? 1 : 0.5)
+        .overlay { heroOverlayView }
     }
 
-    private var statColumn: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("YOUR PEAK 5 HOURS").font(ALFont.sans(10, .bold)).tracking(0.8).foregroundStyle(ALColor.textFaint)
-            Text(vm.projection.bucketHeadline + " buckets")
-                .font(ALFont.mono(13, .semibold)).foregroundStyle(ALColor.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(boostMultiplier).font(ALFont.sans(42, .heavy)).foregroundStyle(ALColor.accent)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("the capacity").font(ALFont.sans(14, .semibold)).foregroundStyle(ALColor.textPrimary)
-                    Text("same 5 hours").font(ALFont.sans(13)).foregroundStyle(ALColor.accent)
-                }
-            }
-            Text(statSubcopy).font(ALFont.sans(12)).foregroundStyle(ALColor.textMuted)
-            if vm.displayState == .estimated {
-                Badge(text: "estimated", tone: .warning, dot: false, mono: true)
-            }
-        }
+    private var heroOverlayStyle: BoostWindowHeroOverlay.Style? {
+        if !vm.projection.enabled { return .off }
+        if vm.displayState == .needsYou { return .needsYou(attentionLabel) }
+        if vm.displayState == .noQuietRunUp { return .quiet }
+        return nil
     }
 
-    private var boostMultiplier: String {
-        switch vm.displayState {
-        case .noQuietRunUp, .off: return "1×"
-        default: return "2×"
-        }
+    private var attentionLabel: String {
+        vm.projection.providers.first(where: \.needsAttention)?.displayName ?? "CLI"
     }
 
-    private var statSubcopy: String {
-        switch vm.displayState {
-        case .noQuietRunUp:
-            return "No quiet run-up. Nothing to seed — move it after some downtime."
-        case .off:
-            return "Off by default — enable when you want a mid-window reset."
-        default:
-            return "Fresh reset lands \(BoostWindowTiming.formatMinutes(vm.resetMid)) — mid-window, not after."
-        }
-    }
-
-    private var zoomChart: some View {
-        let start = vm.windowStart
-        let end = BoostWindowTiming.windowEnd(start)
-        let mid = vm.resetMid
-        return VStack(alignment: .leading, spacing: 10) {
-            Text(BoostWindowTiming.formatWindowRange(start: start))
-                .font(ALFont.mono(11, .semibold)).foregroundStyle(ALColor.textFaint)
-            chartRow(label: "Normally", tone: .muted, spans: [(start, end)], marker: ("reset \(BoostWindowTiming.formatMinutes(end))", end, "too late"))
-            chartRow(
-                label: "With boost",
-                tone: .accent,
-                spans: [(start, mid), (mid, end)],
-                marker: ("fresh reset · \(BoostWindowTiming.formatMinutes(mid))", mid, nil),
-                tag: vm.displayState == .noQuietRunUp ? nil : "+1 bucket"
-            )
-        }
-        .opacity(vm.displayState == .estimated ? 0.65 : 1)
-        .overlay {
-            if vm.displayState == .estimated {
-                RoundedRectangle(cornerRadius: 8).stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .foregroundStyle(ALColor.borderDefault)
+    @ViewBuilder
+    private var heroOverlayView: some View {
+        if let style = heroOverlayStyle {
+            BoostWindowHeroOverlay(style: style) {
+                vm.setEnabled(true)
             }
-        }
-    }
-
-    private enum ChartTone { case muted, accent }
-
-    private func chartRow(
-        label: String,
-        tone: ChartTone,
-        spans: [(Int, Int)],
-        marker: (String, Int, String?)?,
-        tag: String? = nil
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(label).font(ALFont.sans(11, .semibold)).foregroundStyle(ALColor.textMuted)
-                if let tag {
-                    Text(tag).font(ALFont.mono(9, .bold)).tracking(0.4)
-                        .foregroundStyle(ALColor.accent)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(ALColor.accent.opacity(0.12)))
-                }
-            }
-            GeometryReader { geo in
-                let w = geo.size.width
-                ZStack(alignment: .leading) {
-                    ForEach(Array(spans.enumerated()), id: \.offset) { _, span in
-                        let x0 = CGFloat(span.0 - vm.windowStart) / 300 * w
-                        let x1 = CGFloat(span.1 - vm.windowStart) / 300 * w
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(tone == .accent ? ALColor.accent.opacity(0.35) : ALColor.active)
-                            .frame(width: max(4, x1 - x0), height: 14)
-                            .offset(x: x0)
-                    }
-                    if let marker {
-                        let x = CGFloat(marker.1 - vm.windowStart) / 300 * w
-                        VStack(spacing: 2) {
-                            Text(marker.0).font(ALFont.mono(9)).foregroundStyle(tone == .accent ? ALColor.accent : ALColor.textFaint)
-                            if let sub = marker.2 {
-                                Text(sub).font(ALFont.mono(8)).foregroundStyle(ALColor.textFaint)
-                            }
-                        }
-                        .offset(x: max(0, x - 20), y: 18)
-                    }
-                }
-            }
-            .frame(height: 36)
         }
     }
 
@@ -212,25 +138,23 @@ struct BoostWindowView: View {
                     Text("seed · \(BoostWindowTiming.formatMinutes(vm.seedAt))")
                         .font(ALFont.mono(9)).foregroundStyle(ALColor.accent)
                         .offset(x: max(0, seedX - 20), y: -28)
-                    // draggable window bracket
+                    // draggable window bracket — bright amber (mockup SSOT)
                     let startX = CGFloat(vm.windowStart) / 1440 * w
                     let bracketW = CGFloat(BoostWindowSettings.windowLengthMinutes) / 1440 * w
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(ALColor.accent, lineWidth: 1.5)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(ALColor.accent.opacity(0.1)))
-                        .frame(width: max(24, bracketW), height: 28)
-                        .overlay {
-                            Text("\(formatClock(vm.windowStart)) – \(formatClock(BoostWindowTiming.windowEnd(vm.windowStart)))")
-                                .font(ALFont.mono(10, .semibold)).foregroundStyle(ALColor.textPrimary)
-                        }
-                        .offset(x: startX)
-                        .gesture(
-                            DragGesture(minimumDistance: 2)
+                    windowBracket(
+                        label: "\(formatClock(vm.windowStart)) – \(formatClock(BoostWindowTiming.windowEnd(vm.windowStart)))"
+                    )
+                    .frame(width: max(24, bracketW), height: 28)
+                    .offset(x: startX)
+                    .gesture(
+                        heroOverlayStyle == nil
+                            ? DragGesture(minimumDistance: 2)
                                 .onChanged { value in
                                     let minutes = Int((value.location.x / w * 1440).rounded())
                                     vm.setWindowStart(minutes - BoostWindowSettings.windowLengthMinutes / 2)
                                 }
-                        )
+                            : nil
+                    )
                 }
             }
             .frame(height: 44)
@@ -250,18 +174,6 @@ struct BoostWindowView: View {
         .padding(.horizontal, 12).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 8).fill((overnight ? ALColor.blue500 : ALPalette.yellow500).opacity(0.12)))
-    }
-
-    private var needsYouOverlay: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14).fill(ALColor.void.opacity(0.72))
-            VStack(spacing: 8) {
-                Text("Needs you").font(ALFont.sans(16, .heavy)).foregroundStyle(ALColor.textPrimary)
-                Text("Sign-in or billing prompt — resolve on CLIs, then return.")
-                    .font(ALFont.sans(13)).foregroundStyle(ALColor.textMuted)
-            }
-            .padding(20)
-        }
     }
 
     // MARK: - Applies to
@@ -312,6 +224,48 @@ struct BoostWindowView: View {
         let period = h >= 12 ? "PM" : "AM"
         let hour12 = h % 12 == 0 ? 12 : h % 12
         return String(format: "%d:%02d %@", hour12, min, period)
+    }
+
+    /// Draggable 5h window on the 24h strip — amber phosphor highlight per mockup.
+    private func windowBracket(label: String) -> some View {
+        HStack(spacing: 6) {
+            bracketGrip
+            Text(label)
+                .font(ALFont.mono(10, .semibold))
+                .foregroundStyle(ALColor.accentText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            bracketGrip
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(ALColor.accentSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(ALColor.accent, lineWidth: 2)
+        )
+        .alGlowAmber()
+    }
+
+    private var bracketGrip: some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 2) {
+                Circle().fill(ALColor.accentText).frame(width: 2.5, height: 2.5)
+                Circle().fill(ALColor.accentText).frame(width: 2.5, height: 2.5)
+            }
+            HStack(spacing: 2) {
+                Circle().fill(ALColor.accentText).frame(width: 2.5, height: 2.5)
+                Circle().fill(ALColor.accentText).frame(width: 2.5, height: 2.5)
+            }
+            HStack(spacing: 2) {
+                Circle().fill(ALColor.accentText).frame(width: 2.5, height: 2.5)
+                Circle().fill(ALColor.accentText).frame(width: 2.5, height: 2.5)
+            }
+        }
+        .opacity(0.85)
     }
 }
 
