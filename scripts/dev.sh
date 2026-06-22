@@ -22,6 +22,46 @@ SCHEME="AllnighterMac"
 APP="$DERIVED/Build/Products/Debug/Allnighter.app"
 LOG="$DERIVED/last-build.log"
 
+clear_build_lane() {
+  local killed=0
+
+  if pkill -f "derivedDataPath $DERIVED" 2>/dev/null; then
+    killed=1
+  fi
+
+  local pid
+  for pid in $(pgrep -f "$ROOT/scripts/dev.sh" 2>/dev/null || true); do
+    [ "$pid" = "$$" ] && continue
+    if kill -9 "$pid" 2>/dev/null; then
+      killed=1
+    fi
+  done
+
+  if [ "$killed" -eq 1 ]; then
+    echo "==> cleared stale build lane" >&2
+    pkill -9 XCBBuildService 2>/dev/null || true
+    pkill -9 SWBBuildService 2>/dev/null || true
+    sleep 1
+  fi
+}
+
+start_build_heartbeat() {
+  (
+    local elapsed=0
+    while true; do
+      sleep 30
+      elapsed=$((elapsed + 30))
+      echo "… still building (${elapsed}s) — tail -f $LOG" >&2
+    done
+  ) &
+  echo $!
+}
+
+stop_build_heartbeat() {
+  kill "$1" 2>/dev/null || true
+  wait "$1" 2>/dev/null || true
+}
+
 cmd="${1:-run}"
 
 case "$cmd" in
@@ -45,16 +85,12 @@ else
 fi
 
 # 2. Incremental build (quiet; surface errors only on failure).
-# A stale xcodebuild on the same derivedDataPath locks build.db — common when
-# gui_proof / an agent build races with allapp.
-if pgrep -f "derivedDataPath $DERIVED" >/dev/null 2>&1; then
-  echo "==> stopping stale xcodebuild on shared DerivedData…" >&2
-  pkill -f "derivedDataPath $DERIVED" 2>/dev/null || true
-  pkill -9 XCBBuildService 2>/dev/null || true
-  sleep 1
-fi
-echo "==> building ${SCHEME}…"
+# Always clear our DerivedData lane first — orphaned xcodebuild locks build.db
+# when a terminal dies mid-build or gui_proof races allapp.
+clear_build_lane
+echo "==> building ${SCHEME}… (log: $LOG)"
 mkdir -p "$DERIVED"
+heartbeat_pid=$(start_build_heartbeat)
 set +e
 xcodebuild build \
   -project "$MAC_APP/AllnighterMac.xcodeproj" \
@@ -65,6 +101,7 @@ xcodebuild build \
   -quiet >"$LOG" 2>&1
 status=$?
 set -e
+stop_build_heartbeat "$heartbeat_pid"
 if [ $status -ne 0 ]; then
   echo "✗ build failed:" >&2
   grep -E "error:" "$LOG" | head -40 || true
