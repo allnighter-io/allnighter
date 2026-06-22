@@ -93,9 +93,20 @@ struct ConversationHomeMapper {
             id: thread.id,
             title: thread.title,
             relativeAge: relativeAge(from: thread.updatedAt, now: now),
+            statusLabel: statusLabel(for: thread.displayState),
             isUnread: thread.readState.hasUnread,
             isPending: thread.displayState == .pending || thread.displayState == .running
         )
+    }
+
+    private func statusLabel(for state: ThreadDisplayState) -> String? {
+        switch state {
+        case .running: "Running"
+        case .pending: "Pending"
+        case .replied: "Unread"
+        case .draft: "Draft"
+        case .idle: nil
+        }
     }
 
     private func projectName(for projectId: String) -> String {

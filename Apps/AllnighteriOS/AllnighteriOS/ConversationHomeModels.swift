@@ -25,6 +25,7 @@ struct ConversationSummary: Identifiable, Equatable {
     let id: String
     let title: String
     let relativeAge: String
+    let statusLabel: String?
     let isUnread: Bool
     let isPending: Bool
 }
@@ -64,6 +65,7 @@ enum ConversationHomePreviewData {
                 id: "pinned-cat",
                 title: "Give me a picture of a cat",
                 relativeAge: "3 days ago",
+                statusLabel: nil,
                 isUnread: false,
                 isPending: false
             )
@@ -96,6 +98,7 @@ enum ConversationHomePreviewData {
                         id: "new-work-order-1",
                         title: "New work order",
                         relativeAge: "3 days ago",
+                        statusLabel: nil,
                         isUnread: false,
                         isPending: false
                     ),
@@ -103,6 +106,7 @@ enum ConversationHomePreviewData {
                         id: "say-hi-only",
                         title: "Please say hi only and nothing else",
                         relativeAge: "4 days ago",
+                        statusLabel: nil,
                         isUnread: false,
                         isPending: false
                     ),
@@ -110,6 +114,7 @@ enum ConversationHomePreviewData {
                         id: "say-hi-nothing-else",
                         title: "Say hi. Nothing else.",
                         relativeAge: "4 days ago",
+                        statusLabel: nil,
                         isUnread: false,
                         isPending: false
                     ),
@@ -117,6 +122,7 @@ enum ConversationHomePreviewData {
                         id: "new-work-order-2",
                         title: "New work order",
                         relativeAge: "4 days ago",
+                        statusLabel: nil,
                         isUnread: false,
                         isPending: false
                     ),
@@ -124,6 +130,7 @@ enum ConversationHomePreviewData {
                         id: "follow-up-plan",
                         title: "Follow up on the run plan",
                         relativeAge: "5 days ago",
+                        statusLabel: nil,
                         isUnread: false,
                         isPending: false
                     )

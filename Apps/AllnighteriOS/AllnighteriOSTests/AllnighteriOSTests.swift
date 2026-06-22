@@ -9,6 +9,7 @@ import AllnighterCore
 import XCTest
 @testable import AllnighteriOS
 
+@MainActor
 final class AllnighteriOSTests: XCTestCase {
 
     func testDebugConversationSnapshotMatchesMVPHomeShape() {
@@ -74,7 +75,7 @@ final class AllnighteriOSTests: XCTestCase {
     func testConversationSnapshotFilteringDropsEmptyProjects() {
         let snapshot = ConversationListSnapshot(
             pinned: [
-                ConversationSummary(id: "pinned", title: "Pinned", relativeAge: "just now", isUnread: true, isPending: false)
+                ConversationSummary(id: "pinned", title: "Pinned", relativeAge: "just now", statusLabel: nil, isUnread: true, isPending: false)
             ],
             projects: [
                 ConversationProject(
@@ -84,7 +85,7 @@ final class AllnighteriOSTests: XCTestCase {
                     isExpanded: true,
                     hasUnread: false,
                     conversations: [
-                        ConversationSummary(id: "read", title: "Read", relativeAge: "just now", isUnread: false, isPending: false)
+                        ConversationSummary(id: "read", title: "Read", relativeAge: "just now", statusLabel: nil, isUnread: false, isPending: false)
                     ]
                 )
             ]

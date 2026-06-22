@@ -13,8 +13,20 @@ struct ConversationThreadMapper {
         ConversationThreadSnapshot(
             id: detail.id,
             title: detail.summary.title,
+            statusLabel: statusLabel(for: detail.summary.displayState),
+            isActive: detail.summary.displayState == .running || detail.summary.displayState == .pending,
             turns: detail.turns.map(turn(from:))
         )
+    }
+
+    private func statusLabel(for state: ThreadDisplayState) -> String? {
+        switch state {
+        case .running: "Running on your Mac"
+        case .pending: "Queued on your Mac"
+        case .replied: "Unread reply"
+        case .draft: "Draft"
+        case .idle: nil
+        }
     }
 
     private func turn(from remoteTurn: RemoteThreadTurnDetail) -> ConversationThreadTurn {
@@ -22,6 +34,7 @@ struct ConversationThreadMapper {
             id: remoteTurn.id,
             role: role(from: remoteTurn),
             text: normalizedText(remoteTurn.text),
+            runId: remoteTurn.runId,
             isPending: remoteTurn.status == .queued || remoteTurn.status == .running,
             isFailed: remoteTurn.status == .failed || remoteTurn.status == .timedOut,
             isTruncated: remoteTurn.partialOutputTruncated,

@@ -13,28 +13,33 @@ struct ContentView: View {
     var body: some View {
         Group {
             if appModel.showsHome {
-                ConversationsHomeView(
-                    snapshot: appModel.homeSnapshot,
-                    connectionPhase: appModel.connectionPhase,
-                    homeStatus: appModel.homeStatus,
-                    workRequestSendPhase: appModel.workRequestSendPhase,
-                    killSwitchPhase: appModel.killSwitchPhase,
-                    activeWorkCount: appModel.activeWorkCount,
-                    canSendWorkRequests: appModel.canSendWorkRequests,
-                    canStopAllWork: appModel.canStopAllWork,
-                    onSendWorkRequest: { prompt in
-                        await appModel.sendWorkRequest(prompt: prompt)
-                    },
-                    onDismissSendFailure: {
-                        appModel.clearWorkRequestSendFailure()
-                    },
-                    onStopAllWork: {
-                        await appModel.stopAllWork()
-                    },
-                    onDismissKillSwitchStatus: {
-                        appModel.clearKillSwitchStatus()
+                NavigationStack {
+                    ConversationsHomeView(
+                        snapshot: appModel.homeSnapshot,
+                        connectionPhase: appModel.connectionPhase,
+                        homeStatus: appModel.homeStatus,
+                        workRequestSendPhase: appModel.workRequestSendPhase,
+                        killSwitchPhase: appModel.killSwitchPhase,
+                        activeWorkCount: appModel.activeWorkCount,
+                        canSendWorkRequests: appModel.canSendWorkRequests,
+                        canStopAllWork: appModel.canStopAllWork,
+                        onSendWorkRequest: { prompt in
+                            await appModel.sendWorkRequest(prompt: prompt)
+                        },
+                        onDismissSendFailure: {
+                            appModel.clearWorkRequestSendFailure()
+                        },
+                        onStopAllWork: {
+                            await appModel.stopAllWork()
+                        },
+                        onDismissKillSwitchStatus: {
+                            appModel.clearKillSwitchStatus()
+                        }
+                    )
+                    .navigationDestination(for: String.self) { threadId in
+                        ConversationThreadView(threadId: threadId)
                     }
-                )
+                }
             } else {
                 RemoteOnboardingView(phase: appModel.connectionPhase) {
                     await appModel.activate()
@@ -100,17 +105,17 @@ private struct ConversationsHomeView: View {
                 }
 
                 if case let .succeeded(message) = killSwitchPhase {
-                    StatusBanner(text: message, tone: .positive)
+                    IOSStatusBanner(text: message, tone: .positive)
                         .padding(.bottom, IOSSpace.s5)
                         .onTapGesture(perform: onDismissKillSwitchStatus)
                 } else if case let .failed(message) = killSwitchPhase {
-                    StatusBanner(text: message, tone: .warning)
+                    IOSStatusBanner(text: message, tone: .warning)
                         .padding(.bottom, IOSSpace.s5)
                         .onTapGesture(perform: onDismissKillSwitchStatus)
                 }
 
                 if case let .failed(message) = workRequestSendPhase {
-                    StatusBanner(text: message, tone: .warning)
+                    IOSStatusBanner(text: message, tone: .warning)
                         .padding(.bottom, IOSSpace.s5)
                         .onTapGesture(perform: onDismissSendFailure)
                 }
@@ -165,19 +170,19 @@ private struct ConversationsHomeView: View {
         Group {
             switch connectionPhase {
             case .idle, .connecting:
-                StatusBanner(text: "Connecting to your Mac…", tone: .neutral)
+                IOSStatusBanner(text: "Connecting to your Mac…", tone: .neutral)
             case .preview:
-                StatusBanner(text: "Preview data — configure Supabase to connect live.", tone: .neutral)
+                IOSStatusBanner(text: "Preview data — configure Supabase to connect live.", tone: .neutral)
             case let .connected(macName):
-                StatusBanner(text: "Connected to \(macName)", tone: .positive)
+                IOSStatusBanner(text: "Connected to \(macName)", tone: .positive)
             case let .awaitingPairingApproval(macName):
-                StatusBanner(text: "Approve this iPhone on \(macName)", tone: .warning)
+                IOSStatusBanner(text: "Approve this iPhone on \(macName)", tone: .warning)
             case .needsConfiguration:
-                StatusBanner(text: "Sign in to connect to your Mac.", tone: .warning)
+                IOSStatusBanner(text: "Sign in to connect to your Mac.", tone: .warning)
             case .noMacsOnAccount:
-                StatusBanner(text: "No Mac registered on this account yet.", tone: .warning)
+                IOSStatusBanner(text: "No Mac registered on this account yet.", tone: .warning)
             case let .failed(message):
-                StatusBanner(text: message, tone: .warning)
+                IOSStatusBanner(text: message, tone: .warning)
             }
         }
         .padding(.bottom, IOSSpace.s5)
@@ -258,8 +263,25 @@ private struct ConversationsHomeView: View {
         }
     }
 
+    private var activeConversations: [ConversationSummary] {
+        let all = snapshot.pinned + snapshot.projects.flatMap(\.conversations)
+        return all.filter(\.isPending)
+    }
+
     private var conversationSections: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if !activeConversations.isEmpty {
+                SectionHeader(title: "Active on your Mac")
+                    .padding(.bottom, IOSSpace.s5)
+
+                VStack(spacing: 0) {
+                    ForEach(activeConversations) { conversation in
+                        ConversationRow(conversation: conversation)
+                    }
+                }
+                .padding(.bottom, IOSSpace.s8)
+            }
+
             if !visibleSnapshot.pinned.isEmpty {
                 SectionHeader(title: "Pinned")
                     .padding(.bottom, IOSSpace.s5)
@@ -365,56 +387,6 @@ private struct KillSwitchBar: View {
     }
 }
 
-private struct StatusBanner: View {
-    enum Tone {
-        case neutral
-        case positive
-        case warning
-    }
-
-    let text: String
-    let tone: Tone
-
-    var body: some View {
-        Text(text)
-            .font(IOSFont.label)
-            .foregroundStyle(foregroundColor)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, IOSSpace.s4)
-            .padding(.vertical, IOSSpace.s3)
-            .background(backgroundColor, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: 1)
-            }
-            .accessibilityIdentifier("connection-status-banner")
-    }
-
-    private var foregroundColor: Color {
-        switch tone {
-        case .neutral: IOSColor.textSecondary
-        case .positive: IOSColor.accentText
-        case .warning: IOSColor.textPrimary
-        }
-    }
-
-    private var backgroundColor: Color {
-        switch tone {
-        case .neutral: IOSColor.surface
-        case .positive: IOSColor.accentSurface
-        case .warning: IOSColor.raised
-        }
-    }
-
-    private var borderColor: Color {
-        switch tone {
-        case .neutral: IOSColor.borderDefault
-        case .positive: IOSColor.accentBorder
-        case .warning: IOSColor.borderStrong
-        }
-    }
-}
-
 private enum ConversationFilter: CaseIterable, Identifiable {
     case all
     case unread
@@ -495,22 +467,33 @@ private struct ConversationRow: View {
     let conversation: ConversationSummary
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: IOSSpace.s3) {
-            Text(conversation.title)
-                .font(IOSFont.body)
-                .foregroundStyle(IOSColor.textPrimary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        NavigationLink(value: conversation.id) {
+            HStack(alignment: .firstTextBaseline, spacing: IOSSpace.s3) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(conversation.title)
+                        .font(IOSFont.body)
+                        .foregroundStyle(IOSColor.textPrimary)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(conversation.relativeAge)
-                .font(IOSFont.mono)
-                .foregroundStyle(IOSColor.textFaint)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
+                    if let statusLabel = conversation.statusLabel {
+                        Text(statusLabel)
+                            .font(IOSFont.monoSm)
+                            .foregroundStyle(conversation.isPending ? IOSColor.accentText : IOSColor.textMuted)
+                    }
+                }
+
+                Text(conversation.relativeAge)
+                    .font(IOSFont.mono)
+                    .foregroundStyle(IOSColor.textFaint)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .padding(.vertical, IOSSpace.s4)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, IOSSpace.s4)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("conversation-row-\(conversation.id)")
     }
 }
 

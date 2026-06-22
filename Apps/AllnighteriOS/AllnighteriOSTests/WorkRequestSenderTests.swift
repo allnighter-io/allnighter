@@ -8,8 +8,10 @@ import CryptoKit
 import XCTest
 @testable import AllnighteriOS
 
+private let workRequestSenderFixtureNow = Date(timeIntervalSince1970: 1_751_040_000)
+
+@MainActor
 final class WorkRequestSenderTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1_751_040_000)
 
     func testSendWorkRequestBuildsSealedStartRunWithoutTeamConfig() async throws {
         let deviceSigningKey = Curve25519.Signing.PrivateKey()
@@ -19,7 +21,7 @@ final class WorkRequestSenderTests: XCTestCase {
                 requestId: "req_start",
                 accepted: true,
                 outcome: .accepted,
-                serverTime: now,
+                serverTime: workRequestSenderFixtureNow,
                 signature: "mac-signature"
             ),
         ])
@@ -29,7 +31,7 @@ final class WorkRequestSenderTests: XCTestCase {
             deviceId: "device_1",
             deviceSigningKey: deviceSigningKey,
             requestId: { " req_start " },
-            now: { self.now }
+            now: { workRequestSenderFixtureNow }
         )
 
         let result = try await sender.send(WorkRequestDraft(
@@ -79,7 +81,7 @@ final class WorkRequestSenderTests: XCTestCase {
             deviceId: "device_1",
             deviceSigningKey: Curve25519.Signing.PrivateKey(),
             requestId: { "req_start" },
-            now: { self.now }
+            now: { workRequestSenderFixtureNow }
         )
 
         do {
@@ -99,7 +101,7 @@ final class WorkRequestSenderTests: XCTestCase {
             displayName: "Studio",
             agentSigningPubkey: "agent-sign",
             agentSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(sealingKey.publicKey),
-            lastSeenAt: now
+            lastSeenAt: workRequestSenderFixtureNow
         )
     }
 }

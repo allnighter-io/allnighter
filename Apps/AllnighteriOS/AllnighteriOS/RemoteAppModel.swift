@@ -36,6 +36,13 @@ enum KillSwitchPhase: Equatable {
     case failed(String)
 }
 
+enum StopRunPhase: Equatable {
+    case idle
+    case stopping(runId: String)
+    case succeeded(runId: String)
+    case failed(String)
+}
+
 @MainActor
 @Observable
 final class RemoteAppModel {
@@ -44,6 +51,9 @@ final class RemoteAppModel {
     private(set) var connectionPhase: RemoteAppConnectionPhase = .idle
     private(set) var workRequestSendPhase: WorkRequestSendPhase = .idle
     private(set) var killSwitchPhase: KillSwitchPhase = .idle
+    private(set) var threadSnapshot: ConversationThreadSnapshot?
+    private(set) var threadLoadStatus: ConversationThreadLoadStatus = .idle
+    private(set) var stopRunPhase: StopRunPhase = .idle
 
     var showsHome: Bool {
         switch connectionPhase {
@@ -62,6 +72,12 @@ final class RemoteAppModel {
         connectedClient != nil && killSwitchPhase != .stopping
     }
 
+    var canStopActiveRun: Bool {
+        guard deviceSession != nil, threadSnapshot?.activeRunId != nil else { return false }
+        if case .stopping = stopRunPhase { return false }
+        return true
+    }
+
     var activeWorkCount: Int {
         let conversations = homeSnapshot.pinned
             + homeSnapshot.projects.flatMap(\.conversations)
@@ -71,7 +87,17 @@ final class RemoteAppModel {
     private var homeStore: ConversationHomeStore?
     private var connectedClient: RemoteCloudClientAssembly.ConnectedClient?
     private var previewClient: MockiOSClient?
+    private var deviceSession: DeviceSession?
+    private var threadStore: ConversationThreadStore?
     private var activationSequence = 0
+
+    private struct DeviceSession {
+        var client: any RemoteClient
+        var macId: String
+        var deviceId: String
+        var deviceSigningKey: Curve25519.Signing.PrivateKey
+        var deviceSealingKey: Curve25519.KeyAgreement.PrivateKey
+    }
 
     func activate() async {
         activationSequence += 1
@@ -100,6 +126,16 @@ final class RemoteAppModel {
                 )
                 guard currentActivation == activationSequence else { return }
                 connectedClient = connected
+                deviceSession = DeviceSession(
+                    client: connected.client,
+                    macId: connected.mac.macAgentId,
+                    deviceId: connected.deviceCredentials.deviceId,
+                    deviceSigningKey: connected.deviceSigningKey,
+                    deviceSealingKey: connected.deviceSealingKey
+                )
+                threadStore = nil
+                threadSnapshot = nil
+                threadLoadStatus = .idle
                 homeStore = ConversationHomeStore(
                     client: connected.client,
                     macId: connected.mac.macAgentId
@@ -131,6 +167,58 @@ final class RemoteAppModel {
         await homeStore.refresh()
         homeSnapshot = homeStore.state.snapshot
         homeStatus = homeStore.state.status
+    }
+
+    func loadThread(threadId: String) async {
+        guard let session = deviceSession else { return }
+        let store = threadStore ?? ConversationThreadStore(
+            client: session.client,
+            macId: session.macId,
+            deviceId: session.deviceId,
+            deviceSealingKey: session.deviceSealingKey
+        )
+        threadStore = store
+        await store.load(threadId: threadId)
+        threadSnapshot = store.state.snapshot
+        threadLoadStatus = store.state.status
+    }
+
+    func stopActiveRun() async {
+        guard let session = deviceSession,
+              let snapshot = threadSnapshot,
+              let runId = snapshot.activeRunId,
+              canStopActiveRun else {
+            return
+        }
+
+        stopRunPhase = .stopping(runId: runId)
+        let sender = RemoteControlSender(
+            client: session.client,
+            deviceId: session.deviceId,
+            deviceSigningKey: session.deviceSigningKey
+        )
+
+        do {
+            let result = try await sender.stopRun(runId: runId)
+            if result.commandResult.ack.accepted {
+                stopRunPhase = .succeeded(runId: runId)
+                await loadThread(threadId: snapshot.id)
+                await refreshHome()
+            } else {
+                stopRunPhase = .failed(Self.killSwitchFailureMessage(from: result.commandResult.ack))
+            }
+        } catch {
+            stopRunPhase = .failed("Could not stop this run on your Mac.")
+        }
+    }
+
+    func clearStopRunStatus() {
+        switch stopRunPhase {
+        case .succeeded, .failed:
+            stopRunPhase = .idle
+        case .idle, .stopping:
+            break
+        }
     }
 
     func sendWorkRequest(prompt: String) async {
@@ -197,10 +285,43 @@ final class RemoteAppModel {
 
     private func installPreviewClient() {
         let now = Date()
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let sealingKey = Curve25519.KeyAgreement.PrivateKey()
+        let deviceId = "preview_device"
+        let accountId = "acct_preview"
+        let macAgentId = "mac_preview"
+
+        let trustedDevice = TrustedDevice(
+            deviceId: deviceId,
+            displayName: "Preview iPhone",
+            deviceSigningPubkey: RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey),
+            deviceSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(sealingKey.publicKey),
+            accountId: accountId,
+            macAgentId: macAgentId,
+            pairedAt: now,
+            validUntil: now.addingTimeInterval(86_400),
+            revoked: false,
+            capabilities: [.startRun, .stopRun, .markThreadRead]
+        )
+
+        let threadDetails: [String: [String: SealedBlob]]
+        do {
+            let blob = try Self.previewSealedThreadDetail(
+                threadId: "thread-2",
+                deviceId: deviceId,
+                sealingKey: sealingKey,
+                now: now,
+                runId: "run_preview_2"
+            )
+            threadDetails = ["thread-2": [deviceId: blob]]
+        } catch {
+            threadDetails = [:]
+        }
+
         let client = MockiOSClient(
             macs: [
                 MacAgentRef(
-                    macAgentId: "mac_preview",
+                    macAgentId: macAgentId,
                     displayName: "Studio Mac",
                     agentSigningPubkey: "preview-sign",
                     agentSealingPubkey: "preview-seal",
@@ -208,12 +329,24 @@ final class RemoteAppModel {
                 ),
             ],
             threadSnapshots: Self.previewThreadSnapshot(now: now),
+            threadDetails: threadDetails,
+            trustedDevices: [trustedDevice],
             serverNow: now
         )
         previewClient = client
+        deviceSession = DeviceSession(
+            client: client,
+            macId: macAgentId,
+            deviceId: deviceId,
+            deviceSigningKey: signingKey,
+            deviceSealingKey: sealingKey
+        )
+        threadStore = nil
+        threadSnapshot = nil
+        threadLoadStatus = .idle
         homeStore = ConversationHomeStore(
             client: client,
-            macId: "mac_preview",
+            macId: macAgentId,
             mapper: ConversationHomeMapper(projectNames: [
                 "proj_allnighter": "Allnighter",
                 "proj_inbox": "Inbox",
@@ -221,10 +354,68 @@ final class RemoteAppModel {
         )
         Task {
             try? await client.connect(
-                account: RemoteAccountSession(accountId: "acct_preview", provider: .apple),
-                mode: .cloudRelay
+                account: RemoteAccountSession(accountId: accountId, provider: .apple),
+                mode: ConnectionMode.cloudRelay
             )
         }
+    }
+
+    private static func previewSealedThreadDetail(
+        threadId: String,
+        deviceId: String,
+        sealingKey: Curve25519.KeyAgreement.PrivateKey,
+        now: Date,
+        runId: String
+    ) throws -> SealedBlob {
+        let summary = RemoteThreadSummary(
+            id: threadId,
+            title: "Fix the layout bug in the header",
+            status: .active,
+            projectId: "proj_allnighter",
+            createdAt: now.addingTimeInterval(-7_200),
+            updatedAt: now.addingTimeInterval(-300),
+            pinnedAt: nil,
+            displayState: .running,
+            readState: RemoteThreadReadState(
+                readCursor: nil,
+                hasUnread: false,
+                unreadNeedsAttention: false,
+                firstUnreadTurnId: nil,
+                latestUnreadTurnId: nil
+            ),
+            turnCount: 2,
+            latestTurn: nil
+        )
+        let detail = RemoteThreadDetail(
+            summary: summary,
+            turns: [
+                RemoteThreadTurnDetail(
+                    id: "turn_user",
+                    kind: .userMessage,
+                    status: .done,
+                    author: .user,
+                    createdAt: now.addingTimeInterval(-600),
+                    completedAt: now.addingTimeInterval(-600),
+                    text: "Fix the layout bug in the header"
+                ),
+                RemoteThreadTurnDetail(
+                    id: "turn_worker",
+                    kind: .workerChat,
+                    status: .running,
+                    author: .worker,
+                    createdAt: now.addingTimeInterval(-300),
+                    text: "Inspecting the header stack and safe-area insets…",
+                    runId: runId,
+                    partialOutputTruncated: false
+                ),
+            ]
+        )
+        return try RemoteCrypto.seal(
+            CoreJSON.encode(detail),
+            to: RemoteCrypto.sealingPublicKeyBase64(sealingKey.publicKey),
+            sealedForKeyId: deviceId,
+            contentType: RemoteThreadDetail.sealedContentType
+        )
     }
 
     private static func previewThreadSnapshot(now: Date) -> [String: RemoteThreadSnapshotEnvelope] {
