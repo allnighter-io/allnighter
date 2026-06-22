@@ -492,18 +492,18 @@ final class RemoteAppModel {
             capabilities: [.startRun, .stopRun, .markThreadRead]
         )
 
-        let threadDetails: [String: [String: SealedBlob]]
-        do {
-            let blob = try Self.previewSealedThreadDetail(
-                threadId: "thread-2",
-                deviceId: deviceId,
-                sealingKey: sealingKey,
-                now: now,
-                runId: "run_preview_2"
-            )
-            threadDetails = ["thread-2": [deviceId: blob]]
-        } catch {
-            threadDetails = [:]
+        var threadDetails: [String: [String: SealedBlob]] = [:]
+        if let envelope = Self.previewThreadSnapshot(now: now)["mac_preview"] {
+            for thread in envelope.threads {
+                if let blob = try? Self.previewSealedThreadDetail(
+                    summary: thread,
+                    deviceId: deviceId,
+                    sealingKey: sealingKey,
+                    now: now
+                ) {
+                    threadDetails[thread.id] = [deviceId: blob]
+                }
+            }
         }
 
         let client = MockiOSClient(
@@ -563,50 +563,35 @@ final class RemoteAppModel {
     }
 
     private static func previewSealedThreadDetail(
-        threadId: String,
+        summary: RemoteThreadSummary,
         deviceId: String,
         sealingKey: Curve25519.KeyAgreement.PrivateKey,
-        now: Date,
-        runId: String
+        now: Date
     ) throws -> SealedBlob {
-        let summary = RemoteThreadSummary(
-            id: threadId,
-            title: "Fix the layout bug in the header",
-            status: .active,
-            projectId: "proj_allnighter",
-            createdAt: now.addingTimeInterval(-7_200),
-            updatedAt: now.addingTimeInterval(-300),
-            pinnedAt: nil,
-            displayState: .running,
-            readState: RemoteThreadReadState(
-                readCursor: nil,
-                hasUnread: false,
-                unreadNeedsAttention: false,
-                firstUnreadTurnId: nil,
-                latestUnreadTurnId: nil
-            ),
-            turnCount: 2,
-            latestTurn: nil
-        )
+        let isRunning = summary.displayState == .running || summary.displayState == .pending
+        let runId = isRunning ? "run_preview_\(summary.id)" : nil
         let detail = RemoteThreadDetail(
             summary: summary,
             turns: [
                 RemoteThreadTurnDetail(
-                    id: "turn_user",
+                    id: "\(summary.id)_user",
                     kind: .userMessage,
                     status: .done,
                     author: .user,
-                    createdAt: now.addingTimeInterval(-600),
-                    completedAt: now.addingTimeInterval(-600),
-                    text: "Fix the layout bug in the header"
+                    createdAt: summary.createdAt,
+                    completedAt: summary.createdAt,
+                    text: summary.title
                 ),
                 RemoteThreadTurnDetail(
-                    id: "turn_worker",
+                    id: "\(summary.id)_worker",
                     kind: .workerChat,
-                    status: .running,
+                    status: isRunning ? .running : .done,
                     author: .worker,
-                    createdAt: now.addingTimeInterval(-300),
-                    text: "Inspecting the header stack and safe-area insets…",
+                    createdAt: summary.updatedAt,
+                    completedAt: isRunning ? nil : summary.updatedAt,
+                    text: isRunning
+                        ? "Working on this on your Mac…"
+                        : "Done — open on your Mac for the full transcript.",
                     runId: runId,
                     partialOutputTruncated: false
                 ),
