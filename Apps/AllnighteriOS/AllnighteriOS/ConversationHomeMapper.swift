@@ -46,7 +46,7 @@ struct ConversationHomeMapper {
                 id: projectId,
                 name: projectName(for: projectId),
                 icon: .folder,
-                isExpanded: false,
+                isExpanded: true,
                 threads: threads,
                 now: now
             )

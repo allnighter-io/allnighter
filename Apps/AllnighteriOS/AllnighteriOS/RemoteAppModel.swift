@@ -205,7 +205,7 @@ final class RemoteAppModel {
 
         #if DEBUG
         guard currentActivation == activationSequence else { return }
-        installPreviewClient()
+        await installPreviewClient()
         connectionPhase = .preview
         await refreshHome()
         await refreshConnectionDiagnosis()
@@ -471,7 +471,7 @@ final class RemoteAppModel {
         }
     }
 
-    private func installPreviewClient() {
+    private func installPreviewClient() async {
         let now = Date()
         let signingKey = Curve25519.Signing.PrivateKey()
         let sealingKey = Curve25519.KeyAgreement.PrivateKey()
@@ -548,12 +548,18 @@ final class RemoteAppModel {
                 "proj_inbox": "Inbox",
             ])
         )
-        Task {
-            try? await client.connect(
-                account: RemoteAccountSession(accountId: accountId, provider: .apple),
-                mode: ConnectionMode.cloudRelay
-            )
+        #if DEBUG
+        if let envelope = Self.previewThreadSnapshot(now: now)["mac_preview"] {
+            homeSnapshot = ConversationHomeMapper(projectNames: [
+                "proj_allnighter": "Allnighter",
+                "proj_inbox": "Inbox",
+            ]).snapshot(from: envelope, now: now)
         }
+        #endif
+        try? await client.connect(
+            account: RemoteAccountSession(accountId: accountId, provider: .apple),
+            mode: ConnectionMode.cloudRelay
+        )
     }
 
     private static func previewSealedThreadDetail(

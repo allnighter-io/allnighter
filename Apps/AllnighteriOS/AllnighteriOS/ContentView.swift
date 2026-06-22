@@ -508,43 +508,57 @@ private struct ProjectGroup: View {
     let project: ConversationProject
     private let visibleConversationLimit = 4
 
+    @State private var isExpanded: Bool
+
+    init(project: ConversationProject) {
+        self.project = project
+        _isExpanded = State(initialValue: project.isExpanded)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: IOSSpace.s3) {
-                Image(systemName: project.isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(IOSColor.textMuted)
-                    .frame(width: 24)
+            Button {
+                isExpanded.toggle()
+            } label: {
+                HStack(spacing: IOSSpace.s3) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(IOSColor.textMuted)
+                        .frame(width: 24)
 
-                Image(systemName: iconName)
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(IOSColor.textMuted)
-                    .frame(width: 30)
+                    Image(systemName: iconName)
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundStyle(IOSColor.textMuted)
+                        .frame(width: 30)
 
-                Text(project.name)
-                    .font(IOSFont.bodyStrong)
-                    .foregroundStyle(IOSColor.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                    Text(project.name)
+                        .font(IOSFont.bodyStrong)
+                        .foregroundStyle(IOSColor.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
 
-                if project.hasUnread {
-                    Circle()
-                        .fill(IOSColor.accent)
-                        .frame(width: 13, height: 13)
-                        .accessibilityLabel("Unread")
+                    if project.hasUnread {
+                        Circle()
+                            .fill(IOSColor.accent)
+                            .frame(width: 13, height: 13)
+                            .accessibilityLabel("Unread")
+                    }
+
+                    Spacer(minLength: IOSSpace.s3)
+
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(IOSColor.textMuted)
+                        .frame(width: 32, height: 32)
+                        .accessibilityLabel("New work request")
                 }
-
-                Spacer(minLength: IOSSpace.s3)
-
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(IOSColor.textMuted)
-                    .frame(width: 32, height: 32)
-                    .accessibilityLabel("New work request")
+                .padding(.vertical, IOSSpace.s3)
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, IOSSpace.s3)
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("project-group-\(project.id)")
 
-            if project.isExpanded {
+            if isExpanded {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(visibleConversations) { conversation in
                         ConversationRow(conversation: conversation)
