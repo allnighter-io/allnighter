@@ -126,6 +126,35 @@ scope here).
 - **S0 (lean view) is deferred** to the read-only answer path (out of current scope). The single-lane
   chat build goes straight to the warm-worker foundation + grok adapter.
 
+## 4b. BREAKTHROUGH (2026-06-21) — the warm mechanism is ACP over stdio
+
+grok exposes a **documented** persistent mode: `grok agent --model <m> --always-approve stdio`, speaking
+the **Agent Client Protocol (ACP)** — JSON-RPC 2.0 over stdin/stdout. (Docs on-machine:
+`~/.grok/docs/user-guide/15-agent-mode.md`; spec: agentclientprotocol.com. Used by Zed/Neovim/Emacs.)
+
+**Flow:** `initialize` → `session/new {cwd}` → `session/prompt {sessionId, prompt:[{type:text,text}]}`
+per turn → stream `session/update` notifications (`agent_message_chunk` = answer text,
+`agent_thought_chunk` = reasoning, `tool_call`/`tool_call_update` = activity) until the prompt
+request's `result` arrives. (Options go BEFORE `stdio`; the `stdio` subcommand takes none.)
+
+**Measured in the full Allnighter repo (proven 2026-06-21):**
+- initialize ~0.6s, `session/new` ~1.3–1.8s (NOT the 22s walk — agent mode indexes asynchronously
+  via `x.ai/fs/index` notifications, doesn't block).
+- Every turn **~1.5–3.4s** — including turn 1. Conversation continuity in-process (turn 2 recalled
+  "amberclock"). File fidelity in-process (turn 3 read a real repo file → "WorkerPrompt").
+
+**Why this changes everything:**
+- It's faster than the warm target AND fast from turn 1 (no 22s bridge needed). The lean view (Layer A)
+  is now unnecessary for grok chat.
+- It's clean stdio JSON-RPC — the exact subprocess I/O `WorkerRunner` already does. No WS secret/401,
+  no PTY scraping, no reverse-engineering.
+- ACP is **cross-vendor**: the `WarmWorker` is essentially ONE ACP client; per-CLI work shrinks to a
+  spawn recipe + capability flag. Likely serves claude/codex/cursor too where they speak ACP.
+
+Rejected paths (confirmed dead/fragile): `grok agent serve` WS (undocumented wire format — actually
+also ACP but stdio is simpler), `grok agent headless` (cloud-relay only, 401 locally), leader
+(policy-disabled in cloud posture), PTY (works but fragile screen-scrape).
+
 ## 5. Build plan — phased, ONE CLI at a time
 
 ### Phase 0 — Foundations (CLI-agnostic, lands before any warm work)
@@ -141,9 +170,13 @@ scope here).
   trust a noisy one-off. **Acceptance:** harness reports stable cold/lean/warm numbers per CLI.
 
 ### Phase 1 — grok (the proof-of-concept; everything downstream copies this)
-- [ ] **S3 — grok warm adapter.** Stand up `grok agent serve` (local WS, `--bind`, `--secret`),
-  discover the WS message protocol, drive turn-1 + turn-2 from a client. **Acceptance:** turn-2 < 2s
-  through the WS (target sub-second), matching the PTY spike.
+- [~] **S3 — grok ACP warm adapter (mechanism PROVEN, see §4b).** Build a Swift ACP stdio client in
+  AllnighterEngine: spawn `grok agent --model <m> --always-approve stdio`, JSON-RPC line framing over
+  stdin/stdout, `initialize` → `session/new {cwd}` → `session/prompt` per turn, parse `session/update`
+  (`agent_message_chunk`→answer, `agent_thought_chunk`→reasoning, `tool_call`→activity), answer
+  server→client requests, detect turn end on the prompt request's `result`. **Acceptance (already met
+  in spike): every turn ~1.5–3.4s in the full repo, continuity + file fidelity.** Remaining: port the
+  node spike to Swift, unit-test the JSON-RPC framing/parse.
 - [ ] **S4 — Wire single-lane chat → grok warm worker.** On thread open, boot the warm worker in the
   background; bridge turn-1 via lean-view cold spawn; route turn-2+ through the warm worker. Conversation
   continuity intact. **Acceptance:** in the Allnighter repo, turn-1 < 8s, turn-2+ < 2s, end-to-end in
