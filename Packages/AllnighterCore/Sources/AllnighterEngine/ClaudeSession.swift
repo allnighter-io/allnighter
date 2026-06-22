@@ -16,6 +16,9 @@ public actor ClaudeSession: WarmSessionDriver {
         self.transport = transport
     }
 
+    /// No vendor session id — the warm process itself is the session (no handshake id to capture).
+    public var vendorSessionId: String? { nil }
+
     public func start(cwd: String) async throws {
         guard !started else { return }
         started = true

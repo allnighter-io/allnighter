@@ -481,6 +481,11 @@ public actor RunService {
                     warmOutcome.firstTokenAt = firstTokenAt
                     warmOutcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
                 }
+                // Capture the vendor session id the warm driver established, so a later turn can
+                // durably resume after the warm worker dies (and so Codex image harvest can map
+                // the run to its rollout). The warm worker persists in-memory continuity already;
+                // this is the durable record.
+                warmOutcome.capturedSessionId = await warm.vendorSessionId()
                 outcome = warmOutcome
             } catch {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")

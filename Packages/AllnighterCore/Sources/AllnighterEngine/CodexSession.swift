@@ -21,6 +21,9 @@ public actor CodexSession: WarmSessionDriver {
         self.model = model
     }
 
+    /// Codex's `thread/start` thread id — the rollout UUID this turn writes to.
+    public var vendorSessionId: String? { threadId }
+
     public func start(cwd: String) async throws {
         guard !started else { return }
         started = true

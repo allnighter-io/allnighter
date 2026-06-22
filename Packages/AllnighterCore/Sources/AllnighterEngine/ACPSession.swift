@@ -36,6 +36,11 @@ public protocol WarmSessionDriver: Sendable {
     func prompt(_ text: String) async -> AsyncThrowingStream<ACPTurnEvent, Error>
     /// Tear down the session (process kill happens in the transport). Idempotent.
     func shutdown() async
+    /// The vendor session id this driver established on `start` (nil before turn 1). Surfaced so
+    /// the warm run path can persist it for durable resume after the warm worker dies, and so the
+    /// image harvest can map a Codex run to its rollout. (Without this the warm path captured no
+    /// id — continuity worked only while the in-memory worker stayed alive.)
+    var vendorSessionId: String? { get async }
 }
 
 /// Drives ONE warm ACP conversation over an `ACPTransport`: `initialize` → [`authenticate`] →
@@ -59,6 +64,8 @@ public actor ACPSession: WarmSessionDriver {
         self.transport = transport
         self.profile = profile
     }
+
+    public var vendorSessionId: String? { sessionId }
 
     /// Spawn-side already running; perform the ACP handshake and open a session bound to `cwd`.
     public func start(cwd: String) async throws {

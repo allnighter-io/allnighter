@@ -34,6 +34,9 @@ public actor WarmWorker {
         return await driver.prompt(text)
     }
 
+    /// The vendor session id the driver established (for durable resume + image harvest).
+    public func vendorSessionId() async -> String? { await driver.vendorSessionId }
+
     /// True if no turn has been requested since `cutoff` (idle teardown candidate).
     public func isIdle(since cutoff: Date) -> Bool { lastUsedAt < cutoff }
 
