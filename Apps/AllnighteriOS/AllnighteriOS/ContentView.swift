@@ -8,27 +8,24 @@
 import SwiftUI
 
 struct ContentView: View {
-    private let snapshot: ConversationListSnapshot
-
-    init(snapshot: ConversationListSnapshot = ContentView.defaultSnapshot) {
-        self.snapshot = snapshot
-    }
+    @Environment(RemoteAppModel.self) private var appModel
 
     var body: some View {
-        ConversationsHomeView(snapshot: snapshot)
-    }
-
-    private static var defaultSnapshot: ConversationListSnapshot {
-        #if DEBUG
-        ConversationHomePreviewData.snapshot
-        #else
-        .empty
-        #endif
+        ConversationsHomeView(
+            snapshot: appModel.homeSnapshot,
+            connectionPhase: appModel.connectionPhase,
+            homeStatus: appModel.homeStatus
+        )
+        .refreshable {
+            await appModel.refreshHome()
+        }
     }
 }
 
 private struct ConversationsHomeView: View {
     let snapshot: ConversationListSnapshot
+    let connectionPhase: RemoteAppConnectionPhase
+    let homeStatus: ConversationHomeLoadStatus
 
     @State private var searchText = ""
     @State private var selectedFilter: ConversationFilter = .all
@@ -40,6 +37,8 @@ private struct ConversationsHomeView: View {
                 brandBar
                     .padding(.top, IOSSpace.s2)
                     .padding(.bottom, IOSSpace.s7)
+
+                connectionBanner
 
                 Text("Conversations")
                     .font(IOSFont.display)
@@ -76,6 +75,26 @@ private struct ConversationsHomeView: View {
                 }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var connectionBanner: some View {
+        Group {
+            switch connectionPhase {
+            case .idle, .connecting:
+                StatusBanner(text: "Connecting to your Mac…", tone: .neutral)
+            case .preview:
+                StatusBanner(text: "Preview data — configure Supabase to connect live.", tone: .neutral)
+            case let .connected(macName):
+                StatusBanner(text: "Connected to \(macName)", tone: .positive)
+            case let .awaitingPairingApproval(macName):
+                StatusBanner(text: "Approve this iPhone on \(macName)", tone: .warning)
+            case .needsConfiguration:
+                StatusBanner(text: "Sign in to connect to your Mac.", tone: .warning)
+            case let .failed(message):
+                StatusBanner(text: message, tone: .warning)
+            }
+        }
+        .padding(.bottom, IOSSpace.s5)
     }
 
     private var visibleSnapshot: ConversationListSnapshot {
@@ -191,6 +210,57 @@ private struct ConversationsHomeView: View {
 struct ContentViewPreviews: PreviewProvider {
     static var previews: some View {
         ContentView()
+            .environment(RemoteAppModel())
+    }
+}
+
+private struct StatusBanner: View {
+    enum Tone {
+        case neutral
+        case positive
+        case warning
+    }
+
+    let text: String
+    let tone: Tone
+
+    var body: some View {
+        Text(text)
+            .font(IOSFont.label)
+            .foregroundStyle(foregroundColor)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, IOSSpace.s4)
+            .padding(.vertical, IOSSpace.s3)
+            .background(backgroundColor, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous)
+                    .strokeBorder(borderColor, lineWidth: 1)
+            }
+            .accessibilityIdentifier("connection-status-banner")
+    }
+
+    private var foregroundColor: Color {
+        switch tone {
+        case .neutral: IOSColor.textSecondary
+        case .positive: IOSColor.accentText
+        case .warning: IOSColor.textPrimary
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch tone {
+        case .neutral: IOSColor.surface
+        case .positive: IOSColor.accentSurface
+        case .warning: IOSColor.raised
+        }
+    }
+
+    private var borderColor: Color {
+        switch tone {
+        case .neutral: IOSColor.borderDefault
+        case .positive: IOSColor.accentBorder
+        case .warning: IOSColor.borderStrong
+        }
     }
 }
 
