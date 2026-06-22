@@ -1,14 +1,15 @@
 # Composer Image Attachments (Paste + CLI + MCP)
 
-**Status:** **Backend BUILT** (CIA-S00–S07, 2026-06-17) — GUI slices S03/S04/S08/S09 remain
+**Status:** **Backend BUILT** (CIA-S00–S07, 2026-06-17) — ready for remaining GUI implementation; timeline rendering routes through `Message_Image_Rendering.md`
 **Owner:** AllnighterCore · AllnighterEngine · Mac GUI · CLI/MCP
-**Created:** 2026-06-16 · **Updated:** 2026-06-17 (backend foundation landed; GUI deferred)
+**Created:** 2026-06-16 · **Updated:** 2026-06-22 (backend foundation landed; GUI handoff clarified)
 **Process:** `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
 **Depends on:** [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md),
 [`ThreadStore Hardening`](../archive/phases/05_ThreadStore_Hardening.md),
 [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md),
-[`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md)
+[`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md),
+[`Message_Image_Rendering.md`](Message_Image_Rendering.md)
 
 ---
 
@@ -18,9 +19,19 @@ CR4b is built. Do not re-run the CR4 send packet for this feature.
 
 [`ThreadStore Hardening`](../archive/phases/05_ThreadStore_Hardening.md) is **BUILT**
 (TSH-S00–S07). Backend/headless slices CIA-S00 through CIA-S07 are **BUILT** (2026-06-17).
-Remaining work is GUI-only: paste/attach (S03), timeline chips (S04), visual proof seal
-(S08), drag-and-drop (S09). The rest of `docs/phases/threads/` is **not** a prerequisite
-for image attachments beyond 05.
+Remaining work is GUI-only:
+
+- **CIA-S03:** composer paste/attach, draft thumbnail strip, Preparing send.
+- **CIA-S04:** user-turn timeline rendering from canonical attachments. Implement
+  this through `Message_Image_Rendering.md` MIR-GUI-S01/S03 so user and worker
+  thumbnails share one chip/presenter.
+- **CIA-S08:** GUI proof seal for paste -> send -> timeline.
+- **CIA-S09:** drag-and-drop, last.
+
+This doc is ready for the inbound/composer GUI slices above. It is **not** the
+umbrella for worker reply images, Design board tiles, Factory Floor design
+mockups, or `thread_get` read-path enrichment; those route through
+`Message_Image_Rendering.md`.
 
 ## First principle
 
@@ -123,11 +134,16 @@ Add array/union param support to `ContractRegistry` so `images[]` can be:
 Regenerate descriptors. Runtime parsing without generated schema support **does
 not count**. No hand-coded MCP-only descriptors.
 
-### 10. Legacy decode is zero-migration
+### 10. Decode defaults are not a migration policy
 
 Existing `ThreadTurn` and `ThreadContextPacket` JSON without attachment fields
 decode with empty arrays (`attachmentRefs: []`, `includedAttachments: []`). Explicit
 tests against existing fixtures.
+
+Zero-user rule for future work: no aliases, compatibility modes, migration
+readers, or dual JSON shapes. If the attachment contract changes again, cut over
+the contract, regenerate docs/schemas, and wipe/reseed local dogfood fixtures as
+needed.
 
 ### 11. History renders from canonical bytes
 
@@ -267,8 +283,9 @@ Hash mismatch before invoke → `ATTACHMENT_HASH_MISMATCH`, fatal.
 - Paste precedence: **image wins** (no text from same paste when image present)
 - Thumbnail strip sorted by `sequence`; loading skeleton during ingest
 - Send → **Preparing…** (law §3); image-only send allowed
-- Timeline chips render thumbnails from canonical bytes; context reveal shows
-  thumbnails/list plus **"path sent to worker"** from the saved packet
+- Timeline chips render thumbnails from canonical bytes via MIR-GUI-S01/S03;
+  context reveal shows thumbnails/list plus **"path sent to worker"** from the
+  saved packet
 - Non-vision composer badge: optional, design-owned (not implementation law)
 - **DnD → CIA-S09 only** (last slice)
 
@@ -306,7 +323,7 @@ implementers need so the shorter spec does not become under-specified.
 | `FanoutAttachmentMapper` | **Built** — design lane first-image mapping |
 | `ThreadsViewModel.sendRouting` | Fan-out/exec still bypass coordinator (CR4b chat path uses coordinator) |
 | `RoutingComposer` | **GUI gap** — no paste intercept, draft strip, or attach controls |
-| Timeline chips / context reveal thumbnails | **GUI gap** (S04) |
+| Timeline chips / context reveal thumbnails | **GUI gap** (CIA-S04; implement through MIR-GUI-S01/S03) |
 | GUI proof fixture `compose-paste-image` | **GUI gap** (S08) |
 
 ### Ingest pipeline
@@ -473,15 +490,15 @@ Cleanup logs what mirror files were removed. It never touches
 
 | # | Proof | Backend | GUI |
 | --- | --- | --- | --- |
-| 1 | Fake vision worker receives path; hash matches `storedSha256`; reveal shows thumbnail + "path sent to worker" | **Headless** (`ThreadSendCoordinatorAttachmentTests`) | Reveal thumbnail (S04) |
+| 1 | Fake vision worker receives path; hash matches `storedSha256`; reveal shows thumbnail + "path sent to worker" | **Headless** (`ThreadSendCoordinatorAttachmentTests`) | Reveal thumbnail (CIA-S04 / MIR-GUI-S01) |
 | 2 | Image-only send works | **Built** | — |
 | 3 | Send during ingest waits (**Preparing…**), then sends complete ordered refs | Coordinator rejects non-ready drafts | Preparing UI (S03) |
 | 4 | Multi-image out-of-order completion → prompt in paste `sequence` | Sequence law in store | Paste UI (S03) |
 | 5 | CLI: mutate source after temp freeze → sent bytes unchanged | **Built** (freeze path) | — |
 | 6 | MCP base64 and CLI file ingest → same canonical `storedSha256` | **Built** (shared ingestor) | — |
 | 7 | `workingDir` set → workspace staging; prompt uses staged relative path | **Built** (`WorkspaceAttachmentStagingTests`) | — |
-| 8 | Mirror cleanup removes workspace files; history thumbnails still open canonical | Cleanup helper built | Timeline open (S04) |
-| 9 | Legacy thread fixtures decode with `attachmentRefs == []` | **Built** (`AttachmentLegacyDecodeTests`) | — |
+| 8 | Mirror cleanup removes workspace files; history thumbnails still open canonical | Cleanup helper built | Timeline open (CIA-S04 / MIR-GUI-S03) |
+| 9 | Historical thread fixtures decode with `attachmentRefs == []` | **Built** (`AttachmentLegacyDecodeTests`) | — |
 | 10 | Concurrent GUI + CLI sends → no lost turns, no packet mismatch | Partial (flock + store concurrency tests) | — |
 | 11 | Hash mismatch at invoke → fatal, visible `ATTACHMENT_HASH_MISMATCH` | **Built** (`ThreadAttachmentStoreTests`) | — |
 
@@ -508,7 +525,7 @@ smoke only. GUI proof fixture `compose-paste-image` (CIA-S08). DnD manual (CIA-S
 | **CIA-S02** | **Send transaction** (law §2) in coordinator | ✅ Built |
 | **CR4b** | Remove `sendRouting` bypass (law §1) | ✅ Chat path (fan-out/exec deferred) |
 | **CIA-S03** | Paste + attach; law §3–4; Preparing send | **GUI** |
-| **CIA-S04** | Timeline from canonical (law §11) | **GUI** |
+| **CIA-S04** | User-turn timeline from canonical (law §11); implemented through MIR-GUI-S01/S03 | **GUI** |
 | **CIA-S05** | CLI law §8 + idempotency | ✅ Built |
 | **CIA-S06** | MCP law §9 + idempotency + poll tools | ✅ Built |
 | **CIA-S07** | Design fan-out attachment mapping | ✅ Built |
@@ -529,6 +546,7 @@ smoke only. GUI proof fixture `compose-paste-image` (CIA-S08). DnD manual (CIA-S
 ## Related docs
 
 - `docs/archive/phases/Compose_Routing_CR4_Send_And_Conversations.md` (historical CR4 packet; CR4b is built)
+- `docs/phases/Message_Image_Rendering.md` (shared read-path/timeline/board image rendering umbrella)
 - `docs/phases/threads/01_Work_Threads_MLP.md`
 - `docs/mvp/Design2_Build_This.md`
 - `ThreadStore.savePacket` → `context/`
