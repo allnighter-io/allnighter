@@ -65,11 +65,11 @@ final class RemoteAppModel {
     }
 
     var canSendWorkRequests: Bool {
-        connectedClient != nil && workRequestSendPhase != .sending
+        deviceSession != nil && workRequestSendPhase != .sending
     }
 
     var canStopAllWork: Bool {
-        connectedClient != nil && killSwitchPhase != .stopping
+        deviceSession != nil && killSwitchPhase != .stopping
     }
 
     var canStopActiveRun: Bool {
@@ -93,7 +93,7 @@ final class RemoteAppModel {
 
     private struct DeviceSession {
         var client: any RemoteClient
-        var macId: String
+        var mac: MacAgentRef
         var deviceId: String
         var deviceSigningKey: Curve25519.Signing.PrivateKey
         var deviceSealingKey: Curve25519.KeyAgreement.PrivateKey
@@ -128,7 +128,7 @@ final class RemoteAppModel {
                 connectedClient = connected
                 deviceSession = DeviceSession(
                     client: connected.client,
-                    macId: connected.mac.macAgentId,
+                    mac: connected.mac,
                     deviceId: connected.deviceCredentials.deviceId,
                     deviceSigningKey: connected.deviceSigningKey,
                     deviceSealingKey: connected.deviceSealingKey
@@ -173,7 +173,7 @@ final class RemoteAppModel {
         guard let session = deviceSession else { return }
         let store = threadStore ?? ConversationThreadStore(
             client: session.client,
-            macId: session.macId,
+            macId: session.mac.macAgentId,
             deviceId: session.deviceId,
             deviceSealingKey: session.deviceSealingKey
         )
@@ -181,6 +181,30 @@ final class RemoteAppModel {
         await store.load(threadId: threadId)
         threadSnapshot = store.state.snapshot
         threadLoadStatus = store.state.status
+
+        if case .loaded(let loadedId) = threadLoadStatus,
+           loadedId == threadId,
+           let snapshot = threadSnapshot,
+           snapshot.hasUnread,
+           let throughTurnId = snapshot.readThroughTurnId {
+            await markThreadRead(threadId: threadId, throughTurnId: throughTurnId)
+        }
+    }
+
+    private func markThreadRead(threadId: String, throughTurnId: String) async {
+        guard let session = deviceSession else { return }
+        let sender = RemoteControlSender(
+            client: session.client,
+            deviceId: session.deviceId,
+            deviceSigningKey: session.deviceSigningKey
+        )
+        do {
+            let result = try await sender.markThreadRead(threadId: threadId, throughTurnId: throughTurnId)
+            guard result.commandResult.ack.accepted else { return }
+            await refreshHome()
+        } catch {
+            return
+        }
     }
 
     func stopActiveRun() async {
@@ -222,16 +246,16 @@ final class RemoteAppModel {
     }
 
     func sendWorkRequest(prompt: String) async {
-        guard let connectedClient, canSendWorkRequests else { return }
+        guard let session = deviceSession, canSendWorkRequests else { return }
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         workRequestSendPhase = .sending
         let sender = WorkRequestSender(
-            client: connectedClient.client,
-            mac: connectedClient.mac,
-            deviceId: connectedClient.deviceCredentials.deviceId,
-            deviceSigningKey: connectedClient.deviceSigningKey
+            client: session.client,
+            mac: session.mac,
+            deviceId: session.deviceId,
+            deviceSigningKey: session.deviceSigningKey
         )
 
         do {
@@ -252,13 +276,13 @@ final class RemoteAppModel {
     }
 
     func stopAllWork() async {
-        guard let connectedClient, canStopAllWork else { return }
+        guard let session = deviceSession, canStopAllWork else { return }
 
         killSwitchPhase = .stopping
         let sender = RemoteControlSender(
-            client: connectedClient.client,
-            deviceId: connectedClient.deviceCredentials.deviceId,
-            deviceSigningKey: connectedClient.deviceSigningKey
+            client: session.client,
+            deviceId: session.deviceId,
+            deviceSigningKey: session.deviceSigningKey
         )
 
         do {
@@ -336,7 +360,13 @@ final class RemoteAppModel {
         previewClient = client
         deviceSession = DeviceSession(
             client: client,
-            macId: macAgentId,
+            mac: MacAgentRef(
+                macAgentId: macAgentId,
+                displayName: "Studio Mac",
+                agentSigningPubkey: "preview-sign",
+                agentSealingPubkey: "preview-seal",
+                lastSeenAt: now
+            ),
             deviceId: deviceId,
             deviceSigningKey: signingKey,
             deviceSealingKey: sealingKey

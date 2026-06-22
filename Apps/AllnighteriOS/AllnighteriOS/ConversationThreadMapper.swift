@@ -10,11 +10,16 @@ import Foundation
 
 struct ConversationThreadMapper {
     func snapshot(from detail: RemoteThreadDetail) -> ConversationThreadSnapshot {
-        ConversationThreadSnapshot(
+        let readThroughTurnId = detail.summary.readState.latestUnreadTurnId
+            ?? (detail.summary.readState.hasUnread ? detail.turns.last?.id : nil)
+
+        return ConversationThreadSnapshot(
             id: detail.id,
             title: detail.summary.title,
             statusLabel: statusLabel(for: detail.summary.displayState),
             isActive: detail.summary.displayState == .running || detail.summary.displayState == .pending,
+            hasUnread: detail.summary.readState.hasUnread,
+            readThroughTurnId: readThroughTurnId,
             turns: detail.turns.map(turn(from:))
         )
     }

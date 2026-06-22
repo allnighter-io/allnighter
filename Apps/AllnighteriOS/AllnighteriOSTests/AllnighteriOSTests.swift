@@ -97,6 +97,54 @@ final class AllnighteriOSTests: XCTestCase {
         XCTAssertTrue(filtered.projects.isEmpty)
     }
 
+    func testThreadMapperUsesLatestUnreadTurnForReadCursor() {
+        let mapper = ConversationThreadMapper()
+        let detail = RemoteThreadDetail(
+            summary: RemoteThreadSummary(
+                id: "thread_1",
+                title: "Unread thread",
+                status: .active,
+                projectId: nil,
+                createdAt: Date(timeIntervalSince1970: 1_751_100_000),
+                updatedAt: Date(timeIntervalSince1970: 1_751_100_100),
+                pinnedAt: nil,
+                displayState: .replied,
+                readState: RemoteThreadReadState(
+                    readCursor: nil,
+                    hasUnread: true,
+                    unreadNeedsAttention: true,
+                    firstUnreadTurnId: "turn_user",
+                    latestUnreadTurnId: "turn_worker"
+                ),
+                turnCount: 2,
+                latestTurn: nil
+            ),
+            turns: [
+                RemoteThreadTurnDetail(
+                    id: "turn_user",
+                    kind: .userMessage,
+                    status: .done,
+                    author: .user,
+                    createdAt: Date(timeIntervalSince1970: 1_751_100_000),
+                    text: "Hello"
+                ),
+                RemoteThreadTurnDetail(
+                    id: "turn_worker",
+                    kind: .workerChat,
+                    status: .done,
+                    author: .worker,
+                    createdAt: Date(timeIntervalSince1970: 1_751_100_100),
+                    text: "Reply"
+                ),
+            ]
+        )
+
+        let snapshot = mapper.snapshot(from: detail)
+
+        XCTAssertTrue(snapshot.hasUnread)
+        XCTAssertEqual(snapshot.readThroughTurnId, "turn_worker")
+    }
+
     private func thread(
         id: String,
         title: String,

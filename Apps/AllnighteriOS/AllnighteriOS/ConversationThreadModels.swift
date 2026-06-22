@@ -12,6 +12,8 @@ struct ConversationThreadSnapshot: Equatable {
     var title: String
     var statusLabel: String?
     var isActive: Bool
+    var hasUnread: Bool
+    var readThroughTurnId: String?
     var turns: [ConversationThreadTurn]
 
     var activeRunId: String? {

@@ -54,6 +54,8 @@ final class ConversationThreadStoreTests: XCTestCase {
             title: "Last opened",
             statusLabel: nil,
             isActive: false,
+            hasUnread: false,
+            readThroughTurnId: nil,
             turns: [
                 ConversationThreadTurn(
                     id: "old_turn",
