@@ -246,6 +246,50 @@ Here is the fixture:
         XCTAssertNil(response.capacityObservation)
     }
 
+    // MARK: - Spawn-gate wait telemetry (gateWaitMs)
+
+    /// A serialized driver (maxConcurrentSpawns=1) runs two seats one-at-a-time. The trailing
+    /// seat queues behind the lead seat's work — that wait must land in `gateWaitMs` and be
+    /// EXCLUDED from `durationMs` (pure work-time), so a queued seat never looks like a slow run.
+    func testGatedDriverRecordsQueueWaitSeparatelyFromDuration() async {
+        var manifest = TestSupport.headlessManifest(id: "agy_gatewait_test", command: "agy", timeout: 10)
+        manifest.maxConcurrentSpawns = 1
+        let worker = TestSupport.worker("w", driverId: "agy_gatewait_test")
+        // Each spawn does ~250ms of "work" inside the gate.
+        let run = WorkerRunner(commandRunner: MockCommandRunner(
+            scripts: ["agy": .init(stdout: "answer", delay: .milliseconds(250))]))
+
+        async let a = run.invoke(worker: worker, manifest: manifest, prompt: "one")
+        async let b = run.invoke(worker: worker, manifest: manifest, prompt: "two")
+        let results = await [a, b]
+
+        // Serialized, nothing dropped: both seats ran to done.
+        XCTAssertTrue(results.allSatisfy { $0.status == .done })
+
+        let waits = results.compactMap(\.gateWaitMs).sorted()
+        XCTAssertEqual(waits.count, 2, "both seats report a gateWaitMs")
+        XCTAssertLessThan(waits[0], 150, "the lead seat acquires immediately — ~0 wait")
+        XCTAssertGreaterThan(waits[1], 150, "the trailing seat queues behind the lead seat's work")
+
+        // durationMs stays pure work-time on BOTH paths — the queued seat's ~250ms wait is
+        // NOT folded into its duration (which would make it read as a ~500ms run).
+        for r in results {
+            XCTAssertNotNil(r.durationMs)
+            XCTAssertLessThan(r.durationMs!, 600, "durationMs excludes gate wait (≈250ms work)")
+        }
+    }
+
+    /// An ungated driver has no serialization gate, so there is no wait to attribute.
+    func testUngatedDriverReportsNilGateWait() async {
+        let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
+        let worker = TestSupport.worker("w", driverId: "claude_code")
+        let run = runner(["claude": .init(stdout: "hi", exitCode: 0)])
+
+        let response = await run.invoke(worker: worker, manifest: manifest, prompt: "hi")
+        XCTAssertEqual(response.status, .done)
+        XCTAssertNil(response.gateWaitMs, "ungated drivers have no gate wait to report")
+    }
+
     func testRunPropagatesCapacityObservationToWorkerAnswer() async {
         let stderr = #"{"type":"error","error":{"type":"rate_limit_error","message":"limited","retry_after":120}}"#
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")

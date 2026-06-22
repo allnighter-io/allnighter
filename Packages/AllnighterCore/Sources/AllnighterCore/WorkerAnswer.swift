@@ -31,6 +31,11 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
     /// Time-to-first-token: ms from CLI spawn to the first visible streamed delta. The dead air
     /// before any text renders. nil on the non-streaming path. (See `WorkerRunOutcome.ttftMs`.)
     public var ttftMs: Int?
+    /// Spawn-gate wait: ms this seat spent blocked in the per-driver `DriverConcurrencyGate`
+    /// (`maxConcurrentSpawns` serialization) before its CLI spawned. nil when the driver is
+    /// ungated. A sub-portion of `queueMs`: `queueMs − gateWaitMs` ≈ lane/lock/resolution/staging.
+    /// Lets a run artifact tell "seat N queued behind earlier long runners" apart from a CLI stall.
+    public var gateWaitMs: Int?
     public var exitCode: Int?
     /// Sourced capacity/cooldown fact from the worker CLI attempt (nonzero exit only).
     public var capacityObservation: CapacityObservation?
@@ -52,6 +57,7 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         durationMs: Int? = nil,
         queueMs: Int? = nil,
         ttftMs: Int? = nil,
+        gateWaitMs: Int? = nil,
         exitCode: Int? = nil,
         capacityObservation: CapacityObservation? = nil,
         vendorSessionId: String? = nil
@@ -67,6 +73,7 @@ public struct WorkerAnswer: Codable, Sendable, Equatable, Identifiable {
         self.durationMs = durationMs
         self.queueMs = queueMs
         self.ttftMs = ttftMs
+        self.gateWaitMs = gateWaitMs
         self.exitCode = exitCode
         self.capacityObservation = capacityObservation
         self.vendorSessionId = vendorSessionId

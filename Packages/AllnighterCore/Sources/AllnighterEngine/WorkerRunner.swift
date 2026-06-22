@@ -17,6 +17,12 @@ public struct WorkerRunOutcome: Sendable, Equatable {
     /// user perceives as "it's taking forever". nil on the non-streaming path (no deltas).
     public var firstTokenAt: Date?
     public var ttftMs: Int?
+    /// Spawn-gate wait: ms a serialized driver (`maxConcurrentSpawns`) spent blocked in the
+    /// per-driver FIFO `DriverConcurrencyGate` before this seat could spawn its CLI. nil when the
+    /// driver is ungated. Measured identically on the streaming and non-streaming paths, and
+    /// EXCLUDED from `durationMs` on both, so durationMs stays pure work-time. This is the
+    /// sub-portion of `WorkerAnswer.queueMs` attributable to queuing behind earlier long runners.
+    public var gateWaitMs: Int?
     public var exitCode: Int?
     /// Sourced capacity/cooldown fact from raw CLI output (nonzero exit only).
     public var capacityObservation: CapacityObservation?
@@ -169,11 +175,14 @@ public struct WorkerRunner: Sendable {
 
         // Per-driver spawn gate: fragile CLIs (agy, cursor) declare maxConcurrentSpawns=1
         // and serialize here; everything else stays ungated. Acquire BEFORE stamping
-        // startedAt so a queued seat's duration excludes its wait. The run is always
-        // timeout-bounded, so the permit is always released and the queue drains.
+        // startedAt so a queued seat's duration excludes its wait — the wait is captured
+        // separately as gateWaitMs. The run is always timeout-bounded, so the permit is
+        // always released and the queue drains.
         let gateLimit = manifest.maxConcurrentSpawns
+        let gateRequestedAt = now()
         if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
         let startedAt = now()
+        let gateWaitMs = gateLimit == nil ? nil : max(0, Int(startedAt.timeIntervalSince(gateRequestedAt) * 1000))
         let result = await commandRunner.run(
             command: spawnCommand,
             args: spawnArgs,
@@ -184,10 +193,12 @@ public struct WorkerRunner: Sendable {
         )
         if gateLimit != nil { await DriverConcurrencyGate.shared.release(driverId: manifest.id) }
         let finishedAt = now()
-        return finalize(
+        var outcome = finalize(
             result: result, worker: worker, manifest: manifest, invoke: invoke,
             outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: finishedAt
         )
+        outcome.gateWaitMs = gateWaitMs
+        return outcome
     }
 
     /// Maps resolved argv to the actual spawn (command, args), honoring the detected
@@ -350,7 +361,7 @@ public struct WorkerRunner: Sendable {
             let stdin = manifest.stdinPrompt(context)
             let (spawnCommand, spawnArgs) = resolveSpawn(manifest: manifest, invoke: invoke, args: args)
 
-            let startedAt = now()
+            let gateRequestedAt = now()
             continuation.yield(.started(workerId: worker.id, modelId: worker.id, sourceId: manifest.id))
             StreamDebugLog.log("──── RUN START source=\(manifest.id) model=\(worker.id) cmd=\(spawnCommand) args=\(spawnArgs.joined(separator: " "))")
 
@@ -361,6 +372,12 @@ public struct WorkerRunner: Sendable {
                 let gateLimit = manifest.maxConcurrentSpawns
                 if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
                 defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
+                // Stamp the work-time baseline AFTER the gate (matches invoke()) so durationMs and
+                // ttftMs exclude serialization wait; gateWaitMs captures that wait on its own. Before
+                // this, streaming stamped startedAt pre-gate and folded queue wait into durationMs —
+                // the attribution split that made a queued seat look like a slow/failed run.
+                let startedAt = now()
+                let gateWaitMs = gateLimit == nil ? nil : max(0, Int(startedAt.timeIntervalSince(gateRequestedAt) * 1000))
                 // TTFT: stamp the first visible streamed delta (answer or reasoning) — the
                 // "dead air" the user waits through before anything renders.
                 var firstTokenAt: Date?
@@ -404,12 +421,14 @@ public struct WorkerRunner: Sendable {
                             if let firstTokenAt {
                                 outcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
                             }
+                            outcome.gateWaitMs = gateWaitMs
                             StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1) session=\(outcome.capturedSessionId ?? "-")")
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
                         case .failed(let launchError):
                             var outcome = WorkerRunOutcome(status: .failed, startedAt: startedAt, finishedAt: now())
                             outcome.errorKind = .missingCLI
                             outcome.errorReason = launchError
+                            outcome.gateWaitMs = gateWaitMs
                             StreamDebugLog.log("OUTCOME launch-failed: \(launchError)")
                             continuation.yield(.failed(outcome))
                         case .timedOut(let partialOut, let partialErr):
@@ -417,20 +436,22 @@ public struct WorkerRunner: Sendable {
                                 stdout: String(decoding: partialOut, as: UTF8.self),
                                 stderr: String(decoding: partialErr, as: UTF8.self), timedOut: true)
                             let finalText = parser.finalAnswer(result: result, outputFileText: nil)
-                            let outcome = finalize(
+                            var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
                                 overrideFinalText: finalText)
+                            outcome.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         case .cancelled(let partialOut, let partialErr):
                             let result = CommandResult(
                                 stdout: String(decoding: partialOut, as: UTF8.self),
                                 stderr: String(decoding: partialErr, as: UTF8.self), cancelled: true)
                             let finalText = parser.finalAnswer(result: result, outputFileText: nil)
-                            let outcome = finalize(
+                            var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
                                 overrideFinalText: finalText)
+                            outcome.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         }
                     }
@@ -494,6 +515,8 @@ public struct WorkerRunner: Sendable {
             startedAt: outcome.startedAt,
             finishedAt: outcome.finishedAt,
             durationMs: outcome.durationMs,
+            ttftMs: outcome.ttftMs,
+            gateWaitMs: outcome.gateWaitMs,
             exitCode: outcome.exitCode,
             capacityObservation: outcome.capacityObservation
         )

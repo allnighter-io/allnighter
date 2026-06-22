@@ -144,7 +144,7 @@ public struct RunStore: Sendable {
             let purpose: String?
             let status: String
             let startedAt, finishedAt: Date?
-            let durationMs, queueMs, ttftMs, exitCode: Int?
+            let durationMs, queueMs, ttftMs, gateWaitMs, exitCode: Int?
             let errorKind, errorReason: String?
         }
 
@@ -159,6 +159,7 @@ public struct RunStore: Sendable {
                 status: (answer?.status ?? .queued).rawValue,
                 startedAt: answer?.startedAt, finishedAt: answer?.finishedAt,
                 durationMs: answer?.durationMs, queueMs: answer?.queueMs, ttftMs: answer?.ttftMs,
+                gateWaitMs: answer?.gateWaitMs,
                 exitCode: answer?.exitCode,
                 errorKind: answer?.errorKind?.rawValue, errorReason: answer?.errorReason)
             try CoreJSON.encode(meta).write(

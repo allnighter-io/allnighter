@@ -564,6 +564,7 @@ public actor RunService {
             errorKind: outcome.errorKind, errorReason: outcome.errorReason,
             startedAt: outcome.startedAt, finishedAt: outcome.finishedAt,
             durationMs: outcome.durationMs, queueMs: queueMs, ttftMs: outcome.ttftMs,
+            gateWaitMs: outcome.gateWaitMs,
             exitCode: outcome.exitCode,
             vendorSessionId: outcome.capturedSessionId
         )
