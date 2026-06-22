@@ -317,6 +317,17 @@ def run_experiment(
         )
         preflight = parse_tool_json(preflight_call)
         (lab_dir / "team-preflight.json").write_text(json.dumps(preflight, indent=2))
+        if os.environ.get("ALLN_LAB_STRICT_MODEL_SEATS") == "1":
+            subs = [
+                w
+                for w in preflight.get("warnings", [])
+                if "unavailable; resolved to" in str(w)
+            ]
+            if subs:
+                raise SystemExit(
+                    "strict model seats (ALLN_LAB_STRICT_MODEL_SEATS=1): "
+                    f"preferred model unavailable: {subs}"
+                )
         if not preflight.get("canStart"):
             write_experiment(
                 lab_dir,

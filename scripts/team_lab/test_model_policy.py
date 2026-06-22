@@ -29,6 +29,8 @@ class ModelPolicyTests(unittest.TestCase):
         self.assertNotIn(LEAD_OPUS, mids)
         self.assertEqual(patched["lead"]["preferredModelId"], LEAD_OPUS)
         self.assertEqual(meta["sonnetSeatIndex"], SONNET_SEAT_INDEX)
+        self.assertEqual(meta["fallbackSemantics"], "bounded_pool")
+        self.assertTrue(meta["duplicateModelsAllowed"])
 
     def test_rotation_excludes_gemini(self) -> None:
         mids = [preferred_worker_model(i) for i in range(12)]

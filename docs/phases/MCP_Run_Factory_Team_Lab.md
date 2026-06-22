@@ -789,6 +789,44 @@ Initial Bug Hunt experiments:
 | Writer Contract | require rank/reject/dissent/next-observation fields |
 | Typed Return | require `BugPacket`/`FixPacket` eligibility fields |
 
+## Lab model policy
+
+**SSOT:** `scripts/team_lab/model_policy.py` — applied on every lab experiment via
+`overlay.ensure_model_policy_team` unless `ALLN_LAB_MODEL_POLICY=0`.
+
+**Do not use Antigravity / Gemini (`model_gemini`, `model_gemini_pro`, any
+`model_agy_*`) on lab worker seats.** Product teams may still roster those
+drivers; the lab excludes them after R6 (wrong-cwd fixed in product; agy still
+hit wall-clock / vendor timeouts and poisoned contract scores). Re-add only with
+an explicit policy change in `model_policy.py` plus a green calibration round —
+not ad-hoc overlay overrides.
+
+| Seat class | Allowed |
+| --- | --- |
+| Lead / synthesis / writer | `model_opus` only |
+| Rotating workers | `model_grok`, `model_cursor_composer_25`, `model_chatgpt`, `model_cursor_auto` |
+| Diversity (≤1 per run) | `model_sonnet` at worker index 2 |
+
+`overlay._verify_model_policy_definition` rejects champion/candidate overlays that
+assign blocked models to worker seats.
+
+### Seat assignment vs runtime resolution
+
+Each worker seat gets a **preferred** catalog id from the rotation (Sonnet once at
+index 2). The same id may appear on multiple seats after **bounded-pool fallback**:
+when a preferred model is unavailable, `exactOnly` with `allowedModelIds` = the full
+worker pool keeps resolution inside the no-AGY pool (strongest ready alternative).
+R6 showed `model_cursor_auto` → `model_chatgpt` on two seats — valid lab behavior,
+not a broken `exactOnly` implementation.
+
+**Reproducibility:** `experiment.json` → `preflight.warnings` records each
+preferred→resolved substitution. For strict “preferred or fail,” set
+`ALLN_LAB_STRICT_MODEL_SEATS=1` before `run.py` / `advance.py` (aborts when
+preflight warns about unavailable preferred models).
+
+**Duplicates:** multiple GPT 5.5 (or any pool model) seats in one run are allowed.
+Diversity is a goal, not a hard invariant, when fallback or rotation collides.
+
 ## Evidence Packet
 
 Many Team failures are upstream context failures. For bug and code teams, the

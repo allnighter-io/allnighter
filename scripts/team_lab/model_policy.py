@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Lab-only model routing — Opus 4.8 lead/writer only; no Gemini/AGY workers."""
+"""Lab-only model routing (SSOT for Team Lab worker seats).
+
+Policy (2026-06-22+):
+- **Never** assign Antigravity / `model_gemini*` to lab worker seats. The `agy`
+  driver was excluded after R6 proved unreliable harness interaction (wrong-cwd
+  bugs fixed separately; wall-clock / vendor timeouts remain). Re-enable only
+  with an explicit lab policy change + passing calibration run — not per-round
+  overrides in overlays.
+- **Opus** (`model_opus`) is lead + synthesis/writer only — never a worker seat.
+- **Workers:** rotate Grok Build, Composer 2.5, GPT 5.5, Cursor Auto; Sonnet
+  4.6 at most once per run for diversity.
+- **Duplicates OK:** the same catalog model may appear on more than one seat
+  (e.g. two GPT 5.5 workers when Cursor Auto is unavailable and bounded-pool
+  fallback resolves within `WORKER_POOL`). That is expected, not a policy bug.
+- **Bounded pool fallback:** `fallbackPolicy: exactOnly` with `allowedModelIds`
+  set to the full worker pool means “stay inside the no-AGY pool; pick strongest
+  ready model if preferred is unavailable.” Set `ALLN_LAB_STRICT_MODEL_SEATS=1`
+  to fail the run instead when preflight reports a preferred→substitute resolution.
+
+Wired by `overlay.ensure_model_policy_team` on every `run.py` experiment unless
+`ALLN_LAB_MODEL_POLICY=0`. See `docs/phases/MCP_Run_Factory_Team_Lab.md` § Lab
+model policy.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -35,6 +57,14 @@ BLOCKED_WORKER_MODELS = frozenset(
 
 WORKER_POOL_LABEL = "Grok · Composer 2.5 · GPT 5.5 · Cursor Auto · Sonnet×1"
 
+# Lab `exactOnly` is NOT “preferred or abort.” With allowedModelIds = WORKER_POOL,
+# TeamResolver picks the strongest ready model inside the pool when preferred is
+# down (see TeamResolver.selectModel case .exactOnly). Record this explicitly so
+# experiment preflight warnings like “model_cursor_auto unavailable; resolved to
+# ChatGPT 5.5” are expected bounded fallback, not a harness defect.
+LAB_FALLBACK_POLICY = "exactOnly"
+LAB_FALLBACK_SEMANTICS = "bounded_pool"
+
 
 def preferred_worker_model(seat_index: int) -> str:
     """Assign a worker model to seat `seat_index`. Sonnet appears exactly once."""
@@ -49,7 +79,7 @@ def apply_model_policy(team_def: dict[str, Any]) -> tuple[dict[str, Any], dict[s
     out = dict(team_def)
     lead = dict(out.get("lead") or {})
     lead["preferredModelId"] = LEAD_OPUS
-    lead["fallbackPolicy"] = "exactOnly"
+    lead["fallbackPolicy"] = LAB_FALLBACK_POLICY
     out["lead"] = lead
 
     specs: list[dict[str, Any]] = []
@@ -61,7 +91,7 @@ def apply_model_policy(team_def: dict[str, Any]) -> tuple[dict[str, Any], dict[s
             sonnet_seats += 1
         row["preferredModelId"] = mid
         row["allowedModelIds"] = list(WORKER_POOL)
-        row["fallbackPolicy"] = "exactOnly"
+        row["fallbackPolicy"] = LAB_FALLBACK_POLICY
         specs.append(row)
     if sonnet_seats > 1:
         raise ValueError(f"model policy assigned Sonnet to {sonnet_seats} seats (max 1)")
@@ -72,7 +102,7 @@ def apply_model_policy(team_def: dict[str, Any]) -> tuple[dict[str, Any], dict[s
         s = dict(scout)
         s["preferredModelId"] = ROTATING_WORKER_POOL[0]
         s["allowedModelIds"] = list(WORKER_POOL)
-        s["fallbackPolicy"] = "exactOnly"
+        s["fallbackPolicy"] = LAB_FALLBACK_POLICY
         out["scout"] = s
 
     policy_meta = {
@@ -83,5 +113,9 @@ def apply_model_policy(team_def: dict[str, Any]) -> tuple[dict[str, Any], dict[s
         "sonnetSeatIndex": SONNET_SEAT_INDEX,
         "excluded": sorted(BLOCKED_WORKER_MODELS),
         "label": WORKER_POOL_LABEL,
+        "fallbackPolicy": LAB_FALLBACK_POLICY,
+        "fallbackSemantics": LAB_FALLBACK_SEMANTICS,
+        "duplicateModelsAllowed": True,
+        "strictModelSeatsEnv": "ALLN_LAB_STRICT_MODEL_SEATS",
     }
     return out, policy_meta
