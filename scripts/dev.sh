@@ -45,6 +45,14 @@ else
 fi
 
 # 2. Incremental build (quiet; surface errors only on failure).
+# A stale xcodebuild on the same derivedDataPath locks build.db — common when
+# gui_proof / an agent build races with allapp.
+if pgrep -f "derivedDataPath $DERIVED" >/dev/null 2>&1; then
+  echo "==> stopping stale xcodebuild on shared DerivedData…" >&2
+  pkill -f "derivedDataPath $DERIVED" 2>/dev/null || true
+  pkill -9 XCBBuildService 2>/dev/null || true
+  sleep 1
+fi
 echo "==> building ${SCHEME}…"
 mkdir -p "$DERIVED"
 set +e
