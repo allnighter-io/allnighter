@@ -102,7 +102,12 @@ public final class ResidentCoordinator: @unchecked Sendable {
                     await scheduler.run { shutdown.isCancelled }
                 }
                 group.addTask {
-                    let boost = BoostSeedScheduler(registry: wake.registry)
+                    let boost = BoostSeedScheduler(
+                        registry: wake.registry,
+                        models: wake.models,
+                        commandRunner: wake.commandRunner,
+                        invocations: wake.invocations
+                    )
                     await boost.run { shutdown.isCancelled }
                 }
             }

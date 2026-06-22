@@ -50,14 +50,23 @@ enum UtilizationBoostCLI {
         guard settings.appliesToSet.contains(sourceId) else {
             AllnighterCLI.fail(code: "UTILIZATION_SOURCE_UNCONFIGURED", message: "\(sourceId) is not in appliesTo")
         }
-        let seedMinutes = BoostWindowTiming.seedFiresAt(settings.windowStart)
-        let outcome: UtilizationSeedOutcome = BoostWindowTiming.seedIsOvernightIdle(seedMinutes) ? .skipped : .noQuietRunUp
-        let event = UtilizationSeedEvent(sourceId: sourceId, outcome: outcome, rawSnippet: "manual seed via CLI")
-        try? UtilizationSeedLedger().append(event)
+        let executor = UtilizationSeedExecutor(
+            models: runtime.models,
+            registry: runtime.registry,
+            commandRunner: SubprocessCommandRunner(),
+            invocations: runtime.invocations
+        )
+        let event = await executor.execute(sourceId: sourceId, settings: settings, force: true)
+        if event.outcome == .authRequired {
+            AllnighterCLI.fail(code: "UTILIZATION_AUTH_REQUIRED", message: event.rawSnippet ?? "auth required")
+        }
+        if event.outcome == .billingPrompt {
+            AllnighterCLI.fail(code: "UTILIZATION_BILLING_PROMPT", message: event.rawSnippet ?? "billing prompt")
+        }
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(event))
         } else {
-            print("seed \(sourceId): \(outcome.rawValue)")
+            print("seed \(sourceId): \(event.outcome.rawValue)")
         }
     }
 
@@ -94,25 +103,17 @@ enum UtilizationBoostCLI {
     private static func providerStates(settings: BoostWindowSettings, runtime: ToolRuntime) -> [ProviderBoostState] {
         let ready = Set(runtime.readyModels.map(\.driverId))
         let records = SetupStore().load().records
-        return runtime.registry.all
-            .filter { ["claude_code", "codex"].contains($0.id) }
-            .map { manifest in
-                let rec = records.first { $0.driverId == manifest.id }
-                let signedIn = rec?.status.isReady == true
-                let needsAttention: Bool = {
-                    if case .installedNotSignedIn = rec?.status { return true }
-                    return false
-                }()
-                return ProviderBoostState(
-                    id: manifest.id,
-                    displayName: manifest.displayName,
-                    connected: ready.contains(manifest.id) || rec != nil,
-                    signedIn: signedIn,
-                    included: settings.appliesToSet.contains(manifest.id),
-                    lastObservedReset: nil,
-                    needsAttention: needsAttention
-                )
-            }
+        let resets = UtilizationCapacityReader.lastObservedResetPerSource()
+        let outcomes = UtilizationCapacityReader.recentSeedOutcomes()
+        return BoostWindowProviderBuilder.providerStates(
+            settings: settings,
+            manifests: runtime.registry.all,
+            models: runtime.models,
+            readyDriverIds: ready,
+            probeRecords: records,
+            observedResets: resets,
+            recentSeedOutcomes: outcomes
+        )
     }
 
     private static func persistence() -> BoostWindowSettingsPersistence { BoostWindowSettingsPersistence() }

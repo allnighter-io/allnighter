@@ -1,5 +1,6 @@
 import SwiftUI
 import AllnighterCore
+import AllnighterEngine
 
 /// Settings > **Boost window** — utilization seed placement (matches mockup pack).
 struct BoostWindowView: View {
@@ -25,11 +26,19 @@ struct BoostWindowView: View {
 
     private func reload() {
         let boostDrivers = appModel.registry.all
-            .filter { ["claude_code", "codex"].contains($0.id) }
+            .filter { BoostWindowProviderBuilder.boostSourceIds.contains($0.id) }
             .map { ($0.id, $0.displayName) }
         let ready = Set(appModel.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
         let kinds = Dictionary(uniqueKeysWithValues: appModel.toolStatuses.map { ($0.driverId, $0.status.kind) })
-        vm.load(drivers: boostDrivers, readyDrivers: ready, probeKinds: kinds)
+        let resets = UtilizationCapacityReader.lastObservedResetPerSource()
+        let outcomes = UtilizationCapacityReader.recentSeedOutcomes()
+        vm.load(
+            drivers: boostDrivers,
+            readyDrivers: ready,
+            probeKinds: kinds,
+            observedResets: resets,
+            recentSeedOutcomes: outcomes
+        )
     }
 
     // MARK: - Header

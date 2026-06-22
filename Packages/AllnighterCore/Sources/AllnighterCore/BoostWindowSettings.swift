@@ -178,6 +178,11 @@ public enum UtilizationSeedOutcome: String, Codable, Sendable {
     case providerRejected, unsupported, failed, noQuietRunUp
 }
 
+/// Minimal repo-free seed prompt (phase doc / Utilization_Window_Priming.md).
+public enum UtilizationSeedPrompt {
+    public static let text = #"Reply with exactly "ready". Do not inspect files, use tools, or change anything."#
+}
+
 public struct UtilizationSeedEvent: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var sourceId: String
@@ -186,6 +191,7 @@ public struct UtilizationSeedEvent: Codable, Sendable, Equatable, Identifiable {
     public var finishedAt: Date?
     public var outcome: UtilizationSeedOutcome
     public var rawSnippet: String?
+    public var capacityObservation: CapacityObservation?
 
     public init(
         id: String = UUID().uuidString.lowercased(),
@@ -194,7 +200,8 @@ public struct UtilizationSeedEvent: Codable, Sendable, Equatable, Identifiable {
         startedAt: Date = Date(),
         finishedAt: Date? = nil,
         outcome: UtilizationSeedOutcome,
-        rawSnippet: String? = nil
+        rawSnippet: String? = nil,
+        capacityObservation: CapacityObservation? = nil
     ) {
         self.id = id
         self.sourceId = sourceId
@@ -203,6 +210,7 @@ public struct UtilizationSeedEvent: Codable, Sendable, Equatable, Identifiable {
         self.finishedAt = finishedAt
         self.outcome = outcome
         self.rawSnippet = rawSnippet
+        self.capacityObservation = capacityObservation
     }
 }
 

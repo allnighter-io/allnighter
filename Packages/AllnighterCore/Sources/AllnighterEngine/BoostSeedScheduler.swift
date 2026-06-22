@@ -6,6 +6,9 @@ public struct BoostSeedScheduler: Sendable {
     public var settingsPersistence: BoostWindowSettingsPersistence
     public var seedLedger: UtilizationSeedLedger
     public var registry: DriverRegistry
+    public var models: [Model]
+    public var commandRunner: CommandRunner
+    public var invocations: [String: ToolInvocation]
     public var now: @Sendable () -> Date
     public var calendar: Calendar
     public var sleeper: any PendingWakeSleeper
@@ -14,6 +17,9 @@ public struct BoostSeedScheduler: Sendable {
         settingsPersistence: BoostWindowSettingsPersistence = BoostWindowSettingsPersistence(),
         seedLedger: UtilizationSeedLedger = UtilizationSeedLedger(),
         registry: DriverRegistry,
+        models: [Model] = [],
+        commandRunner: CommandRunner = SubprocessCommandRunner(),
+        invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
         calendar: Calendar = .current,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper()
@@ -21,6 +27,9 @@ public struct BoostSeedScheduler: Sendable {
         self.settingsPersistence = settingsPersistence
         self.seedLedger = seedLedger
         self.registry = registry
+        self.models = models
+        self.commandRunner = commandRunner
+        self.invocations = invocations
         self.now = now
         self.calendar = calendar
         self.sleeper = sleeper
@@ -53,29 +62,18 @@ public struct BoostSeedScheduler: Sendable {
         guard calendar.isDate(current, equalTo: date(on: current, minutesFromMidnight: seedMinutes), toGranularity: .minute) else {
             return
         }
+        let scheduledAt = date(on: current, minutesFromMidnight: seedMinutes)
+        let executor = UtilizationSeedExecutor(
+            models: models,
+            registry: registry,
+            commandRunner: commandRunner,
+            invocations: invocations,
+            seedLedger: seedLedger,
+            now: now,
+            calendar: calendar
+        )
         for sourceId in settings.appliesTo where settings.appliesToSet.contains(sourceId) {
-            if seedLedger.lastEvent(for: sourceId, on: current, calendar: calendar) != nil { continue }
-            guard registry.manifest(id: sourceId) != nil else { continue }
-            if !BoostWindowTiming.seedIsOvernightIdle(seedMinutes) {
-                let event = UtilizationSeedEvent(
-                    sourceId: sourceId,
-                    scheduledAt: date(on: current, minutesFromMidnight: seedMinutes),
-                    startedAt: current,
-                    finishedAt: current,
-                    outcome: .noQuietRunUp
-                )
-                try? seedLedger.append(event)
-                continue
-            }
-            let event = UtilizationSeedEvent(
-                sourceId: sourceId,
-                scheduledAt: date(on: current, minutesFromMidnight: seedMinutes),
-                startedAt: current,
-                finishedAt: current,
-                outcome: .skipped,
-                rawSnippet: "seed scheduled; driver execution not yet wired"
-            )
-            try? seedLedger.append(event)
+            _ = await executor.execute(sourceId: sourceId, settings: settings, scheduledAt: scheduledAt)
         }
     }
 

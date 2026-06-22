@@ -12,17 +12,20 @@ final class BoostWindowViewModel {
     private var readyDrivers: Set<String> = []
     private var probeByDriver: [String: ModelSetupStatus.Kind] = [:]
     private var observedResets: [String: Date] = [:]
+    private var recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:]
 
     func load(
         drivers: [(id: String, name: String)],
         readyDrivers: Set<String>,
         probeKinds: [String: ModelSetupStatus.Kind],
-        observedResets: [String: Date] = [:]
+        observedResets: [String: Date] = [:],
+        recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:]
     ) {
         self.driverCatalog = drivers
         self.readyDrivers = readyDrivers
         self.probeByDriver = probeKinds
         self.observedResets = observedResets
+        self.recentSeedOutcomes = recentSeedOutcomes
         reproject()
     }
 
@@ -56,7 +59,12 @@ final class BoostWindowViewModel {
     private func project(from settings: BoostWindowSettings) {
         let providers = driverCatalog.map { entry in
             let kind = probeByDriver[entry.id]
-            let needsAttention = kind == .installedNotSignedIn
+            let needsAttention: Bool = {
+                if kind == .installedNotSignedIn { return true }
+                if let outcome = recentSeedOutcomes[entry.id],
+                   outcome == .authRequired || outcome == .billingPrompt { return true }
+                return false
+            }()
             return ProviderBoostState(
                 id: entry.id,
                 displayName: entry.name,

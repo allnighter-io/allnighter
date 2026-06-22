@@ -91,3 +91,40 @@ public enum BoostWindowProjector {
         )
     }
 }
+
+/// Shared provider-row builder for Settings, CLI, and MCP.
+public enum BoostWindowProviderBuilder {
+    public static let boostSourceIds = ["claude_code", "codex"]
+
+    public static func providerStates(
+        settings: BoostWindowSettings,
+        manifests: [DriverManifest],
+        models: [Model],
+        readyDriverIds: Set<String>,
+        probeRecords: [ToolProbeRecord],
+        observedResets: [String: Date] = [:],
+        recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:]
+    ) -> [ProviderBoostState] {
+        manifests
+            .filter { boostSourceIds.contains($0.id) }
+            .map { manifest in
+                let rec = probeRecords.first { $0.driverId == manifest.id }
+                let signedIn = rec?.status.isReady == true
+                let needsAttention: Bool = {
+                    if case .installedNotSignedIn = rec?.status { return true }
+                    if let outcome = recentSeedOutcomes[manifest.id],
+                       outcome == .authRequired || outcome == .billingPrompt { return true }
+                    return false
+                }()
+                return ProviderBoostState(
+                    id: manifest.id,
+                    displayName: manifest.displayName,
+                    connected: readyDriverIds.contains(manifest.id) || rec != nil,
+                    signedIn: signedIn,
+                    included: settings.appliesToSet.contains(manifest.id),
+                    lastObservedReset: observedResets[manifest.id],
+                    needsAttention: needsAttention
+                )
+            }
+    }
+}
