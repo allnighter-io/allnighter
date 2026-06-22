@@ -30,6 +30,11 @@
     "title" : "List Code teams"
   },
   {
+    "command" : "alln teams definition code_bug_hunt --json",
+    "id" : "teams_definition_json",
+    "title" : "Full team definition for edit"
+  },
+  {
     "command" : "alln skills --lane code --json",
     "id" : "skills_code_json",
     "title" : "List Code skills"
@@ -108,5 +113,15 @@
     "command" : "alln pending list --json",
     "id" : "pending_list_json",
     "title" : "List Pending items"
+  },
+  {
+    "command" : "alln utilization boost show --json",
+    "id" : "utilization_boost_show_json",
+    "title" : "Show Boost window settings"
+  },
+  {
+    "command" : "alln utilization boost set --enabled true --window-start 08:00 --applies-to claude_code,codex --json",
+    "id" : "utilization_boost_set_json",
+    "title" : "Enable Boost window for Claude and Codex"
   }
 ]

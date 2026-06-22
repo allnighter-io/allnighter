@@ -242,6 +242,18 @@ Flags:
 
 Examples: `teams_show_json`.
 
+### `alln teams definition`
+
+Full TeamPreset JSON round-trippable through teams edit/save.
+
+Arguments:
+- `team-id` (required) — Team id.
+
+Flags:
+- `--json` — Structured team definition.
+
+Examples: `teams_definition_json`.
+
 ### `alln teams duplicate`
 
 Duplicate a built-in team into a custom team.
@@ -945,6 +957,49 @@ Flags:
 
 Output schema: `defaultSettingsJSON`.
 
+### `alln utilization boost show`
+
+Show Boost window settings, derived seed/reset times, provider rows, and display state.
+
+Flags:
+- `--json` — Emit a BoostWindowSettingsJSON object.
+
+Output schema: `boostWindowSettingsJSON`.
+
+### `alln utilization boost set`
+
+Update Boost window master toggle, 5h window start, and applies-to sources.
+
+Flags:
+- `--enabled <bool>` — true | false.
+- `--window-start <time>` — HH:MM (snapped to 15m).
+- `--applies-to <string>` — Comma-separated source ids.
+- `--json` — Emit a BoostWindowSettingsJSON object.
+
+Output schema: `boostWindowSettingsJSON`.
+
+### `alln utilization boost seed`
+
+Force one utilization seed for a configured source.
+
+Arguments:
+- `source-id` (required) — Driver id (e.g. claude_code, codex).
+
+Flags:
+- `--json` — Emit a UtilizationSeedEvent object.
+
+Output schema: `utilizationSeedEventJSON`.
+
+### `alln utilization boost observations clear`
+
+Clear local utilization seed observations.
+
+Flags:
+- `--source <sourceId>` — Limit clear to one source.
+- `--json` — Emit a UtilizationObservationsClearJSON object.
+
+Output schema: `utilizationObservationsClearJSON`.
+
 ### `alln help search`
 
 Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.
@@ -1079,6 +1134,10 @@ Output schema: `helpTopicsJSON`.
 | `NO_PROJECT_ROOT` | yes | yes | Restore the project folder or pick an available project root, then retry. |
 | `WORKER_NOT_READY` | yes | yes | Pick a ready worker or run setup health, then retry. |
 | `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
+| `UTILIZATION_SOURCE_NOT_FOUND` | yes | no | Run `alln models --json`; use a known driver id in appliesTo. |
+| `UTILIZATION_SOURCE_UNCONFIGURED` | yes | no | Add the source to Boost window appliesTo, then retry. |
+| `UTILIZATION_AUTH_REQUIRED` | yes | no | Sign in to the named CLI, then retry the seed. |
+| `UTILIZATION_BILLING_PROMPT` | yes | no | Resolve billing on the provider, then retry. |
 
 ## NDJSON events
 
@@ -1117,6 +1176,7 @@ Output schema: `helpTopicsJSON`.
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
 - `teams_code_json` — List Code teams: `alln teams --lane code --json`
+- `teams_definition_json` — Full team definition for edit: `alln teams definition code_bug_hunt --json`
 - `skills_code_json` — List Code skills: `alln skills --lane code --json`
 - `skills_show_json` — Show a Code skill: `alln skills show bug_reproducer --json`
 - `team_preflight` — Preflight a team: `alln team preflight --lane code --team code_bug_hunt --effort high`
@@ -1133,4 +1193,6 @@ Output schema: `helpTopicsJSON`.
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
 - `pending_add_json` — Create a Draft Pending item: `alln pending add --worker claude --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`
+- `utilization_boost_show_json` — Show Boost window settings: `alln utilization boost show --json`
+- `utilization_boost_set_json` — Enable Boost window for Claude and Codex: `alln utilization boost set --enabled true --window-start 08:00 --applies-to claude_code,codex --json`
 

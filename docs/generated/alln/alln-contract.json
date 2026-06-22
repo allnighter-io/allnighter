@@ -590,6 +590,32 @@
         {
           "name" : "team-id",
           "required" : true,
+          "summary" : "Team id."
+        }
+      ],
+      "exampleIds" : [
+        "teams_definition_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured team definition.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "teams definition",
+      "outputSchema" : "none",
+      "summary" : "Full TeamPreset JSON round-trippable through teams edit\/save."
+    },
+    {
+      "args" : [
+        {
+          "name" : "team-id",
+          "required" : true,
           "summary" : "Source team id."
         }
       ],
@@ -2358,6 +2384,122 @@
     },
     {
       "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a BoostWindowSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "utilization boost show",
+      "outputSchema" : "boostWindowSettingsJSON",
+      "summary" : "Show Boost window settings, derived seed\/reset times, provider rows, and display state."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "enabled",
+          "summary" : "true | false.",
+          "takesValue" : true,
+          "valueType" : "bool"
+        },
+        {
+          "name" : "window-start",
+          "summary" : "HH:MM (snapped to 15m).",
+          "takesValue" : true,
+          "valueType" : "time"
+        },
+        {
+          "name" : "applies-to",
+          "summary" : "Comma-separated source ids.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a BoostWindowSettingsJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "utilization boost set",
+      "outputSchema" : "boostWindowSettingsJSON",
+      "summary" : "Update Boost window master toggle, 5h window start, and applies-to sources."
+    },
+    {
+      "args" : [
+        {
+          "name" : "source-id",
+          "required" : true,
+          "summary" : "Driver id (e.g. claude_code, codex)."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit a UtilizationSeedEvent object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "utilization boost seed",
+      "outputSchema" : "utilizationSeedEventJSON",
+      "summary" : "Force one utilization seed for a configured source."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "source",
+          "summary" : "Limit clear to one source.",
+          "takesValue" : true,
+          "valueType" : "sourceId"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit a UtilizationObservationsClearJSON object.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "utilization boost observations clear",
+      "outputSchema" : "utilizationObservationsClearJSON",
+      "summary" : "Clear local utilization seed observations."
+    },
+    {
+      "args" : [
         {
           "name" : "query",
           "required" : true,
@@ -3351,6 +3493,42 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "execution.team.mixed_sources"
+    },
+    {
+      "agentAction" : "Run `alln models --json`; use a known driver id in appliesTo.",
+      "code" : "UTILIZATION_SOURCE_NOT_FOUND",
+      "exitClass" : "usage",
+      "explain" : "The utilization source id is not registered on this bench.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "utilization.source.not_found"
+    },
+    {
+      "agentAction" : "Add the source to Boost window appliesTo, then retry.",
+      "code" : "UTILIZATION_SOURCE_UNCONFIGURED",
+      "exitClass" : "usage",
+      "explain" : "The source is not included in the Boost window appliesTo list.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "utilization.source.unconfigured"
+    },
+    {
+      "agentAction" : "Sign in to the named CLI, then retry the seed.",
+      "code" : "UTILIZATION_AUTH_REQUIRED",
+      "exitClass" : "operational",
+      "explain" : "The seed stopped on an auth prompt. Allnighter never auto-confirms sign-in.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "utilization.auth.required"
+    },
+    {
+      "agentAction" : "Resolve billing on the provider, then retry.",
+      "code" : "UTILIZATION_BILLING_PROMPT",
+      "exitClass" : "operational",
+      "explain" : "The seed stopped on a billing or quota prompt. Allnighter never auto-confirms payment.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "utilization.billing.prompt"
     }
   ],
   "events" : [
@@ -3487,6 +3665,11 @@
       "title" : "List Code teams"
     },
     {
+      "command" : "alln teams definition code_bug_hunt --json",
+      "id" : "teams_definition_json",
+      "title" : "Full team definition for edit"
+    },
+    {
       "command" : "alln skills --lane code --json",
       "id" : "skills_code_json",
       "title" : "List Code skills"
@@ -3565,6 +3748,16 @@
       "command" : "alln pending list --json",
       "id" : "pending_list_json",
       "title" : "List Pending items"
+    },
+    {
+      "command" : "alln utilization boost show --json",
+      "id" : "utilization_boost_show_json",
+      "title" : "Show Boost window settings"
+    },
+    {
+      "command" : "alln utilization boost set --enabled true --window-start 08:00 --applies-to claude_code,codex --json",
+      "id" : "utilization_boost_set_json",
+      "title" : "Enable Boost window for Claude and Codex"
     }
   ],
   "mcpTools" : [
@@ -3621,7 +3814,26 @@
           "type" : "string"
         }
       ],
-      "summary" : "One team definition including worker rows."
+      "summary" : "One team summary including worker rows (not round-trippable for save)."
+    },
+    {
+      "command" : "teams definition",
+      "errors" : [
+        "TEAM_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "teams_definition",
+      "outputSchema" : "none",
+      "params" : [
+        {
+          "name" : "teamId",
+          "required" : true,
+          "summary" : "Team id.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Full TeamPreset JSON round-trippable through teams_save."
     },
     {
       "command" : "teams duplicate",
@@ -4934,6 +5146,105 @@
 
       ],
       "summary" : "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness)."
+    },
+    {
+      "command" : "utilization boost show",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "utilization_boost_status",
+      "outputSchema" : "boostWindowSettingsJSON",
+      "params" : [
+
+      ],
+      "summary" : "Read Boost window settings, derived seed\/reset times, provider rows, and display state."
+    },
+    {
+      "command" : "utilization boost show",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "utilization_boost_get",
+      "outputSchema" : "boostWindowSettingsJSON",
+      "params" : [
+
+      ],
+      "summary" : "Alias of utilization_boost_status — full BoostWindowSettingsJSON projection."
+    },
+    {
+      "command" : "utilization boost set",
+      "errors" : [
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "utilization_boost_update",
+      "outputSchema" : "boostWindowSettingsJSON",
+      "params" : [
+        {
+          "name" : "enabled",
+          "required" : false,
+          "summary" : "Turn Boost window on or off.",
+          "type" : "boolean"
+        },
+        {
+          "name" : "windowStart",
+          "required" : false,
+          "summary" : "Window start as HH:MM or minutes-from-midnight (snapped to 15m).",
+          "type" : "string"
+        },
+        {
+          "name" : "appliesTo",
+          "required" : false,
+          "summary" : "Comma-separated source ids (e.g. claude_code,codex).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Update Boost window master toggle, 5h window start, and applies-to sources."
+    },
+    {
+      "command" : "utilization boost seed",
+      "errors" : [
+        "CLI_USAGE_ERROR",
+        "UTILIZATION_SOURCE_NOT_FOUND",
+        "UTILIZATION_SOURCE_UNCONFIGURED",
+        "UTILIZATION_AUTH_REQUIRED",
+        "UTILIZATION_BILLING_PROMPT",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "utilization_boost_seed",
+      "outputSchema" : "utilizationSeedEventJSON",
+      "params" : [
+        {
+          "name" : "sourceId",
+          "required" : true,
+          "summary" : "Driver id (e.g. claude_code, codex).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Force one utilization seed for a configured source (probe scratch, non-mutating)."
+    },
+    {
+      "command" : "utilization boost observations clear",
+      "errors" : [
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "utilization_observations_clear",
+      "outputSchema" : "utilizationObservationsClearJSON",
+      "params" : [
+        {
+          "name" : "sourceId",
+          "required" : false,
+          "summary" : "Optional source id; omit to clear all.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "Clear local utilization seed observations (all sources or one source)."
     },
     {
       "command" : "help search",

@@ -16,26 +16,32 @@ enum UtilizationBoostCLI {
     }
 
     private static func show(_ args: [String], _ runtime: ToolRuntime) {
-        emit(projection(runtime), Options(args), runtime)
+        emit(UtilizationBoostOperations.projection(runtime: runtime), Options(args), runtime)
     }
 
     private static func set(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
-        var s = persistence().load()
-        if let raw = opts.value("enabled") {
-            guard let on = Bool(raw.lowercased()) else {
-                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--enabled must be true or false")
+        do {
+            var enabled: Bool?
+            if let raw = opts.value("enabled") {
+                guard let on = Bool(raw.lowercased()) else {
+                    AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--enabled must be true or false")
+                    return
+                }
+                enabled = on
             }
-            s.enabled = on
+            let json = try UtilizationBoostOperations.update(
+                runtime: runtime,
+                enabled: enabled,
+                windowStart: opts.value("window-start"),
+                appliesTo: opts.value("applies-to")
+            )
+            emit(json, opts, runtime)
+        } catch let failure as UtilizationBoostOperations.Failure {
+            if case .envelope(let env) = failure { fail(env) }
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
-        if let raw = opts.value("window-start") {
-            s.windowStart = parseWindowStart(raw)
-        }
-        if let raw = opts.value("applies-to") {
-            s.appliesTo = raw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        }
-        save(s)
-        emit(projection(runtime, settings: s), opts, runtime)
     }
 
     private static func seed(_ args: [String], _ runtime: ToolRuntime) async {
@@ -43,84 +49,39 @@ enum UtilizationBoostCLI {
         guard let sourceId = opts.positional.first else {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln utilization boost seed <source-id> [--json]")
         }
-        guard runtime.registry.manifest(id: sourceId) != nil else {
-            AllnighterCLI.fail(code: "UTILIZATION_SOURCE_NOT_FOUND", message: "unknown source: \(sourceId)")
-        }
-        let settings = persistence().load()
-        guard settings.appliesToSet.contains(sourceId) else {
-            AllnighterCLI.fail(code: "UTILIZATION_SOURCE_UNCONFIGURED", message: "\(sourceId) is not in appliesTo")
-        }
-        let executor = UtilizationSeedExecutor(
-            models: runtime.models,
-            registry: runtime.registry,
-            commandRunner: SubprocessCommandRunner(),
-            invocations: runtime.invocations
-        )
-        let event = await executor.execute(sourceId: sourceId, settings: settings, force: true)
-        if event.outcome == .authRequired {
-            AllnighterCLI.fail(code: "UTILIZATION_AUTH_REQUIRED", message: event.rawSnippet ?? "auth required")
-        }
-        if event.outcome == .billingPrompt {
-            AllnighterCLI.fail(code: "UTILIZATION_BILLING_PROMPT", message: event.rawSnippet ?? "billing prompt")
-        }
-        if opts.flag("json") {
-            print(AllnighterCLI.jsonString(event))
-        } else {
-            print("seed \(sourceId): \(event.outcome.rawValue)")
+        do {
+            let event = try await UtilizationBoostOperations.seed(runtime: runtime, sourceId: sourceId)
+            if opts.flag("json") {
+                print(AllnighterCLI.jsonString(event))
+            } else {
+                print("seed \(sourceId): \(event.outcome.rawValue)")
+            }
+        } catch let failure as UtilizationBoostOperations.Failure {
+            if case .envelope(let env) = failure { fail(env) }
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
     }
 
     private static func observations(_ args: [String]) {
         let opts = Options(args)
         if opts.positional.first == "clear" {
-            let source = opts.value("source")
-            try? UtilizationSeedLedger().clear(sourceId: source)
-            if opts.flag("json") { print("{\"cleared\":true}") }
-            else { print(source.map { "cleared observations for \($0)" } ?? "cleared all seed observations") }
+            do {
+                let json = try UtilizationBoostOperations.clearObservations(sourceId: opts.value("source"))
+                if opts.flag("json") { print(AllnighterCLI.jsonString(json)) }
+                else {
+                    print(json.sourceId.map { "cleared observations for \($0)" } ?? "cleared all seed observations")
+                }
+            } catch {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
+            }
             return
         }
         AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln utilization boost observations clear [--source <id>] [--json]")
     }
 
-    private static func parseWindowStart(_ raw: String) -> Int {
-        let parts = raw.split(separator: ":")
-        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]), (0..<24).contains(h), (0..<60).contains(m) else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--window-start must be HH:MM (got: \(raw))")
-        }
-        return BoostWindowTiming.snap15(h * 60 + m)
-    }
-
-    private static func projection(_ runtime: ToolRuntime, settings: BoostWindowSettings? = nil) -> BoostWindowSettingsJSON {
-        let s = settings ?? persistence().load()
-        let providers = providerStates(settings: s, runtime: runtime)
-        return BoostWindowProjector.build(
-            settings: s,
-            providers: providers,
-            contractVersion: ContractRegistry.contractVersion
-        )
-    }
-
-    private static func providerStates(settings: BoostWindowSettings, runtime: ToolRuntime) -> [ProviderBoostState] {
-        let ready = Set(runtime.readyModels.map(\.driverId))
-        let records = SetupStore().load().records
-        let resets = UtilizationCapacityReader.lastObservedResetPerSource()
-        let outcomes = UtilizationCapacityReader.recentSeedOutcomes()
-        return BoostWindowProviderBuilder.providerStates(
-            settings: settings,
-            manifests: runtime.registry.all,
-            models: runtime.models,
-            readyDriverIds: ready,
-            probeRecords: records,
-            observedResets: resets,
-            recentSeedOutcomes: outcomes
-        )
-    }
-
-    private static func persistence() -> BoostWindowSettingsPersistence { BoostWindowSettingsPersistence() }
-
-    private static func save(_ s: BoostWindowSettings) {
-        do { try persistence().save(s) }
-        catch { AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)") }
+    private static func fail(_ env: ErrorEnvelope) {
+        AllnighterCLI.fail(code: env.code, message: env.message)
     }
 
     private static func emit(_ json: BoostWindowSettingsJSON, _ opts: Options, _ runtime: ToolRuntime) {

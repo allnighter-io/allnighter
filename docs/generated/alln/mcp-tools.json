@@ -52,7 +52,26 @@
         "type" : "string"
       }
     ],
-    "summary" : "One team definition including worker rows."
+    "summary" : "One team summary including worker rows (not round-trippable for save)."
+  },
+  {
+    "command" : "teams definition",
+    "errors" : [
+      "TEAM_NOT_FOUND",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "teams_definition",
+    "outputSchema" : "none",
+    "params" : [
+      {
+        "name" : "teamId",
+        "required" : true,
+        "summary" : "Team id.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Full TeamPreset JSON round-trippable through teams_save."
   },
   {
     "command" : "teams duplicate",
@@ -1365,6 +1384,105 @@
 
     ],
     "summary" : "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness)."
+  },
+  {
+    "command" : "utilization boost show",
+    "errors" : [
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "utilization_boost_status",
+    "outputSchema" : "boostWindowSettingsJSON",
+    "params" : [
+
+    ],
+    "summary" : "Read Boost window settings, derived seed\/reset times, provider rows, and display state."
+  },
+  {
+    "command" : "utilization boost show",
+    "errors" : [
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "utilization_boost_get",
+    "outputSchema" : "boostWindowSettingsJSON",
+    "params" : [
+
+    ],
+    "summary" : "Alias of utilization_boost_status — full BoostWindowSettingsJSON projection."
+  },
+  {
+    "command" : "utilization boost set",
+    "errors" : [
+      "CLI_USAGE_ERROR",
+      "INTERNAL_ERROR"
+    ],
+    "idempotency" : "not_idempotent",
+    "name" : "utilization_boost_update",
+    "outputSchema" : "boostWindowSettingsJSON",
+    "params" : [
+      {
+        "name" : "enabled",
+        "required" : false,
+        "summary" : "Turn Boost window on or off.",
+        "type" : "boolean"
+      },
+      {
+        "name" : "windowStart",
+        "required" : false,
+        "summary" : "Window start as HH:MM or minutes-from-midnight (snapped to 15m).",
+        "type" : "string"
+      },
+      {
+        "name" : "appliesTo",
+        "required" : false,
+        "summary" : "Comma-separated source ids (e.g. claude_code,codex).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Update Boost window master toggle, 5h window start, and applies-to sources."
+  },
+  {
+    "command" : "utilization boost seed",
+    "errors" : [
+      "CLI_USAGE_ERROR",
+      "UTILIZATION_SOURCE_NOT_FOUND",
+      "UTILIZATION_SOURCE_UNCONFIGURED",
+      "UTILIZATION_AUTH_REQUIRED",
+      "UTILIZATION_BILLING_PROMPT",
+      "INTERNAL_ERROR"
+    ],
+    "idempotency" : "not_idempotent",
+    "name" : "utilization_boost_seed",
+    "outputSchema" : "utilizationSeedEventJSON",
+    "params" : [
+      {
+        "name" : "sourceId",
+        "required" : true,
+        "summary" : "Driver id (e.g. claude_code, codex).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Force one utilization seed for a configured source (probe scratch, non-mutating)."
+  },
+  {
+    "command" : "utilization boost observations clear",
+    "errors" : [
+      "CLI_USAGE_ERROR",
+      "INTERNAL_ERROR"
+    ],
+    "idempotency" : "not_idempotent",
+    "name" : "utilization_observations_clear",
+    "outputSchema" : "utilizationObservationsClearJSON",
+    "params" : [
+      {
+        "name" : "sourceId",
+        "required" : false,
+        "summary" : "Optional source id; omit to clear all.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Clear local utilization seed observations (all sources or one source)."
   },
   {
     "command" : "help search",

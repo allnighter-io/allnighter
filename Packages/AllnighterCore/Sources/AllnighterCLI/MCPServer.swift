@@ -358,6 +358,11 @@ struct MCPServer {
         case "stall_dismiss":
             respondStalled(id: id, outcome: MCPStalledHandlers.dismiss(args: args))
         case "defaults_get": respondDefaults(id: id, outcome: MCPDefaultsHandlers.get(runtime: runtime))
+        case "utilization_boost_status": respondUtilizationBoost(id: id, outcome: MCPUtilizationBoostHandlers.status(runtime: runtime))
+        case "utilization_boost_get": respondUtilizationBoost(id: id, outcome: MCPUtilizationBoostHandlers.get(runtime: runtime))
+        case "utilization_boost_update": respondUtilizationBoost(id: id, outcome: MCPUtilizationBoostHandlers.update(runtime: runtime, args: args))
+        case "utilization_boost_seed": await respondUtilizationBoost(id: id, outcome: await MCPUtilizationBoostHandlers.seed(runtime: runtime, args: args))
+        case "utilization_observations_clear": respondUtilizationBoost(id: id, outcome: MCPUtilizationBoostHandlers.clearObservations(args: args))
         case "help_search": respondHelp(id: id, outcome: MCPHelpHandlers.search(args: args))
         case "help_get": respondHelp(id: id, outcome: MCPHelpHandlers.get(args: args))
         case "project_list": respondProject(id: id, outcome: MCPProjectHandlers.list(args: args))
@@ -435,6 +440,15 @@ struct MCPServer {
     }
 
     private func respondDefaults(id: Any?, outcome: MCPDefaultsHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondUtilizationBoost(id: Any?, outcome: MCPUtilizationBoostHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))

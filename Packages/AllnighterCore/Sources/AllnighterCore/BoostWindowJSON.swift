@@ -26,6 +26,16 @@ public struct ProviderBoostStateJSON: Codable, Sendable, Equatable {
     public var blockers: [String]
 }
 
+public struct UtilizationObservationsClearJSON: Codable, Sendable, Equatable {
+    public var cleared: Bool
+    public var sourceId: String?
+
+    public init(cleared: Bool = true, sourceId: String? = nil) {
+        self.cleared = cleared
+        self.sourceId = sourceId
+    }
+}
+
 public enum BoostWindowProjector {
     public static func build(
         settings: BoostWindowSettings,

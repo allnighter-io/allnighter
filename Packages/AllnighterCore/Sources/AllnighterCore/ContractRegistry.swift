@@ -52,6 +52,9 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case projectJSON, projectListJSON, projectContextJSON, projectWorkersJSON
         case projectThreadsJSON, projectPendingJSON
         case defaultSettingsJSON
+        case boostWindowSettingsJSON
+        case utilizationSeedEventJSON
+        case utilizationObservationsClearJSON
         case helpSearchJSON, helpGetJSON, helpTopicsJSON
         case errorExplainJSON
         case stallEpisodeJSON

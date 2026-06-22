@@ -754,5 +754,41 @@
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "execution.team.mixed_sources"
+  },
+  {
+    "agentAction" : "Run `alln models --json`; use a known driver id in appliesTo.",
+    "code" : "UTILIZATION_SOURCE_NOT_FOUND",
+    "exitClass" : "usage",
+    "explain" : "The utilization source id is not registered on this bench.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "utilization.source.not_found"
+  },
+  {
+    "agentAction" : "Add the source to Boost window appliesTo, then retry.",
+    "code" : "UTILIZATION_SOURCE_UNCONFIGURED",
+    "exitClass" : "usage",
+    "explain" : "The source is not included in the Boost window appliesTo list.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "utilization.source.unconfigured"
+  },
+  {
+    "agentAction" : "Sign in to the named CLI, then retry the seed.",
+    "code" : "UTILIZATION_AUTH_REQUIRED",
+    "exitClass" : "operational",
+    "explain" : "The seed stopped on an auth prompt. Allnighter never auto-confirms sign-in.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "utilization.auth.required"
+  },
+  {
+    "agentAction" : "Resolve billing on the provider, then retry.",
+    "code" : "UTILIZATION_BILLING_PROMPT",
+    "exitClass" : "operational",
+    "explain" : "The seed stopped on a billing or quota prompt. Allnighter never auto-confirms payment.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "utilization.billing.prompt"
   }
 ]

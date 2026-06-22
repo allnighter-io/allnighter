@@ -44,6 +44,8 @@ final class ContractRegistryTests: XCTestCase {
             "project workers", "project recheck-workers",
             "defaults show", "defaults tier", "defaults assign", "defaults unassign",
             "defaults substitutions", "defaults reset",
+            "utilization boost show", "utilization boost set", "utilization boost seed",
+            "utilization boost observations clear",
             "help search", "help get", "help topics",
         ])
     }
@@ -64,6 +66,8 @@ final class ContractRegistryTests: XCTestCase {
             "project_stalled", "stalled_list", "stall_check_status", "stall_keep_waiting", "stall_dismiss",
             "project_list", "project_get", "project_context", "project_workers", "project_recheck_workers",
             "defaults_get",
+            "utilization_boost_status", "utilization_boost_get", "utilization_boost_update",
+            "utilization_boost_seed", "utilization_observations_clear",
             "help_search", "help_get",
         ])
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
