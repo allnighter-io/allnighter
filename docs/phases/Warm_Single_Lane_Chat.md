@@ -191,16 +191,30 @@ For EACH CLI: **(a) de-risk spike** (does a warm process reach sub-second? what'
 → **(b) warm adapter** → **(c) wire** → **(d) harden** → **(e) acceptance**. A CLI with no usable warm
 mode falls back to the S0 lean view (already shipped) — still a 3× win, no extra work.
 
-- [ ] **Phase 2 — claude (Claude Code).** Spike: persistent/SDK/server mode? (`--print` is one-shot;
-  investigate the Agent SDK / a long-lived process.) Warm interface TBD.
-- [ ] **Phase 3 — codex.** Spike: `codex exec` is one-shot; does the interactive/TUI mode warm? Warm
-  interface TBD.
-- [ ] **Phase 4 — cursor (`agent`).** **IN PROGRESS (2026-06-21).** Warm path = `agent acp` (ACP stdio);
+- [x] **Phase 2 — claude (Claude Code). DONE (2026-06-21).** Warm path = `claude -p --input-format
+  stream-json` (no handshake, no session id; `{"type":"user"}` on stdin, stream `content_block_delta`,
+  turn ends on `{"type":"result"}`). `ClaudeMsg` codec + `ClaudeSession`; `ACPTransportProfile.claude`.
+- [x] **Phase 3 — codex. DONE.** Warm path = `codex app-server` (JSON-RPC-shaped, newline-framed, no
+  `jsonrpc` key): `initialize` → `initialized` → `thread/start` (`approvalPolicy:never`) → `turn/start`,
+  ends on `turn/completed`. `CodexMsg`/`CodexSession`; `ACPTransportProfile.codex`.
+- [x] **Phase 4 — cursor (`agent`). DONE.** Warm path = `agent acp` (ACP stdio);
   `ACPTransportProfile.cursorAgent`, `authenticate` + `model` on `session/new`, `permissionAllowOnce`.
   Wired in `RunService` + `WarmWorkerCapability.acpStdioSources`. Live proof:
   `ALLN_CURSOR_ACP_LIVE=1 swift test --filter ProcessACPTransportTests/testLiveCursorWarmTurnsRecallAndStayFast`.
-- [ ] **Phase 5 — antigravity (`agy`).** Spike: persistent mode? (Already on `session_dir` continuity.)
-  Likely lean-view fallback if no warm mode.
+- [x] **Phase 5 — antigravity (`agy`). DONE — NO WARM PATH (2026-06-21). Decision: stays COLD.**
+  Investigated `agy` directly: it has **no daemon/server/stdio-protocol mode** (no `app-server`, no
+  `agent stdio`, no `--input-format stream-json`). `--print` returns plain text only; `--conversation
+  <id>` resume is a **cold start every time** (reads history from `~/.gemini/antigravity-cli/brain/`,
+  re-boots, re-walks the tree). The *only* warm option is the `google-antigravity` **Python SDK**
+  (`async with Agent(config)`), which is a separate non-stdio transport + a Python dependency in a Swift
+  orchestrator — not worth it for **one source that is used almost entirely as a worker** (async/dispatched,
+  no human waiting on the cursor). So `antigravity` is deliberately **NOT** in
+  `WarmWorkerCapability.acpStdioSources` and transparently uses the hardened cold spawn. Its
+  `DefaultConfig` manifest already applies every cold-path hardening the investigation recommends:
+  `--dangerously-skip-permissions` (no approval hang), `--conversation {{sessionId}}` resume
+  (`vendor_session` continuity), and `.gitignore`-respecting walk. **Measured cold turn ≈ 5s** for a
+  trivial prompt in this repo. Revisit only if agy becomes a heavy interactive-chat source (then build
+  the Python SDK bridge).
 
 ---
 
