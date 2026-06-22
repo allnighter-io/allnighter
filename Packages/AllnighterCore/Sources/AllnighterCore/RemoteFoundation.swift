@@ -682,6 +682,16 @@ public enum RemoteCrypto {
         key.rawRepresentation.base64EncodedString()
     }
 
+    public static func signingPrivateKey(fromBase64 value: String) throws -> Curve25519.Signing.PrivateKey {
+        let data = try dataFromBase64(value, label: "signingPrivateKey")
+        return try Curve25519.Signing.PrivateKey(rawRepresentation: data)
+    }
+
+    public static func sealingPrivateKey(fromBase64 value: String) throws -> Curve25519.KeyAgreement.PrivateKey {
+        let data = try dataFromBase64(value, label: "sealingPrivateKey")
+        return try Curve25519.KeyAgreement.PrivateKey(rawRepresentation: data)
+    }
+
     public static func payloadDigest(_ payload: RemoteCommandPayload) throws -> String {
         try sha256Hex(CoreJSON.encode(payload))
     }

@@ -283,7 +283,31 @@ struct AllnighterCLI {
                 registry: runtime.registry,
                 invocations: runtime.invocations
             )
-            try await ResidentCoordinator(binaryVersion: binaryVersion, wakeDependencies: wake).runUntilSignal()
+            var remoteDependencies: ResidentCoordinator.RemoteDependencies?
+            if let environment = RemoteSupabaseEnvironment.load(), environment.hasMacAgentCredentials {
+                do {
+                    let executor = AsyncTeamRemoteCommandExecutor(
+                        service: runtime.asyncTeam,
+                        readyModels: { runtime.models }
+                    )
+                    let inputs = RemoteMacAgentServeAssembly.Inputs(
+                        environment: environment,
+                        executor: executor,
+                        readyModels: { runtime.models }
+                    )
+                    remoteDependencies = try RemoteMacAgentServeAssembly.remoteDependencies(inputs: inputs)
+                    FileHandle.standardError.write(Data("remote agent: cloud relay enabled\n".utf8))
+                } catch {
+                    FileHandle.standardError.write(
+                        Data("remote agent disabled: \(error)\n".utf8)
+                    )
+                }
+            }
+            try await ResidentCoordinator(
+                binaryVersion: binaryVersion,
+                wakeDependencies: wake,
+                remoteDependencies: remoteDependencies
+            ).runUntilSignal()
         } catch {
             FileHandle.standardError.write(Data("coordinator failed: \(error)\n".utf8)); exit(1)
         }

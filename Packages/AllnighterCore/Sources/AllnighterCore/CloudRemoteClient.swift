@@ -1,5 +1,4 @@
 import Foundation
-import AllnighterCore
 
 public protocol CloudRemoteClientSleeping: Sendable {
     func sleep(for interval: TimeInterval) async throws
