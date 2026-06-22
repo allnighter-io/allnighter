@@ -27,6 +27,11 @@ final class ACPMessageTests: XCTestCase {
         XCTAssertEqual((obj["params"] as? [String: Any])?["cwd"] as? String, "/repo/root")
     }
 
+    func testSessionMethodsDoNotEscapeSlashesOnWire() {
+        XCTAssertTrue(ACP.sessionNew(id: 2, cwd: "/repo/root").contains(#""method":"session/new""#))
+        XCTAssertTrue(ACP.sessionPrompt(id: 3, sessionId: "S1", text: "hello").contains(#""method":"session/prompt""#))
+    }
+
     func testSessionNewCarriesModelForCursor() {
         let obj = decode(ACP.sessionNew(id: 2, params: ["cwd": "/repo", "mcpServers": [], "model": "composer-2.5"]))
         XCTAssertEqual((obj["params"] as? [String: Any])?["model"] as? String, "composer-2.5")

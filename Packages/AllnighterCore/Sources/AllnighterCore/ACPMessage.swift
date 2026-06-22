@@ -74,7 +74,8 @@ public enum ACP {
     private static func line(_ obj: [String: Any]) -> String {
         guard let data = try? JSONSerialization.data(withJSONObject: obj),
               let s = String(data: data, encoding: .utf8) else { return "\n" }
-        return s + "\n"
+        // JSONSerialization escapes `/` in method names; Grok ACP dispatches `session/new` only.
+        return s.replacingOccurrences(of: "\\/", with: "/") + "\n"
     }
 
     // MARK: - Inbound (agent → client): classify one parsed line
