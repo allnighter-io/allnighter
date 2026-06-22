@@ -36,6 +36,8 @@ struct ThreadsFixtureSeeder {
             seedFixtureThinkingHistory()
         case "thread-user-image-attachment":
             seedFixtureUserImageAttachment()
+        case "thread-agent-image-reply":
+            seedFixtureAgentImageReply()
         case "thread-worker-image-reply":
             seedFixtureWorkerImageReply()
         case "thread-design-board-fanout":
@@ -482,6 +484,37 @@ struct ThreadsFixtureSeeder {
                 attachmentRefs: [ref]
             )
             _ = try? store.appendTurn(turn, toThreadId: id, now: Date())
+        } catch {}
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    /// The founder's reported case: a single agent run ("Agent (Grok Build)" → a
+    /// `mutatingRun` turn) that produced an image. The image was captured into thread
+    /// attachments at settlement, so the agent reply shows a preview chip — not just a path.
+    private func seedFixtureAgentImageReply() {
+        let id = "fixture-agent-image"
+        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        _ = try? store.create(id: id, title: "Generate an image of a super cute adorable cat", now: Date())
+        let user = ThreadTurn(
+            id: "fixture-agent-image-user", threadId: id, kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user,
+            text: "Generate an image of me of a super cute adorable cat."
+        )
+        _ = try? store.appendTurn(user, toThreadId: id, now: Date())
+        do {
+            let ref = try commitFixtureAttachment(
+                threadId: id, attachmentId: "fixture-agent-img", sequence: 0,
+                sourceKind: .workerGenerated
+            )
+            let reply = ThreadTurn(
+                id: "fixture-agent-image-reply", threadId: id, kind: .mutatingRun, status: .done,
+                createdAt: Date(), completedAt: Date(), author: .worker,
+                text: "Done! I've generated a super cute adorable cat for you.",
+                workerId: workerId,
+                attachmentRefs: [ref]
+            )
+            _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
         } catch {}
         reload()
         setSelectedThreadId(id)

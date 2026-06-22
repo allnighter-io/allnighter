@@ -298,6 +298,7 @@ enum GUIFixture {
         ("thread-team-board", "Thread — team board"),
         ("thread-user-image-attachment", "Thread — user message with image chip"),
         ("thread-worker-image-reply", "Thread — worker reply with image thumbnail"),
+        ("thread-agent-image-reply", "Thread — agent run reply with image thumbnail"),
         ("thread-design-board-fanout", "Thread — design board mockup tile strip"),
         ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),

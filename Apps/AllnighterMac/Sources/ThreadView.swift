@@ -747,8 +747,22 @@ private struct ThreadBoardRow: View {
         }
     }
 
+    /// Images the team's worker(s) produced, captured into thread attachments at settlement
+    /// (non-design boards — design uses the tile strip). Click opens the canonical file.
+    @ViewBuilder private var attachmentRow: some View {
+        let resolved = threads.resolvedAttachments(threadId: turn.threadId, turn: turn)
+        if turn.kind != .designBoard, !resolved.isEmpty {
+            TimelineAttachmentRow(
+                attachments: resolved,
+                thumb: { threads.attachmentThumb(for: $0) },
+                onOpen: { threads.openAttachmentPath($0.canonicalPath) }
+            )
+        }
+    }
+
     @ViewBuilder private var board: some View {
         VStack(alignment: .leading, spacing: 10) {
+            attachmentRow
             if turn.kind == .designBoard, let run, let board = run.latestStage(.board)?.payload?.board {
                 DesignBoardTileStrip(
                     board: board,
@@ -915,6 +929,19 @@ private struct ThreadMutatingRunRow: View {
         return appModel.composeBench.first { $0.id == id }
     }
 
+    /// Images the worker produced, captured into thread attachments at settlement. Click
+    /// opens the canonical file full size (Preview).
+    @ViewBuilder private var attachmentRow: some View {
+        let resolved = threads.resolvedAttachments(threadId: turn.threadId, turn: turn)
+        if !resolved.isEmpty {
+            TimelineAttachmentRow(
+                attachments: resolved,
+                thumb: { threads.attachmentThumb(for: $0) },
+                onOpen: { threads.openAttachmentPath($0.canonicalPath) }
+            )
+        }
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             glyph
@@ -925,6 +952,7 @@ private struct ThreadMutatingRunRow: View {
                 ThreadThinkingBlock(
                     text: turn.reasoningText, isLatestTurn: isLastTurn,
                     isRunning: !turn.status.isTerminal, duration: thinkingDuration)
+                attachmentRow
                 content
                 MessageCopyFooter(text: copyableText)
             }
