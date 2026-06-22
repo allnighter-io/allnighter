@@ -1,0 +1,13 @@
+{
+  "durationMs" : 475701,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:04:01Z",
+  "modelId" : "model_grok",
+  "purpose" : "answer",
+  "skillId" : "state_skeptic",
+  "skillName" : "State Skeptic",
+  "startedAt" : "2026-06-22T14:56:06Z",
+  "status" : "done",
+  "ttftMs" : 22183,
+  "workerId" : "model_grok#1"
+}

@@ -1,0 +1,14 @@
+{
+  "durationMs" : 133398,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:22:44Z",
+  "gateWaitMs" : 0,
+  "modelId" : "model_cursor_composer_25",
+  "purpose" : "answer",
+  "skillId" : "trace_mapper",
+  "skillName" : "Trace Mapper",
+  "startedAt" : "2026-06-22T15:20:30Z",
+  "status" : "done",
+  "ttftMs" : 21465,
+  "workerId" : "model_cursor_composer_25#1"
+}

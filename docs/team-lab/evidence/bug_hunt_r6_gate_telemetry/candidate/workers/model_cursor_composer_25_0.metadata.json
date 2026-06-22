@@ -1,0 +1,14 @@
+{
+  "durationMs" : 241408,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:26:45Z",
+  "gateWaitMs" : 133409,
+  "modelId" : "model_cursor_composer_25",
+  "purpose" : "answer",
+  "skillId" : "custom_code_lab_truth_owner_mapper_4662",
+  "skillName" : "Lab Truth Owner Mapper",
+  "startedAt" : "2026-06-22T15:22:44Z",
+  "status" : "done",
+  "ttftMs" : 24081,
+  "workerId" : "model_cursor_composer_25#0"
+}

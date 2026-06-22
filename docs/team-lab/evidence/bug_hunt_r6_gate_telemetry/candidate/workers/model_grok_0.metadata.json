@@ -1,0 +1,13 @@
+{
+  "durationMs" : 616054,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:30:46Z",
+  "modelId" : "model_grok",
+  "purpose" : "answer",
+  "skillId" : "correct_fix_planner",
+  "skillName" : "Correct Fix Planner",
+  "startedAt" : "2026-06-22T15:20:30Z",
+  "status" : "done",
+  "ttftMs" : 23089,
+  "workerId" : "model_grok#0"
+}

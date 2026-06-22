@@ -1,0 +1,8 @@
+{
+  "modelId" : "model_opus",
+  "purpose" : "plan",
+  "skillId" : "bug_packet_writer",
+  "skillName" : "Bug Packet Writer",
+  "status" : "queued",
+  "workerId" : "model_opus#0"
+}

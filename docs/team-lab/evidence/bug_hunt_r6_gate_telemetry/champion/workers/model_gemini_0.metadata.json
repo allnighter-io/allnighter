@@ -1,0 +1,13 @@
+{
+  "durationMs" : 232394,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T14:59:58Z",
+  "gateWaitMs" : 0,
+  "modelId" : "model_gemini",
+  "purpose" : "answer",
+  "skillId" : "bug_reproducer",
+  "skillName" : "Bug Reproducer",
+  "startedAt" : "2026-06-22T14:56:06Z",
+  "status" : "done",
+  "workerId" : "model_gemini#0"
+}

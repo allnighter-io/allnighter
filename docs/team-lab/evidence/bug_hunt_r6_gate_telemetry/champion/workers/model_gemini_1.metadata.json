@@ -1,0 +1,13 @@
+{
+  "durationMs" : 304715,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:05:03Z",
+  "gateWaitMs" : 232394,
+  "modelId" : "model_gemini",
+  "purpose" : "answer",
+  "skillId" : "regression_guard",
+  "skillName" : "Regression Guard",
+  "startedAt" : "2026-06-22T14:59:58Z",
+  "status" : "done",
+  "workerId" : "model_gemini#1"
+}

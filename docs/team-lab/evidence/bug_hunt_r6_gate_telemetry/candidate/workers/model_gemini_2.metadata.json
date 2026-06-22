@@ -1,0 +1,13 @@
+{
+  "durationMs" : 308159,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:33:34Z",
+  "gateWaitMs" : 475216,
+  "modelId" : "model_gemini",
+  "purpose" : "answer",
+  "skillId" : "change_impact_reviewer",
+  "skillName" : "Change Impact Reviewer",
+  "startedAt" : "2026-06-22T15:28:25Z",
+  "status" : "done",
+  "workerId" : "model_gemini#2"
+}

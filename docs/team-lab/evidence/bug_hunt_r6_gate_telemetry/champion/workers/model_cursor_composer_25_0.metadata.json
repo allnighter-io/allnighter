@@ -1,0 +1,14 @@
+{
+  "durationMs" : 285629,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:00:51Z",
+  "gateWaitMs" : 0,
+  "modelId" : "model_cursor_composer_25",
+  "purpose" : "answer",
+  "skillId" : "truth_owner_mapper",
+  "skillName" : "Truth Owner Mapper",
+  "startedAt" : "2026-06-22T14:56:06Z",
+  "status" : "done",
+  "ttftMs" : 21607,
+  "workerId" : "model_cursor_composer_25#0"
+}

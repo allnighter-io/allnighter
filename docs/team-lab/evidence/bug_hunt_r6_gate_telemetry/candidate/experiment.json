@@ -1,0 +1,76 @@
+{
+  "experimentId": "code_bug_hunt_candidate-r6_r6_20260622_152029",
+  "suiteId": "bug_hunt_repo_regressions_v1",
+  "caseId": "gen_5dc28030c4fb97d7",
+  "teamId": "lab_code_bug_hunt_r6_candidate",
+  "variant": "candidate-r6",
+  "round": 6,
+  "startedAt": "2026-06-22T15:20:33.174938+00:00",
+  "completedAt": "2026-06-22T15:44:10.722011+00:00",
+  "gitHead": "5bdca91842b1",
+  "allnBinary": "/Users/mike/Documents/GitHub/Allnighter/Packages/AllnighterCore/.build/debug/alln",
+  "allnVersion": "0.1.0",
+  "contractVersion": "1.0.0",
+  "mcpServer": {
+    "command": "alln mcp serve --stdio",
+    "protocolVersion": "2024-11-05",
+    "toolsListHash": "a54f9742203fe85046a1eafc7c9bbb58f908b6c5f50d5768fae90a270c7b5c75"
+  },
+  "request": {
+    "prompt": "In the Mac app I stay in one conversation with Composer 2.5: turn one lands fine, turn two in the same thread answers as if it never saw turn one. I did not switch models or start a new thread. Review docs/operations/debugger/DEBUGLOG.md (2026-06-21 cursor session entry), docs/operations/debugger/2026-06-21-cursor-composer-session-continuity-code-red.md, and docs/operations/debugger/REGRESSION_LAW_BACKLOG.md. Trace the active send path from ThreadsViewModel through RunService/WorkerRunner to the Cursor agent invocation. Produce a Bug Hunt packet only: tier, truth owner, lie-prone layer, smallest fix boundary, forbidden fixes, and the kill tests required before any patch. Do not edit code.",
+    "lane": "code",
+    "team": "lab_code_bug_hunt_r6_candidate",
+    "effort": "high",
+    "idempotencyKey": "lab-lab_code_bug_hunt_r6_candidate-r6-cb4fb2e7-5425-4b79-bbba-433879402456"
+  },
+  "run": {
+    "runId": "430B8A78-608F-465E-B5AC-6CB6E646C7C1",
+    "status": "completed",
+    "pollCount": 445,
+    "durationMs": 1417547
+  },
+  "preflight": {
+    "canStart": true,
+    "readyWorkerCount": 10,
+    "resolvedSourceIds": [
+      "antigravity",
+      "claude_code",
+      "cursor_agent",
+      "grok"
+    ],
+    "warnings": []
+  },
+  "start": {
+    "nextPollAfterMs": 2500
+  },
+  "teamLab": {
+    "arm": "candidate",
+    "overlayPath": "/Users/mike/Documents/GitHub/Allnighter/docs/team-lab/candidates/bug_hunt_repo_regressions_v1/code_bug_hunt_r6.json",
+    "deployedTeamId": "lab_code_bug_hunt_r6_candidate",
+    "baseTeamId": "code_bug_hunt",
+    "isolatedLabTeam": true,
+    "materialDelta": true,
+    "configHash": "9b45492da76c1b15",
+    "modelPolicy": {
+      "lead": "model_opus",
+      "workers": [
+        "model_gemini",
+        "model_cursor_composer_25",
+        "model_grok"
+      ],
+      "label": "Gemini \u00b7 Composer 2.5 \u00b7 Grok Build"
+    },
+    "preflightCanStart": null,
+    "readyWorkers": null
+  },
+  "evaluation": {
+    "runContract": 0.889,
+    "fsBypass": false,
+    "scoringSource": "mcp",
+    "teamQuality": null,
+    "judgePending": false,
+    "teamQualityWithheld": true,
+    "writerConsistencyIssues": 0
+  },
+  "supportRoot": "/Users/mike/Library/Application Support/Allnighter"
+}

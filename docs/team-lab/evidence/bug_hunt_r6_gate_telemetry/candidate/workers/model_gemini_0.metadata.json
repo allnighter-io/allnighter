@@ -1,0 +1,14 @@
+{
+  "durationMs" : 305061,
+  "errorKind" : "timed_out",
+  "errorReason" : "no output for 300s",
+  "finishedAt" : "2026-06-22T15:25:35Z",
+  "gateWaitMs" : 0,
+  "modelId" : "model_gemini",
+  "purpose" : "answer",
+  "skillId" : "bug_reproducer",
+  "skillName" : "Bug Reproducer",
+  "startedAt" : "2026-06-22T15:20:30Z",
+  "status" : "timed_out",
+  "workerId" : "model_gemini#0"
+}

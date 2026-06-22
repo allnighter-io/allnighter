@@ -1,0 +1,13 @@
+{
+  "durationMs" : 413762,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:17:30Z",
+  "modelId" : "model_grok",
+  "purpose" : "review",
+  "skillId" : "contrarian_root_cause",
+  "skillName" : "Contrarian Root Cause",
+  "startedAt" : "2026-06-22T15:10:37Z",
+  "status" : "done",
+  "ttftMs" : 92428,
+  "workerId" : "model_grok#2"
+}

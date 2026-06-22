@@ -1,0 +1,14 @@
+{
+  "durationMs" : 303367,
+  "errorKind" : "timed_out",
+  "errorReason" : "no output for 300s",
+  "finishedAt" : "2026-06-22T15:10:06Z",
+  "gateWaitMs" : 537110,
+  "modelId" : "model_gemini",
+  "purpose" : "answer",
+  "skillId" : "change_impact_reviewer",
+  "skillName" : "Change Impact Reviewer",
+  "startedAt" : "2026-06-22T15:05:03Z",
+  "status" : "timed_out",
+  "workerId" : "model_gemini#2"
+}

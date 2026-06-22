@@ -1,0 +1,14 @@
+{
+  "durationMs" : 104817,
+  "exitCode" : 0,
+  "finishedAt" : "2026-06-22T15:35:19Z",
+  "gateWaitMs" : 0,
+  "modelId" : "model_cursor_composer_25",
+  "purpose" : "review",
+  "skillId" : "user_impact_narrator",
+  "skillName" : "User Impact Narrator",
+  "startedAt" : "2026-06-22T15:33:34Z",
+  "status" : "done",
+  "ttftMs" : 53366,
+  "workerId" : "model_cursor_composer_25#2"
+}
