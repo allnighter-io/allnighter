@@ -116,7 +116,7 @@
       "skillId": "truth_owner_mapper",
       "instanceIndex": 0,
       "skillName": "Truth Owner Mapper",
-      "labSkillId": "custom_code_lab_truth_owner_mapper_3281",
+      "labSkillId": "custom_code_lab_truth_owner_mapper_1576",
       "originRoleKey": "truth_owner_mapper#0",
       "provenance": "candidate_hypothesis",
       "bankedAtRound": null,
@@ -143,7 +143,7 @@
   "candidateConfigHash": "b6caabb5b7adb620",
   "configHash": "49b4497a2d1c65eb",
   "arm": "candidate",
-  "builtAt": "2026-06-22T03:49:45.327290+00:00",
+  "builtAt": "2026-06-22T18:12:58.544857+00:00",
   "candidatePolicy": "narrow_single_role",
   "candidateDelta": {
     "kind": "hypothesis_patch",
