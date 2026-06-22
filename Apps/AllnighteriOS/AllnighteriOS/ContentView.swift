@@ -18,6 +18,7 @@ struct ContentView: View {
                         snapshot: appModel.homeSnapshot,
                         connectionStatusText: appModel.connectionStatusText,
                         connectionStatusTone: appModel.connectionStatusTone,
+                        homeFreshnessLabel: appModel.homeFreshnessLabel,
                         homeStatus: appModel.homeStatus,
                         workRequestSendPhase: appModel.workRequestSendPhase,
                         killSwitchPhase: appModel.killSwitchPhase,
@@ -57,6 +58,7 @@ private struct ConversationsHomeView: View {
     let snapshot: ConversationListSnapshot
     let connectionStatusText: String
     let connectionStatusTone: IOSStatusBanner.Tone
+    let homeFreshnessLabel: String?
     let homeStatus: ConversationHomeLoadStatus
     let workRequestSendPhase: WorkRequestSendPhase
     let killSwitchPhase: KillSwitchPhase
@@ -81,6 +83,12 @@ private struct ConversationsHomeView: View {
                     .padding(.bottom, IOSSpace.s7)
 
                 connectionBanner
+
+                if let homeFreshnessLabel {
+                    IOSStatusBanner(text: homeFreshnessLabel, tone: .neutral)
+                        .padding(.bottom, IOSSpace.s5)
+                        .accessibilityIdentifier("home-freshness-banner")
+                }
 
                 KillSwitchBar(
                     activeWorkCount: activeWorkCount,

@@ -18,6 +18,7 @@ enum ConversationThreadLoadStatus: Equatable {
     case idle
     case loading(threadId: String)
     case loaded(threadId: String)
+    case cached(threadId: String, serverTime: Date, cachedAt: Date)
     case failed(threadId: String, ConversationThreadLoadFailure)
 }
 

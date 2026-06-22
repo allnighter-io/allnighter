@@ -55,6 +55,11 @@ final class RemoteAppModel {
     private(set) var threadLoadStatus: ConversationThreadLoadStatus = .idle
     private(set) var stopRunPhase: StopRunPhase = .idle
     private(set) var connectionDiagnosisLine: String?
+    private(set) var homeFreshnessLabel: String?
+
+    private let homeCache = ConversationHomeCache()
+    private let threadDetailCache = ConversationThreadDetailCache()
+    private var cachedAccountId: String?
 
     var connectionStatusText: String {
         switch connectionPhase {
@@ -131,6 +136,7 @@ final class RemoteAppModel {
     private struct DeviceSession {
         var client: any RemoteClient
         var mac: MacAgentRef
+        var accountId: String
         var deviceId: String
         var deviceSigningKey: Curve25519.Signing.PrivateKey
         var deviceSealingKey: Curve25519.KeyAgreement.PrivateKey
@@ -166,16 +172,20 @@ final class RemoteAppModel {
                 deviceSession = DeviceSession(
                     client: connected.client,
                     mac: connected.mac,
+                    accountId: connected.account.accountId,
                     deviceId: connected.deviceCredentials.deviceId,
                     deviceSigningKey: connected.deviceSigningKey,
                     deviceSealingKey: connected.deviceSealingKey
                 )
+                cachedAccountId = connected.account.accountId
                 threadStore = nil
                 threadSnapshot = nil
                 threadLoadStatus = .idle
+                seedHomeFromCache(accountId: connected.account.accountId, macAgentId: connected.mac.macAgentId)
                 homeStore = ConversationHomeStore(
                     client: connected.client,
-                    macId: connected.mac.macAgentId
+                    macId: connected.mac.macAgentId,
+                    initialSnapshot: homeSnapshot
                 )
                 connectionPhase = .connected(macName: connected.mac.displayName)
                 await refreshHome()
@@ -206,7 +216,57 @@ final class RemoteAppModel {
         await homeStore.refresh()
         homeSnapshot = homeStore.state.snapshot
         homeStatus = homeStore.state.status
+
+        switch homeStatus {
+        case .loaded(let serverTime):
+            persistHomeCache(serverTime: serverTime)
+            homeFreshnessLabel = nil
+        case .failed:
+            restoreHomeCacheAfterFailure()
+        case .cached, .idle, .loading:
+            break
+        }
+
         await refreshConnectionDiagnosis()
+    }
+
+    private func seedHomeFromCache(accountId: String, macAgentId: String) {
+        guard let entry = try? homeCache.load(),
+              entry.accountId == accountId,
+              entry.macAgentId == macAgentId else {
+            return
+        }
+        homeSnapshot = entry.snapshot
+        homeStatus = .cached(serverTime: entry.serverTime, cachedAt: entry.cachedAt)
+        homeFreshnessLabel = ConversationRelativeTime.lastSeen(serverTime: entry.serverTime)
+    }
+
+    private func persistHomeCache(serverTime: Date) {
+        guard case .connected = connectionPhase,
+              let session = deviceSession,
+              let accountId = cachedAccountId else {
+            return
+        }
+        let entry = ConversationHomeCacheEntry(
+            accountId: accountId,
+            macAgentId: session.mac.macAgentId,
+            serverTime: serverTime,
+            snapshot: homeSnapshot
+        )
+        try? homeCache.save(entry)
+    }
+
+    private func restoreHomeCacheAfterFailure() {
+        guard let session = deviceSession,
+              let accountId = cachedAccountId,
+              let entry = try? homeCache.load(),
+              entry.accountId == accountId,
+              entry.macAgentId == session.mac.macAgentId else {
+            return
+        }
+        homeSnapshot = entry.snapshot
+        homeStatus = .cached(serverTime: entry.serverTime, cachedAt: entry.cachedAt)
+        homeFreshnessLabel = ConversationRelativeTime.lastSeen(serverTime: entry.serverTime)
     }
 
     func refreshConnectionDiagnosis() async {
@@ -231,17 +291,56 @@ final class RemoteAppModel {
             deviceSealingKey: session.deviceSealingKey
         )
         threadStore = store
+        _ = restoreThreadCache(threadId: threadId)
         await store.load(threadId: threadId)
         threadSnapshot = store.state.snapshot
         threadLoadStatus = store.state.status
 
-        if case .loaded(let loadedId) = threadLoadStatus,
-           loadedId == threadId,
-           let snapshot = threadSnapshot,
-           snapshot.hasUnread,
-           let throughTurnId = snapshot.readThroughTurnId {
-            await markThreadRead(threadId: threadId, throughTurnId: throughTurnId)
+        switch threadLoadStatus {
+        case .loaded(let loadedId) where loadedId == threadId:
+            if let snapshot = threadSnapshot {
+                persistThreadCache(snapshot: snapshot, threadId: threadId)
+                if snapshot.hasUnread, let throughTurnId = snapshot.readThroughTurnId {
+                    await markThreadRead(threadId: threadId, throughTurnId: throughTurnId)
+                }
+            }
+        case .failed(let failedId, _) where failedId == threadId:
+            _ = restoreThreadCache(threadId: threadId)
+        default:
+            break
         }
+    }
+
+    private func persistThreadCache(snapshot: ConversationThreadSnapshot, threadId: String) {
+        guard case .connected = connectionPhase,
+              let session = deviceSession else {
+            return
+        }
+        let entry = ConversationThreadDetailCacheEntry(
+            macAgentId: session.mac.macAgentId,
+            threadId: threadId,
+            serverTime: Date(),
+            snapshot: snapshot
+        )
+        try? threadDetailCache.save(entry)
+    }
+
+    @discardableResult
+    private func restoreThreadCache(threadId: String) -> Bool {
+        guard let session = deviceSession,
+              let entry = try? threadDetailCache.load(
+                macAgentId: session.mac.macAgentId,
+                threadId: threadId
+              ) else {
+            return false
+        }
+        threadSnapshot = entry.snapshot
+        threadLoadStatus = .cached(
+            threadId: threadId,
+            serverTime: entry.serverTime,
+            cachedAt: entry.cachedAt
+        )
+        return true
     }
 
     private func markThreadRead(threadId: String, throughTurnId: String) async {
@@ -423,10 +522,12 @@ final class RemoteAppModel {
                 agentSealingPubkey: "preview-seal",
                 lastSeenAt: now
             ),
+            accountId: accountId,
             deviceId: deviceId,
             deviceSigningKey: signingKey,
             deviceSealingKey: sealingKey
         )
+        cachedAccountId = nil
         threadStore = nil
         threadSnapshot = nil
         threadLoadStatus = .idle

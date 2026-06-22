@@ -59,7 +59,7 @@ struct ConversationThreadView: View {
         case .idle, .loading:
             ProgressView()
                 .tint(IOSColor.accent)
-        case .loaded, .failed:
+        case .loaded, .failed, .cached:
             if let snapshot = appModel.threadSnapshot, snapshot.id == threadId {
                 Text(snapshot.title)
                     .font(IOSFont.title)
@@ -74,6 +74,8 @@ struct ConversationThreadView: View {
     private var statusSection: some View {
         if case let .failed(_, failure) = appModel.threadLoadStatus {
             IOSStatusBanner(text: failureMessage(failure), tone: .warning)
+        } else if case let .cached(_, serverTime, _) = appModel.threadLoadStatus {
+            IOSStatusBanner(text: ConversationRelativeTime.lastSeen(serverTime: serverTime), tone: .neutral)
         } else if case let .failed(message) = appModel.stopRunPhase {
             IOSStatusBanner(text: message, tone: .warning)
                 .onTapGesture { appModel.clearStopRunStatus() }

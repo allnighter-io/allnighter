@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct ConversationListSnapshot: Equatable {
+struct ConversationListSnapshot: Equatable, Codable {
     var pinned: [ConversationSummary]
     var projects: [ConversationProject]
 
@@ -21,7 +21,7 @@ struct ConversationListSnapshot: Equatable {
     }
 }
 
-struct ConversationSummary: Identifiable, Equatable {
+struct ConversationSummary: Identifiable, Equatable, Codable {
     let id: String
     let title: String
     let relativeAge: String
@@ -30,8 +30,8 @@ struct ConversationSummary: Identifiable, Equatable {
     let isPending: Bool
 }
 
-struct ConversationProject: Identifiable, Equatable {
-    enum Icon: Equatable {
+struct ConversationProject: Identifiable, Equatable, Codable {
+    enum Icon: String, Equatable, Codable {
         case folder
         case inbox
     }

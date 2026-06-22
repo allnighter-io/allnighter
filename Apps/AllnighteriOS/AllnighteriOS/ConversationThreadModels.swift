@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct ConversationThreadSnapshot: Equatable {
+struct ConversationThreadSnapshot: Equatable, Codable {
     var id: String
     var title: String
     var statusLabel: String?
@@ -25,8 +25,8 @@ struct ConversationThreadSnapshot: Equatable {
     }
 }
 
-struct ConversationThreadTurn: Identifiable, Equatable {
-    enum Role: Equatable {
+struct ConversationThreadTurn: Identifiable, Equatable, Codable {
+    enum Role: String, Equatable, Codable {
         case user
         case assistant
         case system
