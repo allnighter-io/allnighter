@@ -3,7 +3,7 @@
 Status: Parent/router — core thread MLP + CR4 conversation send paths delivered;
 remaining work deferred to routed child docs
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-21
+Updated: 2026-06-22
 
 > **Parent doc:** this page is the router for the work-thread product lane. It
 > records what shipped and which child doc owns the next work. Do not use this
@@ -17,8 +17,9 @@ Updated: 2026-06-21
 > the Home conversation rail plus real Chat, Fan out, and Execute send paths.
 > ThreadStore hardening and Threads 2.0 rail controls are archived. Mac local
 > notifications 1.0 are built (02). Remaining active thread work: rich-turn read
-> clear (06 S08), worker image GUI (08 S04), thread forking (09),
-> core-loop gaps in `01`, and fast follows 03–04.
+> clear (06 S08), message image rendering/read-path enrichment
+> (`Message_Image_Rendering.md`), thread forking (09), core-loop gaps in `01`,
+> and fast follows 03–04.
 >
 > **Project spine dependency:** threads are no longer the top-level floor for
 > new forward work. [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md)
@@ -118,7 +119,17 @@ Build in this order:
    - Mac timeline thumbnails for worker bubbles (WIO-S04); CLI/MCP JSON parity
      (`workerAttachmentIds`) shipped in WIO-S05.
 
-6. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **BUILT**
+6. [`Message_Image_Rendering.md`](Message_Image_Rendering.md) — **Ready for
+   implementation packet** (2026-06-22)
+   - Umbrella handoff for image rendering across user attachments, worker image
+     replies, Design fan-out boards, and Factory Floor design readers.
+   - First slice is MCP/CLI read enrichment: wire `thread get/status`, resolve
+     `attachmentRefs` to canonical paths, and expose Design board option paths
+     in `TeamRunJSON`.
+   - GUI slices render shared timeline attachment chips, worker/user bubble
+     images, Design board tile strips, and Floor design mockups.
+
+7. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **BUILT**
    (NOTIF-S01–S05 + UNR-S06, 2026-06-17)
    - Mac local notifications when work lands or needs attention; menu-bar
      live/needs-attention indicator; per-thread mute; debounce and quiet hours
@@ -127,19 +138,19 @@ Build in this order:
    - Mobile push is deferred to
      [`ios/03_iOS_Thread_Read_State_And_Push.md`](ios/03_iOS_Thread_Read_State_And_Push.md).
 
-7. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
+8. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
    **defer here**
    - Fast follow for live output where the driver/CLI can expose it.
    - May ship Mac-only first.
    - This is the stare-at-it loop: make long turns feel alive.
 
-8. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
+9. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
    **defer here**
    - Fast follow for provider-reported usage only.
    - No estimates, no fake dollar math, no opaque quota percentages.
    - Duration stays first-class and already partially exists.
 
-9. [`threads/09_Thread_Forking.md`](threads/09_Thread_Forking.md) — **Draft
+10. [`threads/09_Thread_Forking.md`](threads/09_Thread_Forking.md) — **Draft
    feature packet; MCP/CLI-first**
    - Fork a thread or terminal turn prefix into a new active child thread with
      durable provenance.
@@ -242,6 +253,10 @@ Still missing / deferred:
   suppression hooks, and GUI proof are built in `06_Unread_Message_Light.md`;
   S08 remains for rich-turn read-clear.
 - Mac local notifications 1.0 are built in `02_Notifications.md`.
+- Message image rendering is routed through `Message_Image_Rendering.md`;
+  engine capture/storage is built, but `thread_get` path resolution,
+  Design-board run JSON enrichment, timeline thumbnails, and Floor design image
+  rendering remain.
 - No streaming command path (fast follow `03_Mac_Streaming.md`).
 - No observed usage model (fast follow `04_Observed_Usage.md`).
 

@@ -1,6 +1,6 @@
 # Message Image Rendering
 
-Status: **Partially built** — engine + capture + CLI/MCP send parity landed (2026-06-17); **timeline and board image rendering are not built**
+Status: **Ready for implementation packet** — engine + capture + `thread_send` parity landed (2026-06-17); **thread read enrichment, design run JSON, timeline, and board image rendering are not built**
 Owner: AllnighterCore + AllnighterEngine + Mac app + CLI/MCP
 Updated: 2026-06-22
 Process: `docs/workflows/SSOT_Feature_Workflow.md`
@@ -10,10 +10,12 @@ Process: `docs/workflows/SSOT_Feature_Workflow.md`
 ```text
 Composer_Image_Attachments.md          (canonical attachment store — backend built)
 threads/08_Worker_Image_Output_In_Chat.md (worker-produced chat images — backend built; WIO-S04 GUI deferred)
+Persistent_Work_Threads.md             (thread/turn router)
 mvp/Design1_Image_Team.md              (design fan-out capture — backend built)
 Team_Run_Floor.md                      (Floor reader; design image tiles remain)
 CLI_Implementation_Contract.md         (no MCP-only schema forks)
 docs/gui/GUI_Workflow.md               (surface briefs before large GUI slices)
+docs/gui/surfaces/threads/brief.md     (thread timeline field ownership)
 ```
 
 ## Founder Intent
@@ -69,14 +71,20 @@ bytes today.**
 
 | Surface | Image truth (engine) | MCP / CLI | Mac GUI |
 | --- | --- | --- | --- |
-| **User paste / attach → send** | `ThreadAttachmentStore` + `attachmentRefs` on user turns | `thread_send` `images[]`, `attachmentIds`, `attachments[]` | Composer chips exist; **timeline chips not wired** (CIA-S04) |
-| **Single-lane worker reply with image** | `WorkerImageCapture` + `workerGenerated` attachment on worker turn | `thread_send` returns `workerAttachmentIds` / `workerAttachments` (WIO-S05) | **`ThreadView.workerBubble` is markdown text only** (WIO-S04) |
+| **User paste / attach → send** | `ThreadAttachmentStore` + `attachmentRefs` on user turns | `thread_send` `images[]`, `attachmentIds`, `attachments[]`; `thread_get` read shape not enriched | Composer chips exist; **timeline chips not wired** (CIA-S04) |
+| **Single-lane worker reply with image** | `WorkerImageCapture` + `workerGenerated` attachment on worker turn | `thread_send` returns `workerAttachmentIds` / `workerAttachments` (WIO-S05); `thread_get` still returns refs only | **`ThreadView.workerBubble` is markdown text only** (WIO-S04) |
 | **Design fan-out → board** | `DesignImageRunner` → run-relative PNG/JPEG; `BoardPayload` on run | `team result --json` exposes `workerAnswers[].output` as run-relative path; **structured `board` stage filtered from `TeamRunJSON`** | **`ThreadBoardRow` shows markdown/path text, not tiles**; `DesignBoardView` removed |
 | **Factory Floor (design lane)** | Same run folder bytes | Same as team result | **Text/markdown reader only** — no mockup tile strip |
 | **Context reveal** | `includedAttachments` audit on packets | Visible in send JSON | **No thumbnails** |
 
 The screenshot in design handoff (`fan-out · N mockups`, horizontal tiles, pick
 badge, "Open board") is **pixel reference, not shipped product truth**.
+
+Additional contract gap found during doc review (2026-06-22): the command
+registry advertises `alln thread get` and `alln thread status`, and MCP handlers
+exist for `thread_get` / `thread_status`, but the CLI dispatcher currently wires
+only `thread send` and `thread rename`. `thread_get` also returns raw
+`WorkThread` JSON, so agents see `attachmentRefs` without resolved paths.
 
 ---
 
@@ -132,6 +140,34 @@ These slices are **done**. Extend, do not fork.
 
 ---
 
+## Implementation Map
+
+Use these files as the first implementation touch points. This list is
+intentionally concrete so the slice can start without another archaeology pass.
+
+| Gap | Primary files | Existing proof to extend |
+| --- | --- | --- |
+| Resolve thread attachments on read | `ThreadAttachment.swift`, `ThreadAttachmentStore.swift`, `ThreadSendCLI.swift`, `MCPServer.swift`, `RemoteThreadProjection.swift` only if local detail adopts the shape | `ThreadAttachmentStoreTests`, `MCPToolContractTests`, new `ThreadGetAttachmentResolutionTests` |
+| Wire CLI `thread get/status` route | `AllnighterCLI.swift`, `ThreadSendCLI.swift` or new `ThreadCLI.swift`, `ContractRegistry+Milestone1.swift` | generated help/contract check, CLI JSON fixture |
+| Expose design board image paths | `TeamRunJSON.swift`, `TeamRunJSONMapper.swift`, `ContractSchema.swift`, `DesignRun.swift`, run fetch paths in `AllnighterCLI.swift` / MCP async run handlers | `TeamRunJSONMapperTests`, `ContractSchemaTests`, `DesignModelsTests` |
+| Timeline attachment thumbnails | `ThreadView.swift` (`ThreadTurnRow`), `ThreadsViewModel.swift`, `ThreadAttachmentStore.swift`, `GUIFixture.swift` | `ThreadsPresenterTests` for state, `bash scripts/gui_proof.sh thread-worker-image-reply` |
+| Design board tile strip | `ThreadView.swift` (`ThreadBoardRow`), `ThreadsViewModel.teamRun(forRunId:)`, `RunStore.swift`, `GUIFixture.swift` | `thread-design-board-fanout` fixture + layout watcher |
+| Floor design thumbnails | `FactoryFloorView.swift`, `FloorCastMember`, `FloorProjector.swift` if presenter facts are needed | Floor presenter tests + Floor fixture |
+
+Do not hand-edit generated `docs/generated/alln/*`. Change `ContractRegistry`,
+contract schemas, and mappers first, then regenerate through the existing dev
+export/check flow.
+
+### Local Path Boundary
+
+`canonicalPath` and design `absolutePath` are local-machine paths. They are
+allowed for local CLI/MCP and Mac GUI because those clients run on the user's
+Mac. Do not copy those fields into remote/iOS sealed projections without an
+explicit remote-media contract; iOS should receive portable attachment ids or a
+separate encrypted media fetch path, not stale Mac filesystem strings.
+
+---
+
 ## Remaining Work (MCP First, Then GUI)
 
 ### Phase A — MCP / CLI contract gaps
@@ -144,25 +180,45 @@ ships thumbnails. GUI presents the same contract.
 **Status:** Not built
 
 **Goal:** `thread_get` and `thread_status` return enough data to open every image
-on a turn without the GUI guessing paths.
+on a turn without agents or the GUI guessing paths.
 
 Today `WorkThread` turns carry `attachmentRefs: [{ attachmentId, sequence }]`
-only. Agents must not read `attachments.json` by convention.
+only. Agents must not read `attachments.json` by convention. Today MCP
+`thread_get` returns the raw `WorkThread`; CLI `thread get/status` are
+registry-advertised but not dispatched.
 
 **Deliver:**
 
-- Add `resolvedAttachments: [AttachmentRow]` per turn (or a top-level
-  `attachments: [AttachmentRecord]` map keyed by id) in:
+- Wire the missing CLI route for:
   - `alln thread get --json`
-  - MCP `thread_get`
-  - MCP `thread_status` when turns are included
-- `AttachmentRow` shape matches `thread_send` (id, `canonicalPath`,
-  `deliveredPathUsed`, `storedSha256`, optional `sourceKind`).
+  - `alln thread status --json`
+- Replace raw `WorkThread` read output with a versioned projection, or add a
+  sibling projection while preserving raw fields.
+- Add `resolvedAttachments: [ResolvedThreadAttachment]` per turn (preferred), or
+  a top-level `attachmentsById` map plus ordered refs. The row shape is:
+  - `attachmentId`
+  - `sequence`
+  - `canonicalPath`
+  - `storedSha256`
+  - `mimeType`
+  - `sourceKind`
+  - `byteSize`
+  - `storedWidth?`
+  - `storedHeight?`
+  - `originalName?`
+  - `missing: Bool`
+  - `error?` for missing bytes/hash mismatch
+- Use one resolver helper over `ThreadAttachmentStore` so CLI, MCP, and Mac view
+  models do not each reconstruct Application Support paths.
+- `thread_status` remains lightweight by default. If it includes turns now or
+  later (`includeTurns`, `latestTurn`, etc.), those turns use the same resolved
+  attachment projection.
 - Document in `ContractRegistry` + generated help; drift gate updated.
 
 **Proof:** Fixture thread with user + worker attachments → `thread_get --json`
 lists resolvable `canonicalPath` for each ref; delete vendor path → canonical
-still opens.
+still opens. Delete a canonical PNG → read output shows the missing attachment
+honestly instead of dropping the ref.
 
 #### MIR-MCP-S02 — Design run image paths for agents
 
@@ -173,13 +229,43 @@ still opens.
 Today `workerAnswers[].output` may be `option_model_grok#0.png` (run-relative).
 `TeamRunJSON` **drops** the structured `board` stage.
 
-**Deliver (pick one binding approach — prefer both):**
+**Deliver (both):**
 
-1. **Run result enrichment:** `team result --json` / MCP run fetch adds
-   `designBoard: { options: [{ workerId, persona, imagePath, absolutePath, status }], chosen?, screenshotPath? }`
-   when `run.lane == .design`.
-2. **Absolute paths:** For each design `workerAnswer` with image output, include
-   `outputAbsolutePath` resolved from `RunStore` run directory (never vendor dirs).
+1. **Run result enrichment:** add a top-level optional
+   `TeamRunJSON.designBoard` when `run.lane == .design` or
+   `run.outputKind == .designBoard`:
+
+   ```json
+   {
+     "targetShape": "desktop",
+     "screenshotPath": "screenshot.png",
+     "screenshotAbsolutePath": "/.../Runs/run_x/screenshot.png",
+     "options": [
+       {
+         "workerId": "model_grok#0",
+         "modelId": "model_grok",
+         "persona": "bold",
+         "imagePath": "option_model_grok#0.png",
+         "absolutePath": "/.../Runs/run_x/option_model_grok#0.png",
+         "status": "done",
+         "failureReason": null,
+         "sessionId": "..."
+       }
+     ],
+     "chosen": { "workerId": "model_grok#0", "persona": "bold", "chosenAt": "..." }
+   }
+   ```
+
+2. **Worker answer path hint:** for each design `workerAnswer` whose output is a
+   run-relative image path, include `outputAbsolutePath` (or an `artifacts[]`
+   entry if the contract prefers a general artifact shape) resolved from
+   `RunStore` run directory.
+
+Do not widen the M1 public `TeamRunJSON.StagePurpose` set just to expose board.
+`StageOutput.payload.board` remains internal structured truth; the mapper derives
+the public `designBoard` projection. Resolve paths by joining only normalized
+run-relative paths under the run directory; reject `..`, absolute input strings,
+and symlinks that escape the run dir.
 
 **Proof:** Completed design run → JSON lists ≥1 option with openable absolute path;
 chosen option surfaced when `chosen_option.json` exists.
@@ -197,6 +283,10 @@ chosen option surfaced when `chosen_option.json` exists.
 
 **Proof:** CLI returns path that exists on disk; hash matches store.
 
+**If S03 is skipped:** S01 must still make `thread_get` sufficient for agents to
+open every image in a thread. S03 is ergonomics, not a substitute for read-path
+enrichment.
+
 ---
 
 ### Phase B — Mac GUI rendering
@@ -210,14 +300,18 @@ Follow `docs/gui/GUI_Workflow.md`: add or extend surface briefs under
 
 **Status:** Not built (blocks CIA-S04 + WIO-S04)
 
-**Goal:** One component: thumbnail, click-to-reveal canonical file, optional
-remove (composer only).
+**Goal:** One component: thumbnail, metadata/error state, click-to-reveal
+canonical file, optional remove (composer only).
 
 **Deliver:**
 
 - `TimelineAttachmentChip` (or shared with `ComposerAttachmentTile` extraction)
-- Loads thumb from `ThreadAttachmentStore` via view-model cache
+- A small presenter/view-model row (for example `ResolvedTimelineAttachment`) so
+  `ThreadView` does not open `attachments.json` directly
+- Loads thumb from `ThreadAttachmentStore` via view-model cache; missing/hash
+  mismatch renders a broken attachment chip with the attachment id
 - Sizes: chat bubble thumbs **46×66pt**; composer remains **56×56pt**
+- Click opens/reveals `canonicalPath`; no workspace mirror path is used for UI
 
 **Proof:** Unit snapshot or fixture render; reuse in composer + timeline.
 
@@ -231,6 +325,8 @@ markdown.
 **Deliver:**
 
 - Ordered chip row below `AnswerBody` for `.done` worker turns
+- If worker turn has attachments but empty caption, render the chip row without a
+  blank markdown block
 - Running/failed: no fake thumb; honest error text only
 - Context reveal panel: same chips for worker attachments in audit list
 
@@ -246,6 +342,8 @@ markdown.
 
 - Extend `userBubble` with chip row from `attachmentRefs`
 - `userDecision` pick materialization (WIO-S03) shows the seed image visibly
+- Text-only user turns keep their current compact bubble; attachment-only sends
+  are valid and render as chips with no empty text block
 
 **Proof:** `compose-paste-image` fixture + thread timeline fixture with user attach.
 
@@ -258,7 +356,9 @@ tile strip** from the handoff mockup — not collapsed markdown paths.
 
 **Deliver:**
 
-- Resolve `runId` → `BoardPayload` from latest `board` stage
+- Resolve `runId` → `TeamRun` using `ThreadsViewModel.teamRun(forRunId:)`, then
+  latest `StageOutput(purpose: .board).payload.board`
+- Resolve each `DesignOption.imagePath` under `RunStore.runDirectory(forRunId:)`
 - Horizontal `ScrollView` of option tiles:
   - image from `runDir + imagePath` when `hasImage`
   - gray failure tile + `failureReason` when not
@@ -266,6 +366,9 @@ tile strip** from the handoff mockup — not collapsed markdown paths.
 - Footer: "You picked **{persona}**" + **Open board** → Factory Floor or
   dedicated design board surface
 - Code / Copy team boards **unchanged** (markdown cards)
+- If the board payload is missing but worker answers contain image-looking
+  outputs, render a small contract-gap note and keep the existing answer cards;
+  do not parse paths into tiles as a fallback product truth.
 
 **Depends:** `ThreadsViewModel.teamRun(forRunId:)` (exists); image cache per run.
 
@@ -284,6 +387,9 @@ each worker answer — not a markdown string of `option_*.png`.
 - Design cast cards: thumb + persona label
 - Reader column: full mockup image above any caption
 - Reuse tile loader from MIR-GUI-S04
+- `FloorCastMember` may remain text-oriented for non-design runs; add a
+  design-specific projection rather than forcing image fields into every cast
+  member.
 
 **Proof:** Floor fixture with design run; layout-watcher on reader column.
 
@@ -305,6 +411,25 @@ each worker answer — not a markdown string of `option_*.png`.
 | Worker prose | "Says here's the image" | No thumb without `attachmentRef` or run file |
 | `TeamRunJSON` | "No board stage → no design UI" | Load `TeamRun` natively in GUI for board payload |
 | Vendor dirs | "File exists in ~/.grok" | Display only canonical or run-folder copies |
+| Missing canonical file | "Hide broken chip" | Show broken attachment state tied to the ref |
+| CLI registry | "`thread get` exists because docs list it" | Wire dispatcher + tests before claiming CLI support |
+
+---
+
+## Fixture / Proof Matrix
+
+| Fixture / test | Proves | Slice |
+| --- | --- | --- |
+| `thread-worker-image-reply` | worker bubble thumbnail + caption + open path | MIR-GUI-S02 |
+| `thread-user-image-attachment` | user bubble attachment row + attachment-only send | MIR-GUI-S03 |
+| `thread-design-board-fanout` | horizontal design option strip + failed tile + pick badge | MIR-GUI-S04 |
+| `floor-design-run-images` | Factory Floor design reader image-first rendering | MIR-GUI-S05 |
+| CLI fixture thread with user + worker refs | `thread_get --json` resolved attachments | MIR-MCP-S01 |
+| Completed design run with `board` stage | `TeamRunJSON.designBoard` and absolute paths | MIR-MCP-S02 |
+
+Add fixtures in `Apps/AllnighterMac/Sources/GUIFixture.swift`. Close GUI slices
+through `docs/phases/GUI_Visual_Proof_Gate.md` with layout-watcher PASS and a
+sealed proof packet.
 
 ---
 
@@ -333,13 +458,15 @@ each worker answer — not a markdown string of `option_*.png`.
 
 - [ ] MIR-MCP-S01: `thread_get` / `thread_status` resolve attachment paths
 - [ ] MIR-MCP-S02: Design run JSON exposes board/options with openable paths
+- [ ] CLI dispatcher actually wires `alln thread get` / `alln thread status`
 - [ ] MIR-GUI-S01: Shared timeline attachment chip
 - [ ] MIR-GUI-S02: Worker chat bubbles render worker attachments (WIO-S04)
 - [ ] MIR-GUI-S03: User bubbles render attachments (CIA-S04)
 - [ ] MIR-GUI-S04: Design board row renders fan-out tile strip
 - [ ] MIR-GUI-S05: Factory Floor renders design mockups
 - [ ] GUI proof fixtures sealed per `GUI_Visual_Proof_Gate.md`
-- [ ] Routers in `docs/phases/README.md` and `Persistent_Work_Threads.md` updated
+- [x] Routers/briefs updated for implementation handoff (`docs/phases/README.md`,
+      `Persistent_Work_Threads.md`, `docs/gui/surfaces/threads/brief.md`)
 
 ---
 
