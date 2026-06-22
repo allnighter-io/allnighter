@@ -33,6 +33,52 @@ public enum WorkerOutputImageHarvest {
         }
     }
 
+    /// An image already present as bytes instead of a filesystem path (Codex rollout
+    /// image tool output is the motivating case).
+    public struct DataCandidate: Sendable, Equatable {
+        public var data: Data
+        public var mimeType: String
+        public var originalName: String
+
+        public init(data: Data, mimeType: String, originalName: String) {
+            self.data = data
+            self.mimeType = mimeType
+            self.originalName = originalName
+        }
+    }
+
+    /// Images produced by Codex and stored only in the session rollout log for this
+    /// run's answer window. Bounded by each answer's timestamps so resumed sessions do
+    /// not re-harvest images from earlier turns.
+    public static func codexRolloutDataCandidates(
+        run: TeamRun,
+        models: [Model],
+        repoRoot: String? = nil,
+        harvester: CodexRolloutImageHarvester = CodexRolloutImageHarvester()
+    ) -> [DataCandidate] {
+        let modelById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let cwd = (repoRoot?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+        var results: [DataCandidate] = []
+        for answer in run.workerAnswers {
+            guard results.count < maxImagesPerTurn,
+                  let model = modelById[answer.modelId],
+                  model.driverId == "codex" else { continue }
+            let sessionId = answer.vendorSessionId?.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Locate the rollout by captured session id when present, else by the run's
+            // working directory + time window (session ids aren't reliably captured for Codex).
+            guard (sessionId?.isEmpty == false) || cwd != nil else { continue }
+            let remaining = maxImagesPerTurn - results.count
+            let images = harvester.images(
+                sessionId: sessionId,
+                cwd: cwd,
+                after: answer.startedAt,
+                before: answer.finishedAt
+            )
+            results.append(contentsOf: images.prefix(remaining))
+        }
+        return results
+    }
+
     /// Path tokens in `texts` that resolve to real, validated images. Run-relative paths
     /// resolve under `runDirectory` (when given); absolute and `~/` paths resolve directly.
     /// Deduped by resolved path, first-seen order, capped at `maxImagesPerTurn`.
@@ -135,6 +181,49 @@ public enum WorkerOutputImageHarvest {
                     sourceKind: .workerGenerated,
                     sequence: sequence,
                     originalName: url.lastPathComponent,
+                    now: now
+                )
+                refs.append(ref)
+                sequence += 1
+            } catch {
+                continue
+            }
+        }
+        return refs
+    }
+
+    /// Ingest already-decoded image candidates as `.workerGenerated` attachments.
+    /// Each image is validated/normalized through the same ingestor as file-based
+    /// images; one bad payload does not abort the rest.
+    public static func commit(
+        dataCandidates: [DataCandidate],
+        threadId: String,
+        store: ThreadAttachmentStore,
+        startSequence: Int,
+        idFactory: () -> String,
+        now: Date
+    ) -> [TurnAttachmentRef] {
+        guard !dataCandidates.isEmpty else { return [] }
+        let flock = try? ThreadFlockLock.acquire(lockURL: store.lockURL)
+        defer { _ = flock }
+
+        var refs: [TurnAttachmentRef] = []
+        var sequence = startSequence
+        for candidate in dataCandidates.prefix(maxImagesPerTurn) {
+            do {
+                let ingested = try store.ingestor.ingest(
+                    data: candidate.data,
+                    declaredMIME: candidate.mimeType,
+                    sourceKind: .workerGenerated,
+                    originalName: candidate.originalName
+                )
+                let (_, ref) = try store.commitIngested(
+                    ingested: ingested,
+                    attachmentId: idFactory(),
+                    threadId: threadId,
+                    sourceKind: .workerGenerated,
+                    sequence: sequence,
+                    originalName: candidate.originalName,
                     now: now
                 )
                 refs.append(ref)

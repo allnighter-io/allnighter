@@ -742,20 +742,35 @@ final class ThreadsViewModel {
         if let r = reasoningText, !r.isEmpty { scanTexts.append(r) }
         let runDir = try? runStore.runDirectory(forRunId: run.id)
         let candidates = WorkerOutputImageHarvest.candidates(in: scanTexts, runDirectory: runDir)
-        guard !candidates.isEmpty else { return HarvestedImages(refs: []) }
+        // Codex stores generated images only in its session rollout log (no file, no answer
+        // path); locate that rollout by the thread's working dir + the answer's time window.
+        let repoRoot = threads.first(where: { $0.id == threadId })?.workingDir
+        let dataCandidates = WorkerOutputImageHarvest.codexRolloutDataCandidates(
+            run: run, models: models, repoRoot: repoRoot)
+        guard !candidates.isEmpty || !dataCandidates.isEmpty else { return HarvestedImages(refs: []) }
 
-        let refs = WorkerOutputImageHarvest.commit(
+        let attachmentStore = ThreadAttachmentStore(threadDirectory: dir)
+        var refs = WorkerOutputImageHarvest.commit(
             imageURLs: candidates.map(\.url),
             threadId: threadId,
-            store: ThreadAttachmentStore(threadDirectory: dir),
+            store: attachmentStore,
             startSequence: 0,
             idFactory: { UUID().uuidString },
             now: Date()
         )
+        refs.append(contentsOf: WorkerOutputImageHarvest.commit(
+            dataCandidates: dataCandidates,
+            threadId: threadId,
+            store: attachmentStore,
+            startSequence: refs.count,
+            idFactory: { UUID().uuidString },
+            now: Date()
+        ))
         guard !refs.isEmpty else { return HarvestedImages(refs: []) }
 
         // Clean the caption the row will show — the first text holding a captured path, else
         // the settled text. The row prefers `turn.text` when the turn carries captured images.
+        guard !candidates.isEmpty else { return HarvestedImages(refs: refs) }
         let tokens = candidates.map(\.token)
         let base = captionTexts.first { text in tokens.contains { text.contains($0) } } ?? settledText ?? ""
         let cleaned = WorkerOutputImageHarvest.cleanedCaption(from: base, removing: tokens)

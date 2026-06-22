@@ -163,4 +163,126 @@ final class WorkerOutputImageHarvestTests: XCTestCase {
         XCTAssertEqual(resolved[0].sourceKind, .workerGenerated)
         XCTAssertTrue(FileManager.default.fileExists(atPath: resolved[0].canonicalPath))
     }
+
+    func testCodexRolloutHarvesterExtractsFunctionCallOutputImage() throws {
+        let root = tempDir()
+        let sessionId = "019ef0bc-eba8-7e81-ae14-aec8fd52f789"
+        let png = writeRealPNG(at: root.appendingPathComponent("source.png"))
+        let dataURL = "data:image/png;base64,\(try Data(contentsOf: png).base64EncodedString())"
+        let rollout = root.appendingPathComponent("rollout-2026-06-22T12-09-33-\(sessionId).jsonl")
+        try rolloutFixture(
+            timestamp: "2026-06-22T19:09:40.000Z",
+            sessionId: sessionId,
+            dataURL: dataURL
+        ).write(to: rollout, atomically: true, encoding: .utf8)
+
+        let harvester = CodexRolloutImageHarvester(searchRoots: [root])
+        let images = harvester.images(
+            sessionId: sessionId,
+            after: isoDate("2026-06-22T19:09:30.000Z"),
+            before: isoDate("2026-06-22T19:09:50.000Z")
+        )
+
+        XCTAssertEqual(images.count, 1)
+        XCTAssertEqual(images[0].mimeType, "image/png")
+        XCTAssertEqual(images[0].data, try Data(contentsOf: png))
+    }
+
+    func testCodexRolloutDataCandidatesCommitAsWorkerGeneratedAttachments() throws {
+        let root = tempDir()
+        let sessionId = "codex-session-1"
+        let oldPNG = writeRealPNG(at: root.appendingPathComponent("old.png"))
+        let currentPNG = writeRealPNG(at: root.appendingPathComponent("current.png"))
+        let oldURL = "data:image/png;base64,\(try Data(contentsOf: oldPNG).base64EncodedString())"
+        let currentURL = "data:image/png;base64,\(try Data(contentsOf: currentPNG).base64EncodedString())"
+        let rollout = root.appendingPathComponent("rollout-2026-06-22T12-09-33-\(sessionId).jsonl")
+        try [
+            rolloutFixture(timestamp: "2026-06-22T18:59:00.000Z", sessionId: sessionId, dataURL: oldURL),
+            rolloutFixture(timestamp: "2026-06-22T19:09:40.000Z", sessionId: sessionId, dataURL: currentURL),
+        ].joined(separator: "\n").write(to: rollout, atomically: true, encoding: .utf8)
+
+        let run = TeamRun(
+            id: "run1",
+            prompt: "generate an image",
+            status: .complete,
+            workers: [TestSupport.seat("chatgpt")],
+            workerAnswers: [
+                WorkerAnswer(
+                    workerId: "chatgpt#0",
+                    modelId: "chatgpt",
+                    status: .done,
+                    output: "Here is the generated image.",
+                    startedAt: isoDate("2026-06-22T19:09:30.000Z"),
+                    finishedAt: isoDate("2026-06-22T19:09:50.000Z"),
+                    vendorSessionId: sessionId
+                )
+            ],
+            createdAt: isoDate("2026-06-22T19:09:30.000Z")
+        )
+        let models = [TestSupport.worker("chatgpt", driverId: "codex")]
+        let images = WorkerOutputImageHarvest.codexRolloutDataCandidates(
+            run: run,
+            models: models,
+            harvester: CodexRolloutImageHarvester(searchRoots: [root])
+        )
+        XCTAssertEqual(images.count, 1, "only images inside the worker answer window are harvested")
+
+        let threadDir = tempDir()
+        let store = ThreadAttachmentStore(threadDirectory: threadDir)
+        let refs = WorkerOutputImageHarvest.commit(
+            dataCandidates: images,
+            threadId: "t1",
+            store: store,
+            startSequence: 0,
+            idFactory: { "att-\(UUID().uuidString)" },
+            now: isoDate("2026-06-22T19:10:00.000Z")
+        )
+
+        XCTAssertEqual(refs.count, 1)
+        let resolved = ThreadAttachmentResolver.resolve(refs: refs, store: store)
+        XCTAssertEqual(resolved.first?.sourceKind, .workerGenerated)
+        XCTAssertEqual(resolved.first?.missing, false)
+    }
+
+    /// The real generation shape: a `response_item` of type `image_generation_call` whose
+    /// `result` is RAW base64 (no `data:` prefix). This is what was missed — the harvester
+    /// only handled `function_call_output`/`input_image` (which is `view_image`, not gen).
+    func testCodexRolloutHarvesterExtractsImageGenerationCall() throws {
+        let root = tempDir()
+        let sessionId = "019ef16f-gen-session"
+        let png = writeRealPNG(at: root.appendingPathComponent("gen.png"))
+        let rawB64 = try Data(contentsOf: png).base64EncodedString()
+        let rollout = root.appendingPathComponent("rollout-2026-06-22T15-25-07-\(sessionId).jsonl")
+        try """
+        {"timestamp":"2026-06-22T22:25:07.000Z","type":"session_meta","payload":{"id":"\(sessionId)","cwd":"/tmp/proj","originator":"allnighter"}}
+        {"timestamp":"2026-06-22T22:26:01.000Z","type":"response_item","payload":{"type":"image_generation_call","id":"ig_1","status":"completed","result":"\(rawB64)"}}
+        """.write(to: rollout, atomically: true, encoding: .utf8)
+
+        let harvester = CodexRolloutImageHarvester(searchRoots: [root])
+        // By captured session id.
+        let bySession = harvester.images(
+            sessionId: sessionId,
+            after: isoDate("2026-06-22T22:25:00.000Z"),
+            before: isoDate("2026-06-22T22:26:30.000Z"))
+        XCTAssertEqual(bySession.count, 1)
+        XCTAssertEqual(bySession[0].mimeType, "image/png")
+        XCTAssertEqual(bySession[0].data, try Data(contentsOf: png))
+
+        // By cwd alone — the real-world path, since Codex's vendorSessionId is not captured.
+        let byCwd = harvester.images(sessionId: nil, cwd: "/tmp/proj", after: nil, before: nil)
+        XCTAssertEqual(byCwd.count, 1, "rollout located by session_meta.cwd when no session id")
+    }
+
+    private func rolloutFixture(timestamp: String, sessionId: String, dataURL: String) -> String {
+        """
+        {"timestamp":"\(timestamp)","type":"session_meta","payload":{"id":"\(sessionId)","cwd":"/tmp","originator":"allnighter"}}
+        {"timestamp":"\(timestamp)","type":"response_item","payload":{"type":"function_call_output","call_id":"call_image","output":[{"type":"input_image","image_url":"\(dataURL)"}]}}
+        """
+    }
+
+    private func isoDate(_ value: String) -> Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value)!
+    }
 }
