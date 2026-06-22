@@ -19,12 +19,12 @@ struct BoostWindowHeroOverlay: View {
                 .fill(.ultraThinMaterial.opacity(0.15))
 
             VStack(spacing: 14) {
-                icon
+                overlayIconView
                 Text(title)
                     .font(ALFont.sans(17, .heavy))
                     .tracking(-0.17)
                     .foregroundStyle(ALColor.textPrimary)
-                description
+                overlayMessage
                     .font(ALFont.sans(13))
                     .foregroundStyle(ALColor.textMuted)
                     .multilineTextAlignment(.center)
@@ -50,25 +50,31 @@ struct BoostWindowHeroOverlay: View {
     }
 
     @ViewBuilder
-    private var description: some View {
+    private var overlayMessage: some View {
         switch style {
         case .off:
-            (Text("Turn it on to land a second fresh bucket in your peak window. ") +
-             Text("Off by default").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary) +
-             Text(" — it spends a little of your normal subscription."))
+            emphasizedMessage(
+                "Turn it on to land a second fresh bucket in your peak window. ",
+                emphasis: "Off by default",
+                suffix: " — it spends a little of your normal subscription."
+            )
         case .quiet:
-            (Text("You're already running agents before this slot — there's ") +
-             Text("nothing to seed").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary) +
-             Text(". Move the window after a quiet stretch."))
+            emphasizedMessage(
+                "You're already running agents before this slot — there's ",
+                emphasis: "nothing to seed",
+                suffix: ". Move the window after a quiet stretch."
+            )
         case .needsYou(let name):
-            (Text("\(name) showed a sign-in prompt. Allnighter ") +
-             Text("stopped instead of auto-confirming").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary) +
-             Text(" — sign in to resume."))
+            emphasizedMessage(
+                "\(name) showed a sign-in prompt. Allnighter ",
+                emphasis: "stopped instead of auto-confirming",
+                suffix: " — sign in to resume."
+            )
         }
     }
 
     @ViewBuilder
-    private var icon: some View {
+    private var overlayIconView: some View {
         switch style {
         case .off:
             overlayIcon(symbol: "moon.fill", tone: .muted)
@@ -77,6 +83,12 @@ struct BoostWindowHeroOverlay: View {
         case .needsYou:
             overlayIcon(symbol: "exclamationmark.triangle.fill", tone: .warning)
         }
+    }
+
+    private func emphasizedMessage(_ prefix: String, emphasis: String, suffix: String) -> Text {
+        Text(prefix)
+            + Text(emphasis).fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
+            + Text(suffix)
     }
 
     private func overlayIcon(symbol: String, tone: IconTone) -> some View {
