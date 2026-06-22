@@ -82,7 +82,11 @@ extension ThreadsPresenter {
             && ($0.projectId.map { known.contains($0) } ?? false)
         }
         let pinned = visible.filter { $0.isPinned }.sorted { $0.updatedAt > $1.updatedAt }
-        let unpinned = visible.filter { !$0.isPinned }
+        // A pinned thread lives ONLY in the Pinned section — never also under its project group
+        // (no double rows). Exclude by id so it can't reappear even if a stale summary disagrees
+        // on isPinned.
+        let pinnedIDs = Set(pinned.map(\.id))
+        let unpinned = visible.filter { !$0.isPinned && !pinnedIDs.contains($0.id) }
         let groups = projects.map { project in
             ProjectRowGroup(
                 id: project.id, project: project,

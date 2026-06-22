@@ -178,7 +178,7 @@ private struct HomeSidebar: View {
             LazyVStack(alignment: .leading, spacing: 2) {
                 if !sections.pinned.isEmpty {
                     railSectionHeader("Pinned")
-                    ForEach(sections.pinned) { row($0) }
+                    ForEach(sections.pinned) { row($0, chip: projectName(for: $0)) }
                 }
                 projectsSectionHeader
                 ForEach(sections.groups) { group in
@@ -190,7 +190,9 @@ private struct HomeSidebar: View {
                     )
                     if !collapsed.contains(group.id) {
                         let shown = expanded.contains(group.id) ? group.rows : Array(group.rows.prefix(4))
-                        ForEach(shown) { row($0) }
+                        // Indent threads to align under the project name (chevron + folder icon
+                        // width), matching how Finder/Cursor/Codex nest items in a folder.
+                        ForEach(shown) { row($0).padding(.leading, 16) }
                         if group.rows.count > 4 && !expanded.contains(group.id) {
                             moreRow(group.rows.count - 4, group: group.id)
                         }
@@ -205,10 +207,11 @@ private struct HomeSidebar: View {
         }
     }
 
-    private func row(_ row: ThreadRailRowState) -> some View {
+    private func row(_ row: ThreadRailRowState, chip: String? = nil) -> some View {
         ProjectThreadRow(
             row: row,
             selected: row.id == threads.selectedThreadId,
+            projectChip: chip,
             armedPending: armedPendingThreadIds.contains(row.id),
             renaming: renameThreadId == row.id,
             onRename: { renameThreadId = row.id },
@@ -216,6 +219,12 @@ private struct HomeSidebar: View {
         ) {
             threads.select(threadId: row.id)
         }
+    }
+
+    /// The project's display name for a pinned row's folder chip.
+    private func projectName(for row: ThreadRailRowState) -> String? {
+        guard let pid = row.projectId else { return nil }
+        return projects.projects.first { $0.id == pid }?.displayName
     }
 
     /// Read the armed (.pending) items from the Pending store and collect their bound
@@ -370,6 +379,9 @@ private struct ProjectThreadRow: View {
     @Environment(ThreadsViewModel.self) private var threads
     let row: ThreadRailRowState
     let selected: Bool
+    /// For a PINNED row (shown outside its project group): the project's name, rendered as a
+    /// folder chip in place of the timestamp so you still know where it lives. nil elsewhere.
+    var projectChip: String? = nil
     /// True when an armed Pending item targets this thread (neutral dot, not amber).
     var armedPending: Bool = false
     /// Inline-rename is parent-driven (shared SSOT with ⌘R + the context menu), so only one
@@ -385,6 +397,21 @@ private struct ProjectThreadRow: View {
     /// The single SSOT row state — precomputed thread facts + the live armed-Pending fact.
     private var state: ThreadDisplayState {
         row.displayState(armedPending: armedPending)
+    }
+
+    /// Codex-style compact age: "now" / "5m" / "9h" / "2d" / "3w" / "5mo" / "2y".
+    static func compactAge(_ date: Date, now: Date = Date()) -> String {
+        let s = max(0, now.timeIntervalSince(date))
+        if s < 60 { return "now" }
+        let m = Int(s) / 60
+        if m < 60 { return "\(m)m" }
+        let h = m / 60
+        if h < 24 { return "\(h)h" }
+        let d = h / 24
+        if d < 7 { return "\(d)d" }
+        if d < 30 { return "\(d / 7)w" }
+        if d < 365 { return "\(d / 30)mo" }
+        return "\(d / 365)y"
     }
 
     var body: some View {
@@ -443,9 +470,15 @@ private struct ProjectThreadRow: View {
                         threads.archiveThread(row.id)
                     }
                 }
+            } else if let projectChip {
+                HStack(spacing: 3) {
+                    Image(systemName: "folder").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
+                    Text(projectChip).font(.system(size: 10)).foregroundStyle(ALColor.textFaint).lineLimit(1)
+                }
             } else {
-                Text(row.updatedAt, format: .relative(presentation: .numeric))
+                Text(Self.compactAge(row.updatedAt))
                     .font(.system(size: 10, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                    .monospacedDigit()
             }
         }
         .padding(.horizontal, 10).frame(height: 32)
