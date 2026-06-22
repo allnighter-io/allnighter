@@ -2,7 +2,8 @@
 
 Status: Draft founder note - no implementation approved
 Owner: AllnighterCore + AllnighterEngine + Mac Settings + CLI/MCP contracts
-Updated: 2026-06-22
+Updated: 2026-06-22 (value model corrected to reset-placement / bucket framing;
+one-dial settings concept, architecture reuse, calibration, and admission added)
 
 ## Founder Intent
 
@@ -28,6 +29,94 @@ Align paid AI worker windows with the user's actual workday.
 This is a very Allnighter idea: the product already exists to make the user's
 paid bench show up to work. Window priming adds a small local nudge so the bench
 is less likely to waste its first reset while the user is asleep or away.
+
+## The Unlock (Corrected Value Model)
+
+The capacity that matters is the PER-SESSION ALLOWANCE, not wall-clock time. Each
+provider refills capacity in a rolling 5-hour window (a "bucket") whose clock
+starts on the FIRST query and then auto-resets every 5h while in use. A bucket
+holds a fixed allowance; unused allowance does NOT bank - it is lost at the
+reset. (Verified on both as of 2026-06-22: Claude Code statusline shows "5h /
+% remaining / reset time"; the Max plan panel shows "Current session - resets in
+N hr - % used". Codex behaves the same nominal 5h way.)
+
+For a heavy user the binding constraint is the allowance, so the lever is WHERE
+the reset boundary lands relative to the hours actually worked.
+
+Worked example (the founder's real pattern: heavy morning runs ~6-11 AM):
+
+```text
+No priming:  first query 6:00 opens bucket 6:00-11:00. The whole peak shares ONE
+             bucket and the reset lands at 11:00 - after the peak is over, useless.
+
+Prime 3:30:  a sacrificial bucket opens 3:30-8:30 (~untouched while asleep).
+             Work 6:00-8:30 draws on it; at 8:30 it RESETS into a fresh bucket
+             8:30-1:30 drawn on 8:30-11:00.
+
+Net:         TWO full buckets usable inside the 6-11 AM peak instead of one.
+```
+
+Across a day this is roughly 2 buckets -> 3 buckets - about a +50% boost in
+usable capacity during waking hours, with NO overnight work scheduled. The user
+simply moved the reset INTO their peak.
+
+Earlier framing error to avoid repeating: priming is NOT "neutral in the clean
+case." That reasoning assumed even, wall-clock-bound usage. For bursty heavy use
+that would exhaust a bucket, a reset placed inside the peak is a real, large
+unlock (the "100 -> 200 units available in the morning" the founder described).
+
+Two honest tiers of value:
+
+- Tier 1 (PRIMARY, the headline): reset PLACEMENT - get a second fresh bucket
+  during your peak. No scheduled work required.
+- Tier 2 (secondary): RECLAMATION - if the user does queue overnight work, the
+  otherwise-wasted pre-dawn bucket runs real work and still hands off a fresh
+  reset at workday start.
+
+Honesty boundary (keeps the no-fake-quota law intact): a "bucket" is one real,
+observable session reset. We depict WHEN resets happen (sourced/observed), never
+HOW MUCH quota exists. No token counts, no "% remaining", no cost, no
+guaranteed-capacity claims. The boost number is COMPUTED from the user's chosen
+reset time and the measured window; it honestly shows +0 when a setting adds no
+bucket.
+
+## Settings Concept: One Dial, One Graph
+
+The screen is governed by a SINGLE control that drives a reactive graph and a
+live headline number. Everything else is derived.
+
+- The dial = the time the user wants their fresh morning bucket to land (their
+  "reset at 9, not 11" wish). Allnighter derives the primer time:
+  `primerTime = targetResetTime - measuredWindowLength`.
+- The graph plots capacity across the day, comparing "Regular day" vs "With
+  Allnighter", with a shaded working-hours band. As the dial moves, the extra
+  bucket visibly appears/disappears and the headline updates:
+  `2 -> 3 buckets - +50%` (or honestly `+0 - no boost here`).
+- Chart treatment is a live design exploration (step/line chart counting buckets,
+  before/after timeline bars, or a refilling sawtooth "tank"). Decision pending;
+  the founder is brainstorming this with a designer.
+
+Chart honesty rules (hard):
+
+- A bucket = a real session reset, not a quota amount. Never render token counts,
+  "% quota", cost, runtime, or "guaranteed capacity".
+- The before/after comparison must never flatter: if a dial position adds no
+  usable bucket, the graph and the number say so.
+
+The single morning dial is the v1 surface; see "Reset Grid (v2)".
+
+## Reset Grid (v2)
+
+Buckets chain every 5h once a session starts, so the single morning primer
+effectively sets the reset GRID for the whole day (reset at 9 -> next at 2 -> 7).
+The grid only holds if the user keeps touching the source near each boundary; a
+long mid-day gap lets the next bucket start late and drift.
+
+v2 ("hold the grid"): Allnighter sends a tiny re-prime touch at each scheduled
+boundary the user has not already hit, locking resets to the user's chosen times
+all day. This is more spend + more automation + more provider-terms exposure, so
+it is explicitly v2. v1 ships the single morning boost only. The Settings dial can
+later expand to a small list of target reset times (default: one).
 
 ## Source Notes
 
@@ -267,13 +356,60 @@ Allnighter must not learn:
 - "this task will fit";
 - "tomorrow's capacity is guaranteed."
 
+## Architecture Reuse (Build Less)
+
+Most of this already exists for the REACTIVE (cooldown -> resume) path. Window
+priming is the PROACTIVE mirror of it. Reuse, do not reinvent:
+
+- `CapacityObservation` (`AllnighterCore/CapacityObservation.swift`) already
+  carries `source`, `observedResetAt`, `rawSnippet`, `wakeAfter`,
+  `sourceConfidence` - parsed from real CLI output and JSON-projected. This IS
+  the observation type. Do NOT add a parallel `UtilizationObservation` (that is
+  the "duplicate truth to avoid" this doc itself warns against).
+- `SourceCapacityLedger` already ledgers these per source - it is the calibration
+  store.
+- `PendingWakePlanner` + `PendingCapacityResumeWriter` already compute "wake at
+  time T because capacity resets then". Priming is the same wake mechanism aimed
+  at OPENING a session at `workdayStart - windowLength` instead of RESUMING after
+  a cooldown.
+- `alln serve` (`AllnighterCLI.runServe`) is the resident loop that fires
+  scheduled primers when enabled.
+
+So the genuinely new surface is small: `UtilizationPolicy` + `UtilizationSchedule`
++ `UtilizationPrimerEvent` + the Settings dial/graph + the CLI/MCP contract. Every
+real run's `observedResetAt` continuously recalibrates the window for free.
+
+## Calibration (Measure, Do Not Assume)
+
+Both providers are nominally 5h, but treat each SOURCE+ACCOUNT window as measured,
+not assumed-shared. First enable = a calibration run: prime once, parse
+`observedResetAt` from output, derive the real window, then schedule. Until
+calibrated, the schedule and graph are a LABELED ASSUMPTION ("no verified reset
+pattern yet - prime once and record what happens"). Codex needs this more:
+subscription window behavior across app/editor/terminal is genuinely uncertain,
+and the Claude model may not transfer.
+
+## Admission: Prime Only When It Helps
+
+A primer must change the outcome or be skipped - never spend for nothing:
+
+- Skip if a fresh bucket would already be available at the target time (no early
+  touch expected and no queued overnight work) - priming buys nothing.
+- Prime (Tier 1) when an early/incidental touch would otherwise start the peak
+  bucket early; or (Tier 2) when there is real queued work to place in the
+  pre-dawn bucket.
+
+This turns "the best primer is no extra prompt" from a note into a decision rule,
+and shares the admission spirit of `Utilization_Admission_Control.md` (parked).
+
 ## SSOT
 
 Truth owner:
 
 ```text
-AllnighterCore owns UtilizationPolicy, UtilizationSchedule,
-UtilizationPrimerEvent, and UtilizationObservation semantics.
+AllnighterCore owns UtilizationPolicy, UtilizationSchedule, and
+UtilizationPrimerEvent semantics. Reset/cooldown OBSERVATIONS reuse the existing
+CapacityObservation + SourceCapacityLedger - do NOT add a UtilizationObservation.
 AllnighterEngine owns source-specific primer execution and parser adapters.
 alln serve owns scheduled resident execution when enabled.
 Mac Settings renders and edits Core policy; it does not invent availability.
@@ -469,15 +605,31 @@ official/local behavior are reviewed.
 - Deterministic fake-driver tests prove schedule, skip, billing-prompt stop, and
   no fake-capacity copy.
 
+## Working Decisions (founder brainstorm 2026-06-22)
+
+- Headline value = reset PLACEMENT (Tier 1), not overnight reclamation. The pitch
+  is "2 -> 3 buckets, ~+50%, no scheduling required."
+- The Settings surface is ONE dial (target morning reset time) driving a reactive
+  graph + a live, computed boost number. Chart shape is being designed.
+- v1 ships a single morning boost; the all-day reset grid is v2 ("hold the grid").
+- One global workday start with per-source OFFSETS (each source's measured
+  window), not a separate target time configured per source.
+- A real overnight authorized run DOES count as the primer for that source - the
+  window is per-account, so any touch (regardless of model) opens the session.
+- Build on the same slice for reminder-mode AND unattended: ship the
+  schedule/ledger/`alln serve` path together; reminder vs unattended is a
+  flag-flip after dogfood + provider-terms review (not an architecture fork).
+- Observations reuse CapacityObservation/SourceCapacityLedger; no new
+  UtilizationObservation type.
+- Label: section "Utilization"; user-facing row uses plain-benefit wording
+  (working name "Morning Boost"), not the jargon "priming".
+
 ## Open Questions
 
 - Which providers explicitly allow or discourage a once-daily synthetic primer?
-- Does Codex subscription usage have a first-query rolling window in the local
-  products Allnighter will drive, or only general ChatGPT surfaces?
-- Should v0 be reminder-only to avoid unattended quota spend?
-- Should "Utilization" be the final Settings label, or should the row say
-  "Workday Windows" with "Utilization" as the section/category?
-- Should a real overnight run count as a primer for the same source even when it
-  used a different model under the same account window?
-- Should the user choose target reset time per source, or one global workday
-  start with per-source offsets?
+  (Gate before unattended priming ships.)
+- Does Codex subscription usage carry a first-query rolling window in the local
+  products Allnighter drives, or only general ChatGPT surfaces? (Calibrate to
+  find out; do not assume the Claude model transfers.)
+- v2 reset-grid scope: how many target resets to expose, and is re-priming to
+  hold the grid acceptable under each provider's terms?
