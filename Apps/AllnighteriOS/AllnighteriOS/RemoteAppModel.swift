@@ -126,6 +126,7 @@ final class RemoteAppModel {
     private var deviceSession: DeviceSession?
     private var threadStore: ConversationThreadStore?
     private var activationSequence = 0
+    var composerThreadId: String?
 
     private struct DeviceSession {
         var client: any RemoteClient
@@ -311,7 +312,10 @@ final class RemoteAppModel {
         )
 
         do {
-            _ = try await sender.send(WorkRequestDraft(prompt: trimmed))
+            _ = try await sender.send(WorkRequestDraft(
+                prompt: trimmed,
+                threadId: composerThreadId
+            ))
             workRequestSendPhase = .idle
             await refreshHome()
         } catch let error as WorkRequestSenderError where error == .emptyPrompt {

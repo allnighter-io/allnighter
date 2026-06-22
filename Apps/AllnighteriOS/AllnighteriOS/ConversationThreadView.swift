@@ -28,7 +28,13 @@ struct ConversationThreadView: View {
         .scrollContentBackground(.hidden)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: threadId) {
+            appModel.composerThreadId = threadId
             await appModel.loadThread(threadId: threadId)
+        }
+        .onDisappear {
+            if appModel.composerThreadId == threadId {
+                appModel.composerThreadId = nil
+            }
         }
         .refreshable {
             await appModel.loadThread(threadId: threadId)
