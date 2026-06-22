@@ -23,6 +23,7 @@ struct ContentView: View {
                         workRequestSendPhase: appModel.workRequestSendPhase,
                         killSwitchPhase: appModel.killSwitchPhase,
                         activeWorkCount: appModel.activeWorkCount,
+                        pendingDecisionCount: appModel.pendingDecisionCount,
                         canSendWorkRequests: appModel.canSendWorkRequests,
                         canStopAllWork: appModel.canStopAllWork,
                         onSendWorkRequest: { prompt in
@@ -63,6 +64,7 @@ private struct ConversationsHomeView: View {
     let workRequestSendPhase: WorkRequestSendPhase
     let killSwitchPhase: KillSwitchPhase
     let activeWorkCount: Int
+    let pendingDecisionCount: Int
     let canSendWorkRequests: Bool
     let canStopAllWork: Bool
     let onSendWorkRequest: (String) async -> Void
@@ -88,6 +90,15 @@ private struct ConversationsHomeView: View {
                     IOSStatusBanner(text: homeFreshnessLabel, tone: .neutral)
                         .padding(.bottom, IOSSpace.s5)
                         .accessibilityIdentifier("home-freshness-banner")
+                }
+
+                if pendingDecisionCount > 0 {
+                    IOSStatusBanner(
+                        text: pendingDecisionLabel,
+                        tone: .warning
+                    )
+                    .padding(.bottom, IOSSpace.s5)
+                    .accessibilityIdentifier("home-pending-decisions-banner")
                 }
 
                 KillSwitchBar(
@@ -182,13 +193,25 @@ private struct ConversationsHomeView: View {
             .accessibilityIdentifier("connection-status-banner")
     }
 
+    private var pendingDecisionLabel: String {
+        if pendingDecisionCount == 1 {
+            "1 conversation needs your decision"
+        } else {
+            "\(pendingDecisionCount) conversations need your decision"
+        }
+    }
+
     private var visibleSnapshot: ConversationListSnapshot {
-        switch selectedFilter {
+        let filtered: ConversationListSnapshot = switch selectedFilter {
         case .all:
             snapshot
         case .unread, .pending:
             snapshot.filtering(selectedFilter.includes)
         }
+
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return filtered }
+        return filtered.filtering { $0.title.localizedCaseInsensitiveContains(query) }
     }
 
     private var brandBar: some View {
@@ -258,7 +281,7 @@ private struct ConversationsHomeView: View {
     }
 
     private var activeConversations: [ConversationSummary] {
-        let all = snapshot.pinned + snapshot.projects.flatMap(\.conversations)
+        let all = visibleSnapshot.pinned + visibleSnapshot.projects.flatMap(\.conversations)
         return all.filter(\.isPending)
     }
 
@@ -403,7 +426,7 @@ private enum ConversationFilter: CaseIterable, Identifiable {
         case .unread:
             return conversation.isUnread
         case .pending:
-            return conversation.isPending
+            return conversation.isPending || conversation.needsAttention
         }
     }
 }
@@ -473,7 +496,7 @@ private struct ConversationRow: View {
                     if let statusLabel = conversation.statusLabel {
                         Text(statusLabel)
                             .font(IOSFont.monoSm)
-                            .foregroundStyle(conversation.isPending ? IOSColor.accentText : IOSColor.textMuted)
+                            .foregroundStyle(conversation.isPending || conversation.needsAttention ? IOSColor.accentText : IOSColor.textMuted)
                     }
                 }
 

@@ -22,7 +22,8 @@ final class ConversationHomeCacheTests: XCTestCase {
                     relativeAge: "1 hour ago",
                     statusLabel: "Running",
                     isUnread: false,
-                    isPending: true
+                    isPending: true,
+                    needsAttention: false
                 ),
             ],
             projects: []

@@ -72,10 +72,36 @@ final class AllnighteriOSTests: XCTestCase {
         XCTAssertEqual(snapshot.projects.last?.conversations.first?.isPending, true)
     }
 
+    func testConversationHomeMapperSurfacesNeedsAttention() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let mapper = ConversationHomeMapper()
+        let snapshot = mapper.snapshot(
+            from: RemoteThreadSnapshotEnvelope(
+                threads: [
+                    thread(
+                        id: "attention",
+                        title: "Pick a design",
+                        projectId: nil,
+                        updatedAt: now,
+                        hasUnread: true,
+                        unreadNeedsAttention: true,
+                        displayState: .replied
+                    ),
+                ],
+                serverTime: now
+            ),
+            now: now
+        )
+
+        let conversation = snapshot.projects.first?.conversations.first
+        XCTAssertEqual(conversation?.statusLabel, "Needs you")
+        XCTAssertTrue(conversation?.needsAttention == true)
+    }
+
     func testConversationSnapshotFilteringDropsEmptyProjects() {
         let snapshot = ConversationListSnapshot(
             pinned: [
-                ConversationSummary(id: "pinned", title: "Pinned", relativeAge: "just now", statusLabel: nil, isUnread: true, isPending: false)
+                ConversationSummary(id: "pinned", title: "Pinned", relativeAge: "just now", statusLabel: nil, isUnread: true, isPending: false, needsAttention: false)
             ],
             projects: [
                 ConversationProject(
@@ -85,7 +111,7 @@ final class AllnighteriOSTests: XCTestCase {
                     isExpanded: true,
                     hasUnread: false,
                     conversations: [
-                        ConversationSummary(id: "read", title: "Read", relativeAge: "just now", statusLabel: nil, isUnread: false, isPending: false)
+                        ConversationSummary(id: "read", title: "Read", relativeAge: "just now", statusLabel: nil, isUnread: false, isPending: false, needsAttention: false)
                     ]
                 )
             ]
@@ -153,6 +179,7 @@ final class AllnighteriOSTests: XCTestCase {
         updatedAt: Date,
         pinnedAt: Date? = nil,
         hasUnread: Bool = false,
+        unreadNeedsAttention: Bool = false,
         displayState: ThreadDisplayState = .idle
     ) -> RemoteThreadSummary {
         RemoteThreadSummary(
@@ -167,7 +194,7 @@ final class AllnighteriOSTests: XCTestCase {
             readState: RemoteThreadReadState(
                 readCursor: nil,
                 hasUnread: hasUnread,
-                unreadNeedsAttention: false,
+                unreadNeedsAttention: unreadNeedsAttention,
                 firstUnreadTurnId: hasUnread ? "\(id)-first-unread" : nil,
                 latestUnreadTurnId: hasUnread ? "\(id)-latest-unread" : nil
             ),

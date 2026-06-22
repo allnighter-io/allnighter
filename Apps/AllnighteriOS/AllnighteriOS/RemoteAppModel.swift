@@ -125,6 +125,12 @@ final class RemoteAppModel {
         return conversations.filter(\.isPending).count
     }
 
+    var pendingDecisionCount: Int {
+        let conversations = homeSnapshot.pinned
+            + homeSnapshot.projects.flatMap(\.conversations)
+        return conversations.filter(\.needsAttention).count
+    }
+
     private var homeStore: ConversationHomeStore?
     private var connectedClient: RemoteCloudClientAssembly.ConnectedClient?
     private var previewClient: MockiOSClient?

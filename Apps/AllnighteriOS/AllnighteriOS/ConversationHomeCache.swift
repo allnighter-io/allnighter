@@ -8,7 +8,7 @@
 import Foundation
 
 struct ConversationHomeCacheEntry: Codable, Equatable {
-    static let currentVersion = 1
+    static let currentVersion = 2
 
     var version: Int
     var accountId: String

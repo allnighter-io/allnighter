@@ -28,6 +28,7 @@ struct ConversationSummary: Identifiable, Equatable, Codable {
     let statusLabel: String?
     let isUnread: Bool
     let isPending: Bool
+    let needsAttention: Bool
 }
 
 struct ConversationProject: Identifiable, Equatable, Codable {
@@ -67,7 +68,8 @@ enum ConversationHomePreviewData {
                 relativeAge: "3 days ago",
                 statusLabel: nil,
                 isUnread: false,
-                isPending: false
+                isPending: false,
+                needsAttention: false
             )
         ],
         projects: [
@@ -100,7 +102,8 @@ enum ConversationHomePreviewData {
                         relativeAge: "3 days ago",
                         statusLabel: nil,
                         isUnread: false,
-                        isPending: false
+                        isPending: false,
+                        needsAttention: false
                     ),
                     ConversationSummary(
                         id: "say-hi-only",
@@ -108,7 +111,8 @@ enum ConversationHomePreviewData {
                         relativeAge: "4 days ago",
                         statusLabel: nil,
                         isUnread: false,
-                        isPending: false
+                        isPending: false,
+                        needsAttention: false
                     ),
                     ConversationSummary(
                         id: "say-hi-nothing-else",
@@ -116,7 +120,8 @@ enum ConversationHomePreviewData {
                         relativeAge: "4 days ago",
                         statusLabel: nil,
                         isUnread: false,
-                        isPending: false
+                        isPending: false,
+                        needsAttention: false
                     ),
                     ConversationSummary(
                         id: "new-work-order-2",
@@ -124,7 +129,8 @@ enum ConversationHomePreviewData {
                         relativeAge: "4 days ago",
                         statusLabel: nil,
                         isUnread: false,
-                        isPending: false
+                        isPending: false,
+                        needsAttention: false
                     ),
                     ConversationSummary(
                         id: "follow-up-plan",
@@ -132,7 +138,8 @@ enum ConversationHomePreviewData {
                         relativeAge: "5 days ago",
                         statusLabel: nil,
                         isUnread: false,
-                        isPending: false
+                        isPending: false,
+                        needsAttention: false
                     )
                 ]
             )
