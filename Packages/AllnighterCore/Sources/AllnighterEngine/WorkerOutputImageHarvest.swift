@@ -15,24 +15,62 @@ public enum WorkerOutputImageHarvest {
     /// output that lists many paths.
     public static let maxImagesPerTurn = 8
 
-    /// Resolved, validated local image files referenced anywhere in `texts`. Run-relative
-    /// paths resolve under `runDirectory` (when given); absolute and `~/` paths resolve
-    /// directly. Results are deduped by resolved path, in first-seen order, and capped.
-    public static func candidateImageURLs(in texts: [String], runDirectory: URL?) -> [URL] {
-        var seen = Set<String>()
-        var result: [URL] = []
-
-        func consider(_ path: String) {
-            guard result.count < maxImagesPerTurn else { return }
-            guard let url = validatedImageURL(forPath: path, runDirectory: runDirectory) else { return }
-            if seen.insert(url.path).inserted { result.append(url) }
+    /// A path token in the worker's prose that resolved to a real, validated image.
+    /// `token` is the raw substring as it appeared (used to strip it from the caption);
+    /// `url` is the validated file on disk.
+    public struct Candidate: Sendable, Equatable {
+        public var token: String
+        public var url: URL
+        public init(token: String, url: URL) {
+            self.token = token
+            self.url = url
         }
+    }
 
+    /// Path tokens in `texts` that resolve to real, validated images. Run-relative paths
+    /// resolve under `runDirectory` (when given); absolute and `~/` paths resolve directly.
+    /// Deduped by resolved path, first-seen order, capped at `maxImagesPerTurn`.
+    public static func candidates(in texts: [String], runDirectory: URL?) -> [Candidate] {
+        var seen = Set<String>()
+        var result: [Candidate] = []
         for text in texts {
-            for token in imagePathTokens(in: text) { consider(token) }
-            if result.count >= maxImagesPerTurn { break }
+            for token in imagePathTokens(in: text) {
+                guard result.count < maxImagesPerTurn else { return result }
+                guard let url = validatedImageURL(forPath: token, runDirectory: runDirectory) else { continue }
+                if seen.insert(url.path).inserted { result.append(Candidate(token: token, url: url)) }
+            }
         }
         return result
+    }
+
+    /// Resolved, validated local image files referenced anywhere in `texts`.
+    public static func candidateImageURLs(in texts: [String], runDirectory: URL?) -> [URL] {
+        candidates(in: texts, runDirectory: runDirectory).map(\.url)
+    }
+
+    /// The caption with captured image-path tokens removed: a path we've already turned into
+    /// a preview chip is redundant noise (and vendor paths are ugly). Drops the token, then
+    /// drops a line that is now just a dangling label ("Updated image saved:") and collapses
+    /// the blank lines that leaves. Returns the original text unchanged when `tokens` is empty.
+    public static func cleanedCaption(from text: String, removing tokens: [String]) -> String {
+        guard !tokens.isEmpty else { return text }
+        var stripped = text
+        for token in tokens { stripped = stripped.replacingOccurrences(of: token, with: "") }
+
+        let lines = stripped.components(separatedBy: "\n").map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }
+        // A line that, after the path is gone, is only a short trailing-colon label is the
+        // "Updated image saved:" / "The file is saved here:" lead-in — drop it.
+        let kept = lines.filter { line in
+            !(line.hasSuffix(":") && line.count <= 48)
+        }
+        var collapsed: [String] = []
+        for line in kept {
+            if line.isEmpty, collapsed.last?.isEmpty ?? true { continue }
+            collapsed.append(line)
+        }
+        return collapsed.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Ingest each image as a `.workerGenerated` attachment and return the refs (sequenced

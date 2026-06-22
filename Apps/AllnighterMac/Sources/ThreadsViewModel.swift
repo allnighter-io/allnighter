@@ -620,13 +620,17 @@ final class ThreadsViewModel {
                     settled.stageId = stage.id
                 }
                 // Capture any real image the worker produced (a path in its output) into the
-                // thread's canonical attachment store, so the timeline shows a preview. Run-time
-                // copy of canonical bytes — never the vendor path, never a faked thumb. Design
-                // boards are skipped: their tile strip already owns the fan-out images.
+                // thread's canonical attachment store, so the timeline shows a preview, and
+                // strip the now-redundant path from the caption. Run-time copy of canonical
+                // bytes — never the vendor path, never a faked thumb. Design boards are
+                // skipped: their tile strip already owns the fan-out images.
                 if turnKind != .designBoard {
                     let harvested = self.harvestWorkerImages(
                         run: run, settledText: settled.text, threadId: threadId)
-                    if !harvested.isEmpty { settled.attachmentRefs += harvested }
+                    if !harvested.refs.isEmpty {
+                        settled.attachmentRefs += harvested.refs
+                        if let caption = harvested.cleanedCaption { settled.text = caption }
+                    }
                 }
             case .failure(let error):
                 settled.status = .failed
@@ -706,11 +710,20 @@ final class ThreadsViewModel {
         return ThreadAttachmentResolver.resolve(refs: turn.attachmentRefs, store: attachmentStore)
     }
 
+    struct HarvestedImages {
+        var refs: [TurnAttachmentRef]
+        /// The settled caption with captured paths stripped (nil when nothing to clean).
+        var cleanedCaption: String?
+    }
+
     /// Capture images a worker produced (referenced by path in its run output / answer /
     /// settled text) into the thread's canonical attachment store, returning refs to stamp
-    /// on the settled turn. Real bytes only — a path with no valid image behind it is skipped.
-    private func harvestWorkerImages(run: TeamRun, settledText: String?, threadId: String) -> [TurnAttachmentRef] {
-        guard let dir = try? store.threadDirectory(forThreadId: threadId) else { return [] }
+    /// on the settled turn plus the caption with those paths removed. Real bytes only — a
+    /// path with no valid image behind it is skipped.
+    private func harvestWorkerImages(run: TeamRun, settledText: String?, threadId: String) -> HarvestedImages {
+        guard let dir = try? store.threadDirectory(forThreadId: threadId) else { return HarvestedImages(refs: []) }
+        // Caption candidates in display priority: the settled turn text first (what the row
+        // shows), then the worker answers, then any plan markdown.
         var texts: [String] = []
         if let t = settledText, !t.isEmpty { texts.append(t) }
         for answer in run.workerAnswers where !(answer.output ?? "").isEmpty {
@@ -720,16 +733,25 @@ final class ThreadsViewModel {
             texts.append(stage.payload?.markdown ?? "")
         }
         let runDir = try? runStore.runDirectory(forRunId: run.id)
-        let urls = WorkerOutputImageHarvest.candidateImageURLs(in: texts, runDirectory: runDir)
-        guard !urls.isEmpty else { return [] }
-        return WorkerOutputImageHarvest.commit(
-            imageURLs: urls,
+        let candidates = WorkerOutputImageHarvest.candidates(in: texts, runDirectory: runDir)
+        guard !candidates.isEmpty else { return HarvestedImages(refs: []) }
+
+        let refs = WorkerOutputImageHarvest.commit(
+            imageURLs: candidates.map(\.url),
             threadId: threadId,
             store: ThreadAttachmentStore(threadDirectory: dir),
             startSequence: 0,
             idFactory: { UUID().uuidString },
             now: Date()
         )
+        guard !refs.isEmpty else { return HarvestedImages(refs: []) }
+
+        // Clean the caption the row will show — the first text holding a captured path, else
+        // the settled text. The row prefers `turn.text` when the turn carries captured images.
+        let tokens = candidates.map(\.token)
+        let base = texts.first { text in tokens.contains { text.contains($0) } } ?? settledText ?? ""
+        let cleaned = WorkerOutputImageHarvest.cleanedCaption(from: base, removing: tokens)
+        return HarvestedImages(refs: refs, cleanedCaption: cleaned.isEmpty ? nil : cleaned)
     }
 
     func attachmentThumb(for resolved: ResolvedThreadAttachment) -> NSImage? {
@@ -743,6 +765,20 @@ final class ThreadsViewModel {
     func openAttachmentPath(_ path: String) {
         guard !path.isEmpty else { return }
         NSWorkspace.shared.open(URL(fileURLWithPath: path))
+    }
+
+    /// Reveal the canonical file in Finder (select it), so the user can move/rename/copy it.
+    func revealAttachmentInFinder(_ path: String) {
+        guard !path.isEmpty else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    /// Copy the image bytes to the pasteboard (paste straight into another app).
+    func copyAttachmentImage(_ resolved: ResolvedThreadAttachment) {
+        guard let image = attachmentThumb(for: resolved)
+            ?? NSImage(contentsOfFile: resolved.canonicalPath) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([image])
     }
 
     private var attachmentThumbCache: [String: NSImage] = [:]

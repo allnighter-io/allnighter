@@ -560,7 +560,9 @@ private struct ThreadTurnRow: View {
         TimelineAttachmentRow(
             attachments: resolvedAttachments,
             thumb: { threads.attachmentThumb(for: $0) },
-            onOpen: { threads.openAttachmentPath($0.canonicalPath) }
+            onOpen: { threads.openAttachmentPath($0.canonicalPath) },
+            onReveal: { threads.revealAttachmentInFinder($0.canonicalPath) },
+            onCopy: { threads.copyAttachmentImage($0) }
         )
     }
 
@@ -755,7 +757,9 @@ private struct ThreadBoardRow: View {
             TimelineAttachmentRow(
                 attachments: resolved,
                 thumb: { threads.attachmentThumb(for: $0) },
-                onOpen: { threads.openAttachmentPath($0.canonicalPath) }
+                onOpen: { threads.openAttachmentPath($0.canonicalPath) },
+                onReveal: { threads.revealAttachmentInFinder($0.canonicalPath) },
+                onCopy: { threads.copyAttachmentImage($0) }
             )
         }
     }
@@ -929,15 +933,21 @@ private struct ThreadMutatingRunRow: View {
         return appModel.composeBench.first { $0.id == id }
     }
 
+    private var resolvedAttachments: [ResolvedThreadAttachment] {
+        threads.resolvedAttachments(threadId: turn.threadId, turn: turn)
+    }
+
     /// Images the worker produced, captured into thread attachments at settlement. Click
-    /// opens the canonical file full size (Preview).
+    /// opens the canonical file full size (Preview); right-click reveals/copies.
     @ViewBuilder private var attachmentRow: some View {
-        let resolved = threads.resolvedAttachments(threadId: turn.threadId, turn: turn)
+        let resolved = resolvedAttachments
         if !resolved.isEmpty {
             TimelineAttachmentRow(
                 attachments: resolved,
                 thumb: { threads.attachmentThumb(for: $0) },
-                onOpen: { threads.openAttachmentPath($0.canonicalPath) }
+                onOpen: { threads.openAttachmentPath($0.canonicalPath) },
+                onReveal: { threads.revealAttachmentInFinder($0.canonicalPath) },
+                onCopy: { threads.copyAttachmentImage($0) }
             )
         }
     }
@@ -962,9 +972,14 @@ private struct ThreadMutatingRunRow: View {
         .onHover { hovering = $0 }
     }
 
-    /// Best copyable text for this worker message — a run's plan/answer, else the turn's
-    /// own settled text.
-    private var copyableText: String? {
+    /// Best copyable text for this worker message — the displayed caption.
+    private var copyableText: String? { displayText }
+
+    /// The caption to render. When the turn carries captured worker images, the settled
+    /// `turn.text` is the cleaned caption (paths stripped), so prefer it over the raw run
+    /// output that still holds the path; otherwise show the run's plan/answer.
+    private var displayText: String? {
+        if !resolvedAttachments.isEmpty, let t = turn.text, !t.isEmpty { return t }
         if let out = runOutput, !out.isEmpty { return out }
         if let t = turn.text, !t.isEmpty { return t }
         return nil
@@ -1041,11 +1056,11 @@ private struct ThreadMutatingRunRow: View {
 
     // Clean assistant message in the flow — no status card, no "Ran" badge.
     @ViewBuilder private var resultCard: some View {
-        if let runOutput {
-            MarkdownText(markdown: runOutput)
+        if let displayText {
+            MarkdownText(markdown: displayText)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            Text(turn.text ?? "Done.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+            Text("Done.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
         }
     }
 

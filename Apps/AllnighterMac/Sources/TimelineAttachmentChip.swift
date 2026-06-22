@@ -5,13 +5,22 @@ import AllnighterCore
 /// Shared thumbnail chip for composer drafts and thread timeline attachments (MIR-GUI-S01).
 struct TimelineAttachmentChip: View {
     enum Style {
-        case timeline
+        /// Composer drafts stay a fixed square tile.
         case composer
+        /// Timeline previews size to the image's real aspect ratio, up to a max long edge,
+        /// so a square render stays square and a wide screenshot stays wide (no crop).
+        case timeline
 
-        var size: CGSize {
+        var maxLongEdge: CGFloat {
             switch self {
-            case .timeline: CGSize(width: 46, height: 66)
-            case .composer: CGSize(width: 56, height: 56)
+            case .composer: 56
+            case .timeline: 120
+            }
+        }
+        var minShortEdge: CGFloat {
+            switch self {
+            case .composer: 56
+            case .timeline: 60
             }
         }
     }
@@ -20,15 +29,38 @@ struct TimelineAttachmentChip: View {
     var thumb: NSImage?
     var style: Style = .timeline
     var onOpen: () -> Void
+    var onReveal: (() -> Void)?
+    var onCopy: (() -> Void)?
     var onRemove: (() -> Void)?
 
     @State private var hovering = false
+
+    /// Display size from the stored image dimensions (falls back to the loaded thumb, then a
+    /// gentle portrait box), fit inside the style's max long edge with no crop.
+    private var displaySize: CGSize {
+        if style == .composer { return CGSize(width: 56, height: 56) }
+        let dims: CGSize
+        if let w = attachment.storedWidth, let h = attachment.storedHeight, w > 0, h > 0 {
+            dims = CGSize(width: w, height: h)
+        } else if let thumb, thumb.size.width > 0, thumb.size.height > 0 {
+            dims = thumb.size
+        } else {
+            return CGSize(width: 84, height: 112)
+        }
+        let maxEdge = style.maxLongEdge
+        let minShort = style.minShortEdge
+        let ratio = dims.width / dims.height
+        if ratio >= 1 {
+            return CGSize(width: maxEdge, height: max(minShort, (maxEdge / ratio).rounded()))
+        }
+        return CGSize(width: max(minShort, (maxEdge * ratio).rounded()), height: maxEdge)
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Button(action: onOpen) {
                 chipBody
-                    .frame(width: style.size.width, height: style.size.height)
+                    .frame(width: displaySize.width, height: displaySize.height)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay {
                         RoundedRectangle(cornerRadius: 8)
@@ -38,6 +70,7 @@ struct TimelineAttachmentChip: View {
             }
             .buttonStyle(.plain)
             .help(attachment.missing ? (attachment.error ?? "Attachment missing") : "Click to view")
+            .contextMenu { contextMenuItems }
 
             if hovering, let onRemove {
                 Button(action: onRemove) {
@@ -69,13 +102,23 @@ struct TimelineAttachmentChip: View {
         } else if let thumb {
             Image(nsImage: thumb)
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .aspectRatio(contentMode: .fit)
         } else {
             Image(systemName: "photo")
                 .font(.system(size: 16))
                 .foregroundStyle(ALColor.textMuted)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(ALColor.subtle)
+        }
+    }
+
+    /// Right-click actions on the preview — the founder's set: preview it, view it in
+    /// Finder (to move/copy the file), or copy the image bytes. No bytes → no actions.
+    @ViewBuilder private var contextMenuItems: some View {
+        if !attachment.missing {
+            Button("Open", action: onOpen)
+            if let onReveal { Button("Reveal in Finder", action: onReveal) }
+            if let onCopy { Button("Copy Image", action: onCopy) }
         }
     }
 
@@ -89,15 +132,19 @@ struct TimelineAttachmentRow: View {
     let attachments: [ResolvedThreadAttachment]
     var thumb: (ResolvedThreadAttachment) -> NSImage?
     var onOpen: (ResolvedThreadAttachment) -> Void
+    var onReveal: ((ResolvedThreadAttachment) -> Void)?
+    var onCopy: ((ResolvedThreadAttachment) -> Void)?
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 ForEach(attachments, id: \.attachmentId) { attachment in
                     TimelineAttachmentChip(
                         attachment: attachment,
                         thumb: thumb(attachment),
-                        onOpen: { onOpen(attachment) }
+                        onOpen: { onOpen(attachment) },
+                        onReveal: onReveal.map { reveal in { reveal(attachment) } },
+                        onCopy: onCopy.map { copy in { copy(attachment) } }
                     )
                 }
             }

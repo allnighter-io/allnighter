@@ -79,6 +79,36 @@ final class WorkerOutputImageHarvestTests: XCTestCase {
         XCTAssertEqual(urls.count, 1)
     }
 
+    // MARK: - Caption stripping
+
+    func testCleanedCaptionDropsPathAndDanglingLabel() {
+        let path = "/Users/mike/.grok/sessions/%2FUsers%2Fmike/019ef0e9/images/2.jpg"
+        let caption = """
+        Got it. Refined to a sweet, seductive neighbor vibe — warm, approachable.
+
+        Updated image saved: \(path)
+        """
+        let cleaned = WorkerOutputImageHarvest.cleanedCaption(from: caption, removing: [path])
+        XCTAssertFalse(cleaned.contains(path))
+        XCTAssertFalse(cleaned.contains("Updated image saved"))
+        XCTAssertTrue(cleaned.hasPrefix("Got it."))
+    }
+
+    func testCleanedCaptionStripsOwnLinePath() {
+        let path = "/tmp/run/cat.png"
+        let caption = "Done!\nThe file is saved here:\n\(path)\nWant variations?"
+        let cleaned = WorkerOutputImageHarvest.cleanedCaption(from: caption, removing: [path])
+        XCTAssertFalse(cleaned.contains(path))
+        XCTAssertFalse(cleaned.contains("saved here"))
+        XCTAssertTrue(cleaned.contains("Done!"))
+        XCTAssertTrue(cleaned.contains("Want variations?"))
+    }
+
+    func testCleanedCaptionIsNoOpWithoutTokens() {
+        let caption = "Just text, no image."
+        XCTAssertEqual(WorkerOutputImageHarvest.cleanedCaption(from: caption, removing: []), caption)
+    }
+
     // MARK: - Commit into the canonical store
 
     func testCommitIngestsWorkerGeneratedAttachment() throws {
