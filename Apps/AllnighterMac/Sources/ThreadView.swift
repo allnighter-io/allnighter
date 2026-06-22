@@ -331,14 +331,16 @@ private struct ThreadTurnTimeline: View {
     }
 }
 
-/// RLS-P0 reasoning render policy. Reasoning is audit/debug by default — a running turn
-/// must NOT auto-render unbounded, growing reasoning text while the answer also streams
-/// (that laid out an ever-taller `Text` on every delta). It stays collapsed to the compact
-/// "Thinking" header (honest live activity) unless the user explicitly opens it.
+/// Reasoning render policy. The latest, still-running turn auto-expands so live thinking
+/// is visible — a collapsed "Thinking" header alone reads as a frozen screen. A settled
+/// turn collapses back to the compact "Thought for Ns" summary (reasoning is audit/debug
+/// once the answer exists). An explicit user toggle always wins. RLS-P0: the auto-expanded
+/// running view is height-bounded and tail-scrolled (see `ThreadThinkingBlock`) so streaming
+/// reasoning can't lay out an ever-taller `Text` on every delta.
 enum ReasoningRenderPolicy {
     static func expanded(userToggle: Bool?, isLatestTurn: Bool, isRunning: Bool) -> Bool {
-        // latest/running deliberately do NOT force expansion anymore — only an explicit toggle.
-        userToggle ?? false
+        if let userToggle { return userToggle }
+        return isLatestTurn && isRunning
     }
 }
 
@@ -354,8 +356,19 @@ private struct ThreadThinkingBlock: View {
     /// nil = use the default policy (collapsed); set by a manual toggle.
     @State private var userExpanded: Bool? = nil
 
+    private let tailAnchorID = "reasoning-tail"
+
     private var expanded: Bool {
         ReasoningRenderPolicy.expanded(userToggle: userExpanded, isLatestTurn: isLatestTurn, isRunning: isRunning)
+    }
+
+    /// The reasoning prose itself — selectable, wraps, grows down.
+    private func reasoningText(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var headerLabel: String {
@@ -381,11 +394,23 @@ private struct ThreadThinkingBlock: View {
                 .buttonStyle(.plain)
 
                 if expanded {
-                    Text(text)
-                        .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)   // wrap, grow down
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if isRunning {
+                        // RLS-P0: while streaming, cap the height and pin to the tail so live
+                        // reasoning shows the newest text without laying out an ever-taller
+                        // view on every delta. Settled turns render full (no cap).
+                        ScrollViewReader { proxy in
+                            ScrollView(.vertical, showsIndicators: false) {
+                                reasoningText(text)
+                                Color.clear.frame(height: 1).id(tailAnchorID)
+                            }
+                            .frame(maxHeight: 180)
+                            .onChange(of: text) { _, _ in
+                                proxy.scrollTo(tailAnchorID, anchor: .bottom)
+                            }
+                        }
+                    } else {
+                        reasoningText(text)
+                    }
                 }
             }
             .padding(.horizontal, 9).padding(.vertical, 7)
