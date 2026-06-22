@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 // AllnighterMarkdown — Allnighter's owned, themeable Markdown renderer.
@@ -11,7 +11,7 @@ import PackageDescription
 // cmark-gfm), the one wheel worth keeping. See LICENSE-* for attribution.
 let package = Package(
     name: "AllnighterMarkdown",
-    platforms: [.macOS(.v14), .iOS(.v16)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(name: "AllnighterMarkdown", targets: ["AllnighterMarkdown"]),
     ],
@@ -19,13 +19,21 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-cmark", from: "0.4.0"),
     ],
     targets: [
-        .target(name: "NetworkImage"),
+        .target(
+            name: "NetworkImage",
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
+            ]
+        ),
         .target(
             name: "AllnighterMarkdown",
             dependencies: [
                 "NetworkImage",
                 .product(name: "cmark-gfm", package: "swift-cmark"),
                 .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
             ]
         ),
     ]

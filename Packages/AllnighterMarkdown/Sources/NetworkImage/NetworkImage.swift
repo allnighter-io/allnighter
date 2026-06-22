@@ -73,7 +73,7 @@ import SwiftUI
 /// ```
 public struct NetworkImage<Content>: View where Content: View {
   @Environment(\.networkImageLoader) private var imageLoader
-  @StateObject private var model = NetworkImageModel()
+  @State private var model = NetworkImageModel()
 
   private let source: ImageSource?
   private let transaction: Transaction
