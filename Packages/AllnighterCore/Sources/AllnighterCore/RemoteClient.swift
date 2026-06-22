@@ -22,6 +22,8 @@ public protocol RemoteClient: Sendable {
     func connect(account: RemoteAccountSession, mode: ConnectionMode) async throws
     func macs() async throws -> [MacAgentRef]
     func snapshot(macId: String, since: Int64?) async throws -> SnapshotEnvelope
+    func threadSnapshot(macId: String) async throws -> RemoteThreadSnapshotEnvelope
+    func sealedThreadDetail(macId: String, threadId: String, deviceId: String) async throws -> SealedBlob
     func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope>
     func send(_ command: RemoteCommand) async throws -> CommandAck
     func fetchSealed(_ ref: MediaRef) async throws -> Data
@@ -155,6 +157,7 @@ public enum RemoteRunReducer {
 public enum MockRemoteClientError: Error, Equatable {
     case notConnected
     case macNotFound(String)
+    case threadDetailNotFound(threadId: String, deviceId: String)
     case mediaNotFound(String)
     case mediaKeyNotFound(ref: String, deviceId: String)
 }
@@ -164,6 +167,8 @@ public actor MockiOSClient: RemoteClient {
     private var connectionMode: ConnectionMode?
     private var macRefs: [MacAgentRef]
     private var snapshots: [String: SnapshotEnvelope]
+    private var threadSnapshots: [String: RemoteThreadSnapshotEnvelope]
+    private var threadDetails: [ThreadDetailStorageKey: SealedBlob]
     private var events: [String: [RemoteRunEventEnvelope]]
     private var media: [MediaStorageKey: Data]
     private var mediaKeys: [MediaStorageKey: [String: MediaKeyEnvelope]]
@@ -175,6 +180,8 @@ public actor MockiOSClient: RemoteClient {
     public init(
         macs: [MacAgentRef],
         snapshots: [String: SnapshotEnvelope] = [:],
+        threadSnapshots: [String: RemoteThreadSnapshotEnvelope] = [:],
+        threadDetails: [String: [String: SealedBlob]] = [:],
         events: [String: [RemoteRunEventEnvelope]] = [:],
         media: [String: Data] = [:],
         mediaKeys: [String: [String: MediaKeyEnvelope]] = [:],
@@ -184,11 +191,12 @@ public actor MockiOSClient: RemoteClient {
     ) {
         self.macRefs = macs
         self.snapshots = snapshots
+        self.threadSnapshots = threadSnapshots
         self.events = events
         let mediaMacAgentId = macs.first?.macAgentId
         precondition(
-            mediaMacAgentId != nil || (media.isEmpty && mediaKeys.isEmpty),
-            "MockiOSClient media fixtures require a Mac scope"
+            mediaMacAgentId != nil || (media.isEmpty && mediaKeys.isEmpty && threadDetails.isEmpty),
+            "MockiOSClient scoped fixtures require a Mac scope"
         )
         self.media = mediaMacAgentId.map { macAgentId in
             Dictionary(uniqueKeysWithValues: media.map {
@@ -199,6 +207,13 @@ public actor MockiOSClient: RemoteClient {
             Dictionary(uniqueKeysWithValues: mediaKeys.map {
                 (MediaStorageKey(macAgentId: macAgentId, ref: $0.key), $0.value)
             })
+        } ?? [:]
+        self.threadDetails = mediaMacAgentId.map { macAgentId in
+            threadDetails.reduce(into: [ThreadDetailStorageKey: SealedBlob]()) { result, entry in
+                for (deviceId, blob) in entry.value {
+                    result[ThreadDetailStorageKey(macAgentId: macAgentId, threadId: entry.key, deviceId: deviceId)] = blob
+                }
+            }
         } ?? [:]
         var trustedByScope: [TrustedDeviceStorageKey: TrustedDevice] = [:]
         for device in trustedDevices {
@@ -233,6 +248,26 @@ public actor MockiOSClient: RemoteClient {
             return snapshot
         }
         return SnapshotEnvelope(runs: [], lastSeq: since ?? 0, serverTime: serverNow)
+    }
+
+    public func threadSnapshot(macId: String) async throws -> RemoteThreadSnapshotEnvelope {
+        try requireConnected()
+        guard macRefs.contains(where: { $0.macAgentId == macId }) else {
+            throw MockRemoteClientError.macNotFound(macId)
+        }
+        return threadSnapshots[macId] ?? RemoteThreadSnapshotEnvelope(threads: [], serverTime: serverNow)
+    }
+
+    public func sealedThreadDetail(macId: String, threadId: String, deviceId: String) async throws -> SealedBlob {
+        try requireConnected()
+        guard macRefs.contains(where: { $0.macAgentId == macId }) else {
+            throw MockRemoteClientError.macNotFound(macId)
+        }
+        let key = ThreadDetailStorageKey(macAgentId: macId, threadId: threadId, deviceId: deviceId)
+        guard let blob = threadDetails[key] else {
+            throw MockRemoteClientError.threadDetailNotFound(threadId: threadId, deviceId: deviceId)
+        }
+        return blob
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {
@@ -405,6 +440,14 @@ public actor MockiOSClient: RemoteClient {
         snapshots[macId] = snapshot
     }
 
+    public func setThreadSnapshot(_ snapshot: RemoteThreadSnapshotEnvelope, macId: String) {
+        threadSnapshots[macId] = snapshot
+    }
+
+    public func setSealedThreadDetail(_ blob: SealedBlob, macId: String, threadId: String, deviceId: String) {
+        threadDetails[ThreadDetailStorageKey(macAgentId: macId, threadId: threadId, deviceId: deviceId)] = blob
+    }
+
     public func appendEvent(_ envelope: RemoteRunEventEnvelope, macId: String) {
         events[macId, default: []].append(envelope)
     }
@@ -456,6 +499,12 @@ public actor MockiOSClient: RemoteClient {
     private struct MediaStorageKey: Hashable, Sendable {
         var macAgentId: String
         var ref: String
+    }
+
+    private struct ThreadDetailStorageKey: Hashable, Sendable {
+        var macAgentId: String
+        var threadId: String
+        var deviceId: String
     }
 
     private struct TrustedDeviceStorageKey: Hashable, Sendable {

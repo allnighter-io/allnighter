@@ -193,6 +193,59 @@ final class CloudRemoteClientTests: XCTestCase {
         }
     }
 
+    func testClientFetchesCloudThreadSnapshotAndSealedDetail() async throws {
+        let relay = MockRemoteMacRelay()
+        let snapshot = threadSnapshotEnvelope()
+        let blob = sealedThreadDetail(deviceId: "device_1")
+        try await relay.publishThreadSnapshot(accountId: "acct_1", macAgentId: "mac_1", snapshot: snapshot)
+        try await relay.publishThreadDetail(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            threadId: "thread_1",
+            deviceId: "device_1",
+            sealedDetail: blob
+        )
+        let client = CloudRemoteClient(mac: macRef(), relay: relay)
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        let fetchedSnapshot = try await client.threadSnapshot(macId: "mac_1")
+        let fetchedBlob = try await client.sealedThreadDetail(
+            macId: "mac_1",
+            threadId: "thread_1",
+            deviceId: "device_1"
+        )
+
+        XCTAssertEqual(fetchedSnapshot, snapshot)
+        XCTAssertEqual(fetchedBlob, blob)
+
+        do {
+            _ = try await client.threadSnapshot(macId: "mac_2")
+            XCTFail("wrong-Mac thread snapshot should be rejected")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .macNotFound("mac_2"))
+        }
+
+        do {
+            _ = try await client.sealedThreadDetail(macId: "mac_1", threadId: "missing", deviceId: "device_1")
+            XCTFail("missing thread detail should be explicit")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .threadDetailNotFound(threadId: "missing", deviceId: "device_1"))
+        }
+    }
+
+    func testClientRejectsMalformedCloudThreadDetailEnvelope() async throws {
+        let relay = MalformedThreadDetailRelay(blob: sealedThreadDetail(deviceId: "device_2"))
+        let client = CloudRemoteClient(mac: macRef(), relay: relay)
+        try await client.connect(account: account, mode: .cloudRelay)
+
+        do {
+            _ = try await client.sealedThreadDetail(macId: "mac_1", threadId: "thread_1", deviceId: "device_1")
+            XCTFail("wrong-device cloud thread detail should be rejected")
+        } catch let error as CloudRemoteClientError {
+            XCTAssertEqual(error, .badThreadDetailEnvelope)
+        }
+    }
+
     func testClientFetchesCloudMediaData() async throws {
         let relay = MockRemoteMacRelay()
         let ref = mediaRef(ref: "media_1", expiresAt: now.addingTimeInterval(60))
@@ -517,6 +570,48 @@ final class CloudRemoteClientTests: XCTestCase {
         )
     }
 
+    private func threadSnapshotEnvelope(threadId: String = "thread_1") -> RemoteThreadSnapshotEnvelope {
+        RemoteThreadSnapshotEnvelope(
+            threads: [
+                RemoteThreadSummary(
+                    id: threadId,
+                    title: "Thread",
+                    status: .active,
+                    projectId: nil,
+                    createdAt: now.addingTimeInterval(-60),
+                    updatedAt: now,
+                    pinnedAt: nil,
+                    displayState: .replied,
+                    readState: RemoteThreadReadState(
+                        readCursor: nil,
+                        hasUnread: true,
+                        unreadNeedsAttention: true,
+                        firstUnreadTurnId: "turn_1",
+                        latestUnreadTurnId: "turn_1"
+                    ),
+                    turnCount: 1,
+                    latestTurn: RemoteThreadTurnLight(
+                        id: "turn_1",
+                        kind: .workerChat,
+                        status: .done,
+                        author: .worker,
+                        createdAt: now
+                    )
+                ),
+            ],
+            serverTime: now
+        )
+    }
+
+    private func sealedThreadDetail(deviceId: String) -> SealedBlob {
+        SealedBlob(
+            ciphertext: Data("thread-detail-ciphertext".utf8),
+            encapsulatedKey: Data("thread-detail-encapsulated".utf8),
+            sealedForKeyId: deviceId,
+            contentType: RemoteThreadDetail.sealedContentType
+        )
+    }
+
     private func mediaRef(ref: String, macAgentId: String = "mac_1", expiresAt: Date) -> MediaRef {
         MediaRef(
             ref: ref,
@@ -551,6 +646,23 @@ private actor MalformedMediaKeyRelay: FailingRemoteMacRelay {
 
     func mediaKey(ref _: String, macAgentId _: String, deviceId _: String, at _: Date) async throws -> MediaKeyEnvelope? {
         key
+    }
+}
+
+private actor MalformedThreadDetailRelay: FailingRemoteMacRelay {
+    private let blob: SealedBlob
+
+    init(blob: SealedBlob) {
+        self.blob = blob
+    }
+
+    func sealedThreadDetail(
+        accountId _: String,
+        macAgentId _: String,
+        threadId _: String,
+        deviceId _: String
+    ) async throws -> SealedBlob? {
+        blob
     }
 }
 
@@ -655,6 +767,37 @@ extension FailingRemoteMacRelay {
     }
 
     func snapshot(accountId _: String, macAgentId _: String, since _: Int64?) async throws -> SnapshotEnvelope? {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func publishThreadSnapshot(
+        accountId _: String,
+        macAgentId _: String,
+        snapshot _: RemoteThreadSnapshotEnvelope
+    ) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func threadSnapshot(accountId _: String, macAgentId _: String) async throws -> RemoteThreadSnapshotEnvelope? {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func publishThreadDetail(
+        accountId _: String,
+        macAgentId _: String,
+        threadId _: String,
+        deviceId _: String,
+        sealedDetail _: SealedBlob
+    ) async throws {
+        throw FailingRemoteMacRelayError.unexpectedCall
+    }
+
+    func sealedThreadDetail(
+        accountId _: String,
+        macAgentId _: String,
+        threadId _: String,
+        deviceId _: String
+    ) async throws -> SealedBlob? {
         throw FailingRemoteMacRelayError.unexpectedCall
     }
 

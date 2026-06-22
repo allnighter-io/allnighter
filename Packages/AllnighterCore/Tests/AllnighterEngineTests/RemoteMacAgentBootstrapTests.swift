@@ -28,8 +28,10 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         let runsRoot = root.appendingPathComponent("runs", isDirectory: true)
         let runStore = RunStore(rootDirectory: runsRoot)
         let journal = RemoteRunEventJournal(rootDirectory: runsRoot)
+        let threadStore = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
         _ = try runStore.save(Self.run(id: "run_1", createdAt: now), models: [])
         _ = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
+        try threadStore.saveForImport(threadWithUnreadReply())
         let command = try signedCommand(requestId: "req_stop_all")
         let relay = MockRemoteMacRelay(
             trustedDevices: [trustedDevice()],
@@ -43,6 +45,7 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         let bootstrap = makeBootstrap(
             relay: relay,
             runStore: runStore,
+            threadStore: threadStore,
             journal: journal,
             executor: executor,
             eventCursorStore: cursorStore
@@ -57,6 +60,8 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         XCTAssertEqual(result.lastPublishedEventSeq, 1)
         XCTAssertEqual(result.publishedSnapshotRunCount, 1)
         XCTAssertEqual(result.publishedSnapshotLastSeq, 1)
+        XCTAssertEqual(result.publishedThreadSnapshotThreadCount, 1)
+        XCTAssertEqual(result.publishedThreadDetailBlobCount, 1)
         let stopAllCallCount = await executor.stopAllCallCount()
         XCTAssertEqual(stopAllCallCount, 1)
         XCTAssertEqual(try cursorStore.load(), 1)
@@ -98,6 +103,17 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         let snapshot = try await relay.snapshot(accountId: "acct_1", macAgentId: "mac_1", since: nil)
         XCTAssertEqual(snapshot?.runs.map(\.id), ["run_1"])
         XCTAssertEqual(snapshot?.lastSeq, 1)
+        let threadSnapshot = try await relay.threadSnapshot(accountId: "acct_1", macAgentId: "mac_1")
+        XCTAssertEqual(threadSnapshot?.threads.map(\.id), ["thread_1"])
+        let sealedDetailBlob = try await relay.sealedThreadDetail(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            threadId: "thread_1",
+            deviceId: "device_1"
+        )
+        let sealedDetail = try XCTUnwrap(sealedDetailBlob)
+        let detail = try CoreJSON.decode(RemoteThreadDetail.self, from: RemoteCrypto.open(sealedDetail, with: deviceSealingKey))
+        XCTAssertEqual(detail.turns.map(\.text), ["private prompt", "private reply"])
 
         let eventLog = await relay.eventLog
         XCTAssertLessThan(
@@ -107,6 +123,10 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         XCTAssertLessThan(
             try XCTUnwrap(eventLog.firstIndex(of: "publishEvents")),
             try XCTUnwrap(eventLog.firstIndex(of: "publishSnapshot"))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(eventLog.firstIndex(of: "publishSnapshot")),
+            try XCTUnwrap(eventLog.firstIndex(of: "publishThreadSnapshot"))
         )
     }
 
@@ -136,6 +156,42 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         XCTAssertEqual(result.acknowledgements.first?.serverTime, now)
         let stopAllCallCount = await executor.stopAllCallCount()
         XCTAssertEqual(stopAllCallCount, 0)
+    }
+
+    func testBootstrapRoutesMarkThreadReadThroughThreadStore() async throws {
+        let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
+        let journal = RemoteRunEventJournal(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
+        let threadStore = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
+        try threadStore.saveForImport(threadWithUnreadReply())
+        let command = try signedCommand(
+            requestId: "req_thread_read",
+            kind: .markThreadRead,
+            payload: .light(["threadId": .string("thread_1"), "throughTurnId": .string("w1")])
+        )
+        let relay = MockRemoteMacRelay(
+            trustedDevices: [trustedDevice()],
+            inbox: [inboxEntry(command)]
+        )
+        let executor = BootstrapRemoteExecutor(now: now)
+        let bootstrap = makeBootstrap(
+            relay: relay,
+            runStore: runStore,
+            threadStore: threadStore,
+            journal: journal,
+            executor: executor
+        )
+
+        let result = try await bootstrap.makeRuntime().agent.drainOnce()
+
+        XCTAssertEqual(result.processedCommandCount, 1)
+        XCTAssertEqual(result.acknowledgements.first?.accepted, true)
+        XCTAssertEqual(threadStore.get("thread_1")?.readCursor?.lastReadTurnId, "w1")
+        let acknowledgements = await relay.acknowledgements
+        let acknowledgement = try XCTUnwrap(acknowledgements.first)
+        XCTAssertEqual(
+            acknowledgement.auditEvent.targetSummary,
+            "thread.mark_read threadId=thread_1 throughTurnId=w1"
+        )
     }
 
     func testBootstrapCoordinatorRunsAssembledAgentWithInjectedPolicy() async throws {
@@ -188,6 +244,7 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
     private func makeBootstrap(
         relay: RemoteMacRelay,
         runStore: RunStore,
+        threadStore: ThreadStore? = nil,
         journal: RemoteRunEventJournal,
         executor: RemoteTeamCommandExecuting,
         eventCursorStore: RemoteMacAgentEventCursorStore? = nil,
@@ -204,6 +261,7 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
             trustedStore: TrustedRemoteStore(fileURL: root.appendingPathComponent("trusted_remotes.json")),
             dedupeStore: RemoteRequestDedupeStore(fileURL: root.appendingPathComponent("seen_requests.json")),
             runStore: runStore,
+            threadStore: threadStore ?? ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true)),
             journal: journal,
             executor: executor,
             macSigningKey: macSigningKey,
@@ -250,17 +308,21 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
         )
     }
 
-    private func signedCommand(requestId: String, timestamp: Date? = nil) throws -> RemoteCommand {
-        let payload = RemoteCommandPayload.empty
+    private func signedCommand(
+        requestId: String,
+        timestamp: Date? = nil,
+        kind: RemoteCommandKind = .stopAll,
+        payload: RemoteCommandPayload = .empty
+    ) throws -> RemoteCommand {
         let assertion = try RemoteCrypto.makeDeviceAssertion(
             deviceId: "device_1",
             requestId: requestId,
             timestamp: timestamp ?? now,
-            kind: .stopAll,
+            kind: kind,
             payload: payload,
             signingKey: deviceSigningKey
         )
-        return RemoteCommand(requestId: requestId, kind: .stopAll, payload: payload, assertion: assertion)
+        return RemoteCommand(requestId: requestId, kind: kind, payload: payload, assertion: assertion)
     }
 
     private func inboxEntry(_ command: RemoteCommand) -> RemoteCommandInboxEntry {
@@ -295,6 +357,41 @@ final class RemoteMacAgentBootstrapTests: XCTestCase {
                 "runId": .string(runId),
                 "to": .string(RunStatus.fanningOut.rawValue),
             ]
+        )
+    }
+
+    private func threadWithUnreadReply() -> WorkThread {
+        let userTurn = ThreadTurn(
+            id: "u1",
+            threadId: "thread_1",
+            kind: .userMessage,
+            status: .done,
+            createdAt: now.addingTimeInterval(-20),
+            author: .user,
+            text: "private prompt"
+        )
+        let workerTurn = ThreadTurn(
+            id: "w1",
+            threadId: "thread_1",
+            kind: .workerChat,
+            status: .done,
+            createdAt: now.addingTimeInterval(-10),
+            completedAt: now.addingTimeInterval(-10),
+            author: .worker,
+            text: "private reply",
+            workerId: "codex"
+        )
+        return WorkThread(
+            id: "thread_1",
+            title: "Remote thread",
+            createdAt: now.addingTimeInterval(-30),
+            updatedAt: now.addingTimeInterval(-10),
+            readCursor: ThreadReadCursor(
+                lastReadTurnId: "u1",
+                lastReadTurnCreatedAt: userTurn.createdAt,
+                readAt: userTurn.createdAt
+            ),
+            turns: [userTurn, workerTurn]
         )
     }
 }

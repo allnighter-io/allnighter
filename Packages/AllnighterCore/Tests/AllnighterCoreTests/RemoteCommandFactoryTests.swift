@@ -51,6 +51,35 @@ final class RemoteCommandFactoryTests: XCTestCase {
         ))
     }
 
+    func testFactoryBuildsMarkThreadReadLightPayload() throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let fixedNow = now
+        let factory = RemoteCommandFactory(
+            deviceId: "device_1",
+            signingKey: signingKey,
+            now: { fixedNow }
+        )
+
+        let command = try factory.markThreadRead(
+            requestId: "req_read",
+            threadId: " thread_1 ",
+            throughTurnId: " turn_1 "
+        )
+
+        XCTAssertEqual(command.kind, .markThreadRead)
+        XCTAssertEqual(command.payload.kind, .lightJSON)
+        let payload = try CoreJSON.decode(
+            RemoteMarkThreadReadPayload.self,
+            from: CoreJSON.encode(try XCTUnwrap(command.payload.lightPayload))
+        )
+        XCTAssertEqual(payload.threadId, "thread_1")
+        XCTAssertEqual(payload.throughTurnId, "turn_1")
+        XCTAssertTrue(try RemoteCrypto.verifyDeviceAssertion(
+            command.assertion,
+            signingPublicKeyBase64: RemoteCrypto.signingPublicKeyBase64(signingKey.publicKey)
+        ))
+    }
+
     func testFactorySealsStartRunPayloadToMac() throws {
         let signingKey = Curve25519.Signing.PrivateKey()
         let macSealingKey = Curve25519.KeyAgreement.PrivateKey()
@@ -120,6 +149,20 @@ final class RemoteCommandFactoryTests: XCTestCase {
         }
         XCTAssertThrowsError(try factory.stopRun(requestId: "req_stop", runId: " ")) { error in
             XCTAssertEqual(error as? RemoteCommandFactoryError, .emptyRunId)
+        }
+        XCTAssertThrowsError(try factory.markThreadRead(
+            requestId: "req_read",
+            threadId: " ",
+            throughTurnId: "turn_1"
+        )) { error in
+            XCTAssertEqual(error as? RemoteCommandFactoryError, .emptyThreadId)
+        }
+        XCTAssertThrowsError(try factory.markThreadRead(
+            requestId: "req_read",
+            threadId: "thread_1",
+            throughTurnId: " "
+        )) { error in
+            XCTAssertEqual(error as? RemoteCommandFactoryError, .emptyTurnId)
         }
         XCTAssertThrowsError(try factory.startRun(
             requestId: "req_start",

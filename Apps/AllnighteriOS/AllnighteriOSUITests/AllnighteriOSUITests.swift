@@ -23,12 +23,14 @@ final class AllnighteriOSUITests: XCTestCase {
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testConversationsHomeLaunches() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        XCTAssertTrue(app.staticTexts["Conversations"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["conversation-search-field"].exists)
+        XCTAssertTrue(app.otherElements["ios-composer-bar"].exists)
+        XCTAssertTrue(app.buttons["composer-send-button"].exists)
     }
 
     @MainActor

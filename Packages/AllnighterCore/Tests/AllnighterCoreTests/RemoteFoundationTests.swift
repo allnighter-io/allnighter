@@ -9,6 +9,7 @@ final class RemoteFoundationTests: XCTestCase {
         XCTAssertEqual(cases, [
             "startRun",
             "stopRun",
+            "thread.mark_read",
             "stopAll",
         ])
         XCTAssertFalse(cases.contains { $0.localizedCaseInsensitiveContains("shell") })
@@ -18,6 +19,8 @@ final class RemoteFoundationTests: XCTestCase {
     func testStartRunRequiresSealedPayloadAndStopAllIsCapabilityUngated() {
         XCTAssertTrue(RemoteCommandKind.startRun.requiresSealedPayload)
         XCTAssertEqual(RemoteCommandKind.startRun.requiredCapability, .startRun)
+        XCTAssertFalse(RemoteCommandKind.markThreadRead.requiresSealedPayload)
+        XCTAssertEqual(RemoteCommandKind.markThreadRead.requiredCapability, .markThreadRead)
         XCTAssertFalse(RemoteCommandKind.stopAll.requiresSealedPayload)
         XCTAssertNil(RemoteCommandKind.stopAll.requiredCapability)
 
@@ -36,6 +39,11 @@ final class RemoteFoundationTests: XCTestCase {
 
         XCTAssertTrue(trusted.authorizes(.stopAll, at: now))
         XCTAssertFalse(trusted.authorizes(.startRun, at: now))
+        XCTAssertFalse(trusted.authorizes(.markThreadRead, at: now))
+
+        var readTrusted = trusted
+        readTrusted.capabilities = [.markThreadRead]
+        XCTAssertTrue(readTrusted.authorizes(.markThreadRead, at: now))
     }
 
     func testStartRunCommandRejectsPlainLightPayloadByContract() throws {

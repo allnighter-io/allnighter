@@ -38,6 +38,8 @@ public enum DirectModeRemoteClientError: Error, Equatable, Sendable {
     case badAckEnvelope
     case badAckSignature
     case badSnapshotResponse
+    case badThreadSnapshotResponse
+    case badThreadDetailResponse
     case badMediaResponse
     case badMediaKeyResponse
 }
@@ -98,6 +100,56 @@ public actor DirectModeRemoteClient: RemoteClient {
             throw DirectModeRemoteClientError.badSnapshotResponse
         }
         return snapshot
+    }
+
+    public func threadSnapshot(macId: String) async throws -> RemoteThreadSnapshotEnvelope {
+        let account = try requireConnected()
+        try requireMac(macId)
+        let threadSnapshotURL = endpoint.threadSnapshotURL
+        guard let url = URL(string: threadSnapshotURL) else {
+            throw DirectModeRemoteClientError.invalidEndpoint(threadSnapshotURL)
+        }
+        let request = DirectModeThreadSnapshotRequest(
+            accountId: account.accountId,
+            macAgentId: macId
+        )
+        let response = try await poster.postJSON(CoreJSON.encode(request), to: url)
+        guard (200..<300).contains(response.statusCode) else {
+            throw DirectModeRemoteClientError.httpStatus(response.statusCode)
+        }
+        guard let snapshot = try? CoreJSON.decode(RemoteThreadSnapshotEnvelope.self, from: response.body) else {
+            throw DirectModeRemoteClientError.badThreadSnapshotResponse
+        }
+        return snapshot
+    }
+
+    public func sealedThreadDetail(macId: String, threadId: String, deviceId: String) async throws -> SealedBlob {
+        let account = try requireConnected()
+        try requireMac(macId)
+        let threadDetailURL = endpoint.threadDetailURL
+        guard let url = URL(string: threadDetailURL) else {
+            throw DirectModeRemoteClientError.invalidEndpoint(threadDetailURL)
+        }
+        let request = DirectModeThreadDetailRequest(
+            accountId: account.accountId,
+            macAgentId: macId,
+            threadId: threadId,
+            deviceId: deviceId,
+            checkedAt: now()
+        )
+        let response = try await poster.postJSON(CoreJSON.encode(request), to: url)
+        guard (200..<300).contains(response.statusCode) else {
+            throw DirectModeRemoteClientError.httpStatus(response.statusCode)
+        }
+        guard let decoded = try? CoreJSON.decode(DirectModeThreadDetailResponse.self, from: response.body),
+              decoded.threadId == threadId,
+              decoded.macAgentId == macId,
+              decoded.deviceId == deviceId,
+              decoded.sealedDetail.sealedForKeyId == deviceId,
+              decoded.sealedDetail.contentType == RemoteThreadDetail.sealedContentType else {
+            throw DirectModeRemoteClientError.badThreadDetailResponse
+        }
+        return decoded.sealedDetail
     }
 
     public func stream(macId: String, since: Int64) async -> AsyncStream<RemoteRunEventEnvelope> {

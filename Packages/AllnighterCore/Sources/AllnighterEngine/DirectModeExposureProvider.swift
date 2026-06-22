@@ -49,6 +49,14 @@ public struct DirectModeEndpoint: Codable, Equatable, Sendable {
         url(for: DirectModeCommandServer.snapshotPath)
     }
 
+    public var threadSnapshotURL: String {
+        url(for: DirectModeCommandServer.threadSnapshotPath)
+    }
+
+    public var threadDetailURL: String {
+        url(for: DirectModeCommandServer.threadDetailPath)
+    }
+
     public var mediaURL: String {
         url(for: DirectModeCommandServer.mediaPath)
     }

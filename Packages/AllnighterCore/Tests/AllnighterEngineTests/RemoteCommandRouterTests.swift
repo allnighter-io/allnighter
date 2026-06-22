@@ -141,6 +141,81 @@ final class RemoteCommandRouterTests: XCTestCase {
         XCTAssertTrue(try verifyAck(result.ack))
     }
 
+    func testMarkThreadReadRoutesThroughThreadStore() async throws {
+        try trustDevice(capabilities: [.markThreadRead])
+        let executor = CapturingRemoteExecutor(now: now)
+        let threadStore = makeThreadStore()
+        try threadStore.saveForImport(threadWithUnreadReply())
+        let router = makeRouter(
+            executor: executor,
+            threadExecutor: ThreadStoreRemoteCommandExecutor(store: threadStore)
+        )
+        let command = try signedCommand(
+            requestId: "req_read",
+            kind: .markThreadRead,
+            payload: .light([
+                "threadId": .string(" thread_1 "),
+                "throughTurnId": .string(" w1 "),
+            ])
+        )
+
+        let result = try await router.route(command)
+
+        XCTAssertTrue(result.ack.accepted)
+        XCTAssertTrue(try verifyAck(result.ack))
+        XCTAssertEqual(result.threadReadState?.readCursor?.lastReadTurnId, "w1")
+        XCTAssertEqual(result.threadReadState?.hasUnread, false)
+        XCTAssertEqual(threadStore.get("thread_1")?.readCursor?.lastReadTurnId, "w1")
+        XCTAssertEqual(
+            result.auditEvent.targetSummary,
+            "thread.mark_read threadId=thread_1 throughTurnId=w1"
+        )
+    }
+
+    func testMarkThreadReadRequiresCapability() async throws {
+        try trustDevice(capabilities: [])
+        let executor = CapturingRemoteExecutor(now: now)
+        let threadStore = makeThreadStore()
+        try threadStore.saveForImport(threadWithUnreadReply())
+        let router = makeRouter(
+            executor: executor,
+            threadExecutor: ThreadStoreRemoteCommandExecutor(store: threadStore)
+        )
+        let command = try signedCommand(
+            requestId: "req_read_no_capability",
+            kind: .markThreadRead,
+            payload: .light(["threadId": .string("thread_1"), "throughTurnId": .string("w1")])
+        )
+
+        let result = try await router.route(command)
+
+        XCTAssertFalse(result.ack.accepted)
+        XCTAssertEqual(result.ack.reason, .unauthorizedKind)
+        XCTAssertEqual(threadStore.get("thread_1")?.readCursor?.lastReadTurnId, "u1")
+    }
+
+    func testMarkThreadReadRejectsMissingTurn() async throws {
+        try trustDevice(capabilities: [.markThreadRead])
+        let executor = CapturingRemoteExecutor(now: now)
+        let threadStore = makeThreadStore()
+        try threadStore.saveForImport(threadWithUnreadReply())
+        let router = makeRouter(
+            executor: executor,
+            threadExecutor: ThreadStoreRemoteCommandExecutor(store: threadStore)
+        )
+        let command = try signedCommand(
+            requestId: "req_read_missing_turn",
+            kind: .markThreadRead,
+            payload: .light(["threadId": .string("thread_1"), "throughTurnId": .string("missing")])
+        )
+
+        let result = try await router.route(command)
+
+        XCTAssertFalse(result.ack.accepted)
+        XCTAssertEqual(result.ack.reason, .invalidPayload)
+        XCTAssertEqual(threadStore.get("thread_1")?.readCursor?.lastReadTurnId, "u1")
+    }
+
     func testTrustedDeviceFromOtherAccountDoesNotAuthorizeCommand() async throws {
         try trustedStore.save(TrustedRemoteRegistry(trustedDevices: [
             trustedDevice(accountId: "acct_2", capabilities: [])
@@ -310,6 +385,7 @@ final class RemoteCommandRouterTests: XCTestCase {
 
     private func makeRouter(
         executor: CapturingRemoteExecutor,
+        threadExecutor: RemoteThreadCommandExecuting? = nil,
         policy: RemoteCommandRouterPolicy = .default
     ) -> RemoteCommandRouter {
         let fixedNow = now
@@ -319,6 +395,7 @@ final class RemoteCommandRouterTests: XCTestCase {
             trustedStore: trustedStore,
             dedupeStore: dedupeStore,
             executor: executor,
+            threadExecutor: threadExecutor,
             macSigningKey: macSigningKey,
             macSealingKey: macSealingKey,
             now: { fixedNow },
@@ -363,6 +440,45 @@ final class RemoteCommandRouterTests: XCTestCase {
             signingKey: deviceSigningKey
         )
         return RemoteCommand(requestId: requestId, kind: kind, payload: payload, assertion: assertion)
+    }
+
+    private func makeThreadStore() -> ThreadStore {
+        ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
+    }
+
+    private func threadWithUnreadReply() -> WorkThread {
+        let userTurn = ThreadTurn(
+            id: "u1",
+            threadId: "thread_1",
+            kind: .userMessage,
+            status: .done,
+            createdAt: now.addingTimeInterval(-20),
+            author: .user,
+            text: "private prompt"
+        )
+        let workerTurn = ThreadTurn(
+            id: "w1",
+            threadId: "thread_1",
+            kind: .workerChat,
+            status: .done,
+            createdAt: now.addingTimeInterval(-10),
+            completedAt: now.addingTimeInterval(-10),
+            author: .worker,
+            text: "private reply",
+            workerId: "codex"
+        )
+        return WorkThread(
+            id: "thread_1",
+            title: "Remote thread",
+            createdAt: now.addingTimeInterval(-30),
+            updatedAt: now.addingTimeInterval(-10),
+            readCursor: ThreadReadCursor(
+                lastReadTurnId: "u1",
+                lastReadTurnCreatedAt: userTurn.createdAt,
+                readAt: userTurn.createdAt
+            ),
+            turns: [userTurn, workerTurn]
+        )
     }
 
     private func verifyAck(_ ack: CommandAck) throws -> Bool {

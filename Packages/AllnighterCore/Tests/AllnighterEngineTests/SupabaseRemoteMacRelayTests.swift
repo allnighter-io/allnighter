@@ -647,6 +647,145 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertEqual(fetched?.runs.map(\.id), ["run_valid"])
     }
 
+    func testPublishThreadSnapshotWritesThreadSnapshotEnvelopeRow() async throws {
+        let fixedNow = now.addingTimeInterval(60)
+        let snapshot = threadSnapshotEnvelope()
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 201, data: Data())
+        ])
+        let relay = try makeRelay(transport: transport, now: { fixedNow })
+
+        try await relay.publishThreadSnapshot(accountId: "acct_1", macAgentId: "mac_1", snapshot: snapshot)
+
+        let recordedRequests = await transport.recordedRequests()
+        let request = try XCTUnwrap(recordedRequests.first)
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.url.path, "/rest/v1/thread_snapshot_envelopes")
+        XCTAssertEqual(queryValue("on_conflict", in: request.url), "account_id,mac_agent_id")
+        XCTAssertEqual(request.headers["Prefer"], "resolution=merge-duplicates,return=minimal")
+
+        let row = try XCTUnwrap(bodyRows(from: request).first)
+        XCTAssertEqual(row["account_id"] as? String, "acct_1")
+        XCTAssertEqual(row["mac_agent_id"] as? String, "mac_1")
+        XCTAssertEqual(row["server_time"] as? String, iso(now))
+        XCTAssertEqual(row["protocol_version"] as? Int, RemoteProtocol.currentMajor)
+        XCTAssertEqual(row["updated_at"] as? String, iso(fixedNow))
+        let threads = try XCTUnwrap(row["threads"] as? [[String: Any]])
+        XCTAssertEqual(threads.first?["id"] as? String, "thread_1")
+        XCTAssertNil(threads.first?["text"])
+        XCTAssertNil(threads.first?["working_dir"])
+    }
+
+    func testThreadSnapshotReadsStoredEnvelope() async throws {
+        let snapshot = threadSnapshotEnvelope()
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([threadSnapshotEnvelopeRow(snapshot)]))
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let fetched = try await relay.threadSnapshot(accountId: "acct_1", macAgentId: "mac_1")
+
+        XCTAssertEqual(fetched, snapshot)
+        let recordedRequests = await transport.recordedRequests()
+        let request = try XCTUnwrap(recordedRequests.first)
+        XCTAssertEqual(request.method, "GET")
+        XCTAssertEqual(request.url.path, "/rest/v1/thread_snapshot_envelopes")
+        XCTAssertEqual(queryValue("account_id", in: request.url), "eq.acct_1")
+        XCTAssertEqual(queryValue("mac_agent_id", in: request.url), "eq.mac_1")
+        XCTAssertEqual(queryValue("limit", in: request.url), "1")
+    }
+
+    func testPublishThreadDetailWritesSealedDeviceScopedRow() async throws {
+        let fixedNow = now.addingTimeInterval(60)
+        let blob = sealedThreadDetail(deviceId: "device_1")
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 201, data: Data())
+        ])
+        let relay = try makeRelay(transport: transport, now: { fixedNow })
+
+        try await relay.publishThreadDetail(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            threadId: "thread_1",
+            deviceId: "device_1",
+            sealedDetail: blob
+        )
+
+        let recordedRequests = await transport.recordedRequests()
+        let request = try XCTUnwrap(recordedRequests.first)
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.url.path, "/rest/v1/thread_detail_blobs")
+        XCTAssertEqual(queryValue("on_conflict", in: request.url), "account_id,mac_agent_id,thread_id,device_id")
+        XCTAssertEqual(request.headers["Prefer"], "resolution=merge-duplicates,return=minimal")
+
+        let row = try XCTUnwrap(bodyRows(from: request).first)
+        XCTAssertEqual(row["account_id"] as? String, "acct_1")
+        XCTAssertEqual(row["mac_agent_id"] as? String, "mac_1")
+        XCTAssertEqual(row["thread_id"] as? String, "thread_1")
+        XCTAssertEqual(row["device_id"] as? String, "device_1")
+        XCTAssertEqual(row["updated_at"] as? String, iso(fixedNow))
+        let sealedDetail = try XCTUnwrap(row["sealed_detail"] as? [String: Any])
+        XCTAssertEqual(sealedDetail["sealed_for_key_id"] as? String, "device_1")
+        XCTAssertEqual(sealedDetail["content_type"] as? String, RemoteThreadDetail.sealedContentType)
+        XCTAssertNil(sealedDetail["text"])
+    }
+
+    func testPublishThreadDetailRejectsMismatchedDeviceBeforeWriting() async throws {
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 201, data: Data())
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        do {
+            try await relay.publishThreadDetail(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                threadId: "thread_1",
+                deviceId: "device_1",
+                sealedDetail: sealedThreadDetail(deviceId: "device_2")
+            )
+            XCTFail("wrong-device sealed detail should be rejected before write")
+        } catch let error as RemoteMacRelayError {
+            XCTAssertEqual(error, .threadDetailDeviceMismatch(
+                threadId: "thread_1",
+                expectedDeviceId: "device_1",
+                actualSealedForKeyId: "device_2"
+            ))
+        }
+
+        let requestCount = await transport.recordedRequests().count
+        XCTAssertEqual(requestCount, 0)
+    }
+
+    func testSealedThreadDetailReadsStoredBlobAndFiltersScope() async throws {
+        let valid = sealedThreadDetail(deviceId: "device_1")
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                threadDetailBlobRow(sealedThreadDetail(deviceId: "device_1"), accountId: "acct_2"),
+                threadDetailBlobRow(sealedThreadDetail(deviceId: "device_1"), macAgentId: "mac_2"),
+                threadDetailBlobRow(sealedThreadDetail(deviceId: "device_2"), deviceId: "device_2"),
+                threadDetailBlobRow(valid),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        let fetched = try await relay.sealedThreadDetail(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            threadId: "thread_1",
+            deviceId: "device_1"
+        )
+
+        XCTAssertEqual(fetched, valid)
+        let recordedRequests = await transport.recordedRequests()
+        let request = try XCTUnwrap(recordedRequests.first)
+        XCTAssertEqual(request.url.path, "/rest/v1/thread_detail_blobs")
+        XCTAssertEqual(queryValue("account_id", in: request.url), "eq.acct_1")
+        XCTAssertEqual(queryValue("mac_agent_id", in: request.url), "eq.mac_1")
+        XCTAssertEqual(queryValue("thread_id", in: request.url), "eq.thread_1")
+        XCTAssertEqual(queryValue("device_id", in: request.url), "eq.device_1")
+    }
+
     func testRunEventStreamDoesNotOpenRealtimeWhenBackfillFails() async throws {
         let transport = RecordingSupabaseHTTPTransport(responses: [
             SupabaseHTTPResponse(statusCode: 500, data: Data("backfill unavailable".utf8))
@@ -943,6 +1082,80 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
             "protocol_version": snapshot.protocolVersion,
             "updated_at": iso(now.addingTimeInterval(5)),
         ]
+    }
+
+    private func threadSnapshotEnvelope(threadId: String = "thread_1") -> RemoteThreadSnapshotEnvelope {
+        RemoteThreadSnapshotEnvelope(
+            threads: [
+                RemoteThreadSummary(
+                    id: threadId,
+                    title: "Thread",
+                    status: .active,
+                    projectId: nil,
+                    createdAt: now.addingTimeInterval(-60),
+                    updatedAt: now,
+                    pinnedAt: nil,
+                    displayState: .replied,
+                    readState: RemoteThreadReadState(
+                        readCursor: nil,
+                        hasUnread: true,
+                        unreadNeedsAttention: true,
+                        firstUnreadTurnId: "turn_1",
+                        latestUnreadTurnId: "turn_1"
+                    ),
+                    turnCount: 1,
+                    latestTurn: RemoteThreadTurnLight(
+                        id: "turn_1",
+                        kind: .workerChat,
+                        status: .done,
+                        author: .worker,
+                        createdAt: now
+                    )
+                ),
+            ],
+            serverTime: now
+        )
+    }
+
+    private func threadSnapshotEnvelopeRow(
+        _ snapshot: RemoteThreadSnapshotEnvelope,
+        accountId: String = "acct_1",
+        macAgentId: String = "mac_1"
+    ) throws -> [String: Any] {
+        [
+            "account_id": accountId,
+            "mac_agent_id": macAgentId,
+            "threads": try snapshot.threads.map { try XCTUnwrap(jsonObject($0) as? [String: Any]) },
+            "server_time": iso(snapshot.serverTime),
+            "protocol_version": snapshot.protocolVersion,
+            "updated_at": iso(now.addingTimeInterval(5)),
+        ]
+    }
+
+    private func threadDetailBlobRow(
+        _ blob: SealedBlob,
+        accountId: String = "acct_1",
+        macAgentId: String = "mac_1",
+        threadId: String = "thread_1",
+        deviceId: String = "device_1"
+    ) throws -> [String: Any] {
+        [
+            "account_id": accountId,
+            "mac_agent_id": macAgentId,
+            "thread_id": threadId,
+            "device_id": deviceId,
+            "sealed_detail": try XCTUnwrap(jsonObject(blob) as? [String: Any]),
+            "updated_at": iso(now.addingTimeInterval(5)),
+        ]
+    }
+
+    private func sealedThreadDetail(deviceId: String) -> SealedBlob {
+        SealedBlob(
+            ciphertext: Data("thread-detail-ciphertext-\(deviceId)".utf8),
+            encapsulatedKey: Data("thread-detail-encapsulated".utf8),
+            sealedForKeyId: deviceId,
+            contentType: RemoteThreadDetail.sealedContentType
+        )
     }
 
     private func teamRunLightRow(_ run: TeamRunLight) -> [String: Any] {

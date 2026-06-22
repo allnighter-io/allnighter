@@ -149,6 +149,32 @@ CREATE TABLE IF NOT EXISTS "public"."snapshot_envelopes" (
 ALTER TABLE "public"."snapshot_envelopes" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."thread_snapshot_envelopes" (
+    "account_id" "uuid" NOT NULL,
+    "mac_agent_id" "uuid" NOT NULL,
+    "threads" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "server_time" timestamp with time zone NOT NULL,
+    "protocol_version" integer NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."thread_snapshot_envelopes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."thread_detail_blobs" (
+    "account_id" "uuid" NOT NULL,
+    "mac_agent_id" "uuid" NOT NULL,
+    "thread_id" "text" NOT NULL,
+    "device_id" "text" NOT NULL,
+    "sealed_detail" "jsonb" NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."thread_detail_blobs" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."mac_agents" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "account_id" "uuid" NOT NULL,
@@ -306,6 +332,14 @@ ALTER TABLE ONLY "public"."snapshot_envelopes"
     ADD CONSTRAINT "snapshot_envelopes_pkey" PRIMARY KEY ("account_id", "mac_agent_id");
 
 
+ALTER TABLE ONLY "public"."thread_snapshot_envelopes"
+    ADD CONSTRAINT "thread_snapshot_envelopes_pkey" PRIMARY KEY ("account_id", "mac_agent_id");
+
+
+ALTER TABLE ONLY "public"."thread_detail_blobs"
+    ADD CONSTRAINT "thread_detail_blobs_pkey" PRIMARY KEY ("account_id", "mac_agent_id", "thread_id", "device_id");
+
+
 
 ALTER TABLE ONLY "public"."mac_agents"
     ADD CONSTRAINT "mac_agents_pkey" PRIMARY KEY ("id");
@@ -343,7 +377,7 @@ ALTER TABLE ONLY "public"."trusted_devices"
 
 
 ALTER TABLE ONLY "public"."command_inbox"
-    ADD CONSTRAINT "command_inbox_kind_check" CHECK (("kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'stopAll'::"text"])));
+    ADD CONSTRAINT "command_inbox_kind_check" CHECK (("kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'thread.mark_read'::"text", 'stopAll'::"text"])));
 
 
 
@@ -363,7 +397,7 @@ ALTER TABLE ONLY "public"."command_acks"
 
 
 ALTER TABLE ONLY "public"."command_acks"
-    ADD CONSTRAINT "command_acks_audit_command_kind_check" CHECK (("audit_command_kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'stopAll'::"text"])));
+    ADD CONSTRAINT "command_acks_audit_command_kind_check" CHECK (("audit_command_kind" = ANY (ARRAY['startRun'::"text", 'stopRun'::"text", 'thread.mark_read'::"text", 'stopAll'::"text"])));
 
 
 
@@ -374,6 +408,14 @@ ALTER TABLE ONLY "public"."command_acks"
 
 ALTER TABLE ONLY "public"."snapshot_envelopes"
     ADD CONSTRAINT "snapshot_envelopes_protocol_version_check" CHECK (("protocol_version" = 1));
+
+
+ALTER TABLE ONLY "public"."thread_snapshot_envelopes"
+    ADD CONSTRAINT "thread_snapshot_envelopes_protocol_version_check" CHECK (("protocol_version" = 1));
+
+
+ALTER TABLE ONLY "public"."thread_detail_blobs"
+    ADD CONSTRAINT "thread_detail_blobs_sealed_detail_shape_check" CHECK (((("sealed_detail" ->> 'content_type'::"text") = 'application/vnd.allnighter.remote-thread-detail+json'::"text") AND ("sealed_detail" ? 'ciphertext'::"text") AND ("sealed_detail" ? 'encapsulated_key'::"text") AND (("sealed_detail" ->> 'sealed_for_key_id'::"text") = "device_id")));
 
 
 
@@ -433,6 +475,26 @@ ALTER TABLE ONLY "public"."snapshot_envelopes"
     ADD CONSTRAINT "snapshot_envelopes_mac_agent_id_fkey" FOREIGN KEY ("mac_agent_id") REFERENCES "public"."mac_agents"("id") ON DELETE CASCADE;
 
 
+ALTER TABLE ONLY "public"."thread_snapshot_envelopes"
+    ADD CONSTRAINT "thread_snapshot_envelopes_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."thread_snapshot_envelopes"
+    ADD CONSTRAINT "thread_snapshot_envelopes_mac_agent_id_fkey" FOREIGN KEY ("mac_agent_id") REFERENCES "public"."mac_agents"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."thread_detail_blobs"
+    ADD CONSTRAINT "thread_detail_blobs_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."thread_detail_blobs"
+    ADD CONSTRAINT "thread_detail_blobs_mac_agent_id_fkey" FOREIGN KEY ("mac_agent_id") REFERENCES "public"."mac_agents"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."thread_detail_blobs"
+    ADD CONSTRAINT "thread_detail_blobs_trusted_device_scope_fkey" FOREIGN KEY ("account_id", "mac_agent_id", "device_id") REFERENCES "public"."trusted_devices"("account_id", "mac_agent_id", "device_id") ON DELETE CASCADE;
+
+
 
 ALTER TABLE ONLY "public"."mac_agents"
     ADD CONSTRAINT "mac_agents_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
@@ -486,6 +548,12 @@ ALTER TABLE "public"."event_envelopes" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."snapshot_envelopes" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."thread_snapshot_envelopes" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."thread_detail_blobs" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."mac_agents" ENABLE ROW LEVEL SECURITY;
 
 
@@ -517,6 +585,14 @@ CREATE POLICY "mac agents insert event envelopes" ON "public"."event_envelopes" 
 
 CREATE POLICY "mac agents insert snapshot envelopes" ON "public"."snapshot_envelopes" FOR INSERT TO "authenticated" WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
+
+
+CREATE POLICY "mac agents insert thread snapshot envelopes" ON "public"."thread_snapshot_envelopes" FOR INSERT TO "authenticated" WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
+
+
+CREATE POLICY "mac agents insert thread detail blobs" ON "public"."thread_detail_blobs" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."trusted_devices" "d"
+  WHERE (("d"."account_id" = "thread_detail_blobs"."account_id") AND ("d"."mac_agent_id" = "thread_detail_blobs"."mac_agent_id") AND ("d"."device_id" = "thread_detail_blobs"."device_id") AND "public"."mac_agent_claim_matches"("thread_detail_blobs"."account_id", "thread_detail_blobs"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
 
 
 CREATE POLICY "users insert own mac agents" ON "public"."mac_agents" FOR INSERT TO "authenticated" WITH CHECK (("account_id" = "auth"."uid"()));
@@ -565,6 +641,12 @@ CREATE POLICY "approved devices select snapshot envelopes" ON "public"."snapshot
 
 
 
+CREATE POLICY "approved devices select thread snapshot envelopes" ON "public"."thread_snapshot_envelopes" FOR SELECT TO "authenticated" USING (("public"."mac_agent_claim_matches"("account_id", "mac_agent_id") OR "public"."approved_remote_device"("mac_agent_id", "public"."remote_device_id"())));
+
+
+CREATE POLICY "approved devices select thread detail blobs" ON "public"."thread_detail_blobs" FOR SELECT TO "authenticated" USING (("public"."mac_agent_claim_matches"("account_id", "mac_agent_id") OR (("device_id" = "public"."remote_device_id"()) AND "public"."approved_remote_device"("mac_agent_id", "device_id"))));
+
+
 CREATE POLICY "users select own mac agents" ON "public"."mac_agents" FOR SELECT TO "authenticated" USING (("account_id" = "auth"."uid"()));
 
 
@@ -596,6 +678,16 @@ CREATE POLICY "mac agents update command inbox" ON "public"."command_inbox" FOR 
 
 CREATE POLICY "mac agents update snapshot envelopes" ON "public"."snapshot_envelopes" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
 
+
+
+CREATE POLICY "mac agents update thread snapshot envelopes" ON "public"."thread_snapshot_envelopes" FOR UPDATE TO "authenticated" USING ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id")) WITH CHECK ("public"."mac_agent_claim_matches"("account_id", "mac_agent_id"));
+
+
+CREATE POLICY "mac agents update thread detail blobs" ON "public"."thread_detail_blobs" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."trusted_devices" "d"
+  WHERE (("d"."account_id" = "thread_detail_blobs"."account_id") AND ("d"."mac_agent_id" = "thread_detail_blobs"."mac_agent_id") AND ("d"."device_id" = "thread_detail_blobs"."device_id") AND "public"."mac_agent_claim_matches"("thread_detail_blobs"."account_id", "thread_detail_blobs"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."trusted_devices" "d"
+  WHERE (("d"."account_id" = "thread_detail_blobs"."account_id") AND ("d"."mac_agent_id" = "thread_detail_blobs"."mac_agent_id") AND ("d"."device_id" = "thread_detail_blobs"."device_id") AND "public"."mac_agent_claim_matches"("thread_detail_blobs"."account_id", "thread_detail_blobs"."mac_agent_id") AND ("d"."revoked" = false) AND ("d"."valid_until" >= "now"())))));
 
 
 CREATE POLICY "users update own mac agents" ON "public"."mac_agents" FOR UPDATE TO "authenticated" USING (("account_id" = "auth"."uid"())) WITH CHECK (("account_id" = "auth"."uid"()));
@@ -847,6 +939,17 @@ GRANT ALL ON TABLE "public"."event_envelopes" TO "service_role";
 GRANT ALL ON TABLE "public"."snapshot_envelopes" TO "anon";
 GRANT ALL ON TABLE "public"."snapshot_envelopes" TO "authenticated";
 GRANT ALL ON TABLE "public"."snapshot_envelopes" TO "service_role";
+
+
+GRANT ALL ON TABLE "public"."thread_snapshot_envelopes" TO "anon";
+GRANT ALL ON TABLE "public"."thread_snapshot_envelopes" TO "authenticated";
+GRANT ALL ON TABLE "public"."thread_snapshot_envelopes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."thread_detail_blobs" TO "anon";
+GRANT ALL ON TABLE "public"."thread_detail_blobs" TO "authenticated";
+GRANT ALL ON TABLE "public"."thread_detail_blobs" TO "service_role";
 
 
 

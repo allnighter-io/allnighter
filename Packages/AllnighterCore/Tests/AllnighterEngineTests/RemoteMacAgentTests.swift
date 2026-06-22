@@ -353,6 +353,49 @@ final class RemoteMacAgentTests: XCTestCase {
         )
     }
 
+    func testDrainPublishesThreadSnapshotAndSealedDetailsAfterCommands() async throws {
+        let threadStore = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
+        try threadStore.saveForImport(threadWithUnreadReply())
+        try trustedStore.save(TrustedRemoteRegistry(trustedDevices: [trustedDevice(capabilities: [])]))
+        let relay = MockRemoteMacRelay(trustedDevices: [trustedDevice(capabilities: [])])
+        let fixedNow = now
+        let threadPublisher = RemoteThreadPublisher(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            snapshotService: RemoteThreadSnapshotService(threadStore: threadStore, now: { fixedNow }),
+            contentService: RemoteThreadContentService(
+                accountId: "acct_1",
+                macAgentId: "mac_1",
+                threadStore: threadStore,
+                trustedStore: trustedStore,
+                now: { fixedNow }
+            ),
+            relay: relay,
+            now: { fixedNow }
+        )
+        let agent = makeAgent(
+            relay: relay,
+            executor: CapturingRemoteExecutor(now: now),
+            threadPublisher: threadPublisher
+        )
+
+        let result = try await agent.drainOnce()
+
+        XCTAssertEqual(result.publishedThreadSnapshotThreadCount, 1)
+        XCTAssertEqual(result.publishedThreadDetailBlobCount, 1)
+        let snapshot = try await relay.threadSnapshot(accountId: "acct_1", macAgentId: "mac_1")
+        XCTAssertEqual(snapshot?.threads.map(\.id), ["thread_1"])
+        let sealedDetailBlob = try await relay.sealedThreadDetail(
+            accountId: "acct_1",
+            macAgentId: "mac_1",
+            threadId: "thread_1",
+            deviceId: "device_1"
+        )
+        let detailBlob = try XCTUnwrap(sealedDetailBlob)
+        let detail = try CoreJSON.decode(RemoteThreadDetail.self, from: RemoteCrypto.open(detailBlob, with: deviceSealingKey))
+        XCTAssertEqual(detail.turns.map(\.text), ["private prompt", "private reply"])
+    }
+
     func testDrainRejectsSpoofedFromDeviceIdWithoutExecuting() async throws {
         let device = trustedDevice(capabilities: [])
         let command = try signedCommand(requestId: "req_spoofed_from", kind: .stopAll, payload: .empty)
@@ -543,6 +586,7 @@ final class RemoteMacAgentTests: XCTestCase {
         auditRecorder: any RemoteAuditRecording = NoopRemoteAuditRecorder(),
         eventSync: RemoteMacAgentEventSync? = nil,
         snapshotPublisher: RemoteSnapshotPublisher? = nil,
+        threadPublisher: RemoteThreadPublisher? = nil,
         commandBatchLimit: Int = 100
     ) -> RemoteMacAgent {
         let fixedNow = now
@@ -570,6 +614,7 @@ final class RemoteMacAgentTests: XCTestCase {
             auditRecorder: auditRecorder,
             eventSync: eventSync,
             snapshotPublisher: snapshotPublisher,
+            threadPublisher: threadPublisher,
             now: { fixedNow },
             commandBatchLimit: commandBatchLimit
         )
@@ -592,6 +637,41 @@ final class RemoteMacAgentTests: XCTestCase {
             revoked: revoked,
             revokedAt: revoked ? now.addingTimeInterval(-1) : nil,
             capabilities: capabilities
+        )
+    }
+
+    private func threadWithUnreadReply() -> WorkThread {
+        let userTurn = ThreadTurn(
+            id: "u1",
+            threadId: "thread_1",
+            kind: .userMessage,
+            status: .done,
+            createdAt: now.addingTimeInterval(-20),
+            author: .user,
+            text: "private prompt"
+        )
+        let workerTurn = ThreadTurn(
+            id: "w1",
+            threadId: "thread_1",
+            kind: .workerChat,
+            status: .done,
+            createdAt: now.addingTimeInterval(-10),
+            completedAt: now.addingTimeInterval(-10),
+            author: .worker,
+            text: "private reply",
+            workerId: "codex"
+        )
+        return WorkThread(
+            id: "thread_1",
+            title: "Remote thread",
+            createdAt: now.addingTimeInterval(-30),
+            updatedAt: now.addingTimeInterval(-10),
+            readCursor: ThreadReadCursor(
+                lastReadTurnId: "u1",
+                lastReadTurnCreatedAt: userTurn.createdAt,
+                readAt: userTurn.createdAt
+            ),
+            turns: [userTurn, workerTurn]
         )
     }
 
@@ -911,6 +991,33 @@ private actor UnscopedTrustedDevicesRelay: RemoteMacRelay {
         nil
     }
 
+    func publishThreadSnapshot(
+        accountId: String,
+        macAgentId: String,
+        snapshot: RemoteThreadSnapshotEnvelope
+    ) async throws {}
+
+    func threadSnapshot(accountId: String, macAgentId: String) async throws -> RemoteThreadSnapshotEnvelope? {
+        nil
+    }
+
+    func publishThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob
+    ) async throws {}
+
+    func sealedThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String
+    ) async throws -> SealedBlob? {
+        nil
+    }
+
     func publishMedia(ref: MediaRef, data: Data, keys: [MediaKeyEnvelope]) async throws {}
 
     func upsertMediaKey(_ key: MediaKeyEnvelope, macAgentId: String) async throws {}
@@ -1015,6 +1122,33 @@ private actor MismatchedRegistrationRelay: RemoteMacRelay {
     func publishSnapshot(accountId: String, macAgentId: String, snapshot: SnapshotEnvelope) async throws {}
 
     func snapshot(accountId: String, macAgentId: String, since: Int64?) async throws -> SnapshotEnvelope? {
+        nil
+    }
+
+    func publishThreadSnapshot(
+        accountId: String,
+        macAgentId: String,
+        snapshot: RemoteThreadSnapshotEnvelope
+    ) async throws {}
+
+    func threadSnapshot(accountId: String, macAgentId: String) async throws -> RemoteThreadSnapshotEnvelope? {
+        nil
+    }
+
+    func publishThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String,
+        sealedDetail: SealedBlob
+    ) async throws {}
+
+    func sealedThreadDetail(
+        accountId: String,
+        macAgentId: String,
+        threadId: String,
+        deviceId: String
+    ) async throws -> SealedBlob? {
         nil
     }
 
