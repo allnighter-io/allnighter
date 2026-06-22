@@ -7,8 +7,8 @@ is transitional.
 
 | Layer | Choice |
 | --- | --- |
-| Language | Swift 6 |
-| UI | SwiftUI (+ targeted AppKit on macOS) |
+| Language | Swift 6 language mode |
+| UI | SwiftUI + Observation (`@Observable`; targeted AppKit on macOS) |
 | Shared code | Swift Package `AllnighterCore` |
 | Mac app | XcodeGen project at `Apps/AllnighterMac/` |
 | iOS app | `Allnighter/` (transitional) → `Apps/AllnighteriOS/` |
@@ -32,6 +32,9 @@ Allnighter/                  # transitional iOS Xcode scaffold
 ## Commands
 
 ```text
+# State-pattern gate
+bash scripts/check_swiftui_state.sh
+
 # Shared package
 swift test --package-path Packages/AllnighterCore
 
@@ -48,6 +51,8 @@ xcodebuild test -scheme Allnighter -destination 'platform=iOS Simulator,name=iPh
 ## Agent Tooling
 
 - Cursor + Codex share the same doc router (`AGENTS.md`).
+- SwiftUI state rules live in `docs/operations/SwiftUI_State_Rules.md`; owned
+  UI code uses Observation, not `ObservableObject`/`@Published` era patterns.
 - Commits: all agents commit directly with git; the commit-queue/handoff watcher
   is retired (2026-06-18). See `docs/operations/Execution-Playbook.md` § Commits.
 

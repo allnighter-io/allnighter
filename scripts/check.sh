@@ -26,6 +26,10 @@ echo "==> check GUI visual proof gate"
 bash "$ROOT/scripts/check_gui_proof.sh"
 ran_any=true
 
+echo "==> check SwiftUI Observation state rules"
+bash "$ROOT/scripts/check_swiftui_state.sh"
+ran_any=true
+
 # ThreadStore hardening (TSH-S06): app runtime must use explicit mutation APIs,
 # not fixture/import saves. See docs/archive/phases/05_ThreadStore_Hardening.md.
 echo "==> check ThreadStore caller allowlist"

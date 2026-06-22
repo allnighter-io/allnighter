@@ -27,7 +27,7 @@ sequencing under `docs/design-system/`.
 | Tier | Work type | Required reads |
 | --- | --- | --- |
 | A | Tiny paint change, copy tweak, icon swap | `docs/design-system/production.md` + the target view |
-| B | Component or layout change inside an existing surface | `docs/gui/0.GUI-Tech-Stack.md`, `docs/design-system/production.md` (+ `readme.md` for brand questions), `docs/gui/1.GUI-Invariants.md`, the surface brief if present |
+| B | Component or layout change inside an existing surface | `docs/gui/0.GUI-Tech-Stack.md`, `docs/operations/SwiftUI_State_Rules.md`, `docs/design-system/production.md` (+ `readme.md` for brand questions), `docs/gui/1.GUI-Invariants.md`, the surface brief if present |
 | C | New or materially changed surface (window, team, sheet, view) | Tier B + `docs/gui/2.GUI-Surface-Architecture.md` + a surface brief (`docs/gui/surfaces/`) |
 | D | UI touching run/dispatch state, quota/billing, secrets/Keychain, or pairing | Tier C + `docs/workflows/SSOT_Feature_Workflow.md` + the owning `docs/mvp/` or `RB*` contract |
 
@@ -49,6 +49,9 @@ Escalate to Tier D if the work touches:
 - **UI does not own domain truth.** Views bind to `AllnighterCore` models and
   live run state. Never fabricate GUI-only fields, statuses, worker names, or
   option lists; back them with the owning contract.
+- **Observation state only.** Owned SwiftUI state uses `@Observable` with
+  `@State`/`@Environment`/`@Bindable`; do not add `ObservableObject`,
+  `@Published`, `@ObservedObject`, `@StateObject`, or `@EnvironmentObject`.
 - **Dark mode only.** Build on the midnight surfaces
   (`--bg-base`/`-surface`/`-raised`); never a light background.
 - **One warm signal.** Amber (`--accent`, `#FFA630`) is reserved for the single
@@ -98,6 +101,7 @@ or blocked, never fixed.
 ## 8. Related Docs
 
 - Stack: `docs/gui/0.GUI-Tech-Stack.md`
+- SwiftUI state rules: `docs/operations/SwiftUI_State_Rules.md`
 - Invariants: `docs/gui/1.GUI-Invariants.md`
 - Surface architecture: `docs/gui/2.GUI-Surface-Architecture.md`
 - Surface briefs: `docs/gui/surfaces/README.md`
