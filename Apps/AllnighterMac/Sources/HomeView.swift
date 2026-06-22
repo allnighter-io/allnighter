@@ -454,7 +454,8 @@ private struct ProjectThreadRow: View {
                     .onExitCommand { onEndRename?() }   // Esc cancels
             } else {
                 Text(row.title)
-                    .font(.system(size: 13, weight: state == .replied ? .semibold : .regular))
+                    // Unread (.replied) reads via bright color + the dot — never bold too.
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
             }
@@ -546,7 +547,9 @@ private struct ProjectGroupHeader: View {
                     Image(systemName: "folder")
                         .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
                     Text(group.title)
-                        .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+                        // Folder names are structure, not content — dimmed (not bright white);
+                        // hierarchy comes from the weight, not the brightness.
+                        .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textMuted).lineLimit(1)
                     if group.hasUnread {
                         Circle().fill(ALColor.accent).frame(width: 6, height: 6)
                     }
