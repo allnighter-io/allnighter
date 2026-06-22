@@ -48,7 +48,7 @@ public enum ACP {
 
     // MARK: - Inbound (agent → client): classify one parsed line
 
-    public enum Inbound: Equatable {
+    public enum Inbound: Equatable, Sendable {
         /// Response to one of OUR requests. `sessionId` is set only for a `session/new` reply.
         case result(id: Int, sessionId: String?)
         case failure(id: Int, code: Int, message: String)
@@ -61,8 +61,8 @@ public enum ACP {
     }
 
     /// One streamed `session/update`. We care about visible text (answer/reasoning) and tool titles.
-    public struct SessionUpdate: Equatable {
-        public enum Kind: String {
+    public struct SessionUpdate: Equatable, Sendable {
+        public enum Kind: String, Sendable {
             case message = "agent_message_chunk"
             case thought = "agent_thought_chunk"
             case toolCall = "tool_call"
