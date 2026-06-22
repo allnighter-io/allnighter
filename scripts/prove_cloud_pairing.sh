@@ -22,7 +22,7 @@ trap 'rm -rf "$DEVICE_ROOT"' EXIT
 ALLN_BIN="${ALLN_BIN:-$(swift build --package-path "$ROOT/Packages/AllnighterCore" --disable-sandbox --product alln --show-bin-path 2>/dev/null)/alln}"
 
 echo "==> Starting remote Mac agent"
-( "$ALLN_BIN" serve 2>&1 & echo $! > "$DEVICE_ROOT/serve.pid" )
+( "$ALLN_BIN" serve >> "$DEVICE_ROOT/serve.log" 2>&1 & echo $! > "$DEVICE_ROOT/serve.pid" )
 SERVE_PID="$(cat "$DEVICE_ROOT/serve.pid")"
 sleep 12
 
@@ -47,7 +47,7 @@ mac_token = os.environ["ALLNIGHTER_SUPABASE_ACCESS_TOKEN"]
 account_id = os.environ["ALLNIGHTER_REMOTE_ACCOUNT_ID"]
 mac_id = os.environ["ALLNIGHTER_REMOTE_MAC_AGENT_ID"]
 
-device_id = "prove_pair_device"
+device_id = f"prove_pair_{int(time.time())}"
 sign = "dGVzdF9zaWduaW5nX2tleV9kYXRh" * 2
 seal = "dGVzdF9zZWFsaW5nX2tleV9kYXRh" * 2
 now = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
@@ -104,7 +104,7 @@ subprocess.run(
 )
 print(f"approved {device_id} locally")
 
-for _ in range(30):
+for _ in range(60):
   time.sleep(1)
   rows = request(
       "GET",

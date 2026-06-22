@@ -280,7 +280,6 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
         _ = try await post(
             table: "trusted_devices",
             rows: [TrustedDeviceRow(device)],
-            query: [URLQueryItem(name: "on_conflict", value: "account_id,mac_agent_id,device_id")],
             prefer: "resolution=merge-duplicates,return=minimal"
         ) as [TrustedDeviceRow]
     }
