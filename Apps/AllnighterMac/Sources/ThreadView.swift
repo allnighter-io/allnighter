@@ -553,38 +553,6 @@ private struct CopyButton: View {
     }
 }
 
-private struct MessageCopyFooter: View {
-    let text: String?
-    @State private var copied = false
-
-    var body: some View {
-        if let text, !text.isEmpty {
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(text, forType: .string)
-                    copied = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { copied = false }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 10, weight: .medium))
-                        Text(copied ? "Copied" : "Copy").font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundStyle(copied ? ALPalette.green500 : ALColor.textMuted)
-                    .padding(.horizontal, 8).frame(height: 24)
-                    .background(ALColor.subtle, in: Capsule())
-                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-                }
-                .buttonStyle(.plain)
-                .help("Copy this answer")
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 3)
-        }
-    }
-}
-
 private struct ThreadTurnRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
@@ -871,9 +839,7 @@ private struct ThreadBoardRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("RECOMMENDATION").font(.system(size: 9, weight: .semibold)).tracking(0.6)
                         .foregroundStyle(ALColor.accentText)
-                    MarkdownText(markdown: synthesis)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    MessageCopyFooter(text: synthesis)
+                    AnswerBody(markdown: synthesis)
                 }
                 .padding(12)
                 .background(ALColor.active, in: RoundedRectangle(cornerRadius: ALRadius.lg))
@@ -925,9 +891,7 @@ private struct ThreadBoardRow: View {
             switch answer.status {
             case .done:
                 if expanded.contains(answer.id) {
-                    MarkdownText(markdown: answer.output ?? "")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    MessageCopyFooter(text: answer.output)
+                    AnswerBody(markdown: answer.output ?? "")
                 } else {
                     // Lazy preview — tap to render the full markdown (keeps first paint cheap).
                     Button { expanded.insert(answer.id) } label: {
@@ -1039,16 +1003,12 @@ private struct ThreadMutatingRunRow: View {
                     startedAt: turn.createdAt)
                 attachmentRow
                 content
-                MessageCopyFooter(text: copyableText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
         }
         .onHover { hovering = $0 }
     }
-
-    /// Best copyable text for this worker message — the displayed caption.
-    private var copyableText: String? { displayText }
 
     /// The caption to render. When the turn carries captured worker images, the settled
     /// `turn.text` is the cleaned caption (paths stripped), so prefer it over the raw run
@@ -1137,10 +1097,10 @@ private struct ThreadMutatingRunRow: View {
     }
 
     // Clean assistant message in the flow — no status card, no "Ran" badge.
+    // AnswerBody carries the conversation-wide Raw⇄Rendered toggle + Copy footer.
     @ViewBuilder private var resultCard: some View {
         if let displayText {
-            MarkdownText(markdown: displayText)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            AnswerBody(markdown: displayText)
         } else {
             Text("Done.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
         }
