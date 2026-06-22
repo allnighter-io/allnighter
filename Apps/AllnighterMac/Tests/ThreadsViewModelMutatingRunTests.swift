@@ -71,7 +71,7 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
         XCTAssertNil(vm.selectedThreadId)
     }
 
-    func testBusyWriteLockRefusesConcurrentMutatingRun() async throws {
+    func testBusyWriteLockQueuesConcurrentMutatingRun() async throws {
         let reg = RunWriteLockRegistry()
         let dir = tempDir()
         let key = RunWriteLock.key(repoRoot: dir)
@@ -84,13 +84,18 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
         _ = vm.newThread(title: "t", workingDir: dir)
         XCTAssertNotNil(vm.selectedThread?.projectId)
 
+        // One writer per repo: a busy root QUEUES the run, it does not refuse. While the lock
+        // is held elsewhere, the run must stay pending (running) — never fail.
         vm.sendRouting(routing(to, "edit the repo concurrently"))
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let waiting = vm.selectedThread?.turns.first { $0.kind == .mutatingRun }
+        XCTAssertEqual(waiting?.status, .running, "a busy repo root queues (waits), never refuses")
+
+        // Release the holder — the queued run is granted the lock and runs to completion.
+        await reg.release(key)
         let settled = try await firstRunTurn(vm, kind: .mutatingRun)
         let turn = try XCTUnwrap(settled)
-        XCTAssertEqual(turn.status, .failed, "a busy repo root refuses the mutating run")
-        XCTAssertTrue(turn.text?.lowercased().contains("editing") == true
-                      || turn.text?.lowercased().contains("agent") == true,
-                      "honest busy reason")
+        XCTAssertEqual(turn.status, .done, "the queued run completes once the lock frees")
     }
 
     func testMutatingRunCompletesWithDurableTeamRun() async throws {

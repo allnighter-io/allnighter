@@ -263,9 +263,10 @@ public actor RunService {
         let lockKey = RunWriteLock.key(repoRoot: root)
         var acquiredLock = false
         if preset.writePolicy == .mutating {
-            guard await writeLock.acquire(lockKey) else {
-                return .failure(.writeLockBusy(root))
-            }
+            // One writer per repo root. If another mutating run holds the lock, WAIT our turn
+            // (FIFO) and then run — never refuse. A second back-to-back agent turn queues
+            // behind the first instead of erroring; read-only runs never reach here.
+            await writeLock.waitToAcquire(lockKey)
             acquiredLock = true
         }
         defer {

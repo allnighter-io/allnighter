@@ -1,8 +1,13 @@
 import Foundation
 
-/// At most one mutating run per canonical repo root. Read/answer runs never take
-/// the lock; a second mutating run on the same root is refused with one honest
-/// line — no queue, no approval gate (Unified Run Model).
+/// At most one mutating run *executing* per canonical repo root at a time — the
+/// inviolable one-writer-per-repo invariant. Read/answer runs never take the lock and
+/// stay fully parallel. A second mutating run on the same root WAITS its turn (FIFO) and
+/// then runs automatically — it is not refused. "One writer at a time" is the safety rule;
+/// a queue enforces it structurally, which is also how the execution-lane dispatch path
+/// already behaves. (Earlier this path hard-refused the second run, which leaked a
+/// filesystem-safety guard up into ordinary back-to-back chat — see the Grok-Build
+/// "already editing" false alarm.)
 public enum RunWriteLock {
 
     /// Canonical key for a repo root. Blank paths collapse to a shared conservative lane.
@@ -29,21 +34,50 @@ public enum RunWriteLock {
     }
 }
 
-/// Process-wide mutating-run gate keyed by normalized repo root.
+/// Process-wide mutating-run gate keyed by normalized repo root. FIFO: while a key is held,
+/// further `waitToAcquire` callers suspend in arrival order and are granted one at a time as
+/// the holder releases. Exactly one owner per key at any instant — the one-writer invariant.
 public actor RunWriteLockRegistry {
     public static let shared = RunWriteLockRegistry()
 
     private var held: Set<String> = []
+    /// Suspended callers per key, in arrival order. The holder hands ownership to the head of
+    /// this queue on `release` (ownership transfer — `held` is never cleared mid-handoff).
+    private var waiters: [String: [CheckedContinuation<Void, Never>]] = [:]
 
     public init() {}
 
+    /// Non-blocking try-acquire: takes the key if free, else returns `false` immediately.
+    /// Kept for callers that must not wait; the run path uses `waitToAcquire` instead.
     @discardableResult
     public func acquire(_ key: String) -> Bool {
         held.insert(key).inserted
     }
 
+    /// FIFO acquire: returns immediately if the key is free, otherwise suspends until it is
+    /// this caller's turn. On return, the caller owns the key and MUST call `release(key)`
+    /// exactly once (the run path does so in a `defer`). The mutating-run path uses this so a
+    /// second run on the same repo waits its turn rather than being refused.
+    ///
+    /// Cancellation note: a caller suspended here is resumed when ownership is handed to it on
+    /// the holder's `release`; a cancelled task then proceeds past the await, does its
+    /// (cancelled, fast-returning) work, and releases in its `defer`, so the queue drains.
+    public func waitToAcquire(_ key: String) async {
+        if held.insert(key).inserted { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            waiters[key, default: []].append(continuation)
+        }
+    }
+
     public func release(_ key: String) {
-        held.remove(key)
+        if var queue = waiters[key], !queue.isEmpty {
+            let next = queue.removeFirst()
+            waiters[key] = queue.isEmpty ? nil : queue
+            // Ownership transfers to `next`; `held` stays set so no one else can slip in.
+            next.resume()
+        } else {
+            held.remove(key)
+        }
     }
 
     public func isHeld(_ key: String) -> Bool {
