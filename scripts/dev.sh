@@ -7,6 +7,14 @@
 #   allapp test      run the green wall (swift + xcodebuild tests)
 #   allapp clean     drop the cached build, then build & launch fresh
 #
+# Design notes (why this script looks the way it does):
+#   - The progress heartbeat is a FOREGROUND poll tied to the real build PID — it
+#     physically cannot outlive the build. (The old detached `while true` subshell
+#     survived `kill -9` of its parent, reparented to launchd, and printed
+#     "still building (Ns)" FOREVER — a zombie that made fast builds look hung.)
+#   - A `trap` tears everything down on any exit, error, or Ctrl-C: no orphans.
+#   - A single-build lock keeps two `allapp`s from building into one DerivedData at
+#     once — concurrent builds corrupt `build.db` and force full rebuilds.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,45 +29,40 @@ DERIVED="${ALLNIGHTER_BUILD_DIR:-$HOME/Library/Developer/Allnighter/Build}"
 SCHEME="AllnighterMac"
 APP="$DERIVED/Build/Products/Debug/Allnighter.app"
 LOG="$DERIVED/last-build.log"
+LOCK="$DERIVED/.allapp-build.lock"
 
-clear_build_lane() {
-  local killed=0
-
-  if pkill -f "derivedDataPath $DERIVED" 2>/dev/null; then
-    killed=1
+# --- teardown: nothing this script starts survives it ---------------------------
+BUILD_PID=""
+cleanup() {
+  if [ -n "$BUILD_PID" ] && kill -0 "$BUILD_PID" 2>/dev/null; then
+    kill "$BUILD_PID" 2>/dev/null || true
   fi
+  # Release our lock (only if we own it).
+  if [ "$(cat "$LOCK/pid" 2>/dev/null || true)" = "$$" ]; then
+    rm -rf "$LOCK" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
 
-  local pid
-  for pid in $(pgrep -f "$ROOT/scripts/dev.sh" 2>/dev/null || true); do
-    [ "$pid" = "$$" ] && continue
-    if kill -9 "$pid" 2>/dev/null; then
-      killed=1
+# --- single-build lock ----------------------------------------------------------
+# Only one build per DerivedData at a time. If another live allapp holds it, wait;
+# if the holder is dead (a crash/Ctrl-C left a stale lock + maybe an orphaned
+# xcodebuild still on build.db), steal it and clear the orphan.
+acquire_lock() {
+  mkdir -p "$DERIVED"
+  while ! mkdir "$LOCK" 2>/dev/null; do
+    local owner
+    owner="$(cat "$LOCK/pid" 2>/dev/null || true)"
+    if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
+      echo "==> another allapp build is running (pid $owner) — waiting…" >&2
+      sleep 2
+    else
+      echo "==> clearing stale build lock" >&2
+      pkill -f "derivedDataPath $DERIVED" 2>/dev/null || true
+      rm -rf "$LOCK" 2>/dev/null || true
     fi
   done
-
-  if [ "$killed" -eq 1 ]; then
-    echo "==> cleared stale build lane" >&2
-    pkill -9 XCBBuildService 2>/dev/null || true
-    pkill -9 SWBBuildService 2>/dev/null || true
-    sleep 1
-  fi
-}
-
-start_build_heartbeat() {
-  (
-    local elapsed=0
-    while true; do
-      sleep 30
-      elapsed=$((elapsed + 30))
-      echo "… still building (${elapsed}s) — tail -f $LOG" >&2
-    done
-  ) &
-  echo $!
-}
-
-stop_build_heartbeat() {
-  kill "$1" 2>/dev/null || true
-  wait "$1" 2>/dev/null || true
+  echo "$$" >"$LOCK/pid"
 }
 
 cmd="${1:-run}"
@@ -71,12 +74,14 @@ case "$cmd" in
   clean)
     echo "==> clean ($DERIVED)"
     rm -rf "$DERIVED"
+    # fall through: build & launch fresh
     ;;
 esac
 
 start=$(date +%s)
 
 # 1. Regenerate the Xcode project so new Sources/ files are always picked up.
+#    (Deterministic — regenerating an unchanged project does NOT force a rebuild.)
 if command -v xcodegen >/dev/null 2>&1; then
   ( cd "$MAC_APP" && xcodegen generate >/dev/null )
 else
@@ -84,29 +89,36 @@ else
   exit 1
 fi
 
-# 2. Incremental build (quiet; surface errors only on failure).
-# Always clear our DerivedData lane first — orphaned xcodebuild locks build.db
-# when a terminal dies mid-build or gui_proof races allapp.
-clear_build_lane
+# 2. Incremental build (quiet; errors surfaced on failure), with a live heartbeat
+#    that ends exactly when the build process does.
+acquire_lock
 echo "==> building ${SCHEME}… (log: $LOG)"
 mkdir -p "$DERIVED"
-heartbeat_pid=$(start_build_heartbeat)
-set +e
 xcodebuild build \
   -project "$MAC_APP/AllnighterMac.xcodeproj" \
   -scheme "$SCHEME" \
   -destination 'platform=macOS' \
   -derivedDataPath "$DERIVED" \
   -configuration Debug \
-  -quiet >"$LOG" 2>&1
-status=$?
-set -e
-stop_build_heartbeat "$heartbeat_pid"
-if [ $status -ne 0 ]; then
+  -quiet >"$LOG" 2>&1 &
+BUILD_PID=$!
+
+elapsed=0
+while kill -0 "$BUILD_PID" 2>/dev/null; do
+  sleep 5
+  elapsed=$((elapsed + 5))
+  if [ $((elapsed % 30)) -eq 0 ]; then
+    echo "… still building (${elapsed}s) — tail -f $LOG" >&2
+  fi
+done
+wait "$BUILD_PID" && status=0 || status=$?
+BUILD_PID=""
+
+if [ "$status" -ne 0 ]; then
   echo "✗ build failed:" >&2
   grep -E "error:" "$LOG" | head -40 || true
   echo "  (full log: $LOG)" >&2
-  exit $status
+  exit "$status"
 fi
 echo "✓ built in $(( $(date +%s) - start ))s"
 
