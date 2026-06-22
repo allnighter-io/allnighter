@@ -106,14 +106,32 @@ doc will not pretend it is.
 
 ---
 
+## 4a. CORRECTION (2026-06-21, during build) — chat is mutating-allowed
+
+Recon while starting S0 found that **single-lane default chat is NOT read-only.** `defaultRunTeam()`
+→ `BuiltInTeams.defaultChat` has **`mutating: true`** ("your go-to agent in the repo, talk or build")
+→ `runShape == .execution` → routes through `runExecution` (which is exactly why session continuity
+lives there). Every chat turn acquires the write lock and may edit files.
+
+Consequence: **Layer A (lean view) does NOT safely apply to single-lane chat** — the invariant "never
+run mutation against a lean view" + "chat may mutate" means a chat turn's edit could be stranded in the
+throwaway view. The lean view is only ever safe for *guaranteed read-only* runs (answer teams = out of
+scope here).
+
+**Adjusted approach for single-lane chat:**
+- The fix is the **warm worker at the REAL repo root** (Layer B) — pays the tree walk ONCE on warm-up,
+  then every turn is fast AND can read/mutate live files with no stranding. No lean view in the loop.
+- The turn-1 bridge is **"start warming on thread-open"** (begin booting the warm worker before the
+  user sends), NOT a lean-view cold spawn.
+- **S0 (lean view) is deferred** to the read-only answer path (out of current scope). The single-lane
+  chat build goes straight to the warm-worker foundation + grok adapter.
+
 ## 5. Build plan — phased, ONE CLI at a time
 
 ### Phase 0 — Foundations (CLI-agnostic, lands before any warm work)
-- [ ] **S0 — Lean context view (Layer A).** `ContextViewPolicy { realRoot | leanTrackedView }` +
-  `ContextViewMaterializer` (current tree − ignored, dirty content, cached per thread, dirty-summary
-  injection). Wire at the run-routing layer so the working dir handed to ANY driver can be the view.
-  Non-mutating single-lane chat → lean view. **Acceptance:** cold chat turn in the Allnighter repo
-  drops ~22s → ~7s; agent still reads real files.
+- [DEFERRED] **S0 — Lean context view (Layer A).** Per §4a, single-lane chat is mutating-allowed, so
+  the lean view cannot safely serve it. S0 is deferred to the read-only answer path (out of current
+  scope). The chat build skips straight to the warm worker.
 - [ ] **S1 — `WarmWorker` abstraction + lifecycle skeleton.** Protocol (spawn/health/deliver/
   streamback/teardown), a registry keyed by thread, resource cap + idle-TTL + LRU, crash-restart hook.
   No CLI bound yet; unit-tested with a fake warm worker.
