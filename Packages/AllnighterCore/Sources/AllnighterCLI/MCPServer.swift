@@ -89,8 +89,10 @@ struct MCPServer {
                 guard team.id == teamId else {
                     return respondToolError(id: id, code: "TEAM_INVALID", message: "definition id must match teamId")
                 }
-                if isNewLabTeam, !team.typeTags.contains(TeamPreset.labTypeTag) {
-                    return respondToolError(id: id, code: "TEAM_INVALID", message: "new lab_ teams must include typeTags [\"lab\"]")
+                // Any lab_-prefixed team must carry the lab typeTag — on create AND
+                // edit — so it can never be stripped back into GUI visibility.
+                if teamId.hasPrefix("lab_"), !team.typeTags.contains(TeamPreset.labTypeTag) {
+                    return respondToolError(id: id, code: "TEAM_INVALID", message: "lab_ teams must include typeTags [\"lab\"]")
                 }
                 try TeamCatalog.saveCustom(team)
                 respond(id: id, result: toolText("saved \(teamId)", structured: AllnighterCLI.teamShowJSONString(team)))
