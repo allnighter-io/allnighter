@@ -140,6 +140,9 @@ final class RemoteAppModel {
     private var deviceSession: DeviceSession?
     private var threadStore: ConversationThreadStore?
     private var activationSequence = 0
+    private var previewCompletionGeneration = 0
+
+    private static let previewDoneMessage = "Done — open on your Mac for the full transcript."
     var composerThreadId: String?
 
     struct ComposerContinuationAgent: Equatable {
@@ -426,8 +429,12 @@ final class RemoteAppModel {
             let result = try await sender.stopRun(runId: runId)
             if result.commandResult.ack.accepted {
                 stopRunPhase = .succeeded(runId: runId)
-                await loadThread(threadId: snapshot.id)
-                await refreshHome()
+                if case .preview = connectionPhase {
+                    settlePreviewActiveRun(threadId: snapshot.id, cancelled: true)
+                } else {
+                    await loadThread(threadId: snapshot.id)
+                    await refreshHome()
+                }
             } else {
                 stopRunPhase = .failed(Self.killSwitchFailureMessage(from: result.commandResult.ack))
             }
@@ -474,7 +481,10 @@ final class RemoteAppModel {
 
             if let threadId = existingThreadId {
                 if case .preview = connectionPhase {
-                    appendOptimisticSend(prompt: trimmed, threadId: threadId)
+                    let workerTurnId = appendOptimisticSend(prompt: trimmed, threadId: threadId)
+                    if let workerTurnId {
+                        schedulePreviewRunCompletion(threadId: threadId, workerTurnId: workerTurnId)
+                    }
                 } else {
                     await refreshHome()
                     await loadThread(threadId: threadId)
@@ -485,6 +495,7 @@ final class RemoteAppModel {
                 await refreshHome()
                 await loadThread(threadId: threadId)
                 pendingOpenThreadId = threadId
+                schedulePreviewRunCompletion(threadId: threadId, workerTurnId: "\(threadId)_worker")
             } else {
                 if let threadId = await resolveLiveNewThreadId(knownIds: knownThreadIds, prompt: trimmed) {
                     composerThreadId = threadId
@@ -563,8 +574,8 @@ final class RemoteAppModel {
         }
     }
 
-    private func appendOptimisticSend(prompt: String, threadId: String) {
-        guard var snapshot = threadSnapshot, snapshot.id == threadId else { return }
+    private func appendOptimisticSend(prompt: String, threadId: String) -> String? {
+        guard var snapshot = threadSnapshot, snapshot.id == threadId else { return nil }
         let workerId = composerDraft.workerIdForSend(
             continuationWorkerId: composerContinuationAgent?.workerId
         )
@@ -601,7 +612,69 @@ final class RemoteAppModel {
         snapshot.turns.append(userTurn)
         snapshot.turns.append(workerTurn)
         snapshot.isActive = true
-        snapshot.statusLabel = "Running"
+        snapshot.statusLabel = "Running on your Mac"
+        threadSnapshot = snapshot
+        threadStore?.applySnapshot(snapshot, threadId: threadId)
+        return workerTurn.id
+    }
+
+    private func schedulePreviewRunCompletion(threadId: String, workerTurnId: String) {
+        previewCompletionGeneration += 1
+        let generation = previewCompletionGeneration
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard generation == previewCompletionGeneration else { return }
+            completePreviewWorkerTurn(threadId: threadId, workerTurnId: workerTurnId)
+        }
+    }
+
+    private func completePreviewWorkerTurn(threadId: String, workerTurnId: String) {
+        guard case .preview = connectionPhase else { return }
+        applyPreviewWorkerSettlement(
+            threadId: threadId,
+            workerTurnId: workerTurnId,
+            text: Self.previewDoneMessage,
+            cancelled: false
+        )
+    }
+
+    private func settlePreviewActiveRun(threadId: String, cancelled: Bool) {
+        guard let workerTurnId = threadSnapshot?.turns.last(where: \.isPending)?.id else { return }
+        applyPreviewWorkerSettlement(
+            threadId: threadId,
+            workerTurnId: workerTurnId,
+            text: cancelled ? "Stopped on your Mac." : Self.previewDoneMessage,
+            cancelled: cancelled
+        )
+    }
+
+    private func applyPreviewWorkerSettlement(
+        threadId: String,
+        workerTurnId: String,
+        text: String,
+        cancelled: Bool
+    ) {
+        guard var snapshot = threadSnapshot, snapshot.id == threadId else { return }
+        guard let index = snapshot.turns.firstIndex(where: { $0.id == workerTurnId }) else { return }
+        let turn = snapshot.turns[index]
+        guard turn.isPending else { return }
+
+        snapshot.turns[index] = ConversationThreadTurn(
+            id: turn.id,
+            role: turn.role,
+            text: text,
+            runId: cancelled ? nil : turn.runId,
+            workerId: turn.workerId,
+            driverId: turn.driverId,
+            agentTitle: turn.agentTitle,
+            isPending: false,
+            isFailed: false,
+            isTruncated: turn.isTruncated,
+            hasAttachments: turn.hasAttachments,
+            hasFileReferences: turn.hasFileReferences
+        )
+        snapshot.isActive = snapshot.turns.contains(where: \.isPending)
+        snapshot.statusLabel = snapshot.isActive ? "Running on your Mac" : nil
         threadSnapshot = snapshot
         threadStore?.applySnapshot(snapshot, threadId: threadId)
     }

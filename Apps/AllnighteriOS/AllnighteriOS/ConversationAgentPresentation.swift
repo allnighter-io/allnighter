@@ -59,4 +59,15 @@ enum ConversationAgentPresentation {
             .replacingOccurrences(of: "_", with: ".")
         return version.isEmpty ? "Opus" : "Opus \(version)"
     }
+
+    static func composerChipTitle(for workerId: String?) -> String {
+        guard let workerId else { return "Auto" }
+        return modelDisplayName(for: workerId)
+    }
+
+    static func composerChipTitle(fromAgentTitle title: String) -> String {
+        title
+            .replacingOccurrences(of: "Agent (", with: "")
+            .replacingOccurrences(of: ")", with: "")
+    }
 }

@@ -76,11 +76,11 @@ struct IOSComposerBar: View {
     }
 
     private var modelChipTitle: String {
-        if let selected = draft.selectedModel?.title {
-            return selected
+        if let selected = draft.selectedModel {
+            return ConversationAgentPresentation.composerChipTitle(for: selected.id)
         }
         if let continuationAgentTitle {
-            return continuationAgentTitle
+            return ConversationAgentPresentation.composerChipTitle(fromAgentTitle: continuationAgentTitle)
         }
         return "Auto"
     }
@@ -340,6 +340,7 @@ private struct ComposerAgentChip: View {
                 .font(IOSFont.bodyStrong)
                 .foregroundStyle(IOSColor.textSecondary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
         .padding(.horizontal, IOSSpace.s3)
         .frame(height: 48)
