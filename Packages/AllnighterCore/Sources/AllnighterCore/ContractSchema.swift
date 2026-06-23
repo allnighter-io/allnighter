@@ -44,6 +44,7 @@ public enum ContractSchema {
             "teamRun": ref("RunInfo"), "models": arr(ref("ModelInfo")),
             "workers": arr(ref("WorkerInfo")), "workerAnswers": arr(ref("AnswerInfo")),
             "stages": arr(ref("StageInfo")), "plan": nullableRef("Plan"),
+            "designBoard": nullableRef("DesignBoard"),
             "usage": ref("Usage"), "warnings": arr(ref("Warning")),
             "errors": arr(ref("ErrorEnvelope")), "nextActions": arr(ref("NextAction")),
             "audit": ref("Audit"),
@@ -90,6 +91,19 @@ public enum ContractSchema {
                 "status": runStatus, "writerWorkerId": nullable("string"),
                 "stageId": nullable("string"), "markdown": str,
             ], required: ["status", "markdown"]),
+            "DesignBoard": obj([
+                "targetShape": str, "screenshotPath": nullable("string"),
+                "screenshotAbsolutePath": nullable("string"),
+                "options": arr(ref("DesignBoardOption")), "chosen": nullableRef("DesignBoardChosen"),
+            ], required: ["targetShape", "options"]),
+            "DesignBoardOption": obj([
+                "workerId": str, "modelId": str, "persona": str,
+                "imagePath": nullable("string"), "absolutePath": nullable("string"),
+                "status": runStatus, "failureReason": nullable("string"), "sessionId": nullable("string"),
+            ], required: ["workerId", "modelId", "persona", "status"]),
+            "DesignBoardChosen": obj([
+                "workerId": str, "persona": str, "chosenAt": nullable("string"),
+            ], required: ["workerId", "persona"]),
             "Usage": obj(["cliCalls": int], required: ["cliCalls"]),
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),

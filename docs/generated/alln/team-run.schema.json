@@ -70,6 +70,127 @@
       ],
       "type" : "object"
     },
+    "DesignBoard" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "chosen" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/DesignBoardChosen"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "options" : {
+          "items" : {
+            "$ref" : "#\/$defs\/DesignBoardOption"
+          },
+          "type" : "array"
+        },
+        "screenshotAbsolutePath" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "screenshotPath" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "targetShape" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "targetShape",
+        "options"
+      ],
+      "type" : "object"
+    },
+    "DesignBoardChosen" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "chosenAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "persona" : {
+          "type" : "string"
+        },
+        "workerId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "workerId",
+        "persona"
+      ],
+      "type" : "object"
+    },
+    "DesignBoardOption" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "absolutePath" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "failureReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "imagePath" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "modelId" : {
+          "type" : "string"
+        },
+        "persona" : {
+          "type" : "string"
+        },
+        "sessionId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "enum" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "skipped",
+            "interrupted"
+          ],
+          "type" : "string"
+        },
+        "workerId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "workerId",
+        "modelId",
+        "persona",
+        "status"
+      ],
+      "type" : "object"
+    },
     "ErrorEnvelope" : {
       "additionalProperties" : false,
       "properties" : {
@@ -528,6 +649,16 @@
     },
     "contractVersion" : {
       "type" : "string"
+    },
+    "designBoard" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/DesignBoard"
+        },
+        {
+          "type" : "null"
+        }
+      ]
     },
     "errors" : {
       "items" : {
