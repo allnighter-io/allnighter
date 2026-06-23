@@ -58,6 +58,13 @@ struct IOSComposerBar: View {
         }
         .shadow(color: .black.opacity(0.46), radius: 24, x: 0, y: 14)
         .accessibilityIdentifier("ios-composer-bar")
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-ui_fixture_model_picker") {
+                showsModelPicker = true
+            }
+            #endif
+        }
         .sheet(isPresented: $showsModelPicker) {
             IOSComposerModelPickerSheet(
                 selectedWorkerId: draft.selectedWorkerId ?? continuationWorkerId
@@ -65,6 +72,7 @@ struct IOSComposerBar: View {
                 draft.selectedWorkerId = workerId
             }
             .presentationDetents([.medium, .large])
+            .accessibilityIdentifier("model-picker-sheet")
         }
         .sheet(isPresented: $showsTeamPicker) {
             IOSComposerTeamPickerSheet(selectedTeamId: draft.selectedTeamId) { teamId in
@@ -200,6 +208,7 @@ private struct IOSComposerModelPickerSheet: View {
             }
             .navigationTitle("Model")
             .navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("model-picker-navigation")
         }
         .preferredColorScheme(.dark)
     }

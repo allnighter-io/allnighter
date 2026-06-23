@@ -43,12 +43,22 @@ enum StopRunPhase: Equatable {
     case failed(String)
 }
 
+#if DEBUG
+private func isIOSUITestingPreview() -> Bool {
+    if ProcessInfo.processInfo.arguments.contains("-ui_testing_preview") { return true }
+    if ProcessInfo.processInfo.environment["ALLNIGHTER_UI_TESTING_PREVIEW"] == "1" { return true }
+    return false
+}
+#else
+private func isIOSUITestingPreview() -> Bool { false }
+#endif
+
 @MainActor
 @Observable
 final class RemoteAppModel {
     private(set) var homeSnapshot: ConversationListSnapshot = .empty
     private(set) var homeStatus: ConversationHomeLoadStatus = .idle
-    private(set) var connectionPhase: RemoteAppConnectionPhase = .idle
+    private(set) var connectionPhase: RemoteAppConnectionPhase = isIOSUITestingPreview() ? .preview : .idle
     private(set) var workRequestSendPhase: WorkRequestSendPhase = .idle
     private(set) var killSwitchPhase: KillSwitchPhase = .idle
     private(set) var threadSnapshot: ConversationThreadSnapshot?
@@ -178,6 +188,8 @@ final class RemoteAppModel {
         return nil
     }
 
+    private static var isUITestingPreview: Bool { isIOSUITestingPreview() }
+
     private struct DeviceSession {
         var client: any RemoteClient
         var mac: MacAgentRef
@@ -191,6 +203,19 @@ final class RemoteAppModel {
         activationSequence += 1
         let currentActivation = activationSequence
         stopLivePolling()
+
+        #if DEBUG
+        if Self.isUITestingPreview {
+            connectionPhase = .preview
+            guard currentActivation == activationSequence else { return }
+            await installPreviewClient()
+            stopLivePolling()
+            await refreshHome()
+            await refreshConnectionDiagnosis()
+            return
+        }
+        #endif
+
         connectionPhase = .connecting
 
         if let environment = RemoteSupabaseEnvironment.load(), environment.hasDeviceCredentials {

@@ -196,6 +196,8 @@ private struct ConversationsHomeView: View {
     private var connectionBanner: some View {
         IOSStatusBanner(text: connectionStatusText, tone: connectionStatusTone)
             .padding(.bottom, IOSSpace.s5)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(connectionStatusText)
             .accessibilityIdentifier("connection-status-banner")
     }
 

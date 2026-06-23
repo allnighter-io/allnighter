@@ -9,16 +9,20 @@ hard, the process is wrong — fix the process, not the human.
 
 When the user asks how to test **anything** on iOS:
 
-1. Give the **simplest path** that actually proves the thing — one command block,
-   not a menu of options.
-2. **Every shell command** starts with:
+1. **Agents verify UI themselves** — run `allios proof` (PNG capture, same contract as Mac
+   `gui_proof.sh`) and **read the image**. Optional `allios uitest` for tap flows. **Never
+   ask the founder to manually eyeball the simulator** for Tier 0 work.
+2. Give the **simplest path** only when the founder explicitly wants to look — one
+   command block, not a menu.
+3. **Every shell command** starts with:
    ```bash
    cd /Users/mike/Documents/GitHub/Allnighter-iOS &&
    ```
-3. No bare `allios`, `scripts/foo.sh`, or “run serve_remote” without the `cd`.
-4. Default to **preview** (no Mac, no Supabase). Only mention **live** when the
+4. No bare `allios`, `scripts/foo.sh`, or multi-terminal live setup without the `cd`.
+5. Default to **preview** (no Mac, no Supabase). Only mention **live** when the
    task explicitly needs phone → Mac relay.
-5. Say how long it roughly takes and what “success” looks like in the UI.
+6. Mac GUI uses `scripts/gui_proof.sh` + layout-watcher; iOS uses `allios proof`
+   (PNG under `docs/qa/ios/_captures/`) — same contract: **the agent looks, not the user.**
 
 ## One-time setup
 
@@ -59,7 +63,32 @@ do not use Tier 2.
 
 ## Tier 0 — UI dev (default)
 
-### First run of the day (or after clean)
+### Agent visual proof (required at slice close)
+
+```bash
+cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios proof
+```
+
+- Launches preview, writes `docs/qa/ios/_captures/home.png` and `model-picker.png`.
+- **Agents run this and read the PNG** — same as Mac `gui_proof.sh`. Do not hand off to the founder.
+
+Optional XCTest tap flows (supplemental; simulator cold-boot can flake):
+
+```bash
+cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios uitest
+```
+
+- Single combined case: preview home + model picker fixture. **Tier 0 closeout uses `allios proof` (PNG), not uitest.**
+
+Extra capture name (same harness):
+
+```bash
+cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios screenshot
+```
+
+- Alias for `allios proof` with an optional capture name.
+
+### Founder fast loop (only when they want to click around)
 
 ```bash
 cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios
@@ -156,7 +185,8 @@ cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios live setup --refresh
 | `allios` | Preview: build (if needed) + launch |
 | `allios launch` | Preview: relaunch only |
 | `allios build` | Build only |
-| `allios test` | Unit tests |
+| `allios proof` | UI tests — **agents verify here** |
+| `allios screenshot` | PNG capture → `docs/qa/ios/_captures/` |
 | `allios live` | Live: auto-start Mac relay + build + launch |
 | `allios live launch` | Live: relaunch only (relay auto-started) |
 | `allios live stop` | Stop background Mac relay agent |

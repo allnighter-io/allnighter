@@ -10,7 +10,9 @@
 #   allios live launch     live relaunch only (relay still auto-started)
 #   allios live stop       stop background Mac relay agent
 #   allios build           build only
-#   allios test            unit tests
+#   allios screenshot      capture simulator PNG for agent visual check
+#   allios proof           visual proof — launch preview + PNG (agents read image)
+#   allios uitest          XCTest UI tests (tap flows; slower, optional)
 #   allios clean           wipe DerivedData, then preview build + launch
 #
 set -euo pipefail
@@ -32,6 +34,15 @@ subcmd="${2:-}"
 case "$cmd" in
   test)
     exec bash "$ROOT/scripts/ios_unit_tests.sh"
+    ;;
+  proof)
+    exec bash "$ROOT/scripts/ios_visual_proof.sh" "${subcmd:-all}"
+    ;;
+  uitest)
+    exec bash "$ROOT/scripts/ios_ui_proof.sh"
+    ;;
+  screenshot)
+    exec bash "$ROOT/scripts/ios_screenshot.sh" "${subcmd:-home}"
     ;;
   launch)
     IOS_LAUNCH_ENV_FILE="" exec bash "$ROOT/scripts/ios_sim_launch.sh"
@@ -65,7 +76,7 @@ case "$cmd" in
   build)
     ;;
   *)
-    echo "usage: allios [run|launch|live|live launch|live stop|live setup|build|test|clean]" >&2
+    echo "usage: allios [run|launch|live|live launch|live stop|live setup|build|test|proof|uitest|screenshot|clean]" >&2
     echo "  docs/operations/ios-testing-loop.md" >&2
     exit 1
     ;;

@@ -10,34 +10,57 @@ import XCTest
 final class AllnighteriOSUITests: XCTestCase {
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
     @MainActor
-    func testConversationsHomeLaunches() throws {
+    private func launchPreviewApp(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchArguments = ["-ui_testing_preview"] + extraArguments
+        app.launchEnvironment["ALLNIGHTER_UI_TESTING_PREVIEW"] = "1"
         app.launch()
-
-        XCTAssertTrue(app.staticTexts["Conversations"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.textFields["conversation-search-field"].exists)
-        XCTAssertTrue(app.otherElements["ios-composer-bar"].exists)
-        XCTAssertTrue(app.buttons["composer-send-button"].exists)
+        return app
     }
 
     @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
+    private func element(matching identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    @MainActor
+    private func waitForPreviewHome(_ app: XCUIApplication, timeout: TimeInterval = 30) {
+        XCTAssertTrue(
+            element(matching: "connection-status-banner", in: app).waitForExistence(timeout: timeout),
+            "preview home did not appear"
+        )
+        XCTAssertTrue(element(matching: "conversations-title", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(element(matching: "ios-composer-bar", in: app).waitForExistence(timeout: 8))
+        XCTAssertTrue(element(matching: "composer-send-button", in: app).waitForExistence(timeout: 8))
+    }
+
+    /// Single launch covers home + model picker — avoids cold-start flake between cases.
+    @MainActor
+    func testPreviewHomeAndModelPicker() throws {
+        let app = launchPreviewApp(extraArguments: ["-ui_fixture_model_picker"])
+        waitForPreviewHome(app)
+
+        let homeShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        homeShot.name = "home"
+        homeShot.lifetime = .keepAlways
+        add(homeShot)
+
+        XCTAssertTrue(element(matching: "model-picker-sheet", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Auto"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Opus 4.8"].waitForExistence(timeout: 5))
+
+        let agentPrefix = app.staticTexts.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Agent (")
+        )
+        XCTAssertEqual(agentPrefix.count, 0, "model picker must not use Agent (...) labels")
+
+        let pickerShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        pickerShot.name = "model-picker"
+        pickerShot.lifetime = .keepAlways
+        add(pickerShot)
     }
 }

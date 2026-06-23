@@ -37,7 +37,13 @@ else
   unset SIMCTL_CHILD_ALLNIGHTER_SUPABASE_URL
   unset SIMCTL_CHILD_ALLNIGHTER_SUPABASE_ANON_KEY
   unset SIMCTL_CHILD_ALLNIGHTER_DEVICE_ACCESS_TOKEN
+  export SIMCTL_CHILD_ALLNIGHTER_UI_TESTING_PREVIEW=1
 fi
 
 xcrun simctl terminate "$BOOTED" "$BUNDLE_ID" 2>/dev/null || true
-xcrun simctl launch "$BOOTED" "$BUNDLE_ID"
+if [[ -z "${ENV_FILE:-}" || ! -f "${ENV_FILE:-}" ]]; then
+  read -r -a LAUNCH_ARGS <<< "${IOS_LAUNCH_ARGS:--ui_testing_preview}"
+  xcrun simctl launch "$BOOTED" "$BUNDLE_ID" "${LAUNCH_ARGS[@]}"
+else
+  xcrun simctl launch "$BOOTED" "$BUNDLE_ID"
+fi
