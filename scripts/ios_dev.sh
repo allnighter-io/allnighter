@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Allnighter iOS — fast build, launch, and test (simulator).
 #
-# Usage (wire `allios` in ~/.zshrc — see scripts/README-ios-dev.md):
-#   allios           build + launch (.env → live relay, else DEBUG preview)
-#   allios preview   build + launch DEBUG preview (no .env)
-#   allios launch    install + relaunch only (simulator must be booted)
-#   allios build     build only (no launch)
-#   allios test      AllnighteriOSTests unit tests
-#   allios clean     drop cached iOS DerivedData, then build + launch
+# SSOT: docs/operations/ios-testing-loop.md
+#
+# Usage (wire `allios` in ~/.zshrc):
+#   allios                 preview build + launch (DEFAULT — use this)
+#   allios launch          preview relaunch only (fast loop)
+#   allios live            live relay build + launch (needs .env + serve_remote)
+#   allios live launch     live relaunch only
+#   allios build           build only
+#   allios test            unit tests
+#   allios clean           wipe DerivedData, then preview build + launch
 #
 set -euo pipefail
 
@@ -23,42 +26,42 @@ LOG="$DERIVED/last-ios-build.log"
 ENV_FILE="$ROOT/.env"
 
 cmd="${1:-run}"
+subcmd="${2:-}"
 
 case "$cmd" in
   test)
     exec bash "$ROOT/scripts/ios_unit_tests.sh"
     ;;
   launch)
-    if [[ -f "$ENV_FILE" ]]; then
-      IOS_LAUNCH_ENV_FILE="$ENV_FILE" exec bash "$ROOT/scripts/ios_sim_launch.sh"
-    else
-      IOS_LAUNCH_ENV_FILE="" exec bash "$ROOT/scripts/ios_sim_launch.sh"
-    fi
+    IOS_LAUNCH_ENV_FILE="" exec bash "$ROOT/scripts/ios_sim_launch.sh"
     ;;
-  preview)
+  live)
+    if [[ ! -f "$ENV_FILE" ]]; then
+      echo "Missing $ENV_FILE — run:" >&2
+      echo "  cd $ROOT && scripts/bootstrap_remote_env.sh" >&2
+      exit 1
+    fi
+    if [[ "$subcmd" == "launch" ]]; then
+      IOS_LAUNCH_ENV_FILE="$ENV_FILE" exec bash "$ROOT/scripts/ios_sim_launch.sh"
+    fi
+    exec bash "$ROOT/scripts/ios_live.sh"
+    ;;
+  preview|run)
     exec bash "$ROOT/scripts/ios_preview.sh"
     ;;
   clean)
     echo "==> clean ($DERIVED)"
     rm -rf "$DERIVED"
-    cmd=run
+    exec bash "$ROOT/scripts/ios_preview.sh"
     ;;
-  build|run)
+  build)
     ;;
   *)
-    echo "usage: allios [run|preview|launch|build|test|clean]" >&2
+    echo "usage: allios [run|launch|live|live launch|build|test|clean]" >&2
+    echo "  docs/operations/ios-testing-loop.md" >&2
     exit 1
     ;;
 esac
-
-if [[ "$cmd" == "run" ]]; then
-  if [[ -f "$ENV_FILE" ]]; then
-    exec bash "$ROOT/scripts/ios_live.sh"
-  else
-    echo "==> No .env — using DEBUG preview (scripts/bootstrap_remote_env.sh for live)"
-    exec bash "$ROOT/scripts/ios_preview.sh"
-  fi
-fi
 
 # build only
 DEVICE_NAME="$(ios_simulator_device)"

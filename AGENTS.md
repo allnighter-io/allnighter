@@ -72,7 +72,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Installed help MCP, repo-free product docs, agent help routing | `docs/phases/MCP_Help_System.md` + `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
-| iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` |
+| iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
 | SwiftUI state, `@Observable`, replacing old view models | `docs/operations/SwiftUI_State_Rules.md` + `docs/gui/GUI_Workflow.md` |
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
@@ -88,6 +88,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Bug report / fix a bug / broken workflow | `docs/operations/Debugger.md` (+ `docs/operations/debugger/`) |
 | Code cleanup, maintainability, file hygiene | `docs/operations/code-maintainer/` |
 | Stack, Xcode, Swift package, commands | `docs/operations/TechStack.md` |
+| iOS simulator dev / test loop (preview vs live) | `docs/operations/ios-testing-loop.md` |
 | Marketing, positioning, pricing copy | `docs/marketing/README.md` |
 | Strategy, control-loop thesis, A/B extension | `docs/strategy/` |
 
