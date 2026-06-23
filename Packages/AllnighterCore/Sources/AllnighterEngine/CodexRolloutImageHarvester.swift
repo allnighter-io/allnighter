@@ -112,7 +112,10 @@ public struct CodexRolloutImageHarvester: Sendable {
                 // (no `data:` prefix), the actual generation output. Dedupe by call id so a
                 // generating→completed pair of snapshots yields one image.
                 guard let result = payload["result"] as? String, !result.isEmpty else { continue }
-                let key = (payload["id"] as? String) ?? (payload["call_id"] as? String) ?? String(result.prefix(64))
+                // Dedup by call id; if absent, by the FULL base64 (not a 64-char prefix — two
+                // distinct same-dimension PNGs share the signature+IHDR header, so a prefix can
+                // collide and silently drop the second image).
+                let key = (payload["id"] as? String) ?? (payload["call_id"] as? String) ?? result
                 guard seenDataURLs.insert(key).inserted,
                       let candidate = dataCandidate(fromBase64: result, index: images.count) else { continue }
                 images.append(candidate)
