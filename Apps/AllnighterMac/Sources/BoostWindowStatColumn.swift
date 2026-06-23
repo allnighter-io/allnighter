@@ -7,8 +7,11 @@ struct BoostWindowStatColumn: View {
     let displayState: BoostWindowDisplayState
     let resetMid: Int
 
+    /// Show the 2× projection whenever boost is on — including "no quiet run-up", which is a
+    /// SCHEDULED state (it'll boost tomorrow when there's a quiet lead-up), not a dead 1× state.
+    /// Only "off" collapses to 1×.
     private var boostLive: Bool {
-        enabled && displayState != .off && displayState != .noQuietRunUp
+        enabled && displayState != .off
     }
 
     private var bucketTo: String { boostLive ? "2" : "1" }
@@ -69,6 +72,8 @@ struct BoostWindowStatColumn: View {
                 subcopy
                 if enabled && displayState == .estimated {
                     Badge(text: "estimated", tone: .warning, dot: false, mono: true)
+                } else if enabled && displayState == .noQuietRunUp {
+                    Badge(text: "tomorrow", tone: .warning, dot: false, mono: true)
                 }
             }
             .padding(.top, 18)
@@ -109,7 +114,7 @@ struct BoostWindowStatColumn: View {
                 .foregroundStyle(ALColor.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         case .noQuietRunUp:
-            (Text("No quiet run-up. ") + Text("Nothing to seed").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary) + Text(" — move it after some downtime."))
+            (Text("Boosts ") + Text("tomorrow").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary) + Text(" — when there's a quiet run-up before your window."))
                 .font(ALFont.sans(12.5))
                 .foregroundStyle(ALColor.textMuted)
                 .fixedSize(horizontal: false, vertical: true)

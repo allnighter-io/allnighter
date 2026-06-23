@@ -16,8 +16,14 @@ struct BoostWindowZoomChart: View {
     private let axisY: CGFloat = 180
 
     private var windowEnd: Int { BoostWindowTiming.windowEnd(windowStart) }
+    /// Show the seeded+fresh (2×) track whenever boost is on — "no quiet run-up" is a scheduled
+    /// state shown as projected (dashed), not a collapsed 1× "nothing to seed" chart.
     private var showsBoostTrack: Bool {
-        enabled && displayState != .noQuietRunUp && displayState != .off
+        enabled && displayState != .off
+    }
+    /// Projected (not-yet-live) states get a dashed frame: an estimate, or "tomorrow when quiet".
+    private var isProjected: Bool {
+        displayState == .estimated || displayState == .noQuietRunUp
     }
 
     var body: some View {
@@ -26,7 +32,7 @@ struct BoostWindowZoomChart: View {
             chartCanvas
         }
         .overlay {
-            if displayState == .estimated {
+            if isProjected {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     .foregroundStyle(ALColor.borderDefault)
