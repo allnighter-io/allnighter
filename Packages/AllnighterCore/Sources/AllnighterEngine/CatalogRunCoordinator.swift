@@ -70,7 +70,9 @@ public actor CatalogRunCoordinator {
         // crew reasons over the same distilled packet (the crux of triangulation).
         var downstreamPrompt = prompt
         if let scout = resolved.scoutWorker {
-            let (scoutAnswers, scoutSnapshots) = await runWorkers([scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, repoRoot: repoRoot, deliveries: deliveries)
+            let (scoutAnswers, scoutSnapshots) = await runWorkers(
+                [scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID,
+                run: &run, repoRoot: repoRoot, deliveries: deliveries, persist: persist)
             applySnapshots(scoutSnapshots, to: &run)
             merge(scoutAnswers, into: &run)
             if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
@@ -81,7 +83,9 @@ public actor CatalogRunCoordinator {
         }
 
         // Stage 1 — answer workers, blind and parallel, over the distilled source.
-        let (answers, answerSnapshots) = await runWorkers(resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, repoRoot: repoRoot, deliveries: deliveries)
+        let (answers, answerSnapshots) = await runWorkers(
+            resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort,
+            modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries, persist: persist)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -89,7 +93,9 @@ public actor CatalogRunCoordinator {
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
             let reviewPrompt = downstreamPrompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
-            let (reviews, reviewSnapshots) = await runWorkers(resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort, modelByID: modelByID, runId: run.id, repoRoot: repoRoot, deliveries: deliveries)
+            let (reviews, reviewSnapshots) = await runWorkers(
+                resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort,
+                modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries, persist: persist)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -118,11 +124,26 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Stages
 
-    private func runWorkers(_ workers: [Worker], prompt: String, effort: EffortLevel, modelByID: [String: Model], runId: String, repoRoot: String?, deliveries: [IncludedAttachmentDelivery] = []) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
+    private func runWorkers(
+        _ workers: [Worker],
+        prompt: String,
+        effort: EffortLevel,
+        modelByID: [String: Model],
+        run: inout TeamRun,
+        repoRoot: String?,
+        deliveries: [IncludedAttachmentDelivery] = [],
+        persist: (@Sendable (TeamRun) -> Void)? = nil
+    ) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
+        let runId = run.id
         for worker in workers {
+            if let index = run.workerAnswers.firstIndex(where: { $0.workerId == worker.id }) {
+                run.workerAnswers[index].status = .running
+                run.workerAnswers[index].startedAt = now()
+            }
             emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
         }
+        persist?(run)
         let runner = workerRunner
         let registry = self.registry
         let answers = await withTaskGroup(of: WorkerAnswer.self) { group in
@@ -155,6 +176,10 @@ public actor CatalogRunCoordinator {
             for await answer in group {
                 emitWorker(workerId: answer.workerId, modelId: answer.modelId, from: .running, to: answer.status,
                            skillId: nil, durationMs: answer.durationMs, reason: answer.errorReason, runId: runId)
+                if let index = run.workerAnswers.firstIndex(where: { $0.workerId == answer.workerId }) {
+                    run.workerAnswers[index] = answer
+                    persist?(run)
+                }
                 collected.append(answer)
             }
             return collected

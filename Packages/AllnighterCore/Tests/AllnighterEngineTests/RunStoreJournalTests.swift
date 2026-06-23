@@ -140,6 +140,43 @@ final class RunStoreJournalTests: XCTestCase {
         XCTAssertTrue(entries.last!.0.isTerminal)
     }
 
+    func testCoordinatorPersistsRunningWorkersBeforeAnswersSettle() async throws {
+        let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
+        let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
+        let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDo it.", delay: .milliseconds(400))])
+        let team = TeamPreset(
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
+            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+            lead: TeamLeadSpec(skillId: "plan_writer_build"))
+        let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
+        let store = RunStore(rootDirectory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-running-\(UUID().uuidString)", isDirectory: true))
+        try FileManager.default.createDirectory(at: store.rootDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: store.rootDirectory) }
+
+        final class RunningFlag: @unchecked Sendable {
+            private let lock = NSLock()
+            private var value = false
+            func set() { lock.withLock { value = true } }
+            var get: Bool { lock.withLock { value } }
+        }
+        let sawRunningPersist = RunningFlag()
+        let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
+        let run = await coordinator.run(
+            resolved: resolved, prompt: "p", models: [opus], runId: "status-live",
+            persist: { saved in
+                _ = try? store.save(saved, models: [opus])
+                if saved.workerAnswers.contains(where: { $0.status == .running }) {
+                    sawRunningPersist.set()
+                    let status = AsyncTeamStatusMapper.statusResponse(for: saved)
+                    XCTAssertEqual(status.status, .running)
+                    XCTAssertEqual(status.workers.first?.status, "running")
+                }
+            })
+        XCTAssertTrue(sawRunningPersist.get, "team_status must observe running workers during fan-out")
+        XCTAssertEqual(run.status, .complete)
+    }
+
     func testCoordinatorSnapshotsResolvedWorkerPrompts() async throws {
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
