@@ -2,7 +2,7 @@
 
 Status: Draft feature packet
 Owner: Founder + Shared Core + CLI/MCP + Team Quality
-Updated: 2026-06-21
+Updated: 2026-06-23
 
 ## Founder Intent
 
@@ -45,6 +45,13 @@ The product promise:
 ```text
 Every default Team earns its seat.
 ```
+
+**Post–Slice 1 composition work** (seat economics, cost ledger, VNRC, forward
+selection, named team variants, necessity suite) is specified in
+[`Team_Lab_Composition_And_Seat_Economics.md`](Team_Lab_Composition_And_Seat_Economics.md).
+Slice 1's per-worker prompt loop remains built; that packet adds the **macro** loop
+with asymmetric ADD/REMOVE gates so the factory does not assume the roster is
+already right or optimize uniqueness theater.
 
 ## Trusted Workflow Slice
 
@@ -988,6 +995,9 @@ isolation. See § Judge Loop for the full mechanism.
 
 **Full Slice 1 execution spec (whole v1 package + good-to-great roadmap):**
 [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md)
+
+**Post–Slice 1 composition / seat economics (mentor review):**
+[`Team_Lab_Composition_And_Seat_Economics.md`](Team_Lab_Composition_And_Seat_Economics.md)
 
 ### PRE-S0 - Pure-MCP Reconstruction Proof (blocking)
 

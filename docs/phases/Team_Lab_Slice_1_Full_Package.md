@@ -676,6 +676,34 @@ See [`Mac_Standalone_App_And_Background_Coordinator.md`](Mac_Standalone_App_And_
 
 ---
 
+### Slice 10 — Composition and Seat Economics (LAB-C00–C08)
+
+**Goal:** Prove each seat earns **margin** (benefit − cost) on hard cases; calibrate
+named team variants without assuming the nine-seat roster is correct.
+
+**Spec:** [`Team_Lab_Composition_And_Seat_Economics.md`](Team_Lab_Composition_And_Seat_Economics.md)
+
+**Prerequisite:** Bug Hunt micro loop closed (Slice 1); run-contract green on
+calibration rounds.
+
+Deliverables:
+
+1. **LAB-C00** — macro verdict schema (`keep|add|remove|merge|escalate|hold`) + tests
+2. Necessity suite (`bug_hunt_necessity_v1`): T2/T3, debugger/lab-failure provenance
+3. Case tags: `tier`, `requiredCapabilities` (no worker filters on case truth)
+4. Genesis baseline per case with **held context**; failures on file before REMOVE
+5. **Forward selection** primary (`compose.py`); backward redundancy after stabilize
+6. VNRC + cost ledger + writer disposition (`no_value` / `value_suppressed` / `noise_correctly_dropped`)
+7. Asymmetric gates: ADD ≥3 fresh necessity inputs; REMOVE ≥5
+8. Separate overlays: `code_bug_hunt_lite`, `code_bug_hunt`, `code_bug_hunt_forensics`
+9. **H3** fix-level discipline as three-arm hypothesis (not pre-shipped seat)
+10. Macro promotion in `promote.py` (`promotionClass: composition`)
+
+Do **not** block Slice 5 Team sweep on LAB-C completion — but do not interpret
+nine-seat prompt wins as proof every seat is necessary.
+
+---
+
 ## Measurement Validity Rules (bind all slices)
 
 - Run-contract green before any quality interpretation
