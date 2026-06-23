@@ -141,6 +141,8 @@ final class RemoteAppModel {
     private var threadStore: ConversationThreadStore?
     private var activationSequence = 0
     private var previewCompletionGeneration = 0
+    private var homePollTask: Task<Void, Never>?
+    private var threadPollTask: Task<Void, Never>?
 
     private static let previewDoneMessage = "Done — open on your Mac for the full transcript."
     var composerThreadId: String?
@@ -188,6 +190,7 @@ final class RemoteAppModel {
     func activate() async {
         activationSequence += 1
         let currentActivation = activationSequence
+        stopLivePolling()
         connectionPhase = .connecting
 
         if let environment = RemoteSupabaseEnvironment.load(), environment.hasDeviceCredentials {
@@ -233,6 +236,7 @@ final class RemoteAppModel {
                 connectionPhase = .connected(macName: connected.mac.displayName)
                 await refreshHome()
                 await refreshConnectionDiagnosis()
+                startLiveHomePolling()
                 return
             } catch {
                 guard currentActivation == activationSequence else { return }
@@ -244,6 +248,7 @@ final class RemoteAppModel {
         guard currentActivation == activationSequence else { return }
         await installPreviewClient()
         connectionPhase = .preview
+        stopLivePolling()
         await refreshHome()
         await refreshConnectionDiagnosis()
         #else
@@ -260,6 +265,38 @@ final class RemoteAppModel {
 
     func consumePendingOpenThread() {
         pendingOpenThreadId = nil
+    }
+
+    func setThreadPolling(threadId: String?, enabled: Bool) {
+        threadPollTask?.cancel()
+        threadPollTask = nil
+        guard enabled, let threadId, case .connected = connectionPhase else { return }
+        threadPollTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard composerThreadId == threadId else { return }
+                await loadThread(threadId: threadId)
+                if threadSnapshot?.isActive != true { return }
+            }
+        }
+    }
+
+    private func startLiveHomePolling() {
+        homePollTask?.cancel()
+        guard case .connected = connectionPhase else { return }
+        homePollTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                await refreshHome()
+            }
+        }
+    }
+
+    private func stopLivePolling() {
+        homePollTask?.cancel()
+        homePollTask = nil
+        threadPollTask?.cancel()
+        threadPollTask = nil
     }
 
     func refreshHome() async {
@@ -359,6 +396,10 @@ final class RemoteAppModel {
             _ = restoreThreadCache(threadId: threadId)
         default:
             break
+        }
+
+        if case .preview = connectionPhase {
+            homeSnapshot = homeSnapshot.clearingUnread(for: threadId)
         }
     }
 

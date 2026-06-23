@@ -337,11 +337,11 @@ private struct ComposerAgentChip: View {
             IOSDriverBrandGlyphView(driverId: driverId, boxSize: 28, iconSize: 14)
 
             Text(title)
-                .font(IOSFont.bodyStrong)
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(IOSColor.textSecondary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.85)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, IOSSpace.s3)
         .frame(height: 48)
         .background(IOSColor.subtle, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))

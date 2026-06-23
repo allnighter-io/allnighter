@@ -19,6 +19,13 @@ struct ConversationListSnapshot: Equatable, Codable {
             projects: projects.compactMap { $0.filtering(includes) }
         )
     }
+
+    func clearingUnread(for threadId: String) -> ConversationListSnapshot {
+        ConversationListSnapshot(
+            pinned: pinned.map { $0.id == threadId ? $0.clearingUnread() : $0 },
+            projects: projects.map { $0.clearingUnread(for: threadId) }
+        )
+    }
 }
 
 struct ConversationSummary: Identifiable, Equatable, Codable {
@@ -29,6 +36,18 @@ struct ConversationSummary: Identifiable, Equatable, Codable {
     let isUnread: Bool
     let isPending: Bool
     let needsAttention: Bool
+
+    func clearingUnread() -> ConversationSummary {
+        ConversationSummary(
+            id: id,
+            title: title,
+            relativeAge: relativeAge,
+            statusLabel: statusLabel,
+            isUnread: false,
+            isPending: isPending,
+            needsAttention: needsAttention
+        )
+    }
 }
 
 struct ConversationProject: Identifiable, Equatable, Codable {
@@ -54,6 +73,18 @@ struct ConversationProject: Identifiable, Equatable, Codable {
             isExpanded: isExpanded,
             hasUnread: filteredConversations.contains { $0.isUnread },
             conversations: filteredConversations
+        )
+    }
+
+    func clearingUnread(for threadId: String) -> ConversationProject {
+        let conversations = self.conversations.map { $0.id == threadId ? $0.clearingUnread() : $0 }
+        return ConversationProject(
+            id: id,
+            name: name,
+            icon: icon,
+            isExpanded: isExpanded,
+            hasUnread: conversations.contains(where: \.isUnread),
+            conversations: conversations
         )
     }
 }

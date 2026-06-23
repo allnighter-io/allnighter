@@ -52,8 +52,10 @@ struct ConversationThreadView: View {
         .task(id: threadId) {
             appModel.composerThreadId = threadId
             await appModel.loadThread(threadId: threadId)
+            appModel.setThreadPolling(threadId: threadId, enabled: true)
         }
         .onDisappear {
+            appModel.setThreadPolling(threadId: nil, enabled: false)
             if appModel.composerThreadId == threadId {
                 appModel.composerThreadId = nil
             }
