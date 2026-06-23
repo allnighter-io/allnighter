@@ -549,7 +549,8 @@ final class AppModel {
     func composeTeams(for lane: ComposeLane) -> [ComposeTeam] {
         let favorites = favoriteTeamIds
         let favRank = Dictionary(uniqueKeysWithValues: favorites.enumerated().map { ($1, $0) })
-        let teams = TeamCatalog.list(lane: lane.workLane).filter { !$0.isLabTeam }.map { p -> ComposeTeam in
+        let teams = TeamCatalog.list(lane: lane.workLane)
+            .filter { !$0.isLabTeam && TeamVisibility.isEnabled($0.id) }.map { p -> ComposeTeam in
             let n = p.workerSpecs.count
             let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
             return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)",

@@ -253,6 +253,11 @@ struct TeamEditorView: View {
     @State private var editingRow: Int?
     /// Level-2 for the Team Lead (separate from worker rows; the Lead is pinned).
     @State private var editingLead = false
+    /// Live "show on Teams page" state (TeamVisibility). A setting, not a draft edit — it
+    /// persists immediately on toggle, no Save needed. Works for built-ins too (reversible).
+    @State private var showOnTeamsPage = true
+    /// Delete-confirmation for a custom team (built-ins can only be hidden).
+    @State private var confirmingDelete = false
 
     init(base: TeamPreset, lane: ComposeLane, models: [Model], readyModels: [Model],
          isNew: Bool = false,
@@ -268,6 +273,8 @@ struct TeamEditorView: View {
         let seed = TeamDraft(base: base)
         _draft = State(initialValue: seed)
         self.initialDraft = seed
+        // A brand-new team is shown by default; an existing one reflects its saved visibility.
+        _showOnTeamsPage = State(initialValue: isNew ? true : TeamVisibility.isEnabled(base.id))
     }
 
     /// The built-in "Auto" team (default_chat) is the default route. Its agent model is NOT
@@ -339,6 +346,7 @@ struct TeamEditorView: View {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    visibilitySection
                     nameField
                     // A mutating team is ONE agent — the worker does the work. No
                     // separate Lead (that split only makes sense for answer teams,
@@ -349,6 +357,7 @@ struct TeamEditorView: View {
                     substitutionsToggle
                     executionPostureSection
                     summary
+                    deleteSection
                 }
                 .padding(20)
             }
@@ -375,6 +384,76 @@ struct TeamEditorView: View {
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
+    }
+
+    /// Top: show/hide this team on the Teams page + composer picker. A live setting (persists
+    /// on toggle, no Save needed); works for built-ins too — the seed is never touched, so it's
+    /// fully reversible. Hidden teams stay reachable here in Settings to switch back on.
+    @ViewBuilder private var visibilitySection: some View {
+        if !isNew {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show on Teams page")
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                    Text(showOnTeamsPage
+                         ? "Appears in the composer picker and on the Teams page."
+                         : "Hidden from the Teams page — switch back on here anytime.")
+                        .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+                }
+                Spacer(minLength: 0)
+                Toggle("", isOn: Binding(
+                    get: { showOnTeamsPage },
+                    set: { on in
+                        showOnTeamsPage = on
+                        try? TeamVisibility.setEnabled(draft.base.id, on)
+                    }
+                ))
+                .labelsHidden().toggleStyle(.switch).tint(ALColor.accent)
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(ALColor.subtle))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
+        }
+    }
+
+    /// A truly custom team (not a built-in id and already saved) — only these can be deleted.
+    private var isCustomTeam: Bool { !isNew && BuiltInTeams.team(draft.base.id) == nil }
+
+    /// Bottom: permanent delete — CUSTOM teams only. Built-ins can't be deleted (they're
+    /// shipped seeds); use the Show-on-Teams-page toggle above to hide one instead.
+    @ViewBuilder private var deleteSection: some View {
+        if isCustomTeam {
+            VStack(alignment: .leading, spacing: 8) {
+                Rectangle().fill(ALColor.borderSubtle).frame(height: 1).padding(.vertical, 4)
+                Button(role: .destructive) { confirmingDelete = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash").font(.system(size: 12))
+                        Text("Delete team").font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(ALPalette.red400)
+                }
+                .buttonStyle(.plain)
+                Text("Permanently removes this custom team. Built-in teams can only be hidden (toggle above).")
+                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .confirmationDialog("Delete \u{201C}\(draft.name)\u{201D}?",
+                                isPresented: $confirmingDelete, titleVisibility: .visible) {
+                Button("Delete team", role: .destructive) { deleteTeam() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently removes the custom team. This can't be undone.")
+            }
+        }
+    }
+
+    private func deleteTeam() {
+        do {
+            try TeamCatalog.deleteCustom(draft.base.id)
+            onCancel()   // close the editor; the roster re-reads and drops the team
+        } catch {
+            errorText = "Couldn't delete this team."
+        }
     }
 
     private var nameField: some View {

@@ -25,7 +25,9 @@ struct TeamsLauncherView: View {
     @State private var familyFilter: String?
 
     private var cards: [TeamCard] {
-        let userTeams = TeamCatalog.all.filter { !$0.isLabTeam }
+        // The Teams page shows only teams the user has switched ON (TeamVisibility). Hidden
+        // ones live in Settings (Team Studio) to switch back on.
+        let userTeams = TeamCatalog.all.filter { !$0.isLabTeam && TeamVisibility.isEnabled($0.id) }
         return TeamCardCatalogJSON.project(userTeams, family: nil,
                                            contractVersion: ContractRegistry.contractVersion).cards
     }

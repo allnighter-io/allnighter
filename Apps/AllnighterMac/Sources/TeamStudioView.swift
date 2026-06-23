@@ -270,6 +270,9 @@ private struct StudioTeamListView: View {
                             .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
                             .lineLimit(1)
                         if !team.builtIn { miniBadge("Custom", ALColor.textMuted) }
+                        // Settings shows ALL teams incl. hidden ones, marked "Off", so the
+                        // user can open one and switch it back on (the Teams page hides them).
+                        if !TeamVisibility.isEnabled(team.id) { miniBadge("Off", ALPalette.yellow500) }
                         Spacer(minLength: 0)
                     }
                     Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? "1 agent" : "\(team.workerSpecs.count) workers")")
