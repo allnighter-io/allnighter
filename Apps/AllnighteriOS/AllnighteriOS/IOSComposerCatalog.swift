@@ -35,39 +35,52 @@ struct IOSComposerDraft: Equatable, Sendable {
         IOSComposerCatalog.teams.first { $0.id == selectedTeamId } ?? IOSComposerCatalog.defaultTeam
     }
 
+    /// Bench model id for the sealed remote payload; nil leaves Auto resolution to the Mac.
+    func modelIdForSend(continuationWorkerId: String?) -> String? {
+        if let selectedWorkerId { return selectedWorkerId }
+        if let continuationWorkerId {
+            return ConversationAgentPresentation.modelId(fromWorkerId: continuationWorkerId)
+        }
+        return nil
+    }
+
+    /// Worker instance id for optimistic transcript rows and display continuity.
     func workerIdForSend(continuationWorkerId: String?) -> String {
-        selectedWorkerId ?? continuationWorkerId ?? ConversationAgentPresentation.previewWorkerId
+        if let modelId = modelIdForSend(continuationWorkerId: continuationWorkerId) {
+            return ConversationAgentPresentation.workerInstanceId(for: modelId)
+        }
+        return continuationWorkerId ?? ConversationAgentPresentation.previewWorkerId
     }
 }
 
 enum IOSComposerCatalog {
     static let defaultTeam = IOSComposerTeamOption(
         id: "default",
-        presetId: nil,
-        name: "Default Team",
-        lane: nil
+        presetId: "default_chat",
+        name: "Auto",
+        lane: .code
     )
 
     static let models: [IOSComposerModelOption] = [
         IOSComposerModelOption(
-            id: "claude-opus-4-6#0",
-            driverId: "claude_code",
-            title: "Agent (Opus 4.6)"
-        ),
-        IOSComposerModelOption(
-            id: "claude-opus-4-8#0",
+            id: "model_opus",
             driverId: "claude_code",
             title: "Agent (Opus 4.8)"
         ),
         IOSComposerModelOption(
-            id: "claude-sonnet-4-6#0",
+            id: "model_sonnet",
             driverId: "claude_code",
             title: "Agent (Sonnet 4.6)"
         ),
         IOSComposerModelOption(
-            id: "codex#0",
+            id: "model_chatgpt",
             driverId: "codex",
-            title: "Agent (Codex)"
+            title: "Agent (ChatGPT 5.5)"
+        ),
+        IOSComposerModelOption(
+            id: "model_grok",
+            driverId: "grok",
+            title: "Agent (Grok)"
         ),
     ]
 

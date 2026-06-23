@@ -137,7 +137,7 @@ public actor AsyncTeamService {
         guard let resolvedRequest = resolveRequest(request) else {
             return .failure(.init(code: "CLI_USAGE_ERROR", message: "invalid lane/team/effort combination"))
         }
-        let resolved = TeamResolver.resolve(
+        var resolved = TeamResolver.resolve(
             team: resolvedRequest.team, requestLane: resolvedRequest.lane,
             requestEffort: resolvedRequest.effort, readyModels: readyModels
         )
@@ -145,6 +145,18 @@ public actor AsyncTeamService {
             let reason = resolved.blockReason ?? "team cannot run"
             let code = reason.contains("plan/output writer") ? "PLAN_WRITER_FAILED" : "DEFAULT_TEAM_INVALID"
             return .failure(.init(code: code, message: reason, preset: resolvedRequest.team.id))
+        }
+
+        if let modelId = Self.normalizedModelId(request.modelId) {
+            if let pinned = Self.applyModelPin(modelId, to: resolved, readyModels: readyModels) {
+                resolved = pinned
+            } else if resolved.mutating && resolved.answerWorkers.count == 1 {
+                return .failure(.init(
+                    code: "CLI_USAGE_ERROR",
+                    message: "model is not ready: \(modelId)",
+                    preset: resolvedRequest.team.id
+                ))
+            }
         }
 
         let sourceGate = ExecutionTeamSourceGate.evaluate(resolved: resolved, models: readyModels)
@@ -392,5 +404,33 @@ public actor AsyncTeamService {
         }
         if preflight.blockedReason?.contains("plan/output writer") == true { return "PLAN_WRITER_FAILED" }
         return "DEFAULT_TEAM_INVALID"
+    }
+
+    private static func normalizedModelId(_ modelId: String?) -> String? {
+        guard let modelId else { return nil }
+        let trimmed = modelId.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Pin a ready bench model on single-worker mutating teams (Default Team / Auto).
+    private static func applyModelPin(
+        _ modelId: String,
+        to resolved: ResolvedTeamRun,
+        readyModels: [Model]
+    ) -> ResolvedTeamRun? {
+        guard readyModels.contains(where: { $0.id == modelId }) else { return nil }
+        guard resolved.mutating, resolved.answerWorkers.count == 1 else { return nil }
+
+        var pinned = resolved
+        var worker = pinned.answerWorkers[0]
+        if worker.modelId == modelId {
+            return pinned
+        }
+        worker.substitutedFromModelId = worker.modelId
+        worker.modelId = modelId
+        worker.id = Worker.makeID(modelId: modelId, instanceIndex: worker.instanceIndex)
+        pinned.answerWorkers[0] = worker
+        TeamSourceFacts.enrich(&pinned, models: readyModels)
+        return pinned
     }
 }

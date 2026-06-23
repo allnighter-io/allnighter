@@ -237,6 +237,8 @@ public struct RemoteStartRunPayload: Codable, Equatable, Sendable {
     public var lane: String?
     public var teamPresetId: String?
     public var effort: String?
+    /// Bench model id (`model_opus`, etc.) when the phone pins a single-worker run.
+    public var modelId: String?
     public var type: String?
     public var context: String?
     public var threadId: String?
@@ -248,6 +250,7 @@ public struct RemoteStartRunPayload: Codable, Equatable, Sendable {
         lane: String? = nil,
         teamPresetId: String? = nil,
         effort: String? = nil,
+        modelId: String? = nil,
         type: String? = nil,
         context: String? = nil,
         threadId: String? = nil,
@@ -258,6 +261,7 @@ public struct RemoteStartRunPayload: Codable, Equatable, Sendable {
         self.lane = lane
         self.teamPresetId = teamPresetId
         self.effort = effort
+        self.modelId = modelId
         self.type = type
         self.context = context
         self.threadId = threadId
@@ -277,6 +281,7 @@ public struct RemoteStartRunPayload: Codable, Equatable, Sendable {
             lane: resolvedLane,
             teamPresetId: teamPresetId,
             effort: resolvedEffort,
+            modelId: modelId,
             type: type,
             context: context,
             threadId: threadId,

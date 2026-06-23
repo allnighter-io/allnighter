@@ -8,12 +8,22 @@
 import Foundation
 
 enum ConversationAgentPresentation {
-    static let previewWorkerId = "claude-opus-4-6#0"
+    static let previewWorkerId = "model_opus#0"
+
+    static func modelId(fromWorkerId workerId: String) -> String {
+        workerId.split(separator: "#").first.map(String.init) ?? workerId
+    }
+
+    static func workerInstanceId(for modelId: String) -> String {
+        "\(modelId)#0"
+    }
 
     static func driverId(for workerId: String?) -> String {
         guard let workerId else { return "claude_code" }
         let modelPart = modelPart(from: workerId).lowercased()
-        if modelPart.contains("claude") { return "claude_code" }
+        if modelPart.contains("claude") || modelPart.contains("opus") || modelPart.contains("sonnet") || modelPart.contains("fable") {
+            return "claude_code"
+        }
         if modelPart.contains("codex") || modelPart.contains("gpt") || modelPart.contains("openai") {
             return "codex"
         }
@@ -30,6 +40,7 @@ enum ConversationAgentPresentation {
         if modelPart.contains("sonnet") { return "Sonnet" }
         if modelPart.contains("haiku") { return "Haiku" }
         if modelPart.contains("grok") { return "Grok" }
+        if modelPart.contains("chatgpt") || modelPart.contains("gpt") { return "ChatGPT" }
         if modelPart.contains("codex") { return "Codex" }
         if modelPart.contains("gemini") { return "Gemini" }
         if modelPart.contains("cursor") { return "Cursor" }

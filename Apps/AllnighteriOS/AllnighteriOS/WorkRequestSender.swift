@@ -15,6 +15,7 @@ struct WorkRequestDraft: Equatable, Sendable {
     var teamPresetId: String?
     var lane: WorkLane?
     var effort: EffortLevel?
+    var modelId: String?
     var originConversationId: String?
     var originMessageId: String?
 
@@ -24,6 +25,7 @@ struct WorkRequestDraft: Equatable, Sendable {
         teamPresetId: String? = nil,
         lane: WorkLane? = nil,
         effort: EffortLevel? = nil,
+        modelId: String? = nil,
         originConversationId: String? = nil,
         originMessageId: String? = nil
     ) {
@@ -32,6 +34,7 @@ struct WorkRequestDraft: Equatable, Sendable {
         self.teamPresetId = teamPresetId
         self.lane = lane
         self.effort = effort
+        self.modelId = modelId
         self.originConversationId = originConversationId
         self.originMessageId = originMessageId
     }
@@ -82,6 +85,7 @@ struct WorkRequestSender {
             lane: draft.lane?.rawValue,
             teamPresetId: normalizedOptional(draft.teamPresetId),
             effort: draft.effort?.rawValue,
+            modelId: normalizedOptional(draft.modelId),
             threadId: normalizedOptional(draft.threadId),
             originConversationId: normalizedOptional(draft.originConversationId),
             originMessageId: normalizedOptional(draft.originMessageId)

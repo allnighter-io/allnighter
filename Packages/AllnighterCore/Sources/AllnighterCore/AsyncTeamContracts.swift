@@ -20,6 +20,8 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
     public var lane: WorkLane?
     public var teamPresetId: String?
     public var effort: EffortLevel?
+    /// Bench model id when pinning a single-worker mutating run (Default Team / Auto).
+    public var modelId: String?
     public var type: String?
     public var context: String?
     public var threadId: String?
@@ -33,6 +35,7 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
         lane: WorkLane? = nil,
         teamPresetId: String? = nil,
         effort: EffortLevel? = nil,
+        modelId: String? = nil,
         type: String? = nil,
         context: String? = nil,
         threadId: String? = nil,
@@ -45,6 +48,7 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
         self.lane = lane
         self.teamPresetId = teamPresetId
         self.effort = effort
+        self.modelId = modelId
         self.type = type
         self.context = context
         self.threadId = threadId
@@ -69,6 +73,7 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
             lane: (args["lane"] as? String).flatMap(WorkLane.init(rawValue:)),
             teamPresetId: args["team"] as? String,
             effort: (args["effort"] as? String).flatMap(EffortLevel.init(rawValue:)),
+            modelId: (args["modelId"] as? String) ?? (args["model"] as? String),
             type: args["type"] as? String,
             context: args["context"] as? String,
             threadId: args["threadId"] as? String,
@@ -244,6 +249,7 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
     public var lane: String?
     public var teamPresetId: String?
     public var effort: String?
+    public var modelId: String?
     public var type: String?
     public var context: String?
 
@@ -252,6 +258,7 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
         lane = request.lane?.rawValue
         teamPresetId = request.teamPresetId
         effort = request.effort?.rawValue
+        modelId = request.modelId
         type = request.type
         context = request.context
     }

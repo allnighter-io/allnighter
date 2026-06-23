@@ -512,7 +512,10 @@ final class RemoteAppModel {
             threadId: existingThreadId,
             teamPresetId: team.presetId,
             lane: team.lane,
-            effort: composerDraft.effort
+            effort: composerDraft.effort,
+            modelId: composerDraft.modelIdForSend(
+                continuationWorkerId: composerContinuationAgent?.workerId
+            )
         )
 
         do {
