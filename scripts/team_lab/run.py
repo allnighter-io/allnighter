@@ -227,6 +227,8 @@ def run_experiment(
     round_no: int,
     variant: str,
     deadline_s: int,
+    record_genesis: bool = False,
+    roster_id: str | None = None,
 ) -> Path:
     suite = load_suite(suite_id)
     if case_id and case_json:
@@ -459,6 +461,13 @@ def run_experiment(
 
         write_lab_report(lab_dir, contract=contract, team_eval=team_eval)
 
+        if record_genesis:
+            from genesis import record_from_lab
+
+            rid = roster_id or (json.loads(champion_overlay.read_text()).get("teamId") if champion_overlay else team)
+            rec_path = record_from_lab(lab_dir, suite_id=suite_id, roster_id=rid)
+            print(f"GENESIS_RECORD={rec_path}")
+
         print(f"LAB_DIR={lab_dir}")
         print(f"run_contract_score={contract['runContractScore']}")
         return lab_dir
@@ -494,6 +503,8 @@ def main() -> int:
         help="candidate overlay JSON with declared material delta",
     )
     p.add_argument("--deadline-seconds", type=int, default=7200)
+    p.add_argument("--record-genesis", action="store_true", help="write .lab/genesis record after run")
+    p.add_argument("--roster-id", help="roster id for genesis record (default: overlay teamId)")
     p.add_argument("--alln", type=Path, default=repo_alln())
     args = p.parse_args()
 
@@ -512,6 +523,8 @@ def main() -> int:
         round_no=args.round,
         variant=args.variant,
         deadline_s=args.deadline_seconds,
+        record_genesis=args.record_genesis,
+        roster_id=args.roster_id,
     )
     return 0
 

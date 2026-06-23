@@ -426,9 +426,82 @@ def promote(
     return promotion
 
 
+def promote_macro(
+    *,
+    macro_verdict_path: Path,
+    baseline_overlay_path: Path,
+    candidate_overlay_path: Path,
+    baseline_lab: Path,
+    candidate_lab: Path,
+    suite_id: str,
+    team_id: str,
+    round_no: int,
+    force: bool = False,
+) -> dict[str, Any]:
+    from macro_schema import macro_promote_gate
+
+    record = json.loads(macro_verdict_path.read_text())
+    op = record.get("macroOperation") or "forward_select"
+    fresh = int(record.get("freshInputCount") or 0)
+    verdict, reason = macro_promote_gate(record, macro_operation=op, fresh_input_count=fresh)
+    if verdict not in ("add", "remove", "merge") and not force:
+        raise SystemExit(f"macro promote {verdict}: {reason}")
+
+    overlay = json.loads(candidate_overlay_path.read_text())
+    overlay["round"] = round_no
+    overlay["promotedAt"] = datetime.now(timezone.utc).isoformat()
+    overlay["promotedFromMacroVerdict"] = str(macro_verdict_path)
+    overlay["promotedFromBaselineLab"] = baseline_lab.name
+    overlay["promotedFromCandidateLab"] = candidate_lab.name
+    overlay["promotionClass"] = "composition"
+    overlay["macroVerdict"] = verdict
+
+    champion_path = CHAMPIONS_DIR / suite_id / f"{team_id}.json"
+    champion_path.parent.mkdir(parents=True, exist_ok=True)
+    champion_path.write_text(json.dumps(overlay, indent=2) + "\n")
+
+    PROMOTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    promo_path = PROMOTIONS_DIR / f"macro_r{round_no}_{team_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+    promotion = {
+        "schemaVersion": 2,
+        "verdict": verdict if not force else "forced",
+        "promotionClass": "composition",
+        "gateReason": reason,
+        "round": round_no,
+        "suiteId": suite_id,
+        "teamId": team_id,
+        "macroVerdict": str(macro_verdict_path),
+        "baselineLab": baseline_lab.name,
+        "candidateLab": candidate_lab.name,
+        "deliverableOutcome": record.get("deliverableOutcome"),
+        "seatMargin": record.get("seatMargin"),
+        "baselineOverlay": str(baseline_overlay_path),
+        "candidateOverlay": str(candidate_overlay_path),
+        "championOverlay": str(champion_path),
+        "promotedAt": overlay["promotedAt"],
+    }
+    promo_path.write_text(json.dumps(promotion, indent=2) + "\n")
+    promotion["promotionRecord"] = str(promo_path)
+    return promotion
+
+
+def macro_gate_check(record: dict[str, Any]) -> tuple[str, str | None]:
+    from macro_schema import macro_promote_gate
+
+    op = record.get("macroOperation") or "forward_select"
+    fresh = int(record.get("freshInputCount") or 0)
+    verdict, reason = macro_promote_gate(record, macro_operation=op, fresh_input_count=fresh)
+    if verdict in ("add", "remove", "merge"):
+        return "promote", reason
+    return verdict if verdict in ("hold", "escalate") else "hold", reason
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--compare-record", type=Path, required=True)
+    p.add_argument("--compare-record", type=Path, help="micro compare record (prompt banking)")
+    p.add_argument("--macro-verdict", type=Path, help="macro composition verdict (roster changes)")
+    p.add_argument("--baseline-overlay", type=Path, help="required for --macro-verdict")
+    p.add_argument("--candidate-overlay", type=Path, help="required for --macro-verdict")
     p.add_argument("--baseline-lab", type=Path, required=True)
     p.add_argument("--candidate-lab", type=Path, required=True)
     p.add_argument("--suite", required=True)
@@ -438,6 +511,31 @@ def main() -> int:
     p.add_argument("--force", action="store_true", help="promote even if gate would hold/escalate")
     p.add_argument("--check-only", action="store_true", help="print gate verdict only")
     args = p.parse_args()
+
+    if args.macro_verdict:
+        record = json.loads(args.macro_verdict.read_text())
+        if not args.baseline_overlay or not args.candidate_overlay:
+            raise SystemExit("--macro-verdict requires --baseline-overlay and --candidate-overlay")
+        verdict, reason = macro_gate_check(record)
+        if args.check_only:
+            print(json.dumps({"verdict": verdict, "reason": reason, "macroVerdict": record.get("verdict")}, indent=2))
+            return 0 if verdict == "promote" else 1
+        promo = promote_macro(
+            macro_verdict_path=args.macro_verdict,
+            baseline_overlay_path=args.baseline_overlay,
+            candidate_overlay_path=args.candidate_overlay,
+            baseline_lab=args.baseline_lab,
+            candidate_lab=args.candidate_lab,
+            suite_id=args.suite,
+            team_id=args.team,
+            round_no=args.round,
+            force=args.force,
+        )
+        print(json.dumps(promo, indent=2))
+        return 0
+
+    if not args.compare_record:
+        raise SystemExit("pass --compare-record (micro) or --macro-verdict (composition)")
 
     if not args.alln.exists():
         raise SystemExit(f"alln not found: {args.alln}")

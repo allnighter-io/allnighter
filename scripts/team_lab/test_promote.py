@@ -136,10 +136,30 @@ def test_build_overlay_merge() -> None:
     check("overlay.promotion_class", overlay.get("promotionClass") == "quality")
 
 
+def test_macro_gate_check() -> None:
+    from macro_schema import macro_verdict_template, MACRO_ADD_MIN_INPUTS
+    import promote as Pm
+
+    rec = macro_verdict_template(suite_id="bug_hunt_necessity_v1", macro_operation="forward_select")
+    rec.update(
+        {
+            "judgeMode": "live",
+            "evidenceValid": True,
+            "sameInput": True,
+            "deliverableOutcome": "candidate",
+            "seatMargin": "positive",
+            "freshInputCount": MACRO_ADD_MIN_INPUTS,
+        }
+    )
+    v, _ = Pm.macro_gate_check(rec)
+    check("macro_gate.promote_on_add", v == "promote")
+
+
 def main() -> int:
     test_gate()
     test_config_hash()
     test_build_overlay_merge()
+    test_macro_gate_check()
     print(f"PASS {len(PASSES)}  FAIL {len(FAILS)}")
     for f in FAILS:
         print(f"  FAIL {f}")
