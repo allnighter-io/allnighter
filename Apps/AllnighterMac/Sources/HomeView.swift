@@ -191,8 +191,9 @@ private struct HomeSidebar: View {
                     if !collapsed.contains(group.id) {
                         let shown = expanded.contains(group.id) ? group.rows : Array(group.rows.prefix(4))
                         // Indent threads to align under the project name (chevron + folder icon
-                        // width), matching how Finder/Cursor/Codex nest items in a folder.
-                        ForEach(shown) { row($0).padding(.leading, 16) }
+                        // width), matching how Finder/Cursor/Codex nest items in a folder. The
+                        // indent is passed INTO the row so its full width stays tappable.
+                        ForEach(shown) { row($0, indent: 16) }
                         if group.rows.count > 4 && !expanded.contains(group.id) {
                             moreRow(group.rows.count - 4, group: group.id)
                         }
@@ -207,11 +208,12 @@ private struct HomeSidebar: View {
         }
     }
 
-    private func row(_ row: ThreadRailRowState, chip: String? = nil) -> some View {
+    private func row(_ row: ThreadRailRowState, chip: String? = nil, indent: CGFloat = 0) -> some View {
         ProjectThreadRow(
             row: row,
             selected: row.id == threads.selectedThreadId,
             projectChip: chip,
+            indent: indent,
             armedPending: armedPendingThreadIds.contains(row.id),
             renaming: renameThreadId == row.id,
             onRename: { renameThreadId = row.id },
@@ -382,6 +384,9 @@ private struct ProjectThreadRow: View {
     /// For a PINNED row (shown outside its project group): the project's name, rendered as a
     /// folder chip in place of the timestamp so you still know where it lives. nil elsewhere.
     var projectChip: String? = nil
+    /// Leading indent for threads nested under a project group (aligns under the folder name).
+    /// Applied INSIDE the row's hit area so the indent gutter still selects the thread.
+    var indent: CGFloat = 0
     /// True when an armed Pending item targets this thread (neutral dot, not amber).
     var armedPending: Bool = false
     /// Inline-rename is parent-driven (shared SSOT with ⌘R + the context menu), so only one
@@ -487,6 +492,10 @@ private struct ProjectThreadRow: View {
         // and no amber line clashing with other-colored status dots).
         .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
                     in: RoundedRectangle(cornerRadius: ALRadius.md))
+        // Indent the pill, then make the WHOLE width (indent gutter included) the hit area —
+        // applying the indent here, inside the Button's contentShape, means clicks in the
+        // gutter still select the thread (the bug was indenting the row from outside).
+        .padding(.leading, indent)
         .contentShape(Rectangle())
     }
 
