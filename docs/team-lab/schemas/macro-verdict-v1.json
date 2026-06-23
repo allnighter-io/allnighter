@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://allnighter.local/schemas/team-lab/macro-verdict-v1.json",
+  "title": "TeamLabMacroVerdict",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "promotionClass",
+    "verdict",
+    "suiteId",
+    "deliverableOutcome",
+    "costLedger",
+    "seatMargin",
+    "evidenceValid",
+    "judgeMode"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "promotionClass": { "const": "composition" },
+    "verdict": {
+      "enum": ["keep", "add", "remove", "merge", "escalate", "hold"]
+    },
+    "macroOperation": { "enum": ["add", "remove", "merge", "forward_select"] },
+    "arm": {
+      "type": "object",
+      "properties": {
+        "baselineRoster": { "type": "string" },
+        "candidateRoster": { "type": "string" },
+        "baselineLab": { "type": "string" },
+        "candidateLab": { "type": "string" },
+        "addedRoles": { "type": "array", "items": { "type": "string" } },
+        "removedRoles": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "suiteId": { "type": "string" },
+    "caseId": { "type": "string" },
+    "inputHash": { "type": "string" },
+    "sameInput": { "type": "boolean" },
+    "caseOutcomes": { "type": "array" },
+    "deliverableOutcome": { "enum": ["baseline", "candidate", "tie"] },
+    "vnrcDelta": {
+      "type": "object",
+      "properties": {
+        "baselineOnly": { "type": "array", "items": { "type": "string" } },
+        "candidateOnly": { "type": "array", "items": { "type": "string" } },
+        "shared": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "writerDisposition": {
+      "type": "object",
+      "properties": {
+        "no_value": { "type": "array", "items": { "type": "string" } },
+        "value_suppressed": { "type": "array", "items": { "type": "string" } },
+        "noise_correctly_dropped": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "costLedger": {
+      "type": "object",
+      "required": ["baseline", "candidate"],
+      "properties": {
+        "baseline": { "$ref": "#/$defs/costArm" },
+        "candidate": { "$ref": "#/$defs/costArm" }
+      }
+    },
+    "seatMargin": { "enum": ["positive", "neutral", "negative"] },
+    "freshInputCount": { "type": "integer", "minimum": 0 },
+    "evidenceValid": { "type": "boolean" },
+    "judgeMode": { "enum": ["live", "mock"] },
+    "interactionPairsTested": { "type": "array", "items": { "type": "string" } },
+    "gateReason": { "type": ["string", "null"] },
+    "reason": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "costArm": {
+      "type": "object",
+      "properties": {
+        "durationMs": { "type": ["integer", "null"] },
+        "contractScore": { "type": ["number", "null"] },
+        "fsBypass": { "type": ["boolean", "null"] },
+        "workerTimeouts": { "type": "integer" },
+        "workerCount": { "type": "integer" },
+        "answerChars": { "type": "integer" }
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "suiteId": "bug_hunt_necessity_v1",
+  "teamId": "code_bug_hunt_lite",
+  "round": 1,
+  "labTeamId": "lab_code_bug_hunt_lite_r1",
+  "baseTeamId": "code_bug_hunt",
+  "promotionClass": "composition",
+  "roles": {
+    "bug_reproducer#0": {
+      "skillId": "bug_reproducer",
+      "instanceIndex": 0,
+      "skillName": "Bug Reproducer",
+      "labSkillId": "bug_reproducer",
+      "originRoleKey": "bug_reproducer#0",
+      "provenance": "incumbent",
+      "template": "Reduce the bug to the smallest reproducible scenario. Use concrete steps, inputs, expected behavior, and observed behavior. Do not invent facts. If a detail is unknown, name the missing observation.",
+      "templateHash": "67987571cf74dce0",
+      "templateChangedFromBuiltIn": false
+    },
+    "truth_owner_mapper#0": {
+      "skillId": "truth_owner_mapper",
+      "instanceIndex": 0,
+      "skillName": "Truth Owner Mapper",
+      "labSkillId": "truth_owner_mapper",
+      "originRoleKey": "truth_owner_mapper#0",
+      "provenance": "incumbent",
+      "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.",
+      "templateHash": "278438a26675eeba",
+      "templateChangedFromBuiltIn": false
+    },
+    "correct_fix_planner#0": {
+      "skillId": "correct_fix_planner",
+      "instanceIndex": 0,
+      "skillName": "Correct Fix Planner",
+      "labSkillId": "correct_fix_planner",
+      "originRoleKey": "correct_fix_planner#0",
+      "provenance": "incumbent",
+      "template": "Plan the smallest correct fix, not the smallest visible patch. Do not patch the visible layer until the truth owner, the seam, and the blast radius are named.",
+      "templateHash": "91107b789aa7bc5a",
+      "templateChangedFromBuiltIn": false
+    },
+    "regression_guard#0": {
+      "skillId": "regression_guard",
+      "instanceIndex": 0,
+      "skillName": "Regression Guard",
+      "labSkillId": "regression_guard",
+      "originRoleKey": "regression_guard#0",
+      "provenance": "incumbent",
+      "template": "Write the proof plan. Name the exact unit/integration/fixture test that would fail before the fix and pass after. Include a negative test for the old lie when possible.",
+      "templateHash": "258485600dc39475",
+      "templateChangedFromBuiltIn": false
+    }
+  }
+}
