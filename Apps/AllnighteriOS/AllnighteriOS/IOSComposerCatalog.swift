@@ -87,13 +87,14 @@ enum IOSComposerCatalog {
             return IOSComposerModelOption(
                 id: definition.id,
                 driverId: definition.driverId,
-                title: "Agent (\(definition.displayName))"
+                title: definition.displayName
             )
         }
+        .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
     static var teams: [IOSComposerTeamOption] {
-        [defaultTeam] + teamPresetIDs.compactMap { id in
+        let others: [IOSComposerTeamOption] = teamPresetIDs.compactMap { id in
             guard let team = BuiltInTeams.team(id) else { return nil }
             return IOSComposerTeamOption(
                 id: id,
@@ -102,5 +103,7 @@ enum IOSComposerCatalog {
                 lane: team.lane
             )
         }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return [defaultTeam] + others
     }
 }

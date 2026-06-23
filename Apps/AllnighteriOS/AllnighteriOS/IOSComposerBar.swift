@@ -60,8 +60,7 @@ struct IOSComposerBar: View {
         .accessibilityIdentifier("ios-composer-bar")
         .sheet(isPresented: $showsModelPicker) {
             IOSComposerModelPickerSheet(
-                selectedWorkerId: draft.selectedWorkerId ?? continuationWorkerId,
-                continuationTitle: continuationAgentTitle
+                selectedWorkerId: draft.selectedWorkerId ?? continuationWorkerId
             ) { workerId in
                 draft.selectedWorkerId = workerId
             }
@@ -77,7 +76,7 @@ struct IOSComposerBar: View {
 
     private var modelChipTitle: String {
         if let selected = draft.selectedModel {
-            return ConversationAgentPresentation.composerChipTitle(for: selected.id)
+            return selected.title
         }
         if let continuationAgentTitle {
             return ConversationAgentPresentation.composerChipTitle(fromAgentTitle: continuationAgentTitle)
@@ -171,7 +170,6 @@ struct IOSComposerBar: View {
 
 private struct IOSComposerModelPickerSheet: View {
     let selectedWorkerId: String?
-    let continuationTitle: String?
     let onSelect: (String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -180,7 +178,7 @@ private struct IOSComposerModelPickerSheet: View {
         NavigationStack {
             List {
                 Section {
-                    pickerRow(title: "Auto", subtitle: continuationTitle ?? "Default model", isSelected: selectedWorkerId == nil) {
+                    pickerRow(title: "Auto", subtitle: "", isSelected: selectedWorkerId == nil) {
                         onSelect(nil)
                         dismiss()
                     }
@@ -190,7 +188,7 @@ private struct IOSComposerModelPickerSheet: View {
                     ForEach(IOSComposerCatalog.models) { model in
                         pickerRow(
                             title: model.title,
-                            subtitle: model.id,
+                            subtitle: "",
                             isSelected: selectedWorkerId == model.id,
                             driverId: model.driverId
                         ) {
@@ -229,9 +227,11 @@ private struct IOSComposerModelPickerSheet: View {
                     Text(title)
                         .font(IOSFont.bodyStrong)
                         .foregroundStyle(IOSColor.textPrimary)
-                    Text(subtitle)
-                        .font(IOSFont.label)
-                        .foregroundStyle(IOSColor.textMuted)
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(IOSFont.label)
+                            .foregroundStyle(IOSColor.textMuted)
+                    }
                 }
 
                 Spacer(minLength: IOSSpace.s2)
@@ -260,17 +260,10 @@ private struct IOSComposerTeamPickerSheet: View {
                         onSelect(team.id)
                         dismiss()
                     } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(team.name)
-                                    .font(IOSFont.bodyStrong)
-                                    .foregroundStyle(IOSColor.textPrimary)
-                                if let lane = team.lane {
-                                    Text(lane.rawValue.capitalized)
-                                        .font(IOSFont.label)
-                                        .foregroundStyle(IOSColor.textMuted)
-                                }
-                            }
+                        HStack(spacing: IOSSpace.s3) {
+                            Text(team.name)
+                                .font(IOSFont.bodyStrong)
+                                .foregroundStyle(IOSColor.textPrimary)
                             Spacer(minLength: IOSSpace.s2)
                             if team.id == selectedTeamId {
                                 Image(systemName: "checkmark")
