@@ -346,7 +346,6 @@ struct TeamEditorView: View {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    visibilitySection
                     nameField
                     // A mutating team is ONE agent — the worker does the work. No
                     // separate Lead (that split only makes sense for answer teams,
@@ -357,7 +356,7 @@ struct TeamEditorView: View {
                     substitutionsToggle
                     executionPostureSection
                     summary
-                    deleteSection
+                    bottomSection
                 }
                 .padding(20)
             }
@@ -382,59 +381,60 @@ struct TeamEditorView: View {
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(ALColor.textMuted.opacity(0.14), in: Capsule())
             }
+            // Live Active/Inactive switch (TeamVisibility), in the title row. OFF
+            // deactivates the team everywhere it's listed — Teams page, composer,
+            // CLI, and MCP — but it stays here in Settings to switch back on, and
+            // still runs if invoked by id. Persists on toggle; no Save needed; works
+            // for built-ins too (the seed is never touched, so it's reversible).
+            if !isNew {
+                VStack(alignment: .trailing, spacing: 3) {
+                    Toggle("", isOn: Binding(
+                        get: { showOnTeamsPage },
+                        set: { on in
+                            showOnTeamsPage = on
+                            try? TeamVisibility.setEnabled(draft.base.id, on)
+                        }
+                    ))
+                    .labelsHidden().toggleStyle(.switch).tint(ALColor.accent)
+                    Text(showOnTeamsPage ? "Active" : "Inactive")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(showOnTeamsPage ? ALColor.textMuted : ALColor.textFaint)
+                }
+                .help(showOnTeamsPage
+                      ? "Active — appears in the composer picker, the Teams page, and to agents over CLI/MCP."
+                      : "Inactive — hidden everywhere teams are listed. Still runs if invoked by id.")
+            }
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
-    }
-
-    /// Top: show/hide this team on the Teams page + composer picker. A live setting (persists
-    /// on toggle, no Save needed); works for built-ins too — the seed is never touched, so it's
-    /// fully reversible. Hidden teams stay reachable here in Settings to switch back on.
-    @ViewBuilder private var visibilitySection: some View {
-        if !isNew {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Show on Teams page")
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                    Text(showOnTeamsPage
-                         ? "Appears in the composer picker and on the Teams page."
-                         : "Hidden from the Teams page — switch back on here anytime.")
-                        .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-                }
-                Spacer(minLength: 0)
-                Toggle("", isOn: Binding(
-                    get: { showOnTeamsPage },
-                    set: { on in
-                        showOnTeamsPage = on
-                        try? TeamVisibility.setEnabled(draft.base.id, on)
-                    }
-                ))
-                .labelsHidden().toggleStyle(.switch).tint(ALColor.accent)
-            }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 10).fill(ALColor.subtle))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
-        }
     }
 
     /// A truly custom team (not a built-in id and already saved) — only these can be deleted.
     private var isCustomTeam: Bool { !isNew && BuiltInTeams.team(draft.base.id) == nil }
 
-    /// Bottom: permanent delete — CUSTOM teams only. Built-ins can't be deleted (they're
-    /// shipped seeds); use the Show-on-Teams-page toggle above to hide one instead.
-    @ViewBuilder private var deleteSection: some View {
-        if isCustomTeam {
+    /// Bottom of the editor: the one-line explainer for the title-row Active/Inactive
+    /// toggle (the explanation lives here, away from the control, read once), plus
+    /// permanent delete for CUSTOM teams only. Built-ins can't be deleted (they're
+    /// shipped seeds) — deactivate one with the title-row toggle instead.
+    @ViewBuilder private var bottomSection: some View {
+        if !isNew {
             VStack(alignment: .leading, spacing: 8) {
                 Rectangle().fill(ALColor.borderSubtle).frame(height: 1).padding(.vertical, 4)
-                Button(role: .destructive) { confirmingDelete = true } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "trash").font(.system(size: 12))
-                        Text("Delete team").font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundStyle(ALPalette.red400)
-                }
-                .buttonStyle(.plain)
-                Text("Permanently removes this custom team. Built-in teams can only be hidden (toggle above).")
+                Text(showOnTeamsPage
+                     ? "Active — appears in the composer picker, the Teams page, and to agents over CLI/MCP. Flip the title-bar toggle off to deactivate it."
+                     : "Inactive — hidden from the picker, the Teams page, and agents over CLI/MCP. It still runs if invoked directly by id.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                if isCustomTeam {
+                    Button(role: .destructive) { confirmingDelete = true } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash").font(.system(size: 12))
+                            Text("Delete team").font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundStyle(ALPalette.red400)
+                    }
+                    .buttonStyle(.plain).padding(.top, 2)
+                    Text("Permanently removes this custom team. Built-in teams can only be deactivated.")
+                        .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .confirmationDialog("Delete \u{201C}\(draft.name)\u{201D}?",

@@ -1,0 +1,9 @@
+# surface: team-editor
+# fixtures: studio-team-editor
+# watcher: PASS
+# sealed: 2026-06-23
+# Binds the proven view to its exact content hash. Re-editing it changes the hash
+# and invalidates this proof — re-render and re-seal.
+# Scope: only TeamEditorView (the Active/Inactive title-row toggle collapse). Other
+# views flagged by the gate are a pre-existing branch backlog, not part of this change.
+91844d32821f6869fa9641e6ccb5b66306dad3ae  Apps/AllnighterMac/Sources/TeamEditorView.swift
