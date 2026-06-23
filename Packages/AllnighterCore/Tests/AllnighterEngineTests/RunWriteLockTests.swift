@@ -30,13 +30,14 @@ final class RunWriteLockTests: XCTestCase {
     func testWaitToAcquireGrantsInFIFOOrder() async {
         let registry = RunWriteLockRegistry()
         let key = "v1:fifo"
-        await registry.waitToAcquire(key)   // holder takes it immediately
+        let first = await registry.waitToAcquire(key, timeout: .seconds(5))   // holder takes it immediately
+        XCTAssertTrue(first)
 
         let order = OrderRecorder()
-        let w1 = Task { await registry.waitToAcquire(key); await order.record(1) }
+        let w1 = Task { if await registry.waitToAcquire(key, timeout: .seconds(5)) { await order.record(1) } }
         // Give w1 time to enqueue before w2, so arrival order is deterministic.
         try? await Task.sleep(nanoseconds: 50_000_000)
-        let w2 = Task { await registry.waitToAcquire(key); await order.record(2) }
+        let w2 = Task { if await registry.waitToAcquire(key, timeout: .seconds(5)) { await order.record(2) } }
         try? await Task.sleep(nanoseconds: 50_000_000)
 
         let emptyWhileHeld = await order.isEmpty
@@ -49,6 +50,47 @@ final class RunWriteLockTests: XCTestCase {
 
         let finalOrder = await order.values
         XCTAssertEqual(finalOrder, [1, 2], "waiters run in arrival order")
+    }
+
+    /// A wedged holder must not hang later runs forever: a waiter that outlives the timeout
+    /// returns `false` (no ownership) while the holder keeps the key.
+    func testWaitTimesOutWhenHolderNeverReleases() async {
+        let registry = RunWriteLockRegistry()
+        let key = "v1:timeout"
+        let first = await registry.waitToAcquire(key, timeout: .seconds(5))
+        XCTAssertTrue(first)
+
+        let granted = await registry.waitToAcquire(key, timeout: .milliseconds(100))
+        XCTAssertFalse(granted, "the queued waiter gives up after the timeout")
+        let stillHeld = await registry.isHeld(key)
+        XCTAssertTrue(stillHeld, "the original holder still owns the key")
+    }
+
+    /// A cancelled queued waiter returns `false`, frees its slot, and does NOT block the next
+    /// waiter from being granted when the holder releases.
+    func testCancelledWaiterUnblocksTheQueue() async {
+        let registry = RunWriteLockRegistry()
+        let key = "v1:cancel"
+        let first = await registry.waitToAcquire(key, timeout: .seconds(5))
+        XCTAssertTrue(first)
+
+        let cancelledFlag = OrderRecorder()
+        let cancelled = Task {
+            let got = await registry.waitToAcquire(key, timeout: .seconds(30))
+            await cancelledFlag.record(got ? 1 : 0)
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        cancelled.cancel()
+        await cancelled.value
+        let cancelledResult = await cancelledFlag.values
+        XCTAssertEqual(cancelledResult, [0], "cancelled waiter returns false")
+
+        // A fresh waiter still gets granted once the holder releases — the queue isn't wedged.
+        let next = Task { await registry.waitToAcquire(key, timeout: .seconds(5)) }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        await registry.release(key)
+        let granted = await next.value
+        XCTAssertTrue(granted, "the next waiter is granted; a cancelled waiter didn't strand the queue")
     }
 }
 

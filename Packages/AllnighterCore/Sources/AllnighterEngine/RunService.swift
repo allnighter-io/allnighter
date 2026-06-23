@@ -104,6 +104,12 @@ public actor RunService {
     /// warmth survives the per-turn RunService instances; tests inject a fresh pool).
     private let warmPool: WarmWorkerPool
 
+    /// How long a mutating run waits in the per-repo FIFO before refusing. Generous on purpose:
+    /// normal queuing clears in seconds-to-minutes (and a stuck holder is killed by its own
+    /// worker timeout/watchdog, freeing the lock far sooner). This only trips for a holder wedged
+    /// beyond all of that — the bound that stops one stuck run from hanging every later run.
+    static let writeLockWaitTimeout: Duration = .seconds(1800)
+
     public init(
         models: [Model],
         registry: DriverRegistry,
@@ -264,9 +270,13 @@ public actor RunService {
         var acquiredLock = false
         if preset.writePolicy == .mutating {
             // One writer per repo root. If another mutating run holds the lock, WAIT our turn
-            // (FIFO) and then run — never refuse. A second back-to-back agent turn queues
-            // behind the first instead of erroring; read-only runs never reach here.
-            await writeLock.waitToAcquire(lockKey)
+            // (FIFO) and then run — a second back-to-back agent turn queues behind the first
+            // instead of erroring. The bounded timeout is the safety valve: if a wedged holder
+            // outlives even its own worker timeout/watchdog, we stop queueing forever and refuse
+            // honestly (RUN_WRITE_LOCK_BUSY, retryable). Read-only runs never reach here.
+            guard await writeLock.waitToAcquire(lockKey, timeout: Self.writeLockWaitTimeout) else {
+                return .failure(.writeLockBusy(root))
+            }
             acquiredLock = true
         }
         defer {

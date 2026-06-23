@@ -41,9 +41,16 @@ public actor RunWriteLockRegistry {
     public static let shared = RunWriteLockRegistry()
 
     private var held: Set<String> = []
-    /// Suspended callers per key, in arrival order. The holder hands ownership to the head of
-    /// this queue on `release` (ownership transfer — `held` is never cleared mid-handoff).
-    private var waiters: [String: [CheckedContinuation<Void, Never>]] = [:]
+    /// One suspended caller: its FIFO id + the continuation to resume with `true` (granted,
+    /// ownership transferred) or `false` (timed out / cancelled before its turn).
+    private struct Waiter {
+        let id: UInt64
+        let continuation: CheckedContinuation<Bool, Never>
+    }
+    /// Suspended callers per key, in arrival order. The holder hands ownership to the head on
+    /// `release` (ownership transfer — `held` is never cleared mid-handoff).
+    private var waiters: [String: [Waiter]] = [:]
+    private var nextWaiterId: UInt64 = 0
 
     public init() {}
 
@@ -54,19 +61,44 @@ public actor RunWriteLockRegistry {
         held.insert(key).inserted
     }
 
-    /// FIFO acquire: returns immediately if the key is free, otherwise suspends until it is
-    /// this caller's turn. On return, the caller owns the key and MUST call `release(key)`
-    /// exactly once (the run path does so in a `defer`). The mutating-run path uses this so a
-    /// second run on the same repo waits its turn rather than being refused.
+    /// FIFO acquire, bounded by `timeout`. Returns `true` with ownership (caller MUST call
+    /// `release(key)` exactly once), or `false` if the wait timed out OR the caller's task was
+    /// cancelled before its turn — in which case NO ownership was taken and the caller must NOT
+    /// release. The mutating-run path uses this so a second run on the same repo waits its turn
+    /// rather than being refused; the timeout is the safety valve so a wedged holder (one that
+    /// outlives even its own worker timeout/watchdog) can't hang every later run forever.
     ///
-    /// Cancellation note: a caller suspended here is resumed when ownership is handed to it on
-    /// the holder's `release`; a cancelled task then proceeds past the await, does its
-    /// (cancelled, fast-returning) work, and releases in its `defer`, so the queue drains.
-    public func waitToAcquire(_ key: String) async {
-        if held.insert(key).inserted { return }
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            waiters[key, default: []].append(continuation)
+    /// Resumed exactly once: by `release` (head waiter → `true`) or by `expire` (timeout or
+    /// cancellation → `false`). Each path removes the waiter from `waiters` under actor
+    /// isolation before resuming, so there is no double-resume and no leak.
+    public func waitToAcquire(_ key: String, timeout: Duration) async -> Bool {
+        if held.insert(key).inserted { return true }
+        let id = nextWaiterId
+        nextWaiterId &+= 1
+        // Bound the wait: if still queued at the deadline, resume `false`.
+        let timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            await self?.expire(key: key, id: id)
         }
+        let granted = await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                waiters[key, default: []].append(Waiter(id: id, continuation: continuation))
+            }
+        } onCancel: {
+            // Caller's task was cancelled while queued — drop the waiter and resume `false`.
+            Task { await self.expire(key: key, id: id) }
+        }
+        timeoutTask.cancel()
+        return granted
+    }
+
+    /// Resume a still-queued waiter with `false` (timed out / cancelled), exactly once. A no-op
+    /// if it was already granted by `release` or already expired.
+    private func expire(key: String, id: UInt64) {
+        guard var queue = waiters[key], let idx = queue.firstIndex(where: { $0.id == id }) else { return }
+        let waiter = queue.remove(at: idx)
+        waiters[key] = queue.isEmpty ? nil : queue
+        waiter.continuation.resume(returning: false)
     }
 
     public func release(_ key: String) {
@@ -74,7 +106,7 @@ public actor RunWriteLockRegistry {
             let next = queue.removeFirst()
             waiters[key] = queue.isEmpty ? nil : queue
             // Ownership transfers to `next`; `held` stays set so no one else can slip in.
-            next.resume()
+            next.continuation.resume(returning: true)
         } else {
             held.remove(key)
         }
