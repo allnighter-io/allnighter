@@ -2,7 +2,8 @@
 //  IOSComposerCatalog.swift
 //  AllnighteriOS
 //
-//  Static compose options for the remote chat MVP (preview + live defaults).
+//  Compose options for the remote chat MVP — sourced from Core catalogs (preview
+//  defaults; live Mac still authoritative at run time).
 //
 
 import AllnighterCore
@@ -54,40 +55,52 @@ struct IOSComposerDraft: Equatable, Sendable {
 }
 
 enum IOSComposerCatalog {
-    static let defaultTeam = IOSComposerTeamOption(
-        id: "default",
-        presetId: "default_chat",
-        name: "Auto",
-        lane: .code
-    )
-
-    static let models: [IOSComposerModelOption] = [
-        IOSComposerModelOption(
-            id: "model_opus",
-            driverId: "claude_code",
-            title: "Agent (Opus 4.8)"
-        ),
-        IOSComposerModelOption(
-            id: "model_sonnet",
-            driverId: "claude_code",
-            title: "Agent (Sonnet 4.6)"
-        ),
-        IOSComposerModelOption(
-            id: "model_chatgpt",
-            driverId: "codex",
-            title: "Agent (ChatGPT 5.5)"
-        ),
-        IOSComposerModelOption(
-            id: "model_grok",
-            driverId: "grok",
-            title: "Agent (Grok)"
-        ),
+    /// Common bench models — same ids the Mac composer uses.
+    private static let modelIDs: [String] = [
+        "model_opus",
+        "model_sonnet",
+        "model_chatgpt",
+        "model_grok",
+        "model_cursor_composer_25",
+        "model_gemini",
     ]
 
-    static let teams: [IOSComposerTeamOption] = [
-        defaultTeam,
-        IOSComposerTeamOption(id: "code_core", presetId: "code_core", name: "Code Core", lane: .code),
-        IOSComposerTeamOption(id: "copy_landing", presetId: "copy_landing_page", name: "Copy · Landing", lane: .copy),
-        IOSComposerTeamOption(id: "design_board", presetId: "design_board", name: "Design Board", lane: .design),
+    private static let teamPresetIDs: [String] = [
+        "code_core",
+        "copy_landing_page",
+        "design_board",
     ]
+
+    static var defaultTeam: IOSComposerTeamOption {
+        let preset = TeamCatalog.defaultRunTeam()
+        return IOSComposerTeamOption(
+            id: "default",
+            presetId: preset?.id ?? "default_chat",
+            name: preset?.displayName ?? "Auto",
+            lane: preset?.lane ?? .code
+        )
+    }
+
+    static var models: [IOSComposerModelOption] {
+        modelIDs.compactMap { id in
+            guard let definition = ModelCatalog.get(id) else { return nil }
+            return IOSComposerModelOption(
+                id: definition.id,
+                driverId: definition.driverId,
+                title: "Agent (\(definition.displayName))"
+            )
+        }
+    }
+
+    static var teams: [IOSComposerTeamOption] {
+        [defaultTeam] + teamPresetIDs.compactMap { id in
+            guard let team = BuiltInTeams.team(id) else { return nil }
+            return IOSComposerTeamOption(
+                id: id,
+                presetId: id,
+                name: team.displayName,
+                lane: team.lane
+            )
+        }
+    }
 }
