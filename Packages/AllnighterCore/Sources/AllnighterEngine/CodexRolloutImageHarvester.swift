@@ -228,29 +228,19 @@ public struct CodexRolloutImageHarvester: Sendable {
         )
     }
 
-    /// Decode RAW base64 (no `data:` prefix) — the `image_generation_call.result` shape.
-    /// MIME is sniffed from the decoded magic bytes (PNG/JPEG/GIF/WebP).
+    /// Decode RAW base64 (no `data:` prefix) — the `image_generation_call.result` shape (always
+    /// PNG from Codex). The declared MIME is advisory only: `ThreadAttachmentStore`'s ingestor
+    /// re-sniffs the bytes and re-encodes, so we don't re-implement magic-byte detection here.
     private static func dataCandidate(fromBase64 raw: String, index: Int) -> WorkerOutputImageHarvest.DataCandidate? {
         let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty,
               let data = Data(base64Encoded: cleaned, options: .ignoreUnknownCharacters), !data.isEmpty
         else { return nil }
-        let mime = mimeType(forMagic: data)
         return WorkerOutputImageHarvest.DataCandidate(
             data: data,
-            mimeType: mime,
-            originalName: "codex-rollout-image-\(index + 1).\(fileExtension(for: mime))"
+            mimeType: "image/png",
+            originalName: "codex-rollout-image-\(index + 1).png"
         )
-    }
-
-    private static func mimeType(forMagic data: Data) -> String {
-        let b = [UInt8](data.prefix(12))
-        if b.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return "image/png" }
-        if b.starts(with: [0xFF, 0xD8, 0xFF]) { return "image/jpeg" }
-        if b.starts(with: [0x47, 0x49, 0x46]) { return "image/gif" }
-        if b.count >= 12, b[0] == 0x52, b[1] == 0x49, b[2] == 0x46, b[3] == 0x46,
-           b[8] == 0x57, b[9] == 0x45, b[10] == 0x42, b[11] == 0x50 { return "image/webp" }
-        return "image/png"
     }
 
     private static func fileExtension(for mimeType: String) -> String {
