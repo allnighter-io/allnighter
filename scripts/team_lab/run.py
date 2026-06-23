@@ -17,7 +17,7 @@ from pathlib import Path
 from mcp_client import MCPStdioClient, parse_tool_json
 from overlay import OverlayDeployError, deploy_champion_overlay, deploy_overlay, ensure_model_policy_team
 from report import write_lab_report
-from scoring import evaluate_team_quality, score_run_contract, write_lab_report
+from scoring import evaluate_team_quality, score_run_contract
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_ALLN = REPO / "Packages/AllnighterCore/.build/debug/alln"

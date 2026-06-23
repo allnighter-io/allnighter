@@ -16,7 +16,7 @@ from pathlib import Path
 from mcp_client import MCPStdioClient, parse_tool_json
 from report import write_lab_report
 from run import copy_run_journal, repo_alln
-from scoring import evaluate_team_quality, score_run_contract, write_lab_report
+from scoring import evaluate_team_quality, score_run_contract
 
 REPO = Path(__file__).resolve().parents[2]
 SKILL_CATALOG = REPO / "Packages/AllnighterCore/Sources/AllnighterCore/SkillCatalog.swift"
@@ -297,6 +297,7 @@ def main() -> int:
             exp["runContractScore"] = contract.get("runContractScore")
             exp["writerResumedAt"] = datetime.now(timezone.utc).isoformat()
             exp_path.write_text(json.dumps(exp, indent=2))
+            write_lab_report(lab_dir, contract=contract, team_eval=team_eval)
         print(f"run_contract_score={contract.get('runContractScore')} fsBypass={contract.get('fsBypass')}")
         print(f"LAB_DIR={lab_dir}")
     return 0
