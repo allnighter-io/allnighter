@@ -1,8 +1,7 @@
 # Fast iOS iteration — `allios`
 
-`scripts/ios_dev.sh` builds AllnighteriOS, launches it on the simulator with
-relay env from `.env`, or runs unit tests — the tight loop for iOS work in this
-repo.
+`scripts/ios_dev.sh` builds AllnighteriOS, launches it on the simulator, or runs
+unit tests — the tight loop for iOS work in this repo.
 
 ## One-time setup
 
@@ -15,26 +14,26 @@ allios() { "$HOME/Documents/GitHub/Allnighter-iOS/scripts/ios_dev.sh" "$@"; }
 
 Then `source ~/.zshrc` (or open a new terminal).
 
-First run needs relay env:
+For **live** Mac relay (not preview):
 
 ```sh
 scripts/bootstrap_remote_env.sh
-```
-
-Mac agent for live (not preview) data:
-
-```sh
-scripts/serve_remote.sh    # separate terminal
+scripts/serve_remote.sh    # separate terminal on your Mac
 ```
 
 ## Use
 
 ```sh
-allios          # build + install + launch on simulator (scripts/ios_live.sh)
-allios build    # build only — no .env required
-allios test     # AllnighteriOSTests on simulator
-allios clean    # wipe iOS DerivedData, then build + launch
+allios              # .env present → live relay; else DEBUG preview
+allios preview      # build + launch preview (no .env required)
+allios launch       # install + relaunch only (~seconds if simulator is warm)
+allios build        # build only
+allios test         # AllnighteriOSTests on simulator
+allios clean        # wipe iOS DerivedData, then build + launch
 ```
+
+**Fast UI loop:** `allios build` once, then `allios launch` after small SwiftUI edits
+(or use Xcode ⌘R with Derived Data at `~/Library/Developer/Allnighter/iOS-Build`).
 
 Build output: `~/Library/Developer/Allnighter/iOS-Build/` (override with
 `ALLNIGHTER_IOS_BUILD_DIR`). Simulator device: `IOS_SIMULATOR_DEVICE` (default:

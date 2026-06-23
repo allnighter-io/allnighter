@@ -2,42 +2,41 @@
 # Allnighter iOS — fast build, launch, and test (simulator).
 #
 # Usage (wire `allios` in ~/.zshrc — see scripts/README-ios-dev.md):
-#   allios           build + launch on simulator with ALLNIGHTER_* from .env
-#   allios build     build only (no launch; no .env required)
+#   allios           build + launch (.env → live relay, else DEBUG preview)
+#   allios preview   build + launch DEBUG preview (no .env)
+#   allios launch    install + relaunch only (simulator must be booted)
+#   allios build     build only (no launch)
 #   allios test      AllnighteriOSTests unit tests
-#   allios clean     drop the cached iOS DerivedData, then build + launch
+#   allios clean     drop cached iOS DerivedData, then build + launch
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/ios_sim_common.sh"
+
 IOS_DIR="$ROOT/Apps/AllnighteriOS"
 SCHEME="AllnighteriOS"
 DERIVED="${ALLNIGHTER_IOS_BUILD_DIR:-$HOME/Library/Developer/Allnighter/iOS-Build}"
 LOG="$DERIVED/last-ios-build.log"
-
-ios_simulator_device() {
-  if [[ -n "${IOS_SIMULATOR_DEVICE:-}" ]]; then
-    echo "$IOS_SIMULATOR_DEVICE"
-    return
-  fi
-  xcrun simctl list devices available -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-for runtime in sorted(data["devices"], reverse=True):
-    for device in data["devices"][runtime]:
-        if device.get("isAvailable") and "iPhone" in device.get("name", ""):
-            print(device["name"])
-            raise SystemExit
-print("iPhone 17 Pro")
-'
-}
+ENV_FILE="$ROOT/.env"
 
 cmd="${1:-run}"
 
 case "$cmd" in
   test)
     exec bash "$ROOT/scripts/ios_unit_tests.sh"
+    ;;
+  launch)
+    if [[ -f "$ENV_FILE" ]]; then
+      IOS_LAUNCH_ENV_FILE="$ENV_FILE" exec bash "$ROOT/scripts/ios_sim_launch.sh"
+    else
+      IOS_LAUNCH_ENV_FILE="" exec bash "$ROOT/scripts/ios_sim_launch.sh"
+    fi
+    ;;
+  preview)
+    exec bash "$ROOT/scripts/ios_preview.sh"
     ;;
   clean)
     echo "==> clean ($DERIVED)"
@@ -47,13 +46,18 @@ case "$cmd" in
   build|run)
     ;;
   *)
-    echo "usage: allios [run|build|test|clean]" >&2
+    echo "usage: allios [run|preview|launch|build|test|clean]" >&2
     exit 1
     ;;
 esac
 
 if [[ "$cmd" == "run" ]]; then
-  exec bash "$ROOT/scripts/ios_live.sh"
+  if [[ -f "$ENV_FILE" ]]; then
+    exec bash "$ROOT/scripts/ios_live.sh"
+  else
+    echo "==> No .env — using DEBUG preview (scripts/bootstrap_remote_env.sh for live)"
+    exec bash "$ROOT/scripts/ios_preview.sh"
+  fi
 fi
 
 # build only
@@ -70,6 +74,7 @@ xcodebuild build \
   -configuration Debug \
   -derivedDataPath "$DERIVED" \
   -destination "$DESTINATION" \
+  -quiet \
   >"$LOG" 2>&1
 status=$?
 set -e

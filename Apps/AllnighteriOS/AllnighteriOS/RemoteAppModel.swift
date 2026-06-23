@@ -459,6 +459,7 @@ final class RemoteAppModel {
         )
         let team = composerDraft.selectedTeam
         let existingThreadId = composerThreadId
+        let knownThreadIds = existingThreadId == nil ? allThreadIds(in: homeSnapshot) : []
         let draft = WorkRequestDraft(
             prompt: trimmed,
             threadId: existingThreadId,
@@ -485,8 +486,7 @@ final class RemoteAppModel {
                 await loadThread(threadId: threadId)
                 pendingOpenThreadId = threadId
             } else {
-                await refreshHome()
-                if let threadId = newestThreadId(in: homeSnapshot) {
+                if let threadId = await resolveLiveNewThreadId(knownIds: knownThreadIds, prompt: trimmed) {
                     composerThreadId = threadId
                     await loadThread(threadId: threadId)
                     pendingOpenThreadId = threadId
@@ -499,9 +499,30 @@ final class RemoteAppModel {
         }
     }
 
-    private func newestThreadId(in snapshot: ConversationListSnapshot) -> String? {
-        let conversations = snapshot.pinned + snapshot.projects.flatMap(\.conversations)
-        return conversations.first?.id
+    private func allThreadIds(in snapshot: ConversationListSnapshot) -> Set<String> {
+        Set((snapshot.pinned + snapshot.projects.flatMap(\.conversations)).map(\.id))
+    }
+
+    private func resolveLiveNewThreadId(knownIds: Set<String>, prompt: String) async -> String? {
+        let titleHint = Self.previewThreadTitle(from: prompt)
+        for attempt in 0..<6 {
+            await refreshHome()
+            if let threadId = matchNewThread(knownIds: knownIds, titleHint: titleHint) {
+                return threadId
+            }
+            if attempt < 5 {
+                try? await Task.sleep(nanoseconds: 350_000_000)
+            }
+        }
+        return nil
+    }
+
+    private func matchNewThread(knownIds: Set<String>, titleHint: String) -> String? {
+        let conversations = homeSnapshot.pinned + homeSnapshot.projects.flatMap(\.conversations)
+        if let titled = conversations.first(where: { !knownIds.contains($0.id) && $0.title == titleHint }) {
+            return titled.id
+        }
+        return conversations.first(where: { !knownIds.contains($0.id) })?.id
     }
 
     func clearWorkRequestSendFailure() {
