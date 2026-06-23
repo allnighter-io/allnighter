@@ -60,6 +60,10 @@ final class ConversationThreadStore {
         self.state = ConversationThreadStoreState(snapshot: initialSnapshot, status: .idle)
     }
 
+    func applySnapshot(_ snapshot: ConversationThreadSnapshot, threadId: String) {
+        state = ConversationThreadStoreState(snapshot: snapshot, status: .loaded(threadId: threadId))
+    }
+
     func load(threadId: String) async {
         loadSequence += 1
         let currentLoad = loadSequence

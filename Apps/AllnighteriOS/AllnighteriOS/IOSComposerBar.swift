@@ -10,6 +10,8 @@ import SwiftUI
 struct IOSComposerBar: View {
     @Binding var text: String
     var placeholder: String = "Start something - ask, order, or build..."
+    var continuationAgentTitle: String? = nil
+    var continuationDriverId: String? = nil
     var isSending: Bool = false
     var canSend: Bool = false
     var onSend: () async -> Void = {}
@@ -69,7 +71,14 @@ struct IOSComposerBar: View {
             ComposerIconButton(systemImage: "paperclip", accessibilityLabel: "Attach context") {
             }
 
-            RouteChip(systemImage: "infinity", title: "Auto", detail: showModelDetail ? "Claude" : nil)
+            if let continuationAgentTitle, let continuationDriverId {
+                ContinuationAgentChip(
+                    driverId: continuationDriverId,
+                    title: continuationAgentTitle
+                )
+            } else {
+                RouteChip(systemImage: "infinity", title: "Auto", detail: showModelDetail ? "Claude" : nil)
+            }
 
             if showEffort {
                 RouteChip(systemImage: "speedometer", title: "Med", detail: nil)
@@ -136,6 +145,30 @@ private struct ComposerIconButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+private struct ContinuationAgentChip: View {
+    let driverId: String
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            IOSDriverBrandGlyphView(driverId: driverId, boxSize: 28, iconSize: 14)
+
+            Text(title)
+                .font(IOSFont.bodyStrong)
+                .foregroundStyle(IOSColor.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, IOSSpace.s3)
+        .frame(height: 48)
+        .background(IOSColor.subtle, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous)
+                .strokeBorder(IOSColor.borderSubtle, lineWidth: 1)
+        }
+        .accessibilityLabel(title)
     }
 }
 

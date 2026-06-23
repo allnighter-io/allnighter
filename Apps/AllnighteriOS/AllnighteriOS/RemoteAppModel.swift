@@ -139,6 +139,37 @@ final class RemoteAppModel {
     private var activationSequence = 0
     var composerThreadId: String?
 
+    struct ComposerContinuationAgent: Equatable {
+        var workerId: String
+        var driverId: String
+        var title: String
+    }
+
+    var composerContinuationAgent: ComposerContinuationAgent? {
+        guard let threadId = composerThreadId,
+              let snapshot = threadSnapshot,
+              snapshot.id == threadId else {
+            return nil
+        }
+        if let workerTurn = snapshot.turns.last(where: { $0.role == .assistant }),
+           let workerId = workerTurn.workerId {
+            return ComposerContinuationAgent(
+                workerId: workerId,
+                driverId: workerTurn.driverId ?? ConversationAgentPresentation.driverId(for: workerId),
+                title: workerTurn.agentTitle ?? ConversationAgentPresentation.agentTitle(for: workerId)
+            )
+        }
+        if case .preview = connectionPhase {
+            let workerId = ConversationAgentPresentation.previewWorkerId
+            return ComposerContinuationAgent(
+                workerId: workerId,
+                driverId: ConversationAgentPresentation.driverId(for: workerId),
+                title: ConversationAgentPresentation.agentTitle(for: workerId)
+            )
+        }
+        return nil
+    }
+
     private struct DeviceSession {
         var client: any RemoteClient
         var mac: MacAgentRef
@@ -424,7 +455,11 @@ final class RemoteAppModel {
             workRequestSendPhase = .idle
             await refreshHome()
             if let threadId = composerThreadId {
-                await loadThread(threadId: threadId)
+                if case .preview = connectionPhase {
+                    appendOptimisticSend(prompt: trimmed, threadId: threadId)
+                } else {
+                    await loadThread(threadId: threadId)
+                }
             }
         } catch let error as WorkRequestSenderError where error == .emptyPrompt {
             workRequestSendPhase = .idle
@@ -471,10 +506,55 @@ final class RemoteAppModel {
         }
     }
 
+    private func appendOptimisticSend(prompt: String, threadId: String) {
+        guard var snapshot = threadSnapshot, snapshot.id == threadId else { return }
+        let workerId = composerContinuationAgent?.workerId ?? ConversationAgentPresentation.previewWorkerId
+        let suffix = UUID().uuidString.prefix(8)
+        let userTurn = ConversationThreadTurn(
+            id: "optimistic_user_\(suffix)",
+            role: .user,
+            text: prompt,
+            runId: nil,
+            workerId: nil,
+            driverId: nil,
+            agentTitle: nil,
+            isPending: false,
+            isFailed: false,
+            isTruncated: false,
+            hasAttachments: false,
+            hasFileReferences: false
+        )
+        let runId = "run_preview_optimistic_\(suffix)"
+        let workerTurn = ConversationThreadTurn(
+            id: "optimistic_worker_\(suffix)",
+            role: .assistant,
+            text: "Working on this on your Mac…",
+            runId: runId,
+            workerId: workerId,
+            driverId: ConversationAgentPresentation.driverId(for: workerId),
+            agentTitle: ConversationAgentPresentation.agentTitle(for: workerId),
+            isPending: true,
+            isFailed: false,
+            isTruncated: false,
+            hasAttachments: false,
+            hasFileReferences: false
+        )
+        snapshot.turns.append(userTurn)
+        snapshot.turns.append(workerTurn)
+        snapshot.isActive = true
+        snapshot.statusLabel = "Running"
+        threadSnapshot = snapshot
+        threadStore?.applySnapshot(snapshot, threadId: threadId)
+    }
+
     private func installPreviewClient() async {
         let now = Date()
         let signingKey = Curve25519.Signing.PrivateKey()
         let sealingKey = Curve25519.KeyAgreement.PrivateKey()
+        let macSigningKey = Curve25519.Signing.PrivateKey()
+        let macSealingKey = Curve25519.KeyAgreement.PrivateKey()
+        let macSigningPubkey = RemoteCrypto.signingPublicKeyBase64(macSigningKey.publicKey)
+        let macSealingPubkey = RemoteCrypto.sealingPublicKeyBase64(macSealingKey.publicKey)
         let deviceId = "preview_device"
         let accountId = "acct_preview"
         let macAgentId = "mac_preview"
@@ -511,8 +591,8 @@ final class RemoteAppModel {
                 MacAgentRef(
                     macAgentId: macAgentId,
                     displayName: "Studio Mac",
-                    agentSigningPubkey: "preview-sign",
-                    agentSealingPubkey: "preview-seal",
+                    agentSigningPubkey: macSigningPubkey,
+                    agentSealingPubkey: macSealingPubkey,
                     lastSeenAt: now
                 ),
             ],
@@ -527,8 +607,8 @@ final class RemoteAppModel {
             mac: MacAgentRef(
                 macAgentId: macAgentId,
                 displayName: "Studio Mac",
-                agentSigningPubkey: "preview-sign",
-                agentSealingPubkey: "preview-seal",
+                agentSigningPubkey: macSigningPubkey,
+                agentSealingPubkey: macSealingPubkey,
                 lastSeenAt: now
             ),
             accountId: accountId,
@@ -592,6 +672,7 @@ final class RemoteAppModel {
                     text: isRunning
                         ? "Working on this on your Mac…"
                         : "Done — open on your Mac for the full transcript.",
+                    workerId: ConversationAgentPresentation.previewWorkerId,
                     runId: runId,
                     partialOutputTruncated: false
                 ),

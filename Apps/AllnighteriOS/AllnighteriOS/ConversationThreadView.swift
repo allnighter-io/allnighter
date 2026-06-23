@@ -32,6 +32,8 @@ struct ConversationThreadView: View {
             IOSComposerBar(
                 text: $composerText,
                 placeholder: "Continue this conversation…",
+                continuationAgentTitle: appModel.composerContinuationAgent?.title,
+                continuationDriverId: appModel.composerContinuationAgent?.driverId,
                 isSending: appModel.workRequestSendPhase == .sending,
                 canSend: appModel.canSendWorkRequests
                     && !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -211,35 +213,38 @@ private struct ThreadTurnRow: View {
     let turn: ConversationThreadTurn
 
     var body: some View {
-        VStack(alignment: .leading, spacing: IOSSpace.s2) {
-            HStack(spacing: IOSSpace.s3) {
-                Text(roleLabel)
-                    .font(IOSFont.monoSm)
-                    .foregroundStyle(IOSColor.textFaint)
+        switch turn.role {
+        case .user:
+            userBubble
+        case .assistant:
+            workerBubble
+        case .system:
+            systemBubble
+        }
+    }
 
-                if turn.isPending {
-                    Text("live")
-                        .font(IOSFont.monoSm)
-                        .foregroundStyle(IOSColor.accentText)
-                } else if turn.isFailed {
-                    Text("failed")
-                        .font(IOSFont.monoSm)
-                        .foregroundStyle(Color.red.opacity(0.8))
+    private var userBubble: some View {
+        HStack(alignment: .top, spacing: IOSSpace.s3) {
+            Text("YOU")
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.5)
+                .foregroundStyle(IOSColor.textFaint)
+                .frame(width: 28, height: 28)
+                .background(IOSColor.subtle, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            VStack(alignment: .leading, spacing: IOSSpace.s2) {
+                Text("You")
+                    .font(IOSFont.bodyStrong)
+                    .foregroundStyle(IOSColor.textSecondary)
+
+                if let text = turn.text {
+                    Text(text)
+                        .font(IOSFont.body)
+                        .foregroundStyle(IOSColor.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            if let text = turn.text {
-                Text(text)
-                    .font(IOSFont.body)
-                    .foregroundStyle(IOSColor.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if turn.isTruncated {
-                Text("Output truncated on your Mac")
-                    .font(IOSFont.label)
-                    .foregroundStyle(IOSColor.textMuted)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(IOSSpace.s4)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -250,11 +255,83 @@ private struct ThreadTurnRow: View {
         }
     }
 
-    private var roleLabel: String {
-        switch turn.role {
-        case .user: "YOU"
-        case .assistant: "TEAM"
-        case .system: "SYSTEM"
+    private var workerBubble: some View {
+        HStack(alignment: .top, spacing: IOSSpace.s3) {
+            IOSDriverBrandGlyphView(
+                driverId: turn.driverId ?? ConversationAgentPresentation.driverId(for: turn.workerId),
+                boxSize: 28,
+                iconSize: 14
+            )
+
+            VStack(alignment: .leading, spacing: IOSSpace.s2) {
+                HStack(spacing: IOSSpace.s2) {
+                    Text(turn.agentTitle ?? ConversationAgentPresentation.agentTitle(for: turn.workerId))
+                        .font(IOSFont.bodyStrong)
+                        .foregroundStyle(IOSColor.textSecondary)
+
+                    if turn.isPending {
+                        Text("live")
+                            .font(IOSFont.monoSm)
+                            .foregroundStyle(IOSColor.accentText)
+                    } else if turn.isFailed {
+                        Text("failed")
+                            .font(IOSFont.monoSm)
+                            .foregroundStyle(Color.red.opacity(0.8))
+                    }
+                }
+
+                if turn.isPending, turn.text == nil || turn.text?.isEmpty == true {
+                    HStack(spacing: IOSSpace.s2) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(IOSColor.textMuted)
+                        Text("running…")
+                            .font(IOSFont.label)
+                            .foregroundStyle(IOSColor.textMuted)
+                    }
+                } else if let text = turn.text {
+                    Text(text)
+                        .font(IOSFont.body)
+                        .foregroundStyle(IOSColor.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if turn.isTruncated {
+                    Text("Output truncated on your Mac")
+                        .font(IOSFont.label)
+                        .foregroundStyle(IOSColor.textMuted)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(IOSSpace.s4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(IOSColor.surface, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous)
+                .strokeBorder(IOSColor.borderSubtle, lineWidth: 1)
+        }
+    }
+
+    private var systemBubble: some View {
+        VStack(alignment: .leading, spacing: IOSSpace.s2) {
+            Text("SYSTEM")
+                .font(IOSFont.monoSm)
+                .foregroundStyle(IOSColor.textFaint)
+
+            if let text = turn.text {
+                Text(text)
+                    .font(IOSFont.body)
+                    .foregroundStyle(IOSColor.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(IOSSpace.s4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(IOSColor.surface, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous)
+                .strokeBorder(IOSColor.borderSubtle, lineWidth: 1)
         }
     }
 }

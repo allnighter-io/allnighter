@@ -44,6 +44,8 @@ final class ConversationThreadStoreTests: XCTestCase {
         XCTAssertEqual(snapshot.turns.map(\.runId), [nil, nil, nil])
         XCTAssertEqual(snapshot.turns.map(\.isFailed), [false, false, false])
         XCTAssertEqual(snapshot.turns.map(\.isTruncated), [false, true, false])
+        XCTAssertEqual(snapshot.turns[1].workerId, "claude-opus-4-6#0")
+        XCTAssertEqual(snapshot.turns[1].agentTitle, "Agent (Opus 4.6)")
     }
 
     @MainActor
@@ -62,6 +64,9 @@ final class ConversationThreadStoreTests: XCTestCase {
                     role: .assistant,
                     text: "Previous reply",
                     runId: nil,
+                    workerId: "claude-opus-4-6#0",
+                    driverId: "claude_code",
+                    agentTitle: "Agent (Opus 4.6)",
                     isPending: false,
                     isFailed: false,
                     isTruncated: false,
@@ -140,6 +145,7 @@ final class ConversationThreadStoreTests: XCTestCase {
                     author: .worker,
                     createdAt: now.addingTimeInterval(-20),
                     text: "Working on it",
+                    workerId: "claude-opus-4-6#0",
                     partialOutputTruncated: true
                 ),
                 RemoteThreadTurnDetail(
