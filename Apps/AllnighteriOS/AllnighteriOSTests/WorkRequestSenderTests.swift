@@ -73,6 +73,44 @@ final class WorkRequestSenderTests: XCTestCase {
         XCTAssertFalse(encodedCommand.contains("Build the draft"))
     }
 
+    func testSendWorkRequestPassesTeamAndEffortInSealedPayload() async throws {
+        let deviceSigningKey = Curve25519.Signing.PrivateKey()
+        let macSealingKey = Curve25519.KeyAgreement.PrivateKey()
+        let client = RecordingRemoteClient(acks: [
+            CommandAck(
+                requestId: "req_start",
+                accepted: true,
+                outcome: .accepted,
+                serverTime: workRequestSenderFixtureNow,
+                signature: "mac-signature"
+            ),
+        ])
+        let sender = WorkRequestSender(
+            client: client,
+            mac: mac(sealingKey: macSealingKey),
+            deviceId: "device_1",
+            deviceSigningKey: deviceSigningKey,
+            requestId: { "req_start" },
+            now: { workRequestSenderFixtureNow }
+        )
+
+        _ = try await sender.send(WorkRequestDraft(
+            prompt: "Ship it",
+            teamPresetId: "code_core",
+            lane: .code,
+            effort: .high
+        ))
+
+        let commands = await client.sentCommands()
+        let command = try XCTUnwrap(commands.first)
+        let blob = try XCTUnwrap(command.payload.sealedBlob)
+        let opened = try RemoteCrypto.open(blob, with: macSealingKey)
+        let payload = try CoreJSON.decode(RemoteStartRunPayload.self, from: opened)
+        XCTAssertEqual(payload.teamPresetId, "code_core")
+        XCTAssertEqual(payload.lane, WorkLane.code.rawValue)
+        XCTAssertEqual(payload.effort, EffortLevel.high.rawValue)
+    }
+
     func testSendWorkRequestRejectsEmptyPromptBeforeRemoteSend() async throws {
         let client = RecordingRemoteClient(acks: [])
         let sender = WorkRequestSender(

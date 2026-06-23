@@ -5,16 +5,22 @@
 //  Shared work-request composer for home and thread surfaces.
 //
 
+import AllnighterCore
 import SwiftUI
 
 struct IOSComposerBar: View {
     @Binding var text: String
+    @Binding var draft: IOSComposerDraft
     var placeholder: String = "Start something - ask, order, or build..."
     var continuationAgentTitle: String? = nil
     var continuationDriverId: String? = nil
+    var continuationWorkerId: String? = nil
     var isSending: Bool = false
     var canSend: Bool = false
     var onSend: () async -> Void = {}
+
+    @State private var showsModelPicker = false
+    @State private var showsTeamPicker = false
 
     var body: some View {
         VStack(spacing: IOSSpace.s3) {
@@ -40,9 +46,8 @@ struct IOSComposerBar: View {
             }
 
             ViewThatFits(in: .horizontal) {
-                composerControls(showModelDetail: true, showEffort: true)
-                composerControls(showModelDetail: false, showEffort: true)
-                composerControls(showModelDetail: false, showEffort: false)
+                composerControls(compact: false)
+                composerControls(compact: true)
             }
         }
         .padding(IOSSpace.s4)
@@ -53,6 +58,41 @@ struct IOSComposerBar: View {
         }
         .shadow(color: .black.opacity(0.46), radius: 24, x: 0, y: 14)
         .accessibilityIdentifier("ios-composer-bar")
+        .sheet(isPresented: $showsModelPicker) {
+            IOSComposerModelPickerSheet(
+                selectedWorkerId: draft.selectedWorkerId ?? continuationWorkerId,
+                continuationTitle: continuationAgentTitle
+            ) { workerId in
+                draft.selectedWorkerId = workerId
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showsTeamPicker) {
+            IOSComposerTeamPickerSheet(selectedTeamId: draft.selectedTeamId) { teamId in
+                draft.selectedTeamId = teamId
+            }
+            .presentationDetents([.medium, .large])
+        }
+    }
+
+    private var modelChipTitle: String {
+        if let selected = draft.selectedModel?.title {
+            return selected
+        }
+        if let continuationAgentTitle {
+            return continuationAgentTitle
+        }
+        return "Auto"
+    }
+
+    private var modelChipDriverId: String {
+        if let selected = draft.selectedModel?.driverId {
+            return selected
+        }
+        if let continuationDriverId {
+            return continuationDriverId
+        }
+        return "claude_code"
     }
 
     private var sendEnabled: Bool {
@@ -66,23 +106,36 @@ struct IOSComposerBar: View {
         }
     }
 
-    private func composerControls(showModelDetail: Bool, showEffort: Bool) -> some View {
+    private func composerControls(compact: Bool) -> some View {
         HStack(spacing: IOSSpace.s3) {
             ComposerIconButton(systemImage: "paperclip", accessibilityLabel: "Attach context") {
             }
 
-            if let continuationAgentTitle, let continuationDriverId {
-                ContinuationAgentChip(
-                    driverId: continuationDriverId,
-                    title: continuationAgentTitle
-                )
-            } else {
-                RouteChip(systemImage: "infinity", title: "Auto", detail: showModelDetail ? "Claude" : nil)
+            Button {
+                showsModelPicker = true
+            } label: {
+                ComposerAgentChip(driverId: modelChipDriverId, title: modelChipTitle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("composer-model-chip")
+
+            if !compact {
+                Button {
+                    showsTeamPicker = true
+                } label: {
+                    RouteChip(systemImage: "person.3", title: draft.selectedTeam.name, detail: nil)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("composer-team-chip")
             }
 
-            if showEffort {
-                RouteChip(systemImage: "speedometer", title: "Med", detail: nil)
+            Button {
+                draft.effort = nextEffort(after: draft.effort)
+            } label: {
+                RouteChip(systemImage: "speedometer", title: draft.effort.displayLabel, detail: nil)
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("composer-effort-chip")
 
             Spacer(minLength: IOSSpace.s2)
 
@@ -105,6 +158,133 @@ struct IOSComposerBar: View {
             .accessibilityLabel("Send")
             .accessibilityIdentifier("composer-send-button")
         }
+    }
+
+    private func nextEffort(after effort: EffortLevel) -> EffortLevel {
+        switch effort {
+        case .low: .med
+        case .med: .high
+        case .high: .low
+        }
+    }
+}
+
+private struct IOSComposerModelPickerSheet: View {
+    let selectedWorkerId: String?
+    let continuationTitle: String?
+    let onSelect: (String?) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    pickerRow(title: "Auto", subtitle: continuationTitle ?? "Default model", isSelected: selectedWorkerId == nil) {
+                        onSelect(nil)
+                        dismiss()
+                    }
+                }
+
+                Section("Models") {
+                    ForEach(IOSComposerCatalog.models) { model in
+                        pickerRow(
+                            title: model.title,
+                            subtitle: model.id,
+                            isSelected: selectedWorkerId == model.id,
+                            driverId: model.driverId
+                        ) {
+                            onSelect(model.id)
+                            dismiss()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Model")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func pickerRow(
+        title: String,
+        subtitle: String,
+        isSelected: Bool,
+        driverId: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: IOSSpace.s3) {
+                if let driverId {
+                    IOSDriverBrandGlyphView(driverId: driverId, boxSize: 28, iconSize: 14)
+                } else {
+                    Image(systemName: "infinity")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(IOSColor.textMuted)
+                        .frame(width: 28, height: 28)
+                        .background(IOSColor.subtle, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(IOSFont.bodyStrong)
+                        .foregroundStyle(IOSColor.textPrimary)
+                    Text(subtitle)
+                        .font(IOSFont.label)
+                        .foregroundStyle(IOSColor.textMuted)
+                }
+
+                Spacer(minLength: IOSSpace.s2)
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(IOSColor.accentText)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct IOSComposerTeamPickerSheet: View {
+    let selectedTeamId: String
+    let onSelect: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(IOSComposerCatalog.teams) { team in
+                    Button {
+                        onSelect(team.id)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(team.name)
+                                    .font(IOSFont.bodyStrong)
+                                    .foregroundStyle(IOSColor.textPrimary)
+                                if let lane = team.lane {
+                                    Text(lane.rawValue.capitalized)
+                                        .font(IOSFont.label)
+                                        .foregroundStyle(IOSColor.textMuted)
+                                }
+                            }
+                            Spacer(minLength: IOSSpace.s2)
+                            if team.id == selectedTeamId {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(IOSColor.accentText)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("Team")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -148,7 +328,7 @@ private struct ComposerIconButton: View {
     }
 }
 
-private struct ContinuationAgentChip: View {
+private struct ComposerAgentChip: View {
     let driverId: String
     let title: String
 

@@ -31,9 +31,14 @@ struct ConversationThreadView: View {
         .iosComposerSafeAreaInset {
             IOSComposerBar(
                 text: $composerText,
+                draft: Binding(
+                    get: { appModel.composerDraft },
+                    set: { appModel.composerDraft = $0 }
+                ),
                 placeholder: "Continue this conversation…",
                 continuationAgentTitle: appModel.composerContinuationAgent?.title,
                 continuationDriverId: appModel.composerContinuationAgent?.driverId,
+                continuationWorkerId: appModel.composerContinuationAgent?.workerId,
                 isSending: appModel.workRequestSendPhase == .sending,
                 canSend: appModel.canSendWorkRequests
                     && !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,

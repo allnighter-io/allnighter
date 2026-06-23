@@ -56,6 +56,9 @@ final class RemoteAppModel {
     private(set) var stopRunPhase: StopRunPhase = .idle
     private(set) var connectionDiagnosisLine: String?
     private(set) var homeFreshnessLabel: String?
+    private(set) var pendingOpenThreadId: String?
+
+    var composerDraft = IOSComposerDraft()
 
     private let homeCache = ConversationHomeCache()
     private let threadDetailCache = ConversationThreadDetailCache()
@@ -246,6 +249,14 @@ final class RemoteAppModel {
         homeSnapshot = .empty
         homeStatus = .idle
         #endif
+    }
+
+    func beginNewConversation() {
+        composerThreadId = nil
+    }
+
+    func consumePendingOpenThread() {
+        pendingOpenThreadId = nil
     }
 
     func refreshHome() async {
@@ -446,19 +457,39 @@ final class RemoteAppModel {
             deviceId: session.deviceId,
             deviceSigningKey: session.deviceSigningKey
         )
+        let team = composerDraft.selectedTeam
+        let existingThreadId = composerThreadId
+        let draft = WorkRequestDraft(
+            prompt: trimmed,
+            threadId: existingThreadId,
+            teamPresetId: team.presetId,
+            lane: team.lane,
+            effort: composerDraft.effort
+        )
 
         do {
-            _ = try await sender.send(WorkRequestDraft(
-                prompt: trimmed,
-                threadId: composerThreadId
-            ))
+            _ = try await sender.send(draft)
             workRequestSendPhase = .idle
-            await refreshHome()
-            if let threadId = composerThreadId {
+
+            if let threadId = existingThreadId {
                 if case .preview = connectionPhase {
                     appendOptimisticSend(prompt: trimmed, threadId: threadId)
                 } else {
+                    await refreshHome()
                     await loadThread(threadId: threadId)
+                }
+            } else if case .preview = connectionPhase {
+                let threadId = await appendPreviewNewThread(prompt: trimmed)
+                composerThreadId = threadId
+                await refreshHome()
+                await loadThread(threadId: threadId)
+                pendingOpenThreadId = threadId
+            } else {
+                await refreshHome()
+                if let threadId = newestThreadId(in: homeSnapshot) {
+                    composerThreadId = threadId
+                    await loadThread(threadId: threadId)
+                    pendingOpenThreadId = threadId
                 }
             }
         } catch let error as WorkRequestSenderError where error == .emptyPrompt {
@@ -466,6 +497,11 @@ final class RemoteAppModel {
         } catch {
             workRequestSendPhase = .failed(Self.workRequestFailureMessage(from: error))
         }
+    }
+
+    private func newestThreadId(in snapshot: ConversationListSnapshot) -> String? {
+        let conversations = snapshot.pinned + snapshot.projects.flatMap(\.conversations)
+        return conversations.first?.id
     }
 
     func clearWorkRequestSendFailure() {
@@ -508,7 +544,9 @@ final class RemoteAppModel {
 
     private func appendOptimisticSend(prompt: String, threadId: String) {
         guard var snapshot = threadSnapshot, snapshot.id == threadId else { return }
-        let workerId = composerContinuationAgent?.workerId ?? ConversationAgentPresentation.previewWorkerId
+        let workerId = composerDraft.workerIdForSend(
+            continuationWorkerId: composerContinuationAgent?.workerId
+        )
         let suffix = UUID().uuidString.prefix(8)
         let userTurn = ConversationThreadTurn(
             id: "optimistic_user_\(suffix)",
@@ -545,6 +583,101 @@ final class RemoteAppModel {
         snapshot.statusLabel = "Running"
         threadSnapshot = snapshot
         threadStore?.applySnapshot(snapshot, threadId: threadId)
+    }
+
+    private func appendPreviewNewThread(prompt: String) async -> String {
+        guard let session = deviceSession,
+              let client = previewClient else {
+            return "preview-new-\(UUID().uuidString.prefix(8))"
+        }
+
+        let now = Date()
+        let threadId = "preview-new-\(UUID().uuidString.prefix(8))"
+        let title = Self.previewThreadTitle(from: prompt)
+        let workerId = composerDraft.workerIdForSend(continuationWorkerId: nil)
+        let runId = "run_preview_\(threadId)"
+
+        let summary = RemoteThreadSummary(
+            id: threadId,
+            title: title,
+            status: .active,
+            projectId: "proj_allnighter",
+            createdAt: now,
+            updatedAt: now,
+            pinnedAt: nil,
+            displayState: .running,
+            readState: RemoteThreadReadState(
+                readCursor: nil,
+                hasUnread: false,
+                unreadNeedsAttention: false,
+                firstUnreadTurnId: nil,
+                latestUnreadTurnId: nil
+            ),
+            turnCount: 2,
+            latestTurn: nil
+        )
+
+        do {
+            let envelope = try await client.threadSnapshot(macId: session.mac.macAgentId)
+            var threads = envelope.threads
+            threads.insert(summary, at: 0)
+            await client.setThreadSnapshot(
+                RemoteThreadSnapshotEnvelope(threads: threads, serverTime: now),
+                macId: session.mac.macAgentId
+            )
+
+            let detail = RemoteThreadDetail(
+                summary: summary,
+                turns: [
+                    RemoteThreadTurnDetail(
+                        id: "\(threadId)_user",
+                        kind: .userMessage,
+                        status: .done,
+                        author: .user,
+                        createdAt: now,
+                        completedAt: now,
+                        text: prompt
+                    ),
+                    RemoteThreadTurnDetail(
+                        id: "\(threadId)_worker",
+                        kind: .workerChat,
+                        status: .running,
+                        author: .worker,
+                        createdAt: now,
+                        text: "Working on this on your Mac…",
+                        workerId: workerId,
+                        runId: runId,
+                        partialOutputTruncated: false
+                    ),
+                ]
+            )
+            let blob = try RemoteCrypto.seal(
+                CoreJSON.encode(detail),
+                to: RemoteCrypto.sealingPublicKeyBase64(session.deviceSealingKey.publicKey),
+                sealedForKeyId: session.deviceId,
+                contentType: RemoteThreadDetail.sealedContentType
+            )
+            await client.setSealedThreadDetail(
+                blob,
+                macId: session.mac.macAgentId,
+                threadId: threadId,
+                deviceId: session.deviceId
+            )
+        } catch {
+            return threadId
+        }
+
+        return threadId
+    }
+
+    private static func previewThreadTitle(from prompt: String) -> String {
+        let collapsed = prompt
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? prompt
+        if collapsed.count <= 72 { return collapsed }
+        return String(collapsed.prefix(69)) + "…"
     }
 
     private func installPreviewClient() async {

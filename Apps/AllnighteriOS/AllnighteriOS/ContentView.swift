@@ -9,11 +9,12 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(RemoteAppModel.self) private var appModel
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
         Group {
             if appModel.showsHome {
-                NavigationStack {
+                NavigationStack(path: $navigationPath) {
                     ConversationsHomeView(
                         snapshot: appModel.homeSnapshot,
                         connectionStatusText: appModel.connectionStatusText,
@@ -26,6 +27,13 @@ struct ContentView: View {
                         pendingDecisionCount: appModel.pendingDecisionCount,
                         canSendWorkRequests: appModel.canSendWorkRequests,
                         canStopAllWork: appModel.canStopAllWork,
+                        composerDraft: Binding(
+                            get: { appModel.composerDraft },
+                            set: { appModel.composerDraft = $0 }
+                        ),
+                        onBeginNewConversation: {
+                            appModel.beginNewConversation()
+                        },
                         onSendWorkRequest: { prompt in
                             await appModel.sendWorkRequest(prompt: prompt)
                         },
@@ -42,6 +50,11 @@ struct ContentView: View {
                     .navigationDestination(for: String.self) { threadId in
                         ConversationThreadView(threadId: threadId)
                     }
+                }
+                .onChange(of: appModel.pendingOpenThreadId) { _, threadId in
+                    guard let threadId else { return }
+                    navigationPath.append(threadId)
+                    appModel.consumePendingOpenThread()
                 }
             } else {
                 RemoteOnboardingView(phase: appModel.connectionPhase) {
@@ -67,6 +80,8 @@ private struct ConversationsHomeView: View {
     let pendingDecisionCount: Int
     let canSendWorkRequests: Bool
     let canStopAllWork: Bool
+    @Binding var composerDraft: IOSComposerDraft
+    let onBeginNewConversation: () -> Void
     let onSendWorkRequest: (String) async -> Void
     let onDismissSendFailure: () -> Void
     let onStopAllWork: () async -> Void
@@ -165,6 +180,7 @@ private struct ConversationsHomeView: View {
         .iosComposerSafeAreaInset {
             IOSComposerBar(
                 text: $composerText,
+                draft: $composerDraft,
                 isSending: workRequestSendPhase == .sending,
                 canSend: canSendWorkRequests && !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                 onSend: {
@@ -218,6 +234,7 @@ private struct ConversationsHomeView: View {
             Spacer(minLength: IOSSpace.s4)
 
             Button {
+                onBeginNewConversation()
             } label: {
                 Image(systemName: "square.and.pencil")
                     .font(.system(size: 22, weight: .medium))
