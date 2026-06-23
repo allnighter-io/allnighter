@@ -364,4 +364,5 @@ def evaluate_team_quality(lab_dir: Path) -> dict[str, Any]:
     eval_dir.mkdir(exist_ok=True)
     (eval_dir / "worker-facts.json").write_text(json.dumps(out, indent=2))
     (eval_dir / "evaluator-record.json").write_text(json.dumps(record, indent=2))
+    (eval_dir / "team-quality.json").write_text(json.dumps(out, indent=2))
     return out

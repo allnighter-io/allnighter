@@ -137,11 +137,12 @@ class MockBackend:
 
 
 def backends_from_env() -> list[Backend]:
+    timeout_s = int(os.environ.get("ALLN_JUDGE_TIMEOUT_S", "240"))
     out: list[Backend] = []
     for i in (1, 2):
         cmd = os.environ.get(f"ALLN_JUDGE{i}_CMD")
         if cmd:
-            out.append(CliBackend(name=f"judge{i}", command=cmd))
+            out.append(CliBackend(name=f"judge{i}", command=cmd, timeout_s=timeout_s))
     return out
 
 

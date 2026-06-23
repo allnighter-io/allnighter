@@ -2,13 +2,13 @@
   "schemaVersion": 2,
   "suiteId": "bug_hunt_repo_regressions_v1",
   "teamId": "code_bug_hunt",
-  "round": 7,
-  "labTeamId": "lab_code_bug_hunt_r7",
+  "round": 8,
+  "labTeamId": "lab_code_bug_hunt_r8",
   "baseTeamId": "code_bug_hunt",
-  "promotedAt": "2026-06-22T21:14:45.937100+00:00",
-  "promotedFromCompare": ".lab/code_bug_hunt_candidate-r6_r6_20260622_181258/evaluation/compare-record.json",
-  "promotedFromCandidateLab": "code_bug_hunt_candidate-r6_r6_20260622_181258",
-  "promotedFromBaselineLab": "code_bug_hunt_champion-r6_r6_20260622_175524",
+  "promotedAt": "2026-06-23T12:25:20.897948+00:00",
+  "promotedFromCompare": ".lab/code_bug_hunt_candidate-r7_r7_20260623_040004/evaluation/compare-record.json",
+  "promotedFromCandidateLab": "code_bug_hunt_candidate-r7_r7_20260623_040004",
+  "promotedFromBaselineLab": "code_bug_hunt_champion-r7_r7_20260622_231358",
   "bankedRoles": [
     "bug_reproducer#0",
     "contrarian_root_cause#0",
@@ -41,7 +41,7 @@
       "originRoleKey": "change_impact_reviewer#0",
       "provenance": "incumbent",
       "bankedAtRound": null,
-      "sourceLab": "code_bug_hunt_champion-r6_r6_20260622_175524",
+      "sourceLab": "code_bug_hunt_champion-r7_r7_20260622_231358",
       "template": "Zoom out before the fix. Name the shared components, state owners, presenters, persisted files, contracts, fixtures, and nearby workflows that the proposed fix could affect. The goal is not broad cleanup; it is avoiding a local patch that leaves wreckage elsewhere.",
       "templateHash": "829409e657e30311",
       "templateChangedFromBuiltIn": false
@@ -53,8 +53,8 @@
       "labSkillId": "contrarian_root_cause",
       "originRoleKey": "contrarian_root_cause#0",
       "provenance": "banked",
-      "bankedAtRound": 6,
-      "sourceLab": "code_bug_hunt_candidate-r6_r6_20260622_181258",
+      "bankedAtRound": 7,
+      "sourceLab": "code_bug_hunt_candidate-r7_r7_20260623_040004",
       "template": "Argue against the leading theory. Provide an alternate root cause and the cheapest observation or test that rules it in or out.\nReject PROOF-BY-PROXIMITY: a nearby true statement (the menu exists, the reader reads, this one layer works) is NOT proof the user-visible behavior is fixed. Founder/manual confirmation is a hint, never sufficient for a seam bug. Demand the end-to-end observation that only the real fix can produce \u2014 if it can't be produced in this codebase, the answer is an isolation harness, not a partial proof.",
       "templateHash": "b87833ab7cf4f77d",
       "templateChangedFromBuiltIn": false
@@ -80,7 +80,7 @@
       "originRoleKey": "regression_guard#0",
       "provenance": "incumbent",
       "bankedAtRound": null,
-      "sourceLab": "code_bug_hunt_champion-r6_r6_20260622_175524",
+      "sourceLab": "code_bug_hunt_champion-r7_r7_20260622_231358",
       "template": "Write the proof plan. Name the exact unit/integration/fixture test that would fail before the fix and pass after. Include a negative test for the old lie when possible. For GUI-visible bugs, name the fixture/render/watcher proof in addition to semantic tests.\nThen judge PROOF FEASIBILITY: can that honest END-TO-END proof actually be written in THIS codebase? If the bug lives at a seam tangled with the whole app and a true end-to-end test cannot be written in place, say so and specify a MINIMAL ISOLATION HARNESS \u2014 a tiny standalone target that reproduces ONLY the failing capability using the SAME seam/stack, with a success criterion a non-coder can confirm. The green harness is the spec and defines the real kill test. A single-layer test that passes while the user-visible bug remains is NOT proof; neither is manual confirmation.",
       "templateHash": "258485600dc39475",
       "templateChangedFromBuiltIn": false
@@ -106,7 +106,7 @@
       "originRoleKey": "trace_mapper#0",
       "provenance": "incumbent",
       "bankedAtRound": null,
-      "sourceLab": "code_bug_hunt_champion-r6_r6_20260622_175524",
+      "sourceLab": "code_bug_hunt_champion-r7_r7_20260622_231358",
       "template": "Map the bug through the likely layers: UI, presenter/model, engine, store, contract, persisted file, external CLI. Name the truth owner and the first layer likely to be lying. CRUCIAL: name the SEAM the bug crosses \u2014 the boundary between two systems (e.g. AppKit\u2194SwiftUI, app\u2194CLI, store\u2194view, network\u2194state). Bugs live at seams: each side can look correct in isolation while the CROSSING fails, so the seam is surrounded by adjacent truths. A proof of one side is a proximity trap; the real proof must traverse the whole seam end to end.",
       "templateHash": "4a4afc9c652a5395",
       "templateChangedFromBuiltIn": false
@@ -119,7 +119,7 @@
       "originRoleKey": "truth_owner_mapper#0",
       "provenance": "incumbent",
       "bankedAtRound": null,
-      "sourceLab": "code_bug_hunt_champion-r6_r6_20260622_175524",
+      "sourceLab": "code_bug_hunt_champion-r7_r7_20260622_231358",
       "template": "Name the truth owner before proposing a fix. Separate the observed symptom from the semantic owner, the layer that appears to be lying, and the proof that would disprove that theory. Do not let a visible UI symptom make SwiftUI the assumed owner.",
       "templateHash": "278438a26675eeba",
       "templateChangedFromBuiltIn": false
@@ -132,13 +132,13 @@
       "originRoleKey": "user_impact_narrator#0",
       "provenance": "incumbent",
       "bankedAtRound": null,
-      "sourceLab": "code_bug_hunt_champion-r6_r6_20260622_175524",
+      "sourceLab": "code_bug_hunt_champion-r7_r7_20260622_231358",
       "template": "Describe the trust break in user terms. What did the user believe Allnighter would do, what happened instead, and what must be visibly true after the fix?",
       "templateHash": "fcc15c27f01f4f82",
       "templateChangedFromBuiltIn": false
     }
   },
-  "championConfigHash": "b7d3861c946af5d8",
-  "candidateConfigHash": "a4875b9147ba699a",
+  "championConfigHash": "7957ff404da6067e",
+  "candidateConfigHash": "17b836495d6483fe",
   "configHash": "f3565965006a4d76"
 }

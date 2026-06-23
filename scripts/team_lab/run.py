@@ -16,7 +16,8 @@ from pathlib import Path
 
 from mcp_client import MCPStdioClient, parse_tool_json
 from overlay import OverlayDeployError, deploy_champion_overlay, deploy_overlay, ensure_model_policy_team
-from scoring import evaluate_team_quality, score_run_contract
+from report import write_lab_report
+from scoring import evaluate_team_quality, score_run_contract, write_lab_report
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_ALLN = REPO / "Packages/AllnighterCore/.build/debug/alln"
@@ -456,50 +457,7 @@ def run_experiment(
         # Re-write with embedded evaluation facts now that they exist.
         write_experiment(lab_dir, contract=contract, team_eval=team_eval, **exp_kwargs)
 
-        report_lines = [
-            f"# Team Lab Report — {lab_dir.name}",
-            "",
-            f"- Team: `{team}`",
-            f"- Suite: `{suite_id}` / case `{case['caseId']}`",
-            f"- Round: {round_no} variant `{variant}`",
-            f"- Run: `{run_id}`",
-            f"- Terminal status: `{status_history[-1].get('status')}`",
-            f"- Run contract score: **{contract['runContractScore']}**",
-            f"- Scoring source: `{contract.get('scoringSource')}` (fsBypass={contract.get('fsBypass')})",
-            "",
-            "## Preflight warnings",
-            "",
-        ]
-        for w in preflight.get("warnings", []):
-            report_lines.append(f"- {w}")
-        report_lines += ["", "## Run contract checks", ""]
-        for c in contract["checks"]:
-            mark = "ok" if c["ok"] else "FAIL"
-            report_lines.append(f"- [{mark}] {c['name']}")
-        report_lines += ["", "## Team quality", ""]
-        if team_eval.get("teamQualityWithheld"):
-            report_lines.append(
-                f"- Quality not judgeable: **withheld** ({team_eval.get('teamQualityWithheldReason')}) — "
-                "fix the substrate before judging."
-            )
-        else:
-            report_lines.append(
-                "- Quality is **judge-pending** — no deterministic score. Run a blind "
-                "two-judge A/B against a baseline/candidate via `compare.py`."
-            )
-        report_lines += [
-            f"- Preflight-ready sources: {len(preflight.get('readyWorkers', []))} (incl. writer)",
-            f"- Answer/review workers (judged per-role by compare.py): {team_eval.get('answerReviewWorkerCount')}",
-            f"- Writer consistency issues (truth check): {team_eval.get('writerConsistency', {}).get('issueCount', 0)}",
-            "",
-            "## Next",
-            "",
-            "- Generate a FRESH input each round: `scenario.py <suite>` (never reuse an input)",
-            "- Blind A/B vs the champion run: `compare.py <baseline_dir> <candidate_dir>`",
-            "- Bank per-worker wins (both judges agree); audit the deliverable for regressions",
-            "",
-        ]
-        (lab_dir / "report.md").write_text("\n".join(report_lines))
+        write_lab_report(lab_dir, contract=contract, team_eval=team_eval)
 
         print(f"LAB_DIR={lab_dir}")
         print(f"run_contract_score={contract['runContractScore']}")
