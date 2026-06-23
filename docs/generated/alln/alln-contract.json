@@ -3499,10 +3499,10 @@
       "ruleId" : "project.worker_not_ready"
     },
     {
-      "agentAction" : "Wait for the running agent on this repo root to finish, then retry.",
+      "agentAction" : "The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry.",
       "code" : "RUN_WRITE_LOCK_BUSY",
       "exitClass" : "operational",
-      "explain" : "Another mutating run is already editing this repo root. Allnighter allows at most one mutating run per canonical repo root.",
+      "explain" : "At most one mutating run per canonical repo root. A second mutating run normally QUEUES (FIFO) behind the active one and runs when it finishes; this error is the safety valve — it fires only when the active run is still holding the lock after the wait bound (it is wedged), so the queued run is refused instead of hanging forever.",
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "run.write_lock_busy"

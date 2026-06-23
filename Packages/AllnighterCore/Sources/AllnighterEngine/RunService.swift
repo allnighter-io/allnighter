@@ -67,7 +67,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .repoRootUnavailable(let r): return "repo root unavailable: \(r)"
-        case .writeLockBusy(let r): return "an agent is already editing this repo — wait or stop it (\(r))"
+        case .writeLockBusy(let r): return "an agent is still editing this repo after a long wait — it looks stuck; stop it and retry (\(r))"
         case .teamResolution(let m, _): return m
         case .noWorker(let m): return m
         }
