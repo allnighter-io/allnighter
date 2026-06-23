@@ -123,35 +123,35 @@ public struct CodexRolloutImageHarvester: Sendable {
 
         var images: [WorkerOutputImageHarvest.DataCandidate] = []
         var seenDataURLs = Set<String>()
-        for line in contents.split(whereSeparator: \.isNewline) {
-            guard images.count < maxImages,
-                  let data = String(line).data(using: .utf8),
-                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  (obj["type"] as? String) == "response_item",
+        JSONLScanner.forEachObject(contents) { obj in
+            guard images.count < maxImages else { return false }   // collected enough — stop
+            guard (obj["type"] as? String) == "response_item",
                   timestamp(in: obj, isBetween: startedAt, and: finishedAt),
-                  let payload = obj["payload"] as? [String: Any] else { continue }
+                  let payload = obj["payload"] as? [String: Any] else { return true }
 
             switch payload["type"] as? String {
             case "image_generation_call":
                 // The built-in `image_gen` tool: the produced PNG is RAW base64 in `result`
                 // (no `data:` prefix), the actual generation output. Dedupe by call id so a
                 // generating→completed pair of snapshots yields one image.
-                guard let result = payload["result"] as? String, !result.isEmpty else { continue }
+                guard let result = payload["result"] as? String, !result.isEmpty else { return true }
                 // Dedup by call id; if absent, by the FULL base64 (not a 64-char prefix — two
                 // distinct same-dimension PNGs share the signature+IHDR header, so a prefix can
                 // collide and silently drop the second image).
                 let key = (payload["id"] as? String) ?? (payload["call_id"] as? String) ?? result
-                guard seenDataURLs.insert(key).inserted,
-                      let candidate = dataCandidate(fromBase64: result, index: images.count) else { continue }
-                images.append(candidate)
+                if seenDataURLs.insert(key).inserted,
+                   let candidate = dataCandidate(fromBase64: result, index: images.count) {
+                    images.append(candidate)
+                }
             case "function_call_output":
                 // `view_image` / attached-image results carry `data:image/...;base64,` URLs.
                 if let output = payload["output"] {
                     collectImages(from: output, into: &images, seenDataURLs: &seenDataURLs, maxImages: maxImages)
                 }
             default:
-                continue
+                break
             }
+            return true
         }
         return images
     }
@@ -164,9 +164,7 @@ public struct CodexRolloutImageHarvester: Sendable {
         defer { try? handle.close() }
         guard let head = try? handle.read(upToCount: 524_288),
               let text = String(data: head, encoding: .utf8),
-              let firstLine = text.split(whereSeparator: \.isNewline).first,
-              let data = String(firstLine).data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let obj = JSONLScanner.firstObject(text),
               (obj["type"] as? String) == "session_meta",
               let payload = obj["payload"] as? [String: Any],
               let cwd = payload["cwd"] as? String else { return nil }

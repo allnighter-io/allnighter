@@ -43,16 +43,13 @@ public enum AntigravityTranscript {
     /// Pure split over the raw transcript text (testable without the filesystem).
     public static func split(transcriptText: String) -> Split? {
         var steps: [String] = []
-        for line in transcriptText.split(whereSeparator: \.isNewline) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix("{"),
-                  let data = trimmed.data(using: .utf8),
-                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  (obj["type"] as? String) == "PLANNER_RESPONSE",
-                  let content = (obj["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !content.isEmpty
-            else { continue }
-            steps.append(content)
+        JSONLScanner.forEachObject(transcriptText) { obj in
+            if (obj["type"] as? String) == "PLANNER_RESPONSE",
+               let content = (obj["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !content.isEmpty {
+                steps.append(content)
+            }
+            return true
         }
         guard let answer = steps.last else { return nil }
         let reasoning = steps.dropLast().joined(separator: "\n")
