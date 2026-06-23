@@ -32,7 +32,8 @@ public struct CodexRolloutImageHarvester: Sendable {
         before finishedAt: Date? = nil
     ) -> [WorkerOutputImageHarvest.DataCandidate] {
         let url = sessionId.flatMap { id in
-            id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : rolloutURL(sessionId: id)
+            id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil : rolloutURL(sessionId: id, near: finishedAt ?? startedAt)
         } ?? cwd.flatMap { rolloutURL(cwd: $0, after: startedAt, before: finishedAt) }
         guard let url else { return [] }
         return Self.images(inRollout: url, after: startedAt, before: finishedAt, maxImages: maxImages)
@@ -69,22 +70,46 @@ public struct CodexRolloutImageHarvester: Sendable {
         return best?.url
     }
 
-    public func rolloutURL(sessionId: String) -> URL? {
+    public func rolloutURL(sessionId: String, near date: Date? = nil) -> URL? {
         let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+
+        // Fast path: Codex partitions live sessions by LOCAL date (sessions/YYYY/MM/DD) and the
+        // rollout filename embeds that date. When we know roughly when the run happened, probe
+        // that day's directory (± a day for tz/midnight) shallowly — bounds the hot path to one
+        // small dir instead of a recursive walk over a months-deep session history every turn.
+        if let date {
+            for root in searchRoots {
+                for offset in [0, -1, 1] {
+                    let day = date.addingTimeInterval(TimeInterval(offset) * 86_400)
+                    let dir = root.appendingPathComponent(Self.datePath(day), isDirectory: true)
+                    if let match = firstJSONL(in: dir, nameContaining: trimmed) { return match }
+                }
+            }
+        }
+        // Fallback: full recursive walk (rare — odd partition, archived flat dir, far-past date).
         for root in searchRoots {
             guard let enumerator = FileManager.default.enumerator(
-                at: root,
-                includingPropertiesForKeys: [.isRegularFileKey],
-                options: [.skipsHiddenFiles]
+                at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
             ) else { continue }
             for case let url as URL in enumerator {
-                guard url.lastPathComponent.contains(trimmed),
-                      url.pathExtension.lowercased() == "jsonl" else { continue }
+                guard url.pathExtension.lowercased() == "jsonl",
+                      url.lastPathComponent.contains(trimmed) else { continue }
                 return url
             }
         }
         return nil
+    }
+
+    private static func datePath(_ date: Date) -> String {
+        let c = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d/%02d/%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    private func firstJSONL(in dir: URL, nameContaining needle: String) -> URL? {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return nil }
+        return entries.first { $0.pathExtension.lowercased() == "jsonl" && $0.lastPathComponent.contains(needle) }
     }
 
     public static func images(

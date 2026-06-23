@@ -273,6 +273,23 @@ final class WorkerOutputImageHarvestTests: XCTestCase {
         XCTAssertEqual(byCwd.count, 1, "rollout located by session_meta.cwd when no session id")
     }
 
+    /// The hot-path optimization: locate the rollout via the date-partitioned dir
+    /// (sessions/YYYY/MM/DD) without a recursive walk over the whole session history.
+    func testRolloutURLUsesDatePartitionFastPath() throws {
+        let root = tempDir()
+        let sessionId = "019ef-fastpath"
+        let when = isoDate("2026-06-22T22:00:00.000Z")
+        let c = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: when)
+        let dir = root.appendingPathComponent(String(format: "%04d/%02d/%02d", c.year!, c.month!, c.day!))
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appendingPathComponent("rollout-2026-06-22T15-00-00-\(sessionId).jsonl")
+        try "{}".write(to: file, atomically: true, encoding: .utf8)
+
+        let harvester = CodexRolloutImageHarvester(searchRoots: [root])
+        XCTAssertEqual(harvester.rolloutURL(sessionId: sessionId, near: when)?.lastPathComponent,
+                       file.lastPathComponent, "found via the date-partition fast path")
+    }
+
     private func rolloutFixture(timestamp: String, sessionId: String, dataURL: String) -> String {
         """
         {"timestamp":"\(timestamp)","type":"session_meta","payload":{"id":"\(sessionId)","cwd":"/tmp","originator":"allnighter"}}
