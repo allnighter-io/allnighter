@@ -57,9 +57,20 @@ acquire_lock() {
       echo "==> another allapp build is running (pid $owner) — waiting…" >&2
       sleep 2
     else
-      echo "==> clearing stale build lock" >&2
-      pkill -f "derivedDataPath $DERIVED" 2>/dev/null || true
-      rm -rf "$LOCK" 2>/dev/null || true
+      # Stale lock (holder dead). Steal it ATOMICALLY: rename the lock dir aside — only ONE
+      # contender's mv can succeed (a dir renames once), so two simultaneous stealers can't
+      # both "win" and run concurrent builds. The winner kills only the stale lock's OWN
+      # recorded xcodebuild (never a broad `pkill derivedDataPath`, which would also kill a
+      # concurrent gui_proof/agent build sharing this DerivedData), then drops the graveyard.
+      local graveyard="$LOCK.dead.$$"
+      if mv "$LOCK" "$graveyard" 2>/dev/null; then
+        echo "==> clearing stale build lock (owner ${owner:-none} gone)" >&2
+        local stale_build
+        stale_build="$(cat "$graveyard/build_pid" 2>/dev/null || true)"
+        [ -n "$stale_build" ] && kill -9 "$stale_build" 2>/dev/null || true
+        rm -rf "$graveyard"
+      fi
+      # Whether or not we won the steal, loop and retry the atomic `mkdir "$LOCK"`.
     fi
   done
   echo "$$" >"$LOCK/pid"
@@ -102,6 +113,9 @@ xcodebuild build \
   -configuration Debug \
   -quiet >"$LOG" 2>&1 &
 BUILD_PID=$!
+# Record the xcodebuild pid in the lock so a future stale-lock steal can kill exactly THIS
+# build (if we crash) — never a broad pkill that would hit other builds on this DerivedData.
+echo "$BUILD_PID" >"$LOCK/build_pid" 2>/dev/null || true
 
 elapsed=0
 while kill -0 "$BUILD_PID" 2>/dev/null; do
