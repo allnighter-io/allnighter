@@ -99,7 +99,9 @@ struct BoostWindowView: View {
     private var heroOverlayStyle: BoostWindowHeroOverlay.Style? {
         if !vm.projection.enabled { return .off }
         if vm.displayState == .needsYou { return .needsYou(attentionLabel) }
-        if vm.displayState == .noQuietRunUp { return .quiet }
+        // "No quiet run-up" is NOT a lockout: the window is a recurring daily seed that simply
+        // fires whenever you're idle at the seed time (e.g. the next morning). Keep the panel
+        // fully adjustable and surface it as a small inline note (softNote) under the slider.
         return nil
     }
 
@@ -147,7 +149,10 @@ struct BoostWindowView: View {
                     .frame(width: max(24, bracketW), height: 28)
                     .offset(x: startX)
                     .gesture(
-                        heroOverlayStyle == nil
+                        // Draggable whenever boost is on — including the "no quiet run-up" case,
+                        // so you can set the window for any time (e.g. the morning) freely. Only
+                        // the off / needs-sign-in overlays (which cover the card) block dragging.
+                        vm.projection.enabled && heroOverlayStyle == nil
                             ? DragGesture(minimumDistance: 2)
                                 .onChanged { value in
                                     let minutes = Int((value.location.x / w * 1440).rounded())
@@ -159,6 +164,10 @@ struct BoostWindowView: View {
             }
             .frame(height: 44)
         }
+        // The workspace enables text selection broadly; on this slider that hijacked the drag
+        // (it highlighted the "10:00 AM – 3:00 PM" label instead of moving the bracket). Disable
+        // selection here so a press-drag always moves the window.
+        .textSelection(.disabled)
     }
 
     private var softNote: some View {
@@ -167,7 +176,7 @@ struct BoostWindowView: View {
             Image(systemName: overnight ? "moon.stars" : "exclamationmark.triangle")
             Text(overnight
                  ? "Seeded at \(formatClock(vm.seedAt)), while you're idle — costs you nothing you'd use."
-                 : "Seeded at \(formatClock(vm.seedAt)) — only boosts if you're idle then.")
+                 : "No quiet run-up right now — it'll seed at \(formatClock(vm.seedAt)) the next morning you're idle (busy mornings are skipped).")
                 .font(ALFont.sans(12))
         }
         .foregroundStyle(overnight ? ALColor.blue500 : ALPalette.yellow500)
@@ -248,6 +257,8 @@ struct BoostWindowView: View {
                 .strokeBorder(ALColor.accent, lineWidth: 2)
         )
         .alGlowAmber()
+        // The whole bracket is the drag target — not just the grips/gaps between text.
+        .contentShape(Rectangle())
     }
 
     private var bracketGrip: some View {

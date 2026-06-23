@@ -4,8 +4,9 @@ import SwiftUI
 struct BoostWindowHeroOverlay: View {
     enum Style: Equatable {
         case off
-        case quiet
         case needsYou(String)
+        // Note: "no quiet run-up" is intentionally NOT an overlay — it never blocks the panel.
+        // It shows as a small inline note under the slider (see BoostWindowView.softNote).
     }
 
     let style: Style
@@ -44,7 +45,6 @@ struct BoostWindowHeroOverlay: View {
     private var title: String {
         switch style {
         case .off: "Boost window is off"
-        case .quiet: "No quiet run-up before this window"
         case .needsYou(let name): "\(name) needs you"
         }
     }
@@ -57,12 +57,6 @@ struct BoostWindowHeroOverlay: View {
                 "Turn it on to land a second fresh bucket in your peak window. ",
                 emphasis: "Off by default",
                 suffix: " — it spends a little of your normal subscription."
-            )
-        case .quiet:
-            emphasizedMessage(
-                "You're already running agents before this slot — there's ",
-                emphasis: "nothing to seed",
-                suffix: ". Move the window after a quiet stretch."
             )
         case .needsYou(let name):
             emphasizedMessage(
@@ -78,8 +72,6 @@ struct BoostWindowHeroOverlay: View {
         switch style {
         case .off:
             overlayIcon(symbol: "moon.fill", tone: .muted)
-        case .quiet:
-            overlayIcon(symbol: "waveform.path.ecg", tone: .danger)
         case .needsYou:
             overlayIcon(symbol: "exclamationmark.triangle.fill", tone: .warning)
         }
