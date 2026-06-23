@@ -388,18 +388,17 @@ final class RemoteAppModel {
         case .loaded(let loadedId) where loadedId == threadId:
             if let snapshot = threadSnapshot {
                 persistThreadCache(snapshot: snapshot, threadId: threadId)
-                if snapshot.hasUnread, let throughTurnId = snapshot.readThroughTurnId {
-                    await markThreadRead(threadId: threadId, throughTurnId: throughTurnId)
+                if snapshot.hasUnread {
+                    homeSnapshot = homeSnapshot.clearingUnread(for: threadId)
+                    if let throughTurnId = snapshot.readThroughTurnId {
+                        await markThreadRead(threadId: threadId, throughTurnId: throughTurnId)
+                    }
                 }
             }
         case .failed(let failedId, _) where failedId == threadId:
             _ = restoreThreadCache(threadId: threadId)
         default:
             break
-        }
-
-        if case .preview = connectionPhase {
-            homeSnapshot = homeSnapshot.clearingUnread(for: threadId)
         }
     }
 
@@ -527,8 +526,12 @@ final class RemoteAppModel {
                         schedulePreviewRunCompletion(threadId: threadId, workerTurnId: workerTurnId)
                     }
                 } else {
-                    await refreshHome()
-                    await loadThread(threadId: threadId)
+                    if appendOptimisticSend(prompt: trimmed, threadId: threadId) != nil {
+                        await refreshHome()
+                    } else {
+                        await refreshHome()
+                        await loadThread(threadId: threadId)
+                    }
                 }
             } else if case .preview = connectionPhase {
                 let threadId = await appendPreviewNewThread(prompt: trimmed)
