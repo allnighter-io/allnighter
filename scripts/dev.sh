@@ -108,32 +108,49 @@ else
 fi
 
 # 2. Incremental build (quiet; errors surfaced on failure), with a live heartbeat
-#    that ends exactly when the build process does.
-acquire_lock
-echo "==> building ${SCHEME}… (log: $LOG)"
-mkdir -p "$DERIVED"
-xcodebuild build \
-  -project "$MAC_APP/AllnighterMac.xcodeproj" \
-  -scheme "$SCHEME" \
-  -destination 'platform=macOS' \
-  -derivedDataPath "$DERIVED" \
-  -configuration Debug \
-  -quiet >"$LOG" 2>&1 &
-BUILD_PID=$!
-# Record the xcodebuild pid in the lock so a future stale-lock steal can kill exactly THIS
-# build (if we crash) — never a broad pkill that would hit other builds on this DerivedData.
-echo "$BUILD_PID" >"$LOCK/build_pid" 2>/dev/null || true
+#    that ends exactly when the build process does. Holds the build lock for its duration.
+run_build() {
+  acquire_lock
+  echo "==> building ${SCHEME}… (log: $LOG)"
+  mkdir -p "$DERIVED"
+  xcodebuild build \
+    -project "$MAC_APP/AllnighterMac.xcodeproj" \
+    -scheme "$SCHEME" \
+    -destination 'platform=macOS' \
+    -derivedDataPath "$DERIVED" \
+    -configuration Debug \
+    -quiet >"$LOG" 2>&1 &
+  BUILD_PID=$!
+  # Record the xcodebuild pid in the lock so a future stale-lock steal can kill exactly THIS
+  # build (if we crash) — never a broad pkill that would hit other builds on this DerivedData.
+  echo "$BUILD_PID" >"$LOCK/build_pid" 2>/dev/null || true
 
-elapsed=0
-while kill -0 "$BUILD_PID" 2>/dev/null; do
-  sleep 5
-  elapsed=$((elapsed + 5))
-  if [ $((elapsed % 30)) -eq 0 ]; then
-    echo "… still building (${elapsed}s) — tail -f $LOG" >&2
-  fi
-done
-wait "$BUILD_PID" && status=0 || status=$?
-BUILD_PID=""
+  local elapsed=0
+  while kill -0 "$BUILD_PID" 2>/dev/null; do
+    sleep 5
+    elapsed=$((elapsed + 5))
+    if [ $((elapsed % 30)) -eq 0 ]; then
+      echo "… still building (${elapsed}s) — tail -f $LOG" >&2
+    fi
+  done
+  local s=0
+  wait "$BUILD_PID" || s=$?
+  BUILD_PID=""
+  # Lock protects the BUILD; release now so a waiting allapp can build while we relaunch.
+  release_lock
+  return "$s"
+}
+
+status=0
+run_build || status=$?
+# Self-heal: `ld: Assertion failed: (_sideInfo)` is a known linker crash from stale
+# incremental-link state, not a code error. Clean once and rebuild before giving up.
+if [ "$status" -ne 0 ] && grep -q "ld: Assertion failed" "$LOG" 2>/dev/null; then
+  echo "==> linker crashed on stale incremental state (ld assertion) — clean rebuild (slower)" >&2
+  rm -rf "$DERIVED"
+  status=0
+  run_build || status=$?
+fi
 
 if [ "$status" -ne 0 ]; then
   echo "✗ build failed:" >&2
@@ -142,9 +159,6 @@ if [ "$status" -ne 0 ]; then
   exit "$status"
 fi
 echo "✓ built in $(( $(date +%s) - start ))s"
-# The lock protects the BUILD; release it now so a waiting allapp can build while this
-# one relaunches the app (the launch phase doesn't touch the shared DerivedData).
-release_lock
 
 [ "$cmd" = "build" ] && exit 0
 
