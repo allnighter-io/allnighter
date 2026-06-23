@@ -550,6 +550,13 @@ public actor RunService {
                 workingDirectoryOverride: repoRoot
             )
         }
+        // A non-streaming worker (agy) can carry its step narration separated from the answer
+        // (AGY transcript normalizer). It has no live deltas, so surface it once as a reasoning
+        // delta — the turn then shows a clean answer + a "Thought for Ns" bar with the steps.
+        if let reasoning = outcome.reasoning, !reasoning.isEmpty {
+            emit(RunEventKind.workerReasoningDelta, [
+                "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning)])
+        }
         // Persist the vendor session this turn established/resumed, so the next turn in this
         // thread resumes it (success only). Only the streaming path carries a captured id;
         // the non-streaming fallback is not session-aware in v1.

@@ -32,6 +32,10 @@ public struct WorkerRunOutcome: Sendable, Equatable {
     public var capturedSessionId: String?
     /// Spawn cwd/timeout/byte-count facts for run artifacts.
     public var spawnDiagnostics: WorkerSpawnDiagnostics?
+    /// The worker's step narration / thinking, separated from the answer. Set by the AGY
+    /// transcript normalizer (its `--print` stdout can dump every "I will X" step before the
+    /// real answer on long/compaction runs); the caller surfaces this on the Thinking bar.
+    public var reasoning: String?
 
     public var hasOutput: Bool { status == .done && (output?.isEmpty == false) }
 }
@@ -195,6 +199,10 @@ public struct WorkerRunner: Sendable {
         if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
         let startedAt = now()
         let gateWaitMs = gateLimit == nil ? nil : max(0, Int(startedAt.timeIntervalSince(gateRequestedAt) * 1000))
+        // AGY transcript normalizer: snapshot the brain dir so we can find THIS run's session
+        // folder afterward (agy is gated to one spawn at a time, so the single new folder is
+        // unambiguous) and split its structured transcript into clean answer + step narration.
+        let brainSnapshot = antigravityBrainSnapshot(manifest: manifest)
         let result = await commandRunner.run(
             command: spawnCommand,
             args: spawnArgs,
@@ -215,7 +223,31 @@ public struct WorkerRunner: Sendable {
             invocationKind: spawnDiagBase.invocationKind
         )
         outcome.gateWaitMs = gateWaitMs
+        applyAntigravityTranscript(&outcome, snapshot: brainSnapshot)
         return outcome
+    }
+
+    /// Brain-dir + pre-run entries for the AGY transcript normalizer (nil for non-agy workers).
+    private func antigravityBrainSnapshot(manifest: DriverManifest) -> (url: URL, before: Set<String>)? {
+        guard manifest.id == "antigravity", let dir = manifest.session?.capture?.dir else { return nil }
+        let url = URL(fileURLWithPath: (dir as NSString).expandingTildeInPath)
+        return (url, Self.directoryEntryNames(url))
+    }
+
+    /// Replace agy's (possibly narration-polluted) stdout answer with the clean final
+    /// `PLANNER_RESPONSE` from the run's transcript, and lift the earlier steps onto
+    /// `outcome.reasoning`. No-op (keeps raw stdout) if the session folder or transcript can't
+    /// be resolved — never worse than today.
+    private func applyAntigravityTranscript(_ outcome: inout WorkerRunOutcome, snapshot: (url: URL, before: Set<String>)?) {
+        guard let snap = snapshot, outcome.status == .done,
+              let sessionId = WorkerSessionCapture.capturedDirEntry(
+                before: snap.before, after: Self.directoryEntryNames(snap.url)),
+              let split = AntigravityTranscript.split(
+                transcriptAt: AntigravityTranscript.transcriptURL(brainDir: snap.url, sessionId: sessionId)),
+              !split.answer.isEmpty
+        else { return }
+        outcome.output = split.answer
+        outcome.reasoning = split.reasoning.isEmpty ? nil : split.reasoning
     }
 
     /// Maps resolved argv to the actual spawn (command, args), honoring the detected
