@@ -17,15 +17,21 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
         public var builtIn: Bool
         public var isDefaultForLane: Bool
         public var workerCount: Int
+        /// User-facing on/off state: `false` when the team has been switched OFF
+        /// (`TeamVisibility`). Inactive teams are dropped from listings by default
+        /// and only appear when `includeInactive` is requested. Resolution by id
+        /// (`team_start`, default-run team, a thread's chosen team) is unaffected.
+        public var active: Bool
         public var disabledReason: String?
 
         public init(id: String, displayName: String, lane: String, outputKind: String,
                     defaultEffort: String, mutating: Bool, builtIn: Bool,
-                    isDefaultForLane: Bool, workerCount: Int, disabledReason: String? = nil) {
+                    isDefaultForLane: Bool, workerCount: Int, active: Bool = true,
+                    disabledReason: String? = nil) {
             self.id = id; self.displayName = displayName; self.lane = lane; self.outputKind = outputKind
             self.defaultEffort = defaultEffort; self.mutating = mutating
             self.builtIn = builtIn; self.isDefaultForLane = isDefaultForLane
-            self.workerCount = workerCount; self.disabledReason = disabledReason
+            self.workerCount = workerCount; self.active = active; self.disabledReason = disabledReason
         }
     }
     public var schemaVersion: Int
@@ -38,13 +44,23 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
         self.lane = lane; self.teams = teams
     }
 
-    public static func project(_ teams: [TeamPreset], lane: WorkLane?, contractVersion: String) -> TeamCatalogJSON {
-        TeamCatalogJSON(contractVersion: contractVersion, lane: lane?.rawValue, teams: teams.map {
-            Entry(id: $0.id, displayName: $0.displayName, lane: $0.lane.rawValue,
-                  outputKind: $0.outputKind.rawValue, defaultEffort: $0.defaultEffort.rawValue,
-                  mutating: $0.mutating, builtIn: $0.builtIn,
-                  isDefaultForLane: $0.isDefaultForLane, workerCount: $0.workerSpecs.count)
-        })
+    /// Projects the lane-scoped catalog. Teams switched OFF in `TeamVisibility` are
+    /// dropped unless `includeInactive` is true, in which case they are returned with
+    /// `active: false`. This is the single funnel for `alln teams --json` and the MCP
+    /// `teams_list` tool, so the "Inactive" state is honored identically across GUI,
+    /// CLI, and MCP.
+    public static func project(_ teams: [TeamPreset], lane: WorkLane?, contractVersion: String,
+                               includeInactive: Bool = false) -> TeamCatalogJSON {
+        let entries = teams.compactMap { team -> Entry? in
+            let active = TeamVisibility.isEnabled(team.id)
+            guard active || includeInactive else { return nil }
+            return Entry(id: team.id, displayName: team.displayName, lane: team.lane.rawValue,
+                         outputKind: team.outputKind.rawValue, defaultEffort: team.defaultEffort.rawValue,
+                         mutating: team.mutating, builtIn: team.builtIn,
+                         isDefaultForLane: team.isDefaultForLane, workerCount: team.workerSpecs.count,
+                         active: active)
+        }
+        return TeamCatalogJSON(contractVersion: contractVersion, lane: lane?.rawValue, teams: entries)
     }
 }
 

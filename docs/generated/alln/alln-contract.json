@@ -354,6 +354,11 @@
           "valueType" : "lane"
         },
         {
+          "name" : "all",
+          "summary" : "Include inactive (switched-OFF) teams.",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
           "summary" : "Structured catalog summary.",
           "takesValue" : false
@@ -3832,6 +3837,12 @@
           "name" : "lane",
           "required" : false,
           "summary" : "Filter to one lane: code|design|copy|signal (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "includeInactive",
+          "required" : false,
+          "summary" : "Include inactive (switched-OFF) teams; default false. Inactive teams still resolve by id on team_start.",
           "type" : "string"
         }
       ],

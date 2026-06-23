@@ -48,7 +48,8 @@ struct MCPServer {
             respond(id: id, result: toolText(text, structured: AllnighterCLI.mcpHelloJSONString(runtime)))
         case "teams_list":
             let lane = (args["lane"] as? String).flatMap(WorkLane.init(rawValue:))
-            respond(id: id, result: toolText("Team catalog", structured: AllnighterCLI.teamsCatalogJSONString(runtime, lane: lane)))
+            let includeInactive = (args["includeInactive"] as? Bool) ?? false
+            respond(id: id, result: toolText("Team catalog", structured: AllnighterCLI.teamsCatalogJSONString(runtime, lane: lane, includeInactive: includeInactive)))
         case "teams_show":
             guard let teamId = args["teamId"] as? String, let team = TeamCatalog.get(teamId) else {
                 return respondToolError(id: id, code: "TEAM_NOT_FOUND", message: "teamId required")

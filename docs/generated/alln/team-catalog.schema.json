@@ -3,6 +3,9 @@
     "TeamCatalogEntry" : {
       "additionalProperties" : false,
       "properties" : {
+        "active" : {
+          "type" : "boolean"
+        },
         "builtIn" : {
           "type" : "boolean"
         },
@@ -46,7 +49,8 @@
         "mutating",
         "builtIn",
         "isDefaultForLane",
-        "workerCount"
+        "workerCount",
+        "active"
       ],
       "type" : "object"
     }

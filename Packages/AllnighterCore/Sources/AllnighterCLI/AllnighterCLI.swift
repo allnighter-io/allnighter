@@ -490,21 +490,26 @@ struct AllnighterCLI {
         if let raw = opts.value("lane"), lane == nil {
             fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy|signal)")
         }
+        let includeInactive = opts.flag("all")
         if opts.flag("json") {
-            print(teamsCatalogJSONString(runtime, lane: lane))
+            print(teamsCatalogJSONString(runtime, lane: lane, includeInactive: includeInactive))
         } else {
             let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
-            for t in teams {
-                print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.workerSpecs.count) workers\(t.isDefaultForLane ? "\t(default)" : "")")
+            for t in teams where includeInactive || TeamVisibility.isEnabled(t.id) {
+                let off = TeamVisibility.isEnabled(t.id) ? "" : "\t(inactive)"
+                print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.workerSpecs.count) workers\(t.isDefaultForLane ? "\t(default)" : "")\(off)")
             }
         }
     }
 
     /// The lane-scoped catalog summary JSON — shared by `alln teams --json`
-    /// and the MCP `teams_list` tool.
-    static func teamsCatalogJSONString(_ runtime: ToolRuntime, lane: WorkLane?) -> String {
+    /// and the MCP `teams_list` tool. Inactive (switched-OFF) teams are dropped
+    /// unless `includeInactive` is true.
+    static func teamsCatalogJSONString(_ runtime: ToolRuntime, lane: WorkLane?, includeInactive: Bool = false) -> String {
         let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
-        return jsonString(TeamCatalogJSON.project(teams, lane: lane, contractVersion: ContractRegistry.contractVersion))
+        return jsonString(TeamCatalogJSON.project(teams, lane: lane,
+                                                  contractVersion: ContractRegistry.contractVersion,
+                                                  includeInactive: includeInactive))
     }
 
     /// `alln skills [--lane code|design|copy|signal] [--json]` — lane-scoped skill catalog (no templates).

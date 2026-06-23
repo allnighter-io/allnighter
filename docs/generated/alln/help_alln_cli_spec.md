@@ -144,6 +144,7 @@ List the lane-scoped team catalog.
 
 Flags:
 - `--lane <lane>` — Filter to one lane.
+- `--all` — Include inactive (switched-OFF) teams.
 - `--json` — Structured catalog summary.
 
 Output schema: `teamCatalogJSON`.

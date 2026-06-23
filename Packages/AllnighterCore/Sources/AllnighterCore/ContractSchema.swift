@@ -449,8 +449,8 @@ public enum ContractSchema {
             "TeamCatalogEntry": obj([
                 "id": str, "displayName": str, "lane": str, "outputKind": str, "defaultEffort": str,
                 "mutating": bool, "builtIn": bool, "isDefaultForLane": bool,
-                "workerCount": int, "disabledReason": nullable("string"),
-            ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "mutating", "builtIn", "isDefaultForLane", "workerCount"]),
+                "workerCount": int, "active": bool, "disabledReason": nullable("string"),
+            ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "mutating", "builtIn", "isDefaultForLane", "workerCount", "active"]),
         ]
         return schema
     }

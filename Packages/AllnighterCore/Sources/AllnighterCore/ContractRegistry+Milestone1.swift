@@ -26,7 +26,8 @@ public extension ContractRegistry {
                     params: [.init("agent", summary: "Calling agent id for provenance (advisory only).")],
                     idempotency: .idempotent),
         MCPToolSpec("teams_list", command: "teams", summary: "Lane-scoped team catalog summary (no prompt templates).",
-                    params: [.init("lane", summary: "Filter to one lane: code|design|copy|signal (optional).")],
+                    params: [.init("lane", summary: "Filter to one lane: code|design|copy|signal (optional)."),
+                             .init("includeInactive", summary: "Include inactive (switched-OFF) teams; default false. Inactive teams still resolve by id on team_start.")],
                     outputSchema: .teamCatalogJSON,
                     errors: ["CLI_USAGE_ERROR"], idempotency: .idempotent),
         MCPToolSpec("teams_show", command: "teams show", summary: "One team summary including worker rows (not round-trippable for save).",
@@ -421,6 +422,7 @@ public extension ContractRegistry {
         CommandSpec(
             "teams", summary: "List the lane-scoped team catalog.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
+                    FlagSpec("all", summary: "Include inactive (switched-OFF) teams."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
             outputSchema: .teamCatalogJSON, exampleIds: ["teams_code_json"]
         ),
