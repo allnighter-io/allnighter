@@ -33,16 +33,23 @@ LOCK="$DERIVED/.allapp-build.lock"
 
 # --- teardown: nothing this script starts survives it ---------------------------
 BUILD_PID=""
-cleanup() {
-  if [ -n "$BUILD_PID" ] && kill -0 "$BUILD_PID" 2>/dev/null; then
-    kill "$BUILD_PID" 2>/dev/null || true
-  fi
-  # Release our lock (only if we own it).
+# Drop the build lock, but only if WE still own it (a stealer may have taken over).
+release_lock() {
   if [ "$(cat "$LOCK/pid" 2>/dev/null || true)" = "$$" ]; then
     rm -rf "$LOCK" 2>/dev/null || true
   fi
 }
-trap cleanup EXIT INT TERM
+cleanup() {
+  if [ -n "$BUILD_PID" ] && kill -0 "$BUILD_PID" 2>/dev/null; then
+    kill "$BUILD_PID" 2>/dev/null || true
+  fi
+  release_lock
+}
+# Run cleanup exactly once: INT/TERM just `exit`, which fires the EXIT trap (so a Ctrl-C
+# doesn't run cleanup twice — once for the signal, once for the resulting exit).
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # --- single-build lock ----------------------------------------------------------
 # Only one build per DerivedData at a time. If another live allapp holds it, wait;
@@ -135,6 +142,9 @@ if [ "$status" -ne 0 ]; then
   exit "$status"
 fi
 echo "✓ built in $(( $(date +%s) - start ))s"
+# The lock protects the BUILD; release it now so a waiting allapp can build while this
+# one relaunches the app (the launch phase doesn't touch the shared DerivedData).
+release_lock
 
 [ "$cmd" = "build" ] && exit 0
 
