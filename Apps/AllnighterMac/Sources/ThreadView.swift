@@ -919,10 +919,21 @@ private struct ThreadBoardRow: View {
                             .font(.system(size: 12.5)).foregroundStyle(ALColor.textMuted).textSelection(.enabled)
                     }
                 }
-            default:
+            case .cancelled:
+                Text("Cancelled.").font(.system(size: 12.5)).foregroundStyle(ALColor.textMuted)
+            case .skipped:
+                Text("Skipped.").font(.system(size: 12.5)).foregroundStyle(ALColor.textFaint)
+            case .running:
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    RunningStatusLabel(verb: "Working", start: turn.createdAt)
+                    // Anchor to THIS worker's own start, not the whole board's, and only while
+                    // actually running — a cancelled/skipped worker must not tick forever.
+                    RunningStatusLabel(verb: "Working", start: answer.startedAt ?? turn.createdAt)
+                }
+            case .queued:
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Queued…").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
                 }
             }
         }
