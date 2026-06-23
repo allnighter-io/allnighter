@@ -376,6 +376,44 @@ private struct RunningStatusLabel: View {
     }
 }
 
+/// Spinner + the live "Streaming Ns" clock for a turn whose answer text is mid-stream.
+/// Shared by the worker-chat and mutating-run rows (one place to evolve the affordance).
+private struct StreamingIndicator: View {
+    let start: Date
+    let truncated: Bool
+    var body: some View {
+        HStack(spacing: 6) {
+            ProgressView().controlSize(.small)
+            RunningStatusLabel(
+                verb: "Streaming", start: start,
+                suffix: truncated ? " (truncated)" : "",
+                font: .system(size: 11), color: ALColor.textFaint)
+        }
+    }
+}
+
+/// Spinner + the pre-answer activity label, shared by the worker-chat and mutating-run rows.
+/// While actually running it ticks ("Thinking Ns" when reasoning streams into the bar above,
+/// else "Working Ns"); a not-yet-started turn (queued/draft) shows a static "Queued…" rather
+/// than a clock counting from creation.
+private struct WorkingIndicator: View {
+    let turn: ThreadTurn
+    var body: some View {
+        HStack(spacing: 6) {
+            ProgressView().controlSize(.small)
+            if turn.status == .running {
+                if turn.reasoningText?.isEmpty == false {
+                    Text("Thinking…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                } else {
+                    RunningStatusLabel(verb: "Working", start: turn.createdAt)
+                }
+            } else {
+                Text("Queued…").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
+            }
+        }
+    }
+}
+
 /// CR4a user messages + CR4b worker chat replies; team/mutating run turns render
 /// from durable run truth.
 /// The model's reasoning, kept above (and visually under) the answer. Collapsed by
@@ -448,6 +486,9 @@ private struct ThreadThinkingBlock: View {
                             .onChange(of: text) { _, _ in
                                 proxy.scrollTo(tailAnchorID, anchor: .bottom)
                             }
+                            // Pin to the newest text on first paint too — an already-long
+                            // reasoning (resumed / late-rendered) must not open scrolled to the top.
+                            .onAppear { proxy.scrollTo(tailAnchorID, anchor: .bottom) }
                         }
                     } else {
                         reasoningText(text)
@@ -636,25 +677,10 @@ private struct ThreadTurnRow: View {
                                 .textSelection(.disabled)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            HStack(spacing: 6) {
-                                ProgressView().controlSize(.small)
-                                RunningStatusLabel(
-                                    verb: "Streaming", start: turn.createdAt,
-                                    suffix: turn.partialOutputTruncated ? " (truncated)" : "",
-                                    font: .system(size: 11), color: ALColor.textFaint)
-                            }
+                            StreamingIndicator(start: turn.createdAt, truncated: turn.partialOutputTruncated)
                         }
                     } else {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            // Reasoning streamers are timed in the Thinking bar above; only the
-                            // no-thoughts "Working" case carries the clock here.
-                            if turn.reasoningText?.isEmpty == false {
-                                Text("Thinking…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
-                            } else {
-                                RunningStatusLabel(verb: "Working", start: turn.createdAt)
-                            }
-                        }
+                        WorkingIndicator(turn: turn)
                     }
                 case .failed, .timedOut:
                     Text(turn.text?.isEmpty == false ? (turn.text ?? "") : "The worker failed.")
@@ -1071,25 +1097,10 @@ private struct ThreadMutatingRunRow: View {
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small)
-                        RunningStatusLabel(
-                            verb: "Streaming", start: turn.createdAt,
-                            suffix: turn.partialOutputTruncated ? " (truncated)" : "",
-                            font: .system(size: 11), color: ALColor.textFaint)
-                    }
+                    StreamingIndicator(start: turn.createdAt, truncated: turn.partialOutputTruncated)
                 }
             } else {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    // Reasoning streamers are timed in the Thinking bar above; only the
-                    // no-thoughts "Working" case carries the clock here.
-                    if turn.reasoningText?.isEmpty == false {
-                        Text("Thinking…").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
-                    } else {
-                        RunningStatusLabel(verb: "Working", start: turn.createdAt)
-                    }
-                }
+                WorkingIndicator(turn: turn)
             }
         case .failed, .timedOut:
             // No durable run/return means a system note such as missing dir,
