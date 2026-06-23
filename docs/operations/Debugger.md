@@ -147,7 +147,9 @@ Founder test:
 
 Definition of done:
 
-1. Kill test exists: red on pre-fix code, green after.
+1. Kill test exists: red on pre-fix code, green after. At least one kill test
+   must be a two-turn integration test asserting turn-two context includes
+   turn-one content; a single-turn or mock-only test does not count.
 2. Green wall passes locally (`bash scripts/check.sh` when available).
 3. CI green when wired.
 4. Founder-found or repeated bug: DEBUGLOG `Proof:` names a wall-reachable test.
