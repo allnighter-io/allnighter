@@ -275,9 +275,8 @@ def main() -> None:
     print(f"  iOS account:  {ios_account_id} ({ios_email}) [RLS account B]")
     print(f"  Mac agent id: {mac_agent_id}")
     print()
-    print("Next:")
-    print("  scripts/serve_remote.sh")
-    print("  scripts/ios_live.sh")
+    print("Next (one command):")
+    print(f"  cd {root} && allios live")
 
 
 def parse_env(text: str) -> dict[str, str]:

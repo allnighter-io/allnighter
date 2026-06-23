@@ -6,8 +6,9 @@
 # Usage (wire `allios` in ~/.zshrc):
 #   allios                 preview build + launch (DEFAULT — use this)
 #   allios launch          preview relaunch only (fast loop)
-#   allios live            live relay build + launch (needs .env + serve_remote)
-#   allios live launch     live relaunch only
+#   allios live            live Mac: auto-start relay + build + launch (one command)
+#   allios live launch     live relaunch only (relay still auto-started)
+#   allios live stop       stop background Mac relay agent
 #   allios build           build only
 #   allios test            unit tests
 #   allios clean           wipe DerivedData, then preview build + launch
@@ -36,11 +37,18 @@ case "$cmd" in
     IOS_LAUNCH_ENV_FILE="" exec bash "$ROOT/scripts/ios_sim_launch.sh"
     ;;
   live)
-    if [[ ! -f "$ENV_FILE" ]]; then
-      echo "Missing $ENV_FILE — run:" >&2
-      echo "  cd $ROOT && scripts/bootstrap_remote_env.sh" >&2
-      exit 1
+    if [[ "$subcmd" == "setup" ]]; then
+      shift
+      exec bash "$ROOT/scripts/bootstrap_remote_env.sh" "$@"
     fi
+    if [[ "$subcmd" == "stop" ]]; then
+      exec bash "$ROOT/scripts/ios_live_mac_agent.sh" stop
+    fi
+    if [[ ! -f "$ENV_FILE" ]]; then
+      echo "==> First-time live setup (writes .env, one time only)…"
+      bash "$ROOT/scripts/bootstrap_remote_env.sh"
+    fi
+    bash "$ROOT/scripts/ios_live_mac_agent.sh" ensure
     if [[ "$subcmd" == "launch" ]]; then
       IOS_LAUNCH_ENV_FILE="$ENV_FILE" exec bash "$ROOT/scripts/ios_sim_launch.sh"
     fi
@@ -57,7 +65,7 @@ case "$cmd" in
   build)
     ;;
   *)
-    echo "usage: allios [run|launch|live|live launch|build|test|clean]" >&2
+    echo "usage: allios [run|launch|live|live launch|live stop|live setup|build|test|clean]" >&2
     echo "  docs/operations/ios-testing-loop.md" >&2
     exit 1
     ;;

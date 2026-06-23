@@ -33,10 +33,13 @@ EOF
 source ~/.zshrc
 ```
 
-Live relay credentials (only for Tier 2):
+Live relay credentials (only if you ever run `allios live` — skip for preview):
+
+You don't need a separate step. `allios live` runs bootstrap automatically when `.env`
+is missing. Manual refresh only:
 
 ```bash
-cd /Users/mike/Documents/GitHub/Allnighter-iOS && scripts/bootstrap_remote_env.sh
+cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios live setup --refresh
 ```
 
 ---
@@ -116,37 +119,33 @@ cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios build
 
 ---
 
-## Tier 2 — Live Mac (integration only)
+## Tier 2 — Live Mac (only when you need real relay)
 
-Use when you must prove **real** phone → Supabase → Mac agent.
-
-**Terminal 1 — Mac agent (keep running):**
-
-```bash
-cd /Users/mike/Documents/GitHub/Allnighter-iOS && scripts/serve_remote.sh
-```
-
-**Terminal 2 — iOS with relay env:**
+**One command.** It bootstraps `.env` the first time, starts the Mac relay agent in the
+background, builds, and launches the simulator. No second terminal. No `serve_remote`.
 
 ```bash
 cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios live
 ```
 
-- Requires `.env` (from bootstrap).
-- First connect may require **pairing approval on the Mac**.
-- **Success:** connection banner shows your Mac name (not preview banner).
+- First run may take ~2–3 min (credentials + build + agent warmup).
+- After that: `allios live launch` for a fast relaunch (~10s).
+- **Success:** banner shows your Mac name — not *“Preview data…”*.
+- First connect may need **pairing approval on the Mac** (one-time).
 
-Relaunch live app without rebuild:
-
-```bash
-cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios live launch
-```
-
-JWTs expire (~1 hour). Refresh:
+Stop the background Mac agent when you're done:
 
 ```bash
-cd /Users/mike/Documents/GitHub/Allnighter-iOS && scripts/bootstrap_remote_env.sh --refresh
+cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios live stop
 ```
+
+JWTs expire (~1 hour). Re-run `allios live` (it refreshes on bootstrap if needed), or:
+
+```bash
+cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios live setup --refresh
+```
+
+**You do not need Tier 2 for daily UI work.** Preview (`allios launch`) is enough.
 
 ---
 
@@ -158,8 +157,10 @@ cd /Users/mike/Documents/GitHub/Allnighter-iOS && scripts/bootstrap_remote_env.s
 | `allios launch` | Preview: relaunch only |
 | `allios build` | Build only |
 | `allios test` | Unit tests |
-| `allios live` | Live: build + launch with `.env` |
-| `allios live launch` | Live: relaunch only with `.env` |
+| `allios live` | Live: auto-start Mac relay + build + launch |
+| `allios live launch` | Live: relaunch only (relay auto-started) |
+| `allios live stop` | Stop background Mac relay agent |
+| `allios live setup` | Manual credential bootstrap / `--refresh` |
 | `allios clean` | Wipe DerivedData, then preview build + launch |
 
 `.env` presence does **not** change default `allios` behavior — preview is always
@@ -173,7 +174,7 @@ the default dev path.
 | --- | --- |
 | `allios` takes forever | Use `allios launch` after first build; or Xcode ⌘R |
 | “Could not send work request” in preview | Old build — `cd … && allios` once |
-| Live: “Could not connect” | Terminal 1: `serve_remote.sh` running? JWT fresh? |
+| Live: “Could not connect” | Run `allios live` again (restarts agent). Log: `~/Library/Developer/Allnighter/ios-live-serve.log` |
 | Simulator install failed | Quit Simulator, `cd … && allios` |
 | Wrong data (preview vs live) | Preview = amber “Preview data” banner; live = Mac name |
 
@@ -183,5 +184,6 @@ the default dev path.
 
 - **`allios` never auto-switches to live** just because `.env` exists.
 - **Live is opt-in** (`allios live`) so daily UI work stays one command.
-- **Agents must not** dump bootstrap / Supabase / pairing steps when the user is
-  doing UI work — point to Tier 0 only.
+- **Agents must not** mention `serve_remote`, a second terminal, or bootstrap steps
+  when the user is doing UI work — point to Tier 0 only. For live, give **only**
+  `allios live`.
