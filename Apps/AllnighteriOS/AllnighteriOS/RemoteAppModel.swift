@@ -144,6 +144,165 @@ final class RemoteAppModel {
         return conversations.filter(\.needsAttention).count
     }
 
+    private(set) var pendingQueue: PendingQueueJSON = .empty
+    private var pendingPromptsByID: [String: String] = [:]
+
+    var armedPendingCount: Int { pendingQueue.totalPending }
+
+    func pendingPrompt(for id: String) -> String {
+        pendingPromptsByID[id] ?? ""
+    }
+
+    func refreshPendingQueue() async {
+        guard showsHome else { return }
+        #if DEBUG
+        if case .preview = connectionPhase {
+            return
+        }
+        #endif
+        // Live relay publish/fetch lands in a follow-up slice.
+        pendingQueue = .empty
+    }
+
+    func removePendingItem(id: String) {
+        mutatePreviewPending { queue, prompts in
+            var projects: [PendingQueueJSON.ProjectQueue] = []
+            var total = 0
+            for var group in queue.projects {
+                group.pending.removeAll { $0.pendingItem.id == id }
+                if group.running?.pendingItem.id == id {
+                    group.running = nil
+                }
+                total += group.pending.count
+                if group.running != nil || !group.pending.isEmpty {
+                    projects.append(group)
+                }
+            }
+            prompts.removeValue(forKey: id)
+            return PendingQueueJSON(
+                contractVersion: queue.contractVersion,
+                totalPending: total,
+                projects: projects
+            )
+        }
+    }
+
+    /// Un-arm (Pending → Draft): drops from armed queue until re-submitted.
+    func unarmPendingItem(id: String) {
+        removePendingItem(id: id)
+    }
+
+    func rearmPendingItem(id: String, prompt: String, draft: IOSComposerDraft) {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        mutatePreviewPending { queue, prompts in
+            prompts[id] = trimmed
+            var projects = queue.projects
+            let title = Self.previewThreadTitle(from: trimmed)
+            let excerpt = String(trimmed.prefix(72))
+            if let projectIndex = projects.firstIndex(where: { group in
+                group.pending.contains { $0.pendingItem.id == id }
+            }) {
+                var group = projects[projectIndex]
+                if let itemIndex = group.pending.firstIndex(where: { $0.pendingItem.id == id }) {
+                    var item = group.pending[itemIndex]
+                    item.pendingItem.promptExcerpt = excerpt
+                    item.pendingItem.title = title
+                    item.target.teamPresetId = draft.selectedTeam.presetId
+                    if let modelId = draft.selectedWorkerId {
+                        item.target.workerIds = [modelId]
+                        item.target.preferredWorkerIds = [modelId]
+                    }
+                    group.pending[itemIndex] = item
+                    projects[projectIndex] = group
+                }
+            } else if let firstProject = projects.first {
+                var group = firstProject
+                var item = Self.previewPendingItem(
+                    id: id,
+                    prompt: trimmed,
+                    projectId: group.projectId,
+                    teamPresetId: draft.selectedTeam.presetId,
+                    modelId: draft.selectedWorkerId
+                )
+                group.pending.append(item)
+                projects[0] = group
+            }
+            let total = projects.reduce(0) { $0 + $1.pending.count }
+            return PendingQueueJSON(
+                contractVersion: queue.contractVersion,
+                totalPending: total,
+                projects: projects
+            )
+        }
+    }
+
+    private func mutatePreviewPending(
+        _ transform: (PendingQueueJSON, inout [String: String]) -> PendingQueueJSON
+    ) {
+        guard case .preview = connectionPhase else { return }
+        pendingQueue = transform(pendingQueue, &pendingPromptsByID)
+    }
+
+    private func seedPreviewPendingQueue() {
+        let item1 = Self.previewPendingItem(
+            id: "pending_preview_1",
+            prompt: "Review the iOS pending screen when Opus is ready.",
+            projectId: "proj_allnighter",
+            teamPresetId: nil,
+            modelId: "model_opus"
+        )
+        let item2 = Self.previewPendingItem(
+            id: "pending_preview_2",
+            prompt: "Write release notes for the inbox MVP.",
+            projectId: "proj_allnighter",
+            teamPresetId: "copy_landing_page",
+            modelId: nil
+        )
+        let running = Self.previewPendingItem(
+            id: "pending_preview_running",
+            prompt: "Fix the layout bug in the header",
+            projectId: "proj_allnighter",
+            teamPresetId: nil,
+            modelId: "model_sonnet",
+            status: .running
+        )
+        pendingPromptsByID = [
+            item1.pendingItem.id: "Review the iOS pending screen when Opus is ready.",
+            item2.pendingItem.id: "Write release notes for the inbox MVP.",
+            running.pendingItem.id: "Fix the layout bug in the header",
+        ]
+        pendingQueue = PendingQueueJSON(
+            contractVersion: ContractRegistry.contractVersion,
+            totalPending: 2,
+            projects: [
+                PendingQueueJSON.ProjectQueue(
+                    projectId: "proj_allnighter",
+                    projectName: "Allnighter",
+                    running: running,
+                    pending: [item1, item2]
+                ),
+            ]
+        )
+    }
+
+    private static func previewPendingItem(
+        id: String,
+        prompt: String,
+        projectId: String,
+        teamPresetId: String?,
+        modelId: String?,
+        status: PendingItemJSON.ItemInfo.Status = .pending
+    ) -> PendingItemJSON {
+        PendingItemJSONMapper.previewItem(
+            id: id,
+            prompt: prompt,
+            status: status,
+            modelId: modelId,
+            teamPresetId: teamPresetId
+        )
+    }
+
     private var homeStore: ConversationHomeStore?
     private var connectedClient: RemoteCloudClientAssembly.ConnectedClient?
     private var previewClient: MockiOSClient?
@@ -948,6 +1107,7 @@ final class RemoteAppModel {
             account: RemoteAccountSession(accountId: accountId, provider: .apple),
             mode: ConnectionMode.cloudRelay
         )
+        seedPreviewPendingQueue()
     }
 
     private static func previewSealedThreadDetail(

@@ -16,6 +16,23 @@ enum IOSTestFixture {
         #endif
     }
 
+    static var opensPendingReview: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-ui_fixture_pending_review")
+        #else
+        false
+        #endif
+    }
+
+    static var opensPendingQueue: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-ui_fixture_pending")
+            || ProcessInfo.processInfo.arguments.contains("-ui_fixture_pending_review")
+        #else
+        false
+        #endif
+    }
+
     /// e.g. `-ui_fixture_thread=thread-1`
     static var openThreadId: String? {
         #if DEBUG

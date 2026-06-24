@@ -69,7 +69,7 @@ do not use Tier 2.
 cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios proof
 ```
 
-- Launches preview, writes `docs/qa/ios/_captures/home.png`, `thread.png`, and `model-picker.png`.
+- Launches preview, writes `docs/qa/ios/_captures/home.png`, `thread.png`, `pending.png`, and `model-picker.png`.
 - **Agents run this and read the PNG** — same as Mac `gui_proof.sh`. Do not hand off to the founder.
 
 Optional XCTest tap flows (supplemental; simulator cold-boot can flake):

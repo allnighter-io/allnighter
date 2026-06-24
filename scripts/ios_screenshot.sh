@@ -6,6 +6,8 @@
 # Usage:
 #   scripts/ios_screenshot.sh              # home (default)
 #   scripts/ios_screenshot.sh model-picker # after UI proof opens picker
+#   scripts/ios_screenshot.sh pending      # pending queue sheet
+#   scripts/ios_screenshot.sh pending-review
 #
 set -euo pipefail
 
@@ -36,14 +38,26 @@ case "$NAME" in
   thread)
     FIXTURE_ARGS+=(-ui_fixture_thread=thread-1)
     ;;
+  pending)
+    FIXTURE_ARGS+=(-ui_fixture_pending)
+    ;;
+  pending-review)
+    FIXTURE_ARGS+=(-ui_fixture_pending_review)
+    ;;
 esac
 
 IOS_LAUNCH_ARGS="${FIXTURE_ARGS[*]}" bash "$ROOT/scripts/ios_sim_launch.sh" >/dev/null
-if [[ "$NAME" == "model-picker" || "$NAME" == "thread" ]]; then
-  sleep 3
-else
-  sleep 2
-fi
+case "$NAME" in
+  model-picker|thread|pending)
+    sleep 3
+    ;;
+  pending-review)
+    sleep 5
+    ;;
+  *)
+    sleep 2
+    ;;
+esac
 
 UDID="$(ios_simulator_booted_udid)"
 xcrun simctl io "$UDID" screenshot "$OUT"

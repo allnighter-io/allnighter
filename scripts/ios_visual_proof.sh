@@ -5,10 +5,12 @@
 # Agents read the images; never ask the founder to eyeball the simulator.
 #
 # Usage:
-#   scripts/ios_visual_proof.sh           # MVP: inbox + thread + model-picker
+#   scripts/ios_visual_proof.sh           # MVP: home + thread + pending + model-picker
 #   scripts/ios_visual_proof.sh home
 #   scripts/ios_visual_proof.sh thread
 #   scripts/ios_visual_proof.sh model-picker
+#   scripts/ios_visual_proof.sh pending
+#   scripts/ios_visual_proof.sh pending-review
 #
 set -euo pipefail
 
@@ -37,13 +39,20 @@ case "$SCOPE" in
   model-picker)
     capture model-picker
     ;;
+  pending)
+    capture pending
+    ;;
+  pending-review)
+    capture pending-review
+    ;;
   mvp|all)
     capture home
     capture thread
+    capture pending
     capture model-picker
     ;;
   *)
-    echo "usage: ios_visual_proof.sh [home|thread|model-picker|mvp]" >&2
+    echo "usage: ios_visual_proof.sh [home|thread|model-picker|pending|pending-review|mvp]" >&2
     exit 1
     ;;
 esac

@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(RemoteAppModel.self) private var appModel
     @State private var navigationPath = NavigationPath()
+    @State private var showsPendingQueue = false
 
     var body: some View {
         Group {
@@ -25,6 +26,7 @@ struct ContentView: View {
                         killSwitchPhase: appModel.killSwitchPhase,
                         activeWorkCount: appModel.activeWorkCount,
                         pendingDecisionCount: appModel.pendingDecisionCount,
+                        armedPendingCount: appModel.armedPendingCount,
                         canSendWorkRequests: appModel.canSendWorkRequests,
                         canStopAllWork: appModel.canStopAllWork,
                         composerDraft: Binding(
@@ -33,6 +35,9 @@ struct ContentView: View {
                         ),
                         onBeginNewConversation: {
                             appModel.beginNewConversation()
+                        },
+                        onOpenPendingQueue: {
+                            showsPendingQueue = true
                         },
                         onSendWorkRequest: { prompt in
                             await appModel.sendWorkRequest(prompt: prompt)
@@ -56,6 +61,25 @@ struct ContentView: View {
                     navigationPath.append(threadId)
                     appModel.consumePendingOpenThread()
                 }
+                .sheet(isPresented: $showsPendingQueue) {
+                    IOSPendingView(
+                        queue: appModel.pendingQueue,
+                        prompt: { appModel.pendingPrompt(for: $0) },
+                        onRemove: { appModel.removePendingItem(id: $0) },
+                        onUnarm: { appModel.unarmPendingItem(id: $0) },
+                        onResubmit: { id, prompt, draft in
+                            appModel.rearmPendingItem(id: id, prompt: prompt, draft: draft)
+                        },
+                        onClose: { showsPendingQueue = false }
+                    )
+                }
+                .onAppear {
+                    #if DEBUG
+                    if IOSTestFixture.opensPendingQueue {
+                        showsPendingQueue = true
+                    }
+                    #endif
+                }
             } else {
                 RemoteOnboardingView(phase: appModel.connectionPhase) {
                     await appModel.activate()
@@ -78,10 +102,12 @@ private struct ConversationsHomeView: View {
     let killSwitchPhase: KillSwitchPhase
     let activeWorkCount: Int
     let pendingDecisionCount: Int
+    let armedPendingCount: Int
     let canSendWorkRequests: Bool
     let canStopAllWork: Bool
     @Binding var composerDraft: IOSComposerDraft
     let onBeginNewConversation: () -> Void
+    let onOpenPendingQueue: () -> Void
     let onSendWorkRequest: (String) async -> Void
     let onDismissSendFailure: () -> Void
     let onStopAllWork: () async -> Void
@@ -100,6 +126,20 @@ private struct ConversationsHomeView: View {
                     .padding(.bottom, IOSSpace.s7)
 
                 connectionBanner
+
+                if armedPendingCount > 0 {
+                    Button(action: onOpenPendingQueue) {
+                        IOSStatusBanner(
+                            text: armedPendingCount == 1
+                                ? "1 item armed in your queue"
+                                : "\(armedPendingCount) items armed in your queue",
+                            tone: .warning
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, IOSSpace.s5)
+                    .accessibilityIdentifier("home-armed-pending-banner")
+                }
 
                 if let homeFreshnessLabel {
                     IOSStatusBanner(text: homeFreshnessLabel, tone: .neutral)
@@ -234,6 +274,25 @@ private struct ConversationsHomeView: View {
             }
 
             Spacer(minLength: IOSSpace.s4)
+
+            if armedPendingCount > 0 {
+                Button(action: onOpenPendingQueue) {
+                    HStack(spacing: 6) {
+                        Text("\(armedPendingCount)")
+                            .font(IOSFont.monoSm)
+                            .foregroundStyle(IOSColor.accentText)
+                        Text("Pending")
+                            .font(IOSFont.label)
+                            .foregroundStyle(IOSColor.textSecondary)
+                    }
+                    .padding(.horizontal, IOSSpace.s4)
+                    .frame(height: 48)
+                    .background(IOSColor.accentSurface, in: Capsule())
+                    .overlay(Capsule().strokeBorder(IOSColor.accentBorder, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home-pending-pill")
+            }
 
             Button {
                 composerText = ""
