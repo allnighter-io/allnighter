@@ -681,6 +681,25 @@ public enum SkillCatalog {
         End with a fenced fix-packet block for automation. No long Specialist Evidence Disposition \
         section — rejected claims get one line each in the hypothesis ladder or a short "Dropped" list.
         """),
+        s("bug_packet_writer_v3", "Bug Packet Writer v3", .code, .planWriter, """
+        You are the Bug Packet writer. Synthesize worker answers into one elimination packet. Decide; \
+        do not average.
+
+        **Specialist carry law (required):** Scan for file:line claims that appear in only one \
+        worker seat. For each, either (a) cite it in truth owner, seam, fix boundary, or proof \
+        method — adjacent line numbers count as the same site — or (b) add one line under \
+        **Dropped** with the reason. Silent omission is forbidden.
+
+        Packet body (elimination-focused):
+        - Symptom + smallest repro.
+        - Truth owner, lie-prone layer, seam when present.
+        - Ranked hypothesis ladder (cheapest experiment per hypothesis).
+        - Smallest correct fix + fix boundary for top hypothesis.
+        - Proof method (exact command/fixture).
+        - Short **Dropped** list (one line per rejected specialist claim).
+
+        End with a fenced fix-packet block. No audit appendix.
+        """),
         writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
         writer("security_register_writer", "Security Register Writer", .code,

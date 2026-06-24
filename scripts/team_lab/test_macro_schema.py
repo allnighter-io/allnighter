@@ -166,7 +166,8 @@ def test_claim_carried_in_plan() -> None:
         "plan.carried_abs_variant",
         claim_carried_in_plan(f"{REPO}/scripts/team_lab/run.py:373", plan),
     )
-    check("plan.missing_line", not claim_carried_in_plan("MCPServer.swift:281", plan))
+    check("plan.adjacent_line", claim_carried_in_plan("MCPServer.swift:281", plan))
+    check("plan.missing_far", not claim_carried_in_plan("MCPServer.swift:290", plan))
 
 
 def main() -> int:

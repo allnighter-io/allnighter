@@ -106,7 +106,20 @@ def claim_carried_in_plan(claim: str, plan: set[str], *, repo_root: Path | None 
     norm = normalize_claim_ref(claim, repo_root=repo_root)
     if norm in keys:
         return True
-    return claim_dedupe_key(claim, repo_root=repo_root) in keys
+    if claim_dedupe_key(claim, repo_root=repo_root) in keys:
+        return True
+    if not is_file_line_claim(claim):
+        return False
+    path_part, line_part = norm.rsplit(":", 1)
+    try:
+        line_n = int(line_part)
+    except ValueError:
+        return False
+    for delta in (-1, 1):
+        neighbor = f"{path_part}:{line_n + delta}"
+        if neighbor in plan or claim_dedupe_key(neighbor, repo_root=repo_root) in keys:
+            return True
+    return False
 
 
 def load_schema() -> dict[str, Any]:

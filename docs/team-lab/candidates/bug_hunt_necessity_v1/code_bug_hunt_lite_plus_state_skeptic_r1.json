@@ -73,5 +73,13 @@
     "baseTeamId": "code_bug_hunt_lite",
     "donorTeamId": "code_bug_hunt"
   },
-  "configHash": "cf3f28fc3bf658e4"
+  "macroStatus": "parked",
+  "macroEvidence": {
+    "verdict": "hold",
+    "report": "docs/team-lab/reports/macro_lane_state_skeptic_v1.md",
+    "rollup": ".lab/macro-evidence/rollup_lite_plus_state_skeptic_v1.json",
+    "reason": "2 baseline / 1 candidate at 33% win rate; worse than Lite+Trace R1"
+  },
+  "configHash": "cf3f28fc3bf658e4",
+  "candidateLabTeamId": "lab_code_bug_hunt_lite_plus_state_skeptic_r1_candidate"
 }

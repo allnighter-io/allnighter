@@ -268,9 +268,11 @@ def rollup_bundle(
     )
     if len(suppressed_all) > 0 and bundle_op in ("add", "forward_select"):
         record["verdict"] = "hold"
+        roles = ", ".join(bundle_roles) or "added seat(s)"
         record["gateReason"] = (
-            "Trace shows positive macro signal, but writer suppression blocks ADD until synthesis is hardened "
-            f"({len(suppressed_all)} suppressed Trace-only claims across {fresh_input_count} inputs)"
+            f"Macro signal present, but writer suppression blocks ADD until synthesis carries "
+            f"specialist-only evidence ({len(suppressed_all)} suppressed candidate-only claims "
+            f"across {fresh_input_count} inputs; roles: {roles})"
         )
         record["reason"] = record["gateReason"]
     elif gate_verdict in ("add", "remove", "merge"):
