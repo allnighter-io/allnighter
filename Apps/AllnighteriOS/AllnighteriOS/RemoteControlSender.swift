@@ -57,6 +57,35 @@ struct RemoteControlSender {
         }
     }
 
+    func cancelPendingItem(id: String) async throws -> RemoteControlSendResult {
+        try await send { factory, requestId in
+            try factory.pendingCancel(requestId: requestId, pendingItemId: id)
+        }
+    }
+
+    func editPendingItem(
+        id: String,
+        prompt: String? = nil,
+        workerToken: String? = nil,
+        teamPresetId: String? = nil
+    ) async throws -> RemoteControlSendResult {
+        try await send { factory, requestId in
+            try factory.pendingEdit(
+                requestId: requestId,
+                pendingItemId: id,
+                prompt: prompt,
+                workerToken: workerToken,
+                teamPresetId: teamPresetId
+            )
+        }
+    }
+
+    func submitPendingItem(id: String) async throws -> RemoteControlSendResult {
+        try await send { factory, requestId in
+            try factory.pendingSubmit(requestId: requestId, pendingItemId: id)
+        }
+    }
+
     private func send(
         build: @escaping @Sendable (RemoteCommandFactory, String) throws -> RemoteCommand
     ) async throws -> RemoteControlSendResult {

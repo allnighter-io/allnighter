@@ -17,6 +17,7 @@ public struct RemoteThreadPublisher: Sendable {
     public let snapshotService: RemoteThreadSnapshotService
     public let contentService: RemoteThreadContentService
     public let relay: RemoteMacRelay
+    private let pendingQueueProvider: @Sendable () -> PendingQueueJSON?
     private let now: @Sendable () -> Date
 
     public init(
@@ -25,6 +26,7 @@ public struct RemoteThreadPublisher: Sendable {
         snapshotService: RemoteThreadSnapshotService,
         contentService: RemoteThreadContentService,
         relay: RemoteMacRelay,
+        pendingQueueProvider: @escaping @Sendable () -> PendingQueueJSON? = { nil },
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.accountId = accountId
@@ -32,11 +34,13 @@ public struct RemoteThreadPublisher: Sendable {
         self.snapshotService = snapshotService
         self.contentService = contentService
         self.relay = relay
+        self.pendingQueueProvider = pendingQueueProvider
         self.now = now
     }
 
     public func publish(pendingThreadIds: Set<String> = []) async throws -> RemoteThreadPublishResult {
-        let snapshot = snapshotService.snapshot(pendingThreadIds: pendingThreadIds)
+        var snapshot = snapshotService.snapshot(pendingThreadIds: pendingThreadIds)
+        snapshot.pendingQueue = pendingQueueProvider()
         try await relay.publishThreadSnapshot(
             accountId: accountId,
             macAgentId: macAgentId,

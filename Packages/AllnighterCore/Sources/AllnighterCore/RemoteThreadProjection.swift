@@ -107,15 +107,19 @@ public struct RemoteThreadSnapshotEnvelope: Codable, Equatable, Sendable {
     public var threads: [RemoteThreadSummary]
     public var protocolVersion: Int
     public var serverTime: Date
+    /// Mac-owned armed pending queue — same `PendingQueueJSON` as `alln pending queue --json`.
+    public var pendingQueue: PendingQueueJSON?
 
     public init(
         threads: [RemoteThreadSummary],
         protocolVersion: Int = RemoteProtocol.currentMajor,
-        serverTime: Date
+        serverTime: Date,
+        pendingQueue: PendingQueueJSON? = nil
     ) {
         self.threads = threads
         self.protocolVersion = protocolVersion
         self.serverTime = serverTime
+        self.pendingQueue = pendingQueue
     }
 
     public func thread(id: String) -> RemoteThreadSummary? {

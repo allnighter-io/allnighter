@@ -154,94 +154,184 @@ final class RemoteAppModel {
     }
 
     func refreshPendingQueue() async {
-        guard showsHome else { return }
-        #if DEBUG
-        if case .preview = connectionPhase {
-            return
-        }
-        #endif
-        // Live relay publish/fetch lands in a follow-up slice.
-        pendingQueue = .empty
+        await refreshHome()
     }
 
     func removePendingItem(id: String) {
-        mutatePreviewPending { queue, prompts in
-            var projects: [PendingQueueJSON.ProjectQueue] = []
-            var total = 0
-            for var group in queue.projects {
-                group.pending.removeAll { $0.pendingItem.id == id }
-                if group.running?.pendingItem.id == id {
-                    group.running = nil
-                }
-                total += group.pending.count
-                if group.running != nil || !group.pending.isEmpty {
-                    projects.append(group)
-                }
+        if case .preview = connectionPhase {
+            mutatePreviewPending { queue, prompts in
+                removePendingItemLocally(id: id, from: &queue, prompts: &prompts)
             }
-            prompts.removeValue(forKey: id)
-            return PendingQueueJSON(
-                contractVersion: queue.contractVersion,
-                totalPending: total,
-                projects: projects
-            )
+            return
         }
+        Task { await mutateLivePendingItem(id: id, action: .cancel) }
     }
 
     /// Un-arm (Pending → Draft): drops from armed queue until re-submitted.
     func unarmPendingItem(id: String) {
-        removePendingItem(id: id)
+        if case .preview = connectionPhase {
+            mutatePreviewPending { queue, prompts in
+                removePendingItemLocally(id: id, from: &queue, prompts: &prompts)
+            }
+            return
+        }
+        Task { await mutateLivePendingItem(id: id, action: .unarm) }
     }
 
     func rearmPendingItem(id: String, prompt: String, draft: IOSComposerDraft) {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        mutatePreviewPending { queue, prompts in
-            prompts[id] = trimmed
-            var projects = queue.projects
-            let title = Self.previewThreadTitle(from: trimmed)
-            let excerpt = String(trimmed.prefix(72))
-            if let projectIndex = projects.firstIndex(where: { group in
-                group.pending.contains { $0.pendingItem.id == id }
-            }) {
-                var group = projects[projectIndex]
-                if let itemIndex = group.pending.firstIndex(where: { $0.pendingItem.id == id }) {
-                    var item = group.pending[itemIndex]
-                    item.pendingItem.promptExcerpt = excerpt
-                    item.pendingItem.title = title
-                    item.target.teamPresetId = draft.selectedTeam.presetId
-                    if let modelId = draft.selectedWorkerId {
-                        item.target.workerIds = [modelId]
-                        item.target.preferredWorkerIds = [modelId]
-                    }
-                    group.pending[itemIndex] = item
-                    projects[projectIndex] = group
-                }
-            } else if let firstProject = projects.first {
-                var group = firstProject
-                var item = Self.previewPendingItem(
+        if case .preview = connectionPhase {
+            mutatePreviewPending { queue, prompts in
+                rearmPreviewPendingItem(
                     id: id,
                     prompt: trimmed,
-                    projectId: group.projectId,
-                    teamPresetId: draft.selectedTeam.presetId,
-                    modelId: draft.selectedWorkerId
+                    draft: draft,
+                    queue: &queue,
+                    prompts: &prompts
                 )
-                group.pending.append(item)
-                projects[0] = group
             }
-            let total = projects.reduce(0) { $0 + $1.pending.count }
-            return PendingQueueJSON(
-                contractVersion: queue.contractVersion,
-                totalPending: total,
-                projects: projects
+            return
+        }
+        Task {
+            await mutateLivePendingItem(
+                id: id,
+                action: .rearm(prompt: trimmed, draft: draft)
             )
         }
     }
 
+    private enum LivePendingAction {
+        case cancel
+        case unarm
+        case rearm(prompt: String, draft: IOSComposerDraft)
+    }
+
+    private func mutateLivePendingItem(id: String, action: LivePendingAction) async {
+        guard let session = deviceSession else { return }
+        let sender = RemoteControlSender(
+            client: session.client,
+            deviceId: session.deviceId,
+            deviceSigningKey: session.deviceSigningKey
+        )
+        do {
+            switch action {
+            case .cancel:
+                let result = try await sender.cancelPendingItem(id: id)
+                guard result.commandResult.ack.accepted else { return }
+            case .unarm:
+                let result = try await sender.editPendingItem(id: id)
+                guard result.commandResult.ack.accepted else { return }
+            case let .rearm(prompt, draft):
+                let edit = try await sender.editPendingItem(
+                    id: id,
+                    prompt: prompt,
+                    workerToken: draft.selectedWorkerId,
+                    teamPresetId: draft.selectedTeam.presetId
+                )
+                guard edit.commandResult.ack.accepted else { return }
+                let submit = try await sender.submitPendingItem(id: id)
+                guard submit.commandResult.ack.accepted else { return }
+                pendingPromptsByID[id] = prompt
+            }
+            await refreshHome()
+        } catch {
+            return
+        }
+    }
+
+    private func removePendingItemLocally(
+        id: String,
+        from queue: inout PendingQueueJSON,
+        prompts: inout [String: String]
+    ) {
+        var projects: [PendingQueueJSON.ProjectQueue] = []
+        var total = 0
+        for var group in queue.projects {
+            group.pending.removeAll { $0.pendingItem.id == id }
+            if group.running?.pendingItem.id == id {
+                group.running = nil
+            }
+            total += group.pending.count
+            if group.running != nil || !group.pending.isEmpty {
+                projects.append(group)
+            }
+        }
+        prompts.removeValue(forKey: id)
+        queue = PendingQueueJSON(
+            contractVersion: queue.contractVersion,
+            totalPending: total,
+            projects: projects
+        )
+    }
+
+    private func rearmPreviewPendingItem(
+        id: String,
+        prompt: String,
+        draft: IOSComposerDraft,
+        queue: inout PendingQueueJSON,
+        prompts: inout [String: String]
+    ) {
+        prompts[id] = prompt
+        var projects = queue.projects
+        let title = Self.previewThreadTitle(from: prompt)
+        let excerpt = String(prompt.prefix(72))
+        if let projectIndex = projects.firstIndex(where: { group in
+            group.pending.contains { $0.pendingItem.id == id }
+        }) {
+            var group = projects[projectIndex]
+            if let itemIndex = group.pending.firstIndex(where: { $0.pendingItem.id == id }) {
+                var item = group.pending[itemIndex]
+                item.pendingItem.promptExcerpt = excerpt
+                item.pendingItem.title = title
+                item.target.teamPresetId = draft.selectedTeam.presetId
+                if let modelId = draft.selectedWorkerId {
+                    item.target.workerIds = [modelId]
+                    item.target.preferredWorkerIds = [modelId]
+                }
+                group.pending[itemIndex] = item
+                projects[projectIndex] = group
+            }
+        } else if let firstProject = projects.first {
+            var group = firstProject
+            let item = Self.previewPendingItem(
+                id: id,
+                prompt: prompt,
+                projectId: group.projectId,
+                teamPresetId: draft.selectedTeam.presetId,
+                modelId: draft.selectedWorkerId
+            )
+            group.pending.append(item)
+            projects[0] = group
+        }
+        let total = projects.reduce(0) { $0 + $1.pending.count }
+        queue = PendingQueueJSON(
+            contractVersion: queue.contractVersion,
+            totalPending: total,
+            projects: projects
+        )
+    }
+
     private func mutatePreviewPending(
-        _ transform: (PendingQueueJSON, inout [String: String]) -> PendingQueueJSON
+        _ transform: (inout PendingQueueJSON, inout [String: String]) -> Void
     ) {
         guard case .preview = connectionPhase else { return }
-        pendingQueue = transform(pendingQueue, &pendingPromptsByID)
+        transform(&pendingQueue, &pendingPromptsByID)
+    }
+
+    private func applyPendingQueueFromRelay(_ queue: PendingQueueJSON?) {
+        guard case .connected = connectionPhase else { return }
+        pendingQueue = queue ?? .empty
+        cachePendingPromptExcerpts(from: pendingQueue)
+    }
+
+    private func cachePendingPromptExcerpts(from queue: PendingQueueJSON) {
+        for group in queue.projects {
+            let items = group.pending + [group.running].compactMap { $0 }
+            for item in items where pendingPromptsByID[item.pendingItem.id] == nil {
+                pendingPromptsByID[item.pendingItem.id] = item.pendingItem.promptExcerpt
+            }
+        }
     }
 
     private func seedPreviewPendingQueue() {
@@ -497,6 +587,7 @@ final class RemoteAppModel {
         await homeStore.refresh()
         homeSnapshot = homeStore.state.snapshot
         homeStatus = homeStore.state.status
+        applyPendingQueueFromRelay(homeStore.state.pendingQueue)
 
         switch homeStatus {
         case .loaded(let serverTime):

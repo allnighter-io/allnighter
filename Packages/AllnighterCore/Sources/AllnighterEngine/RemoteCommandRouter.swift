@@ -231,6 +231,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
     private let dedupeStore: RemoteRequestDedupeStore
     private let executor: RemoteTeamCommandExecuting
     private let threadExecutor: RemoteThreadCommandExecuting?
+    private let pendingExecutor: RemotePendingCommandExecuting?
     private let macSigningKey: Curve25519.Signing.PrivateKey
     private let macSealingKey: Curve25519.KeyAgreement.PrivateKey
     private let now: @Sendable () -> Date
@@ -246,6 +247,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         dedupeStore: RemoteRequestDedupeStore,
         executor: RemoteTeamCommandExecuting,
         threadExecutor: RemoteThreadCommandExecuting? = nil,
+        pendingExecutor: RemotePendingCommandExecuting? = nil,
         macSigningKey: Curve25519.Signing.PrivateKey,
         macSealingKey: Curve25519.KeyAgreement.PrivateKey,
         now: @escaping @Sendable () -> Date = Date.init,
@@ -258,6 +260,7 @@ public final class RemoteCommandRouter: @unchecked Sendable {
         self.dedupeStore = dedupeStore
         self.executor = executor
         self.threadExecutor = threadExecutor
+        self.pendingExecutor = pendingExecutor
         self.macSigningKey = macSigningKey
         self.macSealingKey = macSealingKey
         self.now = now
@@ -348,6 +351,12 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             return try routeMarkThreadRead(command, serverTime: serverTime)
         case .stopAll:
             return try await routeStopAll(command, serverTime: serverTime)
+        case .pendingCancel:
+            return try routePendingCancel(command, serverTime: serverTime)
+        case .pendingEdit:
+            return try routePendingEdit(command, serverTime: serverTime)
+        case .pendingSubmit:
+            return try routePendingSubmit(command, serverTime: serverTime)
         }
     }
 
@@ -464,6 +473,83 @@ public final class RemoteCommandRouter: @unchecked Sendable {
             )
         } catch {
             return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "thread.mark_read")
+        }
+    }
+
+    private func routePendingCancel(
+        _ command: RemoteCommand,
+        serverTime: Date
+    ) throws -> RemoteCommandRoutingResult {
+        guard let pendingExecutor,
+              let payload = try? decodeLightPayload(RemotePendingItemPayload.self, from: command.payload) else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.cancel")
+        }
+        let pendingItemId = payload.pendingItemId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pendingItemId.isEmpty else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.cancel")
+        }
+        do {
+            try pendingExecutor.cancel(pendingItemId: pendingItemId)
+            return try accepted(
+                command,
+                serverTime: serverTime,
+                targetSummary: "pending.cancel id=\(pendingItemId)"
+            )
+        } catch {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.cancel")
+        }
+    }
+
+    private func routePendingEdit(
+        _ command: RemoteCommand,
+        serverTime: Date
+    ) throws -> RemoteCommandRoutingResult {
+        guard let pendingExecutor,
+              let payload = try? decodeLightPayload(RemotePendingEditPayload.self, from: command.payload) else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.edit")
+        }
+        let pendingItemId = payload.pendingItemId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pendingItemId.isEmpty else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.edit")
+        }
+        do {
+            try pendingExecutor.edit(
+                pendingItemId: pendingItemId,
+                prompt: payload.prompt,
+                workerToken: payload.workerToken,
+                teamPresetId: payload.teamPresetId
+            )
+            return try accepted(
+                command,
+                serverTime: serverTime,
+                targetSummary: "pending.edit id=\(pendingItemId)"
+            )
+        } catch {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.edit")
+        }
+    }
+
+    private func routePendingSubmit(
+        _ command: RemoteCommand,
+        serverTime: Date
+    ) throws -> RemoteCommandRoutingResult {
+        guard let pendingExecutor,
+              let payload = try? decodeLightPayload(RemotePendingItemPayload.self, from: command.payload) else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.submit")
+        }
+        let pendingItemId = payload.pendingItemId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pendingItemId.isEmpty else {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.submit")
+        }
+        do {
+            try pendingExecutor.submit(pendingItemId: pendingItemId)
+            return try accepted(
+                command,
+                serverTime: serverTime,
+                targetSummary: "pending.submit id=\(pendingItemId)"
+            )
+        } catch {
+            return try rejected(command, reason: .invalidPayload, serverTime: serverTime, targetSummary: "pending.submit")
         }
     }
 

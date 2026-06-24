@@ -11,6 +11,9 @@ final class RemoteFoundationTests: XCTestCase {
             "stopRun",
             "thread.mark_read",
             "stopAll",
+            "pending.cancel",
+            "pending.edit",
+            "pending.submit",
         ])
         XCTAssertFalse(cases.contains { $0.localizedCaseInsensitiveContains("shell") })
         XCTAssertFalse(cases.contains { $0.localizedCaseInsensitiveContains("mcp") })

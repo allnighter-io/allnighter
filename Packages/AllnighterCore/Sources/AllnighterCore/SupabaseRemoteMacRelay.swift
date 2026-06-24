@@ -1112,6 +1112,7 @@ private struct ThreadSnapshotEnvelopeRow: Codable {
     var threads: [RemoteThreadSummary]
     var serverTime: Date
     var protocolVersion: Int
+    var pendingQueue: PendingQueueJSON?
     var updatedAt: Date
 
     init(accountId: String, macAgentId: String, snapshot: RemoteThreadSnapshotEnvelope, updatedAt: Date) {
@@ -1120,6 +1121,7 @@ private struct ThreadSnapshotEnvelopeRow: Codable {
         threads = snapshot.threads
         serverTime = snapshot.serverTime
         protocolVersion = snapshot.protocolVersion
+        pendingQueue = snapshot.pendingQueue
         self.updatedAt = updatedAt
     }
 
@@ -1127,7 +1129,8 @@ private struct ThreadSnapshotEnvelopeRow: Codable {
         RemoteThreadSnapshotEnvelope(
             threads: threads,
             protocolVersion: protocolVersion,
-            serverTime: serverTime
+            serverTime: serverTime,
+            pendingQueue: pendingQueue
         )
     }
 }
