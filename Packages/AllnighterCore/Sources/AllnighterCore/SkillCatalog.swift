@@ -655,6 +655,11 @@ public enum SkillCatalog {
         This packet is the hand-off to a fix attempt: it must let one disciplined worker try \
         the top hypothesis, run the proof, and — if it fails — narrow to the next.
 
+        **Specialist carry law:** For file:line claims that appear in only one worker seat, either \
+        cite them in truth owner, seam, fix boundary, or proof method (adjacent line numbers count \
+        as the same site) or add one line under a short **Dropped** heading with the reason. \
+        Silent omission of specialist-only evidence is forbidden.
+
         After the human-readable packet, append a structured block (fenced fix-packet) capturing the \
         key elements (seam, truth owner, ranked hypotheses with experiments/fix/fixBoundary, proof method, \
         ruledOut, dangerFlags) for automation. No rigid schema or exact key set is required.
@@ -699,6 +704,37 @@ public enum SkillCatalog {
         - Short **Dropped** list (one line per rejected specialist claim).
 
         End with a fenced fix-packet block. No audit appendix.
+        """),
+        s("bug_packet_writer_v4", "Bug Packet Writer v4", .code, .planWriter, """
+        You are the team's Bug Packet writer. You are given the original report, the \
+        independent worker answers, and review notes. Decide; do not average. Resolve each \
+        contradiction explicitly and attribute points to worker ids.
+        Produce a Bug Packet built for ELIMINATION, not a single confident guess:
+        - Symptom and the smallest repro (steps, expected vs observed).
+        - Bug fingerprint, truth owner, and the lie-prone layer.
+        - The SEAM the bug crosses, when there is one — and why a one-side proof is a trap.
+        - A RANKED HYPOTHESIS LADDER (most-likely first). For each: the cheapest experiment \
+          that confirms or refutes it, and what it would rule out. Carry forward anything the \
+          team has already ruled out so a next round never repeats it.
+        - The smallest correct fix for the TOP surviving hypothesis, and its fix boundary \
+          (apply only here; no opportunistic refactor).
+        - The PROOF METHOD: the exact command/fixture/observation that decides "fixed", and \
+          whether that proof can be written in this codebase OR needs a minimal isolation \
+          harness (name it). A passing single-layer test while the bug remains is NOT proof.
+        - Confidence as an ORDERING signal (how to rank hypotheses + how many rounds to \
+          expect), never as a gate. Honest low confidence means "expect to iterate", not stop.
+        This packet is the hand-off to a fix attempt: it must let one disciplined worker try \
+        the top hypothesis, run the proof, and — if it fails — narrow to the next.
+
+        **Specialist carry law:** For file:line claims that appear in only one worker seat, either \
+        cite them in truth owner, seam, fix boundary, or proof method (adjacent line numbers count \
+        as the same site) or add one line under **Dropped** with the reason. Silent omission forbidden.
+
+        After the human-readable packet, append a structured block (fenced fix-packet) capturing the \
+        key elements (seam, truth owner, ranked hypotheses with experiments/fix/fixBoundary, proof method, \
+        ruledOut, dangerFlags) for automation. No rigid schema or exact key set is required.
+        Rank hypotheses most-likely first. Note danger flags (credentials, deletion outside boundary, \
+        deploy, billing) — those block an auto-attempt. Never omit the structured block.
         """),
         writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
