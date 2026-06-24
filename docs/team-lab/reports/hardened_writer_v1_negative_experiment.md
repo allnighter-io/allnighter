@@ -68,3 +68,16 @@ Writer-only replay on Round 1 worker outputs (`manifest_writer_v2.jsonl`). Deliv
 | **Total** | **29** | **31** |
 
 **Verdict:** v2 did not beat R1 on confirmed suppression (31 vs 29). Mixed per-case movement; not enough to justify full worker reruns or promotion. Next lever: another synthesis iteration or live deliverable compose once judges are configured.
+
+## Writer v2 live deliverable compose (complete)
+
+Live judges: `claude -p --max-turns 1` + `codex exec - --full-auto`. Manifest: `manifest_writer_v2_live.jsonl` · rollup: `rollup_writer_v2_live.json`.
+
+| Case | R1 deliverable | R1 suppressed | v2 live deliverable | v2 suppressed |
+| --- | --- | ---: | --- | ---: |
+| `floor_show_wrong_run_v1` | tie | 5 | **baseline** | 6 |
+| `mcp_fs_bypass_scoring_v1` | candidate | 11 | tie | 10 |
+| `cursor_composer_session_continuity_v1` | candidate | 13 | candidate | 15 |
+| **Bundle** | **2 candidate / 1 tie** | **29** | **1 baseline / 1 tie / 1 candidate** | **31** |
+
+**Verdict:** v2 **regressed** on live deliverable (33% candidate win rate vs 67% for R1). Gate remains **hold**. Retire `bug_packet_writer_v2` for promotion; park Lite+Trace until synthesis design changes or Trace Mapper preflight (`model_cursor_auto`) is fixed.
