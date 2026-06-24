@@ -32,6 +32,83 @@ FILE_LINE_RE = re.compile(
 )
 
 
+def normalize_claim_path(path_part: str, *, repo_root: Path | None = None) -> str:
+    repo = repo_root or REPO
+    path_part = (path_part or "").replace("\\", "/").strip()
+    if path_part.startswith("./"):
+        path_part = path_part[2:]
+    p = Path(path_part)
+    if p.is_absolute():
+        try:
+            return str(p.relative_to(repo)).replace("\\", "/")
+        except ValueError:
+            return path_part
+    return path_part
+
+
+def normalize_claim_line(line_part: str) -> str:
+    line_part = (line_part or "").strip()
+    if "-" in line_part:
+        return line_part.split("-", 1)[0].strip()
+    return line_part
+
+
+def normalize_claim_ref(claim: str, *, repo_root: Path | None = None) -> str:
+    if ":" not in claim:
+        return claim
+    path_part, line_part = claim.rsplit(":", 1)
+    return f"{normalize_claim_path(path_part, repo_root=repo_root)}:{normalize_claim_line(line_part)}"
+
+
+def is_file_line_claim(claim: str) -> bool:
+    if ":" not in claim:
+        return False
+    return claim.rsplit(":", 1)[0].lower().endswith((".swift", ".md", ".py", ".json", ".sh"))
+
+
+def claim_dedupe_key(claim: str, *, repo_root: Path | None = None) -> str:
+    if not is_file_line_claim(claim):
+        return claim
+    norm = normalize_claim_ref(claim, repo_root=repo_root)
+    path_part, line_part = norm.rsplit(":", 1)
+    return f"{Path(path_part).name}:{line_part}"
+
+
+def dedupe_claim_refs(claims: list[str], *, repo_root: Path | None = None) -> list[str]:
+    """Collapse absolute/relative/basename duplicates at the same line."""
+    best: dict[str, str] = {}
+    passthrough: list[str] = []
+    for claim in claims:
+        if not is_file_line_claim(claim):
+            passthrough.append(claim)
+            continue
+        key = claim_dedupe_key(claim, repo_root=repo_root)
+        norm = normalize_claim_ref(claim, repo_root=repo_root)
+        prev = best.get(key)
+        if prev is None or len(norm) > len(prev):
+            best[key] = norm
+    return sorted(passthrough + list(best.values()))
+
+
+def plan_claim_keys(plan: set[str], *, repo_root: Path | None = None) -> set[str]:
+    keys: set[str] = set()
+    for claim in plan:
+        keys.add(claim)
+        keys.add(normalize_claim_ref(claim, repo_root=repo_root))
+        keys.add(claim_dedupe_key(claim, repo_root=repo_root))
+    return keys
+
+
+def claim_carried_in_plan(claim: str, plan: set[str], *, repo_root: Path | None = None) -> bool:
+    if claim in plan:
+        return True
+    keys = plan_claim_keys(plan, repo_root=repo_root)
+    norm = normalize_claim_ref(claim, repo_root=repo_root)
+    if norm in keys:
+        return True
+    return claim_dedupe_key(claim, repo_root=repo_root) in keys
+
+
 def load_schema() -> dict[str, Any]:
     return json.loads(SCHEMA_PATH.read_text())
 
@@ -166,8 +243,21 @@ def validate_necessity_suite(suite: dict[str, Any]) -> list[str]:
     return errors
 
 
-def extract_file_line_claims(text: str) -> set[str]:
-    return {f"{m.group(1)}:{m.group(2)}" for m in FILE_LINE_RE.finditer(text or "")}
+def collect_file_line_claims(texts, *, repo_root: Path | None = None) -> set[str]:
+    by_key: dict[str, str] = {}
+    for text in texts:
+        for m in FILE_LINE_RE.finditer(text or ""):
+            raw = f"{m.group(1)}:{m.group(2)}"
+            key = claim_dedupe_key(raw, repo_root=repo_root)
+            norm = normalize_claim_ref(raw, repo_root=repo_root)
+            prev = by_key.get(key)
+            if prev is None or len(norm) > len(prev):
+                by_key[key] = norm
+    return set(by_key.values())
+
+
+def extract_file_line_claims(text: str, *, repo_root: Path | None = None) -> set[str]:
+    return collect_file_line_claims([text], repo_root=repo_root)
 
 
 def worker_answer_text(lab_dir: Path) -> dict[str, str]:
@@ -184,12 +274,8 @@ def worker_answer_text(lab_dir: Path) -> dict[str, str]:
 
 
 def vnrc_delta_from_labs(baseline_dir: Path, candidate_dir: Path) -> dict[str, list[str]]:
-    base_claims: set[str] = set()
-    cand_claims: set[str] = set()
-    for text in worker_answer_text(baseline_dir).values():
-        base_claims |= extract_file_line_claims(text)
-    for text in worker_answer_text(candidate_dir).values():
-        cand_claims |= extract_file_line_claims(text)
+    base_claims = collect_file_line_claims(worker_answer_text(baseline_dir).values())
+    cand_claims = collect_file_line_claims(worker_answer_text(candidate_dir).values())
     shared = sorted(base_claims & cand_claims)
     return {
         "baselineOnly": sorted(base_claims - cand_claims),
@@ -217,10 +303,15 @@ def infer_writer_disposition(
     disp = empty_writer_disposition()
     vnrc = vnrc_delta_from_labs(baseline_dir, candidate_dir)
     plan = plan_claims(candidate_dir) | plan_claims(baseline_dir)
+    seen_suppressed: set[str] = set()
     for claim in vnrc["candidateOnly"]:
-        if claim in plan:
+        if claim_carried_in_plan(claim, plan):
             continue
-        disp["value_suppressed"].append(claim)
+        key = claim_dedupe_key(claim)
+        if key in seen_suppressed:
+            continue
+        seen_suppressed.add(key)
+        disp["value_suppressed"].append(normalize_claim_ref(claim))
     if added_roles and not vnrc["candidateOnly"] and not vnrc["shared"]:
         for role in added_roles:
             disp["no_value"].append(role)

@@ -18,6 +18,9 @@ from macro_schema import (  # noqa: E402
     cost_ledger_arm,
     empty_cost_arm,
     extract_file_line_claims,
+    claim_carried_in_plan,
+    dedupe_claim_refs,
+    normalize_claim_ref,
     macro_promote_gate,
     macro_verdict_template,
     validate_macro_verdict,
@@ -145,6 +148,27 @@ def test_file_line_extract() -> None:
     check("claims.extract", "scripts/team_lab/run.py:413" in claims)
 
 
+def test_claim_ref_normalization() -> None:
+    repo = REPO
+    abs_claim = f"{repo}/scripts/team_lab/run.py:373"
+    deduped = dedupe_claim_refs([abs_claim, "scripts/team_lab/run.py:373", "run.py:373"], repo_root=repo)
+    check("claims.dedupe_path_variants", len(deduped) == 1)
+    check(
+        "claims.normalize_line_range",
+        normalize_claim_ref("scoring.py:178-182", repo_root=repo) == "scoring.py:178",
+    )
+
+
+def test_claim_carried_in_plan() -> None:
+    plan = {"run.py:373", "MCPServer.swift:280"}
+    check("plan.carried_short", claim_carried_in_plan("run.py:373", plan))
+    check(
+        "plan.carried_abs_variant",
+        claim_carried_in_plan(f"{REPO}/scripts/team_lab/run.py:373", plan),
+    )
+    check("plan.missing_line", not claim_carried_in_plan("MCPServer.swift:281", plan))
+
+
 def main() -> int:
     test_template_validates()
     test_banned_load_bearing_workers()
@@ -153,6 +177,8 @@ def main() -> int:
     test_vnrc_corroboration_shared()
     test_cost_margin_negative_on_timeout()
     test_file_line_extract()
+    test_claim_ref_normalization()
+    test_claim_carried_in_plan()
 
     print("\n".join(f"  ok   {p}" for p in PASSES))
     if FAILS:
