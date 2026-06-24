@@ -16,6 +16,19 @@ Deferred proof:
 Pattern candidate:
 ```
 
+## 2026-06-24 - Apps/AllnighteriOS TestFlight Release + no credentials + dead onboarding fallback
+
+Tier: T3 Critical (repeated founder-visible TestFlight launch regression)
+Symptom: Launching the TestFlight app opens the old sign-in/onboarding wall instead of the dogfoodable iOS home/preview surface. The failure survived multiple rounds and was misattributed to target cleaning/archive ritual.
+Truth owner: `RemoteAppModel.activate()` owns the launch fallback after live remote credentials are unavailable; the runtime App Store receipt identifies TestFlight (`sandboxReceipt`) versus App Store (`receipt`).
+Lie-prone layer: Xcode archive state, DerivedData, target selection, and build-number churn can all look relevant while the Release code path deterministically selects `.needsConfiguration`.
+RCA: Release builds skipped the DEBUG preview fallback. With no live `RemoteSupabaseEnvironment` credentials/session in TestFlight, `activate()` always set `connectionPhase = .needsConfiguration`, which renders `RemoteOnboardingView`. Clearing the target or archiving again could only rebuild the same branch. TestFlight needs its own explicit release fallback until sign-in/pairing is wired.
+Fix boundary: Add a testable unauthenticated fallback policy in `RemoteAppModel`: Debug builds use preview, TestFlight Release builds with `sandboxReceipt` use preview/home, and App Store Release builds with a normal receipt keep onboarding. No signing, bundle identifier, auth, transport, or distribution settings changed.
+Proof: Added `AllnighteriOSTests.testUnauthenticatedReleaseFallbackUsesPreviewInTestFlight`, plus App Store and Debug fallback tests. `bash scripts/check_swiftui_state.sh` passed.
+Deferred proof: Targeted `xcodebuild test -project Apps/AllnighteriOS/AllnighteriOS.xcodeproj -scheme AllnighteriOS -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:AllnighteriOSTests/AllnighteriOSTests/testUnauthenticatedReleaseFallbackUsesPreviewInTestFlight -derivedDataPath /private/tmp/alln-ios-testflight-fallback-dd -clonedSourcePackagesDirPath /private/tmp/alln-ios-testflight-fallback-spm CODE_SIGNING_ALLOWED=NO` is blocked in this sandbox before compilation because Xcode/SwiftPM writes diagnostics to `/Users/mike/Library/Caches/org.swift.swiftpm/...` (Operation not permitted).
+Pattern candidate: TestFlight launch behavior is owned by the Release runtime fallback policy, not cache clearing. Any future TestFlight launch-screen regression must prove the receipt-mode branch.
+What was the agent allowed to do that must never be allowed again: Treat TestFlight as a build-cache/archive problem without proving what the Release `activate()` branch does when no credentials are available.
+
 ## 2026-06-21 - Cursor Composer visible thread loses prior context + no worker session id
 
 Tier: T3 Critical (core product promise failure; session-state truth bug)

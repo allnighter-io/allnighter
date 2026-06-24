@@ -23,6 +23,13 @@
       "requiresHarness": true,
       "law": "When a repeated bug depends on native/platform behavior, stop in-place patching after two failed fixes and build a throwaway isolation harness that proves the primitive and seam before porting the delta back.",
       "proof": "Debugger packet must name `Attempt count`, `Seam`, `Isolation harness`, and the harness-to-product delta; future wall gate should fail repeated DEBUGLOG entries that omit them."
+    },
+    {
+      "id": "ios-testflight-release-fallback-must-not-hit-dead-onboarding",
+      "surface": "Apps/AllnighteriOS/AllnighteriOS/RemoteAppModel.swift",
+      "seam": "Release launch fallback after live remote credentials are unavailable",
+      "law": "A TestFlight Release build with no live credentials must enter the supported dogfood preview/home path, not the dead sign-in/onboarding wall. Do not close this by clearing DerivedData, changing target selection, or bumping the build number alone; prove the runtime receipt fallback.",
+      "proof": "xcodebuild test -project Apps/AllnighteriOS/AllnighteriOS.xcodeproj -scheme AllnighteriOS -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:AllnighteriOSTests/AllnighteriOSTests/testUnauthenticatedReleaseFallbackUsesPreviewInTestFlight"
     }
   ]
 }

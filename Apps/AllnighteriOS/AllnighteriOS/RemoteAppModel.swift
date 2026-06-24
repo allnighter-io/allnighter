@@ -43,6 +43,11 @@ enum StopRunPhase: Equatable {
     case failed(String)
 }
 
+enum RemoteAppUnauthenticatedFallback: Equatable {
+    case onboarding
+    case preview
+}
+
 #if DEBUG
 private func isIOSUITestingPreview() -> Bool {
     if ProcessInfo.processInfo.arguments.contains("-ui_testing_preview") { return true }
@@ -79,7 +84,9 @@ final class RemoteAppModel {
         case .idle, .connecting:
             "Connecting to your Mac…"
         case .preview:
-            "Preview data — configure Supabase to connect live."
+            Self.isTestFlightBuild
+                ? "TestFlight preview — sign-in is not wired yet."
+                : "Preview data — configure Supabase to connect live."
         case let .connected(macName):
             connectionDiagnosisLine ?? "Connected to \(macName)"
         case let .awaitingPairingApproval(macName):
@@ -439,6 +446,35 @@ final class RemoteAppModel {
 
     private static var isUITestingPreview: Bool { isIOSUITestingPreview() }
 
+    static func unauthenticatedFallback(
+        isDebugBuild: Bool = Self.isDebugBuild,
+        receiptLastPathComponent: String? = Bundle.main.appStoreReceiptURL?.lastPathComponent
+    ) -> RemoteAppUnauthenticatedFallback {
+        if isDebugBuild {
+            return .preview
+        }
+        if Self.isTestFlightReceipt(receiptLastPathComponent) {
+            return .preview
+        }
+        return .onboarding
+    }
+
+    private static var isTestFlightBuild: Bool {
+        isTestFlightReceipt(Bundle.main.appStoreReceiptURL?.lastPathComponent)
+    }
+
+    private static func isTestFlightReceipt(_ receiptLastPathComponent: String?) -> Bool {
+        receiptLastPathComponent == "sandboxReceipt"
+    }
+
+    private static var isDebugBuild: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
     private struct DeviceSession {
         var client: any RemoteClient
         var mac: MacAgentRef
@@ -522,23 +558,25 @@ final class RemoteAppModel {
             }
         }
 
-        #if DEBUG
         guard currentActivation == activationSequence else { return }
-        await installPreviewClient()
-        connectionPhase = .preview
-        stopLivePolling()
-        await refreshHome()
-        await refreshConnectionDiagnosis()
-        startLiveHomePolling()
-        if let fixtureThreadId = IOSTestFixture.openThreadId {
-            pendingOpenThreadId = fixtureThreadId
+        switch Self.unauthenticatedFallback() {
+        case .preview:
+            await installPreviewClient()
+            connectionPhase = .preview
+            stopLivePolling()
+            await refreshHome()
+            await refreshConnectionDiagnosis()
+            startLiveHomePolling()
+            #if DEBUG
+            if let fixtureThreadId = IOSTestFixture.openThreadId {
+                pendingOpenThreadId = fixtureThreadId
+            }
+            #endif
+        case .onboarding:
+            connectionPhase = .needsConfiguration
+            homeSnapshot = .empty
+            homeStatus = .idle
         }
-        #else
-        guard currentActivation == activationSequence else { return }
-        connectionPhase = .needsConfiguration
-        homeSnapshot = .empty
-        homeStatus = .idle
-        #endif
     }
 
     func beginNewConversation() {
