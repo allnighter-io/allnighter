@@ -84,9 +84,9 @@ final class RemoteAppModel {
         case .idle, .connecting:
             "Connecting to your Mac…"
         case .preview:
-            Self.isTestFlightBuild
-                ? "TestFlight preview — sign-in is not wired yet."
-                : "Preview data — configure Supabase to connect live."
+            Self.isDebugBuild
+                ? "Preview data — configure Supabase to connect live."
+                : "Preview mode — sign-in is not wired yet."
         case let .connected(macName):
             connectionDiagnosisLine ?? "Connected to \(macName)"
         case let .awaitingPairingApproval(macName):
@@ -448,23 +448,12 @@ final class RemoteAppModel {
 
     static func unauthenticatedFallback(
         isDebugBuild: Bool = Self.isDebugBuild,
-        receiptLastPathComponent: String? = Bundle.main.appStoreReceiptURL?.lastPathComponent
+        isRemoteSignInEnabled: Bool = Self.isRemoteSignInEnabled
     ) -> RemoteAppUnauthenticatedFallback {
         if isDebugBuild {
             return .preview
         }
-        if Self.isTestFlightReceipt(receiptLastPathComponent) {
-            return .preview
-        }
-        return .onboarding
-    }
-
-    private static var isTestFlightBuild: Bool {
-        isTestFlightReceipt(Bundle.main.appStoreReceiptURL?.lastPathComponent)
-    }
-
-    private static func isTestFlightReceipt(_ receiptLastPathComponent: String?) -> Bool {
-        receiptLastPathComponent == "sandboxReceipt"
+        return isRemoteSignInEnabled ? .onboarding : .preview
     }
 
     private static var isDebugBuild: Bool {
@@ -473,6 +462,10 @@ final class RemoteAppModel {
         #else
         false
         #endif
+    }
+
+    private static var isRemoteSignInEnabled: Bool {
+        false
     }
 
     private struct DeviceSession {

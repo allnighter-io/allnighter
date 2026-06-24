@@ -25,19 +25,19 @@ final class AllnighteriOSTests: XCTestCase {
         #endif
     }
 
-    func testUnauthenticatedReleaseFallbackUsesPreviewInTestFlight() {
+    func testUnauthenticatedReleaseFallbackUsesPreviewUntilSignInShips() {
         let fallback = RemoteAppModel.unauthenticatedFallback(
             isDebugBuild: false,
-            receiptLastPathComponent: "sandboxReceipt"
+            isRemoteSignInEnabled: false
         )
 
         XCTAssertEqual(fallback, .preview)
     }
 
-    func testUnauthenticatedReleaseFallbackKeepsOnboardingForAppStore() {
+    func testUnauthenticatedReleaseFallbackCanUseOnboardingAfterSignInShips() {
         let fallback = RemoteAppModel.unauthenticatedFallback(
             isDebugBuild: false,
-            receiptLastPathComponent: "receipt"
+            isRemoteSignInEnabled: true
         )
 
         XCTAssertEqual(fallback, .onboarding)
@@ -46,7 +46,7 @@ final class AllnighteriOSTests: XCTestCase {
     func testUnauthenticatedDebugFallbackUsesPreview() {
         let fallback = RemoteAppModel.unauthenticatedFallback(
             isDebugBuild: true,
-            receiptLastPathComponent: "receipt"
+            isRemoteSignInEnabled: true
         )
 
         XCTAssertEqual(fallback, .preview)

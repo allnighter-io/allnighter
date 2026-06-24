@@ -28,8 +28,8 @@
       "id": "ios-testflight-release-fallback-must-not-hit-dead-onboarding",
       "surface": "Apps/AllnighteriOS/AllnighteriOS/RemoteAppModel.swift",
       "seam": "Release launch fallback after live remote credentials are unavailable",
-      "law": "A TestFlight Release build with no live credentials must enter the supported dogfood preview/home path, not the dead sign-in/onboarding wall. Do not close this by clearing DerivedData, changing target selection, or bumping the build number alone; prove the runtime receipt fallback.",
-      "proof": "xcodebuild test -project Apps/AllnighteriOS/AllnighteriOS.xcodeproj -scheme AllnighteriOS -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:AllnighteriOSTests/AllnighteriOSTests/testUnauthenticatedReleaseFallbackUsesPreviewInTestFlight"
+      "law": "Until remote sign-in is actually wired, any unauthenticated Release build must enter the supported dogfood preview/home path, not the dead sign-in/onboarding wall. Do not close this by clearing DerivedData, changing target selection, bumping the build number, or relying on App Store receipt filename alone; prove the release fallback policy.",
+      "proof": "xcodebuild test -project Apps/AllnighteriOS/AllnighteriOS.xcodeproj -scheme AllnighteriOS -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:AllnighteriOSTests/AllnighteriOSTests/testUnauthenticatedReleaseFallbackUsesPreviewUntilSignInShips"
     }
   ]
 }
