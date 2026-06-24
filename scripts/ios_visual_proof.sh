@@ -5,14 +5,16 @@
 # Agents read the images; never ask the founder to eyeball the simulator.
 #
 # Usage:
-#   scripts/ios_visual_proof.sh           # home + model-picker
-#   scripts/ios_visual_proof.sh home      # home only
+#   scripts/ios_visual_proof.sh           # MVP: inbox + thread + model-picker
+#   scripts/ios_visual_proof.sh home
+#   scripts/ios_visual_proof.sh thread
+#   scripts/ios_visual_proof.sh model-picker
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SCOPE="${1:-all}"
+SCOPE="${1:-mvp}"
 
 capture() {
   local name="$1"
@@ -29,15 +31,19 @@ case "$SCOPE" in
   home)
     capture home
     ;;
+  thread)
+    capture thread
+    ;;
   model-picker)
     capture model-picker
     ;;
-  all)
+  mvp|all)
     capture home
+    capture thread
     capture model-picker
     ;;
   *)
-    echo "usage: ios_visual_proof.sh [home|model-picker|all]" >&2
+    echo "usage: ios_visual_proof.sh [home|thread|model-picker|mvp]" >&2
     exit 1
     ;;
 esac

@@ -29,13 +29,18 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 FIXTURE_ARGS=(-ui_testing_preview)
-if [[ "$NAME" == "model-picker" ]]; then
-  FIXTURE_ARGS+=(-ui_fixture_model_picker)
-fi
+case "$NAME" in
+  model-picker)
+    FIXTURE_ARGS+=(-ui_fixture_model_picker)
+    ;;
+  thread)
+    FIXTURE_ARGS+=(-ui_fixture_thread=thread-1)
+    ;;
+esac
 
 IOS_LAUNCH_ARGS="${FIXTURE_ARGS[*]}" bash "$ROOT/scripts/ios_sim_launch.sh" >/dev/null
-if [[ "$NAME" == "model-picker" ]]; then
-  sleep 2
+if [[ "$NAME" == "model-picker" || "$NAME" == "thread" ]]; then
+  sleep 3
 else
   sleep 2
 fi

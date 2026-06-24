@@ -36,7 +36,7 @@ case "$cmd" in
     exec bash "$ROOT/scripts/ios_unit_tests.sh"
     ;;
   proof)
-    exec bash "$ROOT/scripts/ios_visual_proof.sh" "${subcmd:-all}"
+    exec bash "$ROOT/scripts/ios_visual_proof.sh" "${subcmd:-mvp}"
     ;;
   uitest)
     exec bash "$ROOT/scripts/ios_ui_proof.sh"

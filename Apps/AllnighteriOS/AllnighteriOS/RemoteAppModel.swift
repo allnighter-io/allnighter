@@ -212,6 +212,10 @@ final class RemoteAppModel {
             stopLivePolling()
             await refreshHome()
             await refreshConnectionDiagnosis()
+            startLiveHomePolling()
+            if let fixtureThreadId = IOSTestFixture.openThreadId {
+                pendingOpenThreadId = fixtureThreadId
+            }
             return
         }
         #endif
@@ -276,6 +280,10 @@ final class RemoteAppModel {
         stopLivePolling()
         await refreshHome()
         await refreshConnectionDiagnosis()
+        startLiveHomePolling()
+        if let fixtureThreadId = IOSTestFixture.openThreadId {
+            pendingOpenThreadId = fixtureThreadId
+        }
         #else
         guard currentActivation == activationSequence else { return }
         connectionPhase = .needsConfiguration
@@ -286,6 +294,7 @@ final class RemoteAppModel {
 
     func beginNewConversation() {
         composerThreadId = nil
+        composerDraft = IOSComposerDraft()
     }
 
     func consumePendingOpenThread() {
@@ -295,20 +304,20 @@ final class RemoteAppModel {
     func setThreadPolling(threadId: String?, enabled: Bool) {
         threadPollTask?.cancel()
         threadPollTask = nil
-        guard enabled, let threadId, case .connected = connectionPhase else { return }
+        guard enabled, let threadId, showsHome else { return }
         threadPollTask = Task { @MainActor in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
                 guard composerThreadId == threadId else { return }
                 await loadThread(threadId: threadId)
-                if threadSnapshot?.isActive != true { return }
+                if threadSnapshot?.isActive != true, case .connected = connectionPhase { return }
             }
         }
     }
 
     private func startLiveHomePolling() {
         homePollTask?.cancel()
-        guard case .connected = connectionPhase else { return }
+        guard showsHome else { return }
         homePollTask = Task { @MainActor in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 8_000_000_000)

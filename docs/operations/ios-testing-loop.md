@@ -69,7 +69,7 @@ do not use Tier 2.
 cd /Users/mike/Documents/GitHub/Allnighter-iOS && allios proof
 ```
 
-- Launches preview, writes `docs/qa/ios/_captures/home.png` and `model-picker.png`.
+- Launches preview, writes `docs/qa/ios/_captures/home.png`, `thread.png`, and `model-picker.png`.
 - **Agents run this and read the PNG** — same as Mac `gui_proof.sh`. Do not hand off to the founder.
 
 Optional XCTest tap flows (supplemental; simulator cold-boot can flake):
@@ -120,12 +120,15 @@ Optional: Xcode → Settings → Locations → Derived Data → Custom →
 
 | Goal | Simplest path |
 | --- | --- |
-| Home list / search / filters | `allios launch` → scroll home |
-| Open a thread | Tap any conversation |
-| Reply in thread | Type in bottom composer → send |
-| New chat from home | Type in home composer → send → auto-opens thread |
+| **Inbox** — see threads, unread, active runs | `allios proof` → read `home.png` |
+| Open a thread | Tap any conversation (or `allios proof` → `thread.png`) |
+| **Reply** in thread | Type in bottom composer → send → agent reply (~2.5s preview) |
+| **New message** from home | Type in home composer → send → auto-opens thread |
+| New chat (clear composer) | Tap ✎ top-right |
 | Model / team / effort chips | Tap chips on composer before send |
 | Agent labels in transcript | Open thread with worker turns |
+
+Preview polls home every 8s (live + preview) so the inbox stays fresh when connected.
 
 Preview does **not** prove Mac execution — only UI + local send plumbing.
 

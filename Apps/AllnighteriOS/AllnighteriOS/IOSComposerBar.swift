@@ -60,7 +60,7 @@ struct IOSComposerBar: View {
         .accessibilityIdentifier("ios-composer-bar")
         .onAppear {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-ui_fixture_model_picker") {
+            if IOSTestFixture.opensModelPicker {
                 showsModelPicker = true
             }
             #endif

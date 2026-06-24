@@ -236,6 +236,7 @@ private struct ConversationsHomeView: View {
             Spacer(minLength: IOSSpace.s4)
 
             Button {
+                composerText = ""
                 onBeginNewConversation()
             } label: {
                 Image(systemName: "square.and.pencil")
@@ -495,6 +496,14 @@ private struct ConversationRow: View {
     var body: some View {
         NavigationLink(value: conversation.id) {
             HStack(alignment: .firstTextBaseline, spacing: IOSSpace.s3) {
+                if conversation.isUnread || conversation.needsAttention {
+                    Circle()
+                        .fill(IOSColor.accent)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 6)
+                        .accessibilityLabel(conversation.needsAttention ? "Needs your decision" : "Unread")
+                }
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(conversation.title)
                         .font(IOSFont.body)
