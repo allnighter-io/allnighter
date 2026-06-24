@@ -81,3 +81,16 @@ Live judges: `claude -p --max-turns 1` + `codex exec - --full-auto`. Manifest: `
 | **Bundle** | **2 candidate / 1 tie** | **29** | **1 baseline / 1 tie / 1 candidate** | **31** |
 
 **Verdict:** v2 **regressed** on live deliverable (33% candidate win rate vs 67% for R1). Gate remains **hold**. Retire `bug_packet_writer_v2` for promotion; park Lite+Trace until synthesis design changes or Trace Mapper preflight (`model_cursor_auto`) is fixed.
+
+## Writer v3 replay (complete, live judges)
+
+Replay on R1 Lite+Trace worker outputs only (`manifest_writer_v3_live.jsonl` · `rollup_writer_v3_live.json`).
+
+| Case | R1 deliverable | R1 supp (metric v2) | v3 deliverable | v3 suppressed |
+| --- | --- | ---: | --- | ---: |
+| floor_show | tie | 5 | **candidate** | 2 |
+| mcp_fs | candidate | 11 | **baseline** | 6 |
+| cursor | candidate | 13 | tie | 11 |
+| **Bundle** | **2 cand / 1 tie (67%)** | **28** | **1 cand / 1 base / 1 tie (33%)** | **19** |
+
+**Takeaway:** v3 **cut suppression 28 → 19** but **regressed deliverable** vs R1 original writer. Specialist carry law works for metric; packet quality dropped on 2/3 cases. Next: blend v3 carry rules into default `bug_packet_writer` without shortening the elimination packet body.
