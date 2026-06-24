@@ -12,16 +12,29 @@ DONOR=docs/team-lab/champions/bug_hunt_repo_regressions_v1/code_bug_hunt.json
 ROUND=1
 TAG=lite_plus_state_skeptic_v1
 
-declare -A BASELINE_LABS=(
-  [floor_show_wrong_run_v1]=".lab/code_bug_hunt_genesis-lite_r1_20260623_181339"
-  [mcp_fs_bypass_scoring_v1]=".lab/code_bug_hunt_genesis-code_bug_hunt_lite_r1_20260623_211909"
-  [cursor_composer_session_continuity_v1]=".lab/code_bug_hunt_genesis-code_bug_hunt_lite_r1_20260623_213536"
-)
+baseline_lab_for_case() {
+  case "$1" in
+    floor_show_wrong_run_v1)
+      echo ".lab/code_bug_hunt_genesis-lite_r1_20260623_181339"
+      ;;
+    mcp_fs_bypass_scoring_v1)
+      echo ".lab/code_bug_hunt_genesis-code_bug_hunt_lite_r1_20260623_211909"
+      ;;
+    cursor_composer_session_continuity_v1)
+      echo ".lab/code_bug_hunt_genesis-code_bug_hunt_lite_r1_20260623_213536"
+      ;;
+    *)
+      echo "unknown case: $1" >&2
+      return 1
+      ;;
+  esac
+}
 
 : >"$MANIFEST"
 
 for CASE in floor_show_wrong_run_v1 mcp_fs_bypass_scoring_v1 cursor_composer_session_continuity_v1; do
   echo "=== CASE=$CASE $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" | tee -a "$LOG"
+  BASE_LAB="$(baseline_lab_for_case "$CASE")"
   python3 scripts/team_lab/macro_advance.py \
     --case "$CASE" \
     --suite bug_hunt_necessity_v1 \
@@ -30,7 +43,7 @@ for CASE in floor_show_wrong_run_v1 mcp_fs_bypass_scoring_v1 cursor_composer_ses
     --add-role state_skeptic#0 \
     --round "$ROUND" \
     --fresh-input-count 1 \
-    --baseline-lab "${BASELINE_LABS[$CASE]}" \
+    --baseline-lab "$BASE_LAB" \
     --evidence-manifest "$MANIFEST" \
     --bundle-tag "$TAG" \
     2>&1 | tee -a "$LOG"
