@@ -40,3 +40,16 @@ Rollup: `.lab/macro-evidence/rollup_lite_plus_state_skeptic_v1.json`
 ## Promotion gate
 
 Same as spec: ≥3 fresh inputs, deliverable favors candidate, suppression gate clear, live judges. **Do not auto-promote.**
+
+## Round 1 results (2026-06-24, complete)
+
+Manifest: `.lab/macro-evidence/manifest_lite_plus_state_skeptic_v1.jsonl` · rollup: `rollup_lite_plus_state_skeptic_v1.json` · ~29 min total.
+
+| Case | Deliverable | Suppressed |
+| --- | --- | ---: |
+| `floor_show_wrong_run_v1` | baseline | 5 |
+| `mcp_fs_bypass_scoring_v1` | baseline | 18 |
+| `cursor_composer_session_continuity_v1` | candidate | 6 |
+| **Bundle** | **2 baseline / 1 candidate** (33% win) | **29** |
+
+**Verdict: hold** — worse than Lite+Trace Round 1 (2 candidate / 1 tie). Suppression gate still blocks ADD. **Park Lite+State Skeptic** alongside Lite+Trace; synthesis remains the bottleneck, not seat selection on this lane.
