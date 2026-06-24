@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
   "suiteId": "bug_hunt_necessity_v1",
-  "teamId": "code_bug_hunt_lite_plus_trace",
+  "teamId": "code_bug_hunt_lite_plus_state_skeptic",
   "round": 1,
-  "labTeamId": "lab_code_bug_hunt_lite_plus_trace_r1",
+  "labTeamId": "lab_code_bug_hunt_lite_plus_state_skeptic_r1_candidate",
   "baseTeamId": "code_bug_hunt",
   "promotionClass": "composition",
   "roles": {
@@ -51,34 +51,27 @@
       "templateHash": "258485600dc39475",
       "templateChangedFromBuiltIn": false
     },
-    "trace_mapper#0": {
-      "skillId": "trace_mapper",
+    "state_skeptic#0": {
+      "skillId": "state_skeptic",
       "instanceIndex": 1,
-      "skillName": "Trace Mapper",
-      "labSkillId": "trace_mapper",
-      "originRoleKey": "trace_mapper#0",
-      "provenance": "incumbent",
-      "bankedAtRound": null,
-      "sourceLab": "code_bug_hunt_champion-r7_r7_20260622_231358",
-      "template": "Map the bug through the likely layers: UI, presenter/model, engine, store, contract, persisted file, external CLI. Name the truth owner and the first layer likely to be lying. CRUCIAL: name the SEAM the bug crosses \u2014 the boundary between two systems (e.g. AppKit\u2194SwiftUI, app\u2194CLI, store\u2194view, network\u2194state). Bugs live at seams: each side can look correct in isolation while the CROSSING fails, so the seam is surrounded by adjacent truths. A proof of one side is a proximity trap; the real proof must traverse the whole seam end to end.",
-      "templateHash": "4a4afc9c652a5395",
+      "skillName": "State Skeptic",
+      "labSkillId": "state_skeptic",
+      "originRoleKey": "state_skeptic#0",
+      "provenance": "banked",
+      "bankedAtRound": 6,
+      "sourceLab": "code_bug_hunt_candidate-r6_r6_20260622_181258",
+      "template": "Assume the bug is caused by duplicated state, stale state, optimistic UI, missing persistence, or a drifted snapshot. Look for places the UI can display truth it does not own.",
+      "templateHash": "16af5f2778ee3ff7",
       "templateChangedFromBuiltIn": false
     }
   },
   "macroDelta": {
     "kind": "forward_add",
     "addedRoles": [
-      "trace_mapper#0"
+      "state_skeptic#0"
     ],
     "baseTeamId": "code_bug_hunt_lite",
     "donorTeamId": "code_bug_hunt"
   },
-  "macroStatus": "parked",
-  "macroEvidence": {
-    "verdict": "hold",
-    "report": "docs/team-lab/reports/hardened_writer_v1_negative_experiment.md",
-    "rollupR1": ".lab/macro-evidence/rollup_r1_metric_fix.json",
-    "reason": "Trace forward_select failed live deliverable and writer v2; synthesis blocks ADD"
-  },
-  "configHash": "81d6a57af4194a58"
+  "configHash": "cf3f28fc3bf658e4"
 }

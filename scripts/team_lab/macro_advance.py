@@ -153,7 +153,7 @@ def main() -> int:
     cand_team = f"{base.get('teamId', 'team')}_plus_{args.add_roles[0].split('#')[0]}"
     overlay = forward_add_overlay(base, donor, args.add_roles, round_no=args.round, suite_id=suite_id)
     overlay["teamId"] = cand_team
-    overlay["labTeamId"] = f"lab_{cand_team}_r{args.round}"
+    overlay["labTeamId"] = f"lab_{cand_team}_r{args.round}_candidate"
 
     suite_dir = args.baseline_overlay.parent
     if suite_dir.name != suite_id.split("_v")[0] and "bug_hunt" in str(suite_dir):
@@ -188,7 +188,7 @@ def main() -> int:
                 "--round",
                 str(args.round),
                 "--variant",
-                f"genesis-{roster_id}-hardened",
+                f"genesis-{roster_id}-r{args.round}",
                 "--champion-overlay",
                 str(args.baseline_overlay),
                 "--record-genesis",
@@ -214,7 +214,7 @@ def main() -> int:
                 "--round",
                 str(args.round),
                 "--variant",
-                f"macro-{cand_team}-hardened",
+                f"macro-{cand_team}-r{args.round}",
                 "--candidate-overlay",
                 str(cand_overlay_path),
             ]
@@ -233,7 +233,7 @@ def main() -> int:
         args.suite,
         "--macro-operation",
         "forward_select",
-        "--fresh-input-count",
+        "--round",
         str(fresh_input_count),
         "--added-role",
         *args.add_roles,

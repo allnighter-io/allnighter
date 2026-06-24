@@ -70,6 +70,31 @@ def write_overlay(path: Path, overlay: dict[str, Any]) -> None:
     path.write_text(json.dumps(overlay, indent=2) + "\n")
 
 
+def build_lite_plus_role(
+    lite_path: Path,
+    full_path: Path,
+    out_path: Path,
+    *,
+    added_role: str,
+    team_suffix: str,
+    round_no: int = 1,
+    suite_id: str = "bug_hunt_necessity_v1",
+) -> dict[str, Any]:
+    lite = json.loads(lite_path.read_text())
+    full = json.loads(full_path.read_text())
+    overlay = forward_add_overlay(
+        lite,
+        full,
+        [added_role],
+        round_no=round_no,
+        suite_id=suite_id,
+    )
+    overlay["teamId"] = f"code_bug_hunt_lite_plus_{team_suffix}"
+    overlay["labTeamId"] = f"lab_code_bug_hunt_lite_plus_{team_suffix}_r{round_no}_candidate"
+    write_overlay(out_path, overlay)
+    return overlay
+
+
 def build_lite_plus_trace(
     lite_path: Path,
     full_path: Path,
@@ -88,6 +113,6 @@ def build_lite_plus_trace(
         suite_id=suite_id,
     )
     overlay["teamId"] = "code_bug_hunt_lite_plus_trace"
-    overlay["labTeamId"] = f"lab_code_bug_hunt_lite_plus_trace_r{round_no}"
+    overlay["labTeamId"] = f"lab_code_bug_hunt_lite_plus_trace_r{round_no}_candidate"
     write_overlay(out_path, overlay)
     return overlay
