@@ -46,7 +46,7 @@ struct ConversationHomeMapper {
                 id: projectId,
                 name: projectName(for: projectId),
                 icon: .folder,
-                isExpanded: false,
+                isExpanded: true,
                 threads: threads,
                 now: now
             )
@@ -93,9 +93,28 @@ struct ConversationHomeMapper {
             id: thread.id,
             title: thread.title,
             relativeAge: relativeAge(from: thread.updatedAt, now: now),
+            statusLabel: statusLabel(for: thread),
             isUnread: thread.readState.hasUnread,
-            isPending: thread.displayState == .pending || thread.displayState == .running
+            isPending: thread.displayState == .pending || thread.displayState == .running,
+            needsAttention: thread.readState.unreadNeedsAttention
         )
+    }
+
+    private func statusLabel(for thread: RemoteThreadSummary) -> String? {
+        if thread.readState.unreadNeedsAttention {
+            return "Needs you"
+        }
+        return statusLabel(for: thread.displayState)
+    }
+
+    private func statusLabel(for state: ThreadDisplayState) -> String? {
+        switch state {
+        case .running: "Running"
+        case .pending: "Pending"
+        case .replied: "Unread"
+        case .draft: "Draft"
+        case .idle: nil
+        }
     }
 
     private func projectName(for projectId: String) -> String {

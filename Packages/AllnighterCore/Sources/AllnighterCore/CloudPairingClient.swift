@@ -1,5 +1,4 @@
 import Foundation
-import AllnighterCore
 
 public enum CloudPairingClientError: Error, Equatable, Sendable {
     case notConnected

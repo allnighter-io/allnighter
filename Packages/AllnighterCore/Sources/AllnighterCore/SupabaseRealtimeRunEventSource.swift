@@ -1,5 +1,4 @@
 import Foundation
-import AllnighterCore
 
 public protocol RemoteRunEventStreamingRelay: RemoteMacRelay {
     func runEventStream(

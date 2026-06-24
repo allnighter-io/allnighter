@@ -46,6 +46,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Config", isDirectory: true)
     }
 
+    /// `…/Allnighter/Config/Remote/` — remote pairing credentials and agent keys.
+    public static var remote: URL {
+        config.appendingPathComponent("Remote", isDirectory: true)
+    }
+
     /// `…/Allnighter/Coordinator/` — resident `alln serve` durable state.
     public static var coordinator: URL {
         support.appendingPathComponent("Coordinator", isDirectory: true)

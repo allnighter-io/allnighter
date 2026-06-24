@@ -23,6 +23,16 @@ public struct WorkerRunOutcome: Sendable, Equatable {
     /// EXCLUDED from `durationMs` on both, so durationMs stays pure work-time. This is the
     /// sub-portion of `WorkerAnswer.queueMs` attributable to queuing behind earlier long runners.
     public var gateWaitMs: Int?
+    public var firstStdoutAt: Date?
+    public var firstStderrAt: Date?
+    public var firstParsedEventAt: Date?
+    public var firstAnswerDeltaAt: Date?
+    public var lastAnswerDeltaAt: Date?
+    public var rawStdoutChunkCount: Int = 0
+    public var rawStderrChunkCount: Int = 0
+    public var parsedStreamEventCount: Int = 0
+    public var answerDeltaCount: Int = 0
+    public var reasoningDeltaCount: Int = 0
     public var exitCode: Int?
     /// Sourced capacity/cooldown fact from raw CLI output (nonzero exit only).
     public var capacityObservation: CapacityObservation?
@@ -454,6 +464,52 @@ public struct WorkerRunner: Sendable {
                 // TTFT: stamp the first visible streamed delta (answer or reasoning) — the
                 // "dead air" the user waits through before anything renders.
                 var firstTokenAt: Date?
+                var firstStdoutAt: Date?
+                var firstStderrAt: Date?
+                var firstParsedEventAt: Date?
+                var firstAnswerDeltaAt: Date?
+                var lastAnswerDeltaAt: Date?
+                var rawStdoutChunkCount = 0
+                var rawStderrChunkCount = 0
+                var parsedStreamEventCount = 0
+                var answerDeltaCount = 0
+                var reasoningDeltaCount = 0
+
+                func recordParsed(_ streamEvent: WorkerStreamEvent) {
+                    if firstParsedEventAt == nil { firstParsedEventAt = now() }
+                    parsedStreamEventCount += 1
+                    switch streamEvent {
+                    case .answerDelta:
+                        let t = now()
+                        if firstTokenAt == nil { firstTokenAt = t }
+                        if firstAnswerDeltaAt == nil { firstAnswerDeltaAt = t }
+                        lastAnswerDeltaAt = t
+                        answerDeltaCount += 1
+                    case .reasoningDelta:
+                        if firstTokenAt == nil { firstTokenAt = now() }
+                        reasoningDeltaCount += 1
+                    default:
+                        break
+                    }
+                }
+
+                func applyStreamMetrics(to outcome: inout WorkerRunOutcome) {
+                    outcome.firstTokenAt = firstTokenAt
+                    if let firstTokenAt {
+                        outcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
+                    }
+                    outcome.firstStdoutAt = firstStdoutAt
+                    outcome.firstStderrAt = firstStderrAt
+                    outcome.firstParsedEventAt = firstParsedEventAt
+                    outcome.firstAnswerDeltaAt = firstAnswerDeltaAt
+                    outcome.lastAnswerDeltaAt = lastAnswerDeltaAt
+                    outcome.rawStdoutChunkCount = rawStdoutChunkCount
+                    outcome.rawStderrChunkCount = rawStderrChunkCount
+                    outcome.parsedStreamEventCount = parsedStreamEventCount
+                    outcome.answerDeltaCount = answerDeltaCount
+                    outcome.reasoningDeltaCount = reasoningDeltaCount
+                }
+
                 do {
                     for try await event in streamingRunner.runStreaming(
                         command: spawnCommand, args: spawnArgs, stdin: stdin,
@@ -464,15 +520,22 @@ public struct WorkerRunner: Sendable {
                         case .started:
                             break
                         case .stdout(let data):
+                            rawStdoutChunkCount += 1
+                            if firstStdoutAt == nil { firstStdoutAt = now() }
                             StreamDebugLog.log("STDOUT \(StreamDebugLog.clip(String(decoding: data, as: UTF8.self)))")
                             let parsed = parser.receiveStdout(data)
                             for streamEvent in parsed {
-                                if firstTokenAt == nil, Self.isVisibleDelta(streamEvent) { firstTokenAt = now() }
+                                recordParsed(streamEvent)
                                 StreamDebugLog.log("  → \(Self.describe(streamEvent))"); continuation.yield(streamEvent)
                             }
                         case .stderr(let data):
+                            rawStderrChunkCount += 1
+                            if firstStderrAt == nil { firstStderrAt = now() }
                             StreamDebugLog.log("STDERR \(StreamDebugLog.clip(String(decoding: data, as: UTF8.self)))")
-                            for streamEvent in parser.receiveStderr(data) { continuation.yield(streamEvent) }
+                            for streamEvent in parser.receiveStderr(data) {
+                                recordParsed(streamEvent)
+                                continuation.yield(streamEvent)
+                            }
                         case .completed(let result):
                             let fileText = outputFileURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
                             let finalText = parser.finalAnswer(result: result, outputFileText: fileText)
@@ -495,10 +558,7 @@ public struct WorkerRunner: Sendable {
                                 outcome.capturedSessionId = WorkerSessionCapture.capturedDirEntry(
                                     before: dc.before, after: Self.directoryEntryNames(dc.url))
                             }
-                            outcome.firstTokenAt = firstTokenAt
-                            if let firstTokenAt {
-                                outcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
-                            }
+                            applyStreamMetrics(to: &outcome)
                             outcome.gateWaitMs = gateWaitMs
                             StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1) session=\(outcome.capturedSessionId ?? "-")")
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
@@ -506,6 +566,7 @@ public struct WorkerRunner: Sendable {
                             var outcome = WorkerRunOutcome(status: .failed, startedAt: startedAt, finishedAt: now())
                             outcome.errorKind = .missingCLI
                             outcome.errorReason = launchError
+                            applyStreamMetrics(to: &outcome)
                             outcome.gateWaitMs = gateWaitMs
                             StreamDebugLog.log("OUTCOME launch-failed: \(launchError)")
                             continuation.yield(.failed(outcome))
@@ -517,12 +578,8 @@ public struct WorkerRunner: Sendable {
                             var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
-                                overrideFinalText: finalText,
-                                timeoutKind: .idle,
-                                spawnCommand: spawnCommand,
-                                spawnArgCount: spawnArgs.count,
-                                spawnWorkingDir: spawnWorkingDir,
                                 invocationKind: invocationKind)
+                            applyStreamMetrics(to: &outcome)
                             outcome.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         case .cancelled(let partialOut, let partialErr):
@@ -539,6 +596,7 @@ public struct WorkerRunner: Sendable {
                                 spawnArgCount: spawnArgs.count,
                                 spawnWorkingDir: spawnWorkingDir,
                                 invocationKind: invocationKind)
+                            applyStreamMetrics(to: &outcome)
                             outcome.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         }

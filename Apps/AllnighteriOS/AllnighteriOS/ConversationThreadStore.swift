@@ -18,6 +18,7 @@ enum ConversationThreadLoadStatus: Equatable {
     case idle
     case loading(threadId: String)
     case loaded(threadId: String)
+    case cached(threadId: String, serverTime: Date, cachedAt: Date)
     case failed(threadId: String, ConversationThreadLoadFailure)
 }
 
@@ -57,6 +58,10 @@ final class ConversationThreadStore {
         self.deviceSealingKey = deviceSealingKey
         self.mapper = mapper
         self.state = ConversationThreadStoreState(snapshot: initialSnapshot, status: .idle)
+    }
+
+    func applySnapshot(_ snapshot: ConversationThreadSnapshot, threadId: String) {
+        state = ConversationThreadStoreState(snapshot: snapshot, status: .loaded(threadId: threadId))
     }
 
     func load(threadId: String) async {

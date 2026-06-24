@@ -139,4 +139,60 @@ public enum PendingItemJSONMapper {
     private static func mapOrigin(_ origin: PendingOrigin) -> PendingItemJSON.ItemInfo.Origin {
         PendingItemJSON.ItemInfo.Origin(rawValue: origin.rawValue) ?? .cli
     }
+
+    /// Deterministic preview / iOS fixture builder (same module as nested JSON types).
+    public static func previewItem(
+        id: String,
+        prompt: String,
+        status: PendingItemJSON.ItemInfo.Status = .pending,
+        modelId: String? = nil,
+        teamPresetId: String? = nil,
+        origin: PendingItemJSON.ItemInfo.Origin = .ios,
+        now: Date = Date()
+    ) -> PendingItemJSON {
+        let iso = ISO8601DateFormatter()
+        let stamp = iso.string(from: now)
+        let workerIds = modelId.map { [$0] } ?? []
+        return PendingItemJSON(
+            contractVersion: ContractRegistry.contractVersion,
+            pendingItem: .init(
+                id: id,
+                status: status,
+                title: PendingItemDerivation.title(from: prompt),
+                kind: .workerChat,
+                origin: origin,
+                threadId: nil,
+                promptExcerpt: PendingItemDerivation.promptExcerpt(prompt),
+                createdAt: stamp,
+                updatedAt: stamp,
+                nextWakeAt: nil,
+                blockedReason: nil,
+                needsAttention: false
+            ),
+            target: .init(
+                workerIds: workerIds,
+                teamPresetId: teamPresetId,
+                preferredWorkerIds: workerIds,
+                fallbackWorkerIds: [],
+                requiredWorkerIds: [],
+                minWorkers: nil
+            ),
+            policy: .init(
+                selection: "selectedOnly",
+                attentionMode: "present",
+                drainMode: "drainWhenReady",
+                maxAttempts: nil,
+                retryFloorSeconds: nil,
+                allowDegraded: false,
+                requireKnownAvailable: false,
+                createSuggestedFollowUps: false
+            ),
+            safety: .init(
+                workingDir: nil,
+                requiresTrustedDevice: false,
+                privacyLabel: nil
+            ),
+            audit: .init(traceId: "preview", pendingStorePath: "/preview")
+        )
+    }
 }

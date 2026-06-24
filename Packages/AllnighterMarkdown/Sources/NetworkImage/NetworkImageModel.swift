@@ -1,8 +1,11 @@
 import SwiftUI
+import Observation
 
-@MainActor final class NetworkImageModel: ObservableObject {
-  @Published private(set) var source: ImageSource?
-  @Published private(set) var image: NetworkImageState = .empty
+@MainActor
+@Observable
+final class NetworkImageModel {
+  private(set) var source: ImageSource?
+  private(set) var image: NetworkImageState = .empty
 
   private var transaction = Transaction()
   private var imageLoader: NetworkImageLoader = DefaultNetworkImageLoader.shared

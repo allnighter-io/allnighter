@@ -62,8 +62,10 @@ final class ConversationHomeStoreTests: XCTestCase {
                     id: "old",
                     title: "Last known thread",
                     relativeAge: "1 hour ago",
+                    statusLabel: nil,
                     isUnread: false,
-                    isPending: false
+                    isPending: false,
+                    needsAttention: false
                 ),
             ],
             projects: []

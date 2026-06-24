@@ -8,8 +8,10 @@ import CryptoKit
 import XCTest
 @testable import AllnighteriOS
 
+private let remoteControlSenderFixtureNow = Date(timeIntervalSince1970: 1_751_160_000)
+
+@MainActor
 final class RemoteControlSenderTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1_751_160_000)
 
     func testStopAllSendsTypedEmptyCommand() async throws {
         let signingKey = Curve25519.Signing.PrivateKey()
@@ -19,7 +21,7 @@ final class RemoteControlSenderTests: XCTestCase {
             deviceId: "device_1",
             deviceSigningKey: signingKey,
             requestId: { " req_stop_all " },
-            now: { self.now }
+            now: { remoteControlSenderFixtureNow }
         )
 
         let result = try await sender.stopAll()
@@ -43,7 +45,7 @@ final class RemoteControlSenderTests: XCTestCase {
             deviceId: "device_1",
             deviceSigningKey: Curve25519.Signing.PrivateKey(),
             requestId: { "req_stop" },
-            now: { self.now }
+            now: { remoteControlSenderFixtureNow }
         )
 
         _ = try await sender.stopRun(runId: " run_1 ")
@@ -66,7 +68,7 @@ final class RemoteControlSenderTests: XCTestCase {
             deviceId: "device_1",
             deviceSigningKey: Curve25519.Signing.PrivateKey(),
             requestId: { "req_read" },
-            now: { self.now }
+            now: { remoteControlSenderFixtureNow }
         )
 
         _ = try await sender.markThreadRead(threadId: " thread_1 ", throughTurnId: " turn_9 ")
@@ -90,7 +92,7 @@ final class RemoteControlSenderTests: XCTestCase {
             deviceId: "device_1",
             deviceSigningKey: Curve25519.Signing.PrivateKey(),
             requestId: { "req_stop" },
-            now: { self.now }
+            now: { remoteControlSenderFixtureNow }
         )
 
         do {
@@ -109,7 +111,7 @@ final class RemoteControlSenderTests: XCTestCase {
             requestId: requestId,
             accepted: true,
             outcome: .accepted,
-            serverTime: now,
+            serverTime: remoteControlSenderFixtureNow,
             signature: "mac-signature"
         )
     }

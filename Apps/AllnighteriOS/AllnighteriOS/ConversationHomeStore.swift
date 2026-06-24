@@ -17,6 +17,7 @@ enum ConversationHomeLoadStatus: Equatable {
     case idle
     case loading
     case loaded(serverTime: Date)
+    case cached(serverTime: Date, cachedAt: Date)
     case failed(ConversationHomeLoadFailure)
 }
 

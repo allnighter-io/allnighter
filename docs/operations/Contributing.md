@@ -14,6 +14,10 @@
 - Shared models and engine types belong in `Packages/AllnighterCore/`.
 - Mac-only app shell and UI stay in `Apps/AllnighterMac/`.
 - iOS UI and remote transport stay in `Allnighter/` or `Apps/AllnighteriOS/`.
+- Owned SwiftUI state follows `docs/operations/SwiftUI_State_Rules.md`.
+- Use `@Observable` + `@State`/`@Environment`/`@Bindable` for app-owned UI
+  state; do not add `ObservableObject`, `@Published`, `@ObservedObject`,
+  `@StateObject`, or `@EnvironmentObject`.
 - SwiftUI views render truth; they do not own durable run semantics.
 - Prefer `async`/`await` and structured concurrency for WebSocket and process I/O.
 

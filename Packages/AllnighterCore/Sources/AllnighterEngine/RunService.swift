@@ -28,6 +28,9 @@ public struct RunRequest: Sendable, Equatable {
     /// plain `RunService.run` ignores it. Whether to run the chain at all is the caller's
     /// decision (the CLI `--try-fix` flag), not a field here.
     public var executorTeamId: String?
+    /// Optional caller-seeded timing ladder. GUI callers add composer/context/thread
+    /// stamps before the engine owns worker resolution and process timing.
+    public var timing: RunTimingReport?
 
     public init(
         message: String,
@@ -41,7 +44,8 @@ public struct RunRequest: Sendable, Equatable {
         type: String? = nil,
         context: String? = nil,
         deliveries: [IncludedAttachmentDelivery] = [],
-        executorTeamId: String? = nil
+        executorTeamId: String? = nil,
+        timing: RunTimingReport? = nil
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -55,6 +59,7 @@ public struct RunRequest: Sendable, Equatable {
         self.context = context
         self.deliveries = deliveries
         self.executorTeamId = executorTeamId
+        self.timing = timing
     }
 }
 
@@ -221,6 +226,9 @@ public actor RunService {
         // Queue-wait clock: stamp BEFORE the write-lock acquire (the real blocking wait) and
         // resolution/staging, so `queueMs = worker.startedAt − requestedAt` captures all of it.
         let requestedAt = now()
+        var timing = request.timing ?? RunTimingReport()
+        timing.stamp(RunTimingKey.runRequested, at: requestedAt)
+        timing.set(RunTimingKey.contextBytes, int: request.context?.utf8.count ?? 0)
         let root = RunWriteLock.normalize(request.repoRoot) ?? request.repoRoot
         guard RootNormalization.observeRootState(key: root) == .available else {
             return .failure(.repoRootUnavailable(root))
@@ -294,7 +302,7 @@ public actor RunService {
                 effort: effort, repoRoot: root,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
-                deliveries: request.deliveries, requestedAt: requestedAt, events: events
+                deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events
             )
         }
 
@@ -307,7 +315,7 @@ public actor RunService {
             preset: preset, prompt: answerPrompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
-            deliveries: request.deliveries, events: events
+            deliveries: request.deliveries, timing: timing, events: events
         )
     }
 
@@ -328,8 +336,10 @@ public actor RunService {
         runner: WorkerRunner,
         deliveries: [IncludedAttachmentDelivery] = [],
         requestedAt: Date? = nil,
+        timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?
     ) async -> Result<TeamRun, RunServiceError> {
+        var timing = seedTiming
         var seq: Int64 = 0
         func emit(_ kind: String, _ payload: [String: JSONValue]) {
             seq += 1
@@ -337,6 +347,7 @@ public actor RunService {
         }
 
         let bench = readyModels()
+        timing.stamp(RunTimingKey.workerResolveStart)
         let resolved = TeamResolver.resolve(
             team: preset, requestLane: preset.lane, requestEffort: effort, readyModels: bench
         )
@@ -369,6 +380,13 @@ public actor RunService {
         guard let manifest = registry.manifest(for: model) else {
             return .failure(.noWorker("no driver manifest for \(model.driverId)"))
         }
+        timing.stamp(RunTimingKey.workerResolveEnd)
+        timing.set(RunTimingKey.modelId, string: model.id)
+        timing.set(RunTimingKey.modelDisplayName, string: model.displayName)
+        timing.set(RunTimingKey.sourceId, string: manifest.id)
+        timing.set(RunTimingKey.commandModelFlag, string: model.resolvedLabel(at: effort))
+        timing.set(RunTimingKey.streamingCapable, bool: manifest.canStream)
+        timing.stamp(RunTimingKey.driverCommandResolved)
 
         // Worker_Session_Continuity: resume THIS thread's vendor session for (source, model)
         // if one's alive; on a first turn / model switch, mint or capture a fresh one.
@@ -430,6 +448,8 @@ public actor RunService {
             // is the truth (lane safety keys on repo root, not this field).
             mutating: true, executionSourceId: model.driverId
         )
+        timing.count(RunTimingKey.runStoreSaveCount, by: 1)
+        run.timing = timing
         try? runStore.save(run, models: models)
 
         // Stream the single execution worker live when it can: emit accumulated
@@ -459,6 +479,10 @@ public actor RunService {
             }
             let startedAt = now()
             var firstTokenAt: Date?
+            var firstAnswerDeltaAt: Date?
+            var lastAnswerDeltaAt: Date?
+            var warmAnswerDeltaCount = 0
+            var warmReasoningDeltaCount = 0
             do {
                 let warmKey = ExternalWorkerSession.Key(
                     threadId: threadId, sourceId: manifest.id, modelId: model.id, repoRoot: repoRoot)
@@ -471,10 +495,16 @@ public actor RunService {
                 for try await event in try await warm.prompt(assembled) {
                     switch event {
                     case .answerDelta(let text):
-                        if firstTokenAt == nil { firstTokenAt = now() }
+                        let t = now()
+                        if firstTokenAt == nil { firstTokenAt = t }
+                        if firstAnswerDeltaAt == nil { firstAnswerDeltaAt = t }
+                        lastAnswerDeltaAt = t
+                        warmAnswerDeltaCount += 1
                         let due = answer.append(text)
                         if due || now().timeIntervalSince(lastAnswerEmit) >= 0.1 { emitWarmAnswer() }
                     case .reasoningDelta(let text):
+                        if firstTokenAt == nil { firstTokenAt = now() }
+                        warmReasoningDeltaCount += 1
                         reasoning += text; emitWarmReasoning()
                     case .toolActivity:
                         break
@@ -496,6 +526,10 @@ public actor RunService {
                 // the run to its rollout). The warm worker persists in-memory continuity already;
                 // this is the durable record.
                 warmOutcome.capturedSessionId = await warm.vendorSessionId()
+                warmOutcome.firstAnswerDeltaAt = firstAnswerDeltaAt
+                warmOutcome.lastAnswerDeltaAt = lastAnswerDeltaAt
+                warmOutcome.answerDeltaCount = warmAnswerDeltaCount
+                warmOutcome.reasoningDeltaCount = warmReasoningDeltaCount
                 outcome = warmOutcome
             } catch {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")
@@ -598,6 +632,28 @@ public actor RunService {
         if let durationMs = answer.durationMs { workerPayload["durationMs"] = .int(durationMs) }
         if let reason = answer.errorReason { workerPayload["reason"] = .string(reason) }
         emit(RunEventKind.workerStatusChanged, workerPayload)
+        timing.stamp(RunTimingKey.processSpawnStart, at: outcome.startedAt ?? startedAt)
+        if let firstStderrAt = outcome.firstStderrAt {
+            timing.stamp(RunTimingKey.firstStderr, at: firstStderrAt)
+        }
+        if let firstStdoutAt = outcome.firstStdoutAt {
+            timing.stamp(RunTimingKey.firstStdoutChunk, at: firstStdoutAt)
+        }
+        if let firstParsedEventAt = outcome.firstParsedEventAt {
+            timing.stamp(RunTimingKey.firstParsedEvent, at: firstParsedEventAt)
+        }
+        if let firstAnswerDeltaAt = outcome.firstAnswerDeltaAt {
+            timing.stamp(RunTimingKey.firstAnswerDelta, at: firstAnswerDeltaAt)
+        }
+        if let lastAnswerDeltaAt = outcome.lastAnswerDeltaAt {
+            timing.stamp(RunTimingKey.lastAnswerDelta, at: lastAnswerDeltaAt)
+        }
+        timing.stamp(RunTimingKey.processExit, at: outcome.finishedAt ?? now())
+        timing.count(RunTimingKey.rawStdoutChunks, by: outcome.rawStdoutChunkCount)
+        timing.count(RunTimingKey.rawStderrChunks, by: outcome.rawStderrChunkCount)
+        timing.count(RunTimingKey.parsedStreamEvents, by: outcome.parsedStreamEventCount)
+        timing.count(RunTimingKey.answerDeltaCount, by: outcome.answerDeltaCount)
+        timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.reasoningDeltaCount)
         run.workerAnswers = [answer]
         run.status = answer.status == .done ? .complete : .failed
         if answer.status == .done, let text = answer.output {
@@ -621,6 +677,9 @@ public actor RunService {
             "to": .string(run.status.rawValue), "origin": .string(origin.rawValue),
             "presetId": .string(preset.id)
         ])
+        timing.stamp(RunTimingKey.runOutcomePersisted)
+        timing.count(RunTimingKey.runStoreSaveCount, by: 1)
+        run.timing = timing
         try? runStore.save(run, models: models)
         return .success(run)
     }
@@ -639,15 +698,19 @@ public actor RunService {
         runId: String,
         runner: WorkerRunner,
         deliveries: [IncludedAttachmentDelivery] = [],
+        timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?
     ) async -> Result<TeamRun, RunServiceError> {
+        var timing = seedTiming
         let bench = readyModels()
+        timing.stamp(RunTimingKey.workerResolveStart)
         let resolved = TeamResolver.resolve(
             team: preset, requestLane: lane, requestEffort: effort, readyModels: bench
         )
         guard resolved.isRunnable else {
             return .failure(.teamResolution(resolved.blockReason ?? "team cannot run", code: "DEFAULT_TEAM_INVALID"))
         }
+        timing.stamp(RunTimingKey.workerResolveEnd)
 
         let store = runStore
         let allModels = models
@@ -671,6 +734,10 @@ public actor RunService {
         )
         await forwarder?.value
         run = stamped(run)
+        timing.stamp(RunTimingKey.runOutcomePersisted)
+        timing.count(RunTimingKey.runStoreSaveCount, by: 1)
+        run.timing = timing
+        try? runStore.save(run, models: models)
         return .success(run)
     }
 }

@@ -9,9 +9,15 @@ import SwiftUI
 
 @main
 struct AllnighteriOSApp: App {
+    @State private var appModel = RemoteAppModel()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(appModel)
+                .task {
+                    await appModel.activate()
+                }
         }
     }
 }

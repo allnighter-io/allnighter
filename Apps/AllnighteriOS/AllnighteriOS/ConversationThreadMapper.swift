@@ -10,18 +10,40 @@ import Foundation
 
 struct ConversationThreadMapper {
     func snapshot(from detail: RemoteThreadDetail) -> ConversationThreadSnapshot {
-        ConversationThreadSnapshot(
+        let readThroughTurnId = detail.summary.readState.latestUnreadTurnId
+            ?? (detail.summary.readState.hasUnread ? detail.turns.last?.id : nil)
+
+        return ConversationThreadSnapshot(
             id: detail.id,
             title: detail.summary.title,
+            statusLabel: statusLabel(for: detail.summary.displayState),
+            isActive: detail.summary.displayState == .running || detail.summary.displayState == .pending,
+            hasUnread: detail.summary.readState.hasUnread,
+            readThroughTurnId: readThroughTurnId,
             turns: detail.turns.map(turn(from:))
         )
     }
 
+    private func statusLabel(for state: ThreadDisplayState) -> String? {
+        switch state {
+        case .running: "Running on your Mac"
+        case .pending: "Queued on your Mac"
+        case .replied: "Unread reply"
+        case .draft: "Draft"
+        case .idle: nil
+        }
+    }
+
     private func turn(from remoteTurn: RemoteThreadTurnDetail) -> ConversationThreadTurn {
-        ConversationThreadTurn(
+        let workerId = remoteTurn.author == .worker ? remoteTurn.workerId : nil
+        return ConversationThreadTurn(
             id: remoteTurn.id,
             role: role(from: remoteTurn),
             text: normalizedText(remoteTurn.text),
+            runId: remoteTurn.runId,
+            workerId: workerId,
+            driverId: workerId.map { ConversationAgentPresentation.driverId(for: $0) },
+            agentTitle: workerId.map { ConversationAgentPresentation.agentTitle(for: $0) },
             isPending: remoteTurn.status == .queued || remoteTurn.status == .running,
             isFailed: remoteTurn.status == .failed || remoteTurn.status == .timedOut,
             isTruncated: remoteTurn.partialOutputTruncated,

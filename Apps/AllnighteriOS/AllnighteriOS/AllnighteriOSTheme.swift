@@ -89,3 +89,52 @@ enum IOSRadius {
     static let lg: CGFloat = 18
     static let xl: CGFloat = 24
 }
+
+struct IOSStatusBanner: View {
+    enum Tone {
+        case neutral
+        case positive
+        case warning
+    }
+
+    let text: String
+    let tone: Tone
+
+    var body: some View {
+        Text(text)
+            .font(IOSFont.label)
+            .foregroundStyle(foregroundColor)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, IOSSpace.s4)
+            .padding(.vertical, IOSSpace.s3)
+            .background(backgroundColor, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous)
+                    .strokeBorder(borderColor, lineWidth: 1)
+            }
+    }
+
+    private var foregroundColor: Color {
+        switch tone {
+        case .neutral: IOSColor.textSecondary
+        case .positive: IOSColor.accentText
+        case .warning: IOSColor.textPrimary
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch tone {
+        case .neutral: IOSColor.surface
+        case .positive: IOSColor.accentSurface
+        case .warning: IOSColor.raised
+        }
+    }
+
+    private var borderColor: Color {
+        switch tone {
+        case .neutral: IOSColor.borderDefault
+        case .positive: IOSColor.accentBorder
+        case .warning: IOSColor.borderStrong
+        }
+    }
+}

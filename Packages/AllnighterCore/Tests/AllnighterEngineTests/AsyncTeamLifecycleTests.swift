@@ -90,6 +90,55 @@ final class TeamStartTests: XCTestCase {
         }
     }
 
+    func testStartPinsModelOnSingleWorkerMutatingTeam() async throws {
+        try await asyncTeamLifecycleGate.run {
+            let root = AsyncTeamTestHarness.tempRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let sonnet = Model(
+                id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet",
+                driverId: "claude_code", role: .answerer
+            )
+            let pinTeam = TeamPreset(
+                id: "pin_test", displayName: "Pin", lane: .code, outputKind: .plan,
+                mutating: true, executionSourceId: "claude_code", defaultEffort: .med,
+                workerSpecs: [
+                    TeamWorkerSpec(id: "w1", skillId: SkillCatalog.directChatSkillId, purpose: .answer,
+                                   preferredModelId: "model_opus")
+                ],
+                lead: TeamLeadSpec(skillId: SkillCatalog.directChatSkillId, preferredModelId: "model_opus"),
+                builtIn: false
+            )
+            let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
+            let mock = MockCommandRunner(scripts: ["claude": .init(stdout: AsyncTeamTestHarness.planMarkdown, delay: .milliseconds(200))])
+            let service = AsyncTeamService(
+                models: [AsyncTeamTestHarness.opus(), sonnet],
+                registry: registry,
+                teams: [pinTeam],
+                config: ToolConfig(maxConcurrentTeamRuns: 2, maxTeamRunDepth: 1),
+                runStore: RunStore(rootDirectory: root.appendingPathComponent("Runs")),
+                commandRunner: mock,
+                governor: TeamGovernor(directory: root.appendingPathComponent("gov"), capacity: 2),
+                idempotency: IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json")),
+                idFactory: { "run-pin-1" }
+            )
+            let ready = [AsyncTeamTestHarness.opus(), sonnet]
+            let outcome = await service.start(
+                AsyncTeamStartRequest(
+                    question: "pin sonnet", lane: .code, teamPresetId: "pin_test", effort: .med,
+                    modelId: "model_sonnet", originAgent: "ios:test"
+                ),
+                origin: .ios,
+                readyModels: ready
+            )
+            guard case .success(let response) = outcome else {
+                return XCTFail("expected success")
+            }
+            let run = try XCTUnwrap(RunStore(rootDirectory: root.appendingPathComponent("Runs")).load(runId: response.runId))
+            XCTAssertEqual(run.workerAnswers.first?.modelId, "model_sonnet")
+            _ = await service.cancel(runId: response.runId)
+        }
+    }
+
     func testValidStartReturnsRunIdAndDurableJournalBeforeWorkers() async throws {
         try await asyncTeamLifecycleGate.run {
             let root = AsyncTeamTestHarness.tempRoot()

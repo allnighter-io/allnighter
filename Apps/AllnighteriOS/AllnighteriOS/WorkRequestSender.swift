@@ -12,17 +12,29 @@ import Foundation
 struct WorkRequestDraft: Equatable, Sendable {
     var prompt: String
     var threadId: String?
+    var teamPresetId: String?
+    var lane: WorkLane?
+    var effort: EffortLevel?
+    var modelId: String?
     var originConversationId: String?
     var originMessageId: String?
 
     init(
         prompt: String,
         threadId: String? = nil,
+        teamPresetId: String? = nil,
+        lane: WorkLane? = nil,
+        effort: EffortLevel? = nil,
+        modelId: String? = nil,
         originConversationId: String? = nil,
         originMessageId: String? = nil
     ) {
         self.prompt = prompt
         self.threadId = threadId
+        self.teamPresetId = teamPresetId
+        self.lane = lane
+        self.effort = effort
+        self.modelId = modelId
         self.originConversationId = originConversationId
         self.originMessageId = originMessageId
     }
@@ -70,6 +82,10 @@ struct WorkRequestSender {
         let requestId = requestIdProvider().trimmingCharacters(in: .whitespacesAndNewlines)
         let payload = RemoteStartRunPayload(
             prompt: prompt,
+            lane: draft.lane?.rawValue,
+            teamPresetId: normalizedOptional(draft.teamPresetId),
+            effort: draft.effort?.rawValue,
+            modelId: normalizedOptional(draft.modelId),
             threadId: normalizedOptional(draft.threadId),
             originConversationId: normalizedOptional(draft.originConversationId),
             originMessageId: normalizedOptional(draft.originMessageId)

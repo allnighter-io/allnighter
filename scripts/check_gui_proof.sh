@@ -57,7 +57,8 @@ changed_under() {
 
 # Coverage = "<hash> <path>" pairs from every proof.manifest that carries a
 # watcher PASS, plus WAIVERS.manifest. Comment lines (#...) are ignored.
-COVER="$(mktemp)"; trap 'rm -f "$COVER"' EXIT
+TMP_ROOT="${ALLNIGHTER_TMPDIR:-/tmp}"
+COVER="$(mktemp "$TMP_ROOT/alln-gui-proof.XXXXXX")"; trap 'rm -f "$COVER"' EXIT
 while IFS= read -r m; do
   [ -n "$m" ] || continue
   grep -qiE '^#[[:space:]]*watcher:[[:space:]]*PASS\b' "$m" || continue

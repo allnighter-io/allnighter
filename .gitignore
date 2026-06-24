@@ -82,6 +82,7 @@ docs/phases/mockups/
 
 # GUI Visual Proof Gate — transient fixture captures (overwritten each run)
 docs/qa/gui/_captures/
+docs/qa/ios/_captures/
 
 # Team Lab local experiment records (quota-heavy runs, transcripts, model output)
 .lab/

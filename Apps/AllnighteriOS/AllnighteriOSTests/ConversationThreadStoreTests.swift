@@ -41,8 +41,11 @@ final class ConversationThreadStoreTests: XCTestCase {
         XCTAssertEqual(snapshot.turns.map(\.role), [.user, .assistant, .system])
         XCTAssertEqual(snapshot.turns.map(\.text), ["Hello", "Working on it", nil])
         XCTAssertEqual(snapshot.turns.map(\.isPending), [false, true, false])
+        XCTAssertEqual(snapshot.turns.map(\.runId), [nil, nil, nil])
         XCTAssertEqual(snapshot.turns.map(\.isFailed), [false, false, false])
         XCTAssertEqual(snapshot.turns.map(\.isTruncated), [false, true, false])
+        XCTAssertEqual(snapshot.turns[1].workerId, "model_opus#0")
+        XCTAssertEqual(snapshot.turns[1].agentTitle, "Agent (Opus)")
     }
 
     @MainActor
@@ -51,11 +54,19 @@ final class ConversationThreadStoreTests: XCTestCase {
         let initialSnapshot = ConversationThreadSnapshot(
             id: "thread_old",
             title: "Last opened",
+            statusLabel: nil,
+            isActive: false,
+            hasUnread: false,
+            readThroughTurnId: nil,
             turns: [
                 ConversationThreadTurn(
                     id: "old_turn",
                     role: .assistant,
                     text: "Previous reply",
+                    runId: nil,
+                    workerId: "model_opus#0",
+                    driverId: "claude_code",
+                    agentTitle: "Agent (Opus 4.6)",
                     isPending: false,
                     isFailed: false,
                     isTruncated: false,
@@ -134,6 +145,7 @@ final class ConversationThreadStoreTests: XCTestCase {
                     author: .worker,
                     createdAt: now.addingTimeInterval(-20),
                     text: "Working on it",
+                    workerId: "model_opus#0",
                     partialOutputTruncated: true
                 ),
                 RemoteThreadTurnDetail(

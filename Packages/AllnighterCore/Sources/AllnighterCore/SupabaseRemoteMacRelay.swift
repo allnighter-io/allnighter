@@ -1,5 +1,4 @@
 import Foundation
-import AllnighterCore
 
 public protocol SupabaseAccessTokenProviding: Sendable {
     func accessToken() async throws -> String
@@ -281,7 +280,6 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
         _ = try await post(
             table: "trusted_devices",
             rows: [TrustedDeviceRow(device)],
-            query: [URLQueryItem(name: "on_conflict", value: "account_id,mac_agent_id,device_id")],
             prefer: "resolution=merge-duplicates,return=minimal"
         ) as [TrustedDeviceRow]
     }
@@ -745,12 +743,12 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
     }
 }
 
-enum SupabaseJSON {
-    static func encode<T: Encodable>(_ value: T) throws -> Data {
+public enum SupabaseJSON {
+    public static func encode<T: Encodable>(_ value: T) throws -> Data {
         try encoder.encode(value)
     }
 
-    static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+    public static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {
             return try decoder.decode(type, from: data)
         } catch {
@@ -1044,7 +1042,7 @@ private struct CommandAckRow: Codable {
     }
 }
 
-struct EventEnvelopeRow: Codable {
+public struct EventEnvelopeRow: Codable {
     var id: String
     var seq: Int64
     var ts: Date
@@ -1056,7 +1054,7 @@ struct EventEnvelopeRow: Codable {
     var sealedRef: MediaRef?
     var sig: String
 
-    init(accountId: String, envelope: RemoteRunEventEnvelope) {
+    public init(accountId: String, envelope: RemoteRunEventEnvelope) {
         id = envelope.event.id
         seq = envelope.event.seq
         ts = envelope.event.ts
