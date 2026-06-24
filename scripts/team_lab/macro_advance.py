@@ -25,17 +25,27 @@ REPO = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO / "scripts/team_lab"
 CHAMPIONS = REPO / "docs/team-lab/champions"
 CANDIDATES = REPO / "docs/team-lab/candidates"
+MACRO_EVIDENCE = REPO / ".lab/macro-evidence"
 
 
 def run_cmd(argv: list[str], *, env: dict | None = None) -> str:
     print(f"+ {' '.join(argv)}", flush=True)
-    proc = subprocess.run(argv, cwd=str(REPO), env=env, text=True, capture_output=True)
-    if proc.stdout:
-        print(proc.stdout, end="", flush=True)
-    if proc.returncode != 0:
-        print(proc.stderr, file=sys.stderr, end="", flush=True)
+    proc = subprocess.Popen(
+        argv,
+        cwd=str(REPO),
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    assert proc.stdout is not None
+    captured: list[str] = []
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+        captured.append(line)
+    if proc.wait() != 0:
         raise SystemExit(proc.returncode)
-    return proc.stdout
+    return "".join(captured)
 
 
 def parse_lab_dir(output: str) -> Path:
@@ -43,6 +53,59 @@ def parse_lab_dir(output: str) -> Path:
         if line.startswith("LAB_DIR="):
             return Path(line.split("=", 1)[1].strip())
     raise SystemExit("run.py did not print LAB_DIR=")
+
+
+def resolve_fresh_input_count(explicit: int | None, *, cases_run: int, case_id: str) -> int:
+    """Distinct necessity inputs for macro gate — not run count (A/B arms share one case)."""
+    fresh = cases_run if explicit is None else explicit
+    if fresh > cases_run:
+        raise SystemExit(
+            f"--fresh-input-count {fresh} exceeds cases run ({cases_run} for --case {case_id!r}); "
+            "do not inflate the macro gate"
+        )
+    return fresh
+
+
+def append_macro_evidence(
+    *,
+    case_id: str,
+    macro_path: Path,
+    baseline_lab: Path,
+    candidate_lab: Path,
+    fresh_input_count: int,
+    manifest_path: Path | None = None,
+    bundle_tag: str | None = None,
+) -> None:
+    """Append durable pointer to macro verdict artifacts (promotion evidence set)."""
+    MACRO_EVIDENCE.mkdir(parents=True, exist_ok=True)
+    manifest = manifest_path or (MACRO_EVIDENCE / "manifest.jsonl")
+    record = {
+        "caseId": case_id,
+        "freshInputCount": fresh_input_count,
+        "macroVerdict": str(macro_path),
+        "baselineLab": str(baseline_lab),
+        "candidateLab": str(candidate_lab),
+    }
+    if bundle_tag:
+        record["bundleTag"] = bundle_tag
+    if macro_path.exists():
+        verdict = json.loads(macro_path.read_text())
+        record.update(
+            {
+                "deliverableOutcome": verdict.get("deliverableOutcome"),
+                "verdict": verdict.get("verdict"),
+                "valueSuppressedCount": len(
+                    (verdict.get("writerDisposition") or {}).get("value_suppressed") or []
+                ),
+                "candidatePreflightFallbacks": (verdict.get("preflightFallbacks") or {}).get(
+                    "candidate"
+                )
+                or [],
+            }
+        )
+    with manifest.open("a") as f:
+        f.write(json.dumps(record) + "\n")
+    print(f"MACRO_EVIDENCE={manifest}", flush=True)
 
 
 def main() -> int:
@@ -54,12 +117,32 @@ def main() -> int:
     p.add_argument("--add-role", action="append", required=True, dest="add_roles")
     p.add_argument("--round", type=int, default=1)
     p.add_argument("--skip-runs", action="store_true", help="only build overlay; use with existing lab dirs")
-    p.add_argument("--baseline-lab", type=Path)
-    p.add_argument("--candidate-lab", type=Path)
+    p.add_argument(
+        "--baseline-lab",
+        type=Path,
+        help="reuse completed baseline lab dir (skips baseline run; e.g. genesis record dir)",
+    )
+    p.add_argument("--candidate-lab", type=Path, help="reuse completed candidate lab dir (skips candidate run)")
     p.add_argument("--mock-compose", action="store_true")
     p.add_argument("--auto-promote", action="store_true")
-    p.add_argument("--fresh-input-count", type=int, default=3)
+    p.add_argument(
+        "--fresh-input-count",
+        type=int,
+        default=None,
+        help="distinct necessity inputs exercised this round (default: 1 — one --case, two rosters)",
+    )
+    p.add_argument(
+        "--evidence-manifest",
+        type=Path,
+        help="append macro evidence to this manifest (default: .lab/macro-evidence/manifest.jsonl)",
+    )
+    p.add_argument("--bundle-tag", help="tag recorded on manifest row (e.g. hardened_writer_v1)")
     args = p.parse_args()
+
+    cases_run = 1  # macro_advance runs a single --case today (A/B arms share that input)
+    fresh_input_count = resolve_fresh_input_count(
+        args.fresh_input_count, cases_run=cases_run, case_id=args.case
+    )
 
     sys.path.insert(0, str(SCRIPTS))
     from macro_overlay import forward_add_overlay, write_overlay  # noqa: E402
@@ -89,42 +172,54 @@ def main() -> int:
             raise SystemExit("--skip-runs requires --baseline-lab and --candidate-lab")
         base_dir, cand_dir = args.baseline_lab, args.candidate_lab
     else:
-        base_argv = [
-            sys.executable,
-            str(SCRIPTS / "run.py"),
-            "--suite",
-            args.suite,
-            "--case",
-            args.case,
-            "--round",
-            str(args.round),
-            "--variant",
-            f"genesis-{roster_id}",
-            "--champion-overlay",
-            str(args.baseline_overlay),
-            "--record-genesis",
-            "--roster-id",
-            roster_id,
-        ]
-        base_out = run_cmd(base_argv, env=env)
-        base_dir = parse_lab_dir(base_out)
+        if args.baseline_lab:
+            base_dir = args.baseline_lab.resolve()
+            if not base_dir.is_dir():
+                raise SystemExit(f"--baseline-lab not found: {base_dir}")
+            print(f"BASELINE_LAB={base_dir}", flush=True)
+        else:
+            base_argv = [
+                sys.executable,
+                str(SCRIPTS / "run.py"),
+                "--suite",
+                args.suite,
+                "--case",
+                args.case,
+                "--round",
+                str(args.round),
+                "--variant",
+                f"genesis-{roster_id}-hardened",
+                "--champion-overlay",
+                str(args.baseline_overlay),
+                "--record-genesis",
+                "--roster-id",
+                roster_id,
+            ]
+            base_out = run_cmd(base_argv, env=env)
+            base_dir = parse_lab_dir(base_out)
 
-        cand_argv = [
-            sys.executable,
-            str(SCRIPTS / "run.py"),
-            "--suite",
-            args.suite,
-            "--case",
-            args.case,
-            "--round",
-            str(args.round),
-            "--variant",
-            f"macro-{cand_team}",
-            "--candidate-overlay",
-            str(cand_overlay_path),
-        ]
-        cand_out = run_cmd(cand_argv, env=env)
-        cand_dir = parse_lab_dir(cand_out)
+        if args.candidate_lab:
+            cand_dir = args.candidate_lab.resolve()
+            if not cand_dir.is_dir():
+                raise SystemExit(f"--candidate-lab not found: {cand_dir}")
+            print(f"CANDIDATE_LAB={cand_dir}", flush=True)
+        else:
+            cand_argv = [
+                sys.executable,
+                str(SCRIPTS / "run.py"),
+                "--suite",
+                args.suite,
+                "--case",
+                args.case,
+                "--round",
+                str(args.round),
+                "--variant",
+                f"macro-{cand_team}-hardened",
+                "--candidate-overlay",
+                str(cand_overlay_path),
+            ]
+            cand_out = run_cmd(cand_argv, env=env)
+            cand_dir = parse_lab_dir(cand_out)
 
     for d in (base_dir, cand_dir):
         run_cmd([sys.executable, str(SCRIPTS / "evaluate.py"), str(d), "--rescore-contract"], env=env)
@@ -138,8 +233,8 @@ def main() -> int:
         args.suite,
         "--macro-operation",
         "forward_select",
-        "--round",
-        str(args.fresh_input_count),
+        "--fresh-input-count",
+        str(fresh_input_count),
         "--added-role",
         *args.add_roles,
     ]
@@ -149,6 +244,15 @@ def main() -> int:
     print(cmp_out, flush=True)
 
     macro_path = cand_dir / "evaluation" / "macro-verdict.json"
+    append_macro_evidence(
+        case_id=args.case,
+        macro_path=macro_path,
+        baseline_lab=base_dir,
+        candidate_lab=cand_dir,
+        fresh_input_count=fresh_input_count,
+        manifest_path=args.evidence_manifest,
+        bundle_tag=args.bundle_tag,
+    )
     if args.auto_promote:
         promo_argv = [
             sys.executable,
