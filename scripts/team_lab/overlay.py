@@ -41,6 +41,49 @@ def lab_team_id(base_team_id: str, round_no: int, arm: str) -> str:
     return f"lab_{base_team_id}_r{round_no}_{arm_slug}"
 
 
+def lab_team_id_for_overlay(overlay: dict[str, Any], round_no: int, arm: str) -> str:
+    """Isolated team id keyed by overlay roster (lite vs full), not only baseTeamId."""
+    slug = overlay.get("teamId") or overlay.get("baseTeamId") or "team"
+    arm_slug = arm.replace("-", "_").lower()
+    return f"lab_{slug}_r{round_no}_{arm_slug}"
+
+
+def overlay_display_name(overlay: dict[str, Any], base_display: str) -> str:
+    tid = overlay.get("teamId")
+    base = overlay.get("baseTeamId")
+    if tid and base and tid != base:
+        label = tid.replace("code_", "").replace("_", " ").title()
+        return f"{label} · Lab"
+    return f"{base_display} · Lab"
+
+
+def _overlay_target_skill_ids(overlay: dict[str, Any], skill_map: dict[str, str]) -> set[str]:
+    allowed: set[str] = set()
+    for role in (overlay.get("roles") or {}).values():
+        sid = role.get("skillId")
+        if not sid:
+            continue
+        allowed.add(sid)
+        allowed.add(skill_map.get(sid, sid))
+    overlay_skills = {r.get("skillId") for r in (overlay.get("roles") or {}).values()}
+    for src, dst in skill_map.items():
+        if src in overlay_skills:
+            allowed.add(dst)
+    return allowed
+
+
+def _restrict_worker_specs_to_overlay(
+    team_def: dict[str, Any],
+    overlay: dict[str, Any],
+    skill_map: dict[str, str],
+) -> int:
+    """Keep only worker rows declared in the overlay roles map."""
+    allowed = _overlay_target_skill_ids(overlay, skill_map)
+    specs = [s for s in (team_def.get("workerSpecs") or []) if s.get("skillId") in allowed]
+    team_def["workerSpecs"] = specs
+    return len(specs)
+
+
 def load_overlay(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
@@ -152,6 +195,7 @@ def _save_team_with_skill_map(
     skill_map: dict[str, str],
     display_name: str,
     isolated: bool,
+    overlay: dict[str, Any],
 ) -> str:
     """Wire skill_map into TeamPreset and teams_save. Isolated runs use lab_* ids."""
     if isolated:
@@ -177,6 +221,7 @@ def _save_team_with_skill_map(
         team_def = _fetch_team_definition(client, target_team_id)
 
     _apply_skill_map(team_def, skill_map)
+    _restrict_worker_specs_to_overlay(team_def, overlay, skill_map)
     team_def["id"] = target_team_id
     if isolated:
         _mark_lab_team(team_def, display_name=display_name)
@@ -195,6 +240,13 @@ def _save_team_with_skill_map(
             raise OverlayDeployError(
                 f"teams_save did not wire lab skill {dst} (from {src}) into team {target_team_id}"
             )
+    expected_workers = len(overlay.get("roles") or {})
+    actual_workers = len(saved.get("workerSpecs") or [])
+    if actual_workers != expected_workers:
+        raise OverlayDeployError(
+            f"roster trim failed: overlay declares {expected_workers} roles, "
+            f"team has {actual_workers} workerSpecs"
+        )
     return target_team_id
 
 
@@ -275,7 +327,7 @@ def deploy_overlay(
 
     base_def = _fetch_team_definition(client, base_team_id)
     base_display = base_def.get("displayName", base_team_id)
-    lab_display = f"{base_display} · Lab"
+    lab_display = overlay_display_name(overlay, base_display)
 
     skill_map: dict[str, str] = {}
     needs_custom_skills = False
@@ -288,7 +340,7 @@ def deploy_overlay(
             skill_map[role["skillId"]] = role.get("labSkillId") or role["skillId"]
 
     if isolated:
-        target_team_id = lab_team_id(base_team_id, round_no, arm)
+        target_team_id = lab_team_id_for_overlay(overlay, round_no, arm)
         display = lab_display
     else:
         target_team_id = base_team_id
@@ -303,6 +355,7 @@ def deploy_overlay(
                 skill_map=skill_map,
                 display_name=display,
                 isolated=isolated,
+                overlay=overlay,
             )
         except OverlayDeployError:
             raise
