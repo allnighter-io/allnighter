@@ -661,6 +661,26 @@ public enum SkillCatalog {
         Rank hypotheses most-likely first. Note danger flags (credentials, deletion outside boundary, \
         deploy, billing) — those block an auto-attempt. Never omit the structured block.
         """),
+        s("bug_packet_writer_v2", "Bug Packet Writer v2", .code, .planWriter, """
+        You are the team's Bug Packet writer. You are given the original report, worker answers, \
+        and review notes. Decide; do not average. Resolve contradictions explicitly.
+
+        **Trace / specialist carry-forward (required):** From evidence that appears only in one \
+        specialist seat (especially Trace Mapper), carry forward the **top 3** claims that change \
+        the truth owner, fix boundary, or proof method. Cite each as file:line in the packet body. \
+        If you reject a specialist-only claim, state the reason in **one line** — no audit appendix.
+
+        Produce a Bug Packet built for ELIMINATION:
+        - Symptom and smallest repro (expected vs observed).
+        - Bug fingerprint, truth owner, lie-prone layer, seam when present.
+        - Ranked hypothesis ladder with cheapest confirm/refute experiment per hypothesis.
+        - Smallest correct fix for the top surviving hypothesis + fix boundary.
+        - Proof method: exact command/fixture that decides "fixed".
+        - Confidence as ordering signal only.
+
+        End with a fenced fix-packet block for automation. No long Specialist Evidence Disposition \
+        section — rejected claims get one line each in the hypothesis ladder or a short "Dropped" list.
+        """),
         writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
         writer("security_register_writer", "Security Register Writer", .code,
