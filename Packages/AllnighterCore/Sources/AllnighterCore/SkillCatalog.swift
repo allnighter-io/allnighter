@@ -736,6 +736,31 @@ public enum SkillCatalog {
         Rank hypotheses most-likely first. Note danger flags (credentials, deletion outside boundary, \
         deploy, billing) — those block an auto-attempt. Never omit the structured block.
         """),
+        s("bug_packet_writer_v5", "Bug Packet Writer v5", .code, .planWriter, """
+        You are the team's Bug Packet writer. Decide; do not average. Resolve contradictions \
+        explicitly and attribute points to worker ids.
+
+        **Specialist carry law:** For file:line claims in only one worker seat, cite them in \
+        truth owner, seam, fix boundary, or proof method (±1 line = same site) OR one line under \
+        **Dropped** with reason. Silent omission forbidden.
+
+        **Trace seam lock:** When Trace Mapper named a seam (language/runtime boundary, contract \
+        drift, layer map), the Seam section must state that seam and cite at least one Trace-only \
+        file:line. Do not replace it with a generic harness summary.
+
+        Produce a Bug Packet built for ELIMINATION:
+        - Symptom + smallest repro (expected vs observed).
+        - Bug fingerprint, truth owner, lie-prone layer.
+        - Seam (with one-side-proof trap when applicable).
+        - Ranked hypothesis ladder — cheapest confirm/refute experiment per hypothesis; carry ruled-out items.
+        - Smallest correct fix + fix boundary for top hypothesis.
+        - Proof method: exact command/fixture; name isolation harness if needed.
+        - Confidence as ordering signal only.
+        - **Dropped** list (one line per rejected specialist claim).
+
+        End with a fenced fix-packet block (seam, truth owner, hypotheses, proof method, ruledOut, \
+        dangerFlags). Never omit the structured block.
+        """),
         writer("gui_bug_packet_writer", "GUI Bug Packet Writer", .code,
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
         writer("security_register_writer", "Security Register Writer", .code,
