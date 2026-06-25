@@ -1088,11 +1088,12 @@ struct AllnighterCLI {
         return loadRun(ref)
     }
 
-    /// Query-style MCP tools accept `run` only; team lifecycle tools use `runId`.
+    /// Query-style MCP tools (show, spec_get, floor_show) accept `run`; team lifecycle tools use `runId`.
+    /// Accept both keys defensively to prevent silent "latest" drift when callers mix conventions.
     static func runRef(from args: [String: Any]) -> String {
-        if let run = args["run"] as? String {
-            let trimmed = run.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { return trimmed }
+        let ref = (args["run"] as? String) ?? (args["runId"] as? String)
+        if let ref, !ref.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return ref.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return "latest"
     }

@@ -266,11 +266,15 @@ final class MCPAsyncTeamTests: XCTestCase {
         }
     }
 
-    func testRunRefUsesCanonicalRunArgumentOnly() {
+    func testRunRefAcceptsRunOrRunId() {
+        // run preferred when both present (documented canonical for query tools)
         XCTAssertEqual(
             AllnighterCLI.runRef(from: ["runId": "AAA", "run": "BBB"]),
             "BBB")
+        // runId alone is accepted (defensive against team_* callers)
+        XCTAssertEqual(AllnighterCLI.runRef(from: ["runId": "AAA"]), "AAA")
         XCTAssertEqual(AllnighterCLI.runRef(from: ["run": "BBB"]), "BBB")
         XCTAssertEqual(AllnighterCLI.runRef(from: [:]), "latest")
+        XCTAssertEqual(AllnighterCLI.runRef(from: ["runId": "   "]), "latest")
     }
 }

@@ -410,7 +410,7 @@ def run_experiment(
 
         tool_names = [t["name"] for t in tools.get("tools", [])]
         if "floor_show" in tool_names:
-            floor = client.call_tool("floor_show", {"runId": run_id})
+            floor = client.call_tool("floor_show", {"run": run_id})
             (lab_dir / "floor-show.txt").write_text(floor["text"])
             if floor.get("structured"):
                 (lab_dir / "floor-show.json").write_text(json.dumps(floor["structured"], indent=2))
