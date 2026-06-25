@@ -446,9 +446,16 @@ final class RemoteAppModel {
 
     private static var isUITestingPreview: Bool { isIOSUITestingPreview() }
 
+    static func unauthenticatedFallback() -> RemoteAppUnauthenticatedFallback {
+        unauthenticatedFallback(
+            isDebugBuild: isDebugBuild,
+            isRemoteSignInEnabled: isRemoteSignInEnabled
+        )
+    }
+
     static func unauthenticatedFallback(
-        isDebugBuild: Bool = Self.isDebugBuild,
-        isRemoteSignInEnabled: Bool = Self.isRemoteSignInEnabled
+        isDebugBuild: Bool,
+        isRemoteSignInEnabled: Bool
     ) -> RemoteAppUnauthenticatedFallback {
         if isDebugBuild {
             return .preview
