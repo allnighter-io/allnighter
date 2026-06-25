@@ -88,7 +88,7 @@ struct RemoteOnboardingView: View {
 
     private var signInCard: some View {
         OnboardingCard {
-            Text("Sign in to see your Macs and control team runs from anywhere.")
+            Text("Sign in to connect to your Mac.")
                 .font(IOSFont.body)
                 .foregroundStyle(IOSColor.textSecondary)
 
@@ -183,7 +183,7 @@ struct RemoteOnboardingView: View {
         case .idle, .connecting:
             "Connecting"
         case .needsConfiguration:
-            "Control your Mac from anywhere"
+            "Run your team from your phone"
         case .awaitingPairingApproval:
             "Approve on your Mac"
         case .noMacsOnAccount:

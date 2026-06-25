@@ -25,6 +25,33 @@ final class AllnighteriOSTests: XCTestCase {
         #endif
     }
 
+    func testUnauthenticatedReleaseFallbackUsesPreviewUntilSignInShips() {
+        let fallback = RemoteAppModel.unauthenticatedFallback(
+            isDebugBuild: false,
+            isRemoteSignInEnabled: false
+        )
+
+        XCTAssertEqual(fallback, .preview)
+    }
+
+    func testUnauthenticatedReleaseFallbackCanUseOnboardingAfterSignInShips() {
+        let fallback = RemoteAppModel.unauthenticatedFallback(
+            isDebugBuild: false,
+            isRemoteSignInEnabled: true
+        )
+
+        XCTAssertEqual(fallback, .onboarding)
+    }
+
+    func testUnauthenticatedDebugFallbackUsesPreview() {
+        let fallback = RemoteAppModel.unauthenticatedFallback(
+            isDebugBuild: true,
+            isRemoteSignInEnabled: true
+        )
+
+        XCTAssertEqual(fallback, .preview)
+    }
+
     func testConversationHomeMapperGroupsRemoteThreadSummaries() {
         let now = Date(timeIntervalSince1970: 10_000)
         let mapper = ConversationHomeMapper(projectNames: ["proj_allnighter": "Allnighter"])

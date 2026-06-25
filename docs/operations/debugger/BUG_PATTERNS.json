@@ -23,6 +23,13 @@
       "requiresHarness": true,
       "law": "When a repeated bug depends on native/platform behavior, stop in-place patching after two failed fixes and build a throwaway isolation harness that proves the primitive and seam before porting the delta back.",
       "proof": "Debugger packet must name `Attempt count`, `Seam`, `Isolation harness`, and the harness-to-product delta; future wall gate should fail repeated DEBUGLOG entries that omit them."
+    },
+    {
+      "id": "ios-testflight-archive-source-path-must-be-proven",
+      "surface": "Apps/AllnighteriOS/AllnighteriOS/RemoteAppModel.swift + Apps/AllnighteriOS/AllnighteriOS/RemoteOnboardingView.swift",
+      "seam": "Xcode Archive source worktree -> submitted TestFlight build",
+      "law": "A TestFlight launch fix is not done until the exact worktree/project path being archived contains the fallback fix and does not contain the old onboarding strings. Do not prove this only in another git worktree.",
+      "proof": "git grep -n 'Control your Mac from anywhere\\|Sign in to see your Macs and control team runs from anywhere\\|isTestFlightReceipt' HEAD -- Apps/AllnighteriOS must return no app-source matches in the worktree used for Xcode Archive."
     }
   ]
 }

@@ -16,6 +16,19 @@ Deferred proof:
 Pattern candidate:
 ```
 
+## 2026-06-24 - Apps/AllnighteriOS TestFlight old screen survived fixes because archive used another worktree
+
+Tier: T3 Critical (same repeated TestFlight launch regression after multiple failed fixes)
+Symptom: TestFlight build still shows the old onboarding page: "Control your Mac from anywhere" and "Sign in to see your Macs and control team runs from anywhere."
+Truth owner: The exact Xcode Archive source path. The app code in the archived worktree owns the launched UI; a fix in a sibling git worktree does not affect TestFlight.
+Lie-prone layer: Branch-local commits in `/Users/mike/Documents/GitHub/Allnighter-iOS` looked fixed, while `/Users/mike/Documents/GitHub/Allnighter` still contained the old source and is likely what Xcode/App Store archive used.
+RCA: Prior fixes were committed only on the `codex/ios-foundation` worktree at `/Users/mike/Documents/GitHub/Allnighter-iOS`. The separate `/Users/mike/Documents/GitHub/Allnighter` worktree on `feat/design-chain` still had `RemoteAppModel.activate()` falling to `.needsConfiguration` in Release and `RemoteOnboardingView` still had the exact screenshot strings. If Xcode archived from `Allnighter`, build 4 could not include the fix.
+Fix boundary: Apply the release fallback and old-copy removal to `/Users/mike/Documents/GitHub/Allnighter` itself. Add the fallback tests and a debugger law requiring archive-source-path proof for future TestFlight launch fixes.
+Proof: `rg` across both worktrees showed old strings only in `/Users/mike/Documents/GitHub/Allnighter`. After patching, `git grep ... HEAD -- Apps/AllnighteriOS` in the archive worktree must return no old app-source matches before closeout.
+Deferred proof: Xcode/simulator proof remains unavailable in this sandbox; installed TestFlight proof must come from a new build archived from the patched worktree.
+Pattern candidate: For TestFlight bugs, first prove the path of the `.xcodeproj` Xcode is archiving. Sibling worktrees are different products until merged/cherry-picked.
+What was the agent allowed to do that must never be allowed again: Commit a TestFlight launch fix in one worktree and call it done without checking the worktree/project path used for Archive.
+
 ## 2026-06-21 - Cursor Composer visible thread loses prior context + no worker session id
 
 Tier: T3 Critical (core product promise failure; session-state truth bug)
