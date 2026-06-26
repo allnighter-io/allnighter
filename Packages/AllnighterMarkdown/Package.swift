@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 // AllnighterMarkdown — Allnighter's owned, themeable Markdown renderer.
@@ -33,7 +33,8 @@ let package = Package(
                 .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
             ],
             swiftSettings: [
-                .swiftLanguageMode(.v6)
+                .swiftLanguageMode(.v6),
+                .defaultIsolation(MainActor.self),
             ]
         ),
     ]
