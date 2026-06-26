@@ -62,6 +62,13 @@ public struct RemoteSupabaseEnvironment: Equatable, Sendable {
     public static func load(
         from environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> RemoteSupabaseEnvironment? {
+        if let fromEnvironment = loadFromEnvironment(environment) {
+            return fromEnvironment
+        }
+        return loadFromSessionStore()
+    }
+
+    public static func loadFromEnvironment(_ environment: [String: String]) -> RemoteSupabaseEnvironment? {
         guard let urlString = trimmed(environment["ALLNIGHTER_SUPABASE_URL"]),
               let url = URL(string: urlString),
               url.scheme != nil,
@@ -83,6 +90,25 @@ public struct RemoteSupabaseEnvironment: Equatable, Sendable {
             macAgentId: trimmed(environment["ALLNIGHTER_REMOTE_MAC_AGENT_ID"]),
             macDisplayName: trimmed(environment["ALLNIGHTER_REMOTE_MAC_DISPLAY_NAME"]),
             deviceAccessToken: trimmed(environment["ALLNIGHTER_SUPABASE_DEVICE_ACCESS_TOKEN"])
+        )
+    }
+
+    public static func loadFromSessionStore(
+        publicConfig: RemoteSupabasePublicConfig.Values? = RemoteSupabasePublicConfig.load(),
+        sessionStore: RemoteSupabaseSessionStore = RemoteSupabaseSessionStore(),
+        macCredentialStore: RemoteMacAgentCredentialStore = RemoteMacAgentCredentialStore()
+    ) -> RemoteSupabaseEnvironment? {
+        guard let publicConfig,
+              let session = try? sessionStore.load() else {
+            return nil
+        }
+
+        let macCredentials = try? macCredentialStore.load()
+
+        return session.makeEnvironment(
+            publicConfig: publicConfig,
+            macAgentId: macCredentials?.macAgentId,
+            macDisplayName: macCredentials?.displayName ?? ProcessInfo.processInfo.hostName
         )
     }
 
