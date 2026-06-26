@@ -5,6 +5,7 @@ import AllnighterEngine
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(RemoteAccountModel.self) private var remoteAccount
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(\.openWindow) private var openWindow
     @Bindable var threads: ThreadsViewModel
@@ -31,6 +32,7 @@ struct RootView: View {
     @State private var commands = CommandCenter()
     /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
     @State private var showFloorReaderProof = false
+    @State private var pairingPromptRequest: RemotePairRequest?
     #if DEBUG
     @State private var showDevSettings = false
     @State private var devBenchScenario: String?
@@ -351,6 +353,12 @@ struct RootView: View {
             }
             // New threads bind to the active project (PRJ-S14).
             threads.currentProjectId = projects.activeProjectId
+        }
+        .onChange(of: remoteAccount.pendingPairingRequests) { _, requests in
+            pairingPromptRequest = requests.first
+        }
+        .sheet(item: $pairingPromptRequest) { request in
+            RemotePairingPromptSheet(request: request)
         }
         .onChange(of: projects.activeProjectId) { _, id in
             threads.currentProjectId = id

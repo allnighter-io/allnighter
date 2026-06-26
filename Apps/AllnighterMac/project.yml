@@ -37,10 +37,7 @@ targets:
     info:
       path: Sources/Info.plist
       properties:
-        # Standalone Dock app (Mac_Standalone slice 2). The bundle launches as an
-        # accessory (LSUIElement) so the hosted unit-test runner can connect; for
-        # real launches AppDelegate promotes to a regular Dock app
-        # (setActivationPolicy(.regular)) with a visible icon + main window.
+        ALLNIGHTER_SUPABASE_URL: https://kfqwpozmntqpxiveafld.supabase.co
         LSUIElement: true
         CFBundleDisplayName: Allnighter
         CFBundleName: Allnighter
@@ -56,6 +53,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Sources/AllnighterMac.entitlements
         # Apple Development signing — required so Screen Recording TCC survives
         # rebuilds (adhoc/CDHash grants do not stick). Team must match your cert.
         # Keychain: security find-identity -v -p codesigning

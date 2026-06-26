@@ -16,6 +16,7 @@ enum StudioRoute: Hashable {
     case clis
     case defaultModel
     case boostWindow
+    case iphoneRemote
     case teams(ComposeLane)
     case skills(ComposeLane)
 }
@@ -56,6 +57,8 @@ struct TeamStudioView: View {
             DefaultModelView()
         case .boostWindow:
             BoostWindowView()
+        case .iphoneRemote:
+            IPhoneRemoteControlView()
         case .teams(let lane):
             StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId, startNewTeam: startNewTeam,
                                onOpenDefaultModel: { route = .defaultModel })
@@ -90,6 +93,7 @@ private struct StudioNav: View {
             // or model is picked, drawn from the substitution tiers.
             item("Default model", icon: "infinity", target: .defaultModel)
             item("Boost window", icon: "gauge.with.dots.needle.33percent", target: .boostWindow)
+            item("iPhone remote control", icon: "iphone", target: .iphoneRemote)
 
             ForEach(ComposeLane.allCases, id: \.self) { lane in
                 laneHeader(lane)

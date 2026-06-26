@@ -87,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct AllnighterMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: AppModel
+    @State private var remoteAccount = RemoteAccountModel()
     @State private var floorStatus = FloorManagerStatus()
     @State private var threads: ThreadsViewModel
     @State private var projects = ProjectsViewModel()
@@ -105,10 +106,14 @@ struct AllnighterMacApp: App {
         Window("Allnighter", id: "main") {
             RootView(threads: threads)
                 .environment(model)
+                .environment(remoteAccount)
                 .environment(threads)
                 .environment(projects)
                 .environment(floorStatus)
                 .frame(minWidth: 1100, minHeight: 720)
+                .task {
+                    await remoteAccount.bootstrap()
+                }
         }
         .windowResizability(.contentMinSize)
         .windowStyle(.hiddenTitleBar)
