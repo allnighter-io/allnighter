@@ -10,6 +10,7 @@ import SwiftUI
 struct RemoteOnboardingView: View {
     let phase: RemoteAppConnectionPhase
     let onRetry: () async -> Void
+    let onSignInWithApple: () async -> Void
 
     @State private var isRetrying = false
     @State private var signInNotice: String?
@@ -120,12 +121,12 @@ struct RemoteOnboardingView: View {
             }
 
             OnboardingPrimaryButton(title: "Sign in with Apple", systemImage: "apple.logo") {
-                presentSignInNotice()
+                Task { await onSignInWithApple() }
             }
             .accessibilityIdentifier("onboarding-sign-in-apple")
 
             OnboardingSecondaryButton(title: "Sign in with Google", systemImage: "g.circle") {
-                presentSignInNotice()
+                signInNotice = "Google sign-in is coming soon. Use Sign in with Apple for now."
             }
             .accessibilityIdentifier("onboarding-sign-in-google")
 
@@ -236,7 +237,7 @@ struct RemoteOnboardingView: View {
     }
 
     private func presentSignInNotice() {
-        signInNotice = "Sign in isn’t in this TestFlight build yet. The next update wires Sign in with Apple so your phone can reach your Mac."
+        signInNotice = "Use Sign in with Apple to connect this phone to your Mac."
     }
 }
 

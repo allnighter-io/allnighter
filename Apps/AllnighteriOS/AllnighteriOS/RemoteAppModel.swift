@@ -8,6 +8,9 @@
 import AllnighterCore
 import CryptoKit
 import Foundation
+#if canImport(AuthenticationServices)
+import AuthenticationServices
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -472,8 +475,13 @@ final class RemoteAppModel {
     }
 
     private static var isRemoteSignInEnabled: Bool {
-        false
+        true
     }
+
+    #if canImport(AuthenticationServices)
+    private let appleSignInPresenter = RemoteAppleSignInPresenter()
+    #endif
+    private let supabaseSessionStore = RemoteSupabaseSessionStore()
 
     private struct DeviceSession {
         var client: any RemoteClient
@@ -577,6 +585,52 @@ final class RemoteAppModel {
             homeSnapshot = .empty
             homeStatus = .idle
         }
+    }
+
+    func signInWithApple() async {
+        #if canImport(AuthenticationServices)
+        guard let publicConfig = RemoteSupabasePublicConfig.load() else {
+            connectionPhase = .failed("Remote relay is not configured on this build.")
+            return
+        }
+
+        connectionPhase = .connecting
+        do {
+            let deviceStore = RemoteDeviceCredentialStore()
+            let material = try deviceStore.loadOrCreate(displayName: Self.defaultDeviceDisplayName())
+            _ = try await RemoteAppleSignInService.signIn(
+                presenter: appleSignInPresenter,
+                publicConfig: publicConfig,
+                role: .device(
+                    deviceId: material.credentials.deviceId,
+                    displayName: material.credentials.displayName
+                ),
+                sessionStore: supabaseSessionStore
+            )
+            await activate()
+        } catch RemoteAppleSignInError.cancelled {
+            connectionPhase = .needsConfiguration
+        } catch {
+            connectionPhase = .failed(Self.signInFailureMessage(for: error))
+        }
+        #else
+        connectionPhase = .failed("Sign in with Apple is unavailable on this platform.")
+        #endif
+    }
+
+    private static func signInFailureMessage(for error: Error) -> String {
+        if let authError = error as? RemoteSupabaseAuthError {
+            switch authError {
+            case .http(let statusCode, _):
+                if statusCode == 400 || statusCode == 401 {
+                    return "Apple sign-in is not enabled for this app yet. Confirm Supabase Apple auth is configured."
+                }
+                return "Could not sign in (\(statusCode))."
+            default:
+                return "Could not sign in."
+            }
+        }
+        return error.localizedDescription
     }
 
     func beginNewConversation() {

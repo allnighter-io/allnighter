@@ -25,16 +25,16 @@ final class AllnighteriOSTests: XCTestCase {
         #endif
     }
 
-    func testUnauthenticatedReleaseFallbackUsesPreviewUntilSignInShips() {
+    func testUnauthenticatedReleaseFallbackUsesOnboardingWhenSignInEnabled() {
         let fallback = RemoteAppModel.unauthenticatedFallback(
             isDebugBuild: false,
-            isRemoteSignInEnabled: false
+            isRemoteSignInEnabled: true
         )
 
-        XCTAssertEqual(fallback, .preview)
+        XCTAssertEqual(fallback, .onboarding)
     }
 
-    func testUnauthenticatedReleaseFallbackCanUseOnboardingAfterSignInShips() {
+    func testUnauthenticatedReleaseFallbackUsesOnboardingAfterSignInShips() {
         let fallback = RemoteAppModel.unauthenticatedFallback(
             isDebugBuild: false,
             isRemoteSignInEnabled: true

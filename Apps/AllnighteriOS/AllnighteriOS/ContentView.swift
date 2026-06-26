@@ -83,6 +83,8 @@ struct ContentView: View {
             } else {
                 RemoteOnboardingView(phase: appModel.connectionPhase) {
                     await appModel.activate()
+                } onSignInWithApple: {
+                    await appModel.signInWithApple()
                 }
             }
         }
