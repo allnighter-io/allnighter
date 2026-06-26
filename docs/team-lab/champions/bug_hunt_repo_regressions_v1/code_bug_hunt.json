@@ -3,7 +3,7 @@
   "suiteId": "bug_hunt_repo_regressions_v1",
   "teamId": "code_bug_hunt",
   "round": 8,
-  "labTeamId": "lab_code_bug_hunt_r8",
+  "labTeamId": "lab_code_bug_hunt_r8_champion",
   "baseTeamId": "code_bug_hunt",
   "promotedAt": "2026-06-23T12:25:20.897948+00:00",
   "promotedFromCompare": ".lab/code_bug_hunt_candidate-r7_r7_20260623_040004/evaluation/compare-record.json",
