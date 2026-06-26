@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "suiteId": "code_build_necessity_v1",
+  "teamId": "code_build_lean",
+  "round": 1,
+  "baseTeamId": "code_core",
+  "promotionClass": "composition",
+  "roles": {
+    "product_architect#0": {
+      "skillId": "product_architect",
+      "instanceIndex": 0,
+      "skillName": "Product Architect",
+      "originRoleKey": "product_architect#0",
+      "provenance": "incumbent",
+      "templateChangedFromBuiltIn": false
+    },
+    "first_principles_builder#0": {
+      "skillId": "first_principles_builder",
+      "instanceIndex": 0,
+      "skillName": "First Principles Builder",
+      "originRoleKey": "first_principles_builder#0",
+      "provenance": "incumbent",
+      "templateChangedFromBuiltIn": false
+    },
+    "proof_planner#0": {
+      "skillId": "proof_planner",
+      "instanceIndex": 0,
+      "skillName": "Proof Planner",
+      "originRoleKey": "proof_planner#0",
+      "provenance": "incumbent",
+      "templateChangedFromBuiltIn": false
+    },
+    "scope_steward#0": {
+      "skillId": "scope_steward",
+      "instanceIndex": 0,
+      "skillName": "Scope Steward",
+      "originRoleKey": "scope_steward#0",
+      "provenance": "incumbent",
+      "templateChangedFromBuiltIn": false
+    }
+  },
+  "labTeamId": "lab_code_build_lean_r1_champion"
+}

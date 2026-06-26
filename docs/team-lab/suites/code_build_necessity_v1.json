@@ -1,0 +1,73 @@
+{
+  "suiteId": "code_build_necessity_v1",
+  "title": "Code Build necessity — turn a rough idea into an implementable plan",
+  "defaultTeamId": "code_core",
+  "cases": [
+    {
+      "caseId": "ios_remote_pairing_plan_v1",
+      "lane": "code",
+      "teamId": "code_core",
+      "title": "Plan the iOS companion remote-control pairing slice",
+      "prompt": "Turn this rough idea into an implementable plan: the Allnighter iOS companion should pair with the user's own Mac over Tailscale/local network and remotely view and steer running teams. Read docs/phases/ios/README.md and docs/phases/Unified_Run_Model.md. Produce a plan ONLY (do not edit code or docs): name the smallest correct first slice, the architecture and trust boundary, the privacy/credentials risks that need a high-risk stop, and the owner-visible Works Test that proves the slice. Say explicitly what to cut or defer out of the first slice.",
+      "contextPolicy": {
+        "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
+        "contextFiles": [
+          "docs/phases/ios/README.md",
+          "docs/phases/Unified_Run_Model.md"
+        ]
+      },
+      "expectedQualities": [
+        "names the smallest correct first slice",
+        "states the trust boundary and Tailscale/local-network scope",
+        "flags privacy/credentials as a high-risk stop",
+        "names an owner-visible Works Test",
+        "says what to cut or defer"
+      ],
+      "scoringRubricId": "code_build_v1"
+    },
+    {
+      "caseId": "background_coordinator_plan_v1",
+      "lane": "code",
+      "teamId": "code_core",
+      "title": "Plan the standalone Mac app + background coordinator",
+      "prompt": "Turn this rough idea into an implementable plan: Allnighter should run as a standalone Dock app with an explicit background coordinator that keeps teams running after the window closes, with the menu bar reserved for status and quick controls (not the product shell). Read docs/phases/Mac_Standalone_App_And_Background_Coordinator.md. Produce a plan ONLY (do not edit code): the smallest correct slice, the process/ownership architecture, how durable run truth survives app relaunch, the macOS permission posture to document, and the proof that the coordinator actually keeps a run alive. Name what to defer.",
+      "contextPolicy": {
+        "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
+        "contextFiles": [
+          "docs/phases/Mac_Standalone_App_And_Background_Coordinator.md",
+          "docs/phases/Unified_Run_Model.md"
+        ]
+      },
+      "expectedQualities": [
+        "separates Dock app from background coordinator ownership",
+        "names how durable run truth survives relaunch",
+        "documents the macOS permission posture",
+        "gives a proof that a run survives window close",
+        "scopes the smallest correct slice and defers the rest"
+      ],
+      "scoringRubricId": "code_build_v1"
+    },
+    {
+      "caseId": "composer_file_references_plan_v1",
+      "lane": "code",
+      "teamId": "code_core",
+      "title": "Plan composer @-file references for the run model",
+      "prompt": "Turn this rough idea into an implementable plan: the composer should support `@` file references with project file search and file chips, so a run carries explicit file context into the team. Read docs/phases/Composer_File_References.md and docs/phases/Unified_Run_Model.md. Produce a plan ONLY (do not edit code): the smallest correct slice, where file-reference truth lives vs what SwiftUI merely renders, the contract shared across CLI/GUI/MCP so we do not invent parallel JSON, and the Works Test. Name the risks and what to defer.",
+      "contextPolicy": {
+        "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
+        "contextFiles": [
+          "docs/phases/Composer_File_References.md",
+          "docs/phases/Unified_Run_Model.md"
+        ]
+      },
+      "expectedQualities": [
+        "names where file-reference truth lives vs rendered state",
+        "keeps one shared contract across CLI/GUI/MCP",
+        "scopes the smallest correct slice",
+        "names an owner-visible Works Test",
+        "lists risks and what to defer"
+      ],
+      "scoringRubricId": "code_build_v1"
+    }
+  ]
+}
