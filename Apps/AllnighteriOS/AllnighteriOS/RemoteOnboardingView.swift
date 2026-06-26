@@ -109,7 +109,7 @@ struct RemoteOnboardingView: View {
 
     private var signInCard: some View {
         OnboardingCard {
-            Text("Sign in to connect to your Mac.")
+            Text("Sign in with the same Apple ID you use on your Mac.")
                 .font(IOSFont.body)
                 .foregroundStyle(IOSColor.textSecondary)
 
@@ -124,17 +124,6 @@ struct RemoteOnboardingView: View {
                 Task { await onSignInWithApple() }
             }
             .accessibilityIdentifier("onboarding-sign-in-apple")
-
-            OnboardingSecondaryButton(title: "Sign in with Google", systemImage: "g.circle") {
-                signInNotice = "Google sign-in is coming soon. Use Sign in with Apple for now."
-            }
-            .accessibilityIdentifier("onboarding-sign-in-google")
-
-            #if DEBUG
-            Text("Dev builds use preview data when relay credentials are not injected.")
-                .font(IOSFont.label)
-                .foregroundStyle(IOSColor.textFaint)
-            #endif
 
             Text(IOSAppBuildInfo.footerLabel)
                 .font(IOSFont.monoSm)
@@ -235,10 +224,6 @@ struct RemoteOnboardingView: View {
         defer { isRetrying = false }
         await onRetry()
     }
-
-    private func presentSignInNotice() {
-        signInNotice = "Use Sign in with Apple to connect this phone to your Mac."
-    }
 }
 
 private struct OnboardingCard<Content: View>: View {
@@ -275,32 +260,6 @@ private struct OnboardingPrimaryButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 56)
             .background(IOSColor.textPrimary, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct OnboardingSecondaryButton: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: IOSSpace.s3) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 18, weight: .semibold))
-                Text(title)
-                    .font(IOSFont.bodyStrong)
-            }
-            .foregroundStyle(IOSColor.textPrimary)
-            .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .background(IOSColor.raised, in: RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: IOSRadius.md, style: .continuous)
-                    .strokeBorder(IOSColor.borderDefault, lineWidth: 1)
-            }
         }
         .buttonStyle(.plain)
     }
