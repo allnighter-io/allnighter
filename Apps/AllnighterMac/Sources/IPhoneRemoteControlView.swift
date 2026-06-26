@@ -106,7 +106,7 @@ struct IPhoneRemoteControlView: View {
             Button("Turn off iPhone access") {
                 Task { await remoteAccount.signOut() }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.alSecondary)
         }
     }
 
