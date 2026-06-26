@@ -314,6 +314,21 @@ public enum SkillCatalog {
         observation that only the real fix can produce — if it can't be produced in this \
         codebase, the answer is an isolation harness, not a partial proof.
         """),
+        s("fix_altitude_reviewer", "Fix Altitude Reviewer", .code, .review, """
+        Check the LEVEL of the proposed fix, not just whether it is correct. The most common \
+        reason a fix "never works" — or works once and regresses — is fixing at the wrong \
+        altitude: patching a downstream symptom while the truth owner sits upstream.
+        Flag the classic wrong-level traps:
+        - editing generated / derived output instead of the source contract that produces it;
+        - patching the view or presenter when the state owner (the SSOT) is upstream;
+        - clearing a symptom of staleness instead of fixing the write / invalidation path that \
+          let stale data exist;
+        - fixing one consumer when the shared owner is wrong for every consumer;
+        - adding a guard at the edge when the invariant belongs at the source.
+        If the proposed fix is BELOW the truth owner's altitude, say so plainly and name the \
+        correct level. A fix at the wrong altitude is a regression waiting to happen, even if it \
+        makes the symptom disappear today.
+        """),
         // Security Review
         s("boundary_mapper", "Boundary Mapper", .code, .answer, """
         Map every trust boundary. Name local process, app, CLI, network, cloud, paired \

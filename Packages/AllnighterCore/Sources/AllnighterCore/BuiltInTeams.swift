@@ -7,7 +7,7 @@ import Foundation
 public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
-        buildCore, buildBugHunt, buildGUIBugHunt, buildSecurityReview, buildSpecUpgrade, buildReleaseProof,
+        buildCore, buildBugHunter, buildBugHuntForensics, buildGUIBugHunt, buildSecurityReview, buildSpecUpgrade, buildReleaseProof,
         defaultChat, executionPlaybook,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -135,22 +135,42 @@ public enum BuiltInTeams {
         starters: ["Turn this rough idea into an implementable plan with scope and proof.",
                    "Plan the smallest correct slice for <feature>."])
 
-    static let buildBugHunt = make(
-        id: "code_bug_hunt", name: "Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
-        description: "Find the real cause of broken behavior, map the blast radius, and plan the smallest correct fix.",
+    /// Bug Hunter — the default, fast bug team. Lean 4-seat roster (formerly the
+    /// lab "Lite" champion). Two-judge A/B proved it ties the heavier roster on
+    /// deliverable quality at lower seat cost, so it is the everyday choice.
+    static let buildBugHunter = make(
+        id: "code_bug_hunt_lite", name: "Bug Hunter", lane: .code, output: .bugPacket, defaultEffort: .high,
+        description: "Find the real cause of a bug and plan the smallest correct fix: reproduce, name the truth owner, fix at the right level, prove it.",
         rows: diverseRows([
             ("bug_reproducer", .answer),
             ("truth_owner_mapper", .answer),
             ("correct_fix_planner", .answer),
-            ("regression_guard", .answer),
-            ("trace_mapper", .answer),
-            ("state_skeptic", .answer),
-            ("change_impact_reviewer", .answer),
-            ("user_impact_narrator", .review),
-            ("contrarian_root_cause", .review)
-        ], rotation: codeWorkerRotation, strategicOpus: ["contrarian_root_cause"]),
+            ("regression_guard", .answer)
+        ], rotation: codeWorkerRotation),
         writer: "bug_packet_writer",
         starters: ["Find the real cause of <broken behavior> and plan the smallest correct fix."])
+
+    /// Bug Hunter Forensics — escalation team for nasty bugs: seam-crossing,
+    /// hidden/stale state, and bugs that survived earlier fix attempts. Keeps the
+    /// core 4 plus the specialists that target those failure modes, with two
+    /// anti-fixation reviewers — Contrarian (wrong *theory*) and Fix Altitude
+    /// (wrong *level*) — and the carry-law writer so specialist evidence is never
+    /// flattened in synthesis.
+    static let buildBugHuntForensics = make(
+        id: "code_bug_hunt", name: "Bug Hunter Forensics", lane: .code, output: .bugPacket, defaultEffort: .high,
+        description: "Escalation for nasty bugs — seam-crossing, hidden state, and fixes that keep failing. Deeper trace, state, and wrong-level checks.",
+        rows: diverseRows([
+            ("bug_reproducer", .answer),
+            ("truth_owner_mapper", .answer),
+            ("trace_mapper", .answer),
+            ("state_skeptic", .answer),
+            ("correct_fix_planner", .answer),
+            ("regression_guard", .answer),
+            ("contrarian_root_cause", .review),
+            ("fix_altitude_reviewer", .review)
+        ], rotation: codeWorkerRotation, strategicOpus: ["contrarian_root_cause"]),
+        writer: "bug_packet_writer",
+        starters: ["This bug has resisted earlier fixes — find the real cause and the right-level fix for <broken behavior>."])
 
     static let buildGUIBugHunt = make(
         id: "code_gui_bug_hunt", name: "GUI Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,

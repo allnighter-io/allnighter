@@ -45,7 +45,7 @@ final class CatalogPersistenceTests: XCTestCase {
         XCTAssertFalse(copy.builtIn)
         XCTAssertTrue(copy.id.hasPrefix("custom_code_"))
         XCTAssertEqual(TeamCatalog.get(copy.id)?.displayName, "Mike's Bug Hunt")
-        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunter Forensics")
     }
 
     func testWrongLaneSkillRejectedAtTeamSave() throws {
@@ -110,7 +110,7 @@ final class CatalogPersistenceTests: XCTestCase {
 
         let r1 = try TeamCatalog.restore("code_bug_hunt")
         XCTAssertTrue(r1.removedOverride)
-        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunter Forensics")
         XCTAssertFalse(TeamCatalog.hasOverride("code_bug_hunt"))
 
         // Idempotent: restoring again is a no-op, not an error.
@@ -128,7 +128,7 @@ final class CatalogPersistenceTests: XCTestCase {
         team.displayName = "Edited"
         try TeamCatalog.saveCustom(team)
         try TeamCatalog.deleteCustom("code_bug_hunt") // = restore
-        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunter Forensics")
 
         let custom = try TeamCatalog.duplicateBuiltIn("code_core", name: "Mine")
         XCTAssertThrowsError(try TeamCatalog.restore(custom.id)) { error in

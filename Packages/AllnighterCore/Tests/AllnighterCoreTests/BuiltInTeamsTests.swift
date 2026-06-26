@@ -11,7 +11,7 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testRequiredBuiltInIdsArePresent() {
         let required = [
-            "code_core", "code_bug_hunt", "code_gui_bug_hunt", "code_security_review",
+            "code_core", "code_bug_hunt_lite", "code_bug_hunt", "code_gui_bug_hunt", "code_security_review",
             "code_spec_upgrade", "code_release_proof",
             "default_chat", "execution_playbook",
             "design_core", "design_premium_polish", "design_conversion_studio",
@@ -134,23 +134,24 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(BuiltInTeams.team("copy_landing_page")?.typeTags, ["landing-page"])
     }
 
-    // MARK: - Headline proof: one ready CLI runs Bug Hunt High
+    // MARK: - Headline proof: one ready CLI runs Bug Hunter Forensics High
 
-    func testBugHuntHighWithOnlyOpusResolvesNineWorkersPlusWriter() {
+    func testBugHuntForensicsHighWithOnlyOpusResolvesEightWorkersPlusWriter() {
         let team = BuiltInTeams.team("code_bug_hunt")!
+        XCTAssertEqual(team.displayName, "Bug Hunter Forensics")
         XCTAssertEqual(team.defaultEffort, .high)
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: [opus()])
 
         XCTAssertTrue(r.isRunnable)
         XCTAssertNil(r.blockReason)
 
-        // Exactly nine answer/review workers, the expected distinct skills.
+        // Exactly eight answer/review workers, the expected distinct skills.
         let answerReview = r.answerWorkers + r.reviewWorkers
-        XCTAssertEqual(answerReview.count, 9)
+        XCTAssertEqual(answerReview.count, 8)
         XCTAssertEqual(Set(answerReview.map { $0.skillId ?? "" }), [
             "bug_reproducer", "truth_owner_mapper", "correct_fix_planner", "regression_guard",
-            "trace_mapper", "state_skeptic", "change_impact_reviewer",
-            "user_impact_narrator", "contrarian_root_cause"
+            "trace_mapper", "state_skeptic",
+            "contrarian_root_cause", "fix_altitude_reviewer"
         ])
 
         // One synthetic plan/output worker, bug_packet_writer.
@@ -159,8 +160,8 @@ final class BuiltInTeamsTests: XCTestCase {
 
         // All workers on Opus; distinct skill ids; distinct instance indices.
         XCTAssertTrue(r.allWorkers.allSatisfy { $0.modelId == "model_opus" })
-        XCTAssertEqual(Set(r.allWorkers.map(\.id)).count, 10)
-        XCTAssertEqual(Set(r.allWorkers.map(\.instanceIndex)).count, 10)
+        XCTAssertEqual(Set(r.allWorkers.map(\.id)).count, 9)
+        XCTAssertEqual(Set(r.allWorkers.map(\.instanceIndex)).count, 9)
 
         // Honest one-model + admission warnings; never "not enough models".
         XCTAssertTrue(r.warnings.contains { $0.contains("Only one ready model") })
@@ -202,7 +203,7 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertFalse(custom.builtIn)
         XCTAssertFalse(custom.isDefaultForLane)
         // The built-in is untouched.
-        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunt")
+        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunter Forensics")
         XCTAssertTrue(BuiltInTeams.team("code_bug_hunt")?.builtIn ?? false)
     }
 }
