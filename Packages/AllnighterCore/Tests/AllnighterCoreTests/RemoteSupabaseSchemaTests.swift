@@ -13,10 +13,14 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
 
     private var schemaSQL: String {
         get throws {
-            try String(
-                contentsOf: repoRoot.appendingPathComponent("supabase/migrations/20260621020800_remote_schema.sql"),
-                encoding: .utf8
+            let migrationsDir = repoRoot.appendingPathComponent("supabase/migrations")
+            let files = try FileManager.default.contentsOfDirectory(
+                at: migrationsDir,
+                includingPropertiesForKeys: nil
             )
+            .filter { $0.pathExtension == "sql" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            return try files.map { try String(contentsOf: $0, encoding: .utf8) }.joined(separator: "\n")
         }
     }
 
@@ -56,7 +60,7 @@ final class RemoteSupabaseSchemaTests: XCTestCase {
         let expectedKinds = Set(RemoteCommandKind.allCases.map(\.rawValue))
         let line = try XCTUnwrap(
             sql.components(separatedBy: .newlines)
-                .first { $0.contains("command_inbox_kind_check") }
+                .last { $0.contains("command_inbox_kind_check") }
         )
         let quotedKinds = Set(
             line.components(separatedBy: "'")

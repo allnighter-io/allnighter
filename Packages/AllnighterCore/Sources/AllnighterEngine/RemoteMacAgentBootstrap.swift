@@ -95,6 +95,10 @@ public struct RemoteMacAgentBootstrap: Sendable {
             agentSigningPubkey: RemoteCrypto.signingPublicKeyBase64(macSigningKey.publicKey),
             agentSealingPubkey: RemoteCrypto.sealingPublicKeyBase64(macSealingKey.publicKey)
         )
+        let pendingService = PendingService(
+            store: PendingStore(),
+            models: ModelCatalog.defaultFreshModels()
+        )
         let router = RemoteCommandRouter(
             accountId: account.accountId,
             macAgentId: macAgentId,
@@ -102,6 +106,7 @@ public struct RemoteMacAgentBootstrap: Sendable {
             dedupeStore: dedupeStore,
             executor: executor,
             threadExecutor: ThreadStoreRemoteCommandExecutor(store: threadStore),
+            pendingExecutor: PendingServiceRemoteCommandExecutor(service: pendingService),
             macSigningKey: macSigningKey,
             macSealingKey: macSealingKey,
             now: now,
@@ -144,6 +149,9 @@ public struct RemoteMacAgentBootstrap: Sendable {
                 now: now
             ),
             relay: relay,
+            pendingQueueProvider: {
+                try? pendingService.queueJSON()
+            },
             now: now
         )
         let agent = RemoteMacAgent(

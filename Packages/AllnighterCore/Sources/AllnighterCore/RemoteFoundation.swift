@@ -19,19 +19,22 @@ public enum RemoteCommandKind: String, Codable, Sendable, CaseIterable {
     case stopRun
     case markThreadRead = "thread.mark_read"
     case stopAll
+    case pendingCancel = "pending.cancel"
+    case pendingEdit = "pending.edit"
+    case pendingSubmit = "pending.submit"
 
     public var requiresSealedPayload: Bool {
         switch self {
         case .startRun:
             return true
-        case .stopRun, .markThreadRead, .stopAll:
+        case .stopRun, .markThreadRead, .stopAll, .pendingCancel, .pendingEdit, .pendingSubmit:
             return false
         }
     }
 
     public var requiredCapability: RemoteCapability? {
         switch self {
-        case .stopAll:
+        case .stopAll, .pendingCancel, .pendingEdit, .pendingSubmit:
             return nil
         case .startRun:
             return .startRun
@@ -308,6 +311,33 @@ public struct RemoteMarkThreadReadPayload: Codable, Equatable, Sendable {
     public init(threadId: String, throughTurnId: String) {
         self.threadId = threadId
         self.throughTurnId = throughTurnId
+    }
+}
+
+public struct RemotePendingItemPayload: Codable, Equatable, Sendable {
+    public var pendingItemId: String
+
+    public init(pendingItemId: String) {
+        self.pendingItemId = pendingItemId
+    }
+}
+
+public struct RemotePendingEditPayload: Codable, Equatable, Sendable {
+    public var pendingItemId: String
+    public var prompt: String?
+    public var workerToken: String?
+    public var teamPresetId: String?
+
+    public init(
+        pendingItemId: String,
+        prompt: String? = nil,
+        workerToken: String? = nil,
+        teamPresetId: String? = nil
+    ) {
+        self.pendingItemId = pendingItemId
+        self.prompt = prompt
+        self.workerToken = workerToken
+        self.teamPresetId = teamPresetId
     }
 }
 

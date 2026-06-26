@@ -29,6 +29,32 @@ Deferred proof: Xcode/simulator proof remains unavailable in this sandbox; insta
 Pattern candidate: For TestFlight bugs, first prove the path of the `.xcodeproj` Xcode is archiving. Sibling worktrees are different products until merged/cherry-picked.
 What was the agent allowed to do that must never be allowed again: Commit a TestFlight launch fix in one worktree and call it done without checking the worktree/project path used for Archive.
 
+## 2026-06-24 - Apps/AllnighteriOS TestFlight Release + no credentials + dead onboarding fallback
+
+Tier: T3 Critical (repeated founder-visible TestFlight launch regression)
+Symptom: Launching the TestFlight app opens the old sign-in/onboarding wall instead of the dogfoodable iOS home/preview surface. The failure survived multiple rounds and was misattributed to target cleaning/archive ritual.
+Truth owner: `RemoteAppModel.activate()` owns the launch fallback after live remote credentials are unavailable; the runtime App Store receipt identifies TestFlight (`sandboxReceipt`) versus App Store (`receipt`).
+Lie-prone layer: Xcode archive state, DerivedData, target selection, and build-number churn can all look relevant while the Release code path deterministically selects `.needsConfiguration`.
+RCA: Release builds skipped the DEBUG preview fallback. With no live `RemoteSupabaseEnvironment` credentials/session in TestFlight, `activate()` always set `connectionPhase = .needsConfiguration`, which renders `RemoteOnboardingView`. Clearing the target or archiving again could only rebuild the same branch. TestFlight needs its own explicit release fallback until sign-in/pairing is wired.
+Fix boundary: Add a testable unauthenticated fallback policy in `RemoteAppModel`: Debug builds use preview, TestFlight Release builds with `sandboxReceipt` use preview/home, and App Store Release builds with a normal receipt keep onboarding. No signing, bundle identifier, auth, transport, or distribution settings changed.
+Proof: Added `AllnighteriOSTests.testUnauthenticatedReleaseFallbackUsesPreviewInTestFlight`, plus App Store and Debug fallback tests. `bash scripts/check_swiftui_state.sh` passed.
+Deferred proof: Targeted `xcodebuild test -project Apps/AllnighteriOS/AllnighteriOS.xcodeproj -scheme AllnighteriOS -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:AllnighteriOSTests/AllnighteriOSTests/testUnauthenticatedReleaseFallbackUsesPreviewInTestFlight -derivedDataPath /private/tmp/alln-ios-testflight-fallback-dd -clonedSourcePackagesDirPath /private/tmp/alln-ios-testflight-fallback-spm CODE_SIGNING_ALLOWED=NO` is blocked in this sandbox before compilation because Xcode/SwiftPM writes diagnostics to `/Users/mike/Library/Caches/org.swift.swiftpm/...` (Operation not permitted).
+Pattern candidate: TestFlight launch behavior is owned by the Release runtime fallback policy, not cache clearing. Any future TestFlight launch-screen regression must prove the receipt-mode branch.
+What was the agent allowed to do that must never be allowed again: Treat TestFlight as a build-cache/archive problem without proving what the Release `activate()` branch does when no credentials are available.
+
+## 2026-06-24 - Apps/AllnighteriOS build 4 + receipt-gated fallback still shows dead onboarding
+
+Tier: T3 Critical (same repeated TestFlight launch regression, prior fix failed)
+Symptom: Build 4 submitted through App Store/TestFlight still opened the old sign-in/onboarding wall.
+Truth owner: `RemoteAppModel.activate()` fallback policy after live credentials fail or are absent; "is remote sign-in shipped?" is the actual product flag.
+Lie-prone layer: `Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"` looked like a TestFlight detector but did not prove the release launch branch on the founder's installed build. Also, the committed onboarding source still contained the exact old screenshot strings while newer copy existed only in the dirty worktree.
+RCA: The first fix made unauthenticated Release fallback depend on a receipt filename instead of the product state. For this dogfood/TestFlight phase, sign-in is not wired, so any unauthenticated Release build must preview regardless of receipt. The old screen copy surviving in committed `RemoteOnboardingView` made failed fallbacks indistinguishable from stale archives.
+Fix boundary: Remove receipt-gated fallback. `RemoteAppModel.unauthenticatedFallback` returns preview for Release until `isRemoteSignInEnabled` flips true; Debug remains preview. Stage a minimal onboarding copy kill-switch so the exact old screenshot strings are no longer in committed app source.
+Proof: Updated fallback tests to prove Release preview until sign-in ships and onboarding only after the explicit sign-in flag flips. `bash scripts/check_swiftui_state.sh` passed; `python3 -m json.tool docs/operations/debugger/BUG_PATTERNS.json` passed.
+Deferred proof: iOS simulator/xcodebuild remains blocked in this sandbox by CoreSimulatorService/Xcode SwiftPM diagnostics permissions.
+Pattern candidate: Do not infer dogfood release mode from App Store receipt filename. While sign-in is not shipped, unauthenticated Release fallback is preview by product policy.
+What was the agent allowed to do that must never be allowed again: Ship a conditional TestFlight detector without an installed-build proof and leave the old screen strings in the committed fallback surface.
+
 ## 2026-06-21 - Cursor Composer visible thread loses prior context + no worker session id
 
 Tier: T3 Critical (core product promise failure; session-state truth bug)

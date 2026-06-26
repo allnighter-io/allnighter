@@ -30,6 +30,13 @@
       "seam": "Xcode Archive source worktree -> submitted TestFlight build",
       "law": "A TestFlight launch fix is not done until the exact worktree/project path being archived contains the fallback fix and does not contain the old onboarding strings. Do not prove this only in another git worktree.",
       "proof": "git grep -n 'Control your Mac from anywhere\\|Sign in to see your Macs and control team runs from anywhere\\|isTestFlightReceipt' HEAD -- Apps/AllnighteriOS must return no app-source matches in the worktree used for Xcode Archive."
+    },
+    {
+      "id": "ios-testflight-release-fallback-must-not-hit-dead-onboarding",
+      "surface": "Apps/AllnighteriOS/AllnighteriOS/RemoteAppModel.swift",
+      "seam": "Release launch fallback after live remote credentials are unavailable",
+      "law": "Until remote sign-in is actually wired, any unauthenticated Release build must enter the supported dogfood preview/home path, not the dead sign-in/onboarding wall. Do not close this by clearing DerivedData, changing target selection, bumping the build number, or relying on App Store receipt filename alone; prove the release fallback policy.",
+      "proof": "xcodebuild test -project Apps/AllnighteriOS/AllnighteriOS.xcodeproj -scheme AllnighteriOS -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:AllnighteriOSTests/AllnighteriOSTests/testUnauthenticatedReleaseFallbackUsesPreviewUntilSignInShips"
     }
   ]
 }

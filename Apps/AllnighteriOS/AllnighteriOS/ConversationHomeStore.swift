@@ -11,6 +11,7 @@ import Foundation
 struct ConversationHomeStoreState: Equatable {
     var snapshot: ConversationListSnapshot
     var status: ConversationHomeLoadStatus
+    var pendingQueue: PendingQueueJSON?
 }
 
 enum ConversationHomeLoadStatus: Equatable {
@@ -44,27 +45,29 @@ final class ConversationHomeStore {
         self.client = client
         self.macId = macId
         self.mapper = mapper
-        self.state = ConversationHomeStoreState(snapshot: initialSnapshot, status: .idle)
+        self.state = ConversationHomeStoreState(snapshot: initialSnapshot, status: .idle, pendingQueue: nil)
     }
 
     func refresh() async {
         refreshSequence += 1
         let currentRefresh = refreshSequence
         let previousSnapshot = state.snapshot
-        state = ConversationHomeStoreState(snapshot: previousSnapshot, status: .loading)
+        state = ConversationHomeStoreState(snapshot: previousSnapshot, status: .loading, pendingQueue: state.pendingQueue)
 
         do {
             let envelope = try await RemoteThreadReader.fetchSnapshot(client: client, macId: macId)
             guard currentRefresh == refreshSequence else { return }
             state = ConversationHomeStoreState(
                 snapshot: mapper.snapshot(from: envelope, now: envelope.serverTime),
-                status: .loaded(serverTime: envelope.serverTime)
+                status: .loaded(serverTime: envelope.serverTime),
+                pendingQueue: envelope.pendingQueue
             )
         } catch {
             guard currentRefresh == refreshSequence else { return }
             state = ConversationHomeStoreState(
                 snapshot: previousSnapshot,
-                status: .failed(Self.failure(from: error))
+                status: .failed(Self.failure(from: error)),
+                pendingQueue: state.pendingQueue
             )
         }
     }

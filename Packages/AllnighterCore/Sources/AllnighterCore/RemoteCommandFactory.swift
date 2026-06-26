@@ -7,6 +7,7 @@ public enum RemoteCommandFactoryError: Error, Equatable, Sendable {
     case emptyRunId
     case emptyThreadId
     case emptyTurnId
+    case emptyPendingItemId
     case invalidStartRunPayload
 }
 
@@ -111,6 +112,49 @@ public struct RemoteCommandFactory {
                 "threadId": .string(threadId),
                 "throughTurnId": .string(throughTurnId),
             ]),
+            deviceId: normalizedDeviceId()
+        )
+    }
+
+    public func pendingCancel(requestId: String, pendingItemId: String) throws -> RemoteCommand {
+        let pendingItemId = pendingItemId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pendingItemId.isEmpty else { throw RemoteCommandFactoryError.emptyPendingItemId }
+        return try command(
+            requestId: normalizedRequestId(requestId),
+            kind: .pendingCancel,
+            payload: .light(["pendingItemId": .string(pendingItemId)]),
+            deviceId: normalizedDeviceId()
+        )
+    }
+
+    public func pendingEdit(
+        requestId: String,
+        pendingItemId: String,
+        prompt: String? = nil,
+        workerToken: String? = nil,
+        teamPresetId: String? = nil
+    ) throws -> RemoteCommand {
+        let pendingItemId = pendingItemId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pendingItemId.isEmpty else { throw RemoteCommandFactoryError.emptyPendingItemId }
+        var fields: [String: JSONValue] = ["pendingItemId": .string(pendingItemId)]
+        if let prompt { fields["prompt"] = .string(prompt) }
+        if let workerToken { fields["workerToken"] = .string(workerToken) }
+        if let teamPresetId { fields["teamPresetId"] = .string(teamPresetId) }
+        return try command(
+            requestId: normalizedRequestId(requestId),
+            kind: .pendingEdit,
+            payload: .light(fields),
+            deviceId: normalizedDeviceId()
+        )
+    }
+
+    public func pendingSubmit(requestId: String, pendingItemId: String) throws -> RemoteCommand {
+        let pendingItemId = pendingItemId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pendingItemId.isEmpty else { throw RemoteCommandFactoryError.emptyPendingItemId }
+        return try command(
+            requestId: normalizedRequestId(requestId),
+            kind: .pendingSubmit,
+            payload: .light(["pendingItemId": .string(pendingItemId)]),
             deviceId: normalizedDeviceId()
         )
     }
