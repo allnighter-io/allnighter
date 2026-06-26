@@ -1,0 +1,10 @@
+Detected dumb terminal, disabling fancy input and pretty output.
+
+Aider v0.86.2
+Model: openai/Qwen/Qwen3-Coder-Next with whole edit format
+Git repo: .git with 1 files
+Repo-map: disabled
+
+Hi
+
+Tokens: 592 sent, 2 received.

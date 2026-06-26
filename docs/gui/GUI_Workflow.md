@@ -65,14 +65,53 @@ Escalate to Tier D if the work touches:
 - **Every critical surface has loading, empty, error, running, and done states.**
 - **Voice:** calm, plain-spoken, sentence case, verbs first, no emoji, no hype
   (see `docs/design-system/readme.md`).
+- **Separate platform shells.** Mac and iOS do not share SwiftUI views or
+  app-target GUI code. Share Core/Engine truth and the CLI/MCP contract only.
+  Full policy: §5 below.
 
-## 5. Surface Brief Rule
+## 5. Platform Shells (Mac vs iOS)
+
+Mac (`Apps/AllnighterMac/`) and iOS (`Apps/AllnighteriOS/`) are **separate GUI
+codebases**. They do **not** share SwiftUI views, layout-bound view models,
+navigation shells, or a cross-platform UI package.
+
+**Shared (contract layer):**
+
+- `Packages/AllnighterCore` (+ `AllnighterEngine` on Mac for local truth)
+- `alln` CLI and MCP tools — the product surface both apps present
+- JSON envelopes (`TeamRunJSON`, `ProjectListJSON`, `PendingItemJSON`, …)
+- Design-system **tokens and rules** (`docs/design-system/`) — each app maps
+  tokens to its own Swift constants; shared views are not how appearance stays
+  aligned
+
+**Per-platform (never cross-import between app targets):**
+
+- `View` types, sheets, navigation, gestures, and density
+- Presenters/mappers that encode platform layout or data path (local store vs
+  remote snapshot)
+- Mac-only AppKit adapters; iOS-only UIKit where needed
+
+**Why:** Mac is the full factory floor; iOS is a thinner remote PM. Feature sets
+and interaction models diverge by design. Shared views accumulate `#if os`
+branches, block iteration on either platform, and risk cross-platform regressions
+when one shell changes.
+
+**Escalation:** A new `Packages/AllnighterUI` (or any shared view target)
+requires an explicit founder-approved feature packet naming the exact component,
+why duplication is worse than coupling, and how Mac/iOS release cadences stay
+independent. Default answer: **no**.
+
+**Feature workflow:** Ship behavior in Core + CLI/MCP first; each app presents
+the contract in its own shell. Mac-only UX (e.g. sidebar folder drag-reorder)
+does not oblige iOS to adopt the same control.
+
+## 6. Surface Brief Rule
 
 A surface that handles nuanced run, dispatch, quota, secret, or pairing behavior
 needs a `brief.md` before implementation. Use the template in
 `docs/gui/surfaces/README.md`.
 
-## 6. Testing Rule
+## 7. Testing Rule
 
 Use the lightest test that protects the behavior:
 
@@ -84,7 +123,7 @@ Use the lightest test that protects the behavior:
 Do not substitute screenshots for behavioral tests on run-state, dispatch,
 secrets, or billing.
 
-## 7. Visual Proof Gate
+## 8. Visual Proof Gate
 
 Visible GUI work does not close from code/build confidence. Tier B-D work that
 changes layout, copy hierarchy, component state, popovers/sheets, navigation, or
@@ -98,7 +137,7 @@ Closeout seals a content-bound proof packet (`gui_proof_seal.sh`). If the agent
 cannot render or inspect the changed surface, closeout says visually unverified
 or blocked, never fixed.
 
-## 8. Related Docs
+## 9. Related Docs
 
 - Stack: `docs/gui/0.GUI-Tech-Stack.md`
 - SwiftUI state rules: `docs/operations/SwiftUI_State_Rules.md`
@@ -109,3 +148,4 @@ or blocked, never fixed.
 - Design system production rules: `docs/design-system/production.md`
 - Visual proof gate: `docs/phases/GUI_Visual_Proof_Gate.md`
 - Feature workflow: `docs/workflows/SSOT_Feature_Workflow.md`
+- iOS companion (remote shell): `docs/phases/ios/README.md`

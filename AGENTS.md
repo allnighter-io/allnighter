@@ -73,6 +73,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Installed help MCP, repo-free product docs, agent help routing | `docs/phases/MCP_Help_System.md` + `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
+| Shared Mac/iOS SwiftUI or `Packages/AllnighterUI` | `docs/gui/GUI_Workflow.md` §5 — default **no**; founder escalation required |
 | SwiftUI state, `@Observable`, replacing old view models | `docs/operations/SwiftUI_State_Rules.md` + `docs/gui/GUI_Workflow.md` |
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
@@ -136,6 +137,8 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
   council / master-plan words, worktree, subprocess).
 - CLI, GUI, MCP, and iOS must share the same team-run contract; do not invent
   parallel JSON around `TeamRunJSON`.
+- Mac and iOS do not share SwiftUI views or app-target GUI code; share
+  Core/Engine + CLI/MCP only (`docs/gui/GUI_Workflow.md` §5).
 - Judgment teams may mix sources; mutating/`execute` teams must resolve to one
   CLI/source before dispatch.
 - Forward Mac app work targets a standalone Dock app plus explicit background

@@ -8,7 +8,7 @@
 Status: **Foundation prep may start; iOS product UI remains deferred.** Architecture
 decisions are preserved here, but iOS work must not block Mac feature delivery, Mac
 proofs, or Mac phase closeout.
-Updated: 2026-06-21 (headless foundation status sync)
+Updated: 2026-06-26 (platform-shell GUI policy sync)
 
 ---
 
@@ -44,6 +44,7 @@ just works.*
 | **CloudKit** | Still **dropped** (Apple-locked, entitlement risk). Supabase is cross-platform + turnkey. **Not Cloudflare-only** for v1 (would mean building auth/realtime/admin ourselves). |
 | **Contract** | The `RunEvent` envelope (`../../mvp/00_MVP_Architecture.md` §6) is unchanged. Remote public events are frozen to `run.*`, `worker.*`, and `stage.*`; remote signing rejects private `synthesis.*` inputs. |
 | **Push** | Deferred iOS-only follow-up in `03`. Specialist SaaS behind a `PushNotifier` seam — **OneSignal likely default, swappable**. Content-light doorbell, no secrets. |
+| **GUI code** | **Separate from Mac.** No shared SwiftUI views, navigation shells, or `Packages/AllnighterUI`. iOS is a thinner remote PM shell; Mac and iOS share Core/Engine contracts and CLI/MCP only. Policy: `docs/gui/GUI_Workflow.md` §5. |
 
 ---
 
@@ -121,3 +122,7 @@ on Mac thread docs.
    reconnect the client resumes by `seq` and loses no events — never fakes liveness.
 7. **Cloud is never durable product storage.** TTL everything; the Mac stays truth.
    The moment we keep user data "to be helpful," we've become a different company.
+8. **No shared view code with Mac.** Build iOS UI only under `Apps/AllnighteriOS/`.
+   Ship shared behavior in Core + CLI/MCP; do not extract cross-platform SwiftUI
+   to unblock a slice. Mac-only controls (sidebar drag, floor reader, setup) stay
+   Mac-only unless a separate iOS UX is specced.
