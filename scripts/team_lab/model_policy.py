@@ -21,10 +21,22 @@ Wired by `overlay.ensure_model_policy_team` on every `run.py` experiment unless
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 # Built-in catalog ids (Packages/AllnighterCore/Sources/AllnighterCore/ModelCatalog.swift)
 LEAD_OPUS = "model_opus"
+
+# Solo-model override: when ALLN_LAB_SOLO_MODEL is set, EVERY seat (lead + all
+# workers + scout) is pinned to that one catalog model. Use when only one provider
+# has credits (e.g. Composer-only days). This deliberately sacrifices fan-out
+# diversity for a runnable baseline — note it loudly in any result.
+SOLO_MODEL_ENV = "ALLN_LAB_SOLO_MODEL"
+
+
+def solo_model() -> str | None:
+    v = os.environ.get(SOLO_MODEL_ENV, "").strip()
+    return v or None
 
 # Code lane — round-robin pool (every seat except the single Sonnet slot).
 CODE_ROTATING_WORKER_POOL = [
@@ -89,18 +101,28 @@ def apply_model_policy(team_def: dict[str, Any]) -> tuple[dict[str, Any], dict[s
     """Patch a full TeamPreset for lab runs. Lead Opus only; workers restricted to lane pool."""
     lane = str(team_def.get("lane") or "code")
     rotating, worker_pool, sonnet_at, label = _lane_policy(lane)
+    solo = solo_model()
+    if solo:
+        # One provider has credits today: every seat on the same model, no fan-out.
+        worker_pool = [solo]
+        rotating = [solo]
+        sonnet_at = None
+        label = f"SOLO {solo}"
 
     out = dict(team_def)
     lead = dict(out.get("lead") or {})
-    lead["preferredModelId"] = LEAD_OPUS
+    lead["preferredModelId"] = solo or LEAD_OPUS
+    lead["allowedModelIds"] = [solo] if solo else lead.get("allowedModelIds")
     lead["fallbackPolicy"] = LAB_FALLBACK_POLICY
+    if lead["allowedModelIds"] is None:
+        lead.pop("allowedModelIds", None)
     out["lead"] = lead
 
     specs: list[dict[str, Any]] = []
     sonnet_seats = 0
     for i, spec in enumerate(out.get("workerSpecs") or []):
         row = dict(spec)
-        mid = preferred_worker_model(i, lane=lane)
+        mid = solo or preferred_worker_model(i, lane=lane)
         if mid == SONNET_WORKER:
             sonnet_seats += 1
         row["preferredModelId"] = mid
@@ -114,18 +136,19 @@ def apply_model_policy(team_def: dict[str, Any]) -> tuple[dict[str, Any], dict[s
     scout = out.get("scout")
     if isinstance(scout, dict):
         s = dict(scout)
-        s["preferredModelId"] = rotating[0]
+        s["preferredModelId"] = solo or rotating[0]
         s["allowedModelIds"] = list(worker_pool)
         s["fallbackPolicy"] = LAB_FALLBACK_POLICY
         out["scout"] = s
 
     policy_meta = {
         "lane": lane,
-        "lead": LEAD_OPUS,
+        "lead": solo or LEAD_OPUS,
         "workers": worker_pool,
         "rotatingWorkers": rotating,
         "sonnetWorker": SONNET_WORKER if sonnet_at is not None else None,
         "sonnetSeatIndex": sonnet_at,
+        "soloModel": solo,
         "excluded": sorted(BLOCKED_WORKER_MODELS),
         "label": label,
         "fallbackPolicy": LAB_FALLBACK_POLICY,

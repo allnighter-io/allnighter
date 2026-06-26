@@ -252,7 +252,23 @@ def _save_team_with_skill_map(
 
 def _verify_model_policy_definition(team_def: dict[str, Any]) -> None:
     """Confirm saved TeamPreset carries lab model routing (MCP preflight uses a stale team snapshot)."""
+    from model_policy import solo_model
+
+    solo = solo_model()
     lead = team_def.get("lead") or {}
+    if solo:
+        # Solo-model day: every seat must be the one model with credits.
+        if lead.get("preferredModelId") != solo:
+            raise OverlayDeployError(
+                f"solo model policy lead not wired (got {lead.get('preferredModelId')!r}, want {solo})"
+            )
+        for spec in team_def.get("workerSpecs") or []:
+            mid = spec.get("preferredModelId")
+            if mid != solo:
+                raise OverlayDeployError(
+                    f"solo model policy worker not wired (got {mid!r}, want {solo})"
+                )
+        return
     if lead.get("preferredModelId") != LEAD_OPUS:
         raise OverlayDeployError(
             f"model policy lead not wired (got {lead.get('preferredModelId')!r}, want {LEAD_OPUS})"
