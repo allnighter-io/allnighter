@@ -33,7 +33,7 @@ final class RemoteAccountModel {
 
     func signInWithApple() async {
         guard let publicConfig = RemoteSupabasePublicConfig.load() else {
-            statusLine = "Remote relay is not configured on this build."
+            statusLine = "Remote relay is not configured — ALLNIGHTER_SUPABASE_PUBLISHABLE_KEY is missing from this build."
             return
         }
 

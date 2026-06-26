@@ -414,6 +414,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_ALLNIGHTER_SUPABASE_URL = "https://kfqwpozmntqpxiveafld.supabase.co";
+				INFOPLIST_KEY_ALLNIGHTER_SUPABASE_PUBLISHABLE_KEY = "sb_publishable__rOinn0t1JKtj2-MI2-pew_ZhIUp9QV";
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -450,6 +451,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_ALLNIGHTER_SUPABASE_URL = "https://kfqwpozmntqpxiveafld.supabase.co";
+				INFOPLIST_KEY_ALLNIGHTER_SUPABASE_PUBLISHABLE_KEY = "sb_publishable__rOinn0t1JKtj2-MI2-pew_ZhIUp9QV";
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

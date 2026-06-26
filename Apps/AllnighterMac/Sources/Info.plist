@@ -4,6 +4,8 @@
 <dict>
 	<key>ALLNIGHTER_SUPABASE_URL</key>
 	<string>https://kfqwpozmntqpxiveafld.supabase.co</string>
+	<key>ALLNIGHTER_SUPABASE_PUBLISHABLE_KEY</key>
+	<string>sb_publishable__rOinn0t1JKtj2-MI2-pew_ZhIUp9QV</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

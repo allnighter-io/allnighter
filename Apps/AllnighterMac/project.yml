@@ -38,6 +38,7 @@ targets:
       path: Sources/Info.plist
       properties:
         ALLNIGHTER_SUPABASE_URL: https://kfqwpozmntqpxiveafld.supabase.co
+        ALLNIGHTER_SUPABASE_PUBLISHABLE_KEY: sb_publishable__rOinn0t1JKtj2-MI2-pew_ZhIUp9QV
         LSUIElement: true
         CFBundleDisplayName: Allnighter
         CFBundleName: Allnighter
