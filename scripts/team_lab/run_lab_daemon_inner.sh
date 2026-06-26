@@ -48,6 +48,9 @@ python3 scripts/team_lab/record_benchmark.py \
   --rollup ".lab/macro-evidence/rollup_${TAG}_live.json" \
   >> "$LOG" 2>&1 || true
 
-python3 scripts/team_lab/lab_auto_advance.py --tag "$TAG" --spawn-next >> "$LOG" 2>&1 || true
+# Auto-chain disabled: writer micro-iteration is no longer the lab's main thrust, and
+# unbounded chaining silently burned paid-CLI quota (the lab's scarcest resource).
+# Use the campaign supervisor for unattended multi-job runs instead.
+python3 scripts/team_lab/lab_auto_advance.py --tag "$TAG" >> "$LOG" 2>&1 || true
 
 echo done > "$STATUS"
