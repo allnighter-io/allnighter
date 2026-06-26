@@ -29,10 +29,13 @@ not configuration.
 - **[Grok Build CLI support](Grok_Build_CLI_Support.md)** — headless
   `streaming-json` contract verified (2026-06-19); final visible-text extraction
   is wired, with live UI updates pending the shared streaming runner.
-- **[Aider CLI support](Aider_CLI_Support.md)** — headless final-output contract
-  finalized (2026-06-26). V1 matches Antigravity: `--message` one-shot runs,
-  stdout ANSWER extraction, BYOK auth, no token streaming. Spike-validated on
-  Featherless `openai/Qwen/Qwen3-Coder-Next` (~3–6s smoke).
+- **[OpenCode CLI support](OpenCode_CLI_Support.md)** — V1 final-output driver
+  (Antigravity posture, no streaming). Warm `opencode serve` + `run --attach`,
+  BYOK via user `opencode.json`, autonomous permissions. Replaces rejected
+  Aider plan.
+- **Aider CLI support** — **REJECTED** (2026-06-26); archived at
+  [`docs/archive/phases/setup/Aider_CLI_Support.md`](../../archive/phases/setup/Aider_CLI_Support.md)
+  (not vibe-coding / autonomous-friendly).
 
 Historical design handoff/mockup folders are pixel reference only. When they
 conflict with this README, `00_First_Run_Setup_Experience.md`,

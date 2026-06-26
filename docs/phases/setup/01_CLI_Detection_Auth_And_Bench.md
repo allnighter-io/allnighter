@@ -267,8 +267,9 @@ Registry scope for v1:
 - **Roster = shipped drivers only.** Today that's `claude_code`, `codex`, `grok`,
   `antigravity` (+ `manual_paste`). **Do not show ghost cards** for tools with no
   manifest. Cursor Agent shipped — see
-  `docs/archive/phases/setup/Cursor_Agent_CLI_Support.md`. Aider spec:
-  `Aider_CLI_Support.md`. Gemini-CLI remains future manifest work.
+  `docs/archive/phases/setup/Cursor_Agent_CLI_Support.md`. OpenCode spec:
+  `OpenCode_CLI_Support.md`. Aider rejected — archived. Gemini-CLI remains
+  future manifest work.
   (README ground rule "real detection" = no placeholder cards.)
 - **Glyphs:** Simple Icons for `anthropic`, `googlegemini`, `x`, `cursor`. Simple
   Icons **removed OpenAI** (trademark) — ChatGPT/Codex uses a **neutral terminal
@@ -429,4 +430,5 @@ Setup UI exists, the none-found and fix-it flows have no UI proof — say so.
 - Tools without a shipped manifest remain hidden until real detection exists.
   Cursor Agent is documented in
   `docs/archive/phases/setup/Cursor_Agent_CLI_Support.md`; Aider:
-  `Aider_CLI_Support.md`; Gemini-CLI remains future manifest work.
+  `OpenCode_CLI_Support.md`; Aider rejected (archived). Gemini-CLI remains future
+  manifest work.

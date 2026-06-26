@@ -1,8 +1,31 @@
 # Aider CLI Support (Headless Final Output)
 
-Status: **Finalized — ready for AID-S01 implementation**
+Status: **REJECTED** / archived
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
 Updated: 2026-06-26
+Archived: 2026-06-26
+
+## Rejection
+
+Aider was **not** selected for Allnighter V1.
+
+**Why:** Aider is a pair-programming editor, not an autonomous vibe-coding agent.
+Even with `--yes-always`, real implementation work hit repeated per-file and
+per-document approval prompts — hostile to “just build it” workflows. Headless
+integration also depends on fragile stdout parsing (`THINKING`/`ANSWER` markers)
+with no structured output mode.
+
+**Replacement:** [OpenCode CLI support](../../phases/setup/OpenCode_CLI_Support.md)
+— final-output V1 (Antigravity posture), BYOK Featherless models, autonomous
+runs via `--dangerously-skip-permissions`, warm `serve` + `run --attach`.
+
+This packet is kept for historical spike data only. Do not implement AID-S01.
+
+---
+
+# Original spec (historical)
+
+Status at archive time: **Finalized — ready for AID-S01 implementation**
 Pinned Aider version for fixtures: **0.86.2** (founder machine; synced repo `0.86.3.dev`)
 
 **Authoritative sources for this doc (code wins over docs on conflict):**

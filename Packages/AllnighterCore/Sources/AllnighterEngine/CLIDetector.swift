@@ -327,13 +327,24 @@ public struct CLIDetector: Sendable {
         guard let raw = manifest.resolvedCommandString(manifest.smokeTestCommand, model: model) else {
             return .ready(version: version) // no smoke contract → presence is all we can assert
         }
+        if manifest.id == "opencode" {
+            do {
+                try await OpenCodeServeCoordinator().ensureRunning()
+            } catch {
+                return .probeFailed(reason: "opencode serve: \(error)")
+            }
+        }
         let result = await runResolved(raw, invocation: invocation, timeout: smokeTimeout)
         let haystack = (result.stdout + "\n" + result.stderr).lowercased()
 
         // Ready: clean exit + the expected token came back.
         if result.launchError == nil, result.exitCode == 0,
-           let expect = manifest.smokeTestExpect, result.stdout.contains(expect) {
-            return .ready(version: version)
+           let expect = manifest.smokeTestExpect {
+            let visible = manifest.id == "opencode"
+                ? TextUtil.extractOpenCodeVisibleText(result.stdout) : result.stdout
+            if visible.contains(expect) {
+                return .ready(version: version)
+            }
         }
 
         // Auth-shaped failure → guided sign-in (only when we know the flow).

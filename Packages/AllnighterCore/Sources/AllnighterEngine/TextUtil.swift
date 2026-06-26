@@ -20,6 +20,39 @@ enum TextUtil {
         return output
     }
 
+    /// Extracts visible assistant text from OpenCode's default formatted stdout.
+    ///
+    /// OpenCode prints the assistant answer followed by a metadata footer line
+    /// like `> Build · model · 1.2s`. This extractor:
+    /// 1. Strips ANSI escape sequences.
+    /// 2. Drops lines matching `^> Build ·` or `^> .+ · .+ · [\d.]+s$` metadata footers.
+    /// 3. Trims leading/trailing whitespace.
+    /// 4. If empty after strip, returns the original input (fallback path).
+    static func extractOpenCodeVisibleText(_ input: String) -> String {
+        let stripped = stripANSI(input)
+        let footerPatterns = [
+            "^> Build ·.*$",
+            "^> .+ · .+ · [0-9.]+s$"
+        ]
+        var keptLines: [String] = []
+        for line in stripped.split(separator: "\n", omittingEmptySubsequences: false) {
+            let lineText = String(line)
+            var isFooter = false
+            for pattern in footerPatterns {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) {
+                    let range = NSRange(lineText.startIndex..., in: lineText)
+                    if regex.firstMatch(in: lineText, range: range) != nil {
+                        isFooter = true
+                        break
+                    }
+                }
+            }
+            if !isFooter { keptLines.append(lineText) }
+        }
+        let result = keptLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return result.isEmpty ? input : result
+    }
+
     /// Extracts visible assistant text from Grok's `--output-format streaming-json`.
     ///
     /// - Only `{"type":"text","data":"<delta>"}` chunks are collected (incremental deltas).

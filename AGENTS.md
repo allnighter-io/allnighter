@@ -84,6 +84,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
 | Team lab seat economics, roster ablation, named variants, necessity suite | `docs/phases/Team_Lab_Composition_And_Seat_Economics.md` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
+| **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
+| Supervisor + Hammer pair team (sprint queue, stall/nudge) | `docs/phases/Pair_Programming_Team.md` + `Try_Fix_Auto_Implement.md` |
 | Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |
 | Deslop pass (slice slop cleanup) | `docs/operations/Deslop.md` |
 | Code Audit (structural verdict at closeout) | `docs/operations/Code_Audit.md` |

@@ -25,6 +25,9 @@ notes, and implementation phase docs.
 > **built**; Phase 2 health == runs, Phase 3 lean setup surfaces, and Phase 4
 > auto-team are also built. Remaining setup work is live founder smoke on a real
 > machine plus repair polish found in use. See `setup/README.md` for live status.
+>
+> **▶ [`sprint/`](sprint/README.md) — Sprint work orders** (one-slice implementer
+> prompts; use for 32K-context agents instead of full phase docs).
 
 `docs/mvp/` remains the source of truth for what has already shipped and for the
 foundation it created: workers, drivers, fan-out, synthesis, design boards, and
@@ -45,6 +48,7 @@ otherwise.
 | [`Unified_Run_Model.md`](Unified_Run_Model.md) | **Decision — replacement root model; Core + CLI/MCP BUILT** (Default Team raw passthrough live; Execution Playbook preset + composer simplification remain) | A run = message + optional preset + worker, in the repo root. Default chat = the Default Team (raw passthrough). Answer teams (parallel, read-only) vs execution teams (one worker, mutating, write-locked). Replaces the deleted Project Manager / work-order / propose→dispatch→verify loop. |
 | [`Default_Team_Override.md`](Default_Team_Override.md) | **Ready for Implementation** (founder-found T2 SSOT bug packet, 2026-06-21) | Lets the user edit/reset the global Default Team without creating a duplicate row: immutable `default_chat` seed, optional same-id user override, one effective catalog entry across Core/CLI/MCP/GUI, Restore deletes the override and reveals the seed. |
 | [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) | Draft feature packet | "Try Fix" checkbox / Auto-Implement chain after Bug Hunt: read-only Code Bug Hunt returns a high-confidence typed FixPacket, Core gates it, then one proof-aware execution worker tries the recommended fix under the repo write lock. CLI/MCP-first; Mac checkbox presents the shared contract. |
+| [`Pair_Programming_Team.md`](Pair_Programming_Team.md) | **Draft — learning from OC-S01** (2026-06-26) | Supervisor + Hammer pair loop: Composer plans sprint slices, OpenCode GLM executes one slice at a time with stall/nudge/proof. Reuses Try Fix parent→child coordinator pattern; sprint docs are the packet format. |
 | [`MCP_Run_Factory_Team_Lab.md`](MCP_Run_Factory_Team_Lab.md) | Draft feature packet | MCP-only run factory for making default Teams excellent: benchmark suites, full MCP transcripts, per-worker/writer scoring, run-contract scoring, artifact completeness checks, and stop-the-line fixes for MCP/run bugs found while calibrating Teams. |
 | [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md) | **Active implementation spec** (2026-06-21) | Whole v1 package: PRE-S0 + LAB-S00–S05 + Judge Loop v2 for Bug Hunt calibration; autopromote champion overlays; post–Slice 1 good-to-great roadmap (substrate hardening, CI gates, Team sweep, evidence automation). |
 | [`Team_Lab_Composition_And_Seat_Economics.md`](Team_Lab_Composition_And_Seat_Economics.md) | **Active implementation spec** (2026-06-23) | Post–Slice 1 macro loop: seat economics (benefit − cost), VNRC, forward selection, asymmetric ADD/REMOVE gates, necessity suite, named teams (Lite / Bug Hunt / Forensics), LAB-C00–C08. Mentor review incorporated. |

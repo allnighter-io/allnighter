@@ -80,6 +80,14 @@ public struct ModelHealthChecker: Sendable {
         let tokens = ShellWords.split(resolved)
         guard let command = tokens.first else { return .unknown }
 
+        if manifest.id == "opencode" {
+            do {
+                try await OpenCodeServeCoordinator().ensureRunning()
+            } catch {
+                return .unhealthy(reason: "opencode serve: \(error)")
+            }
+        }
+
         let result = await commandRunner.run(
             command: command,
             args: Array(tokens.dropFirst()),
@@ -99,8 +107,12 @@ public struct ModelHealthChecker: Sendable {
             let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             return .unhealthy(reason: stderr.isEmpty ? "smoke test exited \(code)" : stderr)
         }
-        if let expected = manifest.smokeTestExpect, !result.stdout.contains(expected) {
-            return .unhealthy(reason: "smoke test did not return expected token")
+        if let expected = manifest.smokeTestExpect {
+            let visible = manifest.id == "opencode"
+                ? TextUtil.extractOpenCodeVisibleText(result.stdout) : result.stdout
+            if !visible.contains(expected) {
+                return .unhealthy(reason: "smoke test did not return expected token")
+            }
         }
         return .healthy
     }

@@ -155,6 +155,16 @@ public struct WorkerRunner: Sendable {
             return WorkerRunOutcome(status: .skipped)
         }
 
+        if manifest.id == "opencode" {
+            do { try await OpenCodeServeCoordinator().ensureRunning() }
+            catch {
+                return WorkerRunOutcome(
+                    status: .failed,
+                    errorKind: .missingCLI,
+                    errorReason: "opencode serve: \(error)")
+            }
+        }
+
         // File capture: hand the CLI a temp file to write its final answer to,
         // then read that instead of stdout (keeps noisy CLIs like codex clean).
         let capturesFile = manifest.output?.capture == .file
@@ -364,10 +374,15 @@ public struct WorkerRunner: Sendable {
 
         let stripped = output(from: rawOutput, manifest: manifest)
         // The streaming parser already produced visible text; only the non-streaming
-        // path needs Grok's post-exit NDJSON extraction.
-        let cleaned = (overrideFinalText == nil && manifest.id == "grok")
-            ? TextUtil.extractGrokStreamingVisibleText(stripped)
-            : stripped
+        // path needs a vendor-specific post-exit extraction.
+        let cleaned: String
+        if overrideFinalText == nil && manifest.id == "grok" {
+            cleaned = TextUtil.extractGrokStreamingVisibleText(stripped)
+        } else if overrideFinalText == nil && manifest.id == "opencode" {
+            cleaned = TextUtil.extractOpenCodeVisibleText(stripped)
+        } else {
+            cleaned = stripped
+        }
         if let vendorFailure = vendorStdoutFailure(cleaned, manifest: manifest) {
             outcome.status = .failed
             outcome.errorKind = .timedOut

@@ -1,0 +1,49 @@
+{
+  "id": "opencode",
+  "manifestVersion": 1,
+  "displayName": "OpenCode",
+  "kind": "headless_cli",
+  "maxConcurrentSpawns": 1,
+  "detectCommand": "opencode --version",
+  "smokeTestCommand": "opencode run --attach http://127.0.0.1:4096 --dir \"{{workingDir}}\" \"Reply with the single token ALLNIGHTER_READY\" --dangerously-skip-permissions -m \"{{model}}\"",
+  "smokeTestExpect": "ALLNIGHTER_READY",
+  "invoke": {
+    "command": "opencode",
+    "args": [
+      "run",
+      "--attach", "http://127.0.0.1:4096",
+      "--dir", "{{workingDir}}",
+      "{{prompt}}",
+      "--dangerously-skip-permissions",
+      "-m", "{{model}}"
+    ],
+    "promptVia": "arg",
+    "env": {},
+    "workingDir": "{{workingDir}}",
+    "timeoutSeconds": 600
+  },
+  "output": {
+    "capture": "stdout",
+    "stripAnsi": true,
+    "doneSignal": "exit_code",
+    "sentinel": null
+  },
+  "setup": {
+    "bins": ["opencode"],
+    "knownPaths": [
+      "~/.local/bin",
+      "/opt/homebrew/bin",
+      "/usr/local/bin"
+    ],
+    "installHint": "Install with `brew install opencode`. Configure providers in ~/.config/opencode/opencode.json. Allnighter starts a local `opencode serve` automatically.",
+    "docsURL": "https://opencode.ai/docs/cli/",
+    "authErrorPatterns": [
+      "api key",
+      "authentication",
+      "unauthorized",
+      "401",
+      "rate limit",
+      "model is busy"
+    ]
+  }
+}
