@@ -583,7 +583,7 @@ final class RemoteAppModel {
     func signInWithApple() async {
         #if canImport(AuthenticationServices)
         guard let publicConfig = RemoteSupabasePublicConfig.load() else {
-            connectionPhase = .failed("Remote relay is not configured on this build.")
+            connectionPhase = .failed("Remote relay is not configured — ALLNIGHTER_SUPABASE_PUBLISHABLE_KEY is missing from this build.")
             return
         }
 
