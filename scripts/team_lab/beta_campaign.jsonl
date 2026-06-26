@@ -7,8 +7,8 @@
 #                           BLOCKED = needs a roster overlay and/or a necessity suite first.
 #
 # --- CODE craft (rosters + suites exist; runnable once quota is authorized) ---
-{"id": "code_bug_hunt_lite__validate", "cmd": ["bash", "scripts/team_lab/rounds.sh", "bug_hunt_repo_regressions_v1", "1", "code_bug_hunt_lite", "beta_validate"], "retries": 2, "timeoutSec": 7200, "capacityBackoffSec": 2400, "note": "Bug Hunt Lite — 4-seat baseline Code team. Closest to rock-solid; validate clean pass on known-regressions suite."}
-{"id": "code_bug_hunt__validate", "cmd": ["bash", "scripts/team_lab/rounds.sh", "bug_hunt_repo_regressions_v1", "1", "code_bug_hunt", "beta_validate"], "retries": 2, "timeoutSec": 7200, "capacityBackoffSec": 2400, "note": "Bug Hunt — fuller Code roster for harder T3 seam cases."}
+{"id": "code_bug_hunt_lite__validate", "cmd": ["bash", "scripts/team_lab/validate_team.sh", "docs/team-lab/champions/bug_hunt_repo_regressions_v1/code_bug_hunt_lite.json", "bug_hunt_repo_regressions_v1", "beta_validate"], "retries": 2, "timeoutSec": 10800, "capacityBackoffSec": 2400, "note": "Bug Hunt Lite — 4-seat baseline Code team. Closest to rock-solid; validate clean pass across the 3 known-regression cases."}
+{"id": "code_bug_hunt__validate", "cmd": ["bash", "scripts/team_lab/validate_team.sh", "docs/team-lab/champions/bug_hunt_repo_regressions_v1/code_bug_hunt.json", "bug_hunt_repo_regressions_v1", "beta_validate"], "retries": 2, "timeoutSec": 10800, "capacityBackoffSec": 2400, "note": "Bug Hunt — fuller Code roster for harder T3 seam cases."}
 {"id": "code_build_plan__needs_roster", "cmd": ["true"], "blocked": true, "note": "BLOCKED: Code Build/Plan team. plan_writer_build skill exists in SkillCatalog but no team roster overlay nor a build necessity suite. Needs: docs/team-lab/champions/.../code_build.json + a build suite."}
 # --- DESIGN craft (skills exist; no roster, no suite) ---
 {"id": "design_board__needs_roster_and_suite", "cmd": ["true"], "blocked": true, "note": "BLOCKED: Design team. design_board_writer + design answer/review skills exist; no roster overlay and no design necessity suite (all 3 suites are lane:code)."}
