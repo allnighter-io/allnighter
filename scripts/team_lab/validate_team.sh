@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
-# Validate one team across every case in a suite (deploys the team via its champion
-# overlay, runs each case once). Used by the campaign supervisor for beta team checks.
+# Validate one team across every case in a suite, running each case once. Used by the
+# campaign supervisor for beta team checks.
 #
-#   bash scripts/team_lab/validate_team.sh <champion-overlay.json> <suite-id> [variant]
+# The first arg selects the team in one of two ways:
+#   - a champion-overlay JSON path        → deploys a lab copy of that roster
+#   - team:<built-in-team-id>             → runs the registered built-in team directly
+#
+#   bash scripts/team_lab/validate_team.sh <overlay.json|team:ID> <suite-id> [variant]
 #
 # Each case is an independent run.py invocation, so a single bad case fails only that
 # case; the supervisor's retry/backoff wraps the whole script.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-OVERLAY="${1:?champion overlay path}"
+TEAM_SEL="${1:?overlay path or team:ID}"
 SUITE="${2:?suite id}"
 VARIANT="${3:-beta_validate}"
 ROUND="${4:-1}"
+
+TEAM_ARGS=()
+case "$TEAM_SEL" in
+  team:*) TEAM_ARGS=(--team "${TEAM_SEL#team:}") ;;
+  *)      TEAM_ARGS=(--champion-overlay "$TEAM_SEL") ;;
+esac
 
 export ALLN_JUDGE1_CMD="${ALLN_JUDGE1_CMD:-claude -p --max-turns 1}"
 export ALLN_JUDGE2_CMD="${ALLN_JUDGE2_CMD:-codex exec - --full-auto}"
@@ -30,7 +40,7 @@ s=json.load(open('docs/team-lab/suites/${SUITE}.json'))
 print('\n'.join(c['caseId'] for c in s['cases']))
 ")"
 
-echo "=== validate_team overlay=$OVERLAY suite=$SUITE $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+echo "=== validate_team sel=$TEAM_SEL suite=$SUITE $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 rc=0
 while IFS= read -r CASE; do
   [[ -z "$CASE" ]] && continue
@@ -40,7 +50,7 @@ while IFS= read -r CASE; do
       --case "$CASE" \
       --round "$ROUND" \
       --variant "$VARIANT" \
-      --champion-overlay "$OVERLAY"; then
+      "${TEAM_ARGS[@]}"; then
     echo "case FAILED: $CASE" >&2
     rc=1
   fi
