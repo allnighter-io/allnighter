@@ -23,15 +23,17 @@ if [[ ! -x "$ALLN" ]]; then
   (cd Packages/AllnighterCore && swift build -c debug)
 fi
 
-mapfile -t CASES < <(python3 -c "
-import json,sys
+# bash 3.2 (macOS default) has no mapfile; read newline-separated case ids portably.
+CASE_IDS="$(python3 -c "
+import json
 s=json.load(open('docs/team-lab/suites/${SUITE}.json'))
-for c in s['cases']: print(c['caseId'])
-")
+print('\n'.join(c['caseId'] for c in s['cases']))
+")"
 
-echo "=== validate_team overlay=$OVERLAY suite=$SUITE cases=${#CASES[@]} $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+echo "=== validate_team overlay=$OVERLAY suite=$SUITE $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 rc=0
-for CASE in "${CASES[@]}"; do
+while IFS= read -r CASE; do
+  [[ -z "$CASE" ]] && continue
   echo "--- case=$CASE ---"
   if ! python3 scripts/team_lab/run.py \
       --suite "$SUITE" \
@@ -42,5 +44,5 @@ for CASE in "${CASES[@]}"; do
     echo "case FAILED: $CASE" >&2
     rc=1
   fi
-done
+done <<< "$CASE_IDS"
 exit "$rc"
