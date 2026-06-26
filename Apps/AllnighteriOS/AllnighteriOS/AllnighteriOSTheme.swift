@@ -90,6 +90,25 @@ enum IOSRadius {
     static let xl: CGFloat = 24
 }
 
+enum IOSAppBuildInfo {
+    static var marketingVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    }
+
+    static var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+    }
+
+    /// Shown on onboarding so TestFlight installs are easy to tell apart from Xcode dev builds.
+    static var footerLabel: String {
+        #if DEBUG
+        "Dev build \(marketingVersion) (\(buildNumber))"
+        #else
+        "Build \(marketingVersion) (\(buildNumber))"
+        #endif
+    }
+}
+
 struct IOSStatusBanner: View {
     enum Tone {
         case neutral

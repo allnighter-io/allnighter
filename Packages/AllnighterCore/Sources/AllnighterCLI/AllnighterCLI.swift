@@ -290,14 +290,35 @@ struct AllnighterCLI {
             var remoteDependencies: ResidentCoordinator.RemoteDependencies?
             if let environment = RemoteSupabaseEnvironment.load(), environment.hasMacAgentCredentials {
                 do {
-                    let executor = AsyncTeamRemoteCommandExecutor(
-                        service: runtime.asyncTeam,
+                    let runStore = RunStore()
+                    let threadStore = ThreadStore()
+                    let journal = RemoteRunEventJournal(rootDirectory: runStore.rootDirectory)
+                    let asyncTeam = AsyncTeamService(
+                        models: runtime.models,
+                        registry: runtime.registry,
+                        teams: runtime.teams,
+                        config: runtime.config,
+                        runStore: runStore,
+                        governor: runtime.governor,
+                        remoteEventJournal: journal,
+                        invocations: runtime.invocations
+                    )
+                    let baseExecutor = AsyncTeamRemoteCommandExecutor(
+                        service: asyncTeam,
                         readyModels: { runtime.models }
+                    )
+                    let executor = RemoteIOSThreadMirrorExecutor(
+                        underlying: baseExecutor,
+                        threadStore: threadStore,
+                        runStore: runStore
                     )
                     let inputs = RemoteMacAgentServeAssembly.Inputs(
                         environment: environment,
                         executor: executor,
-                        readyModels: { runtime.models }
+                        readyModels: { runtime.models },
+                        runStore: runStore,
+                        threadStore: threadStore,
+                        journal: journal
                     )
                     remoteDependencies = try RemoteMacAgentServeAssembly.remoteDependencies(inputs: inputs)
                     FileHandle.standardError.write(Data("remote agent: cloud relay enabled\n".utf8))

@@ -12,6 +12,7 @@ struct RemoteOnboardingView: View {
     let onRetry: () async -> Void
 
     @State private var isRetrying = false
+    @State private var signInNotice: String?
 
     var body: some View {
         ScrollView {
@@ -28,28 +29,47 @@ struct RemoteOnboardingView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: IOSSpace.s4) {
-            HStack(spacing: IOSSpace.s3) {
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(IOSColor.accentText)
-                    .frame(width: 38, height: 38)
-                    .background(IOSColor.accentSurface, in: RoundedRectangle(cornerRadius: IOSRadius.sm, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: IOSRadius.sm, style: .continuous)
-                            .strokeBorder(IOSColor.accentBorder, lineWidth: 1)
-                    }
+        VStack(alignment: .leading, spacing: IOSSpace.s7) {
+            brandRow
 
-                Text("Allnighter")
-                    .font(IOSFont.title)
-                    .foregroundStyle(IOSColor.textSecondary)
+            if phase == .needsConfiguration {
+                VStack(spacing: IOSSpace.s5) {
+                    Text("Run your team\nfrom your phone")
+                        .font(IOSFont.display)
+                        .foregroundStyle(IOSColor.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("onboarding-headline")
+
+                    IOSTeamBrandGlyphStack()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+            } else if !headline.isEmpty {
+                Text(headline)
+                    .font(IOSFont.display)
+                    .foregroundStyle(IOSColor.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("onboarding-headline")
             }
+        }
+    }
 
-            Text(headline)
-                .font(IOSFont.display)
-                .foregroundStyle(IOSColor.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("onboarding-headline")
+    private var brandRow: some View {
+        HStack(spacing: IOSSpace.s3) {
+            Image(systemName: "moon.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(IOSColor.accentText)
+                .frame(width: 38, height: 38)
+                .background(IOSColor.accentSurface, in: RoundedRectangle(cornerRadius: IOSRadius.sm, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: IOSRadius.sm, style: .continuous)
+                        .strokeBorder(IOSColor.accentBorder, lineWidth: 1)
+                }
+
+            Text("Allnighter")
+                .font(IOSFont.title)
+                .foregroundStyle(IOSColor.textSecondary)
         }
     }
 
@@ -92,13 +112,20 @@ struct RemoteOnboardingView: View {
                 .font(IOSFont.body)
                 .foregroundStyle(IOSColor.textSecondary)
 
+            if let signInNotice {
+                Text(signInNotice)
+                    .font(IOSFont.label)
+                    .foregroundStyle(IOSColor.accentText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             OnboardingPrimaryButton(title: "Sign in with Apple", systemImage: "apple.logo") {
-                Task { await retry() }
+                presentSignInNotice()
             }
             .accessibilityIdentifier("onboarding-sign-in-apple")
 
             OnboardingSecondaryButton(title: "Sign in with Google", systemImage: "g.circle") {
-                Task { await retry() }
+                presentSignInNotice()
             }
             .accessibilityIdentifier("onboarding-sign-in-google")
 
@@ -107,6 +134,12 @@ struct RemoteOnboardingView: View {
                 .font(IOSFont.label)
                 .foregroundStyle(IOSColor.textFaint)
             #endif
+
+            Text(IOSAppBuildInfo.footerLabel)
+                .font(IOSFont.monoSm)
+                .foregroundStyle(IOSColor.textFaint)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, IOSSpace.s2)
         }
     }
 
@@ -183,7 +216,7 @@ struct RemoteOnboardingView: View {
         case .idle, .connecting:
             "Connecting"
         case .needsConfiguration:
-            "Run your team from your phone"
+            ""
         case .awaitingPairingApproval:
             "Approve on your Mac"
         case .noMacsOnAccount:
@@ -200,6 +233,10 @@ struct RemoteOnboardingView: View {
         isRetrying = true
         defer { isRetrying = false }
         await onRetry()
+    }
+
+    private func presentSignInNotice() {
+        signInNotice = "Sign in isn’t in this TestFlight build yet. The next update wires Sign in with Apple so your phone can reach your Mac."
     }
 }
 

@@ -55,7 +55,7 @@ public actor AsyncTeamService {
     private let registry: DriverRegistry
     private let teams: [TeamPreset]
     private let config: ToolConfig
-    private let runStore: RunStore
+    public let runStore: RunStore
     private let commandRunner: CommandRunner
     private let governor: TeamGovernor
     private let idempotency: IdempotencyStore

@@ -49,8 +49,7 @@ case "$cmd" in
     ;;
   live)
     if [[ "$subcmd" == "setup" ]]; then
-      shift
-      exec bash "$ROOT/scripts/bootstrap_remote_env.sh" "$@"
+      exec bash "$ROOT/scripts/bootstrap_remote_env.sh" "${@:3}"
     fi
     if [[ "$subcmd" == "stop" ]]; then
       exec bash "$ROOT/scripts/ios_live_mac_agent.sh" stop

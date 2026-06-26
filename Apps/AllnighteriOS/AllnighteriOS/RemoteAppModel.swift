@@ -701,7 +701,11 @@ final class RemoteAppModel {
             deviceSealingKey: session.deviceSealingKey
         )
         threadStore = store
-        _ = restoreThreadCache(threadId: threadId)
+        if case .connected = connectionPhase {
+            // Live: Mac is truth. Do not flash stale disk cache before each fetch.
+        } else {
+            _ = restoreThreadCache(threadId: threadId)
+        }
         await store.load(threadId: threadId)
         threadSnapshot = store.state.snapshot
         threadLoadStatus = store.state.status
@@ -729,6 +733,9 @@ final class RemoteAppModel {
               let session = deviceSession else {
             return
         }
+        guard !snapshot.turns.contains(where: { $0.id.hasPrefix("optimistic_") }) else {
+            return
+        }
         let entry = ConversationThreadDetailCacheEntry(
             macAgentId: session.mac.macAgentId,
             threadId: threadId,
@@ -754,6 +761,11 @@ final class RemoteAppModel {
             cachedAt: entry.cachedAt
         )
         return true
+    }
+
+    private func invalidateThreadCache(threadId: String) {
+        guard let session = deviceSession else { return }
+        try? threadDetailCache.clear(macAgentId: session.mac.macAgentId, threadId: threadId)
     }
 
     private func markThreadRead(threadId: String, throughTurnId: String) async {
@@ -851,12 +863,9 @@ final class RemoteAppModel {
                         schedulePreviewRunCompletion(threadId: threadId, workerTurnId: workerTurnId)
                     }
                 } else {
-                    if appendOptimisticSend(prompt: trimmed, threadId: threadId) != nil {
-                        await refreshHome()
-                    } else {
-                        await refreshHome()
-                        await loadThread(threadId: threadId)
-                    }
+                    invalidateThreadCache(threadId: threadId)
+                    await refreshHome()
+                    await loadThread(threadId: threadId)
                 }
             } else if case .preview = connectionPhase {
                 let threadId = await appendPreviewNewThread(prompt: trimmed)
