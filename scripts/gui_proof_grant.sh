@@ -35,6 +35,7 @@ xcodebuild build \
   -destination 'platform=macOS' \
   -derivedDataPath "$DERIVED" \
   -configuration Debug \
+  -allowProvisioningUpdates \
   -quiet >"$LOG" 2>&1
 status=$?
 set -e

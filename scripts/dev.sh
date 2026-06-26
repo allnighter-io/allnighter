@@ -119,6 +119,7 @@ run_build() {
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED" \
     -configuration Debug \
+    -allowProvisioningUpdates \
     -quiet >"$LOG" 2>&1 &
   BUILD_PID=$!
   # Record the xcodebuild pid in the lock so a future stale-lock steal can kill exactly THIS
