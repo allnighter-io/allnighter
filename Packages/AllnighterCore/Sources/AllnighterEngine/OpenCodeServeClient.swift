@@ -166,15 +166,19 @@ public struct OpenCodeServeClient: Sendable {
                             for try await chunk in byteStream {
                                 for event in parser.receive(chunk) {
                                     if Self.isIdleSignal(event) {
-                                        await idleGate.signal()
+                                        await idleGate.signal(clean: true)
                                         continue
                                     }
                                     continuation.yield(event)
                                 }
+                                // A reported session error ends the turn just like idle, but is
+                                // not a clean completion — stop waiting and let the terminal
+                                // block surface the failure.
+                                if parser.sessionError != nil { await idleGate.signal(); break }
                                 if await idleGate.isSignaled { break }
                             }
                             for event in parser.flush() {
-                                if Self.isIdleSignal(event) { await idleGate.signal(); continue }
+                                if Self.isIdleSignal(event) { await idleGate.signal(clean: true); continue }
                                 continuation.yield(event)
                             }
                             await idleGate.signal()
@@ -194,22 +198,44 @@ public struct OpenCodeServeClient: Sendable {
                     consume.cancel()
 
                     let finishedAt = Date()
+                    let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
                     let answerText = parser.accumulatedAnswer
-                    if answerText.isEmpty {
+                    let reasoning = parser.accumulatedReasoning
+                    let toolActions = parser.toolActionCount
+                    let sawCleanIdle = await idleGate.sawCleanIdle
+
+                    func done(_ output: String) {
                         var outcome = WorkerRunOutcome(
-                            status: .failed, errorKind: .emptyOutput,
-                            errorReason: "opencode stream: empty answer",
+                            status: .done, output: output,
                             startedAt: startedAt, finishedAt: finishedAt)
-                        outcome.durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
-                        continuation.yield(.failed(outcome))
-                    } else {
-                        var outcome = WorkerRunOutcome(
-                            status: .done, output: answerText,
-                            startedAt: startedAt, finishedAt: finishedAt)
-                        outcome.durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
-                        let reasoning = parser.accumulatedReasoning
+                        outcome.durationMs = durationMs
                         outcome.reasoning = reasoning.isEmpty ? nil : reasoning
                         continuation.yield(.completed(outcome))
+                    }
+                    func failed(_ kind: WorkerAnswerErrorKind, _ reason: String) {
+                        var outcome = WorkerRunOutcome(
+                            status: .failed, errorKind: kind, errorReason: reason,
+                            startedAt: startedAt, finishedAt: finishedAt)
+                        outcome.durationMs = durationMs
+                        continuation.yield(.failed(outcome))
+                    }
+
+                    if let sessionError = parser.sessionError {
+                        // The run actually errored — a failure regardless of any tool work.
+                        failed(.nonzeroExit, "opencode session error: \(sessionError)")
+                    } else if !answerText.isEmpty {
+                        done(answerText)
+                    } else if toolActions > 0, sawCleanIdle {
+                        // Tool-only completion: the model did its work through tools (wrote
+                        // files / ran commands) and the session ended cleanly without a closing
+                        // assistant message. The deliverable is the side effects, not chat
+                        // text — this is success, not `empty_output`. (Decoupling this from
+                        // visible text is what unblocks unattended review/execute batches.)
+                        done("Completed via \(toolActions) tool action\(toolActions == 1 ? "" : "s") with no closing message.")
+                    } else {
+                        // No text, no tool work (or the stream never reached a clean idle):
+                        // a genuinely empty turn stays a failure.
+                        failed(.emptyOutput, "opencode stream: empty answer")
                     }
                     continuation.finish()
                 } catch {
@@ -227,7 +253,14 @@ public struct OpenCodeServeClient: Sendable {
 
     private actor IdleGate {
         private(set) var isSignaled = false
-        func signal() { isSignaled = true }
+        /// True only when an actual `session.idle` was observed — i.e. the run finished
+        /// cleanly, as opposed to the stream merely ending or erroring. Tool-only success is
+        /// gated on this so a timed-out / dropped stream is never mistaken for completion.
+        private(set) var sawCleanIdle = false
+        func signal(clean: Bool = false) {
+            isSignaled = true
+            if clean { sawCleanIdle = true }
+        }
     }
 
     func sendMessage(

@@ -158,4 +158,76 @@ final class OpenCodeServeClientTests: XCTestCase {
         XCTAssertEqual(terminal?.status, .done)
         XCTAssertEqual(terminal?.output, "READY")
     }
+
+    /// The control-plane bug this fixes: a review/execute turn where the model does its work
+    /// entirely through tools (writes the findings file) and reaches `session.idle` with NO
+    /// closing assistant text. Old behavior marked this `empty_output`/failed; it must now be
+    /// a tool-only *success* so the check-passing deliverable isn't reported as a failure.
+    func testStreamRunToolOnlyCompletionIsDone() async throws {
+        let sseBody = """
+        data: {"type":"message.part.updated","properties":{"part":{"type":"tool","callID":"call_1","tool":"write","state":{"status":"completed"}}}}
+
+        data: {"type":"session.idle","properties":{}}
+
+        """
+        let terminal = try await runFixtureStream(sseBody)
+        XCTAssertEqual(terminal?.status, .done)
+        XCTAssertNil(terminal?.errorKind)
+        XCTAssertEqual(terminal?.output?.contains("1 tool action"), true)
+    }
+
+    /// A genuinely empty turn — no text, no tool work — stays a failure.
+    func testStreamRunNoTextNoToolsIsEmptyOutputFailure() async throws {
+        let sseBody = """
+        data: {"type":"session.idle","properties":{}}
+
+        """
+        let terminal = try await runFixtureStream(sseBody)
+        XCTAssertEqual(terminal?.status, .failed)
+        XCTAssertEqual(terminal?.errorKind, .emptyOutput)
+    }
+
+    /// A reported `session.error` is a failure even if a tool ran first.
+    func testStreamRunSessionErrorIsFailure() async throws {
+        let sseBody = """
+        data: {"type":"message.part.updated","properties":{"part":{"type":"tool","callID":"call_1","tool":"bash","state":{"status":"running"}}}}
+
+        data: {"type":"session.error","properties":{"error":{"name":"UnknownError","data":{"message":"boom"}}}}
+
+        """
+        let terminal = try await runFixtureStream(sseBody)
+        XCTAssertEqual(terminal?.status, .failed)
+        XCTAssertEqual(terminal?.errorKind, .nonzeroExit)
+        XCTAssertEqual(terminal?.errorReason?.contains("boom"), true)
+    }
+
+    /// Drive `streamRun` over a canned SSE body and return its terminal outcome.
+    private func runFixtureStream(_ sseBody: String) async throws -> WorkerRunOutcome? {
+        let sessionJSON = #"{"id":"ses_stream"}"#
+        let transport: OpenCodeServeClient.Transport = { req in
+            let url = req.url!.absoluteString
+            if url.hasSuffix("/prompt_async") {
+                return (Data(), HTTPURLResponse(url: req.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!)
+            }
+            return (Data(sessionJSON.utf8), HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        let sseTransport: OpenCodeServeClient.SSETransport = { _ in
+            AsyncThrowingStream { continuation in
+                continuation.yield(Data(sseBody.utf8))
+                continuation.finish()
+            }
+        }
+        let client = OpenCodeServeClient(transport: transport, sseTransport: sseTransport)
+        var terminal: WorkerRunOutcome?
+        for try await event in client.streamRun(
+            "do it", modelLabel: "featherless/zai-org/GLM-5.2",
+            autoApprove: true, timeout: .seconds(5)
+        ) {
+            switch event {
+            case .completed(let o), .failed(let o): terminal = o
+            default: break
+            }
+        }
+        return terminal
+    }
 }

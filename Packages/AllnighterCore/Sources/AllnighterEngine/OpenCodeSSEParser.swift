@@ -9,6 +9,14 @@ public final class OpenCodeSSEParser: @unchecked Sendable {
     private var reasoningAccumulator = ""
     private var answerSeq = 0
     private var reasoningSeq = 0
+    /// Distinct tool calls seen this turn (keyed by `callID`). A non-empty set means the
+    /// model did real work via tools (wrote files / ran commands) even if it emitted no
+    /// visible answer text — the basis for distinguishing a *tool-only completion* (success)
+    /// from a genuinely empty turn.
+    private var toolCallIDs: Set<String> = []
+    /// First `session.error` reason seen this turn, if any. A turn that errored is a failure
+    /// regardless of tool activity.
+    private var firstSessionError: String?
 
     public init() {}
 
@@ -42,6 +50,10 @@ public final class OpenCodeSSEParser: @unchecked Sendable {
 
     public var accumulatedAnswer: String { answerAccumulator }
     public var accumulatedReasoning: String { reasoningAccumulator }
+    /// Count of distinct tool calls this turn. `> 0` ⇒ the model performed tool work.
+    public var toolActionCount: Int { toolCallIDs.count }
+    /// The first `session.error` reason this turn, or nil if the turn never errored.
+    public var sessionError: String? { firstSessionError }
 
     private func handleBlock(_ block: String) -> [WorkerStreamEvent] {
         block.split(separator: "\n", omittingEmptySubsequences: false)
@@ -61,6 +73,11 @@ public final class OpenCodeSSEParser: @unchecked Sendable {
         switch type {
         case "message.part.updated", "message.part.delta":
             return partEvents(properties: properties, raw: String(payload))
+        case "session.error":
+            if firstSessionError == nil {
+                firstSessionError = Self.errorReason(properties) ?? "unknown session error"
+            }
+            return [.rawEvent(sourceId: "opencode", json: String(payload))]
         case "session.idle":
             return [.rawEvent(sourceId: "opencode", json: String(payload))]
         case "session.status":
@@ -108,10 +125,33 @@ public final class OpenCodeSSEParser: @unchecked Sendable {
                 reasoningSeq += 1
                 return [.reasoningDelta(text: suffix, sequence: reasoningSeq)]
             }
+        case "tool":
+            // Tool work is the deliverable for execute/review turns (a model can write a
+            // file or run a check and never emit a closing assistant message). Record the
+            // distinct call so an empty-text turn that *did* work isn't misread as a failure.
+            let callID = (part["callID"] as? String) ?? (part["id"] as? String)
+            if let callID { toolCallIDs.insert(callID) }
+            let toolName = (part["tool"] as? String) ?? "tool"
+            let status = (part["state"] as? [String: Any])?["status"] as? String
+            return [.toolActivity(label: toolName, kind: status ?? "opencode")]
         default:
             break
         }
         return [.rawEvent(sourceId: "opencode", json: raw)]
+    }
+
+    /// Pull a short human reason out of a `session.error` event's `error` payload.
+    /// The error is a union (`ProviderAuthError`, `UnknownError`, `MessageAbortedError`, …);
+    /// prefer `data.message`, then `name`, else a compact JSON snippet.
+    static func errorReason(_ properties: [String: Any]) -> String? {
+        guard let error = properties["error"] as? [String: Any] else { return nil }
+        if let data = error["data"] as? [String: Any], let message = data["message"] as? String, !message.isEmpty {
+            return message
+        }
+        if let name = error["name"] as? String, !name.isEmpty { return name }
+        if let json = try? JSONSerialization.data(withJSONObject: error),
+           let s = String(data: json, encoding: .utf8) { return String(s.prefix(200)) }
+        return nil
     }
 
     /// Returns the suffix of `current` beyond `previous` (handles cumulative updates).
