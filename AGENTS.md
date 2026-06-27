@@ -71,6 +71,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Installed help MCP, repo-free product docs, agent help routing | `docs/phases/MCP_Help_System.md` + `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` |
+| MCP tool surface upgrade (count cut + wire protocol) | `docs/phases/MCP_Tool_Upgrade.md` — **§6.7** before emitting wire `outputSchema` |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
 | Shared Mac/iOS SwiftUI or `Packages/AllnighterUI` | `docs/gui/GUI_Workflow.md` §5 — default **no**; founder escalation required |
@@ -86,6 +87,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
 | Supervisor + Hammer pair team (sprint queue, stall/nudge) | `docs/phases/Pair_Programming_Team.md` + `Try_Fix_Auto_Implement.md` |
+| GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/phases/code_review/README.md` |
 | OpenCode smoke probe blocked (handoff) | `docs/phases/OpenCode_Smoke_Probe_Blocker.md` |
 | Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |
 | Deslop pass (slice slop cleanup) | `docs/operations/Deslop.md` |

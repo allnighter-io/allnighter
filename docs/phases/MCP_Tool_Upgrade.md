@@ -7,7 +7,8 @@
 the **wire-protocol layer** the v1 draft under-specified, after two mentor reviews.
 **Reference lessons:** `XTerminal/docs/phases/MCP_Hardening_Core_Upgrade.md` (merge discipline +
 ratchets), `websitemd.studio/Docs/product/MCP_Tool_Surface_Contract.md` (frozen wire ABI +
-capability-as-data).
+capability-as-data), **Ikiro Phase 50 / Cursor `outputSchema` rejection** (2026-06-27 — see
+§6.7: green connected + 0 tools when `tools/list` carries schemas Cursor cannot parse).
 **Adjacent:** [[allnighter-agent-first-schemas]], [[allnighter-mcp-help]],
 [[allnighter-pending-execute-lane-safety]], `docs/phases/MCP_Agent_First_Contract.md`.
 
@@ -141,9 +142,10 @@ zero-users discipline.
 - **P2 — Fewer well-named tools, never a god-tool.** Consolidate overlap behind one clear
   `action`/`mode`/`view` param. Every merge must satisfy P5 and the union-schema rule (§7).
 - **P3 — Read where you write, with *wire-level* discrimination.** `get`+`list` collapse:
-  `id` omitted = summary array; `id` present = full record. **The merged tool's `outputSchema`
-  MUST be a tagged `oneOf`, not prose** — a discriminated union the client can actually
-  validate. Prose-only "discrimination" makes `outputSchema` hollow (T7).
+  `id` omitted = summary array; `id` present = full record. **The merged tool's registry
+  `outputSchema` MUST be a tagged `oneOf` with a root `"type": "object"`**, not prose — a
+  discriminated union hosts can validate when we eventually wire it (§6.7). Bare root-level
+  `oneOf` (no `type`) is invalid for strict MCP clients and can zero the entire catalog.
 - **P4 — Create is idempotent and absorbs its variants** (PATCH, not PUT); a `dryRun` flag
   absorbs preflight/validate.
 - **P5 — Descriptions are routing rules, and the format is enforced.** Every tool description
@@ -174,9 +176,11 @@ zero-users discipline.
   `thread_*`/`pending_*`/`project_*`/`stalled_*` = domain nouns. Every tool also carries a
   human `title` ("List teams", not `teams_get`) for host UIs (T7).
 - **P11 — Wire conformance is part of the contract (new).** The registry's `outputSchema`,
-  idempotency, and read/destructive nature MUST be projected onto the actual MCP descriptor
-  and response envelope (typed `structuredContent`, `annotations`, `title`, `outputSchema`),
-  on the 2025-06-18 protocol. A capability is not "done" until its wire shape conforms (T7).
+  idempotency, and read/destructive nature MUST be projected onto the response envelope
+  (typed `structuredContent`, `annotations`, `title`) on the 2025-06-18 protocol.
+  **`outputSchema` on `tools/list` is deferred until T7.7 passes** (§6.7) — the registry and
+  `allnighter://schemas/{tool}` resources own the typed contract; aspirational wire
+  `outputSchema` that breaks Cursor is not conformance, it is an outage.
 
 ---
 
@@ -304,18 +308,34 @@ to dodge the cap. The orphan scan (T3) treats CLI-only names as a closed, enumer
 - **T7 — Wire conformance (new — the v2 core).** A conformance test asserting, for the emitted
   wire (not just the registry):
   1. `protocolVersion == "2025-06-18"`.
-  2. every tool descriptor emits `outputSchema` (the registry value) and a `title`.
-  3. every tool descriptor emits `annotations` mapped from registry metadata:
+  2. every tool descriptor emits a `title` and `annotations` mapped from registry metadata:
      `readOnlyHint` for non-mutating reads; `destructiveHint`+`openWorldHint` for
      `team_run`/`pending_run`/`thread_send`/`pair_run`; `idempotentHint` from the idempotency
      rule (**keyed ≠ idempotent** → `team_start.idempotentHint == false`).
-  4. success `structuredContent` is the **typed object** matching `outputSchema` — never
-     `{"json": "<string>"}` (fixes `MCPServer.swift:528`).
+  3. **`tools/list` does NOT emit `outputSchema` until T7.7 is green** (§6.7). Registry +
+     `allnighter://schemas/{tool}` carry the typed contract instead.
+  4. success `structuredContent` is the **typed object** matching the registry `outputSchema` —
+     never `{"json": "<string>"}` (fixes `MCPServer.swift:528`).
   5. error responses emit the full `ErrorEnvelope` as typed `structuredContent` (not a
      flattened string), enriched with `nextTool` + `helpRef: alln://errors/{code}` so the
      model recovers in-turn without a second call (§6.6).
   6. merged read tools (`teams_get`, `team_result`, `run_get`, `pending_list`, `thread_get`)
-     emit a tagged `oneOf` `outputSchema` (P3).
+     registry schemas are tagged `{"type":"object","oneOf":[…]}` unions (P3) — ready for a
+     future wire emit once T7.7 passes.
+- **T7.7 — Cursor `tools/list` schema compat (new — launch blocker for wire `outputSchema`).**
+  Cursor's MCP client validates `outputSchema` on every tool in `tools/list` **strictly** and
+  **silently drops the entire tool list** when any single descriptor fails (green connected,
+  0 tools in UI, empty local `tools/*.json` cache — same class as Ikiro Phase 50,
+  [Cursor forum #160620](https://forum.cursor.com/t/mcp-server-connected-green-dot-and-tools-discovered-in-logs-but-0-tools-in-ui-and-agent/160620)).
+  Until this ratchet passes:
+  - **Do not** put `outputSchema` on `tools/list` (structured responses already live in
+    `structuredContent`; schema resources are the contract surface).
+  - When we opt in later, every wire `outputSchema` MUST have a root `"type": "object"` —
+    never bare root `oneOf` / `anyOf` (invalid_literal at `outputSchema.type` zeros the list).
+  - CI asserts the serialized `tools/list` payload passes the same strict validation Cursor
+    uses (golden fixture + per-tool schema lint).
+  - `alln mcp doctor --client cursor` verifies **registered tool count > 0**, not just that
+    the server returned N tools over the wire.
 - **T8 — Golden agent traces (new — the launch proof).** Check-in a fixture per workflow; CI
   replays the tool-call sequence. The canonical trace:
   `mcp_hello → help(topic) → team_start(dryRun) → team_start → team_result → run_get`.
@@ -361,6 +381,46 @@ The fix is wire serialization: emit it as typed `structuredContent.error` (objec
 `nextTool` (derived from `ErrorHelpBridge`) and `helpRef: "alln://errors/{code}"`. The
 `text` content stays a one-line human summary.
 
+### 6.7 Cursor `outputSchema` rejection — do not repeat Ikiro Phase 50
+
+**Applies to Slice 0+.** Today Allnighter is *safe*: `toolDefinitions()` emits only
+`name`/`description`/`inputSchema` (`MCPServer.swift:409`) — no wire `outputSchema`, so
+Cursor registers all ~61 tools. **The planned upgrade would regress** if Slice 0 blindly
+projects registry `outputSchema` onto `tools/list` the way Ikiro's Phase 50 wire ABI did.
+
+**Observed failure mode (Ikiro, 2026-06-27):**
+
+| Signal | Meaning |
+|--------|---------|
+| MCP server green / connected | Transport + auth OK |
+| `tools/list` HTTP 200, N tools, ~10KB | Server is fine |
+| Cursor UI: "No tools" / agent has 0 MCP tools | Client rejected the list |
+| Local MCP cache: only metadata, no `tools/*.json` | Parse/validation never succeeded |
+
+**Root cause class:** strict client validation of `outputSchema` on `tools/list`. One bad
+descriptor → **entire list dropped**, not N−1. Common trigger: root-level `"oneOf": […]`
+without `"type": "object"` (same bug class as
+[claude-code#10031](https://github.com/anthropics/claude-code/issues/10031)).
+
+**Allnighter-specific risk:** v2 plans tagged `oneOf` outputs for merged reads (P3/T7.6) and
+nullable unions in `ContractSchema` (`nullableRef` uses bare `oneOf`). Projecting those verbatim
+onto `tools/list` without a root `type: object` wrapper would zero the catalog on Cursor —
+our primary client (§0).
+
+**Decided guardrails (implementation):**
+
+1. **Slice 0 ships typed `structuredContent`, `title`, `annotations`, enriched errors — not wire
+   `outputSchema`.** Schemas live in the registry + `allnighter://schemas/{tool}` (§5B).
+2. **Wire `outputSchema` is opt-in behind T7.7**, not a Slice 0 deliverable.
+3. **If/when we emit wire `outputSchema`:** every tool uses root `"type": "object"`; unions are
+   `{"type":"object","oneOf":[…]}`; CI runs Cursor-compat validation on the full list payload.
+4. **Never encode "must emit outputSchema on wire" in tests** until T7.7 exists — that test
+   pattern is what shipped the Ikiro regression.
+
+**Debug when suspected:** Cursor MCP Logs (`Cmd+Shift+U`) → `Error listing tools` /
+`invalid_literal` at `outputSchema.type`. Direct `tools/list` against `alln mcp serve` proves
+server vs client.
+
 ---
 
 ## 7. Per-merge safety rule (applied during the cut)
@@ -392,8 +452,9 @@ public var mcpPrompts:   [MCPPromptSpec]      // name, title, description, argum
 "capabilities": ["tools": [:], "resources": [:], "prompts": [:]]   // subscribe: deferred (§11)
 // + cases: resources/list, resources/read, prompts/list, prompts/get
 ```
-`toolDefinitions()` emits `title`, `outputSchema`, `annotations`. `toolText(...)` returns
-typed `structuredContent` (decode the JSON string to an object before embedding).
+`toolDefinitions()` emits `title`, `annotations`; **`outputSchema` omitted until T7.7** (§6.7).
+`toolText(...)` returns typed `structuredContent` (decode the JSON string to an object before
+embedding).
 `respondToolError(...)` emits the full enriched `ErrorEnvelope` object.
 
 **Protocol bump:** `protocolVersion = "2025-06-18"`; `serverInfo.version = "1.0"`.
@@ -410,7 +471,7 @@ But a single 61→30 + new-wire + resources + prompts PR is unreviewable. Two re
 
 | Slice | Scope | Surface Δ |
 |-------|-------|-----------|
-| **0 — Foundation** | Bump protocol; emit `outputSchema`/`title`/`annotations`; typed `structuredContent`; enriched error envelope; land T1–T9 calibrated to the **current** surface; rewrite `mcp_hello` to the router shape (kills the `team_preflight` orphan); trim `thread_send` (T5). | 0 tools (wire-only) |
+| **0 — Foundation** | Bump protocol; emit `title`/`annotations` ( **`outputSchema` deferred — §6.7** ); typed `structuredContent`; enriched error envelope; land T1–T9 + T7.7 cursor-safe wire ratchet calibrated to the **current** surface; rewrite `mcp_hello` to the router shape (kills the `team_preflight` orphan); trim `thread_send` (T5). | 0 tools (wire-only) |
 | **1 — Atomic cut** | The full tool merge 61→30 + the 7 resources + 3 prompts + `project_context` contract, in one atomic commit: registry, `MCPServer` dispatch, CLI projections, regenerated `mcp-tools.json`, all embedded refs (T3), tests + golden traces (T8). | −31 → 30 tools, +7 resources, +3 prompts |
 
 Slice 0 lands the correct wire *first* so the merges in Slice 1 are authored on conformant
@@ -423,15 +484,17 @@ rails. Each slice: build + full suite green; commit each step ([[allnighter-work
 1. Repo proof wall green (T1–T9 + T3 orphan scan).
 2. `MCPToolContractTests`/`MCPParityTests` extended to the 30-tool surface + resources/prompts.
 3. Wire conformance test (T7) green: protocol `2025-06-18`, typed `structuredContent`,
-   `outputSchema`/`title`/`annotations` present, `oneOf` on merged reads.
+   `title`/`annotations` present; **no wire `outputSchema` unless T7.7 green**; registry
+   merged-read unions are `type:object` + `oneOf`.
 4. `mcp_hello` re-inspected (T6): no roster, no sitemap, `nextToolPlan` routes to `doctor`
    when blocked, state-invariant `tools/list`.
 5. Contract export (`docs/generated/alln/mcp-tools.json` + new resource/prompt manifests)
    regenerated via the export path, diffed clean.
 6. **Golden traces (T8)** checked in and replaying green — the real "world-class" proof.
 7. **`alln mcp doctor --client cursor`** (new, ship it): verifies the connected tool count is
-   under the client cap and the handshake advertises resources/prompts — a programmatic
-   guard against silent truncation, beside the one-time manual Cursor + Claude smoke.
+   under the client cap, **that Cursor actually registered tools (not 0 after a green
+   connect — §6.7)**, and the handshake advertises resources/prompts — a programmatic guard
+   against silent truncation and `outputSchema` rejection, beside manual Cursor + Claude smoke.
 8. **`alln mcp install --target cursor|claude`** prints the exact config **plus tool count +
    contract hash**, so connect is frictionless and verifiable.
 
@@ -456,7 +519,8 @@ rails. Each slice: build + full suite green; commit each step ([[allnighter-work
 ## 12. What we took from review, and what we declined (durable, so it isn't re-argued)
 
 **Taken (gems):** wire conformance as a first-class layer (T7); typed `structuredContent` +
-`outputSchema`/`annotations`/`title` + protocol bump; `mcp_hello` as router with
+`annotations`/`title` + protocol bump; **wire `outputSchema` deferred behind T7.7** (§6.7,
+Ikiro lesson); `mcp_hello` as router with
 `nextToolPlan`/`workflows`/`contractHash` (T6); enforced description template (P5/T9);
 re-split `team_ask` from `team_run` (P8) and `pending_edit` from `pending_update` (§7);
 naming topology P10; `project_context` contract + size ratchet (§6.5); pagination rule;
