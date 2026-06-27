@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "PPT-smoke",
+  "title": "Pair slice smoke packet",
+  "readPaths": [
+    { "path": "Packages/AllnighterCore/Sources/AllnighterEngine/TextUtil.swift" }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "extractOpenCodeVisibleText",
+      "signature": "static func extractOpenCodeVisibleText(_ raw: String) -> String",
+      "definedAt": "TextUtil.swift:1"
+    }
+  ],
+  "intent": "Smoke-test pair slice dispatch (orchestration proof packet).",
+  "touchAllowlist": [
+    "Packages/AllnighterCore/Sources/AllnighterEngine/TextUtil.swift"
+  ],
+  "check": {
+    "method": "command",
+    "command": "swift test --package-path Packages/AllnighterCore --filter SliceGate"
+  },
+  "maxRetries": 2,
+  "dangerFlags": []
+}

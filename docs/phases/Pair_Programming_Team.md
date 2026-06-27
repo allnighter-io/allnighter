@@ -1,6 +1,6 @@
 # Pair Programming Team — the Control Plane, proven with a free executor
 
-Status: **Spec — implementation-ready (PPT-1 buildable today)**
+Status: **In progress — PPT-1 + PPT-2 implemented (CLI + queue loop)**
 Owner: AllnighterCore + CLI + Mac GUI
 Updated: 2026-06-26
 
@@ -249,27 +249,27 @@ already did the work — leverage → 1) and any notion that Allnighter authors 
 
 ## 7. Implementation phases
 
-### PPT-1 — Single-unit handoff (CLI) — *buildable today*
+### PPT-1 — Single-unit handoff (CLI) — *done*
 
-| Slice | Deliverable | Mirrors / uses |
+| Slice | Deliverable | Status |
 | --- | --- | --- |
-| PPT-S01 | `WorkSlicePacket` + parser + tests (`AllnighterCore`) | `FixPacket`/`FixPacketParser` |
-| PPT-S02 | `SliceGate.evaluate` (allowlist + danger) + tests | `TryFixGate` |
-| PPT-S03 | `CheckRunner` (bounded `/bin/sh -c`, exit + stdout-tail) + tests | new (advance signal, not a verifier) |
-| PPT-S04 | `SliceAttemptPrompt.assemble` (F1/F4 shape) + tests | `FixAttemptPrompt` |
-| PPT-S05 | `PairCoordinator.runSlice`: ensureRunning → SliceGate → `RunService.run` (mutating, lane lock) → check → link via `RunLink` | `FollowUpCoordinator.runTryFix` |
-| PPT-S06 | `alln pair slice <packet-path> --json` (extend existing `PairCLI`) | `RunCLI` |
+| PPT-S01 | `WorkSlicePacket` + parser + tests (`AllnighterCore`) | **done** |
+| PPT-S02 | `SliceGate.evaluate` (allowlist + danger) + tests | **done** |
+| PPT-S03 | `CheckRunner` (bounded `/bin/sh -c`, exit + stdout-tail) + tests | **done** |
+| PPT-S04 | `SliceAttemptPrompt.assemble` (F1/F4 shape) + tests | **done** |
+| PPT-S05 | `PairCoordinator.runSlice` | **done** |
+| PPT-S06 | `alln pair slice <packet-path> --json` | **done** |
 
-### PPT-2 — The autonomous queue (the product surface)
+### PPT-2 — The autonomous queue (the product surface) — *done*
 
-| Slice | Deliverable |
-| --- | --- |
-| PPT-S07 | `SliceQueue` + `SliceQueueStore` (durable; status pending/running/passed/failed/escalated; `RunStore` folder pattern) |
-| PPT-S08 | `SliceTerminalClassifier` incl **compaction-not-stall** (§5) + grace window |
-| PPT-S09 | Nudge injection: `NudgePrompt` (template, not LLM), same unit, max `maxRetries` |
-| PPT-S10 | `PairCoordinator.runQueue` loop: pop → runSlice → advance/nudge/escalate; single `RunWriteLock` holder for the whole run |
-| PPT-S11 | Ceilings + hard stop: `--until <HH:MM>`, `--max-tokens N`, `--max-retries N`; `alln pair run --queue <dir> …` |
-| PPT-S12 | Escalation: on check-fail mark `escalated` + hand back to the planner (failed unit + stdout-tail) |
+| Slice | Deliverable | Status |
+| --- | --- | --- |
+| PPT-S07 | `SliceQueue` + `SliceQueueStore` | **done** |
+| PPT-S08 | `SliceTerminalClassifier` incl compaction-not-stall | **done** |
+| PPT-S09 | `NudgePrompt` template | **done** |
+| PPT-S10 | `PairCoordinator.runQueue` loop | **done** |
+| PPT-S11 | `--until`, `--max-retries`; `alln pair run --queue <dir>` | **done** |
+| PPT-S12 | Escalation on check-fail → `escalated` status | **done** |
 
 ### PPT-3 — Planner automation (close the loop)
 
@@ -324,13 +324,13 @@ already did the work — leverage → 1) and any notion that Allnighter authors 
 
 V2 — single unit (PPT-S06):
 ```bash
-alln pair slice docs/phases/sprint/opencode/OC-S02b.md --json
+alln pair slice docs/phases/sprint/pair/PPT-smoke.json --project . --json
 # → { sliceId, status: passed, check: { exitCode: 0 }, childRunId, parentRunId }
 ```
 
 **V3 — the product (PPT-S11+). The acceptance test for the whole feature:**
 ```bash
-alln pair run --queue docs/phases/sprint/opencode/ --until 07:00 --max-retries 2 --json
+alln pair run --queue docs/phases/sprint/pair/ --project . --until 07:00 --max-retries 2 --json
 ```
 Acceptance — this is the vision, made literal:
 - Runs **with no human in the loop** until the queue is empty or 07:00.

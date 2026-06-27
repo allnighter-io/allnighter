@@ -8,6 +8,8 @@ import Foundation
 public struct RunLink: Codable, Sendable, Equatable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
         case diagnosisOf, fixAttemptFor, proofFor, retryOf
+        /// Pair-programming slice envelope → executor attempt.
+        case sliceOf, sliceAttemptFor
     }
     public var kind: Kind
     public var runId: String

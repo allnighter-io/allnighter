@@ -52,6 +52,15 @@ SSOT: `docs/phases/setup/OpenCode_CLI_Support.md`
 Pair-programming loop (supervisor + hammer, stall/nudge):
 [`Pair_Programming_Team.md`](../Pair_Programming_Team.md)
 
+### Pair programming (PPT)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| smoke | [PPT-smoke.json](pair/PPT-smoke.json) | ready |
+| S01 | [PPT-S01 — packet + parser](pair/PPT-S01-packet-parser.md) | **done** |
+
+SSOT: `docs/phases/Pair_Programming_Team.md`
+
 ## Creating a new work order
 
 ```text

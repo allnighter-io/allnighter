@@ -8,7 +8,7 @@ enum PairCLI {
         runtime: ToolRuntime,
         store: TrustedRemoteStore = TrustedRemoteStore(),
         directSessionStore: DirectModePairingSessionStore = DirectModePairingSessionStore()
-    ) {
+    ) async {
         guard let sub = args.first else {
             runList([], store: store)
             return
@@ -18,6 +18,8 @@ enum PairCLI {
         case "approve": runApprove(Array(args.dropFirst()), store: store)
         case "revoke": runRevoke(Array(args.dropFirst()), store: store)
         case "begin": runBegin(Array(args.dropFirst()), sessionStore: directSessionStore)
+        case "slice": await PairProgrammingCLI.runSlice(Array(args.dropFirst()), runtime: runtime)
+        case "run": await PairProgrammingCLI.runQueue(Array(args.dropFirst()), runtime: runtime)
         default: usage()
         }
     }
