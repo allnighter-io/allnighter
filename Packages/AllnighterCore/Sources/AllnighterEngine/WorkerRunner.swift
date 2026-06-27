@@ -649,10 +649,15 @@ public struct WorkerRunner: Sendable {
                             var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
                                 outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
+                                overrideFinalText: finalText,
+                                timeoutKind: .idle,
+                                spawnCommand: spawnCommand,
+                                spawnArgCount: spawnArgs.count,
+                                spawnWorkingDir: spawnWorkingDir,
                                 invocationKind: invocationKind)
                             applyStreamMetrics(to: &outcome)
                             outcome.gateWaitMs = gateWaitMs
-                            continuation.yield(.failed(outcome))
+                            continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
                         case .cancelled(let partialOut, let partialErr):
                             let result = CommandResult(
                                 stdout: String(decoding: partialOut, as: UTF8.self),
