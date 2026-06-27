@@ -1,5 +1,8 @@
-# macOS
-.DS_Store
+# Generated code-review artifacts (expand_cr_packet.py / GLM output)
+docs/phases/code_review/packets/*.expanded.json
+docs/phases/code_review/findings/*.md
+!docs/phases/code_review/findings/.gitkeep
+
 .AppleDouble
 .LSOverride
 ._*
