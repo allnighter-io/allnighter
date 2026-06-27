@@ -23,6 +23,13 @@ is transitional.
 
 ## Repo Targets
 
+**Canonical remote:** `origin` → `https://github.com/MikeReining/allnighter.git`
+
+Local worktrees: `~/Documents/GitHub/Allnighter` (primary) and
+`~/Documents/GitHub/Allnighter-iOS` (`codex/ios-foundation`). The ikiro.io
+marketing site is a separate repo: `website` remote →
+`https://github.com/Ikiro-io/website.git` (do not push Allnighter branches there).
+
 ```txt
 Packages/AllnighterCore/     # models, engine, CLI tools
 Apps/AllnighterMac/          # macOS menu-bar app + team UI
