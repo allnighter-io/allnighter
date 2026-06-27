@@ -1,7 +1,7 @@
 # OpenCode Smoke / Probe Blocker — Investigation Handoff
 
-Status: **ROOT-CAUSED — OC-B0 complete; ready for OC-B1 (HTTP-API driver)**
-Owner: (unassigned — impl)
+Status: **RESOLVED — OC-B0 + OC-B1 complete; OpenCode works end to end (HTTP-API driver)**
+Owner: (done — see commits daedc2e2, 884452e1, 749df0ee)
 Updated: 2026-06-26
 Severity: **T2 SSOT** (setup truth vs lie-prone probe layer)
 
@@ -109,6 +109,25 @@ curl -s -X POST $BASE/session/$SID/message -H 'content-type: application/json' -
   | python3 -c 'import json,sys;d=json.load(sys.stdin);print([p["text"] for p in d["parts"] if p["type"]=="text"])'
 # -> ['ALLNIGHTER_READY']
 ```
+
+### OC-B1 COMPLETE (run path) — 2026-06-26
+
+`WorkerRunner.invoke` now routes opencode through `OpenCodeServeClient` (commit
+`749df0ee`). The session is rooted at the run's working dir (`POST /session?directory=…`)
+and all tool permissions are auto-approved (`permission:[{*,**,allow}]`), so headless
+tool-use never blocks. Proven live, full stack:
+
+| Path | Result |
+| --- | --- |
+| `alln doctor --agent opencode --full` | authenticated ✓ |
+| `alln run --worker model_opencode_qwen3_coder_next` | returned `OPENCODE_RUN_OK` in 4.3s ✓ |
+| `alln run --lane code` (execute) | worker wrote a file in the project repo (`EXEC_OK`), auto-approved ✓ |
+
+Remaining (non-blocking) follow-ups: streaming via `/event` SSE + `prompt_async`/`/wait`
+for long executor runs (captures ttftMs); `ReasoningPart` already captured into
+`WorkerRunOutcome.reasoning`; reclassify the manifest off `headless_cli` (the
+`smokeTestCommand`/`invoke` `opencode run` strings are dead — detect still uses
+`opencode --version`).
 
 Everything below predates the resolution; kept for history.
 
