@@ -8,6 +8,7 @@ public struct PairCoordinator: Sendable {
         public var gate: SliceGate.Decision
         public var terminal: SliceTerminalOutcome?
         public var check: CheckResult?
+        public var seats: Seats
         public var parentRun: TeamRun?
         public var childRun: TeamRun?
     }
@@ -16,11 +17,18 @@ public struct PairCoordinator: Sendable {
         public var until: Date?
         public var maxRetries: Int?
         public var executorTeamId: String
+        public var seats: Seats
 
-        public init(until: Date? = nil, maxRetries: Int? = nil, executorTeamId: String) {
+        public init(
+            until: Date? = nil,
+            maxRetries: Int? = nil,
+            executorTeamId: String,
+            seats: Seats = .testDefaults
+        ) {
             self.until = until
             self.maxRetries = maxRetries
             self.executorTeamId = executorTeamId
+            self.seats = seats
         }
     }
 
@@ -31,7 +39,23 @@ public struct PairCoordinator: Sendable {
         public var entries: [SliceQueueEntry]
     }
 
-    public static let defaultExecutorTeamId = FollowUpCoordinator.defaultExecutorTeamId
+    public static let defaultExecutorTeamId = "default_chat"
+
+    /// Planner + executor seats for pair testing (Composer plans, Gemini hammers).
+    public struct Seats: Sendable, Equatable {
+        public var plannerWorkerId: String
+        public var executorWorkerId: String
+
+        public static let testDefaults = Seats(
+            plannerWorkerId: "model_cursor_composer_25",
+            executorWorkerId: "model_gemini"
+        )
+
+        public init(plannerWorkerId: String, executorWorkerId: String) {
+            self.plannerWorkerId = plannerWorkerId
+            self.executorWorkerId = executorWorkerId
+        }
+    }
 
     private let runService: RunService
     private let checkRunner: CheckRunner
@@ -56,12 +80,13 @@ public struct PairCoordinator: Sendable {
         projectId: String?,
         executorTeamId: String,
         origin: RunOrigin,
+        seats: Seats = .testDefaults,
         nudge: String? = nil
     ) async -> Result<Outcome, RunServiceError> {
         let executorFacts = await runService.tryFixExecutorFacts(teamId: executorTeamId)
         let gate = SliceGate.evaluate(packet: packet, executor: executorFacts)
         guard gate.isAllowed else {
-            return .success(Outcome(packet: packet, gate: gate))
+            return .success(Outcome(packet: packet, gate: gate, seats: seats))
         }
 
         do {
@@ -73,7 +98,10 @@ public struct PairCoordinator: Sendable {
         let parentId = "slice_\(packet.sliceId)_\(UUID().uuidString.lowercased())"
         var parent = TeamRun(
             id: parentId,
-            prompt: "pair slice \(packet.sliceId): \(packet.title)",
+            prompt: """
+            pair slice \(packet.sliceId): \(packet.title)
+            planner=\(seats.plannerWorkerId) executor=\(seats.executorWorkerId)
+            """,
             status: .draft,
             origin: origin,
             createdAt: now(),
@@ -85,7 +113,8 @@ public struct PairCoordinator: Sendable {
             message: prompt,
             repoRoot: repoRoot,
             projectId: projectId,
-            presetId: executorTeamId
+            presetId: executorTeamId,
+            workerId: seats.executorWorkerId
         )
 
         let childResult = await runService.run(childRequest, origin: origin)
@@ -113,6 +142,7 @@ public struct PairCoordinator: Sendable {
                 gate: gate,
                 terminal: terminal,
                 check: check,
+                seats: seats,
                 parentRun: parent,
                 childRun: child
             )
@@ -152,6 +182,7 @@ public struct PairCoordinator: Sendable {
                     projectId: projectId,
                     executorTeamId: options.executorTeamId,
                     origin: origin,
+                    seats: options.seats,
                     nudge: nudge
                 )
 

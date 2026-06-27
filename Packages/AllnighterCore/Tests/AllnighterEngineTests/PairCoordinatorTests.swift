@@ -44,7 +44,11 @@ final class PairCoordinatorTests: XCTestCase {
             repoRoot: repo.path,
             projectId: nil,
             executorTeamId: "execution_playbook",
-            origin: .cli
+            origin: .cli,
+            seats: PairCoordinator.Seats(
+                plannerWorkerId: "model_cursor_composer_25",
+                executorWorkerId: "model_cursor_composer_25"
+            )
         )
         guard case .success(let outcome) = result else { return XCTFail("unexpected \(result)") }
         XCTAssertEqual(outcome.gate, .allowed)

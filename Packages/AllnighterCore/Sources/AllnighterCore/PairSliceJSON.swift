@@ -33,6 +33,8 @@ public struct PairSliceJSON: Codable, Equatable, Sendable {
     public var check: Check?
     public var parentRunId: String?
     public var childRunId: String?
+    public var plannerWorkerId: String?
+    public var executorWorkerId: String?
 
     public init(
         contractVersion: String,
@@ -41,7 +43,9 @@ public struct PairSliceJSON: Codable, Equatable, Sendable {
         gate: Gate,
         check: Check? = nil,
         parentRunId: String? = nil,
-        childRunId: String? = nil
+        childRunId: String? = nil,
+        plannerWorkerId: String? = nil,
+        executorWorkerId: String? = nil
     ) {
         self.contractVersion = contractVersion
         self.sliceId = sliceId
@@ -50,6 +54,8 @@ public struct PairSliceJSON: Codable, Equatable, Sendable {
         self.check = check
         self.parentRunId = parentRunId
         self.childRunId = childRunId
+        self.plannerWorkerId = plannerWorkerId
+        self.executorWorkerId = executorWorkerId
     }
 }
 

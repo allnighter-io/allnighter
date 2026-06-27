@@ -4,10 +4,17 @@ import AllnighterEngine
 
 /// `alln pair slice` and `alln pair run` — pair-programming control plane (device pairing stays in PairCLI).
 enum PairProgrammingCLI {
+    private static func seats(from opts: Options) -> PairCoordinator.Seats {
+        PairCoordinator.Seats(
+            plannerWorkerId: opts.value("planner-worker") ?? PairCoordinator.Seats.testDefaults.plannerWorkerId,
+            executorWorkerId: opts.value("executor-worker") ?? PairCoordinator.Seats.testDefaults.executorWorkerId
+        )
+    }
+
     static func runSlice(_ args: [String], runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let packetPath = opts.positional.first else {
-            usage("slice <packet-path> --project <id|path> [--executor <teamId>] [--json]")
+            usage("slice <packet-path> --project <id|path> [--executor <teamId>] [--planner-worker <modelId>] [--executor-worker <modelId>] [--json]")
         }
         guard let projectToken = opts.value("project") else {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--project <id|path> required")
@@ -31,12 +38,14 @@ enum PairProgrammingCLI {
             checkRunner: CheckRunner(commandRunner: SubprocessCommandRunner())
         )
         let executorId = opts.value("executor") ?? PairCoordinator.defaultExecutorTeamId
+        let seats = seats(from: opts)
         let result = await coordinator.runSlice(
             packet: packet,
             repoRoot: project.normalizedRootPath,
             projectId: project.id,
             executorTeamId: executorId,
-            origin: .cli
+            origin: .cli,
+            seats: seats
         )
 
         switch result {
@@ -57,7 +66,7 @@ enum PairProgrammingCLI {
     static func runQueue(_ args: [String], runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let queuePath = opts.value("queue") ?? opts.positional.first else {
-            usage("run --queue <dir> --project <id|path> [--until HH:MM] [--max-retries N] [--executor <teamId>] [--json]")
+            usage("run --queue <dir> --project <id|path> [--until HH:MM] [--max-retries N] [--executor <teamId>] [--planner-worker <modelId>] [--executor-worker <modelId>] [--json]")
         }
         guard let projectToken = opts.value("project") else {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--project <id|path> required")
@@ -90,7 +99,8 @@ enum PairProgrammingCLI {
         let options = PairCoordinator.QueueOptions(
             until: parseUntil(opts.value("until")),
             maxRetries: opts.value("max-retries").flatMap(Int.init),
-            executorTeamId: opts.value("executor") ?? PairCoordinator.defaultExecutorTeamId
+            executorTeamId: opts.value("executor") ?? PairCoordinator.defaultExecutorTeamId,
+            seats: seats(from: opts)
         )
         let outcome = await coordinator.runQueue(
             queue: &queue,
@@ -142,7 +152,9 @@ enum PairProgrammingCLI {
                 )
             },
             parentRunId: outcome.parentRun?.id,
-            childRunId: outcome.childRun?.id
+            childRunId: outcome.childRun?.id,
+            plannerWorkerId: outcome.seats.plannerWorkerId,
+            executorWorkerId: outcome.seats.executorWorkerId
         )
     }
 
