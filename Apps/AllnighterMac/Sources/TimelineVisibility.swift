@@ -127,6 +127,29 @@ private struct TimelineVisibilityTrackingModifier: ViewModifier {
 
 /// Shared scroll-to-unread behavior for Home + legacy thread timelines.
 enum TimelineScrollPolicy {
+    enum TurnCountScrollAction: Equatable {
+        case scrollToBottom
+        case scrollToFirstUnread(String)
+        case scrollToLastTurnBottom(String)
+    }
+
+    /// Pure decision for turn-count scroll — testable without a `ScrollViewProxy`.
+    static func turnCountScrollAction(
+        thread: WorkThread,
+        suppressAutoScroll: Bool,
+        forceScrollToBottomAfterSend: Bool
+    ) -> TurnCountScrollAction? {
+        guard !suppressAutoScroll else { return nil }
+        if forceScrollToBottomAfterSend { return .scrollToBottom }
+        if let target = ThreadsPresenter.firstUnreadTurnId(thread) {
+            return .scrollToFirstUnread(target)
+        }
+        if let last = thread.turns.last {
+            return .scrollToLastTurnBottom(last.id)
+        }
+        return nil
+    }
+
     static func scrollToUnreadIfNeeded(
         proxy: ScrollViewProxy,
         thread: WorkThread,
@@ -142,18 +165,42 @@ enum TimelineScrollPolicy {
     static func scrollOnTurnCountChange(
         proxy: ScrollViewProxy,
         thread: WorkThread,
-        suppressAutoScroll: Bool
+        suppressAutoScroll: Bool,
+        forceScrollToBottomAfterSend: Bool,
+        bottomAnchorId: String
     ) {
-        guard !suppressAutoScroll else { return }
-        if ThreadsPresenter.firstUnreadTurnId(thread) != nil {
-            if let target = ThreadsPresenter.firstUnreadTurnId(thread) {
-                withAnimation { proxy.scrollTo(target, anchor: .top) }
-            }
-            return
+        guard let action = turnCountScrollAction(
+            thread: thread,
+            suppressAutoScroll: suppressAutoScroll,
+            forceScrollToBottomAfterSend: forceScrollToBottomAfterSend
+        ) else { return }
+        switch action {
+        case .scrollToBottom:
+            scrollToBottom(proxy: proxy, bottomAnchorId: bottomAnchorId, animated: true)
+        case .scrollToFirstUnread(let target):
+            withAnimation { proxy.scrollTo(target, anchor: .top) }
+        case .scrollToLastTurnBottom(let turnId):
+            withAnimation { proxy.scrollTo(turnId, anchor: .bottom) }
         }
-        if let last = thread.turns.last {
-            withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+    }
+
+    /// After submit the user must see their message — pin to the timeline bottom sentinel
+    /// (not merely the last turn id) so the full outgoing bubble is in view.
+    static func scrollToBottom(
+        proxy: ScrollViewProxy,
+        bottomAnchorId: String,
+        animated: Bool
+    ) {
+        let scroll = {
+            proxy.scrollTo(bottomAnchorId, anchor: .bottom)
         }
+        if animated {
+            withAnimation { scroll() }
+        } else {
+            scroll()
+        }
+        // A second pass after layout catches the newly appended user row.
+        DispatchQueue.main.async { scroll() }
     }
 
     /// RLS-S04 auto-follow: a streaming answer grows the LAST turn's text without changing

@@ -58,6 +58,10 @@ final class ThreadsViewModel {
     private let projectStore: ProjectStore
     /// Scroll target set on thread select when unread exists (cleared after scroll).
     private(set) var pendingScrollToTurnId: String?
+    /// After composer submit, keep the timeline pinned to the bottom through the brief
+    /// burst of user + worker turns so the user sees their message land.
+    private var forceScrollToBottomAfterSend = false
+    private var forceScrollToBottomClearTask: Task<Void, Never>?
     private var readClearDebounceTask: Task<Void, Never>?
     private let isAppActiveForReadClear: () -> Bool
     private var notificationSnapshots: [String: ThreadNotificationSnapshot]?
@@ -273,6 +277,23 @@ final class ThreadsViewModel {
         defer { pendingScrollToTurnId = nil }
         return pendingScrollToTurnId
     }
+
+    /// True while the timeline should force-follow the bottom after a composer send.
+    func forceScrollToBottomAfterSendActive() -> Bool {
+        forceScrollToBottomAfterSend
+    }
+
+    private func armScrollToBottomAfterSend() {
+        forceScrollToBottomAfterSend = true
+        forceScrollToBottomClearTask?.cancel()
+        forceScrollToBottomClearTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: Self.forceScrollToBottomWindowNs)
+            guard !Task.isCancelled else { return }
+            forceScrollToBottomAfterSend = false
+        }
+    }
+
+    private static let forceScrollToBottomWindowNs: UInt64 = 600_000_000
 
     // MARK: - Timeline visibility / read clear (06 S05)
 
@@ -509,6 +530,7 @@ final class ThreadsViewModel {
                     contextPacketId: preparedRefs.contextPacketId
                 ) {
                     timing.stamp(RunTimingKey.threadUserTurnPersisted)
+                    armScrollToBottomAfterSend()
                 }
                 runViaRunService(
                     routing,

@@ -48,4 +48,60 @@ final class TimelineFollowScrollTests: XCTestCase {
         let settled = thread([turn("w1", status: .done, text: "final answer")])
         XCTAssertEqual(TimelineScrollPolicy.liveContentSignal(for: settled), 0)
     }
+
+    // MARK: post-send scroll
+
+    private func userTurn(_ id: String, text: String) -> ThreadTurn {
+        ThreadTurn(
+            id: id, threadId: "th", kind: .userMessage, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .user, text: text
+        )
+    }
+
+    func testTurnCountScrollPrefersBottomAfterSendEvenWithUnread() {
+        let unreadThread = WorkThread(
+            id: "th",
+            title: "t",
+            createdAt: Date(),
+            updatedAt: Date(),
+            readCursor: ThreadReadCursor(
+                lastReadTurnId: "u1",
+                readAt: Date().addingTimeInterval(-60)
+            ),
+            turns: [
+                userTurn("u1", text: "old prompt"),
+                turn("w1", status: .done, text: "unread reply"),
+                userTurn("u2", text: "just sent"),
+            ]
+        )
+        let action = TimelineScrollPolicy.turnCountScrollAction(
+            thread: unreadThread,
+            suppressAutoScroll: false,
+            forceScrollToBottomAfterSend: true
+        )
+        XCTAssertEqual(action, .scrollToBottom)
+    }
+
+    func testTurnCountScrollUsesFirstUnreadWhenNotAfterSend() {
+        let unreadThread = WorkThread(
+            id: "th",
+            title: "t",
+            createdAt: Date(),
+            updatedAt: Date(),
+            readCursor: ThreadReadCursor(
+                lastReadTurnId: "u1",
+                readAt: Date().addingTimeInterval(-60)
+            ),
+            turns: [
+                userTurn("u1", text: "old prompt"),
+                turn("w1", status: .done, text: "unread reply"),
+            ]
+        )
+        let action = TimelineScrollPolicy.turnCountScrollAction(
+            thread: unreadThread,
+            suppressAutoScroll: false,
+            forceScrollToBottomAfterSend: false
+        )
+        XCTAssertEqual(action, .scrollToFirstUnread("w1"))
+    }
 }

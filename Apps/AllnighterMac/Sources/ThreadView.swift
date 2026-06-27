@@ -316,14 +316,22 @@ private struct ThreadTurnTimeline: View {
                     TimelineScrollPolicy.scrollOnTurnCountChange(
                         proxy: proxy,
                         thread: thread,
-                        suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll
+                        suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll,
+                        forceScrollToBottomAfterSend: threads.forceScrollToBottomAfterSendActive(),
+                        bottomAnchorId: Self.bottomAnchorId
                     )
                 }
                 .onChange(of: TimelineScrollPolicy.liveContentSignal(for: thread)) { _, _ in
                     // RLS-S04: follow the streaming answer as it grows — but only when the
                     // user is at the bottom, and without animation so the follow stays tight.
-                    guard atBottom, !GUIFixture.suppressUnreadAutoScroll else { return }
-                    proxy.scrollTo(Self.bottomAnchorId, anchor: .bottom)
+                    guard !GUIFixture.suppressUnreadAutoScroll else { return }
+                    if threads.forceScrollToBottomAfterSendActive() || atBottom {
+                        TimelineScrollPolicy.scrollToBottom(
+                            proxy: proxy,
+                            bottomAnchorId: Self.bottomAnchorId,
+                            animated: false
+                        )
+                    }
                 }
             }
         }
