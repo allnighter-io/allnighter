@@ -94,4 +94,23 @@ extension ThreadsPresenter {
         }
         return (pinned, groups)
     }
+
+    /// Archived threads matching the search query, newest first. Empty when the query
+    /// is blank — archived hits appear only while searching the active rail.
+    static func archivedSearchMatches(
+        _ rows: [ThreadRailRowState], search: String
+    ) -> [ThreadRailRowState] {
+        let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return [] }
+        return archivedRailRows(rows, search: search)
+    }
+
+    /// All archived threads that match search (blank search matches all), newest first.
+    static func archivedRailRows(
+        _ rows: [ThreadRailRowState], search: String
+    ) -> [ThreadRailRowState] {
+        rows
+            .filter { $0.isArchived && $0.matchesSearch(search) }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
 }

@@ -249,6 +249,23 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertFalse(sections.groups.contains { $0.title == "Unassigned" })
     }
 
+    func testArchivedSearchMatchesOnlyWhenQueryNonEmpty() {
+        let active = thread("live", updatedAt: t1, projectId: "p1")
+        let archived = thread("old chat", updatedAt: t0, archived: true, projectId: "p1")
+        let rows = [active, archived].map(ThreadsPresenter.railRow(from:))
+
+        XCTAssertTrue(ThreadsPresenter.archivedSearchMatches(rows, search: "").isEmpty)
+        XCTAssertEqual(ThreadsPresenter.archivedSearchMatches(rows, search: "old").map(\.id), ["old chat"])
+        XCTAssertTrue(ThreadsPresenter.archivedSearchMatches(rows, search: "live").isEmpty)
+    }
+
+    func testArchivedRailRowsSortedNewestFirst() {
+        let older = thread("a", updatedAt: t0, archived: true)
+        let newer = thread("b", updatedAt: t1, archived: true)
+        let rows = [older, newer].map(ThreadsPresenter.railRow(from:))
+        XCTAssertEqual(ThreadsPresenter.archivedRailRows(rows, search: "").map(\.id), ["b", "a"])
+    }
+
     func testContinuationWorkerIdPrefersDefaultThenLast() {
         let bench: Set<String> = ["model_opus", "model_grok"]
         var grokTurn = turn(.workerChat, .done)

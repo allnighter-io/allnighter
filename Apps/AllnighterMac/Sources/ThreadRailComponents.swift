@@ -52,26 +52,24 @@ struct ThreadRowContextMenu: ViewModifier {
     func body(content: Content) -> some View {
         content.contextMenu {
             Button("Open") { threads.select(threadId: threadId) }
-            if inArchiveView {
+            if isArchived {
                 Button("Unarchive") { threads.unarchiveThread(threadId) }
-            } else {
-                if !isArchived {
-                    if isPinned {
-                        Button("Unpin") { threads.setPinned(threadId, pinned: false) }
-                    } else {
-                        Button("Pin") { threads.setPinned(threadId, pinned: true) }
+            } else if !inArchiveView {
+                if isPinned {
+                    Button("Unpin") { threads.setPinned(threadId, pinned: false) }
+                } else {
+                    Button("Pin") { threads.setPinned(threadId, pinned: true) }
+                }
+                Button("Rename…") { onRename?() }
+                Button("Archive") { threads.archiveThread(threadId) }
+                Divider()
+                if threads.isThreadNotificationsMuted(threadId) {
+                    Button("Unmute notifications") {
+                        threads.setThreadNotificationsMuted(threadId, muted: false)
                     }
-                    Button("Rename…") { onRename?() }
-                    Button("Archive") { threads.archiveThread(threadId) }
-                    Divider()
-                    if threads.isThreadNotificationsMuted(threadId) {
-                        Button("Unmute notifications") {
-                            threads.setThreadNotificationsMuted(threadId, muted: false)
-                        }
-                    } else {
-                        Button("Mute notifications") {
-                            threads.setThreadNotificationsMuted(threadId, muted: true)
-                        }
+                } else {
+                    Button("Mute notifications") {
+                        threads.setThreadNotificationsMuted(threadId, muted: true)
                     }
                 }
             }

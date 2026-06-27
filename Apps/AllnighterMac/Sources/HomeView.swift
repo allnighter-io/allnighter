@@ -76,11 +76,12 @@ private struct HomeSidebar: View {
         ThreadsPresenter.projectSections(threads.railRows, projects: projects.projects, search: search)
     }
 
-    private var archivedSections: [ThreadsPresenter.TriageSection] {
-        let archived = ThreadsPresenter.triagedArchived(threads.threads)
-        let filtered = archived.filter { ThreadsPresenter.matchesSearch($0, query: search) }
-        guard !filtered.isEmpty else { return [] }
-        return [ThreadsPresenter.TriageSection(id: "archive", title: "Archived", threads: filtered)]
+    private var archivedSearchRows: [ThreadRailRowState] {
+        ThreadsPresenter.archivedSearchMatches(threads.railRows, search: search)
+    }
+
+    private var archivedBrowseRows: [ThreadRailRowState] {
+        ThreadsPresenter.archivedRailRows(threads.railRows, search: search)
     }
 
     private var isEmptyFloor: Bool {
@@ -203,6 +204,10 @@ private struct HomeSidebar: View {
                         }
                     }
                 }
+                if !archivedSearchRows.isEmpty {
+                    railSectionHeader("Archived")
+                    ForEach(archivedSearchRows) { archivedRow($0) }
+                }
             }
             .padding(.horizontal, 10).padding(.bottom, 12)
         }
@@ -218,6 +223,16 @@ private struct HomeSidebar: View {
             renaming: renameThreadId == row.id,
             onRename: { renameThreadId = row.id },
             onEndRename: { renameThreadId = nil }
+        ) {
+            threads.select(threadId: row.id)
+        }
+    }
+
+    private func archivedRow(_ row: ThreadRailRowState) -> some View {
+        ArchivedThreadRow(
+            row: row,
+            projectName: projectName(for: row),
+            selected: row.id == threads.selectedThreadId
         ) {
             threads.select(threadId: row.id)
         }
@@ -308,7 +323,7 @@ private struct HomeSidebar: View {
             }
             .padding(.horizontal, 14).padding(.bottom, 8)
 
-            if archivedSections.isEmpty {
+            if archivedBrowseRows.isEmpty {
                 Spacer(minLength: 0)
                 Text("No archived conversations")
                     .font(.system(size: 12.5))
@@ -318,20 +333,7 @@ private struct HomeSidebar: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(archivedSections) { section in
-                            ForEach(section.threads) { thread in
-                                ConversationRow(
-                                    thread: thread,
-                                    selected: thread.id == threads.selectedThreadId,
-                                    renaming: renameThreadId == thread.id,
-                                    onEndRename: { renameThreadId = nil },
-                                    onRename: { renameThreadId = thread.id },
-                                    inArchiveView: true
-                                ) {
-                                    threads.select(thread)
-                                }
-                            }
-                        }
+                        ForEach(archivedBrowseRows) { archivedRow($0) }
                     }
                     .padding(.horizontal, 10).padding(.bottom, 12)
                 }
@@ -570,126 +572,53 @@ private struct ProjectGroupHeader: View {
     }
 }
 
-private struct ConversationRow: View {
-    @Environment(AppModel.self) private var appModel
-    @Environment(ThreadsViewModel.self) private var threads
-    let thread: WorkThread
+// MARK: - Archived rail rows
+
+/// Neutral graveyard row: title, then project + age — no status dots, pills, or brand color.
+private struct ArchivedThreadRow: View {
+    let row: ThreadRailRowState
+    let projectName: String?
     let selected: Bool
-    var renaming: Bool = false
-    var onEndRename: (() -> Void)? = nil
-    var onRename: (() -> Void)? = nil
-    var inArchiveView: Bool = false
     let onTap: () -> Void
-    @State private var editTitle = ""
-    @FocusState private var titleFocused: Bool
+    @State private var hovering = false
 
     var body: some View {
-        Group {
-            if renaming {
-                rowContent
-            } else {
-                Button(action: onTap) { rowContent }
-                    .buttonStyle(.plain)
-            }
-        }
-        .threadRowContextMenu(thread: thread, inArchiveView: inArchiveView, onRename: onRename)
-        .onChange(of: renaming) { _, isRenaming in
-            if isRenaming {
-                editTitle = thread.title
-                titleFocused = true
-            }
-        }
-    }
-
-    private var rowContent: some View {
-        HStack(spacing: 10) {
-            rowGlyph
+        Button(action: onTap) {
             VStack(alignment: .leading, spacing: 3) {
+                Text(row.title)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(selected ? ALColor.textPrimary : ALColor.textMuted)
+                    .lineLimit(1)
                 HStack(spacing: 6) {
-                    if renaming {
-                        TextField("Title", text: $editTitle, onCommit: commitRename)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13, weight: .semibold))
-                            .focused($titleFocused)
-                            .onAppear {
-                                editTitle = thread.title
-                                titleFocused = true
-                            }
-                    } else {
-                        Text(thread.title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(ALColor.textPrimary)
-                            .lineLimit(1)
+                    if let projectName {
+                        HStack(spacing: 3) {
+                            Image(systemName: "folder")
+                                .font(.system(size: 9))
+                                .foregroundStyle(ALColor.textFaint)
+                            Text(projectName)
+                                .font(.system(size: 10))
+                                .foregroundStyle(ALColor.textFaint)
+                                .lineLimit(1)
+                        }
+                        Text("·")
+                            .font(.system(size: 10))
+                            .foregroundStyle(ALColor.textFaint)
                     }
-                    ThreadRailComponents.PinMarker(pinned: thread.isPinned)
-                }
-                HStack(spacing: 6) {
-                    if let status = ThreadsPresenter.conversationStatus(for: thread) {
-                        ConversationStatusPill(status: status)
-                    }
-                    Text(thread.updatedAt, format: .relative(presentation: .numeric))
+                    Text(ProjectThreadRow.compactAge(row.updatedAt))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(ALColor.textFaint)
+                        .monospacedDigit()
                 }
             }
-            Spacer(minLength: 0)
-            ThreadRailComponents.UnreadLight(thread: thread)
-                .frame(width: 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(selected ? ALColor.active : (hovering ? ALColor.hover : Color.clear),
+                        in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 9).padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(selected ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
-    }
-
-    private func commitRename() {
-        let trimmed = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        threads.renameThread(thread.id, title: trimmed)
-        onEndRename?()
-    }
-
-    @ViewBuilder
-    private var rowGlyph: some View {
-        let workerId = thread.lastWorkerId ?? thread.defaultWorkerId
-        if let workerId, let model = appModel.models.first(where: { $0.id == workerId }) {
-            DriverBrandGlyph(driverId: model.driverId, boxSize: 28, iconSize: 14, cornerRadius: 7)
-        } else {
-            AllnighterGlyph(size: 15)
-                .frame(width: 28, height: 28)
-                .background(ALColor.active, in: RoundedRectangle(cornerRadius: 7))
-        }
-    }
-}
-
-private struct ConversationStatusPill: View {
-    let status: ThreadsPresenter.ConversationStatus
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Circle().fill(dotColor).frame(width: 5, height: 5)
-            Text(status.label)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(labelColor)
-        }
-    }
-
-    private var dotColor: Color {
-        switch status {
-        case .running: ALPalette.blue400
-        case .exit0: ALPalette.green400
-        case .exit1: ALPalette.red400
-        default: ALColor.textFaint
-        }
-    }
-
-    private var labelColor: Color {
-        switch status {
-        case .running: ALPalette.blue400
-        case .boardReady, .specReady: ALColor.accentText
-        case .exit0: ALPalette.green400
-        case .exit1: ALPalette.red400
-        default: ALColor.textMuted
-        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .threadRowContextMenu(threadId: row.id, isPinned: row.isPinned, isArchived: true)
     }
 }
 
