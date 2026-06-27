@@ -83,4 +83,32 @@ final class OpenCodeServeClientTests: XCTestCase {
             XCTFail("unexpected error: \(error)")
         }
     }
+
+    func testRunRootsSessionInDirectoryAutoApprovesAndCapturesReasoning() async throws {
+        let sessionJSON = #"{"id":"ses_dir"}"#
+        // reasoning part (thinking) must be captured separately from the answer text part.
+        let messageJSON = #"{"parts":[{"type":"step-start"},{"type":"reasoning","text":"thinking hard"},{"type":"text","text":"DONE"},{"type":"step-finish"}]}"#
+        let transport: OpenCodeServeClient.Transport = { req in
+            let url = req.url!
+            if url.absoluteString.contains("/message") {
+                let resp = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (Data(messageJSON.utf8), resp)
+            }
+            // session create: assert the working dir + allow-all permission contract.
+            let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+            XCTAssertEqual(comps.queryItems?.first(where: { $0.name == "directory" })?.value, "/repo/root")
+            let body = try JSONSerialization.jsonObject(with: req.httpBody ?? Data()) as! [String: Any]
+            let perm = body["permission"] as! [[String: Any]]
+            XCTAssertEqual(perm.first?["action"] as? String, "allow")
+            let resp = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (Data(sessionJSON.utf8), resp)
+        }
+        let client = OpenCodeServeClient(transport: transport)
+        let answer = try await client.run(
+            "do it", modelLabel: "featherless/zai-org/GLM-5.2",
+            directory: "/repo/root", autoApprove: true
+        )
+        XCTAssertEqual(answer.text, "DONE")
+        XCTAssertEqual(answer.reasoning, "thinking hard")
+    }
 }

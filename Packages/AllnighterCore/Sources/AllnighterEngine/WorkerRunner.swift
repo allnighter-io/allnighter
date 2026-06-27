@@ -155,14 +155,15 @@ public struct WorkerRunner: Sendable {
             return WorkerRunOutcome(status: .skipped)
         }
 
+        // OpenCode runs over its serve HTTP API (the answer channel), not `opencode run`
+        // (a TTY-only client that emits nothing when piped). The session is rooted at the
+        // run's working dir so tools edit the right repo, with all tool permissions
+        // auto-approved for headless execution. See OpenCode_Smoke_Probe_Blocker.md (OC-B1).
         if manifest.id == "opencode" {
-            do { try await OpenCodeServeCoordinator().ensureRunning() }
-            catch {
-                return WorkerRunOutcome(
-                    status: .failed,
-                    errorKind: .missingCLI,
-                    errorReason: "opencode serve: \(error)")
-            }
+            return await runOpenCode(
+                worker: worker, invoke: invoke, prompt: prompt, effort: effort,
+                workingDirectoryOverride: workingDirectoryOverride, timeoutOverride: timeoutOverride
+            )
         }
 
         // File capture: hand the CLI a temp file to write its final answer to,
@@ -245,6 +246,61 @@ public struct WorkerRunner: Sendable {
         outcome.gateWaitMs = gateWaitMs
         applyAntigravityTranscript(&outcome, snapshot: brainSnapshot)
         return outcome
+    }
+
+    /// OpenCode run over the warm serve HTTP API: ensure serve → one session rooted at the
+    /// run's working dir, tool permissions auto-approved → one prompt → answer (+ reasoning).
+    /// Replaces the (impossible) `opencode run` stdout scrape. See OC-B1.
+    private func runOpenCode(
+        worker: Model,
+        invoke: DriverManifest.Invoke,
+        prompt: String,
+        effort: EffortLevel,
+        workingDirectoryOverride: String?,
+        timeoutOverride: Duration?
+    ) async -> WorkerRunOutcome {
+        let startedAt = now()
+        do {
+            try await OpenCodeServeCoordinator().ensureRunning()
+        } catch {
+            return WorkerRunOutcome(
+                status: .failed, errorKind: .missingCLI,
+                errorReason: "opencode serve: \(error)",
+                startedAt: startedAt, finishedAt: now()
+            )
+        }
+        // invoke.workingDir is the literal "{{workingDir}}" token — never a real path; use
+        // the run's resolved dir (repo root for execute runs) or the neutral scratch.
+        let directory = workingDirectoryOverride ?? defaultWorkingDirectory
+            ?? AllnighterPaths.ensuredProbeScratchPath()
+        let timeout = timeoutOverride ?? .seconds(invoke.timeoutSeconds)
+        do {
+            let answer = try await OpenCodeServeClient().run(
+                prompt,
+                modelLabel: worker.resolvedLabel(at: effort),
+                directory: directory,
+                autoApprove: true,
+                timeout: timeout
+            )
+            let finishedAt = now()
+            return WorkerRunOutcome(
+                status: .done,
+                output: answer.text,
+                startedAt: startedAt,
+                finishedAt: finishedAt,
+                durationMs: Int(finishedAt.timeIntervalSince(startedAt) * 1000),
+                reasoning: answer.reasoning
+            )
+        } catch {
+            let finishedAt = now()
+            let kind: WorkerAnswerErrorKind =
+                (error as? OpenCodeServeClient.ClientError) == .emptyAnswer ? .emptyOutput : .nonzeroExit
+            return WorkerRunOutcome(
+                status: .failed, errorKind: kind,
+                errorReason: "opencode: \(error)",
+                startedAt: startedAt, finishedAt: finishedAt
+            )
+        }
     }
 
     /// Brain-dir + pre-run entries for the AGY transcript normalizer (nil for non-agy workers).
