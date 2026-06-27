@@ -49,6 +49,31 @@ final class TimelineFollowScrollTests: XCTestCase {
         XCTAssertEqual(TimelineScrollPolicy.liveContentSignal(for: settled), 0)
     }
 
+    // MARK: thread open scroll
+
+    func testThreadOpenScrollDefaultsToBottomEvenWithUnread() {
+        let action = TimelineScrollPolicy.threadOpenScrollAction(
+            pendingTarget: nil,
+            suppressAutoScroll: false
+        )
+        XCTAssertEqual(action, .scrollToBottom)
+    }
+
+    func testThreadOpenScrollUsesNotificationTargetWhenPresent() {
+        let action = TimelineScrollPolicy.threadOpenScrollAction(
+            pendingTarget: "w1",
+            suppressAutoScroll: false
+        )
+        XCTAssertEqual(action, .scrollToTurn("w1"))
+    }
+
+    func testThreadOpenScrollSuppressedInFixtureMode() {
+        XCTAssertNil(TimelineScrollPolicy.threadOpenScrollAction(
+            pendingTarget: nil,
+            suppressAutoScroll: true
+        ))
+    }
+
     // MARK: post-send scroll
 
     private func userTurn(_ id: String, text: String) -> ThreadTurn {

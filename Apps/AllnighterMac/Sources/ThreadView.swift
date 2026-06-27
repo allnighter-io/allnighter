@@ -304,14 +304,8 @@ private struct ThreadTurnTimeline: View {
                     atBottom = TimelineScrollPolicy.isAtBottom(
                         contentBottomY: sentinelMaxY, viewportBottomY: outer.frame(in: .global).maxY)
                 }
-                .onAppear {
-                    TimelineScrollPolicy.scrollToUnreadIfNeeded(
-                        proxy: proxy,
-                        thread: thread,
-                        pendingTarget: threads.consumePendingScrollTarget(),
-                        suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll
-                    )
-                }
+                .onAppear { scrollTimelineToOpenPosition(proxy: proxy) }
+                .onChange(of: thread.id) { _, _ in scrollTimelineToOpenPosition(proxy: proxy) }
                 .onChange(of: thread.turns.count) { _, _ in
                     TimelineScrollPolicy.scrollOnTurnCountChange(
                         proxy: proxy,
@@ -336,6 +330,15 @@ private struct ThreadTurnTimeline: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func scrollTimelineToOpenPosition(proxy: ScrollViewProxy) {
+        TimelineScrollPolicy.scrollOnThreadOpen(
+            proxy: proxy,
+            pendingTarget: threads.consumePendingScrollTarget(),
+            suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll,
+            bottomAnchorId: Self.bottomAnchorId
+        )
     }
 }
 

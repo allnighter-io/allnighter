@@ -56,7 +56,7 @@ final class ThreadsViewModel {
     /// so concurrent mutating runs on one repo root are refused honestly.
     private let writeLock: RunWriteLockRegistry
     private let projectStore: ProjectStore
-    /// Scroll target set on thread select when unread exists (cleared after scroll).
+    /// Explicit scroll target (notification deep-link only; cleared after scroll).
     private(set) var pendingScrollToTurnId: String?
     /// After composer submit, keep the timeline pinned to the bottom through the brief
     /// burst of user + worker turns so the user sees their message land.
@@ -259,7 +259,6 @@ final class ThreadsViewModel {
 
     func select(_ thread: WorkThread) {
         selectedThreadId = thread.id
-        pendingScrollToTurnId = ThreadsPresenter.firstUnreadTurnId(thread)
         // Cursor-style: opening a thread clears its unread dot immediately. A reply
         // that lands while it's already open is cleared by the timeline-visibility path.
         markReadOnOpen(thread)
@@ -272,7 +271,7 @@ final class ThreadsViewModel {
         if before?.readCursor != updated.readCursor || before?.hasUnread != updated.hasUnread { reload() }
     }
 
-    /// Consumes the pending first-unread scroll target after the timeline mounts.
+    /// Consumes a notification/deep-link scroll target after the timeline applies it.
     func consumePendingScrollTarget() -> String? {
         defer { pendingScrollToTurnId = nil }
         return pendingScrollToTurnId

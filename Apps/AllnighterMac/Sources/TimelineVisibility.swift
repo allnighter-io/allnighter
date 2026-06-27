@@ -125,12 +125,28 @@ private struct TimelineVisibilityTrackingModifier: ViewModifier {
     }
 }
 
-/// Shared scroll-to-unread behavior for Home + legacy thread timelines.
+/// Shared scroll behavior for Home + legacy thread timelines.
 enum TimelineScrollPolicy {
+    enum ThreadOpenScrollAction: Equatable {
+        case scrollToBottom
+        case scrollToTurn(String)
+    }
+
     enum TurnCountScrollAction: Equatable {
         case scrollToBottom
         case scrollToFirstUnread(String)
         case scrollToLastTurnBottom(String)
+    }
+
+    /// Opening a thread resumes at the latest turns; only an explicit deep-link target
+    /// (notification tap) scrolls elsewhere.
+    static func threadOpenScrollAction(
+        pendingTarget: String?,
+        suppressAutoScroll: Bool
+    ) -> ThreadOpenScrollAction? {
+        guard !suppressAutoScroll else { return nil }
+        if let target = pendingTarget { return .scrollToTurn(target) }
+        return .scrollToBottom
     }
 
     /// Pure decision for turn-count scroll — testable without a `ScrollViewProxy`.
@@ -150,15 +166,21 @@ enum TimelineScrollPolicy {
         return nil
     }
 
-    static func scrollToUnreadIfNeeded(
+    static func scrollOnThreadOpen(
         proxy: ScrollViewProxy,
-        thread: WorkThread,
         pendingTarget: String?,
-        suppressAutoScroll: Bool
+        suppressAutoScroll: Bool,
+        bottomAnchorId: String
     ) {
-        guard !suppressAutoScroll else { return }
-        if let target = pendingTarget ?? ThreadsPresenter.firstUnreadTurnId(thread) {
-            withAnimation { proxy.scrollTo(target, anchor: .top) }
+        guard let action = threadOpenScrollAction(
+            pendingTarget: pendingTarget,
+            suppressAutoScroll: suppressAutoScroll
+        ) else { return }
+        switch action {
+        case .scrollToBottom:
+            scrollToBottom(proxy: proxy, bottomAnchorId: bottomAnchorId, animated: false)
+        case .scrollToTurn(let turnId):
+            withAnimation { proxy.scrollTo(turnId, anchor: .top) }
         }
     }
 
