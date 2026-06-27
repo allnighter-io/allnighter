@@ -27,13 +27,30 @@ public enum SliceTerminalClassifier {
 
     public static func classify(_ input: Input) -> SliceTerminalOutcome {
         let outcome = input.workerOutcome
+        let packet = input.packet
+
         if isInfraBackoff(outcome) { return .infraBackoff }
         if outcome.status != .done,
            isCompactionMarker(in: outcome.output, reasoning: outcome.reasoning) {
             return .compacting
         }
+
+        // Advisory review: repo-owned check + findings file is the deliverable (stream may be empty).
+        if packet.isAdvisoryReview {
+            if !input.check.skipped && !input.check.timedOut && input.check.exitCode == 0 {
+                return .passed
+            }
+            if input.check.timedOut || input.check.exitCode != 0 || input.check.skipped {
+                return .failed
+            }
+            if outcome.status != .done {
+                return isStalled(outcome: outcome, packet: packet, now: input.now) ? .stalled : .failed
+            }
+            return .failed
+        }
+
         if outcome.status != .done {
-            return isStalled(outcome: outcome, packet: input.packet, now: input.now) ? .stalled : .failed
+            return isStalled(outcome: outcome, packet: packet, now: input.now) ? .stalled : .failed
         }
         let visible = (outcome.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if visible.isEmpty { return .stalled }

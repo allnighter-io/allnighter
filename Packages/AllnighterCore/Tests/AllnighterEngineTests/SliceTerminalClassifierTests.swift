@@ -39,6 +39,30 @@ final class SliceTerminalClassifierTests: XCTestCase {
         XCTAssertEqual(terminal, .stalled)
     }
 
+    func testAdvisoryReviewPassesWhenCheckPassesDespiteEmptyWorkerOutput() {
+        var packet = packet()
+        packet.mode = .review
+        let outcome = WorkerRunOutcome(
+            status: .failed, output: "", errorKind: .emptyOutput
+        )
+        let check = CheckResult(exitCode: 0)
+        let terminal = SliceTerminalClassifier.classify(
+            .init(workerOutcome: outcome, check: check, packet: packet, now: Date())
+        )
+        XCTAssertEqual(terminal, SliceTerminalOutcome.passed)
+    }
+
+    func testAdvisoryReviewFailsWhenCheckFails() {
+        var packet = packet()
+        packet.mode = .reviewVerify
+        let outcome = WorkerRunOutcome(status: .failed, output: "")
+        let check = CheckResult(exitCode: 1)
+        let terminal = SliceTerminalClassifier.classify(
+            .init(workerOutcome: outcome, check: check, packet: packet, now: Date())
+        )
+        XCTAssertEqual(terminal, SliceTerminalOutcome.failed)
+    }
+
     func testCompactionMarkerWhileRunning() {
         let started = Date().addingTimeInterval(-30)
         var outcome = WorkerRunOutcome(status: .running, output: "Compaction in progress")

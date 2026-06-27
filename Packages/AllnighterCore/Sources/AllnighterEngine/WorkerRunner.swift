@@ -148,7 +148,8 @@ public struct WorkerRunner: Sendable {
         prompt: String,
         effort: EffortLevel = .med,
         workingDirectoryOverride: String? = nil,
-        timeoutOverride: Duration? = nil
+        timeoutOverride: Duration? = nil,
+        spawnConcurrencyLimit: Int? = nil
     ) async -> WorkerRunOutcome {
         // Manual-paste workers do not run; they await a pasted answer.
         guard manifest.kind == .headlessCLI, let invoke = manifest.invoke else {
@@ -162,7 +163,8 @@ public struct WorkerRunner: Sendable {
         if manifest.id == "opencode" {
             return await runOpenCode(
                 worker: worker, manifest: manifest, invoke: invoke, prompt: prompt, effort: effort,
-                workingDirectoryOverride: workingDirectoryOverride, timeoutOverride: timeoutOverride
+                workingDirectoryOverride: workingDirectoryOverride, timeoutOverride: timeoutOverride,
+                spawnConcurrencyLimit: spawnConcurrencyLimit
             )
         }
 
@@ -215,13 +217,12 @@ public struct WorkerRunner: Sendable {
         // startedAt so a queued seat's duration excludes its wait — the wait is captured
         // separately as gateWaitMs. The run is always timeout-bounded, so the permit is
         // always released and the queue drains.
-        let gateLimit = manifest.maxConcurrentSpawns
+        let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
         let gateRequestedAt = now()
         if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
         let startedAt = now()
         let gateWaitMs = gateLimit == nil ? nil : max(0, Int(startedAt.timeIntervalSince(gateRequestedAt) * 1000))
         // AGY transcript normalizer: snapshot the brain dir so we can find THIS run's session
-        // folder afterward (agy is gated to one spawn at a time, so the single new folder is
         // unambiguous) and split its structured transcript into clean answer + step narration.
         let brainSnapshot = antigravityBrainSnapshot(manifest: manifest)
         let result = await commandRunner.run(
@@ -258,8 +259,13 @@ public struct WorkerRunner: Sendable {
         prompt: String,
         effort: EffortLevel,
         workingDirectoryOverride: String?,
-        timeoutOverride: Duration?
+        timeoutOverride: Duration?,
+        spawnConcurrencyLimit: Int? = nil
     ) async -> WorkerRunOutcome {
+        let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
+        if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
+        defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
+
         let startedAt = now()
         do {
             try await OpenCodeServeCoordinator().ensureRunning()

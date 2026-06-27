@@ -125,15 +125,16 @@ public struct PairCoordinator: Sendable {
             repoRoot: repoRoot
         )
 
-        let prompt = packet.isReviewMode
-            ? ReviewAttemptPrompt.assemble(packet: packet, nudge: nudge)
-            : SliceAttemptPrompt.assemble(packet: packet, nudge: nudge)
+        let prompt = Self.assemblePrompt(packet: packet, nudge: nudge)
+        let spawnLimit = Self.reviewSpawnConcurrencyLimit()
         let childRequest = RunRequest(
             message: prompt,
             repoRoot: repoRoot,
             projectId: projectId,
             presetId: executorTeamId,
-            workerId: seats.executorWorkerId
+            workerId: seats.executorWorkerId,
+            advisoryReview: packet.isAdvisoryReview,
+            spawnConcurrencyLimit: packet.isAdvisoryReview ? spawnLimit : nil
         )
 
         let childResult = await runService.run(childRequest, origin: origin)
@@ -524,6 +525,24 @@ public struct PairCoordinator: Sendable {
             return nil
         }
         return Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private static func assemblePrompt(packet: WorkSlicePacket, nudge: String?) -> String {
+        switch packet.mode {
+        case .implement:
+            return SliceAttemptPrompt.assemble(packet: packet, nudge: nudge)
+        case .review:
+            return ReviewAttemptPrompt.assemble(packet: packet, nudge: nudge)
+        case .reviewVerify:
+            return ReviewVerifyPrompt.assemble(packet: packet, nudge: nudge)
+        }
+    }
+
+    /// `ALLNIGHTER_REVIEW_SPAWN_LIMIT` — parallel CR fan-out (Featherless ≤4). Only when >1.
+    static func reviewSpawnConcurrencyLimit() -> Int? {
+        guard let raw = ProcessInfo.processInfo.environment["ALLNIGHTER_REVIEW_SPAWN_LIMIT"],
+              let value = Int(raw), value > 1 else { return nil }
+        return min(value, CodeReviewParallelSafety.defaultMaxConcurrent)
     }
 
     private static func workerOutcome(from answer: WorkerAnswer?) -> WorkerRunOutcome {

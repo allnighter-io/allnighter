@@ -42,6 +42,7 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
     public enum Mode: String, Codable, Sendable {
         case implement
         case review
+        case reviewVerify
     }
 
     /// Pre-inlined file chunks so the executor never tool-reads (Pair F4 / code_review).
@@ -73,8 +74,12 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
     public var dangerFlags: [String]
     public var mode: Mode
     public var inlinedSources: [InlinedSource]
+    /// Findings markdown inlined for verify pass (mode reviewVerify).
+    public var inlinedFindings: String?
 
-    public var isReviewMode: Bool { mode == .review }
+    /// Advisory code-review slice (initial or verify) — disjoint findings writes only.
+    public var isAdvisoryReview: Bool { mode == .review || mode == .reviewVerify }
+    public var isReviewMode: Bool { isAdvisoryReview }
 
     public init(
         schemaVersion: Int = 1,
@@ -92,7 +97,8 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
         compactionGraceSeconds: Int = 180,
         dangerFlags: [String] = [],
         mode: Mode = .implement,
-        inlinedSources: [InlinedSource] = []
+        inlinedSources: [InlinedSource] = [],
+        inlinedFindings: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.sliceId = sliceId
@@ -110,6 +116,7 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
         self.dangerFlags = dangerFlags
         self.mode = mode
         self.inlinedSources = inlinedSources
+        self.inlinedFindings = inlinedFindings
     }
 
     public init(from decoder: Decoder) throws {
@@ -130,6 +137,7 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
         dangerFlags = try c.decodeIfPresent([String].self, forKey: .dangerFlags) ?? []
         mode = try c.decodeIfPresent(Mode.self, forKey: .mode) ?? .implement
         inlinedSources = try c.decodeIfPresent([InlinedSource].self, forKey: .inlinedSources) ?? []
+        inlinedFindings = try c.decodeIfPresent(String.self, forKey: .inlinedFindings)
     }
 }
 

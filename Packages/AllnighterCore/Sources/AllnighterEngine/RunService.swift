@@ -31,6 +31,10 @@ public struct RunRequest: Sendable, Equatable {
     /// Optional caller-seeded timing ladder. GUI callers add composer/context/thread
     /// stamps before the engine owns worker resolution and process timing.
     public var timing: RunTimingReport?
+    /// Code-review advisory slice: findings-only writes; skips repo `RunWriteLock`.
+    public var advisoryReview: Bool
+    /// Override `DriverManifest.maxConcurrentSpawns` for this run (parallel CR fan-out).
+    public var spawnConcurrencyLimit: Int?
 
     public init(
         message: String,
@@ -45,7 +49,9 @@ public struct RunRequest: Sendable, Equatable {
         context: String? = nil,
         deliveries: [IncludedAttachmentDelivery] = [],
         executorTeamId: String? = nil,
-        timing: RunTimingReport? = nil
+        timing: RunTimingReport? = nil,
+        advisoryReview: Bool = false,
+        spawnConcurrencyLimit: Int? = nil
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -60,6 +66,8 @@ public struct RunRequest: Sendable, Equatable {
         self.deliveries = deliveries
         self.executorTeamId = executorTeamId
         self.timing = timing
+        self.advisoryReview = advisoryReview
+        self.spawnConcurrencyLimit = spawnConcurrencyLimit
     }
 }
 
@@ -276,7 +284,8 @@ public actor RunService {
         let effort = request.effort ?? preset.defaultEffort
         let lockKey = RunWriteLock.key(repoRoot: root)
         var acquiredLock = false
-        if preset.writePolicy == .mutating {
+        let takesWriteLock = preset.writePolicy == .mutating && !request.advisoryReview
+        if takesWriteLock {
             // One writer per repo root. If another mutating run holds the lock, WAIT our turn
             // (FIFO) and then run — a second back-to-back agent turn queues behind the first
             // instead of erroring. The bounded timeout is the safety valve: if a wedged holder
@@ -302,7 +311,8 @@ public actor RunService {
                 effort: effort, repoRoot: root,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
-                deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events
+                deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
+                spawnConcurrencyLimit: request.spawnConcurrencyLimit
             )
         }
 
@@ -337,7 +347,8 @@ public actor RunService {
         deliveries: [IncludedAttachmentDelivery] = [],
         requestedAt: Date? = nil,
         timing seedTiming: RunTimingReport,
-        events: AsyncStream<RunEvent>.Continuation?
+        events: AsyncStream<RunEvent>.Continuation?,
+        spawnConcurrencyLimit: Int? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         var seq: Int64 = 0
@@ -535,9 +546,12 @@ public actor RunService {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")
                 outcome = await runner.invoke(
                     worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot)
+                    workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
             }
         } else if manifest.id == "opencode", manifest.canStream {
+            let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
+            if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
+            defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
             // OpenCode streams over warm serve HTTP SSE (not CLI stdout).
             var answer = StreamingPartialBuffer()
             var reasoning = ""
@@ -593,7 +607,7 @@ public actor RunService {
                 StreamDebugLog.log("FALLBACK source=opencode: streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
                 outcome = await runner.invoke(
                     worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot)
+                    workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
             }
         } else if manifest.canStream, runner.supportsStreaming,
            let parser = WorkerStreamParsers.make(for: manifest) {
@@ -644,12 +658,12 @@ public actor RunService {
                 StreamDebugLog.log("FALLBACK source=\(manifest.id): streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
                 outcome = await runner.invoke(
                     worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot)
+                    workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
             }
         } else {
             outcome = await runner.invoke(
                 worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                workingDirectoryOverride: repoRoot
+                workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit
             )
         }
         // A non-streaming worker (agy) can carry its step narration separated from the answer
