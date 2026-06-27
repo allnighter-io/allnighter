@@ -157,12 +157,8 @@ final class PairCoordinatorTests: XCTestCase {
 
         let runStore = RunStore(rootDirectory: repo.appendingPathComponent("runs"))
         let deadRun = TeamRun(
-            id: "dead_child_run", prompt: "x", status: .fanningOut, origin: .cli, createdAt: Date())
+            id: "dead_child_run", prompt: "x", status: .interrupted, origin: .cli, createdAt: Date())
         try runStore.save(deadRun, models: [])
-        let ownerURL = runStore.rootDirectory
-            .appendingPathComponent("run_dead_child_run", isDirectory: true)
-            .appendingPathComponent("owner.pid")
-        try Data("2000000".utf8).write(to: ownerURL, options: .atomic)
 
         let coordinator = PairCoordinator(
             runService: makeService(repo: repo, stdout: "ok"),
