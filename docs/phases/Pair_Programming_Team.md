@@ -1,215 +1,217 @@
-# Pair Programming Team — Autonomous Overnight Build Queue
+# Pair Programming Team — the Control Plane, proven with a free executor
 
 Status: **Spec — implementation-ready (PPT-1 buildable today)**
 Owner: AllnighterCore + CLI + Mac GUI
 Updated: 2026-06-26
 
-> Vocabulary note: this doc follows the locked language cutover — **Chat / Delegate /
-> Execute**, **Team**, **worker**, one `team.run` primitive. "Supervisor" and "hammer"
-> below are *role names within a pair*, not new craft types.
+> Vocabulary follows the locked cutover — **Chat / Delegate / Execute**, **Team**,
+> **worker**, one `team.run` primitive. "Supervisor" and "hammer" are *role names within
+> a pair*, not new craft types.
 
 ---
 
-## 1. The promise (read this first)
+## 0. What this actually is
 
-Allnighter's whole reason to exist — the pun in the name — is **work produced while you
-sleep**. The pair-programming feature is only valuable if it delivers exactly that:
+Pair Programming is **not a new product.** It is the sharpest possible **demonstration of
+what makes Allnighter unique**: that the control plane can seat *any* model in the
+executor chair — including a free, small-context one — and drive it to finish real work,
+**on a schedule, across CLIs, with zero conflict, while you sleep.**
 
-> A queue the supervisor fills once, that the hammer grinds through **unattended,
-> overnight**, gated by proofs, so you **wake up to proof-green, merge-ready work** —
-> and a short list of the few slices that need a human.
+If Allnighter can take the *cheapest, weakest, free* executor (GLM-5.2 on Featherless,
+32K window) and still produce built, checked work overnight with no human in the loop,
+then it can seat *anything* — and the control plane is proven. The GLM half already works
+(see §3). This doc is about the half that is uniquely Allnighter's: **scheduling and
+safely running that work across models.**
 
-**If it requires you to copy-paste a slice, watch it, and paste the next one, there is
-nothing here.** Manual copy-paste was the *learning harness*, not the product. Every
-design decision below is judged against one question: **does this run the queue forward
-without a human in the loop?** If a feature needs babysitting, it is not done.
+### The vision, in one sentence
 
-The economic inversion that makes this possible: **hammer compute is free and unlimited**
-(OpenCode + GLM-5.2 on Featherless), while the **supervisor is the scarce resource**
-(large-context, frontier-quality, expensive, *and your attention*). So we spend the
-supervisor sparingly — author a batch, walk away — and let the hammer burn freely.
-
----
-
-## 2. What we proved (empirical findings from the manual sprint)
-
-These are **measured**, not theorized. They were learned running OC-S01a…d + a
-deliberate judgment-test slice (`TextUtil.stripReasoningBlocks`) through Cursor → GLM by
-hand. They are load-bearing — the architecture exists to honor them.
-
-### F1 — Reasoning is FREE against the context window; **reads** are what choke it
-GLM reasoned for **10+ minutes on a single slice while token usage stayed pinned at
-11.1K**. Thinking does not accumulate in the window. The window is consumed by **inputs
-(file reads, grep output, tool results)** and **outputs (the edits being written)** —
-never by thought. The slice that failed (OC-S01d) did not fail from "too much reasoning";
-it failed from **reading 4 source files + 3 greps** before it ever wrote a byte.
-
-> **Design law:** size slices by *read surface*, not by difficulty. The ideal slice is
-> **hard-to-reason, tiny-to-read, bounded-to-write.** Give GLM problems that need deep
-> thinking over a small amount of text. (`stripReasoningBlocks`: 1-file read, unlimited
-> think, ~50-line write — the platonic shape.)
-
-### F2 — Compaction is RECOVERY, not a crash
-When the hammer approaches the wall it **auto-compacts** (summarizes its own context) and
-**keeps going to completion**. The terminal "Goal / Constraints / Progress / Compaction"
-print that *looks* like the model melting down is the opposite — it is the model saving
-itself. We repeatedly mistook it for a crash and killed runs that were about to succeed.
-
-> **Design law:** the coordinator must recognize compaction and **never treat it as a
-> stall**. This is the single most dangerous false-positive in the loop: the naive
-> stall heuristics (timeout / empty-stdout → kill) would murder workers mid-recovery.
-
-### F3 — The proof IS the product
-GLM **silently conforms to whatever the proof asserts.** In the judgment test it
-discovered a genuine contradiction between the prose spec and a test assertion, and
-instead of stopping to flag it, it **inferred an unstated rule and wrote code to satisfy
-the assertion**, narrating "the test is the contract." A *correct* proof yielded
-genuinely correct, non-obvious code (a depth-counted state machine, not a naive regex). A
-*wrong* proof would have yielded confident, green, **wrong** code — with no warning.
-
-> **Design law:** proof correctness is the entire remaining intelligence and the entire
-> remaining risk. Proofs are **supervisor-authored, behavioral, and red-first** (see §7).
-> "Build stays green" is **not a proof** — it tests compilation, not behavior.
-
-### F4 — Window = reads + writes. Budget it; pre-resolve to kill greps
-The window filled when GLM had to *find* things (`grep` for a symbol signature, read a
-big neighbor file). Every symbol the supervisor leaves unresolved becomes a read the
-hammer pays for. The slices that landed pre-resolved their symbols inline and said "do
-not grep."
-
-> **Design law:** the supervisor pre-resolves every symbol the slice references
-> (signature + `file:line`), and the packet declares a **small** `readPaths[]`. A
-> sizing gate refuses/splits slices whose read surface won't leave room to write.
-
-### F5 — GLM is wall-clock SLOW but free and unattended → value is parallel breadth, not per-slice speed
-A slice that a frontier model writes in ~1 minute took GLM **~10 minutes**. Per slice,
-that is a wall-clock *loss*. It is only a win because the 10 minutes is **the hammer's
-time, not yours** — you queue N slices and walk away. Throughput is **N-slices-per-night**
-(bounded by lane safety + Featherless rate limits), not slice latency.
-
-> **Design law:** optimize for queue throughput and unattended reliability, never for
-> single-slice speed. A loop that needs a human between slices throws away the only win.
-
-### F6 — The feeding pattern that works (proven packet shape)
-Every slice that landed shared this shape. The packet schema (§6) formalizes it.
-```text
-<SLICE-ID> ONLY.
-Read ONLY: <small list, with line anchors: file (symbol ~line-range)>
-Touch ONLY: <1–2 files>
-Do NOT grep. Do NOT read <the big neighbors>.
-<Resolved symbols inline: signatures + the exact enum cases / API to call>
-<Intent as behavior, or an inline skeleton — NOT a literal patch>
-Proof: <exact command>. <If compaction screen appears, that is normal — keep going.>
-WRITE NOW.
-```
-Note what is **not** here: no "literal old→new for every line." A fully spoon-fed patch
-means the supervisor already did the work and the hammer is pure overhead (leverage → 1).
-The packet is a **spec the hammer implements**, not a diff it transcribes.
+> You author the spec. You send it to one of your **Allnighter teams**. It gets built **on
+> a schedule, across CLIs, with zero conflict, while you sleep** — and you wake up to the
+> work done and the checks run.
 
 ---
 
-## 3. The economic model — when this wins, when it loses
+## 1. The three pillars this is built on
 
-| | Wins | Loses |
+Allnighter is the **neutral control plane for agentic coding work.** Everything below
+serves exactly three things — and *only* these three:
+
+| Pillar | What Allnighter does | Why nobody else does it |
 | --- | --- | --- |
-| **Resource spent** | supervisor authors a batch once, then sleeps | supervisor babysits each slice |
-| **Slice shape** | hard-to-reason, small-to-read, behavioral proof | broad context, taste-based, "build green" proof |
-| **Throughput** | N slices grind in the lane overnight | 1 slice at a time, human-paced |
-| **Failure** | escalates to a short morning list | silently merges confident-wrong code |
+| **1. Schedule** | turn a pile of work into a queue that runs over time, unattended, with retry / stall handling / budget + time ceilings | the labs want you live in *their* single-model loop; workflow tools (n8n/Zapier) don't understand agentic coding |
+| **2. Across any model + provider** | dispatch each unit to any CLI agent — Cursor, Claude Code, Codex, OpenCode/GLM — on the user's **own subscription logins**, under one team / handoff model | API routers (OpenRouter) route stateless tokens, not stateful CLI agents that hold locks and mutate repos; the labs won't seat a competitor's model |
+| **3. Safely at volume** | the write-lock / lane / **one-mutating-worker** substrate that lets many agents run without colliding on the same repo | this is the quiet hard part — two mutating agents on one branch is catastrophe; almost no one has built the lock/lane discipline |
 
-**Leverage ratio** = (lines of correct hammer output) ÷ (lines of supervisor packet).
-Track it per slice. `< ~2` → just let the supervisor do it. `> ~5` → printing money.
-A literal-patch packet is `~1` and always loses; a `"same pattern in the other file"`
-line is `~15`.
-
-**The real primitive is not "infinite output." It is infinite *reasoning depth per
-narrow slice, at zero marginal cost*** (F1 + F5). A frontier model charges for every
-reasoning token; GLM-on-Featherless thinks for 10 minutes on a hard local problem for
-free. We sell that — bounded by read-surface and wall-clock, guarded by proof quality.
+Pillar 3 is the one that's easy to undercount. The moment you "schedule a lot of work
+across models," the failure mode isn't quality — it's **conflict**. The lock/lane
+substrate is what turns *a lot of agents* from chaos into a queue. That is concurrency
+control for mutating agents, and it is uniquely Allnighter's.
 
 ---
 
-## 4. Architecture — the autonomous loop
+## 2. The boundary — what is Allnighter, and what is NOT
 
-The heart is a **coordinator daemon** that runs a durable queue forward with zero human
-input until the queue is empty, a budget/time ceiling is hit, or a slice escalates.
+Allnighter does **not** own correctness, and does not pretend to. Trust is unsolvable as a
+promise — even expert developers ship bugs that surface years later; nobody clears the
+unknown-unknowns bar. So Allnighter promises what it can actually deliver: **the work ran,
+safely, across CLIs, unattended — and here is what each worker returned, including whatever
+check the repo defined.** Correctness is the repo's claim, surfaced honestly, never
+Allnighter's guarantee.
+
+| Concern | Owner | Notes |
+| --- | --- | --- |
+| The **code** | the model / CLI | the executor writes it |
+| The **spec** | you (+ ChatGPT / Composer) | authored outside Allnighter |
+| Decomposition into **slices** | the planner (Composer / a large-context worker) | the supervisor role |
+| **git** (commit / branch / worktree / revert) | the **repo + CLI** | Allnighter has nothing to do with git |
+| The **proof / check** (tests, GUI fixtures, SSOT) | the **repo** | a command/fixture defined in the repo, invoked by the order's prompt |
+| **Scheduling, dispatch, lane safety, stall handling, retry/escalate, surfacing returns** | **Allnighter** | the three pillars — this is the whole job |
+
+The proof being repo-owned is the **same boundary already drawn for git, taken to its
+conclusion**: Allnighter sends orders; the repo owns everything about *how* the work is
+done and *how* it is checked. Allnighter merely runs the repo's declared check to get a
+pass/fail signal for the queue, and surfaces the result. It never authors, owns, or
+vouches for the check.
+
+---
+
+## 3. What we proved seating GLM in the executor chair
+
+These are **measured** lessons from running real slices (OC-S01a…d + a deliberate
+judgment test, `TextUtil.stripReasoningBlocks`, committed at `a4e88754`) through Cursor →
+GLM by hand. They are lessons about **how the control plane must drive a small, cheap,
+free executor** — not claims that proof is the product.
+
+- **F1 — Reasoning is FREE against the window; READS choke it.** GLM reasoned 10+ minutes
+  on one slice at a pinned 11.1K tokens. The window holds *inputs (reads/greps/tool
+  output) + outputs (edits)*, never thought. → **The control plane must feed small, read-
+  bounded slices.** Size by read surface, not difficulty. Ideal: hard-to-reason,
+  tiny-to-read, bounded-to-write.
+- **F2 — Compaction is RECOVERY, not a crash.** Near the wall the executor auto-compacts
+  and finishes. The terminal "Compaction" print that looks like a meltdown is the model
+  saving itself. → **The control plane's stall detection must never kill a compacting
+  worker.** This is the single most dangerous false-positive in the loop.
+- **F3 — The executor conforms to its order.** GLM silently does whatever the order
+  implies — it even repaired a contradiction in a hand-authored test rather than flag it.
+  → **The order (including whatever check the repo defines) is what the control plane
+  dispatches; Allnighter surfaces the result, it does not judge correctness.** A free
+  executor is faithful, not wise; faithfulness is enough *because* the check and the spec
+  live upstream of it.
+- **F4 — Pre-resolve to kill greps.** Every unresolved symbol becomes a read the executor
+  pays for. The planner inlines signatures + `file:line` so the executor never greps.
+  (Planner/supervisor concern, upstream of Allnighter.)
+- **F5 — Slow, but free and unattended → value is parallel breadth, not speed.** A slice
+  GLM takes ~10 min on, a frontier model writes in ~1. Per slice that's a loss; it wins
+  only because the 10 min is *the executor's time, not yours.* → **Optimize the control
+  plane for unattended overnight throughput, never single-slice latency.**
+
+The real primitive GLM gives the executor chair: **infinite reasoning depth per narrow
+slice at zero marginal cost** (Featherless doesn't count reasoning against window or
+bill). The control plane's job is to keep the executor in the regime where that's a
+superpower — small reads, one mutating worker, run it while you sleep.
+
+---
+
+## 4. Architecture — the loop, as control plane
+
+A **coordinator daemon** runs a durable queue forward with zero human input until the
+queue is empty, a budget/time ceiling hits, or a unit escalates.
 
 ```text
                      ┌─────────────────────────────────────────────┐
-  Supervisor  ──────▶│  SliceQueue (durable, on-disk)              │
-  (Cursor /          │  [ pending | running | passed | failed |    │
+  Planner   ────────▶│  SliceQueue (durable, on-disk)              │
+  (Composer /        │  [ pending | running | passed | failed |    │
    answer worker)    │    escalated ]                              │
    fills batch       └───────────────┬─────────────────────────────┘
    + re-engages                      │ pop next pending
    on escalation                     ▼
                           ┌──────────────────────────┐
-                          │   PairCoordinator.loop    │
-                          │  one RunWriteLock holder  │
+                          │   PairCoordinator.loop    │   ← Allnighter
+                          │  ONE RunWriteLock holder  │     (pillars 1+3)
                           └───────────┬──────────────┘
-        ensure serve  ◀───────────────┤
-        (OpenCodeServeCoordinator)     │ per slice:
-        SliceGate (allowlist+danger) ◀─┤  1. ensureRunning()
-        RunService.run (1 worker) ◀────┤  2. gate (danger/allowlist)
-        ProofRunner (bounded sh) ◀─────┤  3. dispatch hammer (mutating)
-        terminal classifier ◀──────────┤  4. run proof
-                                       │  5. classify: pass | fail | stall
+        ensure serve  ◀───────────────┤  per unit:
+        (OpenCodeServeCoordinator)     │  1. ensureRunning()
+        SliceGate (allowlist+danger) ◀─┤  2. gate (danger / scope)
+        RunService.run (1 worker) ◀────┤  3. dispatch executor (any CLI) ← pillar 2
+        run repo-declared check ◀──────┤  4. run the order's check → exit code
+        terminal classifier ◀──────────┤  5. classify: pass | fail | stall
                                        ▼
-              pass → mark passed, link runs, advance
-              stall (NOT compaction) → nudge, same slice, max N
-              fail (proof red) → mark escalated, emit supervisor task
+              pass  → mark passed, link runs, advance
+              stall (NOT compaction) → nudge, same unit, max N
+              fail  → mark escalated, hand back to the planner
 ```
 
-### 4.1 Reuse map (what's real on `feat/design-chain`)
+Note step 4: Allnighter **runs the check the order declares and reads its exit code** to
+drive the queue. It does not define the check — that's repo-owned (§2). "Pass" means *the
+repo's own check returned 0*, surfaced honestly; it is not a correctness guarantee.
+
+### 4.1 Reuse map (real on `feat/design-chain`)
 
 | Need | Use existing | File |
 | --- | --- | --- |
 | Serve lifecycle | `OpenCodeServeCoordinator.ensureRunning()` `async throws` | `AllnighterEngine/OpenCodeServeCoordinator.swift` |
-| Dispatch one worker (mutating) | `RunService.run(_:origin:…) -> Result<TeamRun, RunServiceError>` | `AllnighterEngine/RunService.swift` |
-| One-writer-per-repo invariant | `RunWriteLockRegistry.shared` (`waitToAcquire`/`release`, FIFO, `RunWriteLock.key(repoRoot:)`) | `AllnighterEngine/RunWriteLock.swift` |
+| Dispatch one worker (any CLI) | `RunService.run(_:origin:…) -> Result<TeamRun, RunServiceError>` | `AllnighterEngine/RunService.swift` |
+| **Zero-conflict invariant (pillar 3)** | `RunWriteLockRegistry.shared` (`waitToAcquire`/`release`, FIFO, `RunWriteLock.key(repoRoot:)`) | `AllnighterEngine/RunWriteLock.swift` |
 | Chain template (parent→gate→child→link) | `FollowUpCoordinator.runTryFix` + `Outcome` | `AllnighterEngine/FollowUpCoordinator.swift` |
 | Gate shape ("danger blocks, doubt doesn't") | `TryFixGate.evaluate(packet:executor:) -> Decision` | `AllnighterCore/TryFixGate.swift` |
 | Spawn + timing/outcome | `WorkerRunner.invoke` → `WorkerRunOutcome` (`status`, `errorKind`, `output`, `ttftMs`, `exitCode`, `reasoning`) | `AllnighterEngine/WorkerRunner.swift` |
-| Hammer driver | `opencode.json` (`id:"opencode"`, `maxConcurrentSpawns:1`, smoke contract, `timeoutSeconds:600`) | `Apps/AllnighterMac/Resources/Drivers/opencode.json` |
+| Executor driver (the free seat) | `opencode.json` (`id:"opencode"`, `maxConcurrentSpawns:1`, smoke contract, `timeoutSeconds:600`) | `Apps/AllnighterMac/Resources/Drivers/opencode.json` |
 | Run persistence + parent/child links | `RunStore` (per-id folder, atomic `run.json`, `owner.pid` liveness) + `RunLink{kind, runId}` | `AllnighterEngine/RunStore.swift`, `AllnighterCore/TeamRun.swift` |
 | Stall signals | `StalledWorkDetector.scan` + `StallRecoveryService` (`keepWaiting`/`dismiss`) | `AllnighterEngine/{StalledWorkDetector,StallRecoveryService}.swift` |
-| CLI dispatch + JSON envelope | `AllnighterCLI` switch → `PairCLI` (stub exists) ; `RunCLI` as pattern; `AllnighterCLI.jsonString`/`emitFailure` | `AllnighterCLI/AllnighterCLI.swift`, `RunCLI.swift`, `PairCLI.swift` |
+| CLI dispatch + JSON envelope | `AllnighterCLI` switch → `PairCLI` (stub exists); `RunCLI` as pattern; `AllnighterCLI.jsonString`/`emitFailure` | `AllnighterCLI/{AllnighterCLI,RunCLI,PairCLI}.swift` |
+
+> Note: `ProjectVerificationService` / `ExecutionLaneRegistry` / `ProjectDispatchService`
+> referenced in older notes are **not present on this branch** (verified 2026-06-26).
+> Build on `RunService` + `RunWriteLockRegistry` above.
 
 ### 4.2 New components to build (small, well-bounded)
 
 | New | Responsibility | Mirrors |
 | --- | --- | --- |
-| `WorkSlicePacket` + parser | typed handoff (§6) | `FixPacket` / `FixPacketParser` |
+| `WorkSlicePacket` + parser | typed order the planner authors (§6) | `FixPacket` / `FixPacketParser` |
 | `SliceGate` | danger flags + `touchAllowlist` scope check | `TryFixGate` |
-| `ProofRunner` | run a declared command as a **bounded** `/bin/sh -c` subprocess; capture exit/stdout/timeout → `ProofResult` | — (no shared proof runner exists today; **verify** no `ProjectVerificationService` landed before building) |
-| `SliceAttemptPrompt.assemble` | render packet → hammer prompt (the F6 shape) | `FixAttemptPrompt` |
-| `SliceTerminalClassifier` | `WorkerRunOutcome` + proof + **compaction marker** → `{passed, failed, stalled}` | extends `StalledWorkDetector` |
+| `CheckRunner` | run the order's **repo-declared** check as a bounded `/bin/sh -c` subprocess; capture exit/stdout-tail → advance signal (NOT a verifier — see §2) | — |
+| `SliceAttemptPrompt.assemble` | render packet → executor prompt (F1/F4 shape) | `FixAttemptPrompt` |
+| `SliceTerminalClassifier` | `WorkerRunOutcome` + check exit + **compaction marker** → `{passed, failed, stalled}` | extends `StalledWorkDetector` |
 | `SliceQueue` + `SliceQueueStore` | durable queue of packets with status | `RunStore` folder pattern |
 | `PairCoordinator` | `runSlice` (one) and `runQueue` (the loop) | `FollowUpCoordinator` |
 
 ---
 
-## 5. The compaction-vs-stall law (F2 — get this right or the loop kills itself)
+## 5. Zero-conflict at volume (pillar 3 — the load-bearing safety)
 
-The classifier must distinguish three terminal-ish states. Only one is a real stall.
+This is what makes "a lot of work across CLIs while you sleep" safe instead of catastrophic.
+
+- **One mutating worker** for the entire queue run, held under `RunWriteLockRegistry` keyed
+  on repo root. The loop is **sequential by construction** — never two executors mutating
+  one branch. (The pending-execute-lane invariant is INVIOLABLE.)
+- **`touchAllowlist` enforced** by `SliceGate`: a unit touching outside its declared files
+  is danger → blocked, not dispatched.
+- **Danger flags hard-stop:** credentials, distribution/signing, destructive git,
+  sandbox/TCC. Never auto-dispatched.
+- **Bounded retries:** max `maxRetries` nudges per unit, then escalate — never an infinite
+  loop.
+- **Budget + time ceiling:** `--until` and `--max-tokens` are hard caps; the loop stops and
+  reports, it does not run past dawn.
+- **Compaction ≠ stall** (F2): never kill a recovering worker.
+- **Allnighter does no git.** The executor's CLI owns commit/branch/worktree/revert.
+
+### Compaction-vs-stall classifier (get this right or the loop kills itself)
 
 | Observed | Meaning | Action |
 | --- | --- | --- |
-| Process alive, **context size flat**, compaction marker emitted, still producing | **Compaction in progress** | **WAIT** — extend the deadline by one compaction grace window. Never nudge/kill. |
-| Process alive, no output, no compaction, age > `stallTimeoutSeconds` | Genuine hang | nudge (same slice, max N) |
-| Exit 0 but `output` empty after extraction | Empty result | nudge (same slice, max N) |
-| Proof command exits non-zero | **Real failure** | escalate to supervisor (do **not** auto-retry the same code) |
-| Featherless "model is busy" / 429 | Infra backoff | exponential backoff retry (not a nudge, not an escalation) |
-
-Detection signals to combine: `WorkerRunOutcome` timing fields (`lastAnswerDeltaAt`,
-`rawStdoutChunkCount`), the OpenCode compaction stdout marker, `RunStore` `owner.pid`
-liveness, and `StalledWorkDetector` age thresholds. **Compaction grace** is a distinct,
-larger timeout than `stallTimeoutSeconds`.
+| Alive, context flat, compaction marker, still producing | Compaction in progress | **WAIT** (compaction grace window). Never kill. |
+| Alive, no output, no compaction, age > `stallTimeoutSeconds` | Genuine hang | nudge (same unit, max N) |
+| Exit 0, empty extracted output | Empty result | nudge (same unit, max N) |
+| Repo check exits non-zero | The repo's check failed | escalate to planner (no auto-retry of same code) |
+| Featherless "busy" / 429 | Infra backoff | exponential backoff (not a nudge, not an escalation) |
 
 ---
 
-## 6. `WorkSlicePacket` (typed handoff — final schema)
+## 6. `WorkSlicePacket` — the order the control plane dispatches
 
-Spec-shaped, not patch-shaped (F6). Carries the read-budget and the proof discipline.
+Authored by the planner (Composer / large-context worker), **outside** Allnighter.
+Allnighter carries it, gates it, dispatches it, runs its check, and surfaces the result.
 
 ```text
 WorkSlicePacket
@@ -217,226 +219,143 @@ WorkSlicePacket
   sliceId              : String              // e.g. "OC-S02b"
   title                : String
 
-  // --- read budget (F1, F4) — the supervisor keeps this SMALL ---
-  readPaths            : [ReadAnchor]        // { path, symbol?, lineRange? } — anchored, minimal
+  // --- read budget (F1, F4) — planner keeps SMALL so the executor never chokes ---
+  readPaths            : [ReadAnchor]        // { path, symbol?, lineRange? } — minimal, anchored
   resolvedSymbols      : [ResolvedSymbol]    // { name, signature, definedAt:"file:line" } — kills greps
-  estReadTokens        : Int?                // for the sizing gate (§8)
+  estReadTokens        : Int?                // for the read-budget gate
 
   // --- the work ---
   intent               : String             // behavior to achieve, in prose
   skeleton             : String?             // optional inline code skeleton (NOT a literal full patch)
-  touchAllowlist       : [String]            // required for mutating slices; enforced by SliceGate
+  touchAllowlist       : [String]            // required for mutating units; enforced by SliceGate
 
-  // --- the proof (F3) — supervisor-authored, behavioral, red-first ---
-  proof                : Proof
+  // --- the check (repo-owned; Allnighter only RUNS it for the advance signal) ---
+  check                : Check
     .method            : .command | .guiFixture | .userObservation   // reuse FixPacket.ProofMethod
-    .command           : String?             // exit 0 = pass; MUST fail before the work (red-first)
-    .behavioralTest    : String?             // exact assertions the supervisor owns (the rail)
-    .expectRedBefore   : Bool                // require proof to FAIL on baseline before dispatch
+    .command           : String?             // exit 0 = advance; defined by the repo, not Allnighter
+    .fixture           : String?             // repo fixture name (guiFixture)
 
-  // --- loop control ---
-  maxRetries           : Int                 // default 2 (stall/nudge on same slice)
-  stallTimeoutSeconds  : Int                 // default 300 (genuine-hang threshold)
+  // --- loop control (Allnighter's) ---
+  maxRetries           : Int                 // default 2 (nudge same unit)
+  stallTimeoutSeconds  : Int                 // default 300
   compactionGraceSeconds : Int               // default 180 (extra wait while compacting — F2)
   dangerFlags          : [String]            // credentials, distribution, destructive-git, sandbox/TCC…
 ```
 
-Drop from earlier drafts: `copyPastePrompt` (now rendered by `SliceAttemptPrompt`) and
-`literalEdits` (retracted — leverage → 1).
+Dropped from earlier drafts: `literalEdits` (a fully spoon-fed patch means the planner
+already did the work — leverage → 1) and any notion that Allnighter authors the check.
 
 ---
 
-## 7. Proof discipline — the whole ballgame (F3)
+## 7. Implementation phases
 
-Because the hammer conforms to the proof silently, the proof is where all correctness
-lives. Three non-negotiable rules:
-
-1. **Behavioral, not compilation.** The proof must assert *behavior* (a failing test that
-   the change makes pass), never just "`swift build` succeeds." A green build on an
-   add-a-guard change proves nothing.
-2. **Supervisor owns the expected values.** The hammer may write production code *and*
-   the test file, but the **assertions/expected values are authored by the supervisor**
-   and pasted verbatim into the packet as the rail. The hammer cannot weaken what it
-   doesn't get to choose.
-3. **Red-first.** Before dispatch, `ProofRunner` runs the proof against the baseline and
-   **requires it to FAIL** (`expectRedBefore`). A proof that is already green is a
-   non-proof — it would let the hammer "pass" without doing anything. This is the direct
-   countermeasure to F3's silent-conformance risk.
-
-`ProofRunner` contract:
-```text
-ProofRunner.run(command, cwd, timeout) async -> ProofResult
-  ProofResult { passed: Bool, exitCode: Int?, stdoutTail: String, timedOut: Bool }
-  // bounded /bin/sh -c subprocess at repo root; capture only a tail (don't blow our own logs)
-```
-The coordinator feeds the hammer **only** `passed` + `stdoutTail`'s first failure line —
-never the full test output (F1: that would be a giant read).
-
----
-
-## 8. Slice-sizing gate (read-budget enforcement — F1, F4)
-
-```text
-SliceSizer.check(packet) -> .ok | .tooLarge(estReadTokens, suggestSplit)
-  budget = readPaths byte-sum (→ tokens) + headroom for writes + compaction reserve
-  refuse if budget > ~50% of the hammer context window (≈16K of 32K) → leave room to write + compact
-  NEVER size on reasoning (F1: reasoning is free)
-```
-Failing the gate is **prevention**, not the §5 detection. OC-S01d would have been
-*rejected and auto-split* into a/b/c/d before ever spawning — which is exactly what the
-human did by hand. Prefer **one read-path per slice**; pre-resolve symbols so the hammer
-never greps.
-
----
-
-## 9. Supervisor seat (the scarce resource)
-
-- **Authors a batch** (`WorkSlicePlan` = ordered slice IDs or inline packets) from **one**
-  read of the area, then disengages. Maximize **slices-per-supervisor-pass**.
-- **Re-engages only on escalation** (proof-fail). The coordinator emits a supervisor task
-  containing the failed slice + `stdoutTail`; the supervisor re-plans (split, fix the
-  proof, add a resolved symbol) and pushes new pending slices.
-- **V1: manual supervisor** (Cursor authors slices into `docs/phases/sprint/<topic>/`).
-  **V2: in-app** large-context answer worker emits the plan as structured output.
-- The supervisor never holds the write lock and never mutates the repo — it only writes
-  packets. (Allnighter does no git; the hammer's CLI owns all git.)
-
----
-
-## 10. Implementation phases
-
-### PPT-1 — Single-slice handoff (CLI) — *buildable today*
+### PPT-1 — Single-unit handoff (CLI) — *buildable today*
 
 | Slice | Deliverable | Mirrors / uses |
 | --- | --- | --- |
 | PPT-S01 | `WorkSlicePacket` + parser + tests (`AllnighterCore`) | `FixPacket`/`FixPacketParser` |
 | PPT-S02 | `SliceGate.evaluate` (allowlist + danger) + tests | `TryFixGate` |
-| PPT-S03 | `ProofRunner` (bounded `/bin/sh -c`, `ProofResult`) + **red-first** check + tests | new; verify no `ProjectVerificationService` |
-| PPT-S04 | `SliceAttemptPrompt.assemble` (F6 shape) + tests | `FixAttemptPrompt` |
-| PPT-S05 | `PairCoordinator.runSlice`: ensureRunning → SliceGate → red-first proof → `RunService.run` (mutating, lane lock) → proof → link via `RunLink` | `FollowUpCoordinator.runTryFix` |
+| PPT-S03 | `CheckRunner` (bounded `/bin/sh -c`, exit + stdout-tail) + tests | new (advance signal, not a verifier) |
+| PPT-S04 | `SliceAttemptPrompt.assemble` (F1/F4 shape) + tests | `FixAttemptPrompt` |
+| PPT-S05 | `PairCoordinator.runSlice`: ensureRunning → SliceGate → `RunService.run` (mutating, lane lock) → check → link via `RunLink` | `FollowUpCoordinator.runTryFix` |
 | PPT-S06 | `alln pair slice <packet-path> --json` (extend existing `PairCLI`) | `RunCLI` |
 
-### PPT-2 — The autonomous queue (THE product)
+### PPT-2 — The autonomous queue (the product surface)
 
 | Slice | Deliverable |
 | --- | --- |
 | PPT-S07 | `SliceQueue` + `SliceQueueStore` (durable; status pending/running/passed/failed/escalated; `RunStore` folder pattern) |
-| PPT-S08 | `SliceTerminalClassifier` incl **compaction-not-stall** (§5); compaction marker detection + grace window |
-| PPT-S09 | Nudge injection: `NudgePrompt` (template, not LLM), same slice, max `maxRetries` |
+| PPT-S08 | `SliceTerminalClassifier` incl **compaction-not-stall** (§5) + grace window |
+| PPT-S09 | Nudge injection: `NudgePrompt` (template, not LLM), same unit, max `maxRetries` |
 | PPT-S10 | `PairCoordinator.runQueue` loop: pop → runSlice → advance/nudge/escalate; single `RunWriteLock` holder for the whole run |
 | PPT-S11 | Ceilings + hard stop: `--until <HH:MM>`, `--max-tokens N`, `--max-retries N`; `alln pair run --queue <dir> …` |
-| PPT-S12 | Escalation: on proof-fail mark `escalated` + write supervisor task (failed slice + `stdoutTail`) |
+| PPT-S12 | Escalation: on check-fail mark `escalated` + hand back to the planner (failed unit + stdout-tail) |
 
-### PPT-3 — Supervisor automation
-
-| Slice | Deliverable |
-| --- | --- |
-| PPT-S13 | `WorkSlicePlan` authoring: large-context answer worker (or Cursor seat) emits structured plan |
-| PPT-S14 | Auto re-engage supervisor on escalation (closes the overnight loop) |
-
-### PPT-4 — Mac GUI (last, projection-only)
+### PPT-3 — Planner automation (close the loop)
 
 | Slice | Deliverable |
 | --- | --- |
-| PPT-S15 | Overnight queue rail: per-slice status, pass/fail, lane, leverage ratio; parent-run → slice-attempts → proof results |
-| PPT-S16 | Pair-build team preset surfaced in composer |
+| PPT-S13 | `WorkSlicePlan` authoring: large-context worker (or Composer seat) emits the batch as structured output |
+| PPT-S14 | Auto re-engage planner on escalation |
+
+### PPT-4 — Mac GUI (last; "send to team", projection-only)
+
+| Slice | Deliverable |
+| --- | --- |
+| PPT-S15 | **Send-to-team → schedule**: pick a queue, pick the seats (planner CLI + executor CLI), set `--until`; the overnight-queue rail shows per-unit status, pass/fail, lane, across-CLI |
+| PPT-S16 | `pair_build` team preset surfaced in the composer (seat 1 planner, seat 2 free executor) |
 
 ### PPT-5 — Serve lifecycle hardening
 
 | Slice | Deliverable |
 | --- | --- |
-| PPT-S17 | `OpenCodeServeCoordinator` owned by Mac background coordinator (start on app launch) |
+| PPT-S17 | `OpenCodeServeCoordinator` owned by the Mac background coordinator (start on launch) |
 | PPT-S18 | `opencode serve` health in Doctor / setup card |
 
 ---
 
-## 11. Safety laws (carried from Try Fix, sharpened by the findings)
+## 8. Non-goals (V1)
 
-- **One mutating worker** under `RunWriteLockRegistry` for the entire queue run — the
-  pending-execute-lane invariant is INVIOLABLE (concurrent Execute on one branch is
-  catastrophic). The loop is sequential by construction.
-- **`touchAllowlist` enforced** by `SliceGate`: a slice that touches outside its list is
-  danger → blocked.
-- **Danger flags hard-stop:** credentials, distribution/signing, destructive git, sandbox/
-  TCC. Never auto-dispatched.
-- **Proof red-first** (§7): no dispatch unless the proof currently fails.
-- **Bounded retries:** max `maxRetries` nudges per slice, then escalate — never an
-  infinite loop on red.
-- **Budget + time ceiling:** `--until` and `--max-tokens` are hard caps; the loop stops
-  and reports, it does not run past dawn.
-- **Compaction ≠ stall** (§5): never kill a recovering worker.
-- **Allnighter does no git.** The hammer's CLI owns commit/branch/worktree/revert. Safety
-  is the write lock + bounded packet + proof + hard stops + the user's own undo, never
-  Allnighter touching the repo's history.
-
----
-
-## 12. Non-goals (V1)
-
-- Parallel hammers (one write lock, one mutating worker — by safety law).
-- Hammer reading the full repo / `AGENTS.md` / phase boards (violates F1/F4).
-- Streaming the hammer's tokens to the UI (final-output posture; the value is *waking up
-  to results*, not watching).
-- Literal-patch packets (retracted — leverage → 1).
+- Parallel mutating executors (one write lock, one mutating worker — pillar 3).
+- Executor reading the full repo / `AGENTS.md` / phase boards (violates F1/F4).
+- Streaming the executor's tokens to the UI (the value is *waking up to results*, not
+  watching).
+- Allnighter authoring or owning the check / proof (repo's job — §2).
 - Allnighter performing git.
-- Replacing the supervisor with the hammer (the supervisor authors proofs; that is
-  irreducibly frontier work).
+- Allnighter promising correctness (unsolvable — §2). It promises *ran, safely,
+  unattended, here's what came back.*
+- Replacing the planner with the executor.
 
 ---
 
-## 13. Open questions
+## 9. Open questions
 
-- Compaction marker: is there a stable, parseable OpenCode signal, or must we infer
-  compaction from "context flat + process alive + no answer delta"? (Spike before S08.)
-- Supervisor seat: always Cursor, or an in-app large-context answer worker? (S13 decides.)
-- `WorkSlicePlan` storage: in the parent `TeamRun` JSON, or a dedicated `SliceQueueStore`?
-  (Leaning dedicated store, mirroring `RunStore`.)
-- Featherless rate-limit behavior under an overnight queue — does GLM throttle hard enough
-  to make N-parallel-nightly small? (Measure during the first real overnight run.)
+- Compaction marker: a stable parseable OpenCode signal, or infer from "context flat +
+  alive + no answer delta"? (Spike before S08.)
+- Planner seat: Composer (manual today) or an in-app large-context worker? (S13.)
+- Queue storage: in the parent `TeamRun` JSON, or a dedicated `SliceQueueStore`? (Leaning
+  dedicated, mirroring `RunStore`.)
+- Featherless rate limits under an overnight queue — how small does N-parallel get?
+  (Measure on the first real overnight run.)
 
 ---
 
-## 14. Works Test — the real acceptance is *unattended*
+## 10. Works Test — the acceptance is *unattended, across CLIs, zero conflict*
 
-V1 manual (learning harness — already passing):
-```text
-opencode serve up; Featherless GLM configured.
-Cursor authors a sprint slice + verbatim behavioral test (the rail).
-Paste to OpenCode; on a genuine stall send NUDGE; ignore compaction screens.
-Run the proof. Repeat. (This is the harness, NOT the product.)
-```
-
-V2 automated single slice (PPT-S06):
+V2 — single unit (PPT-S06):
 ```bash
 alln pair slice docs/phases/sprint/opencode/OC-S02b.md --json
-# → { sliceId, status: passed, proof: { passed: true }, leverage: 6.2, childRunId, parentRunId }
+# → { sliceId, status: passed, check: { exitCode: 0 }, childRunId, parentRunId }
 ```
 
-**V3 — the product (PPT-S11+). The acceptance test for the entire feature:**
+**V3 — the product (PPT-S11+). The acceptance test for the whole feature:**
 ```bash
 alln pair run --queue docs/phases/sprint/opencode/ --until 07:00 --max-retries 2 --json
 ```
-Acceptance:
+Acceptance — this is the vision, made literal:
 - Runs **with no human in the loop** until the queue is empty or 07:00.
-- Each slice gated **red-first**; every proof is **behavioral**.
-- The write lock is **never** held by two workers; lane invariant intact.
-- Output: `{ passed: N, escalated: M, slices: [ … with proof + leverage ] }`.
-- You **wake up** to N merge-ready slices and an M-item escalation list — and you touched
-  nothing overnight.
+- Each unit dispatched to its seat's CLI (planner + free executor) — **across models**.
+- The write lock is **never** held by two workers — **zero conflict**.
+- Each unit's **repo-declared check** is run and its result surfaced honestly (pass = the
+  repo's check returned 0, not a correctness claim).
+- Output: `{ passed: N, escalated: M, slices: [ … with check result + childRunId ] }`.
+- You **wake up** to N built-and-checked units and an M-item escalation list — having
+  touched nothing overnight.
 
 If V3 needs you awake, the feature is not done.
 
 ---
 
-## 15. Routing
+## 11. Routing
 
 | Work | Read |
 | --- | --- |
-| Build the proof runner / gate | `TryFixGate.swift`, `FixPacket.swift`, `FollowUpCoordinator.swift` |
-| Dispatch a worker | `RunService.swift`, `RunWriteLock.swift`, `WorkerRunner.swift` |
+| Dispatch / lane safety (pillars 2+3) | `RunService.swift`, `RunWriteLock.swift`, `WorkerRunner.swift` |
+| Chain / gate template | `FollowUpCoordinator.swift`, `TryFixGate.swift`, `FixPacket.swift` |
 | Serve lifecycle | `OpenCodeServeCoordinator.swift`, `opencode.json` |
 | Stall / compaction | `StalledWorkDetector.swift`, `StallRecoveryService.swift` |
 | Persist queue / link runs | `RunStore.swift`, `TeamRun.swift` (`RunLink`) |
 | Add the CLI | `AllnighterCLI.swift`, `PairCLI.swift`, `RunCLI.swift` |
-| Sprint packet format | `docs/phases/sprint/README.md` |
-| First proven slice (reference) | `git show a4e88754` — `TextUtil.stripReasoningBlocks` + its 9-test rail |
+| Slice packet format | `docs/phases/sprint/README.md` |
+| First proven slice (reference executor run) | `git show a4e88754` — `TextUtil.stripReasoningBlocks` + its check |
+```
