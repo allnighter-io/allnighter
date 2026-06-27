@@ -5,18 +5,6 @@
   "readPaths": [
     { "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RunWriteLock.swift" }
   ],
-  "resolvedSymbols": [
-    {
-      "name": "RunWriteLock.key",
-      "signature": "public static func key(repoRoot: String?) -> String",
-      "definedAt": "RunWriteLock.swift:14"
-    },
-    {
-      "name": "RunWriteLockRegistry.waitToAcquire",
-      "signature": "public func waitToAcquire(key: String, ownerLabel: String) async",
-      "definedAt": "RunWriteLock.swift:40+"
-    }
-  ],
   "intent": "READ-ONLY code review. Do not edit Swift. Write structured findings to docs/phases/code_review/findings/CR-01.md per docs/phases/code_review/README.md. Lenses: (1) two holders same root? (2) FIFO fairness (3) crash without release (4) read runs parallel (5) actor/cancellation holes.",
   "touchAllowlist": [
     "docs/phases/code_review/findings/CR-01.md"

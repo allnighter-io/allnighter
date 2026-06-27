@@ -2,6 +2,7 @@
 docs/phases/code_review/packets/*.expanded.json
 docs/phases/code_review/findings/*.md
 !docs/phases/code_review/findings/.gitkeep
+docs/phases/code_review/findings/*-verified.md
 
 .DS_Store
 .AppleDouble

@@ -34,6 +34,57 @@ the same F1/F4 discipline to **review**:
 | Proof | Repo test / fixture | Findings file passes section check |
 | Output owner | Merged commit | Composer triage → maybe a new sprint doc |
 
+## PM rules (non-negotiable)
+
+### Parallel fan-out — ONLY when safe
+
+Parallel is **never** the default courage move. `scripts/cr_parallel_plan.py` and
+`CodeReviewParallelSafety` enforce:
+
+1. **Touch surfaces must be disjoint** — each packet writes only
+   `docs/phases/code_review/findings/<sliceId>.md` (or `-verified.md`); no two
+   concurrent packets may share a touch path.
+2. **Touch must stay under `findings/`** — no Swift edits in parallel review.
+3. **Max 4 concurrent** — matches Featherless Premium; set via `ALLNIGHTER_REVIEW_SPAWN_LIMIT`.
+4. **Read overlap is OK** — multiple reviews may read the same source file (read-only).
+5. **On any violation → serial fallback** — `run_cr_phase1.sh` refuses unsafe batches.
+
+Advisory reviews **skip `RunWriteLock`** (`RunRequest.advisoryReview`) so disjoint
+findings writes do not queue behind each other.
+
+### Verify pass (default on)
+
+After each review:
+
+```bash
+python3 scripts/expand_cr_packet.py --verify . docs/phases/code_review/packets/CR-01.expanded.json
+alln pair slice docs/phases/code_review/packets/CR-01.verify.expanded.json ...
+```
+
+Verify worker defaults P0 claims to **Reject** unless upheld in inlined source.
+**Promote only P0s that survive verify** (`findings/CR-NN-verified.md`).
+
+Disable verify: `PAIR_CR_VERIFY=0`. Disable parallel: `PAIR_CR_PARALLEL=0`.
+
+### Terminal success (review mode)
+
+For `mode=review` or `reviewVerify`: **check pass ⇒ slice pass**, even when OpenCode
+stream is empty (tool-write path). See `SliceTerminalClassifier` + dogfood CR-01.
+
+### Symbol stubs
+
+`expand_cr_packet.py` **auto-generates** `resolvedSymbols` from inlined Swift.
+Do not hand-author symbols in packet JSON — phantom symbols produce phantom P0s.
+
+## Pipeline (target)
+
+```text
+expand (inline + auto symbols)
+    → review (GLM)     ─┐ parallel when safe (≤4)
+    → verify (GLM)     ─┘ serial per slice after its review
+    → triage upheld P0s only
+```
+
 ## Workflow
 
 ```text
