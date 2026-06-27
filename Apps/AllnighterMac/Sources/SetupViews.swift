@@ -43,6 +43,7 @@ extension SetupCardState {
         case .needsPath: SetupPill(kind: .step, label: "Needs a path")
         case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
         case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
+        case .detecting, .reprobing: SetupPill(kind: .check, label: "Re-checking…")
         default: SetupPill(kind: .muted, label: "Needs a step")
         }
     }
@@ -86,6 +87,16 @@ struct SetupCardModel: Identifiable {
     let headlessTrust: HeadlessTrustPolicy?
 
     var id: String { driverId }
+
+    /// Clipboard payload for setup probe failures (Copy log).
+    var probeLogText: String {
+        var lines = ["driver: \(driverId)", "name: \(name)", "route: \(route)"]
+        if let version { lines.append("detected: \(version)") }
+        lines.append("state: \(String(describing: state))")
+        if let probeReason, !probeReason.isEmpty { lines.append("detail: \(probeReason)") }
+        if let shimCommand, !shimCommand.isEmpty { lines.append("shim: \(shimCommand)") }
+        return lines.joined(separator: "\n")
+    }
 
     /// Whether setup/repair surfaces should show the headless-trust callout.
     var showsHeadlessTrustDisclosure: Bool {

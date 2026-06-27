@@ -16,7 +16,9 @@ enum AppSetupModel {
     static func setupCards(
         registry: DriverRegistry,
         toolStatuses: [ToolProbeRecord],
-        models: [Model]
+        models: [Model],
+        isDetecting: Bool = false,
+        probingDriverId: String? = nil
     ) -> [SetupCardModel] {
         registry.all
             .filter { $0.kind == .headlessCLI }
@@ -32,6 +34,9 @@ enum AppSetupModel {
             let state: SetupCardState
             var shim: String?
             var reason: String?
+            if isDetecting && (probingDriverId == nil || probingDriverId == manifest.id) {
+                state = .reprobing
+            } else {
             switch rec?.status {
             case .ready?: state = .ready
             case .installedNotSignedIn?: state = .needsLogin
@@ -40,6 +45,7 @@ enum AppSetupModel {
             case .notInstalled?: state = .notInstalled
             case .installedNotProbed?: state = .installedNotProbed
             case nil: state = .notChecked
+            }
             }
             return SetupCardModel(
                 driverId: manifest.id, name: manifest.displayName, route: route, version: rec?.version,

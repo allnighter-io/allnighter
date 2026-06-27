@@ -70,9 +70,10 @@ struct TeamReadinessView: View {
             Spacer(minLength: 0)
             HStack(spacing: 9) {
                 Button { model.runFullSetupProbe(userInitiated: true) } label: {
-                    Label("Re-check all", systemImage: "arrow.clockwise")
+                    Label(model.isDetecting ? "Checking…" : "Re-check all", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.alSecondary(small: true))
+                .disabled(model.isDetecting)
                 Button(action: onAddSource) {
                     Label("Add CLI", systemImage: "plus")
                 }
@@ -196,6 +197,7 @@ struct BenchRepairPanel: View {
     @State private var addingModel = false
     @State private var newModelName = ""
     @State private var newModelLabel = ""
+    @State private var logCopied = false
 
     /// Every model this CLI can run (on-bench + available), A→Z. Drives the editable
     /// bench roster — toggling a row writes `Model.enabled` via the catalog.
@@ -351,14 +353,26 @@ struct BenchRepairPanel: View {
 
     @ViewBuilder private var repairPill: some View { card.state.repairPill }
 
+    private var isProbingThisCard: Bool {
+        model.isDetecting && (model.probingDriverId == nil || model.probingDriverId == card.driverId)
+    }
+
     private var lead: String {
         switch card.state {
+        case .reprobing:
+            if card.driverId == "opencode" {
+                return "Starting OpenCode's local server, then running a smoke test through Featherless. First run can take 1–3 minutes — nothing else to install or start manually."
+            }
+            return "Running detect and smoke test for \(card.name)…"
         case .needsLogin, .waiting:
             return "Installed but not signed in. It prompts for sign-in on first run — fix it here and it goes green in place."
         case .needsPath:
             return "Found as a shell function, not a plain command. Point us at the binary, or run it through your login shell."
         case .probeFailed:
-            return "Detect passed but the smoke run failed — this is not a sign-in problem. Re-try the probe or read the log for the real error."
+            if card.driverId == "opencode" {
+                return "Detect passed but smoke failed. Allnighter starts the OpenCode server for you — no separate terminal step. Re-try probe (can take a few minutes) or Copy log."
+            }
+            return "Detect passed but the smoke run failed — this is not a sign-in problem. Re-try the probe or copy the log for the real error."
         case .notInstalled:
             return "No binary resolved on PATH or known locations. Install it, then re-scan — it joins the bench automatically."
         case .notChecked:
@@ -407,11 +421,16 @@ struct BenchRepairPanel: View {
             ]
         case .probeFailed:
             return [
-                RepairAction(icon: "arrow.clockwise", title: "Re-try probe", subtitle: "Run the smoke test again", button: "Run", primary: true, secondary: false) {
-                    model.runFullSetupProbe(userInitiated: true)
+                RepairAction(icon: "arrow.clockwise", title: "Re-try probe", subtitle: probeRetrySubtitle, button: isProbingThisCard ? "Running…" : "Run", primary: true, secondary: false) {
+                    model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
                 },
-                RepairAction(icon: "doc.text", title: "View log", subtitle: "Open the full probe transcript", button: "Open", primary: false, secondary: true) {
-                    if let reason = card.probeReason { SetupActions.copyToPasteboard(reason) }
+                RepairAction(icon: "doc.on.doc", title: "Copy log", subtitle: "Copy probe details to the clipboard", button: logCopied ? "Copied" : "Copy", primary: false, secondary: true) {
+                    SetupActions.copyToPasteboard(card.probeLogText)
+                    logCopied = true
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(2))
+                        logCopied = false
+                    }
                 },
                 RepairAction(icon: "folder", title: "Locate the binary…", subtitle: "In case the wrong binary resolved", button: "Locate", primary: false, secondary: false) {
                     SetupActions.locateBinary()
@@ -439,8 +458,15 @@ struct BenchRepairPanel: View {
         }
     }
 
+    private var probeRetrySubtitle: String {
+        card.driverId == "opencode"
+            ? "Smoke via Featherless — may take 1–3 min on first run"
+            : "Run the smoke test again"
+    }
+
     private func repairActionRow(_ act: RepairAction, first: Bool) -> some View {
-        HStack(spacing: 12) {
+        let probing = isProbingThisCard && act.title == "Re-try probe"
+        return HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 7)
                 .fill(ALColor.active)
                 .frame(width: 28, height: 28)
@@ -454,6 +480,7 @@ struct BenchRepairPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: act.handler) { Text(act.button) }
                 .buttonStyle(act.primary ? .alPrimary(small: true) : act.secondary ? .alSecondary(small: true) : .alGhost)
+                .disabled(probing)
         }
         .padding(.vertical, 11)
         .overlay(alignment: .top) {
@@ -486,6 +513,16 @@ struct BenchRepairPanel: View {
 
     private var proofLines: [[ProofSegment]] {
         switch card.state {
+        case .reprobing:
+            if card.driverId == "opencode" {
+                return [
+                    [.init(text: "… ", tone: .prompt), .init(text: "Starting local OpenCode server", tone: .normal)],
+                    [.init(text: "… ", tone: .prompt), .init(text: "Running smoke test (Featherless) — up to ~3 min", tone: .normal)],
+                ]
+            }
+            return [
+                [.init(text: "… ", tone: .prompt), .init(text: "Running detect + smoke probe", tone: .normal)],
+            ]
         case .needsLogin, .waiting:
             return [
                 [.init(text: "last smoke: ", tone: .normal), .init(text: "passed", tone: .ok), .init(text: " · 3 days ago", tone: .normal)],

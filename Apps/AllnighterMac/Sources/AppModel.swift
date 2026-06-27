@@ -39,6 +39,8 @@ final class AppModel {
     // badge, team health, and Setup (docs/phases/setup/01 §5).
     private(set) var toolStatuses: [ToolProbeRecord] = []
     private(set) var isDetecting = false
+    /// When set, a live probe is running for this driver only (`nil` = all CLIs).
+    private(set) var probingDriverId: String?
     private let setupStore: SetupStore
 
     // Agent-powered tool discovery (the "census", tier 2): once ≥1 tool is ready,
@@ -461,7 +463,9 @@ final class AppModel {
     /// `.notChecked` instead of vanishing, which is what made the cold first-run
     /// page render blank.
     var setupCards: [SetupCardModel] {
-        AppSetupModel.setupCards(registry: registry, toolStatuses: toolStatuses, models: models)
+        AppSetupModel.setupCards(
+            registry: registry, toolStatuses: toolStatuses, models: models,
+            isDetecting: isDetecting, probingDriverId: probingDriverId)
     }
 
     // MARK: - Source capacity cooldowns (pre-dispatch availability)
@@ -682,31 +686,51 @@ final class AppModel {
     /// Until the full Setup UI lands, launch is strictly cache-only and live
     /// checks go through this explicit full probe.
     func runFullSetupProbe(userInitiated: Bool) {
-        // Authority gate: a full probe is real, quota-bearing work. If this was
-        // not an explicit user act, fall back to the process-quiet cache load.
+        runSetupProbe(userInitiated: userInitiated, onlyDriverId: nil)
+    }
+
+    /// Live detect + smoke. `onlyDriverId` re-probes one CLI (repair panel Run); `nil` = all.
+    func runSetupProbe(userInitiated: Bool, onlyDriverId: String? = nil) {
         guard userInitiated else { loadCachedSetupState(); return }
         guard !isDetecting else { return }
-        // Explicit intent makes it safe to capture login-shell PATH so tool
-        // resolution sees the same PATH a terminal would (version managers,
-        // mount helpers, etc.). This is the only place that spawn is allowed.
         LoginShell.applyToProcessEnvironment()
         let cached = setupStore.load()
         if !cached.records.isEmpty { toolStatuses = cached.records }
         isDetecting = true
+        probingDriverId = onlyDriverId
         let modelLabels = ModelCatalog.probeModelLabels(registry: registry)
         let registryCopy = registry
         let storeCopy = setupStore
         let completedAt = cached.setupCompletedAt
         Task { @MainActor [weak self] in
-            // Explicit user-initiated setup: resolve through the INTERACTIVE login
-            // shell (-lic) so the user's .zshrc PATH is seen. One-time TCC prompt
-            // is acceptable here (explicit intent); launch never reaches this.
-            let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
-                .probeAll(registryCopy.all, models: modelLabels, now: Date(), smoke: true)
+            let detector = CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
+            let records: [ToolProbeRecord]
+            if let onlyDriverId,
+               let manifest = registryCopy.all.first(where: { $0.id == onlyDriverId }) {
+                let rec = await detector.probe(
+                    manifest, model: modelLabels[onlyDriverId] ?? "", now: Date(), smoke: true)
+                records = [rec]
+            } else {
+                records = await detector.probeAll(
+                    registryCopy.all, models: modelLabels, now: Date(), smoke: true)
+            }
             guard let self else { return }
-            self.toolStatuses = records
-            try? storeCopy.save(.init(records: records, setupCompletedAt: completedAt))
+            if onlyDriverId != nil {
+                var merged = self.toolStatuses
+                for rec in records {
+                    if let i = merged.firstIndex(where: { $0.driverId == rec.driverId }) {
+                        merged[i] = rec
+                    } else {
+                        merged.append(rec)
+                    }
+                }
+                self.toolStatuses = merged
+            } else {
+                self.toolStatuses = records
+            }
+            try? storeCopy.save(.init(records: self.toolStatuses, setupCompletedAt: completedAt))
             self.isDetecting = false
+            self.probingDriverId = nil
         }
     }
 
