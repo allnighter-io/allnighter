@@ -5,7 +5,7 @@ import AllnighterEngine
 /// A minimal MCP stdio server exposing the team as tools any MCP-aware agent can call.
 struct MCPServer {
     let runtime: ToolRuntime
-    static let protocolVersion = "2024-11-05"
+    static let protocolVersion = MCPWire.protocolVersion
 
     func serve() async {
         let reader = FrameReader()
@@ -19,7 +19,7 @@ struct MCPServer {
             case "initialize":
                 respond(id: id, result: [
                     "protocolVersion": Self.protocolVersion,
-                    "serverInfo": ["name": "alln", "version": "0.6"],
+                    "serverInfo": ["name": "alln", "version": MCPWire.serverVersion],
                     "capabilities": ["tools": [:]]
                 ])
             case "tools/list":
@@ -407,29 +407,7 @@ struct MCPServer {
 
     /// Tool descriptors derive from the contract registry — no MCP-only schemas.
     private func toolDefinitions() -> [[String: Any]] {
-        ContractRegistry.milestone1.mcpTools.map { tool in
-            var properties: [String: Any] = [:]
-            var required: [String] = []
-            for p in tool.params {
-                var property: [String: Any] = ["type": p.type, "description": p.summary]
-                if let arrayItems = p.arrayItems {
-                    property["items"] = ["oneOf": arrayItems.oneOf.map { item -> [String: Any] in
-                        var spec: [String: Any] = [:]
-                        if let type = item.type { spec["type"] = type }
-                        if let properties = item.properties {
-                            spec["properties"] = properties.mapValues { ["type": $0.type] }
-                        }
-                        if let required = item.required { spec["required"] = required }
-                        return spec
-                    }]
-                }
-                properties[p.name] = property
-                if p.required { required.append(p.name) }
-            }
-            var schema: [String: Any] = ["type": "object", "properties": properties]
-            if !required.isEmpty { schema["required"] = required }
-            return ["name": tool.name, "description": tool.summary, "inputSchema": schema]
-        }
+        MCPWire.toolDefinitions(from: ContractRegistry.milestone1.mcpTools)
     }
 
     /// A tool-level failure carrying the shared `ErrorEnvelope` (no MCP-only error shape).
@@ -515,17 +493,18 @@ struct MCPServer {
     }
 
     private func respondToolError(id: Any?, code: String, message: String) {
-        let envelope = ErrorEnvelope(code: code, message: message, requiresManual: code == "RUN_NOT_FOUND", retryable: false)
         respond(id: id, result: [
             "content": [["type": "text", "text": "\(code): \(message)"]],
             "isError": true,
-            "structuredContent": ["error": AllnighterCLI.jsonString(envelope)],
+            "structuredContent": MCPWire.toolErrorStructuredContent(code: code, message: message),
         ])
     }
 
     private func toolText(_ text: String, structured: String? = nil) -> [String: Any] {
         var result: [String: Any] = ["content": [["type": "text", "text": text]]]
-        if let structured { result["structuredContent"] = ["json": structured] }
+        if let structured, let obj = MCPWire.typedStructuredContent(structured) {
+            result["structuredContent"] = obj
+        }
         return result
     }
 

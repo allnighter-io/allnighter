@@ -198,6 +198,8 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var errors: [String]
         /// Retry-safety contract for this tool (M-A).
         public var idempotency: Idempotency
+        /// Human label for MCP host UIs (T7). Auto-derived from `name` when nil.
+        public var title: String?
         public struct Param: Codable, Sendable, Equatable {
             public var name: String
             public var type: String        // "string" | "boolean" | "array" | "object"
@@ -235,14 +237,14 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
                 self.arrayItems = arrayItems
             }
         }
-        public init(_ name: String, command: String, summary: String, params: [Param] = [], outputSchema: OutputSchema = .none, errors: [String] = [], idempotency: Idempotency = .notIdempotent) {
+        public init(_ name: String, command: String, summary: String, params: [Param] = [], outputSchema: OutputSchema = .none, errors: [String] = [], idempotency: Idempotency = .notIdempotent, title: String? = nil) {
             self.name = name; self.command = command; self.summary = summary
             self.params = params; self.outputSchema = outputSchema
-            self.errors = errors; self.idempotency = idempotency
+            self.errors = errors; self.idempotency = idempotency; self.title = title
         }
 
         private enum CodingKeys: String, CodingKey {
-            case name, command, summary, params, outputSchema, errors, idempotency
+            case name, command, summary, params, outputSchema, errors, idempotency, title
         }
         // Tolerant decode: a pre-M-A artifact without `errors`/`idempotency` reads
         // as no declared errors and not-idempotent.
@@ -255,6 +257,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             outputSchema = try c.decode(OutputSchema.self, forKey: .outputSchema)
             errors = try c.decodeIfPresent([String].self, forKey: .errors) ?? []
             idempotency = try c.decodeIfPresent(Idempotency.self, forKey: .idempotency) ?? .notIdempotent
+            title = try c.decodeIfPresent(String.self, forKey: .title)
         }
     }
 }

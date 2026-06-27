@@ -10,6 +10,13 @@ enum MCPAsyncTeamHandlers {
     }
 
     static func start(runtime: ToolRuntime, args: [String: Any], defaultAgent: String) async -> Outcome {
+        if (args["dryRun"] as? Bool) == true {
+            let result = AllnighterCLI.preflight(runtime, args: args)
+            let text = result.canStart
+                ? "Dry-run OK: \(result.teamDisplayName ?? result.teamPresetId ?? "team")."
+                : "Dry-run blocked: \(result.blockedReason ?? "unknown")."
+            return .success(AllnighterCLI.jsonString(result), summary: text)
+        }
         guard var request = AsyncTeamStartRequest(mcpArguments: args) else {
             return .toolError(ErrorEnvelope(code: "CLI_USAGE_ERROR", message: "prompt required",
                                             requiresManual: true, retryable: false))

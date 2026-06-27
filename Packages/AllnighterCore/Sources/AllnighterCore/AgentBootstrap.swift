@@ -59,7 +59,7 @@ public enum AgentReadiness {
         }
         if !ready.isEmpty {
             return Verdict(canStartTeamRun: true, readyTeams: ready, blockedReason: nil,
-                           nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_preflight"))
+                           nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_start"))
         }
         if readyModels.isEmpty {
             return Verdict(canStartTeamRun: false, readyTeams: [],
