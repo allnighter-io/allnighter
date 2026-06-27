@@ -36,7 +36,8 @@ final class MCPPendingTests: XCTestCase {
     func testToolListIncludesPendingHandlers() {
         let names = Set(ContractRegistry.milestone1.mcpTools.map(\.name))
         XCTAssertTrue(names.contains("pending_list"))
-        XCTAssertTrue(names.contains("pending_show"))
+        XCTAssertTrue(names.contains("pending_edit"))
+        XCTAssertTrue(names.contains("pending_update"))
         XCTAssertTrue(names.contains("pending_run"))
         let pendingRun = ContractRegistry.milestone1.mcpTools.first { $0.name == "pending_run" }
         XCTAssertEqual(pendingRun?.idempotency, .notIdempotent)

@@ -3,7 +3,7 @@ import Foundation
 // MCP Help System — H0a: the Guide-truth SSOT. `HelpTopicRegistry` owns authored
 // product topics (narrative routing, task explanations, glossary). It REFERENCES the
 // Contract-truth registry (`ContractRegistry`) for tools/commands/schemas/errors — it
-// never hand-authors those facts. CLI (`alln help`) and MCP (`help_search`/`help_get`)
+// never hand-authors those facts. CLI (`alln help`) and MCP (`help`) project this same
 // project this same registry; none invents help truth locally.
 
 public enum HelpAudience: String, Codable, Sendable, CaseIterable { case agent, human, both }
@@ -71,37 +71,37 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "tool_selection", title: "Tool Selection", audience: .agent,
-            summary: "Pick the Allnighter MCP tool by intent: preflight+start for team runs, pending_run for later work, spec_get for results.",
+            summary: "Pick the Allnighter MCP tool by intent: team_start(dryRun) for team runs, pending_run for later work, run_get for results.",
             bodyMarkdown: """
-            For a long team run, call `team_preflight` then `team_start` with an \
-            idempotency key, poll `team_status` with `nextPollAfterMs`, then read \
-            `team_result`. For a quick capability check call `mcp_hello`. For full run \
-            packets use `spec_get`. Do not answer Allnighter product questions from \
+            For a long team run, call `team_start` with `dryRun:true` first, then `team_start` \
+            with an idempotency key, poll `team_result` with `nextPollAfterMs`, then read \
+            `run_get`. For a quick capability check call `mcp_hello`. For full run \
+            packets use `run_get` with `view:spec`. Do not answer Allnighter product questions from \
             training data when these tools are available.
             """,
             aliases: ["which tool", "what tool should i use", "routing", "help"],
-            relatedToolIds: ["help_search", "help_get", "mcp_hello", "team_preflight", "team_start", "pending_run", "spec_get"],
+            relatedToolIds: ["help", "mcp_hello", "team_start", "team_result", "pending_run", "run_get"],
             relatedCommandNames: ["help search", "help get", "team preflight", "team start", "spec"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
 
         HelpTopic(
             id: "team_run_loop", title: "Running a Team", audience: .both,
-            summary: "Send work to a team: preflight, start, poll status, read result, cancel if needed.",
+            summary: "Send work to a team: dry-run preflight, start, poll result, cancel if needed.",
             bodyMarkdown: """
-            Sending work to a team is preflight → start → status → result. `team_preflight` \
-            validates the lineup before spending quota; `team_start` begins the run; \
-            `team_status` reports progress (poll with `nextPollAfterMs`); `team_result` \
-            returns the settled packet; `team_cancel` stops a run. `team_run`/`team_ask` \
-            are the synchronous one-call forms; `team_show` and `floor_show` inspect a run.
+            Sending work to a team is dry-run preflight → start → result. `team_start` with \
+            `dryRun:true` validates the lineup before spending quota; `team_start` begins the run; \
+            `team_result` reports progress or the settled packet (poll with `nextPollAfterMs`); \
+            `team_cancel` stops a run. `team_run`/`team_ask` \
+            are the synchronous one-call forms; `run_get` inspects a run (summary, spec, or floor).
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt"],
             sections: [
-                .init("preflight", "Preflight first", "Always call `team_preflight` before `team_start` so a bad lineup fails before quota is spent."),
-                .init("polling", "Polling", "Poll `team_status` using the returned `nextPollAfterMs`; do not busy-loop."),
+                .init("preflight", "Preflight first", "Always call `team_start(dryRun:true)` before a real `team_start` so a bad lineup fails before quota is spent."),
+                .init("polling", "Polling", "Poll `team_result` using the returned `nextPollAfterMs`; do not busy-loop."),
             ],
-            relatedToolIds: ["team_preflight", "team_start", "team_status", "team_result",
-                             "team_cancel", "team_run", "team_ask", "team_show", "floor_show"],
+            relatedToolIds: ["team_start", "team_result",
+                             "team_cancel", "team_run", "team_ask", "run_get"],
             relatedCommandNames: ["team preflight", "team start", "team status", "team result", "team cancel", "floor show"],
             schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],
             needsLiveCheck: true),
@@ -112,8 +112,8 @@ public enum HelpTopicRegistry {
             bodyMarkdown: """
             Pair programming is the control plane for unattended slice work. A planner \
             (typically Composer) authors a typed `WorkSlicePacket` with intent, a read \
-            budget, a touch allowlist, and a repo-owned check command. `pair_slice` \
-            dispatches one unit; `pair_run` walks a queue directory until empty or a \
+            budget, a touch allowlist, and a repo-owned check command. `pair_run` \
+            dispatches one inline slice or walks a queue directory until empty or a \
             deadline, emitting per-slice heartbeat progress (human or NDJSON with `--json`). \
             `pair_status` reads queue.json plus child run ages for PM visibility. On each \
             packet the executor gets up to three attempts with escalating nudges; after \
@@ -129,7 +129,7 @@ public enum HelpTopicRegistry {
                 .init("safety", "Allowlist", "Every mutating packet must declare `touchAllowlist`. Slices touching undeclared paths are blocked, not dispatched."),
                 .init("observability", "Heartbeat + status", "`pair run` emits per-slice progress; `pair status` reports child run elapsed time and stall guidance. Stale `running` entries reconcile at queue start when the child run is dead."),
             ],
-            relatedToolIds: ["pair_slice", "pair_run", "pair_status", "project_get", "doctor", "floor_show"],
+            relatedToolIds: ["pair_run", "pair_status", "project_get", "doctor", "run_get"],
             relatedCommandNames: ["pair slice", "pair run", "pair status", "project add", "project show"],
             schemaRefs: ["pairSliceJSON", "pairQueueJSON", "pairStatusJSON", "pairQueueProgressJSON"],
             errorRefs: ["PAIR_SLICE_PACKET_MISSING", "PAIR_SLICE_UNSAFE", "PAIR_SLICE_EXECUTOR_INVALID", "PAIR_SERVE_UNAVAILABLE", "PROJECT_NOT_FOUND"],
@@ -145,9 +145,7 @@ public enum HelpTopicRegistry {
             catalog tools; the Default Team (Auto) is the no-pick route.
             """,
             aliases: ["teams", "workers", "skills", "roster", "catalog"],
-            relatedToolIds: ["teams_list", "teams_show", "teams_duplicate", "teams_save",
-                             "teams_set_default", "teams_delete", "teams_restore", "skills_list", "skills_show",
-                             "skills_duplicate", "skills_save", "skills_delete", "team_show"],
+            relatedToolIds: ["teams_get", "teams_edit", "skills_get", "skills_edit"],
             relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
             errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "SKILL_NOT_FOUND"],
@@ -188,8 +186,7 @@ public enum HelpTopicRegistry {
                 .init("when-to-use-pending", "When to use Pending", "Use Pending when the user wants work done later, or when Allnighter cannot start it right now."),
                 .init("pending-vs-running", "Pending vs running a team", "Pending stores work for later; running a team starts work now after preflight."),
             ],
-            relatedToolIds: ["pending_list", "pending_queue", "pending_show", "pending_run",
-                             "pending_submit", "pending_edit", "pending_reorder", "pending_cancel"],
+            relatedToolIds: ["pending_list", "pending_run", "pending_edit", "pending_update"],
             relatedCommandNames: ["pending add", "pending list", "pending queue", "pending show", "pending run",
                                   "pending submit", "pending edit", "pending reorder", "pending cancel"],
             schemaRefs: ["pendingItemJSON", "pendingListJSON"],
@@ -204,10 +201,9 @@ public enum HelpTopicRegistry {
             per-project worker readiness. Threads carry the back-and-forth and the runs.
             """,
             aliases: ["project", "repo", "thread", "threads", "conversation"],
-            relatedToolIds: ["project_list", "project_get", "project_context", "project_workers",
-                             "project_recheck_workers", "project_stalled", "stalled_list",
-                             "stall_check_status", "stall_keep_waiting", "stall_dismiss",
-                             "thread_send", "thread_get", "thread_rename", "thread_status"],
+            relatedToolIds: ["project_get", "project_context", "project_workers",
+                             "stalled_list", "stalled_update",
+                             "thread_send", "thread_get", "thread_rename"],
             relatedCommandNames: ["project list", "project show", "project context", "project workers",
                                   "thread send", "thread get", "thread rename", "stalled list"],
             schemaRefs: ["projectJSON", "projectListJSON", "projectContextJSON", "threadStatus"],
@@ -248,14 +244,14 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "results_and_history", title: "Results & History", audience: .both,
-            summary: "Inspect what ran: history lists runs, show/spec_get return the full packet, floor_show opens a run's floor.",
+            summary: "Inspect what ran: history lists runs; run_get returns summary, spec, or floor for one run.",
             bodyMarkdown: """
-            Runs are durable. `history` lists past runs, `show`/`spec_get` return the full \
-            settled packet for one run, and `floor_show` opens a run's inspectable floor with \
-            per-worker artifacts. Results are runtime artifacts, not help docs.
+            Runs are durable. `history` lists past runs; `run_get` returns the summary packet, \
+            full spec (`view:spec`), or inspectable floor (`view:floor`) for one run. \
+            Results are runtime artifacts, not help docs.
             """,
             aliases: ["history", "results", "what ran", "floor", "packet"],
-            relatedToolIds: ["history", "show", "spec_get", "floor_show"],
+            relatedToolIds: ["history", "run_get"],
             relatedCommandNames: ["history", "show", "spec", "floor show"],
             schemaRefs: ["floorRun", "historyJSON", "specResult"],
             errorRefs: ["RUN_NOT_FOUND"],
@@ -278,14 +274,14 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "schemas", title: "Schemas & Contract", audience: .agent,
-            summary: "Exact fields/enums come from the generated contract: spec_get for a run packet, alln docs --schema for shapes.",
+            summary: "Exact fields/enums come from the generated contract: run_get for a run packet, alln docs --schema for shapes.",
             bodyMarkdown: """
             Never guess Allnighter's field names or enum values. The generated contract is the \
-            source: `spec_get` returns a run's full packet, and `alln docs --schema` prints the \
-            JSON schemas. The help guide references schemas by id; it does not duplicate them.
+            source: `run_get(view:spec)` returns a run's full packet, and `alln docs --schema` prints the \
+            JSON schemas. Per-tool schemas also live at `allnighter://schemas/{tool}`.
             """,
             aliases: ["schema", "fields", "json shape", "enum values", "contract"],
-            relatedToolIds: ["spec_get"],
+            relatedToolIds: ["run_get"],
             relatedCommandNames: ["docs", "spec", "export"],
             schemaRefs: ["contractDoc"],
             needsLiveCheck: false),

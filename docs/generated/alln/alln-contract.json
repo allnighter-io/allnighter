@@ -4011,371 +4011,357 @@
           "type" : "string"
         }
       ],
-      "summary" : "Agent bootstrap: whether a team can start now, which teams are ready, and the next action. Cheap, non-mutating, no quota."
+      "summary" : "DOES: Router bootstrap — readiness, nextToolPlan, workflows, and contractHash (no tool roster or help sitemap).\nUSE WHEN: First call in a session or after a contract\/auth change.\nNOT WHEN: You need product how-to prose (use help) or deep machine diagnostics (use doctor).\nNEXT: Follow nextToolPlan — typically team_start(dryRun:true), else doctor.",
+      "title" : "Hello"
     },
     {
-      "command" : "teams",
+      "command" : "doctor",
+      "errors" : [
+        "SOURCE_NOT_FOUND",
+        "DOCTOR_CHECK_FAILED",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "doctor",
+      "outputSchema" : "doctorResult",
+      "params" : [
+        {
+          "name" : "full",
+          "required" : false,
+          "summary" : "Run smoke probes (spends quota).",
+          "type" : "boolean"
+        },
+        {
+          "name" : "agent",
+          "required" : false,
+          "summary" : "Limit to one source id (e.g. cursor_agent).",
+          "type" : "string"
+        }
+      ],
+      "summary" : "DOES: Diagnostics report for sources, models, auth, coordinator, and Boost window readout.\nUSE WHEN: mcp_hello routes here, a run is blocked, or you need live machine health.\nNOT WHEN: You only need one error code explained (use error_explain) or product docs (use help).\nNEXT: error_explain on failed checks; then retry the blocked workflow.",
+      "title" : "Doctor"
+    },
+    {
+      "command" : "doctor explain",
       "errors" : [
         "CLI_USAGE_ERROR"
       ],
       "idempotency" : "idempotent",
-      "name" : "teams_list",
+      "name" : "error_explain",
+      "outputSchema" : "errorExplainJSON",
+      "params" : [
+        {
+          "name" : "code",
+          "required" : true,
+          "summary" : "Error code, e.g. SOURCE_AUTH_EXPIRED.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "DOES: Explain one error\/recovery code with cause, who fixes it, agentAction, and helpRef.\nUSE WHEN: A tool failed and you need structured recovery (also covers trimmed thread_send attachment\/file codes).\nNOT WHEN: You need live readiness (use doctor) or a full help topic (use help).\nNEXT: Follow agentAction; re-call the tool that failed or use help(topic\/error).",
+      "title" : "Explain error"
+    },
+    {
+      "command" : "help search",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "help",
+      "outputSchema" : "helpSearchJSON",
+      "params" : [
+        {
+          "name" : "query",
+          "required" : false,
+          "summary" : "Natural-language question or keywords (search).",
+          "type" : "string"
+        },
+        {
+          "name" : "topic",
+          "required" : false,
+          "summary" : "Topic id or alln:\/\/ ref (fetch).",
+          "type" : "string"
+        },
+        {
+          "name" : "ref",
+          "required" : false,
+          "summary" : "An alln:\/\/ ref (help\/tool\/schema\/error).",
+          "type" : "string"
+        },
+        {
+          "name" : "tool",
+          "required" : false,
+          "summary" : "Find the topic documenting this MCP tool.",
+          "type" : "string"
+        },
+        {
+          "name" : "error",
+          "required" : false,
+          "summary" : "Find the topic for this error code.",
+          "type" : "string"
+        },
+        {
+          "name" : "limit",
+          "required" : false,
+          "summary" : "Max search results (default 5).",
+          "type" : "integer"
+        }
+      ],
+      "summary" : "DOES: Search or fetch installed Allnighter help — product how-to, tool choice, setup, safety.\nUSE WHEN: Any Allnighter usage question before answering from memory.\nNOT WHEN: You need this machine's live state (use mcp_hello\/doctor) or a run record (use run_get).\nNEXT: Follow the returned next-tool plan; static topics also live at allnighter:\/\/help\/{topic}.\nSELECTOR: query → ranked search; topic|ref|tool|error → fetch one topic.",
+      "title" : "Help"
+    },
+    {
+      "command" : "defaults show",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "defaults_get",
+      "outputSchema" : "defaultSettingsJSON",
+      "params" : [
+
+      ],
+      "summary" : "DOES: Read Default model settings — Auto tier, per-tier rosters, unassigned shelf, live resolution.\nUSE WHEN: Choosing a worker override or explaining what Auto resolves to right now.\nNOT WHEN: You need per-project worker cache (use project_workers) or catalog teams (use teams_get).\nNEXT: team_start(dryRun) or team_run with an explicit worker override.",
+      "title" : "Get defaults"
+    },
+    {
+      "command" : "history",
+      "errors" : [
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "history",
+      "outputSchema" : "historyJSON",
+      "params" : [
+        {
+          "name" : "query",
+          "required" : true,
+          "summary" : "Search text.",
+          "type" : "string"
+        },
+        {
+          "name" : "limit",
+          "required" : false,
+          "summary" : "Maximum results (default 25).",
+          "type" : "integer"
+        },
+        {
+          "name" : "cursor",
+          "required" : false,
+          "summary" : "Pagination cursor from a prior response.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "DOES: Search prior local team runs (read-only, zero quota).\nUSE WHEN: You need an old run id or to recall prior prompts\/results.\nNOT WHEN: You have a run id already (use run_get) or need live async status (use team_result).\nNEXT: run_get with the chosen run id.",
+      "title" : "Search history"
+    },
+    {
+      "command" : "teams",
+      "errors" : [
+        "TEAM_NOT_FOUND",
+        "DEFAULT_TEAM_INVALID",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "teams_get",
       "outputSchema" : "teamCatalogJSON",
       "params" : [
         {
+          "name" : "teamId",
+          "required" : false,
+          "summary" : "One team id — returns full summary (absorbs teams_show).",
+          "type" : "string"
+        },
+        {
+          "name" : "detail",
+          "required" : false,
+          "summary" : "definition → round-trippable TeamPreset (absorbs teams_definition).",
+          "type" : "string"
+        },
+        {
           "name" : "lane",
           "required" : false,
-          "summary" : "Filter to one lane: code|design|copy|signal (optional).",
+          "summary" : "Filter list to code|design|copy|signal.",
           "type" : "string"
         },
         {
           "name" : "includeInactive",
           "required" : false,
-          "summary" : "Include inactive (switched-OFF) teams; default false. Inactive teams still resolve by id on team_start.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Lane-scoped team catalog summary (no prompt templates)."
-    },
-    {
-      "command" : "teams show",
-      "errors" : [
-        "TEAM_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "teams_show",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "teamId",
-          "required" : true,
-          "summary" : "Team id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "One team summary including worker rows (not round-trippable for save)."
-    },
-    {
-      "command" : "teams definition",
-      "errors" : [
-        "TEAM_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "teams_definition",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "teamId",
-          "required" : true,
-          "summary" : "Team id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Full TeamPreset JSON round-trippable through teams_save."
-    },
-    {
-      "command" : "teams duplicate",
-      "errors" : [
-        "TEAM_NOT_FOUND",
-        "TEAM_ID_COLLISION",
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "teams_duplicate",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "teamId",
-          "required" : true,
-          "summary" : "Source team id.",
-          "type" : "string"
+          "summary" : "Include inactive teams in list (default false).",
+          "type" : "boolean"
         },
         {
-          "name" : "name",
+          "name" : "limit",
           "required" : false,
-          "summary" : "Display name for the copy (optional).",
+          "summary" : "Maximum list items (default 25).",
+          "type" : "integer"
+        },
+        {
+          "name" : "cursor",
+          "required" : false,
+          "summary" : "Pagination cursor from a prior list response.",
           "type" : "string"
         }
       ],
-      "summary" : "Duplicate a built-in team into a custom team."
+      "summary" : "DOES: List, show, or fetch round-trippable definitions for teams; no-arg also returns per-lane defaults.\nUSE WHEN: Discovering teams, inspecting one team, or exporting a TeamPreset for teams_edit(save).\nNOT WHEN: Mutating catalog entries (use teams_edit) or running a team (use team_ask\/team_run).\nNEXT: teams_edit to save changes; team_start or team_ask to run.\nMODE: teamId omitted → summary list (+ lane defaults); teamId present → full record; detail:definition → TeamPreset JSON.",
+      "title" : "Get teams"
     },
     {
       "command" : "teams edit",
       "errors" : [
+        "TEAM_NOT_FOUND",
+        "TEAM_ID_COLLISION",
         "TEAM_INVALID",
         "CATALOG_ID_INVALID",
         "SKILL_LANE_MISMATCH",
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "teams_save",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "teamId",
-          "required" : true,
-          "summary" : "Team id.",
-          "type" : "string"
-        },
-        {
-          "name" : "definition",
-          "required" : true,
-          "summary" : "TeamPreset JSON object.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Save a team definition in place (full replacement). Editing a built-in writes the user's version at the same id; the shipped version stays available via teams_restore — no duplicate."
-    },
-    {
-      "command" : "teams set-default",
-      "errors" : [
-        "TEAM_NOT_FOUND",
         "TEAM_DEFAULT_INVALID",
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "teams_set_default",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "teamId",
-          "required" : true,
-          "summary" : "Team id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Set the default team for a lane."
-    },
-    {
-      "command" : "teams delete",
-      "errors" : [
-        "TEAM_NOT_FOUND",
         "TEAM_BUILTIN_IMMUTABLE",
-        "TEAM_DEFAULT_INVALID",
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "teams_delete",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "teamId",
-          "required" : true,
-          "summary" : "Team id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Delete a custom team. For a built-in, removes the user's edits and restores the shipped version (fails if it was never edited)."
-    },
-    {
-      "command" : "teams restore",
-      "errors" : [
         "TEAM_RESTORE_UNSUPPORTED",
-        "TEAM_NOT_FOUND",
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "teams_restore",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "teamId",
-          "required" : true,
-          "summary" : "Team id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Restore a built-in team to its shipped version by removing the user's edits. Idempotent."
-    },
-    {
-      "command" : "skills",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "skills_list",
-      "outputSchema" : "skillCatalogJSON",
-      "params" : [
-        {
-          "name" : "lane",
-          "required" : false,
-          "summary" : "Filter to one lane: code|design|copy|signal (optional).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Lane-scoped skill catalog summary (no templates)."
-    },
-    {
-      "command" : "skills show",
-      "errors" : [
-        "SKILL_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "skills_show",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "skillId",
-          "required" : true,
-          "summary" : "Skill id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "One skill definition including template."
-    },
-    {
-      "command" : "skills duplicate",
-      "errors" : [
-        "SKILL_NOT_FOUND",
-        "SKILL_ID_COLLISION",
         "CLI_USAGE_ERROR",
         "INTERNAL_ERROR"
       ],
       "idempotency" : "not_idempotent",
-      "name" : "skills_duplicate",
+      "name" : "teams_edit",
       "outputSchema" : "none",
       "params" : [
         {
-          "name" : "skillId",
+          "name" : "action",
           "required" : true,
-          "summary" : "Source skill id.",
+          "summary" : "save | duplicate | set_default | delete | restore.",
           "type" : "string"
         },
         {
-          "name" : "name",
-          "required" : false,
-          "summary" : "Display name for the copy (optional).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Duplicate a built-in skill into a custom skill."
-    },
-    {
-      "command" : "skills edit",
-      "errors" : [
-        "SKILL_INVALID",
-        "SKILL_BUILTIN_IMMUTABLE",
-        "CATALOG_ID_INVALID",
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "skills_save",
-      "outputSchema" : "none",
-      "params" : [
-        {
-          "name" : "skillId",
+          "name" : "teamId",
           "required" : true,
-          "summary" : "Skill id.",
+          "summary" : "Target team id.",
           "type" : "string"
         },
         {
           "name" : "definition",
-          "required" : true,
-          "summary" : "Skill JSON object.",
+          "required" : false,
+          "summary" : "TeamPreset JSON for action:save (partial merge).",
+          "type" : "object"
+        },
+        {
+          "name" : "name",
+          "required" : false,
+          "summary" : "Display name for action:duplicate.",
           "type" : "string"
         }
       ],
-      "summary" : "Save a custom skill definition (full replacement)."
+      "summary" : "DOES: PATCH-dispatched team catalog mutations — save, duplicate, set default, delete, restore.\nUSE WHEN: Creating or updating custom teams or lane defaults.\nNOT WHEN: Read-only inspection (use teams_get) or running a team (use team_ask\/team_run).\nNEXT: teams_get to verify; team_start(dryRun) before first run with a changed team.\nACTION: save → partial-merge definition; duplicate → copy; set_default → lane default; delete → remove custom\/builtin edits; restore → shipped builtin.",
+      "title" : "Edit team"
     },
     {
-      "command" : "skills delete",
+      "command" : "skills",
       "errors" : [
         "SKILL_NOT_FOUND",
-        "SKILL_BUILTIN_IMMUTABLE",
-        "SKILL_IN_USE",
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
+        "CLI_USAGE_ERROR"
       ],
       "idempotency" : "idempotent",
-      "name" : "skills_delete",
-      "outputSchema" : "none",
+      "name" : "skills_get",
+      "outputSchema" : "skillCatalogJSON",
       "params" : [
         {
           "name" : "skillId",
-          "required" : true,
-          "summary" : "Skill id.",
+          "required" : false,
+          "summary" : "One skill id — returns full definition.",
+          "type" : "string"
+        },
+        {
+          "name" : "lane",
+          "required" : false,
+          "summary" : "Filter list to code|design|copy|signal.",
+          "type" : "string"
+        },
+        {
+          "name" : "limit",
+          "required" : false,
+          "summary" : "Maximum list items (default 25).",
+          "type" : "integer"
+        },
+        {
+          "name" : "cursor",
+          "required" : false,
+          "summary" : "Pagination cursor from a prior list response.",
           "type" : "string"
         }
       ],
-      "summary" : "Delete a custom skill."
+      "summary" : "DOES: List lane-scoped skill summaries or fetch one skill including its template.\nUSE WHEN: Discovering skills or reading a template before skills_edit(save).\nNOT WHEN: Mutating skills (use skills_edit) or running work (use team_ask\/team_run).\nNEXT: skills_edit to save; teams_get to see which skills a team uses.\nMODE: skillId omitted → summary list; skillId present → full skill record (absorbs skills_show).",
+      "title" : "Get skills"
     },
     {
-      "command" : "team preflight",
+      "command" : "skills edit",
       "errors" : [
-        "DEFAULT_TEAM_INVALID",
-        "TEAM_NOT_FOUND",
-        "MODEL_UNAVAILABLE",
-        "TEAM_GOVERNOR_BUSY",
-        "TEAM_GOVERNOR_UNAVAILABLE",
-        "CLI_USAGE_ERROR"
+        "SKILL_NOT_FOUND",
+        "SKILL_ID_COLLISION",
+        "SKILL_INVALID",
+        "SKILL_BUILTIN_IMMUTABLE",
+        "SKILL_IN_USE",
+        "CATALOG_ID_INVALID",
+        "CLI_USAGE_ERROR",
+        "INTERNAL_ERROR"
       ],
-      "idempotency" : "idempotent",
-      "name" : "team_preflight",
+      "idempotency" : "not_idempotent",
+      "name" : "skills_edit",
       "outputSchema" : "none",
       "params" : [
         {
-          "name" : "lane",
-          "required" : false,
-          "summary" : "code|design|copy|signal.",
+          "name" : "action",
+          "required" : true,
+          "summary" : "save | duplicate | delete.",
           "type" : "string"
         },
         {
-          "name" : "team",
-          "required" : false,
-          "summary" : "Team id (e.g. code_bug_hunt).",
+          "name" : "skillId",
+          "required" : true,
+          "summary" : "Target skill id.",
           "type" : "string"
         },
         {
-          "name" : "effort",
+          "name" : "definition",
           "required" : false,
-          "summary" : "low|med|high (optional; default is the team's).",
-          "type" : "string"
+          "summary" : "Skill JSON for action:save.",
+          "type" : "object"
         },
         {
-          "name" : "type",
+          "name" : "name",
           "required" : false,
-          "summary" : "Copy-only routing sugar (optional).",
+          "summary" : "Display name for action:duplicate.",
           "type" : "string"
         }
       ],
-      "summary" : "Validate lane\/team\/effort against the ready bench WITHOUT running or spending quota; shows resolved\/blocked workers and self-fusion."
+      "summary" : "DOES: PATCH-dispatched skill catalog mutations — save, duplicate, delete.\nUSE WHEN: Creating or updating custom skills.\nNOT WHEN: Read-only inspection (use skills_get) or running work.\nNEXT: skills_get to verify the saved skill.\nACTION: save → replace definition; duplicate → copy builtin; delete → remove custom skill.",
+      "title" : "Edit skill"
     },
     {
-      "command" : "team start",
+      "command" : "team",
       "errors" : [
         "DEFAULT_TEAM_INVALID",
         "TEAM_NOT_FOUND",
         "MODEL_UNAVAILABLE",
+        "TEAM_RUN_TIMEOUT",
+        "TEAM_RUN_FAILED",
+        "PLAN_WRITER_FAILED",
+        "WORKER_FAILED",
         "NESTED_TEAM_BLOCKED",
         "TEAM_GOVERNOR_BUSY",
         "TEAM_GOVERNOR_UNAVAILABLE",
-        "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
-        "COORDINATOR_UNAVAILABLE",
         "CLI_USAGE_ERROR"
       ],
-      "idempotency" : "keyed",
-      "name" : "team_start",
-      "outputSchema" : "teamStartResponse",
+      "idempotency" : "not_idempotent",
+      "name" : "team_ask",
+      "outputSchema" : "teamRunJSON",
       "params" : [
         {
-          "name" : "prompt",
+          "name" : "question",
           "required" : true,
-          "summary" : "The prompt to run.",
+          "summary" : "The prompt to ask the team.",
           "type" : "string"
         },
         {
           "name" : "lane",
           "required" : false,
-          "summary" : "code|design|copy|signal.",
+          "summary" : "code|design|copy|signal (explicit; never inferred).",
           "type" : "string"
         },
         {
@@ -4387,7 +4373,7 @@
         {
           "name" : "effort",
           "required" : false,
-          "summary" : "low|med|high.",
+          "summary" : "low|med|high (optional).",
           "type" : "string"
         },
         {
@@ -4399,111 +4385,12 @@
         {
           "name" : "context",
           "required" : false,
-          "summary" : "Bounded inline context (optional).",
-          "type" : "string"
-        },
-        {
-          "name" : "threadId",
-          "required" : false,
-          "summary" : "Owning work thread id (optional).",
-          "type" : "string"
-        },
-        {
-          "name" : "originAgent",
-          "required" : false,
-          "summary" : "Calling agent id for provenance.",
-          "type" : "string"
-        },
-        {
-          "name" : "originConversationId",
-          "required" : false,
-          "summary" : "Origin conversation id.",
-          "type" : "string"
-        },
-        {
-          "name" : "originMessageId",
-          "required" : false,
-          "summary" : "Origin message id.",
-          "type" : "string"
-        },
-        {
-          "name" : "idempotencyKey",
-          "required" : false,
-          "summary" : "Client idempotency key (24h retention).",
+          "summary" : "Bounded context snippet (optional).",
           "type" : "string"
         }
       ],
-      "summary" : "Start an async team run; returns run id after preflight and journal write."
-    },
-    {
-      "command" : "team status",
-      "errors" : [
-        "RUN_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "team_status",
-      "outputSchema" : "teamStatusResponse",
-      "params" : [
-        {
-          "name" : "runId",
-          "required" : true,
-          "summary" : "Run id from team_start.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Poll live async run state with nextPollAfterMs."
-    },
-    {
-      "command" : "team result",
-      "errors" : [
-        "RUN_NOT_FOUND",
-        "RESULT_NOT_READY",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "team_result",
-      "outputSchema" : "teamRunJSON",
-      "params" : [
-        {
-          "name" : "runId",
-          "required" : true,
-          "summary" : "Run id from team_start.",
-          "type" : "string"
-        },
-        {
-          "name" : "detail",
-          "required" : false,
-          "summary" : "summary | full (full embeds worker prompt snapshots).",
-          "type" : "string"
-        },
-        {
-          "name" : "includePrompts",
-          "required" : false,
-          "summary" : "When true, embed worker prompt snapshots.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Fetch TeamRunJSON when terminal, or a not-ready envelope."
-    },
-    {
-      "command" : "team cancel",
-      "errors" : [
-        "RUN_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "team_cancel",
-      "outputSchema" : "teamCancelResponse",
-      "params" : [
-        {
-          "name" : "runId",
-          "required" : true,
-          "summary" : "Run id from team_start.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Cancel an active async team run."
+      "summary" : "DOES: Run a lane answer team on a prompt; returns a board\/synthesis. Never takes the write lock or execution lane.\nUSE WHEN: Parallel non-mutating judgment — options, review, design boards.\nNOT WHEN: Repo-scoped mutating execution (use team_run) or async overnight runs (use team_start).\nNEXT: run_get or history to retrieve the structured run; team_run only if the user explicitly executes one pick.",
+      "title" : "Ask team"
     },
     {
       "command" : "run",
@@ -4569,62 +4456,192 @@
           "type" : "string"
         }
       ],
-      "summary" : "Unified run: message + optional team + worker in a project repo root. Answer teams return a board; execution teams run one mutating agent."
+      "summary" : "DOES: Project-scoped unified run — may dispatch one mutating worker under the execution lane write lock.\nUSE WHEN: The user wants code\/design\/copy changes applied in a repo root.\nNOT WHEN: Non-mutating parallel options (use team_ask) or fire-and-forget async (use team_start).\nNEXT: run_get for the finished run; project_context after a mutating run in the same project.",
+      "title" : "Run team"
     },
     {
-      "command" : "pair slice",
+      "command" : "team start",
       "errors" : [
-        "PROJECT_NOT_FOUND",
-        "PAIR_SLICE_PACKET_MISSING",
-        "PAIR_SLICE_UNSAFE",
-        "PAIR_SLICE_EXECUTOR_INVALID",
-        "PAIR_SERVE_UNAVAILABLE",
-        "RUN_WRITE_LOCK_BUSY",
-        "WORKER_NOT_READY",
+        "DEFAULT_TEAM_INVALID",
+        "TEAM_NOT_FOUND",
+        "MODEL_UNAVAILABLE",
+        "NESTED_TEAM_BLOCKED",
+        "TEAM_GOVERNOR_BUSY",
+        "TEAM_GOVERNOR_UNAVAILABLE",
+        "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+        "COORDINATOR_UNAVAILABLE",
         "CLI_USAGE_ERROR"
       ],
-      "idempotency" : "not_idempotent",
-      "name" : "pair_slice",
-      "outputSchema" : "pairSliceJSON",
+      "idempotency" : "keyed",
+      "name" : "team_start",
+      "outputSchema" : "teamStartResponse",
       "params" : [
         {
-          "name" : "project",
+          "name" : "prompt",
           "required" : true,
-          "summary" : "Project id, name, or repo path.",
+          "summary" : "The prompt to run.",
           "type" : "string"
         },
         {
-          "name" : "packetPath",
+          "name" : "dryRun",
           "required" : false,
-          "summary" : "Path to a WorkSlicePacket .json or markdown with a work-slice-packet fence.",
+          "summary" : "When true, preflight only — no run, no quota (absorbs team_preflight).",
+          "type" : "boolean"
+        },
+        {
+          "name" : "lane",
+          "required" : false,
+          "summary" : "code|design|copy|signal.",
           "type" : "string"
         },
         {
-          "name" : "packet",
+          "name" : "team",
           "required" : false,
-          "summary" : "Inline WorkSlicePacket JSON (alternative to packetPath).",
-          "type" : "object"
-        },
-        {
-          "name" : "executor",
-          "required" : false,
-          "summary" : "Mutating executor team id (default default_chat).",
+          "summary" : "Team id.",
           "type" : "string"
         },
         {
-          "name" : "plannerWorker",
+          "name" : "effort",
           "required" : false,
-          "summary" : "Planner model id recorded on the slice envelope (default Composer 2.5).",
+          "summary" : "low|med|high.",
           "type" : "string"
         },
         {
-          "name" : "executorWorker",
+          "name" : "type",
           "required" : false,
-          "summary" : "Executor model id (default Gemini 3.5 Flash).",
+          "summary" : "Copy-only routing sugar (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "context",
+          "required" : false,
+          "summary" : "Bounded inline context (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "threadId",
+          "required" : false,
+          "summary" : "Owning work thread id (optional).",
+          "type" : "string"
+        },
+        {
+          "name" : "originAgent",
+          "required" : false,
+          "summary" : "Calling agent id for provenance.",
+          "type" : "string"
+        },
+        {
+          "name" : "originConversationId",
+          "required" : false,
+          "summary" : "Origin conversation id.",
+          "type" : "string"
+        },
+        {
+          "name" : "originMessageId",
+          "required" : false,
+          "summary" : "Origin message id.",
+          "type" : "string"
+        },
+        {
+          "name" : "idempotencyKey",
+          "required" : false,
+          "summary" : "Client idempotency key (24h retention).",
           "type" : "string"
         }
       ],
-      "summary" : "Dispatch one bounded work slice: gate → executor → repo-declared check. Planner seat is recorded; executor runs the packet. Pass inline `packet` JSON or a `packetPath` on disk."
+      "summary" : "DOES: Start an async team run (or validate with dryRun:true — absorbs team_preflight).\nUSE WHEN: Overnight\/async fan-out where you poll team_result until terminal.\nNOT WHEN: Synchronous answer (use team_ask) or project-scoped mutating execute (use team_run).\nNEXT: team_result (poll); run_get when terminal; team_cancel to abort.",
+      "title" : "Start team run"
+    },
+    {
+      "command" : "team result",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "RESULT_NOT_READY",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "team_result",
+      "outputSchema" : "teamRunJSON",
+      "params" : [
+        {
+          "name" : "runId",
+          "required" : true,
+          "summary" : "Run id from team_start.",
+          "type" : "string"
+        },
+        {
+          "name" : "detail",
+          "required" : false,
+          "summary" : "summary | full (full embeds worker prompt snapshots).",
+          "type" : "string"
+        },
+        {
+          "name" : "includePrompts",
+          "required" : false,
+          "summary" : "When true, embed worker prompt snapshots.",
+          "type" : "boolean"
+        }
+      ],
+      "summary" : "DOES: Poll async run state — running envelope with nextPollAfterMs, or terminal TeamRunJSON (absorbs team_status).\nUSE WHEN: After team_start, until status is terminal.\nNOT WHEN: You already have a terminal run id and want audit\/history shape only (use run_get).\nNEXT: Poll again after nextPollAfterMs while running; run_get(view:summary) when done.\nMODE: running → lightweight status; terminal → full TeamRunJSON (detail\/full for prompt snapshots).",
+      "title" : "Get team result"
+    },
+    {
+      "command" : "team cancel",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "team_cancel",
+      "outputSchema" : "teamCancelResponse",
+      "params" : [
+        {
+          "name" : "runId",
+          "required" : true,
+          "summary" : "Run id from team_start.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "DOES: Cancel an active async team run.\nUSE WHEN: User abort or superseded work on a team_start run id.\nNOT WHEN: The run is already terminal (use team_result\/run_get to confirm).\nNEXT: team_result to confirm cancelled terminal state.",
+      "title" : "Cancel team run"
+    },
+    {
+      "command" : "show",
+      "errors" : [
+        "RUN_NOT_FOUND",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "idempotent",
+      "name" : "run_get",
+      "outputSchema" : "teamRunJSON",
+      "params" : [
+        {
+          "name" : "run",
+          "required" : true,
+          "summary" : "Run id or latest.",
+          "type" : "string"
+        },
+        {
+          "name" : "view",
+          "required" : false,
+          "summary" : "summary | spec | floor (default summary).",
+          "type" : "string"
+        },
+        {
+          "name" : "full",
+          "required" : false,
+          "summary" : "For view:summary — include worker prompt snapshots.",
+          "type" : "boolean"
+        },
+        {
+          "name" : "detail",
+          "required" : false,
+          "summary" : "For view:spec — summary | full | artifactRefsOnly.",
+          "type" : "string"
+        }
+      ],
+      "summary" : "DOES: Fetch one run by id\/latest in summary, spec, or floor view (absorbs show, spec_get, floor_show).\nUSE WHEN: Inspecting a finished or historical run — workers, artifacts, floor, spec packet.\nNOT WHEN: Polling a live async team_start run (use team_result).\nNEXT: thread_get if the run owned a thread; pending_list if execute was deferred.\nVIEW: summary → TeamRunJSON; spec → spec\/result packet; floor → inspectable Floor run.",
+      "title" : "Get run"
     },
     {
       "command" : "pair run",
@@ -4650,20 +4667,32 @@
         },
         {
           "name" : "queueDir",
-          "required" : true,
-          "summary" : "Directory of slice .json packets (and optional queue.json state).",
+          "required" : false,
+          "summary" : "Directory of slice packets for queue mode (pair run).",
           "type" : "string"
+        },
+        {
+          "name" : "packetPath",
+          "required" : false,
+          "summary" : "Path to one WorkSlicePacket .json or markdown fence (single-slice mode).",
+          "type" : "string"
+        },
+        {
+          "name" : "packet",
+          "required" : false,
+          "summary" : "Inline WorkSlicePacket JSON (single-slice mode).",
+          "type" : "object"
         },
         {
           "name" : "until",
           "required" : false,
-          "summary" : "Hard stop clock HH:MM (local).",
+          "summary" : "Hard stop clock HH:MM (local) for queue mode.",
           "type" : "string"
         },
         {
           "name" : "maxRetries",
           "required" : false,
-          "summary" : "Legacy stall nudge cap (optional).",
+          "summary" : "Legacy stall nudge cap (queue mode).",
           "type" : "integer"
         },
         {
@@ -4681,7 +4710,7 @@
         {
           "name" : "plannerWorker",
           "required" : false,
-          "summary" : "Planner model id — recorded on slices and invoked on takeover (default Composer 2.5).",
+          "summary" : "Planner model id (default Composer 2.5).",
           "type" : "string"
         },
         {
@@ -4691,7 +4720,8 @@
           "type" : "string"
         }
       ],
-      "summary" : "Run a durable slice queue unattended: executor attempts (default 3) with escalating nudges, then planner takeover once per packet, then advance."
+      "summary" : "DOES: Run a durable slice queue unattended, or dispatch one inline slice packet (absorbs pair_slice).\nUSE WHEN: Sprint\/pair-programming automation with gate → executor → repo check.\nNOT WHEN: A single synchronous team_run suffices or you only need queue status (use pair_status).\nNEXT: pair_status while running; run_get on child run ids.\nMODE: queueDir → unattended queue; packet|packetPath → one bounded slice (absorbs pair_slice).",
+      "title" : "Run pair queue"
     },
     {
       "command" : "pair status",
@@ -4709,209 +4739,8 @@
           "type" : "string"
         }
       ],
-      "summary" : "Read slice queue state: per-entry status, child run id, elapsed time since child run started, and stall guidance."
-    },
-    {
-      "command" : "team",
-      "errors" : [
-        "DEFAULT_TEAM_INVALID",
-        "TEAM_NOT_FOUND",
-        "MODEL_UNAVAILABLE",
-        "TEAM_RUN_TIMEOUT",
-        "TEAM_RUN_FAILED",
-        "PLAN_WRITER_FAILED",
-        "WORKER_FAILED",
-        "NESTED_TEAM_BLOCKED",
-        "TEAM_GOVERNOR_BUSY",
-        "TEAM_GOVERNOR_UNAVAILABLE",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "team_ask",
-      "outputSchema" : "teamRunJSON",
-      "params" : [
-        {
-          "name" : "question",
-          "required" : true,
-          "summary" : "The prompt to ask the team.",
-          "type" : "string"
-        },
-        {
-          "name" : "lane",
-          "required" : false,
-          "summary" : "code|design|copy|signal (explicit; never inferred).",
-          "type" : "string"
-        },
-        {
-          "name" : "team",
-          "required" : false,
-          "summary" : "Team id.",
-          "type" : "string"
-        },
-        {
-          "name" : "effort",
-          "required" : false,
-          "summary" : "low|med|high (optional).",
-          "type" : "string"
-        },
-        {
-          "name" : "type",
-          "required" : false,
-          "summary" : "Copy-only routing sugar (optional).",
-          "type" : "string"
-        },
-        {
-          "name" : "context",
-          "required" : false,
-          "summary" : "Bounded context snippet to consider (optional).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Run a lane team on a prompt; returns a synthesized result + structured run."
-    },
-    {
-      "command" : "team show",
-      "errors" : [
-        "DEFAULT_TEAM_INVALID"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "team_show",
-      "outputSchema" : "none",
-      "params" : [
-
-      ],
-      "summary" : "Show the default team for each lane."
-    },
-    {
-      "command" : "history",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "history",
-      "outputSchema" : "historyJSON",
-      "params" : [
-        {
-          "name" : "query",
-          "required" : true,
-          "summary" : "Search text.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Search prior local team runs (read-only, zero cost)."
-    },
-    {
-      "command" : "show",
-      "errors" : [
-        "RUN_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "show",
-      "outputSchema" : "teamRunJSON",
-      "params" : [
-        {
-          "name" : "run",
-          "required" : true,
-          "summary" : "A run id or `latest`.",
-          "type" : "string"
-        },
-        {
-          "name" : "full",
-          "required" : false,
-          "summary" : "Include resolved worker prompt snapshots (audit).",
-          "type" : "boolean"
-        }
-      ],
-      "summary" : "Show one run as TeamRunJSON."
-    },
-    {
-      "command" : "doctor",
-      "errors" : [
-        "SOURCE_NOT_FOUND",
-        "DOCTOR_CHECK_FAILED",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "doctor",
-      "outputSchema" : "doctorResult",
-      "params" : [
-        {
-          "name" : "full",
-          "required" : false,
-          "summary" : "Run smoke probes (spends quota).",
-          "type" : "boolean"
-        },
-        {
-          "name" : "agent",
-          "required" : false,
-          "summary" : "Limit to one source id (e.g. cursor_agent).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Diagnostics report; quota-free unless `full` is set."
-    },
-    {
-      "command" : "doctor explain",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "error_explain",
-      "outputSchema" : "errorExplainJSON",
-      "params" : [
-        {
-          "name" : "code",
-          "required" : true,
-          "summary" : "The error code to explain, e.g. SOURCE_AUTH_EXPIRED.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Explain an error\/recovery code: cause, who can fix it, the next action, and the help topic to read."
-    },
-    {
-      "command" : "spec",
-      "errors" : [
-        "RUN_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "spec_get",
-      "outputSchema" : "specResult",
-      "params" : [
-        {
-          "name" : "run",
-          "required" : false,
-          "summary" : "Run id or `latest` (default latest).",
-          "type" : "string"
-        },
-        {
-          "name" : "detail",
-          "required" : false,
-          "summary" : "summary | full | artifactRefsOnly (default summary).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Retrieve a run's full spec\/result packet without opening the GUI. Failed workers and warnings always included in full detail."
-    },
-    {
-      "command" : "floor show",
-      "errors" : [
-        "RUN_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "floor_show",
-      "outputSchema" : "floorRun",
-      "params" : [
-        {
-          "name" : "run",
-          "required" : false,
-          "summary" : "Run id or `latest` (default latest).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "The inspectable Floor for one team run: worker lanes (incl. failures), durable artifact refs, typed return (Signal insight when applicable), converge timeline, and Execute requirements."
+      "summary" : "DOES: Read slice queue state — per-entry status, child run id, elapsed time, stall guidance.\nUSE WHEN: Monitoring an in-flight pair_run queue.\nNOT WHEN: Starting or advancing the queue (use pair_run).\nNEXT: pair_run to continue; run_get on the active child run id.",
+      "title" : "Pair queue status"
     },
     {
       "command" : "thread send",
@@ -4920,26 +4749,6 @@
         "THREAD_SEND_IDEMPOTENCY_CONFLICT",
         "WORKER_FAILED",
         "THREAD_SEND_FAILED",
-        "ATTACHMENT_TOO_MANY",
-        "ATTACHMENT_TOO_LARGE",
-        "ATTACHMENT_UNSUPPORTED_TYPE",
-        "ATTACHMENT_DECODE_FAILED",
-        "ATTACHMENT_BASE64_INVALID",
-        "ATTACHMENT_HASH_MISMATCH",
-        "ATTACHMENT_STAGE_FAILED",
-        "CONTEXT_ATTACHMENT_CAP_EXCEEDED",
-        "FILE_REFERENCE_PROJECT_ROOT_MISSING",
-        "FILE_REFERENCE_OUTSIDE_PROJECT",
-        "FILE_REFERENCE_NOT_FOUND",
-        "FILE_REFERENCE_UNREADABLE",
-        "FILE_REFERENCE_BINARY_UNSUPPORTED",
-        "FILE_REFERENCE_TOO_LARGE",
-        "FILE_REFERENCE_TOO_MANY",
-        "FILE_REFERENCE_SENSITIVE_BLOCKED",
-        "FILE_REFERENCE_LINE_RANGE_INVALID",
-        "FILE_REFERENCE_CHANGED_BEFORE_INVOKE",
-        "FILE_REFERENCE_CATALOG_STALE",
-        "FILE_REFERENCE_WORKER_UNSUPPORTED",
         "CLI_USAGE_ERROR"
       ],
       "idempotency" : "keyed",
@@ -4949,7 +4758,7 @@
         {
           "name" : "threadId",
           "required" : false,
-          "summary" : "Thread id or `latest`.",
+          "summary" : "Thread id or latest.",
           "type" : "string"
         },
         {
@@ -5028,12 +4837,14 @@
           "type" : "array"
         }
       ],
-      "summary" : "Send a message and\/or images to a work thread worker."
+      "summary" : "DOES: Send a message and\/or images\/file refs to a work thread worker.\nUSE WHEN: Continuing a project thread conversation with optional attachments.\nNOT WHEN: Read-only thread inspection (use thread_get) or renaming (use thread_rename).\nNEXT: thread_get to read the updated snapshot; error_explain for attachment\/file codes (allnighter:\/\/errors\/*).",
+      "title" : "Send to thread"
     },
     {
       "command" : "thread get",
       "errors" : [
         "THREAD_NOT_FOUND",
+        "ATTACHMENT_NOT_FOUND",
         "CLI_USAGE_ERROR"
       ],
       "idempotency" : "idempotent",
@@ -5043,11 +4854,18 @@
         {
           "name" : "threadId",
           "required" : true,
-          "summary" : "Thread id or `latest`.",
+          "summary" : "Thread id or latest.",
+          "type" : "string"
+        },
+        {
+          "name" : "attachmentId",
+          "required" : false,
+          "summary" : "Fetch one attachment by id (absorbs thread_attachment_get).",
           "type" : "string"
         }
       ],
-      "summary" : "Fetch a work thread snapshot."
+      "summary" : "DOES: Fetch a work thread snapshot, status\/attention, or one attachment (absorbs thread_status, thread_attachment_get).\nUSE WHEN: Reading thread state before\/after thread_send or polling running attention.\nNOT WHEN: Sending a message (use thread_send) or renaming (use thread_rename).\nNEXT: thread_send to continue; run_get for linked team runs.\nMODE: threadId only → snapshot incl. running\/attention; attachmentId → that attachment body.",
+      "title" : "Get thread"
     },
     {
       "command" : "thread rename",
@@ -5072,52 +4890,8 @@
           "type" : "string"
         }
       ],
-      "summary" : "Rename a work thread (same SSOT as the inbox double-click rename)."
-    },
-    {
-      "command" : "thread status",
-      "errors" : [
-        "THREAD_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "thread_status",
-      "outputSchema" : "threadStatus",
-      "params" : [
-        {
-          "name" : "threadId",
-          "required" : true,
-          "summary" : "Thread id or `latest`.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Poll thread running\/attention state."
-    },
-    {
-      "command" : "thread attachment",
-      "errors" : [
-        "THREAD_NOT_FOUND",
-        "ATTACHMENT_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "thread_attachment_get",
-      "outputSchema" : "threadAttachmentJSON",
-      "params" : [
-        {
-          "name" : "threadId",
-          "required" : true,
-          "summary" : "Thread id or `latest`.",
-          "type" : "string"
-        },
-        {
-          "name" : "attachmentId",
-          "required" : true,
-          "summary" : "Attachment id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Fetch one thread attachment by id."
+      "summary" : "DOES: Rename a work thread (same SSOT as inbox double-click rename).\nUSE WHEN: User-visible thread title cleanup.\nNOT WHEN: Sending messages (use thread_send) or reading state (use thread_get).\nNEXT: thread_get to confirm the new title.",
+      "title" : "Rename thread"
     },
     {
       "command" : "pending list",
@@ -5136,68 +4910,32 @@
           "type" : "string"
         },
         {
+          "name" : "pendingId",
+          "required" : false,
+          "summary" : "One Pending item id (absorbs pending_show).",
+          "type" : "string"
+        },
+        {
+          "name" : "mode",
+          "required" : false,
+          "summary" : "queue → render-ready armed queue bundle (absorbs pending_queue).",
+          "type" : "string"
+        },
+        {
           "name" : "limit",
           "required" : false,
-          "summary" : "Maximum items to return (optional).",
+          "summary" : "Maximum items (default 25).",
           "type" : "integer"
         },
         {
           "name" : "cursor",
           "required" : false,
-          "summary" : "Pagination cursor from a prior list response (optional).",
+          "summary" : "Pagination cursor from a prior list response.",
           "type" : "string"
         }
       ],
-      "summary" : "List Pending items for one Project or the aggregate floor."
-    },
-    {
-      "command" : "pending show",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "pending_show",
-      "outputSchema" : "pendingItemJSON",
-      "params" : [
-        {
-          "name" : "pendingId",
-          "required" : true,
-          "summary" : "Pending item id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Show one Pending item including Wake\/capacity facts."
-    },
-    {
-      "command" : "pending queue",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "pending_queue",
-      "outputSchema" : "pendingQueueJSON",
-      "params" : [
-
-      ],
-      "summary" : "Render-ready Pending queue: armed items grouped by project (in order, each headed by its running item) + total armed count for the pending pill."
-    },
-    {
-      "command" : "pending submit",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "pending_submit",
-      "outputSchema" : "pendingItemJSON",
-      "params" : [
-        {
-          "name" : "pendingId",
-          "required" : true,
-          "summary" : "Pending item id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Arm a Draft item (Draft → Pending)."
+      "summary" : "DOES: List Pending items, show one item, or render the armed queue bundle (absorbs pending_show, pending_queue).\nUSE WHEN: Inspecting the Pending floor before submit\/run\/edit.\nNOT WHEN: Mutating content (use pending_edit) or arming\/cancelling (use pending_update).\nNEXT: pending_edit to change draft content; pending_update(submit) to arm; pending_run to execute.\nMODE: pendingId → one item; mode:queue → armed-queue bundle; else paginated list (project optional).",
+      "title" : "List pending"
     },
     {
       "command" : "pending edit",
@@ -5245,62 +4983,52 @@
           "type" : "string"
         }
       ],
-      "summary" : "Edit a Pending\/Draft item's prompt or target. A Pending item returns to Draft (un-arms); re-submit to re-arm."
+      "summary" : "DOES: Edit a Pending\/Draft item's prompt or target; Pending items return to Draft when edited.\nUSE WHEN: Changing what will run before arming — richer schema than pending_update.\nNOT WHEN: Thin state transitions only (use pending_update) or executing (use pending_run).\nNEXT: pending_update(submit) to re-arm after editing a Pending item.",
+      "title" : "Edit pending"
     },
     {
-      "command" : "pending reorder",
+      "command" : "pending submit",
       "errors" : [
         "CLI_USAGE_ERROR",
         "PENDING_REORDER_INVALID"
       ],
       "idempotency" : "idempotent",
-      "name" : "pending_reorder",
+      "name" : "pending_update",
       "outputSchema" : "pendingItemJSON",
       "params" : [
         {
-          "name" : "pendingId",
+          "name" : "action",
           "required" : true,
-          "summary" : "Item to move.",
+          "summary" : "submit | cancel | reorder.",
           "type" : "string"
         },
-        {
-          "name" : "before",
-          "required" : false,
-          "summary" : "Move before this item id.",
-          "type" : "string"
-        },
-        {
-          "name" : "after",
-          "required" : false,
-          "summary" : "Move after this item id.",
-          "type" : "string"
-        },
-        {
-          "name" : "position",
-          "required" : false,
-          "summary" : "Move to a 0-based position.",
-          "type" : "integer"
-        }
-      ],
-      "summary" : "Reorder a Pending item within its serialized group (before\/after another, or to a position)."
-    },
-    {
-      "command" : "pending cancel",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "pending_cancel",
-      "outputSchema" : "pendingItemJSON",
-      "params" : [
         {
           "name" : "pendingId",
           "required" : true,
           "summary" : "Pending item id.",
           "type" : "string"
+        },
+        {
+          "name" : "before",
+          "required" : false,
+          "summary" : "For reorder — move before this item id.",
+          "type" : "string"
+        },
+        {
+          "name" : "after",
+          "required" : false,
+          "summary" : "For reorder — move after this item id.",
+          "type" : "string"
+        },
+        {
+          "name" : "position",
+          "required" : false,
+          "summary" : "For reorder — move to 0-based position.",
+          "type" : "integer"
         }
       ],
-      "summary" : "Cancel a Draft or Pending item (remove from queue)."
+      "summary" : "DOES: Thin Pending state transitions — arm, cancel, or reorder (absorbs pending_submit, pending_cancel, pending_reorder).\nUSE WHEN: Arming a draft, removing from queue, or changing queue position without editing content.\nNOT WHEN: Editing prompt\/worker fields (use pending_edit) or executing (use pending_run).\nNEXT: pending_list(mode:queue) to verify order; pending_run when armed.\nACTION: submit → Draft to Pending; cancel → remove; reorder → before|after|position.",
+      "title" : "Update pending"
     },
     {
       "command" : "pending run",
@@ -5320,50 +5048,46 @@
           "type" : "string"
         }
       ],
-      "summary" : "Run a Pending workerChat or non-mutating teamRun item; executes and settles like CLI pending run."
-    },
-    {
-      "command" : "project stalled",
-      "errors" : [
-        "CLI_USAGE_ERROR",
-        "PROJECT_NOT_FOUND"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "project_stalled",
-      "outputSchema" : "stallEpisodeListJSON",
-      "params" : [
-        {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name.",
-          "type" : "string"
-        },
-        {
-          "name" : "includeCleared",
-          "required" : false,
-          "summary" : "Include cleared episodes (optional).",
-          "type" : "boolean"
-        }
-      ],
-      "summary" : "Read-only stalled-work episodes for one project."
+      "summary" : "DOES: Execute a Pending workerChat or non-mutating teamRun item; mutating execute teams stay lane-safe.\nUSE WHEN: Running an armed Pending item headlessly.\nNOT WHEN: Editing or queue management (use pending_edit \/ pending_update).\nNEXT: run_get or thread_get depending on item kind; project_context after mutating execute in project.",
+      "title" : "Run pending"
     },
     {
       "command" : "stalled list",
       "errors" : [
-        "CLI_USAGE_ERROR"
+        "CLI_USAGE_ERROR",
+        "PROJECT_NOT_FOUND"
       ],
       "idempotency" : "idempotent",
       "name" : "stalled_list",
       "outputSchema" : "stallListJSON",
       "params" : [
         {
-          "name" : "all",
-          "required" : true,
-          "summary" : "Must be true.",
+          "name" : "project",
+          "required" : false,
+          "summary" : "Project id or name (optional; absorbs project_stalled).",
+          "type" : "string"
+        },
+        {
+          "name" : "includeCleared",
+          "required" : false,
+          "summary" : "Include cleared episodes for one project.",
           "type" : "boolean"
+        },
+        {
+          "name" : "limit",
+          "required" : false,
+          "summary" : "Maximum episodes (default 25).",
+          "type" : "integer"
+        },
+        {
+          "name" : "cursor",
+          "required" : false,
+          "summary" : "Pagination cursor from a prior list response.",
+          "type" : "string"
         }
       ],
-      "summary" : "Aggregate stalled-work episodes grouped by project."
+      "summary" : "DOES: List stalled-work episodes aggregate or for one project (absorbs project_stalled).\nUSE WHEN: Finding work that needs user attention across projects or in one project.\nNOT WHEN: Acting on an episode (use stalled_update).\nNEXT: stalled_update(action:check) on the episode; ask user to wait or dismiss.\nMODE: project omitted → aggregate by project; project set → that project's episodes.",
+      "title" : "List stalled work"
     },
     {
       "command" : "stalled check",
@@ -5372,28 +5096,15 @@
         "CLI_USAGE_ERROR"
       ],
       "idempotency" : "idempotent",
-      "name" : "stall_check_status",
+      "name" : "stalled_update",
       "outputSchema" : "stallEpisodeJSON",
       "params" : [
         {
-          "name" : "episodeId",
+          "name" : "action",
           "required" : true,
-          "summary" : "Stall episode id.",
+          "summary" : "check | wait | dismiss.",
           "type" : "string"
-        }
-      ],
-      "summary" : "Re-observe a stall episode's target; clears it if it has progressed\/terminated, else keeps it active with a fresh refresh time."
-    },
-    {
-      "command" : "stalled wait",
-      "errors" : [
-        "STALL_EPISODE_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "stall_keep_waiting",
-      "outputSchema" : "stallEpisodeJSON",
-      "params" : [
+        },
         {
           "name" : "episodeId",
           "required" : true,
@@ -5403,48 +5114,12 @@
         {
           "name" : "minutes",
           "required" : false,
-          "summary" : "Snooze minutes (default 30).",
+          "summary" : "For action:wait — snooze minutes (default 30).",
           "type" : "integer"
         }
       ],
-      "summary" : "Snooze a stall episode's attention for N minutes (default 30); it stays a real stall, just quiet."
-    },
-    {
-      "command" : "stalled dismiss",
-      "errors" : [
-        "STALL_EPISODE_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "stall_dismiss",
-      "outputSchema" : "stallEpisodeJSON",
-      "params" : [
-        {
-          "name" : "episodeId",
-          "required" : true,
-          "summary" : "Stall episode id.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Dismiss a stall episode (cleared, user-dismiss). A genuinely-stalled target re-surfaces on the next scan."
-    },
-    {
-      "command" : "project list",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "project_list",
-      "outputSchema" : "projectListJSON",
-      "params" : [
-        {
-          "name" : "all",
-          "required" : false,
-          "summary" : "Include archived projects (optional).",
-          "type" : "boolean"
-        }
-      ],
-      "summary" : "List projects (active by default)."
+      "summary" : "DOES: Re-observe, snooze, or dismiss a stall episode (absorbs stall_check_status, stall_keep_waiting, stall_dismiss).\nUSE WHEN: Recovery flow after stalled_list surfaces an episode.\nNOT WHEN: Read-only stall discovery (use stalled_list).\nNEXT: stalled_list to confirm cleared\/snoozed state.\nACTION: check → re-observe target; wait → snooze N minutes; dismiss → user-dismiss (may resurface).",
+      "title" : "Update stalled work"
     },
     {
       "command" : "project show",
@@ -5458,12 +5133,31 @@
       "params" : [
         {
           "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name.",
+          "required" : false,
+          "summary" : "Project id or name — omit to list.",
+          "type" : "string"
+        },
+        {
+          "name" : "all",
+          "required" : false,
+          "summary" : "Include archived projects in list.",
+          "type" : "boolean"
+        },
+        {
+          "name" : "limit",
+          "required" : false,
+          "summary" : "Maximum list items (default 25).",
+          "type" : "integer"
+        },
+        {
+          "name" : "cursor",
+          "required" : false,
+          "summary" : "Pagination cursor from a prior list response.",
           "type" : "string"
         }
       ],
-      "summary" : "Show one project; re-observes root\/git."
+      "summary" : "DOES: List projects or show one project with fresh root\/git observation (absorbs project_list).\nUSE WHEN: Resolving a project id\/path or enumerating projects before team_run.\nNOT WHEN: Capability pack (use project_context) or worker readiness (use project_workers).\nNEXT: project_context before a complex run; team_run with the resolved project.\nMODE: project omitted → paginated list; project present → full record.",
+      "title" : "Get project"
     },
     {
       "command" : "project context",
@@ -5482,7 +5176,8 @@
           "type" : "string"
         }
       ],
-      "summary" : "Generate the on-demand, source-labeled project context packet (a receipt)."
+      "summary" : "DOES: Generate the versioned project context pack — runnable teams, admission hints, workers, feature flags.\nUSE WHEN: Before team_run\/pending_run in a project; re-fetch after mutating runs or doctor health changes.\nNOT WHEN: Simple project metadata only (use project_get) or live worker probes (use project_workers(refresh:true)).\nNEXT: team_start(dryRun) or team_run; also exposed as allnighter:\/\/projects\/{id}\/context.",
+      "title" : "Get project context"
     },
     {
       "command" : "project workers",
@@ -5499,187 +5194,16 @@
           "required" : true,
           "summary" : "Project id or name.",
           "type" : "string"
-        }
-      ],
-      "summary" : "Cached per-project worker readiness (read-only; never probes)."
-    },
-    {
-      "command" : "project recheck-workers",
-      "errors" : [
-        "PROJECT_NOT_FOUND",
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "project_recheck_workers",
-      "outputSchema" : "projectWorkersJSON",
-      "params" : [
+        },
         {
-          "name" : "project",
-          "required" : true,
-          "summary" : "Project id or name.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Rerun driver-declared safe probes and refresh the readiness cache. No auto-config\/auth."
-    },
-    {
-      "command" : "defaults show",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "defaults_get",
-      "outputSchema" : "defaultSettingsJSON",
-      "params" : [
-
-      ],
-      "summary" : "Read the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now (live readiness)."
-    },
-    {
-      "command" : "boost-window show",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "boost_window_show",
-      "outputSchema" : "boostWindowSettingsJSON",
-      "params" : [
-
-      ],
-      "summary" : "Show Boost window settings, derived seed\/reset times, provider rows, and display state."
-    },
-    {
-      "command" : "boost-window set",
-      "errors" : [
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "boost_window_set",
-      "outputSchema" : "boostWindowSettingsJSON",
-      "params" : [
-        {
-          "name" : "enabled",
+          "name" : "refresh",
           "required" : false,
-          "summary" : "Turn Boost window on or off.",
+          "summary" : "When true, rerun safe probes and refresh cache (absorbs project_recheck_workers).",
           "type" : "boolean"
-        },
-        {
-          "name" : "windowStart",
-          "required" : false,
-          "summary" : "Window start as HH:MM or minutes-from-midnight (snapped to 15m).",
-          "type" : "string"
-        },
-        {
-          "name" : "appliesTo",
-          "required" : false,
-          "summary" : "Comma-separated source ids (e.g. claude_code,codex).",
-          "type" : "string"
         }
       ],
-      "summary" : "Set Boost window master toggle, 5h window start, and applies-to sources."
-    },
-    {
-      "command" : "boost-window seed",
-      "errors" : [
-        "CLI_USAGE_ERROR",
-        "UTILIZATION_SOURCE_NOT_FOUND",
-        "UTILIZATION_SOURCE_UNCONFIGURED",
-        "UTILIZATION_AUTH_REQUIRED",
-        "UTILIZATION_BILLING_PROMPT",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "boost_window_seed",
-      "outputSchema" : "utilizationSeedEventJSON",
-      "params" : [
-        {
-          "name" : "sourceId",
-          "required" : true,
-          "summary" : "Driver id (e.g. claude_code, codex).",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Force one Boost window seed for a configured source (probe scratch, non-mutating)."
-    },
-    {
-      "command" : "boost-window observations clear",
-      "errors" : [
-        "CLI_USAGE_ERROR",
-        "INTERNAL_ERROR"
-      ],
-      "idempotency" : "not_idempotent",
-      "name" : "boost_window_observations_clear",
-      "outputSchema" : "utilizationObservationsClearJSON",
-      "params" : [
-        {
-          "name" : "sourceId",
-          "required" : false,
-          "summary" : "Optional source id; omit to clear all.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Clear local Boost window seed observations (all sources or one source)."
-    },
-    {
-      "command" : "help search",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "help_search",
-      "outputSchema" : "helpSearchJSON",
-      "params" : [
-        {
-          "name" : "query",
-          "required" : true,
-          "summary" : "Natural-language question or keywords.",
-          "type" : "string"
-        },
-        {
-          "name" : "limit",
-          "required" : false,
-          "summary" : "Max results (default 5).",
-          "type" : "integer"
-        }
-      ],
-      "summary" : "Search installed Allnighter help for a product question. Call this before answering 'how do I use Allnighter?' from memory. Returns ranked topics, a suggested answer, refs, and an ordered next-tool plan."
-    },
-    {
-      "command" : "help get",
-      "errors" : [
-        "CLI_USAGE_ERROR"
-      ],
-      "idempotency" : "idempotent",
-      "name" : "help_get",
-      "outputSchema" : "helpGetJSON",
-      "params" : [
-        {
-          "name" : "topic",
-          "required" : false,
-          "summary" : "Topic id or alln:\/\/ ref.",
-          "type" : "string"
-        },
-        {
-          "name" : "ref",
-          "required" : false,
-          "summary" : "An alln:\/\/ ref (help\/tool\/schema\/error).",
-          "type" : "string"
-        },
-        {
-          "name" : "tool",
-          "required" : false,
-          "summary" : "Find the topic documenting this MCP tool.",
-          "type" : "string"
-        },
-        {
-          "name" : "error",
-          "required" : false,
-          "summary" : "Find the topic for this error code.",
-          "type" : "string"
-        }
-      ],
-      "summary" : "Retrieve one Allnighter help topic by id, alln:\/\/ ref, tool, or error code. Unknown selectors return close matches + the topic sitemap, never a dead end."
+      "summary" : "DOES: Read cached per-project worker readiness, or refresh via safe probes (absorbs project_recheck_workers).\nUSE WHEN: Choosing a worker override or verifying readiness before execute.\nNOT WHEN: Full project context pack (use project_context) — never auto-configures auth.\nNEXT: team_run\/worker override or doctor if refresh shows blocked sources.\nMODE: refresh:false → cached read; refresh:true → driver-declared safe probes only.",
+      "title" : "Get project workers"
     }
   ],
   "nextActionKinds" : [

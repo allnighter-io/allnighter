@@ -11,8 +11,8 @@ final class MCPWireConformanceTests: XCTestCase {
     }
 
     func testToolCountRatchet() {
-        // T1 (≤32) applies after Slice 1 atomic cut. Until then, legacy surface must not grow.
-        XCTAssertLessThanOrEqual(tools.count, 61, "Pre-cut surface is 61 tools — Slice 1 lands ≤30")
+        XCTAssertLessThanOrEqual(tools.count, 32, "T1 cap — edit MCP_Tool_Upgrade.md §3 before raising")
+        XCTAssertEqual(tools.count, 30, "Slice 1 surface is exactly 30 tools")
     }
 
     func testWireDefinitionsHaveTitleAndInputSchema() {

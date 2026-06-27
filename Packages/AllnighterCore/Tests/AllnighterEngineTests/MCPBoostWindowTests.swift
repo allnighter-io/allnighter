@@ -3,27 +3,17 @@ import XCTest
 @testable import AllnighterCLI
 
 final class MCPBoostWindowTests: XCTestCase {
-    func testRegistryListsBoostTools() {
+    func testBoostWindowToolsAreCLIOnlyNotOnMCPCatalog() {
         let names = Set(ContractRegistry.milestone1.mcpTools.map(\.name))
-        XCTAssertEqual(names.intersection([
+        XCTAssertTrue(names.isDisjoint(with: [
             "boost_window_show",
             "boost_window_set",
             "boost_window_seed",
             "boost_window_observations_clear",
-        ]), [
-            "boost_window_show",
-            "boost_window_set",
-            "boost_window_seed",
-            "boost_window_observations_clear",
-        ])
-
-        let set = ContractRegistry.milestone1.mcpTools.first { $0.name == "boost_window_set" }
-        XCTAssertEqual(set?.command, "boost-window set")
-        XCTAssertEqual(set?.outputSchema, .boostWindowSettingsJSON)
-
-        let seed = ContractRegistry.milestone1.mcpTools.first { $0.name == "boost_window_seed" }
-        XCTAssertEqual(seed?.outputSchema, .utilizationSeedEventJSON)
-        XCTAssertTrue(seed?.errors.contains("UTILIZATION_AUTH_REQUIRED") == true)
+        ]), "Boost window is CLI-only owner-admin (MCP_Tool_Upgrade.md §5D)")
+        let m1 = Set(ContractRegistry.milestone1.commands.filter { $0.milestone == .m1 }.map(\.name))
+        XCTAssertTrue(m1.contains("boost-window show"))
+        XCTAssertTrue(m1.contains("boost-window set"))
     }
 
     func testClearObservationsJSON() throws {

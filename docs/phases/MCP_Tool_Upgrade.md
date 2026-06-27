@@ -1,6 +1,6 @@
 # Allnighter — MCP Tool Upgrade (v2)
 
-**Status:** Proposed — decision doc / implementation spec (not a survey)
+**Status:** Implemented — Slice 0 + Slice 1 (2026-06-27)
 **Updated:** 2026-06-27
 **Owner:** AllnighterCore (ContractRegistry) + AllnighterCLI (MCPServer)
 **Supersedes:** v1 of this file (the 61→28 count-cut). v2 keeps every v1 guardrail and adds

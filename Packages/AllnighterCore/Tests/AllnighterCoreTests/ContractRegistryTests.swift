@@ -55,32 +55,19 @@ final class ContractRegistryTests: XCTestCase {
     func testMCPToolsAreCleanAndDeriveFromCommands() {
         let names = reg.mcpTools.map(\.name)
         let expected: Set<String> = [
-            "mcp_hello", "teams_list", "teams_show", "teams_definition", "teams_duplicate", "teams_save",
-            "teams_set_default", "teams_delete", "teams_restore",
-            "skills_list", "skills_show", "skills_duplicate", "skills_save", "skills_delete",
-            "team_preflight",
-            "team_start", "team_status", "team_result", "team_cancel",
-            "team_run", "team_ask", "team_show", "history", "show", "doctor", "error_explain", "spec_get", "floor_show",
-            "pair_slice", "pair_run", "pair_status", "pair_status",
-            "thread_send", "thread_get", "thread_attachment_get", "thread_rename", "thread_status",
-            "pending_list", "pending_queue", "pending_show", "pending_run",
-            "pending_submit", "pending_edit", "pending_reorder", "pending_cancel",
-            "project_stalled", "stalled_list", "stall_check_status", "stall_keep_waiting", "stall_dismiss",
-            "project_list", "project_get", "project_context", "project_workers", "project_recheck_workers",
-            "defaults_get",
-            "boost_window_show", "boost_window_set",
-            "boost_window_seed", "boost_window_observations_clear",
-            "help_search", "help_get",
+            "mcp_hello", "doctor", "error_explain", "help", "defaults_get", "history",
+            "teams_get", "teams_edit", "skills_get", "skills_edit",
+            "team_ask", "team_run", "team_start", "team_result", "team_cancel", "run_get",
+            "pair_run", "pair_status",
+            "thread_send", "thread_get", "thread_rename",
+            "pending_list", "pending_edit", "pending_update", "pending_run",
+            "stalled_list", "stalled_update",
+            "project_get", "project_context", "project_workers",
         ]
         XCTAssertEqual(Set(names).sorted(), expected.sorted())
+        XCTAssertEqual(names.count, 30)
+        XCTAssertFalse(names.contains("team_preflight"))
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
-        XCTAssertFalse(names.contains("team_presets"))
-        let boostNames = names.filter { $0.contains("boost") || $0.contains("utilization") }
-        XCTAssertFalse(boostNames.contains(where: { $0.contains("_get") || $0.contains("_update") || $0.contains("_status") }),
-                       "Boost-window MCP tools must use the same show/set labels as the CLI contract")
-        let deferred = Set(reg.commands.filter { $0.milestone == .deferred }.map(\.name))
-        XCTAssertFalse(deferred.contains("team edit"), "retired nested catalog command")
-        XCTAssertFalse(deferred.contains("teams edit"), "teams edit is M1 in catalog slice")
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         for tool in reg.mcpTools {
             XCTAssertTrue(m1.contains(tool.command), "MCP tool \(tool.name) maps to non-M1 command \(tool.command)")

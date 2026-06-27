@@ -158,22 +158,13 @@ public extension ContractRegistry.MCPToolSpec {
 enum MCPWireCatalog {
     static let destructive: Set<String> = [
         "team_run", "team_start", "team_ask", "pending_run", "thread_send", "thread_rename",
-        "pair_run", "pair_slice", "teams_save", "teams_delete", "teams_duplicate",
-        "teams_set_default", "teams_restore", "skills_save", "skills_delete", "skills_duplicate",
-        "pending_submit", "pending_edit", "pending_cancel", "pending_reorder", "pending_run",
-        "boost_window_set", "boost_window_seed", "boost_window_observations_clear",
-        "stall_check_status", "stall_keep_waiting", "stall_dismiss", "project_recheck_workers",
-        "teams_edit", "skills_edit", "pending_update", "stalled_update",
+        "pair_run", "teams_edit", "skills_edit", "pending_edit", "pending_update", "stalled_update",
     ]
 
     static let readOnly: Set<String> = [
-        "mcp_hello", "doctor", "error_explain", "help", "help_search", "help_get",
-        "defaults_get", "history", "team_preflight", "team_status", "team_result", "team_cancel",
-        "teams_list", "teams_show", "teams_definition", "skills_list", "skills_show",
-        "show", "spec_get", "floor_show", "pair_status", "thread_get", "thread_status",
-        "thread_attachment_get", "pending_list", "pending_show", "pending_queue",
-        "stalled_list", "project_stalled", "project_list", "project_get", "project_context",
-        "project_workers", "team_show", "boost_window_show",
-        "teams_get", "skills_get", "run_get", "stalled_list",
+        "mcp_hello", "doctor", "error_explain", "help", "defaults_get", "history",
+        "teams_get", "skills_get", "team_result", "team_cancel", "run_get",
+        "pair_status", "thread_get", "pending_list", "stalled_list",
+        "project_get", "project_context", "project_workers",
     ]
 }
