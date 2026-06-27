@@ -3,6 +3,7 @@ docs/phases/code_review/packets/*.expanded.json
 docs/phases/code_review/findings/*.md
 !docs/phases/code_review/findings/.gitkeep
 
+.DS_Store
 .AppleDouble
 .LSOverride
 ._*
