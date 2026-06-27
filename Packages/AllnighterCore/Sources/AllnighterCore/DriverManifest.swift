@@ -443,10 +443,14 @@ public extension DriverManifest {
     }
 
     /// Resolves a non-prompt command string (e.g. `smokeTestCommand`) where the
-    /// model token may appear. Never substitutes the prompt here.
-    func resolvedCommandString(_ raw: String?, model: String) -> String? {
+    /// model and working-dir tokens may appear. Never substitutes the prompt here.
+    func resolvedCommandString(_ raw: String?, model: String, workingDir: String? = nil) -> String? {
         guard let raw else { return nil }
-        return raw.replacingOccurrences(of: Token.model.rawValue, with: model)
+        var resolved = raw.replacingOccurrences(of: Token.model.rawValue, with: model)
+        if let workingDir {
+            resolved = resolved.replacingOccurrences(of: Token.workingDir.rawValue, with: workingDir)
+        }
+        return resolved
     }
 
     /// Substitutes a token only when the element *is* exactly that token, so the

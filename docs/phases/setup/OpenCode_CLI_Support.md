@@ -293,6 +293,9 @@ Already shipped (prior work): `opencode.json`, `DefaultConfig` embed,
 6. DefaultConfigDriftTests …
 7. Live `alln doctor --agent opencode` …
 
+**Blocked:** see [`OpenCode_Smoke_Probe_Blocker.md`](../OpenCode_Smoke_Probe_Blocker.md) —
+headless stdout contract unproven; do not claim driver ready until OC-B0/B1 complete.
+
 </details>
 
 **Reference patterns:** `antigravity.json`, `WorkerRunner` Grok post-exit branch,

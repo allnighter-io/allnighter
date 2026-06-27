@@ -98,4 +98,13 @@ final class ManifestTemplateTests: XCTestCase {
         XCTAssertFalse(resolved!.contains("{{model}}"))
     }
 
+    func testSmokeCommandSubstitutesWorkingDir() throws {
+        let manifest = try Fixtures.manifest(.manifestCursor)
+        let resolved = manifest.resolvedCommandString(
+            #"agent --dir "{{workingDir}}" -m {{model}}"#, model: "composer-2.5",
+            workingDir: "/tmp/alln-probe"
+        )
+        XCTAssertEqual(resolved, #"agent --dir "/tmp/alln-probe" -m composer-2.5"#)
+    }
+
 }

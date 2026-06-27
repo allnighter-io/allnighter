@@ -324,15 +324,19 @@ public struct CLIDetector: Sendable {
     }
 
     private func smokeClassify(_ manifest: DriverManifest, model: String, invocation: ToolInvocation, version: String) async -> ModelSetupStatus {
-        guard let raw = manifest.resolvedCommandString(manifest.smokeTestCommand, model: model) else {
-            return .ready(version: version) // no smoke contract → presence is all we can assert
-        }
+        // OpenCode answers over its serve HTTP API, never stdout (`opencode run` is a
+        // TTY-only client that emits nothing when piped). See
+        // OpenCode_Smoke_Probe_Blocker.md (RESOLUTION).
         if manifest.id == "opencode" {
-            do {
-                try await OpenCodeServeCoordinator().ensureRunning()
-            } catch {
-                return .probeFailed(reason: "opencode serve: \(error)")
+            if let reason = await OpenCodeServeClient.smokeReason(manifest: manifest, modelLabel: model) {
+                return .probeFailed(reason: reason)
             }
+            return .ready(version: version)
+        }
+        guard let raw = manifest.resolvedCommandString(
+            manifest.smokeTestCommand, model: model, workingDir: workingDirectory
+        ) else {
+            return .ready(version: version) // no smoke contract → presence is all we can assert
         }
         let result = await runResolved(raw, invocation: invocation, timeout: smokeTimeout)
         let haystack = (result.stdout + "\n" + result.stderr).lowercased()
@@ -340,9 +344,7 @@ public struct CLIDetector: Sendable {
         // Ready: clean exit + the expected token came back.
         if result.launchError == nil, result.exitCode == 0,
            let expect = manifest.smokeTestExpect {
-            let visible = manifest.id == "opencode"
-                ? TextUtil.extractOpenCodeVisibleText(result.stdout) : result.stdout
-            if visible.contains(expect) {
+            if result.stdout.contains(expect) {
                 return .ready(version: version)
             }
         }
@@ -360,8 +362,22 @@ public struct CLIDetector: Sendable {
         else if let code = result.exitCode, code != 0 {
             let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             reason = stderr.isEmpty ? "smoke exited \(code)" : String(stderr.prefix(200))
-        } else { reason = "smoke did not return \(manifest.smokeTestExpect ?? "the expected token")" }
+        } else { reason = smokeTokenMissReason(manifest: manifest, result: result) }
         return .probeFailed(reason: reason)
+    }
+
+    private func smokeTokenMissReason(manifest: DriverManifest, result: CommandResult) -> String {
+        let expect = manifest.smokeTestExpect ?? "the expected token"
+        let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        var reason = "smoke did not return \(expect)"
+        if trimmed.isEmpty {
+            reason += " (stdout empty)"
+        } else {
+            reason += " · stdout: \(String(trimmed.prefix(400)))"
+        }
+        let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stderr.isEmpty { reason += " · stderr: \(String(stderr.prefix(200)))" }
+        return reason
     }
 
     /// Runs an author-controlled command string through the resolved invocation.

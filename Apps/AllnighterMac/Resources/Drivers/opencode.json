@@ -35,7 +35,7 @@
       "/opt/homebrew/bin",
       "/usr/local/bin"
     ],
-    "installHint": "Install with `brew install opencode`. Configure providers in ~/.config/opencode/opencode.json. Allnighter starts a local `opencode serve` automatically.",
+    "installHint": "Install with `brew install opencode`. Add your Featherless/OpenAI API key in ~/.config/opencode/opencode.json. Allnighter starts the local OpenCode server automatically during setup and runs — no separate terminal step.",
     "docsURL": "https://opencode.ai/docs/cli/",
     "authErrorPatterns": [
       "api key",

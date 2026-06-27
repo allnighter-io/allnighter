@@ -73,20 +73,22 @@ public struct ModelHealthChecker: Sendable {
         guard manifest.kind == .headlessCLI else {
             return .unknown  // manual-paste workers have no automated smoke test.
         }
+        // OpenCode answers over its serve HTTP API, never stdout (`opencode run` is a
+        // TTY-only client that emits nothing when piped). See
+        // OpenCode_Smoke_Probe_Blocker.md (RESOLUTION).
+        if manifest.id == "opencode" {
+            if let reason = await OpenCodeServeClient.smokeReason(manifest: manifest, modelLabel: model) {
+                return .unhealthy(reason: reason)
+            }
+            return .healthy
+        }
+
         guard let raw = manifest.smokeTestCommand,
-              let resolved = manifest.resolvedCommandString(raw, model: model) else {
+              let resolved = manifest.resolvedCommandString(raw, model: model, workingDir: workingDirectory) else {
             return .unknown
         }
         let tokens = ShellWords.split(resolved)
         guard let command = tokens.first else { return .unknown }
-
-        if manifest.id == "opencode" {
-            do {
-                try await OpenCodeServeCoordinator().ensureRunning()
-            } catch {
-                return .unhealthy(reason: "opencode serve: \(error)")
-            }
-        }
 
         let result = await commandRunner.run(
             command: command,
@@ -108,9 +110,7 @@ public struct ModelHealthChecker: Sendable {
             return .unhealthy(reason: stderr.isEmpty ? "smoke test exited \(code)" : stderr)
         }
         if let expected = manifest.smokeTestExpect {
-            let visible = manifest.id == "opencode"
-                ? TextUtil.extractOpenCodeVisibleText(result.stdout) : result.stdout
-            if !visible.contains(expected) {
+            if !result.stdout.contains(expected) {
                 return .unhealthy(reason: "smoke test did not return expected token")
             }
         }
