@@ -76,6 +76,52 @@ enum TextUtil {
         }
         return collected.joined()
     }
+
+    /// Strips model reasoning/"thinking" blocks from assistant text so only the
+    /// visible answer remains. Pure; deterministic.
+    static func stripReasoningBlocks(_ input: String) -> String {
+        let tagPattern = "</?(?:thinking|think)>"
+        guard let regex = try? NSRegularExpression(pattern: tagPattern, options: [.caseInsensitive]) else {
+            return input.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let nsRange = NSRange(input.startIndex..., in: input)
+        let matches = regex.matches(in: input, range: nsRange)
+        guard !matches.isEmpty else {
+            return input.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        var output = ""
+        var depth = 0
+        var lastEnd = input.startIndex
+        for match in matches {
+            guard let matchRange = Range(match.range, in: input) else { continue }
+            if depth == 0 {
+                output += input[lastEnd..<matchRange.lowerBound]
+            }
+            let tag = String(input[matchRange])
+            if tag.hasPrefix("</") {
+                if depth > 0 {
+                    depth -= 1
+                } else {
+                    output += tag
+                }
+            } else {
+                depth += 1
+            }
+            lastEnd = matchRange.upperBound
+        }
+        if depth == 0 {
+            output += input[lastEnd...]
+        }
+        if let nlRegex = try? NSRegularExpression(pattern: "\\n{3,}") {
+            let r = NSRange(output.startIndex..., in: output)
+            output = nlRegex.stringByReplacingMatches(in: output, range: r, withTemplate: "\n\n")
+        }
+        if let spRegex = try? NSRegularExpression(pattern: " {2,}") {
+            let r = NSRange(output.startIndex..., in: output)
+            output = spRegex.stringByReplacingMatches(in: output, range: r, withTemplate: " ")
+        }
+        return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 /// Splits a trusted command-line string (from a driver manifest's
