@@ -26,12 +26,21 @@ struct TeamStudioView: View {
     var customizeTeamId: String?
     /// Add-team flow: open the Teams page straight into a new blank team draft.
     var startNewTeam: Bool
+    /// CLI health popover / repair deep-link: which driver to select on the CLIs page.
+    var cliFocusDriverId: String?
     var onDone: () -> Void
     @State private var route: StudioRoute
 
-    init(initialRoute: StudioRoute = .clis, customizeTeamId: String? = nil, startNewTeam: Bool = false, onDone: @escaping () -> Void) {
+    init(
+        initialRoute: StudioRoute = .clis,
+        customizeTeamId: String? = nil,
+        startNewTeam: Bool = false,
+        cliFocusDriverId: String? = nil,
+        onDone: @escaping () -> Void
+    ) {
         self.customizeTeamId = customizeTeamId
         self.startNewTeam = startNewTeam
+        self.cliFocusDriverId = cliFocusDriverId
         self.onDone = onDone
         _route = State(initialValue: initialRoute)
     }
@@ -52,7 +61,7 @@ struct TeamStudioView: View {
         switch route {
         case .clis:
             // The shipped CLI-setup / readiness surface, embedded as the CLIs page.
-            TeamReadinessView(focusDriverId: nil, onClose: onDone, onAddSource: {})
+            TeamReadinessView(focusDriverId: cliFocusDriverId, onClose: onDone, onAddSource: {})
         case .defaultModel:
             DefaultModelView()
         case .boostWindow:

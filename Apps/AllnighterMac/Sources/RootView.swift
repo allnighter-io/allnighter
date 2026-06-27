@@ -18,6 +18,8 @@ struct RootView: View {
     @State private var studioCustomizeTeamId: String?
     /// Add-team flow: open Team Studio straight into a new blank team draft.
     @State private var studioStartNewTeam = false
+    /// Deep-link from CLI health popover → Settings CLIs page with this driver selected.
+    @State private var studioCLIFocusDriverId: String?
     @State private var showComposeSpecimen = false
     @State private var readinessFocus: String?
     @State private var didLoadCachedSetup = false
@@ -162,7 +164,13 @@ struct RootView: View {
                             initialRoute: studioInitialRoute,
                             customizeTeamId: studioCustomizeTeamId,
                             startNewTeam: studioStartNewTeam,
-                            onDone: { showTeamStudio = false; studioCustomizeTeamId = nil; studioStartNewTeam = false }
+                            cliFocusDriverId: studioCLIFocusDriverId,
+                            onDone: {
+                                showTeamStudio = false
+                                studioCustomizeTeamId = nil
+                                studioStartNewTeam = false
+                                studioCLIFocusDriverId = nil
+                            }
                         )
                     } else if showReadiness {
                         TeamReadinessView(
@@ -268,7 +276,8 @@ struct RootView: View {
                         // "Open CLI setup" is a HARD LINK — always land on the CLIs route
                         // (sidebar present so Teams/Skills stay reachable), never the
                         // default Teams route.
-                        onOpenFull: { showDoctor = false; openTeamStudio(route: .clis) },
+                        onOpenFull: { openCLISetup() },
+                        onSelectCLI: { openCLISetup(focus: $0) },
                         maxBodyHeight: maxBody
                     )
                     .offset(
@@ -455,8 +464,21 @@ struct RootView: View {
         showTeamDropdown = false
         showDoctor = false
         showReadiness = false
+        studioCLIFocusDriverId = nil
         studioInitialRoute = route
         studioStartNewTeam = newTeam
+        showTeamStudio = true
+    }
+
+    /// Settings shell → CLIs page. Optional focus selects that driver in the repair panel.
+    private func openCLISetup(focus driverId: String? = nil) {
+        showTeamDropdown = false
+        showDoctor = false
+        showReadiness = false
+        studioCustomizeTeamId = nil
+        studioStartNewTeam = false
+        studioCLIFocusDriverId = driverId
+        studioInitialRoute = .clis
         showTeamStudio = true
     }
 

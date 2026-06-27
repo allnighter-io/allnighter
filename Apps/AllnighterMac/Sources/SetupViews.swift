@@ -567,14 +567,17 @@ struct BenchHealthPopover: View {
     @Environment(AppModel.self) private var model
     var onClose: () -> Void
     var onOpenFull: () -> Void
+    /// Tap a CLI row → open CLI setup with that driver selected in the detail panel.
+    var onSelectCLI: (String) -> Void = { _ in }
     /// Cap scroll body so the panel stays on-screen below the title-bar anchor.
     var maxBodyHeight: CGFloat = 420
 
     private var cards: [SetupCardModel] { model.setupCards }
 
-    // CLI-setup redesign §2: grouped, NON-interactive CLI rows — Needs attention →
-    // Ready → Dormant. Ready = installed + signed in + ≥1 model ON; Dormant = ready
-    // CLI with 0 models on (not an error); Needs attention = genuinely broken.
+    // CLI-setup redesign §2: grouped CLI rows — Needs attention → Ready → Dormant.
+    // Rows are tappable (opens CLI setup for that driver); no in-popover selection ring.
+    // Ready = installed + signed in + ≥1 model ON; Dormant = ready CLI with 0 models on;
+    // Needs attention = genuinely broken.
     private var attentionCards: [SetupCardModel] {
         cards.filter { CLIStatusGroup.isAttention($0.state) }
     }
@@ -624,7 +627,10 @@ struct BenchHealthPopover: View {
         if !cards.isEmpty {
             SetupGroupLabel(title: title, count: cards.count)
             ForEach(cards) { card in
-                CLIStatusRow(card: card, onModels: onModelNames(for: card.driverId), kind: kind, interactive: false)
+                CLIStatusRow(
+                    card: card, onModels: onModelNames(for: card.driverId), kind: kind,
+                    interactive: true,
+                    onTap: { onSelectCLI(card.driverId) })
             }
         }
     }
