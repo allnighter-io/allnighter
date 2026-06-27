@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-09",
+  "title": "Review TimelineVisibility scroll and read-clear",
+  "readPaths": [
+    { "path": "Apps/AllnighterMac/Sources/TimelineVisibility.swift" }
+  ],
+  "intent": "READ-ONLY perf review. Write findings to docs/phases/code_review/findings/CR-09.md. Lenses: PreferenceKey reduce cost, quadratic turn lookups, intersection edge cases, team-run read-clear gaps, auto-scroll contention. Tag perf P1 with impact estimate.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-09.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-09.md && grep -q '## Findings' docs/phases/code_review/findings/CR-09.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": []
+}

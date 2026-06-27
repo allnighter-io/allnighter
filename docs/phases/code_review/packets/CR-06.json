@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-06",
+  "title": "Review PairCoordinator.runQueue loop",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "169-400"
+    }
+  ],
+  "intent": "READ-ONLY review of runQueue only (lines 169-400). Write findings to docs/phases/code_review/findings/CR-06.md. INVARIANTS: compaction grace must not escalate; executor attempt budget; planner takeover. Lenses: infinite retry, grace blocking queue, takeover state machine, stale running, deadline mid-slice.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-06.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-06.md && grep -q runQueue docs/phases/code_review/findings/CR-06.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 1200,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": []
+}

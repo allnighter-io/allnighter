@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-02",
+  "title": "Review SliceTerminalClassifier — compaction ≠ stall",
+  "readPaths": [
+    { "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SliceTerminalClassifier.swift" },
+    { "path": "Packages/AllnighterCore/Tests/AllnighterEngineTests/SliceTerminalClassifierTests.swift" }
+  ],
+  "intent": "READ-ONLY review. F2 INVARIANT: never kill compacting GLM as stalled. Write findings to docs/phases/code_review/findings/CR-02.md. Lenses: compaction marker brittleness, misclassification order, empty output stall, infraBackoff heuristics. Suggest missing test cases.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-02.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-02.md && grep -qi compaction docs/phases/code_review/findings/CR-02.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": []
+}

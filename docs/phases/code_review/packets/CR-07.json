@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-07",
+  "title": "Review StalledWorkDetector worker-turn scan",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/StalledWorkDetector.swift",
+      "lineRange": "1-77"
+    }
+  ],
+  "intent": "READ-ONLY review of scanWorkerTurns. Write findings to docs/phases/code_review/findings/CR-07.md. CONTEXT: slow GLM pair slices vs 30min watchdog. Lenses: threshold false positive, observableEvent resets, wake ticket gaps, pair child run policy.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-07.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-07.md && grep -q '## Findings' docs/phases/code_review/findings/CR-07.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

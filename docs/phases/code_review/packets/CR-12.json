@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-12",
+  "title": "Review RunService write-lock path",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift",
+      "lineRange": "226-292"
+    }
+  ],
+  "intent": "READ-ONLY review of write-lock acquire/release (lines 226-292). Lenses: defer release ordering, 1800s wait vs worker timeout, mutating misclassification, lock duration, root normalization race.",
+  "touchAllowlist": ["docs/phases/code_review/findings/CR-12.md"],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-12.md && grep -q '## Findings' docs/phases/code_review/findings/CR-12.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": []
+}

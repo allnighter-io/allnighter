@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-05",
+  "title": "Review OpenCodeServeCoordinator lifecycle",
+  "readPaths": [
+    { "path": "Packages/AllnighterCore/Sources/AllnighterEngine/OpenCodeServeCoordinator.swift" }
+  ],
+  "intent": "READ-ONLY review of GLM serve bootstrap. Write findings to docs/phases/code_review/findings/CR-05.md. Lenses: ensureRunning idempotency, health false positives, stale process/port, error propagation, restart mid-slice.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-05.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-05.md && grep -q '## Findings' docs/phases/code_review/findings/CR-05.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": []
+}

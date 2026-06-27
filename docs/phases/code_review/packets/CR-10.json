@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-10",
+  "title": "Review streaming write path coalescing",
+  "readPaths": [
+    { "path": "Packages/AllnighterCore/Sources/AllnighterEngine/StreamingPartialBuffer.swift" },
+    { "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStoreWriteSerializer.swift" }
+  ],
+  "intent": "READ-ONLY perf review of streaming hot path. Write findings to docs/phases/code_review/findings/CR-10.md. Lenses: buffer memory/flush, write serializer bottleneck, throttle interaction, cancel final partial, deadlock ordering.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-10.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-10.md && grep -q '## Findings' docs/phases/code_review/findings/CR-10.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

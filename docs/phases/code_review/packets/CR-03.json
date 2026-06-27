@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-03",
+  "title": "Review SliceGate scope and danger enforcement",
+  "readPaths": [
+    { "path": "Packages/AllnighterCore/Sources/AllnighterCore/SliceGate.swift" }
+  ],
+  "intent": "READ-ONLY review. Write findings to docs/phases/code_review/findings/CR-03.md. Lenses: dangerFlags bypass, empty touchAllowlist for review packets, executor validation edge cases, check validation, gate vs runtime allowlist enforcement gap.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-03.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-03.md && grep -q '## Findings' docs/phases/code_review/findings/CR-03.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-11",
+  "title": "Review WorkerRunner.runOpenCode",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/WorkerRunner.swift",
+      "lineRange": "251-331"
+    }
+  ],
+  "intent": "READ-ONLY review of runOpenCode (lines 251-331). Lenses: redundant ensureRunning, stream-without-terminal, cwd fallback, stream vs sync parity, error kind mapping.",
+  "touchAllowlist": ["docs/phases/code_review/findings/CR-11.md"],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-11.md && grep -q '## Findings' docs/phases/code_review/findings/CR-11.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": []
+}

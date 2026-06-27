@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-04",
+  "title": "Review CheckRunner subprocess boundary",
+  "readPaths": [
+    { "path": "Packages/AllnighterCore/Sources/AllnighterEngine/CheckRunner.swift" }
+  ],
+  "intent": "READ-ONLY security + correctness review. Write findings to docs/phases/code_review/findings/CR-04.md. Lenses: shell injection via check.command, timeout/zombies, skipped→passed path, stdout tail truncation, cwd/env. Tag security P0.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-04.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-04.md && grep -q '## Findings' docs/phases/code_review/findings/CR-04.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}
