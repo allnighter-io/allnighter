@@ -32,7 +32,7 @@ public enum SliceAttemptPrompt {
         let allowlist = packet.touchAllowlist.map { "- `\($0)`" }.joined(separator: "\n")
         parts.append("## Touch allowlist (strict)\n\(allowlist)\nEdit ONLY these paths. No opportunistic cleanup.")
 
-        parts.append("## Check (repo-owned)\n\(checkInstruction(packet.check))")
+        parts.append("## Check (repo-owned)\n\(Self.checkInstruction(packet.check))")
 
         parts.append("""
         ## Rules
@@ -49,7 +49,7 @@ public enum SliceAttemptPrompt {
         return parts.joined(separator: "\n\n")
     }
 
-    private static func checkInstruction(_ check: WorkSlicePacket.Check) -> String {
+    public static func checkInstruction(_ check: WorkSlicePacket.Check) -> String {
         switch check.method {
         case .command:
             return "Run this command EXACTLY after editing; capture output and exit status:\n`\(check.command ?? "")`"

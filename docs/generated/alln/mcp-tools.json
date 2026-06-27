@@ -576,6 +576,146 @@
     "summary" : "Unified run: message + optional team + worker in a project repo root. Answer teams return a board; execution teams run one mutating agent."
   },
   {
+    "command" : "pair slice",
+    "errors" : [
+      "PROJECT_NOT_FOUND",
+      "PAIR_SLICE_PACKET_MISSING",
+      "PAIR_SLICE_UNSAFE",
+      "PAIR_SLICE_EXECUTOR_INVALID",
+      "PAIR_SERVE_UNAVAILABLE",
+      "RUN_WRITE_LOCK_BUSY",
+      "WORKER_NOT_READY",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "not_idempotent",
+    "name" : "pair_slice",
+    "outputSchema" : "pairSliceJSON",
+    "params" : [
+      {
+        "name" : "project",
+        "required" : true,
+        "summary" : "Project id, name, or repo path.",
+        "type" : "string"
+      },
+      {
+        "name" : "packetPath",
+        "required" : false,
+        "summary" : "Path to a WorkSlicePacket .json or markdown with a work-slice-packet fence.",
+        "type" : "string"
+      },
+      {
+        "name" : "packet",
+        "required" : false,
+        "summary" : "Inline WorkSlicePacket JSON (alternative to packetPath).",
+        "type" : "object"
+      },
+      {
+        "name" : "executor",
+        "required" : false,
+        "summary" : "Mutating executor team id (default default_chat).",
+        "type" : "string"
+      },
+      {
+        "name" : "plannerWorker",
+        "required" : false,
+        "summary" : "Planner model id recorded on the slice envelope (default Composer 2.5).",
+        "type" : "string"
+      },
+      {
+        "name" : "executorWorker",
+        "required" : false,
+        "summary" : "Executor model id (default Gemini 3.5 Flash).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Dispatch one bounded work slice: gate → executor → repo-declared check. Planner seat is recorded; executor runs the packet. Pass inline `packet` JSON or a `packetPath` on disk."
+  },
+  {
+    "command" : "pair run",
+    "errors" : [
+      "PROJECT_NOT_FOUND",
+      "PAIR_SLICE_PACKET_MISSING",
+      "PAIR_SLICE_UNSAFE",
+      "PAIR_SLICE_EXECUTOR_INVALID",
+      "PAIR_SERVE_UNAVAILABLE",
+      "RUN_WRITE_LOCK_BUSY",
+      "WORKER_NOT_READY",
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "not_idempotent",
+    "name" : "pair_run",
+    "outputSchema" : "pairQueueJSON",
+    "params" : [
+      {
+        "name" : "project",
+        "required" : true,
+        "summary" : "Project id, name, or repo path.",
+        "type" : "string"
+      },
+      {
+        "name" : "queueDir",
+        "required" : true,
+        "summary" : "Directory of slice .json packets (and optional queue.json state).",
+        "type" : "string"
+      },
+      {
+        "name" : "until",
+        "required" : false,
+        "summary" : "Hard stop clock HH:MM (local).",
+        "type" : "string"
+      },
+      {
+        "name" : "maxRetries",
+        "required" : false,
+        "summary" : "Legacy stall nudge cap (optional).",
+        "type" : "integer"
+      },
+      {
+        "name" : "executorAttemptsBeforePlanner",
+        "required" : false,
+        "summary" : "GLM attempts per packet before planner takeover (default 3).",
+        "type" : "integer"
+      },
+      {
+        "name" : "executor",
+        "required" : false,
+        "summary" : "Mutating executor team id (default default_chat).",
+        "type" : "string"
+      },
+      {
+        "name" : "plannerWorker",
+        "required" : false,
+        "summary" : "Planner model id — recorded on slices and invoked on takeover (default Composer 2.5).",
+        "type" : "string"
+      },
+      {
+        "name" : "executorWorker",
+        "required" : false,
+        "summary" : "Executor model id (default Gemini 3.5 Flash).",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Run a durable slice queue unattended: executor attempts (default 3) with escalating nudges, then planner takeover once per packet, then advance."
+  },
+  {
+    "command" : "pair status",
+    "errors" : [
+      "CLI_USAGE_ERROR"
+    ],
+    "idempotency" : "idempotent",
+    "name" : "pair_status",
+    "outputSchema" : "pairStatusJSON",
+    "params" : [
+      {
+        "name" : "queueDir",
+        "required" : true,
+        "summary" : "Directory containing queue.json and slice packets.",
+        "type" : "string"
+      }
+    ],
+    "summary" : "Read slice queue state: per-entry status, child run id, elapsed time since child run started, and stall guidance."
+  },
+  {
     "command" : "team",
     "errors" : [
       "DEFAULT_TEAM_INVALID",

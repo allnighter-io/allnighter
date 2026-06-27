@@ -161,7 +161,7 @@ public struct WorkerRunner: Sendable {
         // auto-approved for headless execution. See OpenCode_Smoke_Probe_Blocker.md (OC-B1).
         if manifest.id == "opencode" {
             return await runOpenCode(
-                worker: worker, invoke: invoke, prompt: prompt, effort: effort,
+                worker: worker, manifest: manifest, invoke: invoke, prompt: prompt, effort: effort,
                 workingDirectoryOverride: workingDirectoryOverride, timeoutOverride: timeoutOverride
             )
         }
@@ -250,9 +250,10 @@ public struct WorkerRunner: Sendable {
 
     /// OpenCode run over the warm serve HTTP API: ensure serve → one session rooted at the
     /// run's working dir, tool permissions auto-approved → one prompt → answer (+ reasoning).
-    /// Replaces the (impossible) `opencode run` stdout scrape. See OC-B1.
+    /// Uses HTTP SSE streaming when `manifest.canStream`; otherwise sync POST /message.
     private func runOpenCode(
         worker: Model,
+        manifest: DriverManifest,
         invoke: DriverManifest.Invoke,
         prompt: String,
         effort: EffortLevel,
@@ -269,18 +270,44 @@ public struct WorkerRunner: Sendable {
                 startedAt: startedAt, finishedAt: now()
             )
         }
-        // invoke.workingDir is the literal "{{workingDir}}" token — never a real path; use
-        // the run's resolved dir (repo root for execute runs) or the neutral scratch.
         let directory = workingDirectoryOverride ?? defaultWorkingDirectory
             ?? AllnighterPaths.ensuredProbeScratchPath()
+            ?? FileManager.default.temporaryDirectory.path
+            ?? NSTemporaryDirectory()
         let timeout = timeoutOverride ?? .seconds(invoke.timeoutSeconds)
+        let modelLabel = worker.resolvedLabel(at: effort)
+
+        if manifest.canStream {
+            var terminal: WorkerRunOutcome?
+            do {
+                for try await event in invokeOpenCodeStreaming(
+                    prompt: prompt, modelLabel: modelLabel,
+                    directory: directory, timeout: timeout
+                ) {
+                    switch event {
+                    case .completed(let o), .failed(let o): terminal = o
+                    case .started, .answerDelta, .reasoningDelta, .rawEvent, .toolActivity: break
+                    }
+                }
+            } catch {
+                return WorkerRunOutcome(
+                    status: .failed, errorKind: .nonzeroExit,
+                    errorReason: "opencode stream: \(error)",
+                    startedAt: startedAt, finishedAt: now()
+                )
+            }
+            if let terminal { return terminal }
+            return WorkerRunOutcome(
+                status: .failed, errorKind: .emptyOutput,
+                errorReason: "opencode stream ended without terminal",
+                startedAt: startedAt, finishedAt: now()
+            )
+        }
+
         do {
             let answer = try await OpenCodeServeClient().run(
-                prompt,
-                modelLabel: worker.resolvedLabel(at: effort),
-                directory: directory,
-                autoApprove: true,
-                timeout: timeout
+                prompt, modelLabel: modelLabel, directory: directory,
+                autoApprove: true, timeout: timeout
             )
             let finishedAt = now()
             return WorkerRunOutcome(
@@ -301,6 +328,20 @@ public struct WorkerRunner: Sendable {
                 startedAt: startedAt, finishedAt: finishedAt
             )
         }
+    }
+
+    /// OpenCode HTTP SSE streaming over the warm serve API.
+    public func invokeOpenCodeStreaming(
+        prompt: String,
+        modelLabel: String,
+        directory: String,
+        timeout: Duration,
+        client: OpenCodeServeClient = OpenCodeServeClient()
+    ) -> AsyncThrowingStream<WorkerStreamEvent, Error> {
+        client.streamRun(
+            prompt, modelLabel: modelLabel, directory: directory,
+            autoApprove: true, timeout: timeout
+        )
     }
 
     /// Brain-dir + pre-run entries for the AGY transcript normalizer (nil for non-agy workers).

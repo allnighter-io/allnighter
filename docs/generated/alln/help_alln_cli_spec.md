@@ -480,6 +480,50 @@ Mutually exclusive: `--json`, `--stream`.
 
 Output schema: `teamRunJSON`.
 
+### `alln pair slice`
+
+Dispatch one bounded work slice through the pair-programming control plane.
+
+Arguments:
+- `packet-path` (required) — WorkSlicePacket .json or markdown with work-slice-packet fence.
+
+Flags:
+- `--project <id>` — Project id, name, or repo path (required).
+- `--executor <id>` — Mutating executor team id.
+- `--planner-worker <id>` — Planner model id (recorded on envelope).
+- `--executor-worker <id>` — Executor model id.
+- `--json` — Emit PairSliceJSON.
+
+Output schema: `pairSliceJSON`.
+
+### `alln pair run`
+
+Run a durable slice queue unattended until empty or deadline.
+
+Flags:
+- `--queue <path>` — Directory of slice packet JSON files.
+- `--project <id>` — Project id, name, or repo path (required).
+- `--until <time>` — Hard stop HH:MM (local).
+- `--max-retries <integer>` — Legacy stall nudge cap.
+- `--executor-attempts <integer>` — Executor attempts before planner takeover (default 3).
+- `--executor <id>` — Mutating executor team id.
+- `--planner-worker <id>` — Planner model id.
+- `--executor-worker <id>` — Executor model id.
+- `--verbose` — Append progress + run event tails to pair-verbose.log in the queue dir.
+- `--json` — Emit NDJSON progress events, then PairQueueJSON.
+
+Output schema: `pairQueueJSON`.
+
+### `alln pair status`
+
+Inspect slice queue progress, child run ages, and stall guidance.
+
+Flags:
+- `--queue <path>` — Directory containing queue.json.
+- `--json` — Emit PairStatusJSON.
+
+Output schema: `pairStatusJSON`.
+
 ### `alln team`
 
 Run a lane team on a prompt, foreground.
@@ -1135,6 +1179,10 @@ Output schema: `helpTopicsJSON`.
 | `TRY_FIX_PACKET_MISSING` | no | yes | Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet. |
 | `TRY_FIX_PACKET_UNSAFE` | yes | no | Read the gate reason; resolve the danger flag / add an actionable hypothesis + proof, then retry. |
 | `TRY_FIX_EXECUTOR_INVALID` | yes | no | Pass --executor a single mutating team that is runnable on this bench (default execution_playbook). |
+| `PAIR_SLICE_PACKET_MISSING` | yes | no | Pass `packet` (inline JSON) or `packetPath` to a WorkSlicePacket file. |
+| `PAIR_SLICE_UNSAFE` | yes | no | Fix the packet: remove danger flags, name intent, allowlist, and a complete check. |
+| `PAIR_SLICE_EXECUTOR_INVALID` | yes | no | Run `alln team show --json`; pick a single mutating runnable team for --executor. |
+| `PAIR_SERVE_UNAVAILABLE` | yes | yes | Install/start OpenCode serve or pick a non-opencode executor. |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

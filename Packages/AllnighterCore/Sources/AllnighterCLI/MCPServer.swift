@@ -218,6 +218,12 @@ struct MCPServer {
             await respondAsyncTeam(id: id, outcome: await MCPAsyncTeamHandlers.cancel(runtime: runtime, args: args))
         case "team_run":
             await respondRun(id: id, outcome: await MCPRunHandlers.run(runtime: runtime, args: args, defaultAgent: agent))
+        case "pair_slice":
+            await respondPair(id: id, outcome: await MCPPairHandlers.slice(runtime: runtime, args: args))
+        case "pair_run":
+            await respondPair(id: id, outcome: await MCPPairHandlers.run(runtime: runtime, args: args))
+        case "pair_status":
+            await respondPair(id: id, outcome: await MCPPairHandlers.status(runtime: runtime, args: args))
         case "team_ask":
             guard let q = args["question"] as? String else { return respondToolError(id: id, code: "CLI_USAGE_ERROR", message: "question required") }
             let req = TeamRequest(
@@ -437,6 +443,15 @@ struct MCPServer {
     }
 
     private func respondRun(id: Any?, outcome: MCPRunHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondPair(id: Any?, outcome: MCPPairHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))

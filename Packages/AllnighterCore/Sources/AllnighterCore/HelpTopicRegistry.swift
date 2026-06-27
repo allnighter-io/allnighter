@@ -107,6 +107,35 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "pair_programming", title: "Pair Programming (slice queue)", audience: .both,
+            summary: "Dispatch bounded work slices: planner authors packets; executor hammers; Allnighter runs repo checks and advances the queue.",
+            bodyMarkdown: """
+            Pair programming is the control plane for unattended slice work. A planner \
+            (typically Composer) authors a typed `WorkSlicePacket` with intent, a read \
+            budget, a touch allowlist, and a repo-owned check command. `pair_slice` \
+            dispatches one unit; `pair_run` walks a queue directory until empty or a \
+            deadline, emitting per-slice heartbeat progress (human or NDJSON with `--json`). \
+            `pair_status` reads queue.json plus child run ages for PM visibility. On each \
+            packet the executor gets up to three attempts with escalating nudges; after \
+            the third failure the planner seat (Composer) takes over that slice once, then \
+            the queue advances. Default test seats: planner Composer 2.5, executor Gemini \
+            — override with `plannerWorker` / `executorWorker`. Allnighter never owns git \
+            or correctness; it gates danger, runs the check, and surfaces pass/fail.
+            """,
+            aliases: ["pair slice", "pair run", "pair status", "overnight queue", "hammer", "work slice", "supervisor"],
+            sections: [
+                .init("seats", "Planner vs executor", "The planner authors the packet outside the run; the executor is the single mutating worker Allnighter dispatches. One writer per repo root at a time."),
+                .init("retry", "Three-strike loop", "Executor attempts default to 3 per packet (`executorAttemptsBeforePlanner`). Failures nudge and retry; after the budget the planner worker implements the slice once, then the queue moves on."),
+                .init("safety", "Allowlist", "Every mutating packet must declare `touchAllowlist`. Slices touching undeclared paths are blocked, not dispatched."),
+                .init("observability", "Heartbeat + status", "`pair run` emits per-slice progress; `pair status` reports child run elapsed time and stall guidance. Stale `running` entries reconcile at queue start when the child run is dead."),
+            ],
+            relatedToolIds: ["pair_slice", "pair_run", "pair_status", "project_get", "doctor", "floor_show"],
+            relatedCommandNames: ["pair slice", "pair run", "pair status", "project add", "project show"],
+            schemaRefs: ["pairSliceJSON", "pairQueueJSON", "pairStatusJSON", "pairQueueProgressJSON"],
+            errorRefs: ["PAIR_SLICE_PACKET_MISSING", "PAIR_SLICE_UNSAFE", "PAIR_SLICE_EXECUTOR_INVALID", "PAIR_SERVE_UNAVAILABLE", "PROJECT_NOT_FOUND"],
+            needsLiveCheck: true),
+
+        HelpTopic(
             id: "teams_and_workers", title: "Teams, Workers & Skills", audience: .both,
             summary: "Teams are lane-scoped rosters of workers (a model + skill); manage built-ins and custom copies in the catalog.",
             bodyMarkdown: """

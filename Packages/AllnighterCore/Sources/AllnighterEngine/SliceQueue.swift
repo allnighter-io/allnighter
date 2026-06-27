@@ -15,6 +15,9 @@ public struct SliceQueueEntry: Codable, Sendable, Equatable, Identifiable {
     public var checkExitCode: Int32?
     public var lastStdoutTail: String?
     public var escalatedReason: String?
+    /// `executor` when GLM passed the check; `planner` after planner takeover.
+    public var resolvedBy: String?
+    public var plannerRunId: String?
 
     public init(
         packet: WorkSlicePacket,
@@ -24,7 +27,9 @@ public struct SliceQueueEntry: Codable, Sendable, Equatable, Identifiable {
         childRunId: String? = nil,
         checkExitCode: Int32? = nil,
         lastStdoutTail: String? = nil,
-        escalatedReason: String? = nil
+        escalatedReason: String? = nil,
+        resolvedBy: String? = nil,
+        plannerRunId: String? = nil
     ) {
         self.packet = packet
         self.status = status
@@ -34,6 +39,8 @@ public struct SliceQueueEntry: Codable, Sendable, Equatable, Identifiable {
         self.checkExitCode = checkExitCode
         self.lastStdoutTail = lastStdoutTail
         self.escalatedReason = escalatedReason
+        self.resolvedBy = resolvedBy
+        self.plannerRunId = plannerRunId
     }
 }
 

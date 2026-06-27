@@ -28,6 +28,16 @@
     "doneSignal": "exit_code",
     "sentinel": null
   },
+  "streaming": {
+    "supported": true,
+    "mode": "jsonl_stdout",
+    "args": [],
+    "partialOutput": true,
+    "answerDeltaPaths": [],
+    "finalAnswerSource": "parser_accumulator",
+    "stripAnsi": true,
+    "visibleReasoning": false
+  },
   "setup": {
     "bins": ["opencode"],
     "knownPaths": [

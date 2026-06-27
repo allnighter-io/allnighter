@@ -603,6 +603,42 @@
     "ruleId" : "try_fix.executor.invalid"
   },
   {
+    "agentAction" : "Pass `packet` (inline JSON) or `packetPath` to a WorkSlicePacket file.",
+    "code" : "PAIR_SLICE_PACKET_MISSING",
+    "exitClass" : "operational",
+    "explain" : "No typed work slice packet was provided or the file could not be parsed.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "pair.slice.packet_missing"
+  },
+  {
+    "agentAction" : "Fix the packet: remove danger flags, name intent, allowlist, and a complete check.",
+    "code" : "PAIR_SLICE_UNSAFE",
+    "exitClass" : "operational",
+    "explain" : "The slice packet failed the safety gate (danger, missing allowlist, incomplete check, etc.).",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "pair.slice.unsafe"
+  },
+  {
+    "agentAction" : "Run `alln team show --json`; pick a single mutating runnable team for --executor.",
+    "code" : "PAIR_SLICE_EXECUTOR_INVALID",
+    "exitClass" : "operational",
+    "explain" : "The executor team is missing, not mutating, not runnable, or does not resolve to exactly one worker.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "pair.slice.executor_invalid"
+  },
+  {
+    "agentAction" : "Install\/start OpenCode serve or pick a non-opencode executor.",
+    "code" : "PAIR_SERVE_UNAVAILABLE",
+    "exitClass" : "operational",
+    "explain" : "The OpenCode serve coordinator could not start or pass health check for an opencode executor.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "pair.serve.unavailable"
+  },
+  {
     "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
     "code" : "THREAD_SEND_FAILED",
     "exitClass" : "operational",

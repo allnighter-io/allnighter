@@ -111,4 +111,51 @@ final class OpenCodeServeClientTests: XCTestCase {
         XCTAssertEqual(answer.text, "DONE")
         XCTAssertEqual(answer.reasoning, "thinking hard")
     }
+
+    func testStreamRunFixtureYieldsDeltasAndTerminal() async throws {
+        let sessionJSON = #"{"id":"ses_stream"}"#
+        let sseBody = """
+        data: {"type":"message.part.updated","properties":{"part":{"type":"text","text":"READY"},"delta":"READY"}}
+
+        data: {"type":"session.idle","properties":{}}
+
+        """
+        let transport: OpenCodeServeClient.Transport = { req in
+            let url = req.url!.absoluteString
+            if url.hasSuffix("/prompt_async") {
+                let resp = HTTPURLResponse(url: req.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!
+                return (Data(), resp)
+            }
+            if url.hasSuffix("/event") {
+                XCTFail("SSE should use sseTransport, not transport")
+            }
+            let body = sessionJSON
+            let resp = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (Data(body.utf8), resp)
+        }
+        let sseTransport: OpenCodeServeClient.SSETransport = { req in
+            XCTAssertTrue(req.url!.absoluteString.hasSuffix("/event"))
+            return AsyncThrowingStream { continuation in
+                continuation.yield(Data(sseBody.utf8))
+                continuation.finish()
+            }
+        }
+        let client = OpenCodeServeClient(transport: transport, sseTransport: sseTransport)
+        var deltas: [String] = []
+        var terminal: WorkerRunOutcome?
+        for try await event in client.streamRun(
+            "Reply READY", modelLabel: "featherless/zai-org/GLM-5.2",
+            autoApprove: true, timeout: .seconds(5)
+        ) {
+            switch event {
+            case .answerDelta(let text, _, _): deltas.append(text)
+            case .completed(let o): terminal = o
+            case .failed(let o): terminal = o
+            default: break
+            }
+        }
+        XCTAssertEqual(deltas.joined(), "READY")
+        XCTAssertEqual(terminal?.status, .done)
+        XCTAssertEqual(terminal?.output, "READY")
+    }
 }

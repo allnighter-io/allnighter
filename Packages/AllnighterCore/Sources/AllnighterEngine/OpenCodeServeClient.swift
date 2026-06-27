@@ -12,6 +12,8 @@ public struct OpenCodeServeClient: Sendable {
     public enum ClientError: Error, Sendable, Equatable {
         case sessionCreateFailed(String)
         case messageFailed(String)
+        case promptAsyncFailed(String)
+        case streamFailed(String)
         case emptyAnswer
     }
 
@@ -25,16 +27,21 @@ public struct OpenCodeServeClient: Sendable {
     /// Injectable HTTP transport so the capture path is fixture-testable without live
     /// network (the OpenCode regression law requires a fixture-backed test).
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    /// Injectable SSE byte stream for `GET /event` (fixture tests yield canned SSE bodies).
+    public typealias SSETransport = @Sendable (URLRequest) async throws -> AsyncThrowingStream<Data, Error>
 
     public let baseURL: URL
     private let transport: Transport
+    private let sseTransport: SSETransport
 
     public init(
         baseURL: URL = OpenCodeServeCoordinator.defaultURL,
-        transport: @escaping Transport = { try await URLSession.shared.data(for: $0) }
+        transport: @escaping Transport = { try await URLSession.shared.data(for: $0) },
+        sseTransport: @escaping SSETransport = OpenCodeServeClient.defaultSSETransport
     ) {
         self.baseURL = baseURL
         self.transport = transport
+        self.sseTransport = sseTransport
     }
 
     /// Split an OpenCode model label ("featherless/zai-org/GLM-5.2") into the API's
@@ -101,6 +108,126 @@ public struct OpenCodeServeClient: Sendable {
             throw ClientError.sessionCreateFailed(Self.snippet(data))
         }
         return id
+    }
+
+    /// Fire-and-forget prompt over `POST /session/{id}/prompt_async` (204).
+    public func promptAsync(
+        sessionID: String,
+        text: String,
+        providerID: String,
+        modelID: String,
+        timeout: Duration = .seconds(180)
+    ) async throws {
+        let url = baseURL.appendingPathComponent("session")
+            .appendingPathComponent(sessionID).appendingPathComponent("prompt_async")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.timeoutInterval = Self.seconds(timeout)
+        let body: [String: Any] = [
+            "model": ["providerID": providerID, "modelID": modelID],
+            "parts": [["type": "text", "text": text]],
+        ]
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await transport(req)
+        if let problem = Self.httpProblem(response, data) {
+            throw ClientError.promptAsyncFailed(problem)
+        }
+    }
+
+    /// Create session → subscribe SSE → prompt_async → stream deltas until idle.
+    public func streamRun(
+        _ text: String,
+        modelLabel: String,
+        directory: String? = nil,
+        autoApprove: Bool = false,
+        timeout: Duration = .seconds(180)
+    ) -> AsyncThrowingStream<WorkerStreamEvent, Error> {
+        let model = Self.splitModelLabel(modelLabel)
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                let startedAt = Date()
+                do {
+                    let sessionID = try await createSession(
+                        directory: directory, autoApprove: autoApprove, timeout: timeout)
+                    continuation.yield(.started(workerId: "opencode", modelId: modelLabel, sourceId: "opencode"))
+
+                    let sseURL = baseURL.appendingPathComponent("event")
+                    var sseReq = URLRequest(url: sseURL)
+                    sseReq.httpMethod = "GET"
+                    sseReq.timeoutInterval = Self.seconds(timeout)
+
+                    let parser = OpenCodeSSEParser()
+                    let idleGate = IdleGate()
+
+                    let consume = Task {
+                        do {
+                            let byteStream = try await sseTransport(sseReq)
+                            for try await chunk in byteStream {
+                                for event in parser.receive(chunk) {
+                                    if Self.isIdleSignal(event) {
+                                        await idleGate.signal()
+                                        continue
+                                    }
+                                    continuation.yield(event)
+                                }
+                                if await idleGate.isSignaled { break }
+                            }
+                            for event in parser.flush() {
+                                if Self.isIdleSignal(event) { await idleGate.signal(); continue }
+                                continuation.yield(event)
+                            }
+                            await idleGate.signal()
+                        } catch {
+                            await idleGate.signal()
+                        }
+                    }
+
+                    try await promptAsync(
+                        sessionID: sessionID, text: text,
+                        providerID: model.providerID, modelID: model.modelID, timeout: timeout)
+
+                    let deadline = Date().addingTimeInterval(Self.seconds(timeout))
+                    while await !idleGate.isSignaled, Date() < deadline {
+                        try await Task.sleep(nanoseconds: 50_000_000)
+                    }
+                    consume.cancel()
+
+                    let finishedAt = Date()
+                    let answerText = parser.accumulatedAnswer
+                    if answerText.isEmpty {
+                        var outcome = WorkerRunOutcome(
+                            status: .failed, errorKind: .emptyOutput,
+                            errorReason: "opencode stream: empty answer",
+                            startedAt: startedAt, finishedAt: finishedAt)
+                        outcome.durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
+                        continuation.yield(.failed(outcome))
+                    } else {
+                        var outcome = WorkerRunOutcome(
+                            status: .done, output: answerText,
+                            startedAt: startedAt, finishedAt: finishedAt)
+                        outcome.durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
+                        let reasoning = parser.accumulatedReasoning
+                        outcome.reasoning = reasoning.isEmpty ? nil : reasoning
+                        continuation.yield(.completed(outcome))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { @Sendable _ in task.cancel() }
+        }
+    }
+
+    private static func isIdleSignal(_ event: WorkerStreamEvent) -> Bool {
+        guard case .rawEvent(_, let json) = event else { return false }
+        return json.contains("session.idle") || json.contains(#""status":"idle"#)
+    }
+
+    private actor IdleGate {
+        private(set) var isSignaled = false
+        func signal() { isSignaled = true }
     }
 
     func sendMessage(
@@ -182,5 +309,34 @@ public struct OpenCodeServeClient: Sendable {
 
     private static func snippet(_ data: Data) -> String {
         String(decoding: data.prefix(300), as: UTF8.self)
+    }
+
+    /// Live SSE transport over URLSession byte streaming.
+    public static func defaultSSETransport(_ request: URLRequest) async throws -> AsyncThrowingStream<Data, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                        continuation.finish(throwing: ClientError.streamFailed("SSE HTTP error"))
+                        return
+                    }
+                    var lineBuffer = Data()
+                    let newline = UInt8(ascii: "\n")
+                    for try await byte in bytes {
+                        lineBuffer.append(byte)
+                        if byte == newline {
+                            continuation.yield(lineBuffer)
+                            lineBuffer = Data()
+                        }
+                    }
+                    if !lineBuffer.isEmpty { continuation.yield(lineBuffer) }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { @Sendable _ in task.cancel() }
+        }
     }
 }

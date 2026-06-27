@@ -273,10 +273,10 @@ already did the work — leverage → 1) and any notion that Allnighter authors 
 
 ### PPT-3 — Planner automation (close the loop)
 
-| Slice | Deliverable |
-| --- | --- |
-| PPT-S13 | `WorkSlicePlan` authoring: large-context worker (or Composer seat) emits the batch as structured output |
-| PPT-S14 | Auto re-engage planner on escalation |
+| Slice | Deliverable | Status |
+| --- | --- | --- |
+| PPT-S13 | `WorkSlicePlan` authoring: large-context worker (or Composer seat) emits the batch as structured output | open |
+| PPT-S14 | Auto re-engage planner on escalation — **three GLM attempts → planner takeover once → advance queue** | **done (MCP + CLI)** |
 
 ### PPT-4 — Mac GUI (last; "send to team", projection-only)
 
@@ -356,6 +356,7 @@ If V3 needs you awake, the feature is not done.
 | Stall / compaction | `StalledWorkDetector.swift`, `StallRecoveryService.swift` |
 | Persist queue / link runs | `RunStore.swift`, `TeamRun.swift` (`RunLink`) |
 | Add the CLI | `AllnighterCLI.swift`, `PairCLI.swift`, `RunCLI.swift` |
+| MCP orchestration | `pair_slice`, `pair_run` MCP tools + `MCPPairHandlers.swift` |
 | Slice packet format | `docs/phases/sprint/README.md` |
 | First proven slice (reference executor run) | `git show a4e88754` — `TextUtil.stripReasoningBlocks` + its check |
 ```

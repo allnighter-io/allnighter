@@ -66,24 +66,34 @@ public struct PairQueueJSON: Codable, Equatable, Sendable {
         public var checkExitCode: Int?
         public var childRunId: String?
         public var escalatedReason: String?
+        public var resolvedBy: String?
+        public var plannerRunId: String?
+        public var executorAttempts: Int?
 
         public init(
             sliceId: String,
             status: String,
             checkExitCode: Int? = nil,
             childRunId: String? = nil,
-            escalatedReason: String? = nil
+            escalatedReason: String? = nil,
+            resolvedBy: String? = nil,
+            plannerRunId: String? = nil,
+            executorAttempts: Int? = nil
         ) {
             self.sliceId = sliceId
             self.status = status
             self.checkExitCode = checkExitCode
             self.childRunId = childRunId
             self.escalatedReason = escalatedReason
+            self.resolvedBy = resolvedBy
+            self.plannerRunId = plannerRunId
+            self.executorAttempts = executorAttempts
         }
     }
 
     public var contractVersion: String
     public var passed: Int
+    public var plannerResolved: Int
     public var escalated: Int
     public var stoppedReason: String?
     public var slices: [SliceResult]
@@ -91,12 +101,14 @@ public struct PairQueueJSON: Codable, Equatable, Sendable {
     public init(
         contractVersion: String,
         passed: Int,
+        plannerResolved: Int = 0,
         escalated: Int,
         stoppedReason: String? = nil,
         slices: [SliceResult]
     ) {
         self.contractVersion = contractVersion
         self.passed = passed
+        self.plannerResolved = plannerResolved
         self.escalated = escalated
         self.stoppedReason = stoppedReason
         self.slices = slices
@@ -113,3 +125,69 @@ public extension PairSliceJSON.Gate {
         }
     }
 }
+
+/// NDJSON progress events emitted during `pair run` (before the final summary).
+public struct PairQueueProgressJSON: Codable, Equatable, Sendable {
+    public var contractVersion: String
+    public var event: String
+    public var sliceId: String
+    public var status: String?
+    public var elapsedSeconds: Int?
+
+    public init(
+        contractVersion: String,
+        event: String,
+        sliceId: String,
+        status: String? = nil,
+        elapsedSeconds: Int? = nil
+    ) {
+        self.contractVersion = contractVersion
+        self.event = event
+        self.sliceId = sliceId
+        self.status = status
+        self.elapsedSeconds = elapsedSeconds
+    }
+}
+
+/// `alln pair status` / MCP `pair_status` wire shape.
+public struct PairStatusJSON: Codable, Equatable, Sendable {
+    public struct Entry: Codable, Equatable, Sendable {
+        public var sliceId: String
+        public var status: String
+        public var childRunId: String?
+        public var elapsedSeconds: Int?
+        public var guidance: String
+
+        public init(
+            sliceId: String,
+            status: String,
+            childRunId: String? = nil,
+            elapsedSeconds: Int? = nil,
+            guidance: String
+        ) {
+            self.sliceId = sliceId
+            self.status = status
+            self.childRunId = childRunId
+            self.elapsedSeconds = elapsedSeconds
+            self.guidance = guidance
+        }
+    }
+
+    public var contractVersion: String
+    public var queuePath: String
+    public var entries: [Entry]
+
+    public init(contractVersion: String, queuePath: String, entries: [Entry]) {
+        self.contractVersion = contractVersion
+        self.queuePath = queuePath
+        self.entries = entries
+    }
+}
+
+/// Progress events surfaced by `PairCoordinator.runQueue`.
+public enum PairQueueProgressEvent: Sendable, Equatable {
+    case sliceRunning(sliceId: String)
+    case sliceFinished(sliceId: String, status: String, elapsedSeconds: Int)
+}
+
+public typealias PairQueueProgressHandler = @Sendable (PairQueueProgressEvent) -> Void
