@@ -35,20 +35,6 @@ public enum SliceTerminalClassifier {
             return .compacting
         }
 
-        // Advisory review: repo-owned check + findings file is the deliverable (stream may be empty).
-        if packet.isAdvisoryReview {
-            if !input.check.skipped && !input.check.timedOut && input.check.exitCode == 0 {
-                return .passed
-            }
-            if input.check.timedOut || input.check.exitCode != 0 || input.check.skipped {
-                return .failed
-            }
-            if outcome.status != .done {
-                return isStalled(outcome: outcome, packet: packet, now: input.now) ? .stalled : .failed
-            }
-            return .failed
-        }
-
         if outcome.status != .done {
             return isStalled(outcome: outcome, packet: packet, now: input.now) ? .stalled : .failed
         }

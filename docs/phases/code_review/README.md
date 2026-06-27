@@ -66,10 +66,13 @@ Verify worker defaults P0 claims to **Reject** unless upheld in inlined source.
 
 Disable verify: `PAIR_CR_VERIFY=0`. Disable parallel: `PAIR_CR_PARALLEL=0`.
 
-### Terminal success (review mode)
+### Terminal success (tool-only completions)
 
-For `mode=review` or `reviewVerify`: **check pass ⇒ slice pass**, even when OpenCode
-stream is empty (tool-write path). See `SliceTerminalClassifier` + dogfood CR-01.
+OpenCode streaming treats **tool-only completions** as worker success when tools
+ran and `session.idle` was observed — even with no closing assistant text. See
+`OpenCodeServeClient.streamRun` and `OpenCodeServeClientTests.testStreamRunToolOnlyCompletionIsDone`.
+`SliceTerminalClassifier` uses the normal path: worker `.done` + check pass ⇒ slice pass.
+No review-mode special casing.
 
 ### Symbol stubs
 

@@ -4,9 +4,9 @@ Updated: 2026-06-27
 
 | ID | Target | Lens | Est. read | Status | Findings |
 | --- | --- | --- | --- | --- | --- |
-| [CR-01](tasks/CR-01-run-write-lock.md) | `RunWriteLock` + registry | Concurrency invariant | ~120 lines | **done** (check pass; slice failed empty_output) | [triaged](phase1-runlog.md) |
-| [CR-02](tasks/CR-02-slice-terminal-classifier.md) | `SliceTerminalClassifier` | Compaction ≠ stall (F2) | ~65 lines | **ready** | — |
-| [CR-03](tasks/CR-03-slice-gate.md) | `SliceGate` | Scope + danger enforcement | ~60 lines | **ready** | — |
+| [CR-01](tasks/CR-01-run-write-lock.md) | `RunWriteLock` + registry | Concurrency invariant | ~120 lines | **done** | [triaged](triage/CR-01-findings.md) → RUNLOCK-S01/S02 |
+| [CR-02](tasks/CR-02-slice-terminal-classifier.md) | `SliceTerminalClassifier` | Compaction ≠ stall (F2) | ~65 lines | **done** | [triaged](triage/CR-02-findings.md) |
+| [CR-03](tasks/CR-03-slice-gate.md) | `SliceGate` | Scope + danger enforcement | ~60 lines | **done** | [triaged](triage/CR-03-findings.md) |
 | [CR-04](tasks/CR-04-check-runner.md) | `CheckRunner` | Subprocess boundary safety | ~70 lines | **ready** | — |
 | [CR-05](tasks/CR-05-opencode-serve.md) | `OpenCodeServeCoordinator` | GLM serve lifecycle | ~95 lines | **ready** | — |
 | [CR-06](tasks/CR-06-pair-queue-loop.md) | `PairCoordinator.runQueue` | Retry / escalate / compact | ~250 lines | **ready** | — |

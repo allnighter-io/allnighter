@@ -61,6 +61,15 @@ Pair-programming loop (supervisor + hammer, stall/nudge):
 
 SSOT: `docs/phases/Pair_Programming_Team.md`
 
+### RunWriteLock (from code review CR-01)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [RUNLOCK-S01 — owner-token release](runlock/RUNLOCK-S01-owner-token-release.md) | **ready** |
+| 2 | [RUNLOCK-S02 — canonical key symlinks](runlock/RUNLOCK-S02-canonical-key-symlinks.md) | **ready** |
+
+Source: [`code_review/triage/CR-01-findings.md`](../code_review/triage/CR-01-findings.md)
+
 ## Creating a new work order
 
 ```text
