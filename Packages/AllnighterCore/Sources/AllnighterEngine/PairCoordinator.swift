@@ -125,7 +125,9 @@ public struct PairCoordinator: Sendable {
             repoRoot: repoRoot
         )
 
-        let prompt = SliceAttemptPrompt.assemble(packet: packet, nudge: nudge)
+        let prompt = packet.isReviewMode
+            ? ReviewAttemptPrompt.assemble(packet: packet, nudge: nudge)
+            : SliceAttemptPrompt.assemble(packet: packet, nudge: nudge)
         let childRequest = RunRequest(
             message: prompt,
             repoRoot: repoRoot,

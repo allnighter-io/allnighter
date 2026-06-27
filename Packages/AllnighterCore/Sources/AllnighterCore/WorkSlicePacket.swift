@@ -39,6 +39,24 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
         }
     }
 
+    public enum Mode: String, Codable, Sendable {
+        case implement
+        case review
+    }
+
+    /// Pre-inlined file chunks so the executor never tool-reads (Pair F4 / code_review).
+    public struct InlinedSource: Codable, Sendable, Equatable {
+        public var path: String
+        public var lineRange: String?
+        public var content: String
+
+        public init(path: String, lineRange: String? = nil, content: String) {
+            self.path = path
+            self.lineRange = lineRange
+            self.content = content
+        }
+    }
+
     public var schemaVersion: Int
     public var sliceId: String
     public var title: String
@@ -53,6 +71,10 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
     public var stallTimeoutSeconds: Int
     public var compactionGraceSeconds: Int
     public var dangerFlags: [String]
+    public var mode: Mode
+    public var inlinedSources: [InlinedSource]
+
+    public var isReviewMode: Bool { mode == .review }
 
     public init(
         schemaVersion: Int = 1,
@@ -68,7 +90,9 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
         maxRetries: Int = 2,
         stallTimeoutSeconds: Int = 300,
         compactionGraceSeconds: Int = 180,
-        dangerFlags: [String] = []
+        dangerFlags: [String] = [],
+        mode: Mode = .implement,
+        inlinedSources: [InlinedSource] = []
     ) {
         self.schemaVersion = schemaVersion
         self.sliceId = sliceId
@@ -84,6 +108,8 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
         self.stallTimeoutSeconds = stallTimeoutSeconds
         self.compactionGraceSeconds = compactionGraceSeconds
         self.dangerFlags = dangerFlags
+        self.mode = mode
+        self.inlinedSources = inlinedSources
     }
 
     public init(from decoder: Decoder) throws {
@@ -102,6 +128,8 @@ public struct WorkSlicePacket: Codable, Sendable, Equatable {
         stallTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .stallTimeoutSeconds) ?? 300
         compactionGraceSeconds = try c.decodeIfPresent(Int.self, forKey: .compactionGraceSeconds) ?? 180
         dangerFlags = try c.decodeIfPresent([String].self, forKey: .dangerFlags) ?? []
+        mode = try c.decodeIfPresent(Mode.self, forKey: .mode) ?? .implement
+        inlinedSources = try c.decodeIfPresent([InlinedSource].self, forKey: .inlinedSources) ?? []
     }
 }
 
