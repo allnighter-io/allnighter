@@ -4,7 +4,7 @@ Updated: 2026-06-27
 
 | ID | Target | Lens | Est. read | Status | Findings |
 | --- | --- | --- | --- | --- | --- |
-| [CR-01](tasks/CR-01-run-write-lock.md) | `RunWriteLock` + registry | Concurrency invariant | ~120 lines | **ready** | — |
+| [CR-01](tasks/CR-01-run-write-lock.md) | `RunWriteLock` + registry | Concurrency invariant | ~120 lines | **done** (check pass; slice failed empty_output) | [triaged](phase1-runlog.md) |
 | [CR-02](tasks/CR-02-slice-terminal-classifier.md) | `SliceTerminalClassifier` | Compaction ≠ stall (F2) | ~65 lines | **ready** | — |
 | [CR-03](tasks/CR-03-slice-gate.md) | `SliceGate` | Scope + danger enforcement | ~60 lines | **ready** | — |
 | [CR-04](tasks/CR-04-check-runner.md) | `CheckRunner` | Subprocess boundary safety | ~70 lines | **ready** | — |
