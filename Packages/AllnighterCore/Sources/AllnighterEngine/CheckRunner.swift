@@ -43,7 +43,7 @@ public struct CheckRunner: Sendable {
                 command: "/bin/sh",
                 args: ["-c", command],
                 stdin: nil,
-                env: ProcessInfo.processInfo.environment,
+                env: Self.minimalCheckEnvironment(),
                 workingDirectory: repoRoot,
                 timeout: timeout
             )
@@ -62,5 +62,42 @@ public struct CheckRunner: Sendable {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > stdoutTailLimit else { return trimmed }
         return String(trimmed.suffix(stdoutTailLimit))
+    }
+
+    private static let baseEnvironmentKeys = ["PATH", "HOME", "LANG", "TMPDIR"]
+
+    private static let credentialKeyPrefixes = [
+        "OPENAI_",
+        "ANTHROPIC_",
+        "FEATHERLESS_",
+        "GEMINI_",
+        "XAI_",
+        "CURSOR_",
+        "GITHUB_",
+        "AWS_",
+        "AZURE_",
+        "GOOGLE_",
+        "HF_",
+        "HUGGINGFACE_",
+    ]
+
+    /// Minimal allowlisted environment for repo-declared check subprocesses.
+    static func minimalCheckEnvironment(
+        from parent: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String: String] {
+        var env: [String: String] = [:]
+        for key in baseEnvironmentKeys {
+            if let value = parent[key] {
+                env[key] = value
+            }
+        }
+        for (key, value) in parent where key.hasPrefix("ALLN_") {
+            env[key] = value
+        }
+        return env.filter { !isCredentialEnvironmentKey($0.key) }
+    }
+
+    private static func isCredentialEnvironmentKey(_ key: String) -> Bool {
+        credentialKeyPrefixes.contains { key.hasPrefix($0) }
     }
 }
