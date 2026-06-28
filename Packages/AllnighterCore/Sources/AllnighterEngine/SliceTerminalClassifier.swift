@@ -38,11 +38,13 @@ public enum SliceTerminalClassifier {
         if outcome.status != .done {
             return isStalled(outcome: outcome, packet: packet, now: input.now) ? .stalled : .failed
         }
-        let visible = (outcome.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if visible.isEmpty { return .stalled }
         if input.check.skipped { return .passed }
         if input.check.timedOut { return .failed }
         if input.check.exitCode != 0 { return .failed }
+        let visible = (outcome.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if visible.isEmpty {
+            return packet.isAdvisoryReview ? .passed : .stalled
+        }
         return .passed
     }
 
