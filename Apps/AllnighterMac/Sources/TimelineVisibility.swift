@@ -30,14 +30,12 @@ enum TimelineReadClearance {
         let geometricallyVisible = Set(
             Self.geometricallyVisibleTurnIds(frames: frames, viewport: viewport, threshold: intersectionThreshold)
         )
-        return thread.turns.map(\.id).filter { id in
-            guard geometricallyVisible.contains(id),
-                  let turn = thread.turns.first(where: { $0.id == id })
-            else { return false }
+        return thread.turns.compactMap { turn in
+            guard geometricallyVisible.contains(turn.id) else { return nil }
             if UnreadDerivation.isUnreadEligible(turn) {
-                return countsTowardReadClear(turn)
+                return countsTowardReadClear(turn) ? turn.id : nil
             }
-            return true
+            return turn.id
         }
     }
 
@@ -56,11 +54,20 @@ enum TimelineReadClearance {
 
 // MARK: - Preference keys
 
+/// O(1) per emitter — each row reports a single turn frame; avoids O(n²) `Dictionary.merge`.
+enum TurnFrameAccumulator {
+    static func absorb(_ value: inout [String: CGRect], frames: [String: CGRect]) {
+        for (id, frame) in frames {
+            value[id] = frame
+        }
+    }
+}
+
 private struct TurnFramePreference: PreferenceKey {
     static let defaultValue: [String: CGRect] = [:]
 
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, rhs in rhs })
+        TurnFrameAccumulator.absorb(&value, frames: nextValue())
     }
 }
 
@@ -93,11 +100,31 @@ extension View {
     }
 }
 
+/// Coalesces read-clear work to one report per main-queue tick when scroll co-updates
+/// `turnFrames` and `viewport` on the same frame.
+@MainActor
+final class TimelineReadClearReportGate {
+    private var pending = false
+    private(set) var fireCount = 0
+
+    func schedule(_ action: @escaping @MainActor () -> Void) {
+        guard !pending else { return }
+        pending = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.pending = false
+            self.fireCount += 1
+            action()
+        }
+    }
+}
+
 private struct TimelineVisibilityTrackingModifier: ViewModifier {
     let thread: WorkThread
     @Environment(ThreadsViewModel.self) private var threads
     @State private var turnFrames: [String: CGRect] = [:]
     @State private var viewport: CGRect = .null
+    @State private var reportGate = TimelineReadClearReportGate()
 
     func body(content: Content) -> some View {
         content
@@ -109,11 +136,13 @@ private struct TimelineVisibilityTrackingModifier: ViewModifier {
                     )
                 }
             )
-            .onPreferenceChange(TurnFramePreference.self) { turnFrames = $0 }
-            .onPreferenceChange(ScrollViewportPreference.self) { viewport = $0 }
-            .onChange(of: turnFrames) { _, _ in report() }
-            .onChange(of: viewport) { _, _ in report() }
-            .onChange(of: thread.turns.count) { _, _ in report() }
+            .onPreferenceChange(TurnFramePreference.self) { turnFrames = $0; scheduleReport() }
+            .onPreferenceChange(ScrollViewportPreference.self) { viewport = $0; scheduleReport() }
+            .onChange(of: thread.turns.count) { _, _ in scheduleReport() }
+    }
+
+    private func scheduleReport() {
+        reportGate.schedule { report() }
     }
 
     private func report() {
@@ -166,6 +195,7 @@ enum TimelineScrollPolicy {
         return nil
     }
 
+    @MainActor
     static func scrollOnThreadOpen(
         proxy: ScrollViewProxy,
         pendingTarget: String?,
@@ -184,6 +214,7 @@ enum TimelineScrollPolicy {
         }
     }
 
+    @MainActor
     static func scrollOnTurnCountChange(
         proxy: ScrollViewProxy,
         thread: WorkThread,
@@ -208,21 +239,23 @@ enum TimelineScrollPolicy {
 
     /// After submit the user must see their message — pin to the timeline bottom sentinel
     /// (not merely the last turn id) so the full outgoing bubble is in view.
+    @MainActor
     static func scrollToBottom(
         proxy: ScrollViewProxy,
         bottomAnchorId: String,
         animated: Bool
     ) {
-        let scroll = {
+        if animated {
+            withAnimation {
+                proxy.scrollTo(bottomAnchorId, anchor: .bottom)
+            }
+        } else {
             proxy.scrollTo(bottomAnchorId, anchor: .bottom)
         }
-        if animated {
-            withAnimation { scroll() }
-        } else {
-            scroll()
-        }
         // A second pass after layout catches the newly appended user row.
-        DispatchQueue.main.async { scroll() }
+        Task { @MainActor in
+            proxy.scrollTo(bottomAnchorId, anchor: .bottom)
+        }
     }
 
     /// RLS-S04 auto-follow: a streaming answer grows the LAST turn's text without changing

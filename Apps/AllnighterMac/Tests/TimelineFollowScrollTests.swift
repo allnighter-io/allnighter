@@ -129,4 +129,58 @@ final class TimelineFollowScrollTests: XCTestCase {
         )
         XCTAssertEqual(action, .scrollToFirstUnread("w1"))
     }
+
+    // MARK: read-clear perf (TIMELINE-S01)
+
+    private func workerTurn(_ id: String, y: CGFloat) -> (ThreadTurn, CGRect) {
+        let turn = ThreadTurn(
+            id: id, threadId: "th", kind: .workerChat, status: .done,
+            createdAt: Date(), completedAt: Date(), author: .worker, text: id
+        )
+        let frame = CGRect(x: 0, y: y, width: 400, height: 80)
+        return (turn, frame)
+    }
+
+    func testVisibleTurnIdsForReadClearWithManyTurns() {
+        let viewport = CGRect(x: 0, y: 500, width: 400, height: 200)
+        var turns: [ThreadTurn] = []
+        var frames: [String: CGRect] = [:]
+        for i in 0..<2_000 {
+            let (turn, frame) = workerTurn("w\(i)", y: CGFloat(i) * 90)
+            turns.append(turn)
+            frames[turn.id] = frame
+        }
+        let thread = WorkThread(
+            id: "th", title: "t", createdAt: Date(), updatedAt: Date(), turns: turns
+        )
+
+        let start = CFAbsoluteTimeGetCurrent()
+        let visible = TimelineReadClearance.visibleTurnIdsForReadClear(
+            thread: thread, frames: frames, viewport: viewport
+        )
+        let elapsed = CFAbsoluteTimeGetCurrent() - start
+
+        XCTAssertEqual(visible, ["w5", "w6", "w7"], "only turns intersecting the viewport qualify")
+        XCTAssertLessThan(elapsed, 0.05, "linear pass must stay fast at 2k turns")
+    }
+
+    func testTurnFrameAccumulatorAbsorbsManySingleKeyFrames() {
+        var frames: [String: CGRect] = [:]
+        let n = 5_000
+        for i in 0..<n {
+            TurnFrameAccumulator.absorb(&frames, frames: ["t\(i)": CGRect(x: 0, y: CGFloat(i), width: 1, height: 1)])
+        }
+        XCTAssertEqual(frames.count, n)
+    }
+
+    @MainActor
+    func testReadClearReportCoalescesScrollFrameSignals() async throws {
+        let gate = TimelineReadClearReportGate()
+        var invocations = 0
+        gate.schedule { invocations += 1 }
+        gate.schedule { invocations += 1 }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(invocations, 1, "turnFrames + viewport on one frame → one report")
+        XCTAssertEqual(gate.fireCount, 1)
+    }
 }
