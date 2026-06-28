@@ -29,13 +29,11 @@ public enum SliceTerminalClassifier {
         let outcome = input.workerOutcome
         let packet = input.packet
 
-        if isInfraBackoff(outcome) { return .infraBackoff }
-        if outcome.status != .done,
-           isCompactionMarker(in: outcome.output, reasoning: outcome.reasoning) {
-            return .compacting
-        }
-
         if outcome.status != .done {
+            if isInfraBackoff(outcome) { return .infraBackoff }
+            if isCompactionMarker(in: outcome.output, reasoning: outcome.reasoning) {
+                return .compacting
+            }
             return isStalled(outcome: outcome, packet: packet, now: input.now) ? .stalled : .failed
         }
         if input.check.skipped { return .passed }
