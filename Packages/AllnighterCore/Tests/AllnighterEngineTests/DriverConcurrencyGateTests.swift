@@ -18,7 +18,7 @@ final class DriverConcurrencyGateTests: XCTestCase {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<5 {
                 group.addTask {
-                    await gate.withPermit(driverId: id, limit: 1) {
+                    try? await gate.withPermit(driverId: id, limit: 1) {
                         await tracker.enter()
                         // simulate work; yield so overlaps would be observed if they happened
                         for _ in 0..<50 { await Task.yield() }
@@ -41,7 +41,7 @@ final class DriverConcurrencyGateTests: XCTestCase {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<5 {
                 group.addTask {
-                    await gate.withPermit(driverId: "claude_code", limit: nil) {
+                    _ = try? await gate.withPermit(driverId: "claude_code", limit: nil) {
                         await tracker.enter()
                         for _ in 0..<50 { await Task.yield() }
                         await tracker.exit()
@@ -61,7 +61,7 @@ final class DriverConcurrencyGateTests: XCTestCase {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<6 {
                 group.addTask {
-                    await gate.withPermit(driverId: "x", limit: 2) {
+                    try? await gate.withPermit(driverId: "x", limit: 2) {
                         await tracker.enter()
                         for _ in 0..<50 { await Task.yield() }
                         await tracker.exit()
@@ -73,6 +73,34 @@ final class DriverConcurrencyGateTests: XCTestCase {
         XCTAssertLessThanOrEqual(peak, 2, "limit=2 must cap concurrency (observed peak \(peak))")
     }
 
+    func testCancelledWaiterDoesNotRunBody() async throws {
+        let gate = DriverConcurrencyGate()
+        try await gate.acquire(driverId: "cursor_agent", limit: 1, timeout: .seconds(5))
+        let ran = GateRunFlag()
+        let waiter = Task {
+            _ = try await gate.withPermit(driverId: "cursor_agent", limit: 1, timeout: .seconds(5)) {
+                ran.set()
+            }
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        waiter.cancel()
+        _ = await waiter.result
+        XCTAssertFalse(ran.value)
+        await gate.release(driverId: "cursor_agent")
+    }
+
+    func testAcquireTimesOutWhenSlotNeverFrees() async throws {
+        let gate = DriverConcurrencyGate()
+        try await gate.acquire(driverId: "agy", limit: 1, timeout: .seconds(5))
+        do {
+            try await gate.acquire(driverId: "agy", limit: 1, timeout: .milliseconds(100))
+            XCTFail("expected timeout")
+        } catch DriverConcurrencyGateError.acquireTimedOut(let driverId) {
+            XCTAssertEqual(driverId, "agy")
+        }
+        await gate.release(driverId: "agy")
+    }
+
     /// The shipped manifests carry the spike-proven values: agy & cursor = 1; the
     /// parallel-safe CLIs stay unlimited (nil).
     func testShippedManifestConcurrencyValues() {
@@ -82,6 +110,17 @@ final class DriverConcurrencyGateTests: XCTestCase {
         XCTAssertNil(reg.manifest(id: "claude_code")?.maxConcurrentSpawns)
         XCTAssertNil(reg.manifest(id: "codex")?.maxConcurrentSpawns)
         XCTAssertNil(reg.manifest(id: "grok")?.maxConcurrentSpawns)
+    }
+}
+
+private final class GateRunFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var value = false
+
+    func set() {
+        lock.lock()
+        value = true
+        lock.unlock()
     }
 }
 

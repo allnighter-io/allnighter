@@ -219,7 +219,9 @@ public struct WorkerRunner: Sendable {
         // always released and the queue drains.
         let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
         let gateRequestedAt = now()
-        if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
+        if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {
+            return gateFailure
+        }
         let startedAt = now()
         let gateWaitMs = gateLimit == nil ? nil : max(0, Int(startedAt.timeIntervalSince(gateRequestedAt) * 1000))
         // AGY transcript normalizer: snapshot the brain dir so we can find THIS run's session
@@ -263,7 +265,9 @@ public struct WorkerRunner: Sendable {
         spawnConcurrencyLimit: Int? = nil
     ) async -> WorkerRunOutcome {
         let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
-        if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
+        if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {
+            return gateFailure
+        }
         defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
 
         let startedAt = now()
@@ -571,7 +575,10 @@ public struct WorkerRunner: Sendable {
                 // Per-driver spawn gate (see invoke()): fragile CLIs serialize here; the
                 // streamed run is timeout-bounded so the permit always releases.
                 let gateLimit = manifest.maxConcurrentSpawns
-                if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
+                if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {
+                    continuation.yield(.failed(gateFailure))
+                    return
+                }
                 defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
                 // Stamp the work-time baseline AFTER the gate (matches invoke()) so durationMs and
                 // ttftMs exclude serialization wait; gateWaitMs captures that wait on its own. Before

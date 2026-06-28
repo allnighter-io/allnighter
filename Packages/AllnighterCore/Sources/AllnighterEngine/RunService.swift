@@ -550,64 +550,71 @@ public actor RunService {
             }
         } else if manifest.id == "opencode", manifest.canStream {
             let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
-            if let gateLimit { await DriverConcurrencyGate.shared.acquire(driverId: manifest.id, limit: gateLimit) }
-            defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
-            // OpenCode streams over warm serve HTTP SSE (not CLI stdout).
-            var answer = StreamingPartialBuffer()
-            var reasoning = ""
-            var lastAnswerEmit = now()
-            var lastReasoningEmit = now()
-            var terminal: WorkerRunOutcome?
-            func emitAnswer() {
-                emit(RunEventKind.workerAnswerDelta, [
-                    "runId": .string(runId), "workerId": .string(worker.id),
-                    "text": .string(answer.visibleText), "truncated": .bool(answer.isTruncated),
-                ])
-                lastAnswerEmit = now()
-            }
-            func emitReasoning() {
-                emit(RunEventKind.workerReasoningDelta, [
-                    "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning),
-                ])
-                lastReasoningEmit = now()
-            }
-            let timeout = Duration.seconds(manifest.invoke?.timeoutSeconds ?? 600)
-            do {
-                try await OpenCodeServeCoordinator().ensureRunning()
-                for try await streamEvent in runner.invokeOpenCodeStreaming(
-                    prompt: assembled,
-                    modelLabel: model.resolvedLabel(at: effort),
-                    directory: repoRoot,
-                    timeout: timeout
-                ) {
-                    switch streamEvent {
-                    case .answerDelta(let text, _, _):
-                        let byteDue = answer.append(text)
-                        if byteDue || now().timeIntervalSince(lastAnswerEmit) >= 0.1 { emitAnswer() }
-                    case .reasoningDelta(let text, _):
-                        reasoning += text
-                        if now().timeIntervalSince(lastReasoningEmit) >= 0.1 { emitReasoning() }
-                    case .completed(let o), .failed(let o):
-                        terminal = o
-                    case .started, .rawEvent, .toolActivity:
-                        break
+            if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {
+                outcome = gateFailure
+            } else {
+                defer {
+                    if gateLimit != nil {
+                        Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) }
                     }
                 }
-            } catch {
-                terminal = WorkerRunOutcome(
-                    status: .failed, errorKind: .missingCLI,
-                    errorReason: "opencode serve: \(error)")
-            }
-            emitAnswer()
-            if !reasoning.isEmpty { emitReasoning() }
-            outcome = terminal ?? WorkerRunOutcome(
-                status: .failed, errorKind: .emptyOutput,
-                errorReason: "opencode stream ended without a terminal event")
-            if outcome.status != .done, (outcome.output ?? "").isEmpty {
-                StreamDebugLog.log("FALLBACK source=opencode: streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
-                outcome = await runner.invoke(
-                    worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
+                // OpenCode streams over warm serve HTTP SSE (not CLI stdout).
+                var answer = StreamingPartialBuffer()
+                var reasoning = ""
+                var lastAnswerEmit = now()
+                var lastReasoningEmit = now()
+                var terminal: WorkerRunOutcome?
+                func emitAnswer() {
+                    emit(RunEventKind.workerAnswerDelta, [
+                        "runId": .string(runId), "workerId": .string(worker.id),
+                        "text": .string(answer.visibleText), "truncated": .bool(answer.isTruncated),
+                    ])
+                    lastAnswerEmit = now()
+                }
+                func emitReasoning() {
+                    emit(RunEventKind.workerReasoningDelta, [
+                        "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning),
+                    ])
+                    lastReasoningEmit = now()
+                }
+                let timeout = Duration.seconds(manifest.invoke?.timeoutSeconds ?? 600)
+                do {
+                    try await OpenCodeServeCoordinator().ensureRunning()
+                    for try await streamEvent in runner.invokeOpenCodeStreaming(
+                        prompt: assembled,
+                        modelLabel: model.resolvedLabel(at: effort),
+                        directory: repoRoot,
+                        timeout: timeout
+                    ) {
+                        switch streamEvent {
+                        case .answerDelta(let text, _, _):
+                            let byteDue = answer.append(text)
+                            if byteDue || now().timeIntervalSince(lastAnswerEmit) >= 0.1 { emitAnswer() }
+                        case .reasoningDelta(let text, _):
+                            reasoning += text
+                            if now().timeIntervalSince(lastReasoningEmit) >= 0.1 { emitReasoning() }
+                        case .completed(let o), .failed(let o):
+                            terminal = o
+                        case .started, .rawEvent, .toolActivity:
+                            break
+                        }
+                    }
+                } catch {
+                    terminal = WorkerRunOutcome(
+                        status: .failed, errorKind: .missingCLI,
+                        errorReason: "opencode serve: \(error)")
+                }
+                emitAnswer()
+                if !reasoning.isEmpty { emitReasoning() }
+                outcome = terminal ?? WorkerRunOutcome(
+                    status: .failed, errorKind: .emptyOutput,
+                    errorReason: "opencode stream ended without a terminal event")
+                if outcome.status != .done, (outcome.output ?? "").isEmpty {
+                    StreamDebugLog.log("FALLBACK source=opencode: streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
+                    outcome = await runner.invoke(
+                        worker: model, manifest: manifest, prompt: assembled, effort: effort,
+                        workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
+                }
             }
         } else if manifest.canStream, runner.supportsStreaming,
            let parser = WorkerStreamParsers.make(for: manifest) {
