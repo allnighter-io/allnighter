@@ -136,6 +136,49 @@ final class PairCoordinatorTests: XCTestCase {
         XCTAssertEqual(counting.attempts, 4)
     }
 
+    func testRunQueueEscalatesAfterInfraBackoffBudgetExhausted() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pair-infra-\(UUID().uuidString)", isDirectory: true)
+        let queueDir = repo.appendingPathComponent("queue", isDirectory: true)
+        try FileManager.default.createDirectory(at: queueDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let packet = WorkSlicePacket(
+            sliceId: "Q-infra",
+            intent: "work",
+            touchAllowlist: ["a.swift"],
+            check: .init(method: .command, command: "true"),
+            maxRetries: 1
+        )
+        try CoreJSON.encode(packet).write(to: queueDir.appendingPathComponent("q-infra.json"))
+
+        let infraRunner = InfraBackoffMockRunner()
+        let service = makeService(repo: repo, stdout: "429 rate limit")
+        let checkRunner = CheckRunner(commandRunner: infraRunner)
+        let coordinator = PairCoordinator(runService: service, checkRunner: checkRunner)
+        var queue = try SliceQueueStore.bootstrapQueue(from: queueDir)
+        let store = SliceQueueStore(rootDirectory: queueDir)
+
+        let outcome = await coordinator.runQueue(
+            queue: &queue,
+            store: store,
+            repoRoot: repo.path,
+            projectId: nil,
+            options: .init(
+                maxInfraBackoffRetries: 2,
+                infraBackoffGraceSeconds: 0,
+                executorTeamId: "execution_playbook"
+            ),
+            origin: .cli
+        )
+
+        XCTAssertEqual(outcome.passed, 0)
+        XCTAssertEqual(outcome.escalated, 1)
+        XCTAssertEqual(outcome.entries.first?.status, .escalated)
+        XCTAssertEqual(outcome.entries.first?.escalatedReason, "infra backoff budget exhausted")
+        XCTAssertEqual(infraRunner.attempts, 3)
+    }
+
     func testReconcileStaleRunningResetsDeadChild() throws {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("pair-reconcile-\(UUID().uuidString)", isDirectory: true)
@@ -168,6 +211,23 @@ final class PairCoordinatorTests: XCTestCase {
         coordinator.reconcileStaleRunning(&queue, store: store)
         XCTAssertEqual(queue.entries.first?.status, .pending)
         XCTAssertNil(queue.entries.first?.childRunId)
+    }
+}
+
+/// Always returns infraBackoff-classifying worker output; counts check invocations.
+private final class InfraBackoffMockRunner: CommandRunner, @unchecked Sendable {
+    private(set) var attempts = 0
+
+    func run(
+        command: String,
+        args: [String],
+        stdin: String?,
+        env: [String: String],
+        workingDirectory: String?,
+        timeout: Duration
+    ) async -> CommandResult {
+        attempts += 1
+        return CommandResult(stdout: "", exitCode: 0)
     }
 }
 

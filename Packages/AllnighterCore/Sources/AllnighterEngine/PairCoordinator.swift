@@ -19,6 +19,12 @@ public struct PairCoordinator: Sendable {
         public var maxRetries: Int?
         /// GLM executor attempts on one packet before planner (Composer) takeover. Default 3.
         public var executorAttemptsBeforePlanner: Int
+        /// Max consecutive `.compacting` terminals before escalating (does not consume executor budget).
+        public var maxCompactionRetries: Int
+        /// Max consecutive `.infraBackoff` terminals before escalating (does not consume executor budget).
+        public var maxInfraBackoffRetries: Int
+        /// Sleep between infraBackoff retries. Default 5s.
+        public var infraBackoffGraceSeconds: Int
         public var executorTeamId: String
         public var seats: Seats
         /// Optional heartbeat callback (human or NDJSON) during unattended queue runs.
@@ -30,6 +36,9 @@ public struct PairCoordinator: Sendable {
             until: Date? = nil,
             maxRetries: Int? = nil,
             executorAttemptsBeforePlanner: Int = 3,
+            maxCompactionRetries: Int = 10,
+            maxInfraBackoffRetries: Int = 10,
+            infraBackoffGraceSeconds: Int = 5,
             executorTeamId: String,
             seats: Seats = .testDefaults,
             onProgress: PairQueueProgressHandler? = nil,
@@ -38,6 +47,9 @@ public struct PairCoordinator: Sendable {
             self.until = until
             self.maxRetries = maxRetries
             self.executorAttemptsBeforePlanner = max(1, executorAttemptsBeforePlanner)
+            self.maxCompactionRetries = max(1, maxCompactionRetries)
+            self.maxInfraBackoffRetries = max(1, maxInfraBackoffRetries)
+            self.infraBackoffGraceSeconds = max(0, infraBackoffGraceSeconds)
             self.executorTeamId = executorTeamId
             self.seats = seats
             self.onProgress = onProgress
@@ -203,6 +215,8 @@ public struct PairCoordinator: Sendable {
             var nudge: String?
             var settled = false
             var executorAttempt = 0
+            var compactionRetries = 0
+            var infraBackoffRetries = 0
 
             while !settled {
                 executorAttempt += 1
@@ -282,13 +296,30 @@ public struct PairCoordinator: Sendable {
                         passed += 1
                         settled = true
                     case .compacting:
+                        compactionRetries += 1
+                        if compactionRetries > options.maxCompactionRetries {
+                            entry.status = .escalated
+                            entry.escalatedReason = "compaction budget exhausted"
+                            escalated += 1
+                            settled = true
+                            break
+                        }
                         executorAttempt -= 1
                         let grace = UInt64(entry.packet.compactionGraceSeconds) * 1_000_000_000
                         try? await Task.sleep(nanoseconds: grace)
                         nudge = nil
                     case .infraBackoff:
+                        infraBackoffRetries += 1
+                        if infraBackoffRetries > options.maxInfraBackoffRetries {
+                            entry.status = .escalated
+                            entry.escalatedReason = "infra backoff budget exhausted"
+                            escalated += 1
+                            settled = true
+                            break
+                        }
                         executorAttempt -= 1
-                        try? await Task.sleep(nanoseconds: 5_000_000_000)
+                        let backoff = UInt64(options.infraBackoffGraceSeconds) * 1_000_000_000
+                        try? await Task.sleep(nanoseconds: backoff)
                         nudge = nil
                     case .stalled, .failed:
                         entry.retries = executorAttempt
