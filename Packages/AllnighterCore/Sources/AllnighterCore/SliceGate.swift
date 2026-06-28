@@ -30,16 +30,17 @@ public enum SliceGate {
         guard !packet.intent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .blocked(code: "PAIR_SLICE_UNSAFE", reason: "intent is required")
         }
-        guard !packet.touchAllowlist.isEmpty else {
+        guard packet.touchAllowlist.contains(where: {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) else {
             return .blocked(code: "PAIR_SLICE_UNSAFE", reason: "touchAllowlist is required for mutating units")
         }
-        switch packet.check.method {
-        case .command where (packet.check.command ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
-            return .blocked(code: "PAIR_SLICE_UNSAFE", reason: "check.method is command but no check.command")
-        case .guiFixture where (packet.check.fixture ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
-            return .blocked(code: "PAIR_SLICE_UNSAFE", reason: "check.method is guiFixture but no check.fixture")
-        default:
-            break
+        if let checkBlocked = Self.decisionForCheckMethod(
+            rawValue: packet.check.method.rawValue,
+            command: packet.check.command,
+            fixture: packet.check.fixture
+        ) {
+            return checkBlocked
         }
         guard executor.exists else {
             return .blocked(code: "PAIR_SLICE_EXECUTOR_INVALID", reason: "unknown executor team \(executor.teamId)")
@@ -54,5 +55,23 @@ public enum SliceGate {
             return .blocked(code: "PAIR_SLICE_EXECUTOR_INVALID", reason: "executor must resolve to exactly one worker")
         }
         return .allowed
+    }
+
+    internal static func decisionForCheckMethod(
+        rawValue: String,
+        command: String?,
+        fixture: String?
+    ) -> Decision? {
+        guard let method = FixPacket.ProofMethod(rawValue: rawValue) else {
+            return .blocked(code: "PAIR_SLICE_UNSAFE", reason: "unsupported check.method: \(rawValue)")
+        }
+        switch method {
+        case .command where (command ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return .blocked(code: "PAIR_SLICE_UNSAFE", reason: "check.method is command but no check.command")
+        case .guiFixture where (fixture ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+            return .blocked(code: "PAIR_SLICE_UNSAFE", reason: "check.method is guiFixture but no check.fixture")
+        case .command, .guiFixture, .userObservation:
+            return nil
+        }
     }
 }
