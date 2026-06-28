@@ -1,6 +1,6 @@
 # RUNLOCK-S02 — Symlink-resolving canonical key
 
-Status: **ready**
+Status: **done**
 SSOT: CR-01 triage [`../../code_review/triage/CR-01-findings.md`](../../code_review/triage/CR-01-findings.md) (P1 — symlink/case keys)
 Promoted from: Phase 1 code review CR-01 (2026-06-27)
 
@@ -47,6 +47,6 @@ swift test --package-path Packages/AllnighterCore --filter RunWriteLock
 
 ## Done when
 
-- [ ] Symlink alias and target produce identical lock key
-- [ ] `/var` and `/private/var` paths collapse when applicable
-- [ ] No regression on empty/blank root conservative lane
+- [x] Symlink alias and target produce identical lock key
+- [x] `/var` and `/private/var` paths collapse when applicable
+- [x] No regression on empty/blank root conservative lane
