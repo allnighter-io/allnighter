@@ -54,7 +54,7 @@ public struct CheckRunner: Sendable {
                 timedOut: result.timedOut
             )
         case .guiFixture, .userObservation:
-            return .init(exitCode: 0, skipped: true)
+            return .init(skipped: true)
         }
     }
 

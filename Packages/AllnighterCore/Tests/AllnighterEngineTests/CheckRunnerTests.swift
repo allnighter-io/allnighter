@@ -59,6 +59,39 @@ final class CheckRunnerTests: XCTestCase {
         XCTAssertEqual(env.count, 1)
     }
 
+    func testGuiFixtureSkippedDoesNotReportSuccessExitCode() async {
+        let runner = CheckRunner(commandRunner: MockCommandRunner(scripts: [:]))
+        let result = await runner.run(
+            check: .init(method: .guiFixture),
+            repoRoot: "/tmp"
+        )
+        XCTAssertTrue(result.skipped)
+        XCTAssertNil(result.exitCode)
+        XCTAssertFalse(result.passed)
+    }
+
+    func testUserObservationSkippedDoesNotReportSuccessExitCode() async {
+        let runner = CheckRunner(commandRunner: MockCommandRunner(scripts: [:]))
+        let result = await runner.run(
+            check: .init(method: .userObservation),
+            repoRoot: "/tmp"
+        )
+        XCTAssertTrue(result.skipped)
+        XCTAssertNil(result.exitCode)
+        XCTAssertFalse(result.passed)
+    }
+
+    func testEmptyCommandSkippedDoesNotReportSuccessExitCode() async {
+        let runner = CheckRunner(commandRunner: MockCommandRunner(scripts: [:]))
+        let result = await runner.run(
+            check: .init(method: .command, command: "  "),
+            repoRoot: "/tmp"
+        )
+        XCTAssertTrue(result.skipped)
+        XCTAssertNil(result.exitCode)
+        XCTAssertFalse(result.passed)
+    }
+
     func testCheckRunnerForwardsMinimalEnvironment() async {
         let capture = EnvCapturingCommandRunner()
         let runner = CheckRunner(commandRunner: capture)
