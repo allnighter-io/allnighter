@@ -196,9 +196,10 @@ public struct PairCoordinator: Sendable {
         var stoppedReason: String?
 
         let attemptBudget = options.executorAttemptsBeforePlanner
+        var stoppedForDeadline = false
 
         while let idx = queue.entries.firstIndex(where: { $0.status == .pending }) {
-            if let until = options.until, now() >= until {
+            if isPastDeadline(options) {
                 stoppedReason = "until deadline"
                 break
             }
@@ -219,6 +220,13 @@ public struct PairCoordinator: Sendable {
             var infraBackoffRetries = 0
 
             while !settled {
+                if isPastDeadline(options) {
+                    stoppedReason = "until deadline"
+                    stoppedForDeadline = true
+                    settled = true
+                    break
+                }
+
                 executorAttempt += 1
                 let result = await runSlice(
                     packet: entry.packet,
@@ -242,6 +250,10 @@ public struct PairCoordinator: Sendable {
                             checkStdoutTail: entry.lastStdoutTail,
                             stdoutTail: entry.lastStdoutTail
                         )
+                    } else if isPastDeadline(options) {
+                        stoppedReason = "until deadline"
+                        stoppedForDeadline = true
+                        settled = true
                     } else {
                         let takeover = await runPlannerTakeover(
                             packet: entry.packet,
@@ -305,8 +317,20 @@ public struct PairCoordinator: Sendable {
                             break
                         }
                         executorAttempt -= 1
+                        if isPastDeadline(options) {
+                            stoppedReason = "until deadline"
+                            stoppedForDeadline = true
+                            settled = true
+                            break
+                        }
                         let grace = UInt64(entry.packet.compactionGraceSeconds) * 1_000_000_000
-                        try? await Task.sleep(nanoseconds: grace)
+                        await sleepClampedToDeadline(options, nanoseconds: grace)
+                        if isPastDeadline(options) {
+                            stoppedReason = "until deadline"
+                            stoppedForDeadline = true
+                            settled = true
+                            break
+                        }
                         nudge = nil
                     case .infraBackoff:
                         infraBackoffRetries += 1
@@ -318,8 +342,20 @@ public struct PairCoordinator: Sendable {
                             break
                         }
                         executorAttempt -= 1
+                        if isPastDeadline(options) {
+                            stoppedReason = "until deadline"
+                            stoppedForDeadline = true
+                            settled = true
+                            break
+                        }
                         let backoff = UInt64(options.infraBackoffGraceSeconds) * 1_000_000_000
-                        try? await Task.sleep(nanoseconds: backoff)
+                        await sleepClampedToDeadline(options, nanoseconds: backoff)
+                        if isPastDeadline(options) {
+                            stoppedReason = "until deadline"
+                            stoppedForDeadline = true
+                            settled = true
+                            break
+                        }
                         nudge = nil
                     case .stalled, .failed:
                         entry.retries = executorAttempt
@@ -332,6 +368,10 @@ public struct PairCoordinator: Sendable {
                                 checkStdoutTail: outcome.check?.stdoutTail,
                                 stdoutTail: outcome.check?.stdoutTail
                             )
+                        } else if isPastDeadline(options) {
+                            stoppedReason = "until deadline"
+                            stoppedForDeadline = true
+                            settled = true
                         } else {
                             let takeover = await runPlannerTakeover(
                                 packet: entry.packet,
@@ -362,6 +402,10 @@ public struct PairCoordinator: Sendable {
 
             queue.entries[idx] = entry
             try? store.save(queue)
+
+            if stoppedForDeadline {
+                break
+            }
 
             let elapsed = max(0, Int(now().timeIntervalSince(sliceStartedAt)))
             reportProgress(options, .sliceFinished(
@@ -520,6 +564,23 @@ public struct PairCoordinator: Sendable {
             queuePath: queuePath,
             entries: entries
         )
+    }
+
+    private func isPastDeadline(_ options: QueueOptions) -> Bool {
+        guard let until = options.until else { return false }
+        return now() >= until
+    }
+
+    private func sleepClampedToDeadline(_ options: QueueOptions, nanoseconds: UInt64) async {
+        var sleepNs = nanoseconds
+        if let until = options.until {
+            let remaining = until.timeIntervalSince(now())
+            if remaining <= 0 { return }
+            sleepNs = min(sleepNs, UInt64(remaining * 1_000_000_000))
+        }
+        if sleepNs > 0 {
+            try? await Task.sleep(nanoseconds: sleepNs)
+        }
     }
 
     private func reportProgress(_ options: QueueOptions, _ event: PairQueueProgressEvent) {

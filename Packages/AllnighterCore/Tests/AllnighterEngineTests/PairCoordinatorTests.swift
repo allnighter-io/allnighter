@@ -153,7 +153,22 @@ final class PairCoordinatorTests: XCTestCase {
         try CoreJSON.encode(packet).write(to: queueDir.appendingPathComponent("q-infra.json"))
 
         let infraRunner = InfraBackoffMockRunner()
-        let service = makeService(repo: repo, stdout: "429 rate limit")
+        let model = Model(
+            id: "model_cursor_composer_25", displayName: "Cursor Composer",
+            modelLabel: "composer-2.5", driverId: "cursor_agent", role: .both)
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_cursor_composer_25"]))
+        let probe = ToolProbeRecord(driverId: "cursor_agent", status: .ready(version: "1.0"), lastProbeAt: .distantPast)
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "cursor_agent", command: "cursor")]),
+            commandRunner: MockCommandRunner(scripts: [
+                "cursor": .init(stderr: "429 rate limit", exitCode: 1),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] })
         let checkRunner = CheckRunner(commandRunner: infraRunner)
         let coordinator = PairCoordinator(runService: service, checkRunner: checkRunner)
         var queue = try SliceQueueStore.bootstrapQueue(from: queueDir)
@@ -177,6 +192,72 @@ final class PairCoordinatorTests: XCTestCase {
         XCTAssertEqual(outcome.entries.first?.status, .escalated)
         XCTAssertEqual(outcome.entries.first?.escalatedReason, "infra backoff budget exhausted")
         XCTAssertEqual(infraRunner.attempts, 3)
+    }
+
+    func testRunQueueStopsMidSliceWhenUntilDeadlineReached() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pair-deadline-\(UUID().uuidString)", isDirectory: true)
+        let queueDir = repo.appendingPathComponent("queue", isDirectory: true)
+        try FileManager.default.createDirectory(at: queueDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let packet = WorkSlicePacket(
+            sliceId: "Q-deadline",
+            intent: "work",
+            touchAllowlist: ["a.swift"],
+            check: .init(method: .command, command: "false"),
+            maxRetries: 1
+        )
+        let pendingPacket = WorkSlicePacket(
+            sliceId: "Q-pending",
+            intent: "later",
+            touchAllowlist: ["b.swift"],
+            check: .init(method: .command, command: "true"),
+            maxRetries: 1
+        )
+        try CoreJSON.encode(packet).write(to: queueDir.appendingPathComponent("q-deadline.json"))
+        try CoreJSON.encode(pendingPacket).write(to: queueDir.appendingPathComponent("q-pending.json"))
+
+        let runner = SlowDeadlineTestRunner(cursorDelayNanoseconds: 100_000_000)
+        let model = Model(
+            id: "model_cursor_composer_25", displayName: "Cursor Composer",
+            modelLabel: "composer-2.5", driverId: "cursor_agent", role: .both)
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_cursor_composer_25"]))
+        let probe = ToolProbeRecord(driverId: "cursor_agent", status: .ready(version: "1.0"), lastProbeAt: .distantPast)
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "cursor_agent", command: "cursor")]),
+            commandRunner: runner,
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] })
+        let checkRunner = CheckRunner(commandRunner: runner)
+        let coordinator = PairCoordinator(runService: service, checkRunner: checkRunner)
+        var queue = try SliceQueueStore.bootstrapQueue(from: queueDir)
+        let store = SliceQueueStore(rootDirectory: queueDir)
+
+        let until = Date().addingTimeInterval(0.09)
+        let outcome = await coordinator.runQueue(
+            queue: &queue,
+            store: store,
+            repoRoot: repo.path,
+            projectId: nil,
+            options: .init(
+                until: until,
+                executorAttemptsBeforePlanner: 5,
+                executorTeamId: "execution_playbook"
+            ),
+            origin: .cli
+        )
+
+        XCTAssertEqual(outcome.stoppedReason, "until deadline")
+        XCTAssertEqual(runner.cursorAttempts, 1)
+        XCTAssertEqual(outcome.entries.first?.status, .running)
+        XCTAssertEqual(outcome.entries.last?.status, .pending)
+        XCTAssertEqual(outcome.passed, 0)
+        XCTAssertEqual(outcome.escalated, 0)
     }
 
     func testReconcileStaleRunningResetsDeadChild() throws {
@@ -211,6 +292,35 @@ final class PairCoordinatorTests: XCTestCase {
         coordinator.reconcileStaleRunning(&queue, store: store)
         XCTAssertEqual(queue.entries.first?.status, .pending)
         XCTAssertNil(queue.entries.first?.childRunId)
+    }
+}
+
+/// Sleeps on cursor invocations so deadline checks can fire between executor attempts.
+private final class SlowDeadlineTestRunner: CommandRunner, @unchecked Sendable {
+    private(set) var cursorAttempts = 0
+    private let cursorDelayNanoseconds: UInt64
+
+    init(cursorDelayNanoseconds: UInt64) {
+        self.cursorDelayNanoseconds = cursorDelayNanoseconds
+    }
+
+    func run(
+        command: String,
+        args: [String],
+        stdin: String?,
+        env: [String: String],
+        workingDirectory: String?,
+        timeout: Duration
+    ) async -> CommandResult {
+        if command == "cursor" {
+            cursorAttempts += 1
+            try? await Task.sleep(nanoseconds: cursorDelayNanoseconds)
+            return CommandResult(stdout: "work", exitCode: 0)
+        }
+        if command == "/bin/sh" {
+            return CommandResult(stdout: "check failed", exitCode: 1)
+        }
+        return CommandResult(stdout: "", exitCode: 0)
     }
 }
 
