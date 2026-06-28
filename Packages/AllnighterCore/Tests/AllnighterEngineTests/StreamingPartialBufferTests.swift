@@ -39,6 +39,33 @@ final class StreamingPartialBufferTests: XCTestCase {
         XCTAssertNotNil(suffix.unicodeScalars.last)   // valid string, no broken scalar
     }
 
+    func testNewestSuffixLargeBufferCompletesInLinearTime() {
+        // Regression: old dropFirst loop was O(drops × n); this must finish quickly.
+        let cap = 64 * 1024
+        let head = String(repeating: "x", count: cap)
+        let tail = String(repeating: "y", count: 50_000)
+        let s = head + tail
+        let start = CFAbsoluteTimeGetCurrent()
+        for _ in 0..<100 {
+            _ = StreamingPartialBuffer.newestSuffix(of: s, maxBytes: cap)
+        }
+        let elapsed = CFAbsoluteTimeGetCurrent() - start
+        XCTAssertLessThan(elapsed, 3.0, "newestSuffix should be O(n), not O(drops × n)")
+        let once = StreamingPartialBuffer.newestSuffix(of: s, maxBytes: cap)
+        XCTAssertEqual(once.utf8.count, cap)
+        XCTAssertTrue(once.hasSuffix("y"))
+    }
+
+    func testAppendManyDeltasPastCapStaysBounded() {
+        var buffer = StreamingPartialBuffer(capBytes: 256, flushBytes: 10_000)
+        for i in 0..<5_000 {
+            buffer.append("z")
+            if i % 100 == 0 { buffer.append("chunk-\(i)-") }
+        }
+        XCTAssertTrue(buffer.isTruncated)
+        XCTAssertLessThanOrEqual(buffer.visibleText.utf8.count, 256)
+    }
+
     func testThreadTurnPartialTruncatedRoundTrips() throws {
         var turn = ThreadTurn(id: "t", threadId: "th", kind: .workerChat, status: .running,
                               createdAt: Date(), author: .worker, text: "partial")

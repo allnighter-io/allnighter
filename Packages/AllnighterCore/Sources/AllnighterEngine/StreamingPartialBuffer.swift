@@ -46,12 +46,19 @@ public struct StreamingPartialBuffer: Sendable {
     public mutating func markFlushed() { unflushedBytes = 0 }
 
     /// The newest UTF-8 suffix of `s` within `maxBytes`, cut on a Character boundary.
+    /// Single O(n) pass from the end — avoids rescanning the full buffer on each drop.
     static func newestSuffix(of s: String, maxBytes: Int) -> String {
-        guard s.utf8.count > maxBytes else { return s }
-        var out = Substring(s)
-        while out.utf8.count > maxBytes, !out.isEmpty {
-            out = out.dropFirst()
+        var accumulated = 0
+        var startIndex = s.endIndex
+        var index = s.endIndex
+        while index > s.startIndex {
+            let prev = s.index(before: index)
+            let charBytes = s[prev..<index].utf8.count
+            if accumulated + charBytes > maxBytes { break }
+            accumulated += charBytes
+            startIndex = prev
+            index = prev
         }
-        return String(out)
+        return String(s[startIndex...])
     }
 }
