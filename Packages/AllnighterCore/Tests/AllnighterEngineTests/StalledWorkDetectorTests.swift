@@ -181,4 +181,209 @@ final class StalledWorkDetectorTests: XCTestCase {
         let input = StalledWorkScanInput(threads: [thread], runs: [], pendingItems: [], now: now)
         XCTAssertFalse(StalledWorkDetector.isStillStalledAfterRefresh(thread: thread, turn: turn, run: nil, input: input))
     }
+
+    func testAdvisoryRunBelowLongThresholdDoesNotStall() {
+        let run = TeamRun(
+            id: "run-advisory",
+            prompt: "READ-ONLY advisory review for CR-07",
+            status: .fanningOut,
+            workerAnswers: [
+                WorkerAnswer(
+                    workerId: "model_glm",
+                    modelId: "model_glm",
+                    status: .running,
+                    startedAt: old
+                )
+            ],
+            createdAt: old,
+            threadId: "t1"
+        )
+        let thread = WorkThread(
+            id: "t1",
+            title: "CR-07",
+            createdAt: old,
+            updatedAt: old,
+            projectId: "projA",
+            turns: [
+                ThreadTurn(
+                    id: "turn1",
+                    threadId: "t1",
+                    kind: .workerChat,
+                    status: .running,
+                    createdAt: old,
+                    author: .worker,
+                    text: "Reviewing...",
+                    workerId: "model_glm",
+                    runId: "run-advisory"
+                )
+            ]
+        )
+        let input = StalledWorkScanInput(threads: [thread], runs: [run], pendingItems: [], now: now)
+        let episodes = StalledWorkDetector.scan(input: input)
+        XCTAssertTrue(episodes.isEmpty, "33 min idle advisory run should stay below 90 min threshold")
+    }
+
+    func testAdvisoryRunPastLongThresholdStalls() {
+        let veryOld = Date(timeIntervalSince1970: 1_699_994_600) // 5400s (~90 min) ago
+        let run = TeamRun(
+            id: "run-advisory",
+            prompt: "READ-ONLY advisory review for CR-07",
+            status: .fanningOut,
+            workerAnswers: [
+                WorkerAnswer(
+                    workerId: "model_glm",
+                    modelId: "model_glm",
+                    status: .running,
+                    startedAt: veryOld
+                )
+            ],
+            createdAt: veryOld,
+            threadId: "t1"
+        )
+        let thread = WorkThread(
+            id: "t1",
+            title: "CR-07",
+            createdAt: veryOld,
+            updatedAt: veryOld,
+            projectId: "projA",
+            turns: [
+                ThreadTurn(
+                    id: "turn1",
+                    threadId: "t1",
+                    kind: .workerChat,
+                    status: .running,
+                    createdAt: veryOld,
+                    author: .worker,
+                    workerId: "model_glm",
+                    runId: "run-advisory"
+                )
+            ]
+        )
+        let input = StalledWorkScanInput(threads: [thread], runs: [run], pendingItems: [], now: now)
+        let episodes = StalledWorkDetector.scan(input: input)
+        let workerEpisodes = episodes.filter { $0.targetKind == .workerTurn }
+        XCTAssertEqual(workerEpisodes.count, 1)
+        XCTAssertEqual(workerEpisodes[0].thresholdSeconds, 90 * 60)
+        XCTAssertEqual(workerEpisodes[0].reason, StallReason.runningNoProgress)
+    }
+
+    func testDefaultChatStillStallsAtDefaultThreshold() {
+        let thread = WorkThread(
+            id: "t1",
+            title: "Chat",
+            createdAt: old,
+            updatedAt: old,
+            projectId: "projA",
+            turns: [
+                ThreadTurn(
+                    id: "turn1",
+                    threadId: "t1",
+                    kind: .workerChat,
+                    status: .running,
+                    createdAt: old,
+                    author: .worker,
+                    text: "Thinking...",
+                    workerId: "model_opus"
+                )
+            ]
+        )
+        let input = StalledWorkScanInput(threads: [thread], runs: [], pendingItems: [], now: now)
+        let episodes = StalledWorkDetector.scan(input: input)
+        XCTAssertEqual(episodes.count, 1)
+        XCTAssertEqual(episodes[0].thresholdSeconds, 30 * 60)
+    }
+
+    func testLinkedRunHeartbeatResetsStallClock() {
+        let recentRunActivity = now.addingTimeInterval(-600) // 10 min ago
+        let run = TeamRun(
+            id: "run1",
+            prompt: "Build feature",
+            status: .fanningOut,
+            workerAnswers: [
+                WorkerAnswer(
+                    workerId: "model_opus",
+                    modelId: "model_opus",
+                    status: .running,
+                    startedAt: recentRunActivity
+                )
+            ],
+            createdAt: old,
+            threadId: "t1"
+        )
+        let thread = WorkThread(
+            id: "t1",
+            title: "Build",
+            createdAt: old,
+            updatedAt: old,
+            projectId: "projA",
+            turns: [
+                ThreadTurn(
+                    id: "turn1",
+                    threadId: "t1",
+                    kind: .workerChat,
+                    status: .running,
+                    createdAt: old,
+                    author: .worker,
+                    workerId: "model_opus",
+                    runId: "run1"
+                )
+            ]
+        )
+        let input = StalledWorkScanInput(threads: [thread], runs: [run], pendingItems: [], now: now)
+        let episodes = StalledWorkDetector.scan(input: input)
+        XCTAssertTrue(episodes.isEmpty, "recent run worker activity should reset stall clock")
+    }
+
+    func testQueuedTurnWaitingOnActiveRunDoesNotStall() {
+        let run = TeamRun(
+            id: "run1",
+            prompt: "Build feature",
+            status: .fanningOut,
+            workerAnswers: [
+                WorkerAnswer(
+                    workerId: "model_opus",
+                    modelId: "model_opus",
+                    status: .running,
+                    startedAt: old
+                )
+            ],
+            createdAt: old,
+            threadId: "t1"
+        )
+        let thread = WorkThread(
+            id: "t1",
+            title: "Build",
+            createdAt: old,
+            updatedAt: old,
+            projectId: "projA",
+            turns: [
+                ThreadTurn(
+                    id: "turn1",
+                    threadId: "t1",
+                    kind: .workerChat,
+                    status: .queued,
+                    createdAt: old,
+                    author: .worker,
+                    workerId: "model_opus",
+                    runId: "run1"
+                )
+            ]
+        )
+        let input = StalledWorkScanInput(threads: [thread], runs: [run], pendingItems: [], now: now)
+        let episodes = StalledWorkDetector.scan(input: input)
+        XCTAssertTrue(episodes.isEmpty)
+    }
+
+    func testPairSliceEnvelopeUsesLongThreshold() {
+        XCTAssertTrue(
+            StalledWorkDetector.isLongRunningWorkerContext(
+                run: TeamRun(
+                    id: "slice_CR-07_abc",
+                    prompt: "pair slice CR-07: stalled detector",
+                    status: .draft,
+                    createdAt: old
+                )
+            )
+        )
+    }
 }

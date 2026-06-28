@@ -2,12 +2,21 @@ import Foundation
 import AllnighterCore
 
 public struct StalledWorkThresholds: Sendable, Equatable {
+    /// Default worker-chat stall window (ordinary chat / execution turns).
     public var workerChatSeconds: Int
     public var teamRunSeconds: Int
+    /// Pair-programming and advisory code-review slices may run 30–60+ min without
+    /// thread-turn progress signals; use this longer window for those runs.
+    public var longRunningWorkerChatSeconds: Int
 
-    public init(workerChatSeconds: Int = 30 * 60, teamRunSeconds: Int = 60 * 60) {
+    public init(
+        workerChatSeconds: Int = 30 * 60,
+        teamRunSeconds: Int = 60 * 60,
+        longRunningWorkerChatSeconds: Int = 90 * 60
+    ) {
         self.workerChatSeconds = workerChatSeconds
         self.teamRunSeconds = teamRunSeconds
+        self.longRunningWorkerChatSeconds = longRunningWorkerChatSeconds
     }
 }
 
@@ -45,6 +54,7 @@ public enum StalledWorkDetector {
         thresholds: StalledWorkThresholds,
         idFactory: @Sendable () -> String
     ) -> [StallEpisode] {
+        let runById = Dictionary(input.runs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         var out: [StallEpisode] = []
         for thread in input.threads {
             guard let projectId = thread.projectId else { continue }
@@ -54,9 +64,12 @@ public enum StalledWorkDetector {
                 if suppressedByWakeTicket(pending: input.pendingItems, threadId: thread.id, runId: turn.runId, now: input.now) {
                     continue
                 }
-                let lastEvent = observableEvent(for: turn, thread: thread)
+                let linkedRun = turn.runId.flatMap { runById[$0] }
+                if queuedTurnWaitingOnActiveRun(turn: turn, linkedRun: linkedRun) { continue }
+                let thresholdSeconds = workerChatThresholdSeconds(for: turn, linkedRun: linkedRun, thresholds: thresholds)
+                let lastEvent = lastObservableEvent(for: turn, thread: thread, linkedRun: linkedRun)
                 let age = input.now.timeIntervalSince(lastEvent.at)
-                guard age >= TimeInterval(thresholds.workerChatSeconds) else { continue }
+                guard age >= TimeInterval(thresholdSeconds) else { continue }
                 let reason: StallReason = turn.status == .queued ? .queuedNoStart : .runningNoProgress
                 out.append(makeEpisode(
                     idFactory: idFactory,
@@ -68,7 +81,7 @@ public enum StalledWorkDetector {
                     reason: reason,
                     firstDetectedAt: input.now,
                     deadlineAnchorAt: lastEvent.at,
-                    thresholdSeconds: thresholds.workerChatSeconds,
+                    thresholdSeconds: thresholdSeconds,
                     lastEvent: lastEvent
                 ))
             }
@@ -186,9 +199,11 @@ public enum StalledWorkDetector {
             if suppressedByWakeTicket(pending: input.pendingItems, threadId: thread.id, runId: turn.runId, now: input.now) {
                 return false
             }
-            let lastEvent = observableEvent(for: turn, thread: thread)
-            let threshold = TimeInterval(thresholds.workerChatSeconds)
-            return input.now.timeIntervalSince(lastEvent.at) >= threshold
+            let linkedRun = run ?? turn.runId.flatMap { runId in input.runs.first { $0.id == runId } }
+            if queuedTurnWaitingOnActiveRun(turn: turn, linkedRun: linkedRun) { return false }
+            let thresholdSeconds = workerChatThresholdSeconds(for: turn, linkedRun: linkedRun, thresholds: thresholds)
+            let lastEvent = lastObservableEvent(for: turn, thread: thread, linkedRun: linkedRun)
+            return input.now.timeIntervalSince(lastEvent.at) >= TimeInterval(thresholdSeconds)
         }
         if let run {
             let live = AsyncTeamStatusMapper.liveStatus(for: run)
@@ -201,6 +216,51 @@ public enum StalledWorkDetector {
             return input.now.timeIntervalSince(lastEvent.at) >= threshold
         }
         return false
+    }
+
+    // MARK: - Worker-turn context (WATCHDOG-S01)
+
+    /// Pair slice envelopes, slice attempts, and advisory review prompts run longer than default chat.
+    public static func isLongRunningWorkerContext(run: TeamRun) -> Bool {
+        if run.id.hasPrefix("slice_") { return true }
+        if run.parentRunId != nil { return true }
+        if run.runLinks.contains(where: { $0.kind == .sliceOf || $0.kind == .sliceAttemptFor }) {
+            return true
+        }
+        if run.prompt.contains("pair slice") { return true }
+        if run.prompt.contains("READ-ONLY advisory") { return true }
+        return false
+    }
+
+    private static func workerChatThresholdSeconds(
+        for turn: ThreadTurn,
+        linkedRun: TeamRun?,
+        thresholds: StalledWorkThresholds
+    ) -> Int {
+        if let linkedRun, isLongRunningWorkerContext(run: linkedRun) {
+            return thresholds.longRunningWorkerChatSeconds
+        }
+        return thresholds.workerChatSeconds
+    }
+
+    /// A queued turn waiting on an in-flight linked run is not stalled-by-design.
+    private static func queuedTurnWaitingOnActiveRun(turn: ThreadTurn, linkedRun: TeamRun?) -> Bool {
+        guard turn.status == .queued, let linkedRun else { return false }
+        let live = AsyncTeamStatusMapper.liveStatus(for: linkedRun)
+        return live == .accepted || live == .running || live == .synthesizing
+    }
+
+    /// Anchor stall age on the latest thread-turn or linked-run observable signal.
+    private static func lastObservableEvent(
+        for turn: ThreadTurn,
+        thread: WorkThread,
+        linkedRun: TeamRun?
+    ) -> StallObservableEvent {
+        let turnEvent = observableEvent(for: turn, thread: thread)
+        guard let linkedRun else { return turnEvent }
+        let runEvent = observableEvent(for: linkedRun)
+        guard runEvent.at > turnEvent.at else { return turnEvent }
+        return runEvent
     }
 
     // MARK: - Builders
